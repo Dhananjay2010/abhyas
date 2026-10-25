@@ -86,10 +86,10 @@ console.log("\n2. Every set at the top of the range progresses the weight");
   check("curl 15 -> 17.5 kg (isolation 1.25 + grid round up)", d.nextWorkingWeightKg === 17.5, `${d.nextWorkingWeightKg}`);
 }
 
-console.log("\n3. 'Easy' earns a double jump; Hard holds weight (U1 fix)");
+console.log("\n3. 'Easy' no longer doubles (capped at one grid step); Hard holds weight (U1 fix)");
 {
   const d = run({ feel: "easy", equipmentIds: ["barbell"], unit: "kg" });
-  check("60 -> 65 kg on easy", d.nextWorkingWeightKg === 65, `${d.nextWorkingWeightKg}`);
+  check("60 -> 62.5 kg on easy (one grid step, no doubling)", d.nextWorkingWeightKg === 62.5, `${d.nextWorkingWeightKg}`);
   const hard = run({ feel: "hard", equipmentIds: ["barbell"], unit: "kg" });
   // U1 fix: Hard feel must NOT raise the weight - it holds at current weight
   check("'hard' holds the weight when all sets hit (U1 fix)", hard.nextWorkingWeightKg === 60, `${hard.nextWorkingWeightKg}`);
@@ -516,14 +516,14 @@ console.log("\nBodyweight exercises with added weight");
     unloaded.nextTargetReps === 14, `${unloaded.nextTargetReps}`);
   check("and invents no weight", unloaded.nextWorkingWeightKg === null);
 
-  // Loaded barbell squat: keeps old behavior (5 kg, doubled when easy).
+  // Loaded barbell squat WITHOUT equipment info: keeps old behavior (5 kg, doubled when easy).
   const loadedBarbell = run({
     meta: SQUAT,
     sets: sets(4, 12, 100),
     state: fresh({ currentWorkingWeightKg: 100 }),
     feel: "easy",
   });
-  check("loaded squat with easy still gets doubled: 110 kg",
+  check("loaded squat with easy (no equipment info): 110 kg (doubled)",
     loadedBarbell.nextWorkingWeightKg === 110, `${loadedBarbell.nextWorkingWeightKg}`);
 
   // suggestedWeight rounds to bodyweight step for bodyweight exercises.

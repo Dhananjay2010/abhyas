@@ -501,12 +501,12 @@ export function evaluateProgression(input: {
     }
 
     // Bodyweight with added weight: smaller steps, never doubled.
-    // Loaded exercises: standard increment, doubled when easy.
+    // Loaded exercises: with equipment, ONE grid step only (never doubled); without equipment, standard increment (doubled on easy).
     const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
     const from = state.currentWorkingWeightKg ?? heaviest;
     
     // For kettlebells, we let roundToGrid handle moving to the next bell
-    // For other equipment, we add the increment then round to grid
+    // For other equipment, we add the appropriate step then round to grid
     const isKettlebell = equipmentIds?.includes('kettlebell');
     
     let next: number;
@@ -514,8 +514,15 @@ export function evaluateProgression(input: {
       // Kettlebell: always move to next bell
       // Bell spacing is already optimized for progression, so Easy = Right (one bell)
       next = roundToGrid(from, equipmentIds, unit, incrementFor(meta), 'up');
+    } else if (equipmentIds && unit) {
+      // Standard equipment WITH equipment info: add ONE equipment grid step (capped, never doubled)
+      // This ensures progression is always exactly one loadable step, preventing multi-step jumps
+      // Always use kg grid step for calculations since weights are stored in kg
+      const step = isBodyweightWithAddedWeight ? addedWeightStep(meta) : equipmentGridStep(equipmentIds, 'kg');
+      const rawNext = from + step;
+      next = roundToGrid(rawNext, equipmentIds, unit, step, 'up');
     } else {
-      // Standard equipment: add increment then round to grid
+      // No equipment info: use standard increment, doubled when easy (preserve old behavior)
       const step = isBodyweightWithAddedWeight ? addedWeightStep(meta) : incrementFor(meta);
       const jump = isBodyweightWithAddedWeight || feel !== "easy" ? step : step * 2;
       const rawNext = from + jump;

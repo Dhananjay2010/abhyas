@@ -171,14 +171,14 @@ console.log("\n3. Grid rounding for barbell");
   check("60 kg -> 62.5 kg (barbell grid)", d.nextWorkingWeightKg === 62.5, `${d.nextWorkingWeightKg}`);
 }
 {
-  // Easy: 60 kg + 5 kg = 65 kg (on-grid)
+  // Easy: 60 kg + 2.5 kg = 62.5 kg (no longer doubles, capped at one grid step)
   const d = run({
     sets: sets(4, 12, 60),
     state: fresh({ currentWorkingWeightKg: 60 }),
     equipmentIds: ["barbell"],
     feel: "easy",
   });
-  check("60 kg -> 65 kg easy (barbell grid)", d.nextWorkingWeightKg === 65, `${d.nextWorkingWeightKg}`);
+  check("60 kg -> 62.5 kg easy (barbell grid, no doubling)", d.nextWorkingWeightKg === 62.5, `${d.nextWorkingWeightKg}`);
 }
 
 console.log("\n4. Grid rounding for dumbbell");
