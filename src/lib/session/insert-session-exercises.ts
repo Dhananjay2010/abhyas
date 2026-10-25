@@ -12,7 +12,7 @@ export type SessionExerciseInsert = {
   planned_reps_min: number | null;
   planned_reps_max: number | null;
   rest_seconds: number;
-  metric: "reps" | "time";
+  metric: "reps" | "seconds";
 };
 
 /**

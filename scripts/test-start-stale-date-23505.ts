@@ -75,7 +75,6 @@ await test("L3: startSessionCore 23505 re-read filters by local_date", async () 
   const yesterdayPayload = sessionPayload(USER_ID, YESTERDAY);
   const result1 = await startSessionCore(db.client, USER_ID, yesterdayPayload);
   if (!result1.ok) throw new Error("Yesterday's session failed");
-  const yesterdaySessionId = result1.sessionId;
 
   // Stale tab tries to start a session for TODAY, hits 23505
   const todayPayload = sessionPayload(USER_ID, TODAY);

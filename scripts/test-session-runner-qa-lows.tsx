@@ -11,17 +11,25 @@
  */
 import "./helpers/setup-jsdom";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { SessionRunner, type SessionActions, type RunnerExercise } from "../src/app/session/[id]/session-runner.tsx";
+import { SessionRunner, type SessionActions, type RunnerExercise } from "../src/app/session/[id]/session-runner";
 import type { SetConflictResult } from "../src/app/session/actions";
 
 export {};
 
-// Mock next/navigation
-const mockPush = () => {};
-const mockRouter = { push: mockPush };
-jest.mock("next/navigation", () => ({
-  useRouter: () => mockRouter,
-}));
+// Mock next/navigation by setting it in globalThis before the component imports it
+(globalThis as { next?: unknown }).next = {
+  router: {
+    push: () => {},
+    prefetch: () => {},
+    replace: () => {},
+    reload: () => {},
+    back: () => {},
+    forward: () => {},
+    refresh: () => {},
+    pathname: "/session/test",
+    query: {},
+  },
+};
 
 let passed = 0;
 let failed = 0;
@@ -61,12 +69,12 @@ const defaultActions: SessionActions = {
   markWarmupDone: async () => ({ ok: true }),
   logSet: async () => ({ ok: true }),
   deleteSet: async () => ({ ok: true }),
-  finishExercise: async () => ({ ok: true, data: { personalBest: null } }),
+  finishExercise: async () => ({ ok: true, data: null }),
   finishSession: async () => ({ ok: true }),
   abandonSession: async () => ({ ok: true }),
-  findAlternatives: async () => ({ ok: true, data: { alternatives: [] } }),
-  swapExercise: async () => ({ ok: true }),
-  refreshAfterSession: async () => {},
+  findAlternatives: async () => ({ ok: true, data: [] }),
+  swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+  refreshAfterSession: async () => ({ ok: true }),
   planDay: async () => ({ ok: true }),
 };
 
@@ -94,9 +102,11 @@ async function main() {
         cooldown={[]}
         exercises={exercises}
         settings={{
+          perSetLogging: true,
           restAutostart: false,
-          restBeep: false,
+          restSound: false,
           restVibrate: false,
+          restOverrideSeconds: null,
           cooldownEnabled: false,
         }}
         tomorrow={null}
@@ -164,9 +174,11 @@ async function main() {
         cooldown={[]}
         exercises={exercises}
         settings={{
+          perSetLogging: true,
           restAutostart: false,
-          restBeep: false,
+          restSound: false,
           restVibrate: false,
+          restOverrideSeconds: null,
           cooldownEnabled: false,
         }}
         tomorrow={null}
@@ -205,11 +217,9 @@ async function main() {
   });
 
   await test("L1: picking feel after conflict advances to next exercise", async () => {
-    let logSetCallCount = 0;
     const conflictThenOkActions: SessionActions = {
       ...defaultActions,
       logSet: async (): Promise<SetConflictResult> => {
-        logSetCallCount++;
         return {
           ok: false,
           reason: "set_exists",
@@ -238,9 +248,11 @@ async function main() {
         cooldown={[]}
         exercises={exercises}
         settings={{
+          perSetLogging: true,
           restAutostart: false,
-          restBeep: false,
+          restSound: false,
           restVibrate: false,
+          restOverrideSeconds: null,
           cooldownEnabled: false,
         }}
         tomorrow={null}

@@ -40,7 +40,7 @@ function eq<T>(actual: T, expected: T, message: string) {
 function db(): FakeDb {
   return createFakeDb({
     tables: { session_exercises: [] },
-    uniqueConstraints: [{ table: "session_exercises", columns: ["session_id", "order_index"] }],
+    unique: [{ table: "session_exercises", columns: ["session_id", "order_index"] }],
   });
 }
 
