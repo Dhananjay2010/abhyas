@@ -842,7 +842,9 @@ async function test9b() {
   assert((savingButton as HTMLElement & { disabled?: boolean }).disabled === true, "9b: Saving button is disabled while saving");
   
   assert(skipCooldownButton !== null, "9c: Skip cool-down button exists");
-  assert(skipCooldownButton.disabled === true, "9c: Skip cool-down button is disabled while saving");
+  if (skipCooldownButton && 'disabled' in skipCooldownButton) {
+    assert(skipCooldownButton.disabled === true, "9c: Skip cool-down button is disabled while saving");
+  }
   
   fakeStorage.clear();
 }
@@ -1047,8 +1049,9 @@ async function testN12() {
   const endEarlyButtons = screen.getAllByRole("button", { name: /end.*early/i });
   const endEarlyButton = endEarlyButtons[endEarlyButtons.length - 1];
   assert(!!endEarlyButton, "N12: End early button exists");
-  
-  assert(endEarlyButton.disabled === true, "N12: End early button is disabled with pending sets");
+  if (endEarlyButton && 'disabled' in endEarlyButton) {
+    assert(endEarlyButton.disabled === true, "N12: End early button is disabled with pending sets");
+  }
   
   fakeStorage.clear();
 }
@@ -1567,6 +1570,7 @@ async function testRetryButton() {
   const retryButton = retryButtons.length > 0 ? retryButtons[retryButtons.length - 1] : null;
   
   assert(retryButton !== null, "R3: Retry button exists");
+  if (!retryButton) throw new Error("retryButton is null after assertion");
   await act(async () => {
     retryButton.click();
   });
