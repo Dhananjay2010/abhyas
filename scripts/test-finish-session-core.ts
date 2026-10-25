@@ -345,7 +345,7 @@ async function testFinishSessionNullDurationForNullStartedAt() {
   if (updateCall && updateCall.patch) {
     assertEquals(updateCall.patch.status, "completed", "Update must save completed status");
     assertEquals(updateCall.patch.duration_seconds, null, "Duration must be null for invalid timestamps");
-    assertTrue(updateCall.patch.completed_at !== null && !String(updateCall.patch.completed_at).includes("1970"), "completed_at must be now (not 1970)");
+    assertEquals(updateCall.patch.completed_at, NOW, "completed_at must be NOW");
   }
 }
 
@@ -384,7 +384,7 @@ async function testFinishSessionNullDurationForInvalidStartedAt() {
   if (updateCall && updateCall.patch) {
     assertEquals(updateCall.patch.status, "completed", "Update must save completed status");
     assertEquals(updateCall.patch.duration_seconds, null, "Duration must be null for invalid timestamps");
-    assertTrue(updateCall.patch.completed_at !== null && !String(updateCall.patch.completed_at).includes("1970"), "completed_at must be now (not 1970)");
+    assertEquals(updateCall.patch.completed_at, NOW, "completed_at must be NOW");
   }
 }
 
@@ -413,7 +413,7 @@ async function testFinishSessionNullDurationForInvalidLastSetTime() {
   if (updateCall && updateCall.patch) {
     assertEquals(updateCall.patch.status, "completed", "Update must save completed status");
     assertEquals(updateCall.patch.duration_seconds, null, "Duration must be null for invalid timestamps");
-    assertTrue(updateCall.patch.completed_at !== null && !String(updateCall.patch.completed_at).includes("1970"), "completed_at must be now (not 1970)");
+    assertEquals(updateCall.patch.completed_at, NOW, "completed_at must be NOW");
   }
 }
 

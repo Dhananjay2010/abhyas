@@ -37,7 +37,8 @@ console.log("1. Normal case: ended_at = lastSet + rest (no guard needed)");
 
   const lastSetMs = Date.parse("2026-10-24T10:30:00Z");
   check("endedAt is not null", result.endedAt !== null);
-  const endedAtMs = Date.parse(result.endedAt!);
+  if (result.endedAt === null) throw new Error("endedAt is null, test should have failed");
+  const endedAtMs = Date.parse(result.endedAt);
 
   check("ended_at is not before lastSetCompletedAt", endedAtMs >= lastSetMs);
   check("ended_at is lastSet + 120s", endedAtMs === lastSetMs + 120000);
@@ -54,7 +55,8 @@ console.log("\n2. Negative restSeconds (clamped to 0): ended_at = lastSet");
 
   const lastSetMs = Date.parse("2026-10-24T10:30:00Z");
   check("endedAt is not null", result.endedAt !== null);
-  const endedAtMs = Date.parse(result.endedAt!);
+  if (result.endedAt === null) throw new Error("endedAt is null, test should have failed");
+  const endedAtMs = Date.parse(result.endedAt);
 
   check("ended_at is not before lastSetCompletedAt", endedAtMs >= lastSetMs);
   check("ended_at equals lastSet (rest clamped to 0)", endedAtMs === lastSetMs);
@@ -73,7 +75,8 @@ console.log("\n3. Edge case: startedAt after lastSet (time travel test)");
 
   const lastSetMs = Date.parse("2026-10-24T10:30:00Z");
   check("endedAt is not null", result.endedAt !== null);
-  const endedAtMs = Date.parse(result.endedAt!);
+  if (result.endedAt === null) throw new Error("endedAt is null, test should have failed");
+  const endedAtMs = Date.parse(result.endedAt);
 
   check("ended_at is not before lastSetCompletedAt", endedAtMs >= lastSetMs, `ended_at=${result.endedAt}, lastSet=2026-10-24T10:30:00Z`);
 }
@@ -89,7 +92,8 @@ console.log("\n4. Huge negative rest (beyond clamp): still guarded");
 
   const lastSetMs = Date.parse("2026-10-24T10:30:00Z");
   check("endedAt is not null", result.endedAt !== null);
-  const endedAtMs = Date.parse(result.endedAt!);
+  if (result.endedAt === null) throw new Error("endedAt is null, test should have failed");
+  const endedAtMs = Date.parse(result.endedAt);
 
   check("ended_at is not before lastSetCompletedAt", endedAtMs >= lastSetMs);
 }
@@ -105,7 +109,8 @@ console.log("\n5. lastSet very late, startedAt very early: ended_at >= lastSet")
 
   const lastSetMs = Date.parse("2026-10-24T18:00:00Z");
   check("endedAt is not null", result.endedAt !== null);
-  const endedAtMs = Date.parse(result.endedAt!);
+  if (result.endedAt === null) throw new Error("endedAt is null, test should have failed");
+  const endedAtMs = Date.parse(result.endedAt);
 
   check("ended_at is not before lastSetCompletedAt", endedAtMs >= lastSetMs);
   check("Duration is correctly large", (result.durationSeconds ?? 0) > 36000, `Got ${result.durationSeconds} seconds`);
@@ -122,7 +127,8 @@ console.log("\n6. Zero rest seconds: ended_at = lastSet exactly");
 
   const lastSetMs = Date.parse("2026-10-24T10:45:00Z");
   check("endedAt is not null", result.endedAt !== null);
-  const endedAtMs = Date.parse(result.endedAt!);
+  if (result.endedAt === null) throw new Error("endedAt is null, test should have failed");
+  const endedAtMs = Date.parse(result.endedAt);
 
   check("ended_at equals lastSet (rest=0)", endedAtMs === lastSetMs);
   check("ended_at is not before lastSet", endedAtMs >= lastSetMs);
@@ -139,7 +145,8 @@ console.log("\n7. Max clamped rest (900 → 300): ended_at = lastSet + 300s");
 
   const lastSetMs = Date.parse("2026-10-24T10:20:00Z");
   check("endedAt is not null", result.endedAt !== null);
-  const endedAtMs = Date.parse(result.endedAt!);
+  if (result.endedAt === null) throw new Error("endedAt is null, test should have failed");
+  const endedAtMs = Date.parse(result.endedAt);
 
   check("ended_at is not before lastSetCompletedAt", endedAtMs >= lastSetMs);
   check("ended_at is lastSet + 300s (clamped)", endedAtMs === lastSetMs + 300000);

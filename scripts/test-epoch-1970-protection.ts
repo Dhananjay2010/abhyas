@@ -237,37 +237,3 @@ console.log("\n(a) finishSessionCore with null started_at and working sets");
   console.log("\n✨ All 1970 epoch protection tests passed!\n");
 })();
 
-// Mutant tests: verify that the protection works by temporarily breaking it
-console.log("\n🧪 Mutant tests: verifying epoch and error protections\n");
-
-// Mutant 1: Re-introduce epoch fallback in resolveStaleFinishExtended
-console.log("Mutant 1: Epoch fallback (should fail)\n");
-console.log("To verify: edit stale-duration.ts line ~96, replace:");
-console.log("  if (!Number.isFinite(start) || !Number.isFinite(lastSetMs)) {");
-console.log("    return { durationSeconds: null, endedAt: null, status: \"completed\" };");
-console.log("  }");
-console.log("With:");
-console.log("  // MUTANT: use epoch fallback instead of null");
-console.log("  const safeStart = Number.isFinite(start) ? start : 0;");
-console.log("  const safeLastSet = Number.isFinite(lastSetMs) ? lastSetMs : 0;");
-console.log("\nThen run this test - it will FAIL with:");
-console.log("  ❌ null started_at → endedAt is null");
-console.log("  ❌ completed_at is FIXED_NOW (not 1970)");
-console.log("\nRevert the mutation before continuing.");
-
-// Mutant 2: Re-introduce error path
-console.log("\nMutant 2: Error on invalid timestamps (should fail)\n");
-console.log("To verify: edit finish-session.ts line ~92, replace:");
-console.log("  if (staleFinish.endedAt === null) {");
-console.log("    status = staleFinish.status;");
-console.log("    endedAt = now;");
-console.log("    durationSeconds = null;");
-console.log("  }");
-console.log("With:");
-console.log("  // MUTANT: error instead of using now");
-console.log("  if (staleFinish.endedAt === null) {");
-console.log("    return { ok: false, error: \"Cannot finish session with invalid timestamps\" };");
-console.log("  }");
-console.log("\nThen run this test - it will FAIL with:");
-console.log("  ❌ null started_at → returns ok:true");
-console.log("\nRevert the mutation before continuing.");

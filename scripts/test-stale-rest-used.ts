@@ -207,7 +207,10 @@ console.log("\n3. Stale session uses last working set's exercise rest, ignoring 
     const startTime = new Date("2026-10-23T10:00:00Z").getTime();
     
     assertTrue(update.patch.completed_at !== null && update.patch.completed_at !== undefined, "completed_at is not null");
-    const completedAtMs = new Date(update.patch.completed_at!).getTime();
+    if (update.patch.completed_at === null || update.patch.completed_at === undefined) {
+      throw new Error("completed_at is null, test should have failed above");
+    }
+    const completedAtMs = new Date(update.patch.completed_at).getTime();
     assertTrue(completedAtMs > warmupSetTime, "completed_at uses chronologically last set (warmup)");
     
     const expectedDuration = Math.floor((warmupSetTime - startTime + 200 * 1000) / 1000);

@@ -781,8 +781,8 @@ export async function swapExercise(input: {
   sessionExerciseId: string;
   newExerciseId: string;
 }): Promise<Result<SwapResult>> {
-  const rateLimit = await checkActionRateLimit<SwapResult>("session");
-  if (rateLimit) return rateLimit;
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<SwapResult>;
   
   const { supabase, user } = await requireUser();
 
