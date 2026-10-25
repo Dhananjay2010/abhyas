@@ -250,23 +250,35 @@ m15() {
 }
 test_mutant "Success check uses Math.min(successTarget, repsMax)" m15
 
-# M16: Delete progressionInputsFromExercise spread in actions.ts (production wiring)
+# M16: Replace input equipment_ids with [] in actions.ts
 m16() {
-  sed -i '/\.\.\.progressionInputsFromExercise/d' "$ACTIONS"
+  sed -i 's/buildApplyProgressionInput(/buildApplyProgressionInput(se, { ...ex, equipment_ids: [] }, sessionRes.data, setsRes.data ?? [], progressRes.data, profileRes.data?.units, feel); \/\/ MUTANT\n  const _unused = buildApplyProgressionInput(/' "$ACTIONS"
 }
-test_mutant "Delete progressionInputsFromExercise spread (actions.ts wiring)" m16 "ACTIONS"
+test_mutant "Replace input equipment_ids with [] (actions.ts wiring)" m16 "ACTIONS"
 
-# M17: Pass empty equipment_ids with comment in apply-progression-core.ts
-m17() {
+# M17a: Drop equipment_ids in buildApplyProgressionInput
+m17a() {
+  sed -i 's/equipment_ids: exercise\.equipment_ids,/equipment_ids: [],/' "$CORE"
+}
+test_mutant "Drop equipment_ids in buildApplyProgressionInput" m17a "CORE"
+
+# M17b: Pass empty equipment_ids with comment in apply-progression-core.ts
+m17b() {
   sed -i 's/\.\.\.progressionInputsFromExercise(ex, userUnits)/\/\/ ...progressionInputsFromExercise(ex, userUnits)\n    ...progressionInputsFromExercise({ ...ex, equipment_ids: [] }, userUnits)/' "$CORE"
 }
-test_mutant "Pass empty equipment_ids (comment keeps text)" m17 "CORE"
+test_mutant "Pass empty equipment_ids in core (comment keeps text)" m17b "CORE"
 
 # M18: Drop progInputs.equipmentIds in build-runner-exercises.ts
 m18() {
   sed -i 's/progInputs\.equipmentIds,/\/\/ progInputs.equipmentIds,\n    [],/' "$BUILDER"
 }
 test_mutant "Drop progInputs.equipmentIds in buildRunnerExercise" m18 "BUILDER"
+
+# M19: Drop userUnits in buildApplyProgressionInput
+m19() {
+  sed -i 's/userUnits: userUnits,/userUnits: null,/' "$CORE"
+}
+test_mutant "Drop userUnits in buildApplyProgressionInput" m19 "CORE"
 
 echo
 echo "==================================="
@@ -278,10 +290,10 @@ if [ "$SURVIVED" -gt 0 ] || [ "$SKIPPED" -gt 0 ]; then
   exit 1
 fi
 
-if [ "$KILLED" -ne 18 ]; then
-  echo "❌ FAILED: Expected 18 killed, got $KILLED"
+if [ "$KILLED" -ne 19 ]; then
+  echo "❌ FAILED: Expected 19 killed, got $KILLED"
   exit 1
 fi
 
-echo "✅ PASSED: All 18 mutants killed"
+echo "✅ PASSED: All 19 mutants killed"
 exit 0

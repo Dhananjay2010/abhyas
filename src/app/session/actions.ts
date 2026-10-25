@@ -13,9 +13,6 @@ import { isEligible, score, hashString, buildInjuryFlags, type CandidateExercise
 import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,
-  evaluateProgression,
-  type ExerciseMeta,
-  type ProgressState,
 } from "@/lib/program/progression";
 import { applyDeload, prescribe } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
@@ -26,9 +23,8 @@ import { updateSessionCore } from "@/lib/session/update-session-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
-import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { progressionInputsFromExercise } from "@/lib/session/progression-inputs";
+import { applyProgressionCore, buildApplyProgressionInput } from "@/lib/session/apply-progression-core";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
@@ -434,55 +430,17 @@ async function applyProgression(
     supabase.from("profiles").select("units").eq("id", userId).maybeSingle(),
   ]);
 
-  const meta: ExerciseMeta = {
-    mechanic: ex.mechanic,
-    movementPattern: ex.movement_pattern,
-    // The session's own unit, not the catalogue's. Scoring a finished session
-    // by what the exercise has since been re-tagged as would read a set of
-    // twelve reps as a twelve-second hold.
-    metric: se.metric ?? "reps",
-    isBodyweight: (ex.equipment_ids ?? []).length === 0,
-    progressionChain: ex.progression_chain,
-    progressionRank: ex.progression_rank,
-  };
-
-  const prior = progressRes.data;
-  const state: ProgressState = {
-    currentWorkingWeightKg: prior?.current_working_weight_kg === null || prior === null
-      ? null
-      : Number(prior.current_working_weight_kg),
-    currentTargetReps: prior?.current_target_reps ?? null,
-    consecutiveFailures: prior?.consecutive_failures ?? 0,
-    bestWeightKg: prior?.best_weight_kg === null || prior === null ? null : Number(prior.best_weight_kg),
-    bestReps: prior?.best_reps ?? null,
-    bestE1rm: prior?.best_e1rm === null || prior === null ? null : Number(prior.best_e1rm),
-    totalSessions: prior?.total_sessions ?? 0,
-  };
-
-  const decision = evaluateProgression({
-    sets: (setsRes.data ?? []).map((s) => ({
-      reps: s.reps,
-      weightKg: s.weight_kg === null ? null : Number(s.weight_kg),
-      durationSeconds: s.duration_seconds,
-    })),
-    plannedSets: se.planned_sets ?? 3,
-    repsMin: se.planned_reps_min ?? 8,
-    repsMax: se.planned_reps_max ?? 12,
+  const input = buildApplyProgressionInput(
+    se,
+    ex,
+    sessionRes.data,
+    setsRes.data ?? [],
+    progressRes.data,
+    profileRes.data?.units,
     feel,
-    meta,
-    state,
-    isDeload: sessionRes.data?.is_deload ?? false,
-    ...progressionInputsFromExercise(ex, profileRes.data?.units),
-  });
-
-  await writeExerciseProgressCore(
-    supabase,
-    userId,
-    se.exercise_id,
-    decision,
-    state.totalSessions,
-    sessionRes.data?.local_date ?? null,
   );
+
+  const decision = await applyProgressionCore(supabase, userId, input);
 
   // Outgrew a bodyweight variation: upgrade the plan so next time is harder.
   if (decision.wantsHarderVariation && ex.progression_chain) {

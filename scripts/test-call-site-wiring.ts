@@ -13,7 +13,7 @@
 
 import * as fs from "fs";
 import { progressionInputsFromExercise } from "../src/lib/session/progression-inputs";
-import { buildRunnerExercise } from "../src/lib/session/build-runner-exercises";
+import { buildRunnerExercise, type RunnerExerciseInput } from "../src/lib/session/build-runner-exercises";
 
 let failures = 0;
 
@@ -30,8 +30,8 @@ console.log("1. Check actions.ts wiring");
 const actionsContent = fs.readFileSync("src/app/session/actions.ts", "utf8");
 
 check(
-  "imports progressionInputsFromExercise",
-  actionsContent.includes('import { progressionInputsFromExercise } from "@/lib/session/progression-inputs"')
+  "imports applyProgressionCore and buildApplyProgressionInput",
+  actionsContent.includes('import { applyProgressionCore, buildApplyProgressionInput } from "@/lib/session/apply-progression-core"')
 );
 
 check(
@@ -41,8 +41,14 @@ check(
 );
 
 check(
-  "evaluateProgression spreads helper result",
-  actionsContent.includes('...progressionInputsFromExercise(ex, profileRes.data?.units)')
+  "actions.ts calls buildApplyProgressionInput with profileRes.data?.units",
+  actionsContent.includes('buildApplyProgressionInput(') &&
+  actionsContent.includes('profileRes.data?.units')
+);
+
+check(
+  "actions.ts calls applyProgressionCore",
+  actionsContent.includes('await applyProgressionCore(supabase, userId, input)')
 );
 
 console.log("\n2. Check page.tsx wiring");
@@ -174,8 +180,12 @@ check(
 
 
 // Behavioral wiring tests (async)
-import { applyProgressionCore } from "../src/lib/session/apply-progression-core";
+import { applyProgressionCore, buildApplyProgressionInput, type ApplyProgressionInput } from "../src/lib/session/apply-progression-core";
 import type { ProgressClient, ProgressWrite } from "../src/lib/session/write-progress";
+
+// Type narrowing helpers
+const numOrNull = (v: unknown): number | null => (typeof v === "number" ? v : null);
+const strOrNull = (v: unknown): string | null => (typeof v === "string" ? v : null);
 
 class TestProgressClient implements ProgressClient {
   private lastWrite: ProgressWrite | null = null;
@@ -184,8 +194,21 @@ class TestProgressClient implements ProgressClient {
     if (table !== "exercise_progress") throw new Error(`Unexpected table: ${table}`);
     return {
       upsert: async (data: Record<string, unknown>) => {
-        this.lastWrite = data as ProgressWrite;
-        return { data, error: null };
+        const row: ProgressWrite = {
+          user_id: String(data.user_id),
+          exercise_id: String(data.exercise_id),
+          current_working_weight_kg: numOrNull(data.current_working_weight_kg),
+          current_target_reps: numOrNull(data.current_target_reps),
+          consecutive_failures: Number(data.consecutive_failures),
+          last_performed_on: strOrNull(data.last_performed_on),
+          best_weight_kg: numOrNull(data.best_weight_kg),
+          best_reps: numOrNull(data.best_reps),
+          best_e1rm: numOrNull(data.best_e1rm),
+          total_sessions: Number(data.total_sessions),
+          updated_at: String(data.updated_at),
+        };
+        this.lastWrite = row;
+        return { data: row, error: null };
       },
     };
   }
@@ -198,18 +221,18 @@ class TestProgressClient implements ProgressClient {
 async function runBehavioralTests() {
   const testClient = new TestProgressClient();
 
-  const progressionInput = {
+  const progressionInput: ApplyProgressionInput = {
     sessionExercise: {
       id: "se_test",
       exercise_id: "ex_test",
       planned_sets: 3,
       planned_reps_min: 8,
       planned_reps_max: 12,
-      metric: "reps" as const,
+      metric: "reps",
     },
     exercise: {
-      mechanic: "compound" as const,
-      movement_pattern: "other" as const,
+      mechanic: "compound",
+      movement_pattern: "other",
       equipment_ids: ["machine_generic"],
       progression_chain: null,
       progression_rank: null,
@@ -232,8 +255,8 @@ async function runBehavioralTests() {
       best_e1rm: null,
       total_sessions: 3,
     },
-    userUnits: "metric" as const,
-    feel: "right" as const,
+    userUnits: "metric",
+    feel: "right",
   };
 
   // Test 1: machine_generic with metric
@@ -244,69 +267,109 @@ async function runBehavioralTests() {
     `got ${decision1.nextWorkingWeightKg}`
   );
 
-  // Test 2: machine_generic with imperial
-  const imperialInput = {
-    ...progressionInput,
-    userUnits: "imperial" as const,
+  // Test 2: metric - must see " kg" in message
+  check(
+    "metric: message contains ' kg' (not ' lb')",
+    decision1.message.includes(" kg") && !decision1.message.includes(" lb"),
+    `got: ${decision1.message}`
+  );
+
+  // Test 3: imperial - must see " lb" in message (dumbbell 7.5 kg → next)
+  const imperialInput: ApplyProgressionInput = {
+    sessionExercise: {
+      id: "se_imperial",
+      exercise_id: "ex_imperial",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+    },
+    exercise: {
+      mechanic: "isolation",
+      movement_pattern: "other",
+      equipment_ids: ["dumbbell"],
+      progression_chain: null,
+      progression_rank: null,
+    },
+    session: {
+      is_deload: false,
+      local_date: "2026-10-25",
+    },
+    sets: [
+      { reps: 12, weight_kg: 7.5, duration_seconds: null },
+      { reps: 12, weight_kg: 7.5, duration_seconds: null },
+      { reps: 12, weight_kg: 7.5, duration_seconds: null },
+    ],
+    progress: {
+      current_working_weight_kg: 7.5,
+      current_target_reps: 12,
+      consecutive_failures: 0,
+      best_weight_kg: 7.5,
+      best_reps: 12,
+      best_e1rm: null,
+      total_sessions: 3,
+    },
+    userUnits: "imperial",
+    feel: "right",
   };
 
   const decision2 = await applyProgressionCore(testClient, "user_test2", imperialInput);
   check(
-    "imperial units flow through (5 kg increment for machine_generic)",
-    decision2.nextWorkingWeightKg === 45,
-    `got ${decision2.nextWorkingWeightKg}`
+    "imperial: message contains ' lb' (not ' kg')",
+    decision2.message.includes(" lb") && !decision2.message.includes(" kg"),
+    `got: ${decision2.message}`
   );
 
-  // Test 3: buildRunnerExercise with equipment
-  const runnerInput = {
-    row: {
-      id: "se_test",
-      planned_sets: 3,
-      planned_reps_min: 8,
-      planned_reps_max: 12,
-      metric: "reps" as const,
-      rest_seconds: 90,
-      status: "pending" as const,
-      feel: null,
-      exercises: {
-        id: "ex_test",
-        name: "Test Exercise",
-        cue: null,
-        mechanic: "compound" as const,
-        movement_pattern: "other" as const,
-        primary_muscles: ["chest" as const],
-        equipment_ids: ["machine_generic"],
-      },
-      session_sets: [],
-    },
-    progress: {
-      current_working_weight_kg: 40,
-      current_target_reps: 12,
-    },
-    remembersWeights: true,
-    isDeload: false,
-    userUnits: "imperial" as const,
+  // Test 4: buildApplyProgressionInput preserves equipment and units
+  const exerciseData = {
+    mechanic: "compound" as const,
+    movement_pattern: "other" as const,
+    equipment_ids: ["machine_generic"],
+    progression_chain: null,
+    progression_rank: null,
   };
 
-  // Test deload scenario where equipment grid snapping matters
+  const builtInput = buildApplyProgressionInput(
+    { id: "se1", exercise_id: "ex1", planned_sets: 3, planned_reps_min: 8, planned_reps_max: 12, metric: "reps" },
+    exerciseData,
+    { is_deload: false, local_date: "2026-10-25" },
+    [],
+    null,
+    "metric",
+    null
+  );
+
+  check(
+    "buildApplyProgressionInput: preserves equipment_ids",
+    JSON.stringify(builtInput.exercise.equipment_ids) === '["machine_generic"]',
+    `got ${JSON.stringify(builtInput.exercise.equipment_ids)}`
+  );
+
+  check(
+    "buildApplyProgressionInput: preserves userUnits",
+    builtInput.userUnits === "metric",
+    `got ${builtInput.userUnits}`
+  );
+
+  // Test 5: buildRunnerExercise deload - equipment grid snapping
   // 70% of 52 = 36.4, which snaps to 35 on 5kg grid (machine_generic)
-  const deloadInput = {
+  const deloadInput: RunnerExerciseInput = {
     row: {
       id: "se_test_deload",
       planned_sets: 3,
       planned_reps_min: 8,
       planned_reps_max: 12,
-      metric: "reps" as const,
+      metric: "reps",
       rest_seconds: 90,
-      status: "pending" as const,
+      status: "pending",
       feel: null,
       exercises: {
         id: "ex_test",
         name: "Test Exercise",
         cue: null,
-        mechanic: "compound" as const,
-        movement_pattern: "other" as const,
-        primary_muscles: ["chest" as const],
+        mechanic: "compound",
+        movement_pattern: "other",
+        primary_muscles: ["chest"],
         equipment_ids: ["machine_generic"],
       },
       session_sets: [],
@@ -317,7 +380,7 @@ async function runBehavioralTests() {
     },
     remembersWeights: true,
     isDeload: true,
-    userUnits: "kg" as const,
+    userUnits: "kg",
   };
   
   const deloadRunner = buildRunnerExercise(deloadInput);

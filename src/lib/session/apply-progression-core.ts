@@ -4,6 +4,7 @@ import { writeExerciseProgressCore, type ProgressClient } from "./write-progress
 import type { Database } from "@/lib/database.types";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
+type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
 export type ApplyProgressionInput = {
   sessionExercise: {
@@ -42,6 +43,74 @@ export type ApplyProgressionInput = {
   userUnits: string | null | undefined;
   feel: SetFeel | null;
 };
+
+/**
+ * Build ApplyProgressionInput from Supabase query results.
+ * Pure function for testing the input builder in isolation.
+ */
+export function buildApplyProgressionInput(
+  sessionExercise: {
+    id: string;
+    exercise_id: string;
+    planned_sets: number | null;
+    planned_reps_min: number | null;
+    planned_reps_max: number | null;
+    metric: Database["public"]["Enums"]["exercise_metric"] | null;
+  },
+  exercise: {
+    mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
+    movement_pattern: MovementPattern;
+    equipment_ids: string[];
+    progression_chain: string | null;
+    progression_rank: number | null;
+  },
+  session: {
+    is_deload: boolean | null;
+    local_date: string | null;
+  } | null,
+  sets: {
+    reps: number | null;
+    weight_kg: number | null;
+    duration_seconds: number | null;
+  }[],
+  progress: {
+    current_working_weight_kg: number | null;
+    current_target_reps: number | null;
+    consecutive_failures: number;
+    best_weight_kg: number | null;
+    best_reps: number | null;
+    best_e1rm: number | null;
+    total_sessions: number;
+  } | null,
+  userUnits: string | null | undefined,
+  feel: SetFeel | null,
+): ApplyProgressionInput {
+  return {
+    sessionExercise: {
+      id: sessionExercise.id,
+      exercise_id: sessionExercise.exercise_id,
+      planned_sets: sessionExercise.planned_sets,
+      planned_reps_min: sessionExercise.planned_reps_min,
+      planned_reps_max: sessionExercise.planned_reps_max,
+      metric: sessionExercise.metric,
+    },
+    exercise: {
+      mechanic: exercise.mechanic,
+      movement_pattern: exercise.movement_pattern,
+      equipment_ids: exercise.equipment_ids,
+      progression_chain: exercise.progression_chain,
+      progression_rank: exercise.progression_rank,
+    },
+    session: {
+      is_deload: session?.is_deload ?? null,
+      local_date: session?.local_date ?? null,
+    },
+    sets,
+    progress,
+    userUnits,
+    feel,
+  };
+}
 
 /**
  * Core progression logic extracted from actions.ts for testing.
