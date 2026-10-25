@@ -291,7 +291,7 @@ export function effectiveBaseWeight(
   }
   if (stored === 0) {
     const anyLoad = working.some((s) => (s.weightKg ?? 0) > 0);
-    return anyLoad ? Math.min(...working.map((s) => s.weightKg ?? 0)) : 0;
+    return anyLoad ? roundToStoragePrecision(Math.min(...working.map((s) => s.weightKg ?? 0))) : 0;
   }
   const allHeavierOrEqual = working.every((s) => (s.weightKg ?? 0) >= stored);
   if (allHeavierOrEqual) {

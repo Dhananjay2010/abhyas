@@ -337,5 +337,31 @@ console.log("\nCase 11: Stored 0 with added weight => uses added weight");
   check("Next weight: 12.5 kg (from 10 + 1.25, rounded to 2.5 kg grid)", decision.nextWorkingWeightKg === 12.5, `${decision.nextWorkingWeightKg}`);
 }
 
+// Case 12: Stored 0 with added weight 41.257 => rounds to 41.26
+console.log("\nCase 12: Stored 0, in-range with lowest 41.257 => rounds to 41.26");
+{
+  const decision = evaluateProgression({
+    sets: [
+      { reps: 10, weightKg: 41.257 },
+      { reps: 10, weightKg: 42.5 },
+      { reps: 10, weightKg: 43 },
+      { reps: 10, weightKg: 45 },
+    ],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: PUSHUP,
+    state: state({ currentWorkingWeightKg: 0 }),
+    isDeload: false,
+    equipmentIds: ["dip_belt"],
+    unit: "kg",
+  });
+
+  check("Outcome: hold", decision.outcome === "hold", decision.outcome);
+  check("Next weight: 41.26 kg (rounded to 2 dp)", decision.nextWorkingWeightKg === 41.26, `${decision.nextWorkingWeightKg}`);
+  check("Failures: reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
+}
+
 console.log(`\n${failures === 0 ? "✅ PASSED" : `❌ ${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
