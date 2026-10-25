@@ -178,6 +178,12 @@ m11() {
 }
 test_mutant "Remove reps cap (2×repsMax)" m11
 
+# M12: Success check uses resolveTarget.min instead of .max
+m12() {
+  sed -i 's/const successTarget = resolveTarget(/const successTarget = resolveTarget(/; s/}).max;$/}).min;/' "$PROG"
+}
+test_mutant "Success check uses resolveTarget.min (not .max)" m12
+
 echo
 echo "==================================="
 echo "Killed $KILLED | Survived $SURVIVED | Skipped $SKIPPED"
