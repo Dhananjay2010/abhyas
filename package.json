@@ -290,7 +290,8 @@
     "test:stale-runner-clock-guard": "tsx scripts/test-stale-runner-clock-guard.ts",
     "test:swapped-in-label": "tsx scripts/test-swapped-in-label.ts",
     "test:today-ended-early-wiring": "tsx scripts/test-today-ended-early-wiring.ts",
-    "test:warmup-exclusion": "tsx scripts/test-warmup-exclusion.ts"
+    "test:warmup-exclusion": "tsx scripts/test-warmup-exclusion.ts",
+    "test:deps-queries": "tsx scripts/test-deps-queries.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
