@@ -131,6 +131,7 @@ console.log("\n1. Catalogue validation: hard-coded exclusion list behaviour");
 }
 
 // Hard-coded expected high-impact leg slugs (ground truth from catalogue inspection)
+// Only exercises with lower-body PRIMARY muscles are excluded (per isHighImpactLegExercise)
 const EXPECTED_HIGH_IMPACT_LEG_SLUGS = [
   "bench-jump",
   "double-leg-butt-kick",
@@ -140,7 +141,7 @@ const EXPECTED_HIGH_IMPACT_LEG_SLUGS = [
   "knee-tuck-jump",
   "lateral-bound",
   "lunge-sprint",
-  "medicine-ball-scoop-throw",
+  // "medicine-ball-scoop-throw", // Removed: high-impact but primary_muscles are shoulders, legs are secondary only
   "rocket-jump",
   "scissors-jump",
   "single-leg-butt-kick",
