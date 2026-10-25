@@ -326,11 +326,11 @@ export default async function ProgressPage() {
               value={
                 progressQueryFailed 
                   ? "—"
-                  : totalVolume! >= 10000
-                    ? `${Math.round(totalVolume! / 1000).toLocaleString("en-US")}t`
-                    : totalVolume! >= 1000
-                      ? `${(totalVolume! / 1000).toFixed(1).replace(/(\d)(?=(\d{3})+\.)/g, '$1,')}t`
-                      : `${Math.round(totalVolume!).toLocaleString("en-US")}kg`
+                  : (() => {
+                      // FIX (d): Show full numbers with thousands separators, not "15t"
+                      const { formatVolumeLifted } = require("@/lib/session/format-volume-lifted");
+                      return formatVolumeLifted(totalVolume!, units);
+                    })()
               }
               sub={progressQueryFailed ? "error loading" : "all time"}
             />

@@ -52,7 +52,10 @@ export type SessionActions = {
   swapExercise: typeof swapExercise;
   refreshAfterSession: typeof refreshAfterSession;
   planDay: typeof planDay;
+  getSessionSummary: typeof getSessionSummary;
 };
+
+import { getSessionSummary, type SummaryNote } from "../actions";
 
 const REAL_ACTIONS: SessionActions = {
   markWarmupDone,
@@ -65,6 +68,7 @@ const REAL_ACTIONS: SessionActions = {
   swapExercise,
   refreshAfterSession,
   planDay,
+  getSessionSummary,
 };
 
 type Feel = Database["public"]["Enums"]["set_feel"];
@@ -172,9 +176,9 @@ export function SessionRunner({
   const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [alternativesForExerciseId, setAlternativesForExerciseId] = useState<string | null>(null);
-  const [progressNotes, setProgressNotes] = useState<
-    { name: string; message: string; personalBest: string | null }[]
-  >([]);
+  // FIX (a): Load summary from DB on phase transition, not client state
+  const [progressNotes, setProgressNotes] = useState<SummaryNote[]>([]);
+  const [summaryLoaded, setSummaryLoaded] = useState(false);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -517,6 +521,18 @@ export function SessionRunner({
     );
   }
 
+  // FIX (a): Load summary from DB when entering done phase
+  useEffect(() => {
+    if (phase === "done" && !summaryLoaded) {
+      setSummaryLoaded(true);
+      actions.getSessionSummary(sessionId).then((result) => {
+        if (result.ok) {
+          setProgressNotes(result.data);
+        }
+      });
+    }
+  }, [phase, summaryLoaded, sessionId, actions]);
+
   // ---- summary ----------------------------------------------------------
   if (phase === "done") {
     const personalBests = progressNotes.filter(
@@ -787,16 +803,7 @@ export function SessionRunner({
       return;
     }
     setError(null);
-    if (result.data?.message) {
-      setProgressNotes((prev) => [
-        ...prev,
-        {
-          name: current.name,
-          message: result.data!.message,
-          personalBest: result.data!.personalBest,
-        },
-      ]);
-    }
+    // FIX (a): progressNotes is loaded from DB on done phase, not client state
     setExercises((prev) =>
       prev.map((e) =>
         e.id === current.id ? { ...e, status: skipped ? "skipped" : "completed", feel } : e,
