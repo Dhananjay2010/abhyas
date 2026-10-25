@@ -41,8 +41,8 @@ assert(
 // View Mon 2026-10-19 (week 2)
 const window2 = weekWindow(prog0, "2026-10-19");
 assert(
-  window2.start === "2026-10-19",
-  `Week 2 start is 2026-10-19, got ${window2.start}`
+  window2.start === "2026-10-18",
+  `Week 2 start includes yesterday (2026-10-18), got ${window2.start}`
 );
 assert(
   window2.end === "2026-10-25",
