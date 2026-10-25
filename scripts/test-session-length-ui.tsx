@@ -184,6 +184,9 @@ function check(label: string, ok: boolean, detail = "") {
       },
       updateEquipment: async () => ({ ok: true as const }),
       updateInjuries: async () => ({ ok: true as const }),
+      setEquipmentItem: async () => ({ ok: true as const }),
+      setHasAllEquipment: async () => ({ ok: true as const }),
+      setInjury: async () => ({ ok: true as const }),
     };
 
     const equipment = [] as { id: string; name: string; category: string }[];
