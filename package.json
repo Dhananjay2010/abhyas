@@ -314,7 +314,6 @@
     "test:set-exists-replay": "tsx scripts/test-set-exists-replay.ts",
     "test:set-exists-submit-success": "tsx scripts/test-set-exists-submit-success.ts",
     "test:build-runner-props": "tsx scripts/test-build-runner-props.ts",
-    "test:build-runner-props-planted-bug": "TZ=UTC npx tsx scripts/test-build-runner-props-planted-bug.ts",
     "test:dob-input-controlled": "tsx scripts/test-dob-input-controlled.tsx"
   },
   "dependencies": {
