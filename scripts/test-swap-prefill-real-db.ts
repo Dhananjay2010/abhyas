@@ -199,6 +199,8 @@ async function runTests() {
       week_offset: 0,
       days_per_week: 4,
       primary_track: "weights",
+      goal: "muscle_gain",
+      level: "intermediate",
     });
 
   check("Program created", !programError, programError?.message);
