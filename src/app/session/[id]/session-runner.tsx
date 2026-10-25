@@ -12,6 +12,7 @@ import {
   vibrate,
   useVibrationSupported,
 } from "@/lib/session/device";
+import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
@@ -235,24 +236,14 @@ export function SessionRunner({
         if (settings.restSound) beeper.beep();
         if (settings.restVibrate) vibrate([180, 90, 180]);
         setRestEndsAt(null);
+        // No clearRest here: loadRest drops expired values, so a reload after
+        // the timer reaches 0 will find nothing to restore.
       }
     };
     tick();
     const t = setInterval(tick, 250);
     return () => clearInterval(t);
   }, [restEndsAt, beeper, settings.restSound, settings.restVibrate]);
-
-  const startRest = useCallback((seconds: number) => {
-    setRestEndsAt(Date.now() + seconds * 1000);
-    /*
-      Seeded here rather than left to the effect's first tick. The panel renders
-      on `restEndsAt`, and effects run after paint, so the frame between logging
-      a set and the effect firing showed the rest panel reading 0:00 before it
-      jumped to the full rest -- a timer that appears to have already finished.
-      The remaining time at the moment a rest starts is exactly `seconds`.
-    */
-    setRestRemaining(seconds);
-  }, []);
 
   // Fresh data on resume: refresh when resuming or navigating back
   useResumeRefresh();
@@ -290,6 +281,37 @@ export function SessionRunner({
 
   const current = exercises[exerciseIndex];
   const restSeconds = settings.restOverrideSeconds ?? current?.restSeconds ?? 90;
+
+  // Stable restore callback that seeds both restEndsAt and restRemaining
+  const handleRestRestore = useCallback((endsAt: number) => {
+    setRestEndsAt(endsAt);
+    setRestRemaining(Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)));
+  }, []);
+
+  const restPersistence = useRestPersistence(
+    sessionId,
+    current?.id,
+    handleRestRestore,
+    Date.now,
+  );
+
+  const startRest = useCallback((seconds: number) => {
+    const endsAt = Date.now() + seconds * 1000;
+    setRestEndsAt(endsAt);
+    /*
+      Seeded here rather than left to the effect's first tick. The panel renders
+      on `restEndsAt`, and effects run after paint, so the frame between logging
+      a set and the effect firing showed the rest panel reading 0:00 before it
+      jumped to the full rest -- a timer that appears to have already finished.
+      The remaining time at the moment a rest starts is exactly `seconds`.
+    */
+    setRestRemaining(seconds);
+    
+    // Persist to sessionStorage so it survives a reload
+    if (current) {
+      restPersistence.save(current.id, endsAt);
+    }
+  }, [current, restPersistence]);
 
   // Close the swap sheet when the active exercise changes
   useEffect(() => {
@@ -474,6 +496,7 @@ export function SessionRunner({
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
               );
+              restPersistence.clear();
               setPhase("done");
             }}
           >
@@ -485,6 +508,7 @@ export function SessionRunner({
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
               );
+              restPersistence.clear();
               setPhase("done");
             }}
           >
@@ -740,6 +764,7 @@ export function SessionRunner({
       ),
     );
     setRestEndsAt(null);
+    restPersistence.clear();
   }
 
   async function onFinishExercise(feel: Feel | null, skipped = false) {
@@ -780,6 +805,7 @@ export function SessionRunner({
       ),
     );
     setRestEndsAt(null);
+    restPersistence.clear();
 
     const next = exercises.findIndex((e, i) => i > exerciseIndex && e.status === "pending");
     setBannerFor(next === -1 ? null : next);
@@ -848,7 +874,10 @@ export function SessionRunner({
               {formatClock(restRemaining)}
             </span>
             <button
-              onClick={() => setRestEndsAt(null)}
+              onClick={() => {
+                setRestEndsAt(null);
+                restPersistence.clear();
+              }}
               className="rounded-lg px-3 py-1.5 text-sm text-accent underline"
             >
               Skip
@@ -1101,6 +1130,7 @@ export function SessionRunner({
             disabled={busy}
             onClick={async () => {
               if (await run(() => actions.abandonSession(sessionId, elapsed))) {
+                restPersistence.clear();
                 if (onExit) onExit();
                 else router.push("/today");
               }
