@@ -176,24 +176,23 @@ m1b() {
 }
 test_mutant "M1b: snap UP instead of DOWN" m1b
 
-# M1c: Remove clamp to currentWeight (allow exceeding current)
+# M1c: Remove hold when reduced === weightToBackOffFrom (allow back-off to exceed current)
 m1c() {
   local file="$PROG"
-  # Find the section that checks reduced >= currentWeight and removes the hold logic
   local count
-  count=$(grep -Fc 'if (reduced >= currentWeight) {' "$file" || true)
+  count=$(grep -Fc 'if (reduced === weightToBackOffFrom) {' "$file" || true)
   if [ "$count" -ne 1 ]; then
-    echo "ERROR: clamp pattern found $count times (expected 1)" >&2
+    echo "ERROR: hold pattern found $count times (expected 1)" >&2
     return 1
   fi
-  # Replace the entire if block that holds when reduced >= currentWeight
-  perl -0pi -e 's/if \(reduced >= currentWeight\) \{\s*const holdMessage[^}]+\}\s*return \{[^}]+outcome: "hold",[^}]+\};\s*\}/\/\/ MUTANT: clamp removed/' "$file"
+  # Replace the entire if block that holds when reduced === weightToBackOffFrom
+  perl -0pi -e 's/\/\/ If helper returned same weight.*?if \(reduced === weightToBackOffFrom\) \{.*?return \{[^}]+outcome: "hold",[^}]+\};\s*\}/\/\/ MUTANT: hold removed/s' "$file"
   if cmp -s "$file" "$BACKUP_PROG"; then
     echo "ERROR: M1c did not change the file" >&2
     return 1
   fi
 }
-test_mutant "M1c: no clamp to current weight" m1c
+test_mutant "M1c: no hold when back-off unchanged" m1c
 
 # C1: One-step cap removed (allow multi-step)
 c1() {
@@ -230,12 +229,12 @@ test_mutant "Success check ignores stored target" c2
 c3() {
   local file="$PROG"
   local count
-  count=$(grep -Fc "const twoMissFloor = computeTwoMissResult(currentWeight);" "$file" || true)
+  count=$(grep -Fc "const twoMissFloor = computeTwoMissResult(currentWeight, false);" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Rule 2 pattern found $count times (expected 1)" >&2
     return 1
   fi
-  perl -0pi -e "s/(const twoMissFloor = computeTwoMissResult\(currentWeight\);\n\s*if \(candidateWeight < twoMissFloor\) \{\n\s*)candidateWeight = currentWeight;\n(\s*)holdReason = 'twomiss';/\$1\/\/ MUTANT: Rule 2 hold removed\n\$2void 0;/" "$file"
+  perl -0pi -e "s/(const twoMissFloor = computeTwoMissResult\(currentWeight, false\);.*?if \(candidateWeight < twoMissFloor\) \{\n\s*)candidateWeight = currentWeight;\n(\s*)holdReason = 'twomiss';/\$1\/\/ MUTANT: Rule 2 hold removed\n\$2void 0;/s" "$file"
   if cmp -s "$file" "$BACKUP_PROG"; then
     echo "ERROR: C3 did not change the file" >&2
     return 1
@@ -260,56 +259,55 @@ test_mutant "Disable Rule 1 (20% threshold)" c4
 # U1: actions.ts doesn't pass applyProgression to finishExerciseCore
 u1() {
   local file="$ACTIONS"
-  local search='applyProgression,'
-  local replace='applyProgression: async () => null,'
+  local search='{ applyProgression }'
+  local replace='{ applyProgression: async () => null }'
   local count=$(grep -c "$search" "$file" || true)
   if [ "$count" -lt 1 ]; then
     echo "ERROR: Pattern '$search' not found" >&2
     return 1
   fi
-  sed -i "0,/$search/s/$search/$replace/" "$file"
+  sed -i "s/{ applyProgression }/$replace/" "$file"
 }
 test_mutant "U1: applyProgression not passed" u1
 
 # C4-bodyweight: isBodyweight always false
 c4_bodyweight() {
   local file="$BUILD_INPUT"
-  local search='isBodyweight: ex.equipment_ids.length === 0,'
+  local search='isBodyweight: (ex.equipment_ids ?? []).length === 0,'
   local replace='isBodyweight: false,'
-  local count=$(grep -Fc "$search" "$file" || true)
+  local count=$(grep -Fc "isBodyweight: (ex.equipment_ids ?? []).length === 0," "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "s/$search/$replace/" "$file"
+  sed -i "s/isBodyweight: (ex\\.equipment_ids ?? \\[\\])\\.length === 0,/$replace/" "$file"
 }
 test_mutant "C4: isBodyweight always false" c4_bodyweight
 
 # MSG: Remove bodyweight zero protection
 msg() {
   local file="$PROG"
-  local search='if (currentWeight === 0 || currentWeight === null) {'
-  local replace='if (currentWeight === null) {'
+  local search='currentWeight === 0 || meta.isBodyweight'
+  local replace='meta.isBodyweight'
   local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "s/currentWeight === 0 || //" "$file"
+  sed -i "s/currentWeight === 0 || meta\\.isBodyweight/meta.isBodyweight/" "$file"
 }
 test_mutant "MSG: remove 'currentWeight === 0' check" msg
 
-# SWAP: swap-prefill passes undefined equipmentIds
+# SWAP: swap-prefill passes undefined equipmentIds  
 swap_prefill() {
   local file="src/lib/session/swap-prefill.ts"
-  local search='isBodyweight ? undefined : equipmentIds,'
-  local replace='undefined,'
-  local count=$(grep -Fc "$search" "$file" || true)
+  local search='isBodyweight ? undefined : equipmentIds'
+  local count=$(grep -c "$search" "$file" || true)
   if [ "$count" -ne 2 ]; then
     echo "ERROR: Pattern found $count times (expected 2)" >&2
     return 1
   fi
-  sed -i "s/$search/$replace/g" "$file"
+  sed -i "s/isBodyweight ? undefined : equipmentIds/undefined/g" "$file"
 }
 test_mutant "SWAP: undefined equipmentIds in swap-prefill" swap_prefill
 
@@ -323,7 +321,8 @@ med3() {
     echo "ERROR: MED-3 pattern found $count times (expected 1)" >&2
     return 1
   fi
-  perl -0pi -e 's/\/\/ MED-3: Third\+ consecutive miss.*?if \(failures >= 3 && reduced === currentWeight && equipmentIds\) \{.*?\n.*?\n.*?\n.*?\n.*?if \(stepped < currentWeight\) \{.*?return \{[^}]+\};\s*\}\s*\}/\/\/ MUTANT: MED-3 removed/s' "$file"
+  # Remove the MED-3 block by replacing it with a comment
+  perl -0pi -e 's/\s*\/\/ MED-3: Third\+ consecutive miss[^\n]*\n\s*if \(failures >= 3 && reduced === currentWeight && equipmentIds\) \{[^}]*\{[^}]*\}[^}]*\}/\n    \/\/ MUTANT: MED-3 removed/s' "$file"
   if cmp -s "$file" "$BACKUP_PROG"; then
     echo "ERROR: MED-3 did not change the file" >&2
     return 1
