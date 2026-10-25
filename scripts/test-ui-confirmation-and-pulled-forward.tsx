@@ -16,7 +16,7 @@ Object.defineProperty(global, "document", { value: dom.window.document, writable
 Object.defineProperty(global, "HTMLElement", { value: dom.window.HTMLElement, writable: true, configurable: true });
 
 import { render, cleanup, act } from "@testing-library/react";
-import { DayPlanChoosingOptions, DayPlanPrompt } from "../src/components/day-plan-prompt-ui";
+import { DayPlanChoosingOptions } from "../src/components/day-plan-prompt-ui";
 import type { PlannableDay } from "../src/app/session/actions";
 import React from "react";
 
