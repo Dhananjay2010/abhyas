@@ -637,7 +637,7 @@ async function testN12() {
     }
   ]));
   
-  const { container } = render(
+  render(
     <SessionRunner
       sessionId="session-n12"
       sessionStatus="in_progress"

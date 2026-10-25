@@ -42,8 +42,9 @@ import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-u
 import { registerFocusRetry } from "@/lib/session/focus-retry";
 import { getPendingCountForExercise } from "@/lib/session/pending-count";
 import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
-import { resolveSetConflict } from "@/lib/session/conflict-reducer";
+import { resolveSetConflict, type ConflictResult } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
+import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
 import { nextSetTarget, pickCurrentExerciseIndex } from "@/lib/session/resume-state";
 
@@ -321,7 +322,7 @@ export function SessionRunner({
         };
       });
     });
-  }, [pendingSetState.replayed]);
+  }, [pendingSetState.replayed, setExercises]);
 
   // ---- rest timer -------------------------------------------------------
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
@@ -756,45 +757,39 @@ export function SessionRunner({
     weightKg: number | null,
     durationSeconds: number | null = null,
   ) {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    setBusy(true);
-
     if (!controller) {
-      busyRef.current = false;
-      setBusy(false);
       setError("Controller not initialized");
       return;
     }
 
     const target = nextSetTarget(exercises, displayedExerciseId);
-    if (!target) {
-      busyRef.current = false;
-      setBusy(false);
-      return;
-    }
+    if (!target) return;
 
     const clientId = `${target.sessionExerciseId}:${target.setNumber}:${Date.now()}`;
 
-    try {
-      const result = await controller.submit({
-        sessionExerciseId: target.sessionExerciseId,
-        setNumber: target.setNumber,
-        reps,
-        weightKg,
-        durationSeconds,
-        clientId,
-      });
+    await createConcurrentGuard(async () => {
+      setBusy(true);
+      try {
+        const result = await controller.submit({
+          sessionExerciseId: target.sessionExerciseId,
+          setNumber: target.setNumber,
+          reps,
+          weightKg,
+          durationSeconds,
+          clientId,
+        });
 
-      if (result.status === "saved") {
-        if ("reason" in result && result.reason === "set_exists") {
-          const conflictResult = { ok: false as const, reason: "set_exists" as const, savedSets: result.savedSets };
-          const resolution = resolveSetConflict(exercises, target.sessionExerciseId, exerciseIndex, conflictResult);
-          setExercises((prev) => resolveSetConflict(prev, target.sessionExerciseId, exerciseIndex, conflictResult).exercises);
-          setExerciseIndex(resolution.nextExerciseIndex);
-          setMessage(resolution.message);
-          setError(null);
-        } else {
+        if (result.status === "saved") {
+          if ("reason" in result && result.reason === "set_exists") {
+            const conflictResult: ConflictResult = { ok: false, reason: "set_exists", savedSets: result.savedSets };
+            const resolution = resolveSetConflict(exercises, target.sessionExerciseId, exerciseIndex, conflictResult);
+            setExercises((prev) => resolveSetConflict(prev, target.sessionExerciseId, exerciseIndex, conflictResult).exercises);
+            setExerciseIndex(resolution.nextExerciseIndex);
+            setMessage(resolution.message);
+            setError(null);
+            return;
+          }
+          
           setError(null);
           setMessage(null);
           setExercises((prev) =>
@@ -807,21 +802,22 @@ export function SessionRunner({
                 : e,
             ),
           );
+          
+          const current = exercises[exerciseIndex];
+          if (settings.restAutostart && target.setNumber < current.plannedSets) {
+            startRest(restSeconds);
+          }
+        } else if (result.status === "expired") {
+          setError(null);
+        } else if (result.status === "failed") {
+          setError(result.error);
         }
-        if (settings.restAutostart && target.setNumber < current.plannedSets) {
-          startRest(restSeconds);
-        }
-      } else if (result.status === "expired") {
-        setError(null);
-      } else if (result.status === "failed") {
-        setError(result.error);
+      } catch (err) {
+        setError(runnerErrorMessage(err));
+      } finally {
+        setBusy(false);
       }
-    } catch (err) {
-      setError(runnerErrorMessage(err));
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
-    }
+    }, busyRef)();
   }
 
   /** Remove the most recently logged set, so a mistyped one can be corrected. */
