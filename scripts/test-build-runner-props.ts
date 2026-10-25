@@ -23,13 +23,12 @@ function assert(condition: boolean, message: string) {
 
 console.log("\n🧪 Test N6/N6s: buildRunnerProps extracts userId and sessionStatus\n");
 
-const mockSession: any = {
+const mockSession = {
   id: "session-123",
   user_id: "user-456",
-  status: "in_progress",
+  status: "in_progress" as const,
   created_at: "2026-01-01",
-  // ... other fields
-};
+} as const;
 
 const mockUser = {
   id: "user-456",
