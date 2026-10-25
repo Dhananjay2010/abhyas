@@ -29,6 +29,7 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
+import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -768,45 +769,20 @@ export async function findAlternatives(
   return { ok: true, data: alternatives };
 }
 
-/**
- * Fetch progress data for a swapped exercise.
- * Respects planning_mode: returns null for daily_menu mode.
- * 
- * @param supabase - Supabase client
- * @param userId - User ID to filter by
- * @param exerciseId - Exercise ID to fetch progress for
- * @param planningMode - Planning mode from user_settings
- * @returns Progress data or null
- */
-export async function fetchSwapProgress(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  userId: string,
-  exerciseId: string,
-  planningMode: string | null,
-): Promise<{ current_target_reps: number | null; current_working_weight_kg: number | null } | null> {
-  const remembersWeights = planningMode !== "daily_menu";
-  if (!remembersWeights) return null;
-  
-  const { data } = await supabase
-    .from("exercise_progress")
-    .select("current_target_reps, current_working_weight_kg")
-    .eq("user_id", userId)
-    .eq("exercise_id", exerciseId)
-    .maybeSingle();
-  
-  return data;
-}
-
 /** What the runner needs to redraw the exercise after a swap. */
 export type SwapResult = {
   metric: Database["public"]["Enums"]["exercise_metric"];
   repsMin: number | null;
   repsMax: number | null;
   equipmentIds: string[];
-  /** Progress data for the replacement exercise (null if no row exists) */
-  currentTargetReps?: number | null;
-  currentWorkingWeightKg?: number | null;
+  weightPrefill: number | null;
+  workingWeightKg: number | null;
+  isBodyweight: boolean;
+  /** Added for #127: stored target reps for target resolution */
+  currentTargetReps: number | null;
+  /** Added for #127: keep plan range separate from display target */
+  plannedRepsMin: number | null;
+  plannedRepsMax: number | null;
 };
 
 export async function swapExercise(input: {
@@ -818,10 +794,10 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes, settingsRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes] = await Promise.all([
     supabase
       .from("session_exercises")
-      .select("exercise_id, metric, planned_reps_min, planned_reps_max")
+      .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
       .eq("id", input.sessionExerciseId)
       .maybeSingle(),
     /*
@@ -833,14 +809,15 @@ export async function swapExercise(input: {
       equipment_ids is also needed: when the session loads, isBodyweight is 
       derived from whether equipment_ids is empty, and without it here a barbell
       exercise swapped in would show "Added weight (kg)" instead of "Weight (kg)".
+      
+      movement_pattern is needed for swap prefill via suggestedWeight (#125).
     */
     supabase
       .from("exercises")
-      .select("metric, mechanic, equipment_ids")
+      .select("metric, mechanic, equipment_ids, movement_pattern")
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
-    supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
   ]);
 
   const current = currentRes.data;
@@ -850,13 +827,17 @@ export async function swapExercise(input: {
   const metric = metricOf(replacement);
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
-  
-  // Fetch progress data using extracted function
-  const progress = await fetchSwapProgress(
+
+  // #125: Resolve weight prefill and working weight for the swapped-in exercise
+  // #127: Extended to also return current_target_reps for target resolution
+  const { weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = await resolveSwapWeights(
     supabase,
     user.id,
+    current.session_id,
     input.newExerciseId,
-    settingsRes.data?.planning_mode ?? null,
+    equipmentIds,
+    metric,
+    replacement?.movement_pattern ?? "other",
   );
 
   /*
@@ -907,8 +888,14 @@ export async function swapExercise(input: {
           repsMin, 
           repsMax, 
           equipmentIds,
-          currentTargetReps: progress?.current_target_reps ?? null,
-          currentWorkingWeightKg: progress?.current_working_weight_kg ?? null,
+          // #125: weight prefill and working weight
+          weightPrefill,
+          workingWeightKg,
+          isBodyweight,
+          // #127: stored target reps and plan range
+          currentTargetReps,
+          plannedRepsMin: repsMin,
+          plannedRepsMax: repsMax,
         } 
       };
 }

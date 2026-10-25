@@ -16,7 +16,8 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
-import { applySwap } from "@/lib/session/build-runner-exercises";
+import { applySwapResult } from "@/lib/session/apply-swap";
+import { applySwapTarget } from "@/lib/session/apply-swap-target";
 import {
   abandonSession,
   deleteSet,
@@ -964,48 +965,24 @@ export function SessionRunner({
                         if (!ok || !box.value) return;
                         const swapped = box.value;
                         
-                        // M-5: Use pure applySwap function with progress from server
-                        // Server already filtered progress based on remembersWeights (planning_mode)
-                        const swappedProgress =
-                          swapped.currentTargetReps !== undefined || swapped.currentWorkingWeightKg !== undefined
-                            ? {
-                                current_target_reps: swapped.currentTargetReps ?? null,
-                                current_working_weight_kg: swapped.currentWorkingWeightKg ?? null,
-                              }
-                            : undefined;
-                        
-                        const swappedData = {
-                          id: a.exerciseId,
-                          name: a.name,
-                          cue: a.cue,
-                          metric: swapped.metric,
-                          primary_muscles: current.primaryMuscles,
-                          equipment_ids: swapped.equipmentIds ?? [],
-                        };
-                        
-                        const replacementPlan = {
-                          repsMin: swapped.repsMin,
-                          repsMax: swapped.repsMax,
-                        };
-                        
-                        const updated = applySwap(current, swappedData, replacementPlan, swappedProgress, true);
-                        
-                        setExercises((prev) =>
-                          prev.map((e) =>
+                        // #125: Apply swap result (weights, basic fields)
+                        // Then #127: resolve display targets using stored progression
+                        setExercises((prev) => {
+                          // First apply #125's swap result
+                          const afterSwap = applySwapResult(prev, current.id, {
+                            ...swapped,
+                            exerciseId: a.exerciseId,
+                            name: a.name,
+                            cue: a.cue,
+                          }) as RunnerExercise[];
+                          
+                          // Then apply #127's target resolution
+                          return afterSwap.map((e) =>
                             e.id === current.id
-                              ? {
-                                  ...updated,
-                                  // Keep unchanged fields from current exercise
-                                  plannedSets: current.plannedSets,
-                                  restSeconds: current.restSeconds,
-                                  status: current.status,
-                                  feel: current.feel,
-                                  sets: current.sets,
-                                  lastLoggedAt: current.lastLoggedAt,
-                                }
-                              : e,
-                          ),
-                        );
+                              ? applySwapTarget(e, swapped.equipmentIds, swapped.currentTargetReps)
+                              : e
+                          );
+                        });
                         setAlternatives(null);
                       }}
                       className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent disabled:opacity-60"
