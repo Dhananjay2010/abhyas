@@ -3,7 +3,10 @@
  * An "answer" is any choice made for today: Rest, Yoga, Breathing, Keep, or Swap.
  */
 
-import { ownsPlannedWorkout, type SessionType } from "@/lib/progress/training-days";
+import { ownsPlannedWorkout } from "@/lib/progress/training-days";
+import type { Database } from "@/lib/database.types";
+
+type SessionType = Database["public"]["Enums"]["day_type"];
 
 export interface TodaySession {
   status: string;
