@@ -108,6 +108,9 @@ console.log('\n6. roundToEquipmentGrid - pin-stack machines (5 kg / 10 lb)');
   
   check('105 lb tie → 100 lb (down)', roundToEquipmentGrid(105, ['lat_pulldown'], 'lb') === 100);
   check('107 lb → 110 lb (nearest)', roundToEquipmentGrid(107, ['lat_pulldown'], 'lb') === 110);
+  
+  check('machine_generic 52 kg → 50 kg', roundToEquipmentGrid(52, ['machine_generic'], 'kg') === 50);
+  check('machine_generic 107 lb → 110 lb', roundToEquipmentGrid(107, ['machine_generic'], 'lb') === 110);
 }
 
 console.log('\n6a. roundToEquipmentGrid - plate-loaded machines (2.5 kg / 5 lb)');
@@ -280,6 +283,7 @@ console.log('\n11. roundToEquipmentGrid - multi-equipment precedence');
   
   // Mixed: bodyweight + loadable uses loadable grid
   check('bodyweight + dumbbell uses dumbbell grid', roundToEquipmentGrid(21, ['bodyweight', 'dumbbell'], 'kg') === 20);
+  check('dip_bars + machine_generic uses machine grid', roundToEquipmentGrid(52, ['dip_bars', 'machine_generic'], 'kg') === 50);
   check('kettlebell + dumbbell: kettlebell takes precedence', roundToEquipmentGrid(7, ['kettlebell', 'dumbbell'], 'kg') === 6);
   
   // Non-loadable + loadable: loadable takes precedence
@@ -459,7 +463,7 @@ console.log('\n16. stepFor and gridStepFor NEVER return 0 (stepper safety)');
     'weight_plate', 'dip_belt',
     'leg_curl', 'leg_extension',
     'chest_press_machine', 'pec_deck', 'lat_pulldown',
-    'seated_row_machine', 'shoulder_press_machine',
+    'seated_row_machine', 'shoulder_press_machine', 'machine_generic',
     'smith_machine', 'leg_press', 'hack_squat',
     // Non-loadable equipment
     'bodyweight', 'pull_up_bar', 'dip_bars',

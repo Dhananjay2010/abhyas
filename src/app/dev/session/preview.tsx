@@ -48,36 +48,8 @@ const STUB: SessionActions = {
   */
   swapExercise: async (input: { newExerciseId: string }) =>
     input.newExerciseId === "alt3"
-      ? ({ 
-          ok: true as const, 
-          data: { 
-            metric: "seconds" as const, 
-            repsMin: 20, 
-            repsMax: 40, 
-            equipmentIds: [],
-            weightPrefill: null,
-            workingWeightKg: null,
-            isBodyweight: true,
-            currentTargetReps: 35,
-            plannedRepsMin: 20,
-            plannedRepsMax: 40,
-          } 
-        })
-      : ({ 
-          ok: true as const, 
-          data: { 
-            metric: "reps" as const, 
-            repsMin: 8, 
-            repsMax: 12, 
-            equipmentIds: ["dumbbells"],
-            weightPrefill: 15,
-            workingWeightKg: 20,
-            isBodyweight: false,
-            currentTargetReps: 10,
-            plannedRepsMin: 8,
-            plannedRepsMax: 12,
-          } 
-        }),
+      ? ({ ok: true as const, data: { metric: "seconds" as const, repsMin: 20, repsMax: 40, equipmentIds: [] } })
+      : ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [] } }),
   findAlternatives: async () => ({
     ok: true as const,
     data: [

@@ -11,7 +11,7 @@ export type WeightUnit = 'kg' | 'lb';
 const PIN_STACK_MACHINE_IDS: readonly string[] = [
   'leg_curl', 'leg_extension',
   'chest_press_machine', 'pec_deck', 'lat_pulldown',
-  'seated_row_machine', 'shoulder_press_machine',
+  'seated_row_machine', 'shoulder_press_machine', 'machine_generic',
 ];
 
 /**

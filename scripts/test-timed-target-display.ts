@@ -65,7 +65,7 @@ const EXPECTED_LOADABLE = new Set([
   'barbell', 'ez_bar', 'trap_bar', 'dumbbell', 'kettlebell', 'weight_plate',
   // Machines (pin-stack or plate-loaded)
   'smith_machine', 'leg_press', 'hack_squat', 'leg_curl', 'leg_extension',
-  'chest_press_machine', 'pec_deck', 'lat_pulldown', 'seated_row_machine', 'shoulder_press_machine',
+  'chest_press_machine', 'pec_deck', 'lat_pulldown', 'seated_row_machine', 'shoulder_press_machine', 'machine_generic',
   // Cable
   'cable_machine',
   // Accessories with load
@@ -562,5 +562,57 @@ const mutantSwap = applySwap(
 check("Mutant test: plan uses replacementPlan not exercise.repsMin", mutantSwap.repsMin === 6);
 check("Mutant test: plan uses replacementPlan not exercise.repsMax", mutantSwap.repsMax === 10);
 
-console.log(`\n${passed} passed, ${failed} failed`);
-if (failed > 0) process.exit(1);
+// ============================================================================
+// Part 8: fetchSwapProgress behavioral test with fake client
+// ============================================================================
+console.log("\n--- Part 8: fetchSwapProgress behavioral test ---\n");
+
+import { fetchSwapProgress } from "../src/app/session/actions.js";
+
+(async () => {
+  // Fake client that tracks method calls
+  const fakeCalls: string[] = [];
+  const fakeClient = {
+    from: (table: string) => {
+      fakeCalls.push(`from:${table}`);
+      return {
+        select: (columns: string) => {
+          fakeCalls.push(`select:${columns}`);
+          return {
+            eq: (column: string, value: string) => {
+              fakeCalls.push(`eq:${column}=${value}`);
+              return {
+                eq: (column: string, value: string) => {
+                  fakeCalls.push(`eq:${column}=${value}`);
+                  return {
+                    maybeSingle: async () => {
+                      fakeCalls.push("maybeSingle");
+                      return { data: { current_target_reps: 16, current_working_weight_kg: 60 } };
+                    },
+                  };
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  // Test: normal mode includes user_id filter
+  fakeCalls.length = 0;
+  await fetchSwapProgress(fakeClient, "user-123", "ex-pushup", "structured");
+  check("fetchSwapProgress calls .from('exercise_progress')", fakeCalls.includes("from:exercise_progress"));
+  check("fetchSwapProgress calls .eq('user_id', userId)", fakeCalls.includes("eq:user_id=user-123"));
+  check("fetchSwapProgress calls .eq('exercise_id', exerciseId)", fakeCalls.includes("eq:exercise_id=ex-pushup"));
+  check("fetchSwapProgress calls .maybeSingle()", fakeCalls.includes("maybeSingle"));
+
+  // Test: daily_menu mode returns null without querying
+  fakeCalls.length = 0;
+  const dailyMenuResult = await fetchSwapProgress(fakeClient, "user-123", "ex-pushup", "daily_menu");
+  check("fetchSwapProgress with daily_menu returns null", dailyMenuResult === null);
+  check("fetchSwapProgress with daily_menu does not query", fakeCalls.length === 0);
+
+  console.log(`\n${passed} passed, ${failed} failed`);
+  if (failed > 0) process.exit(1);
+})();

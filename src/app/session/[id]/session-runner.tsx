@@ -16,7 +16,6 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
-import { applySwapResult } from "@/lib/session/apply-swap";
 import { applySwapTarget } from "@/lib/session/apply-swap-target";
 import {
   abandonSession,
@@ -965,24 +964,36 @@ export function SessionRunner({
                         if (!ok || !box.value) return;
                         const swapped = box.value;
                         
-                        // #125: Apply swap result (weights, basic fields)
-                        // Then #127: resolve display targets using stored progression
-                        setExercises((prev) => {
-                          // First apply #125's swap result
-                          const afterSwap = applySwapResult(prev, current.id, {
-                            ...swapped,
-                            exerciseId: a.exerciseId,
-                            name: a.name,
-                            cue: a.cue,
-                          }) as RunnerExercise[];
-                          
-                          // Then apply #127's target resolution
-                          return afterSwap.map((e) =>
-                            e.id === current.id
-                              ? applySwapTarget(e, swapped.equipmentIds, swapped.currentTargetReps)
-                              : e
-                          );
-                        });
+                        // Apply main's swap update, then #127's target resolution
+                        setExercises((prev) =>
+                          prev.map((e) => {
+                            if (e.id !== current.id) return e;
+                            
+                            // Main's inline update
+                            const updated = {
+                              ...e,
+                              name: a.name,
+                              cue: a.cue,
+                              exerciseId: a.exerciseId,
+                              metric: swapped.metric,
+                              repsMin: swapped.repsMin ?? e.repsMin,
+                              repsMax: swapped.repsMax ?? e.repsMax,
+                            };
+                            
+                            // #127: Apply target resolution if we have progress data
+                            if (swapped.currentTargetReps !== undefined || swapped.currentWorkingWeightKg !== undefined) {
+                              return applySwapTarget(updated, {
+                                equipmentIds: swapped.equipmentIds,
+                                currentTargetReps: swapped.currentTargetReps,
+                                currentWorkingWeightKg: swapped.currentWorkingWeightKg,
+                                plannedRepsMin: swapped.repsMin ?? e.repsMin,
+                                plannedRepsMax: swapped.repsMax ?? e.repsMax,
+                              });
+                            }
+                            
+                            return updated;
+                          }),
+                        );
                         setAlternatives(null);
                       }}
                       className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent disabled:opacity-60"
