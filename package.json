@@ -285,6 +285,7 @@
     "test:units-kg-lb-conversion": "tsx scripts/test-units-conversion.tsx",
     "test:units-runner-render": "tsx scripts/test-units-runner-render.tsx",
     "test:units-settings-toggle": "tsx scripts/test-units-settings-toggle.tsx",
+    "test:units-onboarding-picker": "tsx scripts/test-units-onboarding-picker.tsx",
     "test:unloaded-target-rules": "tsx scripts/test-unloaded-target-rules.tsx",
     "test:unrecognized-stash-cleanup": "tsx scripts/test-unrecognized-stash-cleanup.tsx",
     "test:update-session-core": "tsx scripts/test-update-session-core.ts",
