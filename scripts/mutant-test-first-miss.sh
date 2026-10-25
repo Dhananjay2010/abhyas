@@ -11,18 +11,51 @@ BACKUP=$(mktemp)
 FAILED=0
 SURVIVORS=()
 SKIPPED=()
-
-cleanup() {
-  if [ -f "$BACKUP" ]; then
-    cp "$BACKUP" "$FILE"
-    rm -f "$BACKUP"
-  fi
-}
-
-trap cleanup EXIT INT TERM
+MUTATION_APPLIED=false
 
 echo "=== Mutant Testing: First-Miss Hold Guard ==="
 echo
+
+# Back up original BEFORE setting any trap
+cp "$FILE" "$BACKUP"
+
+# Verify backup exists, is non-empty, and is byte-identical
+if [ ! -f "$BACKUP" ]; then
+  echo "❌ ERROR: Backup file not created"
+  exit 1
+fi
+
+if [ ! -s "$BACKUP" ]; then
+  echo "❌ ERROR: Backup file is empty"
+  rm -f "$BACKUP"
+  exit 1
+fi
+
+if ! cmp -s "$FILE" "$BACKUP"; then
+  echo "❌ ERROR: Backup is not byte-identical to original"
+  rm -f "$BACKUP"
+  exit 1
+fi
+
+cleanup() {
+  if [ ! -f "$BACKUP" ]; then
+    echo "⚠️  WARNING: Backup file missing, cannot restore"
+    return
+  fi
+  
+  if [ ! -s "$BACKUP" ]; then
+    echo "⚠️  WARNING: Backup file is empty, refusing to restore"
+    return
+  fi
+  
+  if [ "$MUTATION_APPLIED" = true ]; then
+    cp "$BACKUP" "$FILE"
+  fi
+  
+  rm -f "$BACKUP"
+}
+
+trap cleanup EXIT INT TERM
 
 # Baseline: run tests
 echo "Running baseline tests..."
@@ -32,9 +65,6 @@ if ! npm run test:first-miss-pinned > /dev/null 2>&1; then
 fi
 echo "✓ Baseline tests pass"
 echo
-
-# Back up original
-cp "$FILE" "$BACKUP"
 
 run_mutant() {
   local name="$1"
@@ -75,15 +105,18 @@ MUTATE_SCRIPT
   if [ $NODE_EXIT -ne 0 ]; then
     echo "  ❌ SKIPPED: String replacement failed"
     SKIPPED+=("$name: replacement failed")
-    cp "$BACKUP" "$FILE"
     return 0
   fi
+  
+  # Mark that mutation was applied
+  MUTATION_APPLIED=true
   
   # Verify file changed
   if cmp -s "$FILE" "$BACKUP"; then
     echo "  ❌ SKIPPED: File did not change"
     SKIPPED+=("$name: file unchanged")
     cp "$BACKUP" "$FILE"
+    MUTATION_APPLIED=false
     return 0
   fi
   
@@ -92,6 +125,7 @@ MUTATE_SCRIPT
     echo "  ❌ SKIPPED: Does not compile"
     SKIPPED+=("$name: does not compile")
     cp "$BACKUP" "$FILE"
+    MUTATION_APPLIED=false
     return 0
   fi
   
@@ -106,6 +140,7 @@ MUTATE_SCRIPT
   
   # Restore
   cp "$BACKUP" "$FILE"
+  MUTATION_APPLIED=false
   return 0
 }
 
