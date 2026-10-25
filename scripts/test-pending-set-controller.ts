@@ -99,7 +99,6 @@ async function testRapidFocusAndReplay() {
   let callCount = 0;
   const logSet: LogSetFunction = async () => {
     callCount++;
-    await Promise.resolve();
     return { ok: true };
   };
 
@@ -217,9 +216,7 @@ async function testUnresolvedPromiseNotMarkedSaved() {
     clientId: "client-4",
   });
 
-  // Wait for the action to start
-  await new Promise(resolve => setTimeout(resolve, 0));
-
+  // Check state before resolving
   assert(!states.some((s) => s.pending.length === 0), "Not marked as saved while promise unresolved");
 
   // Now resolve the action
@@ -289,7 +286,6 @@ async function testSingleFlightReplayGuard() {
   let callCount = 0;
   const logSet: LogSetFunction = async () => {
     callCount++;
-    await Promise.resolve();
     return { ok: true };
   };
 

@@ -52,7 +52,6 @@ export type SetConflictResult = {
   }>;
 };
 
-
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");

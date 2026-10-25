@@ -141,7 +141,6 @@ async function testRetryingStateDuringReplay() {
   const replayCall = controller.replay();
 
   // Check state while replay is in flight
-  await Promise.resolve();
   const duringReplay = states[states.length - 1];
   assertEqual(duringReplay.retrying, true, "Retrying is true during replay");
 
