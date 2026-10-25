@@ -84,8 +84,8 @@ console.log("\n=== Test 3: Before program start ===\n");
 // View a date before started_on (edge case)
 const window4 = weekWindow(prog0, "2026-10-10");
 assert(
-  window4.start === "2026-10-12",
-  `Before start: clamped to started_on 2026-10-12, got ${window4.start}`
+  window4.start === "2026-10-09",
+  `Before start: includes yesterday (2026-10-09), got ${window4.start}`
 );
 
 console.log(`\n${failed === 0 ? "✅" : "❌"} Passed ${passed}/${passed + failed} week-window tests\n`);
