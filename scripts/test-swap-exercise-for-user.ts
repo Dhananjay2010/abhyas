@@ -1,4 +1,4 @@
-import { swapExerciseForUser, type SwapResult } from "../src/lib/session/swap-exercise-for-user";
+import { swapExerciseForUser } from "../src/lib/session/swap-exercise-for-user";
 import type { Database } from "../src/lib/database.types";
 
 type Metric = Database["public"]["Enums"]["exercise_metric"];

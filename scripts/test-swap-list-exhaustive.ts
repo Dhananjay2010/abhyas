@@ -86,15 +86,24 @@ function createFakeSupabase(
   candidateExercise: CandidateExercise,
   pool: CandidateExercise[],
   sessionSiblings: string[],
-  profile: any,
+  profile: {
+    goal: string;
+    level: string;
+    primary_track: string;
+    days_per_week: number;
+    yoga_days_per_week: number;
+    date_of_birth: string | null;
+    height_cm: number | null;
+    has_all_equipment: boolean;
+  },
   equipmentIds: string[],
-  injuries: any[],
+  injuries: Array<{ body_region: BodyRegion; severity: InjurySeverity }>,
 ) {
   const fakeChain = {
     from: (table: string) => {
       if (table === "session_exercises") {
         return {
-          select: (fields: string) => {
+          select: (_fields: string) => {
             return {
               eq: (column: string, value: unknown) => {
                 // If filtering by session_id, return array of siblings
