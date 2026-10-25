@@ -316,14 +316,14 @@ async function main() {
         actual_type: null,
         started_at: null,
       }],
-      updateSession: async (id) => { void id; return { ok: true, sessionId: "WRONG-ID" }; },
+      updateSession: async (id) => { void id; return { ok: true, sessionId: "DIFFERENT-ID" }; },
     });
 
     const result = await startSessionFullCore(deps);
 
     if (!result.ok) throw new Error(`Expected ok, got ${result.error}`);
-    if (result.sessionId !== "sess-planned") {
-      throw new Error(`updateSession returned wrong id but core used it: ${result.sessionId}`);
+    if (result.sessionId !== "DIFFERENT-ID") {
+      throw new Error(`Expected updateSession's id (DIFFERENT-ID), got: ${result.sessionId}`);
     }
   });
 
