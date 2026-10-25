@@ -332,10 +332,12 @@ async function testFinishSessionNullDurationForNullStartedAt() {
     cooldownCompleted: true,
   });
 
-  assertTrue(result.ok, "finishSession with null started_at should succeed");
+  assertEquals(result.ok, false, "finishSession with null started_at must return error");
+  if (!result.ok) {
+    assertTrue(result.error.includes("invalid timestamps"), "Error message must mention invalid timestamps");
+  }
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
-  assertTrue(updateCall !== undefined, "finishSession must call update");
-  assertEquals(updateCall?.patch?.duration_seconds, null, "duration_seconds === null for null started_at (nullstart)");
+  assertEquals(updateCall, undefined, "finishSession must NOT call update when timestamps invalid");
 }
 
 async function testFinishSessionNullDurationForInvalidStartedAt() {
@@ -364,10 +366,12 @@ async function testFinishSessionNullDurationForInvalidStartedAt() {
     cooldownCompleted: true,
   });
 
-  assertTrue(result.ok, "finishSession with invalid started_at should succeed");
+  assertEquals(result.ok, false, "finishSession with invalid started_at must return error");
+  if (!result.ok) {
+    assertTrue(result.error.includes("invalid timestamps"), "Error message must mention invalid timestamps");
+  }
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
-  assertTrue(updateCall !== undefined, "finishSession must call update");
-  assertEquals(updateCall?.patch?.duration_seconds, null, "duration_seconds === null for invalid started_at (invalidstale)");
+  assertEquals(updateCall, undefined, "finishSession must NOT call update when timestamps invalid");
 }
 
 async function testFinishSessionNullDurationForInvalidLastSetTime() {
@@ -386,10 +390,12 @@ async function testFinishSessionNullDurationForInvalidLastSetTime() {
     cooldownCompleted: true,
   });
 
-  assertTrue(result.ok, "finishSession with invalid lastSet time should succeed");
+  assertEquals(result.ok, false, "finishSession with invalid lastSet time must return error");
+  if (!result.ok) {
+    assertTrue(result.error.includes("invalid timestamps"), "Error message must mention invalid timestamps");
+  }
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
-  assertTrue(updateCall !== undefined, "finishSession must call update");
-  assertEquals(updateCall?.patch?.duration_seconds, null, "duration_seconds === null for invalid lastSet completed_at (nullclamp)");
+  assertEquals(updateCall, undefined, "finishSession must NOT call update when timestamps invalid");
 }
 
 // --- Run all tests ---
