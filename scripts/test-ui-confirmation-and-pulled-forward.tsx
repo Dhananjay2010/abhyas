@@ -13,7 +13,7 @@ const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
   url: "http://localhost",
 });
 global.document = dom.window.document;
-global.window = dom.window as any;
+global.window = dom.window as unknown as Window & typeof globalThis;
 
 import { render } from "@testing-library/react";
 import { DayPlanChoosingOptions } from "../src/components/day-plan-prompt-ui";
