@@ -8,7 +8,7 @@
 import type { WeightUnit } from "@/lib/session/equipment-grid";
 
 export function progressionInputsFromExercise(
-  exercise: { equipment_ids: string[] },
+  exercise: { equipment_ids: readonly string[] },
   userUnits: string | null | undefined,
 ): { equipmentIds?: string[]; unit?: WeightUnit } {
   // No equipment: return empty object (undefined equipmentIds/unit)
@@ -19,7 +19,7 @@ export function progressionInputsFromExercise(
   // Has equipment: return equipmentIds and unit
   const unit: WeightUnit = userUnits === "imperial" ? "lb" : "kg";
   return {
-    equipmentIds: exercise.equipment_ids,
+    equipmentIds: [...exercise.equipment_ids],
     unit,
   };
 }
