@@ -1225,7 +1225,7 @@ export function SessionRunner({
                 setEndEarlyOfflineError(false);
               }}
               onConfirm={async () => {
-                await runEndEarly(
+                const ended = await runEndEarly(
                   {
                     abandonSession: actions.abandonSession,
                     stopElapsed,
@@ -1242,7 +1242,7 @@ export function SessionRunner({
                     setEnding,
                   },
                 );
-                restPersistence.clear();
+                if (ended) restPersistence.clear();
               }}
               disabled={ending}
             />

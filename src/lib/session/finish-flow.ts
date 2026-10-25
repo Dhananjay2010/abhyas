@@ -20,8 +20,8 @@ export async function runEndEarly(
     endingRef: { current: boolean };
     setEnding: (value: boolean) => void;
   },
-): Promise<void> {
-  if (params.endingRef.current) return;
+): Promise<boolean> {
+  if (params.endingRef.current) return false;
   params.endingRef.current = true;
   params.setEnding(true);
 
@@ -37,7 +37,7 @@ export async function runEndEarly(
       deps.setError("Couldn't end the session. Try again.");
       params.endingRef.current = false;
       params.setEnding(false);
-      return;
+      return false;
     }
 
     params.setConfirming(null);
@@ -48,6 +48,7 @@ export async function runEndEarly(
     params.endingRef.current = false;
     params.setEnding(false);
     deps.setPhase("done");
+    return true;
   } catch (err) {
     deps.resumeElapsed();
     if (isNetworkError(err)) {
@@ -59,6 +60,7 @@ export async function runEndEarly(
     }
     params.endingRef.current = false;
     params.setEnding(false);
+    return false;
   }
 }
 

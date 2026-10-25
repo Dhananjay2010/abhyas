@@ -512,8 +512,149 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
   document.body.removeChild(container);
 }
 
-// Test 5: Cool-down Done sends cooldownCompleted=true
-console.log("\n5. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
+// Test 5: Failed end early preserves rest timer in storage
+console.log("\n5. Failed end early preserves rest timer in storage (rest-on-fail)");
+{
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  const clock = createFakeClock(Date.parse("2026-10-25T12:00:00Z"));
+  const mockStorage = new Map<string, string>();
+  const key = "abhyas:rest:session-fail";
+
+  const storageAdapter = {
+    getItem: (k: string) => mockStorage.get(k) ?? null,
+    setItem: (k: string, v: string) => mockStorage.set(k, v),
+    removeItem: (k: string) => mockStorage.delete(k),
+  };
+
+  const origSessionStorage = global.sessionStorage;
+  Object.defineProperty(global, "sessionStorage", {
+    value: storageAdapter,
+    writable: true,
+    configurable: true,
+  });
+  if (typeof window !== "undefined") {
+    Object.defineProperty(window, "sessionStorage", {
+      value: storageAdapter,
+      writable: true,
+      configurable: true,
+    });
+  }
+
+  const fakeActions: SessionActions = {
+    async markWarmupDone() { return { ok: true }; },
+    async logSet() { return { ok: true }; },
+    async deleteSet() { return { ok: true }; },
+    async finishExercise() { return { ok: true, data: null }; },
+    async finishSession() { return { ok: true, data: { status: "completed" } }; },
+    async abandonSession() { return { ok: false, error: "Server error" }; },
+    async findAlternatives() { return { ok: true, data: [] }; },
+    async swapExercise() {
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } };
+    },
+    async planDay() { return { ok: true }; },
+    async refreshAfterSession() { return { ok: true }; },
+  };
+
+  const startedAt = new Date(clock.nowMs() - 60 * 1000).toISOString();
+
+  await act(async () => {
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "session-fail",
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt,
+        isStale: false,
+        warmup: [],
+        cooldown: [],
+        exercises: [{
+          id: "ex-fail",
+          exerciseId: "exercise-id-fail",
+          name: "Bench Press",
+          cue: null,
+          metric: "reps",
+          primaryMuscles: ["chest"],
+          plannedSets: 3,
+          plannedRepsMin: 8,
+          plannedRepsMax: 12,
+          repsMin: 8,
+          repsMax: 12,
+          restSeconds: 120,
+          workingWeightKg: 80,
+          suggestedWeightKg: null,
+          status: "pending",
+          feel: null,
+          sets: [{ setNumber: 1, reps: 10, weightKg: 80, durationSeconds: null }],
+          isBodyweight: false,
+        }],
+        settings: {
+          perSetLogging: false,
+          restAutostart: true,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+        },
+        actions: fakeActions,
+        nowFn: clock.nowMs,
+      })
+    );
+  });
+
+  await act(async () => {});
+
+  mockStorage.set(key, JSON.stringify({
+    sessionId: "session-fail",
+    sessionExerciseId: "ex-fail",
+    restEndsAt: clock.nowMs() + 120000,
+  }));
+
+  check("Rest key exists before failed end", mockStorage.has(key));
+
+  await act(async () => {
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const endButton = buttons.find(b => {
+      const text = b.textContent;
+      return text !== null && text.includes("End session early");
+    });
+    if (endButton) {
+      endButton.click();
+    }
+  });
+
+  await act(async () => {});
+
+  await act(async () => {
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const confirmButton = buttons.find(b => {
+      const text = b.textContent;
+      return text !== null && text.trim() === "End now";
+    });
+    if (confirmButton) {
+      confirmButton.click();
+    }
+  });
+
+  await act(async () => {});
+
+  check("Rest key still exists after failed end", mockStorage.has(key));
+
+  root.unmount();
+  document.body.removeChild(container);
+
+  Object.defineProperty(global, "sessionStorage", {
+    value: origSessionStorage,
+    writable: true,
+    configurable: true,
+  });
+}
+
+// Test 6: Cool-down Done sends cooldownCompleted=true
+console.log("\n6. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
 {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -628,8 +769,8 @@ console.log("\n5. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
   document.body.removeChild(container);
 }
 
-// Test 6: End early confirm with set counts, sends frozen elapsed
-console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-title, endearly, f1c)");
+// Test 7: End early confirm with set counts, sends frozen elapsed
+console.log("\n7. End early confirm with set counts, sends frozen elapsed (w-title, endearly, f1c)");
 {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -772,8 +913,8 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
   document.body.removeChild(container);
 }
 
-// Test 7: Done sends frozen elapsed time
-console.log("\n7. Done sends frozen elapsed time (f1, f2)");
+// Test 8: Done sends frozen elapsed time
+console.log("\n8. Done sends frozen elapsed time (f1, f2)");
 {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -874,8 +1015,8 @@ console.log("\n7. Done sends frozen elapsed time (f1, f2)");
   document.body.removeChild(container);
 }
 
-// Test 8: Double confirm on end early calls abandonSession twice
-console.log("\n8. Double confirm on end early calls abandonSession twice (endearly-double)");
+// Test 9: Double confirm on end early calls abandonSession twice
+console.log("\n9. Double confirm on end early calls abandonSession twice (endearly-double)");
 {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -980,8 +1121,8 @@ console.log("\n8. Double confirm on end early calls abandonSession twice (endear
   document.body.removeChild(container);
 }
 
-// Test 9: Clock resumes after failed end early
-console.log("\n9. Clock resumes after failed end early (endearly-resume)");
+// Test 10: Clock resumes after failed end early
+console.log("\n10. Clock resumes after failed end early (endearly-resume)");
 {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -1097,8 +1238,8 @@ console.log("\n9. Clock resumes after failed end early (endearly-resume)");
   document.body.removeChild(container);
 }
 
-// Test 10: Clock stops, resumes, and freezes when stale
-console.log("\n10. Clock stops, resumes, and freezes when stale (stale-lifecycle)");
+// Test 11: Clock stops, resumes, and freezes when stale
+console.log("\n11. Clock stops, resumes, and freezes when stale (stale-lifecycle)");
 {
   const container = document.createElement("div");
   document.body.appendChild(container);

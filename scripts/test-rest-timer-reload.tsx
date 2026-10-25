@@ -450,16 +450,13 @@ if (endEarlyButton) {
     fireEvent.click(endEarlyButton);
     await new Promise((resolve) => setTimeout(resolve, 200));
   });
-  
   // Find and click the "End now" confirmation button
   const endNowButton = [...c3.querySelectorAll("button")].find((b) =>
     /End now/.test(b.textContent ?? "")
   );
-  
   if (endNowButton) {
     await act(async () => {
       fireEvent.click(endNowButton);
-      await new Promise((resolve) => setTimeout(resolve, 200));
     });
     check("End early clears storage", !mockStorage.data.has(key));
   } else {

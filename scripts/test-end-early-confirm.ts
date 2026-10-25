@@ -1,11 +1,12 @@
 #!/usr/bin/env tsx
 /**
- * Test end-early confirmation text and rendering.
+ * Test end-early confirmation text, rendering, and runEndEarly return values.
  *
  *   npx tsx scripts/test-end-early-confirm.ts
  */
 
 import { endEarlyConfirmTitle, sessionSummaryTitle } from "../src/lib/session/end-early-text";
+import { runEndEarly } from "../src/lib/session/finish-flow";
 
 let passed = 0;
 let failed = 0;
@@ -125,6 +126,115 @@ async function runTests() {
 
     assertTrue(html.includes("End now? 0 of 12 sets done"), "Contains confirmation text with 0 sets");
     assertTrue(html.includes("start it again from Today"), "Shows restart message for 0 sets");
+  }
+
+  console.log("\n8. runEndEarly returns true on success");
+  {
+    let setEndedEarlyCalled = false;
+    let setPhaseCalled = false;
+    
+    const ended = await runEndEarly(
+      {
+        abandonSession: async () => ({ ok: true }),
+        stopElapsed: () => 100,
+        resumeElapsed: () => {},
+        setError: () => {},
+        setPhase: () => { setPhaseCalled = true; },
+        setEndedEarly: (v) => { setEndedEarlyCalled = v; },
+      },
+      {
+        sessionId: "test-session",
+        setConfirming: () => {},
+        setOfflineError: () => {},
+        endingRef: { current: false },
+        setEnding: () => {},
+      }
+    );
+    
+    assertEquals(ended, true, "Returns true on success");
+    assertTrue(setEndedEarlyCalled, "Called setEndedEarly(true)");
+    assertTrue(setPhaseCalled, "Called setPhase");
+  }
+
+  console.log("\n9. runEndEarly returns false on ok:false");
+  {
+    let resumeElapsedCalled = false;
+    let setErrorCalled = false;
+    
+    const ended = await runEndEarly(
+      {
+        abandonSession: async () => ({ ok: false, error: "Server error" }),
+        stopElapsed: () => 100,
+        resumeElapsed: () => { resumeElapsedCalled = true; },
+        setError: (msg) => { if (msg) setErrorCalled = true; },
+        setPhase: () => {},
+        setEndedEarly: () => {},
+      },
+      {
+        sessionId: "test-session",
+        setConfirming: () => {},
+        setOfflineError: () => {},
+        endingRef: { current: false },
+        setEnding: () => {},
+      }
+    );
+    
+    assertEquals(ended, false, "Returns false on ok:false");
+    assertTrue(resumeElapsedCalled, "Called resumeElapsed");
+    assertTrue(setErrorCalled, "Called setError");
+  }
+
+  console.log("\n10. runEndEarly returns false on thrown error");
+  {
+    let resumeElapsedCalled = false;
+    let setErrorCalled = false;
+    
+    const ended = await runEndEarly(
+      {
+        abandonSession: async () => { throw new Error("Network error"); },
+        stopElapsed: () => 100,
+        resumeElapsed: () => { resumeElapsedCalled = true; },
+        setError: (msg) => { if (msg) setErrorCalled = true; },
+        setPhase: () => {},
+        setEndedEarly: () => {},
+      },
+      {
+        sessionId: "test-session",
+        setConfirming: () => {},
+        setOfflineError: () => {},
+        endingRef: { current: false },
+        setEnding: () => {},
+      }
+    );
+    
+    assertEquals(ended, false, "Returns false on thrown error");
+    assertTrue(resumeElapsedCalled, "Called resumeElapsed");
+    assertTrue(setErrorCalled, "Called setError");
+  }
+
+  console.log("\n11. runEndEarly returns false on double-tap");
+  {
+    const endingRef = { current: true };
+    
+    const ended = await runEndEarly(
+      {
+        abandonSession: async () => ({ ok: true }),
+        stopElapsed: () => 100,
+        resumeElapsed: () => {},
+        setError: () => {},
+        setPhase: () => {},
+        setEndedEarly: () => {},
+      },
+      {
+        sessionId: "test-session",
+        setConfirming: () => {},
+        setOfflineError: () => {},
+        endingRef,
+        setEnding: () => {},
+      }
+    );
+    
+    assertEquals(ended, false, "Returns false on double-tap (endingRef already true)");
   }
 
   console.log(`\n✅ Passed: ${passed}`);
