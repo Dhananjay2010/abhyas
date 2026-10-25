@@ -834,10 +834,7 @@ async function test9b() {
   
   assert(!!savingButton, "9b: Saving button exists");
   assert(!!(savingButton?.textContent?.includes("Saving 1 set")), "9b: Button shows 'Saving 1 set' text");
-  
-  if (savingButton && 'disabled' in savingButton) {
-    assert((savingButton as HTMLButtonElement).disabled === true, "9b: Saving button is disabled while saving");
-  }
+  assert('disabled' in savingButton && savingButton.disabled, "9b: Saving button is disabled while saving");
   
   assert(skipCooldownButton !== null, "9c: Skip cool-down button exists");
   if (skipCooldownButton && 'disabled' in skipCooldownButton) {

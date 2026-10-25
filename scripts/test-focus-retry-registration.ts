@@ -28,8 +28,9 @@ console.log("--- Break 8a: Focus listener registered ---");
   let retryCount = 0;
 
   const addEventListener = (type: string, handler: () => void) => {
-    if (!listeners.has(type)) listeners.set(type, []);
-    listeners.get(type)!.push(handler);
+    const l = listeners.get(type) ?? [];
+    l.push(handler);
+    listeners.set(type, l);
   };
 
   const removeEventListener = (type: string, handler: () => void) => {
