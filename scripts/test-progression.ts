@@ -96,13 +96,19 @@ console.log("\n3. 'Easy' earns a double jump; Hard holds weight (U1 fix)");
   check("'hard' outcome is hold", hard.outcome === "hold", hard.outcome);
 }
 
-console.log("\n4. Falling short drops the weight one grid step (U1 fix)");
+console.log("\n4. Falling short of the top is in-range: hold and reset failures");
 {
   const d = run({ sets: sets(4, 10), equipmentIds: ["barbell"], unit: "kg" });
-  check("outcome hold", d.outcome === "hold", d.outcome);
-  // U1 fix: Failed sets drop the weight one grid step
-  check("weight drops by one grid step (60 -> 57.5)", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
-  check("failure counted", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
+  check("4×10 in 8-12: outcome hold", d.outcome === "hold", d.outcome);
+  check("4×10 in-range: weight held at 60", d.nextWorkingWeightKg === 60, `${d.nextWorkingWeightKg}`);
+  check("4×10 in-range: failures reset to 0", d.consecutiveFailures === 0, `${d.consecutiveFailures}`);
+}
+{
+  // Real miss: below repsMin
+  const d = run({ sets: sets(4, 7), equipmentIds: ["barbell"], unit: "kg" });
+  check("4×7 below min: outcome hold", d.outcome === "hold", d.outcome);
+  check("4×7 real miss: weight drops one grid step (60 -> 57.5)", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
+  check("4×7 real miss: failure counted", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
 }
 {
   const d = run({ sets: sets(3, 12) });
@@ -113,9 +119,9 @@ console.log("\n4. Falling short drops the weight one grid step (U1 fix)");
   check("one short set is not success", d.outcome === "hold", d.outcome);
 }
 
-console.log("\n5. Two misses in a row backs the weight off ~10%");
+console.log("\n5. Two consecutive real misses backs the weight off ~10%");
 {
-  const d = run({ sets: sets(4, 10), state: fresh({ consecutiveFailures: 1 }), equipmentIds: ["barbell"], unit: "kg" });
+  const d = run({ sets: sets(4, 7), state: fresh({ consecutiveFailures: 1 }), equipmentIds: ["barbell"], unit: "kg" });
   check("outcome backed_off", d.outcome === "backed_off", d.outcome);
   check("60 -> 52.5 kg", d.nextWorkingWeightKg === 52.5, `${d.nextWorkingWeightKg}`);
   check("failures reset after backing off", d.consecutiveFailures === 0);
@@ -481,24 +487,21 @@ console.log("\nBodyweight exercises with added weight");
   check("upper-body bodyweight with 5 kg added goes to 7.5 kg (grid round up)",
     upper.nextWorkingWeightKg === 7.5, `${upper.nextWorkingWeightKg}`);
 
-  // Back-off: two misses drop added weight to 0.
+  // Back-off: two consecutive real misses drop added weight to 0.
   const backoff = run({
     meta: SQUAT_BW,
-    sets: sets(4, 10, 10),
+    sets: sets(4, 7, 10), // Below min (8-12 range)
     state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
   });
-  check("two misses with added weight drop to 0",
+  check("two real misses with added weight drop to 0",
     backoff.nextWorkingWeightKg === 0, `${backoff.nextWorkingWeightKg}`);
   check("message says back to bodyweight",
     backoff.message.includes("back to bodyweight"), backoff.message);
 
   // Back-off edge case: stored added weight but this session logged without weight.
-  // Regression: if heaviest=0, the old `isBodyweight && heaviest>0` check failed
-  // and fell through to loaded-exercise logic with incrementFor, so a lower-body
-  // move with currentWeight=10 gave max(5, roundTo(9, 5))=10 and didn't drop at all.
   const backoffNoWeight = run({
     meta: SQUAT_BW,
-    sets: sets(4, 10, null),
+    sets: sets(4, 7, null), // Below min, no weight
     state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
   });
   check("stored weight but logged without: still drops to 0",
@@ -549,22 +552,23 @@ console.log("\nBodyweight exercises with added weight");
     suggestedBwUpper === 2.5, `${suggestedBwUpper}`);
 }
 
-console.log("\n18. No-equipment path matches main (hard-coded snapshot from main 25d92f8)");
+console.log("\n18. No-equipment path matches updated behavior");
 {
   // Success progression without equipment
   const success = run({});
   check("success without equipment: 60 -> 62.5", success.nextWorkingWeightKg === 62.5, `${success.nextWorkingWeightKg}`);
   
-  // First miss without equipment: holds at current weight (main behavior)
-  const firstMiss = run({ sets: sets(4, 10) });
-  check("first miss without equipment: holds at 60", firstMiss.nextWorkingWeightKg === 60, `${firstMiss.nextWorkingWeightKg}`);
+  // In-range without equipment: holds at current weight
+  const inRange = run({ sets: sets(4, 10) });
+  check("in-range without equipment: holds at 60", inRange.nextWorkingWeightKg === 60, `${inRange.nextWorkingWeightKg}`);
+  check("in-range: failures reset to 0", inRange.consecutiveFailures === 0);
   
-  // Hard without equipment: progresses normally (main behavior)
+  // Hard without equipment: progresses normally
   const hard = run({ feel: "hard" });
   check("hard without equipment: 60 -> 62.5", hard.nextWorkingWeightKg === 62.5, `${hard.nextWorkingWeightKg}`);
   
-  // Second miss (back-off) without equipment: drops ~10%
-  const backOff = run({ sets: sets(4, 10), state: fresh({ consecutiveFailures: 1 }) });
+  // Second real miss (back-off) without equipment: drops ~10%
+  const backOff = run({ sets: sets(4, 7), state: fresh({ consecutiveFailures: 1 }) });
   check("back-off without equipment: 60 -> 52.5", backOff.nextWorkingWeightKg === 52.5, `${backOff.nextWorkingWeightKg}`);
   
   // Deload suggestion without equipment
@@ -576,8 +580,8 @@ console.log("\n18. No-equipment path matches main (hard-coded snapshot from main
   check("no-data without equipment: holds at 60", noData.nextWorkingWeightKg === 60, `${noData.nextWorkingWeightKg}`);
   
   // Never negative or zero
-  const minIso = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 2.5 }), sets: sets(4, 10) });
-  check("min isolation first miss: 2.5 stays 2.5", minIso.nextWorkingWeightKg === 2.5, `${minIso.nextWorkingWeightKg}`);
+  const minIso = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 2.5 }), sets: sets(4, 7) });
+  check("min isolation real miss: 2.5 stays 2.5", minIso.nextWorkingWeightKg === 2.5, `${minIso.nextWorkingWeightKg}`);
 }
 
 console.log("\n19. With equipment: explicit equipment param tests");
