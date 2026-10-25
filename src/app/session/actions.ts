@@ -31,6 +31,7 @@ import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
+import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligible-swap-list";
 
 export type { SwapResult };
 

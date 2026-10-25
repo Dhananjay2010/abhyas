@@ -119,6 +119,7 @@ async function testBannedSwap(
       goal: "muscle_gain",
       level: "intermediate",
     },
+    remembersWeights: false,
   });
   
   check("Swap was refused", !result.ok);

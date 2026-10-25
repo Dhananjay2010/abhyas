@@ -152,7 +152,10 @@ async function main() {
     remembersWeights: false,
   };
 
-  const result2 = await swapExerciseCore({ resolveSwapWeights: fakeResolveSwapWeights }, noMemoryInput);
+  const result2 = await swapExerciseCore({ 
+    resolveSwapWeights: fakeResolveSwapWeights,
+    validateSwapTarget: async () => true,
+  }, noMemoryInput);
 
   check(
     "S3: passes NEW exercise id",
@@ -170,20 +173,20 @@ async function main() {
   // When remembersWeights is false, fake returns null (simulating real behavior)
   check(
     "S1: returns null weightPrefill when remembersWeights=false",
-    result2.weightPrefill === null,
-    `got ${result2.weightPrefill}`,
+    result2.ok && result2.weightPrefill === null,
+    `got ${result2.ok ? result2.weightPrefill : 'error'}`,
   );
 
   check(
     "S2: returns null workingWeightKg when remembersWeights=false",
-    result2.workingWeightKg === null,
-    `got ${result2.workingWeightKg}`,
+    result2.ok && result2.workingWeightKg === null,
+    `got ${result2.ok ? result2.workingWeightKg : 'error'}`,
   );
 
   check(
     "returns null currentTargetReps when remembersWeights=false",
-    result2.currentTargetReps === null,
-    `got ${result2.currentTargetReps}`,
+    result2.ok && result2.currentTargetReps === null,
+    `got ${result2.ok ? result2.currentTargetReps : 'error'}`,
   );
 
   console.log("\nCase 3: Bodyweight exercise\n");
