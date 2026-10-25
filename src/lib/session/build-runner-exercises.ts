@@ -1,7 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import { resolveTarget } from "./display-target";
 import { suggestedWeight } from "@/lib/program/progression";
-import { progressionInputsFromExercise } from "./progression-inputs";
 
 type ExerciseMetric = Database["public"]["Enums"]["exercise_metric"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -28,7 +27,6 @@ export type SessionExerciseInput = {
     readonly id: string;
     readonly name: string;
     readonly cue: string | null;
-    readonly mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
     readonly movement_pattern: MovementPattern;
     readonly primary_muscles: readonly Muscle[];
     readonly equipment_ids: readonly string[];
@@ -53,7 +51,6 @@ export type RunnerExerciseInput = {
   progress: ProgressInput;
   remembersWeights: boolean;
   isDeload: boolean;
-  userUnits: string | null | undefined;
 };
 
 export type RunnerExerciseOutput = {
@@ -92,7 +89,7 @@ export type RunnerExerciseOutput = {
  * @returns The complete RunnerExercise object for the runner
  */
 export function buildRunnerExercise(input: RunnerExerciseInput): RunnerExerciseOutput {
-  const { row, progress: progressRow, remembersWeights, isDeload, userUnits } = input;
+  const { row, progress: progressRow, remembersWeights, isDeload } = input;
   const r = row;
   const ex = r.exercises;
   
@@ -114,22 +111,17 @@ export function buildRunnerExercise(input: RunnerExerciseInput): RunnerExerciseO
     currentWorkingWeightKg: working,
   });
 
-  // Get equipment IDs and unit for progression
-  const progInputs = ex ? progressionInputsFromExercise({ equipment_ids: equipmentIds }, userUnits) : {};
-
   const suggested = suggestedWeight(
     { currentWorkingWeightKg: working },
     isDeload,
     {
-      mechanic: ex?.mechanic ?? null,
+      mechanic: null,
       movementPattern: ex?.movement_pattern ?? "other",
       metric,
       isBodyweight,
       progressionChain: null,
       progressionRank: null,
     },
-    progInputs.equipmentIds,
-    progInputs.unit,
   );
 
   // Filter out warm-up sets and compute lastLoggedAt
