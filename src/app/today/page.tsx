@@ -6,43 +6,31 @@ import { StartSessionButton } from "./start-session-button";
 import { SignOutForm } from "./signout-form";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { addDays, isoWeekday, localDateString, DAY_NAMES as WEEKDAY_NAMES } from "@/lib/dates";
+import { addDays, isoWeekday, localDateString } from "@/lib/dates";
 import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
+import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
+import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { TodayPrompts } from "@/components/today/today-prompts";
-import { WarmupSection } from "@/components/today/warmup-section";
-import { buildPage } from "@/lib/today/build-page";
 import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRows } from "@/lib/today/build-today-rows";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
+import { weekWindow } from "@/lib/today/week-window";
+import { pulledForwardDays } from "@/lib/today/pulled-forward";
 
 export const dynamic = "force-dynamic";
 
-type LoaderResult = {
-  previousDayResumeHref: string | null;
-};
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-export default async function TodayPage({
-  loader,
-  params: rawParams,
-  searchParams: rawSearchParams,
-}: {
-  loader?: Promise<LoaderResult>;
-  params: Promise<Record<string, never>>;
-  searchParams: Promise<{ plan?: string }>;
-}) {
-  await rawParams;
-  const searchParams = await rawSearchParams;
-  
+export default async function TodayPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
   // ---- wave 1 -------------------------------------------------------------
-  // Nothing here depends on anything else here, so all these go at once. This
+  // Nothing here depends on anything else here, so all three go at once. This
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
   const [profileRes, programRes, equipmentRes] = await Promise.all([
@@ -114,6 +102,7 @@ export default async function TodayPage({
     next occurrence, which is today for today.
   */
   const yesterday = addDays(localToday, -1);
+  const weekAheadEnd = addDays(localToday, 6);
 
   // Load session state and ensure current block in parallel. The rollover
   // doesn't write sessions, so these are independent.
@@ -181,6 +170,10 @@ export default async function TodayPage({
     .order("order_index", { referencedTable: "program_day_exercises" });
 
   const days = daysRes.data;
+  // Derived from the user's own local date rather than re-reading the clock,
+  // so the weekday and the date can never disagree at a midnight boundary.
+  const todayIndex = isoWeekday(localToday);
+  const scheduled = days?.find((d) => d.day_index === todayIndex);
 
   // Session state already loaded before wave 2, with allSessions and todaySessions
   const { allSessions, todaySessions } = sessionState;
@@ -309,16 +302,29 @@ export default async function TodayPage({
       (s) => s.status === "completed" && isStrength(s.actual_type),
     ),
   });
+
+  // Detect pull-forwards: sessions done earlier this week for their scheduled weekday
+  const pulledForward = pulledForwardDays({
+    sessions: allSessions,
+    program,
+    days: days ?? [],
+    localToday,
+  });
+  const pulledForwardMessage =
+    pulledForward.size === 1
+      ? pulledForward.values().next().value
+      : null;
+
   // Only worth asking while today is still open to being changed.
   const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
 
   // ---- wave 3 -------------------------------------------------------------
-  // Load plannable days when the DayPlanPrompt can render (rest day or missed-yesterday).
-  // The prompt offers "Swap the day", which needs the strength/bodyweight options.
-  // The session's own exercises are loaded only when a workout has been started.
-
+  // Both of these are conditional, and on most loads neither runs: the prompt
+  // only on a day following a missed one, the session's own exercises only once
+  // a workout has been started. Run together so the uncommon day that needs
+  // both still costs one round trip.
   const [plannable, performedRows] = await Promise.all([
-    needsPlannableDays 
+    askAboutToday
       ? plannableDays(supabase, program.id).then((days) =>
           days.filter((day) => !pulledForward.has(day.programDayId))
         )
@@ -354,8 +360,7 @@ export default async function TodayPage({
     swappedIn: boolean;
   };
 
-  const todayDay = days?.find((d) => d.id === today?.id);
-  const template = (todayState.isTraining ? (todayDay?.program_day_exercises ?? []) : []) as Array<{
+  const template = (isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
     order_index: number;
     target_sets: number | null;
     target_reps_min: number | null;
@@ -385,21 +390,42 @@ export default async function TodayPage({
 
   const todayExercises: TodayRow[] = buildTodayRows({ actual, template, isDeload });
 
+  /*
+    One-day overrides across this week, keyed by weekday so "Your week" can show
+    them. Without this the list rendered the block's template labels only, so a
+    choice made last night was invisible until the day arrived: the user picked
+    Rest for tomorrow and the week still said Push. Only a difference is
+    recorded -- "keep the plan" writes no row, and a swap that happens to match
+    the template is not news.
+  */
+  const chosenByDayIndex = new Map<number, string>();
+  for (const d of days ?? []) {
+    // The next time this weekday comes round, which is today for today.
+    const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
+    const sess = allSessions.find(
+      (x) =>
+        x.local_date === date &&
+        (x.status === "planned" || x.status === "in_progress") &&
+        x.actual_type !== null,
+    );
+    if (!sess?.actual_type) continue;
+    const chosenDay = sess.program_day_id
+      ? days?.find((pd) => pd.id === sess.program_day_id)
+      : undefined;
+    const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
+    if (label !== d.label) chosenByDayIndex.set(d.day_index, label);
+  }
+
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-36">
       <RefetchOnResume />
       <header>
         <p className="text-sm text-muted">
-          {WEEKDAY_NAMES[todayIndex]} · Block {program.block_number} · Week {week} of 4
+          {DAY_NAMES[todayIndex - 1]} · Block {program.block_number} · Week {week} of 4
         </p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">
           {dayType === "rest" ? "Rest day" : dayLabel}
         </h1>
-        {pulledForwardMessage && (
-          <p className="mt-2 text-sm text-muted">
-            {pulledForwardMessage}
-          </p>
-        )}
         {isDeload && isTraining && (
           <p className="mt-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
             Deload week. Lighter loads, nothing near failure — this is what lets week 5
@@ -445,17 +471,57 @@ export default async function TodayPage({
         </p>
       )}
 
-      <TodayPrompts
-        promptBlocks={promptBlocks}
-        localToday={localToday}
-        dayLabel={dayLabel}
-        plannable={plannable}
-        trainAnywayDays={trainAnywayDays}
-        yesterdayDay={yesterdayDay ? { day_type: yesterdayDay.day_type, label: yesterdayDay.label } : null}
-        nextTraining={nextTraining}
-        isTraining={isTraining}
-        firstTrainingDay={firstTrainingDay}
-      />
+      {askAboutToday && (
+        <DayPlanPrompt
+          localDate={localToday}
+          dayLabel="Today"
+          plannedLabel={dayLabel}
+          days={plannable}
+          heading="You missed yesterday"
+          intro={`${labelForDayType(
+            yesterdayDay?.day_type ?? "rest",
+            yesterdayDay?.label ?? null,
+          )} did not happen.`}
+        />
+      )}
+
+      {dayType === "rest" && (
+        <>
+          <p className="mt-6 text-muted">
+            Rest is part of the training. Your body builds strength while recovering.
+          </p>
+          <div className="mt-6 space-y-3">
+            <div className="rounded-xl border border-border bg-surface-2 p-5">
+              <h3 className="font-semibold">Active recovery</h3>
+              <p className="mt-1 text-sm text-muted">
+                Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Link
+                  href="/yoga"
+                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                >
+                  Yoga
+                </Link>
+                <Link
+                  href="/breathe"
+                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                >
+                  Breathe
+                </Link>
+              </div>
+            </div>
+            <DayPlanPrompt
+              localDate={localToday}
+              dayLabel="Today"
+              plannedLabel="Rest"
+              days={plannable}
+              heading="Or train today anyway"
+              intro="Pick what you'd like to do instead."
+            />
+          </div>
+        </>
+      )}
 
       {dayType === "meditation" && (
         <div className="mt-6">
@@ -598,25 +664,26 @@ export default async function TodayPage({
           Your week
         </h2>
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface text-sm">
-          {weekRowsWithChoices.map((row) => {
+          {(days ?? []).map((d) => {
+            const chosen = chosenByDayIndex.get(d.day_index);
             return (
               <li
-                key={row.dayIndex}
+                key={d.day_index}
                 className={`flex justify-between gap-4 px-4 py-3 ${
-                  row.dayIndex === todayIndex ? "bg-surface-2" : ""
+                  d.day_index === todayIndex ? "bg-surface-2" : ""
                 }`}
               >
-                <span className={row.dayIndex === todayIndex ? "font-semibold" : "text-muted"}>
-                  {WEEKDAY_NAMES[row.dayIndex]}
+                <span className={d.day_index === todayIndex ? "font-semibold" : "text-muted"}>
+                  {DAY_NAMES[d.day_index - 1]}
                 </span>
-                {row.isChoice ? (
+                {chosen ? (
                   <span className="text-right">
-                    <span className="font-medium text-accent">{row.label}</span>
+                    <span className="font-medium text-accent">{chosen}</span>
                     <span className="block text-xs text-muted">your choice</span>
                   </span>
                 ) : (
-                  <span className={days?.find(d => d.day_index === row.dayIndex)?.day_type === "rest" ? "text-muted" : "font-medium"}>
-                    {row.label}
+                  <span className={d.day_type === "rest" ? "text-muted" : "font-medium"}>
+                    {d.label}
                   </span>
                 )}
               </li>

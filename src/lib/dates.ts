@@ -75,3 +75,6 @@ export function secondsSinceIso(iso: string, nowMs: number): number {
 export function isoFromMs(ms: number): string {
   return new Date(ms).toISOString();
 }
+
+/** Weekday names indexed 0-6 for Monday-Sunday (matches isoWeekday - 1) */
+export const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
