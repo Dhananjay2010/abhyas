@@ -476,7 +476,8 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
   }
   
   // H6: Squat, lunge, or jump movements load knees UNLESS they're in the knee-safe list
-  if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
+  // Item 13: Also skip knee derivation for KNEE_SAFE_LUNGE_EXERCISES (hardcoded enforcement)
+  if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug) && !KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
     if (ex.movement_pattern === "squat" ||
         ex.movement_pattern === "lunge" ||
         nameLower.includes("squat") ||
@@ -550,12 +551,20 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
 
   // QA Pass 10 C2, C3: Current injuries exclude anything that loads the affected joint.
   // Use both explicit tags AND derived contraindications.
+  // Item 13: For current knee, KNEE_SAFE_LUNGE_EXERCISES are exempt from knee contraindication
   if (input.currentInjuryRegions.length > 0) {
     const allContraindications = [
       ...ex.contraindicated_regions,
       ...getDerivedContraindications(ex),
     ];
-    if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
+    
+    // Item 13: Skip knee contraindication for hardcoded safe lunges (enforcement in CODE not tags)
+    const skipKneeCheck = hasCurrentKnee && KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug);
+    const contraToCheck = skipKneeCheck 
+      ? allContraindications.filter(r => r !== "knee")
+      : allContraindications;
+    
+    if (contraToCheck.some((r) => input.currentInjuryRegions.includes(r))) {
       return false;
     }
     

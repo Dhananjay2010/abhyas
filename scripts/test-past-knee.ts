@@ -778,5 +778,48 @@ console.log("\n10. Item 15: Swap ordering (barbell-squat after preferred squats)
   }
 }
 
+console.log("\n11. Item 13: Current-knee 4-move lunge list enforced in CODE (not catalogue tags)");
+{
+  // Strip contraindicated_regions tags from a test copy of the catalogue
+  const strippedCatalogue = catalogue.map(e => ({ ...e, contraindicated_regions: [] as any[] }));
+  
+  const { KNEE_SAFE_LUNGE_EXERCISES } = require("../src/lib/program/generate");
+  const kneeSafeLungeSlugs = Array.from(KNEE_SAFE_LUNGE_EXERCISES);
+  
+  console.log(`    Hardcoded KNEE_SAFE_LUNGE_EXERCISES: ${kneeSafeLungeSlugs.join(", ")}`);
+  
+  const currentKneeInput = base({
+    currentInjuryRegions: ["knee"],
+    anyKneeInjury: true,
+    hasAllEquipment: true,
+    catalogue: strippedCatalogue,
+  });
+  
+  // These should be ALLOWED for current knee (in the hardcoded list)
+  for (const slug of kneeSafeLungeSlugs) {
+    const ex = bySlug.get(slug);
+    if (ex) {
+      const strippedEx = { ...ex, contraindicated_regions: [] };
+      const { isEligible } = require("../src/lib/program/generate");
+      const eligible = isEligible(strippedEx, currentKneeInput);
+      check(`Item 13: ${slug} ALLOWED for current knee (hardcoded, tags stripped)`, 
+        eligible,
+        eligible ? "" : `Equipment: ${ex.equipment_ids.join(", ")}, hasAllEquipment: ${currentKneeInput.hasAllEquipment}, equipmentIds: ${currentKneeInput.equipmentIds.join(", ")}`);
+    }
+  }
+  
+  // These should be BANNED for current knee (NOT in the hardcoded list)
+  const bannedLunges = ["dumbbell-rear-lunge", "barbell-lunge", "reverse-lunge"];
+  for (const slug of bannedLunges) {
+    const ex = bySlug.get(slug);
+    if (ex && ex.movement_pattern === "lunge") {
+      const strippedEx = { ...ex, contraindicated_regions: [] };
+      const { isEligible } = require("../src/lib/program/generate");
+      check(`Item 13: ${slug} BANNED for current knee (not in hardcoded list, tags stripped)`, 
+        !isEligible(strippedEx, currentKneeInput));
+    }
+  }
+}
+
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);
 process.exit(failures === 0 ? 0 : 1);
