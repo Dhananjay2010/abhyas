@@ -83,7 +83,7 @@ const testProfiles = [
 // Create fake Supabase client that returns the right data for each test case
 function createFakeSupabase(
   currentExercise: CandidateExercise,
-  candidateExercise: CandidateExercise,
+  _candidateExercise: CandidateExercise,
   pool: CandidateExercise[],
   sessionSiblings: string[],
   profile: {
@@ -105,7 +105,7 @@ function createFakeSupabase(
         return {
           select: (_fields: string) => {
             return {
-              eq: (column: string, value: unknown) => {
+              eq: (column: string, _value: unknown) => {
                 // If filtering by session_id, return array of siblings
                 if (column === "session_id") {
                   return Promise.resolve({
@@ -129,9 +129,9 @@ function createFakeSupabase(
               },
             };
           },
-          update: (payload: Record<string, unknown>) => {
+          update: (_payload: Record<string, unknown>) => {
             return {
-              eq: (column: string, value: unknown) => {
+              eq: (_column: string, _value: unknown) => {
                 return Promise.resolve({ error: null });
               },
             };
@@ -141,7 +141,7 @@ function createFakeSupabase(
       
       if (table === "exercises") {
         return {
-          select: (fields: string) => {
+          select: (_fields: string) => {
             return {
               eq: (column: string, value: unknown) => {
                 // Single exercise lookup
@@ -157,7 +157,7 @@ function createFakeSupabase(
                 // is_active filter for pool query
                 if (column === "is_active") {
                   return {
-                    in: (column2: string, values2: unknown[]) => {
+                    in: (_column2: string, _values2: unknown[]) => {
                       return Promise.resolve({
                         data: pool.map(e => ({ ...e })),
                         error: null,
@@ -168,9 +168,9 @@ function createFakeSupabase(
                 
                 return Promise.resolve({ data: null, error: null });
               },
-              in: (column: string, values: unknown[]) => {
+              in: (_column: string, _values: unknown[]) => {
                 return {
-                  eq: (column2: string, value2: unknown) => {
+                  eq: (_column2: string, _value2: unknown) => {
                     return Promise.resolve({
                       data: pool.map(e => ({ ...e })),
                       error: null,
@@ -185,12 +185,12 @@ function createFakeSupabase(
       
       if (table === "body_metrics") {
         return {
-          select: (fields: string) => {
+          select: (_fields: string) => {
             return {
-              eq: (column: string, value: unknown) => {
+              eq: (_column: string, _value: unknown) => {
                 return {
-                  order: (column: string, options: unknown) => ({
-                    limit: (n: number) => ({
+                  order: (_column: string, _options: unknown) => ({
+                    limit: (_n: number) => ({
                       maybeSingle: async () => ({
                         data: { weight_kg: 75 },
                       }),
@@ -205,9 +205,9 @@ function createFakeSupabase(
       
       if (table === "user_injuries") {
         return {
-          select: (fields: string) => {
+          select: (_fields: string) => {
             return {
-              eq: (column: string, value: unknown) => {
+              eq: (_column: string, _value: unknown) => {
                 return Promise.resolve({ data: injuries, error: null });
               },
             };
@@ -217,9 +217,9 @@ function createFakeSupabase(
       
       if (table === "user_equipment") {
         return {
-          select: (fields: string) => {
+          select: (_fields: string) => {
             return {
-              eq: (column: string, value: unknown) => {
+              eq: (_column: string, _value: unknown) => {
                 return Promise.resolve({ 
                   data: equipmentIds.map(id => ({ equipment_id: id })), 
                   error: null 
@@ -232,9 +232,9 @@ function createFakeSupabase(
       
       if (table === "profiles") {
         return {
-          select: (fields: string) => {
+          select: (_fields: string) => {
             return {
-              eq: (column: string, value: unknown) => {
+              eq: (_column: string, _value: unknown) => {
                 return {
                   single: async () => ({
                     data: profile,
@@ -248,9 +248,9 @@ function createFakeSupabase(
       
       if (table === "user_settings") {
         return {
-          select: (fields: string) => {
+          select: (_fields: string) => {
             return {
-              eq: (column: string, value: unknown) => {
+              eq: (_column: string, _value: unknown) => {
                 return {
                   single: async () => ({
                     data: { planning_mode: "progression" },
@@ -264,11 +264,11 @@ function createFakeSupabase(
       
       if (table === "exercise_progress") {
         return {
-          select: (fields: string) => {
+          select: (_fields: string) => {
             return {
-              eq: (column: string, value: unknown) => {
+              eq: (_column: string, _value: unknown) => {
                 const chainable = {
-                  eq: (column2: string, value2: unknown) => {
+                  eq: (_column2: string, _value2: unknown) => {
                     return chainable;
                   },
                   maybeSingle: async () => ({
@@ -284,9 +284,9 @@ function createFakeSupabase(
       
       if (table === "sessions") {
         return {
-          select: (fields: string) => {
+          select: (_fields: string) => {
             return {
-              eq: (column: string, value: unknown) => {
+              eq: (_column: string, _value: unknown) => {
                 return {
                   maybeSingle: async () => ({
                     data: { is_deload: false },
@@ -300,15 +300,15 @@ function createFakeSupabase(
       
       if (table === "exercise_history") {
         return {
-          select: (fields: string) => {
+          select: (_fields: string) => {
             return {
-              eq: (column: string, value: unknown) => {
+              eq: (_column: string, _value: unknown) => {
                 const chainable = {
-                  eq: (column2: string, value2: unknown) => {
+                  eq: (_column2: string, _value2: unknown) => {
                     return chainable;
                   },
-                  order: (column: string, options: unknown) => chainable,
-                  limit: (n: number) => chainable,
+                  order: (_column: string, _options: unknown) => chainable,
+                  limit: (_n: number) => chainable,
                   maybeSingle: async () => ({
                     data: null,
                   }),
