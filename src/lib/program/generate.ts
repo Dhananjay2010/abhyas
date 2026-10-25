@@ -1357,9 +1357,138 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       }
     }
 
+    // H9: For knee-injured full_body days, ensure pull/push coverage matches uninjured baseline
+    if ((hasKneeInjury || hasPastKnee) && entry.focus === "full_body") {
+      const hasPull = pickedExercises.some(p => 
+        p.ex.movement_pattern === "horizontal_pull" || p.ex.movement_pattern === "vertical_pull"
+      );
+      const hasPush = pickedExercises.some(p => 
+        p.ex.movement_pattern === "horizontal_press" || p.ex.movement_pattern === "vertical_press"
+      );
+      
+      if (!hasPull) {
+        // Force-add a pull exercise
+        const pullOptions = pool
+          .filter(e => {
+            if (e.movement_pattern !== "horizontal_pull" && e.movement_pattern !== "vertical_pull") return false;
+            if (usedInBlock.has(e.id)) return false;
+            if (EXCLUDED_EXERCISE_SLUGS.has(e.slug)) return false;
+            if (!isEligible(e, input)) return false;
+            // No contraindications for upper body pulls
+            return true;
+          })
+          .sort((a, b) => 
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            a.slug.localeCompare(b.slug)
+          );
+        
+        if (pullOptions.length > 0) {
+          const added = pullOptions[0];
+          usedInBlock.add(added.id);
+          pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+        }
+      }
+      
+      if (!hasPush) {
+        // Force-add a push exercise
+        const pushOptions = pool
+          .filter(e => {
+            if (e.movement_pattern !== "horizontal_press" && e.movement_pattern !== "vertical_press") return false;
+            if (usedInBlock.has(e.id)) return false;
+            if (EXCLUDED_EXERCISE_SLUGS.has(e.slug)) return false;
+            if (!isEligible(e, input)) return false;
+            return true;
+          })
+          .sort((a, b) => 
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            a.slug.localeCompare(b.slug)
+          );
+        
+        if (pushOptions.length > 0) {
+          const added = pushOptions[0];
+          usedInBlock.add(added.id);
+          pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+        }
+      }
+    }
 
-    // NOTE: High spinal load replacement is handled by isEligible (line 551)
-    // which blocks all high-spinal-load exercises for age >= 50
+    // QA: 50+ users (or anyone avoiding high spinal load) get safer loaded hinges on lower days
+    const avoidHighSpinalLoad = input.age !== null && input.age >= 50;
+    if (avoidHighSpinalLoad && (entry.focus === "lower" || entry.focus === "full" || entry.focus === "legs") && (input.hasAllEquipment || input.equipmentIds.length > 0)) {
+      const hinges = pickedExercises.filter(p => p.ex.movement_pattern === "hinge");
+      const hasHighSpinalHinge = hinges.some(p => p.ex.spinal_load === "high");
+      const hasSafeLoadedHinge = hinges.some(p => 
+        p.ex.spinal_load !== "high" &&
+        p.ex.equipment_ids.some(id => id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine")
+      );
+      
+      // If we have a high-spinal hinge, try to replace it
+      if (hasHighSpinalHinge) {
+        const saferHinges = pool
+          .filter(e => {
+            if (e.movement_pattern !== "hinge") return false;
+            if (e.spinal_load === "high") return false;
+            if (usedInBlock.has(e.id)) return false;
+            if (!isEligible(e, input)) return false;
+            // Must be loaded (barbell, dumbbell, kettlebell, or cable)
+            const hasLoadedEquipment = e.equipment_ids.some(id => 
+              id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine"
+            );
+            return hasLoadedEquipment;
+          })
+          .sort((a, b) => 
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            a.slug.localeCompare(b.slug)
+          );
+        
+        if (saferHinges.length > 0) {
+          // Replace the first high-spinal hinge with a safer one
+          const highHingeIndex = pickedExercises.findIndex(p => 
+            p.ex.movement_pattern === "hinge" && p.ex.spinal_load === "high"
+          );
+          if (highHingeIndex !== -1) {
+            const replaced = pickedExercises[highHingeIndex];
+            usedInBlock.delete(replaced.ex.id);
+            const safer = saferHinges[0];
+            usedInBlock.add(safer.id);
+            pickedExercises[highHingeIndex] = { ex: safer, slotIndex: replaced.slotIndex };
+          }
+        }
+      }
+      
+      // After replacement, ensure we have at least one safe loaded hinge
+      const hasSafeLoadedHingeNow = pickedExercises.some(p => 
+        p.ex.movement_pattern === "hinge" &&
+        p.ex.spinal_load !== "high" &&
+        p.ex.equipment_ids.some(id => id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine")
+      );
+      
+      if (!hasSafeLoadedHingeNow) {
+        // Force-add a safe loaded hinge
+        const safeHinges = pool
+          .filter(e => {
+            if (e.movement_pattern !== "hinge") return false;
+            if (e.spinal_load === "high") return false;
+            if (usedInBlock.has(e.id)) return false;
+            if (!isEligible(e, input)) return false;
+            const hasLoadedEquipment = e.equipment_ids.some(id => 
+              id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine"
+            );
+            return hasLoadedEquipment;
+          })
+          .sort((a, b) => 
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            a.slug.localeCompare(b.slug)
+          );
+        
+        if (safeHinges.length > 0) {
+          const added = safeHinges[0];
+          usedInBlock.add(added.id);
+          pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+        }
+      }
+    }
+
     // For longer sessions, add extra accessories beyond the template.
     // These are always accessories (slot 4+), so use block-wide deduplication.
     if (maxExercises > entry.slots.length && pickedExercises.length >= entry.slots.length) {
@@ -1412,6 +1541,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       return a.ex.slug.localeCompare(b.ex.slug);
     });
 
+
     // Convert sorted picks to GeneratedExercise with correct orderIndex.
     // Apply volume floor: ensure each pattern gets minimum working sets (at least 2)
     // even when session length cuts exercises or sets.
@@ -1451,6 +1581,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         restSeconds: p.restSeconds,
       });
     });
+
 
     // QA Pass 10 H8: A day with no exercises is a dead end. For bodyweight upper/full-body
     // days, prioritize at least one pulling movement to maintain push:pull balance.
@@ -1589,6 +1720,26 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
                 // We already skipped core exercises above, so just check for lower-body muscles
                 const isLowerBody = ex.primary_muscles.some(m => lowerBodyMuscles.includes(m));
                 if (isLowerBody && lowerBodyCount <= 2) continue;
+              }
+              
+              // For knee-injured full_body days, protect pull/push coverage
+              if ((input.currentInjuryRegions.includes("knee") || input.anyKneeInjury) && entry.focus === "full_body") {
+                const isPull = ex.movement_pattern === "horizontal_pull" || ex.movement_pattern === "vertical_pull";
+                const isPush = ex.movement_pattern === "horizontal_press" || ex.movement_pattern === "vertical_press";
+                
+                // Count current pulls and pushes
+                const pullCount = exercises.filter(e => {
+                  const exCheck = pool.find(x => x.id === e.exerciseId);
+                  return exCheck?.movement_pattern === "horizontal_pull" || exCheck?.movement_pattern === "vertical_pull";
+                }).length;
+                const pushCount = exercises.filter(e => {
+                  const exCheck = pool.find(x => x.id === e.exerciseId);
+                  return exCheck?.movement_pattern === "horizontal_press" || exCheck?.movement_pattern === "vertical_press";
+                }).length;
+                
+                // Never drop the only pull or only push
+                if (isPull && pullCount === 1) continue;
+                if (isPush && pushCount === 1) continue;
               }
               
               dropIndex = i;

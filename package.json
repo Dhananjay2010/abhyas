@@ -226,7 +226,11 @@
     "test:injuries-two-client": "tsx scripts/test-injuries-two-client.tsx",
     "test:stale-stash-two-client": "tsx scripts/test-stale-stash-two-client.ts",
     "test:knee-safe-quad-exclusions": "tsx scripts/test-knee-safe-quad-exclusions.ts",
-    "test:sissy-squat-ban": "tsx scripts/test-sissy-squat-ban.ts"
+    "test:sissy-squat-ban": "tsx scripts/test-sissy-squat-ban.ts",
+    "test:no-injury-baseline": "tsx scripts/test-no-injury-baseline.ts",
+    "test:mutations": "tsx scripts/test-mutations.ts",
+    "test:quad-coverage-grid": "tsx scripts/test-quad-coverage-grid.ts",
+    "test:knee-safety-matrix": "tsx scripts/test-knee-safety-matrix.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

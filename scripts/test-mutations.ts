@@ -133,14 +133,14 @@ const mutants: Mutant[] = [
     tests: ["test:knee-safety-matrix", "test:knee-swaps"],
   },
 
-  // B0. BMI>=30 high-impact ban (skipped - baseline needs regeneration after dead code removal)
-  // {
-  //   name: "Drop BMI>=30 high-impact ban",
-  //   file: "src/lib/program/generate.ts",
-  //   pattern: /if \(input\.bmi !== null && input\.bmi >= 30 && ex\.impact === "high"\) return false;/,
-  //   mutate: '// MUTANT: Removed BMI>=30 high-impact ban',
-  //   tests: ["test:no-injury-baseline"],
-  // },
+  // B0. BMI>=30 high-impact ban (no-injury baseline proof)
+  {
+    name: "Drop BMI>=30 high-impact ban",
+    file: "src/lib/program/generate.ts",
+    pattern: /if \(input\.bmi !== null && input\.bmi >= 30 && ex\.impact === "high"\) return false;/,
+    mutate: '// MUTANT: Removed BMI>=30 high-impact ban',
+    tests: ["test:no-injury-baseline"],
+  },
 
   // B1. Remove anyKneeInjury from buildSwapContext
   {
