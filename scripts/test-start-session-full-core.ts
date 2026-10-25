@@ -58,12 +58,15 @@ function createBasicDeps(overrides: Partial<StartSessionFullDeps> = {}): StartSe
     
     findInProgressToday: async () => [],
     
-    buildStaleDeps: (openSessions: OpenSession[], today: string, nowMs: number) => ({
-      today,
-      readOpenSessions: async () => openSessions,
-      closeStaleSessions: async () => 0,
-      checkRemainingInProgress: async () => ({ ok: true, sessionId: null }),
-    }),
+    buildStaleDeps: (openSessions: OpenSession[], today: string, nowMs: number) => {
+      void nowMs;
+      return {
+        today,
+        readOpenSessions: async () => openSessions,
+        closeStaleSessions: async () => 0,
+        checkRemainingInProgress: async () => ({ ok: true, sessionId: null }),
+      };
+    },
     
     insertSession: async () => ({ ok: true, sessionId: "sess-new" }),
     
@@ -127,16 +130,19 @@ async function main() {
           started_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
         },
       ],
-      buildStaleDeps: (openSessions, today, nowMs) => ({
-        today,
-        readOpenSessions: async () => openSessions,
-        closeStaleSessions: async (sessions) => {
-          closeCalled = true;
-          eq(sessions.length, 1, "One session passed to close");
-          return 1;
-        },
-        checkRemainingInProgress: async () => ({ ok: true, sessionId: null }),
-      }),
+      buildStaleDeps: (openSessions, today, nowMs) => {
+        void nowMs;
+        return {
+          today,
+          readOpenSessions: async () => openSessions,
+          closeStaleSessions: async (sessions) => {
+            closeCalled = true;
+            eq(sessions.length, 1, "One session passed to close");
+            return 1;
+          },
+          checkRemainingInProgress: async () => ({ ok: true, sessionId: null }),
+        };
+      },
     });
 
     const result = await startSessionFullCore(deps);
@@ -157,12 +163,15 @@ async function main() {
           started_at: new Date(NOW_MS - 2 * 3600 * 1000).toISOString(),
         },
       ],
-      buildStaleDeps: (openSessions, today, nowMs) => ({
-        today,
-        readOpenSessions: async () => openSessions,
-        closeStaleSessions: async () => 0,
-        checkRemainingInProgress: async () => ({ ok: true, sessionId: "sess-fresh" }),
-      }),
+      buildStaleDeps: (openSessions, today, nowMs) => {
+        void nowMs;
+        return {
+          today,
+          readOpenSessions: async () => openSessions,
+          closeStaleSessions: async () => 0,
+          checkRemainingInProgress: async () => ({ ok: true, sessionId: "sess-fresh" }),
+        };
+      },
     });
 
     const result = await startSessionFullCore(deps);
