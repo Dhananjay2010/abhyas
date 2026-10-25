@@ -98,7 +98,7 @@ Object.defineProperty(window, 'localStorage', {
   
   const clearSets = async () => {
     callOrder.push("clearSets");
-    clearAllPendingSetsForUser(fakeStorage, "u1", fakeDeps);
+    clearAllPendingSetsForUser(fakeStorage, "u1");
   };
   
   type SignOutAction = () => Promise<never>;

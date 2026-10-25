@@ -625,8 +625,9 @@ async function test8d8e() {
   // Fire visibilitychange handler
   logSetCalls.length = 0;
   if (visibilityHandler) {
-    visibilityHandler();
-    await act(async () => {});
+    await act(async () => {
+      if (visibilityHandler) visibilityHandler();
+    });
     assert(logSetCalls.length === 1, "8f: logSet called after visibilitychange event");
   }
   
@@ -706,7 +707,7 @@ async function test9b() {
       warmupAlreadyDone={true}
       startedAt={new Date(FIXED_TIME).toISOString()}
       warmup={[]}
-      cooldown={[{ type: "stretch", label: "Child's pose", durationSeconds: 30 }]}
+      cooldown={[{ phase: "stretch", type: "cat-cow", durationSeconds: 30, id: "c1", slug: "cat-cow", name: "Cat-Cow", target_regions: [], target_muscles: [], instructions: [], equipment_ids: [], contraindicated_regions: [], duration_seconds: 30 }]}
       exercises={exercises}
       settings={settings}
       actions={actions}
@@ -721,14 +722,14 @@ async function test9b() {
   const skipButton = buttons.find(b => b.textContent?.toLowerCase().includes("skip"));
   
   assert(!!doneButton, "9b: Done button exists");
-  assert(doneButton?.textContent?.includes("Saving 1 set") || doneButton?.textContent?.includes("Saving"), "9b: Done button shows 'Saving' text");
+  assert(!!(doneButton?.textContent?.includes("Saving 1 set") || doneButton?.textContent?.includes("Saving")), "9b: Done button shows 'Saving' text");
   
   if (doneButton instanceof HTMLButtonElement) {
-    assert(doneButton.disabled, "9b: Done button is disabled while saving");
+    assert(doneButton.disabled === true, "9b: Done button is disabled while saving");
   }
   
-  if (skipButton instanceof HTMLButtonElement) {
-    assert(skipButton.disabled, "9c: Skip button is disabled while saving");
+  if (skipButton && skipButton instanceof HTMLButtonElement) {
+    assert(skipButton.disabled === true, "9c: Skip button is disabled while saving");
   }
   
   fakeStorage.clear();

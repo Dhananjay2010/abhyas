@@ -5,16 +5,16 @@
  * Tests that userId is passed correctly from settings page.tsx to SignOutButton.
  */
 
-let passed = 0;
-let failed = 0;
+let settingsPagePassed = 0;
+let settingsPageFailed = 0;
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
-    failed++;
+    settingsPageFailed++;
     console.error(`  ❌ ${message}`);
     throw new Error(message);
   } else {
-    passed++;
+    settingsPagePassed++;
     console.log(`  ✓ ${message}`);
   }
 }
@@ -42,6 +42,6 @@ function buildSignOutButtonProps(user: User) {
   // N8: userId is user.id
   assert(props.userId === mockUser.id, "N8: userId matches user.id");
   
-  console.log(`\n✅ Settings page props test passed (${passed}/${passed + failed})\n`);
-  process.exit(failed > 0 ? 1 : 0);
+  console.log(`\n✅ Settings page props test passed (${settingsPagePassed}/${settingsPagePassed + settingsPageFailed})\n`);
+  process.exit(settingsPageFailed > 0 ? 1 : 0);
 })();
