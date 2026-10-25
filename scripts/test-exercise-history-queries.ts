@@ -119,7 +119,7 @@ async function runTests() {
     queryLog.length = 0;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockSupabase = createMockSupabase() as any;
-     
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     getLastPerformance(mockSupabase, "user-1", "ex-1");
 
     // Give async calls time to log
@@ -138,7 +138,7 @@ async function runTests() {
     queryLog.length = 0;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockSupabase = createMockSupabase() as any;
-     
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     getBatchLastPerformance(mockSupabase, "user-1", ["ex-1", "ex-2", "ex-3"]);
 
     await new Promise(resolve => setTimeout(resolve, 20));
@@ -155,7 +155,7 @@ async function runTests() {
     queryLog.length = 0;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockSupabase = createMockSupabase() as any;
-     
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     getExerciseHistory(mockSupabase, "user-1", "ex-1", { limit: 10, offset: 5 });
 
     await new Promise(resolve => setTimeout(resolve, 50));
