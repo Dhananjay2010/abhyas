@@ -18,7 +18,6 @@ import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-progr
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { weekWindow } from "@/lib/today/week-window";
-import { pulledForwardDays } from "@/lib/today/pulled-forward";
 import { WarmupSection } from "@/components/today/warmup-section";
 
 export const dynamic = "force-dynamic";
@@ -319,11 +318,7 @@ export default async function TodayPage() {
   // a workout has been started. Run together so the uncommon day that needs
   // both still costs one round trip.
   const [plannable, performedRows] = await Promise.all([
-    askAboutToday
-      ? plannableDays(supabase, program.id).then((days) =>
-          days.filter((day) => !pulledForward.has(day.programDayId))
-        )
-      : Promise.resolve([]),
+    askAboutToday ? plannableDays(supabase, program.id) : Promise.resolve([]),
     performed
       ? supabase
           .from("session_exercises")
