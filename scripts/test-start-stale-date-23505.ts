@@ -80,15 +80,18 @@ await test("L3: startSessionCore 23505 re-read filters by local_date", async () 
   const todayPayload = sessionPayload(USER_ID, TODAY);
   const result2 = await startSessionCore(db.client, USER_ID, todayPayload);
 
-  // With the fix: the 23505 re-read filters by TODAY's date, finds nothing,
-  // and returns an error instructing the user to reload.
+  // With #111's fix: the 23505 re-read detects the existing session is from a different
+  // date and returns a specific error with the existingSessionId.
   if (result2.ok) {
     throw new Error(`Expected error, got ok with session ${result2.sessionId}`);
   }
-  if (!result2.error.includes("already in progress")) {
-    throw new Error(`Expected 'already in progress' error, got: ${result2.error}`);
+  if (!result2.error.includes("different day")) {
+    throw new Error(`Expected 'different day' error, got: ${result2.error}`);
   }
-  // Verify it did NOT adopt yesterday's session
+  if (!("existingSessionId" in result2) || !result2.existingSessionId) {
+    throw new Error("Expected existingSessionId in error result");
+  }
+  // Verify it did NOT adopt yesterday's session or create a new one for today
   const sessions = db.tables.sessions ?? [];
   const todaySessions = sessions.filter((s) => s.local_date === TODAY && s.status === "in_progress");
   if (todaySessions.length > 0) {

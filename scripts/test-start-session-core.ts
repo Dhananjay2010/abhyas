@@ -84,7 +84,7 @@ async function main() {
         : undefined;
     const result = await start(fake);
     if (result.ok) throw new Error("expected an error");
-    eq(result.error, "Another session is already in progress.", `error message`);
+    eq(result.error, "duplicate key value violates unique constraint", `error message`);
   });
 
   await test("any other insert error is reported", async () => {
