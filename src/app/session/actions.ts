@@ -26,6 +26,7 @@ import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
+import { progressionInputsFromExercise } from "@/lib/session/progression-inputs";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
@@ -414,7 +415,7 @@ async function applyProgression(
   };
   if (!ex) return null;
 
-  const [sessionRes, setsRes, progressRes] = await Promise.all([
+  const [sessionRes, setsRes, progressRes, profileRes] = await Promise.all([
     supabase.from("sessions").select("is_deload, local_date, program_id").eq("id", se.session_id).maybeSingle(),
     supabase
       .from("session_sets")
@@ -428,6 +429,7 @@ async function applyProgression(
       .eq("user_id", userId)
       .eq("exercise_id", se.exercise_id)
       .maybeSingle(),
+    supabase.from("profiles").select("units").eq("id", userId).maybeSingle(),
   ]);
 
   const meta: ExerciseMeta = {
@@ -468,6 +470,7 @@ async function applyProgression(
     meta,
     state,
     isDeload: sessionRes.data?.is_deload ?? false,
+    ...progressionInputsFromExercise(ex, profileRes.data?.units),
   });
 
   await writeExerciseProgressCore(

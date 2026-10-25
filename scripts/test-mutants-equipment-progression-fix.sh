@@ -41,6 +41,7 @@ TESTS=(
   "npm run test:progression-display-target-consistency"
   "npm run test:progression-display-consistency"
   "npm run test:qa-bot-1-full-path"
+  "npm run test:call-site-wiring"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
@@ -60,6 +61,7 @@ echo
 test_mutant() {
   local name="$1"
   local fn="$2"
+  local alt_file="$3"
   
   COUNT=$((COUNT + 1))
   printf "%-75s " "[$COUNT] $name"
@@ -72,13 +74,22 @@ test_mutant() {
     return
   fi
   
-  if ! cmp -s "$PROG" "$BACKUP"; then
-    # Changed - good
-    :
-  else
-    echo "⚠️  SKIP (unchanged)"
-    SKIPPED=$((SKIPPED + 1))
-    return
+  # Check if mutation actually changed something
+  local check_file="$PROG"
+  if [ "$alt_file" = "ACTIONS" ]; then
+    check_file="src/app/session/actions.ts"
+  fi
+  
+  # For actions.ts, always proceed (no backup to compare)
+  if [ "$alt_file" != "ACTIONS" ]; then
+    if ! cmp -s "$PROG" "$BACKUP"; then
+      # Changed - good
+      :
+    else
+      echo "⚠️  SKIP (unchanged)"
+      SKIPPED=$((SKIPPED + 1))
+      return
+    fi
   fi
   
   if ! npx tsc --noEmit > /dev/null 2>&1; then
@@ -203,6 +214,19 @@ m15() {
   perl -i -p0e 's/(const successTarget = )(resolveTarget\(\{[^\}]+\}\)\.max);/\1Math.min(\2, repsMax);/s' "$PROG"
 }
 test_mutant "Success check uses Math.min(successTarget, repsMax)" m15
+
+# M16: Delete progressionInputsFromExercise spread in actions.ts (production wiring)
+m16() {
+  ACTIONS="src/app/session/actions.ts"
+  cp "$ACTIONS" "$ACTIONS.m16.bak"
+  sed -i '/\.\.\.progressionInputsFromExercise/d' "$ACTIONS"
+}
+test_mutant "Delete progressionInputsFromExercise spread (actions.ts wiring)" m16 "ACTIONS"
+
+# Restore actions.ts if mutated
+if [ -f "src/app/session/actions.ts.m16.bak" ]; then
+  mv "src/app/session/actions.ts.m16.bak" "src/app/session/actions.ts"
+fi
 
 echo
 echo "==================================="

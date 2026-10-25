@@ -163,7 +163,12 @@ console.log("\n4. QA repro: kettlebell two-miss back-off 15 -> 14 or 12 (real be
   
   check("outcome backed_off", decision.outcome === "backed_off");
   check("15 -> 14 or 12 kg (real bell, not 12.5)", decision.nextWorkingWeightKg === 14 || decision.nextWorkingWeightKg === 12, `got ${decision.nextWorkingWeightKg}`);
-  check("is a real kettlebell weight", [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32].includes(decision.nextWorkingWeightKg!), `got ${decision.nextWorkingWeightKg}`);
+  const nextWeight = decision.nextWorkingWeightKg;
+  if (nextWeight !== null) {
+    check("is a real kettlebell weight", [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32].includes(nextWeight), `got ${nextWeight}`);
+  } else {
+    check("is a real kettlebell weight", false, "got null");
+  }
 }
 
 console.log("\n5. QA repro: lat pulldown first miss 40 -> 37.5 (one step down)");
