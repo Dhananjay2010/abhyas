@@ -7,7 +7,7 @@
 import { readFileSync } from "fs";
 import { createHash } from "crypto";
 import { generateProgram, type CandidateExercise } from "../src/lib/program/generate";
-import { ALL_PROFILES, NON_KNEE_PROFILES, KNEE_PROFILES, makeGeneratorInput } from "./knee-volume-grid";
+import { NON_KNEE_PROFILES, KNEE_PROFILES, makeGeneratorInput } from "./knee-volume-grid";
 
 const baselinePath = "scripts/fixtures/knee-volume-baseline.json";
 const baseline = JSON.parse(readFileSync(baselinePath, "utf-8"));
@@ -18,7 +18,7 @@ const catalogue = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
 ) as CandidateExercise[];
 
-const baselineMap = new Map(baseline.profiles.map((p: any) => [p.id, p.sha256]));
+const baselineMap = new Map(baseline.profiles.map((p: { id: string; sha256: string }) => [p.id, p.sha256]));
 
 // Test non-knee profiles
 const nonKneeChanges: string[] = [];

@@ -56,9 +56,6 @@ for (const spec of KNEE_PROFILES) {
   const hasPastKnee = spec.injuries.some(i => 
     i.body_region === "knee" && i.severity === "past"
   );
-  const hasCurrentKnee = spec.injuries.some(i =>
-    i.body_region === "knee" && i.severity === "current"
-  );
   
   for (const day of result.days) {
     if (day.dayType === "rest") continue;

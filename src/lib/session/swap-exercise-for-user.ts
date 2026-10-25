@@ -101,7 +101,7 @@ export async function swapExerciseForUser(
     return { ok: false, error: "Current exercise not found" };
   }
   
-  const currentExercise: CandidateExercise = { ...currentExerciseRes.data, metric: "seconds" };
+  const currentExercise: CandidateExercise = currentExerciseRes.data;
   
   // Build swap pattern list
   const patterns = getSwapPatterns(currentExercise.movement_pattern, generatorInput);
