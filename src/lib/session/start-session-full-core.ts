@@ -90,7 +90,7 @@ export type StartSessionFullResult =
 
 function metricOf(embedded: { metric: string } | { metric: string }[]): Database["public"]["Enums"]["exercise_metric"] {
   const row = Array.isArray(embedded) ? embedded[0] : embedded;
-  return row.metric === "seconds" ? "seconds" : "reps";
+  return row?.metric === "seconds" ? "seconds" : "reps";
 }
 
 /**
