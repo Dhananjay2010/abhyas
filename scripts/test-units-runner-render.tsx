@@ -45,7 +45,7 @@ type LogSetCall = {
 
   const imperialActions: SessionActions = {
     markWarmupDone: ok,
-    logSet: async (args) => {
+    logSet: async (args: LogSetCall) => {
       logSetCallsImperial.push(args);
       return { ok: true };
     },
@@ -66,7 +66,7 @@ type LogSetCall = {
     name: "Bench Press",
     cue: null,
     metric: "reps",
-    primaryMuscles: ["pectoralis"],
+    primaryMuscles: ["chest"],
     plannedSets: 3,
     plannedRepsMin: 6,
     plannedRepsMax: 8,
@@ -191,7 +191,7 @@ type LogSetCall = {
 
   const metricActions: SessionActions = {
     markWarmupDone: ok,
-    logSet: async (args) => {
+    logSet: async (args: LogSetCall) => {
       logSetCallsMetric.push(args);
       return { ok: true };
     },
