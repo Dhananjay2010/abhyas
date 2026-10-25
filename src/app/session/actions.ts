@@ -34,7 +34,8 @@ import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligib
 
 export type { SwapResult };
 
-import { loadSessionSummary, type SummaryNote } from "@/lib/session/load-session-summary";
+import { loadSessionSummary } from "@/lib/session/load-session-summary";
+import type { SummaryNote } from "@/lib/session/build-session-summary";
 
 export type { SummaryNote };
 

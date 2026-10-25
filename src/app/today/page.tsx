@@ -400,12 +400,9 @@ export default async function TodayPage() {
   const isDeload = week === program.deload_week;
 
   // FIX (b): Mark days done in the week view after session completes
-  const completedDays = new Set<string>();
-  for (const s of allSessions) {
-    if (s.status === "completed" && isStrength(s.actual_type)) {
-      completedDays.add(s.local_date);
-    }
-  }
+  const completedDays = await import("@/lib/today/completed-days").then((m) =>
+    m.computeCompletedDays(allSessions),
+  );
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show

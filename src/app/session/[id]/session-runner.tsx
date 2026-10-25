@@ -521,18 +521,6 @@ export function SessionRunner({
     );
   }
 
-  // FIX (a): Load summary from DB when entering done phase
-  useEffect(() => {
-    if (phase === "done" && !summaryLoaded) {
-      setSummaryLoaded(true);
-      actions.getSessionSummary(sessionId).then((result) => {
-        if (result.ok) {
-          setProgressNotes(result.data);
-        }
-      });
-    }
-  }, [phase, summaryLoaded, sessionId, actions]);
-
   // ---- summary ----------------------------------------------------------
   if (phase === "done") {
     const personalBests = progressNotes.filter(

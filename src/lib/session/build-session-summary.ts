@@ -18,6 +18,7 @@ import { buildProgressionInput } from "./build-progression-input";
 import { describePersonalBest } from "@/lib/program/progression";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
+type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
 export type SummaryNote = {
   name: string;
@@ -30,7 +31,7 @@ export interface BuildSummaryDeps {
    * Fetch completed/skipped exercises for this session with their sets and
    * prior progress state. Returns exercises in the order they were completed.
    */
-  fetchExercisesWithSets: (sessionId: string) => Promise<{
+  fetchExercisesWithSets: (sessionId: string) => Promise<Array<{
     id: string;
     exercise_id: string;
     exercise_name: string;
@@ -43,7 +44,7 @@ export interface BuildSummaryDeps {
     completed_at: string | null;
     exercises: {
       mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
-      movement_pattern: Database["public"]["Enums"]["movement_pattern"];
+      movement_pattern: MovementPattern;
       equipment_ids: string[];
       progression_chain: string | null;
       progression_rank: number | null;
@@ -62,7 +63,7 @@ export interface BuildSummaryDeps {
       best_e1rm: number | null;
       total_sessions: number;
     } | null;
-  }[]>;
+  }>>;
 
   fetchSession: (sessionId: string) => Promise<{
     is_deload: boolean;

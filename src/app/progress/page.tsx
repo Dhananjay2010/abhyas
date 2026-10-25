@@ -7,6 +7,7 @@ import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
 import { getUnitsPreference } from "@/lib/units";
+import { formatVolumeLifted } from "@/lib/session/format-volume-lifted";
 import { LogWeight } from "./log-weight";
 import { loadProgramDays } from "@/lib/progress/load-program-days";
 
@@ -326,11 +327,7 @@ export default async function ProgressPage() {
               value={
                 progressQueryFailed 
                   ? "—"
-                  : (() => {
-                      // FIX (d): Show full numbers with thousands separators, not "15t"
-                      const { formatVolumeLifted } = require("@/lib/session/format-volume-lifted");
-                      return formatVolumeLifted(totalVolume!, units);
-                    })()
+                  : formatVolumeLifted(totalVolume!, units)
               }
               sub={progressQueryFailed ? "error loading" : "all time"}
             />

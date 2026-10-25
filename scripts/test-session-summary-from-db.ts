@@ -127,7 +127,7 @@ const mockExercises = [
     completed_at: "2026-10-25T11:15:00Z",
     exercises: {
       mechanic: "isolation" as const,
-      movement_pattern: "calf_raise" as const,
+      movement_pattern: "calf" as const,
       equipment_ids: [],
       progression_chain: null,
       progression_rank: null,

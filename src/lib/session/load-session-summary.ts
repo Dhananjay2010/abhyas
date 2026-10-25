@@ -21,7 +21,7 @@ type SessionExerciseWithSets = {
   planned_reps_max: number;
   metric: "reps" | "seconds";
   feel: Database["public"]["Enums"]["set_feel"] | null;
-  status: "completed" | "skipped" | "pending";
+  status: "completed" | "skipped";
   completed_at: string | null;
   exercises: {
     mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
@@ -118,7 +118,7 @@ export async function loadSessionSummary(
           planned_reps_max: e.planned_reps_max ?? 12,
           metric: e.metric ?? "reps",
           feel: e.feel,
-          status: e.status as "completed" | "skipped" | "pending",
+          status: (e.status === "completed" || e.status === "skipped" ? e.status : "completed") as "completed" | "skipped",
           completed_at: e.completed_at,
           exercises: {
             mechanic: ex?.mechanic ?? null,
