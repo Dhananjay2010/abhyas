@@ -301,7 +301,13 @@
     "test:rest-timer-reload": "tsx scripts/test-rest-timer-reload.tsx",
     "test:pb-precision": "tsx scripts/test-pb-precision.ts",
     "test:pb-precision-mutants": "bash scripts/test-pb-precision-mutants.sh",
-    "test:package-json-valid": "tsx scripts/test-package-json-valid.ts"
+    "test:package-json-valid": "tsx scripts/test-package-json-valid.ts",
+    "test:units-conversion-boundary": "tsx scripts/test-units-conversion-boundary.ts",
+    "test:units-edit-sets": "tsx scripts/test-units-edit-sets.tsx",
+    "test:units-kg-lb-conversion": "tsx scripts/test-units-kg-lb-conversion.tsx",
+    "test:units-onboarding-picker": "tsx scripts/test-units-onboarding-picker.tsx",
+    "test:units-runner-render": "tsx scripts/test-units-runner-render.tsx",
+    "test:units-settings-toggle": "tsx scripts/test-units-settings-toggle.tsx"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
