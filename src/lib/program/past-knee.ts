@@ -35,6 +35,14 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   
   // Sissy squats
   "weighted-sissy-squat",
+  
+  // Full-depth squats
+  "barbell-full-squat",
+  
+  // Explosive loaded knee-flexion moves (jerks, speed/dynamic squats)
+  "squat-jerk",
+  "speed-box-squat",
+  "speed-squats",
 ]);
 
 /**
@@ -63,8 +71,14 @@ function isJumpingExercise(ex: CandidateExercise): boolean {
  * Check if an exercise should be excluded for past-knee users.
  */
 export function isExcludedForPastKnee(ex: CandidateExercise): boolean {
+  // 1. Explicit slug exclusions
   if (PAST_KNEE_EXCLUDED_SLUGS.has(ex.slug)) {
     return true;
+  }
+  
+  // 2. High-impact/jumping exercises for squat and lunge patterns
+  if (ex.movement_pattern === "squat" || ex.movement_pattern === "lunge") {
+    return isJumpingExercise(ex);
   }
   
   return false;
@@ -110,6 +124,24 @@ export function kneeFriendlyBonus(ex: CandidateExercise, slotIndex: number): num
   // Main slots (0-3) get preference for knee-friendly primaries
   if (slotIndex <= 3 && isKneeFriendlyPrimary(ex)) {
     return 10; // Strong bonus for knee-friendly primaries in main slots
+  }
+  
+  return 0;
+}
+
+/**
+ * Get knee-friendly ranking boost for past-knee users in swap ranking.
+ * Lunge: dumbbell-rear-lunge = 2 (must be #1), others = 1
+ * Squat: all knee-friendly = 1
+ */
+export function getKneeFriendlyRankingBoost(candidate: CandidateExercise): number {
+  if (candidate.slug === "dumbbell-rear-lunge") return 2;
+  
+  const forSquat = KNEE_FRIENDLY_PRIMARIES.squat ?? [];
+  const forLunge = KNEE_FRIENDLY_PRIMARIES.lunge ?? [];
+  
+  if (forSquat.includes(candidate.slug) || forLunge.includes(candidate.slug)) {
+    return 1;
   }
   
   return 0;

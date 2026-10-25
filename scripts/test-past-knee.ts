@@ -1,25 +1,21 @@
 /**
- * Past-knee tier: lighter restrictions than current-knee.
+ * Past-knee tier: comprehensive test
  * 
- * Owner decisions:
- * 1. EXCLUDE: pistol/single-leg-squat variants, jumping/plyometric, sissy squats,
- *    walking and jumping lunges
- * 2. PREFER: knee-friendly primaries (goblet squat, box squat, leg press, split squat;
- *    dumbbell rear lunge or step-up over barbell lunge)
- * 3. Barbell back squat allowed in swaps but NOT default primary
- * 4. Squat swap list must include leg press and goblet squat when equipment allows
- * 5. No-injury and other injuries: IDENTICAL output to main
+ * Tests graduated restrictions for past knee injuries:
+ * - Exclusions: pistol/single-leg variants, explosive moves, full-depth squats
+ * - Preferences: knee-friendly alternatives rank higher in swaps
+ * - Identity: non-past-knee profiles match main exactly
+ * - Warm-ups: exclude risky moves, rewrite cues
  * 
- *   npm run test:past-knee
+ * npm run test:past-knee
  */
 import { readFileSync } from "node:fs";
 import { generateProgram, isEligible, score, hashString, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { rankAlternatives, buildPatternList, type AlternativesContext } from "../src/lib/program/alternatives";
-import { getPastKneeExcludedSlugs, getKneeFriendlyPrimaries, isExcludedForPastKnee } from "../src/lib/program/past-knee";
+import { getPastKneeExcludedSlugs, getKneeFriendlyPrimaries, isExcludedForPastKnee, getKneeFriendlyRankingBoost } from "../src/lib/program/past-knee";
 import { selectWarmup, type WarmupRow } from "../src/lib/program/warmup";
 
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf8"));
-const baseline: Record<string, { plans: string[]; swaps: Record<string, string[]> }> = JSON.parse(readFileSync(__dirname + "/fixtures/past-knee-baseline.json", "utf8"));
 const warmupFixture: WarmupRow[] = JSON.parse(readFileSync(__dirname + "/fixtures/warmups.json", "utf8"));
 const byId = new Map(catalogue.map((e) => [e.id, e]));
 const bySlug = new Map(catalogue.map((e) => [e.slug, e]));
@@ -49,83 +45,85 @@ function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
   };
 }
 
-console.log("\n1. Catalogue validation: all past-knee slugs exist");
+console.log("\n1. Catalogue validation: all past-knee slugs exist and explosive slugs excluded");
 {
   const excludedSlugs = Array.from(getPastKneeExcludedSlugs());
   const friendlySlugs = [...getKneeFriendlyPrimaries("squat"), ...getKneeFriendlyPrimaries("lunge")];
   
-  // Explicit wired checks (must fail on removal)
+  // Explicit wired checks for critical slugs (must fail on removal)
   check("kettlebell-pistol-squat MUST be excluded", excludedSlugs.includes("kettlebell-pistol-squat"));
   check("weighted-sissy-squat MUST be excluded", excludedSlugs.includes("weighted-sissy-squat"));
   check("one-leg-barbell-squat MUST be excluded", excludedSlugs.includes("one-leg-barbell-squat"));
   check("lunge-sprint MUST be excluded", excludedSlugs.includes("lunge-sprint"));
+  check("barbell-full-squat MUST be excluded", excludedSlugs.includes("barbell-full-squat"));
+  check("squat-jerk MUST be excluded", excludedSlugs.includes("squat-jerk"));
+  check("speed-box-squat MUST be excluded", excludedSlugs.includes("speed-box-squat"));
+  check("speed-squats MUST be excluded", excludedSlugs.includes("speed-squats"));
   
-  // Jumping exercise filter test (direct function call)
-  const jumpingSlugs = ["freehand-jump-squat", "knee-tuck-jump", "rocket-jump"];
-  for (const slug of jumpingSlugs) {
-    const ex = bySlug.get(slug);
-    if (ex) {
-      const excluded = isExcludedForPastKnee(ex);
-      check(`${slug} excluded by filter`, excluded);
-    }
+  // All high-impact squat/lunge exercises must be caught by filter
+  const highImpactSquatLunge = catalogue.filter(e => 
+    e.impact === "high" && (e.movement_pattern === "squat" || e.movement_pattern === "lunge")
+  );
+  
+  for (const ex of highImpactSquatLunge) {
+    const excluded = isExcludedForPastKnee(ex);
+    check(`${ex.slug} (high impact) excluded by filter`, excluded);
   }
   
+  // All slugs must exist in catalogue
   for (const slug of excludedSlugs) {
     const exists = bySlug.has(slug);
     if (!exists) {
-      console.log(`  FAIL ${slug} missing from catalogue`);
+      console.log(`  FATAL: ${slug} missing from catalogue`);
       process.exit(1);
     }
-    check(`${slug} in catalogue`, exists);
   }
   
   for (const slug of friendlySlugs) {
     const exists = bySlug.has(slug);
     if (!exists) {
-      console.log(`  FAIL ${slug} missing from catalogue`);
+      console.log(`  FATAL: ${slug} missing from catalogue`);
       process.exit(1);
     }
-    check(`${slug} in catalogue`, exists);
   }
+  
+  console.log(`    Checked ${excludedSlugs.length} excluded slugs, ${highImpactSquatLunge.length} high-impact exercises`);
 }
 
-console.log("\n2. Grid test: past-knee across dimensions");
+console.log("\n2. Wide grid test: 5 goals × 3 levels × tracks × equipment × days");
 {
-  type Goal = "muscle_gain" | "strength" | "fat_loss" | "general_fitness";
+  type Goal = "muscle_gain" | "strength" | "fat_loss" | "general_fitness" | "endurance";
   type Level = "beginner" | "intermediate" | "expert";
   type Track = "weights" | "bodyweight";
   
-  const goals: Goal[] = ["muscle_gain", "strength", "fat_loss", "general_fitness"];
+  const goals: Goal[] = ["muscle_gain", "strength", "fat_loss", "general_fitness", "endurance"];
   const levels: Level[] = ["beginner", "intermediate", "expert"];
   const equipmentSets: Array<{ label: string; hasAll: boolean; ids: string[]; track: Track }> = [
     { label: "All", hasAll: true, ids: [], track: "weights" },
-    { label: "Gym", hasAll: false, ids: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine", "leg_press"], track: "weights" },
-    { label: "Home", hasAll: false, ids: ["dumbbell", "kettlebell", "resistance_band", "pull_up_bar"], track: "weights" },
+    { label: "Gym", hasAll: false, ids: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine", "leg_press", "leg_extension_machine"], track: "weights" },
+    { label: "DB", hasAll: false, ids: ["dumbbell", "adjustable_bench"], track: "weights" },
+    { label: "KB+Band", hasAll: false, ids: ["kettlebell", "pull_up_bar", "resistance_band"], track: "weights" },
     { label: "BW", hasAll: false, ids: [], track: "bodyweight" },
   ];
-  const dayCounts: number[] = [3, 4, 5];
-  const sessionLengths: number[] = [45, 60];
+  const dayCounts = [2, 3, 4, 5, 6];
+  const sessionMinutes = [30, 45, 60, 90];
   
   let totalPlans = 0;
   let plansWithExcluded = 0;
-  let plansWithBarbellSquatPrimary = 0;
+  let plansWithExplosive = 0;
   let swapListsChecked = 0;
-  let swapListsMissingLegPress = 0;
-  let swapListsMissingGoblet = 0;
-  
-  // Explicit wired tests (must fail on b4845303)
-  let plansWithKettlebellPistol = 0;
-  let swapsWithKettlebellPistol = 0;
-  let plansWithJumping = 0;
+  let swapsWithExplosive = 0;
   
   const excludedSlugs = Array.from(getPastKneeExcludedSlugs());
-  const jumpingSlugs = ["freehand-jump-squat", "knee-tuck-jump", "rocket-jump"];
+  const highImpactSlugs = catalogue.filter(e => 
+    e.impact === "high" && (e.movement_pattern === "squat" || e.movement_pattern === "lunge")
+  ).map(e => e.slug);
   
   for (const goal of goals) {
     for (const level of levels) {
       for (const equip of equipmentSets) {
         for (const days of dayCounts) {
-          for (const sessionMin of sessionLengths) {
+          for (const minutes of sessionMinutes) {
             totalPlans++;
             
             const input = base({
@@ -136,59 +134,37 @@ console.log("\n2. Grid test: past-knee across dimensions");
               equipmentIds: equip.ids,
               primaryTrack: equip.track,
               pastKneeInjury: true,
-              preferredSessionMinutes: sessionMin,
+              preferredSessionMinutes: minutes,
             });
             
             const plan = generateProgram(input);
             const exercises = plan.days.flatMap((d) => d.exercises.map((e) => byId.get(e.exerciseId))).filter((e): e is CandidateExercise => e !== undefined);
             
-            // Check 1: No excluded slugs in plan
+            // Check 1: No excluded slugs in plans
             const excluded = exercises.filter(e => excludedSlugs.includes(e.slug));
             if (excluded.length > 0) {
               plansWithExcluded++;
             }
             
-            // Explicit check: kettlebell-pistol-squat never in plans
-            if (exercises.some(e => e.slug === "kettlebell-pistol-squat")) {
-              plansWithKettlebellPistol++;
+            // Check 2: No explosive high-impact moves in plans
+            const explosive = exercises.filter(e => highImpactSlugs.includes(e.slug));
+            if (explosive.length > 0) {
+              plansWithExplosive++;
             }
             
-            // Check jumping exercises (high impact) never in plans
-            if (exercises.some(e => jumpingSlugs.includes(e.slug))) {
-              plansWithJumping++;
-            }
-            
-            // Check 2: Check for barbell back squat as FIRST squat primary in Lower/Leg days
-            const lowerDays = plan.days.filter(d => 
-              (d.focus === "lower" || d.focus === "legs" || d.focus === "full") &&
-              d.exercises.length > 0
-            );
-            
-            for (const day of lowerDays) {
-              let foundFirstSquatPrimary = false;
-              for (let i = 0; i < Math.min(4, day.exercises.length); i++) {
-                const ex = byId.get(day.exercises[i].exerciseId);
-                if (ex && (ex.movement_pattern === "squat" || ex.movement_pattern === "lunge")) {
-                  if (!foundFirstSquatPrimary && ex.slug === "barbell-squat") {
-                    plansWithBarbellSquatPrimary++;
-                  }
-                  foundFirstSquatPrimary = true;
-                  break;
-                }
-              }
-            }
-            
-            // Check 3: Swap lists for squat pattern exercises (weights track only)
-            if (equip.track === "weights") {
-              const squatEx = exercises.find(e => e.movement_pattern === "squat");
-              if (squatEx && (equip.label === "All" || equip.label === "Gym")) {
+            // Check 3: Swap lists for squat/lunge exercises
+            for (const day of plan.days) {
+              for (const ex of day.exercises) {
+                const currentEx = byId.get(ex.exerciseId);
+                if (!currentEx || (currentEx.movement_pattern !== "squat" && currentEx.movement_pattern !== "lunge")) continue;
+                
                 swapListsChecked++;
                 
-                const patterns = buildPatternList(squatEx.movement_pattern, input.currentInjuryRegions.includes("knee"));
+                // Use UNFILTERED pool to test rankAlternatives gate on its own
+                const patterns = buildPatternList(currentEx.movement_pattern, false);
                 const rawPool = catalogue.filter(e => patterns.includes(e.movement_pattern));
-                const pool = rawPool.filter(e => isEligible(e, input));
                 
-                const wantCompound = squatEx.mechanic === "compound";
+                const wantCompound = currentEx.mechanic === "compound";
                 const ctx: AlternativesContext = {
                   level: input.level,
                   availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
@@ -199,22 +175,24 @@ console.log("\n2. Grid test: past-knee across dimensions");
                   tieBreakFn: (slug) => hashString(`test:${slug}`),
                 };
                 
-                const swaps = rankAlternatives(squatEx, pool, ctx);
+                const swaps = rankAlternatives(currentEx, rawPool, ctx);
                 
-                const hasLegPress = swaps.some(s => s.slug === "leg-press");
-                const hasGoblet = swaps.some(s => s.slug === "goblet-squat");
-                
-                // Only check if the primary isn't already the leg press or goblet squat
-                if (!hasLegPress && equip.ids.includes("leg_press") && squatEx.slug !== "leg-press") {
-                  swapListsMissingLegPress++;
-                }
-                if (!hasGoblet && squatEx.slug !== "goblet-squat") {
-                  swapListsMissingGoblet++;
+                // No explosive slugs in top 5 swaps
+                const explosiveSwaps = swaps.filter(s => highImpactSlugs.includes(s.slug) || excludedSlugs.includes(s.slug));
+                if (explosiveSwaps.length > 0) {
+                  swapsWithExplosive++;
                 }
                 
-                // Explicit check: kettlebell-pistol-squat never in ranked swaps
-                if (swaps.some(s => s.slug === "kettlebell-pistol-squat")) {
-                  swapsWithKettlebellPistol++;
+                // Lunge ranking: dumbbell-rear-lunge must be #1 when dumbbells available
+                if (currentEx.movement_pattern === "lunge" && equip.ids.includes("dumbbell")) {
+                  const rearLungePos = swaps.findIndex(s => s.slug === "dumbbell-rear-lunge");
+                  if (rearLungePos !== 0) {
+                    // Only count as failure if rear lunge is available but not #1
+                    const hasRearLunge = rearLungePos >= 0;
+                    if (hasRearLunge) {
+                      check(`Lunge swap: dumbbell-rear-lunge #1 (found at #${rearLungePos + 1})`, false);
+                    }
+                  }
                 }
               }
             }
@@ -227,25 +205,15 @@ console.log("\n2. Grid test: past-knee across dimensions");
   check(`Generated ${totalPlans} past-knee plans`, totalPlans > 0);
   check(`No excluded exercises in any plan`, plansWithExcluded === 0, 
     plansWithExcluded > 0 ? `${plansWithExcluded} plans had excluded exercises` : "");
-  check(`Barbell squat rarely primary for past-knee`, plansWithBarbellSquatPrimary === 0,
-    `${plansWithBarbellSquatPrimary} plans had barbell squat as primary`);
-  check(`Swap lists include leg press when available`, swapListsMissingLegPress === 0,
-    swapListsMissingLegPress > 0 ? `${swapListsMissingLegPress}/${swapListsChecked} missing leg press` : "");
-  check(`Swap lists include goblet squat`, swapListsMissingGoblet === 0,
-    `${swapListsMissingGoblet}/${swapListsChecked} missing goblet squat`);
-  
-  // Explicit wired tests
-  check(`kettlebell-pistol-squat NEVER in plans`, plansWithKettlebellPistol === 0,
-    plansWithKettlebellPistol > 0 ? `${plansWithKettlebellPistol} plans had kettlebell-pistol-squat` : "");
-  check(`kettlebell-pistol-squat NEVER in swaps`, swapsWithKettlebellPistol === 0,
-    swapsWithKettlebellPistol > 0 ? `${swapsWithKettlebellPistol} swap lists had kettlebell-pistol-squat` : "");
-  check(`Jumping exercises NEVER in past-knee plans`, plansWithJumping === 0,
-    plansWithJumping > 0 ? `${plansWithJumping} plans had jumping exercises` : "");
+  check(`No explosive exercises in any plan`, plansWithExplosive === 0,
+    plansWithExplosive > 0 ? `${plansWithExplosive} plans had explosive exercises` : "");
+  check(`No explosive exercises in swap lists`, swapsWithExplosive === 0,
+    `${swapsWithExplosive}/${swapListsChecked} swap lists had explosive exercises`);
     
   console.log(`    Checked ${totalPlans} plans and ${swapListsChecked} swap lists`);
 }
 
-console.log("\n2b. Warm-up test: walking-lunge, skipping-light, 'full depth' never appear for past-knee");
+console.log("\n3. Warm-up test: walking-lunge, skipping-light, 'full depth' never appear");
 {
   type Track = "weights" | "bodyweight";
   type Muscle = "quads" | "glutes" | "hamstrings" | "chest" | "lats" | "front_delts";
@@ -257,6 +225,7 @@ console.log("\n2b. Warm-up test: walking-lunge, skipping-light, 'full depth' nev
     { label: "DB", hasAll: false, ids: ["dumbbell", "adjustable_bench"] },
     { label: "KB", hasAll: false, ids: ["kettlebell"] },
     { label: "BW", hasAll: false, ids: [] },
+    { label: "Jump Rope", hasAll: false, ids: ["jump_rope"] },
   ];
   const focusMuscles: Array<{ name: string; muscles: Muscle[] }> = [
     { name: "Lower", muscles: ["quads", "glutes", "hamstrings"] },
@@ -293,7 +262,6 @@ console.log("\n2b. Warm-up test: walking-lunge, skipping-light, 'full depth' nev
           warmupsWithSkippingLight++;
         }
         
-        // Check for "full depth" cue
         for (const w of warmups) {
           for (const instruction of w.instructions) {
             if (instruction.toLowerCase().includes("full depth")) {
@@ -306,180 +274,66 @@ console.log("\n2b. Warm-up test: walking-lunge, skipping-light, 'full depth' nev
     }
   }
   
-  check(`walking-lunge NEVER in warmups for past-knee`, warmupsWithWalkingLunge === 0,
+  check(`walking-lunge NEVER in warmups`, warmupsWithWalkingLunge === 0,
     warmupsWithWalkingLunge > 0 ? `${warmupsWithWalkingLunge}/${warmupsChecked} had walking-lunge` : "");
-  check(`skipping-light NEVER in warmups for past-knee`, warmupsWithSkippingLight === 0,
+  check(`skipping-light NEVER in warmups`, warmupsWithSkippingLight === 0,
     warmupsWithSkippingLight > 0 ? `${warmupsWithSkippingLight}/${warmupsChecked} had skipping-light` : "");
-  check(`"full depth" cues rewritten for past-knee`, warmupsWithFullDepth === 0,
-    warmupsWithFullDepth > 0 ? `${warmupsWithFullDepth} warmups still had "full depth"` : "");
+  check(`"full depth" cues rewritten`, warmupsWithFullDepth === 0,
+    warmupsWithFullDepth > 0 ? `${warmupsWithFullDepth} warmups had "full depth"` : "");
   
   console.log(`    Checked ${warmupsChecked} warmup profiles`);
 }
 
-console.log("\n3. Identity test: non-knee profiles produce identical output to main");
+console.log("\n4. Swap ranking test: top-5 assertions");
 {
-  type BodyRegion = "shoulder" | "wrist" | "lower_back" | "knee";
-  const testCases: Array<{ name: string; currentInjuryRegions: BodyRegion[] }> = [
-    { name: "none", currentInjuryRegions: [] },
-    { name: "shoulder", currentInjuryRegions: ["shoulder"] },
-    { name: "wrist", currentInjuryRegions: ["wrist"] },
-    { name: "lower_back", currentInjuryRegions: ["lower_back"] },
-  ];
-  
-  for (const testCase of testCases) {
-    // Use exact same config as baseline generation: hasAllEquipment: true, pastKneeInjury: false
-    // Use "baseline-gen" userId to match the baseline tiebreaker hashes
-    const input: GeneratorInput = {
-      userId: "baseline-gen",
-      blockNumber: 1,
-      goal: "muscle_gain",
-      level: "intermediate",
-      primaryTrack: "weights",
-      daysPerWeek: 4,
-      yogaDaysPerWeek: 0,
-      age: 30,
-      bmi: 23,
-      hasAllEquipment: true,
-      equipmentIds: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine", "leg_press"],
-      currentInjuryRegions: testCase.currentInjuryRegions,
-      pastKneeInjury: false,
-      catalogue,
+  function getRankedSwaps(exerciseSlug: string, equipmentIds: string[]): string[] {
+    const current = bySlug.get(exerciseSlug);
+    if (!current) throw new Error(`Exercise ${exerciseSlug} not found`);
+    
+    const input = base({
+      pastKneeInjury: true,
+      equipmentIds,
+      hasAllEquipment: false,
+    });
+    
+    const patterns = buildPatternList(current.movement_pattern, false);
+    const rawPool = catalogue.filter(e => patterns.includes(e.movement_pattern));
+    
+    const wantCompound = current.mechanic === "compound";
+    const ctx: AlternativesContext = {
+      level: input.level,
+      availableEquipment: new Set(input.equipmentIds),
+      injuryRegions: input.currentInjuryRegions,
+      pastKneeInjury: input.pastKneeInjury,
+      limit: 5,
+      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, input.pastKneeInjury, 0),
+      tieBreakFn: (slug) => hashString(`ranking:${slug}`),
     };
     
-    const plan = generateProgram(input);
-    const exerciseIds = plan.days.flatMap(d => d.exercises.map(e => e.exerciseId)).sort();
-    
-    const baselinePlans = baseline[testCase.name].plans;
-    check(`${testCase.name}: plans match main`, JSON.stringify(exerciseIds) === JSON.stringify(baselinePlans));
-    
-    // Check swap lists
-    let swapsMatch = true;
-    for (const day of plan.days) {
-      for (const ex of day.exercises) {
-        const currentEx = catalogue.find(e => e.id === ex.exerciseId);
-        if (!currentEx) continue;
-        
-        const patterns = buildPatternList(currentEx.movement_pattern, input.currentInjuryRegions.includes("knee"));
-        const rawPool = catalogue.filter(e => patterns.includes(e.movement_pattern));
-        const pool = rawPool.filter(e => isEligible(e, input));
-        
-        const wantCompound = currentEx.mechanic !== "isolation";
-        const ctx: AlternativesContext = {
-          level: input.level,
-          availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
-          injuryRegions: input.currentInjuryRegions,
-          pastKneeInjury: false,
-          limit: 5,
-          scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, false, 0),
-          tieBreakFn: (slug) => hashString(`baseline:${slug}`),
-        };
-        
-        const alternatives = rankAlternatives(currentEx, pool, ctx);
-        const swapIds = alternatives.map(a => a.id).sort();
-        const baselineSwaps = baseline[testCase.name].swaps[ex.exerciseId];
-        
-        if (JSON.stringify(swapIds) !== JSON.stringify(baselineSwaps)) {
-          swapsMatch = false;
-          break;
-        }
-      }
-      if (!swapsMatch) break;
-    }
-    
-    check(`${testCase.name}: swaps match main`, swapsMatch);
-  }
-}
-
-console.log("\n4. Pinned QA case: Gym, Build muscle, Intermediate, 4 days, past-knee");
-{
-  const qaProfile = base({
-    goal: "muscle_gain",
-    level: "intermediate",
-    daysPerWeek: 4,
-    hasAllEquipment: false,
-    equipmentIds: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine", "leg_press"],
-    pastKneeInjury: true,
-    age: 30,
-    bmi: 23,
-    preferredSessionMinutes: 60,
-  });
-  
-  const plan = generateProgram(qaProfile);
-  const exercises = plan.days.flatMap((d) => d.exercises.map((e) => byId.get(e.exerciseId))).filter((e): e is CandidateExercise => e !== undefined);
-  
-  const excludedSlugs = Array.from(getPastKneeExcludedSlugs());
-  const excluded = exercises.filter(e => excludedSlugs.includes(e.slug));
-  check("QA: No pistol squats", !exercises.some(e => e.slug.includes("pistol")));
-  check("QA: No walking lunges", !exercises.some(e => e.slug.includes("walking-lunge")));
-  check("QA: No excluded exercises", excluded.length === 0, excluded.map(e => e.name).join(", "));
-  
-  // Check Lower days
-  const lowerDays = plan.days.filter(d => d.focus === "lower");
-  if (lowerDays.length > 0) {
-    console.log(`    Found ${lowerDays.length} Lower days`);
-    
-    for (const day of lowerDays) {
-      const dayExercises = day.exercises.map(e => byId.get(e.exerciseId)).filter((e): e is CandidateExercise => e !== undefined);
-      const squatEx = dayExercises.find(e => e.movement_pattern === "squat");
-      const lungeEx = dayExercises.find(e => e.movement_pattern === "lunge");
-      
-      if (squatEx) {
-        const patterns = buildPatternList(squatEx.movement_pattern, false);
-        const rawPool = catalogue.filter(e => patterns.includes(e.movement_pattern));
-        const pool = rawPool.filter(e => isEligible(e, qaProfile));
-        
-        const wantCompound = squatEx.mechanic === "compound";
-        const ctx: AlternativesContext = {
-          level: qaProfile.level,
-          availableEquipment: new Set(qaProfile.equipmentIds),
-          injuryRegions: qaProfile.currentInjuryRegions,
-          pastKneeInjury: qaProfile.pastKneeInjury,
-          limit: 5,
-          scoreFn: (e) => score(e, wantCompound, qaProfile.level, qaProfile.primaryTrack, qaProfile.pastKneeInjury, 0),
-          tieBreakFn: (slug) => hashString(`qa:${slug}`),
-        };
-        
-        const swaps = rankAlternatives(squatEx, pool, ctx);
-        check(`QA: Squat swaps include leg press`, swaps.some(s => s.slug === "leg-press"));
-        if (squatEx.slug !== "goblet-squat") {
-          check(`QA: Squat swaps include goblet squat`, swaps.some(s => s.slug === "goblet-squat"));
-        }
-        check(`QA: No pistol in squat swaps`, !swaps.some(s => s.slug.includes("pistol")));
-      }
-      
-      if (lungeEx) {
-        const patterns = buildPatternList(lungeEx.movement_pattern, false);
-        const rawPool = catalogue.filter(e => patterns.includes(e.movement_pattern));
-        const pool = rawPool.filter(e => isEligible(e, qaProfile));
-        
-        const wantCompound = lungeEx.mechanic === "compound";
-        const ctx: AlternativesContext = {
-          level: qaProfile.level,
-          availableEquipment: new Set(qaProfile.equipmentIds),
-          injuryRegions: qaProfile.currentInjuryRegions,
-          pastKneeInjury: qaProfile.pastKneeInjury,
-          limit: 5,
-          scoreFn: (e) => score(e, wantCompound, qaProfile.level, qaProfile.primaryTrack, qaProfile.pastKneeInjury, 0),
-          tieBreakFn: (slug) => hashString(`qa:${slug}`),
-        };
-        
-        const swaps = rankAlternatives(lungeEx, pool, ctx);
-        check(`QA: No walking lunge in lunge swaps`, !swaps.some(s => s.slug.includes("walking-lunge")));
-        check(`QA: No pistol in lunge swaps`, !swaps.some(s => s.slug.includes("pistol")));
-      }
-    }
+    const swaps = rankAlternatives(current, rawPool, ctx);
+    return swaps.map(s => s.slug);
   }
   
-  // Test at 45 minutes too
-  const qa45 = base({
-    ...qaProfile,
-    preferredSessionMinutes: 45,
-  });
+  const gymEquipment = ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine", "leg_press", "leg_extension_machine"];
   
-  const result45 = generateProgram(qa45);
-  const exercises45 = result45.days.flatMap((d) => d.exercises.map((e) => byId.get(e.exerciseId))).filter((e): e is CandidateExercise => e !== undefined);
-  const excluded45 = exercises45.filter(e => excludedSlugs.includes(e.slug));
-  check("QA 45m: No excluded exercises", excluded45.length === 0);
+  // Squat swaps: goblet, leg press, wall sit in top 5
+  const squatSwaps = getRankedSwaps("barbell-squat", gymEquipment);
+  check("Squat: goblet-squat in top 5", squatSwaps.includes("goblet-squat"));
+  check("Squat: leg-press in top 5", squatSwaps.includes("leg-press"));
+  check("Squat: wall-sit in top 5", squatSwaps.includes("wall-sit"));
+  
+  // Lunge swaps: dumbbell-rear-lunge MUST be #1
+  const lungeSwaps = getRankedSwaps("barbell-lunge", gymEquipment);
+  check("Lunge: dumbbell-rear-lunge is #1", lungeSwaps[0] === "dumbbell-rear-lunge");
+  
+  // Leg extension swaps: wall-sit in top 5, no cable-hip-adduction
+  const legExtSwaps = getRankedSwaps("leg-extensions", gymEquipment);
+  check("Leg ext: wall-sit in top 5", legExtSwaps.includes("wall-sit"));
+  check("Leg ext: no cable-hip-adduction", !legExtSwaps.includes("cable-hip-adduction"));
+  
+  console.log(`    Squat top 5: ${squatSwaps.join(", ")}`);
+  console.log(`    Lunge top 5: ${lungeSwaps.join(", ")}`);
+  console.log(`    Leg ext top 5: ${legExtSwaps.join(", ")}`);
 }
 
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);

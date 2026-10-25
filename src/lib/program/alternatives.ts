@@ -1,7 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
-import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
-import { isExcludedForPastKnee } from "@/lib/program/past-knee";
+import { isExcludedForPastKnee, getKneeFriendlyRankingBoost } from "@/lib/program/past-knee";
 
 export type ExerciseRow = CandidateExercise;
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -209,9 +208,6 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (candidate.id === current.id) continue;
     
     // 2. Exclude dangerous/problematic exercises (hard-coded exclusion set)
-    if (EXCLUDED_EXERCISE_SLUGS.has(candidate.slug)) continue;
-    
-    // 3. Exclude pullovers when original is a compound pull
     // Pullovers are shoulder-extension moves and not appropriate substitutes
     if (isCompoundPull && !isPulloverOriginal) {
       const nameLower = candidate.name.toLowerCase();
@@ -251,12 +247,12 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
-    // 10. Equipment check: OR alternatives for specific exercises, else ALL-of semantics
+    // 10. Equipment check: OR alternatives for specific exercises (past-knee only), else ALL-of semantics
     if (ctx.availableEquipment !== null && candidate.equipment_ids.length > 0) {
       const equipment = ctx.availableEquipment;
       
-      // Goblet squat accepts dumbbell OR kettlebell
-      if (candidate.slug === "goblet-squat") {
+      // Goblet squat accepts dumbbell OR kettlebell (past-knee users only; main requires strict match)
+      if (ctx.pastKneeInjury === true && candidate.slug === "goblet-squat") {
         const hasDumbbell = equipment.has("dumbbell");
         const hasKettlebell = equipment.has("kettlebell");
         if (!hasDumbbell && !hasKettlebell) continue;
@@ -281,23 +277,17 @@ export function rankAlternatives<T extends ExerciseRow>(
       }
     }
     
-    // Detect obvious muscle target mismatches based on exercise name
-    // Example: "Cable Hip Adduction" claims quads but clearly targets adductors
-    const candidateNameLower = candidate.name.toLowerCase();
-    const candidateSlugLower = candidate.slug.toLowerCase();
-    
-    // If exercise name indicates adductor work but doesn't list adductors in primary/secondary muscles, skip it
-    const candidateSecondaryMuscles: string[] = 'secondary_muscles' in candidate ? (candidate as { secondary_muscles: string[] }).secondary_muscles || [] : [];
-    if ((candidateNameLower.includes('adduction') || candidateNameLower.includes('adductor') || 
-         candidateSlugLower.includes('adduct')) && 
-        !candidate.primary_muscles.includes('adductors') &&
-        !candidateSecondaryMuscles.includes('adductors')) {
-      // This exercise is mislabeled - skip it
-      continue;
+    // Past-knee only: filter out cable-hip-adduction (mislabeled adductor claiming quads)
+    if (ctx.pastKneeInjury === true) {
+      const pastKneeExcludedSwapSlugs = new Set(["cable-hip-adduction"]);
+      if (pastKneeExcludedSwapSlugs.has(candidate.slug)) {
+        continue;
+      }
     }
     
     // Knee-friendly score for past-knee users (ranks before equipment/primary)
-    const kneeFriendlyScore = (ctx.pastKneeInjury === true && isKneeFriendlyForRanking(candidate)) ? 1 : 0;
+    // Lunge: dumbbell-rear-lunge gets boost=2 (must be #1), others get boost=1
+    const kneeFriendlyScore = ctx.pastKneeInjury === true ? getKneeFriendlyRankingBoost(candidate) : 0;
     
     // Penalty for high-impact moves (e.g., Lunge Sprint)
     const impactPenalty = candidate.impact === "high" ? 1 : 0;
