@@ -7,6 +7,7 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
+import { resolveDisplayTarget } from "@/lib/session/display-target";
 
 export const dynamic = "force-dynamic";
 
@@ -118,6 +119,13 @@ export default async function SessionPage({
         ? null
         : Number(progress.current_working_weight_kg);
     const isBodyweight = (ex?.equipment_ids ?? []).length === 0;
+    const metric = r.metric ?? "reps";
+    const target = resolveDisplayTarget({
+      metric,
+      plannedMin: r.planned_reps_min ?? 8,
+      plannedMax: r.planned_reps_max ?? 12,
+      currentTargetReps: progress?.current_target_reps,
+    });
     return {
       id: r.id,
       exerciseId: ex?.id ?? "",
@@ -129,11 +137,11 @@ export default async function SessionPage({
         logged in, or half the sets in one exercise would be reps and half
         seconds.
       */
-      metric: r.metric ?? "reps",
+      metric,
       primaryMuscles: ex?.primary_muscles ?? [],
       plannedSets: r.planned_sets ?? 3,
-      repsMin: r.planned_reps_min ?? 8,
-      repsMax: r.planned_reps_max ?? 12,
+      repsMin: target.min,
+      repsMax: target.max,
       restSeconds: r.rest_seconds ?? 90,
       status: r.status,
       feel: r.feel,
@@ -144,7 +152,7 @@ export default async function SessionPage({
         {
           mechanic: null,
           movementPattern: ex?.movement_pattern ?? "other",
-          metric: r.metric ?? "reps",
+          metric,
           isBodyweight,
           progressionChain: null,
           progressionRank: null,
