@@ -115,7 +115,8 @@ for (const spec of KNEE_PROFILES) {
       }
     }
     
-    // Invariant 3: Any knee user: every knee-risk exercise has targetSets equal to prescribe() value
+    // Invariant 3: Any knee user: every knee-risk exercise has targetSets <= prescribe() value
+    // (M2 duration shrink may reduce sets for short sessions, but M3 time-fill must not add sets)
     if (input.anyKneeInjury) {
       for (const ex of exercises) {
         if (!ex.exData) continue;
@@ -130,11 +131,12 @@ for (const spec of KNEE_PROFILES) {
           ex.exData.equipment_ids
         );
         
-        if (ex.targetSets !== prescribed.sets) {
-          fail(`${spec.id} day ${day.dayIndex}: knee-risk ${ex.name} has ${ex.targetSets} sets, expected ${prescribed.sets} from prescribe()`);
+        // Check that targetSets does not exceed prescription (M3 time-fill must not add sets)
+        if (ex.targetSets > prescribed.sets) {
+          fail(`${spec.id} day ${day.dayIndex}: knee-risk ${ex.name} has ${ex.targetSets} sets, exceeds ${prescribed.sets} from prescribe()`);
         }
         
-        // Check level caps
+        // Check level caps at 60 min (but allow M2 shrink to reduce below)
         const maxSets = input.level === "beginner" ? 3 : 4;
         if (input.preferredSessionMinutes === 60 && ex.targetSets > maxSets) {
           fail(`${spec.id} day ${day.dayIndex}: knee-risk ${ex.name} has ${ex.targetSets} sets, max ${maxSets} for ${input.level} at 60 min`);

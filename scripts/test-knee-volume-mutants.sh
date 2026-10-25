@@ -75,7 +75,7 @@ function test_mutant {
 
 # Mutant (a): Drop the PAST_KNEE_LUNGE_EXERCISES pre-fallback step
 test_mutant "drop-past-knee-lunge-prefallback" \
-  "sed '/PART A: Past-knee lunge slot fix/,/for (const p of \[pattern, PATTERN_FALLBACK\[pattern\]\]) {/d'"
+  "sed '/PART A: Past-knee lunge slot fix/,/\/\/ Normal pattern\/fallback loop/d'"
 
 # Mutant (b): Remove knee-risk filter from squat fallback
 test_mutant "remove-knee-filter-fallback" \
