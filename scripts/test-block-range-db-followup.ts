@@ -179,9 +179,7 @@ async function testM2_HistoryLabelsPreserved() {
       await client.query("BEGIN");
       
       // Run as authenticated user under RLS
-      await client.query("SET LOCAL ROLE authenticated");
-      await client.query(`SELECT set_config('request.jwt.claims', json_build_object('sub', $1, 'role', 'authenticated')::text, true)`, [userId]);
-      await client.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userId]);
+      await client.query(`SET LOCAL request.jwt.claim.sub = '${userId}'`);
       
       // Verify we're running as authenticated user
       const { rows: roleCheck } = await client.query("SELECT current_user, auth.uid() as auth_uid");
@@ -343,9 +341,7 @@ async function testM2_Negative_RLSIsolation() {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query("SET LOCAL ROLE authenticated");
-      await client.query(`SELECT set_config('request.jwt.claims', json_build_object('sub', $1, 'role', 'authenticated')::text, true)`, [userB]);
-      await client.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userB]);
+      await client.query(`SET LOCAL request.jwt.claim.sub = '${userB}'`);
       
       const { rows: roleCheck } = await client.query("SELECT current_user, auth.uid() as auth_uid");
       console.log(`  User B running as: ${roleCheck[0].current_user}, auth.uid()=${roleCheck[0].auth_uid?.substring(0, 8)}...\n`);
