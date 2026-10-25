@@ -24,8 +24,6 @@ import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 async function runTests() {
   try {
-    let loadCalled = false;
-
     // Fake storage
     const fakeStorage: Storage = {
       getItem: () => null,
