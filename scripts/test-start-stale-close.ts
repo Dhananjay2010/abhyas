@@ -629,13 +629,6 @@ async function testTodayChangesOutcome() {
  * Test (BUG CATCH): checkRemainingInProgress error propagates
  */
 async function testRemainingCheckError() {
-  const sessions: Session[] = [
-    { id: "sess-stale", user_id: USER_ID, program_id: "prog-1", program_day_id: "day-1",
-      local_date: YESTERDAY, week_in_block: 1, is_deload: false, status: "in_progress",
-      actual_type: "weights", created_at: "2026-10-25T10:00:00Z", started_at: "2026-10-25T10:00:00Z",
-      completed_at: null, duration_seconds: null, planned_type: "weights" },
-  ];
-
   const errorFetch: typeof fetch = async (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     if (url.includes("/sessions?") && url.includes("status=eq.in_progress") && url.includes("order=created_at.desc")) {
