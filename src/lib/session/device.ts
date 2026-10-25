@@ -141,17 +141,15 @@ export const vibrationSupported = () =>
 
 /**
  * Hook to check vibration support with SSR-safe hydration.
- * Returns false during SSR and initial client render, then updates to actual
- * support in an effect to prevent hydration mismatches.
+ * Returns false during SSR, then the actual support on the client.
+ * Uses useSyncExternalStore to avoid hydration mismatches.
  */
 export function useVibrationSupported(): boolean {
-  const [supported, setSupported] = useState(false);
-  
-  useEffect(() => {
-    setSupported(vibrationSupported());
-  }, []);
-  
-  return supported;
+  return useSyncExternalStore(
+    useCallback(() => () => {}, []), // subscribe (no-op, capability doesn't change)
+    () => vibrationSupported(), // getSnapshot (client)
+    () => false, // getServerSnapshot (SSR) - returns false so server HTML matches initial client render
+  );
 }
 
 export function vibrate(pattern: number | number[]) {

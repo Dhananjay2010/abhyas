@@ -46,17 +46,13 @@ function CapabilityNoteBuggy({ vibrateEnabled }: { vibrateEnabled: boolean }) {
   return React.createElement("p", { className: "note" }, bits.join(" · "));
 }
 
-// Fixed version using a hook
+// Fixed version using useSyncExternalStore
 function useVibrationSupported(): boolean {
-  const [supported, setSupported] = React.useState(false);
-  
-  React.useEffect(() => {
-    setSupported(
-      typeof navigator !== "undefined" && typeof navigator.vibrate === "function"
-    );
-  }, []);
-  
-  return supported;
+  return React.useSyncExternalStore(
+    React.useCallback(() => () => {}, []), // subscribe (no-op)
+    () => typeof navigator !== "undefined" && typeof navigator.vibrate === "function", // getSnapshot
+    () => false, // getServerSnapshot (SSR) - returns false
+  );
 }
 
 function CapabilityNoteFixed({ vibrateEnabled }: { vibrateEnabled: boolean }) {
@@ -133,9 +129,14 @@ check(
 console.log("\n--- Testing FIXED version (should match) ---\n");
 
 // Reset navigator to undefined for server simulation
-delete (global as any).navigator;
-delete (global as any).document;
-delete (global as any).window;
+type GlobalWithOptional = typeof global & {
+  navigator?: unknown;
+  document?: unknown;
+  window?: unknown;
+};
+delete (global as GlobalWithOptional).navigator;
+delete (global as GlobalWithOptional).document;
+delete (global as GlobalWithOptional).window;
 
 const serverHtmlFixed = renderToString(
   React.createElement(CapabilityNoteFixed, { vibrateEnabled: true })
