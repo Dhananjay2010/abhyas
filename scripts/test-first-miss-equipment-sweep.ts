@@ -25,6 +25,8 @@ const EQUIPMENTS: Array<{ ids: string[]; unit: WeightUnit }> = [
   { ids: ["cable_machine"], unit: "kg" },
   { ids: ["lat_pulldown"], unit: "kg" },
   { ids: ["leg_extension"], unit: "kg" },
+  { ids: ["leg_press"], unit: "kg" },
+  { ids: ["leg_curl"], unit: "kg" },
   { ids: ["medicine_ball"], unit: "kg" },
   { ids: ["barbell"], unit: "lb" },
   { ids: ["dumbbell"], unit: "lb" },
@@ -91,11 +93,12 @@ let offGridDecreases = 0;
 console.log("\n=== Equipment Sweep ===");
 console.log("Verifying invariants across all equipment types...\n");
 
-function isOnGrid(weight: number, equipmentIds: string[], unit: WeightUnit): boolean {
+function isOnGrid(weight: number, equipmentIds: string[]): boolean {
   if (equipmentIds.includes("kettlebell")) {
     return KETTLEBELL_WEIGHTS_KG.includes(weight);
   }
-  const step = gridStepFor(equipmentIds, unit);
+  // Always check kg grid for loadability (internal representation)
+  const step = gridStepFor(equipmentIds, "kg");
   return Math.abs(weight - Math.round(weight / step) * step) < 0.001;
 }
 
@@ -160,7 +163,7 @@ for (const { ids, unit } of EQUIPMENTS) {
 
         // Check step violation: first miss should not drop more than 1.5 steps (non-kettlebell)
         if (!ids.includes("kettlebell")) {
-          const step = gridStepFor(ids, unit);
+          const step = gridStepFor(ids, "kg");
           const maxDrop = step * 1.5;
           if (firstMissW < weight - maxDrop - 0.001 && firstMissW < weight - 0.001) {
             stepViolations++;
@@ -170,16 +173,47 @@ for (const { ids, unit } of EQUIPMENTS) {
           }
         }
 
-        // Check off-grid decreases
-        if (
-          firstMissW < weight - 0.001 &&
-          firstMissResult.outcome !== "hold" &&
-          !isOnGrid(firstMissW, ids, unit)
-        ) {
+        // Check loadability: EVERY decrease (regardless of outcome label) must be loadable
+        if (firstMissW < weight - 0.001 && !isOnGrid(firstMissW, ids)) {
           offGridDecreases++;
           console.log(
-            `OFF-GRID DECREASE: ${ids[0]} ${weight} -> ${firstMissW} ${unit}`
+            `OFF-GRID FIRST-MISS: ${ids[0]} ${weight} -> ${firstMissW} ${unit}`
           );
+        }
+        
+        if (twoMissW < weight - 0.001 && !isOnGrid(twoMissW, ids)) {
+          offGridDecreases++;
+          console.log(
+            `OFF-GRID TWO-MISS: ${ids[0]} ${weight} -> ${twoMissW} ${unit}`
+          );
+        }
+
+        // Check never-raise: misses should never increase weight
+        if (firstMissW > weight + 0.001) {
+          invariantViolations++;
+          console.log(
+            `NEVER-RAISE VIOLATION (first-miss): ${ids[0]} ${weight} -> ${firstMissW} ${unit}`
+          );
+        }
+        
+        if (twoMissW > weight + 0.001) {
+          invariantViolations++;
+          console.log(
+            `NEVER-RAISE VIOLATION (two-miss): ${ids[0]} ${weight} -> ${twoMissW} ${unit}`
+          );
+        }
+        
+        // Check two-miss >= cap
+        if (mechanic === "isolation" || mechanic === "compound") {
+          const liftIncrement = mechanic === "compound" ? 2.5 : 1.25;
+          const rawReduced = weight * 0.9;
+          const cap = rawReduced - liftIncrement;
+          if (twoMissW < cap - 0.001 && twoMissW < weight - 0.001) {
+            invariantViolations++;
+            console.log(
+              `TWO-MISS BELOW CAP: ${ids[0]} ${weight} -> ${twoMissW} (cap: ${cap.toFixed(2)}) ${unit}`
+            );
+          }
         }
 
         // Test suggested weight for holds

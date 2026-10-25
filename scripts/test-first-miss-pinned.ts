@@ -215,6 +215,7 @@ console.log("\n=== First-Miss: Leg Extension & Med Ball ===");
 console.log("\n=== Two-Miss: Barbell 13.75 kg (metric, isolation) ===");
 
 // Two misses at 13.75 kg with equipment (isolation): 90% = 12.375, floor to 1.25 grid = 11.25, cap at 12.375 - 1.25 = 11.125 → max(11.25, 11.125) = 11.25
+// SMALLEST loadable >= 11.25 is 12.5 (next barbell step up)
 {
   const d = run({
     equipmentIds: ["barbell"],
@@ -222,11 +223,11 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (metric, isolation) ===");
     meta: CURL,  // isolation
     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
   });
-  check("Barbell 13.75 kg two-miss with equipment (isolation) → 11.25 kg", 
-    d.nextWorkingWeightKg === 11.25 && d.consecutiveFailures === 0);
+  check("Barbell 13.75 kg two-miss with equipment (isolation) → 12.5 kg (loadable)", 
+    d.nextWorkingWeightKg === 12.5 && d.consecutiveFailures === 0);
 }
 
-// Two misses at 13.75 kg WITHOUT equipment (isolation): same logic → 11.25
+// Two misses at 13.75 kg WITHOUT equipment (isolation): same logic → 11.25 (no equipment snap)
 {
   const d = run({
     equipmentIds: undefined,
@@ -247,8 +248,8 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (imperial, isolation) ===");
     meta: CURL,  // isolation
     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
   });
-  check("Barbell 13.75 kg (30.5 lb) two-miss with equipment (isolation) → 11.25 kg (25 lb)", 
-    d.nextWorkingWeightKg === 11.25 && d.message.includes("25 lb"));
+  check("Barbell 13.75 kg (30.5 lb) two-miss with equipment (isolation) → 12.5 kg (27.5 lb, loadable)", 
+    d.nextWorkingWeightKg === 12.5 && d.message.includes("27"));
 }
 
 {
@@ -351,6 +352,102 @@ for (const { ids, unit } of equipments) {
   }
 }
 
+console.log("\n=== NEVER-RAISE Tests ===");
+// KB 3 kg first miss: next bell down is 3 or stays at 3? Should never raise.
+{
+  const d = run({
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 3, consecutiveFailures: 0 }),
+  });
+  check("KB 3 kg first miss: never raise", d.nextWorkingWeightKg !== null && d.nextWorkingWeightKg <= 3);
+}
+
+// lat_pulldown isolation 3 kg first miss: never raise
+{
+  const d = run({
+    equipmentIds: ["lat_pulldown"],
+    unit: "kg",
+    meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
+    state: fresh({ currentWorkingWeightKg: 3, consecutiveFailures: 0 }),
+  });
+  check("lat_pulldown isolation 3 kg first miss: never raise", d.nextWorkingWeightKg !== null && d.nextWorkingWeightKg <= 3);
+}
+
+// lat_pulldown 3kg two-miss tests helper never-raise: target 2.5 snaps to 5kg > 3kg
+{
+  const d = run({
+    equipmentIds: ["lat_pulldown"],
+    unit: "kg",
+    meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
+    state: fresh({ currentWorkingWeightKg: 3, consecutiveFailures: 1 }),
+  });
+  check("lat_pulldown 3 kg two-miss: helper never-raise prevents 5kg", d.nextWorkingWeightKg === 3);
+}
+
+// lat_pulldown isolation 4.5 kg first miss: never raise
+{
+  const d = run({
+    equipmentIds: ["lat_pulldown"],
+    unit: "kg",
+    meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
+    state: fresh({ currentWorkingWeightKg: 4.5, consecutiveFailures: 0 }),
+  });
+  check("lat_pulldown isolation 4.5 kg first miss: never raise", d.nextWorkingWeightKg !== null && d.nextWorkingWeightKg <= 4.5);
+}
+
+// leg_extension isolation 30 kg first miss: never raise, should be loadable
+{
+  const d = run({
+    equipmentIds: ["leg_extension"],
+    unit: "kg",
+    meta: { ...CURL, mechanic: "isolation", movementPattern: "lunge" },
+    state: fresh({ currentWorkingWeightKg: 30, consecutiveFailures: 0 }),
+  });
+  check("leg_extension isolation 30 kg first miss: never raise, loadable",
+    d.nextWorkingWeightKg !== null && d.nextWorkingWeightKg <= 30);
+}
+
+console.log("\n=== HOLD Tests ===");
+// Barbell isolation 12.5 first miss → hold
+{
+  const d = run({
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: { ...CURL, mechanic: "isolation" },
+    state: fresh({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
+  });
+  check("Barbell isolation 12.5 kg first miss → hold (next would be 11.25, not loadable)", 
+    d.nextWorkingWeightKg === 12.5);
+}
+
+// KB press 48 two-miss → hold (cap at 40.7, largest bell < 48 is 40, but 40 < 40.7)
+{
+  const d = run({
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+    meta: { ...BENCH, mechanic: "compound", movementPattern: "vertical_press" },
+    state: fresh({ currentWorkingWeightKg: 48, consecutiveFailures: 1 }),
+  });
+  check("KB press 48 kg two-miss → hold (no bell between cap and current)", 
+    d.nextWorkingWeightKg === 48);
+}
+
+// Barbell compound 10 first miss → hold (25% cut)
+{
+  const d = run({
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: { ...BENCH, mechanic: "compound" },
+    state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 0 }),
+  });
+  const nextDown = 7.5;
+  const cut = (10 - nextDown) / 10;
+  check(`Barbell compound 10 kg first miss → hold (cut would be ${(cut * 100).toFixed(1)}% > 20%)`, 
+    d.nextWorkingWeightKg === 10);
+}
+
 console.log("\n=== Mutant-Killing Tests ===");
 
 // (c) Kill >= mutant: test exact 20% boundary
@@ -363,7 +460,19 @@ console.log("\n=== Mutant-Killing Tests ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
   });
-  check("Exact 20% boundary (12.5 -> 10): should drop, not hold", d.nextWorkingWeightKg === 10);
+  check("12.5kg dumbbell first miss → hold (10kg < two-miss floor)", d.nextWorkingWeightKg === 12.5);
+}
+
+// Exact 20% boundary without two-miss floor interference
+{
+  // Barbell compound 12.5kg -> 10kg is exactly 20%
+  const d = run({
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: { ...BENCH, mechanic: "compound" },
+    state: fresh({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
+  });
+  check("12.5kg barbell compound exact 20% cut: drops to 10kg (> not >=)", d.nextWorkingWeightKg === 10);
 }
 
 // (f) Kill kettlebell <= mutant: ensure strictly-below
@@ -439,6 +548,19 @@ console.log("\n=== THRESHOLD BEHAVIOR ===");
   });
   const cutPct = (7.5 - 5) / 7.5;
   check(`Threshold 0.20: 7.5kg with ${(cutPct*100).toFixed(1)}% cut holds (> 20%)`, d.nextWorkingWeightKg === 7.5);
+}
+
+// Test 20-25% range: barbell compound 10kg -> 7.5kg = 25% cut
+{
+  const d = run({
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: { ...BENCH, mechanic: "compound" },
+    state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 0 }),
+  });
+  const nextDown = 7.5;
+  const cutPct = (10 - nextDown) / 10;
+  check(`Threshold 0.20: 10kg with ${(cutPct*100).toFixed(1)}% cut holds (> 20%, < 25%)`, d.nextWorkingWeightKg === 10);
 }
 
 console.log("\n=== HOLD RETURNS EXACT WEIGHT ===");

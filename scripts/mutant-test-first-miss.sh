@@ -151,12 +151,16 @@ run_mutant \
   "        if (bells[i] < currentWeight - epsilon) {" \
   "        if (bells[i] <= currentWeight) {"
 
-# Mutant (g): first-miss >= two-miss clamp
+# Mutant (g): first-miss >= two-miss guard
 run_mutant \
-  "(g) remove invariant clamp" \
-  "Remove the Math.max clamp for invariant" \
-  "    candidateWeight = Math.max(candidateWeight, twoMissFloor);" \
-  "    candidateWeight = candidateWeight;"
+  "(g) hold when candidate < two-miss" \
+  "Don't hold when candidate < two-miss" \
+  "    if (candidateWeight < twoMissFloor) {
+      candidateWeight = currentWeight;
+    }" \
+  "    if (candidateWeight < twoMissFloor) {
+      candidateWeight = candidateWeight;
+    }"
 
 # Mutant (h): first-miss hold snap
 run_mutant \
@@ -173,9 +177,6 @@ run_mutant \
   '    if (feel === "right" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {'
 
 # Mutant (j): 1.5-step rule - DELETED
-# The 1.5-step floor is unreachable: strictly-below logic means candidate is at most 1 step
-# below current, so candidate >= current - step always. The condition candidate < current - 1.5*step
-# can never be true. Rule was deleted from source code.
 echo "Testing mutant: (j) 1.5-step rule"
 echo "  ⚠️  DELETED: Rule is unreachable (strictly-below ensures at most 1-step drop)"
 
@@ -186,6 +187,27 @@ run_mutant \
   "      const stepsBelow = Math.floor((currentWeight - epsilon) / gridStep);" \
   "      const stepsBelow = Math.round(currentWeight / gridStep);"
 
+# Mutant (l): threshold 0.20 → 0.25
+run_mutant \
+  "(l) threshold 0.20 → 0.25" \
+  "Change threshold to 0.25 (25%)" \
+  "export const FIRST_MISS_HOLD_THRESHOLD = 0.20;" \
+  "export const FIRST_MISS_HOLD_THRESHOLD = 0.25;"
+
+# Mutant (m): snap down instead of snap up in helper
+run_mutant \
+  "(m) snap down in helper" \
+  "Snap down instead of up in two-miss helper" \
+  "        const snappedUp = Math.ceil(target / gridStep) * gridStep;" \
+  "        const snappedUp = Math.floor(target / gridStep) * gridStep;"
+
+# Mutant (n): remove helper never-raise check (no-equipment path) - UNREACHABLE
+# The never-raise check is unreachable because target is computed as:
+# target = max(floor(0.9*weight / grid) * grid, 0.9*weight - increment)
+# Both components are <= 0.9*weight < weight, so target can never be > weight.
+echo "Testing mutant: (n) remove helper never-raise"
+echo "  ⚠️  UNREACHABLE: target computation ensures target <= weight always"
+
 # Clean up temp script
 rm -f /tmp/mutate.js
 
@@ -193,7 +215,7 @@ echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-TOTAL=10
+TOTAL=12
 KILLED=$((TOTAL - FAILED - ${#SKIPPED[@]}))
 echo "Total mutants:                   $TOTAL"
 echo "Killed:                          $KILLED"

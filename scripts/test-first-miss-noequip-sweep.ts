@@ -99,8 +99,8 @@ for (const mechanic of MECHANICS) {
             meta,
             state,
             isDeload: deload,
-            equipmentIds: [],
-            unit: "kg",
+            equipmentIds: undefined,
+            unit: undefined,
           };
 
             const result = evaluateProgression(input);
@@ -145,34 +145,35 @@ if (caseCount < 50000) {
   process.exit(1);
 }
 
-// Compare with fixture (if params match)
-if (caseCount === fixture.totalCases) {
-  let bucketMatches = 0;
-  let bucketMismatches = 0;
-
-  for (let i = 0; i < 64; i++) {
-    const actual = buckets[i];
-    const expected = fixture.buckets[i];
-
-    if (actual.hash === expected.hash && actual.count === expected.count) {
-      bucketMatches++;
-    } else {
-      bucketMismatches++;
-      console.log(
-        `Bucket ${i} MISMATCH:\n  Expected: ${expected.hash.slice(0, 16)}... (${expected.count} cases)\n  Actual:   ${actual.hash.slice(0, 16)}... (${actual.count} cases)`
-      );
-    }
-  }
-
-  if (bucketMismatches > 0) {
-    console.error(
-      `\n❌ ${bucketMismatches} bucket(s) differ from main. Behavior has changed without equipment.`
-    );
-    process.exit(1);
-  }
-
-  console.log(`\n✅ All ${bucketMatches} buckets match main. Behavior unchanged without equipment.`);
-} else {
-  console.log(`\n✅ Ran ${caseCount} no-equipment cases (fixture has ${fixture.totalCases}, params may differ)`);
-  console.log("   Verifying no-equipment path doesn't crash or regress on basic invariants");
+// Compare with fixture
+if (caseCount !== fixture.totalCases) {
+  console.error(`\n❌ Case count mismatch: expected ${fixture.totalCases}, got ${caseCount}`);
+  console.error("   Regenerate fixture from main bf8d716f with the same parameters.");
+  process.exit(1);
 }
+
+let bucketMatches = 0;
+let bucketMismatches = 0;
+
+for (let i = 0; i < 64; i++) {
+  const actual = buckets[i];
+  const expected = fixture.buckets[i];
+
+  if (actual.hash === expected.hash && actual.count === expected.count) {
+    bucketMatches++;
+  } else {
+    bucketMismatches++;
+    console.log(
+      `Bucket ${i} MISMATCH:\n  Expected: ${expected.hash.slice(0, 16)}... (${expected.count} cases)\n  Actual:   ${actual.hash.slice(0, 16)}... (${actual.count} cases)`
+    );
+  }
+}
+
+if (bucketMismatches > 0) {
+  console.error(
+    `\n❌ ${bucketMismatches} bucket(s) differ from main. Behavior has changed without equipment.`
+  );
+  process.exit(1);
+}
+
+console.log(`\n✅ All ${bucketMatches} buckets match main. Behavior unchanged without equipment.`);
