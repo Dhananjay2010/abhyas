@@ -126,7 +126,7 @@ async function testEnsureSessionExercisesDeload() {
       id: dayId,
       program_id: programId,
       user_id: userId,
-      day_index: 0,
+      day_index: 1,
       day_type: "weights",
       label: "Upper",
       focus: "push",
