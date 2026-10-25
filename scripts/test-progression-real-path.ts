@@ -263,7 +263,7 @@ async function main() {
     check("Two misses: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
   }
 
-  console.log("\n5. Unloaded in-range hold (Decision b): bodyweight 3×14 when target is 16");
+  console.log("\n5. Unloaded in-range hold: bodyweight 3×10 in 8-12");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-5",
@@ -283,19 +283,19 @@ async function main() {
     };
 
     const sets: SessionSetRow[] = [
-      { reps: 14, weight_kg: null, duration_seconds: null },
-      { reps: 14, weight_kg: null, duration_seconds: null },
-      { reps: 14, weight_kg: null, duration_seconds: null },
+      { reps: 10, weight_kg: null, duration_seconds: null },
+      { reps: 10, weight_kg: null, duration_seconds: null },
+      { reps: 10, weight_kg: null, duration_seconds: null },
     ];
 
     const progress: ExerciseProgressRow = {
       current_working_weight_kg: null,
-      current_target_reps: 16, // Progressed beyond original 12
+      current_target_reps: 12,
       consecutive_failures: 0,
       best_weight_kg: null,
-      best_reps: 16,
+      best_reps: 12,
       best_e1rm: null,
-      total_sessions: 5,
+      total_sessions: 3,
     };
 
     const session: SessionRow = {
@@ -307,14 +307,14 @@ async function main() {
     const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
-    check("Unloaded in-range: repsMin derived from target (16-2=14)", input.repsMin === 14, `${input.repsMin}`);
-    check("Unloaded in-range: repsMax is target (16)", input.repsMax === 16, `${input.repsMax}`);
-    check("Unloaded in-range: outcome hold (at min)", decision.outcome === "hold", decision.outcome);
+    check("Unloaded in-range: repsMin from planned (8)", input.repsMin === 8, `${input.repsMin}`);
+    check("Unloaded in-range: repsMax from planned (12)", input.repsMax === 12, `${input.repsMax}`);
+    check("Unloaded in-range: outcome hold", decision.outcome === "hold", decision.outcome);
     check("Unloaded in-range: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
-    check("Unloaded in-range: target stays at 16", decision.nextTargetReps === 16, `${decision.nextTargetReps}`);
+    check("Unloaded in-range: message 'Staying'", decision.message.includes("Staying"), decision.message);
   }
 
-  console.log("\n6. Unloaded below-min miss (Decision b): bodyweight 3×12 when target is 16");
+  console.log("\n6. Unloaded below-min miss: bodyweight 3×7 below min=8");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-6",
@@ -334,19 +334,19 @@ async function main() {
     };
 
     const sets: SessionSetRow[] = [
-      { reps: 12, weight_kg: null, duration_seconds: null },
-      { reps: 12, weight_kg: null, duration_seconds: null },
-      { reps: 12, weight_kg: null, duration_seconds: null },
+      { reps: 7, weight_kg: null, duration_seconds: null },
+      { reps: 7, weight_kg: null, duration_seconds: null },
+      { reps: 7, weight_kg: null, duration_seconds: null },
     ];
 
     const progress: ExerciseProgressRow = {
       current_working_weight_kg: null,
-      current_target_reps: 16,
+      current_target_reps: 12,
       consecutive_failures: 0,
       best_weight_kg: null,
-      best_reps: 16,
+      best_reps: 12,
       best_e1rm: null,
-      total_sessions: 5,
+      total_sessions: 3,
     };
 
     const session: SessionRow = {
@@ -358,13 +358,13 @@ async function main() {
     const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
-    check("Unloaded miss: repsMin is 14 (target-2)", input.repsMin === 14, `${input.repsMin}`);
+    check("Unloaded miss: repsMin from planned (8)", input.repsMin === 8, `${input.repsMin}`);
     check("Unloaded miss: outcome hold (below min)", decision.outcome === "hold", decision.outcome);
     check("Unloaded miss: failures=1", decision.consecutiveFailures === 1, `${decision.consecutiveFailures}`);
-    check("Unloaded miss: target stays at 16", decision.nextTargetReps === 16, `${decision.nextTargetReps}`);
+    check("Unloaded miss: target stays at 12", decision.nextTargetReps === 12, `${decision.nextTargetReps}`);
   }
 
-  console.log("\n7. Timed in-range hold (Decision b): plank 2×43s when target is 45s");
+  console.log("\n7. Timed in-range hold: plank 2×35s in 20-45s");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-7",
@@ -384,8 +384,8 @@ async function main() {
     };
 
     const sets: SessionSetRow[] = [
-      { reps: null, weight_kg: null, duration_seconds: 43 },
-      { reps: null, weight_kg: null, duration_seconds: 43 },
+      { reps: null, weight_kg: null, duration_seconds: 35 },
+      { reps: null, weight_kg: null, duration_seconds: 35 },
     ];
 
     const progress: ExerciseProgressRow = {
@@ -395,7 +395,7 @@ async function main() {
       best_weight_kg: null,
       best_reps: 45,
       best_e1rm: null,
-      total_sessions: 3,
+      total_sessions: 2,
     };
 
     const session: SessionRow = {
@@ -407,11 +407,11 @@ async function main() {
     const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
-    check("Timed in-range: repsMin is 43 (target-2)", input.repsMin === 43, `${input.repsMin}`);
-    check("Timed in-range: repsMax is target (45)", input.repsMax === 45, `${input.repsMax}`);
-    check("Timed in-range: outcome hold (at min)", decision.outcome === "hold", decision.outcome);
+    check("Timed in-range: repsMin from planned (20)", input.repsMin === 20, `${input.repsMin}`);
+    check("Timed in-range: repsMax from planned (45)", input.repsMax === 45, `${input.repsMax}`);
+    check("Timed in-range: outcome hold", decision.outcome === "hold", decision.outcome);
     check("Timed in-range: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
-    check("Timed in-range: message says 'this hold length'", decision.message.includes("hold length"), decision.message);
+    check("Timed in-range: message 'hold length'", decision.message.includes("hold length"), decision.message);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
