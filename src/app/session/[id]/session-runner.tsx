@@ -21,6 +21,7 @@ import { shouldShowFinishRetry, runEndEarly } from "@/lib/session/finish-flow";
 import { sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
 import { focusTrap } from "@/lib/focus-trap";
+import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
 import { applySwapTarget } from "@/lib/session/apply-swap-target";
 import {
@@ -889,11 +890,7 @@ export function SessionRunner({
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>
         <p className="mt-2 text-accent">
-          {current.plannedSets} sets ×{" "}
-          {current.repsMin === current.repsMax
-            ? current.repsMin
-            : `${current.repsMin}–${current.repsMax}`}
-          {isTimed ? "s" : " reps"}
+          {current.plannedSets} sets × {formatTargetRange({ min: current.repsMin, max: current.repsMax, metric: current.metric })}
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
