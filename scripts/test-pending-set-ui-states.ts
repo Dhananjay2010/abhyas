@@ -141,7 +141,7 @@ async function testRetryingStateDuringReplay() {
   const replayCall = controller.replay();
 
   // Check state while replay is in flight
-  await new Promise((resolve) => setTimeout(resolve, 10));
+  await Promise.resolve();
   const duringReplay = states[states.length - 1];
   assertEqual(duringReplay.retrying, true, "Retrying is true during replay");
 
@@ -204,7 +204,7 @@ async function testAutoRetryAfterFailedReplay() {
 
   // Simulate focus event (auto-retry)
   controller.onFocus();
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await Promise.resolve();
 
   assertEqual(callCount, 2, "logSet called again on focus after failed replay");
   const afterSecondReplay = states[states.length - 1];

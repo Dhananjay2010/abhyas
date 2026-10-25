@@ -147,7 +147,7 @@ async function testReplayDoesntClearBeforeConfirm() {
   controller.replay();
 
   // Give it a moment to start
-  await new Promise((resolve) => setTimeout(resolve, 10));
+  await Promise.resolve();
 
   // Check storage immediately - set should still be there
   const remaining = loadPendingSets(storage, "test-user-id", sessionId, createPendingSetDeps());

@@ -102,7 +102,7 @@ async function testOnFocusReplaysOnFirstCall() {
   // Simulate mount: call onFocus once
   controller.onFocus();
 
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await Promise.resolve();
 
   assert(replayCalled, "Replay was triggered by onFocus");
   assert(states.length > 0, "onChange was called");
@@ -153,14 +153,14 @@ async function testOnFocusDoesNotReplayTwice() {
 
   // First onFocus: should replay
   controller.onFocus();
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await Promise.resolve();
 
   const firstCallCount = replayCallCount;
   assert(firstCallCount === 1, "First onFocus triggered replay");
 
   // Second onFocus: should NOT replay (replayAttempted guard)
   controller.onFocus();
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await Promise.resolve();
 
   assertEqual(replayCallCount, firstCallCount, "Second onFocus did not trigger another replay");
 }
@@ -218,7 +218,7 @@ async function testOnFocusRetriesAfterFailure() {
 
   // First onFocus: replay fails
   controller.onFocus();
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await Promise.resolve();
 
   assert(callCount === 1, "First replay attempt was made");
   assert(states[states.length - 1].pending.length === 1, "Set still pending after failed replay");
@@ -226,7 +226,7 @@ async function testOnFocusRetriesAfterFailure() {
 
   // Second onFocus: should retry automatically (allow retry after failure)
   controller.onFocus();
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await Promise.resolve();
 
   assertEqual(callCount, 2, "onFocus retries after failure (auto-retry on focus)");
   assertEqual(states[states.length - 1].pending.length, 0, "Set cleared after successful retry");
@@ -256,7 +256,7 @@ async function testReplayAttemptedResetOnNewPendingSet() {
 
   // No pending sets initially, so onFocus does nothing
   controller.onFocus();
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await Promise.resolve();
 
   assertEqual(callCount, 0, "No replay when no pending sets");
 
