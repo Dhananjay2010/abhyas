@@ -226,6 +226,15 @@ const mutants: Mutant[] = [
     tests: ["test:past-knee"],
   },
   
+  // Item 15(b2): One-squat-per-day in fallback path  
+  {
+    name: "Allow multiple squats per day (remove fallback check)",
+    file: "src/lib/program/generate.ts",
+    pattern: /\/\/ Item 15\(b\): For past-knee, if we're about to try squat pattern \(either direct or fallback\), check one-squat rule\s+if \(hasPastKnee && p === "squat"\) \{/,
+    mutate: '// Item 15(b): For past-knee, if we\'re about to try squat pattern (either direct or fallback), check one-squat rule\n    if (!hasPastKnee && p === "squat") {',
+    tests: ["test:past-knee"],
+  },
+  
   // Item 15(c): Barbell-squat comes after preferred squats in swaps
   {
     name: "Remove barbell-squat swap ordering (allow barbell-squat first)",
@@ -260,6 +269,33 @@ const mutants: Mutant[] = [
     pattern: /"deficit-deadlift",/,
     mutate: '// MUTANT: "deficit-deadlift" removed',
     tests: ["test:past-knee"],
+  },
+  
+  // Item 16: Olympic lift exclusion predicate
+  {
+    name: "Disable Olympic lift exclusion predicate (allow for injured users)",
+    file: "src/lib/program/generate.ts",
+    pattern: /export function shouldExcludeOlympicLift\(ex: CandidateExercise, input: \{ currentInjuryRegions\?: string\[\]; anyKneeInjury\?: boolean \}\): boolean \{\s+if \(!isOlympicLift\(ex\)\) return false;\s+\/\/ Members with CURRENT injuries only: exclude Olympic lifts from all slots\s+const hasCurrentInjury = \(input\.currentInjuryRegions\?\.length \?\? 0\) > 0;\s+return hasCurrentInjury;/,
+    mutate: 'export function shouldExcludeOlympicLift(ex: CandidateExercise, input: { currentInjuryRegions?: string[]; anyKneeInjury?: boolean }): boolean {\n  if (!isOlympicLift(ex)) return false;\n  // MUTANT: Always allow Olympic lifts\n  return false;',
+    tests: ["test:olympic-lifts"],
+  },
+  
+  // Item 16: isAllowedSwapTarget validator bypass
+  {
+    name: "Bypass isAllowedSwapTarget validator (always return true)",
+    file: "src/lib/program/generate.ts",
+    pattern: /export function isAllowedSwapTarget\(\s+target: CandidateExercise,\s+userContext: \{\s+currentInjuryRegions: string\[\];\s+anyKneeInjury\?: boolean;\s+\}\s+\): boolean \{\s+\/\/ Apply Olympic lift exclusion \(same rule as generator\)\s+if \(shouldExcludeOlympicLift\(target, userContext\)\) \{\s+return false;\s+\}/,
+    mutate: 'export function isAllowedSwapTarget(\n  target: CandidateExercise,\n  userContext: {\n    currentInjuryRegions: string[];\n    anyKneeInjury?: boolean;\n  }\n): boolean {\n  // MUTANT: Always allow swaps\n  return true;\n  // Apply Olympic lift exclusion (same rule as generator)\n  if (shouldExcludeOlympicLift(target, userContext)) {\n    return false;\n  }',
+    tests: ["test:olympic-lifts"],
+  },
+  
+  // Steer 2: Past-knee lunge swaps quad-isolation restriction
+  {
+    name: "Allow all squat-pattern candidates in past-knee lunge swaps",
+    file: "src/lib/program/alternatives.ts",
+    pattern: /} else if \(candidate\.movement_pattern === "squat"\) \{\s+\/\/ Only allow squat-pattern if it's in the quad-isolation list\s+if \(!PAST_KNEE_LUNGE_EXERCISES\.has\(candidate\.slug\)\) \{\s+continue;\s+\}\s+\}/,
+    mutate: '} else if (candidate.movement_pattern === "squat") {\n        // MUTANT: Allow all squat-pattern candidates\n        // if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {\n        //   continue;\n        // }\n      }',
+    tests: ["test:past-knee-lunge-swaps"],
   },
 ];
 

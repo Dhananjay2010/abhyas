@@ -3,7 +3,7 @@ import type { CandidateExercise } from "@/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "@/lib/program/past-knee-lunge-order";
 import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly } from "@/lib/program/past-knee";
-import { shouldExcludeOlympicLift } from "@/lib/program/generate";
+import { shouldExcludeOlympicLift, FLOOR_PULL_DEADLIFTS, PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
 
 
 export type ExerciseRow = CandidateExercise;
@@ -240,10 +240,17 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (patternRank === -1) continue; // Not in our pattern list
     
     // 4b. Past-knee lunge swaps: use tier ordering for lunge-pattern candidates (allow tier > 0)
-    // Squat-pattern candidates are allowed as quad isolation fallbacks (no tier filter)
-    if (hasPastKnee && current.movement_pattern === "lunge" && candidate.movement_pattern === "lunge") {
-      if (pastKneeLungeTier(candidate) === 0) {
-        continue;
+    // Item 10/Steer 2: Squat-pattern candidates allowed ONLY if in quad-isolation list (leg-extensions, wall-sit, etc.)
+    if (hasPastKnee && current.movement_pattern === "lunge") {
+      if (candidate.movement_pattern === "lunge") {
+        if (pastKneeLungeTier(candidate) === 0) {
+          continue;
+        }
+      } else if (candidate.movement_pattern === "squat") {
+        // Only allow squat-pattern if it's in the quad-isolation list
+        if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
+          continue;
+        }
       }
     }
     
@@ -281,6 +288,11 @@ export function rankAlternatives<T extends ExerciseRow>(
         ctx.injuryRegions.includes(region)
       )
     ) {
+      continue;
+    }
+    
+    // 8b. Floor-pull deadlifts: exclude for current knee injuries (matches generator)
+    if (ctx.injuryRegions.includes("knee") && FLOOR_PULL_DEADLIFTS.has(candidate.slug)) {
       continue;
     }
     

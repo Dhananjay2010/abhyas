@@ -266,7 +266,10 @@
     "test:past-knee-plan-swap-consistency": "tsx scripts/test-past-knee-plan-swap-consistency.ts",
     "test:past-knee-input-wiring": "tsx scripts/test-past-knee-input-wiring.ts",
     "test:past-knee-guards": "tsx scripts/test-past-knee-guards.ts",
-    "test:past-knee-jump-guard": "tsx scripts/test-past-knee-jump-guard.ts"
+    "test:past-knee-jump-guard": "tsx scripts/test-past-knee-jump-guard.ts",
+    "test:olympic-lifts": "tsx scripts/test-olympic-lifts.ts",
+    "test:past-knee-squat-leading": "tsx scripts/test-past-knee-squat-leading.ts",
+    "test:past-knee-lunge-swaps": "tsx scripts/test-past-knee-lunge-swaps.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
@@ -285,20 +288,20 @@
     "@testing-library/user-event": "^14.6.8",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/semver": "^7.8.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "jsdom": "^26.1.0",
+    "pg": "^8.23.1",
     "png-chunk-text": "^1.0.0",
     "semver": "^7.8.5",
     "sharp": "^0.35.5",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
-    "typescript": "^5",
-    "pg": "^8.23.1",
-    "@types/pg": "^8.23.1"
+    "typescript": "^5"
   },
   "engines": {
     "node": ">=22.13.0 <23"

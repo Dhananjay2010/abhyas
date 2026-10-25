@@ -918,18 +918,20 @@ console.log("\n12. Item 8: Warm-up input builder and past-knee exclusions");
 
 console.log("\n13. Item 15: Past-knee squat rule - real generator grid tests");
 {
-  // Test over past-knee grid: gym, home, DB-only; every level; 2-6 days
+  // Test over past-knee grid: gym, home, DB-only, bodyweight; every level; 2-6 days
   type Goal = "muscle_gain" | "strength" | "fat_loss" | "general_fitness";
   type Level = "beginner" | "intermediate" | "expert";
   type Track = "weights" | "bodyweight";
   
   const levels: Level[] = ["beginner", "intermediate", "expert"];
-  const equipmentSets: Array<{ label: string; hasAll: boolean; ids: string[] }> = [
-    { label: "Gym", hasAll: false, ids: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine", "leg_press"] },
-    { label: "Home", hasAll: false, ids: ["dumbbell", "adjustable_bench", "pull_up_bar"] },
-    { label: "DB", hasAll: false, ids: ["dumbbell", "adjustable_bench"] },
+  const equipmentSets: Array<{ label: string; hasAll: boolean; ids: string[]; track: Track }> = [
+    { label: "Gym", hasAll: false, ids: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine", "leg_press"], track: "weights" },
+    { label: "Home", hasAll: false, ids: ["dumbbell", "adjustable_bench", "pull_up_bar"], track: "weights" },
+    { label: "DB", hasAll: false, ids: ["dumbbell", "adjustable_bench"], track: "weights" },
+    { label: "BW", hasAll: false, ids: [], track: "bodyweight" },
   ];
   const dayCounts = [2, 3, 4, 5, 6];
+  const durations = [60, 90]; // Include longer sessions to test extra accessories
   
   let gridChecked = 0;
   let backSquatLeads = 0;
@@ -945,16 +947,18 @@ console.log("\n13. Item 15: Past-knee squat rule - real generator grid tests");
   for (const level of levels) {
     for (const equip of equipmentSets) {
       for (const days of dayCounts) {
-        const input = base({
-          goal: "muscle_gain",
-          level,
-          primaryTrack: "weights",
-          daysPerWeek: days,
-          hasAllEquipment: equip.hasAll,
-          equipmentIds: equip.ids,
-          anyKneeInjury: true,
-          currentInjuryRegions: [],
-        });
+        for (const duration of durations) {
+          const input = base({
+            goal: "muscle_gain",
+            level,
+            primaryTrack: equip.track,
+            daysPerWeek: days,
+            hasAllEquipment: equip.hasAll,
+            equipmentIds: equip.ids,
+            anyKneeInjury: true,
+            currentInjuryRegions: [],
+            preferredSessionMinutes: duration,
+          });
         
         const program = generateProgram(input);
         gridChecked++;
@@ -984,6 +988,7 @@ console.log("\n13. Item 15: Past-knee squat rule - real generator grid tests");
         }
       }
     }
+    }
   }
   
   check(`Item 15(a): barbell-squat NEVER leads squat slot`, backSquatLeads === 0,
@@ -993,7 +998,7 @@ console.log("\n13. Item 15: Past-knee squat rule - real generator grid tests");
   check(`Item 15(d): no banned squats in plans (grid)`, bannedSlugsFound.length === 0,
     bannedSlugsFound.length > 0 ? `Found: ${bannedSlugsFound.slice(0, 5).join(", ")}` : "");
   
-  console.log(`    Grid checked: ${gridChecked} past-knee programs`);
+  console.log(`    Grid checked: ${gridChecked} past-knee programs (4 equipment sets × 3 levels × 5 day counts × 2 durations)`);
 }
 
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);

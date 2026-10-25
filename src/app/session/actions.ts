@@ -787,7 +787,7 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes, settingsRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes, settingsRes, injuryRes] = await Promise.all([
     supabase
       .from("session_exercises")
       .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
@@ -807,17 +807,35 @@ export async function swapExercise(input: {
     */
     supabase
       .from("exercises")
-      .select("metric, mechanic, equipment_ids, movement_pattern")
+      .select("metric, mechanic, equipment_ids, movement_pattern, slug, primary_muscles, secondary_muscles, contraindicated_regions, impact, spinal_load, level_min, tracks, default_rest_seconds, category, name")
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
     supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
+    supabase.from("user_injuries").select("body_region, severity").eq("user_id", user.id),
   ]);
 
   const current = currentRes.data;
   if (!current) return { ok: false, error: "Exercise not found" };
 
   const replacement = replacementRes.data;
+  if (!replacement) return { ok: false, error: "Replacement exercise not found" };
+  
+  // Item 16: Validate swap target before any write
+  const { buildInjuryFlags } = await import("@/lib/program/injury-regions");
+  const dbInjuries = (injuryRes.data ?? []).map(i => ({
+    body_region: i.body_region,
+    severity: i.severity as "current" | "past",
+  }));
+  const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(dbInjuries);
+  
+  // Import and use the validator
+  const { isAllowedSwapTarget } = await import("@/lib/program/generate");
+  
+  if (!isAllowedSwapTarget(replacement as any, { currentInjuryRegions, anyKneeInjury })) {
+    return { ok: false, error: "This exercise is not safe for your injury profile" };
+  }
+  
   const metric = metricOf(replacement);
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;

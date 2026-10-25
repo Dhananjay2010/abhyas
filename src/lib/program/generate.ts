@@ -283,13 +283,37 @@ export function isOlympicLift(ex: CandidateExercise): boolean {
 
 /**
  * Item 16: Check if Olympic lifts should be excluded based on user profile.
- * For injured members (ANY injury), Olympic lifts are excluded from ALL slots.
+ * Matches shouldExcludeForSafety rule: for members with ANY current injury, 
+ * Olympic lifts are excluded from ALL slots. Past injuries (anyKneeInjury without 
+ * current injury) do NOT trigger exclusion.
  */
 export function shouldExcludeOlympicLift(ex: CandidateExercise, input: { currentInjuryRegions?: string[]; anyKneeInjury?: boolean }): boolean {
   if (!isOlympicLift(ex)) return false;
-  // Injured members: exclude Olympic lifts from all slots
-  const hasAnyInjury = (input.currentInjuryRegions?.length ?? 0) > 0 || (input.anyKneeInjury ?? false);
-  return hasAnyInjury;
+  // Members with CURRENT injuries only: exclude Olympic lifts from all slots
+  const hasCurrentInjury = (input.currentInjuryRegions?.length ?? 0) > 0;
+  return hasCurrentInjury;
+}
+
+/**
+ * Item 16: Validate if a target exercise is allowed as a swap for the given user.
+ * Returns true if the swap is allowed, false otherwise.
+ * This should be called in swapExercise BEFORE any write to reject invalid swaps.
+ */
+export function isAllowedSwapTarget(
+  target: CandidateExercise,
+  userContext: {
+    currentInjuryRegions: string[];
+    anyKneeInjury?: boolean;
+  }
+): boolean {
+  // Apply Olympic lift exclusion (same rule as generator)
+  if (shouldExcludeOlympicLift(target, userContext)) {
+    return false;
+  }
+  
+  // Additional safety checks can be added here as needed
+  
+  return true;
 }
 
 /**
@@ -844,57 +868,6 @@ function pickForSlot(
   
   const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
   const hasPastKnee = (input.anyKneeInjury ?? false) && !hasCurrentKnee;
-  
-  // Item 15(b): Past-knee users get at most ONE squat-pattern movement per day
-  // If trying to pick a squat pattern and there's already one, use lunge/leg press instead
-  if (hasPastKnee && pattern === "squat") {
-    const alreadyHasSquat = pickedSoFar.some(p => p.ex.movement_pattern === "squat");
-    if (alreadyHasSquat) {
-      // Try past-knee lunge order first, then leg press
-      for (const altPattern of ["lunge", "leg_press"] as const) {
-        const altCandidates = pool.filter(
-          (e) => e.movement_pattern === altPattern && !used.has(e.id)
-        );
-        if (altCandidates.length === 0) continue;
-        
-        // For lunge, use tier-based ordering
-        if (altPattern === "lunge") {
-          const tieredLunges = altCandidates
-            .filter(e => pastKneeLungeTier(e) > 0)
-            .map(e => ({
-              e,
-              tier: pastKneeLungeTier(e),
-              score: score(e, wantCompound, input.level, input.primaryTrack),
-              rng: rng(),
-            }))
-            .sort((a, b) => {
-              if (a.tier !== b.tier) return a.tier - b.tier;
-              if (a.score !== b.score) return b.score - a.score;
-              return b.rng - a.rng;
-            });
-          
-          if (tieredLunges.length > 0) return tieredLunges[0].e;
-        } else {
-          // For leg press, use normal scoring
-          const ranked = altCandidates
-            .map(e => ({
-              e,
-              score: score(e, wantCompound, input.level, input.primaryTrack),
-              rng: rng(),
-            }))
-            .sort((a, b) => {
-              if (a.score !== b.score) return b.score - a.score;
-              return b.rng - a.rng;
-            });
-          
-          if (ranked.length > 0) return ranked[0].e;
-        }
-      }
-      
-      // If no lunge or leg press available, return null to skip this slot
-      return null;
-    }
-  }
 
   // Keep the main lifts from the previous block so progression is not reset.
   if (slotIndex < CARRY_OVER_SLOTS && dayIndex !== undefined && input.carryOver) {
@@ -907,8 +880,17 @@ function pickForSlot(
   
   for (const p of [pattern, PATTERN_FALLBACK[pattern]]) {
     if (!p) continue;
+    
     let candidates = pool.filter((e) => e.movement_pattern === p && !used.has(e.id));
     if (candidates.length === 0) continue;
+    
+    // Item 15(b): Steer 1: For past-knee, reject squat-pattern candidates when day already has a squat, except allow leg-press
+    if (hasPastKnee) {
+      const alreadyHasSquat = pickedSoFar.some(picked => picked.ex.movement_pattern === "squat");
+      if (alreadyHasSquat) {
+        candidates = candidates.filter(e => e.movement_pattern !== "squat" || e.slug === "leg-press");
+      }
+    }
 
     // QA Pass 10 C1: Exclude unsafe exercises (plyometric, Olympic, behind-neck, throws)
     // for main slots (all goals) and all slots (beginners, injured, age 50+)
@@ -961,9 +943,18 @@ function pickForSlot(
   // out all primary options (e.g., knee injury rules out squats/lunges).
   const alternatives = SAFE_ALTERNATIVES[pattern] ?? [];
   for (const altPattern of alternatives) {
-    const altCandidates = pool.filter(
+    let altCandidates = pool.filter(
       (e) => e.movement_pattern === altPattern && !used.has(e.id)
     );
+    if (altCandidates.length === 0) continue;
+    
+    // Item 15(b): Steer 1: For past-knee, reject squat-pattern candidates when day already has a squat, except allow leg-press
+    if (hasPastKnee) {
+      const alreadyHasSquat = pickedSoFar.some(p => p.ex.movement_pattern === "squat");
+      if (alreadyHasSquat) {
+        altCandidates = altCandidates.filter(e => e.movement_pattern !== "squat" || e.slug === "leg-press");
+      }
+    }
     if (altCandidates.length === 0) continue;
     
     // Apply safety filter to alternative candidates too
@@ -1307,7 +1298,19 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         if (kneeSafeOptions.length > 0) {
           const added = kneeSafeOptions[0];
-          const mainSlotCount = getMainSlotCount(entry.slots);
+          
+          // Item 15(b): Steer 1: For past-knee, skip if we already have a squat and this candidate is also a squat (except leg-press)
+          let shouldAddQuad = true;
+          if (hasPastKnee && added.movement_pattern === "squat") {
+            const alreadyHasSquat = pickedExercises.some(p => p.ex.movement_pattern === "squat");
+            if (alreadyHasSquat && added.slug !== "leg-press") {
+              // Skip adding this squat to maintain one-squat-per-day rule
+              shouldAddQuad = false;
+            }
+          }
+          
+          if (shouldAddQuad) {
+            const mainSlotCount = getMainSlotCount(entry.slots);
           
           // Item 9: For ANY knee injury (current or past) with wall-sit, place as LAST non-core item before core
           if ((hasCurrentKneeLocal || hasPastKnee) && added.slug === "wall-sit") {
@@ -1377,6 +1380,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             usedInBlock.add(added.id);
             pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
           }
+          } // End shouldAddQuad
         }
       }
       
@@ -1607,6 +1611,16 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         const slotIdx = entry.slots.length + i;
         const picked = pickForSlot(pattern, slotIdx, pool, usedInBlock, input, rng, dayIndex, pickedExercises);
         if (!picked) break;
+        
+        // Item 15(b): Steer 1: For past-knee, reject squat-pattern picks when day already has a squat, except allow leg-press
+        const hasPastKnee = input.anyKneeInjury && !input.currentInjuryRegions.includes("knee");
+        if (hasPastKnee && picked.movement_pattern === "squat") {
+          const alreadyHasSquat = pickedExercises.some(p => p.ex.movement_pattern === "squat");
+          if (alreadyHasSquat && picked.slug !== "leg-press") {
+            break; // Skip this and all subsequent extras to maintain one-squat rule
+          }
+        }
+        
         usedInBlock.add(picked.id);
         pickedExercises.push({ ex: picked, slotIndex: slotIdx });
       }
