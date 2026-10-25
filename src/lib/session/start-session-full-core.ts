@@ -55,7 +55,7 @@ export type StartSessionFullDeps = {
   fetchOpenSessions: () => Promise<OpenSession[]>;
   fetchResumeEnabled: () => Promise<boolean>;
   
-  updateSession: (sessionId: string, payload: { status: string; started_at?: string }) => Promise<{ ok: true } | { ok: false; error: string }>;
+  updateSession: (sessionId: string, today: string, payload: { status: "in_progress"; started_at?: string }) => Promise<{ ok: true; sessionId: string } | { ok: false; error: string }>;
   ensureSessionExercises: (sessionId: string) => Promise<void>;
   
   ensureCurrentBlock: (today: string) => Promise<
@@ -66,7 +66,7 @@ export type StartSessionFullDeps = {
   >;
   
   loadProgram: (programId: string, dayIndex: number) => Promise<
-    | { ok: true; program: { id: string; started_on: string; deload_week: number; week_offset: number }; dayId: string; dayType: string }
+    | { ok: true; program: { id: string; started_on: string; deload_week: number; week_offset: number }; dayId: string; dayType: Database["public"]["Enums"]["day_type"] }
     | { ok: false; error: string }
   >;
   
@@ -91,7 +91,7 @@ export type StartSessionFullResult =
 
 function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metric"] {
   const row = Array.isArray(embedded) ? embedded[0] : embedded;
-  const m = (row as { metric?: string } | null | undefined)?.metric;
+  const m = row && typeof row === "object" && "metric" in row ? (row as { metric?: string }).metric : undefined;
   return m === "seconds" ? "seconds" : "reps";
 }
 
@@ -125,13 +125,15 @@ export async function startSessionFullCore(
         : {}),
     };
 
-    const updateResult = await deps.updateSession(existing.id, updatePayload);
+    const [updateResult] = await Promise.all([
+      deps.updateSession(existing.id, today, updatePayload),
+      deps.ensureSessionExercises(existing.id),
+    ]);
     if (!updateResult.ok) {
       return { ok: false, error: updateResult.error };
     }
 
-    await deps.ensureSessionExercises(existing.id);
-    return { ok: true, sessionId: existing.id };
+    return { ok: true, sessionId: updateResult.sessionId };
   }
 
   // Ensure we have a current block
@@ -180,20 +182,20 @@ export async function startSessionFullCore(
     local_date: today,
     week_in_block: week,
     is_deload: isDeloadWeek,
-    planned_type: dayType as Database["public"]["Enums"]["day_type"],
-    actual_type: dayType as Database["public"]["Enums"]["day_type"],
+    planned_type: dayType,
+    actual_type: dayType,
     status: "in_progress",
     started_at: new Date(nowMs).toISOString(),
   });
 
   if (!insertResult.ok) {
     if ("existingSessionId" in insertResult) {
-      return { ok: true, sessionId: insertResult.existingSessionId as string };
+      return { ok: true, sessionId: insertResult.existingSessionId };
     }
     return { ok: false, error: insertResult.error };
   }
 
-  const sessionId = ("sessionId" in insertResult ? insertResult.sessionId : insertResult.existingSessionId) as string;
+  const sessionId = "sessionId" in insertResult ? insertResult.sessionId : insertResult.existingSessionId;
 
   // Insert exercises
   const planned = await deps.fetchPlannedExercises(dayId);
@@ -215,7 +217,7 @@ export async function startSessionFullCore(
       return {
         session_id: sessionId,
         user_id: userId,
-        exercise_id: p.exercise_id as string,
+        exercise_id: p.exercise_id,
         order_index: p.order_index,
         planned_sets: dose.sets,
         planned_reps_min: dose.repsMin,

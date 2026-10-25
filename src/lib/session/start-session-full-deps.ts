@@ -57,9 +57,9 @@ export function buildStartSessionFullDeps(
       return data?.resume_session ?? true;
     },
 
-    async updateSession(sessionId, payload) {
-      const result = await updateSessionCore(supabase, sessionId, userId, "", {
-        status: payload.status as "in_progress",
+    async updateSession(sessionId, today, payload) {
+      const result = await updateSessionCore(supabase, sessionId, userId, today, {
+        status: payload.status,
         ...(payload.started_at ? { started_at: payload.started_at } : {}),
       });
       return result;
