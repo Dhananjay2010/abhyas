@@ -15,9 +15,12 @@ import { spawn } from "child_process";
 const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
+  if (process.env.CI) {
+    console.error("\n❌ DATABASE_URL not set in CI environment\n");
+    process.exit(1);
+  }
   console.log("\n⏭️  Skipping DB tests (DATABASE_URL not set)");
   console.log("   Set DATABASE_URL=***localhost/abhyas_test to run\n");
-  console.log("\n✅ ALL CHECKS PASSED");
   process.exit(0);
 }
 

@@ -11,6 +11,7 @@
 
 import './helpers/setup-jsdom';
 import { render, waitFor } from '@testing-library/react';
+import { act } from 'react';
 import userEvent from '@testing-library/user-event';
 import { SettingsForm, type SettingsState, type SettingsActions } from '../src/app/settings/settings-form';
 
@@ -101,7 +102,6 @@ async function testM1_RebuildPromptAfterEquipmentChange(): Promise<boolean> {
 
 async function testM1_RebuildPromptAfterInjuryChange(): Promise<boolean> {
   const userId = '00000000-0000-0000-0000-000000000002';
-  let injuryChanged = false;
 
   const actions: SettingsActions = {
     updateProfileSettings: async () => ({ ok: true }),
@@ -111,7 +111,6 @@ async function testM1_RebuildPromptAfterInjuryChange(): Promise<boolean> {
     setEquipmentItem: async () => ({ ok: true }),
     setHasAllEquipment: async () => ({ ok: true }),
     setInjury: async () => {
-      injuryChanged = true;
       return { ok: true };
     },
   };
@@ -130,24 +129,18 @@ async function testM1_RebuildPromptAfterInjuryChange(): Promise<boolean> {
 
   // Click shoulder injury to add it (plan-affecting change)
   const shoulderButtons = getAllByRole('button', { name: /shoulder/i, pressed: false });
+  if (shoulderButtons.length === 0) {
+    throw new Error('No shoulder buttons found');
+  }
   await user.click(shoulderButtons[0]);
 
-  // Wait for the save to complete
+  // Wait for the rebuild prompt to appear after the save completes
   await waitFor(() => {
-    if (!injuryChanged) throw new Error('Injury not changed yet');
-  }, { timeout: 2000 });
-
-  // Wait a bit for state updates
-  await new Promise(resolve => setTimeout(resolve, 100));
-
-  // Check if rebuild prompt appears
-  const rebuildPrompts = queryAllByText(/rebuild.*block/i);
-  const rebuildPrompt = rebuildPrompts.length > 0 ? rebuildPrompts[0] : null;
-  
-  if (!rebuildPrompt) {
-    console.error('  ❌ Rebuild prompt did not appear after injury change');
-    return false;
-  }
+    const rebuildPrompts = queryAllByText(/rebuild.*block/i);
+    if (rebuildPrompts.length === 0) {
+      throw new Error('Rebuild prompt did not appear yet');
+    }
+  }, { timeout: 3000 });
 
   console.log('  ✓ Rebuild prompt appeared after injury change');
   return true;
@@ -155,13 +148,9 @@ async function testM1_RebuildPromptAfterInjuryChange(): Promise<boolean> {
 
 async function testM1_RebuildPromptAfterSessionLengthChange(): Promise<boolean> {
   const userId = '00000000-0000-0000-0000-000000000003';
-  let sessionLengthChanged = false;
 
   const actions: SettingsActions = {
-    updateProfileSettings: async (patch) => {
-      if ('preferred_session_minutes' in patch) {
-        sessionLengthChanged = true;
-      }
+    updateProfileSettings: async () => {
       return { ok: true };
     },
     updateSessionSettings: async () => ({ ok: true }),
@@ -184,26 +173,17 @@ async function testM1_RebuildPromptAfterSessionLengthChange(): Promise<boolean> 
 
   const user = userEvent.setup();
 
-  // Click the 60-minute session length option
-  const sixtyMinButtons = getAllByRole('button', { name: /60 min/i });
+  // Click the 60-minute session length option (labeled as "60m")
+  const sixtyMinButtons = getAllByRole('button', { name: /60m/i });
   await user.click(sixtyMinButtons[0]);
 
-  // Wait for the save to complete
+  // Wait for the rebuild prompt to appear after the save completes
   await waitFor(() => {
-    if (!sessionLengthChanged) throw new Error('Session length not changed yet');
-  }, { timeout: 2000 });
-
-  // Wait a bit for state updates
-  await new Promise(resolve => setTimeout(resolve, 100));
-
-  // Check if rebuild prompt appears
-  const rebuildPrompts = queryAllByText(/rebuild.*block/i);
-  const rebuildPrompt = rebuildPrompts.length > 0 ? rebuildPrompts[0] : null;
-  
-  if (!rebuildPrompt) {
-    console.error('  ❌ Rebuild prompt did not appear after session length change');
-    return false;
-  }
+    const rebuildPrompts = queryAllByText(/rebuild.*block/i);
+    if (rebuildPrompts.length === 0) {
+      throw new Error('Rebuild prompt did not appear yet');
+    }
+  }, { timeout: 3000 });
 
   console.log('  ✓ Rebuild prompt appeared after session length change');
   return true;

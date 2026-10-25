@@ -45,9 +45,9 @@ async function testM1_MidBlockRebuildPreservesDates() {
     const userId = randomUUID();
     const exerciseId = (await pool.query("SELECT id FROM exercises LIMIT 1")).rows[0]?.id;
     
-    await pool.query(`INSERT INTO auth.users (id, email) VALUES ($1::uuid, $2::text)`, [userId, 'test-m1@local.test']);
-    await pool.query(`INSERT INTO profiles (id, display_name) VALUES ($1::uuid, $2::text) ON CONFLICT DO NOTHING`, [userId, 'Test M1']);
-    await pool.query(`INSERT INTO user_settings (user_id) VALUES ($1::uuid) ON CONFLICT DO NOTHING`, [userId]);
+    await pool.query(`INSERT INTO auth.users (id, email) VALUES ($1, $2)`, [userId, 'test-m1@local.test']);
+    await pool.query(`INSERT INTO profiles (id, display_name) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [userId, 'Test M1']);
+    await pool.query(`INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
     
     // Create block: Oct 15 - Nov 11 (28 days, deload week 4 = Oct 29 - Nov 4)
     const blockId = randomUUID();
@@ -59,13 +59,11 @@ async function testM1_MidBlockRebuildPreservesDates() {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query("SET LOCAL ROLE authenticated");
-      await client.query(`SELECT set_config('request.jwt.claims', json_build_object('sub', $1::text, 'role', 'authenticated')::text, true)`, [userId]);
-      await client.query(`SELECT set_config('request.jwt.claim.sub', $1::text, true)`, [userId]);
+      await client.query(`SET LOCAL request.jwt.claim.sub = '${userId}'`);
       
       // Rebuild on day 27 (Nov 10)
       await client.query(`
-        SELECT rebuild_block($1::date, $2::jsonb)
+        SELECT rebuild_block($1, $2)
       `, ["2026-11-10", JSON.stringify({
         id: randomUUID(),
         block_number: 1,

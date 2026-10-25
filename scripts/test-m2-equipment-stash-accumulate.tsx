@@ -145,7 +145,7 @@ async function testM2_SameItemMultipleTapsKeepLatest(): Promise<boolean> {
     setInjury: async () => ({ ok: true }),
   };
 
-  const { getByText } = render(
+  const { getAllByRole } = render(
     <SettingsForm
       userId={userId}
       initial={initialState}
@@ -158,13 +158,17 @@ async function testM2_SameItemMultipleTapsKeepLatest(): Promise<boolean> {
   const user = userEvent.setup();
 
   // Tap barbell to enable it
-  const barbellChip = getByText('Barbell');
-  await user.click(barbellChip);
-  await new Promise(resolve => setTimeout(resolve, 100));
+  const barbellChips = getAllByRole('button', { name: /barbell/i, pressed: false });
+  await user.click(barbellChips[0]);
+  await new Promise(resolve => setTimeout(resolve, 200));
 
-  // Tap barbell again to disable it
-  await user.click(barbellChip);
-  await new Promise(resolve => setTimeout(resolve, 100));
+  // Tap barbell again to disable it (now it's pressed:true, so query without pressed filter)
+  const barbellChipsPressed = getAllByRole('button', { name: /barbell/i });
+  const pressedBarbell = barbellChipsPressed.find(btn => btn.getAttribute('aria-pressed') === 'true');
+  if (pressedBarbell) {
+    await user.click(pressedBarbell);
+  }
+  await new Promise(resolve => setTimeout(resolve, 200));
 
   // Check stash
   const pending = getPendingChanges(userId);
