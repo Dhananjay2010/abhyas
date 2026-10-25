@@ -2,12 +2,12 @@
 /**
  * Test: Session page hydration fix (React error #418)
  *
- * Hydration mismatch when /session/* page is reloaded: CapabilityNote component
- * calls vibrationSupported() during render via useVibrationSupported hook.
- * Without the fix, server would differ from client's initial render.
+ * Hydration mismatch when /session/* page is reloaded: CapabilityNote and device
+ * hooks check navigator.wakeLock and navigator.vibrate during render.
+ * Without the fix, server renders unsupported while client renders supported.
  *
- * This test imports the REAL useVibrationSupported and CapabilityNote from src,
- * renders on server (no navigator), hydrates on client (with navigator.vibrate),
+ * This test imports the REAL hooks and CapabilityNote from src, renders on
+ * server (no navigator), hydrates on client (with navigator.wakeLock and vibrate),
  * and asserts no hydration error.
  */
 
@@ -17,6 +17,7 @@ import { hydrateRoot } from "react-dom/client";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 import { CapabilityNote } from "../src/app/session/[id]/session-runner.js";
+import { useWakeLock, useBeeper } from "../src/lib/session/device.js";
 
 let passed = 0;
 let failed = 0;
@@ -31,7 +32,21 @@ function check(label: string, condition: boolean) {
   }
 }
 
-console.log("Testing session hydration (React error #418) with REAL src code\n");
+// Wrapper component that uses real hooks
+function CapabilityNoteWithRealHooks() {
+  const wakeLock = useWakeLock(true);
+  const beeper = useBeeper(false);
+  return (
+    <CapabilityNote
+      wakeLock={wakeLock}
+      soundEnabled={false}
+      soundUnlocked={beeper.unlocked}
+      vibrateEnabled={true}
+    />
+  );
+}
+
+console.log("Testing session hydration (React error #418) with REAL hooks\n");
 
 // Step 1: Server-side render WITHOUT navigator
 console.log("--- Step 1: Server render (no navigator) ---\n");
@@ -44,30 +59,27 @@ Reflect.deleteProperty(globalThis, "navigator");
 Reflect.deleteProperty(globalThis, "document");
 Reflect.deleteProperty(globalThis, "window");
 
-const serverHTML = renderToString(
-  <CapabilityNote
-    wakeLock={{ supported: true, active: true, error: null }}
-    soundEnabled={false}
-    soundUnlocked={false}
-    vibrateEnabled={true}
-  />
-);
+const serverHTML = renderToString(<CapabilityNoteWithRealHooks />);
 
 console.log("Server HTML:", serverHTML);
 check(
-  "Server renders with 'vibration unsupported here'",
+  "Server renders 'screen may sleep (wake lock unsupported)'",
+  serverHTML.includes("screen may sleep (wake lock unsupported)")
+);
+check(
+  "Server renders 'vibration unsupported here'",
   serverHTML.includes("vibration unsupported here")
 );
 
-// Step 2: Client-side hydration WITH navigator.vibrate
-console.log("\n--- Step 2: Client hydration (with navigator.vibrate) ---\n");
+// Step 2: Client-side hydration WITH navigator.wakeLock and vibrate
+console.log("\n--- Step 2: Client hydration (with navigator support) ---\n");
 
 const dom = new JSDOM("<!DOCTYPE html><html><body><div id='root'></div></body></html>", {
   url: "http://localhost/",
   pretendToBeVisual: true,
 });
 
-// Set up jsdom globals with vibration support
+// Set up jsdom globals
 Object.defineProperty(globalThis, "window", {
   value: dom.window,
   writable: true,
@@ -84,7 +96,24 @@ Object.defineProperty(globalThis, "navigator", {
   configurable: true,
 });
 
-// Add vibrate function to navigator (simulating a browser that supports vibration)
+// Add wakeLock support to navigator
+const mockSentinel = {
+  released: false,
+  release: () => Promise.resolve(),
+  addEventListener: () => {},
+  removeEventListener: () => {},
+} as const;
+
+Object.defineProperty(dom.window.navigator, "wakeLock", {
+  value: {
+    request: () => Promise.resolve(mockSentinel),
+  },
+  writable: true,
+  configurable: true,
+  enumerable: true,
+});
+
+// Add vibrate function to navigator
 const vibrateFunc = function (_pattern: number | number[]): boolean {
   return true;
 };
@@ -122,12 +151,7 @@ Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
   await act(async () => {
     hydrateRoot(
       container,
-      <CapabilityNote
-        wakeLock={{ supported: true, active: true, error: null }}
-        soundEnabled={false}
-        soundUnlocked={false}
-        vibrateEnabled={true}
-      />,
+      <CapabilityNoteWithRealHooks />,
       {
         onRecoverableError: (error: unknown) => {
           recoverableErrors.push(error);
@@ -170,10 +194,18 @@ Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
   );
   check("No hydration errors in console.error", hydrationConsoleErrors.length === 0);
 
-  // After hydration with vibration support, the text should NOT contain "vibration unsupported here"
-  // because useVibrationSupported will update the component after the first render
+  console.log("Post-hydration HTML:", container.innerHTML);
+
+  // After hydration, both capabilities should be detected but may not yet be activated
+  // The important thing is no "unsupported" text appears
   check(
-    "Post-hydration DOM does NOT contain 'vibration unsupported here'",
+    "Post-hydration: wake lock shown as supported or acquiring",
+    !container.innerHTML.includes("wake lock unsupported") &&
+    (container.innerHTML.includes("screen kept awake") || 
+     container.innerHTML.includes("screen may sleep"))
+  );
+  check(
+    "Post-hydration: vibration shown as supported",
     !container.innerHTML.includes("vibration unsupported here")
   );
 
