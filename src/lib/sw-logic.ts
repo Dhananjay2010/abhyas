@@ -100,35 +100,46 @@ export function getCacheName(brandId: string, buildId?: string): string {
 }
 
 /**
+ * Plain JS source for the cachesToDelete function.
+ * 
+ * This is the single source of truth for cache cleanup logic.
+ * It's embedded directly in the service worker script (not via toString),
+ * so it survives production minification of the server bundle.
+ * 
+ * The exported cachesToDelete function below is built from this same source.
+ */
+export const CACHES_TO_DELETE_JS = `function cachesToDelete(allCacheNames, currentCacheName, brandPrefix) {
+  return allCacheNames.filter(function(cacheName) {
+    if (!cacheName.startsWith(brandPrefix)) {
+      return false;
+    }
+    if (cacheName === currentCacheName) {
+      return false;
+    }
+    return true;
+  });
+}`;
+
+/**
  * Determine which caches should be deleted during service worker activation.
  *
  * Only deletes caches that:
  * 1. Match the brand prefix (don't touch other brands' caches)
  * 2. Are NOT the current cache name
  *
+ * This function is built from CACHES_TO_DELETE_JS at module load time,
+ * ensuring both the service worker and tests use identical logic.
+ *
  * @param allCacheNames - All cache names from caches.keys()
  * @param currentCacheName - The cache name for this SW version
  * @param brandPrefix - The brand-specific cache prefix (e.g. "abhyas-offline-")
  * @returns Array of cache names to delete
  */
-export function cachesToDelete(
+export const cachesToDelete: (
   allCacheNames: string[],
   currentCacheName: string,
   brandPrefix: string
-): string[] {
-  return allCacheNames.filter((cacheName) => {
-    // Only consider caches with this brand's prefix
-    if (!cacheName.startsWith(brandPrefix)) {
-      return false;
-    }
-    // Don't delete the current cache
-    if (cacheName === currentCacheName) {
-      return false;
-    }
-    // Delete old caches for this brand
-    return true;
-  });
-}
+) => string[] = new Function("return (" + CACHES_TO_DELETE_JS + ")")();
 
 /**
  * ServiceWorkerRegistration interface for dependency injection in tests.

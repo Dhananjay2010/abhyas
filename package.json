@@ -73,6 +73,8 @@
     "test:sw": "tsx scripts/test-sw.ts",
     "test:sw-cache-behavior": "tsx scripts/test-sw-cache-behavior.ts",
     "test:sw-registration-behavior": "tsx scripts/test-sw-registration-behavior.ts",
+    "test:sw-built-output": "tsx scripts/test-sw-built-output.ts",
+    "test:sw-fetch-handler": "tsx scripts/test-sw-fetch-handler.ts",
     "test:offline-html": "tsx scripts/test-offline-html.ts",
     "test:offline-error": "tsx scripts/test-offline-error.ts",
     "test:youtube-embed": "tsx scripts/test-youtube-embed.ts",
