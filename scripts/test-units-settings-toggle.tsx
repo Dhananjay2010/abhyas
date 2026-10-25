@@ -462,14 +462,11 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
                 `got ${savedAboutYou.heightCm}`
               );
 
+              const wkg = savedAboutYou.weightKg;
               check(
                 "saveAboutYou received weightKg ~79.8 (79.5-80.1)",
-                savedAboutYou.weightKg !== null &&
-                  savedAboutYou.weightKg >= 79.5 &&
-                  savedAboutYou.weightKg <= 80.1,
-                savedAboutYou.weightKg !== null
-                  ? `got ${savedAboutYou.weightKg.toFixed(2)}`
-                  : `got ${savedAboutYou.weightKg}`
+                wkg >= 79.5 && wkg <= 80.1,
+                `got ${wkg.toFixed(2)}`
               );
             }
 
