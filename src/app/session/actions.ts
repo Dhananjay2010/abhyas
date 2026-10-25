@@ -208,7 +208,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   // that hasn't reloaded Today (so the loader's closeStaleSessions never ran) would otherwise
   // hit 23505 and resume into yesterday's session with an 8-hour clock. closeStaleSessions
   // applies #111's 6h inactivity rule, so calling it is safe for timezone shifts.
-  const staleDeps = buildStartSessionStaleDeps(supabase, user.id, openRes.data ?? [], today);
+  const staleDeps = buildStartSessionStaleDeps(supabase, user.id, openRes.data ?? [], today, Date.now());
   const staleResult = await startSessionStaleCore(staleDeps);
   if (!staleResult.ok) {
     return { ok: false, error: staleResult.error };

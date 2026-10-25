@@ -24,8 +24,13 @@ export interface StartSessionStaleDeps {
    * After closing stale sessions, check if ANY in_progress session remains
    * (regardless of date). This catches fresh cross-date sessions that weren't
    * closed by the 6h rule.
+   * 
+   * Returns {ok:false} if the query fails, {ok:true, sessionId} otherwise.
    */
-  checkRemainingInProgress: () => Promise<string | null>;
+  checkRemainingInProgress: () => Promise<
+    | { ok: true; sessionId: string | null }
+    | { ok: false; error: string }
+  >;
 }
 
 export type StartSessionStaleResult =
@@ -85,11 +90,15 @@ export async function startSessionStaleCore(
     // (< 6h) and should be resumed instead of inserting. We check for ANY in_progress
     // session (regardless of date) because the unique index allows only one in_progress
     // per user, and trying to insert when one exists will fail with 23505.
-    const remainingSessionId = await deps.checkRemainingInProgress();
+    const remainingResult = await deps.checkRemainingInProgress();
     
-    if (remainingSessionId) {
+    if (!remainingResult.ok) {
+      return { ok: false, error: remainingResult.error };
+    }
+    
+    if (remainingResult.sessionId) {
       // Fresh session wasn't closed (< 6h), resume it via #111's existingSessionId logic
-      return { ok: true, shouldInsert: false, resumeSessionId: remainingSessionId };
+      return { ok: true, shouldInsert: false, resumeSessionId: remainingResult.sessionId };
     }
     
     // All stale sessions were closed, insert new session
