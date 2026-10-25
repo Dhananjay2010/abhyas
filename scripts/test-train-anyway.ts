@@ -67,12 +67,12 @@ const result2 = trainAnywayOptions({
   missedYesterday: true,
 });
 
-assert(result2.length === 3, "Returns 3 options (Lift + missed yesterday + next distinct)");
-assert(result2[0]?.day_index === 1, "First option is Monday (for Lift)");
-assert(result2[0]?.label === "Push", "First option label is Push");
-assert(result2[1]?.day_index === 4, "Second option is yesterday's workout (Shoulders)");
-assert(result2[1]?.label === "Shoulders", "Second option label is Shoulders");
-assert(result2[2]?.day_index === 3, "Third option is Wednesday");
+assert(result2.length === 3, "Returns 3 options (missed + upcoming)");
+assert(result2[0]?.day_index === 4, "First option is yesterday's missed workout (Shoulders)");
+assert(result2[0]?.label === "Shoulders", "First option label is Shoulders");
+assert(result2[1]?.day_index === 1, "Second option is Monday (Push)");
+assert(result2[1]?.label === "Push", "Second option label is Push");
+assert(result2[2]?.day_index === 3, "Third option is Wednesday (Pull)");
 assert(result2[2]?.label === "Pull", "Third option label is Pull");
 
 console.log("\n=== Test 3: Last day of week (Sunday), wraps to Monday ===\n");
@@ -200,12 +200,12 @@ const result8 = trainAnywayOptions({
   missedYesterday: true,
 });
 
-assert(result8.length === 3, "Returns 3 options (Lift + missed yesterday + next distinct)");
-assert(result8[0]?.day_index === 5, "First option is Friday weights (for Lift)");
-assert(result8[0]?.label === "Push", "First option label is Push");
-assert(result8[1]?.day_index === 2, "Second option is yesterday's bodyweight workout");
-assert(result8[1]?.label === "Bodyweight A", "Second option label is Bodyweight A");
-assert(result8[2]?.day_index === 1, "Third option is Monday bodyweight");
+assert(result8.length === 3, "Returns 3 options (missed + upcoming)");
+assert(result8[0]?.day_index === 2, "First option is yesterday's missed bodyweight workout");
+assert(result8[0]?.label === "Bodyweight A", "First option label is Bodyweight A");
+assert(result8[1]?.day_index === 5, "Second option is Friday weights (Push)");
+assert(result8[1]?.label === "Push", "Second option label is Push");
+assert(result8[2]?.day_index === 1, "Third option is Monday bodyweight (Bodyweight B)");
 assert(result8[2]?.label === "Bodyweight B", "Third option label is Bodyweight B");
 
 console.log("\n=== Test 9: Rest day, yesterday missed, today is rest (no workout to catch up) ===\n");
@@ -224,13 +224,13 @@ const result9 = trainAnywayOptions({
   missedYesterday: true,
 });
 
-assert(result9.length === 3, "Returns 3 options (Lift + missed Legs + next distinct)");
-assert(result9[0]?.day_index === 1, "First option is Monday (for Lift)");
-assert(result9[0]?.label === "Push", "First option is Push");
-assert(result9[1]?.day_index === 5, "Second option is yesterday's Legs");
-assert(result9[1]?.label === "Legs", "Second option is Legs");
-assert(result9[2]?.day_index === 3, "Third option is Wednesday");
-assert(result9[2]?.label === "Pull", "Third option is Pull");
+assert(result9.length === 3, "Returns 3 options (missed + upcoming)");
+assert(result9[0]?.day_index === 5, "First option is yesterday's missed Legs");
+assert(result9[0]?.label === "Legs", "First option label is Legs");
+assert(result9[1]?.day_index === 1, "Second option is Monday (Push)");
+assert(result9[1]?.label === "Push", "Second option label is Push");
+assert(result9[2]?.day_index === 3, "Third option is Wednesday (Pull)");
+assert(result9[2]?.label === "Pull", "Third option label is Pull");
 
 console.log("\n=== Test 10: Yesterday missed (Legs), today is rest, upcoming has duplicate Legs ===\n");
 
@@ -248,13 +248,13 @@ const result10 = trainAnywayOptions({
   missedYesterday: true,
 });
 
-// Offer Lift:Push + missed Legs + next distinct (Pull) - duplicate Legs label filtered
-assert(result10.length === 3, "Returns 3 options (Lift + missed Legs + Pull, no duplicate)");
-assert(result10[0]?.day_index === 1, "First option is Monday Push (for Lift)");
-assert(result10[0]?.label === "Push", "First option label is Push");
-assert(result10[1]?.day_index === 5, "Second option is yesterday's Legs");
-assert(result10[1]?.label === "Legs", "Second option label is Legs");
-assert(result10[2]?.day_index === 3, "Third option is Wednesday Pull");
+// Offer missed Legs + upcoming distinct (Push, Pull) - duplicate Legs label filtered
+assert(result10.length === 3, "Returns 3 options (missed + upcoming, no duplicate)");
+assert(result10[0]?.day_index === 5, "First option is yesterday's missed Legs");
+assert(result10[0]?.label === "Legs", "First option label is Legs");
+assert(result10[1]?.day_index === 1, "Second option is Monday (Push)");
+assert(result10[1]?.label === "Push", "Second option label is Push");
+assert(result10[2]?.day_index === 3, "Third option is Wednesday (Pull)");
 assert(result10[2]?.label === "Pull", "Third option label is Pull");
 
 console.log("\n=== Test B11: Missed yesterday vs Lift dedupe ===\n");
@@ -277,11 +277,11 @@ const result_b11 = trainAnywayOptions({
 });
 
 assert(result_b11.length === 3, "(B11) Returns 3 options");
-assert(result_b11[0]?.day_index === 1, "(B11) First is Lift: Push (Monday)");
-assert(result_b11[0]?.label === "Push", "(B11) First label is Push");
-assert(result_b11[1]?.day_index === 4, "(B11) Second is missed Legs (Thursday)");
-assert(result_b11[1]?.label === "Legs", "(B11) Second label is Legs");
-assert(result_b11[2]?.day_index === 3, "(B11) Third is Pull (Wednesday, not Push again)");
+assert(result_b11[0]?.day_index === 4, "(B11) First is missed Legs (Thursday)");
+assert(result_b11[0]?.label === "Legs", "(B11) First label is Legs");
+assert(result_b11[1]?.day_index === 1, "(B11) Second is Push (Monday)");
+assert(result_b11[1]?.label === "Push", "(B11) Second label is Push");
+assert(result_b11[2]?.day_index === 3, "(B11) Third is Pull (Wednesday)");
 assert(result_b11[2]?.label === "Pull", "(B11) Third label is Pull");
 
 console.log("\n=== Test L6: Upcoming list excludes today ===\n");
