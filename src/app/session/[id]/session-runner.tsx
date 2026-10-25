@@ -145,10 +145,6 @@ export type RunnerDeps = {
   now: () => number;
 };
 
-const REAL_DEPS: RunnerDeps = {
-  now: () => Date.now(),
-};
-
 export function SessionRunner({
   sessionId,
   sessionStatus,
