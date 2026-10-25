@@ -103,7 +103,7 @@ function check(label: string, ok: boolean, detail = "") {
       hasAllEquipment: false,
       equipmentIds: [],
       injuries: [],
-      units: "metric",
+      units: "metric" as const,
     };
 
     const stubActions = {
