@@ -141,6 +141,7 @@
     "test:swap-sheet-close-on-exercise-change": "tsx scripts/test-swap-sheet-close-on-exercise-change.tsx",
     "test:swap-after-logging-runner": "tsx scripts/test-swap-after-logging-runner.tsx",
     "test:swap-guard-real-db": "tsx scripts/test-swap-guard-real-db.ts",
+    "test:swap-guard-mock-deps": "tsx scripts/test-swap-guard-mock-deps.ts",
     "test:guard-mutants": "tsx scripts/test-guard-mutants.ts",
     "test:dob-field": "tsx scripts/test-dob-field.ts",
     "test:equipment-bodyweight": "tsx scripts/test-equipment-bodyweight.ts",
@@ -268,7 +269,8 @@
     "test:catalogue-knee-jumps": "tsx scripts/test-catalogue-knee-jumps.ts",
     "test:past-knee-coordinator": "tsx scripts/test-past-knee-coordinator.ts",
     "test:timed-target-display": "tsx scripts/test-timed-target-display.ts",
-    "test:session-hydration-418": "tsx scripts/test-session-hydration-418.tsx"
+    "test:session-hydration-418": "tsx scripts/test-session-hydration-418.tsx",
+    "test:m3-wrist": "tsx scripts/test-m3-wrist-lowerback-contraindications.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
