@@ -6,7 +6,6 @@ import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
-import { getSessionRunnerUserId } from "./session-page-props";
 import { isUuid } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
@@ -226,7 +225,7 @@ export default async function SessionPage({
     <SessionRunner
       sessionId={session.id}
       sessionStatus={session.status}
-      userId={getSessionRunnerUserId(user)}
+      userId={user.id}
       isDeload={session.is_deload}
       week={session.week_in_block ?? 1}
       warmupAlreadyDone={session.warmup_completed}

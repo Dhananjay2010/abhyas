@@ -493,6 +493,7 @@ async function testThrownSessionExpiredInReplay() {
     throw new Error("SESSION_EXPIRED: Token expired");
   };
 
+  const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
     deps: createPendingSetDeps(),
@@ -500,7 +501,7 @@ async function testThrownSessionExpiredInReplay() {
     logSet,
     sessionId,
     sessionStatus: "in_progress",
-    onChange: () => {},
+    onChange: (state) => states.push(state),
   });
 
   await controller.replay();
@@ -513,6 +514,10 @@ async function testThrownSessionExpiredInReplay() {
     parsed[sessionId].sets.length === 1,
     "Pending set remains after thrown SESSION_EXPIRED in replay"
   );
+  
+  const finalState = states[states.length - 1];
+  assert(finalState.expired, "Expired flag stays true after thrown SESSION_EXPIRED in replay (A3)");
+  assert(finalState.pending.length === 1, "Set still pending");
 }
 
 async function testReplayedSetsReported() {

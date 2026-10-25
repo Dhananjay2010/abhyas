@@ -17,7 +17,9 @@ export function SignOutButton({ userId }: { userId: string }) {
     startTransition(async () => {
       clearPendingChanges();
       const result = await signOutAction();
+      // If we reach here, signOut failed (success redirects and never returns)
       if (!result.ok) {
+        // Show a friendly error message instead of exposing internal error details
         setError("Unable to sign out. Please try again.");
       }
     });

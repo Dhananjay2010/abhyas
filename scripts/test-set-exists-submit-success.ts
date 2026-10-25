@@ -54,7 +54,6 @@ async function runTest() {
     };
   };
 
-  type CapturedState = { error: string | null; expired: boolean; pending: unknown[] };
   const controller = createPendingSetController({
     userId,
     deps,

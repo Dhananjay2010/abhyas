@@ -549,7 +549,7 @@ export function SessionRunner({
             disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
             onClick={async () => {
               await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
+                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: settings.cooldownEnabled }),
               );
               setPhase("done");
             }}
@@ -910,9 +910,9 @@ export function SessionRunner({
                 <p className="font-medium">Failed to save sets</p>
                 <p className="mt-1">{getReplayErrorMessage(pendingSetState)}</p>
               </div>
-            ) : (
+            ) : getPendingUiMode(pendingSetState) === "expired" ? (
               <SessionExpiredPrompt />
-            )}
+            ) : null}
             <p className="mt-2 text-sm text-muted">
               {pendingSetState.pending.length}{" "}
               {pendingSetState.pending.length === 1 ? "set" : "sets"} waiting to save
