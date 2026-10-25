@@ -198,6 +198,7 @@ async function runTests() {
       deload_week: 4,
       week_offset: 0,
       days_per_week: 4,
+      primary_track: "weights",
     });
 
   check("Program created", !programError, programError?.message);
