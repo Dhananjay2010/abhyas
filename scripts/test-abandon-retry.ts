@@ -78,6 +78,12 @@ async function runTests() {
         exerciseUpdateCount++;
         return { error: null };
       },
+      async loadSessionMetadata() {
+        return { data: { started_at: new Date().toISOString() }, error: null };
+      },
+      async loadExercisesWithSets() {
+        return { data: [], error: null };
+      },
     };
 
     const result = await abandonSessionCore(deps, "s1", 1800);
@@ -134,6 +140,12 @@ async function runTests() {
         exerciseUpdateCount++;
         return { error: null };
       },
+      async loadSessionMetadata() {
+        return { data: { started_at: new Date().toISOString() }, error: null };
+      },
+      async loadExercisesWithSets() {
+        return { data: [], error: null };
+      },
     };
 
     const result = await abandonSessionCore(deps, "s1", 1800);
@@ -172,6 +184,12 @@ async function runTests() {
       async updateExerciseStatus() {
         return { error: null };
       },
+      async loadSessionMetadata() {
+        return { data: { started_at: new Date().toISOString() }, error: null };
+      },
+      async loadExercisesWithSets() {
+        return { data: [], error: null };
+      },
     };
 
     const result = await abandonSessionCore(deps, "s1", 1800);
@@ -200,6 +218,12 @@ async function runTests() {
       async updateExerciseStatus() {
         return { error: null };
       },
+      async loadSessionMetadata() {
+        return { data: { started_at: new Date().toISOString() }, error: null };
+      },
+      async loadExercisesWithSets() {
+        return { data: [], error: null };
+      },
     };
 
     const result = await abandonSessionCore(deps, "s1", 1800);
@@ -227,6 +251,12 @@ async function runTests() {
       },
       async updateExerciseStatus() {
         return { error: null };
+      },
+      async loadSessionMetadata() {
+        return { data: { started_at: new Date().toISOString() }, error: null };
+      },
+      async loadExercisesWithSets() {
+        return { data: [], error: null };
       },
     };
 

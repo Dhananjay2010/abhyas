@@ -41,7 +41,7 @@ function makeFakeAbandonDeps(
     async loadExercises() {
       return { data: exercises, error: null };
     },
-    async updateSession(_sessionId: string, patch: { status: "completed" | "skipped"; completed_at: string | null; duration_seconds: number }) {
+    async updateSession(_sessionId: string, patch: { status: "completed" | "skipped"; completed_at: string | null; duration_seconds: number | null }) {
       // Only update if still in_progress (idempotency guard)
       if (sessionState.status === "in_progress") {
         Object.assign(sessionState, patch);
@@ -57,6 +57,12 @@ function makeFakeAbandonDeps(
     },
     async updateExerciseStatus() {
       return { error: null };
+    },
+    async loadSessionMetadata() {
+      return { data: { started_at: new Date().toISOString() }, error: null };
+    },
+    async loadExercisesWithSets() {
+      return { data: [], error: null };
     },
   };
 }

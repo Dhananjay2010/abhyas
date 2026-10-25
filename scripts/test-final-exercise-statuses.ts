@@ -104,6 +104,18 @@ function makeFakeAbandonSessionDeps(exercisesData: ExerciseRow[]) {
       exerciseUpdates.push({ id, status });
       return { error: null };
     },
+    async loadSessionMetadata() {
+      return { data: { started_at: THIRTY_MIN_AGO }, error: null };
+    },
+    async loadExercisesWithSets() {
+      return { data: exercisesData.map(ex => ({
+        rest_seconds: ex.rest_seconds,
+        session_sets: (ex.session_sets ?? []).map(s => ({
+          completed_at: s.completed_at ?? NOW,
+          is_warmup_set: s.is_warmup_set,
+        })),
+      })), error: null };
+    },
   };
 }
 

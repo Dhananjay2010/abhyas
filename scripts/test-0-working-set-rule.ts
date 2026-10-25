@@ -11,6 +11,7 @@
 import { finishSessionCore } from "../src/lib/session/finish-session";
 import type { FinishSessionDeps, SessionRow, SessionExerciseWithSets } from "../src/lib/session/finish-session-deps";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
+import type { AbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 
 const NOW = "2026-10-25T12:00:00Z";
 const NOW_MS = Date.parse(NOW);
@@ -44,7 +45,7 @@ function makeFakeFinishSessionDeps(
   exercises: SessionExerciseWithSets[],
   updateError?: string,
   readError?: string
-): FinishSessionDeps & { calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> } {
+): FinishSessionDeps & AbandonSessionDeps & { calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> } {
   const calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> = [];
 
   const session: SessionRow = {
@@ -84,6 +85,20 @@ function makeFakeFinishSessionDeps(
     async updateExerciseStatus(id, status) {
       calls.push({ method: "updateExerciseStatus", table: "session_exercises", payload: { status }, filters: { id } });
       return { error: null };
+    },
+    async loadSessionMetadata(id: string) {
+      calls.push({ method: "loadSessionMetadata", table: "sessions", filters: { id } });
+      return { data: { started_at: session.started_at }, error: null };
+    },
+    async loadExercisesWithSets(sessionId: string) {
+      calls.push({ method: "loadExercisesWithSets", table: "session_exercises", filters: { sessionId } });
+      return { data: exercises.map(ex => ({
+        rest_seconds: ex.rest_seconds,
+        session_sets: (ex.session_sets ?? []).map(s => ({
+          completed_at: s.completed_at ?? NOW,
+          is_warmup_set: s.is_warmup_set,
+        })),
+      })), error: null };
     },
     now: NOW_FN,
   };

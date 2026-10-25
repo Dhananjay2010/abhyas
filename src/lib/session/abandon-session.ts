@@ -1,5 +1,6 @@
-import { exerciseCompletion } from "./completion";
 import type { AbandonSessionDeps } from "./abandon-session-deps";
+import { resolveStaleFinishExtended } from "./stale-duration";
+import { isStaleSession } from "./is-stale-session";
 
 export type SessionSet = {
   id: string;
@@ -55,6 +56,12 @@ export async function abandonSessionCore(
   sessionId: string,
   elapsedSeconds: number,
 ): Promise<Result<{ status: "completed" | "skipped" }>> {
+  // Load session metadata for stale detection
+  const { data: sessionMeta, error: metaError } = await deps.loadSessionMetadata(sessionId);
+  if (metaError) return { ok: false, error: metaError };
+
+  const startedAt = sessionMeta?.started_at ?? null;
+
   // Check if any working sets were logged
   const { data: exercises, error: readError } = await deps.loadExercises(sessionId);
 
@@ -62,15 +69,55 @@ export async function abandonSessionCore(
 
   const status = decideAbandonStatus(exercises ?? []);
 
-  // Clamp duration to sane range: 0 to 6 hours
-  const clampedDuration = Math.max(0, Math.min(21600, Math.round(elapsedSeconds)));
+  // Determine duration: use stale logic if session is stale
+  let durationSeconds: number | null;
+
+  const stale = !startedAt || isStaleSession({
+    startedAt: startedAt,
+    now: new Date().toISOString(),
+    timezone: "UTC",
+  });
+
+  if (stale) {
+    // Load exercises with sets for stale calculation
+    const { data: exercisesWithSets, error: setsError } = await deps.loadExercisesWithSets(sessionId);
+    if (setsError) return { ok: false, error: setsError };
+
+    // Find last set completed_at and rest_seconds
+    let lastSetCompletedAt: string | null = null;
+    let restSeconds: number | null = null;
+    let workingSetCount = 0;
+
+    for (const ex of exercisesWithSets ?? []) {
+      for (const set of ex.session_sets ?? []) {
+        if (!set.is_warmup_set) {
+          workingSetCount++;
+          if (!lastSetCompletedAt || set.completed_at > lastSetCompletedAt) {
+            lastSetCompletedAt = set.completed_at;
+            restSeconds = ex.rest_seconds;
+          }
+        }
+      }
+    }
+
+    const staleFinish = resolveStaleFinishExtended({
+      startedAt,
+      lastSetCompletedAt,
+      workingSetCount,
+      restSeconds,
+    });
+
+    durationSeconds = staleFinish.durationSeconds;
+  } else {
+    // Non-stale: use passed elapsed time, clamped to sane range (0 to 6 hours)
+    durationSeconds = Math.max(0, Math.min(21600, Math.round(elapsedSeconds)));
+  }
 
   // Safety: Only update if status is 'in_progress' to prevent double-accumulation on retry.
-  // The client's elapsed time is cumulative (wall clock from started_at).
   const { error, updatedCount } = await deps.updateSession(sessionId, {
     status,
     completed_at: status === "completed" ? new Date().toISOString() : null,
-    duration_seconds: clampedDuration,
+    duration_seconds: durationSeconds,
   });
 
   if (error) return { ok: false, error };
@@ -88,30 +135,6 @@ export async function abandonSessionCore(
     }
 
     return { ok: true, data: { status: statusData.status } };
-  }
-
-  // Update exercise statuses based on logged vs planned sets
-  const { data: exercisesForStatus, error: exerciseReadError } = await deps.loadExercisesForUpdate(sessionId);
-
-  if (exerciseReadError) {
-    return { ok: false, error: exerciseReadError };
-  }
-
-  // Update each exercise status if still pending
-  for (const ex of exercisesForStatus ?? []) {
-    if (ex.status !== "pending") continue;
-
-    const workingSets = (ex.session_sets ?? []).filter((s) => !s.is_warmup_set).length;
-    const completion = exerciseCompletion(workingSets, ex.planned_sets ?? 0);
-
-    // Map completion status to database enum: "partial" counts as "completed"
-    const dbStatus = completion === "completed" || completion === "partial" ? "completed" : "skipped";
-
-    const updateError = await deps.updateExerciseStatus(ex.id, dbStatus);
-    if (updateError.error) {
-      // Non-fatal: exercise status update failed but session was marked abandoned
-      console.error(`Failed to update exercise ${ex.id} status:`, updateError.error);
-    }
   }
 
   return { ok: true, data: { status } };

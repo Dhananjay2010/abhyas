@@ -5,6 +5,7 @@ import type { SessionRow, SessionExerciseWithSets, ExerciseForUpdate } from "../
 
 const NOW = "2026-10-25T12:00:00Z";
 const NOW_FN = () => NOW;
+const THIRTY_MIN_AGO = "2026-10-25T11:30:00Z";
 
 let passed = 0;
 let failed = 0;
@@ -106,6 +107,18 @@ function makeFakeAbandonSessionDeps(
     },
     async updateExerciseStatus() {
       return { error: null };
+    },
+    async loadSessionMetadata() {
+      return { data: { started_at: THIRTY_MIN_AGO }, error: null };
+    },
+    async loadExercisesWithSets() {
+      return { data: exercises.map(ex => ({
+        rest_seconds: ex.rest_seconds,
+        session_sets: ex.session_sets.map(s => ({
+          completed_at: NOW,
+          is_warmup_set: s.is_warmup_set,
+        })),
+      })), error: null };
     },
   };
 }

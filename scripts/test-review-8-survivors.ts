@@ -149,6 +149,12 @@ async function runTests() {
       async updateSession() {
         return { error: null, updatedCount: 1 };
       },
+      async loadSessionMetadata() {
+        return { data: { started_at: new Date().toISOString() }, error: null };
+      },
+      async loadExercisesWithSets() {
+        return { data: [], error: null };
+      },
     };
 
     const result = await abandonSessionCore(deps, "session-3", 100);
