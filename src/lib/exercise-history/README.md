@@ -205,7 +205,7 @@ For **bodyweight exercises** (null or 0 weight): plain most-reps comparison.
 - **Bodyweight handling**: Zero or null weight is treated as bodyweight.
 - **Unit consistency**: All weights in kg, all durations in seconds.
 - **PR detection**: Real-time as sets are logged (use `detectSetPRs`) and historical (use `detectPersonalRecords`).
-- **e1RM formula**: Reps are capped at 12 to match exercise_strength_history (Progress view).
+- **e1RM formula**: Uses Epley (weight × (1 + reps/30)) with no rep cap, matching exercise_strength_history (Progress view) and the canonical implementation in progression.ts.
 
 ## Testing
 

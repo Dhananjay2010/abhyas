@@ -32,8 +32,8 @@ This was verified rather than assumed: a throwaway user querying
 `select count(*) from session_volume` with no filter sees exactly their own
 row and no one else's.
 
-`exercise_strength_history` caps reps at 12 in the Epley estimate, because the
-formula becomes unreliable on high-rep sets.
+`exercise_strength_history` uses the Epley formula (weight × (1 + reps/30))
+with no rep cap, matching the canonical TypeScript implementation.
 
 ## Streak rules
 
