@@ -72,15 +72,15 @@ assert(
   "signInAgainHref accepts valid path"
 );
 assert(
-  signInAgainHref('//evil.com') === '/?next=%2Ftoday',
+  signInAgainHref('//evil.com') === '/',
   "signInAgainHref rejects protocol-relative"
 );
 assert(
-  signInAgainHref('/\\evil.com') === '/?next=%2Ftoday',
+  signInAgainHref('/\\evil.com') === '/',
   "signInAgainHref rejects backslash"
 );
 assert(
-  signInAgainHref('https://evil.com') === '/?next=%2Ftoday',
+  signInAgainHref('https://evil.com') === '/',
   "signInAgainHref rejects absolute URL"
 );
 
