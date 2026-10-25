@@ -6,7 +6,7 @@ import { StartSessionButton } from "./start-session-button";
 import { SignOutForm } from "./signout-form";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { addDays, isoWeekday, localDateString } from "@/lib/dates";
+import { addDays, isoWeekday, localDateString, DAY_NAMES as WEEKDAY_NAMES } from "@/lib/dates";
 import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
@@ -16,10 +16,9 @@ import { TodayPrompts } from "@/components/today/today-prompts";
 import { WarmupSection } from "@/components/today/warmup-section";
 import { buildPage } from "@/lib/today/build-page";
 import { RefetchOnResume } from "./refetch-on-resume";
+import { weekWindow } from "@/lib/today/week-window";
 
 export const dynamic = "force-dynamic";
-
-const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default async function TodayPage() {
   const { supabase, user } = await getAuthedClient();
@@ -185,20 +184,16 @@ export default async function TodayPage() {
     // "what about tomorrow?" question about today when yesterday was a training
     // day nobody finished. One extra date in an `in` filter is free; a second
     // query would not be.
-    /*
-      Yesterday through to a week today. One range filter rather than a list of
-      dates, and the same single round trip either way.
-
-      The week ahead is needed because "Your week" used to render the block's
-      template labels only, so a choice made last night about today or tomorrow
-      was invisible there: the user picked Rest for tomorrow and the week still
-      said Push.
+  /*
+    Session window from cycle week start through today+6.
+    This catches pull-forwards done earlier in the cycle week and covers
+    "Your week" choices. Uses weekWindow helper to ensure consistency.
     */
     supabase
       .from("sessions")
       .select("id, status, actual_type, local_date, program_id, program_day_id, started_at, created_at")
-      .gte("local_date", yesterday)
-      .lte("local_date", weekAheadEnd)
+      .gte("local_date", weekWindow({ started_on: program.started_on, week_offset: program.week_offset }, localToday).start)
+      .lte("local_date", weekWindow({ started_on: program.started_on, week_offset: program.week_offset }, localToday).end)
       // Newest first, which is how `startSession` breaks the same tie.
       .order("created_at", { ascending: false }),
   ]);
@@ -252,6 +247,7 @@ export default async function TodayPage() {
     dayType,
     dayLabel,
     overrideDiffers,
+    pulledForwardMessage,
     strengthDone,
     strengthOpen,
     performed,
@@ -364,11 +360,16 @@ export default async function TodayPage() {
       <RefetchOnResume />
       <header>
         <p className="text-sm text-muted">
-          {DAY_NAMES[todayIndex - 1]} · Block {program.block_number} · Week {week} of 4
+          {WEEKDAY_NAMES[todayIndex]} · Block {program.block_number} · Week {week} of 4
         </p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">
           {dayType === "rest" ? "Rest day" : dayLabel}
         </h1>
+        {pulledForwardMessage && (
+          <p className="mt-2 text-sm text-muted">
+            {pulledForwardMessage}
+          </p>
+        )}
         {isDeload && isTraining && (
           <p className="mt-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
             Deload week. Lighter loads, nothing near failure — this is what lets week 5
@@ -513,7 +514,7 @@ export default async function TodayPage() {
                 }`}
               >
                 <span className={row.dayIndex === todayIndex ? "font-semibold" : "text-muted"}>
-                  {DAY_NAMES[row.dayIndex - 1]}
+                  {WEEKDAY_NAMES[row.dayIndex]}
                 </span>
                 {row.isChoice ? (
                   <span className="text-right">
