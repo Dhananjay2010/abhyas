@@ -72,7 +72,7 @@ export default async function SettingsPage() {
         Signed in as {user.email}. Changes save as you make them.
       </p>
 
-      <SettingsForm initial={initial} equipment={equipment} timezones={timezones} userId={userId} />
+      <SettingsForm initial={initial} equipment={equipment} timezones={timezones} userId={user.id} />
 
       <div className="mt-12 space-y-8 border-t border-border pt-8">
         <section>
