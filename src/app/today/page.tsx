@@ -591,6 +591,13 @@ export default async function TodayPage() {
         </div>
       )}
 
+      {isTraining && (
+        <WarmupSection
+          todayExercises={todayExercises}
+          actual={performedRows?.data ?? null}
+          strengthDone={strengthDone}
+        />
+      )}
 
       {/*
         Always reachable, whatever today is. These previously appeared only on
