@@ -42,14 +42,6 @@ export async function resolveSwapWeights(
     // When remembersWeights is false (daily_menu mode), skip progress/history entirely
     // (same rule as src/app/session/[id]/page.tsx:109)
     if (!remembersWeights) {
-      const { data: session, error: sessionError } = await supabase
-        .from("sessions")
-        .select("is_deload")
-        .eq("id", sessionId)
-        .maybeSingle();
-      if (sessionError) {
-        console.error("[resolveSwapWeights] Failed to read is_deload:", sessionError);
-      }
       return { weightPrefill: null, workingWeightKg: null, isBodyweight: equipmentIds.length === 0 };
     }
 

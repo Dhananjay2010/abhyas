@@ -42,8 +42,8 @@ export async function resolveSwapPrefill(
   equipmentIds: string[],
   metric: Database["public"]["Enums"]["exercise_metric"],
   movementPattern: Database["public"]["Enums"]["movement_pattern"],
-  progressValue?: number | null,
-  remembersWeights: boolean = true,
+  progressValue: number | null | undefined,
+  remembersWeights: boolean,
 ): Promise<number | null> {
   try {
     // When remembersWeights is false (daily_menu mode), skip progress/history entirely
