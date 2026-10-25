@@ -5,36 +5,159 @@ set -euo pipefail
 # Uses Node string replacement with exact-match assertions
 # mktemp backups with restore trap
 # Exit 1 on any survivor or skip
+#
+# RECOVERY: If SIGKILL interrupts while a mutation is applied, manually restore:
+#   Look for the backup path in stderr or find the latest /tmp/tmp.* file
+#   cp BACKUP_PATH src/lib/program/progression.ts
+#   Or use: git show HEAD:src/lib/program/progression.ts > src/lib/program/progression.ts
+#   Verify: git diff src/lib/program/progression.ts (should be empty)
 
-FILE="src/lib/program/progression.ts"
+# Check required tools exist
+for cmd in sha256sum cmp; do
+  if ! command -v "$cmd" > /dev/null 2>&1; then
+    echo "❌ ERROR: Required command '$cmd' not found" >&2
+    exit 1
+  fi
+done
+
+# Allow override for testing
+FILE="${MUTANT_TARGET_FILE:-src/lib/program/progression.ts}"
+BASELINE_CMD="${MUTANT_BASELINE_CMD:-npm run test:first-miss-pinned}"
+COMPILE_CMD="${MUTANT_COMPILE_CMD:-npx tsc --noEmit}"
+MUTANT_TEST_CMD="${MUTANT_TEST_CMD:-npm run test:first-miss-pinned}"
+
+# Record original SHA before anything else
+if [ ! -f "$FILE" ]; then
+  echo "❌ ERROR: Target file not found: $FILE" >&2
+  exit 1
+fi
+
+ORIG_SHA=$(sha256sum "$FILE" | cut -d' ' -f1)
+
+# When using real file, refuse to run if uncommitted changes exist
+if [ "$FILE" = "src/lib/program/progression.ts" ]; then
+  if ! git diff --quiet -- "$FILE" 2>/dev/null; then
+    echo "❌ ERROR: Target file has uncommitted changes: $FILE" >&2
+    echo "   Commit or stash changes before running mutant tests" >&2
+    echo "   Recovery source: git show HEAD:$FILE" >&2
+    exit 1
+  fi
+fi
+
 BACKUP=$(mktemp)
+MUTATE_SCRIPT=$(mktemp)
 FAILED=0
 SURVIVORS=()
 SKIPPED=()
+MUTATION_APPLIED=false
+CLEANUP_DONE=false
 
-cleanup() {
-  if [ -f "$BACKUP" ]; then
-    cp "$BACKUP" "$FILE"
-    rm -f "$BACKUP"
+restore_or_die() {
+  # Verify backup integrity and restore target file atomically
+  # On any mismatch: print to stderr, keep backup, exit non-zero
+  
+  if [ ! -f "$BACKUP" ]; then
+    echo "❌ FATAL: Backup file missing. Cannot restore $FILE" >&2
+    echo "   Backup path: $BACKUP" >&2
+    exit 1
+  fi
+  
+  if [ ! -s "$BACKUP" ]; then
+    echo "❌ FATAL: Backup file is empty. Cannot restore $FILE" >&2
+    echo "   Backup path: $BACKUP (empty)" >&2
+    exit 1
+  fi
+  
+  local backup_sha
+  backup_sha=$(sha256sum "$BACKUP" | cut -d' ' -f1)
+  
+  if [ "$backup_sha" != "$ORIG_SHA" ]; then
+    echo "❌ FATAL: Backup has been corrupted (sha256 mismatch)" >&2
+    echo "   Expected: $ORIG_SHA" >&2
+    echo "   Got:      $backup_sha" >&2
+    echo "   Backup path: $BACKUP (keeping for recovery)" >&2
+    echo "   Target:  $FILE (left as-is)" >&2
+    exit 1
+  fi
+  
+  # Restore via temp file and atomic rename
+  local temp_restore
+  temp_restore=$(mktemp "${FILE}.restore.XXXXXX")
+  cp "$BACKUP" "$temp_restore"
+  mv "$temp_restore" "$FILE"
+  
+  # Verify restored file
+  local restored_sha
+  restored_sha=$(sha256sum "$FILE" | cut -d' ' -f1)
+  
+  if [ "$restored_sha" != "$ORIG_SHA" ]; then
+    echo "❌ FATAL: Restored file has wrong sha256" >&2
+    echo "   Expected: $ORIG_SHA" >&2
+    echo "   Got:      $restored_sha" >&2
+    echo "   Backup path: $BACKUP (keeping for recovery)" >&2
+    exit 1
   fi
 }
 
-trap cleanup EXIT INT TERM
+cleanup() {
+  if [ "$CLEANUP_DONE" = true ]; then
+    return 0
+  fi
+  CLEANUP_DONE=true
+  
+  if [ "$MUTATION_APPLIED" = true ]; then
+    restore_or_die
+  fi
+  
+  rm -f "$BACKUP" "$MUTATE_SCRIPT"
+}
+
+trap cleanup EXIT
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
 
 echo "=== Mutant Testing: First-Miss Hold Guard ==="
 echo
 
+# Back up original BEFORE setting any trap
+cp "$FILE" "$BACKUP"
+
+# Record original SHA
+ORIG_SHA=$(sha256sum "$FILE" | cut -d' ' -f1)
+
+# Verify backup exists, is non-empty, and matches original
+if [ ! -f "$BACKUP" ]; then
+  echo "❌ ERROR: Backup file not created"
+  exit 1
+fi
+
+if [ ! -s "$BACKUP" ]; then
+  echo "❌ ERROR: Backup file is empty"
+  rm -f "$BACKUP"
+  exit 1
+fi
+
+if ! cmp -s "$FILE" "$BACKUP"; then
+  echo "❌ ERROR: Backup is not byte-identical to original"
+  rm -f "$BACKUP"
+  exit 1
+fi
+
+backup_sha=$(sha256sum "$BACKUP" | cut -d' ' -f1)
+if [ "$backup_sha" != "$ORIG_SHA" ]; then
+  echo "❌ ERROR: Backup sha256 does not match original"
+  rm -f "$BACKUP"
+  exit 1
+fi
+
 # Baseline: run tests
 echo "Running baseline tests..."
-if ! npm run test:first-miss-pinned > /dev/null 2>&1; then
+if ! eval "$BASELINE_CMD" > /dev/null 2>&1; then
   echo "❌ Baseline tests failed. Fix the code before running mutant tests."
   exit 1
 fi
 echo "✓ Baseline tests pass"
 echo
-
-# Back up original
-cp "$FILE" "$BACKUP"
 
 run_mutant() {
   local name="$1"
@@ -46,8 +169,10 @@ run_mutant() {
   echo "  $description"
   
   # Apply mutant with Node (assert exactly one occurrence)
-  cat > /tmp/mutate.js << 'MUTATE_SCRIPT'
+  # Write to temp file first, then atomic rename
+  cat > "$MUTATE_SCRIPT" << 'MUTATE_SCRIPT'
 const fs = require('fs');
+const path = require('path');
 const content = fs.readFileSync(process.argv[2], 'utf8');
 const search = process.argv[3];
 const replace = process.argv[4];
@@ -66,16 +191,22 @@ if (count > 1) {
 }
 
 const newContent = content.replace(search, replace);
-fs.writeFileSync(process.argv[2], newContent, 'utf8');
+const target = process.argv[2];
+const temp = target + '.mutate.tmp';
+fs.writeFileSync(temp, newContent, 'utf8');
+fs.renameSync(temp, target);
 MUTATE_SCRIPT
   
-  node /tmp/mutate.js "$FILE" "$search" "$replace" 2>&1
-  NODE_EXIT=$?
+  # Mark that mutation is about to be applied (BEFORE the write)
+  MUTATION_APPLIED=true
+  
+  NODE_EXIT=0
+  node "$MUTATE_SCRIPT" "$FILE" "$search" "$replace" 2>&1 || NODE_EXIT=$?
   
   if [ $NODE_EXIT -ne 0 ]; then
     echo "  ❌ SKIPPED: String replacement failed"
     SKIPPED+=("$name: replacement failed")
-    cp "$BACKUP" "$FILE"
+    MUTATION_APPLIED=false
     return 0
   fi
   
@@ -83,20 +214,22 @@ MUTATE_SCRIPT
   if cmp -s "$FILE" "$BACKUP"; then
     echo "  ❌ SKIPPED: File did not change"
     SKIPPED+=("$name: file unchanged")
-    cp "$BACKUP" "$FILE"
+    restore_or_die
+    MUTATION_APPLIED=false
     return 0
   fi
   
   # Check tsc compiles
-  if ! npx tsc --noEmit > /dev/null 2>&1; then
+  if ! eval "$COMPILE_CMD" > /dev/null 2>&1; then
     echo "  ❌ SKIPPED: Does not compile"
     SKIPPED+=("$name: does not compile")
-    cp "$BACKUP" "$FILE"
+    restore_or_die
+    MUTATION_APPLIED=false
     return 0
   fi
   
   # Run tests
-  if npm run test:first-miss-pinned > /dev/null 2>&1; then
+  if eval "$MUTANT_TEST_CMD" > /dev/null 2>&1; then
     echo "  ❌ SURVIVED"
     SURVIVORS+=("$name")
     FAILED=$((FAILED + 1))
@@ -105,7 +238,8 @@ MUTATE_SCRIPT
   fi
   
   # Restore
-  cp "$BACKUP" "$FILE"
+  restore_or_die
+  MUTATION_APPLIED=false
   return 0
 }
 
@@ -128,8 +262,6 @@ run_mutant \
 # so two-miss holds and Rule 2 holds the first miss. Kettlebells: the only adjacent 20% pair is 
 # 10→8, and no bell lies in [9,10). No equipment: no Rule 1.
 # Therefore (c) is equivalent to the original and cannot be killed by tests.
-echo "Testing mutant: (c) > to >="
-echo "  ⚠️  EQUIVALENT: exact 20% cut always clamped (see script comment)"
 
 # Mutant (d): Guard inverted (always hold)
 run_mutant \
@@ -210,9 +342,6 @@ run_mutant \
 # Both components are <= 0.9*weight < weight, so target can never be > weight.
 echo "Testing mutant: (n) remove helper never-raise"
 echo "  ⚠️  UNREACHABLE: target computation ensures target <= weight always"
-
-# Clean up temp script
-rm -f /tmp/mutate.js
 
 echo
 echo "========================================="
