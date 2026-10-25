@@ -239,7 +239,7 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
       return text !== null && text.includes("Skip cool-down");
     });
     check("Skip cool-down button found", skipButton !== undefined);
-    if (skipButton instanceof HTMLButtonElement) {
+    if (skipButton) {
       skipButton.click();
     }
   });
@@ -260,7 +260,7 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
       return text !== null && text.trim() === "Try again";
     });
     check("Try again button found", retryButton !== undefined);
-    if (retryButton instanceof HTMLButtonElement) {
+    if (retryButton) {
       retryButton.click();
     }
   });
@@ -466,7 +466,7 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
       const text = b.textContent;
       return text !== null && text.includes("End session early");
     });
-    if (endButton instanceof HTMLButtonElement) {
+    if (endButton) {
       endButton.click();
     }
   });
@@ -480,7 +480,7 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
       const text = b.textContent;
       return text !== null && text.trim() === "End now";
     });
-    if (confirmButton instanceof HTMLButtonElement) {
+    if (confirmButton) {
       confirmButton.click();
     }
   });
@@ -601,7 +601,7 @@ console.log("\n5. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
       return text !== null && text.trim() === "Done";
     });
     check("Done button found", doneButton !== undefined);
-    if (doneButton instanceof HTMLButtonElement) {
+    if (doneButton) {
       doneButton.click();
     }
   });
@@ -717,7 +717,7 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
       return text !== null && text.includes("End session early");
     });
     check("End session early button found", endButton !== undefined);
-    if (endButton instanceof HTMLButtonElement) {
+    if (endButton) {
       endButton.click();
     }
   });
@@ -737,7 +737,7 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
       return text !== null && text.trim() === "End now";
     });
     check("End now button found in confirm dialog", confirmButton !== undefined);
-    if (confirmButton instanceof HTMLButtonElement) {
+    if (confirmButton) {
       confirmButton.click();
     }
   });
@@ -835,7 +835,7 @@ console.log("\n7. Done sends frozen elapsed time (f1, f2)");
       return text !== null && text.includes("Skip cool-down");
     });
     check("Skip cool-down button found", skipButton !== undefined);
-    if (skipButton instanceof HTMLButtonElement) {
+    if (skipButton) {
       skipButton.click();
     }
   });
