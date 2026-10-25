@@ -238,33 +238,6 @@ await test("L1: conflict when current has no remaining work advances to next pen
   }
 });
 
-await test("L1 revert proof: without fix, conflict on last set jumps to next exercise", () => {
-  // This test demonstrates what happened before the fix: the conflict on the last
-  // set jumped to the next exercise, skipping the feel prompt.
-  
-  const exercises: Exercise[] = [EXERCISE_1, EXERCISE_2];
-  const currentExerciseIndex = 0;
-  const currentExerciseId = "ex1";
-
-  // Apply the conflict result
-  const updatedExercises = exercises.map((e) =>
-    e.id === currentExerciseId ? ({ ...e, sets: CONFLICT_RESULT.savedSets }) : e,
-  );
-
-  // OLD LOGIC (before fix): find next unfinished exercise
-  const nextUnfinishedIndex = updatedExercises.findIndex(
-    (e, i) => i >= currentExerciseIndex && e.status === "pending" && e.sets.length < e.plannedSets,
-  );
-
-  // The old logic would find exercise 1 (index 1) as the next unfinished
-  if (nextUnfinishedIndex !== 1) {
-    throw new Error(`Expected index 1, got ${nextUnfinishedIndex}`);
-  }
-
-  // This is WRONG: it skips the feel prompt for exercise 0
-  // The fix checks if the current exercise is complete and stays on it
-});
-
   console.log(`\nPassed: ${passed}, Failed: ${failed}`);
   if (failed > 0) process.exit(1);
 }

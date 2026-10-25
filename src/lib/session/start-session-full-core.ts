@@ -6,7 +6,7 @@
  * making it easy to test with plain typed fakes (no network, no `as`, no `!`).
  */
 import type { Database } from "@/lib/database.types";
-import { localDateString, isoWeekday } from "@/lib/dates";
+import { localDateString, isoWeekday, isoFromMs } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { applyDeload } from "@/lib/program/prescription";
@@ -76,7 +76,6 @@ export type StartSessionFullDeps = {
   
   insertSession: (payload: SessionInsert) => Promise<
     | { ok: true; sessionId: string }
-    | { ok: true; existingSessionId: string }
     | { ok: false; error: string }
   >;
   
@@ -121,7 +120,7 @@ export async function startSessionFullCore(
     const updatePayload = {
       status: "in_progress" as const,
       ...(existing.started_at === null || existing.status === "skipped"
-        ? { started_at: new Date(nowMs).toISOString() }
+        ? { started_at: isoFromMs(nowMs) }
         : {}),
     };
 
@@ -174,31 +173,28 @@ export async function startSessionFullCore(
     return { ok: true, sessionId: staleResult.resumeSessionId };
   }
 
-  // Insert new session
-  const insertResult = await deps.insertSession({
-    user_id: userId,
-    program_id: program.id,
-    program_day_id: dayId,
-    local_date: today,
-    week_in_block: week,
-    is_deload: isDeloadWeek,
-    planned_type: dayType,
-    actual_type: dayType,
-    status: "in_progress",
-    started_at: new Date(nowMs).toISOString(),
-  });
+  // Insert new session and fetch planned exercises in parallel
+  const [insertResult, planned] = await Promise.all([
+    deps.insertSession({
+      user_id: userId,
+      program_id: program.id,
+      program_day_id: dayId,
+      local_date: today,
+      week_in_block: week,
+      is_deload: isDeloadWeek,
+      planned_type: dayType,
+      actual_type: dayType,
+      status: "in_progress",
+      started_at: isoFromMs(nowMs),
+    }),
+    deps.fetchPlannedExercises(dayId),
+  ]);
 
   if (!insertResult.ok) {
-    if ("existingSessionId" in insertResult) {
-      return { ok: true, sessionId: insertResult.existingSessionId };
-    }
     return { ok: false, error: insertResult.error };
   }
 
-  const sessionId = "sessionId" in insertResult ? insertResult.sessionId : insertResult.existingSessionId;
-
-  // Insert exercises
-  const planned = await deps.fetchPlannedExercises(dayId);
+  const sessionId = insertResult.sessionId;
   if (planned && planned.length > 0) {
     const exercisesToInsert = planned.map((p) => {
       const dose = isDeloadWeek
