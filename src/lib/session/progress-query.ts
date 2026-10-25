@@ -5,16 +5,13 @@
  * is always applied when querying exercise_progress.
  */
 
-export function buildExerciseProgressQuery<T>(
-  supabase: {
-    from(table: string): {
-      select(columns: string): {
-        eq(column: string, value: string): T;
-      };
-    };
-  },
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
+
+export function buildExerciseProgressQuery(
+  supabase: SupabaseClient<Database>,
   userId: string
-): T {
+) {
   return supabase
     .from("exercise_progress")
     .select("exercise_id, current_working_weight_kg, current_target_reps")

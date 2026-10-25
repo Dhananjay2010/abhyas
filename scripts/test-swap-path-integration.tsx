@@ -246,6 +246,106 @@ check(
   afterSidePlankTarget.repsMin === 120 && afterSidePlankTarget.repsMax === 120
 );
 
+// --- Test 5: Swap with no progress (undefined) → uses plan range ---
+const noProgressExercises: SessionExercise[] = [
+  {
+    id: "session-ex-5",
+    exerciseId: "pushup",
+    name: "Push-Up",
+    cue: null,
+    metric: "reps",
+    repsMin: 8,
+    repsMax: 12,
+    suggestedWeightKg: null,
+    workingWeightKg: null,
+    isBodyweight: true,
+  },
+];
+
+const noProgressSwap: SwapResult & { exerciseId: string; name: string; cue: string | null } = {
+  exerciseId: "wide-pushup",
+  name: "Wide Push-Up",
+  cue: "Hands wider than shoulders",
+  metric: "reps",
+  repsMin: 8,
+  repsMax: 12,
+  weightPrefill: null,
+  workingWeightKg: null,
+  isBodyweight: true,
+  equipmentIds: [],
+  currentTargetReps: null, // No stored progress
+};
+
+const afterNoProgressResult = applySwapResult(noProgressExercises, "session-ex-5", noProgressSwap);
+const swappedEx5 = afterNoProgressResult[0];
+assertNumericTargets(swappedEx5);
+
+const afterNoProgressTarget = applySwapTarget(
+  swappedEx5,
+  {
+    equipmentIds: noProgressSwap.equipmentIds,
+    currentTargetReps: noProgressSwap.currentTargetReps,
+    currentWorkingWeightKg: noProgressSwap.workingWeightKg,
+    plannedRepsMin: noProgressSwap.repsMin ?? 8,
+    plannedRepsMax: noProgressSwap.repsMax ?? 12,
+  }
+);
+
+check(
+  "Swap with no progress (null) → uses plan range 8-12",
+  afterNoProgressTarget.repsMin === 8 && afterNoProgressTarget.repsMax === 12
+);
+
+// --- Test 6: Metric change with no progress (plank → pushups) ---
+const plankToRepsExercises: SessionExercise[] = [
+  {
+    id: "session-ex-6",
+    exerciseId: "plank",
+    name: "Plank",
+    cue: null,
+    metric: "seconds",
+    repsMin: 45,
+    repsMax: 45,
+    suggestedWeightKg: null,
+    workingWeightKg: null,
+    isBodyweight: true,
+  },
+];
+
+const plankToPushupsSwap: SwapResult & { exerciseId: string; name: string; cue: string | null } = {
+  exerciseId: "pushup",
+  name: "Push-Up",
+  cue: null,
+  metric: "reps",
+  repsMin: 8,
+  repsMax: 12,
+  weightPrefill: null,
+  workingWeightKg: null,
+  isBodyweight: true,
+  equipmentIds: [],
+  currentTargetReps: null, // No pushup progress (metric changed)
+};
+
+const afterPlankToPushupsResult = applySwapResult(plankToRepsExercises, "session-ex-6", plankToPushupsSwap);
+const swappedEx6 = afterPlankToPushupsResult[0];
+assertNumericTargets(swappedEx6);
+
+const afterPlankToPushupsTarget = applySwapTarget(
+  swappedEx6,
+  {
+    equipmentIds: plankToPushupsSwap.equipmentIds,
+    currentTargetReps: plankToPushupsSwap.currentTargetReps,
+    currentWorkingWeightKg: plankToPushupsSwap.workingWeightKg,
+    plannedRepsMin: plankToPushupsSwap.repsMin ?? 8,
+    plannedRepsMax: plankToPushupsSwap.repsMax ?? 12,
+  }
+);
+
+check(
+  "Plank 45s → pushups no progress → uses plan 8-12 (not 45)",
+  afterPlankToPushupsTarget.repsMin === 8 && afterPlankToPushupsTarget.repsMax === 12
+);
+
 // --- Summary ---
 console.log("");
 const passed = checks.filter((c) => c.pass).length;
