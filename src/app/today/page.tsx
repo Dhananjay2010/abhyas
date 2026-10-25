@@ -12,10 +12,9 @@ import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
-import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
-import { buildTodayRows } from "@/lib/today/build-today-rows";
+import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 
 export const dynamic = "force-dynamic";
@@ -250,8 +249,6 @@ export default async function TodayPage() {
     override !== undefined &&
     (override.actual_type !== (scheduled?.day_type ?? null) ||
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
-  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
-  const isDeload = week === program.deload_week;
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
   const strengthDone = todaySessions.some(
@@ -359,7 +356,16 @@ export default async function TodayPage() {
     } | null;
   }> | null;
 
-  const todayExercises: TodayRow[] = buildTodayRows({ actual, template, isDeload });
+  const todayExercises: TodayRow[] = buildTodayRowsForProgram({
+    actual,
+    template,
+    program: {
+      started_on: program.started_on,
+      week_offset: program.week_offset,
+      deload_week: program.deload_week,
+    },
+    localToday,
+  });
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show

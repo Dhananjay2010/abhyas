@@ -1,0 +1,167 @@
+#!/usr/bin/env tsx
+/**
+ * Test swap-exercise-core with fakes (S1, S2, S3).
+ * 
+ * Verifies the call-site wiring:
+ * - S3: passes input.newExerciseId (not the old id) to resolveSwapWeights
+ * - S1: returns weightPrefill unchanged
+ * - S2: returns workingWeightKg unchanged
+ * 
+ * Mutants S1, S2, S3 must FAIL this test.
+ */
+
+import { swapExerciseCore, type SwapExerciseDeps, type SwapExerciseCoreInput } from "@/lib/session/swap-exercise-core";
+import type { Database } from "@/lib/database.types";
+
+function check(label: string, pass: boolean, detail?: string) {
+  if (pass) {
+    console.log(`  ✓ ${label}${detail ? ` -- ${detail}` : ""}`);
+  } else {
+    console.log(`  ✗ FAIL ${label}${detail ? ` -- ${detail}` : ""}`);
+    process.exit(1);
+  }
+}
+
+async function main() {
+  console.log("Test swap-exercise-core (S1, S2, S3)\n");
+
+  const OLD_EXERCISE_ID = "old-exercise-id";
+  const NEW_EXERCISE_ID = "new-exercise-id";
+  const SESSION_ID = "session-123";
+
+  // Fake resolveSwapWeights that records which exercise id it received
+  let capturedExerciseId: string | null = null;
+  const fakeResolveSwapWeights: SwapExerciseDeps["resolveSwapWeights"] = async (
+    sessionId,
+    newExerciseId,
+    equipmentIds,
+    metric,
+    movementPattern,
+  ) => {
+    capturedExerciseId = newExerciseId;
+    // Return distinct values so we can verify they're passed through unchanged
+    return {
+      weightPrefill: 42.5,
+      workingWeightKg: 100,
+      isBodyweight: equipmentIds.length === 0,
+    };
+  };
+
+  const input: SwapExerciseCoreInput = {
+    newExerciseId: NEW_EXERCISE_ID,
+    current: {
+      exercise_id: OLD_EXERCISE_ID,
+      metric: "reps" as Database["public"]["Enums"]["exercise_metric"],
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      session_id: SESSION_ID,
+    },
+    replacement: {
+      metric: "reps" as Database["public"]["Enums"]["exercise_metric"],
+      mechanic: "compound" as Database["public"]["Enums"]["exercise_mechanic"],
+      equipment_ids: ["barbell"],
+      movement_pattern: "horizontal_push" as Database["public"]["Enums"]["movement_pattern"],
+    },
+    profile: {
+      goal: "muscle_gain" as Database["public"]["Enums"]["user_goal"],
+      level: "intermediate" as Database["public"]["Enums"]["experience_level"],
+    },
+  };
+
+  console.log("Case 1: Normal swap with barbell exercise\n");
+
+  const result = await swapExerciseCore({ resolveSwapWeights: fakeResolveSwapWeights }, input);
+
+  // S3: Must pass the NEW exercise id, not the old one
+  check(
+    "S3: passes NEW exercise id (not old)",
+    capturedExerciseId === NEW_EXERCISE_ID,
+    `got ${capturedExerciseId}, expected ${NEW_EXERCISE_ID}`,
+  );
+
+  // S1: Must return weightPrefill unchanged
+  check(
+    "S1: returns weightPrefill unchanged",
+    result.weightPrefill === 42.5,
+    `got ${result.weightPrefill}, expected 42.5`,
+  );
+
+  // S2: Must return workingWeightKg unchanged
+  check(
+    "S2: returns workingWeightKg unchanged",
+    result.workingWeightKg === 100,
+    `got ${result.workingWeightKg}, expected 100`,
+  );
+
+  // Also verify isBodyweight is computed correctly (not bodyweight for barbell)
+  check(
+    "isBodyweight false for barbell",
+    result.isBodyweight === false,
+    `got ${result.isBodyweight}`,
+  );
+
+  console.log("\nCase 2: Bodyweight exercise\n");
+
+  capturedExerciseId = null;
+  const bodyweightInput: SwapExerciseCoreInput = {
+    ...input,
+    replacement: {
+      metric: "reps" as Database["public"]["Enums"]["exercise_metric"],
+      mechanic: "compound" as Database["public"]["Enums"]["exercise_mechanic"],
+      equipment_ids: [],
+      movement_pattern: "vertical_pull" as Database["public"]["Enums"]["movement_pattern"],
+    },
+  };
+
+  const fakeBWResolveSwapWeights: SwapExerciseDeps["resolveSwapWeights"] = async (
+    sessionId,
+    newExerciseId,
+    equipmentIds,
+    metric,
+    movementPattern,
+  ) => {
+    capturedExerciseId = newExerciseId;
+    return {
+      weightPrefill: null,
+      workingWeightKg: null,
+      isBodyweight: equipmentIds.length === 0,
+    };
+  };
+
+  const bwResult = await swapExerciseCore({ resolveSwapWeights: fakeBWResolveSwapWeights }, bodyweightInput);
+
+  check(
+    "S3: passes NEW exercise id for bodyweight",
+    capturedExerciseId === NEW_EXERCISE_ID,
+    `got ${capturedExerciseId}`,
+  );
+
+  check(
+    "S1: returns null weightPrefill unchanged",
+    bwResult.weightPrefill === null,
+    `got ${bwResult.weightPrefill}`,
+  );
+
+  check(
+    "S2: returns null workingWeightKg unchanged",
+    bwResult.workingWeightKg === null,
+    `got ${bwResult.workingWeightKg}`,
+  );
+
+  check(
+    "isBodyweight true for bodyweight exercise",
+    bwResult.isBodyweight === true,
+    `got ${bwResult.isBodyweight}`,
+  );
+
+  console.log("\n✅ All swap-exercise-core tests passed");
+  console.log("\nMutants covered:");
+  console.log("  S3: passing OLD exercise id → FAILS S3 check");
+  console.log("  S1: returning null weightPrefill → FAILS S1 check");
+  console.log("  S2: returning null workingWeightKg → FAILS S2 check\n");
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
