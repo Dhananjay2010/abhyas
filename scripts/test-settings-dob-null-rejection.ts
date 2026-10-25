@@ -113,8 +113,8 @@ function check(condition: boolean, message: string) {
     check(updateCalled, "updateProfile spy called");
   }
 
-  console.log(`\n✅ ${passed} passed, ❌ ${failed} failed\n`);
-  process.exit(failed > 0 ? 1 : 0);
+  console.log(`\n✅ ${passedDobTest} passed, ❌ ${failedDobTest} failed\n`);
+  process.exit(failedDobTest > 0 ? 1 : 0);
 })().catch((err) => {
   console.error("FATAL:", err);
   process.exit(1);
