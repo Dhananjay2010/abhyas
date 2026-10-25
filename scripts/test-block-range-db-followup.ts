@@ -30,7 +30,8 @@ function assert(condition: boolean, message: string) {
 }
 
 // Setup auth schema for Postgres container test environment
-async function setupAuthSchema(pool: Pool) {
+// Returns true if stub was created, false if skipped
+async function setupAuthSchema(pool: Pool): Promise<boolean> {
   // L7 Guard: Never run against a real Supabase database
   const allowStub = process.env.ALLOW_AUTH_SCHEMA_STUB === '1';
   const isCI = !!process.env.CI;
@@ -44,7 +45,7 @@ async function setupAuthSchema(pool: Pool) {
     if (!isCI) {
       console.log("\n⏭️  Skipping auth schema setup (not CI, set ALLOW_AUTH_SCHEMA_STUB=1 to allow)");
       console.log("   DATABASE_URL:", url.replace(/:[^:@]+@/, ':***@'));
-      return;
+      return false;
     }
     
     if (!isLocalhost && !isTestDb) {
@@ -72,9 +73,10 @@ async function setupAuthSchema(pool: Pool) {
         process.exit(1);
       } else {
         console.log("\n⏭️  Skipping auth schema setup (auth.uid() already exists without test marker)");
-        return;
+        return false;
       }
     }
+    // Found existing stub with marker - continue to verify/recreate if needed
   }
   
   // Check if auth.users table exists - also check for marker
@@ -93,9 +95,10 @@ async function setupAuthSchema(pool: Pool) {
         process.exit(1);
       } else {
         console.log("\n⏭️  Skipping auth schema setup (auth.users already exists without test marker)");
-        return;
+        return false;
       }
     }
+    // Found existing stub with marker - continue to verify/recreate if needed
   }
   
   await pool.query(`
@@ -124,6 +127,8 @@ async function setupAuthSchema(pool: Pool) {
     GRANT SELECT, INSERT, UPDATE, DELETE ON auth.users TO authenticated;
     GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
   `);
+  
+  return true;
 }
 
 async function testM1_MidBlockRebuildPreservesDates() {
@@ -635,8 +640,10 @@ async function runAll() {
   
   const setupPool = new Pool({ connectionString: DATABASE_URL });
   try {
-    await setupAuthSchema(setupPool);
-    console.log("  ✓ Auth schema setup complete\n");
+    const wasSetup = await setupAuthSchema(setupPool);
+    if (wasSetup) {
+      console.log("  ✓ Auth schema setup complete\n");
+    }
   } finally {
     await setupPool.end();
   }

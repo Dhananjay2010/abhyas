@@ -264,7 +264,20 @@ export function SettingsForm({
         // LOW fix: Show error once for unrecognized ops, then clear the entire stash
         // (recognized ops were already replayed successfully)
         if (unrecognizedOps.length > 0) {
-          const errorMsg = `Some changes could not be restored: ${unrecognizedOps.join(', ')}`;
+          // LOW fix: Map raw keys to friendly labels
+          const friendlyLabels = unrecognizedOps.map(opKey => {
+            const [type] = opKey.split(':');
+            const typeLabels: Record<string, string> = {
+              profile: 'profile',
+              session: 'session preferences',
+              equipment: 'equipment',
+              injury: 'injuries',
+              injuries: 'injuries',
+            };
+            return typeLabels[type] || type;
+          });
+          const uniqueLabels = Array.from(new Set(friendlyLabels));
+          const errorMsg = `Some earlier changes couldn't be restored (${uniqueLabels.join(', ')})`;
           setError(errorMsg);
         }
         
@@ -1219,14 +1232,19 @@ export function SettingsForm({
                               : prev.equipmentIds.filter(id => id !== equipmentId)
                           }));
                           
-                          // Store metadata with per-item operation (for retry and stashing)
-                          const itemPatch = { operation: 'setItem' as const, equipmentId, enabled: newState };
+                          // N1 fix: Store atomic updateEquipment for first item after has_all off
+                          const atomicPatch = isFirstItemAfterHasAllOff 
+                            ? { hasAll: false, equipmentIds: [equipmentId] }
+                            : { operation: 'setItem' as const, equipmentId, enabled: newState };
+                          
                           retryMetadata.current.set("equipment", { 
                             type: 'equipment', 
-                            patch: itemPatch,
+                            patch: atomicPatch,
                             retryFn: () => {
                               startTransition(async () => {
-                                const result = await actions.setEquipmentItem({ equipmentId, enabled: newState });
+                                const result = isFirstItemAfterHasAllOff
+                                  ? await actions.updateEquipment({ hasAll: false, equipmentIds: [equipmentId] })
+                                  : await actions.setEquipmentItem({ equipmentId, enabled: newState });
                                 if (!result.ok) {
                                   setS(prev => ({ 
                                     ...prev, 
@@ -1244,6 +1262,10 @@ export function SettingsForm({
                                     if (next.size === 0) setError(null);
                                     return next;
                                   });
+                                  // N1 fix: Clear hint after successful first pick
+                                  if (isFirstItemAfterHasAllOff) {
+                                    setEquipmentHint(null);
+                                  }
                                 }
                               });
                             }
@@ -1263,13 +1285,17 @@ export function SettingsForm({
                                 if (metadata) {
                                   const existing = getPendingChanges(userId);
                                   const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                                  // N1 fix: Stash atomic updateEquipment for first item after has_all off
                                   const newChange = {
                                     key: "equipment",
                                     type: "equipment" as const,
-                                    patch: { operation: 'setItem' as const, equipmentId, enabled: newState },
+                                    patch: isFirstItemAfterHasAllOff 
+                                      ? { hasAll: false, equipmentIds: [equipmentId] }
+                                      : { operation: 'setItem' as const, equipmentId, enabled: newState },
                                     timestamp: Date.now()
                                   };
                                   // M2 fix: Accumulate per-item equipment changes by equipmentId
+                                  // N1 fix: Don't filter updateEquipment (atomic has_all+item op)
                                   const merged = existingChanges.filter(ch => {
                                     if (ch.key !== "equipment") return true;
                                     const p = ch.patch;
@@ -1303,6 +1329,10 @@ export function SettingsForm({
                                   return next;
                                 });
                                 setPlanStale(true);
+                                // N1 LOW: Clear hint after successful first pick
+                                if (isFirstItemAfterHasAllOff) {
+                                  setEquipmentHint(null);
+                                }
                               }
                             } catch (err) {
                               // Check for session expiration in thrown error
@@ -1311,13 +1341,17 @@ export function SettingsForm({
                                 if (metadata) {
                                   const existing = getPendingChanges(userId);
                                   const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                                  // N1 fix: Stash atomic updateEquipment for first item after has_all off
                                   const newChange = {
                                     key: "equipment",
                                     type: "equipment" as const,
-                                    patch: { operation: 'setItem' as const, equipmentId, enabled: newState },
+                                    patch: isFirstItemAfterHasAllOff 
+                                      ? { hasAll: false, equipmentIds: [equipmentId] }
+                                      : { operation: 'setItem' as const, equipmentId, enabled: newState },
                                     timestamp: Date.now()
                                   };
                                   // M2 fix: Accumulate per-item equipment changes by equipmentId
+                                  // N1 fix: Don't filter updateEquipment (atomic has_all+item op)
                                   const merged = existingChanges.filter(ch => {
                                     if (ch.key !== "equipment") return true;
                                     const p = ch.patch;

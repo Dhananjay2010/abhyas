@@ -156,6 +156,16 @@ async function testHasAllToggleWithNoItems(): Promise<boolean> {
 
   console.log('  ✓ Picking Dumbbells saved has_all=false with the item');
 
+  // LOW: Assert that hint is cleared after successful save
+  await new Promise(resolve => setTimeout(resolve, 100));
+  const hintAfterSave = queryByText(/Pick at least one item/);
+  if (hintAfterSave) {
+    console.error('  ❌ Hint was not cleared after successful save');
+    return false;
+  }
+
+  console.log('  ✓ Hint cleared after successful save');
+
   return true;
 }
 

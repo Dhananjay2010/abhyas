@@ -83,15 +83,15 @@ async function testUnrecognizedStashCleanup(): Promise<boolean> {
     await new Promise(resolve => setTimeout(resolve, 200));
   });
 
-  // Wait for error message to appear
+  // Wait for error message to appear (LOW fix: check for friendly label)
   await waitFor(() => {
-    const hasError = container!.textContent?.includes('Some changes could not be restored: injuries:injuries');
+    const hasError = container!.textContent?.includes("Some earlier changes couldn't be restored (injuries)");
     return hasError === true;
   }, { timeout: 3000 });
 
-  const hasError = container.textContent?.includes('Some changes could not be restored: injuries:injuries');
+  const hasError = container.textContent?.includes("Some earlier changes couldn't be restored (injuries)");
   if (!hasError) {
-    console.error('  ❌ Error message not shown for unrecognized stash entry');
+    console.error('  ❌ Error message not shown for unrecognized stash entry (or wrong format)');
     return false;
   }
 
