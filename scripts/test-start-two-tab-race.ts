@@ -1,3 +1,4 @@
+#!/usr/bin/env tsx
 /**
  * Test: two tabs pressing Start at once shows no error and opens the same session.
  * 
@@ -14,8 +15,10 @@
  * 
  * This test fails when the fix is reverted: the second tab sees a duplicate key error.
  */
-import { createFakeDb, json, type FakeDb, type RecordedRequest } from "./helpers/fake-postgrest";
+import { createFakeDb } from "./helpers/fake-postgrest";
 import { startSessionCore } from "../src/lib/session/start-session-core";
+
+export {};
 
 const USER_ID = "user-a";
 const TODAY = "2026-10-25";
@@ -37,7 +40,25 @@ function sessionPayload(userId: string, date: string) {
   };
 }
 
-test("L2: two-tab Start race returns same session without duplicate key error", async () => {
+let passed = 0;
+let failed = 0;
+
+async function test(name: string, fn: () => void | Promise<void>) {
+  try {
+    await fn();
+    console.log(`✓ ${name}`);
+    passed++;
+  } catch (err) {
+    console.error(`✗ ${name}`);
+    console.error(`  ${err instanceof Error ? err.message : String(err)}`);
+    failed++;
+  }
+}
+
+async function main() {
+  console.log("Testing two-tab Start race\n");
+
+await test("L2: two-tab Start race returns same session without duplicate key error", async () => {
   const db = createFakeDb({
     uniqueConstraints: [
       { 
@@ -56,7 +77,6 @@ test("L2: two-tab Start race returns same session without duplicate key error", 
 
   // Tab 1 inserts successfully
   const result1 = await startSessionCore(db.client, USER_ID, payload);
-  expect(result1.ok).toBe(true);
   if (!result1.ok) throw new Error("Tab 1 failed");
 
   // Simulate tab 1 inserting exercises
@@ -76,19 +96,20 @@ test("L2: two-tab Start race returns same session without duplicate key error", 
 
   // Tab 2 tries to insert with the same payload
   const result2 = await startSessionCore(db.client, USER_ID, payload);
-  expect(result2.ok).toBe(true);
   if (!result2.ok) throw new Error("Tab 2 failed");
 
   // Both tabs should get the same session
-  expect(result2.sessionId).toBe(result1.sessionId);
+  if (result2.sessionId !== result1.sessionId) {
+    throw new Error(`Expected same session, got ${result2.sessionId} !== ${result1.sessionId}`);
+  }
 
   // Only one session was created
   const sessions = db.tables.sessions ?? [];
-  expect(sessions.length).toBe(1);
-  expect(sessions[0].status).toBe("in_progress");
+  if (sessions.length !== 1) throw new Error(`Expected 1 session, got ${sessions.length}`);
+  if (sessions[0].status !== "in_progress") throw new Error(`Expected in_progress, got ${sessions[0].status}`);
 });
 
-test("L2: losing tab's exercise insert is skipped when winner already inserted", async () => {
+await test("L2: losing tab's exercise insert is skipped when winner already inserted", async () => {
   const db = createFakeDb({
     uniqueConstraints: [
       { 
@@ -129,7 +150,6 @@ test("L2: losing tab's exercise insert is skipped when winner already inserted",
 
   // Tab 1 (winner) creates session and inserts exercises
   const result1 = await startSessionCore(db.client, USER_ID, payload);
-  expect(result1.ok).toBe(true);
   if (!result1.ok) throw new Error("Tab 1 failed");
 
   const ex1 = {
@@ -148,9 +168,10 @@ test("L2: losing tab's exercise insert is skipped when winner already inserted",
 
   // Tab 2 (loser) tries to create session, hits 23505, re-reads winner's session
   const result2 = await startSessionCore(db.client, USER_ID, payload);
-  expect(result2.ok).toBe(true);
   if (!result2.ok) throw new Error("Tab 2 failed");
-  expect(result2.sessionId).toBe(result1.sessionId);
+  if (result2.sessionId !== result1.sessionId) {
+    throw new Error(`Expected same session, got ${result2.sessionId} !== ${result1.sessionId}`);
+  }
 
   // Now simulate tab 2 checking for existing exercises before attempting insert
   const { data: existingExercises } = await db.client
@@ -160,26 +181,20 @@ test("L2: losing tab's exercise insert is skipped when winner already inserted",
     .limit(1);
 
   // Exercises already exist from tab 1
-  expect(existingExercises).toBeTruthy();
-  expect(existingExercises?.length).toBeGreaterThan(0);
+  if (!existingExercises || existingExercises.length === 0) {
+    throw new Error("Expected existing exercises from tab 1");
+  }
 
   // Tab 2 should skip its insert. If it doesn't, the test setup will throw
   // a 409 duplicate key error when we try to insert the same order_index.
-  if (existingExercises && existingExercises.length > 0) {
-    // Skip insert (this is what the fix does)
-  } else {
-    // This branch should NOT be reached
-    const insertResult = await db.client.from("session_exercises").insert(ex1);
-    // If we reach here and it succeeded, the unique constraint didn't work
-    expect(insertResult.error).toBeTruthy();
-  }
+  // (This is what the fix does)
 
   // Only one exercise row exists
   const exercises = db.tables.session_exercises ?? [];
-  expect(exercises.length).toBe(1);
+  if (exercises.length !== 1) throw new Error(`Expected 1 exercise, got ${exercises.length}`);
 });
 
-test("L2 revert: without check, second insert throws duplicate key error", async () => {
+await test("L2 revert: without check, second insert throws duplicate key error", async () => {
   const db = createFakeDb({
     uniqueConstraints: [
       {
@@ -201,7 +216,7 @@ test("L2 revert: without check, second insert throws duplicate key error", async
 
   // First insert succeeds
   const insert1 = await db.client.from("session_exercises").insert(ex1);
-  expect(insert1.error).toBeNull();
+  if (insert1.error) throw new Error("First insert failed");
 
   // Second insert with same session_id + order_index fails with 23505
   const insert2 = await db.client.from("session_exercises").insert({
@@ -209,8 +224,15 @@ test("L2 revert: without check, second insert throws duplicate key error", async
     id: "ex2",
   });
 
-  expect(insert2.error).toBeTruthy();
   if (!insert2.error) throw new Error("Expected duplicate key error");
-  expect(insert2.error.code).toBe("23505");
-  expect(insert2.error.message).toContain("session_exercises_session_id_order_index_key");
+  if (insert2.error.code !== "23505") throw new Error(`Expected 23505, got ${insert2.error.code}`);
+  if (!insert2.error.message.includes("session_exercises_session_id_order_index_key")) {
+    throw new Error(`Expected constraint name in message: ${insert2.error.message}`);
+  }
 });
+
+  console.log(`\nPassed: ${passed}, Failed: ${failed}`);
+  if (failed > 0) process.exit(1);
+}
+
+main();

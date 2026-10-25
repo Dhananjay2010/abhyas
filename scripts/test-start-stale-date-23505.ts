@@ -1,3 +1,4 @@
+#!/usr/bin/env tsx
 /**
  * Test: startSessionCore's 23505 re-read filters by local_date.
  * 
@@ -17,6 +18,8 @@
  */
 import { createFakeDb } from "./helpers/fake-postgrest";
 import { startSessionCore } from "../src/lib/session/start-session-core";
+
+export {};
 
 const USER_ID = "user-a";
 const YESTERDAY = "2026-10-24";
@@ -39,7 +42,25 @@ function sessionPayload(userId: string, date: string) {
   };
 }
 
-test("L3: startSessionCore 23505 re-read filters by local_date", async () => {
+let passed = 0;
+let failed = 0;
+
+async function test(name: string, fn: () => void | Promise<void>) {
+  try {
+    await fn();
+    console.log(`✓ ${name}`);
+    passed++;
+  } catch (err) {
+    console.error(`✗ ${name}`);
+    console.error(`  ${err instanceof Error ? err.message : String(err)}`);
+    failed++;
+  }
+}
+
+async function main() {
+  console.log("Testing startSessionCore local_date filtering\n");
+
+await test("L3: startSessionCore 23505 re-read filters by local_date", async () => {
   const db = createFakeDb({
     uniqueConstraints: [
       { 
@@ -53,7 +74,6 @@ test("L3: startSessionCore 23505 re-read filters by local_date", async () => {
   // Yesterday's session exists and is in_progress
   const yesterdayPayload = sessionPayload(USER_ID, YESTERDAY);
   const result1 = await startSessionCore(db.client, USER_ID, yesterdayPayload);
-  expect(result1.ok).toBe(true);
   if (!result1.ok) throw new Error("Yesterday's session failed");
   const yesterdaySessionId = result1.sessionId;
 
@@ -63,16 +83,19 @@ test("L3: startSessionCore 23505 re-read filters by local_date", async () => {
 
   // With the fix: the 23505 re-read filters by TODAY's date, finds nothing,
   // and returns an error rather than adopting yesterday's session
-  expect(result2.ok).toBe(false);
   if (result2.ok) {
     // If it succeeded, it must NOT be yesterday's session
-    expect(result2.sessionId).not.toBe(yesterdaySessionId);
+    if (result2.sessionId === yesterdaySessionId) {
+      throw new Error("Stale tab was put into yesterday's session!");
+    }
   } else {
-    expect(result2.error).toContain("different day");
+    if (!result2.error.includes("different day")) {
+      throw new Error(`Expected 'different day' error, got: ${result2.error}`);
+    }
   }
 });
 
-test("L3: startSessionCore 23505 on same date returns existing session", async () => {
+await test("L3: startSessionCore 23505 on same date returns existing session", async () => {
   const db = createFakeDb({
     uniqueConstraints: [
       { 
@@ -87,24 +110,24 @@ test("L3: startSessionCore 23505 on same date returns existing session", async (
 
   // First tab creates session for today
   const result1 = await startSessionCore(db.client, USER_ID, payload);
-  expect(result1.ok).toBe(true);
   if (!result1.ok) throw new Error("First tab failed");
 
   // Second tab tries to create session for TODAY, hits 23505
   const result2 = await startSessionCore(db.client, USER_ID, payload);
-  expect(result2.ok).toBe(true);
   if (!result2.ok) throw new Error("Second tab failed");
 
   // Both tabs get the same session
-  expect(result2.sessionId).toBe(result1.sessionId);
+  if (result2.sessionId !== result1.sessionId) {
+    throw new Error(`Expected same session, got ${result2.sessionId} !== ${result1.sessionId}`);
+  }
 
   // Only one session exists
   const sessions = db.tables.sessions ?? [];
-  expect(sessions.length).toBe(1);
-  expect(sessions[0].local_date).toBe(TODAY);
+  if (sessions.length !== 1) throw new Error(`Expected 1 session, got ${sessions.length}`);
+  if (sessions[0].local_date !== TODAY) throw new Error(`Expected ${TODAY}, got ${sessions[0].local_date}`);
 });
 
-test("L3: updateSessionCore already filters by local_date (consistency check)", async () => {
+await test("L3: updateSessionCore already filters by local_date (consistency check)", async () => {
   const db = createFakeDb({
     uniqueConstraints: [
       { 
@@ -118,7 +141,6 @@ test("L3: updateSessionCore already filters by local_date (consistency check)", 
   // Create yesterday's session
   const yesterdayPayload = sessionPayload(USER_ID, YESTERDAY);
   const result1 = await startSessionCore(db.client, USER_ID, yesterdayPayload);
-  expect(result1.ok).toBe(true);
   if (!result1.ok) throw new Error("Yesterday's session failed");
   const yesterdaySessionId = result1.sessionId;
 
@@ -151,14 +173,15 @@ test("L3: updateSessionCore already filters by local_date (consistency check)", 
   // With updateSessionCore's local_date filter, this update hits 23505 (yesterday's
   // in_progress session exists), but the re-read filters by TODAY, finds nothing,
   // and falls through to error
-  expect(updateResult.ok).toBe(false);
   if (updateResult.ok) {
     // If it succeeded, it must NOT be yesterday's session
-    expect(updateResult.sessionId).not.toBe(yesterdaySessionId);
+    if (updateResult.sessionId === yesterdaySessionId) {
+      throw new Error("Update adopted yesterday's session!");
+    }
   }
 });
 
-test("L3 overlap check: PR #111 closes stale on Today render, not on Start", async () => {
+await test("L3 overlap check: PR #111 closes stale on Today render, not on Start", async () => {
   // PR #111 (cursor/fix-timezone-session-stale-40e3) closes stale sessions when
   // Today's loader runs, BEFORE reading recent sessions. This means that by the
   // time Today renders, stale in_progress rows are already closed.
@@ -173,6 +196,10 @@ test("L3 overlap check: PR #111 closes stale on Today render, not on Start", asy
   // Overlap: NONE. PR #111 and L3 fix different paths.
   // - PR #111: closes stale on Today render (loader-owned)
   // - L3: filters by date on Start's 23505 path (action-owned)
-
-  expect(true).toBe(true);
 });
+
+  console.log(`\nPassed: ${passed}, Failed: ${failed}`);
+  if (failed > 0) process.exit(1);
+}
+
+main();

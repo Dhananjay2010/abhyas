@@ -1,3 +1,4 @@
+#!/usr/bin/env tsx
 /**
  * Test: conflict on an exercise's last set stays on that exercise for feel prompt.
  * 
@@ -13,7 +14,24 @@
  */
 import { resolveSetConflict, type ConflictResult, type ExerciseForConflict } from "../src/lib/session/conflict-reducer";
 
+export {};
+
 type Exercise = ExerciseForConflict;
+
+let passed = 0;
+let failed = 0;
+
+async function test(name: string, fn: () => void | Promise<void>) {
+  try {
+    await fn();
+    console.log(`✓ ${name}`);
+    passed++;
+  } catch (err) {
+    console.error(`✗ ${name}`);
+    console.error(`  ${err instanceof Error ? err.message : String(err)}`);
+    failed++;
+  }
+}
 
 const EXERCISE_1: Exercise = {
   id: "ex1",
@@ -44,7 +62,10 @@ const CONFLICT_RESULT: ConflictResult = {
   ],
 };
 
-test("L1: conflict on last set stays on current exercise for feel prompt", () => {
+async function main() {
+  console.log("Testing conflict resolution on last set\n");
+
+await test("L1: conflict on last set stays on current exercise for feel prompt", () => {
   const exercises: Exercise[] = [EXERCISE_1, EXERCISE_2];
   const currentExerciseIndex = 0;
   const currentExerciseId = "ex1";
@@ -57,16 +78,22 @@ test("L1: conflict on last set stays on current exercise for feel prompt", () =>
   );
 
   // The current exercise now has 4 sets (all planned sets done)
-  expect(resolution.exercises[0].sets.length).toBe(4);
+  if (resolution.exercises[0].sets.length !== 4) {
+    throw new Error(`Expected 4 sets, got ${resolution.exercises[0].sets.length}`);
+  }
 
   // Must stay on exercise 0 to show the feel prompt
-  expect(resolution.nextExerciseIndex).toBe(0);
+  if (resolution.nextExerciseIndex !== 0) {
+    throw new Error(`Expected index 0, got ${resolution.nextExerciseIndex}`);
+  }
 
   // User sees the conflict message
-  expect(resolution.message).toContain("That set was already saved");
+  if (!resolution.message.includes("That set was already saved")) {
+    throw new Error(`Expected conflict message, got: ${resolution.message}`);
+  }
 });
 
-test("L1: conflict NOT on last set advances to next unfinished exercise", () => {
+await test("L1: conflict NOT on last set advances to next unfinished exercise", () => {
   const exercises: Exercise[] = [
     {
       id: "ex1",
@@ -98,13 +125,17 @@ test("L1: conflict NOT on last set advances to next unfinished exercise", () => 
   );
 
   // Exercise 1 now has 2 sets (not yet complete)
-  expect(resolution.exercises[0].sets.length).toBe(2);
+  if (resolution.exercises[0].sets.length !== 2) {
+    throw new Error(`Expected 2 sets, got ${resolution.exercises[0].sets.length}`);
+  }
 
   // Stays on exercise 0 because it's not complete
-  expect(resolution.nextExerciseIndex).toBe(0);
+  if (resolution.nextExerciseIndex !== 0) {
+    throw new Error(`Expected index 0, got ${resolution.nextExerciseIndex}`);
+  }
 });
 
-test("L1: multiple exercises, conflict on last set of first exercise", () => {
+await test("L1: multiple exercises, conflict on last set of first exercise", () => {
   const exercises: Exercise[] = [
     {
       id: "ex1",
@@ -144,13 +175,17 @@ test("L1: multiple exercises, conflict on last set of first exercise", () => {
   const resolution = resolveSetConflict(exercises, "ex1", 0, conflictResult);
 
   // Exercise 1 is now complete
-  expect(resolution.exercises[0].sets.length).toBe(4);
+  if (resolution.exercises[0].sets.length !== 4) {
+    throw new Error(`Expected 4 sets, got ${resolution.exercises[0].sets.length}`);
+  }
 
   // Must stay on exercise 0 for the feel prompt
-  expect(resolution.nextExerciseIndex).toBe(0);
+  if (resolution.nextExerciseIndex !== 0) {
+    throw new Error(`Expected index 0, got ${resolution.nextExerciseIndex}`);
+  }
 });
 
-test("L1 revert proof: without fix, conflict on last set jumps to next exercise", () => {
+await test("L1 revert proof: without fix, conflict on last set jumps to next exercise", () => {
   // This test demonstrates what happened before the fix: the conflict on the last
   // set jumped to the next exercise, skipping the feel prompt.
   
@@ -169,8 +204,16 @@ test("L1 revert proof: without fix, conflict on last set jumps to next exercise"
   );
 
   // The old logic would find exercise 1 (index 1) as the next unfinished
-  expect(nextUnfinishedIndex).toBe(1);
+  if (nextUnfinishedIndex !== 1) {
+    throw new Error(`Expected index 1, got ${nextUnfinishedIndex}`);
+  }
 
   // This is WRONG: it skips the feel prompt for exercise 0
   // The fix checks if the current exercise is complete and stays on it
 });
+
+  console.log(`\nPassed: ${passed}, Failed: ${failed}`);
+  if (failed > 0) process.exit(1);
+}
+
+main();
