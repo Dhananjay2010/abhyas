@@ -1186,7 +1186,11 @@ function SetEntry({
   const shouldPrefillWeight = !isBodyweight || (defaultWeight !== null && defaultWeight > 0);
   const [weight, setWeight] = useState(() => {
     if (!shouldPrefillWeight || defaultWeight === null) return "";
-    // Convert to display units and round to plate steps (2.5 kg / 5 lb)
+    if (units === "metric") {
+      // Metric: show exact kg value, no rounding
+      return String(defaultWeight);
+    }
+    // Imperial: convert to lb and round to plate steps (5 lb)
     const displayValue = kgToDisplay(defaultWeight, units);
     const rounded = roundToPlate(displayValue, units);
     return String(rounded);
