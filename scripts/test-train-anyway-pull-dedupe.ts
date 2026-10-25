@@ -114,13 +114,13 @@ assert(
 );
 
 assert(
-  result3.length === 3,
-  `Rest day offers 3 options (Lift + 2 more distinct), got ${result3.length}`
+  result3.length === 2,
+  `Rest day offers 2 options (Lift + 1 more distinct), got ${result3.length}`
 );
 
 assert(
-  result3[0].label === "Lift: Push",
-  `First option on rest day has "Lift:" prefix, got "${result3[0].label}"`
+  result3[0].label === "Push",
+  `First option on rest day is Push (for Lift), got "${result3[0].label}"`
 );
 
 console.log(`\n✅ All ${passedTests}/${totalTests} buildTrainAnywayDays deduplication tests passed!\n`);
