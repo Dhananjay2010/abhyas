@@ -270,6 +270,29 @@ export function hashString(s: string): number {
 }
 
 /**
+ * Item 16: Check if exercise contains Olympic lift patterns (clean, snatch, jerk).
+ * Exported for use in both generator and swap filtering.
+ */
+export function isOlympicLift(ex: CandidateExercise): boolean {
+  const nameLower = ex.name.toLowerCase();
+  const slugLower = ex.slug.toLowerCase();
+  const olympicPatterns = ["clean", "snatch", "jerk"];
+  return olympicPatterns.some(pattern => 
+    slugLower.includes(pattern) || nameLower.includes(pattern));
+}
+
+/**
+ * Item 16: Check if Olympic lifts should be excluded based on user profile.
+ * For injured members (ANY injury), Olympic lifts are excluded from ALL slots.
+ */
+export function shouldExcludeOlympicLift(ex: CandidateExercise, input: { currentInjuryRegions?: string[]; anyKneeInjury?: boolean }): boolean {
+  if (!isOlympicLift(ex)) return false;
+  // Injured members: exclude Olympic lifts from all slots
+  const hasAnyInjury = (input.currentInjuryRegions?.length ?? 0) > 0 || (input.anyKneeInjury ?? false);
+  return hasAnyInjury;
+}
+
+/**
  * Exercises to exclude from automated programming due to safety concerns.
  * 
  * QA Pass 10 C1: Apply to main slots for ALL goals, and to all slots for
@@ -312,12 +335,8 @@ function shouldExcludeForSafety(
     return true;
   }
   
-  // Olympic lifts: clean, snatch, jerk (check slug and name)
-  const olympicPatterns = [
-    "clean", "snatch", "jerk"
-  ];
-  if (olympicPatterns.some(pattern => 
-    slugLower.includes(pattern) || nameLower.includes(pattern))) {
+  // Item 16: Olympic lifts (using shared predicate)
+  if (isOlympicLift(ex)) {
     return true;
   }
   

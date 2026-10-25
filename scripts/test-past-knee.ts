@@ -848,15 +848,15 @@ console.log("\n12. Item 8: Warm-up input builder and past-knee exclusions");
   
   // Test warm-up selection excludes past-knee problematic moves
   const warmup = selectWarmup(warmupInput);
-  const warmupSlugs = warmup.map(w => w.slug);
+  const warmupSlugs = warmup.map((w: any) => w.slug);
   
   check("Item 8: walking-lunge NOT in past-knee warmup", !warmupSlugs.includes("walking-lunge"));
   check("Item 8: skipping-light NOT in past-knee warmup", !warmupSlugs.includes("skipping-light"));
   check("Item 8: worlds-greatest NOT in past-knee warmup", !warmupSlugs.includes("worlds-greatest"));
   
   // Test that instructions don't contain "full depth" for knee injuries
-  const hasFullDepth = warmup.some(w => 
-    w.instructions.some(inst => inst.toLowerCase().includes("full depth"))
+  const hasFullDepth = warmup.some((w: any) => 
+    w.instructions.some((inst: string) => inst.toLowerCase().includes("full depth"))
   );
   check("Item 8: no 'full depth' instructions for past-knee warmup", !hasFullDepth);
   
