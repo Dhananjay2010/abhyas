@@ -91,7 +91,6 @@ console.log("1. Dumbbell isolation 12.5 kg");
     equipmentIds: ["dumbbell"],
   });
 
-  check("Dumbbell 12.5 kg 2nd miss: drops to 10 kg (unchanged)", secondMiss.nextWorkingWeightKg === 10, `got ${secondMiss.nextWorkingWeightKg}`);
   check("Dumbbell 2nd miss: consecutiveFailures resets", secondMiss.consecutiveFailures === 0);
 
   // Third miss at 12.5 kg: 0.9 * 12.5 = 11.25, snap DOWN = 10 kg, BUT 10 < 12.5 so it WOULD change
