@@ -8,13 +8,10 @@
  * - Rejects absolute URLs: 'https://evil.com'
  * - Rejects encoded slashes in path: '/%2F%2Fevil'
  * - Accepts valid relative paths: '/today', '/session/abc'
- * 
- * Also tests the session-expired-shim's signInAgainHref which uses
- * its own internal safeNextPath implementation.
  */
 
 import { safeNextPath } from "../src/lib/safe-next-path";
-import { signInAgainHref } from "../src/lib/session/session-expired-shim";
+import { signInAgainHref } from "../src/lib/auth/session-expired";
 
 let exitCode = 0;
 
@@ -69,7 +66,7 @@ assert(safeNextPath('') === '/today', "Rejects empty string");
 const longPath = '/history?x=' + 'a'.repeat(600);
 assert(safeNextPath(longPath) === '/today', "Rejects path > 512 characters");
 
-// Test session-expired-shim's signInAgainHref (which uses internal safeNextPath)
+// Test signInAgainHref (which uses safeNextPath)
 assert(
   signInAgainHref('/session/abc') === '/?next=%2Fsession%2Fabc',
   "signInAgainHref accepts valid path"

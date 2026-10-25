@@ -11,7 +11,7 @@ import {
   type PendingSet,
   type Storage,
 } from "../src/lib/session/pending-set-retry";
-import { SESSION_EXPIRED_CODE, isSessionExpired } from "../src/lib/session/session-expired-shim";
+import { SESSION_EXPIRED_CODE, isSessionExpired } from "../src/lib/auth/session-expired";
 import { createPendingSetDeps, type PendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createStorage(): Storage {

@@ -10,7 +10,6 @@
  */
 
 import {
-  canFinishSession,
   isFinishDisabled,
   getFinishButtonText,
 } from "../src/lib/session/finish-guard";
@@ -29,12 +28,6 @@ function assertEqual<T>(actual: T, expected: T, message: string): void {
 }
 
 console.log("Testing session finish guard\n");
-
-// canFinishSession tests
-assertEqual(canFinishSession(0), true, "Can finish when no pending sets");
-assertEqual(canFinishSession(1), false, "Cannot finish with 1 pending set");
-assertEqual(canFinishSession(3), false, "Cannot finish with 3 pending sets");
-assertEqual(canFinishSession(10), false, "Cannot finish with 10 pending sets");
 
 // isFinishDisabled tests
 assertEqual(isFinishDisabled(0, false), false, "Button enabled when no pending and not busy");

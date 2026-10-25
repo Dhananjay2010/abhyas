@@ -6,8 +6,7 @@
  */
 
 import type { Result } from "@/app/session/actions";
-
-export const SESSION_EXPIRED_CODE = "SESSION_EXPIRED";
+import { SESSION_EXPIRED_CODE } from "@/lib/auth/session-expired";
 
 /**
  * Resolve auth for a server action.

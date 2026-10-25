@@ -5,14 +5,6 @@
  */
 
 /**
- * Can the session be finished?
- * Returns false if there are pending sets waiting to save.
- */
-export function canFinishSession(pendingCount: number): boolean {
-  return pendingCount === 0;
-}
-
-/**
  * Derive finish button disabled state from pending sets and busy flag.
  */
 export function isFinishDisabled(pendingCount: number, busy: boolean): boolean {

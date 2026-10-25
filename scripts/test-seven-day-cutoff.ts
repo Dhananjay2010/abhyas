@@ -7,7 +7,6 @@
  */
 
 import { loadPendingSets, savePendingSet, type Storage } from "../src/lib/session/pending-set-retry";
-import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
