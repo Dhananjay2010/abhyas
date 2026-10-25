@@ -10,9 +10,10 @@
  * - wrong state weight source
  */
 
-import type { MovementPattern } from "../exercises/types";
-import type { Database } from "../supabase/types";
+import type { Database } from "../../lib/database.types";
 import type { ExerciseMeta, ProgressState } from "../program/progression";
+
+type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
 export type SessionExerciseRow = {
   id: string;

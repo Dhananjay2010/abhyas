@@ -29,8 +29,16 @@ function createFakeClient(): { client: ProgressClient; getWritten: () => Progres
 
   const client: ProgressClient = {
     from: () => ({
-      upsert: async (data: ProgressWrite) => {
-        written = data;
+      upsert: async (data: Record<string, unknown>, _opts: { onConflict: string }) => {
+        // Type guard: check if data has the shape of ProgressWrite
+        if (
+          typeof data === "object" &&
+          data !== null &&
+          "user_id" in data &&
+          "exercise_id" in data
+        ) {
+          written = data as ProgressWrite;
+        }
         return { data: null, error: null };
       },
     }),

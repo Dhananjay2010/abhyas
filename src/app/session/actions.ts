@@ -17,7 +17,7 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "@/lib/program/progression";
-import { buildProgressionInput } from "@/lib/session/build-progression-input";
+import { buildProgressionInput, type SessionSetRow, type ExerciseProgressRow as ProgressRow } from "@/lib/session/build-progression-input";
 import { applyDeload, prescribe } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
@@ -434,9 +434,16 @@ async function applyProgression(
   ]);
 
   const prior = progressRes.data;
+  const totalSessions = prior?.total_sessions ?? 0;
 
   const decision = evaluateProgression(
-    buildProgressionInput(se, setsRes.data ?? [], prior, sessionRes.data ?? { is_deload: null, local_date: null, program_id: null }, feel)
+    buildProgressionInput(
+      se,
+      (setsRes.data ?? []) as SessionSetRow[],
+      prior as ProgressRow,
+      sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
+      feel
+    )
   );
 
   await writeExerciseProgressCore(
@@ -444,7 +451,7 @@ async function applyProgression(
     userId,
     se.exercise_id,
     decision,
-    state.totalSessions,
+    totalSessions,
     sessionRes.data?.local_date ?? null,
   );
 
