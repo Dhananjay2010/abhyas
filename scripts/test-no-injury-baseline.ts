@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import type { Database } from "../src/lib/database.types";
 
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
@@ -80,9 +81,9 @@ for (const [profileId, expectedHash] of Object.entries(baseline.plans)) {
   const input: GeneratorInput = {
     userId: profileId,
     blockNumber: block,
-    goal: goal as any,
-    level: level as any,
-    primaryTrack: track as any,
+    goal: goal as Database["public"]["Enums"]["fitness_goal"],
+    level: level as Database["public"]["Enums"]["fitness_level"],
+    primaryTrack: track as Database["public"]["Enums"]["track_type"],
     daysPerWeek: days,
     yogaDaysPerWeek: track === "yoga" ? days : 0,
     age,
