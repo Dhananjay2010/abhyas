@@ -584,53 +584,14 @@ export default async function TodayPage() {
         </div>
       )}
 
-      {isTraining && (
-        <section className="mt-7">
-          {/*
-            The heading said "15 min warm-up", which is what SPEC section 7 asks
-            for and not what the session builds: five items totalling nine
-            minutes, with no ramp-up-sets phase. Naming a duration the app does
-            not deliver is worse than naming none.
-          */}
-          <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
-            {!(actual && actual.length > 0)
-              ? "Warm-up, then"
-              : strengthDone
-                ? "What you did"
-                : /* Started and left: the list is real, but it is not finished. */
-                  "Where you got to"}
-          </h2>
-          <ol className="space-y-2">
-            {todayExercises.map((row) => (
-              <li
-                key={row.key}
-                className="rounded-xl border border-border bg-surface px-4 py-3.5"
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className={`font-semibold ${row.skipped ? "text-muted line-through" : ""}`}>
-                    {row.name}
-                  </span>
-                  <span className="shrink-0 text-sm tabular-nums text-accent">
-                    {row.sets} × {row.repsMin}–{row.repsMax}
-                    {row.metric === "seconds" ? "s" : ""}
-                  </span>
-                </div>
-                {(row.swappedIn || row.skipped || (isDeload && isTraining && !row.skipped && !(actual && actual.length > 0))) && (
-                  <p className="mt-1 text-xs font-medium text-muted uppercase tracking-wider">
-                    {row.skipped ? "Skipped" : row.swappedIn ? "Swapped in" : "Deload"}
-                  </p>
-                )}
-                {row.cue && <p className="mt-1 text-sm text-muted">{row.cue}</p>}
-                <p className="mt-1 text-xs text-muted">{row.restSeconds}s rest</p>
-              </li>
-            ))}
-          </ol>
-          {!(actual && actual.length > 0) && (
-            <p className="mt-4 text-center text-xs text-muted">
-              Warm-up is built from today&apos;s muscles and any joint you flagged.
-            </p>
-          )}
-        </section>
+      {isTraining && todayExercises.length > 0 && (
+        <WarmupSection
+          todayExercises={todayExercises}
+          actual={performedRows?.data ?? null}
+          strengthDone={strengthDone}
+          isDeload={isDeload}
+          isTraining={isTraining}
+        />
       )}
 
       {/*
