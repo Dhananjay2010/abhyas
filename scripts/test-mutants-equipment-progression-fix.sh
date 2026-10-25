@@ -132,16 +132,17 @@ a1() {
 }
 test_mutant "resolveTarget min → plan min" a1
 
-# A2: Remove equipment/unit spread
+# A2: Remove equipment/unit spread (provide wrong defaults)
 a2() {
   local file="$BUILD_INPUT"
-  local search='\.\.\.progressionInputsFromExercise(ex, userUnits),'
-  local count=$(grep -c "$search" "$file" || true)
+  local search='...progressionInputsFromExercise(ex, userUnits),'
+  local replace='equipmentIds: undefined, unit: undefined,'
+  local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "/$search/d" "$file"
+  sed -i "s/$search/$replace/" "$file"
 }
 test_mutant "Remove ...progressionInputsFromExercise" a2
 
@@ -162,55 +163,52 @@ test_mutant "Unit choice → always kg" b1
 # B2: actions.ts units fetch → undefined
 b2() {
   local file="$ACTIONS"
-  local search='profileRes\.data\?\.units'
+  local search='profileRes.data?.units'
   local replace='undefined'
-  local count=$(grep -c "$search" "$file" || true)
+  local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "s/$search/$replace/" "$file"
+  sed -i "s/profileRes\\.data?\\.units/$replace/" "$file"
 }
 test_mutant "actions.ts units → undefined" b2
 
 # C1: One-step cap removed (allow multi-step)
 c1() {
   local file="$PROG"
-  local search='const nextGrid = Math\.ceil\((from \+ epsilon) \/ gridStep\) \* gridStep;'
+  local search='const nextGrid = Math.ceil((from + epsilon) / gridStep) * gridStep;'
   local replace='const nextGrid = from + 2 * gridStep;'
-  local count=$(grep -c "$search" "$file" || true)
+  local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "s/$search/$replace/" "$file"
+  sed -i "s/const nextGrid = Math\\.ceil((from + epsilon) \\/ gridStep) \\* gridStep;/$replace/" "$file"
 }
 test_mutant "One-step cap removed" c1
 
 # C2: Success check ignores stored target
 c2() {
   local file="$PROG"
-  local pattern='currentTargetReps: state\.currentTargetReps,'
-  # Count in resolveTarget calls only (success check context)
-  local count=$(grep -n "$pattern" "$file" | grep -c "resolveTarget" || true)
-  if [ "$count" -eq 0 ]; then
-    # Try without grep context
-    count=$(grep -c "$pattern" "$file" || true)
-    if [ "$count" -ne 2 ]; then
-      echo "ERROR: Pattern found $count times (expected 2)" >&2
-      return 1
-    fi
+  local pattern='currentTargetReps: state.currentTargetReps,'
+  # Count occurrences
+  local count=$(grep -Fc "$pattern" "$file" || true)
+  if [ "$count" -lt 2 ]; then
+    echo "ERROR: Pattern found $count times (expected >= 2)" >&2
+    return 1
   fi
-  sed -i "0,/$pattern/{s/$pattern/currentTargetReps: null,/}" "$file"
+  # Replace first occurrence only
+  sed -i "0,/$pattern/{s/currentTargetReps: state\\.currentTargetReps,/currentTargetReps: null,/}" "$file"
 }
 test_mutant "Success check ignores stored target" c2
 
 # C3: Remove Rule 2 clamp
 c3() {
   local file="$PROG"
-  local pattern='if (candidateWeight !== currentWeight) {\s*const twoMissFloor'
-  # Multi-line: find the block and comment it
-  sed -i '/if (candidateWeight !== currentWeight) {/{N;/const twoMissFloor/s/^/\/\/ MUTANT: /;s/\n/\n\/\/ MUTANT: /g;}' "$file"
+  # Multi-line: comment out the if block checking candidateWeight !== currentWeight with twoMissFloor
+  # The block spans from "if (candidateWeight !== currentWeight) {" to its closing brace
+  sed -i '/if (candidateWeight !== currentWeight) {/{N;N;N;N;N;N;N;N;s/^/\/\/ MUTANT: /;s/\n/\n\/\/ MUTANT: /g;}' "$file"
 }
 test_mutant "Remove Rule 2 clamp" c3
 
@@ -219,12 +217,12 @@ c4() {
   local file="$PROG"
   local search='if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {'
   local replace='if (cutFraction > 1.0) {'
-  local count=$(grep -c "$search" "$file" || true)
+  local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "s/$search/$replace/" "$file"
+  sed -i "s/if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {/$replace/" "$file"
 }
 test_mutant "Disable Rule 1 (20% threshold)" c4
 
