@@ -24,14 +24,14 @@ if (!branch) fail("`if (existing) { ... }` branch not found in startSessionFullC
 
 let ok = false;
 const visit = (n: ts.Node): void => {
-  if (ts.isAwaitExpression(n) && ts.isCallExpression(n.expression)) {
-    const call = n.expression;
-    if (call.expression.getText(sf) === "deps.ensureSessionExercises" &&
-        call.arguments.length === 1 &&
-        call.arguments[0].getText(sf) === "existing.id") ok = true;
+  if (ts.isArrayLiteralExpression(n) && ts.isCallExpression(n.parent) && n.parent.expression.getText(sf) === "Promise.all" && ts.isAwaitExpression(n.parent.parent)) {
+    for (const el of n.elements) {
+      if (ts.isCallExpression(el) && el.expression.getText(sf) === "deps.ensureSessionExercises" &&
+          el.arguments.map((a) => a.getText(sf)).join(",") === "existing.id") ok = true;
+    }
   }
   if (!ts.isFunctionLike(n)) ts.forEachChild(n, visit);
 };
 visit(branch!);
-if (!ok) fail("A1: the existing-session branch must await deps.ensureSessionExercises(existing.id)");
-console.log("  ✓ A1: existing-session branch awaits deps.ensureSessionExercises(existing.id)");
+if (!ok) fail("A1: the existing-session branch must await Promise.all([... deps.ensureSessionExercises(existing.id) ...])");
+console.log("  ✓ A1: existing-session branch awaits Promise.all with deps.ensureSessionExercises(existing.id)");
