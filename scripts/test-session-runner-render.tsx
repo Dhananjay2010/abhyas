@@ -639,11 +639,7 @@ async function test9b() {
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
-    logSet: async () => {
-      // Simulate slow network
-      await new Promise(r => setTimeout(r, 100));
-      return { ok: true };
-    },
+    logSet: async () => ({ ok: true }),
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => ({ ok: true }),
@@ -654,6 +650,7 @@ async function test9b() {
     planDay: async () => ({ ok: true, data: null }),
   };
   
+  // Exercise already completed to reach cooldown phase
   const exercises: RunnerExercise[] = [
     {
       id: "ex1",
@@ -668,9 +665,9 @@ async function test9b() {
       restSeconds: 90,
       workingWeightKg: null,
       suggestedWeightKg: null,
-      status: "pending",
-      feel: null,
-      sets: [],
+      status: "completed",
+      feel: "right",
+      sets: [{ setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null }],
       isBodyweight: false,
     },
   ];
@@ -681,27 +678,27 @@ async function test9b() {
     restVibrate: false,
     restAutostart: false,
     restOverrideSeconds: null,
-    cooldownEnabled: false,
+    cooldownEnabled: true,
   };
   
   const userId = "test-user-9b";
+  const sessionId = "session-9b";
+  
   fakeStorage.clear();
   
   // Add pending set
-  fakeStorage.setItem(`pending-sets:${userId}`, JSON.stringify([
-    {
-      sessionExerciseId: "ex1",
-      setNumber: 1,
-      reps: 10,
-      weightKg: 50,
-      durationSeconds: null,
-      clientId: "pending-9b"
-    }
-  ]));
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 2,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-9b"
+  }, fakeDeps);
   
-  const { container } = render(
+  render(
     <SessionRunner
-      sessionId="session-9b"
+      sessionId={sessionId}
       sessionStatus="in_progress"
       userId={userId}
       isDeload={false}
@@ -709,27 +706,29 @@ async function test9b() {
       warmupAlreadyDone={true}
       startedAt={new Date(FIXED_TIME).toISOString()}
       warmup={[]}
-      cooldown={[]}
+      cooldown={[{ type: "stretch", label: "Child's pose", durationSeconds: 30 }]}
       exercises={exercises}
       settings={settings}
       actions={actions}
     />
   );
   
-  await act(async () => {
-    await new Promise(r => setTimeout(r, 50));
-  });
+  await act(async () => {});
   
-  // With pending sets, finish button should be disabled
-  const buttons = Array.from(container.querySelectorAll('button'));
-  const feelButton = buttons.find(b => 
-    b.textContent?.toLowerCase().includes('feel')
-  );
+  // Assert Done and Skip buttons show "Saving 1 set..." and are disabled
+  const buttons = screen.getAllByRole("button");
+  const doneButton = buttons.find(b => b.textContent?.toLowerCase().includes("done") || b.textContent?.toLowerCase().includes("saving"));
+  const skipButton = buttons.find(b => b.textContent?.toLowerCase().includes("skip"));
   
-  if (feelButton) {
-    assert((feelButton as HTMLButtonElement).disabled, "Finish button disabled with pending sets");
-  } else {
-    console.log(`  ✓ Finish button check (verified by logic)`);
+  assert(!!doneButton, "9b: Done button exists");
+  assert(doneButton?.textContent?.includes("Saving 1 set") || doneButton?.textContent?.includes("Saving"), "9b: Done button shows 'Saving' text");
+  
+  if (doneButton instanceof HTMLButtonElement) {
+    assert(doneButton.disabled, "9b: Done button is disabled while saving");
+  }
+  
+  if (skipButton instanceof HTMLButtonElement) {
+    assert(skipButton.disabled, "9c: Skip button is disabled while saving");
   }
   
   fakeStorage.clear();
@@ -757,6 +756,7 @@ async function testN11() {
     planDay: async () => ({ ok: true, data: null }),
   };
   
+  // Exercise with last set completed, needs feel prompt
   const exercises: RunnerExercise[] = [
     {
       id: "ex1",
@@ -771,8 +771,8 @@ async function testN11() {
       restSeconds: 90,
       workingWeightKg: null,
       suggestedWeightKg: null,
-      status: "completed",
-      feel: "right",
+      status: "pending",
+      feel: null,
       sets: [{setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null}],
       isBodyweight: false,
     },
@@ -788,23 +788,22 @@ async function testN11() {
   };
   
   const userId = "test-user-n11";
+  const sessionId = "session-n11";
   
   // Set up pending sets
   fakeStorage.clear();
-  fakeStorage.setItem(`pending-sets:${userId}`, JSON.stringify([
-    {
-      sessionExerciseId: "ex1",
-      setNumber: 2,
-      reps: 10,
-      weightKg: 50,
-      durationSeconds: null,
-      clientId: "pending-n11"
-    }
-  ]));
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 2,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-n11"
+  }, fakeDeps);
   
   render(
     <SessionRunner
-      sessionId="session-n11"
+      sessionId={sessionId}
       sessionStatus="in_progress"
       userId={userId}
       isDeload={false}
@@ -819,13 +818,22 @@ async function testN11() {
     />
   );
   
+  await act(async () => {});
+  
+  // Click through the feel prompt - find and click "Right" button
+  const rightButton = screen.getByRole("button", { name: /right/i });
   await act(async () => {
-    await new Promise(r => setTimeout(r, 100));
+    rightButton.click();
   });
   
-  // With cooldown disabled and exercises complete, should show cool-down screen
-  // but NOT call finishSession while pending sets exist
-  assert(!finishSessionCalled, "finishSession not called with pending sets present");
+  await act(async () => {});
+  
+  // Assert finishSession was NOT called (pending sets prevent it)
+  assert(!finishSessionCalled, "N11: finishSession not called with pending sets present");
+  
+  // Assert cool-down screen is showing
+  const cooldownText = screen.queryByText(/cool.?down/i) || screen.queryByText(/done|skip/i);
+  assert(!!cooldownText, "N11: Cool-down screen shown despite pending sets");
   
   fakeStorage.clear();
 }
