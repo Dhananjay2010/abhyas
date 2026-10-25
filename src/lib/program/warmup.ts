@@ -19,6 +19,17 @@ export type WarmupRow = {
 
 export type WarmupItem = WarmupRow & { phase: "cardio" | "mobility" | "prehab" | "stretch" };
 
+/**
+ * Knee-loading mobility exercises excluded for past-knee users.
+ * A past-knee user has knee in prehabRegions (any severity) but not in
+ * injuryRegions (current). These exercises load the knee during mobility work.
+ */
+export const PAST_KNEE_EXCLUDED_WARMUP_SLUGS = [
+  "bodyweight-squat",
+  "walking-lunge",
+  "worlds-greatest",
+] as const;
+
 /** Cardio options in order of preference, by where the user trains. */
 const CARDIO_PREFERENCE: Record<string, string[]> = {
   gym: ["easy-bike", "easy-row", "brisk-walk", "march-in-place"],
@@ -65,6 +76,9 @@ export function selectWarmup(input: {
   const regions = new Set(injuryRegions);
   const prehabRegionSet = new Set(prehabRegions);
 
+  // Past-knee user: knee in prehabRegions (any severity) but not in injuryRegions (current)
+  const isPastKnee = prehabRegionSet.has("knee") && !regions.has("knee");
+
   // QA Pass 10 (h): Equipment filter helper - ALL-of logic, same as exercises
   const canUseEquipment = (w: WarmupRow) => {
     if (hasAllEquipment) return true;
@@ -100,7 +114,14 @@ export function selectWarmup(input: {
     // Exclude any warmup that targets an injured region OR is contraindicated for the injury
     const targetsInjury = w.target_regions.some((r) => regions.has(r));
     const contraindicated = (w.contraindicated_regions ?? []).some((r) => regions.has(r));
-    return !targetsInjury && !contraindicated;
+    if (targetsInjury || contraindicated) return false;
+    
+    // Past-knee exclusion: exclude knee-loading mobility drills
+    if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes(w.slug as any)) {
+      return false;
+    }
+    
+    return true;
   });
   
   // 2. Five minutes of mobility for what is about to be trained. Exercises that
@@ -129,6 +150,12 @@ export function selectWarmup(input: {
     const fallbackSlugs = ["cat-cow", "arm-circles", "bodyweight-squat", "hip-circles"];
     for (const slug of fallbackSlugs) {
       if (mobility.length >= 3) break;
+      
+      // Past-knee exclusion: skip knee-loading fallbacks
+      if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes(slug as any)) {
+        continue;
+      }
+      
       const w = warmups.find((x) => x.slug === slug);
       if (!w || mobility.some((m) => m.id === w.id)) continue;
       
