@@ -118,11 +118,7 @@ export type RunnerTimer = {
 
 const REAL_TIMER: RunnerTimer = {
   setTimeout: (cb, ms) => globalThis.setTimeout(cb, ms),
-  clearTimeout: (id) => {
-    if (typeof id === "number") {
-      globalThis.clearTimeout(id);
-    }
-  },
+  clearTimeout: (id) => globalThis.clearTimeout(id),
 };
 
 type Phase = "warmup" | "work" | "cooldown" | "done";

@@ -558,12 +558,12 @@ async function testSecondUserNotClosed() {
 /**
  * Test (B5): today parameter changes the outcome
  * 
- * If today is YESTERDAY, then the session is same-date (not stale candidate).
- * If today is TODAY, then the session is cross-date (stale candidate, closed).
+ * If today is 2026-10-25, then the session is same-date (not stale candidate).
+ * If today is 2026-10-26, then the session is cross-date (stale candidate, closed).
  */
 async function testTodayChangesOutcome() {
-  const sessionOnYesterday: Session = {
-    id: "sess-yesterday",
+  const sessionOn20261025: Session = {
+    id: "sess-20261025",
     user_id: USER_ID,
     program_id: "prog-1",
     program_day_id: "day-1",
@@ -579,17 +579,17 @@ async function testTodayChangesOutcome() {
     updated_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
   };
 
-  const sessions = [{ ...sessionOnYesterday }];
+  const sessions = [{ ...sessionOn20261025 }];
   const client = createClient<Database>("http://localhost:54321", "test-key", {
     global: { fetch: createStubFetch(sessions, [], []) },
   });
 
   const openSessions: OpenSession[] = [{
-    id: sessionOnYesterday.id,
-    status: sessionOnYesterday.status,
-    local_date: sessionOnYesterday.local_date,
-    actual_type: sessionOnYesterday.actual_type,
-    started_at: sessionOnYesterday.started_at,
+    id: sessionOn20261025.id,
+    status: sessionOn20261025.status,
+    local_date: sessionOn20261025.local_date,
+    actual_type: sessionOn20261025.actual_type,
+    started_at: sessionOn20261025.started_at,
   }];
 
   // Case 1: today = YESTERDAY (same date as session)
