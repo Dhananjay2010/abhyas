@@ -276,6 +276,7 @@
     "test:swap-validator-exhaustive": "tsx scripts/test-swap-validator-exhaustive.ts",
     "test:past-knee-plan-swap-consistency": "tsx scripts/test-past-knee-plan-swap-consistency.ts",
     "test:past-knee-wall-sit-demotion": "tsx scripts/test-past-knee-wall-sit-demotion.ts",
+    "test:past-knee-wall-sit-grid": "tsx scripts/test-past-knee-wall-sit-grid.ts",
     "test:past-knee-squat-leading": "tsx scripts/test-past-knee-squat-leading.ts",
     "test:past-knee-warmup": "tsx scripts/test-past-knee-warmup.ts",
     "test:olympic-lifts": "tsx scripts/test-olympic-lifts.ts",
