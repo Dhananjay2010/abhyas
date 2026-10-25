@@ -53,7 +53,6 @@ export type RunnerExerciseInput = {
   progress: ProgressInput;
   remembersWeights: boolean;
   isDeload: boolean;
-  userUnits: string | null | undefined;
 };
 
 export type RunnerExerciseOutput = {
@@ -92,7 +91,7 @@ export type RunnerExerciseOutput = {
  * @returns The complete RunnerExercise object for the runner
  */
 export function buildRunnerExercise(input: RunnerExerciseInput): RunnerExerciseOutput {
-  const { row, progress: progressRow, remembersWeights, isDeload, userUnits } = input;
+  const { row, progress: progressRow, remembersWeights, isDeload } = input;
   const r = row;
   const ex = r.exercises;
   
@@ -114,8 +113,8 @@ export function buildRunnerExercise(input: RunnerExerciseInput): RunnerExerciseO
     currentWorkingWeightKg: working,
   });
 
-  // Get equipment IDs and unit for progression
-  const progInputs = ex ? progressionInputsFromExercise({ equipment_ids: equipmentIds }, userUnits) : {};
+  // Get equipment IDs for progression (M2: units removed)
+  const progInputs = ex ? progressionInputsFromExercise({ equipment_ids: equipmentIds }) : {};
 
   const suggested = suggestedWeight(
     { currentWorkingWeightKg: working },
@@ -129,7 +128,6 @@ export function buildRunnerExercise(input: RunnerExerciseInput): RunnerExerciseO
       progressionRank: null,
     },
     progInputs.equipmentIds,
-    progInputs.unit,
   );
 
   // Filter out warm-up sets and compute lastLoggedAt

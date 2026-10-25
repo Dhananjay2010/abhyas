@@ -415,7 +415,7 @@ async function applyProgression(
   };
   if (!ex) return null;
 
-  const [sessionRes, setsRes, progressRes, profileRes] = await Promise.all([
+  const [sessionRes, setsRes, progressRes] = await Promise.all([
     supabase.from("sessions").select("is_deload, local_date, program_id").eq("id", se.session_id).maybeSingle(),
     supabase
       .from("session_sets")
@@ -429,7 +429,6 @@ async function applyProgression(
       .eq("user_id", userId)
       .eq("exercise_id", se.exercise_id)
       .maybeSingle(),
-    supabase.from("profiles").select("units").eq("id", userId).maybeSingle(),
   ]);
 
   const prior = progressRes.data;
@@ -440,9 +439,8 @@ async function applyProgression(
       se,
       setsRes.data ?? [],
       prior,
-      sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
+      sessionRes.data ?? { is_deload, local_date: null, program_id: null },
       feel,
-      profileRes.data?.units
     )
   );
 

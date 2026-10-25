@@ -1,25 +1,22 @@
 /**
- * Extract equipment IDs and unit preference for progression functions.
+ * Extract equipment IDs for progression functions.
  * 
  * Returns empty object for no-equipment exercises to maintain backward compatibility
- * with main's behavior (undefined equipmentIds/unit).
+ * with main's behavior (undefined equipmentIds).
+ * 
+ * M2: Units removed - all messages stay in kg until runner supports imperial.
  */
-
-import type { WeightUnit } from "@/lib/session/equipment-grid";
 
 export function progressionInputsFromExercise(
   exercise: { equipment_ids: readonly string[] },
-  userUnits: string | null | undefined,
-): { equipmentIds?: string[]; unit?: WeightUnit } {
-  // No equipment: return empty object (undefined equipmentIds/unit)
+): { equipmentIds?: string[] } {
+  // No equipment: return empty object (undefined equipmentIds)
   if (!exercise.equipment_ids || exercise.equipment_ids.length === 0) {
     return {};
   }
   
-  // Has equipment: return equipmentIds and unit
-  const unit: WeightUnit = userUnits === "imperial" ? "lb" : "kg";
+  // Has equipment: return equipmentIds only (kg always)
   return {
     equipmentIds: [...exercise.equipment_ids],
-    unit,
   };
 }
