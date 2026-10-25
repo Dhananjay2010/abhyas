@@ -53,14 +53,14 @@ const baseProgram = {
   deload_week: null,
 };
 
-const baseDays: Array<{ day_index: number; day_type: DayType; label: string | null }> = [
-  { day_index: 1, day_type: "weights", label: null },
-  { day_index: 2, day_type: "weights", label: null },
-  { day_index: 3, day_type: "rest", label: null },
-  { day_index: 4, day_type: "weights", label: null },
-  { day_index: 5, day_type: "weights", label: null },
-  { day_index: 6, day_type: "rest", label: null },
-  { day_index: 7, day_type: "rest", label: null },
+const baseDays: Array<{ id: string; day_index: number; day_type: DayType; label: string | null }> = [
+  { id: "day-1", day_index: 1, day_type: "weights", label: null },
+  { id: "day-2", day_index: 2, day_type: "weights", label: null },
+  { id: "day-3", day_index: 3, day_type: "rest", label: null },
+  { id: "day-4", day_index: 4, day_type: "weights", label: null },
+  { id: "day-5", day_index: 5, day_type: "weights", label: null },
+  { id: "day-6", day_index: 6, day_type: "rest", label: null },
+  { id: "day-7", day_index: 7, day_type: "rest", label: null },
 ];
 
 // Test 1: UTC profile

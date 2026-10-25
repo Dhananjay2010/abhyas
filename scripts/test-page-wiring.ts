@@ -18,8 +18,8 @@ const baseInput = {
     started_on: "2024-01-01",
   },
   days: [
-    { day_index: 1, day_type: "weights" as const, label: "Push" },
-    { day_index: 2, day_type: "rest" as const, label: null },
+    { id: "day-1", day_index: 1, day_type: "weights" as const, label: "Push" },
+    { id: "day-2", day_index: 2, day_type: "rest" as const, label: null },
   ],
   todaySessions: [],
   timezone: "America/New_York",

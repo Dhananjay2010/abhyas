@@ -624,6 +624,7 @@ assert(
 console.log("\n=== Test 11: nextTrainingDay helper ===\n");
 
 const days3 = Object.entries(TEMPLATE_3DAY).map(([idx, type]) => ({
+  id: `day-${idx}`,
   day_index: Number(idx),
   day_type: type,
   label: null,
