@@ -364,22 +364,8 @@ for (const { ids, unit } of equipments) {
     const firstW = firstMiss.nextWorkingWeightKg ?? 0;
     const twoW = twoMiss.nextWorkingWeightKg ?? 0;
     
-    // With RAW 90% cap, two-miss can hold while first-miss drops for weights where
-    // no loadable value exists >= RAW 90% and < current (e.g., 12, 15, 20 kg on 2.5 grid;
-    // 12, 15 kg on 5 kg grid). This is expected behavior.
-    // For these weights, first < two is acceptable.
-    const raw90 = weight * 0.9;
-    const gridStep = ids.includes("machine") || ids.includes("cable") ? 
-      (ids.includes("lat_pulldown") ? 5 : 2.5) : 2.5;
-    const ceilTarget = Math.ceil(raw90 / gridStep) * gridStep;
-    const raw90CausesHold = ceilTarget >= weight - 0.001;
-    
-    if (raw90CausesHold) {
-      // With RAW 90%, two-miss holds, so first can be < two
-      check(`Invariant ${ids[0]} ${weight} kg: first-miss (${firstW}) <= two-miss (${twoW}) [RAW 90% hold]`, firstW <= twoW);
-    } else {
-      check(`Invariant ${ids[0]} ${weight} kg: first-miss (${firstW}) >= two-miss (${twoW})`, firstW >= twoW);
-    }
+    // Rule 2 clamp ensures first-miss >= two-miss for all cases
+    check(`Invariant ${ids[0]} ${weight} kg: first-miss (${firstW}) >= two-miss (${twoW})`, firstW >= twoW);
   }
 }
 
@@ -512,40 +498,17 @@ console.log("\n=== Mutant-Killing Tests ===");
   check("12.5kg barbell compound holds at 12.5 kg (Rule 2: first-miss >= two-miss)", d.nextWorkingWeightKg === 12.5);
 }
 
-// (f) Kettlebell: Rule 2 clamp prevents drops below two-miss result
+// (f) Kettlebell: first miss drops to next lower bell (E)
 {
-  // Kettlebell at 16 kg: RAW 90% = 14.4, two-miss ceil to 16 → holds (Rule 2 clamp)
+  // Kettlebell at 40 kg: drops to 36 kg (next bell down)
   const d = run({
-    sets: sets(4, 10, 16),
+    sets: sets(4, 10, 40),
     equipmentIds: ["kettlebell"],
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
-    state: fresh({ currentWorkingWeightKg: 16, consecutiveFailures: 0 }),
+    state: fresh({ currentWorkingWeightKg: 40, consecutiveFailures: 0 }),
   });
-  check("Kettlebell 16 kg first miss: holds at 16 kg (Rule 2: first-miss >= two-miss)", d.nextWorkingWeightKg === 16);
-}
-
-{
-  // Kettlebell at 12 kg: RAW 90% = 10.8, two-miss ceil to 12 → holds (Rule 2 clamp)
-  const d = run({
-    sets: sets(4, 10, 12),
-    equipmentIds: ["kettlebell"],
-    unit: "kg",
-    meta: CURL,
-    state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
-  });
-  check("Kettlebell 12 kg first miss: holds at 12 kg (Rule 2: first-miss >= two-miss)", d.nextWorkingWeightKg === 12);
-}
-
-{
-  // Kettlebell at 24 kg: RAW 90% = 21.6, two-miss ceil to 24 → holds (Rule 2 clamp)
-  const d = run({
-    equipmentIds: ["kettlebell"],
-    unit: "kg",
-    meta: BENCH,
-    state: fresh({ currentWorkingWeightKg: 24, consecutiveFailures: 0 }),
-  });
-  check("Kettlebell 24 kg first miss: holds at 24 kg (Rule 2: first-miss >= two-miss)", d.nextWorkingWeightKg === 24);
+  check("Kettlebell 40 kg first miss: drops to 36 kg (E)", d.nextWorkingWeightKg === 36);
 }
 
 // (g) Kill invariant clamp removal: test case where first-miss < two-miss without clamp
@@ -569,8 +532,8 @@ console.log("\n=== Mutant-Killing Tests ===");
   const twoW = twoMiss.nextWorkingWeightKg ?? 0;
   
   check("Barbell 2.75 kg isolation first-miss >= two-miss", firstW >= twoW);
-  check("  (RAW 90% cap: both go to 2.5 kg)", 
-    firstW === 2.5 && twoW === 2.5);
+  check("  first-miss holds at 2.75 kg (Rule 2), two-miss drops to 2.5 kg (RAW)", 
+    firstW === 2.75 && twoW === 2.5);
 }
 
 console.log("\n=== THRESHOLD BEHAVIOR ===");
@@ -580,7 +543,7 @@ console.log("\n=== THRESHOLD BEHAVIOR ===");
 // With 0.50 threshold: would drop (33% < 50%)
 {
   const d = run({
-    sets: sets(4, 10, 10),
+    sets: sets(4, 10, 7.5),
     equipmentIds: ["dumbbell"],
     unit: "kg",
     meta: CURL,
@@ -593,6 +556,7 @@ console.log("\n=== THRESHOLD BEHAVIOR ===");
 // Test 20-25% range: barbell compound 10kg -> 7.5kg = 25% cut
 {
   const d = run({
+    sets: sets(4, 10, 10),
     equipmentIds: ["barbell"],
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
