@@ -164,17 +164,28 @@ async function test1b1d() {
     />
   );
   
-  await act(async () => {});
-  
-  // Click Log set and verify it was called with setNumber: 3
-  const logButton = screen.getByRole("button", { name: /log set/i });
+  // Wait for initial replay and component to become ready (4+ seconds for sync timeout)
   await act(async () => {
-    logButton.click();
+    await new Promise(resolve => setTimeout(resolve, 4100));
   });
   
-  await act(async () => {});
+  const logButton = screen.getByRole("button", { name: /set [0-9]+ done/i });
+  assert(!logButton.hasAttribute("disabled"), "Button enabled after sync");
   
-  assert(logSetCalls.length === 1, "logSet called once");
+  // Clear the replay calls - we're only testing the button click
+  logSetCalls.length = 0;
+  
+  // Click Log set and verify it was called with setNumber: 3
+  await act(async () => {
+    logButton!.click();
+  });
+  
+  // Wait for async operations
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 10));
+  });
+  
+  assert(logSetCalls.length === 1, "logSet called once after click");
   assert(logSetCalls[0].setNumber === 3, "logSet called with setNumber: 3 (accounting for 2 pending sets)");
   
   fakeStorage.clear();
@@ -1008,7 +1019,7 @@ async function testConflict() {
   await act(async () => {});
   
   // Click Log set to trigger conflict
-  const logButton = screen.getByRole("button", { name: /log set/i });
+  const logButton = screen.getByRole("button", { name: /set [0-9]+ done/i });
   await act(async () => {
     logButton.click();
   });
@@ -1106,7 +1117,7 @@ async function testDoubleTap() {
   await act(async () => {});
   
   // Click Log set twice rapidly
-  const logButton = screen.getByRole("button", { name: /log set/i });
+  const logButton = screen.getByRole("button", { name: /set [0-9]+ done/i });
   logButton.click();
   logButton.click();
   
@@ -1191,7 +1202,7 @@ async function testFailedSubmit() {
   await act(async () => {});
   
   // Click Log set to trigger failed submit
-  const logButton = screen.getByRole("button", { name: /log set/i });
+  const logButton = screen.getByRole("button", { name: /set [0-9]+ done/i });
   await act(async () => {
     logButton.click();
   });
