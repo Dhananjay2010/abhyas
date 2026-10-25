@@ -148,10 +148,12 @@ console.log("\n8. Bodyweight progresses by reps, then by variation");
   check("no weight invented", d.nextWorkingWeightKg === null);
 }
 {
+  // Ceiling is now 2×repsMax = 2×12 = 24
+  // Stored 24 → resolvedTarget capped at 24 → next 24+2=26 > 24 → variation_up
   const d = run({
     meta: PUSHUP,
-    sets: sets(4, 18, null),
-    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 16 }),
+    sets: sets(4, 24, null),
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 24 }),
   });
   check("asks for a harder variation", d.outcome === "variation_up" && d.wantsHarderVariation,
     d.outcome);
