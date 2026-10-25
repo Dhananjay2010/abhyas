@@ -189,6 +189,9 @@ async function runTests() {
 
   console.log("  ✓ Fetch handler called for navigation request");
 
+  // Give async operations a chance to complete
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
   // The handler uses respondWith for navigations (with offline fallback),
   // but should NOT cache the successful response
   if (cachedUrls.some((url) => url.includes("/today"))) {
