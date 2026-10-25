@@ -92,6 +92,28 @@ export function buildProgressionInput(
     totalSessions: progress?.total_sessions ?? 0,
   };
 
+  // Decision (b): For unloaded moves (bodyweight or timed), derive repsMin from
+  // the resolved target (currentTargetReps) rather than planned_reps_min.
+  // The effective range is [currentTarget - 2, currentTarget].
+  const isUnloaded = state.currentWorkingWeightKg === null || state.currentWorkingWeightKg === 0;
+  const hasResolvedTarget = state.currentTargetReps !== null && state.currentTargetReps > 0;
+  const plannedMin = sessionExercise.planned_reps_min ?? 8;
+  const plannedMax = sessionExercise.planned_reps_max ?? 12;
+
+  let repsMin: number;
+  let repsMax: number;
+
+  if (isUnloaded && hasResolvedTarget) {
+    // Unloaded moves: use currentTargetReps as the basis
+    const tolerance = 2;
+    repsMin = Math.max(1, state.currentTargetReps! - tolerance);
+    repsMax = state.currentTargetReps!;
+  } else {
+    // Loaded moves or no resolved target: use planned range
+    repsMin = plannedMin;
+    repsMax = plannedMax;
+  }
+
   return {
     sets: sets.map((s) => ({
       reps: s.reps,
@@ -99,13 +121,13 @@ export function buildProgressionInput(
       durationSeconds: s.duration_seconds,
     })),
     plannedSets: sessionExercise.planned_sets ?? 3,
-    repsMin: sessionExercise.planned_reps_min ?? 8,
-    repsMax: sessionExercise.planned_reps_max ?? 12,
+    repsMin,
+    repsMax,
     feel,
     meta,
     state,
     isDeload: session.is_deload ?? false,
-    equipmentIds: ex.equipment_ids,
-    unit: "kg" as const, // DB stores weights in kg; needed for equipment grid drops
+    // equipmentIds and unit intentionally omitted to match main's behavior
+    // (first-miss equipment drops are wired in #120, not this PR)
   };
 }
