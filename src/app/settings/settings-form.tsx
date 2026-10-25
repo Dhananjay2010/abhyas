@@ -1209,7 +1209,7 @@ export function SettingsForm({
                           }
                           
                           // MEDIUM fix: First item pick after has_all turned off - save both together
-                          const isFirstItemAfterHasAllOff = newState && s.equipmentIds.length === 0 && !s.hasAllEquipment;
+                          const isFirstItemAfterHasAllOff = newState && s.equipmentIds.length === 0 && !s.hasAllEquipment && savedEquipment.hasAll;
                           
                           // Optimistic update
                           setS(prev => ({ 
