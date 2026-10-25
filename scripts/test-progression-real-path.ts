@@ -264,7 +264,7 @@ async function main() {
     check("Two misses: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
   }
 
-  console.log("\n5. Unloaded in-range hold: bodyweight 3×10 in 8-12 (new user, no stored target)");
+  console.log("\n5. Unloaded stored target 12, best 12: 3×10 below target (miss)");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-5",
@@ -291,10 +291,10 @@ async function main() {
 
     const progress: ExerciseProgressRow = {
       current_working_weight_kg: null,
-      current_target_reps: null, // #120: null stored target → uses plan range for in-range check
+      current_target_reps: 12, // #120: Restore main's stored target
       consecutive_failures: 0,
       best_weight_kg: null,
-      best_reps: 10,
+      best_reps: 12, // #120: Restore main's best
       best_e1rm: null,
       total_sessions: 3,
     };
@@ -308,12 +308,12 @@ async function main() {
     const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
     const decision = evaluateProgression(input);
 
-    // #120: Unloaded with null stored target uses plan range (8-12) for min
-    check("Unloaded in-range: repsMin from plan (8)", input.repsMin === 8, `${input.repsMin}`);
-    check("Unloaded in-range: repsMax from planned (12)", input.repsMax === 12, `${input.repsMax}`);
-    check("Unloaded in-range: outcome hold", decision.outcome === "hold", decision.outcome);
-    check("Unloaded in-range: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
-    check("Unloaded in-range: message 'Staying'", decision.message.includes("Staying"), decision.message);
+    // #120: With stored target 12, resolveTarget returns 12 as min, so 3×10 is a miss (not in-range)
+    check("Unloaded stored target: repsMin from stored (12)", input.repsMin === 12, `${input.repsMin}`);
+    check("Unloaded stored target: repsMax from planned (12)", input.repsMax === 12, `${input.repsMax}`);
+    check("Unloaded stored target: outcome hold (miss)", decision.outcome === "hold", decision.outcome);
+    check("Unloaded stored target: failures incremented to 1", decision.consecutiveFailures === 1, `${decision.consecutiveFailures}`);
+    check("Unloaded stored target: message 'Staying'", decision.message.includes("Staying"), decision.message);
   }
 
   console.log("\n6. Unloaded below-min miss: bodyweight 3×7 below min=8");
@@ -367,7 +367,7 @@ async function main() {
     check("Unloaded miss: target stays at 12", decision.nextTargetReps === 12, `${decision.nextTargetReps}`);
   }
 
-  console.log("\n7. Timed in-range hold: plank 2×35s in 20-45s (new user, no stored target)");
+  console.log("\n7. Timed stored target 45 s, best 45 s: 2×35s below target (miss)");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-7",
@@ -393,10 +393,10 @@ async function main() {
 
     const progress: ExerciseProgressRow = {
       current_working_weight_kg: null,
-      current_target_reps: null, // #120: null stored target → uses plan range for in-range check
+      current_target_reps: 45, // #120: Restore main's stored target
       consecutive_failures: 0,
       best_weight_kg: null,
-      best_reps: 35,
+      best_reps: 45, // #120: Restore main's best
       best_e1rm: null,
       total_sessions: 2,
     };
@@ -410,12 +410,12 @@ async function main() {
     const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
     const decision = evaluateProgression(input);
 
-    // #120: Unloaded with null stored target uses plan range (20-45) for min
-    check("Timed in-range: repsMin from plan (20)", input.repsMin === 20, `${input.repsMin}`);
-    check("Timed in-range: repsMax from planned (45)", input.repsMax === 45, `${input.repsMax}`);
-    check("Timed in-range: outcome hold", decision.outcome === "hold", decision.outcome);
-    check("Timed in-range: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
-    check("Timed in-range: message 'hold length'", decision.message.includes("hold length"), decision.message);
+    // #120: With stored target 45 s, resolveTarget returns 45 as min, so 2×35s is a miss (not in-range)
+    check("Timed stored target: repsMin from stored (45)", input.repsMin === 45, `${input.repsMin}`);
+    check("Timed stored target: repsMax from planned (45)", input.repsMax === 45, `${input.repsMax}`);
+    check("Timed stored target: outcome hold (miss)", decision.outcome === "hold", decision.outcome);
+    check("Timed stored target: failures incremented to 1", decision.consecutiveFailures === 1, `${decision.consecutiveFailures}`);
+    check("Timed stored target: message 'hold length'", decision.message.includes("hold length"), decision.message);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
