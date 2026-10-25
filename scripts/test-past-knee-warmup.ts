@@ -8,14 +8,14 @@
  * 3. Past-knee Lower days have no walking-lunge or bodyweight-squat (full-depth)
  */
 
-import { buildWarmupInput, selectWarmup } from "../src/lib/program/warmup";
+import { buildWarmupInput, selectWarmup, type WarmupRow } from "../src/lib/program/warmup";
 import warmups from "./fixtures/warmups.json";
 import type { Database } from "../src/lib/database.types";
 
 type BodyRegion = Database["public"]["Enums"]["body_region"];
 type Muscle = Database["public"]["Enums"]["muscle"];
 
-const warmupRows = warmups as any[];
+const warmupRows = warmups as unknown as WarmupRow[];
 
 let failures = 0;
 function check(label: string, ok: boolean, detail: string = ""): void {

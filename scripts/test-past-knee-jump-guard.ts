@@ -99,7 +99,7 @@ console.log("\n1. All 16 upper-body plyos ALLOWED for past knee");
     catalogue,
   };
   
-  const { isEligible } = require("../src/lib/program/generate");
+  const { isEligible } = await import("../src/lib/program/generate");
   
   let allowed = 0;
   let banned = 0;
@@ -146,7 +146,7 @@ console.log("\n2. All 16 upper-body plyos ALLOWED for current knee");
     catalogue,
   };
   
-  const { isEligible } = require("../src/lib/program/generate");
+  const { isEligible } = await import("../src/lib/program/generate");
   
   let allowed = 0;
   let banned = 0;
@@ -190,7 +190,7 @@ console.log("\n3. All lower-body jumps BANNED for past knee");
     catalogue,
   };
   
-  const { isEligible } = require("../src/lib/program/generate");
+  const { isEligible } = await import("../src/lib/program/generate");
   
   let banned = 0;
   let allowed = 0;
@@ -234,7 +234,7 @@ console.log("\n4. All lower-body jumps BANNED for current knee");
     catalogue,
   };
   
-  const { isEligible } = require("../src/lib/program/generate");
+  const { isEligible } = await import("../src/lib/program/generate");
   
   let banned = 0;
   let allowed = 0;
