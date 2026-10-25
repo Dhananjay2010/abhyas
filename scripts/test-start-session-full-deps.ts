@@ -257,17 +257,27 @@ async function test(name: string, fn: () => Promise<void>) {
   await test("BUG CATCH: status filter on program_days", async () => {
     resetCalls();
     const fakeClient = createFakeSupabase({
-      "program_days:query": { data: [{ id: "day-1", status: "active" }], error: null },
+      "programs:maybeSingle": { 
+        data: { 
+          id: "prog-1", 
+          started_on: "2026-10-01", 
+          deload_week: 4, 
+          week_offset: 0,
+          program_days: [{ id: "day-1", day_index: 0, day_type: "weights", status: "active" }]
+        }, 
+        error: null 
+      },
     });
     const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
     
-    await deps.loadProgram("prog-1", 0);
+    const result = await deps.loadProgram("prog-1", 0);
+    if (!result.ok) throw new Error(`Load failed: ${result.error}`);
     
-    const callsToProgDays = calls.filter(c => c.table === "program_days");
-    if (callsToProgDays.length === 0) {
-      eq(true, false, "Should query program_days");
+    const programsCalls = calls.filter(c => c.table === "programs");
+    if (programsCalls.length === 0) {
+      eq(true, false, "Should query programs");
     } else {
-      const statusFilter = callsToProgDays[0].filters.find(f => f.column === "status");
+      const statusFilter = programsCalls[0].filters.find(f => f.column === "program_days.status");
       if (!statusFilter) {
         eq(true, false, "Missing status filter on program_days");
       } else {
@@ -322,8 +332,16 @@ async function test(name: string, fn: () => Promise<void>) {
 
   await test("BUG CATCH: day id returned from loadProgram", async () => {
     const fakeClient = createFakeSupabase({
-      "programs:query": { data: [{ id: "prog-1" }], error: null },
-      "program_days:query": { data: [{ id: "day-123", day_type: "weights" }], error: null },
+      "programs:maybeSingle": { 
+        data: { 
+          id: "prog-1",
+          started_on: "2026-10-01",
+          deload_week: 4,
+          week_offset: 0,
+          program_days: [{ id: "day-123", day_index: 0, day_type: "weights" }]
+        }, 
+        error: null 
+      },
     });
     const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
     
