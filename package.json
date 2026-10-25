@@ -322,7 +322,9 @@
     "test:working-weight-display": "tsx scripts/test-working-weight-display.ts",
     "test:working-weight-no-rounding": "tsx scripts/test-working-weight-no-rounding.ts",
     "test:bodyweight-zero-kg-message": "tsx scripts/test-bodyweight-zero-kg-message.ts",
-    "test:reps-cap-message": "tsx scripts/test-reps-cap-message.ts"
+    "test:reps-cap-message": "tsx scripts/test-reps-cap-message.ts",
+    "test:msg-bodyweight-zero": "tsx scripts/test-msg-bodyweight-zero.ts",
+    "test:med3-third-miss": "tsx scripts/test-med3-third-miss.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
