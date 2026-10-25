@@ -87,10 +87,10 @@ for (const [profileId, expectedHash] of Object.entries(baseline.plans)) {
     return ["general_fitness", "muscle_gain", "strength", "fat_loss", "flexibility_stress"].includes(s);
   }
   function isFitnessLevel(s: string): s is Database["public"]["Enums"]["fitness_level"] {
-    return ["beginner", "intermediate", "advanced"].includes(s);
+    return ["beginner", "intermediate", "expert"].includes(s);
   }
   function isTrackType(s: string): s is Database["public"]["Enums"]["track_type"] {
-    return ["strength", "hypertrophy", "power", "endurance", "flexibility", "yoga", "bodyweight", "weights"].includes(s);
+    return ["bodyweight", "weights", "yoga", "meditation"].includes(s);
   }
   
   if (!isFitnessGoal(goal) || !isFitnessLevel(level) || !isTrackType(track)) {

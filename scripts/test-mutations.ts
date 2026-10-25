@@ -291,8 +291,11 @@ console.log("─".repeat(60));
 // Baseline: ensure tests pass before any mutations
 console.log("\nRunning baseline tests...");
 try {
+  const testedAlready = new Set<string>();
   for (const mutant of mutants) {
     for (const test of mutant.tests) {
+      if (testedAlready.has(test)) continue;
+      testedAlready.add(test);
       execSync(`npm run ${test}`, { stdio: "pipe", encoding: "utf8" });
     }
   }
