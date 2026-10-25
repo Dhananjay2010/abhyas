@@ -410,9 +410,9 @@ async function runTest() {
   check("No-injury plans + swaps identical to main", baselineDiffs === 0, `${baselineDiffs} profile(s) differ`);
 
   console.log("\n14. Empty swap lists (regression guard: fails only if a count goes UP)");
-  // Pinned at cfbff5b1 on the 1,680-profile grid in scripts/m3-real-path.ts.
-  // Main 714f169b (after #104 and #123 exclusions): none 2612, wrist 3712, lower_back 3377, both 4576.
-  // M-3 wrist+lower_back deltas vs main: +0/+436/+657/+1188.
+  // Pins = this PR's real counts on the 1,680-profile grid in scripts/m3-real-path.ts (re-pinned at e7dd31f7, verified on main 4866c750).
+  // Main 4866c750 (after #104 and #123 exclusions, no M-3 tags): none 2612, wrist 3276, lower_back 2720, both 3388.
+  // M-3 deltas vs main (none/wrist/lower_back/both): +0/+436/+657/+1188.
   const PINNED_EMPTY: Array<[string, BodyRegion[], number]> = [["none", [], 2612], ["wrist", ["wrist"], 3712], ["lower_back", ["lower_back"], 3377], ["wrist+lower_back", ["wrist", "lower_back"], 4576]];
   for (const [label, injuries, pinned] of PINNED_EMPTY) {
     const { slots, empty } = countEmptySwapLists(updated, injuries);

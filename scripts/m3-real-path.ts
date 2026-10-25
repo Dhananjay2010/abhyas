@@ -31,7 +31,7 @@ export function parseCatalogue(raw: unknown): CandidateExercise[] {
   return rows;
 }
 
-/** Mirrors src/app/session/actions.ts:664-716. */
+/** Mirrors findAlternatives in src/app/session/actions.ts (:617 on 4866c750). */
 export function realSwaps(cat: CandidateExercise[], cur: CandidateExercise, input: GeneratorInput, inSession: Set<string>, seed: string): string[] {
   const inj = input.currentInjuryRegions;
   const patterns = buildPatternList(cur.movement_pattern, inj.includes("knee"));
