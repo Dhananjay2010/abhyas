@@ -49,7 +49,7 @@ console.log("─".repeat(60));
 console.log("\n1. Current-injury user plans contain NO Olympic lifts");
 {
   // Test multiple injury types
-  const injuryTypes = ["knee", "shoulder", "lower_back", "elbow"];
+  const injuryTypes = ["knee", "shoulder", "lower_back", "elbow"] as const;
   
   for (const injury of injuryTypes) {
     const input = base({
