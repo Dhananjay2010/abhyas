@@ -28,7 +28,6 @@ function check(label: string, ok: boolean, detail = "") {
 }
 
 const NOW_DATE = new Date();
-const NOW = NOW_DATE.toISOString();
 const THIRTY_MIN_AGO = new Date(NOW_DATE.getTime() - 30 * 60 * 1000).toISOString();
 const FOUR_HOURS_AGO = new Date(NOW_DATE.getTime() - 4 * 60 * 60 * 1000).toISOString();
 const LAST_SET_TIME = new Date(NOW_DATE.getTime() - 5 * 60 * 1000).toISOString(); // 5 min ago
@@ -57,7 +56,7 @@ function makeFakeDeps(config: {
       };
     },
     async loadExercisesWithSets() {
-      const sets = Array.from({ length: config.workingSetCount }, (_, i) => ({
+      const sets = Array.from({ length: config.workingSetCount }, () => ({
         completed_at: config.lastSetCompletedAt!,
         is_warmup_set: false,
       }));
@@ -184,7 +183,7 @@ async function runTests() {
 }
 
 runTests()
-  .then((success) => {
+  .then(() => {
     console.log(`\n${failures === 0 ? "✅ All tests passed" : `❌ ${failures} test(s) failed`}\n`);
     process.exit(failures === 0 ? 0 : 1);
   })
