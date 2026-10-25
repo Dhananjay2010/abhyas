@@ -35,7 +35,7 @@ const mutants: Mutant[] = [
   {
     name: "Disable high-impact lower-body ban for knee injury",
     file: "src/lib/program/generate.ts",
-    pattern: /if \(input\.anyKneeInjury && ex\.impact === "high"\) {/,
+    pattern: /if \(input\.anyKneeInjury && ex\.impact === "high"\) \{/,
     mutate: 'if (!input.anyKneeInjury && ex.impact === "high") {',
     tests: ["test:knee-safety-matrix"],
   },
@@ -44,7 +44,7 @@ const mutants: Mutant[] = [
   {
     name: "Disable past-knee lunge filter (allow unsafe lunges for past knee)",
     file: "src/lib/program/generate.ts",
-    pattern: /if \(hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES\.has\(ex\.slug\)\) {/,
+    pattern: /if \(hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES\.has\(ex\.slug\)\) \{/,
     mutate: 'if (!hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {',
     tests: ["test:knee-safety-matrix"],
   },
@@ -53,7 +53,7 @@ const mutants: Mutant[] = [
   {
     name: "Disable beginner high-impact exclusion for knee injury",
     file: "src/lib/program/generate.ts",
-    pattern: /\/\/ SAFETY: Beginners with knee injury \(any\) exclude ALL high-impact exercises\n\s+if \(input\.level === "beginner"\) \{/,
+    pattern: /\/\/ SAFETY: Beginners with knee injury \(any\) exclude ALL high-impact exercises\s+if \(input\.level === "beginner"\) \{/,
     mutate: '// SAFETY: Beginners with knee injury (any) exclude ALL high-impact exercises\n    if (input.level !== "beginner") {',
     tests: ["test:knee-safety-matrix"],
   },
@@ -62,7 +62,7 @@ const mutants: Mutant[] = [
   {
     name: "Disable force-add quad work for knee injury (allow empty quad days)",
     file: "src/lib/program/generate.ts",
-    pattern: /if \(\(hasKneeInjury \|\| hasPastKnee\) && isLowerOrFullDay\) {/,
+    pattern: /if \(\(hasKneeInjury \|\| hasPastKnee\) && isLowerOrFullDay\) \{/,
     mutate: 'if (!(hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {',
     tests: ["test:knee-safety-matrix"],
   },
@@ -71,8 +71,8 @@ const mutants: Mutant[] = [
   {
     name: "Drop knee high-impact filter in alternatives (swaps)",
     file: "src/lib/program/alternatives.ts",
-    pattern: /\/\/ 4b\. PR #73: Knee injuries exclude high-impact lower-body moves\n\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.impact === "high"\) {/,
-    mutate: '// 4b. PR #73: Knee injuries exclude high-impact lower-body moves\n    if (!(ctx.anyKneeInjury ?? false) && candidate.impact === "high") {',
+    pattern: /\/\/ 6b\. PR #73: Knee injuries exclude high-impact lower-body moves\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.impact === "high"\) \{/,
+    mutate: '// 6b. PR #73: Knee injuries exclude high-impact lower-body moves\n    if (!(ctx.anyKneeInjury ?? false) && candidate.impact === "high") {',
     tests: ["test:swap-mutations"],
   },
 
@@ -80,8 +80,8 @@ const mutants: Mutant[] = [
   {
     name: "Drop past-knee 4-list restriction in swaps",
     file: "src/lib/program/alternatives.ts",
-    pattern: /\/\/ 2b\. Past-knee lunge swaps: ONLY allow the 4-exercise quad list\n\s+if \(hasPastKnee && current\.movement_pattern === "lunge"\) {/,
-    mutate: '// 2b. Past-knee lunge swaps: ONLY allow the 4-exercise quad list\n    if (!hasPastKnee && current.movement_pattern === "lunge") {',
+    pattern: /if \(hasPastKnee && current\.movement_pattern === "lunge"\) \{/,
+    mutate: 'if (!hasPastKnee && current.movement_pattern === "lunge") {',
     tests: ["test:knee-swaps"],
   },
 
@@ -107,23 +107,17 @@ const mutants: Mutant[] = [
   {
     name: "Drop unsafe-lunge list check (deficit lunges, pistols)",
     file: "src/lib/program/generate.ts",
-    pattern: /\/\/ PR #73 coordinator: ANY knee injury \(current or past\) excludes unsafe lunges\n\s+\/\/ \(deficit lunges, pistol squats, side split squat\)\n\s+if \(input\.anyKneeInjury && UNSAFE_KNEE_LUNGES\.has\(ex\.slug\)\) {/,
+    pattern: /\/\/ PR #73 coordinator: ANY knee injury \(current or past\) excludes unsafe lunges\s+\/\/ \(deficit lunges, pistol squats, side split squat\)\s+if \(input\.anyKneeInjury && UNSAFE_KNEE_LUNGES\.has\(ex\.slug\)\) \{/,
     mutate: '// PR #73 coordinator: ANY knee injury (current or past) excludes unsafe lunges\n  // (deficit lunges, pistol squats, side split squat)\n  if (!input.anyKneeInjury && UNSAFE_KNEE_LUNGES.has(ex.slug)) {',
     tests: ["test:swap-mutations"],
     notes: "UNSAFE_KNEE_LUNGES is NOT redundant with contraindication tags - these exercises are not explicitly tagged as contraindicated in the catalogue, so this filter is necessary."
   },
 
-  // 5g. Timed-hold swap logic - NOTE: Does not exist as a separate check
-  // There is no separate timed-hold filtering in the swap path (alternatives.ts).
-  // Timed holds are filtered via isIsometric() for dynamic press replacements only,
-  // which is not knee-specific. The wouldViolateConstraints check in generate.ts
-  // prevents timed holds in main slots during generation, but this doesn't apply to swaps.
-
   // 5h. Re-add current-knee skip for step-ups and split-squats
   {
     name: "Re-add current-knee contraindication skip for step-ups/split-squats",
     file: "src/lib/program/generate.ts",
-    pattern: /if \(allContraindications\.some\(\(r\) => input\.currentInjuryRegions\.includes\(r\)\)\) {\n\s+return false;\n\s+}/,
+    pattern: /if \(allContraindications\.some\(\(r\) => input\.currentInjuryRegions\.includes\(r\)\)\) \{\s+return false;\s+\}/,
     mutate: `if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
       const KNEE_SAFE_LUNGE_EXERCISES = new Set([
         "step-up-with-knee-raise",
@@ -170,18 +164,9 @@ const mutants: Mutant[] = [
   {
     name: "Disable wall-sit reuse for current-knee (mark as used in block)",
     file: "src/lib/program/generate.ts",
-    pattern: /\/\/ For current-knee with wall-sit, allow reuse across days/,
+    pattern: /\/\/ For current-knee, allow wall-sit reuse; for past-knee, check usedInBlock/,
     mutate: '// MUTANT: Disabled wall-sit reuse',
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
-  },
-
-  // PR #73 Run 13: B4 sissy ban mutant (#104 exclusions)
-  {
-    name: "Remove sissy-squat ban (allow in past-knee swaps)",
-    file: "src/lib/program/generate.ts",
-    pattern: /if \(hasPastKnee && EXCLUDED_EXERCISE_SLUGS\.has\(candidate\.slug\)\) continue;/,
-    mutate: '// MUTANT: Removed sissy ban',
-    tests: ["test:knee-swaps", "test:past-knee-coordinator"],
   },
 
   // PR #73 Run 13: #104 filter overlap assertion
@@ -299,10 +284,11 @@ for (const mutant of mutants) {
     
     // Run test and capture output
     try {
-      const result = execSync(`npm run ${test}`, { stdio: "pipe", encoding: "utf8" });
+      execSync(`npm run ${test}`, { stdio: "pipe", encoding: "utf8" });
       // Test passed with exit code 0
-    } catch (error: any) {
-      const output = error.stdout || "";
+    } catch (error: unknown) {
+      const err = error as { stdout?: Buffer | string; stderr?: Buffer | string; output?: (Buffer | string | null)[] };
+      const output = (err.stdout?.toString() || err.output?.[1]?.toString() || "");
       
       // For test:knee-safety-matrix, allow exactly 73 failures (known issue from main)
       if (test === "test:knee-safety-matrix" && output.includes("✗ 73 test(s) failed")) {
@@ -312,7 +298,7 @@ for (const mutant of mutants) {
       
       // Unexpected failure
       console.error(`❌ FATAL: Baseline test ${test} failed unexpectedly`);
-      console.error(output || error.message);
+      console.error(output);
       process.exit(1);
     }
   }

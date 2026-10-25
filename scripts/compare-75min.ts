@@ -16,6 +16,7 @@ const input = {
   age: 30,
   bmi: 23,
   equipment: [],
+  equipmentIds: [],
   hasAllEquipment: false,
   currentInjuryRegions: ["knee" as const],
   pastInjuryRegions: [],
