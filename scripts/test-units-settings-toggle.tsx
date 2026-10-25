@@ -17,7 +17,7 @@ import "./helpers/setup-jsdom";
 // Mock next/navigation BEFORE importing OnboardingFlow
 import Module from "node:module";
 const originalRequire = Module.prototype.require;
-Module.prototype.require = function (id: string, ...args: unknown[]) {
+Module.prototype.require = function (id: string) {
   if (id === "next/navigation") {
     return {
       useRouter: () => ({
@@ -32,7 +32,7 @@ Module.prototype.require = function (id: string, ...args: unknown[]) {
       useSearchParams: () => new URLSearchParams(),
     };
   }
-  return originalRequire.apply(this, [id, ...args] as Parameters<typeof originalRequire>);
+  return originalRequire.call(this, id);
 };
 
 import React from "react";
@@ -168,14 +168,12 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
   console.log("\n3. LogWeight: Type 176 lb, click Save, assert ~79.8 kg sent; type 50 lb shows error, no save");
 
   {
-    const spy = {
-      savedKg: null as number | null,
-      callCount: 0,
-    };
+    let savedKg: number | null = null;
+    let callCount = 0;
 
     const mockLogAction = async (kg: number) => {
-      spy.savedKg = kg;
-      spy.callCount++;
+      savedKg = kg;
+      callCount++;
       return { ok: true } as const;
     };
 
@@ -219,15 +217,15 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
 
           check(
             "Typing 176 lb, clicking Save sends ~79.8 kg (79.7-79.9)",
-            spy.savedKg !== null && spy.savedKg >= 79.7 && spy.savedKg <= 79.9,
-            spy.savedKg !== null ? `got ${spy.savedKg.toFixed(2)}` : `got ${spy.savedKg}`
+            savedKg !== null && savedKg >= 79.7 && savedKg <= 79.9,
+            savedKg !== null ? `got ${savedKg.toFixed(2)}` : `got ${savedKg}`
           );
         }
       }
     }
 
     // Test 2: Type 50 lb (out of range), assert error shown and no save
-    const initialCallCount = spy.callCount;
+    const initialCallCount = callCount;
 
     const { container: container2 } = render(
       React.createElement(LogWeight, {
@@ -273,8 +271,8 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
 
           check(
             "logAction NOT called for out-of-range value",
-            spy.callCount === initialCallCount,
-            `calls: ${spy.callCount}`
+            callCount === initialCallCount,
+            `calls: ${callCount}`
           );
         }
       }
@@ -294,16 +292,14 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
       weightKg: number | null;
     }
 
-    const spy = {
-      savedAboutYou: null as SaveAboutYouArgs | null,
-      callCount: 0,
-    };
+    let savedAboutYou: SaveAboutYouArgs | null = null;
+    let callCount = 0;
 
     const mockActions = {
       acceptDisclaimer: async () => ({ ok: true }) as const,
       saveAboutYou: async (args: SaveAboutYouArgs) => {
-        spy.savedAboutYou = args;
-        spy.callCount++;
+        savedAboutYou = args;
+        callCount++;
         return { ok: true } as const;
       },
       saveProfileFields: async () => ({ ok: true }) as const,
@@ -320,22 +316,39 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     type Level = "beginner" | "intermediate" | "expert";
     type Track = "weights" | "bodyweight" | "yoga" | "meditation";
 
-    const initial = {
+    const initial: {
+      displayName: null;
+      goal: Goal | null;
+      level: Level | null;
+      primaryTrack: Track | null;
+      daysPerWeek: number | null;
+      sessionMinutes: number;
+      yogaDaysPerWeek: number;
+      dateOfBirth: string | null;
+      sex: Sex | null;
+      heightCm: number | null;
+      weightKg: number | null;
+      hasAllEquipment: boolean;
+      equipmentIds: string[];
+      injuries: Array<{ bodyRegion: BodyRegion; severity: InjurySeverity }>;
+      units: "metric" | "imperial";
+      disclaimerAccepted: boolean;
+    } = {
       displayName: null,
-      goal: null as Goal | null,
-      level: null as Level | null,
-      primaryTrack: null as Track | null,
-      daysPerWeek: null as number | null,
+      goal: null,
+      level: null,
+      primaryTrack: null,
+      daysPerWeek: null,
       sessionMinutes: 60,
       yogaDaysPerWeek: 0,
-      dateOfBirth: null as string | null,
-      sex: null as Sex | null,
-      heightCm: null as number | null,
-      weightKg: null as number | null,
+      dateOfBirth: null,
+      sex: null,
+      heightCm: null,
+      weightKg: null,
       hasAllEquipment: false,
-      equipmentIds: [] as string[],
-      injuries: [] as Array<{ bodyRegion: BodyRegion; severity: InjurySeverity }>,
-      units: "imperial" as "metric" | "imperial",
+      equipmentIds: [],
+      injuries: [],
+      units: "imperial",
       disclaimerAccepted: true,
     };
 
@@ -429,39 +442,39 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
 
             check(
               "saveAboutYou called once",
-              spy.callCount === 1,
-              `called ${spy.callCount} times`
+              callCount === 1,
+              `called ${callCount} times`
             );
 
-            if (spy.savedAboutYou) {
+            if (savedAboutYou) {
               check(
                 "saveAboutYou received dateOfBirth 1990-05-12",
-                spy.savedAboutYou.dateOfBirth === "1990-05-12",
-                `got '${spy.savedAboutYou.dateOfBirth}'`
+                savedAboutYou.dateOfBirth === "1990-05-12",
+                `got '${savedAboutYou.dateOfBirth}'`
               );
 
               check(
                 "saveAboutYou received sex 'male'",
-                spy.savedAboutYou.sex === "male",
-                `got '${spy.savedAboutYou.sex}'`
+                savedAboutYou.sex === "male",
+                `got '${savedAboutYou.sex}'`
               );
 
               check(
                 "saveAboutYou received heightCm ~175 (174-176)",
-                spy.savedAboutYou.heightCm !== null &&
-                  spy.savedAboutYou.heightCm >= 174 &&
-                  spy.savedAboutYou.heightCm <= 176,
-                `got ${spy.savedAboutYou.heightCm}`
+                savedAboutYou.heightCm !== null &&
+                  savedAboutYou.heightCm >= 174 &&
+                  savedAboutYou.heightCm <= 176,
+                `got ${savedAboutYou.heightCm}`
               );
 
               check(
                 "saveAboutYou received weightKg ~79.8 (79.5-80.1)",
-                spy.savedAboutYou.weightKg !== null &&
-                  spy.savedAboutYou.weightKg >= 79.5 &&
-                  spy.savedAboutYou.weightKg <= 80.1,
-                spy.savedAboutYou.weightKg !== null
-                  ? `got ${spy.savedAboutYou.weightKg.toFixed(2)}`
-                  : `got ${spy.savedAboutYou.weightKg}`
+                savedAboutYou.weightKg !== null &&
+                  savedAboutYou.weightKg >= 79.5 &&
+                  savedAboutYou.weightKg <= 80.1,
+                savedAboutYou.weightKg !== null
+                  ? `got ${savedAboutYou.weightKg.toFixed(2)}`
+                  : `got ${savedAboutYou.weightKg}`
               );
             }
 
@@ -486,7 +499,7 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     const { container: container2, unmount: unmount2 } = render(
       React.createElement(OnboardingFlow, {
         initial,
-        equipment: equipment as Array<{ id: string; name: string; category: string }>,
+        equipment: equipment,
         actions: mockActions2,
       })
     );
