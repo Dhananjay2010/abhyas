@@ -307,13 +307,11 @@ console.log("Test swap sheet close on exercise change:\n");
   ]);
   const exerciseB3 = makeExercise("ex-b3", "horizontal-pull", "Bent Over Barbell Row", 1);
 
-  let findAlternativesResolver: ((value: any) => void) | null = null;
-  let swapExerciseCalled = false;
+  let findAlternativesResolver: ((value: { ok: true; data: typeof alternativesA }) => void) | null = null;
 
   const actions3: SessionActions = {
     ...actions1,
-    swapExercise: async (params: any) => {
-      swapExerciseCalled = true;
+    swapExercise: async () => {
       return {
         ok: true as const,
         data: {
