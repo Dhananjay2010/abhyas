@@ -150,10 +150,13 @@ export function vibrate(pattern: number | number[]) {
 }
 
 /** Counts elapsed seconds, resilient to the tab being backgrounded. */
-export function useElapsed(startedAtIso: string | null): number {
+export function useElapsed(startedAtIso: string | null, nowFn: () => number = Date.now): number {
   const [start] = useState(() =>
     startedAtIso ? new Date(startedAtIso).getTime() : null,
   );
+  
+  // Capture the snapshot function for useSyncExternalStore
+  const getSnapshot = useCallback(() => Math.floor(nowFn() / 1000) * 1000, [nowFn]);
   
   // Use useSyncExternalStore to subscribe to time (an external system)
   // Returns 0 during SSR (getServerSnapshot)
@@ -163,10 +166,7 @@ export function useElapsed(startedAtIso: string | null): number {
       const interval = setInterval(onStoreChange, 1000);
       return () => clearInterval(interval);
     }, []),
-    // Whole seconds, so consecutive reads within a second are equal: React
-    // requires getSnapshot to return the same value until the store changes,
-    // and a raw Date.now() would differ on every read.
-    () => Math.floor(Date.now() / 1000) * 1000, // getSnapshot (client)
+    getSnapshot, // getSnapshot (client)
     () => 0, // getServerSnapshot (SSR) - returns 0 so elapsed will be 0
   );
 

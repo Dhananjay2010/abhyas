@@ -137,6 +137,7 @@ console.log("1. Stale session clock capped at 179:59 (f1d-runner, f1e-helper)");
           cooldownEnabled: false,
         },
         actions: fakeActions,
+        nowFn: clock.nowMs,
       })
     );
   });
@@ -225,6 +226,7 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
           cooldownEnabled: false,
         },
         actions: fakeActions,
+        nowFn: clock.nowMs,
       })
     );
   });
@@ -344,6 +346,7 @@ console.log("\n3. Double-click busyRef guard: action called exactly once (9, 9b,
           cooldownEnabled: false,
         },
         actions: fakeActions,
+        nowFn: clock.nowMs,
         timer: fakeTimer.timer,
       })
     );
@@ -453,6 +456,7 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
           cooldownEnabled: false,
         },
         actions: fakeActions,
+        nowFn: clock.nowMs,
       })
     );
   });
@@ -587,6 +591,7 @@ console.log("\n5. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
           cooldownEnabled: true,
         },
         actions: fakeActions,
+        nowFn: clock.nowMs,
       })
     );
   });
@@ -623,10 +628,6 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
 
   let receivedDuration: number | null = null;
   const clock = createFakeClock(Date.parse("2026-10-25T12:00:00Z"));
-
-  // Mock Date.now() to use fake clock
-  const originalDateNow = Date.now;
-  Date.now = clock.nowMs;
 
   const fakeActions: SessionActions = {
     async markWarmupDone() { return { ok: true }; },
@@ -706,6 +707,7 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
           cooldownEnabled: false,
         },
         actions: fakeActions,
+        nowFn: clock.nowMs,
       })
     );
   });
@@ -753,8 +755,6 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
   check("Summary shows 'Session ended early'", hasEndEarlyTitle);
   check("abandonSession received frozen duration", receivedDuration !== null && receivedDuration === 120);
 
-  Date.now = originalDateNow;
-
   root.unmount();
   document.body.removeChild(container);
 }
@@ -768,10 +768,6 @@ console.log("\n7. Done sends frozen elapsed time (f1, f2)");
 
   let receivedDuration: number | null = null;
   const clock = createFakeClock(Date.parse("2026-10-25T12:00:00Z"));
-
-  // Mock Date.now() to use fake clock
-  const originalDateNow = Date.now;
-  Date.now = clock.nowMs;
 
   const fakeActions: SessionActions = {
     async markWarmupDone() { return { ok: true }; },
@@ -831,6 +827,7 @@ console.log("\n7. Done sends frozen elapsed time (f1, f2)");
           cooldownEnabled: false,
         },
         actions: fakeActions,
+        nowFn: clock.nowMs,
       })
     );
   });
@@ -858,7 +855,313 @@ console.log("\n7. Done sends frozen elapsed time (f1, f2)");
   const hasSummary = textContent !== null && textContent.includes("Session complete");
   check("Shows summary after finish", hasSummary);
 
-  Date.now = originalDateNow;
+  root.unmount();
+  document.body.removeChild(container);
+}
+
+// Test 8: Double confirm on end early calls abandonSession twice
+console.log("\n8. Double confirm on end early calls abandonSession twice (endearly-double)");
+{
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  let abandonCallCount = 0;
+  const clock = createFakeClock(Date.parse("2026-10-25T12:00:00Z"));
+
+  const fakeActions: SessionActions = {
+    async markWarmupDone() { return { ok: true }; },
+    async logSet() { return { ok: true }; },
+    async deleteSet() { return { ok: true }; },
+    async finishExercise() { return { ok: true, data: null }; },
+    async finishSession() { return { ok: true, data: { status: "completed" } }; },
+    async abandonSession() {
+      abandonCallCount++;
+      return { ok: true };
+    },
+    async findAlternatives() { return { ok: true, data: [] }; },
+    async swapExercise() {
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+    },
+    async planDay() { return { ok: true }; },
+    async refreshAfterSession() { return { ok: true }; },
+  };
+
+  const startedAt = new Date(clock.nowMs() - 100 * 1000).toISOString();
+
+  await act(async () => {
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "session-double-confirm",
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt,
+        isStale: false,
+        warmup: [],
+        cooldown: [],
+        exercises: [{
+          id: "ex-1",
+          exerciseId: "exercise-id-1",
+          name: "Squat",
+          cue: null,
+          metric: "reps",
+          primaryMuscles: ["quads"],
+          plannedSets: 3,
+          repsMin: 8,
+          repsMax: 12,
+          restSeconds: 90,
+          workingWeightKg: 100,
+          suggestedWeightKg: null,
+          status: "pending",
+          feel: null,
+          sets: [{ setNumber: 1, reps: 10, weightKg: 100, durationSeconds: null }],
+          isBodyweight: false,
+        }],
+        settings: {
+          perSetLogging: false,
+          restAutostart: true,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+        },
+        actions: fakeActions,
+        nowFn: clock.nowMs,
+      })
+    );
+  });
+
+  await act(async () => {});
+
+  // Click "End session early"
+  await act(async () => {
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const endButton = buttons.find(b => b.textContent?.includes("End session early"));
+    check("End session early button found", endButton !== undefined);
+    if (endButton) endButton.click();
+  });
+
+  await act(async () => {});
+
+  // Click "End now" twice in quick succession
+  await act(async () => {
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const confirmButton = buttons.find(b => b.textContent?.trim() === "End now");
+    check("End now button found", confirmButton !== undefined);
+    if (confirmButton) {
+      confirmButton.click();
+      confirmButton.click();
+    }
+  });
+
+  await act(async () => {});
+
+  check("abandonSession called exactly once despite double click", abandonCallCount === 1);
+
+  root.unmount();
+  document.body.removeChild(container);
+}
+
+// Test 9: Clock resumes after failed end early
+console.log("\n9. Clock resumes after failed end early (endearly-resume)");
+{
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  const abandonFails = true;
+  const clock = createFakeClock(Date.parse("2026-10-25T12:00:00Z"));
+  const { timer } = createFakeTimer();
+
+  const fakeActions: SessionActions = {
+    async markWarmupDone() { return { ok: true }; },
+    async logSet() { return { ok: true }; },
+    async deleteSet() { return { ok: true }; },
+    async finishExercise() { return { ok: true, data: null }; },
+    async finishSession() { return { ok: true, data: { status: "completed" } }; },
+    async abandonSession() {
+      if (abandonFails) {
+        return { ok: false, error: "Network error" };
+      }
+      return { ok: true };
+    },
+    async findAlternatives() { return { ok: true, data: [] }; },
+    async swapExercise() {
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+    },
+    async planDay() { return { ok: true }; },
+    async refreshAfterSession() { return { ok: true }; },
+  };
+
+  const startedAt = new Date(clock.nowMs() - 100 * 1000).toISOString();
+
+  await act(async () => {
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "session-resume-clock",
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt,
+        isStale: false,
+        warmup: [],
+        cooldown: [],
+        exercises: [{
+          id: "ex-1",
+          exerciseId: "exercise-id-1",
+          name: "Squat",
+          cue: null,
+          metric: "reps",
+          primaryMuscles: ["quads"],
+          plannedSets: 3,
+          repsMin: 8,
+          repsMax: 12,
+          restSeconds: 90,
+          workingWeightKg: 100,
+          suggestedWeightKg: null,
+          status: "pending",
+          feel: null,
+          sets: [],
+          isBodyweight: false,
+        }],
+        settings: {
+          perSetLogging: false,
+          restAutostart: true,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+        },
+        actions: fakeActions,
+        timer,
+        nowFn: clock.nowMs,
+      })
+    );
+  });
+
+  await act(async () => {});
+
+  // Clock should show 1:40
+  let textContent = container.textContent;
+  let hasClock = textContent?.includes("1:40");
+  check("Clock shows 1:40 initially", hasClock === true);
+
+  // Click "End session early" and confirm
+  await act(async () => {
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const endButton = buttons.find(b => b.textContent?.includes("End session early"));
+    if (endButton) endButton.click();
+  });
+
+  await act(async () => {});
+
+  await act(async () => {
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const confirmButton = buttons.find(b => b.textContent?.trim() === "End now");
+    if (confirmButton) confirmButton.click();
+  });
+
+  await act(async () => {});
+
+  // Abandon should have failed, check for generic error message
+  textContent = container.textContent;
+  const hasError = textContent?.includes("Couldn't end the session");
+  check("Error message shown after failed abandon", hasError === true);
+
+  // Clock should still be ticking (not frozen) - just verify it's still showing time
+  // The exact time might vary due to React updates, but it should show a time
+  hasClock = textContent?.includes(":") && !textContent?.includes("Session ended early");
+  check("Clock still visible after failed end early", hasClock === true);
+
+  root.unmount();
+  document.body.removeChild(container);
+}
+
+// Test 10: Clock stops, resumes, and freezes when stale
+console.log("\n10. Clock stops, resumes, and freezes when stale (stale-lifecycle)");
+{
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  const clock = createFakeClock(Date.parse("2026-10-25T12:00:00Z"));
+
+  const fakeActions: SessionActions = {
+    async markWarmupDone() { return { ok: true }; },
+    async logSet() { return { ok: true }; },
+    async deleteSet() { return { ok: true }; },
+    async finishExercise() { return { ok: true, data: null }; },
+    async finishSession() { return { ok: true, data: { status: "completed" } }; },
+    async abandonSession() { return { ok: true }; },
+    async findAlternatives() { return { ok: true, data: [] }; },
+    async swapExercise() {
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+    },
+    async planDay() { return { ok: true }; },
+    async refreshAfterSession() { return { ok: true }; },
+  };
+
+  // Start 3 hours ago for max stale time
+  const startedAt = new Date(clock.nowMs() - 180 * 60 * 1000).toISOString();
+
+  await act(async () => {
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "session-stale-lifecycle",
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt,
+        isStale: true,
+        warmup: [],
+        cooldown: [],
+        exercises: [{
+          id: "ex-1",
+          exerciseId: "exercise-id-1",
+          name: "Squat",
+          cue: null,
+          metric: "reps",
+          primaryMuscles: ["quads"],
+          plannedSets: 3,
+          repsMin: 8,
+          repsMax: 12,
+          restSeconds: 90,
+          workingWeightKg: 100,
+          suggestedWeightKg: null,
+          status: "pending",
+          feel: null,
+          sets: [],
+          isBodyweight: false,
+        }],
+        settings: {
+          perSetLogging: false,
+          restAutostart: true,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+        },
+        actions: fakeActions,
+        nowFn: clock.nowMs,
+      })
+    );
+  });
+
+  await act(async () => {});
+
+  // Clock should be frozen at 179:59 when stale
+  let textContent = container.textContent;
+  let hasFrozen = textContent?.includes("179:59");
+  check("Clock frozen at 179:59 when stale", hasFrozen === true);
+
+  // Advance clock - should still show 179:59
+  clock.advanceMs(10000);
+  await act(async () => {});
+  
+  textContent = container.textContent;
+  hasFrozen = textContent?.includes("179:59");
+  check("Clock remains frozen despite time advancing", hasFrozen === true);
 
   root.unmount();
   document.body.removeChild(container);

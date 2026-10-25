@@ -144,6 +144,7 @@ export function SessionRunner({
   tomorrow,
   actions = REAL_ACTIONS,
   timer,
+  nowFn,
   onExit,
 }: {
   sessionId: string;
@@ -160,10 +161,11 @@ export function SessionRunner({
   tomorrow?: NextDayPlan | null;
   actions?: SessionActions;
   timer?: RunnerTimer;
+  nowFn?: () => number;
   onExit?: () => void;
 }) {
   const router = useRouter();
-  const rawElapsed = useElapsed(startedAt);
+  const rawElapsed = useElapsed(startedAt, nowFn ?? (() => Date.now()));
   const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
   const elapsed = frozenElapsed ?? displayElapsed(rawElapsed, isStale);
   

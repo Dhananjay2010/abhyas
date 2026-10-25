@@ -335,7 +335,7 @@ async function testFinishSessionNullDurationForNullStartedAt() {
   assertTrue(result.ok, "finishSession with null started_at should succeed");
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
   assertTrue(updateCall !== undefined, "finishSession must call update");
-  assertEquals(updateCall?.patch?.duration_seconds, 0, "duration_seconds === 0 for null started_at (nullstart)");
+  assertEquals(updateCall?.patch?.duration_seconds, null, "duration_seconds === null for null started_at (nullstart)");
 }
 
 async function testFinishSessionNullDurationForInvalidStartedAt() {
@@ -367,7 +367,7 @@ async function testFinishSessionNullDurationForInvalidStartedAt() {
   assertTrue(result.ok, "finishSession with invalid started_at should succeed");
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
   assertTrue(updateCall !== undefined, "finishSession must call update");
-  assertEquals(updateCall?.patch?.duration_seconds, 0, "duration_seconds === 0 for invalid started_at (invalidstale)");
+  assertEquals(updateCall?.patch?.duration_seconds, null, "duration_seconds === null for invalid started_at (invalidstale)");
 }
 
 async function testFinishSessionNullDurationForInvalidLastSetTime() {
@@ -389,7 +389,7 @@ async function testFinishSessionNullDurationForInvalidLastSetTime() {
   assertTrue(result.ok, "finishSession with invalid lastSet time should succeed");
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
   assertTrue(updateCall !== undefined, "finishSession must call update");
-  assertEquals(updateCall?.patch?.duration_seconds, 0, "duration_seconds === 0 for invalid lastSet completed_at (nullclamp)");
+  assertEquals(updateCall?.patch?.duration_seconds, null, "duration_seconds === null for invalid lastSet completed_at (nullclamp)");
 }
 
 // --- Run all tests ---

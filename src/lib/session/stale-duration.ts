@@ -10,7 +10,7 @@ export type StaleFinishInput = {
 };
 
 export type StaleFinish = {
-  durationSeconds: number;
+  durationSeconds: number | null;
   endedAt: string;
   status: "completed" | "skipped";
 };
@@ -46,12 +46,12 @@ export function resolveStaleFinish(input: StaleFinishInput): StaleFinish {
 
   const lastSetMs = Date.parse(input.lastSetCompletedAt);
 
-  // Invalid timestamps with sets: use duration 0 for compatibility
+  // Invalid timestamps with sets: avoid measuring from epoch, use duration null
   if (!Number.isFinite(start) || !Number.isFinite(lastSetMs)) {
     const safeEnd = Number.isFinite(lastSetMs) && input.lastSetCompletedAt 
       ? input.lastSetCompletedAt 
       : (Number.isFinite(start) && input.startedAt ? input.startedAt : new Date(0).toISOString());
-    return { durationSeconds: 0, endedAt: safeEnd, status: "completed" };
+    return { durationSeconds: null, endedAt: safeEnd, status: "completed" };
   }
 
   const safeStart = start;
