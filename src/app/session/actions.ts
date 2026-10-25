@@ -151,7 +151,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
 
     const [updateResult] = await Promise.all([
       updateSessionCore(supabase, existing.id, user.id, today, updatePayload),
-      // MUTANT A1 removed this call,
+      ensureSessionExercises(supabase, user.id, existing.id),
     ]);
 
     if (!updateResult.ok) {
