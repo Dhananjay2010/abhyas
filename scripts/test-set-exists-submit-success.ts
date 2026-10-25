@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
 /**
  * Test: set_exists in submit counts as saved
  * 
@@ -10,6 +11,8 @@ import { createPendingSetController } from "../src/lib/session/pending-set-contr
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 import { loadPendingSets, type Storage } from "../src/lib/session/pending-set-retry";
 import type { Result } from "../src/app/session/actions";
+
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -41,7 +44,7 @@ console.log("\nTesting set_exists in submit\n");
 
 async function runTest() {
   const storage = createStorage();
-  const deps = createPendingSetDeps();
+  const deps = createPendingSetDeps(FIXED_TIME);
   const userId = "user-1";
   const sessionId = "sess-1";
   

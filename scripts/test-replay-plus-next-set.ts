@@ -1,4 +1,5 @@
 /**
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
  * Test that replay plus next set never overwrites a set.
  * 
  * Scenario: A set expires and becomes pending. Before replay completes,
@@ -16,6 +17,8 @@ import type { Storage } from "../src/lib/session/pending-set-retry";
 import { storageKey } from "../src/lib/session/pending-set-retry";
 import { nextSetNumberFor } from "../src/lib/session/next-set-number";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
+
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -83,7 +86,7 @@ async function testReplayPlusNextSetNoCollision() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(),
+    deps: createPendingSetDeps(FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -165,7 +168,7 @@ async function testPendingSetCountPerExercise() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(),
+    deps: createPendingSetDeps(FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -246,7 +249,7 @@ async function testReplayedSetsUpdateUI() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(),
+    deps: createPendingSetDeps(FIXED_TIME),
     storage,
     logSet,
     sessionId,

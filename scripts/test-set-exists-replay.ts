@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
 /**
  * Test: set_exists replay handling
  * 
@@ -12,6 +13,8 @@ import { createPendingSetController, type PendingSetState } from "../src/lib/ses
 import type { Result } from "../src/app/session/actions";
 import { savePendingSet, loadPendingSets, storageKey, type Storage } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
+
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -54,7 +57,7 @@ console.log("Testing set_exists replay handling\n");
 
 async function main() {
   const storage = createStorage();
-  const deps = createPendingSetDeps();
+  const deps = createPendingSetDeps(FIXED_TIME);
   const userId = "test-user";
   const sessionId = "session-123";
 

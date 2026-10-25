@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
 /**
  * Test: Pending set sign-out clear
  * 
@@ -16,6 +17,8 @@ import {
   type Storage,
 } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
+
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -57,7 +60,7 @@ function assertEqual<T>(actual: T, expected: T, message: string): void {
 console.log("Testing pending set sign-out clear\n");
 
 const storage = createStorage();
-const deps = createPendingSetDeps();
+const deps = createPendingSetDeps(FIXED_TIME);
 const userId = "test-user";
 const sessionId = "session-123";
 

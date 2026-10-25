@@ -1,4 +1,5 @@
 /**
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
  * Test pending-set retry logic for session expiry.
  */
 
@@ -13,6 +14,8 @@ import {
 } from "../src/lib/session/pending-set-retry";
 import { SESSION_EXPIRED_CODE, isSessionExpired } from "../src/lib/auth/session-expired";
 import { createPendingSetDeps, type PendingSetDeps } from "../src/lib/session/pending-set-deps";
+
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -30,7 +33,7 @@ function createStorage(): Storage {
 }
 
 function createTestDeps(): PendingSetDeps {
-  return createPendingSetDeps();
+  return createPendingSetDeps(FIXED_TIME);
 }
 
 let exitCode = 0;

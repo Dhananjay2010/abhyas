@@ -1,4 +1,5 @@
 /**
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
  * Test Item 8 UI states for session expiry retry.
  * 
  * These tests verify:
@@ -19,6 +20,8 @@ import {
   type Storage,
 } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
+
+const FIXED_TIME = 1700000000000; // Nov 14, 2023
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -73,7 +76,7 @@ async function testReplayErrorShowsSeparately() {
     weightKg: 50,
     durationSeconds: null,
     clientId: "client-1",
-  }, createPendingSetDeps());
+  }, createPendingSetDeps(FIXED_TIME));
 
   const logSet: LogSetFunction = async () => ({
     ok: false,
@@ -83,7 +86,7 @@ async function testReplayErrorShowsSeparately() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(),
+    deps: createPendingSetDeps(FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -114,7 +117,7 @@ async function testRetryingStateDuringReplay() {
     weightKg: 50,
     durationSeconds: null,
     clientId: "client-1",
-  }, createPendingSetDeps());
+  }, createPendingSetDeps(FIXED_TIME));
 
   let resolveReplay: () => void;
   const replayPromise = new Promise<void>((resolve) => {
@@ -129,7 +132,7 @@ async function testRetryingStateDuringReplay() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(),
+    deps: createPendingSetDeps(FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -167,7 +170,7 @@ async function testAutoRetryAfterFailedReplay() {
     weightKg: 50,
     durationSeconds: null,
     clientId: "client-1",
-  }, createPendingSetDeps());
+  }, createPendingSetDeps(FIXED_TIME));
 
   let callCount = 0;
   const logSet: LogSetFunction = async () => {
@@ -186,7 +189,7 @@ async function testAutoRetryAfterFailedReplay() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(),
+    deps: createPendingSetDeps(FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -225,7 +228,7 @@ async function testPendingSetsInList() {
     clientId: "client-1",
   };
 
-  savePendingSet(storage, "test-user-id", sessionId, pendingSet, createPendingSetDeps());
+  savePendingSet(storage, "test-user-id", sessionId, pendingSet, createPendingSetDeps(FIXED_TIME));
 
   const logSet: LogSetFunction = async () => ({
     ok: false,
@@ -236,7 +239,7 @@ async function testPendingSetsInList() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(),
+    deps: createPendingSetDeps(FIXED_TIME),
     storage,
     logSet,
     sessionId,
