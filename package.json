@@ -277,7 +277,7 @@
     "test:session-hydration-418": "tsx scripts/test-session-hydration-418.tsx",
     "test:m3-wrist": "tsx scripts/test-m3-wrist-lowerback-contraindications.ts",
     "test:insert-session-exercises": "tsx scripts/test-insert-session-exercises.ts",
-    "test:session-runner-qa-lows": "tsx scripts/test-session-runner-qa-lows.ts",
+    "test:session-runner-qa-lows": "tsx scripts/test-session-runner-qa-lows.tsx",
     "test:start-stale-close": "tsx scripts/test-start-stale-close.ts",
     "test:conflict-last-set-feel": "tsx scripts/test-conflict-last-set-feel.ts",
     "test:start-session-full-core": "tsx scripts/test-start-session-full-core.ts"
