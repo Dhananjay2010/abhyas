@@ -1,7 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import { countWorkingSets } from "@/lib/session/count-sets";
 
-type SessionType = Database["public"]["Enums"]["day_type"];
+export type SessionType = Database["public"]["Enums"]["day_type"];
 
 /**
  * SHARED RULES (h3 decision, 2026-10-24):

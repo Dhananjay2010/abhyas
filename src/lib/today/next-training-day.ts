@@ -4,11 +4,11 @@
  */
 
 import { addDays, isoWeekday } from "@/lib/dates";
-import { ownsPlannedWorkout } from "@/lib/progress/training-days";
+import { ownsPlannedWorkout, type SessionType } from "@/lib/progress/training-days";
 
 export interface ProgramDay {
   day_index: number;
-  day_type: string;
+  day_type: SessionType;
 }
 
 const DAY_NAMES = [
@@ -32,7 +32,7 @@ export function nextTrainingDay(
     const checkIndex = isoWeekday(checkDate);
     const checkDay = days.find((d) => d.day_index === checkIndex);
 
-    if (checkDay && ownsPlannedWorkout(checkDay.day_type as "weights" | "bodyweight" | null)) {
+    if (checkDay && ownsPlannedWorkout(checkDay.day_type)) {
       return {
         dayName: DAY_NAMES[checkIndex - 1],
         dayIndex: checkIndex,

@@ -36,7 +36,6 @@ const baseInput = {
     deload_week: null,
   },
   days: [
-    { id: "day0", day_index: 0, day_type: "rest" as const, label: null },
     { id: "day1", day_index: 1, day_type: "weights" as const, label: "Push" },
     { id: "day2", day_index: 2, day_type: "rest" as const, label: null },
     { id: "day3", day_index: 3, day_type: "weights" as const, label: "Pull" },
@@ -195,7 +194,43 @@ assert(
   "P3: Warm-ups should NOT count as working sets (yesterday is missed)"
 );
 
-console.log("\n=== Test 4: P6 - allSessionsRes bypass ===\n");
+console.log("\n=== Test 4: P4b/P5 - Never-started user with errored read ===\n");
+
+// Never-started user with errored hasStartedAny read
+// Should suppress first session offer and set firstTrainingDay to null
+const neverStartedErrorInput = {
+  ...baseInput,
+  allSessionsRes: {
+    data: null,
+    error: new Error("Failed to load sessions"),
+  },
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  sessionExercisesRes: {
+    data: [],
+    error: null,
+  },
+};
+
+const result4 = buildPage(neverStartedErrorInput);
+
+assert(
+  result4.promptBlocks.showFirstSessionOffer === false,
+  "P4b/P5: Errored hasStartedAny suppresses first session offer"
+);
+
+assert(
+  result4.todayView.firstTrainingDay === null,
+  "P4b/P5: Errored hasStartedAny sets firstTrainingDay to null"
+);
+
+console.log("\n=== Test 5: P6 - allSessionsRes error ===\n");
 
 // When allSessionsRes has an error, hasStartedAny should be null
 const allSessionsErrorInput = {
@@ -206,22 +241,24 @@ const allSessionsErrorInput = {
   },
 };
 
-const result4 = buildPage(allSessionsErrorInput);
+const result5 = buildPage(allSessionsErrorInput);
 
 assert(
-  result4.promptBlocks.showFirstSessionOffer === false,
+  result5.promptBlocks.showFirstSessionOffer === false,
   "P6: allSessionsRes error suppresses first session offer"
 );
 
-console.log("\n=== Test 5: P7 - Yesterday filter ===\n");
+console.log("\n=== Test 6: P7 - Yesterday filter ===\n");
 
 // Yesterday filter should only include yesterday's date, not other dates
+// Use Saturday (day 6) as yesterday, which is a training day
 const multiDateInput = {
   ...baseInput,
+  yesterday: "2026-01-10", // Saturday (day_index 6, training day)
   yesterdaySessionsRes: {
     data: [
-      { id: "s1", local_date: baseInput.yesterday, status: "completed", actual_type: "weights" as const, program_id: "prog-1" },
-      { id: "s2", local_date: baseInput.yesterday, status: "completed", actual_type: "weights" as const, program_id: "other" }, // different program
+      { id: "s1", local_date: "2026-01-10", status: "completed", actual_type: "weights" as const, program_id: "prog-1" },
+      { id: "s2", local_date: "2026-01-10", status: "completed", actual_type: "weights" as const, program_id: "other" }, // different program
     ],
     error: null,
   },
@@ -238,15 +275,15 @@ const multiDateInput = {
   },
 };
 
-const result5 = buildPage(multiDateInput);
+const result6 = buildPage(multiDateInput);
 
 // Should filter to program_id=prog-1 only
 assert(
-  result5.todayState.missedYesterday === false,
+  result6.todayState.missedYesterday === false,
   "P7: Yesterday filter includes only current program sessions"
 );
 
-console.log("\n=== Test 6: chosenByDayIndex - Tomorrow choice shows ===\n");
+console.log("\n=== Test 7: chosenByDayIndex - Tomorrow choice shows ===\n");
 
 // Test that a choice made for tomorrow shows on tomorrow's row with a label
 // Use 2026-01-12 which is a real Monday
@@ -282,10 +319,10 @@ const tomorrowChoiceInput = {
   ],
 };
 
-const result6 = buildPage(tomorrowChoiceInput);
+const result7 = buildPage(tomorrowChoiceInput);
 
 // Check that weekRowsWithChoices shows "Pull" for Tuesday (dayIndex 2)
-const tuesdayRow = result6.todayView.weekRowsWithChoices.find(r => r.dayIndex === 2);
+const tuesdayRow = result7.todayView.weekRowsWithChoices.find(r => r.dayIndex === 2);
 
 assert(
   tuesdayRow !== undefined,
@@ -310,7 +347,7 @@ assert(
   "Monday (today) shows template with no choice"
 );
 
-console.log("\n=== Test 7: chosenByDayIndex - Unchanged plan shows no choice ===\n");
+console.log("\n=== Test 8: chosenByDayIndex - Unchanged plan shows no choice ===\n");
 
 // Test that when the session matches the template, isChoice=false
 const unchangedPlanInput = {
@@ -340,9 +377,9 @@ const unchangedPlanInput = {
   },
 };
 
-const result7 = buildPage(unchangedPlanInput);
+const result8 = buildPage(unchangedPlanInput);
 
-const mondayRow7 = result7.todayView.weekRowsWithChoices.find(r => r.dayIndex === 1);
+const mondayRow7 = result8.todayView.weekRowsWithChoices.find(r => r.dayIndex === 1);
 
 assert(
   mondayRow7!.label === "Push",
@@ -354,7 +391,7 @@ assert(
   "Unchanged plan has isChoice=false (no override)"
 );
 
-console.log("\n=== Test 8: P-MISSED-ANY - Veteran user, missed yesterday, empty week ===\n");
+console.log("\n=== Test 9: P-MISSED-ANY - Veteran user, missed yesterday, empty week ===\n");
 
 // A long-time user who trained weeks ago, missed yesterday (training day),
 // and has no sessions this week. Must get missed prompt, not first-day welcome.
@@ -394,19 +431,19 @@ const veteranMissedInput = {
   },
 };
 
-const result8 = buildPage(veteranMissedInput);
+const result9 = buildPage(veteranMissedInput);
 
 assert(
-  result8.todayState.missedYesterday === true,
+  result9.todayState.missedYesterday === true,
   "P-MISSED-ANY: Veteran user who missed yesterday gets missed prompt"
 );
 
 assert(
-  result8.promptBlocks.showFirstSessionOffer === false,
+  result9.promptBlocks.showFirstSessionOffer === false,
   "P-MISSED-ANY: Veteran user doesn't get 'Welcome to your first workout'"
 );
 
-console.log("\n=== Test 9: P-REBUILD - Completed workout, then rebuild block ===\n");
+console.log("\n=== Test 10: P-REBUILD - Completed workout, then rebuild block ===\n");
 
 // User finished a workout today, then rebuilt the block (new program_id).
 // Today must show strengthDone=true, not offer Start or missed prompt.
@@ -451,19 +488,19 @@ const rebuildInput = {
   },
 };
 
-const result9 = buildPage(rebuildInput);
+const result10 = buildPage(rebuildInput);
 
 assert(
-  result9.strengthDone === true,
+  result10.strengthDone === true,
   "P-REBUILD: Completed strength session (old program_id) counts as strengthDone"
 );
 
 assert(
-  result9.todayState.missedYesterday === false,
+  result10.todayState.missedYesterday === false,
   "P-REBUILD: No false missed prompt after rebuild"
 );
 
-console.log("\n=== Test 10: P-YEST-ERROR - Yesterday sessions query error ===\n");
+console.log("\n=== Test 11: P-YEST-ERROR - Yesterday sessions query error ===\n");
 
 // If yesterdaySessionsRes.error, treat yesterday as unknown so
 // the missed prompt doesn't fire (false positive).
@@ -501,16 +538,73 @@ const yesterdayErrorInput = {
   },
 };
 
-const result10 = buildPage(yesterdayErrorInput);
+const result11 = buildPage(yesterdayErrorInput);
 
 assert(
-  result10.todayState.missedYesterday === false,
+  result11.todayState.missedYesterday === false,
   "P-YEST-ERROR: Errored sessions read suppresses missed prompt"
 );
 
 assert(
-  result10.todayState.isTraining === true,
+  result11.todayState.isTraining === true,
   "P-YEST-ERROR: Errored sessions read preserves isTraining"
+);
+
+console.log("\n=== Test 12: P8 - Planned session today on missed day ===\n");
+
+// User has a planned session today (strengthOpen), missed yesterday
+// Should not show missed prompt (in-progress settles missed)
+const plannedTodayInput = {
+  ...baseInput,
+  yesterday: "2026-01-10", // Saturday (training day)
+  localToday: "2026-01-11", // Sunday
+  allSessionsRes: {
+    data: [
+      {
+        local_date: "2026-01-05",
+        status: "completed",
+        actual_type: "weights" as const,
+        program_day_id: "day1",
+        started_at: "2026-01-05T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [
+      {
+        id: "today-planned",
+        local_date: "2026-01-11",
+        status: "planned",
+        actual_type: "weights" as const,
+        program_id: "prog-1",
+        program_day_id: "day1",
+        started_at: null,
+        created_at: "2026-01-11T09:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [], // No session yesterday = missed
+    error: null,
+  },
+  sessionExercisesRes: {
+    data: [],
+    error: null,
+  },
+};
+
+const result12 = buildPage(plannedTodayInput);
+
+assert(
+  result12.todayState.promptType === "none",
+  "P8: Planned session today (strengthOpen) suppresses missed prompt"
+);
+
+assert(
+  result12.strengthOpen !== undefined,
+  "P8: strengthOpen is set when planned session exists"
 );
 
 console.log("\n✅ All buildPage tests passed!\n");
