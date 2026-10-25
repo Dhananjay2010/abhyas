@@ -165,7 +165,7 @@ export function SessionRunner({
   onExit?: () => void;
 }) {
   const router = useRouter();
-  const rawElapsed = useElapsed(startedAt, nowFn ?? (() => Date.now()));
+  const rawElapsed = useElapsed(startedAt, nowFn ?? Date.now);
   const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
   const elapsed = frozenElapsed ?? displayElapsed(rawElapsed, isStale);
   

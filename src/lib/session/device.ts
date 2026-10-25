@@ -150,7 +150,7 @@ export function vibrate(pattern: number | number[]) {
 }
 
 /** Counts elapsed seconds, resilient to the tab being backgrounded. */
-export function useElapsed(startedAtIso: string | null, nowFn: () => number = Date.now): number {
+export function useElapsed(startedAtIso: string | null, nowFn: () => number): number {
   const [start] = useState(() =>
     startedAtIso ? new Date(startedAtIso).getTime() : null,
   );

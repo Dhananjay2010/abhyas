@@ -18,6 +18,7 @@ import { countWorkingSets, getCompletionDisplay } from "@/lib/today/row-helpers"
 import { sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { RefetchOnResume } from "./refetch-on-resume";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
+import { isSessionEndedEarly } from "@/lib/today/session-ended-early";
 
 export const dynamic = "force-dynamic";
 
@@ -413,9 +414,7 @@ export default async function TodayPage() {
         }));
 
   // Determine if the completed session was ended early (has pending exercises)
-  const endedEarly = performed && performed.status === "completed" && actual
-    ? actual.some((ex) => ex.status === "pending")
-    : false;
+  const endedEarly = isSessionEndedEarly(performed, actual);
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show
