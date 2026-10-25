@@ -1,14 +1,14 @@
 #!/bin/bash
 # Mutant testing for progression in-range fix
 # Verifies that removing key logic makes tests fail
-# Uses temporary copies to avoid leaving backup files
+# Uses temporary copies and EXIT trap to ensure src is never left mutated
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_FILE="$SCRIPT_DIR/../src/lib/program/progression.ts"
 TEMP_DIR=$(mktemp -d)
-trap "rm -rf $TEMP_DIR" EXIT
+trap "git checkout -- '$SRC_FILE' 2>/dev/null || true; rm -rf $TEMP_DIR" EXIT
 
 # Function to run test with mutated code
 run_mutant_test() {
@@ -18,13 +18,11 @@ run_mutant_test() {
   echo "=== MUTANT TEST: $mutant_name ==="
   echo "Creating mutant..."
   
-  # Copy original to temp and apply mutation
-  cp "$SRC_FILE" "$TEMP_DIR/progression.ts"
-  cp "$SRC_FILE" "$TEMP_DIR/progression-mutant.ts"
-  sed -i "$sed_pattern" "$TEMP_DIR/progression-mutant.ts"
+  # Copy original to temp
+  cp "$SRC_FILE" "$TEMP_DIR/progression.ts.orig"
   
-  # Swap in the mutant
-  cp "$TEMP_DIR/progression-mutant.ts" "$SRC_FILE"
+  # Apply mutation
+  sed "$sed_pattern" "$TEMP_DIR/progression.ts.orig" > "$SRC_FILE"
   
   echo "Running tests with mutant (should fail)..."
   if npx tsx scripts/test-progression-in-range-hold.ts 2>&1 | tee "$TEMP_DIR/mutant-output.txt" | grep -q "FAIL"; then
@@ -38,7 +36,7 @@ run_mutant_test() {
   fi
   
   # Restore original
-  cp "$TEMP_DIR/progression.ts" "$SRC_FILE"
+  cp "$TEMP_DIR/progression.ts.orig" "$SRC_FILE"
   
   return $result
 }
@@ -65,13 +63,14 @@ else
 fi
 
 # Final safety check: ensure source file is unmodified
-if ! diff -q "$TEMP_DIR/progression.ts" "$SRC_FILE" > /dev/null; then
+if ! git diff --exit-code -- "$SRC_FILE" > /dev/null 2>&1; then
   echo "✗ ERROR: Source file was not properly restored!"
-  cp "$TEMP_DIR/progression.ts" "$SRC_FILE"
+  git checkout -- "$SRC_FILE"
   exit 1
 fi
 
 echo ""
 echo "=== MUTANT TESTING COMPLETE ==="
 echo "Both mutants were caught by the tests."
+
 
