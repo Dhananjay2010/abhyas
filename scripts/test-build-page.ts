@@ -463,4 +463,54 @@ assert(
   "P-REBUILD: No false missed prompt after rebuild"
 );
 
+console.log("\n=== Test 10: P-YEST-ERROR - Yesterday sessions query error ===\n");
+
+// If yesterdaySessionsRes.error, treat yesterday as unknown so
+// the missed prompt doesn't fire (false positive).
+const yesterdayErrorInput = {
+  ...baseInput,
+  localToday: "2026-01-12", // Monday (training day)
+  yesterday: "2026-01-11", // Sunday
+  days: [
+    ...baseInput.days.slice(0, 6),
+    { id: "day7", day_index: 7, day_type: "weights" as const, label: "Upper" }, // Make Sunday a training day
+  ],
+  allSessionsRes: {
+    data: [
+      {
+        local_date: "2026-01-10",
+        status: "completed",
+        actual_type: "weights" as const,
+        program_day_id: "day1",
+        started_at: "2026-01-10T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: null,
+    error: new Error("Failed to load yesterday's sessions"),
+  },
+  sessionExercisesRes: {
+    data: [],
+    error: null,
+  },
+};
+
+const result10 = buildPage(yesterdayErrorInput);
+
+assert(
+  result10.todayState.missedYesterday === false,
+  "P-YEST-ERROR: Errored sessions read suppresses missed prompt"
+);
+
+assert(
+  result10.todayState.isTraining === true,
+  "P-YEST-ERROR: Errored sessions read preserves isTraining"
+);
+
 console.log("\n✅ All buildPage tests passed!\n");

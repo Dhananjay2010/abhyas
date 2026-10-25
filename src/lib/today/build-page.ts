@@ -200,14 +200,15 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
   } = input;
 
   // Filter yesterday's sessions to program sessions on yesterday's date
-  const yesterdayProgramSessions =
-    yesterdaySessionsRes.data?.filter((s) => s.local_date === yesterday && s.program_id === program.id) ?? [];
+  // If sessions query errored, treat yesterday as unknown (pass null)
+  const yesterdayProgramSessions = yesterdaySessionsRes.error
+    ? null
+    : yesterdaySessionsRes.data?.filter((s) => s.local_date === yesterday && s.program_id === program.id) ?? [];
 
   // Attach working set counts to yesterday's sessions
-  const yesterdaySessionsWithCounts = attachWorkingSetCounts(
-    sessionExercisesRes,
-    yesterdayProgramSessions
-  );
+  const yesterdaySessionsWithCounts = yesterdayProgramSessions === null
+    ? null
+    : attachWorkingSetCounts(sessionExercisesRes, yesterdayProgramSessions);
 
   // Today's sessions (filtered to today's date only)
   const todaySessions = todaySessionsRes.data?.filter(
