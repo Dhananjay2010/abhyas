@@ -77,7 +77,7 @@ async function testOnFocusReplaysOnFirstCall() {
             clientId: "client-1",
           },
         ],
-        timestamp: Date.now(),
+        timestamp: 1700000000000,
       },
     })
   );
@@ -131,7 +131,7 @@ async function testOnFocusDoesNotReplayTwice() {
             clientId: "client-1",
           },
         ],
-        timestamp: Date.now(),
+        timestamp: 1700000000000,
       },
     })
   );
@@ -186,7 +186,7 @@ async function testOnFocusRetriesAfterFailure() {
             clientId: "client-1",
           },
         ],
-        timestamp: Date.now(),
+        timestamp: 1700000000000,
       },
     })
   );

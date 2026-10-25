@@ -121,7 +121,7 @@ async function testReplayDoesntClearBeforeConfirm() {
             clientId: "client-1",
           },
         ],
-        timestamp: Date.now(),
+        timestamp: 1700000000000,
       },
     })
   );
@@ -172,7 +172,7 @@ async function testReplayKeepsStillExpiredSetPending() {
             clientId: "client-1",
           },
         ],
-        timestamp: Date.now(),
+        timestamp: 1700000000000,
       },
     })
   );

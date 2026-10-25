@@ -661,7 +661,7 @@ async function testReplayErrorAfterSignIn() {
             clientId: "client-replay",
           },
         ],
-        timestamp: Date.now(),
+        timestamp: 1700000000000,
       },
     })
   );
