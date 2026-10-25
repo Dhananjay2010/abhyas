@@ -344,7 +344,6 @@ export function nextBest(
     at a weight already lifted.
   */
   let personalBest: PersonalBest | null = null;
-  // Round the prior value to ensure comparison at storage precision.
   const beat = (now: number | null, before: number | null) =>
     now !== null && before !== null && now > before;
 
