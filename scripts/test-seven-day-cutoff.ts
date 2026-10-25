@@ -6,7 +6,7 @@
  * while recent sets are kept.
  */
 
-import { loadPendingSets, savePendingSet, type Storage } from "../src/lib/session/pending-set-retry";
+import { savePendingSet, type Storage } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createStorage(): Storage {

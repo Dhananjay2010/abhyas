@@ -238,6 +238,7 @@ console.log("\n7. Old test (b): Movement pattern filtering - push never shows pu
   const current = catalogue.find((e) => e.slug === "barbell-bench-press-medium-grip")!;
   check("barbell-bench-press-medium-grip exists in fixture", !!current);
   
+  const patterns = buildPatternList(current.movement_pattern as MovementPattern, false);
   // Include all catalogue to test filtering
   const pool = catalogue.filter((e) => e.is_active);
   

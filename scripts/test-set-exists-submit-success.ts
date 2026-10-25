@@ -55,7 +55,6 @@ async function runTest() {
   };
 
   type CapturedState = { error: string | null; expired: boolean; pending: unknown[] };
-  let capturedState: CapturedState | undefined = undefined;
   const controller = createPendingSetController({
     userId,
     deps,
@@ -64,11 +63,8 @@ async function runTest() {
     sessionId,
     sessionStatus: "in_progress",
     onChange: (state) => { 
-      capturedState = {
-        error: state.error,
-        expired: state.expired,
-        pending: state.pending,
-      };
+      // onChange callback intentionally unused for this test
+      void state;
     },
   });
 

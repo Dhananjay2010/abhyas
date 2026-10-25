@@ -626,6 +626,57 @@ function testCanReplayForStatusHelper() {
   assert(!canReplayForStatus(""), "Cannot replay for empty session status");
 }
 
+async function testReplayErrorAfterSignIn() {
+  console.log("\n--- Replay network error after sign-in shows replay-error mode ---");
+
+  const storage = createStorage();
+  const sessionId = "session-replay-error";
+
+  // Pre-populate storage with a pending set (as if it was saved during a previous SESSION_EXPIRED)
+  storage.setItem(
+    storageKey("test-user-id"),
+    JSON.stringify({
+      [sessionId]: {
+        sets: [
+          {
+            sessionExerciseId: "ex-replay",
+            setNumber: 1,
+            reps: 10,
+            weightKg: 50,
+            durationSeconds: null,
+            clientId: "client-replay",
+          },
+        ],
+        timestamp: Date.now(),
+      },
+    })
+  );
+
+  // Simulate: user has signed back in, but replay fails with a network error
+  const logSet: LogSetFunction = async () => ({
+    ok: false,
+    error: "Failed to fetch",
+  });
+
+  const states: PendingSetState[] = [];
+  const controller = createPendingSetController({
+    userId: "test-user-id",
+    deps: createPendingSetDeps(),
+    storage,
+    logSet,
+    sessionId,
+    sessionStatus: "in_progress",
+    onChange: (state) => states.push(state),
+  });
+
+  await controller.replay();
+
+  const finalState = states[states.length - 1];
+  assert(finalState.pending.length === 1, "Set still pending after network error");
+  assert(!finalState.expired, "Expired flag cleared after non-auth failure");
+  assertEqual(finalState.error, "Failed to fetch", "Error message preserved");
+}
+
 async function main() {
   console.log("Testing pending-set controller\n");
 
@@ -642,6 +693,7 @@ async function main() {
   await testReplayedSetsReported();
   await testReplayIntoEndedSessionRefused();
   testCanReplayForStatusHelper();
+  await testReplayErrorAfterSignIn();
 
   console.log(
     exitCode === 0 ? "\n✅ All tests passed" : "\n❌ Some tests failed"

@@ -10,7 +10,7 @@
 
 import { createPendingSetController, type PendingSetState } from "../src/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
-import { loadPendingSets, savePendingSet, type Storage } from "../src/lib/session/pending-set-retry";
+import { loadPendingSets, type Storage } from "../src/lib/session/pending-set-retry";
 import type { Result } from "../src/app/session/actions";
 
 function createStorage(): Storage {

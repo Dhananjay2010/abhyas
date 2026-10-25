@@ -163,7 +163,7 @@ export function createPendingSetController(config: {
       setState({ error: result.error ?? "Failed to save set" });
       return { status: "failed", error: result.error ?? "Failed to save set" };
     } catch (err) {
-      if (err instanceof Error && err.message.startsWith("SESSION_EXPIRED:")) {
+      if (isSessionExpired(err)) {
         const pending: PendingSet = {
           sessionExerciseId: set.sessionExerciseId,
           setNumber: set.setNumber,
@@ -227,6 +227,7 @@ export function createPendingSetController(config: {
 
       let firstError: string | null = null;
       const successfullyReplayed: PendingSet[] = [];
+      let authFailed = false;
 
       for (const set of toReplay) {
         try {
@@ -243,6 +244,7 @@ export function createPendingSetController(config: {
             successfullyReplayed.push(set);
           } else if (isSessionExpired(result)) {
             if (!firstError) firstError = "Session still expired";
+            authFailed = true;
           } else {
             if (!firstError) firstError = result.error ?? "Failed to replay set";
           }
@@ -250,8 +252,9 @@ export function createPendingSetController(config: {
           if (isDuplicateError(err)) {
             clearPendingSet(storage, userId, sessionId, set.clientId, deps);
             successfullyReplayed.push(set);
-          } else if (err instanceof Error && err.message.startsWith("SESSION_EXPIRED:")) {
+          } else if (isSessionExpired(err)) {
             if (!firstError) firstError = "Session still expired";
+            authFailed = true;
           } else if (!firstError) {
             firstError = err instanceof Error ? err.message : "Network error";
           }
@@ -261,7 +264,7 @@ export function createPendingSetController(config: {
       const remaining = loadPendingSets(storage, userId, sessionId, deps);
       setState({
         pending: remaining,
-        expired: remaining.length > 0,
+        expired: remaining.length > 0 && authFailed,
         retrying: false,
         error: firstError,
         replayed: successfullyReplayed,

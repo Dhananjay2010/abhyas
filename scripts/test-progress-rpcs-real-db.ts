@@ -119,6 +119,7 @@ async function runTests() {
     userIdB = authDataB.user.id;
     console.log(`Created test users: A=${userIdA.slice(0, 8)}... B=${userIdB.slice(0, 8)}...\n`);
 
+    // Create authenticated clients
     const anonClientA = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { error: signInErrorA } = await anonClientA.auth.signInWithPassword({
       email: testEmailA,
@@ -155,6 +156,7 @@ async function runTests() {
       console.error("Failed to fetch seeded exercises:", exError);
       return false;
     }
+
     const exerciseA = exercises[0].id;
 
     console.log("1. progress_summary with 250+ sessions");
