@@ -132,6 +132,32 @@ async function main() {
     eq(fake.tables.session_exercises.length, 4, "both sessions have their exercises");
   });
 
+  await test("P6: insert error is returned, not swallowed", async () => {
+    const fake = db();
+    const exercises = sampleExercises("session-fail");
+    
+    // Inject a server error via beforeRequest
+    fake.beforeRequest = (req) => {
+      if (req.method === "POST" && req.table === "session_exercises") {
+        return new Response(JSON.stringify({
+          code: "42501",
+          message: "insufficient_privilege",
+          details: "permission denied for table session_exercises",
+          hint: null,
+        }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    };
+    
+    const result = await insertSessionExercises(fake.client, exercises);
+    if (result.ok) throw new Error("expected error, got ok");
+    if (!result.error.includes("insufficient_privilege")) {
+      throw new Error(`expected "insufficient_privilege" error, got: ${result.error}`);
+    }
+  });
+
   console.log(`\n${passed + failed} tests, ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
 }
