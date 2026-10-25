@@ -7,7 +7,6 @@ import { readFileSync } from "fs";
 import {
   generateProgram,
   type CandidateExercise,
-  type GeneratorInput,
   PAST_KNEE_LUNGE_EXERCISES,
 } from "../src/lib/program/generate";
 import { isKneeRiskForKneeUser } from "../src/lib/program/knee-safety";
