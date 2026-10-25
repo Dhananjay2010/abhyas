@@ -76,29 +76,29 @@ function test_mutant() {
 
 # Mutant (a): Remove mobility pool exclusion
 test_mutant "Remove mobility pool exclusion" \
-  "sed -i.bak '/Past-knee exclusion: exclude knee-loading mobility drills/,+3d' \"$WARMUP_FILE\""
+  "sed -i.bak '/Past-knee exclusion: exclude knee-loading mobility drills/,+3d' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
 
-# Mutant (b): Remove fallback exclusion
-test_mutant "Remove fallback exclusion" \
-  "sed -i.bak '/Past-knee exclusion: skip knee-loading fallbacks/,+3d' \"$WARMUP_FILE\""
+# Mutant (b): Add bodyweight-squat to past-knee fallback list (before glute-bridge)
+test_mutant "Add knee-loading drill to past-knee fallback" \
+  "sed -i.bak 's/\\[\"glute-bridge\",/[\"bodyweight-squat\", \"glute-bridge\",/' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
 
 # Mutant (c): Apply exclusion to all users (remove isPastKnee condition)
 test_mutant "Apply exclusion to all users" \
-  "sed -i.bak 's/if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS/if (PAST_KNEE_EXCLUDED_WARMUP_SLUGS/g' \"$WARMUP_FILE\""
+  "sed -i.bak 's/if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS/if (PAST_KNEE_EXCLUDED_WARMUP_SLUGS/g' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
 
 # Mutant (d): Treat current knee as past knee (change the condition)
 # EQUIVALENT: current knee already excludes these through target_regions
 test_mutant "Treat current knee as past knee" \
-  "sed -i.bak 's/function isPastKneeUser/function isPastKneeUser_mutated/' \"$WARMUP_FILE\"" \
+  "sed -i.bak 's/function isPastKneeUser/function isPastKneeUser_mutated/' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\"" \
   "true"
 
 # Mutant (e): Drop worlds-greatest from the excluded set
 test_mutant "Drop worlds-greatest from excluded set" \
-  "sed -i.bak '/\"worlds-greatest\",/d' \"$WARMUP_FILE\""
+  "sed -i.bak '/\"worlds-greatest\",/d' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
 
-# Mutant (f): Change continue to break in fallback loop
-test_mutant "Change continue to break in fallback" \
-  "sed -i.bak '/Past-knee exclusion: skip knee-loading fallbacks/,/continue;/s/continue;/break;/' \"$WARMUP_FILE\""
+# Mutant (f): Remove the 3-drill limit check (allow overrun)
+test_mutant "Remove 3-drill limit in fallback" \
+  "sed -i.bak '/if (mobility.length >= 3)/d' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
 
 # Restore original
 cp "$BACKUP" "$WARMUP_FILE"

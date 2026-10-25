@@ -157,17 +157,14 @@ export function selectWarmup(input: {
     // Fallback drills, filtered by contraindications. Never suggest a squat for
     // a knee injury or spinal movement for a lower-back injury.
     // For past-knee users training lower body, prefer knee-safe lower-body drills.
+    // For past-knee users, prefer knee-safe lower-body drills first.
+    // The past-knee fallback list excludes knee-loading drills by construction.
     const fallbackSlugs = isPastKnee 
       ? ["glute-bridge", "hip-circles", "leg-swing-front", "leg-swing-side", "cat-cow", "arm-circles"]
       : ["cat-cow", "arm-circles", "bodyweight-squat", "hip-circles"];
     
     for (const slug of fallbackSlugs) {
       if (mobility.length >= 3) break;
-      
-      // Past-knee exclusion: skip knee-loading fallbacks
-      if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(slug)) {
-        continue;
-      }
       
       const w = warmups.find((x) => x.slug === slug);
       if (!w || mobility.some((m) => m.id === w.id)) continue;
