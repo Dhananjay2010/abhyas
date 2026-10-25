@@ -59,6 +59,7 @@ async function testM1_MidBlockRebuildPreservesDates() {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await client.query("SET LOCAL ROLE authenticated");
       await client.query(`SET LOCAL request.jwt.claim.sub = '${userId}'`);
       
       // Rebuild on day 27 (Nov 10)
