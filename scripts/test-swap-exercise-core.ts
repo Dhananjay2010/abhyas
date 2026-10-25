@@ -11,7 +11,6 @@
  */
 
 import { swapExerciseCore, type SwapExerciseDeps, type SwapExerciseCoreInput } from "@/lib/session/swap-exercise-core";
-import type { Database } from "@/lib/database.types";
 
 function check(label: string, pass: boolean, detail?: string) {
   if (pass) {
@@ -51,20 +50,20 @@ async function main() {
     newExerciseId: NEW_EXERCISE_ID,
     current: {
       exercise_id: OLD_EXERCISE_ID,
-      metric: "reps" as Database["public"]["Enums"]["exercise_metric"],
+      metric: "reps",
       planned_reps_min: 8,
       planned_reps_max: 12,
       session_id: SESSION_ID,
     },
     replacement: {
-      metric: "reps" as Database["public"]["Enums"]["exercise_metric"],
-      mechanic: "compound" as Database["public"]["Enums"]["exercise_mechanic"],
+      metric: "reps",
+      mechanic: "compound",
       equipment_ids: ["barbell"],
-      movement_pattern: "horizontal_push" as Database["public"]["Enums"]["movement_pattern"],
+      movement_pattern: "horizontal_push",
     },
     profile: {
-      goal: "muscle_gain" as Database["public"]["Enums"]["user_goal"],
-      level: "intermediate" as Database["public"]["Enums"]["experience_level"],
+      goal: "muscle_gain",
+      level: "intermediate",
     },
   };
 
@@ -106,10 +105,10 @@ async function main() {
   const bodyweightInput: SwapExerciseCoreInput = {
     ...input,
     replacement: {
-      metric: "reps" as Database["public"]["Enums"]["exercise_metric"],
-      mechanic: "compound" as Database["public"]["Enums"]["exercise_mechanic"],
+      metric: "reps",
+      mechanic: "compound",
       equipment_ids: [],
-      movement_pattern: "vertical_pull" as Database["public"]["Enums"]["movement_pattern"],
+      movement_pattern: "vertical_pull",
     },
   };
 

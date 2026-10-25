@@ -356,6 +356,7 @@ export default async function TodayPage() {
     } | null;
   }> | null;
 
+  // Build today rows with deload computation
   const todayExercises: TodayRow[] = buildTodayRowsForProgram({
     actual,
     template,
@@ -366,6 +367,11 @@ export default async function TodayPage() {
     },
     localToday,
   });
+
+  // Recompute week and isDeload for UI display (header, deload banner, etc.)
+  const { cycleWeekFor } = await import("@/lib/program/block-range");
+  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
+  const isDeload = week === program.deload_week;
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show

@@ -10,7 +10,6 @@
  */
 
 import { buildTodayRowsForProgram, type BuildTodayRowsForProgramInput } from "@/lib/today/build-today-rows-for-program";
-import type { Database } from "@/lib/database.types";
 
 function check(label: string, pass: boolean, detail?: string) {
   if (pass) {
@@ -34,7 +33,7 @@ async function main() {
       exercises: {
         name: "Bench Press",
         cue: "Keep shoulders back",
-        metric: "reps" as Database["public"]["Enums"]["exercise_metric"],
+        metric: "reps",
       },
     },
     {
@@ -46,7 +45,7 @@ async function main() {
       exercises: {
         name: "Dumbbell Bench",
         cue: null,
-        metric: "reps" as Database["public"]["Enums"]["exercise_metric"],
+        metric: "reps",
       },
     },
   ];
