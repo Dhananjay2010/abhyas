@@ -101,30 +101,36 @@ console.log("\n2. Bodyweight-pull force-add guard (mutant 16)");
     console.log(`  ✗ ${excludedSlug} not found in catalogue`);
     failCount++;
   } else {
-    // Remove all pull exercises except the excluded one
-    const injectedCatalogue = baseCatalogue.map(e => {
+    // Keep most exercises but remove all other horizontal_pull and vertical_pull
+    const injectedCatalogue = baseCatalogue.filter(e => {
       if ((e.movement_pattern === "horizontal_pull" || e.movement_pattern === "vertical_pull") && e.slug !== excludedSlug) {
-        return null;
+        return false;
       }
-      return e;
-    }).filter((e): e is CandidateExercise => e !== null);
+      return true;
+    });
     
-    // Make sure the excluded exercise is bodyweight (no equipment)
-    const modifiedExcluded = { ...excludedEx, equipment_ids: [] };
+    // Make the excluded exercise bodyweight-friendly with no contraindications
+    const modifiedExcluded: CandidateExercise = {
+      ...excludedEx,
+      equipment_ids: [],
+      mechanic: "compound",
+      contraindicated_regions: [],
+      tracks: ["bodyweight", "weights"],
+    };
     const finalCatalogue = injectedCatalogue.map(e => e.slug === excludedSlug ? modifiedExcluded : e);
     
     // Generate a BODYWEIGHT plan to trigger BW pull force-add logic at :905
     const input: GeneratorInput = {
       userId: "guard-bw-force-test",
       blockNumber: 1,
-      level: "beginner",
-      equipmentIds: ["pull_up_bar"],
-      hasAllEquipment: false,
+      level: "intermediate",
+      equipmentIds: [],
+      hasAllEquipment: true,
       goal: "muscle_gain",
       currentInjuryRegions: [],
       age: 30,
       bmi: null,
-      daysPerWeek: 3,
+      daysPerWeek: 6,
       yogaDaysPerWeek: 0,
       primaryTrack: "bodyweight",
       preferredSessionMinutes: 60,
@@ -320,7 +326,7 @@ console.log("\n5. Empty-day backfill guard (mutant 20)");
     const program = generateProgram(input);
     
     // Check if at least one day is labeled "Full body" (backfill ran)
-    const hasFullBody = program.days.some(d => d.label && d.label.includes("Full"));
+    const hasFullBody = program.days.some(d => d.label === "Full body");
     
     if (hasFullBody) {
       const allSlugs = program.days.flatMap(day => 
@@ -338,19 +344,17 @@ console.log("\n5. Empty-day backfill guard (mutant 20)");
         backfillFails++;
       }
       backfillChecks++;
+    } else {
+      backfillFails++;
     }
   }
   
-  if (backfillChecks > 0) {
-    if (backfillFails === 0) {
-      passCount += backfillChecks;
-      console.log(`  ✓ Backfill guard blocks excluded slugs (${backfillChecks} profiles with Full body days)`);
-    } else {
-      failCount += backfillFails;
-      passCount += backfillChecks - backfillFails;
-    }
+  if (backfillFails === 0) {
+    passCount += backfillChecks;
+    console.log(`  ✓ Backfill guard blocks excluded slugs (${backfillChecks} profiles with Full body days)`);
   } else {
-    console.log(`  ⚠ No Full body days found (backfill not triggered)`);
+    failCount += backfillFails;
+    passCount += backfillChecks - backfillFails;
   }
 }
 

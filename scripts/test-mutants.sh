@@ -371,9 +371,26 @@ echo "15. Mutation: Remove Strategy 3 accessory exclusion filter (only :1266)"
 cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
+# Assert target lines before mutation
+line1265=$(sed -n '1265p' "$GENERATE_FILE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+line1266=$(sed -n '1266p' "$GENERATE_FILE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+if [ "$line1265" != "isEligible(e, input) &&" ]; then
+  echo "  ✗ FATAL: Line 1265 does not match expected content (found: '$line1265')"
+  exit 1
+fi
+if [ "$line1266" != "!EXCLUDED_EXERCISE_SLUGS.has(e.slug)" ]; then
+  echo "  ✗ FATAL: Line 1266 does not match expected content (found: '$line1266')"
+  exit 1
+fi
+count_before=$(grep -c '!EXCLUDED_EXERCISE_SLUGS.has(e.slug)' "$GENERATE_FILE")
 # Remove only the Strategy 3 filter at :1265-1266
 sed -i '1265s/ &&$//' "$GENERATE_FILE"
 sed -i '1266d' "$GENERATE_FILE"
+count_after=$(grep -c '!EXCLUDED_EXERCISE_SLUGS.has(e.slug)' "$GENERATE_FILE")
+if [ "$count_before" -ne 3 ] || [ "$count_after" -ne 2 ]; then
+  echo "  ✗ FATAL: Guard count mismatch (before: $count_before, after: $count_after, expected: 3→2)"
+  exit 1
+fi
 verify_mutation "$GENERATE_FILE" $GENERATE_BACKUP "e.movement_pattern === pattern" "Strategy 3 pattern check still present"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove Strategy 3 filter"; then
@@ -407,10 +424,27 @@ echo "17. Mutation: Remove post-pacing bodyweight-pull exclusion filter"
 cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
+# Assert target lines before mutation
+line1321=$(sed -n '1321p' "$GENERATE_FILE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+line1322=$(sed -n '1322p' "$GENERATE_FILE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+if [ "$line1321" != "isEligible(e, input) &&" ]; then
+  echo "  ✗ FATAL: Line 1321 does not match expected content (found: '$line1321')"
+  exit 1
+fi
+if [ "$line1322" != "!EXCLUDED_EXERCISE_SLUGS.has(e.slug)" ]; then
+  echo "  ✗ FATAL: Line 1322 does not match expected content (found: '$line1322')"
+  exit 1
+fi
+count_before=$(grep -c '!EXCLUDED_EXERCISE_SLUGS.has(e.slug)' "$GENERATE_FILE")
 # Remove line with !EXCLUDED_EXERCISE_SLUGS.has(e.slug) and fix the && on the previous line
 # Use line number 1321-1322 (isEligible line and exclusion check line)
 sed -i '1321s/ &&$//' "$GENERATE_FILE"
 sed -i '1322d' "$GENERATE_FILE"
+count_after=$(grep -c '!EXCLUDED_EXERCISE_SLUGS.has(e.slug)' "$GENERATE_FILE")
+if [ "$count_before" -ne 3 ] || [ "$count_after" -ne 2 ]; then
+  echo "  ✗ FATAL: Guard count mismatch (before: $count_before, after: $count_after, expected: 3→2)"
+  exit 1
+fi
 verify_mutation "$GENERATE_FILE" $GENERATE_BACKUP "!usedInBlock.has(e.id)" "post-pacing context still present"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove post-pacing BW filter"; then
