@@ -85,7 +85,7 @@ Object.defineProperty(globalThis, "navigator", {
 });
 
 // Add vibrate function to navigator (simulating a browser that supports vibration)
-const vibrateFunc = function (pattern: number | number[]): boolean {
+const vibrateFunc = function (_pattern: number | number[]): boolean {
   return true;
 };
 Object.defineProperty(dom.window.navigator, "vibrate", {
