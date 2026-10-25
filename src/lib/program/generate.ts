@@ -2,6 +2,11 @@ import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
+import {
+  isKneeRiskForKneeUser,
+  getDerivedContraindications as getKneeSafetyDerivedContraindications,
+  KNEE_SAFE_QUAD_EXERCISES as KNEE_SAFE_QUAD_EXERCISES_IMPORTED,
+} from "./knee-safety";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -347,15 +352,9 @@ function shouldExcludeForSafety(
 
 /**
  * QA Pass 10 H6 (restored from PR #53): Exercises safe for knee injuries despite being quad-focused.
- * These use limited ROM, isometric holds, or controlled movements that don't aggravate the knee.
- * Must be REAL prod slugs only. Exported for testing.
+ * Re-exported from knee-safety.ts for backward compatibility and testing.
  */
-export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = new Set([
-  'leg-extensions',           // Partial ROM, pain-free range (machine)
-  'single-leg-leg-extension', // Partial ROM, pain-free range (machine)
-  'wall-sit',                 // Isometric hold, no dynamic stress (bodyweight, seconds metric)
-  'spanish-squat',            // Band-resisted, controlled (resistance_band)
-]);
+export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = KNEE_SAFE_QUAD_EXERCISES_IMPORTED;
 
 /**
  * KNEE-SAFE LUNGE EXERCISES for CURRENT knee injury (PR #73 scoped policy).
@@ -472,18 +471,10 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
     derived.push("lower_back");
   }
   
-  // H6: Squat, lunge, or jump movements load knees UNLESS they're in the knee-safe list
-  if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
-    if (ex.movement_pattern === "squat" ||
-        ex.movement_pattern === "lunge" ||
-        nameLower.includes("squat") ||
-        nameLower.includes("lunge") ||
-        nameLower.includes("jump") ||
-        slugLower.includes("squat") ||
-        slugLower.includes("lunge") ||
-        slugLower.includes("jump")) {
-      derived.push("knee");
-    }
+  // Knee contraindications: delegate to knee-safety module for consistency
+  const kneeFromSafety = getKneeSafetyDerivedContraindications(ex);
+  if (kneeFromSafety.includes("knee")) {
+    derived.push("knee");
   }
   
   return derived;
@@ -809,6 +800,49 @@ function pickForSlot(
     }
   }
   
+  // PART A: Past-knee lunge slot fix (Brief knee-volume)
+  // For past-knee users, try PAST_KNEE_LUNGE_EXERCISES before fallback, regardless of pattern.
+  // This prevents the lunge slot from collapsing into a knee-risk squat (e.g. Goblet Squat).
+  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
+  
+  if (hasPastKnee && pattern === "lunge") {
+    let pastKneeCandidates = pool.filter((e) => 
+      PAST_KNEE_LUNGE_EXERCISES.has(e.slug) && !used.has(e.id)
+    );
+    
+    if (pastKneeCandidates.length > 0) {
+      // Apply safety filters
+      pastKneeCandidates = pastKneeCandidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
+      pastKneeCandidates = pastKneeCandidates.filter((e) => !wouldViolateConstraints(e, slotIndex, pickedSoFar, input));
+      pastKneeCandidates = pastKneeCandidates.filter((e) => !EXCLUDED_EXERCISE_SLUGS.has(e.slug));
+      
+      if (pastKneeCandidates.length > 0) {
+        // Prefer non-timed (metric "reps") moves for main slots; wall-sit (seconds) only if nothing else qualifies
+        const nonTimed = isMainSlot 
+          ? pastKneeCandidates.filter((e) => e.metric === "reps")
+          : pastKneeCandidates;
+        
+        const finalCandidates = nonTimed.length > 0 ? nonTimed : pastKneeCandidates;
+        
+        // Rank deterministically: score, then slug
+        const ranked = finalCandidates
+          .map((e) => ({
+            e,
+            score: score(e, wantCompound, input.level, input.primaryTrack),
+          }))
+          .sort((a, b) => {
+            if (a.score !== b.score) return b.score - a.score;
+            return a.e.slug.localeCompare(b.e.slug);
+          });
+        
+        if (ranked.length > 0) {
+          return ranked[0].e;
+        }
+      }
+    }
+  }
+  
   for (const p of [pattern, PATTERN_FALLBACK[pattern]]) {
     if (!p) continue;
     let candidates = pool.filter((e) => e.movement_pattern === p && !used.has(e.id));
@@ -818,6 +852,13 @@ function pickForSlot(
     // for main slots (all goals) and all slots (beginners, injured, age 50+)
     candidates = candidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
     if (candidates.length === 0) continue; // Try fallback pattern if filtered out
+    
+    // PART A: Knee-risk filter for knee users in fallback patterns (Brief knee-volume)
+    // Never fall back to a knee-risk exercise for a knee user (past or current)
+    if (input.anyKneeInjury) {
+      candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, input.anyKneeInjury));
+    }
+    if (candidates.length === 0) continue;
     
     // Apply shared constraint checker (timed holds in mains, adjacent hinges for knee injury)
     candidates = candidates.filter((e) => !wouldViolateConstraints(e, slotIndex, pickedSoFar, input));
@@ -860,18 +901,23 @@ function pickForSlot(
   // out all primary options (e.g., knee injury rules out squats/lunges).
   const alternatives = SAFE_ALTERNATIVES[pattern] ?? [];
   for (const altPattern of alternatives) {
-    const altCandidates = pool.filter(
+    let altCandidates = pool.filter(
       (e) => e.movement_pattern === altPattern && !used.has(e.id)
     );
     if (altCandidates.length === 0) continue;
     
     // Apply safety filter to alternative candidates too
-    const filtered = altCandidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
+    altCandidates = altCandidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
+    if (altCandidates.length === 0) continue;
     
-    if (filtered.length === 0) continue;
+    // PART A: Knee-risk filter for knee users in SAFE_ALTERNATIVES (Brief knee-volume)
+    if (input.anyKneeInjury) {
+      altCandidates = altCandidates.filter((e) => !isKneeRiskForKneeUser(e, input.anyKneeInjury));
+    }
+    if (altCandidates.length === 0) continue;
     
     // Apply shared constraint checker
-    const finalCandidates = filtered.filter((e) => !wouldViolateConstraints(e, slotIndex, pickedSoFar, input));
+    const finalCandidates = altCandidates.filter((e) => !wouldViolateConstraints(e, slotIndex, pickedSoFar, input));
     if (finalCandidates.length === 0) continue;
     
     const ranked = finalCandidates
@@ -1801,9 +1847,20 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         iterations++;
         
         // Strategy 1: Add a set to accessories (slots 4+, up to 4 sets max)
+        // PART B: Skip knee-risk exercises for knee users (Brief knee-volume)
         const accessories = exercises
           .map((ex, idx) => ({ ex, idx }))
-          .filter(({ idx }) => idx >= 4 && exercises[idx].targetSets < 4);
+          .filter(({ idx }) => {
+            if (idx < 4 || exercises[idx].targetSets >= 4) return false;
+            // Knee users: skip knee-risk exercises
+            if (input.anyKneeInjury) {
+              const exData = pool.find(e => e.id === exercises[idx].exerciseId);
+              if (exData && isKneeRiskForKneeUser(exData, input.anyKneeInjury)) {
+                return false;
+              }
+            }
+            return true;
+          });
         
         if (accessories.length > 0) {
           // Deterministic: pick first accessory that can take another set
@@ -1813,9 +1870,20 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         }
         
         // Strategy 2: Add a set to main exercises (up to 5 sets max for main lifts)
+        // PART B: Skip knee-risk exercises for knee users (Brief knee-volume)
         const mainExercises = exercises
           .map((ex, idx) => ({ ex, idx }))
-          .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < 5);
+          .filter(({ idx }) => {
+            if (idx >= 4 || exercises[idx].targetSets >= 5) return false;
+            // Knee users: skip knee-risk exercises
+            if (input.anyKneeInjury) {
+              const exData = pool.find(e => e.id === exercises[idx].exerciseId);
+              if (exData && isKneeRiskForKneeUser(exData, input.anyKneeInjury)) {
+                return false;
+              }
+            }
+            return true;
+          });
         
         if (mainExercises.length > 0) {
           mainExercises[0].ex.targetSets++;
@@ -1824,21 +1892,28 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         }
         
         // Strategy 3: Add another accessory exercise
+        // PART B: Do not add knee-risk exercises for knee users (Brief knee-volume)
         const accessoryPatterns = entry.slots.slice(-2); // Last 2 patterns
         if (accessoryPatterns.length > 0) {
           const pattern = accessoryPatterns[exercises.length % accessoryPatterns.length];
-          const candidates = pool
+          let candidates = pool
             .filter((e) => 
               e.movement_pattern === pattern &&
               !usedInBlock.has(e.id) &&
               isEligible(e, input) &&
               !EXCLUDED_EXERCISE_SLUGS.has(e.slug)
-            )
-            .sort((a, b) => 
-              score(b, true, input.level, input.primaryTrack) -
-              score(a, true, input.level, input.primaryTrack) ||
-              a.slug.localeCompare(b.slug)
             );
+          
+          // Knee users: exclude knee-risk exercises
+          if (input.anyKneeInjury) {
+            candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, input.anyKneeInjury));
+          }
+          
+          candidates = candidates.sort((a, b) => 
+            score(b, true, input.level, input.primaryTrack) -
+            score(a, true, input.level, input.primaryTrack) ||
+            a.slug.localeCompare(b.slug)
+          );
           
           if (candidates.length > 0) {
             const picked = candidates[0];
