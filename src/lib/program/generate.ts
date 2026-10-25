@@ -359,6 +359,14 @@ const KNEE_SAFE_QUAD_EXERCISES = new Set([
 ]);
 
 /**
+ * Exercises with slug-specific shoulder contraindications.
+ * Around The Worlds: arms pass overhead in a wide arc, loading shoulders.
+ */
+const SHOULDER_CONTRAINDICATED_SLUGS: ReadonlySet<string> = new Set([
+  "around-the-worlds",
+]);
+
+/**
  * QA Pass 10 C2: Derive contraindications from exercise properties.
  * - vertical_press or "overhead" in name → shoulder
  * - spinal_load high or moderate → lower_back
@@ -370,6 +378,11 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
   const derived: BodyRegion[] = [];
   const nameLower = ex.name.toLowerCase();
   const slugLower = ex.slug.toLowerCase();
+  
+  // Slug-specific shoulder contraindications
+  if (SHOULDER_CONTRAINDICATED_SLUGS.has(ex.slug)) {
+    derived.push("shoulder");
+  }
   
   // Vertical press or overhead movements load shoulders
   if (ex.movement_pattern === "vertical_press" ||
