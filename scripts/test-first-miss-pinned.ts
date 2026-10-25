@@ -540,6 +540,19 @@ console.log("\n=== Mutant-Killing Tests ===");
     firstW === 2.75 && twoW === 2.5);
 }
 
+{
+  // Dumbbell 2.5 kg first miss: holds with "smallest available step" message
+  const d = run({
+    sets: sets(4, 10, 2.5),
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 2.5, consecutiveFailures: 0 }),
+  });
+  check("Dumbbell 2.5 kg first miss: holds at 2.5 kg with 'smallest available step' message", 
+    d.nextWorkingWeightKg === 2.5 && d.message.includes("smallest available step"));
+}
+
 console.log("\n=== THRESHOLD BEHAVIOR ===");
 // Test threshold value through behavior, not by checking the constant
 // Dumbbell 7.5 kg -> 5 kg would be 33.3% cut, which is > 20% but < 50%
