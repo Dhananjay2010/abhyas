@@ -159,15 +159,15 @@ m8() {
 }
 test_mutant "RAW target rejected (need strictly above)" m8
 
-# M9: Timed success vs repsMax only (ignore stored target)
+# M9: Success check ignores stored target (always use plan)
 m9() {
-  sed -i 's/const target = heaviest === 0 ? (sanitizedTarget ?? repsMax) : repsMax;/const target = repsMax;/' "$PROG"
+  sed -i 's/currentTargetReps: state\.currentTargetReps,/currentTargetReps: null,/' "$PROG"
 }
-test_mutant "Timed success vs repsMax only (ignore stored target)" m9
+test_mutant "Success check ignores stored target (always use plan)" m9
 
 # M10: C-2 Remove stored target sanitization (allow <=0/non-finite)
 m10() {
-  sed -i '/const sanitizedTarget = (state\.currentTargetReps != null && isFinite(state\.currentTargetReps) && state\.currentTargetReps > 0)/,/: null;/c\  const sanitizedTarget = state.currentTargetReps;' "$PROG"
+  sed -i '/const sanitizedTarget = (state\.currentTargetReps != null && Number\.isFinite(state\.currentTargetReps) && state\.currentTargetReps > 0)/,/: null;/c\  const sanitizedTarget = state.currentTargetReps;' "$PROG"
 }
 test_mutant "C-2 Remove stored target sanitization (allow <=0/non-finite)" m10
 

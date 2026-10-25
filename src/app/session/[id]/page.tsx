@@ -4,10 +4,10 @@ import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warm
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { progressionInputsFromExercise } from "@/lib/session/progression-inputs";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
+import { mapSessionExercise } from "@/lib/session/build-runner-exercises";
 
 export const dynamic = "force-dynamic";
 
@@ -48,14 +48,14 @@ export default async function SessionPage({
         // session_exercises points at it twice — once for the exercise itself
         // and once for what it was swapped from. Without the hint PostgREST
         // answers PGRST201 rather than guessing.
-        .select("id, status, local_date, is_deload, week_in_block, warmup_completed, started_at, session_exercises(id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, metric, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, mechanic, primary_muscles, equipment_ids), session_sets(set_number, reps, weight_kg, duration_seconds, is_warmup_set, completed_at))")
+        .select("id, status, local_date, is_deload, week_in_block, warmup_completed, started_at, session_exercises(id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, metric, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, primary_muscles, equipment_ids), session_sets(set_number, reps, weight_kg, duration_seconds, is_warmup_set, completed_at))")
         .eq("id", id)
         .order("order_index", { referencedTable: "session_exercises" })
         .maybeSingle(),
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
       supabase
         .from("profiles")
-        .select("primary_track, has_all_equipment, timezone, units")
+        .select("primary_track, has_all_equipment, timezone")
         .eq("id", user.id)
         .single(),
       supabase.from("user_injuries").select("body_region, severity"),
@@ -63,7 +63,8 @@ export default async function SessionPage({
       supabase.from("user_equipment").select("equipment_id"),
       supabase
         .from("exercise_progress")
-        .select("exercise_id, current_working_weight_kg, current_target_reps"),
+        .select("exercise_id, current_working_weight_kg, current_target_reps")
+        .eq("user_id", user.id),
     ]);
 
   // A failed query used to fall through to "this session has no exercises",
@@ -77,6 +78,11 @@ export default async function SessionPage({
   if (sessionRes.error) {
     if (sessionRes.error.code === "22P02") notFound();
     throw new Error(`Could not load this session: ${sessionRes.error.message}`);
+  }
+  
+  // Log progress query error but don't throw (LOW requirement)
+  if (progressRes.error) {
+    console.error("Failed to load exercise progress:", progressRes.error.message);
   }
 
   const session = sessionRes.data;
@@ -110,20 +116,21 @@ export default async function SessionPage({
       name: string;
       cue: string | null;
       movement_pattern: Database["public"]["Enums"]["movement_pattern"];
-      mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
       primary_muscles: Muscle[];
       equipment_ids: string[];
     };
     const progress = remembersWeights ? progressByExercise.get(ex?.id ?? "") : undefined;
-    const working =
-      progress?.current_working_weight_kg === null || progress === undefined
-        ? null
-        : Number(progress.current_working_weight_kg);
-    const isBodyweight = (ex?.equipment_ids ?? []).length === 0;
-    const progInputs = progressionInputsFromExercise(ex ?? { equipment_ids: [] }, profileRes.data?.units);
+    
+    // Use extracted pure function for target resolution (M-2)
+    const mapped = mapSessionExercise({
+      row: r,
+      progress,
+      remembersWeights,
+    });
+    
     return {
       id: r.id,
-      exerciseId: ex?.id ?? "",
+      exerciseId: mapped.exerciseId,
       name: ex?.name ?? "Exercise",
       cue: ex?.cue ?? null,
       /*
@@ -132,30 +139,28 @@ export default async function SessionPage({
         logged in, or half the sets in one exercise would be reps and half
         seconds.
       */
-      metric: r.metric ?? "reps",
+      metric: mapped.metric,
       primaryMuscles: ex?.primary_muscles ?? [],
       plannedSets: r.planned_sets ?? 3,
-      repsMin: r.planned_reps_min ?? 8,
-      repsMax: r.planned_reps_max ?? 12,
+      repsMin: mapped.repsMin,
+      repsMax: mapped.repsMax,
       restSeconds: r.rest_seconds ?? 90,
       status: r.status,
       feel: r.feel,
-      workingWeightKg: working,
+      workingWeightKg: mapped.currentWorkingWeightKg,
       suggestedWeightKg: suggestedWeight(
-        { currentWorkingWeightKg: working },
+        { currentWorkingWeightKg: mapped.currentWorkingWeightKg },
         session.is_deload,
         {
-          mechanic: ex?.mechanic ?? null,
+          mechanic: null,
           movementPattern: ex?.movement_pattern ?? "other",
-          metric: r.metric ?? "reps",
-          isBodyweight,
+          metric: mapped.metric,
+          isBodyweight: mapped.isBodyweight,
           progressionChain: null,
           progressionRank: null,
         },
-        progInputs.equipmentIds,
-        progInputs.unit,
       ),
-      isBodyweight,
+      isBodyweight: mapped.isBodyweight,
       // Warm-up sets are excluded and the order applied here rather than in the
       // query. PostgREST is documented to filter an embedded resource without
       // dropping its parent, but if that were ever wrong the failure would be

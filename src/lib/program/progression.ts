@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import { KETTLEBELL_WEIGHTS_KG, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, type WeightUnit } from "@/lib/session/equipment-grid";
 import { formatWeight } from "@/lib/units";
+import { resolveTarget } from "../session/display-target";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -379,7 +380,7 @@ export function evaluateProgression(input: {
   equipmentIds?: string[];
   unit?: WeightUnit;
 }): Decision {
-  const { sets, plannedSets, repsMax, feel, meta, state, isDeload, equipmentIds, unit } = input;
+  const { sets, plannedSets, repsMin, repsMax, feel, meta, state, isDeload, equipmentIds, unit } = input;
 
   const isTimed = meta.metric === "seconds";
   /** What this set is measured in: seconds held for a hold, reps otherwise. */
@@ -391,8 +392,8 @@ export function evaluateProgression(input: {
 
   const bests = nextBest(sets, state, meta);
 
-  // Sanitize stored target: treat null, non-finite, or <= 0 as absent
-  const sanitizedTarget = (state.currentTargetReps != null && isFinite(state.currentTargetReps) && state.currentTargetReps > 0) 
+  // C-2: Sanitize stored target using Number.isFinite (treat null, non-finite, or <= 0 as absent)
+  const sanitizedTarget = (state.currentTargetReps != null && Number.isFinite(state.currentTargetReps) && state.currentTargetReps > 0) 
     ? state.currentTargetReps 
     : null;
 
@@ -471,8 +472,18 @@ export function evaluateProgression(input: {
 
   // Success requires the full set count AND the top of the rep range on each.
   const completedAllSets = working.length >= plannedSets;
-  const target = heaviest === 0 ? (sanitizedTarget ?? repsMax) : repsMax;
-  const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= target);
+  
+  // Use resolveTarget helper for success check (same target the display shows)
+  const successTarget = resolveTarget({
+    metric: isTimed ? "seconds" : "reps",
+    plannedMin: repsMin,
+    plannedMax: repsMax,
+    currentTargetReps: state.currentTargetReps,
+    isBodyweight: meta.isBodyweight,
+    currentWorkingWeightKg: heaviest > 0 ? heaviest : state.currentWorkingWeightKg,
+  }).max;
+  
+  const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= successTarget);
   const succeeded = completedAllSets && hitTopOfRange;
 
   if (succeeded) {
