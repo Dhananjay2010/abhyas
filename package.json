@@ -294,7 +294,8 @@
     "test:remembers-weights-direct": "tsx scripts/test-remembers-weights-direct.ts",
     "test:swap-exercise-for-user": "tsx scripts/test-swap-exercise-for-user.ts",
     "test:rest-timer-persistence": "tsx scripts/test-rest-timer-persistence.ts",
-    "test:rest-timer-reload": "tsx scripts/test-rest-timer-reload.tsx"
+    "test:rest-timer-reload": "tsx scripts/test-rest-timer-reload.tsx",
+    "test:package-json-valid": "tsx scripts/test-package-json-valid.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
