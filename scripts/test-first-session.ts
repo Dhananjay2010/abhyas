@@ -37,7 +37,8 @@ const days = [
 
 const firstDay = findFirstTrainingDay(days);
 assert(firstDay !== null, "Returns a training day");
-assert(firstDay!.dayIndex === 1, "Returns day 1 (Monday), not next calendar day");
+const firstDayAssert = firstDay!;
+assert(firstDayAssert.dayIndex === 1, "Returns day 1 (Monday), not next calendar day");
 assert(firstDay!.label === "Push", "Returns correct label");
 assert(firstDay!.programDayId === "day-1", "Returns correct program day ID");
 

@@ -39,8 +39,9 @@ const m2Result = buildTodayView({
 });
 
 assert(m2Result.firstTrainingDay !== null, "First training day exists");
-assert(m2Result.firstTrainingDay!.dayIndex === 2, "First training day is day 2 (Tuesday), not day 1");
-assert(m2Result.firstTrainingDay!.label === "Push", "First training day label is Push");
+const m2FirstDay = assertDefined(m2Result.firstTrainingDay, 'm2Result.firstTrainingDay');
+assert(m2FirstDay.dayIndex === 2, "First training day is day 2 (Tuesday), not day 1");
+assert(m2FirstDay.label === "Push", "First training day label is Push");
 
 console.log("\n=== Test m4: Week calculation uses week_offset ===\n");
 

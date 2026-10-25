@@ -443,13 +443,14 @@ const result8 = buildPage(unchangedPlanInput);
 
 const mondayRow7 = result8.todayView.weekRowsWithChoices.find(r => r.dayIndex === 1);
 
+const mondayRow7Assert = assertDefined(mondayRow7, 'mondayRow7');
 assert(
-  mondayRow7!.label === "Push",
+  mondayRow7Assert.label === "Push",
   "Unchanged plan shows template label"
 );
 
 assert(
-  mondayRow7!.isChoice === false,
+  mondayRow7Assert.isChoice === false,
   "Unchanged plan has isChoice=false (no override)"
 );
 
