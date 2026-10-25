@@ -5,7 +5,6 @@
  * No network, no `as`, no `!`. Just plain functions that record their calls.
  */
 import { startSessionFullCore, type StartSessionFullDeps, type OpenSession } from "../src/lib/session/start-session-full-core";
-import type { StartSessionStaleDeps } from "../src/lib/session/start-session-stale-core";
 
 export {};
 

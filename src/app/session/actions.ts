@@ -29,8 +29,6 @@ import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
-import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
-import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
 import { progressForPlanningMode } from "@/lib/session/swap-progress";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
