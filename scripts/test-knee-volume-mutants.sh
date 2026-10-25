@@ -76,6 +76,10 @@ test_mutant "remove-pickforslot-knee-block" \
 test_mutant "remove-alternatives-knee-block" \
   "sed -i '/PART A: Knee-risk filter for SAFE_ALTERNATIVES/,/^    }/d' $GENERATE_FILE"
 
+# Mutant 4: Make helper always return false
+test_mutant "helper-always-false" \
+  "sed -i '/export function isKneeRiskForKneeUser/,/^}/ s/if (!anyKneeInjury) {/if (true || !anyKneeInjury) {/' $KNEE_SAFETY_FILE"
+
 echo ""
 echo "=== RESULT: $KILLED/$TOTAL killed ==="
 
