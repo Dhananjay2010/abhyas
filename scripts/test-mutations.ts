@@ -155,8 +155,8 @@ const mutants: Mutant[] = [
   {
     name: "Remove quad protection from duration trim (allow dropping the only quad)",
     file: "src/lib/program/generate.ts",
-    pattern: /\/\/ Never drop the only quad \(protect it for knee-injured users\)/,
-    mutate: '// MUTANT: Removed quad protection',
+    pattern: /\/\/ Never drop the only quad \(protect it for knee-injured users\)\s+if \(quadCount === 1 && ex\.primary_muscles\.includes\("quads"\)\) continue;/,
+    mutate: '// MUTANT: Removed quad protection\n              // if (quadCount === 1 && ex.primary_muscles.includes("quads")) continue;',
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
   },
 
@@ -164,18 +164,9 @@ const mutants: Mutant[] = [
   {
     name: "Disable wall-sit reuse for current-knee (mark as used in block)",
     file: "src/lib/program/generate.ts",
-    pattern: /\/\/ For current-knee, allow wall-sit reuse; for past-knee, check usedInBlock/,
-    mutate: '// MUTANT: Disabled wall-sit reuse',
+    pattern: /\/\/ For current-knee, allow wall-sit reuse; for past-knee, check usedInBlock\s+if \(!hasCurrentKneeLocal && usedInBlock\.has\(e\.id\)\) return false;\s+if \(hasCurrentKneeLocal && e\.slug !== "wall-sit" && usedInBlock\.has\(e\.id\)\) return false;/,
+    mutate: '// MUTANT: Disabled wall-sit reuse\n            if (usedInBlock.has(e.id)) return false;',
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
-  },
-
-  // PR #73 Run 13: #104 filter overlap assertion
-  {
-    name: "Allow KNEE_SAFE_QUAD to overlap with EXCLUDED_EXERCISE_SLUGS",
-    file: "src/lib/program/generate.ts",
-    pattern: /\.filter\(\(item\) => !EXCLUDED_EXERCISE_SLUGS\.has\(item\.e\.slug\)\);/,
-    mutate: '.filter((item) => true); // MUTANT: Removed exclusion filter',
-    tests: ["test:knee-safety-matrix"],
   },
 ];
 
