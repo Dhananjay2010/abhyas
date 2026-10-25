@@ -198,6 +198,7 @@ async function testResolveSwapWeights() {
     normalSessionId,
     neverDoneId,
     ["dumbbell"],
+    null, // mechanic
     "reps",
     "horizontal_pull",
     true,
@@ -214,6 +215,7 @@ async function testResolveSwapWeights() {
     normalSessionId,
     neverDoneId,
     [],
+    null, // mechanic
     "reps",
     "vertical_press",
     true,

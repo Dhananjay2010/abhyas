@@ -161,6 +161,7 @@ async function runTests() {
     benchPress.id,
     false,
     benchPress.equipment_ids ?? [],
+    null, // mechanic
     "reps",
     benchPress.movement_pattern ?? "push",
     undefined,
@@ -176,6 +177,7 @@ async function runTests() {
     benchPress.id,
     true,
     benchPress.equipment_ids ?? [],
+      null, // mechanic
     "reps",
     benchPress.movement_pattern ?? "push",
     undefined,
@@ -191,6 +193,7 @@ async function runTests() {
     benchPress.id,
     false,
     benchPress.equipment_ids ?? [],
+      null, // mechanic
     "reps",
     benchPress.movement_pattern ?? "push",
     undefined,
@@ -308,6 +311,7 @@ async function runTests() {
     dumbbell.id,
     false,
     dumbbell.equipment_ids ?? [],
+    null, // mechanic
     "reps",
     dumbbell.movement_pattern ?? "push",
     undefined,
@@ -323,6 +327,7 @@ async function runTests() {
     dumbbell.id,
     false,
     dumbbell.equipment_ids ?? [],
+    null, // mechanic
     "reps",
     dumbbell.movement_pattern ?? "push",
     undefined,
@@ -340,6 +345,7 @@ async function runTests() {
     incline.id,
     false,
     incline.equipment_ids ?? [],
+    null, // mechanic
     "reps",
     incline.movement_pattern ?? "push",
     undefined,
