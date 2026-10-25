@@ -19,7 +19,7 @@ function check(name: string, pass: boolean) {
 const BARBELL_IDS = ["barbell"] as const;
 
 // Bodyweight (no loadable equipment)
-const BODYWEIGHT_IDS = [] as readonly string[];
+const BODYWEIGHT_IDS: readonly string[] = [];
 
 // Pull-up bar (not loadable, but can be weighted with dip belt)
 const PULLUP_BAR_IDS = ["pullup_bar"] as const;

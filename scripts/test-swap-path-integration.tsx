@@ -12,6 +12,18 @@ import { applySwapResult, type SessionExercise } from "@/lib/session/apply-swap"
 import { applySwapTarget, type SessionExerciseWithTarget } from "@/lib/session/apply-swap-target";
 import type { SwapResult } from "@/app/session/actions";
 
+// Helper to check if exercise has numeric targets (after swap)
+function hasNumericTargets(ex: SessionExercise): boolean {
+  return typeof ex.repsMin === "number" && typeof ex.repsMax === "number";
+}
+
+// Helper to assert non-null targets for testing
+function assertNumericTargets(ex: SessionExercise): asserts ex is SessionExercise & { metric: "reps" | "seconds"; repsMin: number; repsMax: number; workingWeightKg: number | null } {
+  if (!hasNumericTargets(ex)) {
+    throw new Error("Test setup error: exercise missing numeric targets");
+  }
+}
+
 const checks: Array<{ pass: boolean; name: string }> = [];
 function check(name: string, pass: boolean) {
   checks.push({ pass, name });
@@ -21,6 +33,8 @@ function check(name: string, pass: boolean) {
 console.log("Testing real swap path: applySwapResult + applySwapTarget\n");
 
 // --- Test 1: Bodyweight swap (unloaded) uses stored target ---
+const BODYWEIGHT_IDS: readonly string[] = [];
+
 const initialExercises: SessionExercise[] = [
   {
     id: "session-ex-1",
@@ -56,8 +70,11 @@ check(
   afterApplySwapResult[0].name === "Dip" && afterApplySwapResult[0].exerciseId === "dip"
 );
 
+const swappedEx1 = afterApplySwapResult[0];
+assertNumericTargets(swappedEx1);
+
 const afterApplySwapTarget = applySwapTarget(
-  afterApplySwapResult[0] as SessionExerciseWithTarget,
+  swappedEx1,
   {
     equipmentIds: bodyweightSwapResult.equipmentIds,
     currentTargetReps: bodyweightSwapResult.currentTargetReps,
@@ -108,8 +125,11 @@ check(
   afterLoadedSwapResult[0].name === "Front Squat" && afterLoadedSwapResult[0].suggestedWeightKg === 50
 );
 
+const swappedEx2 = afterLoadedSwapResult[0];
+assertNumericTargets(swappedEx2);
+
 const afterLoadedSwapTarget = applySwapTarget(
-  afterLoadedSwapResult[0] as SessionExerciseWithTarget,
+  swappedEx2,
   {
     equipmentIds: loadedSwapResult.equipmentIds,
     currentTargetReps: loadedSwapResult.currentTargetReps,
@@ -155,8 +175,12 @@ const weightedPullupSwap: SwapResult & { exerciseId: string; name: string; cue: 
 };
 
 const afterWeightedPullupResult = applySwapResult(pullupExercises, "session-ex-3", weightedPullupSwap);
+
+const swappedEx3 = afterWeightedPullupResult[0];
+assertNumericTargets(swappedEx3);
+
 const afterWeightedPullupTarget = applySwapTarget(
-  afterWeightedPullupResult[0] as SessionExerciseWithTarget,
+  swappedEx3,
   {
     equipmentIds: weightedPullupSwap.equipmentIds,
     currentTargetReps: weightedPullupSwap.currentTargetReps,
@@ -202,8 +226,12 @@ const sidePlankSwap: SwapResult & { exerciseId: string; name: string; cue: strin
 };
 
 const afterSidePlankResult = applySwapResult(plankExercises, "session-ex-4", sidePlankSwap);
+
+const swappedEx4 = afterSidePlankResult[0];
+assertNumericTargets(swappedEx4);
+
 const afterSidePlankTarget = applySwapTarget(
-  afterSidePlankResult[0] as SessionExerciseWithTarget,
+  swappedEx4,
   {
     equipmentIds: sidePlankSwap.equipmentIds,
     currentTargetReps: sidePlankSwap.currentTargetReps,

@@ -20,9 +20,67 @@
  * - Dropped .eq('user_id', user.id) in progress query
  */
 
-import { buildRunnerExercise, applySwap, type SessionExerciseInput, type ProgressInput } from "../src/lib/session/build-runner-exercises.js";
+import { buildRunnerExercise, type SessionExerciseInput, type ProgressInput, type RunnerExerciseOutput } from "../src/lib/session/build-runner-exercises.js";
 import { isUnloaded, usesStoredTarget, resolveTarget } from "../src/lib/session/display-target.js";
 import { LOADABLE_EQUIPMENT_IDS } from "../src/lib/session/equipment-grid.js";
+import type { Database } from "../src/lib/database.types.js";
+
+type ExerciseMetric = Database["public"]["Enums"]["exercise_metric"];
+type Muscle = Database["public"]["Enums"]["muscle"];
+
+// applySwap: test-only helper for exercising the full swap path
+function applySwap(
+  exercise: RunnerExerciseOutput,
+  swapped: {
+    readonly id: string;
+    readonly name: string;
+    readonly cue: string | null;
+    readonly metric: ExerciseMetric;
+    readonly primary_muscles: readonly Muscle[];
+    readonly equipment_ids: readonly string[];
+  },
+  replacementPlan: {
+    readonly repsMin: number | null;
+    readonly repsMax: number | null;
+  },
+  progress: ProgressInput,
+  remembersWeights: boolean,
+): RunnerExerciseOutput {
+  const progressData = remembersWeights ? progress : undefined;
+  const working =
+    progressData?.current_working_weight_kg === null || progressData === undefined
+      ? null
+      : Number(progressData.current_working_weight_kg);
+  
+  const equipmentIds = swapped.equipment_ids ?? [];
+  const isBodyweight = equipmentIds.length === 0;
+  
+  const plannedRepsMin = replacementPlan.repsMin ?? exercise.plannedRepsMin;
+  const plannedRepsMax = replacementPlan.repsMax ?? exercise.plannedRepsMax;
+  
+  const target = resolveTarget({
+    metric: swapped.metric,
+    plannedMin: plannedRepsMin,
+    plannedMax: plannedRepsMax,
+    currentTargetReps: progressData?.current_target_reps,
+    equipmentIds,
+    currentWorkingWeightKg: working,
+  });
+
+  return {
+    ...exercise,
+    exerciseId: swapped.id,
+    name: swapped.name,
+    cue: swapped.cue,
+    metric: swapped.metric,
+    primaryMuscles: [...(swapped.primary_muscles ?? [])],
+    plannedRepsMin,
+    plannedRepsMax,
+    repsMin: target.min,
+    repsMax: target.max,
+    isBodyweight,
+  };
+}
 
 let passed = 0;
 let failed = 0;

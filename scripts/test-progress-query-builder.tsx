@@ -5,6 +5,8 @@
  * This test extracts that builder into src/lib and tests it directly.
  */
 
+import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
+
 // Mock Supabase client that tracks query construction
 type QueryStep = {
   method: string;
@@ -38,17 +40,6 @@ class MockClient {
   }
 }
 
-// Helper to build exercise progress query
-export function buildExerciseProgressQuery(
-  supabase: { from: (table: string) => MockQueryBuilder },
-  userId: string
-) {
-  return supabase
-    .from("exercise_progress")
-    .select("exercise_id, current_working_weight_kg, current_target_reps")
-    .eq("user_id", userId);
-}
-
 const checks: Array<{ pass: boolean; name: string }> = [];
 function check(name: string, pass: boolean) {
   checks.push({ pass, name });
@@ -60,7 +51,8 @@ console.log("Testing exercise progress query builder\n");
 // --- Test 1: Query builder includes .eq('user_id', userId) ---
 const mockClient = new MockClient();
 const userId = "test-user-123";
-buildExerciseProgressQuery(mockClient, userId);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+buildExerciseProgressQuery(mockClient as any, userId);
 
 check(
   "Query calls .from('exercise_progress')",
