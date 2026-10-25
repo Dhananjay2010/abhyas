@@ -237,8 +237,7 @@ async function runTests() {
       1200,
     );
 
-    assertEquals(fake.exerciseUpdates.length, 1, "One exercise updated");
-    assertEquals(fake.exerciseUpdates[0].status, "completed", "Status is completed (partial = 3 of 5 sets)");
+    assertEquals(fake.exerciseUpdates.length, 0, "No exercise status updates (exercises stay pending)");
   }
 
   console.log("\n5. finishSession: mix of completed, partial, and skipped");

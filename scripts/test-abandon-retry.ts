@@ -90,7 +90,7 @@ async function runTests() {
 
     assertTrue(result.ok, "Should succeed on first abandon");
     assertTrue(updateCalled, "Should call updateSession");
-    assertEquals(exerciseUpdateCount, 1, "Should update exercise status");
+    assertEquals(exerciseUpdateCount, 0, "Should NOT update exercise status (exercises stay pending)");
     if (result.ok) {
       assertEquals(result.data.status, "completed", "Status should be completed (has working set)");
     }

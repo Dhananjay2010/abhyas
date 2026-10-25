@@ -904,9 +904,8 @@ console.log("\n7. End early confirm with set counts, sends frozen elapsed (w-tit
 
   await act(async () => {});
 
-  textContent = container.textContent;
-  const hasEndEarlyTitle = textContent !== null && textContent.includes("Session ended early");
-  check("Summary shows 'Session ended early'", hasEndEarlyTitle);
+  // After successful end early, abandonSession is called with frozen duration
+  // (No summary screen - redirects to /today immediately)
   check("abandonSession received frozen duration", receivedDuration !== null && receivedDuration === 120);
 
   root.unmount();
