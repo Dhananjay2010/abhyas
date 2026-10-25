@@ -20,6 +20,7 @@ import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { weekWindow } from "@/lib/today/week-window";
 import { pulledForwardDays, pulledForwardMessage as makePulledForwardMessage } from "@/lib/today/pulled-forward";
+import { WarmupSection } from "@/components/today/warmup-section";
 
 export const dynamic = "force-dynamic";
 
@@ -514,14 +515,16 @@ export default async function TodayPage() {
                 </Link>
               </div>
             </div>
-            <DayPlanPrompt
-              localDate={localToday}
-              dayLabel="Today"
-              plannedLabel="Rest"
-              days={plannable}
-              heading="Or train today anyway"
-              intro="Pick what you'd like to do instead."
-            />
+          <DayPlanPrompt
+            localDate={localToday}
+            dayLabel="Today"
+            plannedLabel="Rest"
+            days={plannable}
+            heading="Or train today anyway"
+            intro="Pick what you'd like to do instead."
+            isRestDay={true}
+            hideKeepAndRest={missedYesterday}
+          />
           </div>
         </>
       )}
