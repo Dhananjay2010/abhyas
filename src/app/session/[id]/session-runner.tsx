@@ -84,6 +84,8 @@ export type RunnerExercise = {
   metric: Database["public"]["Enums"]["exercise_metric"];
   primaryMuscles: Muscle[];
   plannedSets: number;
+  plannedRepsMin: number;
+  plannedRepsMax: number;
   repsMin: number;
   repsMax: number;
   restSeconds: number;

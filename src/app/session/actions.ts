@@ -779,17 +779,8 @@ export async function findAlternatives(
  * @returns Progress data or null
  */
 export async function fetchSwapProgress(
-  supabase: {
-    from: (table: string) => {
-      select: (columns: string) => {
-        eq: (column: string, value: string) => {
-          eq: (column: string, value: string) => {
-            maybeSingle: () => Promise<{ data: { current_target_reps: number | null; current_working_weight_kg: number | null } | null }>;
-          };
-        };
-      };
-    };
-  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
   userId: string,
   exerciseId: string,
   planningMode: string | null,
