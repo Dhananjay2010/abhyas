@@ -260,6 +260,18 @@ export function estimateOneRepMax(weightKg: number, reps: number): number {
   return weightKg * (1 + reps / 30);
 }
 
+/**
+ * Round a best-tracking value to storage precision.
+ * 
+ * Storage uses numeric(6,2) for best_e1rm and best_weight_kg, so we round to
+ * 2 decimal places. This helper must be used for both the write AND the
+ * comparison, so a live 53.333 rounds to 53.33 and correctly equals the stored
+ * 53.33 rather than incorrectly beating it.
+ */
+export function roundToStoragePrecision(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 export type BestState = {
   bestWeightKg: number | null;
   bestReps: number | null;
@@ -319,7 +331,7 @@ export function nextBest(
     // lift -- so timed work never contributes one. Bodyweight exercises (w=0)
     // also cannot produce an e1RM.
     if (w > 0 && !isTimed) {
-      const e1rm = estimateOneRepMax(w, v);
+      const e1rm = roundToStoragePrecision(estimateOneRepMax(w, v));
       if (bestE1rm === null || e1rm > bestE1rm) bestE1rm = e1rm;
     }
   }
@@ -332,6 +344,7 @@ export function nextBest(
     at a weight already lifted.
   */
   let personalBest: PersonalBest | null = null;
+  // Round the prior value to ensure comparison at storage precision.
   const beat = (now: number | null, before: number | null) =>
     now !== null && before !== null && now > before;
 
