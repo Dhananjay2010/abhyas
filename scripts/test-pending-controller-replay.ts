@@ -60,7 +60,7 @@ async function runTests() {
     };
 
     let logSetCallCount = 0;
-    let lastState: any = null;
+    let lastState: { pending: any[]; error: string | null } = { pending: [], error: null };
 
     const mockLogSet = async (input: {
       sessionExerciseId: string;
