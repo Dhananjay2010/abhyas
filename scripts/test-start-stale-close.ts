@@ -59,11 +59,12 @@ function createStubFetch(
   sessions: Session[],
   exercises: SessionExercise[],
   sets: SessionSet[]
-) {
+): typeof fetch {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const method = init?.method ?? "GET";
-    const body = init?.body ? JSON.parse(init.body as string) : null;
+    const bodyText = init?.body && typeof init.body === "string" ? init.body : null;
+    const body = bodyText ? JSON.parse(bodyText) : null;
 
     // SELECT sessions
     if (url.includes("/sessions?") && method === "GET") {
@@ -166,7 +167,7 @@ async function testStaleSessionClosed() {
 
   const sessions = [staleSession];
   const client = createClient<Database>("http://localhost:54321", "test-key", {
-    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+    global: { fetch: createStubFetch(sessions, [], []) },
   });
 
   const openSessions: OpenSession[] = [{
@@ -216,7 +217,7 @@ async function testFreshSessionResumed() {
 
   const sessions = [freshSession];
   const client = createClient<Database>("http://localhost:54321", "test-key", {
-    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+    global: { fetch: createStubFetch(sessions, [], []) },
   });
 
   const openSessions: OpenSession[] = [{
@@ -269,7 +270,7 @@ async function testSameDateNoStaleCandidates() {
 
   const sessions = [todaySession];
   const client = createClient<Database>("http://localhost:54321", "test-key", {
-    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+    global: { fetch: createStubFetch(sessions, [], []) },
   });
 
   const openSessions: OpenSession[] = [{
@@ -333,7 +334,7 @@ async function testPlannedSkippedNotPassed() {
 
   const sessions = [plannedSession, skippedSession];
   const client = createClient<Database>("http://localhost:54321", "test-key", {
-    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+    global: { fetch: createStubFetch(sessions, [], []) },
   });
 
   const openSessions: OpenSession[] = [
@@ -395,7 +396,7 @@ async function testCloseThrowHandled() {
   };
 
   // Create a fetch stub that throws on session_exercises query (simulating DB error during close)
-  const throwingFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const throwingFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     
     // Throw on session_exercises query (closeStaleSessionsCore reads these to check for sets)
@@ -408,7 +409,7 @@ async function testCloseThrowHandled() {
   };
 
   const client = createClient<Database>("http://localhost:54321", "test-key", {
-    global: { fetch: throwingFetch as typeof fetch },
+    global: { fetch: throwingFetch },
   });
 
   const openSessions: OpenSession[] = [{
@@ -456,7 +457,7 @@ async function testRemainingCheckFiltersStatus() {
 
   const sessions = [completedSession];
   const client = createClient<Database>("http://localhost:54321", "test-key", {
-    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+    global: { fetch: createStubFetch(sessions, [], []) },
   });
 
   // The openSessions still reports it as in_progress (simulating a race or stale read)
@@ -523,7 +524,7 @@ async function testSecondUserNotClosed() {
 
   const sessions = [userOneSession, userTwoSession];
   const client = createClient<Database>("http://localhost:54321", "test-key", {
-    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+    global: { fetch: createStubFetch(sessions, [], []) },
   });
 
   // Only userOneSession is in openSessions
@@ -580,7 +581,7 @@ async function testTodayChangesOutcome() {
 
   const sessions = [{ ...sessionOnYesterday }];
   const client = createClient<Database>("http://localhost:54321", "test-key", {
-    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+    global: { fetch: createStubFetch(sessions, [], []) },
   });
 
   const openSessions: OpenSession[] = [{
