@@ -555,39 +555,27 @@ export function evaluateProgression(input: {
   const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
 
   /**
-   * Shared helper: compute what the two-miss back-off would return.
-   * Used by both the actual two-miss path and the first-miss invariant clamp.
-   * 
-   * Returns the SMALLEST loadable value >= 90% (rounded to grid, at most one increment below) and < current.
-   * If no such value exists, returns current (hold).
+   * First-miss guard floor: uses OLD floored logic to preserve first-miss behavior identical to main.
+   * Both equipment and no-equipment use floored 90% (not RAW).
    */
-  function computeTwoMissResult(weight: number): number {
+  function computeTwoMissFloor(weight: number): number {
     const liftIncrement = incrementFor(meta);
     
-    // Hold at light weight
     if (weight <= liftIncrement) {
       return weight;
     }
     
     const rawReduced = weight * 0.9;
     const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
-    
-    // Snap to 2.5 or 1.25 grid, at most one increment below 90%
     const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
     const cap = rawReduced - liftIncrement;
     const target = Math.max(snapped, cap);
     
-    // Hold at light weight after reduction
-    if (target <= liftIncrement) {
-      return weight;
-    }
-    
-    // With equipment: find SMALLEST loadable value >= target and < current
+    // With equipment: find smallest loadable >= floored target and < current
     if (equipmentIds && unit) {
       let candidate: number | null = null;
       
       if (equipmentIds.includes('kettlebell')) {
-        // Kettlebell: find smallest bell >= target and < current
         const bells = KETTLEBELL_WEIGHTS_KG;
         for (const bell of bells) {
           if (bell >= target - 0.001 && bell < weight - 0.001) {
@@ -596,7 +584,6 @@ export function evaluateProgression(input: {
           }
         }
       } else {
-        // Standard equipment: snap up to loadable grid
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
         const snappedUp = Math.ceil(target / gridStep) * gridStep;
         if (snappedUp < weight - 0.001) {
@@ -604,17 +591,16 @@ export function evaluateProgression(input: {
         }
       }
       
-      // If no loadable value found < current, hold
-      if (candidate === null) {
+      // If no candidate or too light, return weight (hold)
+      if (candidate === null || candidate <= liftIncrement) {
         return weight;
       }
       
       return candidate;
     }
     
-    // No equipment: return target (already capped and snapped)
-    // Never-raise check
-    if (target > weight) {
+    // No equipment
+    if (target <= liftIncrement || target > weight) {
       return weight;
     }
     
@@ -673,7 +659,7 @@ export function evaluateProgression(input: {
       };
     }
     
-    // Find smallest loadable value >= target and < current
+    // With equipment: find smallest loadable value >= target and < current
     let reduced = target;
     if (equipmentIds && unit) {
       let candidate: number | null = null;
@@ -694,6 +680,7 @@ export function evaluateProgression(input: {
         }
       }
       
+      // If no loadable value >= target and < current, hold
       if (candidate === null) {
         return {
           ...carried,
@@ -766,9 +753,9 @@ export function evaluateProgression(input: {
       }
     }
     
-    // Rule 2: if candidate < two-miss result, hold instead
+    // Rule 2: if candidate < two-miss floor, hold instead
     if (candidateWeight !== currentWeight) {
-      const twoMissFloor = computeTwoMissResult(currentWeight);
+      const twoMissFloor = computeTwoMissFloor(currentWeight);
       if (candidateWeight < twoMissFloor) {
         candidateWeight = currentWeight;
         holdReason = 'twomiss';
