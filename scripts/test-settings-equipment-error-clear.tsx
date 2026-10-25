@@ -52,6 +52,7 @@ async function runTest() {
   type EquipmentPatch = Parameters<SettingsActions["updateEquipment"]>[0];
   
   let callCount = 0;
+  let setEquipmentCallCount = 0;
 
   const updateEquipment = async (patch: EquipmentPatch): Promise<Result> => {
     callCount++;
@@ -65,11 +66,27 @@ async function runTest() {
     return { ok: true };
   };
 
+  // New atomic operation that the actual code uses
+  const setEquipmentItem = async (): Promise<Result> => {
+    setEquipmentCallCount++;
+    
+    // First call fails
+    if (setEquipmentCallCount === 1) {
+      return { ok: false, error: "Equipment save failed" };
+    }
+    
+    // Second call succeeds
+    return { ok: true };
+  };
+
   const actions: SettingsActions = {
     updateProfileSettings: async () => ({ ok: true }),
     updateSessionSettings: async () => ({ ok: true }),
     updateEquipment,
     updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem,
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
   };
 
   const { container } = render(
@@ -96,8 +113,8 @@ async function runTest() {
 
   await act(async () => { await user.click(dumbbellChip); });
 
-  // Wait for save to complete
-  await new Promise(resolve => setTimeout(resolve, 100));
+  // Wait for save to complete and UI to update
+  await new Promise(resolve => setTimeout(resolve, 300));
 
   // Check that error is visible
   let statusDiv = container.querySelector('[role="status"]');

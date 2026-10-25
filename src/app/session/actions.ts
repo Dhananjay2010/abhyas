@@ -26,6 +26,7 @@ import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
+import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 import { closeStaleSessions } from "@/lib/session/close-stale";
@@ -36,7 +37,7 @@ type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: string };
 
 export type SetConflictResult = {
   ok: false;
@@ -206,69 +207,10 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       .order("order_index"),
   ]);
 
-  // If the insert failed due to a stale session from an earlier date, close it
-  // and retry once. The 23505 re-read in startSessionCore filters by local_date,
-  // so if it returned an error, the stale session is from a different day.
-  if (!insertResult.ok && insertResult.error.includes("already in progress")) {
-    await closeStaleSessions(supabase, openRes.data ?? [], today);
-    
-    const retryResult = await startSessionCore(supabase, user.id, {
-      user_id: user.id,
-      program_id: program.id,
-      program_day_id: day.id,
-      local_date: today,
-      week_in_block: week,
-      is_deload: isDeloadWeek,
-      planned_type: day.day_type,
-      actual_type: day.day_type,
-      status: "in_progress",
-      started_at: new Date().toISOString(),
-    });
-    
-    if (!retryResult.ok) {
-      return { ok: false, error: retryResult.error };
-    }
-    
-    // Use the retry result for exercise insertion below
-    const planned = plannedRes.data;
-    if (planned && planned.length > 0) {
-      const exercisesToInsert = planned.map((p) => {
-        const dose = isDeloadWeek
-          ? applyDeload({
-              sets: p.target_sets,
-              repsMin: p.target_reps_min,
-              repsMax: p.target_reps_max,
-              restSeconds: p.rest_seconds,
-            })
-          : {
-              sets: p.target_sets,
-              repsMin: p.target_reps_min,
-              repsMax: p.target_reps_max,
-              restSeconds: p.rest_seconds,
-            };
-        return {
-          session_id: retryResult.sessionId,
-          user_id: user.id,
-          exercise_id: p.exercise_id,
-          order_index: p.order_index,
-          planned_sets: dose.sets,
-          planned_reps_min: dose.repsMin,
-          planned_reps_max: dose.repsMax,
-          rest_seconds: dose.restSeconds,
-          metric: metricOf(p.exercises),
-        };
-      });
-
-      const exerciseInsertResult = await insertSessionExercises(supabase, exercisesToInsert);
-      if (!exerciseInsertResult.ok) {
-        return { ok: false, error: exerciseInsertResult.error };
-      }
-    }
-    
-    return { ok: true, data: { sessionId: retryResult.sessionId } };
-  }
-
   if (!insertResult.ok) {
+    if ("existingSessionId" in insertResult && insertResult.existingSessionId) {
+      return { ok: true, data: { sessionId: insertResult.existingSessionId } };
+    }
     return { ok: false, error: insertResult.error };
   }
 
@@ -355,6 +297,24 @@ export async function logSet(input: {
   if (invalid) return { ok: false, error: invalid };
 
   const { supabase, user } = await requireUser();
+
+  // Reject writes to sessions that are no longer in_progress or don't exist
+  // For ended sessions, allow idempotent retry if the exact set already exists
+  const validationDeps = buildLogSetValidationDeps(supabase);
+  const validationResult = await validateSessionForLogSet(
+    validationDeps, 
+    input.sessionExerciseId,
+    {
+      setNumber: input.setNumber,
+      reps: input.reps,
+      weightKg: input.weightKg,
+      durationSeconds,
+    }
+  );
+  
+  if (!validationResult.ok) {
+    return validationResult;
+  }
 
   return logSetCore(supabase, user.id, {
     sessionExerciseId: input.sessionExerciseId,
