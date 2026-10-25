@@ -7,16 +7,16 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/in-progress
  *
- * Returns the user's in-progress session for today, if one exists.
+ * Returns the user's in-progress session, if one exists and is not stale.
  *
  * L1: Client-side route handler so the resume bar can fetch on mount and
  * pathname changes without making root layout dynamic.
  *
- * Timezone resolution: Profile timezone wins, browser timezone (?tz=) is fallback,
- * system default is final fallback. Never hardcoded to UTC.
+ * Staleness: applies #111's exact rule (>= 6h inactive or superseded by a newer
+ * strength session). Stale sessions are filtered out without closing them.
  *
  * Returns 401 if unauthenticated, 200 with { session } if found,
- * 200 with { session: null } if not found.
+ * 200 with { session: null } if not found or stale.
  *
  * All responses include Cache-Control: no-store.
  */
@@ -33,10 +33,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const url = new URL(request.url);
-  const timezone = url.searchParams.get("tz") || "UTC";
-
-  const session = await getInProgressSession(supabase, user.id, timezone);
+  const session = await getInProgressSession(supabase, user.id);
 
   return NextResponse.json(
     { session },
