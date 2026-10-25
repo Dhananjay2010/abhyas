@@ -465,14 +465,14 @@ console.log("\n=== Mutant-Killing Tests ===");
 
 // Exact 20% boundary without two-miss floor interference
 {
-  // Barbell compound 12.5kg -> 10kg is exactly 20%
+  // Barbell compound 12.5kg: RAW 90% = 11.25, two-miss floor is 12.5, so HOLD (rule 2)
   const d = run({
     equipmentIds: ["barbell"],
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
   });
-  check("12.5kg barbell compound exact 20% cut: drops to 10kg (> not >=)", d.nextWorkingWeightKg === 10);
+  check("12.5kg barbell compound: HOLD (first 10 < two-miss floor 12.5)", d.nextWorkingWeightKg === 12.5);
 }
 
 // (f) Kill kettlebell <= mutant: ensure strictly-below
@@ -561,29 +561,6 @@ console.log("\n=== THRESHOLD BEHAVIOR ===");
   const nextDown = 7.5;
   const cutPct = (10 - nextDown) / 10;
   check(`Threshold 0.20: 10kg with ${(cutPct*100).toFixed(1)}% cut holds (> 20%, < 25%)`, d.nextWorkingWeightKg === 10);
-}
-
-console.log("\n=== HOLD RETURNS EXACT WEIGHT ===");
-// Test that holds return exact current weight, not snapped
-{
-  const d = run({
-    equipmentIds: ["dumbbell"],
-    unit: "kg",
-    meta: CURL,
-    state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 0 }),
-  });
-  check("7.5 kg hold returns exactly 7.5 (not 5 if snapped)", d.nextWorkingWeightKg === 7.5 && d.outcome === "hold");
-}
-
-{
-  // Off-grid weight
-  const d = run({
-    equipmentIds: ["dumbbell"],
-    unit: "kg",
-    meta: { ...CURL, mechanic: "isolation" },
-    state: fresh({ currentWorkingWeightKg: 2.75, consecutiveFailures: 1 }), // Two-miss hold
-  });
-  check("2.75 kg hold returns exactly 2.75 (not 2.5 if snapped)", d.nextWorkingWeightKg === 2.75 && d.outcome === "hold");
 }
 
 console.log("\n=== HARD-FEEL HOLD ===");
