@@ -418,6 +418,126 @@ async function main() {
     check("Timed stored target: message 'hold length'", decision.message.includes("hold length"), decision.message);
   }
 
+  console.log("\n8. Success threshold consistency: stored 14, plan 8-12");
+  {
+    // #120: Test that success threshold matches minimum for unloaded exercises
+    // Push-ups stored 14: 3×12 should NOT progress (below stored target)
+    const sessionExercise1: SessionExerciseRow = {
+      id: "se-8a",
+      session_id: "sess-8a",
+      exercise_id: "ex-pushup",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "horizontal_press",
+        equipment_ids: [],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    };
+
+    const sets1: SessionSetRow[] = [
+      { reps: 12, weight_kg: null, duration_seconds: null },
+      { reps: 12, weight_kg: null, duration_seconds: null },
+      { reps: 12, weight_kg: null, duration_seconds: null },
+    ];
+
+    const progress1: ExerciseProgressRow = {
+      current_working_weight_kg: null,
+      current_target_reps: 14,
+      consecutive_failures: 0,
+      best_weight_kg: null,
+      best_reps: 14,
+      best_e1rm: null,
+      total_sessions: 5,
+    };
+
+    const session1: SessionRow = {
+      is_deload: false,
+      local_date: "2026-10-25",
+      program_id: "prog-1",
+    };
+
+    const input1 = buildProgressionInput(sessionExercise1, sets1, progress1, session1, "right", "metric");
+    const decision1 = evaluateProgression(input1);
+
+    // #120: 3×12 below stored target 14, should hold (not progress)
+    check("Stored 14, 3×12: repsMin from stored (14)", input1.repsMin === 14, `${input1.repsMin}`);
+    check("Stored 14, 3×12: outcome hold (below target)", decision1.outcome === "hold", decision1.outcome);
+    check("Stored 14, 3×12: target stays at 14", decision1.nextTargetReps === 14, `${decision1.nextTargetReps}`);
+    check("Stored 14, 3×12: failures=1", decision1.consecutiveFailures === 1, `${decision1.consecutiveFailures}`);
+
+    // Now test 3×14: should progress
+    const sets2: SessionSetRow[] = [
+      { reps: 14, weight_kg: null, duration_seconds: null },
+      { reps: 14, weight_kg: null, duration_seconds: null },
+      { reps: 14, weight_kg: null, duration_seconds: null },
+    ];
+
+    const input2 = buildProgressionInput(sessionExercise1, sets2, progress1, session1, "right", "metric");
+    const decision2 = evaluateProgression(input2);
+
+    // #120: 3×14 hits stored target 14, should progress to 16
+    check("Stored 14, 3×14: outcome progressed", decision2.outcome === "progressed", decision2.outcome);
+    check("Stored 14, 3×14: target increases to 16", decision2.nextTargetReps === 16, `${decision2.nextTargetReps}`);
+    check("Stored 14, 3×14: failures reset to 0", decision2.consecutiveFailures === 0, `${decision2.consecutiveFailures}`);
+  }
+
+  console.log("\n9. Chin-ups pull_up_bar: stored 11, plan 8-12");
+  {
+    // #120: Test chin-ups with pull_up_bar equipment and stored target 11
+    const sessionExercise: SessionExerciseRow = {
+      id: "se-9",
+      session_id: "sess-9",
+      exercise_id: "ex-chinup",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "vertical_pull",
+        equipment_ids: ["pull_up_bar"],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    };
+
+    const sets: SessionSetRow[] = [
+      { reps: 11, weight_kg: null, duration_seconds: null },
+      { reps: 11, weight_kg: null, duration_seconds: null },
+      { reps: 11, weight_kg: null, duration_seconds: null },
+    ];
+
+    const progress: ExerciseProgressRow = {
+      current_working_weight_kg: null,
+      current_target_reps: 11,
+      consecutive_failures: 0,
+      best_weight_kg: null,
+      best_reps: 11,
+      best_e1rm: null,
+      total_sessions: 3,
+    };
+
+    const session: SessionRow = {
+      is_deload: false,
+      local_date: "2026-10-25",
+      program_id: "prog-1",
+    };
+
+    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+    const decision = evaluateProgression(input);
+
+    // #120: 3×11 at stored target 11 should progress to 13
+    check("Chin-ups stored 11: repsMin from stored (11)", input.repsMin === 11, `${input.repsMin}`);
+    check("Chin-ups 3×11: outcome progressed", decision.outcome === "progressed", decision.outcome);
+    check("Chin-ups 3×11: target increases to 13", decision.nextTargetReps === 13, `${decision.nextTargetReps}`);
+    check("Chin-ups 3×11: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
+  }
+
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
   
   if (failures === 0) {
