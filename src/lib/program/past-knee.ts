@@ -76,12 +76,8 @@ export function isExcludedForPastKnee(ex: CandidateExercise): boolean {
     return true;
   }
   
-  // 2. High-impact/jumping exercises for squat and lunge patterns
-  if (ex.movement_pattern === "squat" || ex.movement_pattern === "lunge") {
-    return isJumpingExercise(ex);
-  }
-  
-  return false;
+  // 2. High-impact/jumping exercises (all patterns, not just squat/lunge)
+  return isJumpingExercise(ex);
 }
 
 /**
@@ -92,17 +88,18 @@ export function isExcludedForPastKnee(ex: CandidateExercise): boolean {
  */
 const KNEE_FRIENDLY_PRIMARIES: Partial<Record<Pattern, string[]>> = {
   squat: [
-    "goblet-squat",        // Controlled depth, easier loading pattern
-    "box-squat",           // Limited depth to parallel
-    "leg-press",           // Controlled ROM, less stress
-    "split-squat-with-dumbbells", // Controlled range, less total flexion
+    "goblet-squat",
+    "box-squat",
+    "leg-press",
+    "split-squat-with-dumbbells",
+    "wall-sit",
   ],
   lunge: [
-    "dumbbell-rear-lunge",         // Less anterior knee stress than forward lunge
-    "barbell-step-ups",            // Controlled height, user picks box
-    "dumbbell-step-ups",           // Controlled height
-    "step-up-with-knee-raise",     // Controlled height
-    "split-squat-with-dumbbells",  // Controlled range
+    "dumbbell-rear-lunge",
+    "barbell-step-ups",
+    "dumbbell-step-ups",
+    "step-up-with-knee-raise",
+    "split-squat-with-dumbbells",
   ],
 };
 

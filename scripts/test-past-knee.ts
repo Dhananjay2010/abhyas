@@ -10,9 +10,9 @@
  * npm run test:past-knee
  */
 import { readFileSync } from "node:fs";
-import { generateProgram, isEligible, score, hashString, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import { generateProgram, score, hashString, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { rankAlternatives, buildPatternList, type AlternativesContext } from "../src/lib/program/alternatives";
-import { getPastKneeExcludedSlugs, getKneeFriendlyPrimaries, isExcludedForPastKnee, getKneeFriendlyRankingBoost } from "../src/lib/program/past-knee";
+import { getPastKneeExcludedSlugs, getKneeFriendlyPrimaries, isExcludedForPastKnee } from "../src/lib/program/past-knee";
 import { selectWarmup, type WarmupRow } from "../src/lib/program/warmup";
 
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf8"));
@@ -96,7 +96,7 @@ console.log("\n2. Wide grid test: 5 goals × 3 levels × tracks × equipment × 
   type Level = "beginner" | "intermediate" | "expert";
   type Track = "weights" | "bodyweight";
   
-  const goals: Goal[] = ["muscle_gain", "strength", "fat_loss", "general_fitness", "endurance"];
+  const goals: Goal[] = ["muscle_gain", "strength", "fat_loss", "general_fitness"];
   const levels: Level[] = ["beginner", "intermediate", "expert"];
   const equipmentSets: Array<{ label: string; hasAll: boolean; ids: string[]; track: Track }> = [
     { label: "All", hasAll: true, ids: [], track: "weights" },

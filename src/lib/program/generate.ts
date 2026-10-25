@@ -140,7 +140,6 @@ function exerciseCountForDuration(
     // 60-min session → 45 min exercise time (full template)
     target = templateSlots;
   } else if (effectiveMinutes <= 60) {
-    // 75-min session → 60 min exercise time (template + accessories)
     target = Math.min(templateSlots + 1, 8);
   } else {
     // 90-min session → 75 min exercise time (template + more accessories)
