@@ -49,7 +49,6 @@ export function buildPatternList(
   // For PAST knee on lunge pattern, DO add squat fallback
   // (past-knee lunge tier includes split squats and step-ups which are squat pattern)
   // When hasCurrentKnee is undefined, treat hasKneeInjury as current knee (backwards compat)
-  const isPastKnee = hasCurrentKnee === false && hasKneeInjury;
   const isCurrentKnee = (hasCurrentKnee === true) || (hasCurrentKnee === undefined && hasKneeInjury);
   const skipFallback = isCurrentKnee && currentPattern === "lunge";
   

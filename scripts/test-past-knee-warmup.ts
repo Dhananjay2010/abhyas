@@ -12,7 +12,6 @@ import { buildWarmupInput, selectWarmup, type WarmupRow } from "../src/lib/progr
 import warmups from "./fixtures/warmups.json";
 import type { Database } from "../src/lib/database.types";
 
-type BodyRegion = Database["public"]["Enums"]["body_region"];
 type Muscle = Database["public"]["Enums"]["muscle"];
 
 const warmupRows = warmups as unknown as WarmupRow[];

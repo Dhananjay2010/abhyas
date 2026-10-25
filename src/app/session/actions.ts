@@ -5,20 +5,15 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
-import { rankAlternatives } from "@/lib/program/alternatives";
-import { getSwapPatterns } from "@/lib/program/swap-patterns";
-import { buildSwapContext } from "@/lib/program/swap-context";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { isEligible, score, hashString, type CandidateExercise, type GeneratorInput } from "@/lib/program/generate";
-import { buildInjuryFlags } from "@/lib/program/injury-regions";
-import { ageOn } from "@/lib/onboarding/options";
+import type { CandidateExercise } from "@/lib/program/generate";
 import {
   describePersonalBest,
   evaluateProgression,
   type ExerciseMeta,
   type ProgressState,
 } from "@/lib/program/progression";
-import { applyDeload, prescribe } from "@/lib/program/prescription";
+import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
@@ -32,10 +27,9 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
-import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
-import { progressForPlanningMode, resolveSwapResultPayload } from "@/lib/session/swap-progress";
+import { resolveSwapResultPayload } from "@/lib/session/swap-progress";
 import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
 import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligible-swap-list";
 
