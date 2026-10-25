@@ -566,7 +566,6 @@ console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight f
               ? (equipment.unit === "kg" ? 1 : 2)
               : (equipment.unit === "kg" ? 2.5 : 5); // Standard grid
         const dropped = progressedWeight - (missDecision.nextWorkingWeightKg ?? 0);
-        const tolerance = 0.1; // Allow small floating point differences
         check(
           `${equipment.name} × ${liftType.name}: first miss drops or holds`,
           missDecision.nextWorkingWeightKg !== null && 
