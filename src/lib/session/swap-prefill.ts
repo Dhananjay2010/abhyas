@@ -71,10 +71,9 @@ export async function resolveSwapPrefill(
     if (currentWorkingWeight !== null && currentWorkingWeight !== undefined) {
       const working = Number(currentWorkingWeight);
       if (working > 0) {
-        // Use the same suggestedWeight logic as session/[id]/page.tsx:141
+        // Use the same suggestedWeight logic as session/[id]/page.tsx
         const isBodyweight = equipmentIds.length === 0;
-        // TODO: MEDIUM-3 - Pass equipmentIds and unit for grid snapping once #120 lands
-        // For now, pass undefined to use the existing simple deload calculation
+        // M2: equipmentIds for grid snapping, no unit (kg always)
         return suggestedWeight(
           { currentWorkingWeightKg: working },
           isDeload,
@@ -86,8 +85,7 @@ export async function resolveSwapPrefill(
             progressionChain: null,
             progressionRank: null,
           },
-          undefined,
-          undefined,
+          isBodyweight ? undefined : equipmentIds,
         );
       }
     }
@@ -102,7 +100,7 @@ export async function resolveSwapPrefill(
       
       // L1: Apply deload reduction to history fallback too
       const isBodyweight = equipmentIds.length === 0;
-      // TODO: MEDIUM-3 - Pass equipmentIds and unit for grid snapping once #120 lands
+      // M2: equipmentIds for grid snapping, no unit (kg always)
       return suggestedWeight(
         { currentWorkingWeightKg: weight },
         isDeload,
@@ -114,8 +112,7 @@ export async function resolveSwapPrefill(
           progressionChain: null,
           progressionRank: null,
         },
-        undefined,
-        undefined,
+        isBodyweight ? undefined : equipmentIds,
       );
     }
 

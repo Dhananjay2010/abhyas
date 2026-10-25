@@ -439,7 +439,7 @@ async function applyProgression(
       se,
       setsRes.data ?? [],
       prior,
-      sessionRes.data ?? { is_deload, local_date: null, program_id: null },
+      sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
       feel,
     )
   );
