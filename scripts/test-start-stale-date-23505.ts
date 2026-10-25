@@ -62,7 +62,7 @@ async function main() {
 
 await test("L3: startSessionCore 23505 re-read filters by local_date", async () => {
   const db = createFakeDb({
-    uniqueConstraints: [
+    unique: [
       { 
         table: "sessions", 
         columns: ["user_id"], 
@@ -97,7 +97,7 @@ await test("L3: startSessionCore 23505 re-read filters by local_date", async () 
 
 await test("L3: startSessionCore 23505 on same date returns existing session", async () => {
   const db = createFakeDb({
-    uniqueConstraints: [
+    unique: [
       { 
         table: "sessions", 
         columns: ["user_id"], 
@@ -129,7 +129,7 @@ await test("L3: startSessionCore 23505 on same date returns existing session", a
 
 await test("L3: updateSessionCore already filters by local_date (consistency check)", async () => {
   const db = createFakeDb({
-    uniqueConstraints: [
+    unique: [
       { 
         table: "sessions", 
         columns: ["user_id"], 

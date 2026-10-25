@@ -60,7 +60,7 @@ async function main() {
 
 await test("L2: two-tab Start race returns same session without duplicate key error", async () => {
   const db = createFakeDb({
-    uniqueConstraints: [
+    unique: [
       { 
         table: "sessions", 
         columns: ["user_id"], 
@@ -111,7 +111,7 @@ await test("L2: two-tab Start race returns same session without duplicate key er
 
 await test("L2: losing tab's exercise insert is skipped when winner already inserted", async () => {
   const db = createFakeDb({
-    uniqueConstraints: [
+    unique: [
       { 
         table: "sessions", 
         columns: ["user_id"], 
@@ -196,7 +196,7 @@ await test("L2: losing tab's exercise insert is skipped when winner already inse
 
 await test("L2 revert: without check, second insert throws duplicate key error", async () => {
   const db = createFakeDb({
-    uniqueConstraints: [
+    unique: [
       {
         table: "session_exercises",
         columns: ["session_id", "order_index"],
