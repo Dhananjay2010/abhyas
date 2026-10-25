@@ -7,6 +7,7 @@
 import { readFileSync } from "fs";
 
 // Dynamic require from /tmp/main
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { generateProgram } = require("/tmp/main/src/lib/program/generate");
 const catalogue = JSON.parse(
   readFileSync("/tmp/main/scripts/fixtures/catalogue.json", "utf-8")

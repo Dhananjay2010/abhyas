@@ -821,9 +821,10 @@ function pickForSlot(
     candidates = candidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
     if (candidates.length === 0) continue; // Try fallback pattern if filtered out
     
-    // PART A: Knee-risk filter for FALLBACK patterns only (Brief knee-volume)
-    // Normal pattern picks are unaffected (Barbell Squat stays in squat slot)
-    if (isFallback && input.anyKneeInjury) {
+    // PART A: Knee-risk filter for knee users (Brief knee-volume)
+    // Filter fallback patterns, and also filter normal patterns for non-squat slots
+    // Squat slot (slot 0) keeps Barbell Squat even though it's knee-risk
+    if (input.anyKneeInjury && (isFallback || slotIndex !== 0)) {
       candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, input.anyKneeInjury));
       if (candidates.length === 0) continue;
     }

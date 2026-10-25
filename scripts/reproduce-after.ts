@@ -61,8 +61,8 @@ function formatPlan(result: ReturnType<typeof generateProgram>, label: string) {
     });
     
     // Estimate time
-    let warmup = 10;
-    let cooldown = 5;
+    const warmup = 10;
+    const cooldown = 5;
     let workMinutes = 0;
     day.exercises.forEach(ex => {
       const avgReps = (ex.targetRepsMin + ex.targetRepsMax) / 2;
