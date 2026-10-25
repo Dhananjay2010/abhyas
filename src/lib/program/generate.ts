@@ -801,8 +801,8 @@ function pickForSlot(
   }
   
   // PART A: Past-knee lunge slot fix (Brief knee-volume)
-  // For past-knee users, try PAST_KNEE_LUNGE_EXERCISES before fallback, regardless of pattern.
-  // This prevents the lunge slot from collapsing into a knee-risk squat (e.g. Goblet Squat).
+  // For past-knee users, the lunge slot must ONLY use PAST_KNEE_LUNGE_EXERCISES.
+  // If none qualify, skip normal lunge pattern entirely and go to SAFE_ALTERNATIVES with knee-risk filter.
   const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
   const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
   
@@ -841,8 +841,16 @@ function pickForSlot(
         }
       }
     }
+    
+    // If no PAST_KNEE_LUNGE_EXERCISES qualified, skip normal lunge pattern
+    // and go directly to SAFE_ALTERNATIVES (which will be knee-risk filtered below)
+    // by jumping out of the pattern loop
   }
   
+  // For past-knee users with lunge pattern, skip normal pattern/fallback loop if we didn't return above
+  const skipNormalPatternForPastKneeLunge = hasPastKnee && pattern === "lunge";
+  
+  if (!skipNormalPatternForPastKneeLunge) {
   for (const p of [pattern, PATTERN_FALLBACK[pattern]]) {
     if (!p) continue;
     let candidates = pool.filter((e) => e.movement_pattern === p && !used.has(e.id));
@@ -895,6 +903,7 @@ function pickForSlot(
       return ranked[0].e;
     }
   }
+  } // End of if (!skipNormalPatternForPastKneeLunge)
   
   // If no exercise found for this pattern or its fallback, try safe alternatives
   // before giving up. This prevents dropping slots entirely when injuries filter
