@@ -542,10 +542,13 @@ async function main() {
   {
     // Bodyweight exercise (empty equipment_ids)
     const bwEx: SessionExerciseRow = {
+      id: "se-pushup",
+      session_id: "sess-1",
       exercise_id: "ex-pushup",
       planned_sets: 4,
       planned_reps_min: 8,
       planned_reps_max: 12,
+      metric: "reps",
       exercises: {
         mechanic: "compound",
         movement_pattern: "horizontal_press",
@@ -571,10 +574,13 @@ async function main() {
 
     // Loaded exercise (pull_up_bar)
     const loadedEx: SessionExerciseRow = {
+      id: "se-pullup",
+      session_id: "sess-1",
       exercise_id: "ex-pullup",
       planned_sets: 4,
       planned_reps_min: 8,
       planned_reps_max: 12,
+      metric: "reps",
       exercises: {
         mechanic: "compound",
         movement_pattern: "vertical_pull",
@@ -592,10 +598,13 @@ async function main() {
   {
     // Dips with added weight, but no equipment listed
     const dipEx: SessionExerciseRow = {
+      id: "se-dip-weighted",
+      session_id: "sess-1",
       exercise_id: "ex-dip-weighted",
       planned_sets: 4,
       planned_reps_min: 8,
       planned_reps_max: 12,
+      metric: "reps",
       exercises: {
         mechanic: "compound",
         movement_pattern: "horizontal_press",
