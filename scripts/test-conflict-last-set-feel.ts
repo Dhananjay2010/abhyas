@@ -93,7 +93,7 @@ await test("L1: conflict on last set stays on current exercise for feel prompt",
   }
 });
 
-await test("L1: conflict NOT on last set advances to next unfinished exercise", () => {
+await test("L1: conflict NOT on last set stays on current when it's unfinished", () => {
   const exercises: Exercise[] = [
     {
       id: "ex1",
@@ -182,6 +182,59 @@ await test("L1: multiple exercises, conflict on last set of first exercise", () 
   // Must stay on exercise 0 for the feel prompt
   if (resolution.nextExerciseIndex !== 0) {
     throw new Error(`Expected index 0, got ${resolution.nextExerciseIndex}`);
+  }
+});
+
+await test("L1: conflict when current has no remaining work advances to next pending", () => {
+  // Scenario: current exercise (index 0) was already completed in another tab.
+  // A conflict for exercise 0 confirms all sets exist, but since status is "completed",
+  // it doesn't match the "pending" filter in findIndex, so we look for the next pending exercise.
+  const exercises: Exercise[] = [
+    {
+      id: "ex1",
+      sets: [
+        { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
+        { setNumber: 2, reps: 10, weightKg: 60, durationSeconds: null },
+        { setNumber: 3, reps: 10, weightKg: 60, durationSeconds: null },
+      ],
+      plannedSets: 3,
+      status: "completed",  // Already completed
+    },
+    {
+      id: "ex2",
+      sets: [],
+      plannedSets: 3,
+      status: "pending",  // Still needs work
+    },
+  ];
+  const currentExerciseIndex = 0;
+  const currentExerciseId = "ex1";
+
+  const conflictResult: ConflictResult = {
+    ok: false,
+    reason: "set_exists",
+    savedSets: [
+      { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
+      { setNumber: 2, reps: 10, weightKg: 60, durationSeconds: null },
+      { setNumber: 3, reps: 10, weightKg: 60, durationSeconds: null },
+    ],
+  };
+
+  const resolution = resolveSetConflict(
+    exercises,
+    currentExerciseId,
+    currentExerciseIndex,
+    conflictResult
+  );
+
+  // Exercise 1 has all 3 sets
+  if (resolution.exercises[0].sets.length !== 3) {
+    throw new Error(`Expected 3 sets, got ${resolution.exercises[0].sets.length}`);
+  }
+
+  // Should advance to exercise 2 (index 1) because exercise 1 is completed (not pending)
+  if (resolution.nextExerciseIndex !== 1) {
+    throw new Error(`Expected index 1, got ${resolution.nextExerciseIndex}`);
   }
 });
 

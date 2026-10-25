@@ -18,7 +18,7 @@ export async function startSessionCore(
     // The partial unique index rejected a duplicate. Re-read and return the existing session,
     // filtering by the same local_date this start is for. A stale tab from yesterday must not
     // be put into yesterday's in_progress session.
-    const { data: rereadSession } = await client
+    const { data: rereadSession, error: rereadError } = await client
       .from("sessions")
       .select("id, created_at")
       .eq("user_id", userId)
@@ -28,12 +28,17 @@ export async function startSessionCore(
       .limit(1)
       .maybeSingle();
 
+    if (rereadError) {
+      return { ok: false, error: rereadError.message };
+    }
+
     if (rereadSession) {
       return { ok: true, sessionId: rereadSession.id };
     }
-    // Re-read failed (no session for this date), so the 23505 was from a different date.
-    // Return a clear error rather than letting it fall through to the generic message.
-    return { ok: false, error: "Another session is already in progress for a different day" };
+    // Re-read found no session for this date, so the 23505 was from a different date.
+    // With the closeStaleSessions call in actions.ts, this should not normally occur.
+    // If it does, the user should reload to let Today close the stale session.
+    return { ok: false, error: "Another session is already in progress. Please reload the page and try again." };
   }
 
   if (error || !session) {

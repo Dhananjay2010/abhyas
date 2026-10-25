@@ -28,6 +28,8 @@ import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
+import { closeStaleSessions } from "@/lib/session/close-stale";
+import { insertSessionExercises } from "@/lib/session/insert-session-exercises";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -181,90 +183,76 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const isDeloadWeek = week === program.deload_week;
 
   // ---- wave 2 -------------------------------------------------------------
-  // Case C: Idempotent session start - check for existing in_progress session first
-  const { data: existingInProgressSessions } = await supabase
-    .from("sessions")
-    .select("id, status, local_date, actual_type")
-    .eq("user_id", user.id)
-    .eq("local_date", today)
-    .eq("status", "in_progress");
+  // Before inserting a new session, close any stale sessions from earlier dates.
+  // Without this, a stale tab with an open session from yesterday would get a
+  // 23505 from the one-in-progress-session-per-user index and be stuck until
+  // the user reloads Today. Closing stale sessions first lets the new insert
+  // succeed. The openRes data was already fetched in wave 1.
+  await closeStaleSessions(supabase, openRes.data ?? [], today);
 
-  if (existingInProgressSessions && existingInProgressSessions.length > 0) {
-    // An in_progress session already exists for this user + date, return it (idempotent)
-    return { ok: true, data: { sessionId: existingInProgressSessions[0].id } };
-  }
-
-  // No existing in_progress session, create a new one and read the plan
-  const insertResult = await startSessionCore(supabase, user.id, {
-    user_id: user.id,
-    program_id: program.id,
-    program_day_id: day.id,
-    local_date: today,
-    week_in_block: week,
-    is_deload: isDeloadWeek,
-    planned_type: day.day_type,
-    actual_type: day.day_type,
-    status: "in_progress",
-    started_at: new Date().toISOString(),
-  });
+  // Create a new session and read the plan in parallel. The plan read does not
+  // depend on the session insert result, and running them sequentially adds an
+  // unnecessary round trip on the button the user is waiting on.
+  const [insertResult, plannedRes] = await Promise.all([
+    startSessionCore(supabase, user.id, {
+      user_id: user.id,
+      program_id: program.id,
+      program_day_id: day.id,
+      local_date: today,
+      week_in_block: week,
+      is_deload: isDeloadWeek,
+      planned_type: day.day_type,
+      actual_type: day.day_type,
+      status: "in_progress",
+      started_at: new Date().toISOString(),
+    }),
+    supabase
+      .from("program_day_exercises")
+      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
+      .eq("program_day_id", day.id)
+      .order("order_index"),
+  ]);
 
   if (!insertResult.ok) {
     return { ok: false, error: insertResult.error };
   }
 
-  // Check if this session already has exercises. When startSessionCore handled
-  // a 23505 race and returned the winner's session, that session already has
-  // exercises from the winner's insert, so skip our insert to avoid a duplicate
-  // key error on (session_id, order_index).
-  const { data: existingExercises } = await supabase
-    .from("session_exercises")
-    .select("id")
-    .eq("session_id", insertResult.sessionId)
-    .limit(1);
-
-  if (!existingExercises || existingExercises.length === 0) {
-    // No exercises yet; this is a freshly created session, so populate it.
-    const plannedRes = await supabase
-      .from("program_day_exercises")
-      // The exercise's metric comes along so the session can record the unit it
-      // was run in -- see `session_exercises.metric` and SPEC section 7.
-      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
-      .eq("program_day_id", day.id)
-      .order("order_index");
-
-    const planned = plannedRes.data;
-    if (planned && planned.length > 0) {
-      const { error } = await supabase.from("session_exercises").insert(
-        planned.map((p) => {
-          // Week 4 of a block cuts volume; the weight suggestion is reduced
-          // separately when the session is rendered.
-          const dose = isDeloadWeek
-            ? applyDeload({
-                sets: p.target_sets,
-                repsMin: p.target_reps_min,
-                repsMax: p.target_reps_max,
-                restSeconds: p.rest_seconds,
-              })
-            : {
-                sets: p.target_sets,
-                repsMin: p.target_reps_min,
-                repsMax: p.target_reps_max,
-                restSeconds: p.rest_seconds,
-              };
-          return {
-            session_id: insertResult.sessionId,
-            user_id: user.id, // corrected by the definer trigger
-            exercise_id: p.exercise_id,
-            order_index: p.order_index,
-            planned_sets: dose.sets,
-            planned_reps_min: dose.repsMin,
-            planned_reps_max: dose.repsMax,
-            rest_seconds: dose.restSeconds,
-            metric: metricOf(p.exercises),
+  // Insert the session exercises. The insert is idempotent via upsert with
+  // ignoreDuplicates on (session_id, order_index), so in a two-tab race where
+  // both tabs try to insert exercises for the winner's session, the second
+  // insert is a no-op and returns success.
+  const planned = plannedRes.data;
+  if (planned && planned.length > 0) {
+    const exercisesToInsert = planned.map((p) => {
+      const dose = isDeloadWeek
+        ? applyDeload({
+            sets: p.target_sets,
+            repsMin: p.target_reps_min,
+            repsMax: p.target_reps_max,
+            restSeconds: p.rest_seconds,
+          })
+        : {
+            sets: p.target_sets,
+            repsMin: p.target_reps_min,
+            repsMax: p.target_reps_max,
+            restSeconds: p.rest_seconds,
           };
-        }),
-      );
-      if (error) return { ok: false, error: error.message };
+      return {
+        session_id: insertResult.sessionId,
+        user_id: user.id,
+        exercise_id: p.exercise_id,
+        order_index: p.order_index,
+        planned_sets: dose.sets,
+        planned_reps_min: dose.repsMin,
+        planned_reps_max: dose.repsMax,
+        rest_seconds: dose.restSeconds,
+        metric: metricOf(p.exercises),
+      };
+    });
+
+    const exerciseInsertResult = await insertSessionExercises(supabase, exercisesToInsert);
+    if (!exerciseInsertResult.ok) {
+      return { ok: false, error: exerciseInsertResult.error };
     }
   }
 
