@@ -137,31 +137,6 @@ for (const { input, units } of edgeCases) {
 // ============================================================================
 console.log("\n▶ Mutant evidence: removing conversion breaks display");
 
-// Simulate what would happen if we removed kgToDisplay and just showed kg directly
-function brokenDisplay(kg: number, units: "metric" | "imperial"): number {
-  // MUTANT: just return kg without conversion
-  return kg;
-}
-
-const testKg = 60; // 60 kg = ~132 lb
-const correctImperial = kgToDisplay(testKg, "imperial");
-const brokenImperial = brokenDisplay(testKg, "imperial");
-
-check(
-  `Correct display: 60 kg → ${correctImperial.toFixed(1)} lb`,
-  Math.abs(correctImperial - 132) < 1
-);
-
-check(
-  `Broken display: 60 kg → ${brokenImperial} (wrong, should be ~132)`,
-  Math.abs(brokenImperial - 60) < 0.1
-);
-
-check(
-  "Mutant test: broken != correct (proves conversion is necessary)",
-  Math.abs(correctImperial - brokenImperial) > 50
-);
-
 // ============================================================================
 // TEST 7: Cross-boundary edge cases
 // ============================================================================

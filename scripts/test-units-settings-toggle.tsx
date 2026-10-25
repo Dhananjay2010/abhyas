@@ -148,9 +148,10 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
 
       const input = container.querySelector('input[type="number"]');
       check("Input field rendered", input !== null);
+      check("Input is HTMLInputElement", input instanceof HTMLInputElement);
 
-      if (input) {
-        const inputValue = (input as HTMLInputElement).value;
+      if (input instanceof HTMLInputElement) {
+        const inputValue = input.value;
         const displayedLb = parseFloat(inputValue);
         check(
           "Stored 80 kg displays as ~176 lb",
@@ -158,7 +159,7 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
           `got ${displayedLb}`
         );
 
-        const placeholder = (input as HTMLInputElement).placeholder;
+        const placeholder = input.placeholder;
         check("Placeholder shows lb", placeholder === "lb", `got '${placeholder}'`);
       }
     }
@@ -360,15 +361,15 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     );
 
     // Find and fill DOB (use 1990-05-12)
-    const dayInput = Array.from(container.querySelectorAll('input')).find(
+    const dayInput = Array.from(container.querySelectorAll<HTMLInputElement>('input')).find(
       (el) => el.getAttribute("aria-label") === "Day"
-    ) as HTMLInputElement | undefined;
-    const monthInput = Array.from(container.querySelectorAll('input')).find(
+    );
+    const monthInput = Array.from(container.querySelectorAll<HTMLInputElement>('input')).find(
       (el) => el.getAttribute("aria-label") === "Month"
-    ) as HTMLInputElement | undefined;
-    const yearInput = Array.from(container.querySelectorAll('input')).find(
+    );
+    const yearInput = Array.from(container.querySelectorAll<HTMLInputElement>('input')).find(
       (el) => el.getAttribute("aria-label") === "Year"
-    ) as HTMLInputElement | undefined;
+    );
 
     check("DOB inputs exist", !!(dayInput && monthInput && yearInput));
     if (!dayInput || !monthInput || !yearInput) {
@@ -393,13 +394,13 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
         await userEvent.click(maleButton);
 
         // Find height and weight inputs by placeholder
-        const allInputs = Array.from(container.querySelectorAll('input'));
+        const allInputs = Array.from(container.querySelectorAll<HTMLInputElement>('input'));
         const heightInput = allInputs.find(
-          (el) => (el as HTMLInputElement).placeholder.includes("5'9")
-        ) as HTMLInputElement | undefined;
+          (el) => el.placeholder.includes("5'9")
+        );
         const weightInput = allInputs.find(
-          (el) => (el as HTMLInputElement).placeholder.includes("154")
-        ) as HTMLInputElement | undefined;
+          (el) => el.placeholder.includes("154")
+        );
 
         check("Height input exists", !!heightInput);
         check("Weight input exists", !!weightInput);
@@ -493,15 +494,15 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Fill with out-of-range values
-    const dayInput2 = Array.from(container2.querySelectorAll('input')).find(
+    const dayInput2 = Array.from(container2.querySelectorAll<HTMLInputElement>('input')).find(
       (el) => el.getAttribute("aria-label") === "Day"
-    ) as HTMLInputElement | undefined;
-    const monthInput2 = Array.from(container2.querySelectorAll('input')).find(
+    );
+    const monthInput2 = Array.from(container2.querySelectorAll<HTMLInputElement>('input')).find(
       (el) => el.getAttribute("aria-label") === "Month"
-    ) as HTMLInputElement | undefined;
-    const yearInput2 = Array.from(container2.querySelectorAll('input')).find(
+    );
+    const yearInput2 = Array.from(container2.querySelectorAll<HTMLInputElement>('input')).find(
       (el) => el.getAttribute("aria-label") === "Year"
-    ) as HTMLInputElement | undefined;
+    );
 
     check("DOB inputs exist (test 4b)", !!(dayInput2 && monthInput2 && yearInput2));
     if (!dayInput2 || !monthInput2 || !yearInput2) {
@@ -525,13 +526,13 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
         await userEvent.click(maleButton2);
 
         // Type 3'0" (out of range height)
-        const allInputs2 = Array.from(container2.querySelectorAll('input'));
+        const allInputs2 = Array.from(container2.querySelectorAll<HTMLInputElement>('input'));
         const heightInput2 = allInputs2.find(
-          (el) => (el as HTMLInputElement).placeholder.includes("5'9")
-        ) as HTMLInputElement | undefined;
+          (el) => el.placeholder.includes("5'9")
+        );
         const weightInput2 = allInputs2.find(
-          (el) => (el as HTMLInputElement).placeholder.includes("154")
-        ) as HTMLInputElement | undefined;
+          (el) => el.placeholder.includes("154")
+        );
 
         check("Height input exists (test 4b)", !!heightInput2);
         check("Weight input exists (test 4b)", !!weightInput2);
