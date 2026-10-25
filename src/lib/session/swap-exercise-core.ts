@@ -29,6 +29,7 @@ export type SwapExerciseDeps = {
     equipmentIds: string[],
     metric: ExerciseMetric,
     movementPattern: MovementPattern,
+    remembersWeights: boolean,
   ) => Promise<SwapWeightsResult>;
 };
 
@@ -51,6 +52,7 @@ export type SwapExerciseCoreInput = {
     goal: UserGoal;
     level: ExperienceLevel;
   } | null;
+  remembersWeights: boolean;
 };
 
 export type SwapExerciseCoreResult = {
@@ -74,7 +76,7 @@ export async function swapExerciseCore(
   deps: SwapExerciseDeps,
   input: SwapExerciseCoreInput,
 ): Promise<SwapExerciseCoreResult> {
-  const { newExerciseId, current, replacement, profile } = input;
+  const { newExerciseId, current, replacement, profile, remembersWeights } = input;
   
   const metric = replacement?.metric ?? "reps";
   const equipmentIds = replacement?.equipment_ids ?? [];
@@ -87,6 +89,7 @@ export async function swapExerciseCore(
     equipmentIds,
     metric,
     replacement?.movement_pattern ?? "other",
+    remembersWeights,
   );
 
   /*

@@ -784,7 +784,7 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes, settingsRes] = await Promise.all([
     supabase
       .from("session_exercises")
       .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
@@ -808,6 +808,7 @@ export async function swapExercise(input: {
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
+    supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
   ]);
 
   const current = currentRes.data;
@@ -816,18 +817,22 @@ export async function swapExercise(input: {
   const replacement = replacementRes.data;
   const profile = profileRes.data;
 
+  // Daily menu means no working-weight memory (same rule as src/app/session/[id]/page.tsx:109)
+  const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
+
   // Call the core with injected dependencies (testable with fakes)
   const { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, isBodyweight } = 
     await swapExerciseCore(
       {
-        resolveSwapWeights: (sessionId, newExerciseId, equipmentIds, metric, movementPattern) =>
-          resolveSwapWeights(supabase, user.id, sessionId, newExerciseId, equipmentIds, metric, movementPattern),
+        resolveSwapWeights: (sessionId, newExerciseId, equipmentIds, metric, movementPattern, remembersWeights) =>
+          resolveSwapWeights(supabase, user.id, sessionId, newExerciseId, equipmentIds, metric, movementPattern, remembersWeights),
       },
       {
         newExerciseId: input.newExerciseId,
         current,
         replacement,
         profile,
+        remembersWeights,
       },
     );
 

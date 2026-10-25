@@ -25,6 +25,7 @@ export type SwapWeightsResult = {
  * @param equipmentIds - Equipment IDs of the new exercise
  * @param metric - Metric of the new exercise
  * @param movementPattern - Movement pattern of the new exercise
+ * @param remembersWeights - Whether to use remembered weights (false in daily_menu mode)
  * @returns Weight prefill, working weight, and bodyweight flag
  */
 export async function resolveSwapWeights(
@@ -35,8 +36,23 @@ export async function resolveSwapWeights(
   equipmentIds: string[],
   metric: Database["public"]["Enums"]["exercise_metric"],
   movementPattern: Database["public"]["Enums"]["movement_pattern"],
+  remembersWeights: boolean,
 ): Promise<SwapWeightsResult> {
   try {
+    // When remembersWeights is false (daily_menu mode), skip progress/history entirely
+    // (same rule as src/app/session/[id]/page.tsx:109)
+    if (!remembersWeights) {
+      const { data: session, error: sessionError } = await supabase
+        .from("sessions")
+        .select("is_deload")
+        .eq("id", sessionId)
+        .maybeSingle();
+      if (sessionError) {
+        console.error("[resolveSwapWeights] Failed to read is_deload:", sessionError);
+      }
+      return { weightPrefill: null, workingWeightKg: null, isBodyweight: equipmentIds.length === 0 };
+    }
+
     // Read session's is_deload flag, progress for the NEW exercise (in parallel)
     const [sessionRes, progressRes] = await Promise.all([
       supabase
@@ -70,6 +86,7 @@ export async function resolveSwapWeights(
       metric,
       movementPattern,
       progressValueNum,
+      remembersWeights,
     );
 
     // On error reading is_deload, log and return null prefill (don't silently use full weight)

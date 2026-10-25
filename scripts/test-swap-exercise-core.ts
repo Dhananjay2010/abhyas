@@ -36,6 +36,7 @@ async function main() {
     equipmentIds,
     _metric,
     _movementPattern,
+    _remembersWeights,
   ) => {
     capturedExerciseId = newExerciseId;
     // Return distinct values so we can verify they're passed through unchanged
@@ -65,6 +66,7 @@ async function main() {
       goal: "muscle_gain" as const,
       level: "intermediate" as const,
     },
+    remembersWeights: true,
   };
 
   console.log("Case 1: Normal swap with barbell exercise\n");
@@ -118,6 +120,7 @@ async function main() {
     equipmentIds,
     _metric,
     _movementPattern,
+    _remembersWeights,
   ) => {
     capturedExerciseId = newExerciseId;
     return {
