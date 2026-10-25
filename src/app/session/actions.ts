@@ -34,7 +34,7 @@ import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
-import { progressForPlanningMode } from "@/lib/session/swap-progress";
+import { progressForPlanningMode, remembersWeightsFor } from "@/lib/session/swap-progress";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -818,9 +818,8 @@ export async function swapExercise(input: {
   const replacement = replacementRes.data;
   const profile = profileRes.data;
 
-  // Derive remembersWeights from planning_mode using progressForPlanningMode helper
-  // Daily menu means no working-weight memory (same rule as src/app/session/[id]/page.tsx:109)
-  const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
+  // Derive remembersWeights from planning_mode (same rule as the session page)
+  const remembersWeights = remembersWeightsFor(settingsRes.data?.planning_mode);
 
   // Call the core with injected dependencies (testable with fakes)
   const { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = 

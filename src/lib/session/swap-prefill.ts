@@ -47,14 +47,13 @@ export async function resolveSwapPrefill(
 ): Promise<number | null> {
   try {
     // When remembersWeights is false (daily_menu mode), skip progress/history entirely
-    // (same rule as src/app/session/[id]/page.tsx:109)
+    // (same rule as the session page)
     if (!remembersWeights) {
       return null;
     }
 
     // Use pre-fetched progress if provided (removes duplicate query from resolveSwapWeights)
     let currentWorkingWeight: number | null = null;
-    
     if (progressValue !== undefined) {
       currentWorkingWeight = progressValue;
     } else {

@@ -8,6 +8,16 @@ type ProgressRow = {
 } | null;
 
 /**
+ * Check if a planning mode remembers weights/targets.
+ * Daily menu mode doesn't remember weights/targets.
+ */
+export function remembersWeightsFor(
+  planningMode: string | null | undefined,
+): boolean {
+  return planningMode !== "daily_menu";
+}
+
+/**
  * Filter progress based on planning_mode.
  * Returns null for daily_menu mode (doesn't remember weights/targets).
  * 
@@ -17,6 +27,5 @@ export function progressForPlanningMode(
   planningMode: string | null | undefined,
   row: ProgressRow,
 ): ProgressRow {
-  const remembersWeights = planningMode !== "daily_menu";
-  return remembersWeights ? row : null;
+  return remembersWeightsFor(planningMode) ? row : null;
 }

@@ -8,6 +8,7 @@
 
 import { resolveSwapWeights } from "../src/lib/session/resolve-swap-weights";
 import { resolveSwapPrefill } from "../src/lib/session/swap-prefill";
+import { remembersWeightsFor } from "../src/lib/session/swap-progress";
 
 function check(label: string, pass: boolean, detail?: string) {
   if (pass) {
@@ -45,6 +46,12 @@ function createMockSupabaseWithProgress() {
 
 async function main() {
   console.log("Direct remembersWeights Tests\n");
+
+  // Test remembersWeightsFor helper
+  check("remembersWeightsFor('daily_menu') is false", remembersWeightsFor("daily_menu") === false);
+  check("remembersWeightsFor('progression') is true", remembersWeightsFor("progression") === true);
+  check("remembersWeightsFor(null) is true", remembersWeightsFor(null) === true);
+  console.log();
 
   // Test 1: resolveSwapWeights with remembersWeights=false and progress in DB
   console.log("Test 1: resolveSwapWeights with remembersWeights=false (progress exists)\n");

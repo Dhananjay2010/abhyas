@@ -41,7 +41,7 @@ export async function resolveSwapWeights(
 ): Promise<SwapWeightsResult> {
   try {
     // When remembersWeights is false (daily_menu mode), skip progress/history entirely
-    // (same rule as src/app/session/[id]/page.tsx:109)
+    // (same rule as the session page)
     if (!remembersWeights) {
       return { weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: equipmentIds.length === 0 };
     }
