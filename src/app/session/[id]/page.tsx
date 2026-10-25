@@ -2,12 +2,12 @@ import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
-import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isStaleSession } from "@/lib/session/is-stale-session";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
+import { buildRunnerExercise } from "@/lib/session/build-runner-exercises";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +64,8 @@ export default async function SessionPage({
       supabase.from("user_equipment").select("equipment_id"),
       supabase
         .from("exercise_progress")
-        .select("exercise_id, current_working_weight_kg, current_target_reps"),
+        .select("exercise_id, current_working_weight_kg, current_target_reps")
+        .eq("user_id", user.id),
     ]);
 
   // A failed query used to fall through to "this session has no exercises",
@@ -78,6 +79,11 @@ export default async function SessionPage({
   if (sessionRes.error) {
     if (sessionRes.error.code === "22P02") notFound();
     throw new Error(`Could not load this session: ${sessionRes.error.message}`);
+  }
+  
+  // Log progress query error but don't throw (LOW requirement)
+  if (progressRes.error) {
+    console.error("Failed to load exercise progress:", progressRes.error.message);
   }
 
   const session = sessionRes.data;
@@ -119,65 +125,13 @@ export default async function SessionPage({
       equipment_ids: string[];
     };
     const progress = remembersWeights ? progressByExercise.get(ex?.id ?? "") : undefined;
-    const working =
-      progress?.current_working_weight_kg === null || progress === undefined
-        ? null
-        : Number(progress.current_working_weight_kg);
-    const isBodyweight = (ex?.equipment_ids ?? []).length === 0;
-    return {
-      id: r.id,
-      exerciseId: ex?.id ?? "",
-      name: ex?.name ?? "Exercise",
-      cue: ex?.cue ?? null,
-      /*
-        The session's own unit, not the catalogue's. A session resumed after the
-        exercise was re-tagged must keep running in the unit its sets were
-        logged in, or half the sets in one exercise would be reps and half
-        seconds.
-      */
-      metric: r.metric ?? "reps",
-      primaryMuscles: ex?.primary_muscles ?? [],
-      plannedSets: r.planned_sets ?? 3,
-      repsMin: r.planned_reps_min ?? 8,
-      repsMax: r.planned_reps_max ?? 12,
-      restSeconds: r.rest_seconds ?? 90,
-      status: r.status,
-      feel: r.feel,
-      workingWeightKg: working,
-      suggestedWeightKg: suggestedWeight(
-        { currentWorkingWeightKg: working },
-        session.is_deload,
-        {
-          mechanic: null,
-          movementPattern: ex?.movement_pattern ?? "other",
-          metric: r.metric ?? "reps",
-          isBodyweight,
-          progressionChain: null,
-          progressionRank: null,
-        },
-      ),
-      isBodyweight,
-      // Warm-up sets are excluded and the order applied here rather than in the
-      // query. PostgREST is documented to filter an embedded resource without
-      // dropping its parent, but if that were ever wrong the failure would be
-      // silent and severe: a session that has not been started yet has no
-      // logged sets, so every exercise would vanish from the runner. A handful
-      // of rows per exercise is not worth taking that on trust.
-      // Where a resume should land (B1): the latest working set says which
-      // exercise the user was in the middle of.
-      lastLoggedAt: (r.session_sets ?? [])
-        .filter((set) => !set.is_warmup_set)
-        .reduce<string | null>((latest, set) => (latest === null || set.completed_at > latest ? set.completed_at : latest), null),
-      sets: (r.session_sets ?? [])
-        .filter((set) => !set.is_warmup_set)
-        .sort((a, b) => a.set_number - b.set_number)
-        .map((set) => ({
-          setNumber: set.set_number,
-          reps: set.reps,
-          weightKg: set.weight_kg === null ? null : Number(set.weight_kg),
-          durationSeconds: set.duration_seconds,
-        })),
-    };
+    
+    return buildRunnerExercise({
+      row: r,
+      progress,
+      remembersWeights,
+      isDeload: session.is_deload,
+    });
   });
 
   const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];
