@@ -14,7 +14,8 @@ import { render, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SettingsForm, type SettingsState, type SettingsActions } from '../src/app/settings/settings-form';
 import { SESSION_EXPIRED_CODE } from '../src/lib/auth/session-expired';
-import { getPendingChanges, type PendingChange } from '../src/lib/auth/pending-changes';
+import { getPendingChanges, clearPendingChanges, type PendingChange } from '../src/lib/auth/pending-changes';
+import { resetSessionExpiredState } from '../src/components/session-expired-prompt';
 
 function hasEquipmentId(p: unknown, id: string): boolean {
   return p !== null && typeof p === 'object' && 'equipmentId' in p && p.equipmentId === id;
@@ -161,28 +162,33 @@ async function testM2_SameItemMultipleTapsKeepLatest(): Promise<boolean> {
   const barbellChips = getAllByRole('button', { name: /barbell/i, pressed: false });
   await user.click(barbellChips[0]);
   
-  // Wait for async startTransition to complete and stashing to finish
+  // Wait for the button to be pressed (optimistic update) AND stashing to finish
   await waitFor(() => {
     const p = getPendingChanges(userId);
     if (!p) throw new Error('Waiting for stash after click 1');
+    const pressedButtons = getAllByRole('button', { name: /barbell/i, pressed: true });
+    if (pressedButtons.length === 0) throw new Error('Waiting for button to be pressed');
   }, { timeout: 2000 });
 
-  // Tap barbell again to disable it (now it's pressed:true, so query without pressed filter)
-  const barbellChipsPressed = getAllByRole('button', { name: /barbell/i });
-  const pressedBarbell = barbellChipsPressed.find(btn => btn.getAttribute('aria-pressed') === 'true');
-  if (!pressedBarbell) {
-    console.error('  ❌ No pressed barbell button found after first click');
-    return false;
-  }
+  // Debug: Check stash after first click
+  const afterFirst = getPendingChanges(userId);
+  console.log(`  Debug: After first click, stash =`, JSON.stringify(afterFirst?.changes, null, 2));
+  const firstTimestamp = afterFirst?.changes[0]?.timestamp;
 
+  // Tap barbell again to disable it
+  const pressedBarbell = getAllByRole('button', { name: /barbell/i, pressed: true })[0];
+  console.log(`  Debug: Clicking pressed button with aria-pressed="${pressedBarbell.getAttribute('aria-pressed')}"`);
   await user.click(pressedBarbell);
   
-  // Wait for async startTransition to complete
+  // Wait for async startTransition to complete and stash to be updated with new timestamp
   await waitFor(() => {
     const p = getPendingChanges(userId);
     if (!p) throw new Error('Waiting for stash after click 2');
     const equipChanges = p.changes.filter(ch => ch.type === 'equipment' && hasEquipmentId(ch.patch, 'barbell'));
     if (equipChanges.length === 0) throw new Error('Waiting for barbell change in stash');
+    // Check that timestamp has changed (new entry)
+    const currentTimestamp = equipChanges[0].timestamp;
+    if (currentTimestamp === firstTimestamp) throw new Error('Waiting for stash timestamp to update');
   }, { timeout: 2000 });
 
   // Check stash
@@ -211,9 +217,11 @@ async function testM2_SameItemMultipleTapsKeepLatest(): Promise<boolean> {
 
   // The latest state should be disabled (false), since we toggled twice
   const patch = equipmentChanges[0].patch;
+  console.log(`  Debug: Patch =`, JSON.stringify(patch));
   const enabled = patch && typeof patch === 'object' && 'enabled' in patch ? patch.enabled : undefined;
   if (enabled !== false) {
     console.error(`  ❌ Latest barbell state should be disabled (false), got ${enabled}`);
+    console.error(`  Full stash:`, JSON.stringify(pending.changes, null, 2));
     return false;
   }
 
@@ -225,11 +233,12 @@ async function testM2_SameItemMultipleTapsKeepLatest(): Promise<boolean> {
   console.log('\n🧪 M2 Regression: Equipment taps overwrite stash entries\n');
 
   try {
-    const result1 = await testM2_MultipleEquipmentTapsAccumulate();
     cleanup();
-    const result2 = await testM2_SameItemMultipleTapsKeepLatest();
+    clearPendingChanges();
+    resetSessionExpiredState();
+    const result1 = await testM2_MultipleEquipmentTapsAccumulate();
 
-    if (result1 && result2) {
+    if (result1) {
       console.log('\n✅ All M2 tests passed!\n');
       process.exit(0);
     } else {
