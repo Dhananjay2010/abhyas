@@ -337,13 +337,13 @@ assert(
 
 console.log("\n=== Test (no-repeat-c): Two pull-forwards in one week ===\n");
 
-// Monday: Pull Push A from Tuesday, complete it
-// Wednesday: Pull Legs A from Thursday, complete it
-// Both Tuesday and Thursday should show "Done <day> (your choice)"
+// Monday: Pull Push A from Tuesday, complete it (Monday is rest)
+// Friday: Pull Push B from Saturday, complete it (Friday is rest)
+// Both Tuesday and Saturday should show "Done <day> (your choice)"
 
 const mondayPushComplete = {
   id: "sess-mon-push",
-  local_date: "2026-10-19", // Monday, week 2
+  local_date: "2026-10-19", // Monday, week 2 (rest day)
   status: "completed" as const,
   actual_type: "weights" as const,
   program_id: noRepeatProgram.id,
@@ -352,39 +352,39 @@ const mondayPushComplete = {
   created_at: "2026-10-19T09:00:00Z",
 };
 
-const wednesdayLegsComplete = {
-  id: "sess-wed-legs",
-  local_date: "2026-10-21", // Wednesday, week 2
+const fridayPushBComplete = {
+  id: "sess-fri-pushb",
+  local_date: "2026-10-23", // Friday, week 2 (rest day)
   status: "completed" as const,
   actual_type: "weights" as const,
   program_id: noRepeatProgram.id,
-  program_day_id: "nr-day-4", // Legs A (Thursday's)
-  started_at: "2026-10-21T10:00:00Z",
-  created_at: "2026-10-21T09:00:00Z",
+  program_day_id: "nr-day-6", // Push B (Saturday's)
+  started_at: "2026-10-23T10:00:00Z",
+  created_at: "2026-10-23T09:00:00Z",
 };
 
-const thursdayAfterTwoPulls = "2026-10-22"; // Thursday, week 2
+const saturdayAfterTwoPulls = "2026-10-24"; // Saturday, week 2
 
-const thursdayDeps: BuildPageInput = {
+const saturdayDeps: BuildPageInput = {
   profile: {
     id: "user-2",
     created_at: "2026-01-01T00:00:00Z",
     timezone: "UTC",
   },
-  localToday: thursdayAfterTwoPulls,
-  yesterday: "2026-10-21",
+  localToday: saturdayAfterTwoPulls,
+  yesterday: "2026-10-23",
   timezone: "UTC",
   program: noRepeatProgram,
   days: noRepeatDays,
   allSessionsRes: {
     data: [
       { actual_type: "weights" as const, started_at: "2026-10-19T10:00:00Z" },
-      { actual_type: "weights" as const, started_at: "2026-10-21T10:00:00Z" },
+      { actual_type: "weights" as const, started_at: "2026-10-23T10:00:00Z" },
     ],
     error: null,
   },
   weekSessionsRes: {
-    data: [mondayPushComplete, wednesdayLegsComplete],
+    data: [mondayPushComplete, fridayPushBComplete],
     error: null,
   },
   todaySessionsRes: {
@@ -392,21 +392,21 @@ const thursdayDeps: BuildPageInput = {
     error: null,
   },
   yesterdaySessionsRes: {
-    data: [wednesdayLegsComplete],
+    data: [fridayPushBComplete],
     error: null,
   },
   sessionExercisesRes: { data: null, error: null },
 };
 
-const thursdayPage = buildPage(thursdayDeps);
+const saturdayPage = buildPage(saturdayDeps);
 
 assert(
-  thursdayPage.dayType === "rest",
-  `(no-repeat-c) Thursday shows as rest, got "${thursdayPage.dayType}"`
+  saturdayPage.dayType === "rest",
+  `(no-repeat-c) Saturday shows as rest, got "${saturdayPage.dayType}"`
 );
 assert(
-  thursdayPage.dayLabel === "Done Wednesday (your choice)",
-  `(no-repeat-c) Thursday's label is "Done Wednesday (your choice)", got "${thursdayPage.dayLabel}"`
+  saturdayPage.dayLabel === "Done Friday (your choice)",
+  `(no-repeat-c) Saturday's label is "Done Friday (your choice)", got "${saturdayPage.dayLabel}"`
 );
 
 console.log("\n=== Test (no-repeat-d): Planned but not started doesn't block ===\n");

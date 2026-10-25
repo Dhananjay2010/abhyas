@@ -254,12 +254,17 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
         );
         
         if (sessCycleWeek === todayCycleWeek) {
-          // This program_day was done earlier this week - today becomes rest
+          // Check if the session was done on a rest day (pulled forward from template)
           const earlierDayIndex = isoWeekday(sess.local_date);
-          const dayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-          pulledForwardFrom = { dayName: dayNames[earlierDayIndex] };
-          scheduled = null; // Today is now rest
-          break;
+          const earlierTemplateDay = days.find((d) => d.day_index === earlierDayIndex);
+          
+          if (earlierTemplateDay && earlierTemplateDay.day_type === "rest") {
+            // This program_day was pulled forward onto a rest day - today becomes rest
+            const dayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+            pulledForwardFrom = { dayName: dayNames[earlierDayIndex] };
+            scheduled = null; // Today is now rest
+            break;
+          }
         }
       }
     }
@@ -366,8 +371,8 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     if (label !== d.label) chosenByDayIndex.set(d.day_index, label);
   }
   
-  // Check for pulled-forward days: if a program_day was completed/in-progress earlier this week,
-  // its original weekday shows "Done <Day> (your choice)"
+  // Check for pulled-forward days: if a program_day was completed/in-progress earlier this week
+  // on a rest day, its original weekday shows "Done <Day> (your choice)"
   const dayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   for (const d of days) {
     if (d.day_type === "rest") continue;
@@ -378,7 +383,7 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
       date
     );
     
-    // Check if this program_day was done earlier this week
+    // Check if this program_day was done earlier this week on a rest day
     for (const sess of weekSessions) {
       if (
         sess.program_day_id === d.id &&
@@ -392,10 +397,15 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
         );
         
         if (sessCycleWeek === dateCycleWeek) {
-          // This program_day was done earlier - show as "Done <Day> (your choice)"
+          // Check if the session was done on a rest day (pulled forward from template)
           const earlierDayIndex = isoWeekday(sess.local_date);
-          chosenByDayIndex.set(d.day_index, `Done ${dayNames[earlierDayIndex]} (your choice)`);
-          break;
+          const earlierTemplateDay = days.find((td) => td.day_index === earlierDayIndex);
+          
+          if (earlierTemplateDay && earlierTemplateDay.day_type === "rest") {
+            // This program_day was pulled forward onto a rest day - show as "Done <Day> (your choice)"
+            chosenByDayIndex.set(d.day_index, `Done ${dayNames[earlierDayIndex]} (your choice)`);
+            break;
+          }
         }
       }
     }
