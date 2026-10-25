@@ -35,6 +35,7 @@ import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { progressForPlanningMode } from "@/lib/session/swap-progress";
+import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -787,7 +788,6 @@ export async function swapExercise(input: {
   const { supabase, user } = await requireUser();
 
   // Refuse swap if the exercise has logged sets
-  const { canSwapExercise, createSupabaseSwapGuardDeps } = await import("@/lib/session/swap-guard");
   const guardResult = await canSwapExercise(
     createSupabaseSwapGuardDeps(supabase),
     input.sessionExerciseId,
