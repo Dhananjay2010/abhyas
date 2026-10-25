@@ -49,15 +49,12 @@ const results: Array<{
   sha256: string;
 }> = [];
 
-let count = 0;
-
 for (const [equipmentName, { ids, hasAll, track }] of Object.entries(EQUIPMENT_PROFILES)) {
   for (const goal of GOALS) {
     for (const level of LEVELS) {
       for (const days of DAYS) {
         for (const minutes of MINUTES) {
           for (const age of AGES) {
-            count++;
             const userId = `baseline-${equipmentName}-${goal}-${level}-${days}d-${minutes}m-age${age}`;
             
             const input: GeneratorInput = {
