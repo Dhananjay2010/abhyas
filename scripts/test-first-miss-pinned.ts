@@ -179,6 +179,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
 
 {
   const d = run({
+    sets: sets(4, 10, 7.5),
     equipmentIds: ["dumbbell"],
     unit: "lb",
     meta: CURL,
@@ -490,6 +491,7 @@ console.log("\n=== Mutant-Killing Tests ===");
 {
   // Barbell compound 12.5kg: RAW 90% = 11.25, two-miss ceil to 12.5 → holds (Rule 2 clamp)
   const d = run({
+    sets: sets(4, 10, 12.5),
     equipmentIds: ["barbell"],
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
@@ -516,6 +518,7 @@ console.log("\n=== Mutant-Killing Tests ===");
   // Barbell 2.75 kg isolation: first-miss would naturally go to 2.5kg (one step down)
   // but two-miss holds at 2.75kg (light weight). Clamp forces first to hold at 2.75.
   const firstMiss = run({
+    sets: sets(4, 10, 2.75),
     equipmentIds: ["barbell"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation" },
@@ -523,6 +526,7 @@ console.log("\n=== Mutant-Killing Tests ===");
   });
   
   const twoMiss = run({
+    sets: sets(4, 10, 2.75),
     equipmentIds: ["barbell"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation" },

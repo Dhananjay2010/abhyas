@@ -576,7 +576,7 @@ console.log("\n18. No-equipment path matches main (hard-coded snapshot from main
   check("no-data without equipment: holds at 60", noData.nextWorkingWeightKg === 60, `${noData.nextWorkingWeightKg}`);
   
   // Never negative or zero
-  const minIso = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 2.5 }), sets: sets(4, 10) });
+  const minIso = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 2.5 }), sets: sets(4, 10, 2.5) });
   check("min isolation first miss: 2.5 stays 2.5", minIso.nextWorkingWeightKg === 2.5, `${minIso.nextWorkingWeightKg}`);
 }
 
