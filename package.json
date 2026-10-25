@@ -190,6 +190,7 @@
     "test:injury-regions": "tsx scripts/test-injury-regions.ts",
     "test:knee-safety-matrix": "tsx scripts/test-knee-safety-matrix.ts",
     "test:knee-swaps": "tsx scripts/test-knee-swaps.ts",
+    "test:quad-coverage-grid": "tsx scripts/test-quad-coverage-grid.ts",
     "test:mutations": "tsx scripts/test-mutations.ts",
     "test:no-injury-baseline": "tsx scripts/test-no-injury-baseline.ts",
     "test:past-knee-coordinator": "tsx scripts/test-past-knee-coordinator.ts",

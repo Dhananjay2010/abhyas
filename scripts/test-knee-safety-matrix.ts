@@ -512,31 +512,20 @@ for (const seed of testSeeds) {
             // Note: Main-lift set count invariants (e.g., main >= accessory sets) are covered by a separate follow-up PR
             
             // Rule 9 (PR #73 follow-up): No timed hold (metric=seconds) in main slots - CURRENT KNEE ONLY
-            // D1 fix: Use template's actual main slot count, not hardcoded 4
-            // D2 fix: Short days (total exercises <= mainSlotCount) may have timed holds in "main" positions
-            //         as long as they're before core
+            // PR #73 Run 13: Check timed holds in main slots (no exemptions)
             if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               const mainSlotCount = getMainSlotCountForDay(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
-              const nonCoreCount = day.exercises.filter(ex => {
-                const e = byId.get(ex.exerciseId);
-                return e?.movement_pattern !== "core";
-              }).length;
-              const isShortDay = nonCoreCount <= mainSlotCount;
+              const mains = day.exercises.filter((ex, idx) => idx < mainSlotCount);
               
-              if (!isShortDay) {
-                // Only enforce for days with actual accessory slots
-                const mains = day.exercises.filter((ex, idx) => idx < mainSlotCount);
+              for (const mainEx of mains) {
+                const exercise = byId.get(mainEx.exerciseId);
+                if (!exercise) continue;
                 
-                for (const mainEx of mains) {
-                  const exercise = byId.get(mainEx.exerciseId);
-                  if (!exercise) continue;
-                  
-                  if (exercise.metric === "seconds") {
-                    check(`${profileId} ${day.label}: no timed hold in main slot`, false,
-                      `${exercise.name} [${exercise.slug}] at position ${mainEx.orderIndex + 1} (template has ${mainSlotCount} main slots, day has ${day.exercises.length} exercises)`);
-                    profileFailed = true;
-                  }
+                if (exercise.metric === "seconds") {
+                  check(`${profileId} ${day.label}: no timed hold in main slot`, false,
+                    `${exercise.name} [${exercise.slug}] at position ${mainEx.orderIndex + 1} (template has ${mainSlotCount} main slots, day has ${day.exercises.length} exercises)`);
+                  profileFailed = true;
                 }
               }
             }
@@ -559,16 +548,8 @@ for (const seed of testSeeds) {
                   return e?.movement_pattern === "core";
                 });
                 
-                // D1/D2 fix: For short days (not enough non-core exercises to fill main slots),
-                // Wall Sit may be in a "main" position. The critical requirement is: Wall Sit must be BEFORE core
-                const nonCoreCount = day.exercises.filter(ex => {
-                  const e = byId.get(ex.exerciseId);
-                  return e?.movement_pattern !== "core";
-                }).length;
-                const isShortDay = nonCoreCount <= mainSlotCount;
-                
-                if (!isShortDay && wallSitIndex < mainSlotCount) {
-                  // Only enforce "not in main slot" for days that actually have accessory slots
+                // PR #73 Run 13: Wall Sit must be in accessory slots (after main slots)
+                if (wallSitIndex < mainSlotCount) {
                   check(`${profileId} ${day.label}: Wall Sit not in main slot`, false,
                     `Wall Sit at position ${wallSitIndex + 1} (template has ${mainSlotCount} main slots, day has ${day.exercises.length} exercises)`);
                   profileFailed = true;
@@ -665,18 +646,15 @@ for (const seed of testSeeds) {
                 }
               }
               
-              // Check that lunge slots are not empty on lower/legs days
-              // EXEMPTION: Days with ≤4 total exercises (30min muscle_gain) can't fit force-added 5th
+              // Check that lunge slots are not empty on lower/legs days (PR #73 Run 13: no exemptions)
               for (const day of plan.days.filter(d => d.focus === "lower" || d.focus === "legs" || d.focus === "full_body")) {
-                const dayTooShort = day.exercises.length <= 4;  // Can't fit force-added quad exercise
-                
                 const hasLowerBodyNonCore = day.exercises.some(ex => {
                   const e = byId.get(ex.exerciseId);
                   if (!e || e.movement_pattern === "core") return false;
                   return e.primary_muscles.some(m => ["quads", "glutes", "hamstrings"].includes(m));
                 });
                 
-                if (!hasLowerBodyNonCore && !dayTooShort) {
+                if (!hasLowerBodyNonCore) {
                   check(`${profileId} ${day.label}: past-knee lower day not empty`, false,
                     "No lower-body exercises found");
                   profileFailed = true;
@@ -701,10 +679,8 @@ for (const seed of testSeeds) {
                 return e?.movement_pattern === "core";
               });
               
-              // Check minimum lower-body count (at least 2), but exempt short sessions
-              const dayTooShort = day.exercises.length <= 4;  // Can't fit 5th exercise for force-add
-              
-              if (nonCoreLowerExercises.length < 2 && !dayTooShort) {
+              // Check minimum lower-body count (at least 2) - PR #73 Run 13: no exemptions
+              if (nonCoreLowerExercises.length < 2) {
                 // Count available knee-safe lower-body exercises for this equipment
                 const available = catalogue.filter(e => {
                   if (e.movement_pattern === "core") return false;
@@ -736,6 +712,18 @@ for (const seed of testSeeds) {
               if (coreExercises.length > 2) {
                 check(`${profileId} ${day.label}: ≤2 core exercises`, false,
                   `Has ${coreExercises.length} core moves`);
+                profileFailed = true;
+              }
+              
+              // PR #73 Run 13: Every current-knee lower/full/legs day must have ≥1 quads-primary exercise
+              const quadsPrimaryExercises = day.exercises.filter(ex => {
+                const e = byId.get(ex.exerciseId);
+                return e?.primary_muscles.includes("quads");
+              });
+              
+              if (quadsPrimaryExercises.length === 0) {
+                check(`${profileId} ${day.label}: ≥1 quads-primary exercise`, false,
+                  `No quads-primary exercises found on ${day.focus} day`);
                 profileFailed = true;
               }
             }

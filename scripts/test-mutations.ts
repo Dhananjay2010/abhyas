@@ -156,6 +156,24 @@ const mutants: Mutant[] = [
     mutate: 'anyKneeInjury: false,',
     tests: ["test:swap-context"],
   },
+
+  // PR #73 Run 13: Protected quad trimming mutant
+  {
+    name: "Remove quad protection from duration trim (allow dropping the only quad)",
+    file: "src/lib/program/generate.ts",
+    pattern: /\/\/ Never drop the only quad \(protect it for knee-injured users\)/,
+    mutate: '// MUTANT: Removed quad protection',
+    tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
+  },
+
+  // PR #73 Run 13: Wall-sit reuse mutant
+  {
+    name: "Disable wall-sit reuse for current-knee (mark as used in block)",
+    file: "src/lib/program/generate.ts",
+    pattern: /\/\/ For current-knee with wall-sit, allow reuse across days/,
+    mutate: '// MUTANT: Disabled wall-sit reuse',
+    tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
+  },
 ];
 
 let killed = 0;

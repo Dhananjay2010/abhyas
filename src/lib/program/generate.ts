@@ -1169,7 +1169,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     if ((hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {
       const hasQuadWork = pickedExercises.some(p => p.ex.primary_muscles.includes("quads"));
       if (!hasQuadWork) {
-        // PR #73 Run 11: For CURRENT knee, force wall-sit as last non-core accessory when it's the only option
+        // PR #73: For knee injuries, add a knee-safe quad exercise
         const hasCurrentKneeLocal = input.currentInjuryRegions.includes("knee");
         
         // Select appropriate list: KNEE_SAFE_QUAD_EXERCISES for current, PAST_KNEE_LUNGE_EXERCISES for past
@@ -1184,7 +1184,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             if (!hasCurrentKneeLocal && usedInBlock.has(e.id)) return false;
             if (hasCurrentKneeLocal && e.slug !== "wall-sit" && usedInBlock.has(e.id)) return false;
             
-            // Use shared eligibility check
             return isEligible(e, input);
           })
           .sort((a, b) => 
@@ -1195,32 +1194,11 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         if (kneeSafeOptions.length > 0) {
           const added = kneeSafeOptions[0];
           
-          // For current-knee with wall-sit as only option, place as last non-core accessory
-          if (hasCurrentKneeLocal && added.slug === "wall-sit" && kneeSafeOptions.length === 1) {
-            // If day is full, replace last non-core accessory
-            const mainSlotCount = getMainSlotCount(entry.slots);
-            
-            if (pickedExercises.length >= maxExercises) {
-              // Find last non-core accessory to replace
-              let replaceIdx = -1;
-              for (let i = pickedExercises.length - 1; i >= 0; i--) {
-                if (pickedExercises[i].slotIndex < mainSlotCount) continue; // Skip main slots
-                if (pickedExercises[i].ex.movement_pattern === "core") continue; // Skip core
-                replaceIdx = i;
-                break;
-              }
-              
-              if (replaceIdx >= 0) {
-                pickedExercises[replaceIdx] = { ex: added, slotIndex: pickedExercises[replaceIdx].slotIndex };
-              } else {
-                // No replaceable accessory, just add (shouldn't happen)
-                pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
-              }
-            } else {
-              // Room available, add at end
-              pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
-            }
-            // Don't mark as used in block for wall-sit (allow reuse)
+          // For current-knee with wall-sit, allow reuse across days
+          if (hasCurrentKneeLocal && added.slug === "wall-sit") {
+            // Add at end; will be positioned before core during sort
+            pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+            // Don't mark as used in block (allow reuse across days)
           } else {
             // Normal case: add and mark used
             usedInBlock.add(added.id);
@@ -1585,18 +1563,39 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             }
           }
           
-          // If no duplicates, drop the last exercise UNLESS it's core (keep variety)
+          // If no duplicates, drop the last exercise UNLESS it's core or the only quad
           if (dropIndex === -1) {
+            // Count quad exercises on this day
+            const quadCount = exercises.filter(e => {
+              const ex = pool.find(x => x.id === e.exerciseId);
+              return ex?.primary_muscles.includes("quads");
+            }).length;
+            
             for (let i = exercises.length - 1; i >= 0; i--) {
               const ex = pool.find(e => e.id === exercises[i].exerciseId);
-              if (ex && ex.movement_pattern !== "core") {
-                dropIndex = i;
-                break;
-              }
+              if (!ex) continue;
+              
+              // Never drop core
+              if (ex.movement_pattern === "core") continue;
+              
+              // Never drop the only quad (protect it for knee-injured users)
+              if (quadCount === 1 && ex.primary_muscles.includes("quads")) continue;
+              
+              dropIndex = i;
+              break;
             }
-            // If only core is droppable, drop it as last resort
+            // If only core or protected quad is droppable, drop core as last resort
             if (dropIndex === -1) {
-              dropIndex = exercises.length - 1;
+              for (let i = exercises.length - 1; i >= 0; i--) {
+                const ex = pool.find(e => e.id === exercises[i].exerciseId);
+                if (ex && ex.movement_pattern === "core") {
+                  dropIndex = i;
+                  break;
+                }
+              }
+              if (dropIndex === -1 && exercises.length > 0) {
+                dropIndex = exercises.length - 1;
+              }
             }
           }
           
