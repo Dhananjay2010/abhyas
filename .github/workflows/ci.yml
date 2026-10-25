@@ -269,6 +269,7 @@ jobs:
           npm run test:injuries-two-client
           npm run test:stale-stash-two-client
           npm run test:swap-prefill-real-db
+          npm run test:ensure-session-exercises-deload
           npx tsx scripts/test-delete-set.ts
           npx tsx scripts/test-skipped-session-shapes.ts
           REAL_DB=1 npm run test:history-edit-validation-db
