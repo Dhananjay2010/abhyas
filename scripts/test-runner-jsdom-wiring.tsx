@@ -41,7 +41,7 @@ function createFakeTimer(): {
   return {
     timer: {
       setTimeout: (callback: () => void, _ms: number): TimerId => {
-        const id = (nextId++ as unknown) as TimerId;
+        const id = nextId++ as TimerId;
         callbacks.set(id, callback);
         return id;
       },
@@ -394,7 +394,9 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
   const clock = createFakeClock(Date.parse("2026-10-25T12:00:00Z"));
   let unhandledRejections = 0;
 
-  const originalHandler = process.listeners("unhandledRejection")[0];
+  const originalHandler = process.listeners("unhandledRejection")[0] as
+    | ((...args: unknown[]) => void)
+    | undefined;
   const testHandler = () => { unhandledRejections++; };
   process.removeAllListeners("unhandledRejection");
   process.on("unhandledRejection", testHandler);
@@ -498,7 +500,7 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
 
   process.removeListener("unhandledRejection", testHandler);
   if (originalHandler) {
-    process.on("unhandledRejection", originalHandler as (...args: unknown[]) => void);
+    process.on("unhandledRejection", originalHandler);
   }
 
   root.unmount();

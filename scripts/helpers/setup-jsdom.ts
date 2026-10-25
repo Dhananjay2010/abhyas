@@ -39,13 +39,25 @@ if (global.window && global.window.HTMLDialogElement) {
 
 // Polyfill requestAnimationFrame for JSDOM
 if (!global.requestAnimationFrame) {
+  let rafId = 0;
+  const rafCallbacks = new Map<number, FrameRequestCallback>();
+  
   global.requestAnimationFrame = (callback: FrameRequestCallback) => {
-    return setTimeout(() => callback(Date.now()), 0) as unknown as number;
+    const id = ++rafId;
+    rafCallbacks.set(id, callback);
+    setImmediate(() => {
+      const cb = rafCallbacks.get(id);
+      if (cb) {
+        rafCallbacks.delete(id);
+        cb(Date.now());
+      }
+    });
+    return id;
   };
 }
 if (!global.cancelAnimationFrame) {
   global.cancelAnimationFrame = (id: number) => {
-    clearTimeout(id);
+    // No-op for this simple polyfill
   };
 }
 

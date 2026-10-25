@@ -88,6 +88,7 @@ function makeStaleFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionD
   };
 }
 
+(async function main() {
 console.log("\nTesting stale close-out uses last set's exercise rest_seconds\n");
 
 // Test 1: Stale session uses last exercise's rest_seconds (90s)
@@ -110,7 +111,7 @@ console.log("1. Stale session uses last set's exercise rest_seconds (90s)");
 
   const deps = makeStaleFakeDeps(exercises);
   
-  (async () => {
+  await (async () => {
     const result = await finishSessionCore(deps, {
       sessionId: "session-1",
       durationSeconds: 9999,
@@ -150,7 +151,7 @@ console.log("\n2. Stale session with null rest_seconds uses default 300s");
 
   const deps = makeStaleFakeDeps(exercises);
   
-  (async () => {
+  await (async () => {
     const result = await finishSessionCore(deps, {
       sessionId: "session-2",
       durationSeconds: 9999,
@@ -188,7 +189,7 @@ console.log("\n3. Stale session uses last working set's exercise rest, ignoring 
 
   const deps = makeStaleFakeDeps(exercises);
   
-  (async () => {
+  await (async () => {
     const result = await finishSessionCore(deps, {
       sessionId: "session-3",
       durationSeconds: 9999,
@@ -209,12 +210,11 @@ console.log("\n3. Stale session uses last working set's exercise rest, ignoring 
   })();
 }
 
-// Give async tests time to complete
-setTimeout(() => {
-  console.log(`\n✅ Passed: ${passed}`);
-  if (failed > 0) {
-    console.log(`❌ Failed: ${failed}`);
-    process.exit(1);
-  }
-  console.log("\n✨ All stale-rest-used tests passed!");
-}, 100);
+
+console.log(`\n✅ Passed: ${passed}`);
+if (failed > 0) {
+  console.log(`❌ Failed: ${failed}`);
+  process.exit(1);
+}
+console.log("\n✨ All stale-rest-used tests passed!");
+})();

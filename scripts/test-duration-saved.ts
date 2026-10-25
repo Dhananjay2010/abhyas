@@ -90,6 +90,7 @@ function makeFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionDeps &
   };
 }
 
+(async function main() {
 console.log("\nTesting duration_seconds is saved correctly (not 0)\n");
 
 // Test 1: Non-stale session with working sets saves client duration
@@ -109,7 +110,7 @@ console.log("1. Non-stale session saves client-provided duration");
 
   const deps = makeFakeDeps(exercises);
   
-  (async () => {
+  await (async () => {
     const result = await finishSessionCore(deps, {
       sessionId: "session-1",
       durationSeconds: 1234,
@@ -141,7 +142,7 @@ console.log("\n2. Non-stale skipped session saves client-provided duration");
 
   const deps = makeFakeDeps(exercises);
   
-  (async () => {
+  await (async () => {
     const result = await finishSessionCore(deps, {
       sessionId: "session-2",
       durationSeconds: 456,
@@ -173,7 +174,7 @@ console.log("\n3. Duration is clamped to [0, 21600]");
 
   const deps = makeFakeDeps(exercises);
   
-  (async () => {
+  await (async () => {
     const result = await finishSessionCore(deps, {
       sessionId: "session-3",
       durationSeconds: 30000,
@@ -186,12 +187,10 @@ console.log("\n3. Duration is clamped to [0, 21600]");
   })();
 }
 
-// Give async tests time to complete
-setTimeout(() => {
-  console.log(`\n✅ Passed: ${passed}`);
-  if (failed > 0) {
-    console.log(`❌ Failed: ${failed}`);
-    process.exit(1);
-  }
-  console.log("\n✨ All duration-saved tests passed!");
-}, 100);
+console.log(`\n✅ Passed: ${passed}`);
+if (failed > 0) {
+  console.log(`❌ Failed: ${failed}`);
+  process.exit(1);
+}
+console.log("\n✨ All duration-saved tests passed!");
+})();
