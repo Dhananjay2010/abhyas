@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { nextSetNumberFor } from "@/lib/session/next-set-number";
 import type { Database } from "@/lib/database.types";
@@ -42,6 +42,11 @@ import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-u
 import { registerFocusRetry } from "@/lib/session/focus-retry";
 import { getPendingCountForExercise } from "@/lib/session/pending-count";
 import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
+import { resolveSetConflict } from "@/lib/session/conflict-reducer";
+import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
+import { exercisesReducer } from "@/lib/session/exercises-reducer";
+import { nextSetTarget, pickCurrentExerciseIndex } from "@/lib/session/resume-state";
+import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -100,6 +105,8 @@ export type RunnerExercise = {
   sets: LoggedSet[];
   /** No external load: used for UI labeling of weight input. */
   isBodyweight: boolean;
+  /** completed_at of the latest working set, so a resume lands on this exercise. */
+  lastLoggedAt?: string | null;
 };
 
 export type RunnerSettings = {
@@ -154,8 +161,25 @@ export function SessionRunner({
   const router = useRouter();
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
-  const [exercises, setExercises] = useState(initialExercises);
+  
+  // Use reducer to manage exercises with server data merging
+  const [exercises, dispatch] = useReducer(
+    exercisesReducer,
+    initialExercises
+  );
+  
+  // Functional updates go through the reducer so they apply to the state at
+  // dispatch time (which may already include a resume merge), not to the
+  // `exercises` this render closed over.
+  const setExercises = useCallback((update: typeof initialExercises | ((prev: typeof initialExercises) => typeof initialExercises)) => {
+    dispatch(
+      typeof update === "function"
+        ? { type: "update", update }
+        : { type: "set", exercises: update },
+    );
+  }, []);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
@@ -221,12 +245,6 @@ export function SessionRunner({
   const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
-  // Resume where the session actually stopped rather than at the top.
-  const firstUnfinished = Math.max(
-    0,
-    exercises.findIndex((e) => e.status === "pending"),
-  );
-
   /*
     Every exercise already finished, and the session still open.
 
@@ -250,8 +268,10 @@ export function SessionRunner({
     nothingPending ? "cooldown" : warmupAlreadyDone || warmup.length === 0 ? "work" : "warmup",
   );
   const [warmupIndex, setWarmupIndex] = useState(0);
+  // B1: the exercise the latest logged set belongs to, not simply the first
+  // pending one, so a resume lands where the user left off.
   const [exerciseIndex, setExerciseIndex] = useState(
-    exercises.findIndex((e) => e.status === "pending") === -1 ? 0 : firstUnfinished,
+    exercises.findIndex((e) => e.status === "pending") === -1 ? 0 : pickCurrentExerciseIndex(exercises),
   );
 
   const wakeLock = useWakeLock(phase !== "done");
@@ -335,6 +355,37 @@ export function SessionRunner({
     setRestRemaining(seconds);
   }, []);
 
+  // Fresh data on resume: refresh when resuming or navigating back
+  useResumeRefresh();
+
+  /*
+    B1: the props this runner mounted with may be a stale RSC payload from the
+    client router cache (a soft navigation back in within `staleTimes.dynamic`
+    reuses the first load's payload: old sets, the pre-swap exercise, exercise
+    one current). useResumeRefresh asks the server for fresh props on mount,
+    and until they arrive no set can be logged, so nothing is saved under an
+    exercise the database has moved past. When they arrive the server's list
+    wins, confirmed local sets are kept, and the current exercise is re-derived
+    from the database's latest logged set. If the refresh never lands (offline),
+    logging opens after a few seconds on what the runner has.
+  */
+  const [synced, markSynced] = useReducer(() => true, false);
+  // Adjusted during render when the props change (React's pattern for state
+  // derived from props), rather than in an effect a frame later.
+  const [seenExercises, setSeenExercises] = useState(initialExercises);
+  if (initialExercises !== seenExercises) {
+    setSeenExercises(initialExercises);
+    dispatch({ type: "merge", serverData: initialExercises });
+    if (initialExercises.some((e) => e.status === "pending")) {
+      setExerciseIndex(pickCurrentExerciseIndex(initialExercises));
+    }
+    markSynced();
+  }
+  useEffect(() => {
+    const t = setTimeout(markSynced, 4000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
 
@@ -411,6 +462,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <div onPointerDown={onAnyTap}>
           <p className="text-xs font-semibold tracking-wider text-accent uppercase">
@@ -475,6 +527,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <p className="text-muted">
           Static stretches for what you trained. Hold each for 30 seconds,
@@ -536,6 +589,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
         confirmExit={false}
       >
         <div className="space-y-3">
@@ -638,6 +692,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <p className="text-muted">
           This session has no exercises. That usually means the plan could not
@@ -693,6 +748,7 @@ export function SessionRunner({
     : ([...current.sets].reverse().find((s) => s.reps !== null)?.reps ?? null);
 
   async function onLogSet(
+    displayedExerciseId: string,
     reps: number | null,
     weightKg: number | null,
     durationSeconds: number | null = null,
@@ -708,12 +764,19 @@ export function SessionRunner({
       return;
     }
 
-    const clientId = `${current.id}:${nextSetNumber}:${Date.now()}`;
+    const target = nextSetTarget(exercises, displayedExerciseId);
+    if (!target) {
+      busyRef.current = false;
+      setBusy(false);
+      return;
+    }
+
+    const clientId = `${target.sessionExerciseId}:${target.setNumber}:${Date.now()}`;
 
     try {
       const result = await controller.submit({
-        sessionExerciseId: current.id,
-        setNumber: nextSetNumber,
+        sessionExerciseId: target.sessionExerciseId,
+        setNumber: target.setNumber,
         reps,
         weightKg,
         durationSeconds,
@@ -721,18 +784,27 @@ export function SessionRunner({
       });
 
       if (result.status === "saved") {
-        setError(null);
-        setExercises((prev) =>
-          prev.map((e) =>
-            e.id === current.id
-              ? {
-                  ...e,
-                  sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
-                }
-              : e,
-          ),
-        );
-        if (settings.restAutostart && nextSetNumber < current.plannedSets) {
+        if ("reason" in result && result.reason === "set_exists") {
+          const resolution = resolveSetConflict(exercises, target.sessionExerciseId, exerciseIndex, result);
+          setExercises((prev) => resolveSetConflict(prev, target.sessionExerciseId, exerciseIndex, result).exercises);
+          setExerciseIndex(resolution.nextExerciseIndex);
+          setMessage(resolution.message);
+          setError(null);
+        } else {
+          setError(null);
+          setMessage(null);
+          setExercises((prev) =>
+            prev.map((e) =>
+              e.id === target.sessionExerciseId
+                ? {
+                    ...e,
+                    sets: [...e.sets, { setNumber: target.setNumber, reps, weightKg, durationSeconds }],
+                  }
+                : e,
+            ),
+          );
+        }
+        if (settings.restAutostart && target.setNumber < current.plannedSets) {
           startRest(restSeconds);
         }
       } else if (result.status === "expired") {
@@ -828,6 +900,7 @@ export function SessionRunner({
       onExit={() => (onExit ? onExit() : router.push("/today"))}
       wakeLock={wakeLock}
       error={error}
+        message={message}
     >
       <div onPointerDown={onAnyTap}>
         {pendingSetState.pending.length > 0 && (
@@ -988,12 +1061,14 @@ export function SessionRunner({
             defaultReps={defaultReps}
             setNumber={nextSetNumber}
             isBodyweight={current.isBodyweight}
-            onLog={onLogSet}
+            onLog={(reps, weightKg, durationSeconds) =>
+              onLogSet(current.id, reps, weightKg, durationSeconds)
+            }
             onHoldComplete={() => {
               if (settings.restSound) beeper.beep();
               if (settings.restVibrate) vibrate([180, 90, 180]);
             }}
-            disabled={busy}
+            disabled={busy || !synced}
           />
         )}
 
@@ -1365,13 +1440,14 @@ function SetEntry({
   );
 }
 
-function Shell({
+export function Shell({
   title,
   subtitle,
   elapsed,
   onExit,
   wakeLock,
   error,
+  message,
   confirmExit = true,
   children,
 }: {
@@ -1381,6 +1457,7 @@ function Shell({
   onExit: () => void;
   wakeLock: { active: boolean };
   error: string | null;
+  message?: string | null;
   /** Off on the summary, where leaving is the expected next step. */
   confirmExit?: boolean;
   children: React.ReactNode;
@@ -1449,6 +1526,12 @@ function Shell({
           className="mt-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           {error}
+        </p>
+      )}
+
+      {message && (
+        <p className="mt-4 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-fg">
+          {message}
         </p>
       )}
 

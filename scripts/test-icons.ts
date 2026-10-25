@@ -6,6 +6,8 @@
  * Reads PNG headers directly to check width and height.
  */
 
+export {}; // Make this a module
+
 /* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require("fs");
 const path = require("path");

@@ -48,7 +48,7 @@ export default async function SessionPage({
         // session_exercises points at it twice — once for the exercise itself
         // and once for what it was swapped from. Without the hint PostgREST
         // answers PGRST201 rather than guessing.
-        .select("id, status, local_date, is_deload, week_in_block, warmup_completed, started_at, session_exercises(id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, metric, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, primary_muscles, equipment_ids), session_sets(set_number, reps, weight_kg, duration_seconds, is_warmup_set))")
+        .select("id, status, local_date, is_deload, week_in_block, warmup_completed, started_at, session_exercises(id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, metric, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, primary_muscles, equipment_ids), session_sets(set_number, reps, weight_kg, duration_seconds, is_warmup_set, completed_at))")
         .eq("id", id)
         .order("order_index", { referencedTable: "session_exercises" })
         .maybeSingle(),
@@ -158,6 +158,11 @@ export default async function SessionPage({
       // silent and severe: a session that has not been started yet has no
       // logged sets, so every exercise would vanish from the runner. A handful
       // of rows per exercise is not worth taking that on trust.
+      // Where a resume should land (B1): the latest working set says which
+      // exercise the user was in the middle of.
+      lastLoggedAt: (r.session_sets ?? [])
+        .filter((set) => !set.is_warmup_set)
+        .reduce<string | null>((latest, set) => (latest === null || set.completed_at > latest ? set.completed_at : latest), null),
       sets: (r.session_sets ?? [])
         .filter((set) => !set.is_warmup_set)
         .sort((a, b) => a.set_number - b.set_number)
