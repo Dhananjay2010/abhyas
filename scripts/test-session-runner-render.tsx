@@ -127,7 +127,7 @@ async function test1b1d() {
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
   };
@@ -210,7 +210,6 @@ async function test1b1d() {
   // Wait for those replay calls to be made
   await act(async () => {});
   
-  console.log(`  [DEBUG] After mount, logSetDeferreds.length: ${logSetDeferreds.length}`);
   
   // Resolve those replays so the UI is ready for a new click
   if (logSetDeferreds.length >= 1) {
@@ -218,19 +217,16 @@ async function test1b1d() {
     await act(async () => {
       logSetDeferreds[0].resolve({ ok: true });
     });
-    console.log("  [DEBUG] Resolved first replay");
   }
   
   // Wait for more replays
   await act(async () => {});
-  console.log(`  [DEBUG] After first resolve, logSetDeferreds.length: ${logSetDeferreds.length}`);
   
   if (logSetDeferreds.length >= 2) {
     // Resolve second set
     await act(async () => {
       logSetDeferreds[1].resolve({ ok: true });
     });
-    console.log("  [DEBUG] Resolved second replay");
     // Wait for the controller to finish processing all results
     await act(async () => {});
     await act(async () => {});
@@ -248,7 +244,6 @@ async function test1b1d() {
   
   // Check if sets are visible in the DOM
   const setRows = screen.queryAllByText(/Set [12]/);
-  console.log("  [DEBUG] Set rows found:", setRows.length, setRows.map(r => r.textContent));
   
   // Clear the replay calls - we're only testing the button click
   logSetCalls.length = 0;
@@ -286,7 +281,7 @@ async function testN7() {
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
   };
@@ -426,7 +421,7 @@ async function test7b7c() {
       finishSession: async () => ({ ok: true }),
       abandonSession: async () => ({ ok: true }),
       findAlternatives: async () => ({ ok: true, data: [] }),
-      swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+      swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
       refreshAfterSession: async () => ({ ok: true }),
       planDay: async () => ({ ok: true, data: null }),
     };
@@ -516,7 +511,7 @@ async function test7b7c() {
       finishSession: async () => ({ ok: true }),
       abandonSession: async () => ({ ok: true }),
       findAlternatives: async () => ({ ok: true, data: [] }),
-      swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+      swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
       refreshAfterSession: async () => ({ ok: true }),
       planDay: async () => ({ ok: true, data: null }),
     };
@@ -633,7 +628,7 @@ async function test8d8e() {
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
   };
@@ -782,7 +777,7 @@ async function test9b() {
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
   };
@@ -894,7 +889,7 @@ async function testN11() {
     },
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
   };
@@ -999,7 +994,7 @@ async function testN12() {
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
   };
@@ -1091,7 +1086,7 @@ async function testConflict() {
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
   };
@@ -1209,7 +1204,7 @@ async function testDoubleTap() {
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
   };
@@ -1304,7 +1299,7 @@ async function testFailedSubmit() {
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
   };
@@ -1400,7 +1395,7 @@ async function testN7sCompletedSession() {
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
   };
@@ -1509,7 +1504,7 @@ async function testRetryButton() {
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
   };
