@@ -179,6 +179,7 @@ async function testM2_HistoryLabelsPreserved() {
       await client.query("BEGIN");
       
       // Run as authenticated user under RLS
+      await client.query("SET LOCAL ROLE authenticated");
       await client.query(`SET LOCAL request.jwt.claim.sub = '${userId}'`);
       
       // Verify we're running as authenticated user
@@ -341,6 +342,7 @@ async function testM2_Negative_RLSIsolation() {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await client.query("SET LOCAL ROLE authenticated");
       await client.query(`SET LOCAL request.jwt.claim.sub = '${userB}'`);
       
       const { rows: roleCheck } = await client.query("SELECT current_user, auth.uid() as auth_uid");
