@@ -15,6 +15,7 @@
     "test:qa-pass-11": "tsx scripts/test-qa-pass-11.ts",
     "test:past-knee": "tsx scripts/test-past-knee.ts",
     "test:past-knee-mutants": "bash scripts/test-past-knee-mutants.sh",
+    "test:past-knee-actions-regression": "tsx scripts/test-past-knee-actions-regression.ts",
     "test:revert-53-regression": "tsx scripts/test-revert-53-regression.ts",
     "test:progression": "tsx scripts/test-progression.ts",
     "test:progression-grid": "tsx scripts/test-progression-grid.ts",

@@ -57,6 +57,7 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   "kettlebell-thruster",
   
   // Band/chain accommodating resistance BARBELL squats (variable load through range)
+  "squat-with-bands",
   "squat-with-chains",
   "box-squat-with-bands",
   "box-squat-with-chains",
@@ -65,6 +66,7 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   
   // Running/sprinting moves (loads knee, mislabeled muscles)
   "wind-sprints",
+  "chest-push-with-run-release",
 ]);
 
 /**

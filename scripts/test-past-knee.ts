@@ -10,7 +10,7 @@
  * npm run test:past-knee
  */
 import { readFileSync } from "node:fs";
-import { generateProgram, score, hashString, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import { generateProgram, score, hashString, isEligible, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { rankAlternatives, buildPatternList, type AlternativesContext } from "../src/lib/program/alternatives";
 import { isExcludedForPastKnee } from "../src/lib/program/past-knee";
 import { selectWarmup, type WarmupRow } from "../src/lib/program/warmup";
@@ -82,6 +82,7 @@ const EXPECTED_EXCLUDED_SLUGS = [
   "kettlebell-thruster",
   
   // Band/chain BARBELL squats (NOT squats-with-bands which is beginner bodyweight+band)
+  "squat-with-bands",
   "squat-with-chains",
   "box-squat-with-bands",
   "box-squat-with-chains",
@@ -90,6 +91,7 @@ const EXPECTED_EXCLUDED_SLUGS = [
   
   // Running/sprinting moves (loads knee, mislabeled muscles)
   "wind-sprints",
+  "chest-push-with-run-release",
 ];
 
 console.log("\n1. Catalogue validation: hard-coded exclusion list behaviour");
@@ -120,29 +122,35 @@ console.log("\n1. Catalogue validation: hard-coded exclusion list behaviour");
   console.log(`    Checked ${EXPECTED_EXCLUDED_SLUGS.length} explicit exclusions`);
 }
 
+// Hard-coded expected high-impact leg slugs (ground truth from catalogue inspection)
+const EXPECTED_HIGH_IMPACT_LEG_SLUGS = [
+  "bench-jump",
+  "double-leg-butt-kick",
+  "dumbbell-seated-box-jump",
+  "fast-skipping",
+  "freehand-jump-squat",
+  "knee-tuck-jump",
+  "lateral-bound",
+  "lunge-sprint",
+  "medicine-ball-scoop-throw",
+  "rocket-jump",
+  "scissors-jump",
+  "single-leg-butt-kick",
+  "split-jump",
+  "standing-long-jump",
+  "star-jump",
+  "vertical-swing",
+  "weighted-jump-squat",
+];
+
+// Explicit plyo moves for jumping rule test
+const EXPECTED_PLYO_SLUGS = [
+  "plyo-push-up",
+  "plyo-kettlebell-pushups",
+];
+
 console.log("\n2. High-impact leg exercise rule (data-driven from catalogue fields)");
 {
-  // Hard-coded expected high-impact leg slugs (ground truth from catalogue inspection)
-  const EXPECTED_HIGH_IMPACT_LEG_SLUGS = [
-    "bench-jump",
-    "double-leg-butt-kick",
-    "dumbbell-seated-box-jump",
-    "fast-skipping",
-    "freehand-jump-squat",
-    "knee-tuck-jump",
-    "lateral-bound",
-    "lunge-sprint",
-    "medicine-ball-scoop-throw",
-    "rocket-jump",
-    "scissors-jump",
-    "single-leg-butt-kick",
-    "split-jump",
-    "standing-long-jump",
-    "star-jump",
-    "vertical-swing",
-    "weighted-jump-squat",
-  ];
-  
   console.log(`    Expecting ${EXPECTED_HIGH_IMPACT_LEG_SLUGS.length} high-impact leg exercises`);
   
   // All expected high-impact leg exercises must be excluded
@@ -188,6 +196,13 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
       `primary: ${primaryScore}, accessory: ${accessoryScore}`);
   }
   
+  // Hard-coded exclusion oracle: EXPECTED_EXCLUDED_SLUGS ∪ EXPECTED_HIGH_IMPACT_LEG_SLUGS ∪ EXPECTED_PLYO_SLUGS
+  const GRID_EXCLUSION_ORACLE = new Set([
+    ...EXPECTED_EXCLUDED_SLUGS,
+    ...EXPECTED_HIGH_IMPACT_LEG_SLUGS,
+    ...EXPECTED_PLYO_SLUGS,
+  ]);
+  
   type Goal = "muscle_gain" | "strength" | "fat_loss" | "general_fitness";
   type Level = "beginner" | "intermediate" | "expert";
   type Track = "weights" | "bodyweight";
@@ -209,6 +224,7 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
   let kettlebelPistolInPlans = 0;
   let excludedInPlans = 0;
   let wallSitAsPrimarySquat = 0;
+  let swapLeaks = 0;
   let warmupsChecked = 0;
   let walkingLungeInWarmups = 0;
   let skippingLightInWarmups = 0;
@@ -245,9 +261,35 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
                     kettlebelPistolInPlans++;
                   }
                   
-                  // Check if excluded
-                  if (isExcludedForPastKnee(exercise)) {
+                  // Check against hard-coded oracle
+                  if (GRID_EXCLUSION_ORACLE.has(exercise.slug)) {
                     excludedInPlans++;
+                  }
+                  
+                  // Check top-5 swap list (actions.ts path: isEligible pool, then rankAlternatives)
+                  const patterns = buildPatternList(exercise.movement_pattern, false);
+                  const rawPool = catalogue.filter(e => patterns.includes(e.movement_pattern));
+                  const eligible = rawPool.filter(e => {
+                    if (e.id === exercise.id) return false;
+                    return isEligible(e, { ...input, catalogue: [] });
+                  });
+                  
+                  const wantCompound = exercise.mechanic === "compound";
+                  const ctx: AlternativesContext = {
+                    level: input.level,
+                    availableEquipment: new Set(input.equipmentIds),
+                    injuryRegions: input.currentInjuryRegions,
+                    pastKneeInjury: input.pastKneeInjury,
+                    limit: 5,
+                    scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, input.pastKneeInjury, 0),
+                    tieBreakFn: (slug) => hashString(`ranking:grid:${slug}`),
+                  };
+                  
+                  const swaps = rankAlternatives(exercise, eligible, ctx);
+                  for (const swap of swaps) {
+                    if (GRID_EXCLUSION_ORACLE.has(swap.slug)) {
+                      swapLeaks++;
+                    }
                   }
                 }
                 
@@ -281,8 +323,8 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
                 if (w.slug === "walking-lunge") walkingLungeInWarmups++;
                 if (w.slug === "skipping-light") skippingLightInWarmups++;
                 
-                const ex = catalogue.find(e => e.slug === w.slug);
-                if (ex && isExcludedForPastKnee(ex)) {
+                // Check against hard-coded oracle
+                if (GRID_EXCLUSION_ORACLE.has(w.slug)) {
                   excludedInWarmups++;
                 }
               }
@@ -297,6 +339,8 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
     kettlebelPistolInPlans > 0 ? `Found ${kettlebelPistolInPlans}/${plansChecked}` : "");
   check(`No excluded exercises in plans`, excludedInPlans === 0,
     excludedInPlans > 0 ? `Found ${excludedInPlans} excluded exercises` : "");
+  check(`No excluded exercises in top-5 swap lists`, swapLeaks === 0,
+    swapLeaks > 0 ? `Found ${swapLeaks} excluded in swaps` : "");
   check(`wall-sit NEVER as primary squat (first squat slot)`, wallSitAsPrimarySquat === 0,
     wallSitAsPrimarySquat > 0 ? `Found ${wallSitAsPrimarySquat} primary wall-sit slots` : "");
   check(`walking-lunge NEVER in warmups`, walkingLungeInWarmups === 0,
@@ -399,7 +443,7 @@ console.log("\n5. Swap ranking test: top-5 assertions and band/chain exclusion")
   console.log(`    Leg ext top 5: ${legExtSwaps.join(", ")}`);
   
   // Band/chain barbell squat exclusion test across multiple tiebreak seeds
-  const bandChainSlugs = ["squat-with-chains", "box-squat-with-bands", "box-squat-with-chains", "reverse-band-box-squat", "reverse-band-power-squat"];
+  const bandChainSlugs = ["squat-with-bands", "squat-with-chains", "box-squat-with-bands", "box-squat-with-chains", "reverse-band-box-squat", "reverse-band-power-squat"];
   let bandChainFound = 0;
   const seeds = Array.from({length: 50}, (_, i) => `seed-${i}`);
   

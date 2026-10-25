@@ -698,7 +698,7 @@ export async function findAlternatives(
   // Query pool with widened pattern list
   const poolRes = await supabase
     .from("exercises")
-    .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
+    .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, secondary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
     .in("movement_pattern", patterns)
     .eq("is_active", true);
   
@@ -716,7 +716,7 @@ export async function findAlternatives(
   if (!currentExercise) {
     const inactiveRes = await supabase
       .from("exercises")
-      .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
+      .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, secondary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
       .eq("id", current.exercise_id)
       .maybeSingle();
     
