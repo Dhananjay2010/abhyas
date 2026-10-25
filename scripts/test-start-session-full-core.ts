@@ -29,6 +29,7 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
+
 function eq<T>(actual: T, expected: T, message: string) {
   if (actual !== expected) {
     throw new Error(`${message}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
@@ -346,7 +347,7 @@ async function main() {
   });
 
   await test("BUG CATCH: started_at stamp inserted", async () => {
-    let insertPayload: unknown = null;
+    let insertPayload: Record<string, unknown> | null = null;
     const deps = createBasicDeps({
       insertSession: async (payload) => {
         insertPayload = payload;
@@ -356,14 +357,13 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!insertPayload || typeof insertPayload !== "object") throw new Error("No insert payload");
-    const p = insertPayload as Record<string, unknown>;
-    if (!p.started_at) throw new Error("started_at not set");
-    eq(p.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS)");
+    if (!insertPayload) throw new Error("No insert payload");
+    if (!insertPayload.started_at) throw new Error("started_at not set");
+    eq(insertPayload.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS)");
   });
 
   await test("BUG CATCH: deload week calculation", async () => {
-    let insertPayload: unknown = null;
+    let insertPayload: Record<string, unknown> | null = null;
     const deps = createBasicDeps({
       loadProgram: async () => ({
         ok: true,
@@ -379,14 +379,13 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!insertPayload || typeof insertPayload !== "object") throw new Error("No insert payload");
-    const p = insertPayload as Record<string, unknown>;
-    eq(p.week_in_block, 4, "Week in block calculated");
-    eq(p.is_deload, true, "Deload flag set for week 4");
+    if (!insertPayload) throw new Error("No insert payload");
+    eq(insertPayload.week_in_block, 4, "Week in block calculated");
+    eq(insertPayload.is_deload, true, "Deload flag set for week 4");
   });
 
   await test("BUG CATCH: near-midnight NY/UTC date differ", async () => {
-    let insertPayload: unknown = null;
+    let insertPayload: Record<string, unknown> | null = null;
     const nowMs = new Date("2026-10-26T04:30:00Z").getTime();
     const deps = createBasicDeps({
       nowMs,
@@ -399,13 +398,12 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!insertPayload || typeof insertPayload !== "object") throw new Error("No insert payload");
-    const p = insertPayload as Record<string, unknown>;
-    eq(p.local_date, "2026-10-26", "NY date is 2026-10-26 (00:30 EDT)");
+    if (!insertPayload) throw new Error("No insert payload");
+    eq(insertPayload.local_date, "2026-10-26", "NY date is 2026-10-26 (00:30 EDT)");
   });
 
   await test("BUG CATCH: seconds metric handled", async () => {
-    let insertedExercises: unknown[] = [];
+    let insertedExercises: Array<Record<string, unknown>> = [];
     const deps = createBasicDeps({
       fetchPlannedExercises: async () => [{
         exercise_id: "ex-plank",
@@ -425,12 +423,11 @@ async function main() {
     await startSessionFullCore(deps);
 
     if (insertedExercises.length !== 1) throw new Error("Expected 1 exercise");
-    const ex = insertedExercises[0] as Record<string, unknown>;
-    eq(ex.metric, "seconds", "Metric is seconds");
+    eq(insertedExercises[0].metric, "seconds", "Metric is seconds");
   });
 
   await test("BUG CATCH: full insert payload structure", async () => {
-    let insertPayload: unknown = null;
+    let insertPayload: Record<string, unknown> | null = null;
     const deps = createBasicDeps({
       insertSession: async (payload) => {
         insertPayload = payload;
@@ -440,16 +437,15 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!insertPayload || typeof insertPayload !== "object") throw new Error("No insert payload");
-    const p = insertPayload as Record<string, unknown>;
-    eq(p.user_id, USER_ID, "user_id");
-    eq(p.program_id, "prog-1", "program_id");
-    eq(p.program_day_id, "day-1", "program_day_id");
-    eq(p.local_date, TODAY, "local_date");
-    eq(p.status, "in_progress", "status");
-    eq(p.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS)");
-    eq(typeof p.week_in_block, "number", "week_in_block");
-    eq(typeof p.is_deload, "boolean", "is_deload");
+    if (!insertPayload) throw new Error("No insert payload");
+    eq(insertPayload.user_id, USER_ID, "user_id");
+    eq(insertPayload.program_id, "prog-1", "program_id");
+    eq(insertPayload.program_day_id, "day-1", "program_day_id");
+    eq(insertPayload.local_date, TODAY, "local_date");
+    eq(insertPayload.status, "in_progress", "status");
+    eq(insertPayload.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS)");
+    eq(typeof insertPayload.week_in_block, "number", "week_in_block");
+    eq(typeof insertPayload.is_deload, "boolean", "is_deload");
   });
 
   await test("BUG CATCH: today passed to stale step", async () => {
@@ -508,7 +504,7 @@ async function main() {
   });
 
   await test("O1/R4: reusing skipped session sets exact started_at", async () => {
-    let updatePayload: unknown = null;
+    let updatePayload: Record<string, unknown> | null = null;
     const deps = createBasicDeps({
       fetchOpenSessions: async () => [{
         id: "sess-skipped",
@@ -525,13 +521,12 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!updatePayload || typeof updatePayload !== "object") throw new Error("No update payload");
-    const p = updatePayload as Record<string, unknown>;
-    eq(p.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS) for skipped");
+    if (!updatePayload) throw new Error("No update payload");
+    eq(updatePayload.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS) for skipped");
   });
 
   await test("O1/R4: reusing null-started session sets exact started_at", async () => {
-    let updatePayload: unknown = null;
+    let updatePayload: Record<string, unknown> | null = null;
     const deps = createBasicDeps({
       fetchOpenSessions: async () => [{
         id: "sess-planned",
@@ -548,13 +543,12 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!updatePayload || typeof updatePayload !== "object") throw new Error("No update payload");
-    const p = updatePayload as Record<string, unknown>;
-    eq(p.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS) for null-started");
+    if (!updatePayload) throw new Error("No update payload");
+    eq(updatePayload.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS) for null-started");
   });
 
   await test("O1/R4: reusing in_progress session does NOT update started_at", async () => {
-    let updatePayload: unknown = null;
+    let updatePayload: Record<string, unknown> | null = null;
     const deps = createBasicDeps({
       fetchOpenSessions: async () => [{
         id: "sess-in-progress",
@@ -571,9 +565,8 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!updatePayload || typeof updatePayload !== "object") throw new Error("No update payload");
-    const p = updatePayload as Record<string, unknown>;
-    if ("started_at" in p) {
+    if (!updatePayload) throw new Error("No update payload");
+    if ("started_at" in updatePayload) {
       throw new Error("started_at should NOT be updated for in_progress sessions");
     }
   });
@@ -581,7 +574,7 @@ async function main() {
   await test("O3: NY vs UTC date boundary handling", async () => {
     const nyMidnightMinus2hUTC = new Date("2026-10-26T02:00:00.000Z").getTime();
     const expectedNYDate = "2026-10-25";
-    let insertPayload: unknown = null;
+    let insertPayload: Record<string, unknown> | null = null;
     const deps: StartSessionFullDeps = {
       ...createBasicDeps({
         insertSession: async (payload) => {
@@ -596,9 +589,8 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!insertPayload || typeof insertPayload !== "object") throw new Error("No insert payload");
-    const p = insertPayload as Record<string, unknown>;
-    eq(p.local_date, expectedNYDate, "local_date in NY timezone (2026-10-25), not UTC (2026-10-26)");
+    if (!insertPayload) throw new Error("No insert payload");
+    eq(insertPayload.local_date, expectedNYDate, "local_date in NY timezone (2026-10-25), not UTC (2026-10-26)");
   });
 
   await test("R6: planned row with exercises array, metric='seconds'", async () => {

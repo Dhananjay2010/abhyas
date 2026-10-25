@@ -5,7 +5,7 @@
  * filters (including status='active', user_id scoping), and payloads.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 
 type Call = {
@@ -15,7 +15,7 @@ type Call = {
   order?: Array<{ column: string; ascending: boolean }>;
   limit?: number;
   insert?: unknown;
-  update?: unknown;
+  update?: Record<string, unknown>;
   method?: string;
 };
 
@@ -98,7 +98,7 @@ function createFakeSupabase(responses: Record<string, unknown>): SupabaseClient<
     },
   };
   
-  return fake as unknown as SupabaseClient<Database>;
+  return fake;
 }
 
 const USER_ID = "user-123";
@@ -326,9 +326,8 @@ async function test(name: string, fn: () => Promise<void>) {
     });
     
     const updateCall = calls.find(c => c.method === "update");
-    if (!updateCall) throw new Error("No update call");
-    const payload = updateCall.update as Record<string, unknown>;
-    eq(payload.started_at, "2026-10-26T14:00:00Z", "started_at passed through");
+    if (!updateCall?.update) throw new Error("No update call");
+    eq(updateCall.update.started_at, "2026-10-26T14:00:00Z", "started_at passed through");
   });
 
   await test("BUG CATCH: day id returned from loadProgram", async () => {

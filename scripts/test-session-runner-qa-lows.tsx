@@ -29,25 +29,25 @@ function check(label: string, ok: boolean, detail = "") {
 }
 
 function createFakeTimer() {
-  const callbacks: (() => void)[] = [];
+  const callbacks = new Map<unknown, () => void>();
+  let nextId = 0;
+  const timer: RunnerTimer = {
+    setTimeout: (callback: () => void, ms: number) => {
+      void ms;
+      const id = nextId++;
+      callbacks.set(id, callback);
+      return id;
+    },
+    clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => {
+      const cb = callbacks.get(id);
+      if (cb) callbacks.set(id, () => {});
+    },
+  };
   return {
-    timer: {
-      setTimeout: (callback: () => void, ms: number) => {
-        void ms;
-        const id = callbacks.length;
-        callbacks.push(callback);
-        return id as unknown as ReturnType<typeof globalThis.setTimeout>;
-      },
-      clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => {
-        const numId = id as unknown as number;
-        if (typeof numId === "number" && callbacks[numId]) {
-          callbacks[numId] = () => {};
-        }
-      },
-    } satisfies RunnerTimer,
+    timer,
     advance: () => {
       callbacks.forEach(cb => cb());
-      callbacks.length = 0;
+      callbacks.clear();
     },
   };
 }
