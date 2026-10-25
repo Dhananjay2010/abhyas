@@ -52,7 +52,6 @@ export function TodayPrompts({
       {/* Rest day with missed yesterday: unified prompt */}
       {promptBlocks.showBothPrompt && (
         <TodayPromptsBothUI
-          yesterdayDay={yesterdayDay ?? null}
           renderDayPlanPrompt={() => (
             <DayPlanPrompt
               localDate={localToday}

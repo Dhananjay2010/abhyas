@@ -5,12 +5,8 @@
  */
 
 import Link from "next/link";
-import type { Database } from "@/lib/database.types";
-
-type DayType = Database["public"]["Enums"]["day_type"];
 
 type Props = {
-  yesterdayDay: { day_type: DayType; label: string | null } | null;
   renderDayPlanPrompt?: () => React.ReactNode;
 };
 
@@ -19,7 +15,7 @@ type Props = {
  * Renders rest content + missed heading.
  * Optionally renders DayPlanPrompt via callback to avoid Next.js dependency in tests.
  */
-export function TodayPromptsBothUI({ yesterdayDay: _yesterdayDay, renderDayPlanPrompt }: Props) {
+export function TodayPromptsBothUI({ renderDayPlanPrompt }: Props) {
   return (
     <>
       <p className="mt-6 text-muted">
