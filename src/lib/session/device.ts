@@ -41,16 +41,10 @@ export function useWakeLockSupported(): boolean {
 export function useWakeLock(enabled: boolean): WakeLockState {
   const sentinelRef = useRef<WakeLockSentinel | null>(null);
   const supported = useWakeLockSupported();
-  const [state, setState] = useState<WakeLockState>(() => ({
-    supported: false,
+  const [activeState, setActiveState] = useState<{ active: boolean; error: string | null }>(() => ({
     active: false,
     error: null,
   }));
-
-  // Update supported state when the hook's value changes (after hydration)
-  useEffect(() => {
-    setState((s) => ({ ...s, supported }));
-  }, [supported]);
 
   useEffect(() => {
     if (!supported || !enabled) return;
@@ -65,13 +59,12 @@ export function useWakeLock(enabled: boolean): WakeLockState {
           return;
         }
         sentinelRef.current = sentinel;
-        setState({ supported: true, active: true, error: null });
+        setActiveState({ active: true, error: null });
         sentinel.addEventListener("release", () => {
-          setState((s) => ({ ...s, active: false }));
+          setActiveState((s) => ({ ...s, active: false }));
         });
       } catch (e) {
-        setState({
-          supported: true,
+        setActiveState({
           active: false,
           error: e instanceof Error ? e.message : "Wake lock refused",
         });
@@ -95,7 +88,11 @@ export function useWakeLock(enabled: boolean): WakeLockState {
     };
   }, [enabled, supported]);
 
-  return state;
+  return {
+    supported,
+    active: activeState.active,
+    error: activeState.error,
+  };
 }
 
 export type Beeper = {
