@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import { KETTLEBELL_WEIGHTS_KG, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, type WeightUnit } from "@/lib/session/equipment-grid";
 import { formatWeight } from "@/lib/units";
+import { resolveTarget } from "../session/display-target";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -391,9 +392,19 @@ export function evaluateProgression(input: {
 
   const bests = nextBest(sets, state, meta);
 
+  // Get resolved target (what the display shows) for write-back
+  const resolvedTargetForBase = resolveTarget({
+    metric: isTimed ? "seconds" : "reps",
+    plannedMin: repsMin,
+    plannedMax: repsMax,
+    currentTargetReps: state.currentTargetReps,
+    equipmentIds: equipmentIds ?? [],
+    currentWorkingWeightKg: state.currentWorkingWeightKg,
+  }).max;
+
   const base = {
     nextWorkingWeightKg: state.currentWorkingWeightKg,
-    nextTargetReps: state.currentTargetReps ?? repsMax,
+    nextTargetReps: resolvedTargetForBase,
     consecutiveFailures: state.consecutiveFailures,
     wantsHarderVariation: false,
     bestWeightKg: bests.bestWeightKg,
@@ -435,7 +446,19 @@ export function evaluateProgression(input: {
 
   // Success requires the full set count AND the top of the rep range on each.
   const completedAllSets = working.length >= plannedSets;
-  const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= repsMax);
+  
+  // Use resolveTarget helper for success check (same target the display shows)
+  // Pass stored working weight to match display's loaded/unloaded rule
+  const successTarget = resolveTarget({
+    metric: isTimed ? "seconds" : "reps",
+    plannedMin: repsMin,
+    plannedMax: repsMax,
+    currentTargetReps: state.currentTargetReps,
+    equipmentIds: equipmentIds ?? [],
+    currentWorkingWeightKg: state.currentWorkingWeightKg,
+  }).max;
+  
+  const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= successTarget);
   const hitMinOfRange = working.every((set) => (valueOf(set) ?? 0) >= repsMin);
   const succeeded = completedAllSets && hitTopOfRange;
   const inRange = completedAllSets && hitMinOfRange && !hitTopOfRange;
@@ -463,10 +486,23 @@ export function evaluateProgression(input: {
     if (heaviest === 0) {
       const canProgressVariation = meta.isBodyweight && meta.progressionChain !== null;
       const step = isTimed ? HOLD_STEP_SECONDS : 2;
-      const nextTarget = (state.currentTargetReps ?? repsMax) + step;
+      
+      // Get resolved target (what the display showed) for write-back
+      const resolvedTarget = resolveTarget({
+        metric: isTimed ? "seconds" : "reps",
+        plannedMin: repsMin,
+        plannedMax: repsMax,
+        currentTargetReps: state.currentTargetReps,
+        equipmentIds: equipmentIds ?? [],
+        currentWorkingWeightKg: state.currentWorkingWeightKg,
+      }).max;
+      
+      const nextTarget = resolvedTarget + step;
+      
       // Reps run out of usefulness relative to the range they started in; a
       // hold runs out at an absolute length, whatever it was prescribed at.
-      const ceiling = isTimed ? HOLD_CEILING_SECONDS : repsMax + 4;
+      // Cap: 120s for timed, 2×repsMax for reps
+      const ceiling = isTimed ? HOLD_CEILING_SECONDS : 2 * repsMax;
 
       if (canProgressVariation && nextTarget > ceiling) {
         return {
@@ -491,33 +527,56 @@ export function evaluateProgression(input: {
         };
       }
 
+      // Reps ceiling: cap at 2×repsMax
+      const cappedTarget = nextTarget > ceiling ? ceiling : nextTarget;
+      const targetMoved = cappedTarget !== resolvedTarget;
+
       return {
         ...carried,
         outcome: "progressed",
-        nextTargetReps: nextTarget,
+        nextTargetReps: cappedTarget,
         consecutiveFailures: 0,
         message: isTimed
-          ? `Every set held to the top of the range — target goes up to ${nextTarget}s.`
-          : `Every set at the top of the range — target goes up to ${nextTarget} reps.`,
+          ? targetMoved
+            ? `Every set held to the top of the range — target goes up to ${cappedTarget}s.`
+            : `Every set held to the top of the range — staying at ${cappedTarget}s.`
+          : targetMoved
+            ? `Every set at the top of the range — target goes up to ${cappedTarget} reps.`
+            : `Every set at the top of the range — staying at ${cappedTarget} reps.`,
       };
     }
 
     // Bodyweight with added weight: smaller steps, never doubled.
-    // Loaded exercises: standard increment, doubled when easy.
+    // Loaded exercises: with equipment, ONE grid step only (never doubled); without equipment, standard increment (doubled on easy).
     const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
     const from = state.currentWorkingWeightKg ?? heaviest;
     
-    // For kettlebells, we let roundToGrid handle moving to the next bell
-    // For other equipment, we add the increment then round to grid
-    const isKettlebell = equipmentIds?.includes('kettlebell');
-    
     let next: number;
-    if (isKettlebell && equipmentIds && unit) {
-      // Kettlebell: always move to next bell
-      // Bell spacing is already optimized for progression, so Easy = Right (one bell)
-      next = roundToGrid(from, equipmentIds, unit, incrementFor(meta), 'up');
+    if (equipmentIds && unit) {
+      const isKettlebell = equipmentIds.includes('kettlebell');
+      
+      if (isKettlebell) {
+        // Kettlebell: move to next bell (smallest bell strictly > from)
+        const bells = KETTLEBELL_WEIGHTS_KG;
+        const epsilon = 0.001;
+        let found = from; // Default to hold if at max
+        for (const bell of bells) {
+          if (bell > from + epsilon) {
+            found = bell;
+            break;
+          }
+        }
+        next = found;
+      } else {
+        // Standard equipment: smallest loadable grid value strictly > from
+        // If on-grid: +1 step. If off-grid: snap to next grid.
+        const gridStep = equipmentGridStep(equipmentIds, 'kg');
+        const epsilon = 0.001;
+        const nextGrid = Math.ceil((from + epsilon) / gridStep) * gridStep;
+        next = nextGrid;
+      }
     } else {
-      // Standard equipment: add increment then round to grid
+      // No equipment info: use standard increment, doubled when easy (preserve old behavior)
       const step = isBodyweightWithAddedWeight ? addedWeightStep(meta) : incrementFor(meta);
       const jump = isBodyweightWithAddedWeight || feel !== "easy" ? step : step * 2;
       const rawNext = from + jump;
@@ -665,13 +724,17 @@ export function evaluateProgression(input: {
     
     // If helper returned current weight, it's a hold
     if (reduced === currentWeight) {
+      const holdMessage = equipmentIds && unit
+        ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
+        : "Missed twice in a row but already at light weight — holding to build back up.";
+      
       return {
         ...carried,
         outcome: "hold",
         nextWorkingWeightKg: currentWeight,
         nextTargetReps: repsMax,
         consecutiveFailures: 0,
-        message: "Missed twice in a row but already at light weight — holding to build back up.",
+        message: holdMessage,
       };
     }
     
@@ -687,6 +750,8 @@ export function evaluateProgression(input: {
 
   // First miss: drop one equipment grid step with equipment, hold without
   let nextWeight = currentWeight;
+  let holdReason: 'smallest' | 'cut20' | 'twomiss' | null = null;
+  
   if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
     const isKettlebell = equipmentIds.includes('kettlebell');
     let candidateWeight: number;
@@ -703,24 +768,38 @@ export function evaluateProgression(input: {
         }
       }
       candidateWeight = found;
+      if (candidateWeight === currentWeight) {
+        holdReason = 'smallest';
+      }
     } else {
       // Standard equipment: find the largest grid point STRICTLY below current
       const gridStep = equipmentGridStep(equipmentIds, 'kg');
       const epsilon = 0.001;
       const stepsBelow = Math.floor((currentWeight - epsilon) / gridStep);
       candidateWeight = stepsBelow * gridStep;
+      if (candidateWeight === 0) {
+        // At smallest available step: hold and don't let other rules overwrite reason
+        candidateWeight = currentWeight;
+        holdReason = 'smallest';
+      }
     }
     
     // Rule 1: if cut > 20%, hold instead
-    const cutFraction = (currentWeight - candidateWeight) / currentWeight;
-    if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {
-      candidateWeight = currentWeight;
+    if (candidateWeight !== currentWeight) {
+      const cutFraction = (currentWeight - candidateWeight) / currentWeight;
+      if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {
+        candidateWeight = currentWeight;
+        holdReason = 'cut20';
+      }
     }
     
     // Rule 2: if candidate < two-miss result, hold instead
-    const twoMissFloor = computeTwoMissResult(currentWeight);
-    if (candidateWeight < twoMissFloor) {
-      candidateWeight = currentWeight;
+    if (candidateWeight !== currentWeight) {
+      const twoMissFloor = computeTwoMissResult(currentWeight);
+      if (candidateWeight < twoMissFloor) {
+        candidateWeight = currentWeight;
+        holdReason = 'twomiss';
+      }
     }
     
     nextWeight = candidateWeight;
@@ -732,15 +811,20 @@ export function evaluateProgression(input: {
       ? "Staying here until every set reaches the top of the range."
       : nextWeight !== null && nextWeight !== currentWeight
         ? `Missed the target — dropping to ${displayWeight(nextWeight, unit)}.`
-        : equipmentIds && unit && currentWeight !== null && currentWeight > 0
-          ? "Missed the target but holding at this weight — it is the smallest available step."
-          : "Staying at this weight until every set reaches the top of the range.";
+        : holdReason === 'smallest'
+          ? `Missed the target but holding at ${displayWeight(currentWeight, unit)} — it is the smallest available step.`
+          : holdReason === 'cut20'
+            ? `Missed the target but holding at ${displayWeight(currentWeight, unit)} — one step down would cut more than 20%.`
+            : holdReason === 'twomiss'
+              ? `Missed the target but holding at ${displayWeight(currentWeight, unit)} — one step down would exceed the two-miss limit.`
+              : currentWeight === 0 || meta.isBodyweight
+                ? "Staying at this weight until every set reaches the top of the range."
+                : `Staying at ${displayWeight(currentWeight, unit)} until every set reaches the top of the range.`;
   
   return {
     ...carried,
     outcome: "hold",
     nextWorkingWeightKg: nextWeight,
-    nextTargetReps: state.currentTargetReps ?? repsMax,
     consecutiveFailures: failures,
     message,
   };
