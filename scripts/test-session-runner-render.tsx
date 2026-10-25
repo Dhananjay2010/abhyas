@@ -1121,6 +1121,301 @@ async function testDoubleTap() {
   fakeStorage.clear();
 }
 
+// Test: Failed submit (R8)
+async function testFailedSubmit() {
+  console.log("\n📋 Test Failed submit: Error text shown");
+  
+  const actions: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async () => ({ ok: false, error: "Database connection failed" }),
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+  };
+  
+  const exercises: RunnerExercise[] = [
+    {
+      id: "ex1",
+      exerciseId: "squat",
+      name: "Squat",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["quads"],
+      plannedSets: 3,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false,
+    },
+  ];
+  
+  const settings: RunnerSettings = {
+    perSetLogging: false,
+    restSound: false,
+    restVibrate: false,
+    restAutostart: false,
+    restOverrideSeconds: null,
+    cooldownEnabled: false,
+  };
+  
+  const userId = "test-user-failed";
+  const sessionId = "session-failed";
+  
+  fakeStorage.clear();
+  
+  render(
+    <SessionRunner
+      sessionId={sessionId}
+      sessionStatus="in_progress"
+      userId={userId}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={exercises}
+      settings={settings}
+      actions={actions}
+    />
+  );
+  
+  await act(async () => {});
+  
+  // Click Log set to trigger failed submit
+  const logButton = screen.getByRole("button", { name: /log set/i });
+  await act(async () => {
+    logButton.click();
+  });
+  
+  await act(async () => {});
+  
+  // Assert error text is shown
+  const errorText = screen.getByText(/database connection failed/i);
+  assert(!!errorText, "R8: Failed submit shows error text");
+  
+  fakeStorage.clear();
+}
+
+// Test: N7s - Completed session clears pending without replay
+async function testN7sCompletedSession() {
+  console.log("\n📋 Test N7s: Completed session clears pending without replay");
+  
+  let logSetCalled = false;
+  
+  const actions: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async () => {
+      logSetCalled = true;
+      return { ok: true };
+    },
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+  };
+  
+  const exercises: RunnerExercise[] = [
+    {
+      id: "ex1",
+      exerciseId: "squat",
+      name: "Squat",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["quads"],
+      plannedSets: 3,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
+      status: "completed",
+      feel: "right",
+      sets: [
+        { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null },
+        { setNumber: 2, reps: 10, weightKg: 50, durationSeconds: null },
+        { setNumber: 3, reps: 10, weightKg: 50, durationSeconds: null },
+      ],
+      isBodyweight: false,
+    },
+  ];
+  
+  const settings: RunnerSettings = {
+    perSetLogging: false,
+    restSound: false,
+    restVibrate: false,
+    restAutostart: false,
+    restOverrideSeconds: null,
+    cooldownEnabled: false,
+  };
+  
+  const userId = "test-user-n7s";
+  const sessionId = "session-n7s";
+  
+  fakeStorage.clear();
+  
+  // Seed pending sets
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 4,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-n7s"
+  }, fakeDeps);
+  
+  render(
+    <SessionRunner
+      sessionId={sessionId}
+      sessionStatus="completed"
+      userId={userId}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={exercises}
+      settings={settings}
+      actions={actions}
+    />
+  );
+  
+  await act(async () => {});
+  
+  // Assert logSet was never called (no replay for completed sessions)
+  assert(!logSetCalled, "N7s: logSet not called for completed session");
+  
+  // Assert pending key was cleared
+  const pendingKey = fakeStorage.getItem(`pending-sets:${userId}`);
+  const pendingSets = pendingKey ? JSON.parse(pendingKey) : null;
+  const sessionPending = pendingSets?.[sessionId];
+  assert(!sessionPending || sessionPending.sets?.length === 0, "N7s: Pending sets cleared for completed session");
+  
+  fakeStorage.clear();
+}
+
+// Test: Retry button (R2/R3)
+async function testRetryButton() {
+  console.log("\n📋 Test Retry: Click Retry button to replay pending sets");
+  
+  const logSetCalls: unknown[] = [];
+  
+  const actions: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async (input) => {
+      logSetCalls.push(input);
+      return { ok: true };
+    },
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+  };
+  
+  const exercises: RunnerExercise[] = [
+    {
+      id: "ex1",
+      exerciseId: "squat",
+      name: "Squat",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["quads"],
+      plannedSets: 3,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false,
+    },
+  ];
+  
+  const settings: RunnerSettings = {
+    perSetLogging: false,
+    restSound: false,
+    restVibrate: false,
+    restAutostart: false,
+    restOverrideSeconds: null,
+    cooldownEnabled: false,
+  };
+  
+  const userId = "test-user-retry";
+  const sessionId = "session-retry";
+  
+  fakeStorage.clear();
+  
+  // Seed pending set
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-retry"
+  }, fakeDeps);
+  
+  render(
+    <SessionRunner
+      sessionId={sessionId}
+      sessionStatus="in_progress"
+      userId={userId}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={exercises}
+      settings={settings}
+      actions={actions}
+    />
+  );
+  
+  await act(async () => {});
+  
+  // R2: logSet was called on mount
+  assert(logSetCalls.length === 1, "R2: logSet called on mount for replay");
+  
+  // Click Retry button
+  logSetCalls.length = 0;
+  const retryButton = screen.queryByRole("button", { name: /retry/i });
+  
+  if (retryButton) {
+    await act(async () => {
+      retryButton.click();
+    });
+    
+    await act(async () => {});
+    
+    // R3: Retry button triggers another replay
+    assert(logSetCalls.length === 1, "R3: Retry button triggers logSet replay");
+  }
+  
+  fakeStorage.clear();
+}
+
 // Run all tests
 (async () => {
   console.log("\n🧪 SessionRunner Render Tests (KEY ITEM - Task 2)\n");
@@ -1135,6 +1430,9 @@ async function testDoubleTap() {
     await testN12();
     await testConflict();
     await testDoubleTap();
+    await testFailedSubmit();
+    await testN7sCompletedSession();
+    await testRetryButton();
     
     console.log(`\n✅ All SessionRunner render tests passed! (${passed}/${passed + failed})\n`);
     process.exit(0);
