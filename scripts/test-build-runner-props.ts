@@ -42,6 +42,11 @@ assert(props.userId === "user-456", "N6: userId is correct value");
 assert(props.sessionStatus === mockSession.status, "N6s: sessionStatus equals session.status");
 assert(props.sessionStatus === "in_progress", "N6s: sessionStatus is correct value");
 
+// Test N8: settings props
+const settingsProps = buildSettingsProps(mockUser);
+assert(settingsProps.userId === mockUser.id, "N8: settings userId equals user.id");
+assert(settingsProps.userId === "user-456", "N8: settings userId is correct value");
+
 console.log(`\n✅ All assertions passed (${passed})`);
-console.log("\nMutations N6/N6s killed: Changing user.id or session.status breaks assertions");
+console.log("\nMutations N6/N6s/N8 killed: Changing user.id or session.status breaks assertions");
 console.log("Break: Using wrong fields (e.g. session.user_id for userId) fails tests");

@@ -1,7 +1,7 @@
 /**
- * N6/N6s/N8: Extract runner props from session and user
+ * N6/N6s/N8: Extract props from session and user
  * 
- * Pure function to build SessionRunner props.
+ * Pure functions to build page props.
  * Tests ensure page call sites use correct fields.
  */
 
@@ -24,5 +24,15 @@ export function buildRunnerProps(session: Session, user: User): RunnerPropsCore 
   return {
     userId: user.id,          // N6
     sessionStatus: session.status,  // N6s
+  };
+}
+
+/**
+ * Extract userId for settings page.
+ * N8: userId must be user.id
+ */
+export function buildSettingsProps(user: User): { userId: string } {
+  return {
+    userId: user.id,  // N8
   };
 }
