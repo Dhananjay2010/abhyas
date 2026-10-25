@@ -7,6 +7,7 @@
  */
 
 export type SessionForPicking = {
+  id: string;
   status: string | null;
   actual_type: string | null;
   created_at: string | null;

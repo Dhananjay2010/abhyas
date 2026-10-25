@@ -28,10 +28,10 @@ function assert(condition: boolean, message: string) {
 // Test History's endedEarly logic (main's original inline logic restored)
 test("In-progress session with pending exercise has endedEarly=true", () => {
   const hasPendingExercise = true;
-  const plannedSets = 22;
-  const workingSetCount = 6;
+  const plannedSets: number | undefined = 22;
+  const workingSetCount: number = 6;
   const isStrength = true;
-  const status = "in_progress";
+  const status: string = "in_progress";
   const hasNoExercises = false;
 
   // Main's original logic (restored in History)
@@ -47,10 +47,10 @@ test("In-progress session with pending exercise has endedEarly=true", () => {
 
 test("Completed session with pending exercise has endedEarly=true", () => {
   const hasPendingExercise = true;
-  const plannedSets = 22;
-  const workingSetCount = 6;
+  const plannedSets: number | undefined = 22;
+  const workingSetCount: number = 6;
   const isStrength = true;
-  const status = "completed";
+  const status: string = "completed";
   const hasNoExercises = false;
 
   const endedEarly = 
@@ -65,10 +65,10 @@ test("Completed session with pending exercise has endedEarly=true", () => {
 
 test("Completed session with all sets done has endedEarly=false", () => {
   const hasPendingExercise = false;
-  const plannedSets = 22;
-  const workingSetCount = 22;
+  const plannedSets: number | undefined = 22;
+  const workingSetCount: number = 22;
   const isStrength = true;
-  const status = "completed";
+  const status: string = "completed";
   const hasNoExercises = false;
 
   const endedEarly = 
@@ -83,10 +83,10 @@ test("Completed session with all sets done has endedEarly=false", () => {
 
 test("Yoga session with pending exercise has endedEarly=true (first branch only)", () => {
   const hasPendingExercise = true;
-  const plannedSets = 22;
-  const workingSetCount = 6;
+  const plannedSets: number | undefined = 22;
+  const workingSetCount: number = 6;
   const isStrength = false;  // yoga
-  const status = "completed";
+  const status: string = "completed";
   const hasNoExercises = false;
 
   const endedEarly = 
