@@ -228,8 +228,8 @@ async function runTests() {
     if (summaryData) {
       const summary = summarizeEndedEarly(summaryData as any);
       check("Today banner detects ended early", summary.endedEarly === true);
-      check("Today banner shows 1 of 22 sets", summary.endedEarly && summary.setsDone === 1 && summary.setsPlanned === 22, 
-        summary.endedEarly ? `${summary.setsDone} of ${summary.setsPlanned}` : "not ended early");
+      check("Today banner shows 1 of 22 sets", summary.endedEarly && summary.workingSets === 1 && summary.plannedSets === 22, 
+        summary.endedEarly ? `${summary.workingSets} of ${summary.plannedSets}` : "not ended early");
     }
 
     // Check History label: hasPendingExercise
