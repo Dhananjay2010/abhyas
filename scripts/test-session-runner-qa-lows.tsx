@@ -19,6 +19,8 @@ import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
 
 export {};
 
+const FIXED_TIMESTAMP = "2026-10-25T10:00:00.000Z";
+
 let failures = 0;
 
 function check(label: string, ok: boolean, detail = "") {
@@ -136,7 +138,7 @@ console.log("1. L4: logSet throws SESSION_EXPIRED → friendly error message sho
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
-        startedAt: new Date().toISOString(),
+        startedAt: FIXED_TIMESTAMP,
         warmup: [],
         cooldown: [],
         exercises,
@@ -226,7 +228,7 @@ console.log("\n2. L1: conflict on last set → feel prompt appears");
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
-        startedAt: new Date().toISOString(),
+        startedAt: FIXED_TIMESTAMP,
         warmup: [],
         cooldown: [],
         exercises,
@@ -315,7 +317,7 @@ console.log("\n3. L1: picking feel after conflict advances to next exercise");
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
-        startedAt: new Date().toISOString(),
+        startedAt: FIXED_TIMESTAMP,
         warmup: [],
         cooldown: [],
         exercises,

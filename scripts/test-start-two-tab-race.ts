@@ -24,6 +24,7 @@ const USER_ID = "user-a";
 const TODAY = "2026-10-25";
 const PROGRAM_ID = "prog1";
 const DAY_ID = "day1";
+const FIXED_TIMESTAMP = "2026-10-25T10:00:00.000Z";
 
 function sessionPayload(userId: string, date: string) {
   return {
@@ -36,7 +37,7 @@ function sessionPayload(userId: string, date: string) {
     planned_type: "weights" as const,
     actual_type: "weights" as const,
     status: "in_progress" as const,
-    started_at: new Date().toISOString(),
+    started_at: FIXED_TIMESTAMP,
   };
 }
 
