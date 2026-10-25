@@ -35,18 +35,40 @@ export function computeSessionDuration(
 /**
  * Format duration in minutes, never showing "0 min" for NULL.
  * 
+ * Item 9 scope: "—" only for finished strength sessions (completed or ended early)
+ * with null duration. Other rows (in progress, planned-then-skipped, breathing) return null.
+ * 
  * @param seconds - Duration in seconds (can be null)
- * @returns Formatted string like "45 min" or "<1 min", or null if no duration
+ * @param status - Session status
+ * @param actualType - Session type
+ * @returns Formatted string like "45 min" or "<1 min", "—" for finished strength w/ null, or null
  */
-export function formatDurationMinutes(seconds: number | null): string | null {
-  if (seconds === null || seconds === undefined) return "—";
-  
+export function formatDurationMinutes(
+  seconds: number | null,
+  status?: string | null,
+  actualType?: string | null
+): string | null {
   // A real 0 duration (ended early with no sets) returns null - let caller show "Ended early"
   if (seconds === 0) return null;
   
-  // Show "<1 min" for any duration less than 60 seconds
-  if (seconds > 0 && seconds < 60) return "<1 min";
+  // If duration exists, format it normally
+  if (seconds !== null && seconds !== undefined) {
+    // Show "<1 min" for any duration less than 60 seconds
+    if (seconds > 0 && seconds < 60) return "<1 min";
+    
+    const minutes = Math.round(seconds / 60);
+    return `${minutes} min`;
+  }
+
+  // seconds is null - decide whether to show "—"
+  // Item 9: Only show "—" for finished strength sessions (completed or ended early)
+  const isFinished = status === "completed" || status === "skipped";
+  const isStrength = actualType === "weights" || actualType === "bodyweight";
   
-  const minutes = Math.round(seconds / 60);
-  return `${minutes} min`;
+  if (isFinished && isStrength) {
+    return "—";
+  }
+
+  // Other cases (in progress, planned, breathing/yoga) return null
+  return null;
 }

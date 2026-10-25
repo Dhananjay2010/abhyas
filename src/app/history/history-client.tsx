@@ -157,7 +157,8 @@ export function HistoryClient({
               }
 
               // Item 9: Duration - never show "0 min" for NULL duration
-              const durationLabel = formatDurationMinutes(item.durationSeconds);
+              // "—" only for finished strength sessions (completed or ended early)
+              const durationLabel = formatDurationMinutes(item.durationSeconds, item.status, item.actualType);
 
               // Build label for the session
               let label = "";
