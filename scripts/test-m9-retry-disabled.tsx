@@ -42,7 +42,6 @@ const deps = createPendingSetDeps(FIXED_TIME);
 console.log("\n🧪 M9 TEST: Retry button disabled while retrying\n");
 
 let logSetCalls = 0;
-let logSetResolver: (() => void) | null = null;
 
 const exercise: RunnerExercise = {
   id: "ex-1",
@@ -79,9 +78,9 @@ const actions: SessionActions = {
   markWarmupDone: async () => ({ ok: true }),
   logSet: async () => {
     logSetCalls++;
-    // Return a promise that won't resolve until we say so
-    return new Promise((resolve) => {
-      logSetResolver = () => resolve({ ok: true });
+    // Return a promise that hangs indefinitely to simulate slow network
+    return new Promise(() => {
+      // Never resolves
     });
   },
   deleteSet: async () => ({ ok: true }),

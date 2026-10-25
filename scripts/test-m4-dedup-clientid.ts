@@ -94,7 +94,7 @@ try {
   assert(raw.sets.length === 1, "M4 BUGGY: Should have 1 set, has " + raw.sets.length);
   console.error("\n❌ PLANTED BUG TEST FAILED: Expected assertion to fail!");
   process.exit(1);
-} catch (e) {
+} catch {
   console.log("✅ M4 PLANTED BUG CAUGHT: Duplicate clientId saved when dedup removed!");
   console.log(`   Expected: 1 set`);
   console.log(`   Got:      ${raw.sets.length} sets (DUPLICATE!)`);
