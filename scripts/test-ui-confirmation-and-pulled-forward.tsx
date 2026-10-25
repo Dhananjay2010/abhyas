@@ -16,7 +16,7 @@ Object.defineProperty(global, "document", { value: dom.window.document, writable
 Object.defineProperty(global, "HTMLElement", { value: dom.window.HTMLElement, writable: true, configurable: true });
 
 import { render, cleanup, act } from "@testing-library/react";
-import { DayPlanChoosingOptions } from "../src/components/day-plan-prompt-ui";
+import { DayPlanChoosingOptions, DayPlanPrompt } from "../src/components/day-plan-prompt-ui";
 import type { PlannableDay } from "../src/app/session/actions";
 import React from "react";
 
@@ -81,7 +81,6 @@ async function runTests() {
   if (liftButton) {
     await act(async () => {
       liftButton.click();
-      await new Promise(resolve => setTimeout(resolve, 10));
     });
 
     // Check that onChooseDay received plain label (not buttonLabel)
