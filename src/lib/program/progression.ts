@@ -574,7 +574,25 @@ export function evaluateProgression(input: {
   if (inRange) {
     // HOLD: Use stored weight if available; otherwise fall back to heaviest logged working-set weight.
     // For true bodyweight (no weights logged), keep null.
-    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+    let currentWeight: number | null;
+    
+    if (state.currentWorkingWeightKg !== null && state.currentWorkingWeightKg > 0) {
+      // Weight is stored: check if all completed working sets >= stored weight
+      const allSetsHeavierOrEqual = working.every((set) => (set.weightKg ?? 0) >= state.currentWorkingWeightKg!);
+      
+      if (allSetsHeavierOrEqual) {
+        // Store the LOWEST weight among completed working sets, rounded
+        const lowestUsed = Math.min(...working.map((s) => s.weightKg ?? 0));
+        currentWeight = lowestUsed > 0 ? roundToStoragePrecision(lowestUsed) : state.currentWorkingWeightKg;
+      } else {
+        // At least one set was lighter: keep stored weight unchanged
+        currentWeight = state.currentWorkingWeightKg;
+      }
+    } else {
+      // Nothing stored: fall back to heaviest (H2)
+      currentWeight = heaviest > 0 ? heaviest : null;
+    }
+    
     return {
       ...carried,
       outcome: "hold",
@@ -585,7 +603,7 @@ export function evaluateProgression(input: {
         ? "Staying at this hold length until every set reaches the top of the range."
         : currentWeight === null
           ? "Staying here until every set reaches the top of the range."
-          : "Staying at this weight until every set reaches the top of the range.",
+          : `Staying at ${displayWeight(currentWeight, unit)} until every set reaches the top of the range.`,
     };
   }
 
