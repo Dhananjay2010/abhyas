@@ -17,6 +17,8 @@ import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
+import { countWorkingSets } from "@/lib/session/count-sets";
+import { isEndedEarly } from "@/lib/session/ended-early";
 
 export const dynamic = "force-dynamic";
 
@@ -388,9 +390,6 @@ export default async function TodayPage() {
   let completedSetCount = 0;
   let totalPlannedSets = 0;
   if (completedSessionData?.data) {
-    const { countWorkingSets } = await import("@/lib/session/count-sets");
-    const { isEndedEarly } = await import("@/lib/session/ended-early");
-    
     const exercises = completedSessionData.data as Array<{
       id: string;
       status: string | null;

@@ -7,6 +7,7 @@ import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
 import type { PostgrestError } from "@supabase/supabase-js";
+import { isEndedEarly } from "@/lib/session/ended-early";
 
 export const dynamic = "force-dynamic";
 
@@ -224,7 +225,6 @@ export default async function HistoryPage({
     
     // Use shared helper to determine if session ended early
     const isStrength = !isBreathing && s.actual_type !== "yoga";
-    const { isEndedEarly } = await import("@/lib/session/ended-early");
     const endedEarly = isEndedEarly({
       isStrength,
       status: s.status,
