@@ -48,7 +48,7 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
       name: "Plank",
       cue: null,
       movement_pattern: "other",
-      primary_muscles: ["core"],
+      primary_muscles: ["abs"],
       equipment_ids: [], // bodyweight
     },
   };
@@ -80,7 +80,7 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
       name: "Weighted Plank",
       cue: null,
       movement_pattern: "other",
-      primary_muscles: ["core"],
+      primary_muscles: ["abs"],
       equipment_ids: [], // bodyweight base, but has added weight
     },
   };
@@ -109,7 +109,7 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
       id: "ex-pushup",
       name: "Push-up",
       cue: null,
-      movement_pattern: "horizontal_push",
+      movement_pattern: "horizontal_press",
       primary_muscles: ["chest"],
       equipment_ids: [],
     },
@@ -140,7 +140,7 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
       name: "Plank",
       cue: null,
       movement_pattern: "other",
-      primary_muscles: ["core"],
+      primary_muscles: ["abs"],
       equipment_ids: [],
     },
   };
@@ -170,7 +170,7 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
       name: "Plank",
       cue: null,
       movement_pattern: "other",
-      primary_muscles: ["core"],
+      primary_muscles: ["abs"],
       equipment_ids: [],
     },
   };
@@ -199,7 +199,7 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
       id: "ex-high-reps",
       name: "Push-up",
       cue: null,
-      movement_pattern: "horizontal_push",
+      movement_pattern: "horizontal_press",
       primary_muscles: ["chest"],
       equipment_ids: [],
     },
@@ -229,7 +229,7 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
       id: "ex-neg",
       name: "Push-up",
       cue: null,
-      movement_pattern: "horizontal_push",
+      movement_pattern: "horizontal_press",
       primary_muscles: ["chest"],
       equipment_ids: [],
     },
@@ -259,7 +259,7 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
       id: "ex-zero",
       name: "Push-up",
       cue: null,
-      movement_pattern: "horizontal_push",
+      movement_pattern: "horizontal_press",
       primary_muscles: ["chest"],
       equipment_ids: [],
     },
