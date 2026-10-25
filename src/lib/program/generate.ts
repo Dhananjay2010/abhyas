@@ -21,6 +21,7 @@ export type CandidateExercise = {
   /** `seconds` for a hold, which is prescribed as a time range, not reps. */
   metric: Enums["exercise_metric"];
   primary_muscles: Enums["muscle"][];
+  secondary_muscles: Enums["muscle"][];
   equipment_ids: string[];
   level_min: Level;
   contraindicated_regions: BodyRegion[];

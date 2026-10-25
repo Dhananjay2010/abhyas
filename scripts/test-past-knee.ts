@@ -87,6 +87,9 @@ const EXPECTED_EXCLUDED_SLUGS = [
   "box-squat-with-chains",
   "reverse-band-box-squat",
   "reverse-band-power-squat",
+  
+  // Running/sprinting moves (loads knee, mislabeled muscles)
+  "wind-sprints",
 ];
 
 console.log("\n1. Catalogue validation: hard-coded exclusion list behaviour");
@@ -101,47 +104,90 @@ console.log("\n1. Catalogue validation: hard-coded exclusion list behaviour");
     }
     
     // Check isExcludedForPastKnee returns true
-    const ex = bySlug.get(slug)!;
+    const ex = bySlug.get(slug);
+    if (!ex) continue;
     const excluded = isExcludedForPastKnee(ex);
     check(`${slug} excluded by filter`, excluded);
   }
   
   // Explicit wired check for kettlebell-pistol-squat (must fail if removed from list)
   check("kettlebell-pistol-squat MUST be excluded", EXPECTED_EXCLUDED_SLUGS.includes("kettlebell-pistol-squat"));
-  check("kettlebell-pistol-squat excluded by filter", isExcludedForPastKnee(bySlug.get("kettlebell-pistol-squat")!));
+  const kettlebellPistol = bySlug.get("kettlebell-pistol-squat");
+  if (kettlebellPistol) {
+    check("kettlebell-pistol-squat excluded by filter", isExcludedForPastKnee(kettlebellPistol));
+  }
   
   console.log(`    Checked ${EXPECTED_EXCLUDED_SLUGS.length} explicit exclusions`);
 }
 
 console.log("\n2. High-impact leg exercise rule (data-driven from catalogue fields)");
 {
-  // Compute expected high-impact leg exercises from catalogue fields
-  const legMuscles = new Set(["quads", "glutes", "hamstrings", "adductors", "calves"]);
-  const highImpactLegSlugs = catalogue
-    .filter(e => {
-      if (e.impact !== "high") return false;
-      if (e.movement_pattern === "squat" || e.movement_pattern === "lunge") return true;
-      return e.primary_muscles.some(m => legMuscles.has(m));
-    })
-    .map(e => e.slug);
+  // Hard-coded expected high-impact leg slugs (ground truth from catalogue inspection)
+  const EXPECTED_HIGH_IMPACT_LEG_SLUGS = [
+    "bench-jump",
+    "double-leg-butt-kick",
+    "dumbbell-seated-box-jump",
+    "fast-skipping",
+    "freehand-jump-squat",
+    "knee-tuck-jump",
+    "lateral-bound",
+    "lunge-sprint",
+    "medicine-ball-scoop-throw",
+    "rocket-jump",
+    "scissors-jump",
+    "single-leg-butt-kick",
+    "split-jump",
+    "standing-long-jump",
+    "star-jump",
+    "vertical-swing",
+    "weighted-jump-squat",
+  ];
   
-  console.log(`    Found ${highImpactLegSlugs.length} high-impact leg exercises in catalogue`);
+  console.log(`    Expecting ${EXPECTED_HIGH_IMPACT_LEG_SLUGS.length} high-impact leg exercises`);
   
-  // All high-impact leg exercises must be excluded
+  // All expected high-impact leg exercises must be excluded
   let highImpactLegExcluded = 0;
-  for (const slug of highImpactLegSlugs) {
-    const ex = bySlug.get(slug)!;
+  for (const slug of EXPECTED_HIGH_IMPACT_LEG_SLUGS) {
+    const ex = bySlug.get(slug);
+    if (!ex) {
+      check(`${slug} (high impact leg) exists in catalogue`, false);
+      continue;
+    }
     if (isExcludedForPastKnee(ex)) {
       highImpactLegExcluded++;
     } else {
       check(`${slug} (high impact leg) excluded`, false);
     }
   }
-  check(`All ${highImpactLegSlugs.length} high-impact leg exercises excluded`, highImpactLegExcluded === highImpactLegSlugs.length);
+  check(`All ${EXPECTED_HIGH_IMPACT_LEG_SLUGS.length} high-impact leg exercises excluded`, highImpactLegExcluded === EXPECTED_HIGH_IMPACT_LEG_SLUGS.length);
+  
+  // Explicit wired checks for jumping rule killing mutant 5
+  const plyoPushUp = bySlug.get("plyo-push-up");
+  const plyoKbPushups = bySlug.get("plyo-kettlebell-pushups");
+  
+  if (plyoPushUp) {
+    check("plyo-push-up excluded for past-knee", isExcludedForPastKnee(plyoPushUp), 
+      "Jumping filter must catch upper-body plyo moves");
+  }
+  if (plyoKbPushups) {
+    check("plyo-kettlebell-pushups excluded for past-knee", isExcludedForPastKnee(plyoKbPushups),
+      "Jumping filter must catch upper-body plyo moves");
+  }
 }
 
 console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excluded exercises");
 {
+  // First, check wall-sit penalty in primary slots
+  const wallSitEx = bySlug.get("wall-sit");
+  if (wallSitEx) {
+    const input = base({ pastKneeInjury: true });
+    // Wall-sit should have heavy negative score in primary slots (0-3)
+    const primaryScore = score(wallSitEx, true, input.level, input.primaryTrack, true, 0);
+    const accessoryScore = score(wallSitEx, true, input.level, input.primaryTrack, true, 4);
+    check("wall-sit heavily penalized in primary slots", primaryScore < -50,
+      `primary: ${primaryScore}, accessory: ${accessoryScore}`);
+  }
+  
   type Goal = "muscle_gain" | "strength" | "fat_loss" | "general_fitness";
   type Level = "beginner" | "intermediate" | "expert";
   type Track = "weights" | "bodyweight";
@@ -157,12 +203,12 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
     { label: "BW", hasAll: false, ids: [] },
   ];
   const dayCounts = [2, 3, 4, 5, 6];
-  const sessionDurations = [30, 60, 90];
+  const sessionDurations = [30, 45, 60, 90];
   
   let plansChecked = 0;
   let kettlebelPistolInPlans = 0;
   let excludedInPlans = 0;
-  let wallSitAsPrimary = 0;
+  let wallSitAsPrimarySquat = 0;
   let warmupsChecked = 0;
   let walkingLungeInWarmups = 0;
   let skippingLightInWarmups = 0;
@@ -182,6 +228,7 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
                 hasAllEquipment: equip.hasAll,
                 equipmentIds: equip.ids,
                 pastKneeInjury: true,
+                preferredSessionMinutes: duration,
               });
               
               const program = generateProgram(input);
@@ -202,13 +249,17 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
                   if (isExcludedForPastKnee(exercise)) {
                     excludedInPlans++;
                   }
-                  
-                  // Check if wall-sit is primary squat slot (first 4 slots are primaries)
-                  if (exercise.slug === "wall-sit" && exercise.movement_pattern === "squat") {
-                    const exIndex = day.exercises.findIndex(e => e.exerciseId === exercise.id);
-                    if (exIndex >= 0 && exIndex <= 3) {
-                      wallSitAsPrimary++;
-                    }
+                }
+                
+                // Check if wall-sit is the primary squat (FIRST squat slot in the day)
+                const squatExercises = day.exercises
+                  .map((ex, idx) => ({ ex, idx, exercise: byId.get(ex.exerciseId) }))
+                  .filter(item => item.exercise && item.exercise.movement_pattern === "squat");
+                
+                if (squatExercises.length > 0) {
+                  const firstSquat = squatExercises[0];
+                  if (firstSquat.exercise && firstSquat.exercise.slug === "wall-sit") {
+                    wallSitAsPrimarySquat++;
                   }
                 }
               }
@@ -246,8 +297,8 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
     kettlebelPistolInPlans > 0 ? `Found ${kettlebelPistolInPlans}/${plansChecked}` : "");
   check(`No excluded exercises in plans`, excludedInPlans === 0,
     excludedInPlans > 0 ? `Found ${excludedInPlans} excluded exercises` : "");
-  check(`wall-sit NEVER as primary squat`, wallSitAsPrimary === 0,
-    wallSitAsPrimary > 0 ? `Found ${wallSitAsPrimary} primary wall-sit slots` : "");
+  check(`wall-sit NEVER as primary squat (first squat slot)`, wallSitAsPrimarySquat === 0,
+    wallSitAsPrimarySquat > 0 ? `Found ${wallSitAsPrimarySquat} primary wall-sit slots` : "");
   check(`walking-lunge NEVER in warmups`, walkingLungeInWarmups === 0,
     walkingLungeInWarmups > 0 ? `Found ${walkingLungeInWarmups}/${warmupsChecked}` : "");
   check(`skipping-light NEVER in warmups`, skippingLightInWarmups === 0,

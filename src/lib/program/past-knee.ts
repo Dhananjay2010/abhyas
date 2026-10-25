@@ -62,6 +62,9 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   "box-squat-with-chains",
   "reverse-band-box-squat",
   "reverse-band-power-squat",
+  
+  // Running/sprinting moves (loads knee, mislabeled muscles)
+  "wind-sprints",
 ]);
 
 /**
@@ -98,10 +101,16 @@ function isHighImpactLegExercise(ex: CandidateExercise): boolean {
     return true;
   }
   
-  // Lower-body muscles - check if ANY primary muscle is a leg muscle
+  // Lower-body muscles - check if ANY primary OR secondary muscle is a leg muscle
   const legMuscles = ["quads", "glutes", "hamstrings", "adductors", "calves"];
   
   for (const muscle of ex.primary_muscles) {
+    if (legMuscles.includes(muscle)) {
+      return true;
+    }
+  }
+  
+  for (const muscle of ex.secondary_muscles) {
     if (legMuscles.includes(muscle)) {
       return true;
     }
@@ -133,7 +142,6 @@ const KNEE_FRIENDLY_PRIMARIES: Partial<Record<Pattern, string[]>> = {
     "box-squat",
     "leg-press",
     "split-squat-with-dumbbells",
-    "wall-sit",
   ],
   lunge: [
     "dumbbell-rear-lunge",

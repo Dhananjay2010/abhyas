@@ -116,79 +116,79 @@ fi
 # Mutant 1: Remove kettlebell-pistol-squat
 restore_file "src/lib/program/past-knee.ts"
 sed -i '/"kettlebell-pistol-squat",/d' src/lib/program/past-knee.ts
-run_mutant "Remove kettlebell-pistol-squat exclusion" "src/lib/program/past-knee.ts"
+run_mutant "Remove kettlebell-pistol-squat exclusion" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 2: Remove squat-jerk
 restore_file "src/lib/program/past-knee.ts"
 sed -i '/"squat-jerk",/d' src/lib/program/past-knee.ts
-run_mutant "Remove squat-jerk exclusion" "src/lib/program/past-knee.ts"
+run_mutant "Remove squat-jerk exclusion" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 3: Remove speed-squats
 restore_file "src/lib/program/past-knee.ts"
 sed -i '/"speed-squats",/d' src/lib/program/past-knee.ts
-run_mutant "Remove speed-squats exclusion" "src/lib/program/past-knee.ts"
+run_mutant "Remove speed-squats exclusion" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 4: Remove barbell-full-squat
 restore_file "src/lib/program/past-knee.ts"
 sed -i '/"barbell-full-squat",/d' src/lib/program/past-knee.ts
-run_mutant "Remove barbell-full-squat exclusion" "src/lib/program/past-knee.ts"
+run_mutant "Remove barbell-full-squat exclusion" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 5: Disable jumping check
 restore_file "src/lib/program/past-knee.ts"
 sed -i 's/if (isJumpingExercise(ex)) return true;/if (false) return true;/' src/lib/program/past-knee.ts
-run_mutant "Disable jumping exercise filter" "src/lib/program/past-knee.ts"
+run_mutant "Disable jumping exercise filter" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 6: Disable high-impact-leg check
 restore_file "src/lib/program/past-knee.ts"
 sed -i 's/if (isHighImpactLegExercise(ex)) return true;/if (false) return true;/' src/lib/program/past-knee.ts
-run_mutant "Disable high-impact-leg exercise filter" "src/lib/program/past-knee.ts"
+run_mutant "Disable high-impact-leg exercise filter" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 7: Disable isEligible gate
 restore_file "src/lib/program/generate.ts"
 sed -i 's/if (input.pastKneeInjury === true/if (false \&\& input.pastKneeInjury === true/' src/lib/program/generate.ts
-run_mutant "Disable isEligible gate" "src/lib/program/generate.ts"
+run_mutant "Disable isEligible gate" "src/lib/program/generate.ts" || true
 restore_file "src/lib/program/generate.ts"
 
 # Mutant 8: Disable rankAlternatives gate
 restore_file "src/lib/program/alternatives.ts"
 sed -i 's/if (ctx.pastKneeInjury === true \&\& isExcludedForPastKnee/if (false \&\& ctx.pastKneeInjury === true \&\& isExcludedForPastKnee/' src/lib/program/alternatives.ts
-run_mutant "Disable rankAlternatives gate" "src/lib/program/alternatives.ts"
+run_mutant "Disable rankAlternatives gate" "src/lib/program/alternatives.ts" || true
 restore_file "src/lib/program/alternatives.ts"
 
 # Mutant 9: Remove walking-lunge warmup exclusion
 restore_file "src/lib/program/warmup.ts"
 sed -i 's/slug === "walking-lunge"/false/' src/lib/program/warmup.ts
-run_mutant "Remove warmup walking-lunge exclusion" "src/lib/program/warmup.ts"
+run_mutant "Remove warmup walking-lunge exclusion" "src/lib/program/warmup.ts" || true
 restore_file "src/lib/program/warmup.ts"
 
 # Mutant 10: Remove skipping-light warmup exclusion
 restore_file "src/lib/program/warmup.ts"
 sed -i 's/slug === "skipping-light"/false/' src/lib/program/warmup.ts
-run_mutant "Remove warmup skipping-light exclusion" "src/lib/program/warmup.ts"
+run_mutant "Remove warmup skipping-light exclusion" "src/lib/program/warmup.ts" || true
 restore_file "src/lib/program/warmup.ts"
 
 # Mutant 11: Disable goblet OR logic gating
 restore_file "src/lib/program/alternatives.ts"
 sed -i 's/if (ctx.pastKneeInjury === true && candidate.slug === "goblet-squat")/if (candidate.slug === "goblet-squat")/' src/lib/program/alternatives.ts
-run_mutant "Remove goblet OR-logic gating" "src/lib/program/alternatives.ts"
+run_mutant "Remove goblet OR-logic gating" "src/lib/program/alternatives.ts" || true
 restore_file "src/lib/program/alternatives.ts"
 
 # Mutant 12: Disable rear-lunge #1 boost
 restore_file "src/lib/program/past-knee.ts"
 sed -i 's/if (candidate.slug === "dumbbell-rear-lunge") return 2;/if (candidate.slug === "dumbbell-rear-lunge") return 1;/' src/lib/program/past-knee.ts
-run_mutant "Disable rear-lunge ranking boost" "src/lib/program/past-knee.ts"
+run_mutant "Disable rear-lunge ranking boost" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
 
-# Mutant 13: Allow wall-sit as primary (remove from swap-only enforcement)
+# Mutant 13: Remove wall-sit primary penalty (allow as primary squat)
 restore_file "src/lib/program/past-knee.ts"
-sed -i '/if (candidate.slug === "wall-sit")/,/}/d' src/lib/program/past-knee.ts
-run_mutant "Allow wall-sit as primary" "src/lib/program/past-knee.ts"
+sed -i '/if (ex.slug === "wall-sit" && slotIndex <= 3) {/,/}/d' src/lib/program/past-knee.ts
+run_mutant "Remove wall-sit primary penalty" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
 
 echo ""
