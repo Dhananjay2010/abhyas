@@ -7,6 +7,7 @@ import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
 import { buildRunnerExercise } from "@/lib/session/build-runner-exercises";
+import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
 
 export const dynamic = "force-dynamic";
@@ -61,10 +62,7 @@ export default async function SessionPage({
       supabase.from("user_injuries").select("body_region, severity"),
       supabase.from("warmup_exercises").select("*").eq("is_active", true),
       supabase.from("user_equipment").select("equipment_id"),
-      supabase
-        .from("exercise_progress")
-        .select("exercise_id, current_working_weight_kg, current_target_reps")
-        .eq("user_id", user.id),
+      buildExerciseProgressQuery(supabase, user.id),
     ]);
 
   // A failed query used to fall through to "this session has no exercises",
