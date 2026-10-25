@@ -16,6 +16,7 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
+import { resolveTarget } from "@/lib/session/display-target";
 import {
   abandonSession,
   deleteSet,
@@ -783,8 +784,10 @@ export function SessionRunner({
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>
         <p className="mt-2 text-accent">
-          {current.plannedSets} sets × {current.repsMin}–{current.repsMax}
-          {isTimed ? "s" : " reps"}
+          {current.plannedSets} sets × {current.repsMin === current.repsMax
+            ? `${current.repsMin}${isTimed ? "s" : ""}`
+            : `${current.repsMin}–${current.repsMax}${isTimed ? "s" : ""}`}
+          {!isTimed && " reps"}
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
@@ -958,6 +961,19 @@ export function SessionRunner({
                         });
                         if (!ok || !box.value) return;
                         const swapped = box.value;
+                        
+                        // M-5: Recompute target for new exercise using shared helper
+                        // No progress available for new exercise, so it will use plan range
+                        const newIsBodyweight = (swapped.equipmentIds ?? []).length === 0;
+                        const newTarget = resolveTarget({
+                          metric: swapped.metric,
+                          plannedMin: swapped.repsMin ?? 8,
+                          plannedMax: swapped.repsMax ?? 12,
+                          currentTargetReps: null, // No progress for new exercise
+                          isBodyweight: newIsBodyweight,
+                          currentWorkingWeightKg: null, // No weight for new exercise
+                        });
+                        
                         setExercises((prev) =>
                           prev.map((e) =>
                             e.id === current.id
@@ -967,8 +983,11 @@ export function SessionRunner({
                                   cue: a.cue,
                                   exerciseId: a.exerciseId,
                                   metric: swapped.metric,
-                                  repsMin: swapped.repsMin ?? e.repsMin,
-                                  repsMax: swapped.repsMax ?? e.repsMax,
+                                  repsMin: newTarget.min,
+                                  repsMax: newTarget.max,
+                                  isBodyweight: newIsBodyweight,
+                                  workingWeightKg: null,
+                                  suggestedWeightKg: null,
                                 }
                               : e,
                           ),

@@ -7,7 +7,8 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
-import { resolveDisplayTarget } from "@/lib/session/display-target";
+import { resolveTarget } from "@/lib/session/display-target";
+import { mapSessionExercise, type SessionExerciseRow, type ExerciseProgressRow } from "@/lib/session/build-runner-exercises";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,8 @@ export default async function SessionPage({
       supabase.from("user_equipment").select("equipment_id"),
       supabase
         .from("exercise_progress")
-        .select("exercise_id, current_working_weight_kg, current_target_reps"),
+        .select("exercise_id, current_working_weight_kg, current_target_reps")
+        .eq("user_id", user.id),
     ]);
 
   // A failed query used to fall through to "this session has no exercises",
@@ -77,6 +79,11 @@ export default async function SessionPage({
   if (sessionRes.error) {
     if (sessionRes.error.code === "22P02") notFound();
     throw new Error(`Could not load this session: ${sessionRes.error.message}`);
+  }
+  
+  // Log progress query error but don't throw (LOW requirement)
+  if (progressRes.error) {
+    console.error("Failed to load exercise progress:", progressRes.error.message);
   }
 
   const session = sessionRes.data;
@@ -114,21 +121,17 @@ export default async function SessionPage({
       equipment_ids: string[];
     };
     const progress = remembersWeights ? progressByExercise.get(ex?.id ?? "") : undefined;
-    const working =
-      progress?.current_working_weight_kg === null || progress === undefined
-        ? null
-        : Number(progress.current_working_weight_kg);
-    const isBodyweight = (ex?.equipment_ids ?? []).length === 0;
-    const metric = r.metric ?? "reps";
-    const target = resolveDisplayTarget({
-      metric,
-      plannedMin: r.planned_reps_min ?? 8,
-      plannedMax: r.planned_reps_max ?? 12,
-      currentTargetReps: progress?.current_target_reps,
+    
+    // Use extracted pure function for target resolution (M-2)
+    const mapped = mapSessionExercise({
+      row: r as SessionExerciseRow,
+      progress: progress as ExerciseProgressRow | undefined,
+      remembersWeights,
     });
+    
     return {
       id: r.id,
-      exerciseId: ex?.id ?? "",
+      exerciseId: mapped.exerciseId,
       name: ex?.name ?? "Exercise",
       cue: ex?.cue ?? null,
       /*
@@ -137,28 +140,28 @@ export default async function SessionPage({
         logged in, or half the sets in one exercise would be reps and half
         seconds.
       */
-      metric,
+      metric: mapped.metric,
       primaryMuscles: ex?.primary_muscles ?? [],
       plannedSets: r.planned_sets ?? 3,
-      repsMin: target.min,
-      repsMax: target.max,
+      repsMin: mapped.repsMin,
+      repsMax: mapped.repsMax,
       restSeconds: r.rest_seconds ?? 90,
       status: r.status,
       feel: r.feel,
-      workingWeightKg: working,
+      workingWeightKg: mapped.currentWorkingWeightKg,
       suggestedWeightKg: suggestedWeight(
-        { currentWorkingWeightKg: working },
+        { currentWorkingWeightKg: mapped.currentWorkingWeightKg },
         session.is_deload,
         {
           mechanic: null,
           movementPattern: ex?.movement_pattern ?? "other",
-          metric,
-          isBodyweight,
+          metric: mapped.metric,
+          isBodyweight: mapped.isBodyweight,
           progressionChain: null,
           progressionRank: null,
         },
       ),
-      isBodyweight,
+      isBodyweight: mapped.isBodyweight,
       // Warm-up sets are excluded and the order applied here rather than in the
       // query. PostgREST is documented to filter an embedded resource without
       // dropping its parent, but if that were ever wrong the failure would be
