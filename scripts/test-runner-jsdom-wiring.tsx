@@ -92,7 +92,7 @@ console.log("1. Stale session clock capped at 179:59 (f1d-runner, f1e-helper)");
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -117,6 +117,8 @@ console.log("1. Stale session clock capped at 179:59 (f1d-runner, f1e-helper)");
           metric: "reps",
           primaryMuscles: ["quads"],
           plannedSets: 3,
+          plannedRepsMin: 8,
+          plannedRepsMax: 12,
           repsMin: 8,
           repsMax: 12,
           restSeconds: 90,
@@ -175,7 +177,7 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -202,6 +204,8 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
           metric: "reps",
           primaryMuscles: ["chest"],
           plannedSets: 3,
+          plannedRepsMin: 8,
+          plannedRepsMax: 12,
           repsMin: 8,
           repsMax: 12,
           restSeconds: 120,
@@ -299,7 +303,7 @@ console.log("\n3. Double-click busyRef guard: action called exactly once (9, 9b,
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -326,6 +330,8 @@ console.log("\n3. Double-click busyRef guard: action called exactly once (9, 9b,
           metric: "reps",
           primaryMuscles: ["hamstrings"],
           plannedSets: 3,
+          plannedRepsMin: 5,
+          plannedRepsMax: 8,
           repsMin: 5,
           repsMax: 8,
           restSeconds: 180,
@@ -411,7 +417,7 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
     },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -438,6 +444,8 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
           metric: "reps",
           primaryMuscles: ["quads"],
           plannedSets: 1,
+          plannedRepsMin: 8,
+          plannedRepsMax: 12,
           repsMin: 8,
           repsMax: 12,
           restSeconds: 90,
@@ -528,7 +536,7 @@ console.log("\n5. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -569,6 +577,8 @@ console.log("\n5. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
           metric: "reps",
           primaryMuscles: ["front_delts"],
           plannedSets: 3,
+          plannedRepsMin: 8,
+          plannedRepsMax: 12,
           repsMin: 8,
           repsMax: 12,
           restSeconds: 90,
@@ -642,7 +652,7 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
     },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -670,8 +680,10 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
             metric: "reps",
             primaryMuscles: ["quads"],
             plannedSets: 3,
-            repsMin: 8,
-            repsMax: 12,
+          plannedRepsMin: 8,
+          plannedRepsMax: 12,
+          repsMin: 8,
+          repsMax: 12,
             restSeconds: 90,
             workingWeightKg: 100,
             suggestedWeightKg: null,
@@ -688,6 +700,8 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
             metric: "reps",
             primaryMuscles: ["chest"],
             plannedSets: 3,
+            plannedRepsMin: 8,
+            plannedRepsMax: 12,
             repsMin: 8,
             repsMax: 12,
             restSeconds: 120,
@@ -782,7 +796,7 @@ console.log("\n7. Done sends frozen elapsed time (f1, f2)");
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -809,6 +823,8 @@ console.log("\n7. Done sends frozen elapsed time (f1, f2)");
           metric: "reps",
           primaryMuscles: ["quads"],
           plannedSets: 1,
+          plannedRepsMin: 8,
+          plannedRepsMax: 12,
           repsMin: 8,
           repsMax: 12,
           restSeconds: 90,
@@ -882,7 +898,7 @@ console.log("\n8. Double confirm on end early calls abandonSession twice (endear
     },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -909,6 +925,8 @@ console.log("\n8. Double confirm on end early calls abandonSession twice (endear
           metric: "reps",
           primaryMuscles: ["quads"],
           plannedSets: 3,
+          plannedRepsMin: 8,
+          plannedRepsMax: 12,
           repsMin: 8,
           repsMax: 12,
           restSeconds: 90,
@@ -989,7 +1007,7 @@ console.log("\n9. Clock resumes after failed end early (endearly-resume)");
     },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -1016,6 +1034,8 @@ console.log("\n9. Clock resumes after failed end early (endearly-resume)");
           metric: "reps",
           primaryMuscles: ["quads"],
           plannedSets: 3,
+          plannedRepsMin: 8,
+          plannedRepsMax: 12,
           repsMin: 8,
           repsMax: 12,
           restSeconds: 90,
@@ -1097,7 +1117,7 @@ console.log("\n10. Clock stops, resumes, and freezes when stale (stale-lifecycle
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -1125,6 +1145,8 @@ console.log("\n10. Clock stops, resumes, and freezes when stale (stale-lifecycle
           metric: "reps",
           primaryMuscles: ["quads"],
           plannedSets: 3,
+          plannedRepsMin: 8,
+          plannedRepsMax: 12,
           repsMin: 8,
           repsMax: 12,
           restSeconds: 90,
