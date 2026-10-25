@@ -121,7 +121,7 @@ for (const { ids, unit } of EQUIPMENTS) {
             currentWorkingWeightKg: weight,
             consecutiveFailures: 0,
           });
-          const loggedSets = sets(4, 10, weight); // Missed target
+          const loggedSets = sets(4, 7, weight); // Real miss (below repsMin)
 
           type EvalInput = Parameters<typeof evaluateProgression>[0];
           const input: EvalInput = {
