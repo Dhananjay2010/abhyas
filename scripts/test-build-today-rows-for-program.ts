@@ -33,7 +33,7 @@ async function main() {
       exercises: {
         name: "Bench Press",
         cue: "Keep shoulders back",
-        metric: "reps",
+        metric: "reps" as const,
       },
     },
     {
@@ -45,7 +45,7 @@ async function main() {
       exercises: {
         name: "Dumbbell Bench",
         cue: null,
-        metric: "reps",
+        metric: "reps" as const,
       },
     },
   ];

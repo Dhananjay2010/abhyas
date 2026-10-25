@@ -50,20 +50,20 @@ async function main() {
     newExerciseId: NEW_EXERCISE_ID,
     current: {
       exercise_id: OLD_EXERCISE_ID,
-      metric: "reps",
+      metric: "reps" as const,
       planned_reps_min: 8,
       planned_reps_max: 12,
       session_id: SESSION_ID,
     },
     replacement: {
-      metric: "reps",
-      mechanic: "compound",
+      metric: "reps" as const,
+      mechanic: "compound" as const,
       equipment_ids: ["barbell"],
-      movement_pattern: "horizontal_push",
+      movement_pattern: "horizontal_press" as const,
     },
     profile: {
-      goal: "muscle_gain",
-      level: "intermediate",
+      goal: "muscle_gain" as const,
+      level: "intermediate" as const,
     },
   };
 
@@ -105,10 +105,10 @@ async function main() {
   const bodyweightInput: SwapExerciseCoreInput = {
     ...input,
     replacement: {
-      metric: "reps",
-      mechanic: "compound",
+      metric: "reps" as const,
+      mechanic: "compound" as const,
       equipment_ids: [],
-      movement_pattern: "vertical_pull",
+      movement_pattern: "vertical_pull" as const,
     },
   };
 
