@@ -16,8 +16,8 @@ type MovementPattern =
   | "squat" | "hinge" | "lunge" | "calf"
   | "biceps" | "triceps" | "lateral_delt" | "rear_delt" | "forearm"
   | "core" | "carry" | "neck" | "cardio" | "other";
-type UserGoal = "muscle_gain" | "strength" | "endurance" | "general_fitness";
-type ExperienceLevel = "beginner" | "intermediate" | "advanced";
+type UserGoal = "muscle_gain" | "strength" | "fat_loss" | "general_fitness" | "flexibility_stress" | null;
+type ExperienceLevel = "beginner" | "intermediate" | "expert" | null;
 
 export type SwapExerciseDeps = {
   /**

@@ -113,11 +113,11 @@ async function main() {
   };
 
   const fakeBWResolveSwapWeights: SwapExerciseDeps["resolveSwapWeights"] = async (
-    sessionId,
+    _sessionId,
     newExerciseId,
     equipmentIds,
-    metric,
-    movementPattern,
+    _metric,
+    _movementPattern,
   ) => {
     capturedExerciseId = newExerciseId;
     return {
