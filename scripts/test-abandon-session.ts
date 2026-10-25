@@ -24,10 +24,10 @@ function check(label: string, ok: boolean, detail = "") {
 // Fake deps builder
 function makeFakeAbandonDeps(
   exercises: SessionExercise[],
-  initialStatus: string
+  initialStatus: "in_progress" | "completed" | "skipped"
 ) {
   const sessionState: {
-    status: string;
+    status: "in_progress" | "completed" | "skipped";
     completed_at: string | null;
     duration_seconds: number | null;
   } = {
@@ -41,7 +41,7 @@ function makeFakeAbandonDeps(
     async loadExercises() {
       return { data: exercises, error: null };
     },
-    async updateSession(_sessionId: string, patch: { status: string; completed_at: string | null; duration_seconds: number }) {
+    async updateSession(_sessionId: string, patch: { status: "completed" | "skipped"; completed_at: string | null; duration_seconds: number }) {
       // Only update if still in_progress (idempotency guard)
       if (sessionState.status === "in_progress") {
         Object.assign(sessionState, patch);
@@ -50,7 +50,7 @@ function makeFakeAbandonDeps(
       return { error: null, updatedCount: 0 };
     },
     async loadSessionStatus() {
-      return { data: { status: sessionState.status as "completed" | "skipped" | "in_progress" }, error: null };
+      return { data: { status: sessionState.status }, error: null };
     },
     async loadExercisesForUpdate() {
       return { data: [], error: null };

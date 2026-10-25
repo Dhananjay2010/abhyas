@@ -81,8 +81,8 @@ function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metr
  * wiping the sets already logged.
  */
 export async function startSession(): Promise<Result<{ sessionId: string }>> {
-  const rateLimit = await checkActionRateLimit("session");
-  if (rateLimit) return rateLimit as Result<{ sessionId: string }>;
+  const rateLimit = await checkActionRateLimit<{ sessionId: string }>("session");
+  if (rateLimit) return rateLimit;
   
   const { supabase, user } = await requireUser();
 
@@ -371,8 +371,8 @@ export async function finishExercise(input: {
   feel: SetFeel | null;
   skipped?: boolean;
 }): Promise<Result<ProgressionFeedback | null>> {
-  const rateLimit = await checkActionRateLimit("session");
-  if (rateLimit) return rateLimit as Result<ProgressionFeedback | null>;
+  const rateLimit = await checkActionRateLimit<ProgressionFeedback | null>("session");
+  if (rateLimit) return rateLimit;
   
   const { supabase, user } = await requireUser();
   const deps = makeFinishExerciseDeps(supabase, applyProgression);
@@ -539,8 +539,8 @@ export async function finishSession(input: {
   durationSeconds: number;
   cooldownCompleted: boolean;
 }): Promise<Result<{ status: "completed" | "skipped" }>> {
-  const rateLimit = await checkActionRateLimit("session");
-  if (rateLimit) return rateLimit as Result<{ status: "completed" | "skipped" }>;
+  const rateLimit = await checkActionRateLimit<{ status: "completed" | "skipped" }>("session");
+  if (rateLimit) return rateLimit;
   
   const { supabase } = await requireUser();
 
@@ -609,8 +609,8 @@ export type Alternative = {
 export async function findAlternatives(
   sessionExerciseId: string,
 ): Promise<Result<Alternative[]>> {
-  const rateLimit = await checkActionRateLimit("session");
-  if (rateLimit) return rateLimit as Result<Alternative[]>;
+  const rateLimit = await checkActionRateLimit<Alternative[]>("session");
+  if (rateLimit) return rateLimit;
   
   const { supabase, user } = await requireUser();
 
@@ -772,8 +772,8 @@ export async function swapExercise(input: {
   sessionExerciseId: string;
   newExerciseId: string;
 }): Promise<Result<SwapResult>> {
-  const rateLimit = await checkActionRateLimit("session");
-  if (rateLimit) return rateLimit as Result<SwapResult>;
+  const rateLimit = await checkActionRateLimit<SwapResult>("session");
+  if (rateLimit) return rateLimit;
   
   const { supabase, user } = await requireUser();
 

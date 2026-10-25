@@ -29,7 +29,7 @@ console.log("1. Swapped-in exercise with 0 working sets on ended session");
 {
   const workingSetsLogged = 0;
   const plannedSets = 3;
-  const sessionStatus = "completed" as "completed" | "skipped" | "in_progress";
+  const sessionStatus: "completed" | "skipped" | "in_progress" = "completed";
   const isSwappedIn = true;
 
   const { label, strikethrough } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets, isSwappedIn);
@@ -43,7 +43,7 @@ console.log("\n2. Swapped-in exercise with partial sets on ended session");
 {
   const workingSetsLogged: number = 2;
   const plannedSets = 3;
-  const sessionStatus = "completed" as "completed" | "skipped" | "in_progress";
+  const sessionStatus: "completed" | "skipped" | "in_progress" = "completed";
   const isSwappedIn = true;
 
   const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets, isSwappedIn);
@@ -56,7 +56,7 @@ console.log("\n3. Non-swapped exercise with 0 sets shows 'Skipped'");
 {
   const workingSetsLogged = 0;
   const plannedSets = 3;
-  const sessionStatus = "completed" as "completed" | "skipped" | "in_progress";
+  const sessionStatus: "completed" | "skipped" | "in_progress" = "completed";
   const isSwappedIn = false;
 
   const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets, isSwappedIn);
