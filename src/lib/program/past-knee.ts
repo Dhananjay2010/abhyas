@@ -82,17 +82,21 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
 /**
  * Check if an exercise is plyometric/jumping (beyond explicit slugs).
  */
+/**
+ * QA Steer (f): Identifies jumping exercises for past-knee exclusion.
+ * Only excludes high-impact lower-body plyos and jump/bound/plyo keyword exercises.
+ * Upper-body plyos (plyo-push-up, medicine-ball-chest-pass, etc.) are allowed.
+ */
 function isJumpingExercise(ex: CandidateExercise): boolean {
   const nameLower = ex.name.toLowerCase();
   const slugLower = ex.slug.toLowerCase();
   
-  // Plyometric category exercises are jumping moves
-  if (ex.category === "plyometric") {
-    return true;
-  }
+  // Lower-body muscles that indicate a jumping exercise
+  const lowerBodyMuscles = new Set(["quads", "glutes", "hamstrings", "calves"]);
+  const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m));
   
-  // High-impact exercises with jump/bound/plyo keywords
-  if (ex.impact === "high" && (
+  // High-impact lower-body plyometric exercises with jump/bound/plyo keywords
+  if (ex.impact === "high" && hasLowerBodyPrimary && (
     nameLower.includes("jump") || 
     nameLower.includes("bound") || 
     nameLower.includes("plyo") ||

@@ -86,8 +86,8 @@ console.log("\n2. Past-knee lunge swaps: only tiered lunges + quad-isolation lis
       } else if (e.movement_pattern === "squat") {
         return !PAST_KNEE_LUNGE_EXERCISES.has(e.slug);
       }
-      // Other patterns (hinge, etc.) are not in the lunge swap list
-      return e.movement_pattern !== "lunge" && e.movement_pattern !== "squat";
+      // Other patterns (hinge, etc.) are not allowed in the lunge swap list
+      return true;
     });
     
     check(`Only tiered lunges + quad-isolation in swaps`, invalid.length === 0,

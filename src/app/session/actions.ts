@@ -9,7 +9,7 @@ import { rankAlternatives } from "@/lib/program/alternatives";
 import { getSwapPatterns } from "@/lib/program/swap-patterns";
 import { buildSwapContext } from "@/lib/program/swap-context";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
+import { isEligible, score, hashString, isAllowedSwapTarget, type CandidateExercise, type GeneratorInput } from "@/lib/program/generate";
 import { buildInjuryFlags } from "@/lib/program/injury-regions";
 import { ageOn } from "@/lib/onboarding/options";
 import {
@@ -787,7 +787,7 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes, settingsRes, injuryRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes, weightRes, settingsRes, injuryRes, equipmentRes] = await Promise.all([
     supabase
       .from("session_exercises")
       .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
@@ -807,38 +807,123 @@ export async function swapExercise(input: {
     */
     supabase
       .from("exercises")
-      .select("metric, mechanic, equipment_ids, movement_pattern, slug, primary_muscles, secondary_muscles, contraindicated_regions, impact, spinal_load, level_min, tracks, default_rest_seconds, category, name")
+      .select("id, metric, mechanic, equipment_ids, movement_pattern, slug, primary_muscles, secondary_muscles, contraindicated_regions, impact, spinal_load, level_min, tracks, default_rest_seconds, category, name, cue")
       .eq("id", input.newExerciseId)
       .maybeSingle(),
-    supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    supabase.from("body_metrics").select("weight_kg").eq("user_id", user.id).order("recorded_on", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
     supabase.from("user_injuries").select("body_region, severity").eq("user_id", user.id),
+    supabase.from("user_equipment").select("equipment_id").eq("user_id", user.id),
   ]);
 
+  // QA Steer 2(a): Fail closed if any required read fails
+  if (!currentRes.data) return { ok: false, error: "Exercise not found" };
+  if (!replacementRes.data) return { ok: false, error: "Replacement exercise not found" };
+  if (!profileRes.data || !profileRes.data.goal || !profileRes.data.level) {
+    return { ok: false, error: "Profile not found or incomplete" };
+  }
+  if (injuryRes.error) return { ok: false, error: "Could not load injury data" };
+  if (equipmentRes.error) return { ok: false, error: "Could not load equipment data" };
+  
   const current = currentRes.data;
-  if (!current) return { ok: false, error: "Exercise not found" };
-
   const replacement = replacementRes.data;
-  if (!replacement) return { ok: false, error: "Replacement exercise not found" };
+  const profile = profileRes.data;
   
-  // Item 16: Validate swap target before any write
-  const { buildInjuryFlags } = await import("@/lib/program/injury-regions");
-  const dbInjuries = (injuryRes.data ?? []).map(i => ({
-    body_region: i.body_region,
-    severity: i.severity as "current" | "past",
+  // Build BMI from profile data (same as findAlternatives)
+  const weight = weightRes.data?.weight_kg ?? null;
+  const bmi = profile.height_cm && weight
+    ? weight / ((profile.height_cm / 100) ** 2) 
+    : null;
+  
+  // Build full GeneratorInput (same as findAlternatives does)
+  const validatorInput: GeneratorInput = {
+    userId: user.id,
+    blockNumber: 1,
+    goal: profile.goal!,
+    level: profile.level!,
+    primaryTrack: profile.primary_track!,
+    daysPerWeek: profile.days_per_week ?? 3,
+    yogaDaysPerWeek: profile.yoga_days_per_week ?? 0,
+    age: profile.date_of_birth ? ageOn(profile.date_of_birth) : null,
+    bmi,
+    hasAllEquipment: profile.has_all_equipment ?? false,
+    equipmentIds: (equipmentRes.data ?? []).map(e => e.equipment_id),
+    ...buildInjuryFlags(injuryRes.data ?? []),
+    catalogue: [], // Empty catalogue forces code-level checks only
+  };
+  
+  // QA Steer 2(a,b): Rebuild exact eligibility that findAlternatives uses
+  // Get the current exercise to determine swap patterns
+  const currentExercise = await supabase
+    .from("exercises")
+    .select("id, slug, name, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
+    .eq("id", current.exercise_id)
+    .maybeSingle();
+  
+  if (!currentExercise.data) {
+    return { ok: false, error: "Current exercise not found" };
+  }
+  
+  // Build swap pattern list (same as findAlternatives)
+  const patterns = getSwapPatterns(currentExercise.data.movement_pattern, validatorInput);
+  
+  // Get eligible pool (same filters as findAlternatives)
+  const poolRes = await supabase
+    .from("exercises")
+    .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
+    .in("movement_pattern", patterns)
+    .eq("is_active", true);
+  
+  if (poolRes.error) {
+    return { ok: false, error: "Could not load exercise pool" };
+  }
+  
+  // Cast pool to CandidateExercise type
+  const pool: CandidateExercise[] = (poolRes.data ?? []).map(e => ({
+    id: e.id,
+    slug: e.slug,
+    name: e.name,
+    movement_pattern: e.movement_pattern,
+    mechanic: e.mechanic,
+    metric: e.metric,
+    primary_muscles: e.primary_muscles,
+    equipment_ids: e.equipment_ids,
+    level_min: e.level_min,
+    contraindicated_regions: e.contraindicated_regions,
+    impact: e.impact,
+    spinal_load: e.spinal_load,
+    tracks: e.tracks,
+    default_rest_seconds: e.default_rest_seconds,
+    category: e.category,
   }));
-  const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(dbInjuries);
   
-  // Import and use the validator
-  const { isAllowedSwapTarget } = await import("@/lib/program/generate");
+  // Filter by isEligible (same as findAlternatives)
+  const eligible = pool.filter((e) => isEligible(e, validatorInput));
   
-  if (!isAllowedSwapTarget(replacement as any, { currentInjuryRegions, anyKneeInjury })) {
-    return { ok: false, error: "This exercise is not safe for your injury profile" };
+  // Get the final ranked alternatives (same as findAlternatives)
+  const wantCompound = currentExercise.data.mechanic !== "isolation";
+  const ranked = rankAlternatives(
+    currentExercise.data as CandidateExercise,
+    eligible,
+    {
+      level: profile.level!,
+      availableEquipment: profile.has_all_equipment ? null : new Set((equipmentRes.data ?? []).map(e => e.equipment_id)),
+      injuryRegions: validatorInput.currentInjuryRegions,
+      anyKneeInjury: validatorInput.anyKneeInjury,
+      scoreFn: (e) => score(e, wantCompound, validatorInput.level, validatorInput.primaryTrack),
+      tieBreakFn: (slug) => hashString(`${input.sessionExerciseId}:${slug}`),
+    }
+  );
+  
+  // Check if the requested exercise is in the eligible swap list
+  const isInSwapList = ranked.some(e => e.id === input.newExerciseId);
+  if (!isInSwapList) {
+    return { ok: false, error: "This exercise is not available as a swap for your profile" };
   }
   
   const metric = metricOf(replacement);
   const equipmentIds = replacement?.equipment_ids ?? [];
-  const profile = profileRes.data;
 
   // Resolve weight prefill and working weight for the swapped-in exercise
   const { weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = await resolveSwapWeights(

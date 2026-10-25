@@ -3,7 +3,7 @@ import type { CandidateExercise } from "@/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "@/lib/program/past-knee-lunge-order";
 import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly } from "@/lib/program/past-knee";
-import { shouldExcludeOlympicLift, FLOOR_PULL_DEADLIFTS, PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
+import { shouldExcludeOlympicLift, PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
 
 
 export type ExerciseRow = CandidateExercise;
@@ -223,8 +223,8 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 2b. Past-knee exclusions (pistol squats, jumps, band/chain squats, thrusters, squat-jerk)
     if (hasPastKnee && isExcludedForPastKnee(candidate)) continue;
     
-    // 2c. Item 16: Olympic lifts excluded for injured members (same rule as generator)
-    if (shouldExcludeOlympicLift(candidate, { currentInjuryRegions: ctx.injuryRegions, anyKneeInjury: ctx.anyKneeInjury })) continue;
+    // 2c. Item 16: Olympic lifts excluded for beginners and injured members (same rule as generator)
+    if (shouldExcludeOlympicLift(candidate, { currentInjuryRegions: ctx.injuryRegions, anyKneeInjury: ctx.anyKneeInjury, level: ctx.level })) continue;
     
     // 3. Exclude pullovers when original is a compound pull
     // Pullovers are shoulder-extension moves and not appropriate substitutes
@@ -288,11 +288,6 @@ export function rankAlternatives<T extends ExerciseRow>(
         ctx.injuryRegions.includes(region)
       )
     ) {
-      continue;
-    }
-    
-    // 8b. Floor-pull deadlifts: exclude for current knee injuries (matches generator)
-    if (ctx.injuryRegions.includes("knee") && FLOOR_PULL_DEADLIFTS.has(candidate.slug)) {
       continue;
     }
     

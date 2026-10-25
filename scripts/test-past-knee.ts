@@ -928,10 +928,11 @@ console.log("\n13. Item 15: Past-knee squat rule - real generator grid tests");
     { label: "Gym", hasAll: false, ids: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine", "leg_press"], track: "weights" },
     { label: "Home", hasAll: false, ids: ["dumbbell", "adjustable_bench", "pull_up_bar"], track: "weights" },
     { label: "DB", hasAll: false, ids: ["dumbbell", "adjustable_bench"], track: "weights" },
+    { label: "KB", hasAll: false, ids: ["kettlebell"], track: "weights" },
     { label: "BW", hasAll: false, ids: [], track: "bodyweight" },
   ];
   const dayCounts = [2, 3, 4, 5, 6];
-  const durations = [60, 90]; // Include longer sessions to test extra accessories
+  const durations = [60, 90]; // Include 90-min sessions to test extra accessories (Steer 1d)
   
   let gridChecked = 0;
   let backSquatLeads = 0;
@@ -998,7 +999,7 @@ console.log("\n13. Item 15: Past-knee squat rule - real generator grid tests");
   check(`Item 15(d): no banned squats in plans (grid)`, bannedSlugsFound.length === 0,
     bannedSlugsFound.length > 0 ? `Found: ${bannedSlugsFound.slice(0, 5).join(", ")}` : "");
   
-  console.log(`    Grid checked: ${gridChecked} past-knee programs (4 equipment sets × 3 levels × 5 day counts × 2 durations)`);
+  console.log(`    Grid checked: ${gridChecked} past-knee programs (5 equipment sets × 3 levels × 5 day counts × 2 durations)`);
 }
 
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);

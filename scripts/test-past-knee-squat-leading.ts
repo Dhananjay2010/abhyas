@@ -78,11 +78,30 @@ console.log("\n1. Goblet or box squat leads every past-knee Lower/Legs day when 
           
           if (firstSquat) {
             checked++;
-            const preferredSquats = ["goblet-squat", "box-squat", "bodyweight-squat", "leg-press"];
-            if (!preferredSquats.includes(firstSquat.slug)) {
-              violations++;
-              if (violationDetails.length < 5) {
-                violationDetails.push(`${equip.label}/${level}/${days}d: ${firstSquat.slug} leads`);
+            
+            // Check if goblet or box squat is available in this day
+            const daySquats = day.exercises
+              .map(ex => byId.get(ex.exerciseId))
+              .filter(e => e && e.movement_pattern === "squat");
+            const hasGoblet = daySquats.some(e => e && e.slug === "goblet-squat");
+            const hasBox = daySquats.some(e => e && e.slug === "box-squat");
+            
+            // If goblet or box is available, one of them must lead
+            if (hasGoblet || hasBox) {
+              if (firstSquat.slug !== "goblet-squat" && firstSquat.slug !== "box-squat") {
+                violations++;
+                if (violationDetails.length < 5) {
+                  violationDetails.push(`${equip.label}/${level}/${days}d: ${firstSquat.slug} leads (goblet=${hasGoblet}, box=${hasBox})`);
+                }
+              }
+            } else {
+              // If neither goblet nor box available, allow bodyweight-squat or leg-press
+              const fallbackSquats = ["bodyweight-squat", "leg-press"];
+              if (!fallbackSquats.includes(firstSquat.slug)) {
+                violations++;
+                if (violationDetails.length < 5) {
+                  violationDetails.push(`${equip.label}/${level}/${days}d: ${firstSquat.slug} leads (no goblet/box available)`);
+                }
               }
             }
           }

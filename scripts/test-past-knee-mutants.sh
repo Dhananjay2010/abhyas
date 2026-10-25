@@ -348,24 +348,12 @@ sed -i '/const PAST_KNEE_EXCLUDED_SLUGS.*=/,/];/{s/"deficit-deadlift",/"deficit-
 run_mutant "Item 15: Add barbell-deadlift to exclusions (should fail)" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
 
-# === Item 13: Current-knee lunge list hardcoded enforcement mutants ===
+# === Item 13: Current-knee lunge exclusion (code-enforced, not tags) ===
 
-# Mutant 37: Remove step-up-with-knee-raise from KNEE_SAFE_LUNGE_EXERCISES
+# Mutant 37: Bypass current-knee lunge exclusion in isEligible
 restore_file "src/lib/program/generate.ts"
-sed -i "/'step-up-with-knee-raise',/d" src/lib/program/generate.ts
-run_mutant "Item 13: Remove step-up-with-knee-raise from safe list" "src/lib/program/generate.ts" || true
-restore_file "src/lib/program/generate.ts"
-
-# Mutant 38: Disable hardcoded safe lunge exemption in derived contraindications
-restore_file "src/lib/program/generate.ts"
-sed -i 's/!KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)/false/' src/lib/program/generate.ts
-run_mutant "Item 13: Disable safe lunge exemption in getDerivedContraindications" "src/lib/program/generate.ts" || true
-restore_file "src/lib/program/generate.ts"
-
-# Mutant 39: Disable skipKneeCheck logic in contraindication filtering
-restore_file "src/lib/program/generate.ts"
-sed -i 's/const skipKneeCheck = hasCurrentKnee && KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug);/const skipKneeCheck = false;/' src/lib/program/generate.ts
-run_mutant "Item 13: Disable skipKneeCheck in contraindication filtering" "src/lib/program/generate.ts" || true
+sed -i 's/if (hasCurrentKnee && ex\.movement_pattern === "lunge") {/if (false \&\& ex.movement_pattern === "lunge") {/' src/lib/program/generate.ts
+run_mutant "Item 13: Bypass current-knee lunge exclusion" "src/lib/program/generate.ts" || true
 restore_file "src/lib/program/generate.ts"
 
 # === Item 8: Warm-up past-knee exclusions mutants ===

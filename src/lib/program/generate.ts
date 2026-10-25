@@ -283,35 +283,65 @@ export function isOlympicLift(ex: CandidateExercise): boolean {
 
 /**
  * Item 16: Check if Olympic lifts should be excluded based on user profile.
- * Matches shouldExcludeForSafety rule: for members with ANY current injury, 
- * Olympic lifts are excluded from ALL slots. Past injuries (anyKneeInjury without 
- * current injury) do NOT trigger exclusion.
+ * Generator rule (matches main): excludes Olympic lifts for beginners, current injuries, and age 50+.
+ * Swap rule (Steer 1): also excludes for past knee (anyKneeInjury), making swaps stricter than plans.
+ * In swap context (no age/slot), applies beginner + current injury + past knee checks.
  */
-export function shouldExcludeOlympicLift(ex: CandidateExercise, input: { currentInjuryRegions?: string[]; anyKneeInjury?: boolean }): boolean {
+export function shouldExcludeOlympicLift(
+  ex: CandidateExercise, 
+  input: { 
+    currentInjuryRegions?: string[]; 
+    anyKneeInjury?: boolean;
+    level?: string;
+  }
+): boolean {
   if (!isOlympicLift(ex)) return false;
-  // Members with CURRENT injuries only: exclude Olympic lifts from all slots
+  
+  // Exclude for beginners (matches main's shouldExcludeForSafety)
+  if (input.level === "beginner") return true;
+  
+  // Exclude for members with CURRENT injuries (matches main's shouldExcludeForSafety)
   const hasCurrentInjury = (input.currentInjuryRegions?.length ?? 0) > 0;
-  return hasCurrentInjury;
+  if (hasCurrentInjury) return true;
+  
+  // Swap-only: exclude for past knee (Steer 1 decision: swap set ⊆ plan set)
+  if (input.anyKneeInjury) return true;
+  
+  return false;
 }
 
 /**
- * Item 16: Validate if a target exercise is allowed as a swap for the given user.
+ * Steer 2: Validate if a target exercise is allowed as a swap for the given user.
+ * Checks that the target passes both isEligible and rankAlternatives exclusions.
  * Returns true if the swap is allowed, false otherwise.
  * This should be called in swapExercise BEFORE any write to reject invalid swaps.
  */
 export function isAllowedSwapTarget(
   target: CandidateExercise,
-  userContext: {
-    currentInjuryRegions: string[];
-    anyKneeInjury?: boolean;
-  }
+  input: GeneratorInput
 ): boolean {
-  // Apply Olympic lift exclusion (same rule as generator)
-  if (shouldExcludeOlympicLift(target, userContext)) {
+  // First check: isEligible (equipment, level, injury contraindications, Olympic lifts, etc.)
+  if (!isEligible(target, input)) {
     return false;
   }
   
-  // Additional safety checks can be added here as needed
+  // Second check: rankAlternatives exclusions (Olympic lifts with anyKneeInjury, past-knee exclusions)
+  // These mirror the filters in rankAlternatives that happen AFTER isEligible
+  
+  // Olympic lift exclusion (includes past knee check that generator doesn't have)
+  if (shouldExcludeOlympicLift(target, {
+    currentInjuryRegions: input.currentInjuryRegions,
+    anyKneeInjury: input.anyKneeInjury,
+    level: input.level,
+  })) {
+    return false;
+  }
+  
+  // Past-knee exclusions (from rankAlternatives, applied after isEligible)
+  const hasPastKnee = input.anyKneeInjury && !input.currentInjuryRegions.includes("knee");
+  if (hasPastKnee && isExcludedForPastKnee(target)) {
+    return false;
+  }
   
   return true;
 }

@@ -49,7 +49,8 @@ console.log("─".repeat(60));
 console.log("\n1. Current-injury user plans contain NO Olympic lifts");
 {
   // Test multiple injury types
-  const injuryTypes = ["knee", "shoulder", "lower_back", "elbow"] as const;
+  type BodyRegion = "knee" | "shoulder" | "lower_back" | "elbow";
+  const injuryTypes: BodyRegion[] = ["knee", "shoulder", "lower_back", "elbow"];
   
   for (const injury of injuryTypes) {
     const input = base({
@@ -112,25 +113,28 @@ console.log("\n3. isAllowedSwapTarget validator rejects Olympic lifts for curren
     check("power-clean exists in catalogue", false);
   } else {
     // Current knee injury: should reject
-    const kneeRejected = !isAllowedSwapTarget(powerClean, {
+    const kneeInput = base({
       currentInjuryRegions: ["knee"],
       anyKneeInjury: true,
     });
+    const kneeRejected = !isAllowedSwapTarget(powerClean, kneeInput);
     check("Validator rejects power-clean for current knee", kneeRejected);
     
     // Current shoulder injury: should reject
-    const shoulderRejected = !isAllowedSwapTarget(powerClean, {
+    const shoulderInput = base({
       currentInjuryRegions: ["shoulder"],
       anyKneeInjury: false,
     });
+    const shoulderRejected = !isAllowedSwapTarget(powerClean, shoulderInput);
     check("Validator rejects power-clean for current shoulder", shoulderRejected);
     
-    // Past knee injury (no current): should ALLOW
-    const pastKneeAllowed = isAllowedSwapTarget(powerClean, {
+    // Past knee injury (no current): Steer 1 decision - REJECT Olympic lifts in swaps (stricter than plans)
+    const pastKneeInput = base({
       currentInjuryRegions: [],
       anyKneeInjury: true,
     });
-    check("Validator ALLOWS power-clean for past knee (no current injury)", pastKneeAllowed);
+    const pastKneeRejected = !isAllowedSwapTarget(powerClean, pastKneeInput);
+    check("Validator rejects power-clean for past knee (swap-only restriction)", pastKneeRejected);
   }
 }
 
@@ -194,7 +198,11 @@ console.log("\n5. Swap-eligible ⊆ generator-eligible for every injury profile"
       profile.anyKneeInjury, 
       profile.currentInjuryRegions.includes("knee")
     );
-    const pool = catalogue.filter(e => patterns.includes(e.movement_pattern));
+    
+    // Filter pool through isEligible (matches production behavior in actions.ts)
+    const pool = catalogue
+      .filter(e => patterns.includes(e.movement_pattern))
+      .filter(e => isEligible(e, input));
     
     // Get swap candidates
     const swaps = rankAlternatives(

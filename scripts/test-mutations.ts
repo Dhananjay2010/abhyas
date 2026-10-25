@@ -297,6 +297,15 @@ const mutants: Mutant[] = [
     mutate: '} else if (candidate.movement_pattern === "squat") {\n        // MUTANT: Allow all squat-pattern candidates\n        // if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {\n        //   continue;\n        // }\n      }',
     tests: ["test:past-knee-lunge-swaps"],
   },
+  
+  // Steer 4: Item 13 current-knee lunge exclusion (code-enforced, not tags)
+  {
+    name: "Bypass current-knee lunge exclusion in isEligible",
+    file: "src/lib/program/generate.ts",
+    pattern: /\/\/ Item 13: Lunge pattern completely excluded for CURRENT knee injury\s+if \(hasCurrentKnee && ex\.movement_pattern === "lunge"\) \{\s+return false;\s+\}/,
+    mutate: '// Item 13: Lunge pattern completely excluded for CURRENT knee injury\n  // MUTANT: Allow lunges for current knee\n  if (false && ex.movement_pattern === "lunge") {\n    return false;\n  }',
+    tests: ["test:item13-stripped"],
+  },
 ];
 
 let killed = 0;
