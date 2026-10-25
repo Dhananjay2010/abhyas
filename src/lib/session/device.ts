@@ -22,15 +22,29 @@ export type WakeLockState = {
   error: string | null;
 };
 
+export const wakeLockSupported = () =>
+  typeof navigator !== "undefined" && "wakeLock" in navigator;
+
+/**
+ * Hook to check wake lock support with SSR-safe hydration.
+ * Returns false during SSR, then the actual support on the client.
+ * Uses useSyncExternalStore to avoid hydration mismatches.
+ */
+export function useWakeLockSupported(): boolean {
+  return useSyncExternalStore(
+    useCallback(() => () => {}, []), // subscribe (no-op, capability doesn't change)
+    () => wakeLockSupported(), // getSnapshot (client)
+    () => false, // getServerSnapshot (SSR) - returns false so server HTML matches initial client render
+  );
+}
+
 export function useWakeLock(enabled: boolean): WakeLockState {
   const sentinelRef = useRef<WakeLockSentinel | null>(null);
-  // Derived at first render rather than in an effect: it never changes.
-  const [state, setState] = useState<WakeLockState>(() => ({
-    supported: typeof navigator !== "undefined" && "wakeLock" in navigator,
+  const supported = useWakeLockSupported();
+  const [activeState, setActiveState] = useState<{ active: boolean; error: string | null }>(() => ({
     active: false,
     error: null,
   }));
-  const supported = state.supported;
 
   useEffect(() => {
     if (!supported || !enabled) return;
@@ -45,13 +59,12 @@ export function useWakeLock(enabled: boolean): WakeLockState {
           return;
         }
         sentinelRef.current = sentinel;
-        setState({ supported: true, active: true, error: null });
+        setActiveState({ active: true, error: null });
         sentinel.addEventListener("release", () => {
-          setState((s) => ({ ...s, active: false }));
+          setActiveState((s) => ({ ...s, active: false }));
         });
       } catch (e) {
-        setState({
-          supported: true,
+        setActiveState({
           active: false,
           error: e instanceof Error ? e.message : "Wake lock refused",
         });
@@ -75,7 +88,11 @@ export function useWakeLock(enabled: boolean): WakeLockState {
     };
   }, [enabled, supported]);
 
-  return state;
+  return {
+    supported,
+    active: activeState.active,
+    error: activeState.error,
+  };
 }
 
 export type Beeper = {
@@ -138,6 +155,19 @@ export function useBeeper(enabled: boolean): Beeper {
 
 export const vibrationSupported = () =>
   typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+
+/**
+ * Hook to check vibration support with SSR-safe hydration.
+ * Returns false during SSR, then the actual support on the client.
+ * Uses useSyncExternalStore to avoid hydration mismatches.
+ */
+export function useVibrationSupported(): boolean {
+  return useSyncExternalStore(
+    useCallback(() => () => {}, []), // subscribe (no-op, capability doesn't change)
+    () => vibrationSupported(), // getSnapshot (client)
+    () => false, // getServerSnapshot (SSR) - returns false so server HTML matches initial client render
+  );
+}
 
 export function vibrate(pattern: number | number[]) {
   if (vibrationSupported()) {
