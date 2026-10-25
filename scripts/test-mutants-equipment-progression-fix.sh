@@ -159,21 +159,27 @@ m8() {
 }
 test_mutant "RAW target rejected (need strictly above)" m8
 
-# M9: Timed success vs repsMax only (ignore currentTargetReps)
+# M9: Timed success vs repsMax only (ignore stored target)
 m9() {
-  sed -i 's/const target = heaviest === 0 ? (state\.currentTargetReps ?? repsMax) : repsMax;/const target = repsMax;/' "$PROG"
+  sed -i 's/const target = heaviest === 0 ? (sanitizedTarget ?? repsMax) : repsMax;/const target = repsMax;/' "$PROG"
 }
-test_mutant "Timed success vs repsMax only (ignore currentTargetReps)" m9
+test_mutant "Timed success vs repsMax only (ignore stored target)" m9
+
+# M10: C-2 Remove stored target sanitization (allow <=0/non-finite)
+m10() {
+  sed -i '/const sanitizedTarget = (state\.currentTargetReps != null && isFinite(state\.currentTargetReps) && state\.currentTargetReps > 0)/,/: null;/c\  const sanitizedTarget = state.currentTargetReps;' "$PROG"
+}
+test_mutant "C-2 Remove stored target sanitization (allow <=0/non-finite)" m10
 
 echo
 echo "==================================="
 echo "Killed $KILLED | Survived $SURVIVED | Skipped $SKIPPED"
 echo
 
-if [ "$SURVIVED" -gt 0 ]; then
-  echo "❌ FAILED: $SURVIVED survived"
+if [ "$SURVIVED" -gt 0 ] || [ "$SKIPPED" -gt 0 ]; then
+  echo "❌ FAILED: $SURVIVED survived, $SKIPPED skipped"
   exit 1
 else
-  echo "✅ PASSED: $KILLED killed, $SKIPPED skipped (0 survived)"
+  echo "✅ PASSED: All $KILLED mutants killed"
   exit 0
 fi
