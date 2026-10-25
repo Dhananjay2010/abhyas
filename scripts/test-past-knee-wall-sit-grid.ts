@@ -140,7 +140,7 @@ for (const profile of PROFILES) {
           }).join("\n    ");
 
           failures.push(
-            `${profile.name} / ${equipmentSet.name} / ${sessionLength}min / Day ${day.dayLabel}:\n` +
+            `${profile.name} / ${equipmentSet.name} / ${sessionLength}min / Day ${day.label}:\n` +
             `  wall-sit at index ${wallSitIdx}, expected before first core at ${firstCoreIdx}\n` +
             `  Exercises:\n    ${exerciseList}`
           );

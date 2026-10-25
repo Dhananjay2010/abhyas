@@ -15,8 +15,6 @@ import { rankAlternatives } from "@/lib/program/alternatives";
 import { getSwapPatterns } from "@/lib/program/swap-patterns";
 import { buildSwapContext } from "@/lib/program/swap-context";
 
-type SupabaseClient = any; // TODO: proper type
-
 export type EligibleSwapListInput = {
   /** The exercise being swapped out */
   currentExercise: CandidateExercise;
