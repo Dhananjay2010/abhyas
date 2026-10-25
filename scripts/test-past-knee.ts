@@ -277,7 +277,7 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
                   const wantCompound = exercise.mechanic === "compound";
                   const ctx: AlternativesContext = {
                     level: input.level,
-                    availableEquipment: new Set(input.equipmentIds),
+                    availableEquipment: equip.hasAll ? null : new Set(input.equipmentIds),
                     injuryRegions: input.currentInjuryRegions,
                     pastKneeInjury: input.pastKneeInjury,
                     limit: 5,
