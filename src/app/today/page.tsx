@@ -162,6 +162,9 @@ export default async function TodayPage() {
   }
 
   // ---- wave 2 -------------------------------------------------------------
+  // Compute the session query window once (cycle-week start through today+6)
+  const sessionWindow = weekWindow({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
+
   // The week's days arrive with each day's exercises embedded. That is one
   // round trip instead of two, and it removes the dependency that forced the
   // exercise query to wait for the day query to name today's row.
@@ -183,7 +186,7 @@ export default async function TodayPage() {
     // "what about tomorrow?" question about today when yesterday was a training
     // day nobody finished. One extra date in an `in` filter is free; a second
     // query would not be.
-  /*
+    /*
     Session window from cycle week start through today+6.
     This catches pull-forwards done earlier in the cycle week and covers
     "Your week" choices. Uses weekWindow helper to ensure consistency.
@@ -191,8 +194,8 @@ export default async function TodayPage() {
     supabase
       .from("sessions")
       .select("id, status, actual_type, local_date, program_id, program_day_id, started_at, created_at")
-      .gte("local_date", weekWindow({ started_on: program.started_on, week_offset: program.week_offset }, localToday).start)
-      .lte("local_date", weekWindow({ started_on: program.started_on, week_offset: program.week_offset }, localToday).end)
+      .gte("local_date", sessionWindow.start)
+      .lte("local_date", sessionWindow.end)
       // Newest first, which is how `startSession` breaks the same tie.
       .order("created_at", { ascending: false }),
   ]);

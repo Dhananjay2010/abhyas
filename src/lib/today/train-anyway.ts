@@ -49,32 +49,16 @@ export function trainAnywayOptions(input: TrainAnywayInput): TrainAnywayDay[] {
   const isRestDay = !todayDay || todayDay.day_type === "rest";
   const trainingDays = upcomingDays.filter((d) => isTrainingDay(d.day_type));
   
-  // On a REST day, offer the next upcoming strength day first (for "Lift")
-  let hasLift = false;
-  if (isRestDay && trainingDays.length > 0) {
-    const firstTraining = trainingDays[0];
-    result.push(firstTraining);
-    seenIndices.add(firstTraining.day_index);
-    seenLabels.add((firstTraining.label ?? "Training").toLowerCase());
-    hasLift = true;
-  }
-
-  // If yesterday was missed, offer yesterday's workout (unless it's the Lift day)
+  // If yesterday was missed, offer yesterday's workout first
   if (missedYesterday && yesterdayDay && isTrainingDay(yesterdayDay.day_type)) {
-    const normalizedLabel = (yesterdayDay.label ?? "Training").toLowerCase();
-    if (!seenIndices.has(yesterdayDay.day_index) && !seenLabels.has(normalizedLabel)) {
-      result.push(yesterdayDay);
-      seenIndices.add(yesterdayDay.day_index);
-      seenLabels.add(normalizedLabel);
-    }
+    result.push(yesterdayDay);
+    seenIndices.add(yesterdayDay.day_index);
+    seenLabels.add((yesterdayDay.label ?? "Training").toLowerCase());
   }
 
   // Add more upcoming days to reach the target count
-  // Target: 2 total on rest day without missed (Lift + 1 more)
-  //         3 total on rest day with missed (Lift + missed + 1 more)
-  //         2 total on training day without missed
-  //         3 total on training day with missed
-  const targetCount = hasLift ? (missedYesterday ? 3 : 2) : (missedYesterday ? 3 : 2);
+  // Target: 2 total without missed, 3 total with missed
+  const targetCount = missedYesterday ? 3 : 2;
   
   for (const day of trainingDays) {
     if (result.length >= targetCount) break;
@@ -170,23 +154,63 @@ export function buildTrainAnywayDays({
     missedYesterday,
   });
   
+  // Find the first strength day in the current cycle week (for Lift)
+  let liftCandidate: TrainAnywayDay | null = null;
+  if (isRestDay && program && todayCycleWeek !== null) {
+    for (let offset = 1; offset <= 7; offset++) {
+      const futureDate = addDays(localToday, offset);
+      const futureCycleWeek = cycleWeekFor(program, futureDate);
+      if (futureCycleWeek !== todayCycleWeek) break; // Stop at cycle week boundary
+      
+      const dayIndex = ((todayIndex - 1 + offset) % 7) + 1;
+      const day = availableDays.find((d) => d.day_index === dayIndex);
+      if (day && isTrainingDay(day.day_type)) {
+        liftCandidate = {
+          day_index: day.day_index,
+          day_type: day.day_type,
+          label: day.label,
+        };
+        break;
+      }
+    }
+  }
+  
   // Convert to PlannableDay format
-  // On a rest day, the first option gets "Lift: " prefix for the button text only
+  // If there's a Lift candidate, ensure it's first with the prefix
   const result: PlannableDay[] = [];
-  for (let index = 0; index < options.length; index++) {
-    const opt = options[index];
+  
+  // Add Lift first if we have a candidate
+  if (liftCandidate) {
+    const programDay = availableDays.find((d) => d.day_index === liftCandidate.day_index);
+    if (programDay) {
+      const label = programDay.label ?? "Training";
+      result.push({
+        programDayId: programDay.id,
+        label,
+        buttonLabel: `Lift: ${label}`,
+        dayType: programDay.day_type,
+      });
+    }
+  }
+  
+  // Add the rest of the options (excluding the Lift candidate if already added)
+  for (const opt of options) {
+    if (liftCandidate && opt.day_index === liftCandidate.day_index) {
+      continue; // Skip if we already added it as Lift
+    }
+    
     const programDay = availableDays.find((d) => d.day_index === opt.day_index);
     if (!programDay) continue;
     
     const label = programDay.label ?? "Training";
-    const buttonLabel = (isRestDay && index === 0) ? `Lift: ${label}` : undefined;
-    
     result.push({
       programDayId: programDay.id,
       label,
-      ...(buttonLabel ? { buttonLabel } : {}),
       dayType: programDay.day_type,
     });
+    
+    if (result.length >= 3) break; // Cap at 3 total
   }
+  
   return result;
 }

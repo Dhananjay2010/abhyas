@@ -6,8 +6,7 @@
  * cover "Your week" choices.
  */
 
-import { addDays } from "@/lib/dates";
-import { cycleWeekFor } from "@/lib/program/block-range";
+import { addDays, daysBetween } from "@/lib/dates";
 
 export interface WeekWindowInput {
   started_on: string;
@@ -23,14 +22,15 @@ export interface WeekWindow {
  * Compute the session window from cycle-week start through today+6.
  */
 export function weekWindow(program: WeekWindowInput, localToday: string): WeekWindow {
-  // Find which cycle week today is in
-  const cycleWeek = cycleWeekFor(program, localToday);
+  const { started_on } = program;
   
-  // Compute the first day of this cycle week
-  // cycleWeek=1 starts on started_on, cycleWeek=2 starts 7 days later, etc.
-  // Each cycle week starts on the same weekday as started_on
-  const weeksFromStart = cycleWeek - 1;
-  const start = addDays(program.started_on, weeksFromStart * 7);
+  // Calculate the week start directly from started_on and today
+  // This avoids double-counting week_offset (cycleWeekFor already includes it)
+  const daysSinceStart = daysBetween(started_on, localToday);
+  const weeksElapsed = Math.floor(daysSinceStart / 7);
+  
+  // Start of the current week, clamped to started_on (when weeksElapsed < 0)
+  const start = weeksElapsed >= 0 ? addDays(started_on, weeksElapsed * 7) : started_on;
   
   // Window extends from cycle week start through today+6 (for "Your week")
   const end = addDays(localToday, 6);
