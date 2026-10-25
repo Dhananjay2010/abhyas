@@ -14,6 +14,7 @@ import { randomUUID } from "crypto";
 import type { Pool } from "pg";
 
 const DATABASE_URL = process.env.DATABASE_URL;
+const REQUIRE_DB = process.env.REQUIRE_DB === '1';
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -23,6 +24,10 @@ function check(label: string, ok: boolean, detail = "") {
 
 async function runTests() {
   if (!DATABASE_URL) {
+    if (REQUIRE_DB) {
+      console.error("\n❌ REQUIRE_DB=1 but DATABASE_URL is not set");
+      process.exit(1);
+    }
     console.log("\n⏭️  Skipping DB tests (DATABASE_URL not set)");
     console.log("   Set DATABASE_URL=postgres://postgres:postgres@localhost/abhyas_test to run\n");
     return true;
@@ -36,8 +41,26 @@ async function runTests() {
   const pool = new Pool({ connectionString: DATABASE_URL });
 
   async function setupDatabase(pool: Pool) {
-    // Create minimal auth schema stubs
-    await pool.query(`
+    // Use a timestamped database name to avoid collisions
+    const dbSuffix = `e1rm_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    const dbName = `abhyas_test_${dbSuffix}`;
+    
+    // Create a new database for this test
+    try {
+      await pool.query(`CREATE DATABASE ${dbName}`);
+    } catch (err: any) {
+      if (err.code !== '42P04') { // database already exists
+        throw err;
+      }
+    }
+    
+    // Connect to the new database
+    const testPool = new Pool({ 
+      connectionString: DATABASE_URL.replace(/\/[^\/]*$/, `/${dbName}`)
+    });
+    
+    // Create auth schema stubs
+    await testPool.query(`
       CREATE SCHEMA IF NOT EXISTS auth;
       
       CREATE TABLE IF NOT EXISTS auth.users (
@@ -81,23 +104,30 @@ async function runTests() {
     for (const file of files) {
       console.log(`  Applying migration: ${file}`);
       const sql = readFileSync(join(migrationsDir, file), "utf-8");
-      await pool.query(sql);
+      await testPool.query(sql);
     }
+    
+    return { testPool, dbName };
   }
+
+  let testPool: Pool | null = null;
+  let dbName: string | null = null;
 
   try {
     console.log("Setting up database schema and migrations...\n");
-    await setupDatabase(pool);
-    console.log("✓ Database ready\n");
+    const setup = await setupDatabase(pool);
+    testPool = setup.testPool;
+    dbName = setup.dbName;
+    console.log(`✓ Database ready (database: ${dbName})\n`);
     
     // Helper to create a test user
     async function createTestUser() {
       const userId = randomUUID();
-      await pool.query(
+      await testPool!.query(
         "INSERT INTO auth.users (id, email) VALUES ($1, $2)",
         [userId, `test-${userId}@example.com`]
       );
-      await pool.query(`
+      await testPool!.query(`
         UPDATE profiles
         SET timezone = 'Asia/Kolkata',
             goal = 'strength',
@@ -113,7 +143,7 @@ async function runTests() {
     // Helper to create a test exercise
     async function createTestExercise(name: string) {
       const exerciseId = randomUUID();
-      await pool.query(`
+      await testPool!.query(`
         INSERT INTO exercises (id, slug, name, tracks, category, primary_muscles, is_active)
         VALUES ($1, $2, $3, ARRAY['weights']::track_type[], 'strength', ARRAY['chest']::muscle[], true)
       `, [exerciseId, name.toLowerCase().replace(/\s+/g, '-'), name]);
@@ -128,25 +158,24 @@ async function runTests() {
       sets: Array<{ weight: number; reps: number }>
     ) {
       const sessionId = randomUUID();
-      const programDayId = randomUUID();
       const sessionExerciseId = randomUUID();
 
-      await pool.query(`
-        INSERT INTO sessions (id, user_id, program_day_id, local_date, week_in_block, is_deload, planned_type, actual_type, status, started_at, completed_at)
-        VALUES ($1, $2, $3, $4, 1, false, 'weights', 'weights', 'completed', now(), now())
-      `, [sessionId, userId, programDayId, localDate]);
+      await testPool!.query(`
+        INSERT INTO sessions (id, user_id, local_date, week_in_block, is_deload, planned_type, actual_type, status, started_at, completed_at)
+        VALUES ($1, $2, $3, 1, false, 'weights', 'weights', 'completed', now(), now())
+      `, [sessionId, userId, localDate]);
 
-      await pool.query(`
+      await testPool!.query(`
         INSERT INTO session_exercises (id, session_id, user_id, exercise_id, order_index)
         VALUES ($1, $2, $3, $4, 0)
       `, [sessionExerciseId, sessionId, userId, exerciseId]);
 
       for (let i = 0; i < sets.length; i++) {
         const setId = randomUUID();
-        await pool.query(`
-          INSERT INTO session_sets (id, session_exercise_id, user_id, set_index, reps, weight_kg, is_warmup_set)
+        await testPool!.query(`
+          INSERT INTO session_sets (id, session_exercise_id, user_id, set_number, reps, weight_kg, is_warmup_set)
           VALUES ($1, $2, $3, $4, $5, $6, false)
-        `, [setId, sessionExerciseId, userId, i, sets[i].reps, sets[i].weight]);
+        `, [setId, sessionExerciseId, userId, i + 1, sets[i].reps, sets[i].weight]);
       }
     }
 
@@ -159,18 +188,18 @@ async function runTests() {
         { weight: 100, reps: 1 },
       ]);
 
-      const { rows } = await pool.query(`
+      const { rows } = await testPool!.query(`
         SELECT best_e1rm
         FROM exercise_strength_history
         WHERE user_id = $1 AND exercise_id = $2 AND local_date = $3
       `, [userId, exerciseId, "2026-10-25"]);
 
-      const dbE1rm = rows[0]?.best_e1rm;
+      const dbE1rm = parseFloat(rows[0]?.best_e1rm ?? '0');
       const expectedE1rm = 100.00;
       const oldBuggyE1rm = 103.33;
 
-      check("reps=1 returns weight itself", dbE1rm === expectedE1rm, `expected ${expectedE1rm}, got ${dbE1rm}`);
-      check("reps=1 does NOT give buggy 1.0333×weight", dbE1rm !== oldBuggyE1rm, `should not be ${oldBuggyE1rm}`);
+      check("reps=1 returns weight itself", Math.abs(dbE1rm - expectedE1rm) < 0.01, `expected ${expectedE1rm}, got ${dbE1rm}`);
+      check("reps=1 does NOT give buggy 1.0333×weight", Math.abs(dbE1rm - oldBuggyE1rm) > 0.01, `should not be ${oldBuggyE1rm}`);
 
       console.log("  PASS: Test 1\n");
     }
@@ -184,18 +213,18 @@ async function runTests() {
         { weight: 40, reps: 15 },
       ]);
 
-      const { rows } = await pool.query(`
+      const { rows } = await testPool!.query(`
         SELECT best_e1rm
         FROM exercise_strength_history
         WHERE user_id = $1 AND exercise_id = $2 AND local_date = $3
       `, [userId, exerciseId, "2026-10-25"]);
 
-      const dbE1rm = rows[0]?.best_e1rm;
+      const dbE1rm = parseFloat(rows[0]?.best_e1rm ?? '0');
       const expectedE1rm = 60.00;  // 40 × (1 + 15/30) = 40 × 1.5 = 60
       const oldCappedE1rm = 56.00; // 40 × (1 + 12/30) = 40 × 1.4 = 56
 
-      check("15 reps gives uncapped e1RM", dbE1rm === expectedE1rm, `expected ${expectedE1rm}, got ${dbE1rm}`);
-      check("15 reps does NOT give old capped value", dbE1rm !== oldCappedE1rm, `should not be ${oldCappedE1rm}`);
+      check("15 reps gives uncapped e1RM", Math.abs(dbE1rm - expectedE1rm) < 0.01, `expected ${expectedE1rm}, got ${dbE1rm}`);
+      check("15 reps does NOT give old capped value", Math.abs(dbE1rm - oldCappedE1rm) > 0.01, `should not be ${oldCappedE1rm}`);
 
       console.log("  PASS: Test 2\n");
     }
@@ -212,13 +241,13 @@ async function runTests() {
 
       await logSession(userId, exerciseId, "2026-10-25", testSets);
 
-      const { rows } = await pool.query(`
+      const { rows } = await testPool!.query(`
         SELECT best_e1rm
         FROM exercise_strength_history
         WHERE user_id = $1 AND exercise_id = $2 AND local_date = $3
       `, [userId, exerciseId, "2026-10-25"]);
 
-      const dbE1rm = rows[0]?.best_e1rm;
+      const dbE1rm = parseFloat(rows[0]?.best_e1rm ?? '0');
 
       // Compute expected e1RM using TypeScript function
       const e1rms = testSets.map(s => roundToStoragePrecision(estimateOneRepMax(s.weight, s.reps)));
@@ -230,10 +259,10 @@ async function runTests() {
       const hardcodedExpected = 66.50;
 
       // Verify hardcoded values match TS function (so they can't drift)
-      check("hardcoded expected matches TS function", hardcodedExpected === expectedE1rm, 
+      check("hardcoded expected matches TS function", Math.abs(hardcodedExpected - expectedE1rm) < 0.01, 
         `hardcoded ${hardcodedExpected} vs TS ${expectedE1rm}`);
 
-      check("SQL e1RM matches TS function", dbE1rm === expectedE1rm, 
+      check("SQL e1RM matches TS function", Math.abs(dbE1rm - expectedE1rm) < 0.01, 
         `expected ${expectedE1rm}, got ${dbE1rm}`);
 
       console.log("  PASS: Test 3\n");
@@ -252,13 +281,13 @@ async function runTests() {
 
       await logSession(userId, exerciseId, "2026-10-25", testSets);
 
-      const { rows } = await pool.query(`
+      const { rows } = await testPool!.query(`
         SELECT best_e1rm
         FROM exercise_strength_history
         WHERE user_id = $1 AND exercise_id = $2 AND local_date = $3
       `, [userId, exerciseId, "2026-10-25"]);
 
-      const dbE1rm = rows[0]?.best_e1rm;
+      const dbE1rm = parseFloat(rows[0]?.best_e1rm ?? '0');
 
       // Compute expected e1RM using TypeScript function
       const e1rms = testSets.map(s => roundToStoragePrecision(estimateOneRepMax(s.weight, s.reps)));
@@ -271,15 +300,18 @@ async function runTests() {
       const hardcodedExpected = 110.00;
 
       // Verify hardcoded values match TS function (so they can't drift)
-      check("hardcoded expected matches TS function", hardcodedExpected === expectedE1rm, 
+      check("hardcoded expected matches TS function", Math.abs(hardcodedExpected - expectedE1rm) < 0.01, 
         `hardcoded ${hardcodedExpected} vs TS ${expectedE1rm}`);
 
-      check("SQL e1RM matches TS function", dbE1rm === expectedE1rm, 
+      check("SQL e1RM matches TS function", Math.abs(dbE1rm - expectedE1rm) < 0.01, 
         `expected ${expectedE1rm}, got ${dbE1rm}`);
 
       console.log("  PASS: Test 4\n");
     }
 
+    // Cleanup: close test pool and drop test database
+    await testPool.end();
+    await pool.query(`DROP DATABASE IF EXISTS ${dbName}`);
     await pool.end();
 
     return failures === 0;
@@ -288,7 +320,20 @@ async function runTests() {
     if (error instanceof Error && error.stack) {
       console.error(error.stack);
     }
+    
+    // Try to cleanup on error
+    if (testPool) {
+      try {
+        await testPool.end();
+      } catch {}
+    }
+    if (dbName) {
+      try {
+        await pool.query(`DROP DATABASE IF EXISTS ${dbName}`);
+      } catch {}
+    }
     await pool.end();
+    
     return false;
   }
 }

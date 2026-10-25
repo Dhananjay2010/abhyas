@@ -10,9 +10,7 @@
 --
 -- This migration recreates the view with the corrected formula.
 
-drop view if exists exercise_strength_history;
-
-create view exercise_strength_history with (security_invoker = on) as
+create or replace view exercise_strength_history with (security_invoker = on) as
 select
   ss.user_id,
   se.exercise_id,

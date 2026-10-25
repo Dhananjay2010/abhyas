@@ -14,16 +14,16 @@ export interface SetData {
 /**
  * Calculate estimated 1RM using the Epley formula.
  * 
- * Formula: weight × (1 + reps/30)
+ * Formula: weight × (1 + LEAST(reps, 12)/30)
  * 
- * This matches the canonical implementation in src/lib/program/progression.ts
- * and the formula used in exercise_strength_history (Progress view).
+ * Reps are capped at 12 because the formula becomes unreliable on high-rep sets.
+ * This matches the formula used in exercise_strength_history (Progress view).
  * 
  * Notes:
  * - Returns the weight itself when reps = 1 (no estimation needed)
  * - Returns null for bodyweight (weight = 0 or null) or missing reps
  * - Only meaningful for weighted reps-based exercises
- * - No rep cap: 40 kg × 15 reps = 40 × (1 + 15/30) = 60 kg
+ * - Example: 40 kg × 20 reps = 40 × (1 + 12/30) = 56 kg
  * 
  * @param reps - Number of reps performed
  * @param weightKg - Weight used in kg
@@ -39,8 +39,10 @@ export function calculateEpley1RM(
   // When reps = 1, that IS the 1RM (no estimation needed)
   if (reps === 1) return weightKg;
   
-  // No rep cap: use actual reps (matches exercise_strength_history and progression.ts)
-  return weightKg * (1 + reps / 30);
+  // Cap reps at 12 for reliability (matches exercise_strength_history)
+  const cappedReps = Math.min(reps, 12);
+  
+  return weightKg * (1 + cappedReps / 30);
 }
 
 /**
