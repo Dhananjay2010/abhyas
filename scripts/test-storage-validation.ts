@@ -385,7 +385,8 @@ async function testTimestampUpdatedOnSave() {
   }, createPendingSetDeps());
 
   const raw = storage.getItem(storageKey("test-user-id"));
-  const parsed = JSON.parse(raw!);
+  if (!raw) throw new Error("Timestamp update: raw storage value is null");
+  const parsed = JSON.parse(raw);
   
   assert(parsed["session-1"].timestamp > oldTimestamp, "Timestamp updated on save");
   assertEqual(parsed["session-1"].sets.length, 2, "New set added");
