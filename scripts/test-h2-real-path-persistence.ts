@@ -64,7 +64,7 @@ console.log("\n1. New user (prior=null) 4×10@40 in 8-12 → stores weight=40");
   check("Write: consecutive_failures = 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
 }
 
-console.log("\n2. Existing user (prior=50) 4×10 in 8-12 → keeps stored weight 50");
+console.log("\n2. Existing user (prior=50) 4×10 in 8-12 → all sets >= stored, stores lowest = 50");
 {
   const sessionExercise: SessionExerciseRow = {
     id: "se-existing",
@@ -109,7 +109,7 @@ console.log("\n2. Existing user (prior=50) 4×10 in 8-12 → keeps stored weight
   const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
   const decision = evaluateProgression(input);
   
-  check("Existing user: nextWorkingWeightKg = 50 (stored, not logged)", decision.nextWorkingWeightKg === 50, `${decision.nextWorkingWeightKg}`);
+  check("Existing user: all sets >= stored (50), stores lowest = 50", decision.nextWorkingWeightKg === 50, `${decision.nextWorkingWeightKg}`);
   check("Existing user: failures = 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
 }
 
