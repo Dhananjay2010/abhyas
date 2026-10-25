@@ -99,23 +99,20 @@ export default async function TodayPage() {
   const yesterday = addDays(localToday, -1);
   const weekAheadEnd = addDays(localToday, 6);
 
-  // Load session state: closes stale sessions BEFORE reading recent sessions.
-  // Ensures resume detection, missed-yesterday check, and today's override see
-  // post-close statuses rather than stale in_progress rows.
-  const sessionState = await loadTodaySessionState(
-    makeTodayLoaderDeps(supabase, { yesterday, weekAheadEnd }),
-    localToday
-  );
-
-  // A four-week block that has run its course rolls over here, on load. Handing
-  // it the block we just read makes the common case — the block is current —
-  // free: it compares two dates and returns, with no query of its own.
-  const rollover = await ensureCurrentBlock(
-    supabase,
-    user.id,
-    localToday,
-    programRes.data,
-  );
+  // Load session state and ensure current block in parallel. The rollover
+  // doesn't write sessions, so these are independent.
+  const [sessionState, rollover] = await Promise.all([
+    loadTodaySessionState(
+      makeTodayLoaderDeps(supabase, { yesterday, weekAheadEnd }),
+      localToday
+    ),
+    ensureCurrentBlock(
+      supabase,
+      user.id,
+      localToday,
+      programRes.data,
+    ),
+  ]);
 
   // A rollover replaced the active block, so the row read above is stale.
   // This happens on one day in twenty-eight. Query for the new block by its

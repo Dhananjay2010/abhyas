@@ -1,5 +1,5 @@
 /**
- * Pure helpers for Today page: session detection, close-stale input, and banner text.
+ * Pure helpers for Today page: session detection and banner text.
  */
 
 export type SessionForDetection = {
