@@ -1,5 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
+import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 
 export type ExerciseRow = CandidateExercise;
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -162,6 +163,14 @@ export function rankAlternatives<T extends ExerciseRow>(
     !isIsometric(current) &&
     current.impact !== "high";
   
+  // Is current a compound pull (for pullover exclusion)?
+  // Exception: if current is itself a pullover, allow pullover swaps
+  const isCompoundPull =
+    (current.movement_pattern === "horizontal_pull" || current.movement_pattern === "vertical_pull") &&
+    current.mechanic === "compound";
+  const isPulloverOriginal =
+    current.name.toLowerCase().includes("pullover") || current.slug.includes("pullover");
+  
   const filtered: Array<{ 
     exercise: T; 
     patternRank: number;
@@ -176,24 +185,36 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 1. Exclude current exercise
     if (candidate.id === current.id) continue;
     
-    // 2. Pattern priority (lower rank = better)
+    // 2. Exclude dangerous/problematic exercises (hard-coded exclusion set)
+    if (EXCLUDED_EXERCISE_SLUGS.has(candidate.slug)) continue;
+    
+    // 3. Exclude pullovers when original is a compound pull
+    // Pullovers are shoulder-extension moves and not appropriate substitutes
+    if (isCompoundPull && !isPulloverOriginal) {
+      const nameLower = candidate.name.toLowerCase();
+      if (nameLower.includes("pullover") || candidate.slug.includes("pullover")) {
+        continue;
+      }
+    }
+    
+    // 4. Pattern priority (lower rank = better)
     const patternRank = patternPriority.indexOf(candidate.movement_pattern);
     if (patternRank === -1) continue; // Not in our pattern list
     
-    // 3. Level check: candidate level must be <= user level
+    // 5. Level check: candidate level must be <= user level
     const candidateLevelRank = LEVEL_ORDER[candidate.level_min];
     if (candidateLevelRank > userLevelRank) continue;
     
-    // 4. Beginners never get high-impact (plyometric) moves
+    // 6. Beginners never get high-impact (plyometric) moves
     if (ctx.level === "beginner" && candidate.impact === "high") continue;
     
-    // 5. For dynamic press, exclude isometric and plyometric
+    // 7. For dynamic press, exclude isometric and plyometric
     if (isDynamicPress) {
       if (isIsometric(candidate)) continue;
       if (candidate.impact === "high") continue;
     }
     
-    // 6. Injury filtering: exclude if any contraindicated region intersects
+    // 8. Injury filtering: exclude if any contraindicated region intersects
     if (
       candidate.contraindicated_regions.some((region) =>
         ctx.injuryRegions.includes(region)
@@ -202,10 +223,11 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
-    // 7. Equipment check: all-of semantics
+    // 9. Equipment check: all-of semantics
     if (ctx.availableEquipment !== null && candidate.equipment_ids.length > 0) {
+      const equipment = ctx.availableEquipment;
       const allAvailable = candidate.equipment_ids.every((id) =>
-        ctx.availableEquipment!.has(id)
+        equipment.has(id)
       );
       if (!allAvailable) continue;
     }
