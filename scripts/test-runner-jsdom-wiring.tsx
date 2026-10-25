@@ -39,7 +39,7 @@ function createFakeTimer(): {
 
   return {
     timer: {
-      setTimeout: (callback: () => void, ms: number): TimerHandle => {
+      setTimeout: (callback: () => void, _ms: number): TimerHandle => {
         const id: TimerHandle = nextId++;
         callbacks.set(id, callback);
         return id;

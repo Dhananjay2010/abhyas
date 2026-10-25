@@ -9,9 +9,6 @@ import { finishSessionCore } from "../src/lib/session/finish-session";
 import type { FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 
 const NOW = "2026-10-25T12:00:00Z";
-const NOW_MS = Date.parse(NOW);
-const ONE_HOUR_AGO = new Date(NOW_MS - 60 * 60 * 1000).toISOString();
-const LOCAL_DATE = NOW.split("T")[0];
 
 let testsPassed = 0;
 let testsFailed = 0;
