@@ -77,6 +77,7 @@ const LOWER_BODY_JUMPS = [
   "vertical-swing",
 ];
 
+async function main() {
 console.log("Coordinator decision (f): Past-knee jump guard test");
 console.log("─".repeat(60));
 
@@ -303,3 +304,9 @@ if (failures > 0) {
   console.log("PASSED: All jump guard checks passed");
   process.exit(0);
 }
+}
+
+main().catch(err => {
+  console.error("Unexpected error:", err);
+  process.exit(1);
+});
