@@ -192,17 +192,3 @@ export function formatClock(totalSeconds: number): string {
 export function displayElapsed(elapsed: number, isStale: boolean): number {
   return isStale ? Math.min(elapsed, 10799) : elapsed;
 }
-
-/**
- * Freeze elapsed time at a specific value.
- * Used when finishing a session to capture the final duration.
- * 
- * @param frozen - The frozen elapsed value, or null to calculate from timestamps
- * @param startMs - Session start time in milliseconds
- * @param nowMs - Current time in milliseconds  
- * @returns The elapsed value to display (in seconds)
- */
-export function freezeElapsed(frozen: number | null, startMs: number, nowMs: number): number {
-  if (frozen !== null) return frozen;
-  return Math.max(0, Math.floor((nowMs - startMs) / 1000));
-}

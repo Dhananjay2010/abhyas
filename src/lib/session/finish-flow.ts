@@ -27,56 +27,6 @@ export interface FinishFlowDeps {
 }
 
 /**
- * Run the finish flow (Done / Skip cool-down / last exercise with no cool-down).
- * Pure function with dependency injection for testability.
- * 
- * @returns Promise<boolean> - true if finish succeeded, false if it failed
- */
-export async function runFinish(
-  deps: FinishFlowDeps,
-  params: {
-    sessionId: string;
-    cooldownCompleted: boolean;
-  },
-): Promise<boolean> {
-  if (deps.inFlight.current) return false;
-  deps.inFlight.current = true;
-
-  const durationSeconds = deps.stopElapsed();
-
-  try {
-    const result = await deps.finishSession({
-      sessionId: params.sessionId,
-      durationSeconds,
-      cooldownCompleted: params.cooldownCompleted,
-    });
-
-    if (!result.ok) {
-      deps.resumeElapsed();
-      deps.setError("Couldn't finish the session. Try again.");
-      deps.inFlight.current = false;
-      return false;
-    }
-
-    deps.setError(null);
-
-    // Always show summary, even for skipped sessions
-    deps.inFlight.current = false;
-    deps.setPhase("done");
-    return true;
-  } catch (err) {
-    deps.resumeElapsed();
-    if (isNetworkError(err)) {
-      deps.setError("You're offline. Your session wasn't finished – try again when you're back online.");
-    } else {
-      deps.setError("Couldn't finish the session. Try again.");
-    }
-    deps.inFlight.current = false;
-    return false;
-  }
-}
-
-/**
  * Run the end-early flow (End session early button).
  * Pure function with dependency injection for testability.
  */

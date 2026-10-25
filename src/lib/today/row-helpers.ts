@@ -19,14 +19,6 @@ export function countWorkingSets(sets: Array<{ is_warmup_set: boolean }>): numbe
 }
 
 /**
- * Check if completion labels should be shown for a session.
- * Only ended sessions show completion labels.
- */
-export function shouldShowCompletionLabels(status: SessionStatus): boolean {
-  return status !== "in_progress";
-}
-
-/**
  * Get the completion display (label and strikethrough) for an exercise.
  * Returns empty label for in-progress sessions.
  * 
@@ -39,7 +31,8 @@ export function getCompletionDisplay(
   plannedSets: number,
   isSwappedIn = false,
 ): CompletionDisplay {
-  const sessionEnded = shouldShowCompletionLabels(sessionStatus);
+  // Only ended sessions show completion labels
+  const sessionEnded = sessionStatus !== "in_progress";
 
   if (!sessionEnded) {
     return { label: "", strikethrough: false };
