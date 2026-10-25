@@ -8,7 +8,7 @@
  * This test KILLS M12 (.max→.min) by itself with plan-range cases.
  */
 
-import { evaluateProgression, type ProgressState } from "../src/lib/program/progression.js";
+import { evaluateProgression, type ProgressState, type ExerciseMeta } from "../src/lib/program/progression.js";
 import { progressionInputsFromExercise } from "../src/lib/session/progression-inputs.js";
 import { writeExerciseProgressCore, type ProgressClient, type ProgressWrite } from "../src/lib/session/write-progress.js";
 
@@ -30,8 +30,20 @@ class InMemoryProgressClient implements ProgressClient {
   from(table: string) {
     if (table !== "exercise_progress") throw new Error(`Unexpected table: ${table}`);
     return {
-      upsert: async (data: Record<string, unknown>, opts: { onConflict: string }) => {
-        const row = data as ProgressWrite;
+      upsert: async (data: Record<string, unknown>) => {
+        const row: ProgressWrite = {
+          user_id: String(data.user_id),
+          exercise_id: String(data.exercise_id),
+          current_working_weight_kg: data.current_working_weight_kg as number | null,
+          current_target_reps: data.current_target_reps as number | null,
+          consecutive_failures: Number(data.consecutive_failures),
+          last_performed_on: data.last_performed_on as string | null,
+          best_weight_kg: data.best_weight_kg as number | null,
+          best_reps: data.best_reps as number | null,
+          best_e1rm: data.best_e1rm as number | null,
+          total_sessions: Number(data.total_sessions),
+          updated_at: String(data.updated_at),
+        };
         const key = `${row.user_id}:${row.exercise_id}`;
         this.store.set(key, row);
         return { data: row, error: null };
@@ -303,10 +315,10 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Target Not Reached vs Holding at 
 
 console.log("\n=== QA Bot 1: (2) Equipment Grid - Standing Calf Raises ===\n");
 
-const STANDING_CALF_RAISE = {
-  mechanic: "isolation" as const,
-  metric: "reps" as const,
-  movementPattern: "calf" as const,
+const STANDING_CALF_RAISE: ExerciseMeta = {
+  mechanic: "isolation",
+  metric: "reps",
+  movementPattern: "calf",
   isBodyweight: false,
   progressionChain: null,
   progressionRank: null,
