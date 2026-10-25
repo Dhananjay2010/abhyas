@@ -398,7 +398,7 @@ export function evaluateProgression(input: {
     plannedMin: repsMin,
     plannedMax: repsMax,
     currentTargetReps: state.currentTargetReps,
-    isBodyweight: meta.isBodyweight,
+    equipmentIds: equipmentIds ?? [],
     currentWorkingWeightKg: state.currentWorkingWeightKg,
   }).max;
 
@@ -485,7 +485,7 @@ export function evaluateProgression(input: {
     plannedMin: repsMin,
     plannedMax: repsMax,
     currentTargetReps: state.currentTargetReps,
-    isBodyweight: meta.isBodyweight,
+    equipmentIds: equipmentIds ?? [],
     currentWorkingWeightKg: state.currentWorkingWeightKg,
   }).max;
   
@@ -522,7 +522,7 @@ export function evaluateProgression(input: {
         plannedMin: repsMin,
         plannedMax: repsMax,
         currentTargetReps: state.currentTargetReps,
-        isBodyweight: meta.isBodyweight,
+        equipmentIds: equipmentIds ?? [],
         currentWorkingWeightKg: state.currentWorkingWeightKg,
       }).max;
       
