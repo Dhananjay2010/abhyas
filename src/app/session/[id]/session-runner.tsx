@@ -17,6 +17,7 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
+import { applySwapResult } from "@/lib/session/apply-swap";
 import {
   abandonSession,
   deleteSet,
@@ -1073,7 +1074,7 @@ export function SessionRunner({
               be logged against it and fed to progression. It also left a stale
               number in a hold's seconds field.
             */
-            key={`${current.id}:${nextSetNumber}`}
+            key={`${current.id}:${current.exerciseId}:${nextSetNumber}`}
             perSetLogging={settings.perSetLogging}
             metric={current.metric}
             targetSeconds={current.repsMax}
@@ -1147,19 +1148,12 @@ export function SessionRunner({
                         if (!ok || !box.value) return;
                         const swapped = box.value;
                         setExercises((prev) =>
-                          prev.map((e) =>
-                            e.id === current.id
-                              ? {
-                                  ...e,
-                                  name: a.name,
-                                  cue: a.cue,
-                                  exerciseId: a.exerciseId,
-                                  metric: swapped.metric,
-                                  repsMin: swapped.repsMin ?? e.repsMin,
-                                  repsMax: swapped.repsMax ?? e.repsMax,
-                                }
-                              : e,
-                          ),
+                          applySwapResult(prev, current.id, {
+                            ...swapped,
+                            exerciseId: a.exerciseId,
+                            name: a.name,
+                            cue: a.cue,
+                          }) as RunnerExercise[],
                         );
                         setAlternatives(null);
                       }}

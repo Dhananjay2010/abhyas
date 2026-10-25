@@ -15,6 +15,119 @@ type Client = SupabaseClient<Database>;
  */
 export const STALE_INACTIVITY_THRESHOLD_SECONDS = 21600;
 
+/**
+ * Helper to check if a session type is strength (weights or bodyweight).
+ */
+function isStrength(actualType: string | null): boolean {
+  return actualType === "weights" || actualType === "bodyweight";
+}
+
+/**
+ * Shared helper: compute the newest strength session's started_at among open sessions.
+ * Used by both closeStaleSessionsCore and getInProgressSession to ensure identical behavior.
+ * 
+ * @param openSessions Array of open sessions (status in ['planned', 'in_progress'])
+ * @returns The latest started_at among strength sessions, or null if none found
+ */
+export function computeNewestStrengthStartedAt(
+  openSessions: Array<{ started_at: string | null; actual_type: string | null }>
+): string | null {
+  let newest: string | null = null;
+  for (const session of openSessions) {
+    if (session.started_at && isStrength(session.actual_type)) {
+      if (!newest || session.started_at > newest) {
+        newest = session.started_at;
+      }
+    }
+  }
+  return newest;
+}
+
+/**
+ * Shared helper: find the last activity time from a set of completed sets.
+ * Used by both closeStaleSessionsCore and getInProgressSession to ensure identical behavior.
+ * 
+ * Considers ALL sets (warm-ups and working sets) because any logged set is activity.
+ * 
+ * @param sets Array of sets with completed_at timestamps
+ * @returns The latest completed_at, or null if no sets have completed_at
+ */
+export function findLastSetCompletedAt(
+  sets: Array<{ completed_at: string | null }>
+): string | null {
+  let latest: string | null = null;
+  for (const set of sets) {
+    if (set.completed_at) {
+      if (!latest || set.completed_at > latest) {
+        latest = set.completed_at;
+      }
+    }
+  }
+  return latest;
+}
+
+/**
+ * Pure predicate: determine if a session is stale according to #111's rule.
+ * 
+ * A session is stale if:
+ * 1. It has been inactive for >= STALE_INACTIVITY_THRESHOLD_SECONDS (6h), OR
+ * 2. For strength sessions: a newer strength session exists (by started_at), OR
+ * 3. Special cases for sessions with no started_at:
+ *    - No sets and dated before today (planned)
+ *    - No sets and status is in_progress (stuck state)
+ * 
+ * This is extracted from closeStaleSessionsCore and must match its behavior exactly.
+ */
+export function isSessionStale(params: {
+  startedAt: string | null;
+  lastSetCompletedAt: string | null;
+  localDate: string;
+  status: string;
+  actualType: string | null;
+  newestStrengthStartedAt: string | null;
+  today: string;
+  nowMs: number;
+}): boolean {
+  const {
+    startedAt,
+    lastSetCompletedAt,
+    localDate,
+    status,
+    actualType,
+    newestStrengthStartedAt,
+    today,
+    nowMs,
+  } = params;
+
+  // Case 1: No started_at
+  if (!startedAt) {
+    if (!lastSetCompletedAt) {
+      // No started_at and no sets - stale if:
+      // - planned rows dated before today, or
+      // - in_progress rows (rare stuck state)
+      return localDate < today || status === "in_progress";
+    }
+    // Has sets but no started_at - use last set time for staleness check
+    const elapsedSeconds = secondsSinceIso(lastSetCompletedAt, nowMs);
+    return elapsedSeconds >= STALE_INACTIVITY_THRESHOLD_SECONDS;
+  }
+
+  // Case 2: Normal case with started_at
+  const lastActivity = lastSetCompletedAt ?? startedAt;
+  const elapsedSeconds = secondsSinceIso(lastActivity, nowMs);
+  
+  // Check inactivity threshold
+  const isInactive = elapsedSeconds >= STALE_INACTIVITY_THRESHOLD_SECONDS;
+  
+  // Check if a newer strength session exists (strength sessions only)
+  const hasNewerStrengthSession = 
+    isStrength(actualType) &&
+    newestStrengthStartedAt !== null && 
+    startedAt < newestStrengthStartedAt;
+  
+  return isInactive || hasNewerStrengthSession;
+}
+
 export type OpenSession = { 
   id: string; 
   local_date: string;
@@ -125,60 +238,25 @@ export async function closeStaleSessionsCore(
   const stale: string[] = [];
   const byId = new Map(open.map((s) => [s.id, s]));
 
-  // Helper to check if a session type is strength (weights or bodyweight)
-  const isStrength = (actualType: string | null): boolean => {
-    return actualType === "weights" || actualType === "bodyweight";
-  };
-
-  // Find the newest strength session (latest started_at among strength sessions only)
-  let newestStrengthStartedAt: string | null = null;
-  for (const session of open) {
-    if (session.started_at && isStrength(session.actual_type)) {
-      if (!newestStrengthStartedAt || session.started_at > newestStrengthStartedAt) {
-        newestStrengthStartedAt = session.started_at;
-      }
-    }
-  }
+  // Find the newest strength session using shared helper
+  const newestStrengthStartedAt = computeNewestStrengthStartedAt(open);
 
   for (const id of ids) {
     const session = byId.get(id);
+    if (!session) continue;
     
-    // Rows with no started_at: use set times or close if stuck
-    if (!session?.started_at) {
-      // If there are logged sets, use the last set's time for staleness check
-      const lastSetTime = lastSetCompletedAt.get(id);
-      if (!lastSetTime) {
-        // No started_at and no sets - mark as stale if:
-        // - planned rows dated before today, or
-        // - in_progress rows (rare stuck state from pre-fix data or crashes)
-        if (session && (session.local_date < today || session.status === "in_progress")) {
-          stale.push(id);
-        }
-        continue;
-      }
-      // Has sets but no started_at - use last set time for staleness check
-      const elapsedSeconds = secondsSinceIso(lastSetTime, nowMs);
-      const isInactive = elapsedSeconds >= STALE_INACTIVITY_THRESHOLD_SECONDS;
-      if (isInactive) {
-        stale.push(id);
-      }
-      continue;
-    }
+    const lastSetTime = lastSetCompletedAt.get(id);
     
-    const lastActivity = lastSetCompletedAt.get(id) ?? session.started_at;
-    const elapsedSeconds = secondsSinceIso(lastActivity, nowMs);
-
-    // A session is stale if:
-    // 1. It has been inactive for more than 6 hours, OR
-    // 2. For strength sessions: a newer strength session exists (newer started_at)
-    //    Non-strength sessions (Breathe, yoga) don't trigger closure of strength sessions
-    const hasNewerStrengthSession = 
-      isStrength(session.actual_type) &&
-      newestStrengthStartedAt && 
-      session.started_at < newestStrengthStartedAt;
-    const isInactive = elapsedSeconds >= STALE_INACTIVITY_THRESHOLD_SECONDS;
-
-    if (isInactive || hasNewerStrengthSession) {
+    if (isSessionStale({
+      startedAt: session.started_at,
+      lastSetCompletedAt: lastSetTime ?? null,
+      localDate: session.local_date,
+      status: session.status,
+      actualType: session.actual_type,
+      newestStrengthStartedAt,
+      today,
+      nowMs,
+    })) {
       stale.push(id);
     }
   }
