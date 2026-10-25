@@ -576,17 +576,18 @@ export function evaluateProgression(input: {
     // For true bodyweight (no weights logged), keep null.
     let currentWeight: number | null;
     
-    if (state.currentWorkingWeightKg !== null && state.currentWorkingWeightKg > 0) {
+    const stored = state.currentWorkingWeightKg;
+    if (stored !== null && stored > 0) {
       // Weight is stored: check if all completed working sets >= stored weight
-      const allSetsHeavierOrEqual = working.every((set) => (set.weightKg ?? 0) >= state.currentWorkingWeightKg!);
+      const allSetsHeavierOrEqual = working.every((set) => (set.weightKg ?? 0) >= stored);
       
       if (allSetsHeavierOrEqual) {
         // Store the LOWEST weight among completed working sets, rounded
         const lowestUsed = Math.min(...working.map((s) => s.weightKg ?? 0));
-        currentWeight = lowestUsed > 0 ? roundToStoragePrecision(lowestUsed) : state.currentWorkingWeightKg;
+        currentWeight = lowestUsed > 0 ? roundToStoragePrecision(lowestUsed) : stored;
       } else {
         // At least one set was lighter: keep stored weight unchanged
-        currentWeight = state.currentWorkingWeightKg;
+        currentWeight = stored;
       }
     } else {
       // Nothing stored: fall back to heaviest (H2)
