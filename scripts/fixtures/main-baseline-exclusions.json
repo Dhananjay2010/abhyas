@@ -1,0 +1,66 @@
+[
+  {
+    "name": "probe-1279",
+    "userId": "probe-1279",
+    "slugs": [
+      "barbell-squat",
+      "barbell-bench-press-medium-grip",
+      "bent-over-barbell-row",
+      "barbell-guillotine-bench-press",
+      "3-4-sit-up",
+      "barbell-deadlift",
+      "standing-military-press",
+      "bent-arm-barbell-pullover",
+      "standing-front-barbell-raise-over-head",
+      "3-4-sit-up"
+    ],
+    "expectedSlug": "barbell-guillotine-bench-press",
+    "foundExpected": true
+  },
+  {
+    "name": "probe-1705",
+    "userId": "probe-1705",
+    "slugs": [
+      "box-squat",
+      "clock-push-up",
+      "bent-over-barbell-row",
+      "neck-press",
+      "barbell-rear-delt-row",
+      "3-4-sit-up",
+      "bent-over-one-arm-long-bar-row",
+      "barbell-ab-rollout",
+      "barbell-deadlift",
+      "clock-push-up",
+      "bent-over-barbell-row",
+      "push-ups-close-triceps-position",
+      "lying-cambered-barbell-row",
+      "3-4-sit-up"
+    ],
+    "expectedSlug": "neck-press",
+    "foundExpected": true
+  },
+  {
+    "name": "probe-2755",
+    "userId": "probe-2755",
+    "slugs": [
+      "bodyweight-squat",
+      "pushups",
+      "doorway-row",
+      "low-pulley-row-to-neck",
+      "cable-iron-cross",
+      "3-4-sit-up",
+      "cable-rope-rear-delt-rows",
+      "bent-knee-hip-raise",
+      "glute-bridge",
+      "pike-push-up",
+      "wide-grip-lat-pulldown",
+      "front-cable-raise",
+      "straight-arm-pulldown",
+      "3-4-sit-up",
+      "close-grip-front-lat-pulldown",
+      "bottoms-up"
+    ],
+    "expectedSlug": "low-pulley-row-to-neck",
+    "foundExpected": true
+  }
+]
