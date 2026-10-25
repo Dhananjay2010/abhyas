@@ -147,9 +147,9 @@ run_mutant \
 # Mutant (f): kettlebell strictly-below
 run_mutant \
   "(f) kettlebell strictly-below" \
-  "Allow kettlebell to equal current instead of strictly below" \
+  "Allow kettlebell to equal or be below current (not strictly below)" \
   "        if (bells[i] < currentWeight - epsilon) {" \
-  "        if (bells[i] <= currentWeight - epsilon) {"
+  "        if (bells[i] <= currentWeight) {"
 
 # Mutant (g): first-miss >= two-miss clamp
 run_mutant \
@@ -161,29 +161,23 @@ run_mutant \
 # Mutant (h): first-miss hold snap
 run_mutant \
   "(h) hold snaps weight" \
-  "Snap hold weight instead of returning exact current" \
+  "Snap hold weight to grid instead of returning exact current" \
   "    nextWorkingWeightKg: nextWeight," \
-  "    nextWorkingWeightKg: Math.floor(nextWeight / 2.5) * 2.5,"
+  "    nextWorkingWeightKg: nextWeight !== null ? Math.floor(nextWeight / 2.5) * 2.5 : nextWeight,"
 
 # Mutant (i): hard-feel hold
 run_mutant \
   "(i) hard-feel doesn't hold" \
-  "Skip the hard-feel hold check" \
-  '  if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {' \
-  '  if (feel === "impossible" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {'
+  "Change hard-feel check to right (never holds early)" \
+  '    if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {' \
+  '    if (feel === "right" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {'
 
-# Mutant (j): 1.5-step rule
-if grep -q "candidateWeight < currentWeight - 1.5 \* gridStep" "$FILE" 2>/dev/null; then
-  run_mutant \
-    "(j) 1.5-step rule" \
-    "Remove 1.5-step floor" \
-    "    if (candidateWeight < currentWeight - 1.5 * gridStep) {" \
-    "    if (false) {"
-else
-  echo "Testing mutant: (j) 1.5-step rule"
-  echo "  ⚠️  SKIPPED: Rule not found in code (may have been removed as unreachable)"
-  SKIPPED+=("(j) 1.5-step rule: not in code")
-fi
+# Mutant (j): 1.5-step rule - DELETED
+# The 1.5-step floor is unreachable: strictly-below logic means candidate is at most 1 step
+# below current, so candidate >= current - step always. The condition candidate < current - 1.5*step
+# can never be true. Rule was deleted from source code.
+echo "Testing mutant: (j) 1.5-step rule"
+echo "  ⚠️  DELETED: Rule is unreachable (strictly-below ensures at most 1-step drop)"
 
 # Mutant (k): standard equipment strictly-below
 run_mutant \
@@ -199,7 +193,7 @@ echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-TOTAL=11
+TOTAL=10
 KILLED=$((TOTAL - FAILED - ${#SKIPPED[@]}))
 echo "Total mutants:                   $TOTAL"
 echo "Killed:                          $KILLED"

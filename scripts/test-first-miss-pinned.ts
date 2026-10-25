@@ -13,7 +13,6 @@
 import {
   evaluateProgression,
   suggestedWeight,
-  FIRST_MISS_HOLD_THRESHOLD,
   type ExerciseMeta,
   type ProgressState,
 } from "../src/lib/program/progression";
@@ -380,31 +379,104 @@ console.log("\n=== Mutant-Killing Tests ===");
   check("Kettlebell 16 kg first miss: must drop to 14 kg (strictly below)", d.nextWorkingWeightKg === 14);
 }
 
-// (g) Kill invariant clamp removal: test case where first-miss < two-miss without clamp
+// More kettlebell strictly-below tests
 {
-  // This is trickier - need a weight where the 20% guard or step limit would make first-miss
-  // go lower than two-miss if we don't clamp.
-  // Example: 13.75 kg dumbbell, first miss would want to go to 12.5 kg (one step),
-  // but two miss would go to 11.25 kg. Without the clamp, first would be 12.5 which is > 11.25, so this won't work.
-  
-  // Better example: 12 kg dumbbell
-  // First miss: next grid down is 10 kg (2 kg cut = 16.7%)
-  // Two miss: 12 * 0.9 = 10.8, snapped to 10 kg (but capped at 12 - 5 = 7, so 10)
-  // Actually both go to 10, so no violation.
-  
-  // Let's try: 5 kg (smallest loadable)
-  // First miss: holds at 5 kg (smallest)
-  // Two miss: holds at 5 kg (light weight)
-  // Both hold, so no violation.
-  
-  // The invariant is mainly enforced for edge cases. Let me use a direct check instead.
-  // Actually, the invariant tests above already verify this for many weights.
-  // If the clamp is removed, those invariant tests will fail.
-  check("Invariant clamp is active (tested via weight sweep above)", true);
+  const d = run({
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
+  });
+  check("Kettlebell 12 kg first miss: must drop to 10 kg (strictly below)", d.nextWorkingWeightKg === 10);
 }
 
-console.log("\n=== THRESHOLD VALUE ===");
-check(`FIRST_MISS_HOLD_THRESHOLD is 0.20`, FIRST_MISS_HOLD_THRESHOLD === 0.20);
+{
+  const d = run({
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+    meta: BENCH,
+    state: fresh({ currentWorkingWeightKg: 24, consecutiveFailures: 0 }),
+  });
+  check("Kettlebell 24 kg first miss: must drop to 20 kg (strictly below)", d.nextWorkingWeightKg === 20);
+}
+
+// (g) Kill invariant clamp removal: test case where first-miss < two-miss without clamp
+{
+  // Barbell 2.75 kg isolation: first-miss would naturally go to 2.5kg (one step down)
+  // but two-miss holds at 2.75kg (light weight). Clamp forces first to hold at 2.75.
+  const firstMiss = run({
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: { ...CURL, mechanic: "isolation" },
+    state: fresh({ currentWorkingWeightKg: 2.75, consecutiveFailures: 0 }),
+  });
+  
+  const twoMiss = run({
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: { ...CURL, mechanic: "isolation" },
+    state: fresh({ currentWorkingWeightKg: 2.75, consecutiveFailures: 1 }),
+  });
+  const firstW = firstMiss.nextWorkingWeightKg ?? 0;
+  const twoW = twoMiss.nextWorkingWeightKg ?? 0;
+  
+  check("Barbell 2.75 kg isolation first-miss >= two-miss", firstW >= twoW);
+  check("  (without clamp: first would be 2.5, two would be 2.75, violating invariant)", 
+    firstW === 2.75 && twoW === 2.75);
+}
+
+console.log("\n=== THRESHOLD BEHAVIOR ===");
+// Test threshold value through behavior, not by checking the constant
+// Dumbbell 7.5 kg -> 5 kg would be 33.3% cut, which is > 20% but < 50%
+// With 0.20 threshold: should hold (33% > 20%)
+// With 0.50 threshold: would drop (33% < 50%)
+{
+  const d = run({
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 0 }),
+  });
+  const cutPct = (7.5 - 5) / 7.5;
+  check(`Threshold 0.20: 7.5kg with ${(cutPct*100).toFixed(1)}% cut holds (> 20%)`, d.nextWorkingWeightKg === 7.5);
+}
+
+console.log("\n=== HOLD RETURNS EXACT WEIGHT ===");
+// Test that holds return exact current weight, not snapped
+{
+  const d = run({
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 0 }),
+  });
+  check("7.5 kg hold returns exactly 7.5 (not 5 if snapped)", d.nextWorkingWeightKg === 7.5 && d.outcome === "hold");
+}
+
+{
+  // Off-grid weight
+  const d = run({
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+    meta: { ...CURL, mechanic: "isolation" },
+    state: fresh({ currentWorkingWeightKg: 2.75, consecutiveFailures: 1 }), // Two-miss hold
+  });
+  check("2.75 kg hold returns exactly 2.75 (not 2.5 if snapped)", d.nextWorkingWeightKg === 2.75 && d.outcome === "hold");
+}
+
+console.log("\n=== HARD-FEEL HOLD ===");
+// Test that hard feel with equipment holds at current weight
+{
+  const d = run({
+    sets: sets(4, 12, 60), // Hit target but felt hard
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: BENCH,
+    state: fresh({ currentWorkingWeightKg: 60, consecutiveFailures: 0 }),
+    feel: "hard",
+  });
+  check("Hard feel at 60 kg barbell: holds at 60", d.nextWorkingWeightKg === 60 && d.outcome === "hold");
+}
 
 if (failures > 0) {
   console.error(`\n❌ ${failures} test(s) failed`);

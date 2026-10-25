@@ -765,11 +765,6 @@ export function evaluateProgression(input: {
       candidateWeight = stepsBelow * gridStep;
     }
     
-    // Rule: if candidate is below current - 1.5 * step, hold instead
-    if (candidateWeight < currentWeight - 1.5 * gridStep) {
-      candidateWeight = currentWeight;
-    }
-    
     // Rule: if (current - candidate) / current > 0.20, hold instead
     const cutFraction = (currentWeight - candidateWeight) / currentWeight;
     if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {
