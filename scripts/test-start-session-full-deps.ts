@@ -352,16 +352,26 @@ async function test(name: string, fn: () => Promise<void>) {
     eq(result.dayId, "day-123", "Day id returned");
   });
 
-  await test("BUG CATCH: today forwarded to updateSession", async () => {
+  await test("R2: updateSession 23505 re-read uses passed today local_date", async () => {
     resetCalls();
     const fakeClient = createFakeSupabase({
-      "sessions:update": { data: { id: "sess-1" }, error: null },
+      "sessions:update": { 
+        data: null, 
+        error: { code: "23505", message: "duplicate" } 
+      },
+      "sessions:maybeSingle": { 
+        data: { id: "sess-other", created_at: "2026-10-26T10:00:00Z" }, 
+        error: null 
+      },
     });
     const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
     
     await deps.updateSession("sess-1", "2026-10-26", { status: "in_progress" });
     
-    eq(calls.length > 0, true, "At least one call made to verify today is used");
+    const rereadCall = calls.find(c => c.method === "maybeSingle" && c.table === "sessions");
+    if (!rereadCall) throw new Error("No 23505 re-read found");
+    const localDateFilter = rereadCall.filters.find(f => f.column === "local_date");
+    eq(localDateFilter?.value, "2026-10-26", "23505 re-read filters by passed local_date");
   });
 
   await test("BUG CATCH: cross-date 23505 existingSessionId pass-through (h111)", async () => {

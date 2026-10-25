@@ -359,7 +359,7 @@ async function main() {
     if (!insertPayload || typeof insertPayload !== "object") throw new Error("No insert payload");
     const p = insertPayload as Record<string, unknown>;
     if (!p.started_at) throw new Error("started_at not set");
-    eq(typeof p.started_at, "string", "started_at is string timestamp");
+    eq(p.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS)");
   });
 
   await test("BUG CATCH: deload week calculation", async () => {
@@ -447,7 +447,7 @@ async function main() {
     eq(p.program_day_id, "day-1", "program_day_id");
     eq(p.local_date, TODAY, "local_date");
     eq(p.status, "in_progress", "status");
-    eq(typeof p.started_at, "string", "started_at");
+    eq(p.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS)");
     eq(typeof p.week_in_block, "number", "week_in_block");
     eq(typeof p.is_deload, "boolean", "is_deload");
   });
@@ -505,6 +505,145 @@ async function main() {
     if (exercisesInserted) {
       throw new Error("insertExercises was called despite different-day conflict");
     }
+  });
+
+  await test("O1/R4: reusing skipped session sets exact started_at", async () => {
+    let updatePayload: unknown = null;
+    const deps = createBasicDeps({
+      fetchOpenSessions: async () => [{
+        id: "sess-skipped",
+        status: "skipped" as const,
+        local_date: TODAY,
+        actual_type: "weights",
+        started_at: null,
+      }],
+      updateSession: async (_id, _today, payload) => {
+        updatePayload = payload;
+        return { ok: true, sessionId: "sess-skipped" };
+      },
+    });
+
+    await startSessionFullCore(deps);
+
+    if (!updatePayload || typeof updatePayload !== "object") throw new Error("No update payload");
+    const p = updatePayload as Record<string, unknown>;
+    eq(p.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS) for skipped");
+  });
+
+  await test("O1/R4: reusing null-started session sets exact started_at", async () => {
+    let updatePayload: unknown = null;
+    const deps = createBasicDeps({
+      fetchOpenSessions: async () => [{
+        id: "sess-planned",
+        status: "planned" as const,
+        local_date: TODAY,
+        actual_type: null,
+        started_at: null,
+      }],
+      updateSession: async (_id, _today, payload) => {
+        updatePayload = payload;
+        return { ok: true, sessionId: "sess-planned" };
+      },
+    });
+
+    await startSessionFullCore(deps);
+
+    if (!updatePayload || typeof updatePayload !== "object") throw new Error("No update payload");
+    const p = updatePayload as Record<string, unknown>;
+    eq(p.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS) for null-started");
+  });
+
+  await test("O1/R4: reusing in_progress session does NOT update started_at", async () => {
+    let updatePayload: unknown = null;
+    const deps = createBasicDeps({
+      fetchOpenSessions: async () => [{
+        id: "sess-in-progress",
+        status: "in_progress" as const,
+        local_date: TODAY,
+        actual_type: "weights",
+        started_at: "2026-10-26T08:00:00.000Z",
+      }],
+      updateSession: async (_id, _today, payload) => {
+        updatePayload = payload;
+        return { ok: true, sessionId: "sess-in-progress" };
+      },
+    });
+
+    await startSessionFullCore(deps);
+
+    if (!updatePayload || typeof updatePayload !== "object") throw new Error("No update payload");
+    const p = updatePayload as Record<string, unknown>;
+    if ("started_at" in p) {
+      throw new Error("started_at should NOT be updated for in_progress sessions");
+    }
+  });
+
+  await test("O3: NY vs UTC date boundary handling", async () => {
+    const nyMidnightMinus2hUTC = new Date("2026-10-26T02:00:00.000Z").getTime();
+    const expectedNYDate = "2026-10-25";
+    let insertPayload: unknown = null;
+    const deps: StartSessionFullDeps = {
+      ...createBasicDeps({
+        insertSession: async (payload) => {
+          insertPayload = payload;
+          return { ok: true, sessionId: "sess-new" };
+        },
+      }),
+      userId: USER_ID,
+      nowMs: nyMidnightMinus2hUTC,
+      fetchProfile: async () => ({ timezone: "America/New_York" }),
+    };
+
+    await startSessionFullCore(deps);
+
+    if (!insertPayload || typeof insertPayload !== "object") throw new Error("No insert payload");
+    const p = insertPayload as Record<string, unknown>;
+    eq(p.local_date, expectedNYDate, "local_date in NY timezone (2026-10-25), not UTC (2026-10-26)");
+  });
+
+  await test("R6: planned row with exercises array, metric='seconds'", async () => {
+    let insertedExercises: unknown = null;
+    const deps = createBasicDeps({
+      fetchPlannedExercises: async () => [{
+        exercise_id: "ex-1",
+        order_index: 0,
+        target_sets: 3,
+        target_reps_min: 30,
+        target_reps_max: 60,
+        rest_seconds: 60,
+        exercises: [{ metric: "seconds" }],
+      }],
+      insertExercises: async (exercises) => {
+        insertedExercises = exercises;
+        return { ok: true };
+      },
+    });
+
+    await startSessionFullCore(deps);
+
+    if (!Array.isArray(insertedExercises)) throw new Error("No exercises inserted");
+    eq(insertedExercises[0].metric, "seconds", "metric='seconds' from array embed");
+  });
+
+  await test("O11: ensureSessionExercises called with reused sessionId", async () => {
+    let ensuredSessionId: string | null = null;
+    const deps = createBasicDeps({
+      fetchOpenSessions: async () => [{
+        id: "sess-planned",
+        status: "planned" as const,
+        local_date: TODAY,
+        actual_type: null,
+        started_at: null,
+      }],
+      updateSession: async () => ({ ok: true, sessionId: "sess-planned" }),
+      ensureSessionExercises: async (sessionId) => {
+        ensuredSessionId = sessionId;
+      },
+    });
+
+    await startSessionFullCore(deps);
+
+    eq(ensuredSessionId, "sess-planned", "ensureSessionExercises called with reused sessionId");
   });
 
   console.log(`\n${passed + failed} tests, ${passed} passed, ${failed} failed`);
