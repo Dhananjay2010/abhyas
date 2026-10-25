@@ -278,13 +278,17 @@ export function roundToStoragePrecision(value: number): number {
  * When stored weight exists and all working sets are at or above it, the base
  * is the lowest working-set weight (rounded to storage precision). Otherwise
  * the stored weight is kept. Handles pure bodyweight (stored=0 with no added
- * load) by preserving 0 rather than returning null.
+ * load) by preserving 0 rather than returning null. When stored is null,
+ * returns the heaviest working-set weight (matching main's behavior).
  */
 export function effectiveBaseWeight(
   stored: number | null,
   working: LoggedSet[],
 ): number | null {
-  if (stored === null) return null;
+  if (stored === null) {
+    const heaviest = Math.max(...working.map((s) => s.weightKg ?? 0));
+    return heaviest > 0 ? heaviest : null;
+  }
   if (stored === 0) {
     const anyLoad = working.some((s) => (s.weightKg ?? 0) > 0);
     return anyLoad ? Math.min(...working.map((s) => s.weightKg ?? 0)) : 0;
