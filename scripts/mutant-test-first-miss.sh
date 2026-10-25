@@ -290,14 +290,14 @@ run_mutant \
   "(g) hold when candidate < two-miss" \
   "Don't hold when candidate < two-miss" \
   "    if (candidateWeight !== currentWeight) {
-      const twoMissFloor = computeTwoMissResult(currentWeight);
+      const twoMissFloor = computeTwoMissResult(currentWeight, false);
       if (candidateWeight < twoMissFloor) {
         candidateWeight = currentWeight;
         holdReason = 'twomiss';
       }
     }" \
   "    if (candidateWeight !== currentWeight) {
-      const twoMissFloor = computeTwoMissResult(currentWeight);
+      const twoMissFloor = computeTwoMissResult(currentWeight, false);
       if (candidateWeight < twoMissFloor) {
         candidateWeight = candidateWeight;
       }
@@ -314,8 +314,10 @@ run_mutant \
 run_mutant \
   "(i) hard-feel doesn't hold" \
   "Change hard-feel check to right (never holds early)" \
-  '    if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {' \
-  '    if (feel === "right" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {'
+  '    // Rule 0: hard-feel check (skip early hold when user signals intensity is already high)
+    if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {' \
+  '    // Rule 0: hard-feel check (skip early hold when user signals intensity is already high)
+    if (feel === "right" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {'
 
 # Mutant (j): 1.5-step rule - DELETED
 echo "Testing mutant: (j) 1.5-step rule"

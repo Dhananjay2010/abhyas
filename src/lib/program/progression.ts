@@ -127,6 +127,9 @@ const LOWER_BODY: ReadonlySet<Pattern> = new Set<Pattern>([
  * When equipmentIds is provided AND contains loadable equipment, returns the larger 
  * of the mechanic-based increment and the equipment grid step to ensure barbell 
  * exercises never use sub-2.5 kg increments.
+ * 
+ * Defensive: For non-bodyweight exercises without equipmentIds, uses 2.5 kg minimum
+ * to prevent impossible loads (e.g. 41.25 kg on a barbell).
  */
 export function incrementFor(meta: ExerciseMeta, equipmentIds?: string[]): number {
   const mechanicIncrement = meta.mechanic === "isolation" ? 1.25 : 
@@ -140,6 +143,12 @@ export function incrementFor(meta: ExerciseMeta, equipmentIds?: string[]): numbe
       const equipGrid = equipmentGridStep(equipmentIds, 'kg');
       return Math.max(mechanicIncrement, equipGrid);
     }
+  }
+  
+  // Defensive: for non-bodyweight exercises without equipment info,
+  // use 2.5 kg minimum (standard loadable equipment grid)
+  if (!meta.isBodyweight && mechanicIncrement < 2.5) {
+    return 2.5;
   }
   
   return mechanicIncrement;
