@@ -6,7 +6,11 @@ set -euo pipefail
 # mktemp backups with restore trap
 # Exit 1 on any survivor or skip
 
-FILE="src/lib/program/progression.ts"
+# Allow override for testing
+FILE="${MUTANT_TARGET_FILE:-src/lib/program/progression.ts}"
+BASELINE_CMD="${MUTANT_BASELINE_CMD:-npm run test:first-miss-pinned}"
+COMPILE_CMD="${MUTANT_COMPILE_CMD:-npx tsc --noEmit}"
+MUTANT_TEST_CMD="${MUTANT_TEST_CMD:-npm run test:first-miss-pinned}"
 BACKUP=$(mktemp)
 FAILED=0
 SURVIVORS=()
@@ -59,7 +63,7 @@ trap cleanup EXIT INT TERM
 
 # Baseline: run tests
 echo "Running baseline tests..."
-if ! npm run test:first-miss-pinned > /dev/null 2>&1; then
+if ! eval "$BASELINE_CMD" > /dev/null 2>&1; then
   echo "❌ Baseline tests failed. Fix the code before running mutant tests."
   exit 1
 fi
@@ -121,7 +125,7 @@ MUTATE_SCRIPT
   fi
   
   # Check tsc compiles
-  if ! npx tsc --noEmit > /dev/null 2>&1; then
+  if ! eval "$COMPILE_CMD" > /dev/null 2>&1; then
     echo "  ❌ SKIPPED: Does not compile"
     SKIPPED+=("$name: does not compile")
     cp "$BACKUP" "$FILE"
@@ -130,7 +134,7 @@ MUTATE_SCRIPT
   fi
   
   # Run tests
-  if npm run test:first-miss-pinned > /dev/null 2>&1; then
+  if eval "$MUTANT_TEST_CMD" > /dev/null 2>&1; then
     echo "  ❌ SURVIVED"
     SURVIVORS+=("$name")
     FAILED=$((FAILED + 1))
