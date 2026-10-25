@@ -2,12 +2,15 @@
 /**
  * Item A Gate: Exhaustive swap-list vs validator consistency test.
  * 
- * Verifies that findAlternatives' offered list and swapExercise's validator
+ * Verifies that findAlternatives' offered list and swapExerciseForUser's validator
  * produce identical results (0 offered-but-refused, 0 accepted-not-offered).
  * 
- * Uses REAL findAlternatives and REAL swapExerciseCore with in-memory mocks.
+ * Uses TWO INDEPENDENT computations:
+ * 1. REAL buildEligibleSwapList (what findAlternatives offers)
+ * 2. REAL swapExerciseForUser with in-memory Supabase client (validator)
  */
 
+import { swapExerciseForUser } from "../src/lib/session/swap-exercise-for-user";
 import { buildEligibleSwapList, buildGeneratorInput } from "../src/lib/session/eligible-swap-list";
 import { getSwapPatterns } from "../src/lib/program/swap-patterns";
 import type { CandidateExercise } from "../src/lib/program/generate";
@@ -16,15 +19,11 @@ import type { Database } from "../src/lib/database.types";
 
 type BodyRegion = Database["public"]["Enums"]["body_region"];
 type InjurySeverity = "current" | "past";
+type Metric = Database["public"]["Enums"]["exercise_metric"];
 
 const catalogueExercises = catalogue as CandidateExercise[];
 const bySlug = new Map(catalogueExercises.map(e => [e.slug, e]));
-
-let failures = 0;
-function check(label: string, ok: boolean, detail: string = ""): void {
-  if (!ok) failures++;
-  console.log(`  ${ok ? "✅" : "❌"} ${label}${detail ? ` -- ${detail}` : ""}`);
-}
+const byId = new Map(catalogueExercises.map(e => [e.id, e]));
 
 // Test profiles covering injury/equipment/level variations
 const testProfiles = [
@@ -81,32 +80,309 @@ const testProfiles = [
   },
 ];
 
-// Test ALL catalogue exercises as current exercise
-const testCases = catalogueExercises
-  .filter(e => e.movement_pattern) // Must have a pattern
-  .map(e => ({ slug: e.slug, pattern: e.movement_pattern }));
+// Create fake Supabase client that returns the right data for each test case
+function createFakeSupabase(
+  currentExercise: CandidateExercise,
+  candidateExercise: CandidateExercise,
+  pool: CandidateExercise[],
+  sessionSiblings: string[],
+  profile: any,
+  equipmentIds: string[],
+  injuries: any[],
+) {
+  const fakeChain = {
+    from: (table: string) => {
+      if (table === "session_exercises") {
+        return {
+          select: (fields: string) => {
+            return {
+              eq: (column: string, value: unknown) => {
+                // If filtering by session_id, return array of siblings
+                if (column === "session_id") {
+                  return Promise.resolve({
+                    data: sessionSiblings.map(id => ({ exercise_id: id })),
+                    error: null,
+                  });
+                }
+                
+                // Otherwise (filtering by id), return maybeSingle for current exercise
+                return {
+                  maybeSingle: async () => ({
+                    data: {
+                      exercise_id: currentExercise.id,
+                      metric: currentExercise.metric as Metric,
+                      planned_reps_min: 6,
+                      planned_reps_max: 8,
+                      session_id: "sess-123",
+                    },
+                  }),
+                };
+              },
+            };
+          },
+          update: (payload: Record<string, unknown>) => {
+            return {
+              eq: (column: string, value: unknown) => {
+                return Promise.resolve({ error: null });
+              },
+            };
+          },
+        };
+      }
+      
+      if (table === "exercises") {
+        return {
+          select: (fields: string) => {
+            return {
+              eq: (column: string, value: unknown) => {
+                // Single exercise lookup
+                if (column === "id") {
+                  const ex = byId.get(value as string);
+                  return {
+                    maybeSingle: async () => ({
+                      data: ex ? { ...ex } : null,
+                    }),
+                  };
+                }
+                
+                // is_active filter for pool query
+                if (column === "is_active") {
+                  return {
+                    in: (column2: string, values2: unknown[]) => {
+                      return Promise.resolve({
+                        data: pool.map(e => ({ ...e })),
+                        error: null,
+                      });
+                    },
+                  };
+                }
+                
+                return Promise.resolve({ data: null, error: null });
+              },
+              in: (column: string, values: unknown[]) => {
+                return {
+                  eq: (column2: string, value2: unknown) => {
+                    return Promise.resolve({
+                      data: pool.map(e => ({ ...e })),
+                      error: null,
+                    });
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+      
+      if (table === "body_metrics") {
+        return {
+          select: (fields: string) => {
+            return {
+              eq: (column: string, value: unknown) => {
+                return {
+                  order: (column: string, options: unknown) => ({
+                    limit: (n: number) => ({
+                      maybeSingle: async () => ({
+                        data: { weight_kg: 75 },
+                      }),
+                    }),
+                  }),
+                };
+              },
+            };
+          },
+        };
+      }
+      
+      if (table === "user_injuries") {
+        return {
+          select: (fields: string) => {
+            return {
+              eq: (column: string, value: unknown) => {
+                return Promise.resolve({ data: injuries, error: null });
+              },
+            };
+          },
+        };
+      }
+      
+      if (table === "user_equipment") {
+        return {
+          select: (fields: string) => {
+            return {
+              eq: (column: string, value: unknown) => {
+                return Promise.resolve({ 
+                  data: equipmentIds.map(id => ({ equipment_id: id })), 
+                  error: null 
+                });
+              },
+            };
+          },
+        };
+      }
+      
+      if (table === "profiles") {
+        return {
+          select: (fields: string) => {
+            return {
+              eq: (column: string, value: unknown) => {
+                return {
+                  single: async () => ({
+                    data: profile,
+                  }),
+                };
+              },
+            };
+          },
+        };
+      }
+      
+      if (table === "user_settings") {
+        return {
+          select: (fields: string) => {
+            return {
+              eq: (column: string, value: unknown) => {
+                return {
+                  single: async () => ({
+                    data: { planning_mode: "progression" },
+                  }),
+                };
+              },
+            };
+          },
+        };
+      }
+      
+      if (table === "exercise_progress") {
+        return {
+          select: (fields: string) => {
+            return {
+              eq: (column: string, value: unknown) => {
+                const chainable = {
+                  eq: (column2: string, value2: unknown) => {
+                    return chainable;
+                  },
+                  maybeSingle: async () => ({
+                    data: null,
+                  }),
+                };
+                return chainable;
+              },
+            };
+          },
+        };
+      }
+      
+      if (table === "sessions") {
+        return {
+          select: (fields: string) => {
+            return {
+              eq: (column: string, value: unknown) => {
+                return {
+                  maybeSingle: async () => ({
+                    data: { is_deload: false },
+                  }),
+                };
+              },
+            };
+          },
+        };
+      }
+      
+      if (table === "exercise_history") {
+        return {
+          select: (fields: string) => {
+            return {
+              eq: (column: string, value: unknown) => {
+                const chainable = {
+                  eq: (column2: string, value2: unknown) => {
+                    return chainable;
+                  },
+                  order: (column: string, options: unknown) => chainable,
+                  limit: (n: number) => chainable,
+                  maybeSingle: async () => ({
+                    data: null,
+                  }),
+                };
+                return chainable;
+              },
+            };
+          },
+        };
+      }
+      
+      throw new Error(`Unexpected table: ${table}`);
+    },
+  };
+  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return fakeChain as any;
+}
 
 console.log("Item A Gate: Swap list vs validator exhaustive consistency test");
 console.log("─".repeat(70));
 
-let totalOfferedButRefused = 0;
-let totalAcceptedNotOffered = 0;
-let testsRun = 0;
+async function main() {
+  let totalOfferedButRefused = 0;
+  let totalAcceptedNotOffered = 0;
+  let testsRun = 0;
 
-for (const profile of testProfiles) {
-  for (const testCase of testCases) {
-    const currentExercise = bySlug.get(testCase.slug);
-    if (!currentExercise) {
-      console.log(`\n⚠️  Skipping ${testCase.slug} (not in catalogue)`);
-      continue;
-    }
+  // Test ALL catalogue exercises as current exercise
+  const testCases = catalogueExercises
+    .filter(e => e.movement_pattern) // Must have a pattern
+    .map(e => ({ slug: e.slug, pattern: e.movement_pattern }));
 
-    testsRun++;
+  for (const profile of testProfiles) {
+    for (const testCase of testCases) {
+      const currentExercise = bySlug.get(testCase.slug);
+      if (!currentExercise) {
+        console.log(`\n⚠️  Skipping ${testCase.slug} (not in catalogue)`);
+        continue;
+      }
 
-    // Build GeneratorInput
-    const generatorInput = buildGeneratorInput({
-      userId: "test-user",
-      profile: {
+      testsRun++;
+
+      // Build GeneratorInput
+      const generatorInput = buildGeneratorInput({
+        userId: "test-user",
+        profile: {
+          goal: "muscle_gain",
+          level: profile.level,
+          primary_track: "weights",
+          days_per_week: 4,
+          yoga_days_per_week: 0,
+          date_of_birth: "1990-01-01",
+          height_cm: 175,
+          has_all_equipment: false,
+        },
+        equipmentIds: profile.equipment,
+        injuries: profile.injuries,
+        weightKg: 75,
+      });
+
+      // Get swap patterns
+      const patterns = getSwapPatterns(currentExercise.movement_pattern, generatorInput);
+      
+      // Build pool (same as findAlternatives does)
+      const pool = catalogueExercises.filter(e => 
+        patterns.includes(e.movement_pattern) && e.id !== currentExercise.id
+      );
+
+      // COMPUTATION 1: Build eligible swap list (what findAlternatives offers)
+      const offeredList = buildEligibleSwapList({
+        currentExercise,
+        sessionExerciseId: "test-session-ex-id",
+        generatorInput,
+        pool,
+        alreadyInSession: new Set([currentExercise.id]),
+      });
+
+      const offeredIds = new Set(offeredList.map(e => e.id));
+
+      // COMPUTATION 2: Test each candidate with REAL swapExerciseForUser validator
+      const acceptedIds = new Set<string>();
+      
+      const profileData = {
         goal: "muscle_gain",
         level: profile.level,
         primary_track: "weights",
@@ -115,73 +391,73 @@ for (const profile of testProfiles) {
         date_of_birth: "1990-01-01",
         height_cm: 175,
         has_all_equipment: false,
-      },
-      equipmentIds: profile.equipment,
-      injuries: profile.injuries,
-      weightKg: 75,
-    });
-
-    // Get swap patterns
-    const patterns = getSwapPatterns(currentExercise.movement_pattern, generatorInput);
-    
-    // Build pool (same as findAlternatives does)
-    const pool = catalogueExercises.filter(e => 
-      patterns.includes(e.movement_pattern) && e.id !== currentExercise.id
-    );
-
-    // Build eligible swap list (what findAlternatives offers)
-    const offeredList = buildEligibleSwapList({
-      currentExercise,
-      sessionExerciseId: "test-session-ex-id",
-      generatorInput,
-      pool,
-      alreadyInSession: new Set([currentExercise.id]),
-    });
-
-    const offeredIds = new Set(offeredList.map(e => e.id));
-
-    // Validate each offered exercise (simulate validator)
-    const acceptedIds = new Set<string>();
-    for (const ex of pool) {
-      // Validator logic: exercise is in the eligible swap list
-      const isAccepted = offeredIds.has(ex.id);
-      if (isAccepted) {
-        acceptedIds.add(ex.id);
+      };
+      
+      for (const candidate of pool) {
+        const fakeSupabase = createFakeSupabase(
+          currentExercise,
+          candidate,
+          pool,
+          [currentExercise.id], // siblings in session
+          profileData,
+          profile.equipment,
+          profile.injuries,
+        );
+        
+        const result = await swapExerciseForUser(fakeSupabase, "test-user", {
+          sessionExerciseId: "test-session-ex-id",
+          newExerciseId: candidate.id,
+        });
+        
+        if (result.ok) {
+          acceptedIds.add(candidate.id);
+        }
       }
-    }
 
-    // Check for mismatches
-    const offeredButRefused = [...offeredIds].filter(id => !acceptedIds.has(id));
-    const acceptedNotOffered = [...acceptedIds].filter(id => !offeredIds.has(id));
+      // Check for mismatches
+      const offeredButRefused = [...offeredIds].filter(id => !acceptedIds.has(id));
+      const acceptedNotOffered = [...acceptedIds].filter(id => !offeredIds.has(id));
 
-    totalOfferedButRefused += offeredButRefused.length;
-    totalAcceptedNotOffered += acceptedNotOffered.length;
+      totalOfferedButRefused += offeredButRefused.length;
+      totalAcceptedNotOffered += acceptedNotOffered.length;
 
-    if (offeredButRefused.length > 0 || acceptedNotOffered.length > 0) {
-      console.log(`\n❌ MISMATCH: ${profile.name} → ${testCase.slug}`);
-      if (offeredButRefused.length > 0) {
-        const slugs = offeredButRefused
-          .map(id => catalogueExercises.find(e => e.id === id)?.slug || id)
-          .slice(0, 3);
-        console.log(`   Offered but refused: ${offeredButRefused.length} (${slugs.join(", ")}...)`);
-      }
-      if (acceptedNotOffered.length > 0) {
-        const slugs = acceptedNotOffered
-          .map(id => catalogueExercises.find(e => e.id === id)?.slug || id)
-          .slice(0, 3);
-        console.log(`   Accepted not offered: ${acceptedNotOffered.length} (${slugs.join(", ")}...)`);
+      if (offeredButRefused.length > 0 || acceptedNotOffered.length > 0) {
+        console.log(`\n❌ MISMATCH: ${profile.name} → ${testCase.slug}`);
+        if (offeredButRefused.length > 0) {
+          const slugs = offeredButRefused
+            .map(id => catalogueExercises.find(e => e.id === id)?.slug || id)
+            .slice(0, 3);
+          console.log(`   Offered but refused: ${offeredButRefused.length} (${slugs.join(", ")}...)`);
+        }
+        if (acceptedNotOffered.length > 0) {
+          const slugs = acceptedNotOffered
+            .map(id => catalogueExercises.find(e => e.id === id)?.slug || id)
+            .slice(0, 3);
+          console.log(`   Accepted not offered: ${acceptedNotOffered.length} (${slugs.join(", ")}...)`);
+        }
       }
     }
   }
+
+  console.log("\n" + "─".repeat(70));
+  console.log(`Tests run: ${testsRun}`);
+  console.log(`Offered but refused: ${totalOfferedButRefused}`);
+  console.log(`Accepted not offered: ${totalAcceptedNotOffered}`);
+
+  let failures = 0;
+  function check(label: string, ok: boolean, detail: string = ""): void {
+    if (!ok) failures++;
+    console.log(`  ${ok ? "✅" : "❌"} ${label}${detail ? ` -- ${detail}` : ""}`);
+  }
+
+  check("Gate: 0 offered-but-refused", totalOfferedButRefused === 0);
+  check("Gate: 0 accepted-not-offered", totalAcceptedNotOffered === 0);
+
+  console.log(`\n${failures === 0 ? "✅ PASSED" : `❌ FAILED: ${failures} check(s) failed`}\n`);
+  process.exit(failures === 0 ? 0 : 1);
 }
 
-console.log("\n" + "─".repeat(70));
-console.log(`Tests run: ${testsRun}`);
-console.log(`Offered but refused: ${totalOfferedButRefused}`);
-console.log(`Accepted not offered: ${totalAcceptedNotOffered}`);
-
-check("Gate: 0 offered-but-refused", totalOfferedButRefused === 0);
-check("Gate: 0 accepted-not-offered", totalAcceptedNotOffered === 0);
-
-console.log(`\n${failures === 0 ? "✅ PASSED" : `❌ FAILED: ${failures} check(s) failed`}\n`);
-process.exit(failures === 0 ? 0 : 1);
+main().catch((err) => {
+  console.error("Test failed:", err);
+  process.exit(1);
+});
