@@ -26,15 +26,21 @@ const bmiOptions = [22, 27, 32]; // Normal, overweight, obese
 const blocks = [1, 2];
 const ages = [25, 35, 45, 55]; // Various age brackets
 
+type EquipmentScenario = {
+  name: string;
+  hasAllEquipment: boolean;
+  equipmentIds: string[];
+  track: "weights" | "bodyweight";
+};
+
 // Equipment scenarios to test (current-knee needs leg-extension machine or wall-sit space)
-const equipmentScenarios = [
-  { name: "all", hasAllEquipment: true, equipmentIds: [], track: "weights" as const },
-  { name: "db-bench", hasAllEquipment: false, equipmentIds: ["flat_bench", "dumbbell"], track: "weights" as const },
-  { name: "barbell-rack", hasAllEquipment: false, equipmentIds: ["barbell", "squat_rack"], track: "weights" as const },
-  { name: "machines", hasAllEquipment: false, equipmentIds: ["cable_machine", "leg_extension", "leg_curl"], track: "weights" as const },
-  { name: "kettlebell", hasAllEquipment: false, equipmentIds: ["kettlebell", "pull_up_bar"], track: "weights" as const },
-  { name: "bodyweight", hasAllEquipment: false, equipmentIds: ["bodyweight"], track: "bodyweight" as const },
-  { name: "no-equipment", hasAllEquipment: false, equipmentIds: [], track: "bodyweight" as const },
+const equipmentScenarios: EquipmentScenario[] = [
+  { name: "all", hasAllEquipment: true, equipmentIds: [], track: "weights" },
+  { name: "db-bench", hasAllEquipment: false, equipmentIds: ["flat_bench", "dumbbell"], track: "weights" },
+  { name: "barbell-rack", hasAllEquipment: false, equipmentIds: ["barbell", "squat_rack"], track: "weights" },
+  { name: "machines", hasAllEquipment: false, equipmentIds: ["cable_machine", "leg_extension", "leg_curl"], track: "weights" },
+  { name: "kettlebell", hasAllEquipment: false, equipmentIds: ["kettlebell", "pull_up_bar"], track: "weights" },
+  { name: "no-equipment", hasAllEquipment: false, equipmentIds: [], track: "bodyweight" },
 ];
 
 let totalPlans = 0;

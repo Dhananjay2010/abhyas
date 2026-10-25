@@ -169,18 +169,32 @@ const mutants: Mutant[] = [
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
   },
   
-  // NOTE: Sissy squat ban mutant (line ~570) is DEAD CODE - removed from mutation list.
-  // Reason: weighted-sissy-squat has contraindicated_regions: ["knee"], so it's already
-  // filtered by isEligible() before reaching the explicit ban. Removing the ban produces
-  // identical output across 240+ test plans (all injury states × equipment × days × minutes).
-  // Verified: scripts/find-sissy-comprehensive.ts searched the grid and found 0 appearances.
+  // PR #73 Run 20: Sissy squat ban mutant (ESSENTIAL for past-knee swaps)
+  {
+    name: "Remove sissy-squat ban (allow for any knee injury)",
+    file: "src/lib/program/generate.ts",
+    pattern: /\/\/ PR #73 coordinator: ANY knee injury excludes sissy squats \(including weighted-sissy-squat\)\s+if \(input\.anyKneeInjury && ex\.slug\.includes\("sissy"\)\) \{/,
+    mutate: '// MUTANT: Removed sissy-squat ban\n  if (false) {',
+    tests: ["test:sissy-squat-ban"],
+  },
   
-  // NOTE: EXCLUDED_EXERCISE_SLUGS filter mutant (line 1071) is DEAD CODE - removed from mutation list.
-  // Reason: EXCLUDED_EXERCISE_SLUGS (behind-neck presses, guillotine bench, etc.) has ZERO
-  // overlap with KNEE_SAFE_QUAD_EXERCISES or PAST_KNEE_LUNGE_EXERCISES. The filter at line 1071
-  // applies only to knee-safe candidates, so removing it cannot change output.
-  // Verified: static intersection check shows 0 overlapping slugs; dynamic test shows
-  // baseline hash == mutated hash (scripts/test-excluded-mutant.ts).
+  // PR #73 Run 20: M3 protection - never drop the only pull on knee-injured full-body days
+  {
+    name: "Remove M3 pull protection (allow dropping only pull during trim)",
+    file: "src/lib/program/generate.ts",
+    pattern: /\/\/ Never drop the only pull or only push\s+if \(isPull && pullCount === 1\) continue;/,
+    mutate: '// MUTANT: Removed pull protection\n                // if (isPull && pullCount === 1) continue;',
+    tests: ["test:knee-safety-matrix"],
+  },
+  
+  // PR #73 Run 20: M3 protection - never drop the only push on knee-injured full-body days
+  {
+    name: "Remove M3 push protection (allow dropping only push during trim)",
+    file: "src/lib/program/generate.ts",
+    pattern: /if \(isPush && pushCount === 1\) continue;/,
+    mutate: '// MUTANT: Removed push protection\n                // if (isPush && pushCount === 1) continue;',
+    tests: ["test:knee-safety-matrix"],
+  },
 ];
 
 let killed = 0;

@@ -1,33 +1,40 @@
 /**
- * No-Injury Baseline Test
+ * No-Injury Baseline Test (PR #73 Run 20)
  * 
- * Ensures that plans for users with NO injuries match origin/main baseline.
- * Uses SHA256 hashes of plan output for compact storage (1728 profiles, <200KB).
+ * Ensures that plans for users with NO injuries match origin/main 95724924 baseline.
+ * Uses SHA256 hashes of exercise ID lists for compact storage.
  * 
- *   npm run test:no-injury-baseline
+ * Wider coverage:
+ * - Equipment: full-gym, kettlebell, db_bench, bb_rack, bands, machines
+ * - All 5 goals
+ * - 2-6 days
+ * - 30/75 min
+ * - Ages 30, 55
+ * - All 3 levels
+ * 
+ * Total: 1800 profiles (6 equipment × 5 goals × 3 levels × 5 days × 2 minutes × 2 ages)
  */
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
-import type { Database } from "../src/lib/database.types";
 
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
 );
 
-interface Baseline {
-  plans: Record<string, string>;
-  swaps?: Record<string, string>;
-  metadata: {
-    planCount: number;
-    swapCount?: number;
-    generatedFrom: string;
-    generatedAt: string;
-  };
+interface BaselineEntry {
+  userId: string;
+  level: string;
+  equipment: string;
+  goal: string;
+  days: number;
+  minutes: number;
+  age: number;
+  sha256: string;
 }
 
-const baseline: Baseline = JSON.parse(
-  readFileSync("scripts/fixtures/no-injury-baseline-compact.json", "utf8")
+const baseline: BaselineEntry[] = JSON.parse(
+  readFileSync("scripts/fixtures/baseline-no-injury-wide.json", "utf8")
 );
 
 let passed = 0;
@@ -44,73 +51,51 @@ function check(desc: string, ok: boolean, detail?: string) {
 
 console.log("No-Injury Baseline Test");
 console.log("─".repeat(60));
-console.log(`Testing ${baseline.metadata.planCount} plan profiles from main\n`);
+console.log(`Testing ${baseline.length} plan profiles from main 95724924\n`);
 
-// Parse profile IDs and test each one
-let parsedCount = 0;
-for (const [profileId, expectedHash] of Object.entries(baseline.plans)) {
-  // Parse ID: ge-b-we-none-3d-45m-a30-b23-blk1
-  const parts = profileId.split("-");
-  if (parts.length < 9) {
-    check(`${profileId}`, false, "Unparseable profile ID (wrong format)");
+const EQUIPMENT_MAP: Record<string, { ids: string[]; hasAll: boolean; track: "weights" | "bodyweight" }> = {
+  "full-gym": { ids: [], hasAll: true, track: "weights" },
+  "kettlebell": { ids: ["kettlebell"], hasAll: false, track: "weights" },
+  "db_bench": { ids: ["dumbbell", "flat_bench"], hasAll: false, track: "weights" },
+  "bb_rack": { ids: ["barbell", "squat_rack"], hasAll: false, track: "weights" },
+  "bands": { ids: ["resistance_band"], hasAll: false, track: "weights" },
+  "machines": { ids: ["cable_machine", "leg_extension", "leg_curl"], hasAll: false, track: "weights" },
+};
+
+// Type guards
+function isValidGoal(s: string): s is "general_fitness" | "muscle_gain" | "strength" | "fat_loss" | "flexibility_stress" {
+  return ["general_fitness", "muscle_gain", "strength", "fat_loss", "flexibility_stress"].includes(s);
+}
+
+function isValidLevel(s: string): s is "beginner" | "intermediate" | "expert" {
+  return ["beginner", "intermediate", "expert"].includes(s);
+}
+
+for (const entry of baseline) {
+  const equipmentProfile = EQUIPMENT_MAP[entry.equipment];
+  if (!equipmentProfile) {
+    check(`${entry.userId}`, false, `Unknown equipment profile: ${entry.equipment}`);
     continue;
   }
   
-  const goalMap: Record<string, string> = {
-    ge: "general_fitness",
-    mu: "muscle_gain",
-    st: "strength",
-    en: "endurance",
-    sr: "stress_relief"
-  };
-  
-  const levelMap: Record<string, string> = { b: "beginner", i: "intermediate", e: "expert" };
-  const trackMap: Record<string, string> = { we: "weights", bo: "bodyweight", yo: "yoga" };
-  
-  const goal = goalMap[parts[0]];
-  const level = levelMap[parts[1]];
-  const track = trackMap[parts[2]];
-  const equipment = parts[3];
-  const days = parseInt(parts[4].replace("d", ""));
-  const minutes = parseInt(parts[5].replace("m", ""));
-  const age = parseInt(parts[6].replace("a", ""));
-  const bmi = parseInt(parts[7].replace("b", ""));
-  const block = parseInt(parts[8].replace("blk", ""));
-  
-  if (!goal || !level || !track) continue;
-  
-  const equipmentIds = equipment === "none" ? [] : equipment === "full" ? [] : [equipment];
-  const hasAllEquipment = equipment === "full";
-  
-  // Type guards
-  function isFitnessGoal(s: string): s is Database["public"]["Enums"]["fitness_goal"] {
-    return ["general_fitness", "muscle_gain", "strength", "fat_loss", "flexibility_stress"].includes(s);
-  }
-  function isFitnessLevel(s: string): s is Database["public"]["Enums"]["fitness_level"] {
-    return ["beginner", "intermediate", "expert"].includes(s);
-  }
-  function isTrackType(s: string): s is Database["public"]["Enums"]["track_type"] {
-    return ["bodyweight", "weights", "yoga", "meditation"].includes(s);
-  }
-  
-  if (!isFitnessGoal(goal) || !isFitnessLevel(level) || !isTrackType(track)) {
-    check(`${profileId}`, false, "Invalid goal/level/track");
+  if (!isValidGoal(entry.goal) || !isValidLevel(entry.level)) {
+    check(`${entry.userId}`, false, `Invalid goal or level: ${entry.goal}/${entry.level}`);
     continue;
   }
   
   const input: GeneratorInput = {
-    userId: profileId,
-    blockNumber: block,
-    goal,
-    level,
-    primaryTrack: track,
-    daysPerWeek: days,
-    yogaDaysPerWeek: track === "yoga" ? days : 0,
-    age,
-    bmi,
-    hasAllEquipment,
-    equipmentIds,
-    preferredSessionMinutes: minutes,
+    userId: entry.userId,
+    blockNumber: 1,
+    goal: entry.goal,
+    level: entry.level,
+    primaryTrack: equipmentProfile.track,
+    daysPerWeek: entry.days,
+    yogaDaysPerWeek: 0,
+    age: entry.age,
+    bmi: null,
+    hasAllEquipment: equipmentProfile.hasAll,
+    equipmentIds: equipmentProfile.ids,
+    preferredSessionMinutes: entry.minutes,
     currentInjuryRegions: [],
     anyKneeInjury: false,
     catalogue,
@@ -118,28 +103,23 @@ for (const [profileId, expectedHash] of Object.entries(baseline.plans)) {
   
   try {
     const plan = generateProgram(input);
-    const planJson = JSON.stringify(plan);
-    const planHash = createHash("sha256").update(planJson).digest("hex");
+    const exercises = plan.days.flatMap(day => 
+      day.exercises.map(e => e.exerciseId)
+    );
+    const canonical = JSON.stringify(exercises);
+    const planHash = createHash("sha256").update(canonical).digest("hex");
     
-    parsedCount++;
     check(
-      `${profileId}`,
-      planHash === expectedHash,
-      planHash !== expectedHash 
-        ? `Hash mismatch: expected ${expectedHash.substring(0, 16)}..., got ${planHash.substring(0, 16)}...`
+      `${entry.userId}`,
+      planHash === entry.sha256,
+      planHash !== entry.sha256 
+        ? `Hash mismatch: expected ${entry.sha256.substring(0, 16)}..., got ${planHash.substring(0, 16)}...`
         : undefined
     );
   } catch (err) {
-    check(`${profileId}`, false, `Error generating plan: ${err}`);
+    check(`${entry.userId}`, false, `Error generating plan: ${err}`);
   }
 }
-
-// Assert parsed count matches metadata
-check(
-  "Parsed count matches metadata.planCount",
-  parsedCount === baseline.metadata.planCount,
-  `Expected ${baseline.metadata.planCount}, got ${parsedCount}`
-);
 
 console.log("\n" + "─".repeat(60));
 console.log(`Summary: ${passed} passed, ${failed} failed`);

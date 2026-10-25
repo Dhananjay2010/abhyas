@@ -1,94 +1,113 @@
 /**
- * Sissy Squat Ban Test (PR #73 Run 18)
+ * Sissy Squat Ban Test (PR #73 Run 20)
  * 
- * NOTE: The explicit ban at generate.ts:570 is technically REDUNDANT because
- * weighted-sissy-squat has contraindicated_regions: ["knee"], which already
- * filters it via isEligible(). However, the explicit ban serves as defense-in-depth
- * and documents the design intent clearly.
+ * Verifies that weighted-sissy-squat is excluded from plans for ANY knee injury.
  * 
- * This test verifies that weighted-sissy-squat never appears in knee-injured plans.
- * The mutant for this ban was removed because it's dead code (verified via comprehensive
- * grid search: 0 appearances across 240+ plans when ban is removed).
+ * The explicit ban at generate.ts:570 is ESSENTIAL for past-knee injuries because:
+ * - isEligible() only filters contraindications against currentInjuryRegions
+ * - For past-knee (anyKneeInjury=true, currentInjuryRegions=[]), line 570 is
+ *   the ONLY barrier preventing weighted-sissy-squat from appearing
+ * - Without this guard, sissy variants would appear in past-knee plans and swaps
  */
 
 import { readFileSync } from "node:fs";
-import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import {
+  generateProgram,
+  type GeneratorInput,
+  type CandidateExercise,
+} from "../src/lib/program/generate";
 
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
 );
 
-// Find weighted-sissy-squat in catalogue
-const weightedSissySquat = catalogue.find(e => e.slug === "weighted-sissy-squat");
-if (!weightedSissySquat) {
-  console.log("✗ weighted-sissy-squat not found in catalogue");
+if (!Array.isArray(catalogue) || catalogue.length === 0) {
+  console.error("❌ FATAL: catalogue.json is empty or invalid");
   process.exit(1);
 }
 
-console.log("Sissy Squat Ban Test (PR #73 Run 18)");
+console.log("Sissy Squat Ban Test (PR #73 Run 20)");
 console.log("─".repeat(60));
 
-let passed = 0;
 let failed = 0;
 
 function check(desc: string, ok: boolean, detail?: string) {
   if (ok) {
     console.log(`  ✓ ${desc}`);
-    passed++;
   } else {
     console.log(`  ✗ ${desc}${detail ? ` — ${detail}` : ""}`);
     failed++;
   }
 }
 
-// Test with past-knee injury, expert level, full equipment
-// This should exclude weighted-sissy-squat from all generated plans
-const byId = new Map(catalogue.map(e => [e.id, e]));
+const byId = new Map(catalogue.map((e) => [e.id, e]));
+const sissy = catalogue.find((e) => e.slug.includes("sissy"));
 
-let plansWithSissy = 0;
-const testCases = [
-  { daysPerWeek: 3, sessionMinutes: 45 },
-  { daysPerWeek: 4, sessionMinutes: 60 },
-  { daysPerWeek: 5, sessionMinutes: 75 },
-];
+if (!sissy) {
+  console.error("❌ FATAL: No sissy exercise found in catalogue");
+  process.exit(1);
+}
 
-for (const tc of testCases) {
-  const input: GeneratorInput = {
-    userId: `sissy-test-${tc.daysPerWeek}d-${tc.sessionMinutes}m`,
-    blockNumber: 1,
-    goal: "muscle_gain",
-    level: "expert",
-    primaryTrack: "weights",
-    daysPerWeek: tc.daysPerWeek,
-    yogaDaysPerWeek: 0,
-    age: 35,
-    bmi: 24,
-    hasAllEquipment: true,
-    equipmentIds: [],
-    currentInjuryRegions: [],
-    anyKneeInjury: true,
-    preferredSessionMinutes: tc.sessionMinutes,
-    catalogue,
-  };
+console.log(`Testing sissy exercise: ${sissy.slug} (id=${sissy.id})`);
+console.log(
+  `  contraindicated_regions: ${JSON.stringify(sissy.contraindicated_regions)}`
+);
+console.log("");
 
-  const program = generateProgram(input);
-  
-  for (const day of program.days) {
-    for (const ex of day.exercises) {
-      const exercise = byId.get(ex.exerciseId);
-      if (exercise?.slug.includes("sissy")) {
-        plansWithSissy++;
-        console.log(`  Found ${exercise.slug} in ${day.label} of ${input.userId}`);
+// Test comprehensive grid: past-knee AND current-knee across equipment/days/minutes
+const testProfiles: GeneratorInput[] = [];
+
+for (const current of [true, false]) {
+  for (const hasAll of [true, false]) {
+    for (const days of [3, 4, 5]) {
+      for (const minutes of [45, 60, 75]) {
+        testProfiles.push({
+          userId: `test-${current ? "current" : "past"}-${hasAll ? "all" : "limited"}-${days}d-${minutes}m`,
+          blockNumber: 1,
+          goal: "muscle_gain",
+          level: "expert",
+          primaryTrack: "weights",
+          daysPerWeek: days,
+          yogaDaysPerWeek: 0,
+          age: 30,
+          bmi: 22,
+          hasAllEquipment: hasAll,
+          equipmentIds: hasAll ? [] : ["dumbbell", "flat_bench"],
+          currentInjuryRegions: current ? ["knee"] : [],
+          anyKneeInjury: true,
+          preferredSessionMinutes: minutes,
+          catalogue,
+        });
       }
     }
   }
 }
 
-check(
-  `Sissy squats excluded from ${testCases.length} test plans`,
-  plansWithSissy === 0,
-  plansWithSissy > 0 ? `${plansWithSissy} exercises leaked sissy squats` : undefined
-);
+console.log(`Testing ${testProfiles.length} profiles (current/past × equipment × days × minutes):\n`);
 
-console.log(`\n${failed === 0 ? "✓ All tests passed!" : `✗ ${failed} test(s) failed`}`);
-process.exit(failed > 0 ? 1 : 0);
+for (const input of testProfiles) {
+  const plan = generateProgram(input);
+  const hasSissy = plan.days.some((day) =>
+    day.exercises.some((ex) => {
+      const e = byId.get(ex.exerciseId);
+      return e?.slug.includes("sissy");
+    })
+  );
+  
+  check(
+    `${input.userId}: no sissy in plan`,
+    !hasSissy,
+    hasSissy ? "Found sissy in plan" : undefined
+  );
+}
+
+// Final report
+console.log("");
+console.log("─".repeat(60));
+if (failed > 0) {
+  console.log(`FAILED: ${failed} checks failed`);
+  process.exit(1);
+} else {
+  console.log(`PASSED: All ${testProfiles.length} profiles verified - no sissy squats found`);
+  process.exit(0);
+}

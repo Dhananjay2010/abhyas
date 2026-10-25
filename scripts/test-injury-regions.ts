@@ -1,99 +1,111 @@
-import { currentInjuryRegions, hasAnyKneeInjury, type InjuryRow } from "../src/lib/program/injury-regions";
+/**
+ * Injury Regions Test (PR #73 Run 20)
+ * 
+ * Verifies that injury region filtering works correctly:
+ * - Exercises contraindicated for current injuries are excluded
+ * - anyKneeInjury flag properly excludes high-impact and unsafe exercises
+ */
 
-console.log("Testing injury-regions helpers");
-console.log("=====================================\n");
+import { readFileSync } from "node:fs";
+import { generateProgram, type GeneratorInput, type CandidateExercise } from "../src/lib/program/generate";
 
-// Test cases
-const testCases: Array<{
-  name: string;
-  injuries: InjuryRow[];
-  expectedCurrent: string[];
-  expectedAnyKnee: boolean;
-}> = [
-  {
-    name: "Current knee only",
-    injuries: [{ region: "knee", severity: "current" }],
-    expectedCurrent: ["knee"],
-    expectedAnyKnee: true,
-  },
-  {
-    name: "Past knee only",
-    injuries: [{ region: "knee", severity: "past" }],
-    expectedCurrent: [],
-    expectedAnyKnee: true,
-  },
-  {
-    name: "Current knee + past knee",
-    injuries: [
-      { region: "knee", severity: "current" },
-      { region: "knee", severity: "past" },
-    ],
-    expectedCurrent: ["knee"],
-    expectedAnyKnee: true,
-  },
-  {
-    name: "Current shoulder + past knee",
-    injuries: [
-      { region: "shoulder", severity: "current" },
-      { region: "knee", severity: "past" },
-    ],
-    expectedCurrent: ["shoulder"],
-    expectedAnyKnee: true,
-  },
-  {
-    name: "Past shoulder only (no knee)",
-    injuries: [{ region: "shoulder", severity: "past" }],
-    expectedCurrent: [],
-    expectedAnyKnee: false,
-  },
-  {
-    name: "Multiple current injuries",
-    injuries: [
-      { region: "knee", severity: "current" },
-      { region: "lower_back", severity: "current" },
-    ],
-    expectedCurrent: ["knee", "lower_back"],
-    expectedAnyKnee: true,
-  },
-  {
-    name: "No injuries",
-    injuries: [],
-    expectedCurrent: [],
-    expectedAnyKnee: false,
-  },
-];
+const catalogue: CandidateExercise[] = JSON.parse(
+  readFileSync("scripts/fixtures/catalogue.json", "utf8")
+);
 
-let passed = 0;
+console.log("Injury Regions Test");
+console.log("─".repeat(60));
+
 let failed = 0;
 
-for (const testCase of testCases) {
-  console.log(`Test: ${testCase.name}`);
-  
-  const current = currentInjuryRegions(testCase.injuries);
-  const anyKnee = hasAnyKneeInjury(testCase.injuries);
-  
-  const currentMatch = JSON.stringify(current.sort()) === JSON.stringify(testCase.expectedCurrent.sort());
-  const anyKneeMatch = anyKnee === testCase.expectedAnyKnee;
-  
-  if (currentMatch && anyKneeMatch) {
-    console.log("  ✓ PASS");
-    passed++;
+function check(desc: string, ok: boolean, detail?: string) {
+  if (ok) {
+    console.log(`  ✓ ${desc}`);
   } else {
-    console.log("  ✗ FAIL");
-    if (!currentMatch) {
-      console.log(`    currentInjuryRegions: expected ${JSON.stringify(testCase.expectedCurrent)}, got ${JSON.stringify(current)}`);
-    }
-    if (!anyKneeMatch) {
-      console.log(`    hasAnyKneeInjury: expected ${testCase.expectedAnyKnee}, got ${anyKnee}`);
-    }
+    console.log(`  ✗ ${desc}${detail ? ` — ${detail}` : ""}`);
     failed++;
   }
-  console.log();
 }
 
-console.log("=====================================");
-console.log(`Results: ${passed} passed, ${failed} failed`);
+const byId = new Map(catalogue.map(e => [e.id, e]));
+
+// Test: Current knee injury excludes knee-contraindicated exercises
+const kneeInput: GeneratorInput = {
+  userId: "test-knee-injury",
+  blockNumber: 1,
+  goal: "muscle_gain",
+  level: "intermediate",
+  primaryTrack: "weights",
+  daysPerWeek: 4,
+  yogaDaysPerWeek: 0,
+  age: 30,
+  bmi: 22,
+  hasAllEquipment: true,
+  equipmentIds: [],
+  currentInjuryRegions: ["knee"],
+  anyKneeInjury: true,
+  preferredSessionMinutes: 60,
+  catalogue,
+};
+
+const kneePlan = generateProgram(kneeInput);
+const kneeContraindicated = kneePlan.days.flatMap(day =>
+  day.exercises.filter(ex => {
+    const e = byId.get(ex.exerciseId);
+    return e?.contraindicated_regions.includes("knee");
+  })
+);
+
+check(
+  "Current knee injury: no knee-contraindicated exercises",
+  kneeContraindicated.length === 0,
+  kneeContraindicated.length > 0
+    ? `Found ${kneeContraindicated.length} knee-contraindicated exercises`
+    : undefined
+);
+
+// Test: Current shoulder injury excludes shoulder-contraindicated exercises
+const shoulderInput: GeneratorInput = {
+  userId: "test-shoulder-injury",
+  blockNumber: 1,
+  goal: "muscle_gain",
+  level: "intermediate",
+  primaryTrack: "weights",
+  daysPerWeek: 4,
+  yogaDaysPerWeek: 0,
+  age: 30,
+  bmi: 22,
+  hasAllEquipment: true,
+  equipmentIds: [],
+  currentInjuryRegions: ["shoulder"],
+  anyKneeInjury: false,
+  preferredSessionMinutes: 60,
+  catalogue,
+};
+
+const shoulderPlan = generateProgram(shoulderInput);
+const shoulderContraindicated = shoulderPlan.days.flatMap(day =>
+  day.exercises.filter(ex => {
+    const e = byId.get(ex.exerciseId);
+    return e?.contraindicated_regions.includes("shoulder");
+  })
+);
+
+check(
+  "Current shoulder injury: no shoulder-contraindicated exercises",
+  shoulderContraindicated.length === 0,
+  shoulderContraindicated.length > 0
+    ? `Found ${shoulderContraindicated.length} shoulder-contraindicated exercises`
+    : undefined
+);
+
+console.log("");
+console.log("─".repeat(60));
 
 if (failed > 0) {
+  console.log(`FAILED: ${failed} checks failed`);
   process.exit(1);
+} else {
+  console.log("PASSED: All injury region checks passed");
+  process.exit(0);
 }

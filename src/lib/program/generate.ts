@@ -1251,17 +1251,21 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
                       );
                     } else {
                       // No safe replacement: skip wall-sit for this day to preserve pull/push
-                      continue;
+                      // (Do not add wall-sit, but continue processing the day)
+                      replaceIdx = -1;
                     }
                   }
                 }
               }
               
-              // Release the replaced exercise from usedInBlock
-              const replacedEx = pickedExercises[replaceIdx].ex;
-              usedInBlock.delete(replacedEx.id);
-              
-              pickedExercises[replaceIdx] = { ex: added, slotIndex: pickedExercises[replaceIdx].slotIndex };
+              // Only replace if we found a safe slot
+              if (replaceIdx >= 0) {
+                // Release the replaced exercise from usedInBlock
+                const replacedEx = pickedExercises[replaceIdx].ex;
+                usedInBlock.delete(replacedEx.id);
+                
+                pickedExercises[replaceIdx] = { ex: added, slotIndex: pickedExercises[replaceIdx].slotIndex };
+              }
             } else {
               // Normal day with accessory slots: INSERT as last non-core item
               pickedExercises.splice(insertIdx, 0, { ex: added, slotIndex: Math.max(mainSlotCount, insertIdx) });
