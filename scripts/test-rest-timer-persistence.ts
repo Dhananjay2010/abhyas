@@ -53,7 +53,6 @@ const sessionId1 = "session-1";
 const record1: RestRecord = {
   sessionId: sessionId1,
   sessionExerciseId: "exercise-1",
-  setNumber: 2,
   restEndsAt: 1000000,
 };
 
@@ -64,7 +63,6 @@ const loaded1 = loadRest(storage1, sessionId1, () => 999000);
 check("Loaded record matches saved record", loaded1 !== null && loaded1.restEndsAt === 1000000);
 check("Loaded record has correct session id", loaded1?.sessionId === sessionId1);
 check("Loaded record has correct exercise id", loaded1?.sessionExerciseId === "exercise-1");
-check("Loaded record has correct set number", loaded1?.setNumber === 2);
 
 // ===== CASE 2: Load once now() >= restEndsAt returns null and removes the key =====
 console.log("\nCase 2: Load once now() >= restEndsAt returns null and removes the key");
@@ -74,7 +72,6 @@ const sessionId2 = "session-2";
 const record2: RestRecord = {
   sessionId: sessionId2,
   sessionExerciseId: "exercise-2",
-  setNumber: 1,
   restEndsAt: 1000000,
 };
 
@@ -100,7 +97,6 @@ const storage3 = createFakeStorage();
 const record3: RestRecord = {
   sessionId: "session-3",
   sessionExerciseId: "exercise-3",
-  setNumber: 1,
   restEndsAt: 1000000,
 };
 
@@ -174,7 +170,6 @@ const sessionId6 = "session-6";
 const record6: RestRecord = {
   sessionId: sessionId6,
   sessionExerciseId: "exercise-6",
-  setNumber: 1,
   restEndsAt: 1000000,
 };
 

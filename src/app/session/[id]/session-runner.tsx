@@ -280,7 +280,18 @@ export function SessionRunner({
   const current = exercises[exerciseIndex];
   const restSeconds = settings.restOverrideSeconds ?? current?.restSeconds ?? 90;
 
-  const restPersistence = useRestPersistence(sessionId, current?.id);
+  // Stable restore callback that seeds both restEndsAt and restRemaining
+  const handleRestRestore = useCallback((endsAt: number) => {
+    setRestEndsAt(endsAt);
+    setRestRemaining(Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)));
+  }, []);
+
+  const restPersistence = useRestPersistence(
+    sessionId,
+    current?.id,
+    handleRestRestore,
+    Date.now,
+  );
 
   const startRest = useCallback((seconds: number) => {
     const endsAt = Date.now() + seconds * 1000;
@@ -296,20 +307,9 @@ export function SessionRunner({
     
     // Persist to sessionStorage so it survives a reload
     if (current) {
-      restPersistence.save(current.id, current.sets.length + 1, endsAt);
+      restPersistence.save(current.id, endsAt);
     }
   }, [current, restPersistence]);
-
-  // Restore rest timer on mount if one was saved
-  useEffect(() => {
-    const savedRestEndsAt = restPersistence.load();
-    if (savedRestEndsAt !== null) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Loading from external storage (sessionStorage)
-      setRestEndsAt(savedRestEndsAt);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount
-
 
   // Close the swap sheet when the active exercise changes
   useEffect(() => {

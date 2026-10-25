@@ -5,7 +5,7 @@
  * sleeps or real browsers.
  */
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useRef } from "react";
 
 export type StorageAdapter = {
   getItem: (key: string) => string | null;
@@ -16,7 +16,6 @@ export type StorageAdapter = {
 export type RestRecord = {
   sessionId: string;
   sessionExerciseId: string;
-  setNumber: number;
   restEndsAt: number;
 };
 
@@ -29,6 +28,37 @@ const NO_OP_STORAGE: StorageAdapter = {
   setItem: () => {},
   removeItem: () => {},
 };
+
+/**
+ * Get sessionStorage with SecurityError handling.
+ * Some browsers throw when storage is disabled or in private mode.
+ */
+function getSessionStorage(): StorageAdapter {
+  try {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      return window.sessionStorage;
+    }
+  } catch {
+    // SecurityError or blocked storage
+  }
+  return NO_OP_STORAGE;
+}
+
+/**
+ * Type guard for RestRecord - validates all fields.
+ */
+function isRestRecord(value: unknown): value is RestRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "sessionId" in value &&
+    typeof (value as Record<string, unknown>).sessionId === "string" &&
+    "sessionExerciseId" in value &&
+    typeof (value as Record<string, unknown>).sessionExerciseId === "string" &&
+    "restEndsAt" in value &&
+    typeof (value as Record<string, unknown>).restEndsAt === "number"
+  );
+}
 
 /**
  * Build the storage key for a session's rest timer.
@@ -60,8 +90,9 @@ export function saveRest(storage: StorageAdapter, record: RestRecord): void {
  * Load a rest timer from storage.
  *
  * Returns the record only if:
- * - The JSON is valid
+ * - The JSON is valid and passes type guard
  * - restEndsAt is in the future (relative to now())
+ * - restEndsAt is within 15 minutes (guards against garbage/hand-edited values)
  * - The session id matches
  *
  * Otherwise removes the key and returns null. If storage throws, returns null
@@ -77,18 +108,27 @@ export function loadRest(
     const value = storage.getItem(key);
     if (value === null) return null;
 
-    const parsed = JSON.parse(value) as RestRecord;
+    const parsed: unknown = JSON.parse(value);
+    
+    // Type guard: validate all fields
+    if (!isRestRecord(parsed)) {
+      storage.removeItem(key);
+      return null;
+    }
 
-    // Valid only if it's for this session and hasn't expired
+    const currentTime = now();
+    const MAX_REST_DURATION = 15 * 60 * 1000; // 15 minutes in ms
+
+    // Valid only if it's for this session, hasn't expired, and is within reasonable bounds
     if (
       parsed.sessionId === sessionId &&
-      typeof parsed.restEndsAt === "number" &&
-      parsed.restEndsAt > now()
+      parsed.restEndsAt > currentTime &&
+      parsed.restEndsAt <= currentTime + MAX_REST_DURATION
     ) {
       return parsed;
     }
 
-    // Expired or wrong session: clean up
+    // Expired, wrong session, or unreasonable value: clean up
     storage.removeItem(key);
     return null;
   } catch {
@@ -119,8 +159,8 @@ export function clearRest(storage: StorageAdapter, sessionId: string): void {
 /**
  * React hook for rest persistence.
  *
- * Returns callbacks to save/load/clear the rest timer. Called once on mount to
- * restore a rest in progress, and whenever the rest state changes.
+ * Returns callbacks to save/clear the rest timer, plus manages restoration
+ * via an onRestore callback that runs in an effect (satisfying lint rules).
  *
  * The returned object is stable (memoized) so it doesn't cause useCallback
  * dependencies to change on every render.
@@ -128,27 +168,32 @@ export function clearRest(storage: StorageAdapter, sessionId: string): void {
 export function useRestPersistence(
   sessionId: string,
   currentSessionExerciseId: string | undefined,
-  storage: StorageAdapter = typeof sessionStorage !== "undefined" ? sessionStorage : NO_OP_STORAGE,
+  onRestore: (restEndsAt: number) => void,
   now: () => number = Date.now,
 ) {
+  const storage = getSessionStorage();
+  const hasRestoredRef = useRef(false);
+
+  // Restore on mount if a valid rest exists for the current exercise
+  useEffect(() => {
+    if (hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+    
+    const record = loadRest(storage, sessionId, now);
+    if (record && record.sessionExerciseId === currentSessionExerciseId) {
+      onRestore(record.restEndsAt);
+    } else if (record) {
+      // Wrong exercise: clear it
+      clearRest(storage, sessionId);
+    }
+  }, [sessionId, currentSessionExerciseId, storage, now, onRestore]);
+
   return useMemo(() => ({
-    save: (sessionExerciseId: string, setNumber: number, restEndsAt: number) => {
-      saveRest(storage, { sessionId, sessionExerciseId, setNumber, restEndsAt });
-    },
-    load: () => {
-      const record = loadRest(storage, sessionId, now);
-      // Only restore if it's for the current exercise
-      if (record && record.sessionExerciseId === currentSessionExerciseId) {
-        return record.restEndsAt;
-      }
-      // Wrong exercise or expired: clear it
-      if (record) {
-        clearRest(storage, sessionId);
-      }
-      return null;
+    save: (sessionExerciseId: string, restEndsAt: number) => {
+      saveRest(storage, { sessionId, sessionExerciseId, restEndsAt });
     },
     clear: () => {
       clearRest(storage, sessionId);
     },
-  }), [sessionId, currentSessionExerciseId, storage, now]);
+  }), [sessionId, storage]);
 }
