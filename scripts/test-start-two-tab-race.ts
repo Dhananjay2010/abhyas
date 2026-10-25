@@ -90,7 +90,7 @@ await test("L2: two-tab Start race returns same session without duplicate key er
     planned_reps_min: 8,
     planned_reps_max: 12,
     rest_seconds: 90,
-    metric: "reps",
+    metric: "reps" as const,
   };
   await db.client.from("session_exercises").insert(ex1);
 
@@ -142,7 +142,7 @@ await test("L2: losing tab's exercise insert is skipped when winner already inse
     {
       id: "bench-press",
       name: "Bench Press",
-      metric: "reps",
+      metric: "reps" as const,
     },
   ];
 
@@ -162,7 +162,7 @@ await test("L2: losing tab's exercise insert is skipped when winner already inse
     planned_reps_min: 8,
     planned_reps_max: 12,
     rest_seconds: 90,
-    metric: "reps",
+    metric: "reps" as const,
   };
   await db.client.from("session_exercises").insert(ex1);
 
