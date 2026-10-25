@@ -23,6 +23,10 @@ function check(desc: string, passed: boolean, detail?: string): void {
   }
 }
 
+// Type narrowing helpers
+const numOrNull = (v: unknown): number | null => (typeof v === "number" ? v : null);
+const strOrNull = (v: unknown): string | null => (typeof v === "string" ? v : null);
+
 // In-memory ProgressClient
 class InMemoryProgressClient implements ProgressClient {
   private store = new Map<string, ProgressWrite>();
@@ -34,13 +38,13 @@ class InMemoryProgressClient implements ProgressClient {
         const row: ProgressWrite = {
           user_id: String(data.user_id),
           exercise_id: String(data.exercise_id),
-          current_working_weight_kg: data.current_working_weight_kg as number | null,
-          current_target_reps: data.current_target_reps as number | null,
+          current_working_weight_kg: numOrNull(data.current_working_weight_kg),
+          current_target_reps: numOrNull(data.current_target_reps),
           consecutive_failures: Number(data.consecutive_failures),
-          last_performed_on: data.last_performed_on as string | null,
-          best_weight_kg: data.best_weight_kg as number | null,
-          best_reps: data.best_reps as number | null,
-          best_e1rm: data.best_e1rm as number | null,
+          last_performed_on: strOrNull(data.last_performed_on),
+          best_weight_kg: numOrNull(data.best_weight_kg),
+          best_reps: numOrNull(data.best_reps),
+          best_e1rm: numOrNull(data.best_e1rm),
           total_sessions: Number(data.total_sessions),
           updated_at: String(data.updated_at),
         };
@@ -761,8 +765,8 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
         { reps: null, weightKg: null, durationSeconds: 40 },
       ],
       plannedSets: 3,
-      repsMin: 30,
-      repsMax: 45,
+      repsMin: 20,
+      repsMax: 40,
       feel: null,
       meta: {
         mechanic: "isolation",
@@ -805,8 +809,8 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
         { reps: null, weightKg: null, durationSeconds: 40 },
       ],
       plannedSets: 3,
-      repsMin: 30,
-      repsMax: 45,
+      repsMin: 20,
+      repsMax: 40,
       feel: null,
       meta: {
         mechanic: "isolation",
@@ -849,8 +853,8 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
         { reps: null, weightKg: null, durationSeconds: 40 },
       ],
       plannedSets: 3,
-      repsMin: 30,
-      repsMax: 45,
+      repsMin: 20,
+      repsMax: 40,
       feel: null,
       meta: {
         mechanic: "isolation",
@@ -893,8 +897,8 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
         { reps: null, weightKg: null, durationSeconds: 45 },
       ],
       plannedSets: 3,
-      repsMin: 30,
-      repsMax: 45,
+      repsMin: 20,
+      repsMax: 40,
       feel: null,
       meta: {
         mechanic: "isolation",

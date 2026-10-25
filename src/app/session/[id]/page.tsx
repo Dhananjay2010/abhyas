@@ -131,6 +131,7 @@ export default async function SessionPage({
       progress,
       remembersWeights,
       isDeload: session.is_deload,
+      userUnits: profileRes.data?.units,
     });
   });
 

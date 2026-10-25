@@ -277,6 +277,7 @@ const row: SessionExerciseInput = {
     id: "ex-pushup",
     name: "Push-up",
     cue: "Chest to ground",
+    mechanic: "compound",
     movement_pattern: "horizontal_press",
     primary_muscles: ["chest", "triceps"],
     equipment_ids: [],
@@ -303,6 +304,7 @@ const result = buildRunnerExercise({
   progress,
   remembersWeights: true,
   isDeload: false,
+  userUnits: null,
 });
 
 // Verify all fields are present and correct
@@ -342,6 +344,7 @@ const loadedRow: SessionExerciseInput = {
     id: row.exercises.id,
     name: row.exercises.name,
     cue: row.exercises.cue,
+    mechanic: row.exercises.mechanic,
     movement_pattern: row.exercises.movement_pattern,
     primary_muscles: row.exercises.primary_muscles,
     equipment_ids: ['barbell'],
@@ -353,6 +356,7 @@ const loadedResult = buildRunnerExercise({
   progress: { current_working_weight_kg: 60, current_target_reps: 14 },
   remembersWeights: true,
   isDeload: false,
+  userUnits: null,
 });
 check("Loaded exercise uses plan min", loadedResult.repsMin === 8);
 check("Loaded exercise uses plan max", loadedResult.repsMax === 12);

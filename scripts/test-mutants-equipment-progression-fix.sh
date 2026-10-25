@@ -5,10 +5,23 @@
 set -euo pipefail
 
 PROG="src/lib/program/progression.ts"
+ACTIONS="src/app/session/actions.ts"
+BUILDER="src/lib/session/build-runner-exercises.ts"
+CORE="src/lib/session/apply-progression-core.ts"
+
 BACKUP=$(mktemp /tmp/prog-backup.XXXXXX.ts)
+ACTIONS_BACKUP=$(mktemp /tmp/actions-backup.XXXXXX.ts)
+BUILDER_BACKUP=$(mktemp /tmp/builder-backup.XXXXXX.ts)
+CORE_BACKUP=$(mktemp /tmp/core-backup.XXXXXX.ts)
 
 cp "$PROG" "$BACKUP"
+cp "$ACTIONS" "$ACTIONS_BACKUP"
+cp "$BUILDER" "$BUILDER_BACKUP"
+cp "$CORE" "$CORE_BACKUP"
 [ -s "$BACKUP" ] || exit 1
+[ -s "$ACTIONS_BACKUP" ] || exit 1
+[ -s "$BUILDER_BACKUP" ] || exit 1
+[ -s "$CORE_BACKUP" ] || exit 1
 
 COUNT=0
 KILLED=0
@@ -17,17 +30,20 @@ SKIPPED=0
 
 restore() {
   [ -f "$BACKUP" ] && cp "$BACKUP" "$PROG"
+  [ -f "$ACTIONS_BACKUP" ] && cp "$ACTIONS_BACKUP" "$ACTIONS"
+  [ -f "$BUILDER_BACKUP" ] && cp "$BUILDER_BACKUP" "$BUILDER"
+  [ -f "$CORE_BACKUP" ] && cp "$CORE_BACKUP" "$CORE"
 }
 
 cleanup() {
   restore
-  rm -f "$BACKUP"
+  rm -f "$BACKUP" "$ACTIONS_BACKUP" "$BUILDER_BACKUP" "$CORE_BACKUP"
 }
 
 trap cleanup EXIT
 trap 'cleanup; exit 1' INT TERM
 
-echo "✓ Backup created"
+echo "✓ Backups created"
 echo
 
 TESTS=(
@@ -61,7 +77,7 @@ echo
 test_mutant() {
   local name="$1"
   local fn="$2"
-  local alt_file="${3:-}"
+  local mutated_file="${3:-PROG}"
   
   COUNT=$((COUNT + 1))
   printf "%-75s " "[$COUNT] $name"
@@ -75,21 +91,26 @@ test_mutant() {
   fi
   
   # Check if mutation actually changed something
-  local check_file="$PROG"
-  if [ "$alt_file" = "ACTIONS" ]; then
-    check_file="src/app/session/actions.ts"
-  fi
+  local changed=0
+  case "$mutated_file" in
+    PROG)
+      cmp -s "$PROG" "$BACKUP" || changed=1
+      ;;
+    ACTIONS)
+      cmp -s "$ACTIONS" "$ACTIONS_BACKUP" || changed=1
+      ;;
+    BUILDER)
+      cmp -s "$BUILDER" "$BUILDER_BACKUP" || changed=1
+      ;;
+    CORE)
+      cmp -s "$CORE" "$CORE_BACKUP" || changed=1
+      ;;
+  esac
   
-  # For actions.ts, always proceed (no backup to compare)
-  if [ "$alt_file" != "ACTIONS" ]; then
-    if ! cmp -s "$PROG" "$BACKUP"; then
-      # Changed - good
-      :
-    else
-      echo "⚠️  SKIP (unchanged)"
-      SKIPPED=$((SKIPPED + 1))
-      return
-    fi
+  if [ "$changed" -eq 0 ]; then
+    echo "⚠️  SKIP (unchanged)"
+    SKIPPED=$((SKIPPED + 1))
+    return
   fi
   
   if ! npx tsc --noEmit > /dev/null 2>&1; then
@@ -108,8 +129,22 @@ test_mutant() {
   done
   
   restore
+  
+  # Verify restore worked
   if ! cmp -s "$PROG" "$BACKUP"; then
-    echo "❌ ERROR: restore failed"
+    echo "❌ ERROR: restore failed (progression.ts)"
+    exit 1
+  fi
+  if ! cmp -s "$ACTIONS" "$ACTIONS_BACKUP"; then
+    echo "❌ ERROR: restore failed (actions.ts)"
+    exit 1
+  fi
+  if ! cmp -s "$BUILDER" "$BUILDER_BACKUP"; then
+    echo "❌ ERROR: restore failed (build-runner-exercises.ts)"
+    exit 1
+  fi
+  if ! cmp -s "$CORE" "$CORE_BACKUP"; then
+    echo "❌ ERROR: restore failed (apply-progression-core.ts)"
     exit 1
   fi
   
@@ -217,16 +252,21 @@ test_mutant "Success check uses Math.min(successTarget, repsMax)" m15
 
 # M16: Delete progressionInputsFromExercise spread in actions.ts (production wiring)
 m16() {
-  ACTIONS="src/app/session/actions.ts"
-  cp "$ACTIONS" "$ACTIONS.m16.bak"
   sed -i '/\.\.\.progressionInputsFromExercise/d' "$ACTIONS"
 }
 test_mutant "Delete progressionInputsFromExercise spread (actions.ts wiring)" m16 "ACTIONS"
 
-# Restore actions.ts if mutated
-if [ -f "src/app/session/actions.ts.m16.bak" ]; then
-  mv "src/app/session/actions.ts.m16.bak" "src/app/session/actions.ts"
-fi
+# M17: Pass empty equipment_ids with comment in apply-progression-core.ts
+m17() {
+  sed -i 's/\.\.\.progressionInputsFromExercise(ex, userUnits)/\/\/ ...progressionInputsFromExercise(ex, userUnits)\n    ...progressionInputsFromExercise({ ...ex, equipment_ids: [] }, userUnits)/' "$CORE"
+}
+test_mutant "Pass empty equipment_ids (comment keeps text)" m17 "CORE"
+
+# M18: Drop progInputs.equipmentIds in build-runner-exercises.ts
+m18() {
+  sed -i 's/progInputs\.equipmentIds,/\/\/ progInputs.equipmentIds,\n    [],/' "$BUILDER"
+}
+test_mutant "Drop progInputs.equipmentIds in buildRunnerExercise" m18 "BUILDER"
 
 echo
 echo "==================================="
@@ -236,7 +276,12 @@ echo
 if [ "$SURVIVED" -gt 0 ] || [ "$SKIPPED" -gt 0 ]; then
   echo "❌ FAILED: $SURVIVED survived, $SKIPPED skipped"
   exit 1
-else
-  echo "✅ PASSED: All $KILLED mutants killed"
-  exit 0
 fi
+
+if [ "$KILLED" -ne 18 ]; then
+  echo "❌ FAILED: Expected 18 killed, got $KILLED"
+  exit 1
+fi
+
+echo "✅ PASSED: All 18 mutants killed"
+exit 0

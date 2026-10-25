@@ -13,6 +13,7 @@
 
 import * as fs from "fs";
 import { progressionInputsFromExercise } from "../src/lib/session/progression-inputs";
+import { buildRunnerExercise } from "../src/lib/session/build-runner-exercises";
 
 let failures = 0;
 
@@ -60,11 +61,45 @@ check(
 );
 
 check(
+  "passes profileRes.data?.units to buildRunnerExercise",
+  pageContent.includes('userUnits: profileRes.data?.units')
+);
+
+check(
   "mechanic queried from exercises (not hardcoded to null)",
   /exercises![^(]*\([^)]*\bmechanic\b[^)]*\)/.test(pageContent)
 );
 
-console.log("\n3. Helper behavior tests");
+console.log("\n3. Check buildRunnerExercise wiring");
+const builderContent = fs.readFileSync("src/lib/session/build-runner-exercises.ts", "utf8");
+
+check(
+  "imports progressionInputsFromExercise",
+  builderContent.includes('import { progressionInputsFromExercise } from "./progression-inputs"')
+);
+
+check(
+  "calls progressionInputsFromExercise",
+  builderContent.includes('progressionInputsFromExercise(')
+);
+
+check(
+  "passes mechanic: ex?.mechanic ?? null",
+  builderContent.includes('mechanic: ex?.mechanic ?? null'),
+  "not hardcoded to null"
+);
+
+check(
+  "passes progInputs.equipmentIds to suggestedWeight",
+  builderContent.includes('progInputs.equipmentIds,')
+);
+
+check(
+  "passes progInputs.unit to suggestedWeight",
+  builderContent.includes('progInputs.unit,')
+);
+
+console.log("\n4. Helper behavior tests");
 
 // With equipment
 const withEquip = progressionInputsFromExercise({ equipment_ids: ["barbell", "cable"] }, "metric");
@@ -137,11 +172,174 @@ check(
   oldResult.outcome === newResult.outcome
 );
 
-console.log("\n=== SUMMARY ===");
-if (failures > 0) {
-  console.log(`FAILED: ${failures} checks`);
-  process.exit(1);
-} else {
-  console.log("✅ ALL CHECKS PASSED");
-  process.exit(0);
+
+// Behavioral wiring tests (async)
+import { applyProgressionCore } from "../src/lib/session/apply-progression-core";
+import type { ProgressClient, ProgressWrite } from "../src/lib/session/write-progress";
+
+class TestProgressClient implements ProgressClient {
+  private lastWrite: ProgressWrite | null = null;
+
+  from(table: string) {
+    if (table !== "exercise_progress") throw new Error(`Unexpected table: ${table}`);
+    return {
+      upsert: async (data: Record<string, unknown>) => {
+        this.lastWrite = data as ProgressWrite;
+        return { data, error: null };
+      },
+    };
+  }
+
+  getLastWrite(): ProgressWrite | null {
+    return this.lastWrite;
+  }
 }
+
+async function runBehavioralTests() {
+  const testClient = new TestProgressClient();
+
+  const progressionInput = {
+    sessionExercise: {
+      id: "se_test",
+      exercise_id: "ex_test",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps" as const,
+    },
+    exercise: {
+      mechanic: "compound" as const,
+      movement_pattern: "other" as const,
+      equipment_ids: ["machine_generic"],
+      progression_chain: null,
+      progression_rank: null,
+    },
+    session: {
+      is_deload: false,
+      local_date: "2026-10-25",
+    },
+    sets: [
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+    ],
+    progress: {
+      current_working_weight_kg: 40,
+      current_target_reps: 12,
+      consecutive_failures: 0,
+      best_weight_kg: 40,
+      best_reps: 12,
+      best_e1rm: null,
+      total_sessions: 3,
+    },
+    userUnits: "metric" as const,
+    feel: "right" as const,
+  };
+
+  // Test 1: machine_generic with metric
+  const decision1 = await applyProgressionCore(testClient, "user_test", progressionInput);
+  check(
+    "machine_generic 40 kg → 45 kg (not 41.25)",
+    decision1.nextWorkingWeightKg === 45,
+    `got ${decision1.nextWorkingWeightKg}`
+  );
+
+  // Test 2: machine_generic with imperial
+  const imperialInput = {
+    ...progressionInput,
+    userUnits: "imperial" as const,
+  };
+
+  const decision2 = await applyProgressionCore(testClient, "user_test2", imperialInput);
+  check(
+    "imperial units flow through (5 kg increment for machine_generic)",
+    decision2.nextWorkingWeightKg === 45,
+    `got ${decision2.nextWorkingWeightKg}`
+  );
+
+  // Test 3: buildRunnerExercise with equipment
+  const runnerInput = {
+    row: {
+      id: "se_test",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps" as const,
+      rest_seconds: 90,
+      status: "pending" as const,
+      feel: null,
+      exercises: {
+        id: "ex_test",
+        name: "Test Exercise",
+        cue: null,
+        mechanic: "compound" as const,
+        movement_pattern: "other" as const,
+        primary_muscles: ["chest" as const],
+        equipment_ids: ["machine_generic"],
+      },
+      session_sets: [],
+    },
+    progress: {
+      current_working_weight_kg: 40,
+      current_target_reps: 12,
+    },
+    remembersWeights: true,
+    isDeload: false,
+    userUnits: "imperial" as const,
+  };
+
+  // Test deload scenario where equipment grid snapping matters
+  // 70% of 52 = 36.4, which snaps to 35 on 5kg grid (machine_generic)
+  const deloadInput = {
+    row: {
+      id: "se_test_deload",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps" as const,
+      rest_seconds: 90,
+      status: "pending" as const,
+      feel: null,
+      exercises: {
+        id: "ex_test",
+        name: "Test Exercise",
+        cue: null,
+        mechanic: "compound" as const,
+        movement_pattern: "other" as const,
+        primary_muscles: ["chest" as const],
+        equipment_ids: ["machine_generic"],
+      },
+      session_sets: [],
+    },
+    progress: {
+      current_working_weight_kg: 52,
+      current_target_reps: 12,
+    },
+    remembersWeights: true,
+    isDeload: true,
+    userUnits: "kg" as const,
+  };
+  
+  const deloadRunner = buildRunnerExercise(deloadInput);
+  
+  check(
+    "buildRunnerExercise deload: machine_generic 52kg → 35kg (5kg grid, not 36.25 on 2.5kg grid)",
+    deloadRunner.suggestedWeightKg === 35,
+    `got ${deloadRunner.suggestedWeightKg}`
+  );
+}
+
+// Run async tests and exit
+runBehavioralTests().then(() => {
+  console.log("\n=== SUMMARY ===");
+  if (failures > 0) {
+    console.log(`FAILED: ${failures} checks`);
+    process.exit(1);
+  } else {
+    console.log("✅ ALL CHECKS PASSED");
+    process.exit(0);
+  }
+}).catch((err: Error) => {
+  console.error("Test error:", err);
+  process.exit(1);
+});

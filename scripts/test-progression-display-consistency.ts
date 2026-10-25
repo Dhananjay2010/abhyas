@@ -51,6 +51,7 @@ console.log("\n=== Progression Display Consistency ===\n");
       id: "ex-pushup",
       name: "Push-up",
       cue: null,
+      mechanic: "compound",
       movement_pattern: "horizontal_press",
       primary_muscles: ["chest", "triceps"],
       equipment_ids: [],
@@ -65,6 +66,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: null,
   });
   
   const progInputs = progressionInputsFromExercise(
@@ -87,7 +89,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 12,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "reps",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: display.isBodyweight,
@@ -113,7 +115,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 12,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "reps",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: display.isBodyweight,
@@ -143,6 +145,7 @@ console.log("\n=== Progression Display Consistency ===\n");
       id: "ex-pullup",
       name: "Pull-up",
       cue: null,
+      mechanic: "compound",
       movement_pattern: "vertical_pull",
       primary_muscles: ["lats", "biceps"],
       equipment_ids: ["pull_up_bar"],
@@ -157,6 +160,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: null,
   });
   
   const progInputs = progressionInputsFromExercise(
@@ -179,7 +183,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 12,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "reps",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: display.isBodyweight,
@@ -205,7 +209,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 12,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "reps",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: display.isBodyweight,
@@ -235,6 +239,7 @@ console.log("\n=== Progression Display Consistency ===\n");
       id: "ex-plank",
       name: "Plank",
       cue: null,
+      mechanic: "isolation",
       movement_pattern: "core",
       primary_muscles: ["abs"],
       equipment_ids: [],
@@ -249,6 +254,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: null,
   });
   
   const progInputs = progressionInputsFromExercise(
@@ -271,7 +277,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 40,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "seconds",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: display.isBodyweight,
@@ -297,7 +303,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 40,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "seconds",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: display.isBodyweight,
@@ -327,6 +333,7 @@ console.log("\n=== Progression Display Consistency ===\n");
       id: "ex-plank",
       name: "Plank",
       cue: null,
+      mechanic: "isolation",
       movement_pattern: "core",
       primary_muscles: ["abs"],
       equipment_ids: [],
@@ -341,6 +348,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: null,
   });
   
   const progInputs = progressionInputsFromExercise(
@@ -363,7 +371,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 40,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "seconds",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: display.isBodyweight,
@@ -390,7 +398,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 40,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "seconds",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: display.isBodyweight,
@@ -420,6 +428,7 @@ console.log("\n=== Progression Display Consistency ===\n");
       id: "ex-weighted-plank",
       name: "Weighted Plank",
       cue: null,
+      mechanic: "isolation",
       movement_pattern: "core",
       primary_muscles: ["abs"],
       equipment_ids: ["weight_plate"],
@@ -434,6 +443,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: "kg",
   });
   
   const progInputs = progressionInputsFromExercise(
@@ -456,7 +466,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 40,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "seconds",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: false,
@@ -482,7 +492,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 40,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "seconds",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: false,
@@ -512,6 +522,7 @@ console.log("\n=== Progression Display Consistency ===\n");
       id: "ex-bench",
       name: "Bench Press",
       cue: null,
+      mechanic: "compound",
       movement_pattern: "horizontal_press",
       primary_muscles: ["chest", "triceps"],
       equipment_ids: ["barbell"],
@@ -526,6 +537,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: "kg",
   });
   
   const progInputs = progressionInputsFromExercise(
@@ -548,7 +560,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 12,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "reps",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: false,
@@ -574,7 +586,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     repsMax: row.planned_reps_max ?? 12,
     feel: "right",
     meta: {
-      mechanic: null,
+      mechanic: row.exercises?.mechanic ?? null,
       metric: row.metric ?? "reps",
       movementPattern: row.exercises?.movement_pattern ?? "other",
       isBodyweight: false,
@@ -606,6 +618,7 @@ console.log("\n9. Dips (bodyweight on dip_bars) - stored 14");
       name: "Dips",
       cue: null,
       movement_pattern: "vertical_press",
+      mechanic: "compound",
       primary_muscles: ["chest", "triceps"],
       equipment_ids: ["dip_bars"],
     },
@@ -618,6 +631,7 @@ console.log("\n9. Dips (bodyweight on dip_bars) - stored 14");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: "kg",
   });
   const progInputs = progressionInputsFromExercise(
     { equipment_ids: ["dip_bars"] },
@@ -635,7 +649,7 @@ console.log("\n9. Dips (bodyweight on dip_bars) - stored 14");
     repsMax: 12,
     feel: null,
     meta: {
-      mechanic: null,
+      mechanic: "compound",
       movementPattern: "vertical_press",
       metric: "reps",
       isBodyweight: true,
@@ -655,7 +669,7 @@ console.log("\n9. Dips (bodyweight on dip_bars) - stored 14");
     repsMax: 12,
     feel: null,
     meta: {
-      mechanic: null,
+      mechanic: "compound",
       movementPattern: "vertical_press",
       metric: "reps",
       isBodyweight: true,
@@ -685,6 +699,7 @@ console.log("\n10. Push-ups stored 26 → capped at 24");
       name: "Push-Ups",
       cue: null,
       movement_pattern: "horizontal_press",
+      mechanic: "compound",
       primary_muscles: ["chest", "triceps"],
       equipment_ids: [],
     },
@@ -697,6 +712,7 @@ console.log("\n10. Push-ups stored 26 → capped at 24");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: "kg",
   });
   check("Push-ups: display shows 24 (cap 2×12)", runner.repsMax === 24);
   
@@ -714,7 +730,7 @@ console.log("\n10. Push-ups stored 26 → capped at 24");
     repsMax: 12,
     feel: null,
     meta: {
-      mechanic: null,
+      mechanic: "compound",
       movementPattern: "horizontal_press",
       metric: "reps",
       isBodyweight: true,
@@ -734,7 +750,7 @@ console.log("\n10. Push-ups stored 26 → capped at 24");
     repsMax: 12,
     feel: null,
     meta: {
-      mechanic: null,
+      mechanic: "compound",
       movementPattern: "horizontal_press",
       metric: "reps",
       isBodyweight: true,
@@ -764,6 +780,7 @@ console.log("\n11. Stored 6 below plan min 8 → shows 8");
       name: "Squat",
       cue: null,
       movement_pattern: "squat",
+      mechanic: "compound",
       primary_muscles: ["quads", "glutes"],
       equipment_ids: ["barbell"],
     },
@@ -776,6 +793,7 @@ console.log("\n11. Stored 6 below plan min 8 → shows 8");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: "kg",
   });
   check("Stored 6 < min 8: display shows plan range 8-12", runner.repsMin === 8 && runner.repsMax === 12);
   
@@ -792,7 +810,7 @@ console.log("\n11. Stored 6 below plan min 8 → shows 8");
     repsMax: 12,
     feel: null,
     meta: {
-      mechanic: null,
+      mechanic: "compound",
       movementPattern: "squat",
       metric: "reps",
       isBodyweight: false,
@@ -805,6 +823,26 @@ console.log("\n11. Stored 6 below plan min 8 → shows 8");
   });
   
   check("Stored 6: 3x12 (plan max) succeeds", decision.outcome === "progressed");
+  
+  // Below-target check: 3x11 should NOT progress
+  check("Stored 6: 3x11 (below plan max) does NOT progress", evaluateProgression({
+    sets: [{ reps: 11, weightKg: 60, durationSeconds: null }, { reps: 11, weightKg: 60, durationSeconds: null }, { reps: 11, weightKg: 60, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "squat",
+      metric: "reps",
+      isBodyweight: false,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  }).outcome !== "progressed");
 }
 
 // Case 12: Stored 0 → uses plan min
@@ -824,6 +862,7 @@ console.log("\n12. Stored 0 → shows plan min");
       name: "Deadlift",
       cue: null,
       movement_pattern: "hinge",
+      mechanic: "compound",
       primary_muscles: ["glutes", "hamstrings"],
       equipment_ids: ["barbell"],
     },
@@ -836,8 +875,54 @@ console.log("\n12. Stored 0 → shows plan min");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: "kg",
   });
   check("Stored 0: display shows plan range 5-8", runner.repsMin === 5 && runner.repsMax === 8);
+  
+  // Progression check: 3x8 (plan max) should progress
+  const state = fresh({ currentTargetReps: 0, currentWorkingWeightKg: 100, totalSessions: 1 });
+  const progInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] }, "kg");
+  
+  const decision = evaluateProgression({
+    sets: [{ reps: 8, weightKg: 100, durationSeconds: null }, { reps: 8, weightKg: 100, durationSeconds: null }, { reps: 8, weightKg: 100, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 5,
+    repsMax: 8,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "hinge",
+      metric: "reps",
+      isBodyweight: false,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  });
+  
+  check("Stored 0: 3x8 (plan max) succeeds", decision.outcome === "progressed");
+  
+  // Below-target check: 3x7 should NOT progress
+  check("Stored 0: 3x7 (below plan max) does NOT progress", evaluateProgression({
+    sets: [{ reps: 7, weightKg: 100, durationSeconds: null }, { reps: 7, weightKg: 100, durationSeconds: null }, { reps: 7, weightKg: 100, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 5,
+    repsMax: 8,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "hinge",
+      metric: "reps",
+      isBodyweight: false,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  }).outcome !== "progressed");
 }
 
 // Case 13: Weighted pull-ups (pull_up_bar + dip_belt)
@@ -857,6 +942,7 @@ console.log("\n13. Weighted pull-ups (pull_up_bar + dip_belt)");
       name: "Weighted Pull-Ups",
       cue: null,
       movement_pattern: "vertical_pull",
+      mechanic: "compound",
       primary_muscles: ["lats", "biceps"],
       equipment_ids: ["pull_up_bar", "dip_belt"],
     },
@@ -869,6 +955,7 @@ console.log("\n13. Weighted pull-ups (pull_up_bar + dip_belt)");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: "kg",
   });
   check("Weighted pull-ups: display shows 8", runner.repsMax === 8);
   
@@ -885,7 +972,7 @@ console.log("\n13. Weighted pull-ups (pull_up_bar + dip_belt)");
     repsMax: 8,
     feel: null,
     meta: {
-      mechanic: null,
+      mechanic: "compound",
       movementPattern: "vertical_pull",
       metric: "reps",
       isBodyweight: false,
@@ -905,7 +992,7 @@ console.log("\n13. Weighted pull-ups (pull_up_bar + dip_belt)");
     repsMax: 8,
     feel: null,
     meta: {
-      mechanic: null,
+      mechanic: "compound",
       movementPattern: "vertical_pull",
       metric: "reps",
       isBodyweight: false,
@@ -935,6 +1022,7 @@ console.log("\n14. Chin-ups stored 11 on 8-12 range → 11 progresses");
       name: "Chin-Ups",
       cue: null,
       movement_pattern: "vertical_pull",
+      mechanic: "compound",
       primary_muscles: ["lats", "biceps"],
       equipment_ids: ["pull_up_bar"],
     },
@@ -947,10 +1035,15 @@ console.log("\n14. Chin-ups stored 11 on 8-12 range → 11 progresses");
     progress,
     remembersWeights: true,
     isDeload: false,
+    userUnits: "kg",
   });
   check("Chin-ups: display shows 11", runner.repsMax === 11);
   
-  const state = fresh({ currentTargetReps: 11, totalSessions: 7 });
+  const state = fresh({ 
+    currentTargetReps: progress.current_target_reps,
+    currentWorkingWeightKg: progress.current_working_weight_kg,
+    totalSessions: 7 
+  });
   const progInputs = progressionInputsFromExercise(
     { equipment_ids: ["pull_up_bar"] },
     "kg"
@@ -963,7 +1056,7 @@ console.log("\n14. Chin-ups stored 11 on 8-12 range → 11 progresses");
     repsMax: 12,
     feel: null,
     meta: {
-      mechanic: null,
+      mechanic: "compound",
       movementPattern: "vertical_pull",
       metric: "reps",
       isBodyweight: true,
@@ -984,7 +1077,7 @@ console.log("\n14. Chin-ups stored 11 on 8-12 range → 11 progresses");
     repsMax: 12,
     feel: null,
     meta: {
-      mechanic: null,
+      mechanic: "compound",
       movementPattern: "vertical_pull",
       metric: "reps",
       isBodyweight: true,
