@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
+import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -791,7 +792,7 @@ function pickForSlot(
     const kept = input.carryOver[`${dayIndex}:${pattern}`];
     if (kept && !used.has(kept)) {
       const match = pool.find((e) => e.id === kept);
-      if (match) return match;
+      if (match && !EXCLUDED_EXERCISE_SLUGS.has(match.slug)) return match;
     }
   }
   
@@ -833,9 +834,12 @@ function pickForSlot(
         }
         // 3. RNG breaks ties (provides variety for accessories across blocks)
         return b.rng - a.rng;
-      });
+      })
+      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));
 
-    return ranked[0].e;
+    if (ranked.length > 0) {
+      return ranked[0].e;
+    }
   }
   
   // If no exercise found for this pattern or its fallback, try safe alternatives
@@ -870,9 +874,12 @@ function pickForSlot(
           return a.stapleKey < b.stapleKey ? -1 : a.stapleKey > b.stapleKey ? 1 : 0;
         }
         return b.rng - a.rng;
-      });
+      })
+      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));
     
-    return ranked[0].e;
+    if (ranked.length > 0) {
+      return ranked[0].e;
+    }
   }
   
   return null;
@@ -1047,7 +1054,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             if (a.score !== b.score) return b.score - a.score;
             // Deterministic tiebreaker
             return a.e.slug.localeCompare(b.e.slug);
-          });
+          })
+          .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));
         
         
         if (kneeSafeCandidates.length > 0) {
@@ -1287,6 +1295,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           .filter(e => {
             if (e.movement_pattern !== "horizontal_pull" && e.movement_pattern !== "vertical_pull") return false;
             if (usedInBlock.has(e.id)) return false;
+            if (EXCLUDED_EXERCISE_SLUGS.has(e.slug)) return false;
             return isEligible(e, input);
           })
           .sort((a, b) => 
@@ -1480,7 +1489,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       const isUpperOrFullDay = entry.focus === "pull" || entry.focus === "push" || entry.focus === "upper";
       
       const candidates = pool
-        .filter((e) => !usedInBlock.has(e.id))
+        .filter((e) => !usedInBlock.has(e.id) && !EXCLUDED_EXERCISE_SLUGS.has(e.slug))
         .sort(
           (a, b) =>
             score(b, true, input.level, input.primaryTrack) -
@@ -1658,7 +1667,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             .filter((e) => 
               e.movement_pattern === pattern &&
               !usedInBlock.has(e.id) &&
-              isEligible(e, input)
+              isEligible(e, input) &&
+              !EXCLUDED_EXERCISE_SLUGS.has(e.slug)
             )
             .sort((a, b) => 
               score(b, true, input.level, input.primaryTrack) -
@@ -1742,7 +1752,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           .filter(e => 
             (e.movement_pattern === "horizontal_pull" || e.movement_pattern === "vertical_pull") &&
             !usedInBlock.has(e.id) &&
-            isEligible(e, input)
+            isEligible(e, input) &&
+            !EXCLUDED_EXERCISE_SLUGS.has(e.slug)
           )
           .sort((a, b) => 
               score(b, true, input.level, input.primaryTrack) -
