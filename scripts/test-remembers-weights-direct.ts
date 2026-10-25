@@ -23,18 +23,19 @@ function createMockSupabaseWithProgress() {
   const chain = {
     eq: function() { return this; },
     maybeSingle: async function() {
-      // @ts-ignore
-      if (this._table === "sessions") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((this as any)._table === "sessions") {
         return { data: { is_deload: false }, error: null };
       }
-      // @ts-ignore
-      if (this._table === "exercise_progress") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((this as any)._table === "exercise_progress") {
         return { data: { current_working_weight_kg: 100, current_target_reps: 10 }, error: null };
       }
       return { data: null, error: null };
     },
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return {
     from: (table: string) => ({
       select: () => Object.assign({ _table: table }, chain),
