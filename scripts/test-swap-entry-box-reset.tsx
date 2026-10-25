@@ -97,6 +97,7 @@ async function testSwapScenario(
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
       exercises={[{ ...initialExercise }]}
@@ -207,6 +208,7 @@ async function testUserTypeSurvival() {
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
       exercises={[{ ...initialEx }]}
@@ -270,6 +272,7 @@ async function testUserTypeSurvival() {
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
       exercises={[
@@ -420,6 +423,7 @@ console.log("Test swap entry box reset (HIGH-1):\n");
       week={4}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
       exercises={[{ ...case4 }]}
@@ -527,6 +531,7 @@ console.log("Test swap entry box reset (HIGH-1):\n");
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
       exercises={[{ ...case6 }]}

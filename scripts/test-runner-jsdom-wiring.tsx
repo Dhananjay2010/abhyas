@@ -21,7 +21,7 @@ import "./helpers/setup-jsdom";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
-import { SessionRunner, type SessionActions, type RunnerTimer } from "../src/app/session/[id]/session-runner";
+import { SessionRunner, type SessionActions, type RunnerTimer, type TimerHandle } from "../src/app/session/[id]/session-runner";
 
 let failures = 0;
 
@@ -34,18 +34,17 @@ function createFakeTimer(): {
   timer: RunnerTimer;
   advance: () => void;
 } {
-  type TimerId = ReturnType<typeof globalThis.setTimeout>;
-  const callbacks = new Map<TimerId, () => void>();
+  const callbacks = new Map<TimerHandle, () => void>();
   let nextId = 1;
 
   return {
     timer: {
-      setTimeout: (callback: () => void, _ms: number): TimerId => {
-        const id = nextId++ as TimerId;
+      setTimeout: (callback: () => void, ms: number): TimerHandle => {
+        const id: TimerHandle = nextId++;
         callbacks.set(id, callback);
         return id;
       },
-      clearTimeout: (id: TimerId): void => {
+      clearTimeout: (id: TimerHandle): void => {
         callbacks.delete(id);
       },
     },
@@ -93,7 +92,7 @@ console.log("1. Stale session clock capped at 179:59 (f1d-runner, f1e-helper)");
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -176,7 +175,7 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -300,7 +299,7 @@ console.log("\n3. Double-click busyRef guard: action called exactly once (9, 9b,
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -412,7 +411,7 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
     },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -529,7 +528,7 @@ console.log("\n5. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -643,7 +642,7 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
     },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -783,7 +782,7 @@ console.log("\n7. Done sends frozen elapsed time (f1, f2)");
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -883,7 +882,7 @@ console.log("\n8. Double confirm on end early calls abandonSession twice (endear
     },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -990,7 +989,7 @@ console.log("\n9. Clock resumes after failed end early (endearly-resume)");
     },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },
@@ -1098,7 +1097,7 @@ console.log("\n10. Clock stops, resumes, and freezes when stale (stale-lifecycle
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
     async swapExercise() {
-      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } };
+      return { ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } };
     },
     async planDay() { return { ok: true }; },
     async refreshAfterSession() { return { ok: true }; },

@@ -117,9 +117,11 @@ export type RunnerSettings = {
 };
 
 /** Injectable timer for testing; defaults to real setTimeout. */
+export type TimerHandle = ReturnType<typeof globalThis.setTimeout> | number;
+
 export type RunnerTimer = {
-  setTimeout: (callback: () => void, ms: number) => ReturnType<typeof globalThis.setTimeout>;
-  clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => void;
+  setTimeout: (callback: () => void, ms: number) => TimerHandle;
+  clearTimeout: (id: TimerHandle) => void;
 };
 
 const REAL_TIMER: RunnerTimer = {

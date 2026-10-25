@@ -18,15 +18,10 @@ import {
 import { applyDeload, prescribe } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
-import { abandonSessionCore } from "@/lib/session/abandon-session";
-import { makeAbandonSessionDeps } from "@/lib/session/abandon-session-deps";
-import { finishSessionCore } from "@/lib/session/finish-session";
-import { makeFinishSessionDeps } from "@/lib/session/finish-session-deps";
-import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+import type { ProgressionFeedback } from "@/lib/session/finish-exercise";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
-import { makeFinishExerciseDeps } from "@/lib/session/finish-exercise-deps";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
@@ -34,7 +29,6 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
-import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 

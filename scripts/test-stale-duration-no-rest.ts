@@ -5,7 +5,7 @@
  *   npx tsx scripts/test-stale-duration-no-rest.ts
  */
 
-import { resolveStaleFinish } from "../src/lib/session/stale-duration";
+import { resolveStaleFinishExtended as resolveStaleFinish } from "../src/lib/session/stale-duration";
 
 let passed = 0;
 let failed = 0;

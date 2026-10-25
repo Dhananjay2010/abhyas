@@ -1,5 +1,5 @@
 import { decideAbandonStatus } from "./abandon-session";
-import { resolveStaleFinish } from "./stale-duration";
+import { resolveStaleFinishExtended } from "./stale-duration";
 import { isStaleSession } from "./is-stale-session";
 import { exerciseCompletion } from "./completion";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
@@ -83,7 +83,7 @@ export async function finishSessionCore(
 
   if (stale) {
     // Use stale finish logic
-    const staleFinish = resolveStaleFinish({
+    const staleFinish = resolveStaleFinishExtended({
       startedAt,
       lastSetCompletedAt,
       workingSetCount,

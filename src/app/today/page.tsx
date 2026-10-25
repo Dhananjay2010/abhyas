@@ -14,10 +14,9 @@ import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { countWorkingSets, getCompletionDisplay } from "@/lib/today/row-helpers";
 import { sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { RefetchOnResume } from "./refetch-on-resume";
-import { buildTodayRows } from "@/lib/today/build-today-rows";
+import { buildTodayRows, type TodayRow } from "@/lib/today/build-today-rows";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isSessionEndedEarly } from "@/lib/today/session-ended-early";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
@@ -328,19 +327,6 @@ export default async function TodayPage() {
     day, so the block's own exercises for this weekday must not leak through
     underneath it.
   */
-  type TodayRow = {
-    key: string;
-    name: string;
-    cue: string | null;
-    metric: Database["public"]["Enums"]["exercise_metric"] | null;
-    sets: number | null;
-    repsMin: number | null;
-    repsMax: number | null;
-    restSeconds: number | null;
-    completionLabel: string;
-    strikethrough: boolean;
-    swappedIn: boolean;
-  };
 
   const template = (isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
     order_index: number;
@@ -596,7 +582,7 @@ export default async function TodayPage() {
                 className="rounded-xl border border-border bg-surface px-4 py-3.5"
               >
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className={`font-semibold ${row.strikethrough ? "text-muted line-through" : ""}`}>
+                  <span className={`font-semibold ${row.skipped ? "text-muted line-through" : ""}`}>
                     {row.name}
                   </span>
                   <span className="shrink-0 text-sm tabular-nums text-accent">

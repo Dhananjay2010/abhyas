@@ -9,7 +9,7 @@
  *   npx tsx scripts/test-stale-duration-null-started-at.ts
  */
 
-import { resolveStaleFinish } from "../src/lib/session/stale-duration";
+import { resolveStaleFinishExtended } from "../src/lib/session/stale-duration";
 
 let passed = 0;
 let failed = 0;
@@ -28,7 +28,7 @@ console.log("\n🧪 Testing resolveStaleFinish with null/invalid startedAt\n");
 
 console.log("1. Valid startedAt: normal operation");
 {
-  const result = resolveStaleFinish({
+  const result = resolveStaleFinishExtended({
     startedAt: "2026-10-24T10:00:00Z",
     lastSetCompletedAt: "2026-10-24T10:30:00Z",
     workingSetCount: 3,
@@ -42,7 +42,7 @@ console.log("1. Valid startedAt: normal operation");
 
 console.log("\n2. Invalid startedAt (null): returns null duration");
 {
-  const result = resolveStaleFinish({
+  const result = resolveStaleFinishExtended({
     startedAt: null,
     lastSetCompletedAt: "2026-10-24T10:30:00Z",
     workingSetCount: 3,
@@ -55,7 +55,7 @@ console.log("\n2. Invalid startedAt (null): returns null duration");
 
 console.log("\n3. Empty string startedAt: returns null duration");
 {
-  const result = resolveStaleFinish({
+  const result = resolveStaleFinishExtended({
     startedAt: "",
     lastSetCompletedAt: "2026-10-24T10:30:00Z",
     workingSetCount: 3,
@@ -68,7 +68,7 @@ console.log("\n3. Empty string startedAt: returns null duration");
 
 console.log("\n4. Invalid ISO string startedAt: returns null duration");
 {
-  const result = resolveStaleFinish({
+  const result = resolveStaleFinishExtended({
     startedAt: "not-a-date",
     lastSetCompletedAt: "2026-10-24T10:30:00Z",
     workingSetCount: 3,
@@ -81,7 +81,7 @@ console.log("\n4. Invalid ISO string startedAt: returns null duration");
 
 console.log("\n5. No sets (skipped): invalid startedAt still handled");
 {
-  const result = resolveStaleFinish({
+  const result = resolveStaleFinishExtended({
     startedAt: "not-a-date",
     lastSetCompletedAt: null,
     workingSetCount: 0,
@@ -93,7 +93,7 @@ console.log("\n5. No sets (skipped): invalid startedAt still handled");
 
 console.log("\n6. Invalid startedAt with sets: doesn't measure from epoch (no-throw2)");
 {
-  const result = resolveStaleFinish({
+  const result = resolveStaleFinishExtended({
     startedAt: "not-a-date",
     lastSetCompletedAt: "2026-10-24T10:30:00Z",
     workingSetCount: 3,
@@ -107,7 +107,7 @@ console.log("\n6. Invalid startedAt with sets: doesn't measure from epoch (no-th
 
 console.log("\n7. Null startedAt with sets: doesn't measure from epoch");
 {
-  const result = resolveStaleFinish({
+  const result = resolveStaleFinishExtended({
     startedAt: null,
     lastSetCompletedAt: "2026-10-24T10:30:00Z",
     workingSetCount: 3,

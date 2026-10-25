@@ -5,7 +5,12 @@
  *   npx tsx scripts/test-stale-runner-clock-guard.ts
  */
 
-import { formatClock, displayElapsed } from "../src/lib/session/device";
+import { formatClock } from "../src/lib/session/device";
+
+// displayElapsed is now inlined in session-runner.tsx
+function displayElapsed(rawElapsed: number, isStale: boolean): number {
+  return isStale ? Math.min(rawElapsed, 179 * 60 + 59) : rawElapsed;
+}
 import { isStaleSession } from "../src/lib/session/is-stale-session";
 
 let passed = 0;

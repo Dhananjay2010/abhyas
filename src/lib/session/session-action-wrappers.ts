@@ -4,9 +4,8 @@
  * The actual server actions in actions.ts import and call these.
  */
 
-import type { Result } from "@/lib/result";
-import type { SetFeel } from "@/lib/database.types";
-import type { ProgressionFeedback } from "@/lib/progression/apply";
+import type { Database } from "@/lib/database.types";
+import type { ProgressionFeedback } from "@/lib/session/finish-exercise";
 import { finishSessionCore } from "./finish-session";
 import { makeFinishSessionDeps } from "./finish-session-deps";
 import { abandonSessionCore } from "./abandon-session";
@@ -14,9 +13,14 @@ import { makeAbandonSessionDeps } from "./abandon-session-deps";
 import { finishExerciseCore } from "./finish-exercise";
 import { makeFinishExerciseDeps } from "./finish-exercise-deps";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
 
 type AppSupabaseClient = SupabaseClient<Database>;
+
+type Result<T = undefined> =
+  | ({ ok: true } & (T extends undefined ? object : { data: T }))
+  | { ok: false; error: string };
+
+type SetFeel = Database["public"]["Enums"]["set_feel"];
 
 export async function finishSessionAction(
   supabase: AppSupabaseClient,
