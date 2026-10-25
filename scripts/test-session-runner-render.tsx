@@ -8,8 +8,10 @@
 
 import "./helpers/setup-jsdom";
 
-import { render, act } from "@testing-library/react";
+import { render, act, screen, within } from "@testing-library/react";
 import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings } from "../src/app/session/[id]/session-runner";
+import { savePendingSet } from "../src/lib/session/pending-set-retry";
+import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 let passed = 0;
 let failed = 0;
@@ -66,6 +68,11 @@ Object.defineProperty(window, 'localStorage', {
   configurable: true
 });
 
+// Fake deps with fixed time
+const fakeDeps: PendingSetDeps = {
+  now: () => FIXED_TIME,
+};
+
 // Test 1b/1d: pending count per exercise feeding nextSetNumberFor
 async function test1b1d() {
   console.log("\n📋 Test 1b/1d: Pending count per exercise affects nextSetNumberFor");
@@ -119,30 +126,30 @@ async function test1b1d() {
   };
   
   const userId = "test-user-1b";
+  const sessionId = "session-1b";
   
-  // Pre-populate pending sets for this exercise
-  fakeStorage.setItem(`pending-sets:${userId}`, JSON.stringify([
-    {
-      sessionExerciseId: "ex1",
-      setNumber: 1,
-      reps: 10,
-      weightKg: 50,
-      durationSeconds: null,
-      clientId: "pending-1"
-    },
-    {
-      sessionExerciseId: "ex1",
-      setNumber: 2,
-      reps: 10,
-      weightKg: 50,
-      durationSeconds: null,
-      clientId: "pending-2"
-    }
-  ]));
+  // Pre-populate pending sets using proper storage format
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-1"
+  }, fakeDeps);
   
-  const { container } = render(
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 2,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-2"
+  }, fakeDeps);
+  
+  render(
     <SessionRunner
-      sessionId="session-1b"
+      sessionId={sessionId}
       sessionStatus="in_progress"
       userId={userId}
       isDeload={false}
@@ -157,16 +164,18 @@ async function test1b1d() {
     />
   );
   
+  await act(async () => {});
+  
+  // Click Log set and verify it was called with setNumber: 3
+  const logButton = screen.getByRole("button", { name: /log set/i });
   await act(async () => {
-    await new Promise(r => setTimeout(r, 50));
+    logButton.click();
   });
   
-  // The next set should be set 3, not set 1, because 2 sets are pending
-  const setDisplay = container.textContent || "";
+  await act(async () => {});
   
-  // Check if "Set 3" appears (accounting for pending sets)
-  const hasCorrectSetNumber = setDisplay.includes("Set 3") || setDisplay.includes("3 of 3") || setDisplay.includes("3/3");
-  assert(hasCorrectSetNumber, "Set number accounts for 2 pending sets (shows Set 3)");
+  assert(logSetCalls.length === 1, "logSet called once");
+  assert(logSetCalls[0].setNumber === 3, "logSet called with setNumber: 3 (accounting for 2 pending sets)");
   
   fakeStorage.clear();
 }
@@ -219,22 +228,32 @@ async function testN7() {
   };
   
   const userId = "specific-user-n7";
+  const sessionId = "session-n7";
   
   fakeStorage.clear();
-  fakeStorage.setItem(`pending-sets:${userId}`, JSON.stringify([
-    {
-      sessionExerciseId: "ex1",
-      setNumber: 1,
-      reps: 10,
-      weightKg: 50,
-      durationSeconds: null,
-      clientId: "pending-n7"
-    }
-  ]));
+  
+  // Seed 2 pending sets for this user and session
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-n7-1"
+  }, fakeDeps);
+  
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 2,
+    reps: 12,
+    weightKg: 52.5,
+    durationSeconds: null,
+    clientId: "pending-n7-2"
+  }, fakeDeps);
   
   render(
     <SessionRunner
-      sessionId="session-n7"
+      sessionId={sessionId}
       sessionStatus="in_progress"
       userId={userId}
       isDeload={false}
@@ -249,27 +268,223 @@ async function testN7() {
     />
   );
   
-  await act(async () => {
-    await new Promise(r => setTimeout(r, 100));
-  });
+  await act(async () => {});
   
-  // The controller uses the correct key - verify wrong key was never touched
-  const wrongKey = `pending-sets:wrong-user`;
-  const hasWrongKey = fakeStorage.getItem(wrongKey) !== null;
-  assert(!hasWrongKey, "Controller does not use wrong user key");
+  // Assert the UI shows "2 sets waiting to save" and "Saving..." rows
+  const pendingText = screen.getByText(/2 sets waiting to save/i);
+  assert(!!pendingText, "Shows '2 sets waiting to save' text");
+  
+  const savingRows = screen.getAllByText(/saving/i);
+  assert(savingRows.length >= 2, "Shows 'Saving...' rows for pending sets");
+  
+  // Now test with a different userId - pending sets should NOT appear
+  fakeStorage.clear();
+  savePendingSet(fakeStorage, "other-user", sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "other-pending"
+  }, fakeDeps);
+  
+  render(
+    <SessionRunner
+      sessionId={sessionId}
+      sessionStatus="in_progress"
+      userId={userId}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={exercises}
+      settings={settings}
+      actions={actions}
+    />
+  );
+  
+  await act(async () => {});
+  
+  const noPendingText = screen.queryByText(/waiting to save/i);
+  assert(!noPendingText, "Does not show pending sets for different user");
   
   fakeStorage.clear();
 }
 
 // Test 7b/7c: Expired and replay-error UI modes
 async function test7b7c() {
-  console.log("\n📋 Test 7b/7c: Expired and replay-error UI rendering");
+  console.log("\n📋 Test 7b/7c: Expired and replay-error UI modes");
   
-  // 7b: expired mode should show SessionExpiredPrompt
-  // 7c: replay-error mode should show error message
-  // These are tested by checking the getPendingUiMode logic is properly wired
+  // Test 7b: pending + expired shows SessionExpiredPrompt
+  {
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async () => ({ ok: true }),
+      deleteSet: async () => ({ ok: true }),
+      finishExercise: async () => ({ ok: true, data: null }),
+      finishSession: async () => ({ ok: true }),
+      abandonSession: async () => ({ ok: true }),
+      findAlternatives: async () => ({ ok: true, data: [] }),
+      swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+      refreshAfterSession: async () => ({ ok: true }),
+      planDay: async () => ({ ok: true, data: null }),
+    };
+    
+    const exercises: RunnerExercise[] = [
+      {
+        id: "ex1",
+        exerciseId: "squat",
+        name: "Squat",
+        cue: null,
+        metric: "reps",
+        primaryMuscles: ["quads"],
+        plannedSets: 3,
+        repsMin: 8,
+        repsMax: 12,
+        restSeconds: 90,
+        workingWeightKg: null,
+        suggestedWeightKg: null,
+        status: "pending",
+        feel: null,
+        sets: [],
+        isBodyweight: false,
+      },
+    ];
+    
+    const settings: RunnerSettings = {
+      perSetLogging: false,
+      restSound: false,
+      restVibrate: false,
+      restAutostart: false,
+      restOverrideSeconds: null,
+      cooldownEnabled: false,
+    };
+    
+    const userId = "user-7b";
+    const sessionId = "session-7b";
+    
+    fakeStorage.clear();
+    savePendingSet(fakeStorage, userId, sessionId, {
+      sessionExerciseId: "ex1",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-7b"
+    }, fakeDeps);
+    
+    render(
+      <SessionRunner
+        sessionId={sessionId}
+        sessionStatus="expired"
+        userId={userId}
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date(FIXED_TIME).toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={exercises}
+        settings={settings}
+        actions={actions}
+      />
+    );
+    
+    await act(async () => {});
+    
+    // Assert SessionExpiredPrompt is shown with Sign-in link
+    const signInLink = screen.getByRole("link", { name: /sign in/i });
+    assert(!!signInLink, "7b: Shows Sign-in link for expired session with pending sets");
+  }
   
-  console.log(`  ✓ Pending UI modes properly handled (verified by unit tests)`);
+  // Test 7c: logSet rejects with network error on replay
+  {
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async () => {
+        throw new Error("Network error");
+      },
+      deleteSet: async () => ({ ok: true }),
+      finishExercise: async () => ({ ok: true, data: null }),
+      finishSession: async () => ({ ok: true }),
+      abandonSession: async () => ({ ok: true }),
+      findAlternatives: async () => ({ ok: true, data: [] }),
+      swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+      refreshAfterSession: async () => ({ ok: true }),
+      planDay: async () => ({ ok: true, data: null }),
+    };
+    
+    const exercises: RunnerExercise[] = [
+      {
+        id: "ex1",
+        exerciseId: "squat",
+        name: "Squat",
+        cue: null,
+        metric: "reps",
+        primaryMuscles: ["quads"],
+        plannedSets: 3,
+        repsMin: 8,
+        repsMax: 12,
+        restSeconds: 90,
+        workingWeightKg: null,
+        suggestedWeightKg: null,
+        status: "pending",
+        feel: null,
+        sets: [],
+        isBodyweight: false,
+      },
+    ];
+    
+    const settings: RunnerSettings = {
+      perSetLogging: false,
+      restSound: false,
+      restVibrate: false,
+      restAutostart: false,
+      restOverrideSeconds: null,
+      cooldownEnabled: false,
+    };
+    
+    const userId = "user-7c";
+    const sessionId = "session-7c";
+    
+    fakeStorage.clear();
+    savePendingSet(fakeStorage, userId, sessionId, {
+      sessionExerciseId: "ex1",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-7c"
+    }, fakeDeps);
+    
+    render(
+      <SessionRunner
+        sessionId={sessionId}
+        sessionStatus="in_progress"
+        userId={userId}
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date(FIXED_TIME).toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={exercises}
+        settings={settings}
+        actions={actions}
+      />
+    );
+    
+    await act(async () => {});
+    
+    // Assert error text is shown
+    const errorText = screen.getByText(/failed to save sets/i);
+    assert(!!errorText, "7c: Shows 'Failed to save sets' error for network error on replay");
+    
+    const networkError = screen.getByText(/network error/i);
+    assert(!!networkError, "7c: Shows network error message");
+  }
   
   fakeStorage.clear();
 }
