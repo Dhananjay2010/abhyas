@@ -264,7 +264,7 @@ async function main() {
     check("Two misses: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
   }
 
-  console.log("\n5. Unloaded in-range hold: bodyweight 3×10 in 8-12");
+  console.log("\n5. Unloaded in-range hold: bodyweight 3×10 in 8-12 (new user, no stored target)");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-5",
@@ -291,10 +291,10 @@ async function main() {
 
     const progress: ExerciseProgressRow = {
       current_working_weight_kg: null,
-      current_target_reps: 12,
+      current_target_reps: null, // #120: null stored target → uses plan range for in-range check
       consecutive_failures: 0,
       best_weight_kg: null,
-      best_reps: 12,
+      best_reps: 10,
       best_e1rm: null,
       total_sessions: 3,
     };
@@ -308,8 +308,8 @@ async function main() {
     const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
     const decision = evaluateProgression(input);
 
-    // #120: Unloaded uses resolveTarget for min; stored target=12, so min=12 (not plan min=8)
-    check("Unloaded in-range: repsMin from resolveTarget (12)", input.repsMin === 12, `${input.repsMin}`);
+    // #120: Unloaded with null stored target uses plan range (8-12) for min
+    check("Unloaded in-range: repsMin from plan (8)", input.repsMin === 8, `${input.repsMin}`);
     check("Unloaded in-range: repsMax from planned (12)", input.repsMax === 12, `${input.repsMax}`);
     check("Unloaded in-range: outcome hold", decision.outcome === "hold", decision.outcome);
     check("Unloaded in-range: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
@@ -367,7 +367,7 @@ async function main() {
     check("Unloaded miss: target stays at 12", decision.nextTargetReps === 12, `${decision.nextTargetReps}`);
   }
 
-  console.log("\n7. Timed in-range hold: plank 2×35s in 20-45s");
+  console.log("\n7. Timed in-range hold: plank 2×35s in 20-45s (new user, no stored target)");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-7",
@@ -393,10 +393,10 @@ async function main() {
 
     const progress: ExerciseProgressRow = {
       current_working_weight_kg: null,
-      current_target_reps: 45,
+      current_target_reps: null, // #120: null stored target → uses plan range for in-range check
       consecutive_failures: 0,
       best_weight_kg: null,
-      best_reps: 45,
+      best_reps: 35,
       best_e1rm: null,
       total_sessions: 2,
     };
@@ -410,8 +410,8 @@ async function main() {
     const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
     const decision = evaluateProgression(input);
 
-    // #120: Unloaded uses resolveTarget for min; stored target=45, so min=45 (not plan min=20)
-    check("Timed in-range: repsMin from resolveTarget (45)", input.repsMin === 45, `${input.repsMin}`);
+    // #120: Unloaded with null stored target uses plan range (20-45) for min
+    check("Timed in-range: repsMin from plan (20)", input.repsMin === 20, `${input.repsMin}`);
     check("Timed in-range: repsMax from planned (45)", input.repsMax === 45, `${input.repsMax}`);
     check("Timed in-range: outcome hold", decision.outcome === "hold", decision.outcome);
     check("Timed in-range: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
