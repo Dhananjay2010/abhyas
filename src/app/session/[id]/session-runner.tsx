@@ -11,6 +11,7 @@ import {
   useWakeLock,
   vibrate,
   vibrationSupported,
+  displayElapsed,
 } from "@/lib/session/device";
 import { withBusyGuard } from "@/lib/session/busy-guard";
 import { validateSet } from "@/lib/session/validation";
@@ -165,9 +166,7 @@ export function SessionRunner({
   const router = useRouter();
   const rawElapsed = useElapsed(startedAt);
   const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
-  const elapsed = isStale 
-    ? Math.min(rawElapsed, 10799) // Cap at 179:59 for stale sessions
-    : (frozenElapsed ?? rawElapsed);
+  const elapsed = frozenElapsed ?? displayElapsed(rawElapsed, isStale);
   
   const stopElapsed = useCallback(() => {
     const current = rawElapsed;
@@ -202,6 +201,7 @@ export function SessionRunner({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [needsFinishRetry, setNeedsFinishRetry] = useState(false);
+  const [lastCooldownCompleted, setLastCooldownCompleted] = useState<boolean>(true);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
@@ -487,6 +487,7 @@ export function SessionRunner({
             disabled={busy}
             onClick={async () => {
               const frozen = stopElapsed();
+              setLastCooldownCompleted(true);
               const succeeded = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
               );
@@ -506,14 +507,14 @@ export function SessionRunner({
               onClick={async () => {
                 const frozen = stopElapsed();
                 const succeeded = await run(() =>
-                  actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
+                  actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: lastCooldownCompleted })
                 );
                 if (succeeded) {
                   setPhase("done");
                 } else {
                   resumeElapsed();
                 }
-                setNeedsFinishRetry(shouldShowFinishRetry(succeeded, true));
+                setNeedsFinishRetry(shouldShowFinishRetry(succeeded, lastCooldownCompleted));
               }}
             >
               Try again
@@ -523,6 +524,7 @@ export function SessionRunner({
             disabled={busy}
             onClick={async () => {
               const frozen = stopElapsed();
+              setLastCooldownCompleted(false);
               const succeeded = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
               );
@@ -833,6 +835,7 @@ export function SessionRunner({
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
         const frozen = stopElapsed();
+        setLastCooldownCompleted(false);
         const succeeded = await run(() =>
           actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
         );
@@ -1164,6 +1167,26 @@ export function SessionRunner({
           >
             End session early
           </GhostButton>
+          {!settings.cooldownEnabled && needsFinishRetry && error && (
+            <BigButton
+              disabled={busy}
+              onClick={async () => {
+                const frozen = stopElapsed();
+                setLastCooldownCompleted(false);
+                const succeeded = await run(() =>
+                  actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
+                );
+                if (succeeded) {
+                  setPhase("done");
+                } else {
+                  resumeElapsed();
+                }
+                setNeedsFinishRetry(shouldShowFinishRetry(succeeded, false));
+              }}
+            >
+              Try again
+            </BigButton>
+          )}
         </div>
 
         <p className="mt-8 text-center text-xs text-muted">
