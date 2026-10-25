@@ -65,9 +65,11 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
 const sets = (n: number, reps: number, w: number | null = 60) =>
   Array.from({ length: n }, () => ({ reps, weightKg: w }));
 
-const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) =>
-  evaluateProgression({
-    sets: sets(4, 7),  // Real miss (below repsMin of 8)
+const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) => {
+  // Default weight from state if not overridden in sets
+  const stateWeight = over.state?.currentWorkingWeightKg ?? 60;
+  return evaluateProgression({
+    sets: sets(4, 7, stateWeight),  // Real miss (below repsMin of 8)
     plannedSets: 4,
     repsMin: 8,
     repsMax: 12,
@@ -79,6 +81,7 @@ const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) =>
     unit: "kg",
     ...over,
   });
+};
 
 console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 
