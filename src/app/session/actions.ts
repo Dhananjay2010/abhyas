@@ -30,9 +30,10 @@ import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/sessi
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 import { closeStaleSessions } from "@/lib/session/close-stale";
-import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
+import { startSessionStaleCore, type StartSessionStaleDeps } from "@/lib/session/start-session-stale-core";
+import { insertSessionExercises } from "@/lib/session/insert-session-exercises";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -203,9 +204,36 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   // that hasn't reloaded Today (so the loader's closeStaleSessions never ran) would otherwise
   // hit 23505 and resume into yesterday's session with an 8-hour clock. closeStaleSessions
   // applies #111's 6h inactivity rule, so calling it is safe for timezone shifts.
-  const staleSessions = (openRes.data ?? []).filter(s => s.local_date !== today);
-  if (staleSessions.length > 0) {
-    await closeStaleSessions(supabase, staleSessions, today);
+  const staleDeps: StartSessionStaleDeps = {
+    today,
+    readOpenSessions: async () => openRes.data ?? [],
+    closeStaleSessions: async (sessions, date) => {
+      await closeStaleSessions(supabase, sessions, date);
+      return 0; // closeStaleSessions returns void, we don't use the credited count
+    },
+    checkRemainingInProgress: async () => {
+      // Check for ANY in_progress session (regardless of date) after closing stale ones.
+      // This catches fresh cross-date sessions (< 6h) that weren't closed.
+      const { data } = await supabase
+        .from("sessions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "in_progress")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data?.id ?? null;
+    },
+  };
+
+  const staleResult = await startSessionStaleCore(staleDeps);
+  if (!staleResult.ok) {
+    return { ok: false, error: staleResult.error };
+  }
+
+  // If a fresh cross-date session remains (< 6h, timezone shift), resume it
+  if (!staleResult.shouldInsert) {
+    return { ok: true, data: { sessionId: staleResult.resumeSessionId } };
   }
 
   // No existing in_progress session, create a new one and read the plan
@@ -224,6 +252,8 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     }),
     supabase
       .from("program_day_exercises")
+      // The exercise's metric comes along so the session can record the unit it
+      // was run in -- see `session_exercises.metric` and SPEC section 7.
       .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
       .eq("program_day_id", day.id)
       .order("order_index"),
@@ -243,6 +273,8 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const planned = plannedRes.data;
   if (planned && planned.length > 0) {
     const exercisesToInsert = planned.map((p) => {
+      // Week 4 of a block cuts volume; the weight suggestion is reduced
+      // separately when the session is rendered.
       const dose = isDeloadWeek
         ? applyDeload({
             sets: p.target_sets,
@@ -258,7 +290,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
           };
       return {
         session_id: insertResult.sessionId,
-        user_id: user.id,
+        user_id: user.id, // corrected by the definer trigger
         exercise_id: p.exercise_id,
         order_index: p.order_index,
         planned_sets: dose.sets,

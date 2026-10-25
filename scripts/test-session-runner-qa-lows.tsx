@@ -40,7 +40,7 @@ function createFakeTimer() {
           callbacks[id] = () => {};
         }
       },
-    } as RunnerTimer,
+    } satisfies RunnerTimer,
     advance: () => {
       callbacks.forEach(cb => cb());
       callbacks.length = 0;
@@ -75,7 +75,7 @@ const defaultActions: SessionActions = {
   finishSession: async () => ({ ok: true }),
   abandonSession: async () => ({ ok: true }),
   findAlternatives: async () => ({ ok: true, data: [] }),
-  swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+  swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
   refreshAfterSession: async () => ({ ok: true }),
   planDay: async () => ({ ok: true }),
 };
@@ -133,9 +133,9 @@ console.log("1. L4: logSet throws SESSION_EXPIRED → friendly error message sho
 
   // Fill in reps and click log set button
   await act(async () => {
-    const inputs = Array.from(container.querySelectorAll('input[type="number"]')) as HTMLInputElement[];
+    const inputs = Array.from(container.querySelectorAll('input[type="number"]'));
     const repsInput = inputs[0];
-    if (repsInput) {
+    if (repsInput instanceof HTMLInputElement) {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "10");
       repsInput.dispatchEvent(new Event("change", { bubbles: true }));
     }
@@ -227,9 +227,9 @@ console.log("\n2. L1: conflict on last set → feel prompt appears");
 
   // Fill in reps and click log set 3
   await act(async () => {
-    const inputs = Array.from(container.querySelectorAll('input[type="number"]')) as HTMLInputElement[];
+    const inputs = Array.from(container.querySelectorAll('input[type="number"]'));
     const repsInput = inputs[0];
-    if (repsInput) {
+    if (repsInput instanceof HTMLInputElement) {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "8");
       repsInput.dispatchEvent(new Event("change", { bubbles: true }));
     }
@@ -321,9 +321,9 @@ console.log("\n3. L1: picking feel after conflict advances to next exercise");
 
   // Fill in reps and click log set 3
   await act(async () => {
-    const inputs = Array.from(container.querySelectorAll('input[type="number"]')) as HTMLInputElement[];
+    const inputs = Array.from(container.querySelectorAll('input[type="number"]'));
     const repsInput = inputs[0];
-    if (repsInput) {
+    if (repsInput instanceof HTMLInputElement) {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "8");
       repsInput.dispatchEvent(new Event("change", { bubbles: true }));
     }
