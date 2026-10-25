@@ -23,6 +23,50 @@ function isStrength(actualType: string | null): boolean {
 }
 
 /**
+ * Shared helper: compute the newest strength session's started_at among open sessions.
+ * Used by both closeStaleSessionsCore and getInProgressSession to ensure identical behavior.
+ * 
+ * @param openSessions Array of open sessions (status in ['planned', 'in_progress'])
+ * @returns The latest started_at among strength sessions, or null if none found
+ */
+export function computeNewestStrengthStartedAt(
+  openSessions: Array<{ started_at: string | null; actual_type: string | null }>
+): string | null {
+  let newest: string | null = null;
+  for (const session of openSessions) {
+    if (session.started_at && isStrength(session.actual_type)) {
+      if (!newest || session.started_at > newest) {
+        newest = session.started_at;
+      }
+    }
+  }
+  return newest;
+}
+
+/**
+ * Shared helper: find the last activity time from a set of completed sets.
+ * Used by both closeStaleSessionsCore and getInProgressSession to ensure identical behavior.
+ * 
+ * Considers ALL sets (warm-ups and working sets) because any logged set is activity.
+ * 
+ * @param sets Array of sets with completed_at timestamps
+ * @returns The latest completed_at, or null if no sets have completed_at
+ */
+export function findLastSetCompletedAt(
+  sets: Array<{ completed_at: string | null }>
+): string | null {
+  let latest: string | null = null;
+  for (const set of sets) {
+    if (set.completed_at) {
+      if (!latest || set.completed_at > latest) {
+        latest = set.completed_at;
+      }
+    }
+  }
+  return latest;
+}
+
+/**
  * Pure predicate: determine if a session is stale according to #111's rule.
  * 
  * A session is stale if:
@@ -194,15 +238,8 @@ export async function closeStaleSessionsCore(
   const stale: string[] = [];
   const byId = new Map(open.map((s) => [s.id, s]));
 
-  // Find the newest strength session (latest started_at among strength sessions only)
-  let newestStrengthStartedAt: string | null = null;
-  for (const session of open) {
-    if (session.started_at && isStrength(session.actual_type)) {
-      if (!newestStrengthStartedAt || session.started_at > newestStrengthStartedAt) {
-        newestStrengthStartedAt = session.started_at;
-      }
-    }
-  }
+  // Find the newest strength session using shared helper
+  const newestStrengthStartedAt = computeNewestStrengthStartedAt(open);
 
   for (const id of ids) {
     const session = byId.get(id);

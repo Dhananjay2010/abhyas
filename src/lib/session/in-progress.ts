@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { isSessionStale } from "@/lib/session/close-stale";
+import {
+  isSessionStale,
+  computeNewestStrengthStartedAt,
+  findLastSetCompletedAt,
+} from "@/lib/session/close-stale";
 import { localDateString } from "@/lib/dates";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 type DbClient = SupabaseClient<Database>;
 
@@ -22,11 +27,14 @@ export type InProgressSession = {
  * - The user has no in-progress session, OR
  * - The in-progress session is stale per #111's rule (>= 6h inactive or superseded)
  * 
- * Staleness check: applies #111's EXACT rule (isSessionStale) without closing the
- * session. A separate background job auto-closes stale sessions on Today.
- * Migration 000022 enforces at most one in_progress session per user.
+ * Staleness check: applies #111's EXACT rule (isSessionStale) with the same inputs
+ * as closeStaleSessionsCore: last activity from ALL sets (warm-ups included),
+ * newestStrengthStartedAt among open sessions (status in ['planned', 'in_progress']),
+ * and user's timezone via resolveTimezoneWithProfile.
  * 
- * Read-only: this query does not modify any data.
+ * Read-only: this query does not modify any data. A separate background job
+ * auto-closes stale sessions on Today. Migration 000022 enforces at most one
+ * in_progress session per user.
  */
 export async function getInProgressSession(
   supabase: DbClient,
@@ -47,8 +55,19 @@ export async function getInProgressSession(
 
   const session = sessions[0];
 
-  // Apply #111's staleness check before returning the session
-  // First, get the session's exercises
+  // Fetch profile for timezone resolution (same as closeStale's caller)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .single();
+
+  const userTimezone = resolveTimezoneWithProfile(profile?.timezone || null);
+  const today = localDateString(userTimezone);
+
+  // Apply #111's staleness check with EXACT same inputs as closeStaleSessionsCore
+  
+  // 1. Get ALL sets (warm-ups included) for last activity calculation
   const { data: sessionExercisesForStale } = await supabase
     .from("session_exercises")
     .select("id")
@@ -56,39 +75,29 @@ export async function getInProgressSession(
 
   const exerciseIdsForStale = sessionExercisesForStale?.map((e) => e.id) ?? [];
 
-  // Get the last working set's completed_at for staleness calculation
   let lastSetCompletedAt: string | null = null;
   if (exerciseIdsForStale.length > 0) {
-    const { data: lastSetData } = await supabase
+    const { data: allSets } = await supabase
       .from("session_sets")
       .select("completed_at")
       .eq("user_id", userId)
-      .eq("is_warmup_set", false)
-      .in("session_exercise_id", exerciseIdsForStale)
-      .order("completed_at", { ascending: false, nullsFirst: false })
-      .limit(1);
+      .in("session_exercise_id", exerciseIdsForStale);
 
-    lastSetCompletedAt = lastSetData?.[0]?.completed_at ?? null;
+    // Use shared helper to find last activity (same as core)
+    lastSetCompletedAt = findLastSetCompletedAt(allSets ?? []);
   }
 
-  // For strength sessions, check if a newer strength session exists
-  let newestStrengthStartedAt: string | null = null;
-  const isStrength = session.actual_type === "weights" || session.actual_type === "bodyweight";
-  if (isStrength) {
-    const { data: newestStrength } = await supabase
-      .from("sessions")
-      .select("started_at")
-      .eq("user_id", userId)
-      .in("actual_type", ["weights", "bodyweight"])
-      .not("started_at", "is", null)
-      .order("started_at", { ascending: false })
-      .limit(1);
-    
-    newestStrengthStartedAt = newestStrength?.[0]?.started_at ?? null;
-  }
+  // 2. Get open sessions to compute newestStrengthStartedAt (same status filter as core)
+  const { data: openSessions } = await supabase
+    .from("sessions")
+    .select("started_at, actual_type")
+    .eq("user_id", userId)
+    .in("status", ["planned", "in_progress"]);
+
+  // Use shared helper (same as core)
+  const newestStrengthStartedAt = computeNewestStrengthStartedAt(openSessions ?? []);
 
   // Check staleness using #111's exact rule
-  const today = localDateString("UTC"); // Use UTC for consistency with close-stale
   const nowMs = Date.now();
   
   if (isSessionStale({
