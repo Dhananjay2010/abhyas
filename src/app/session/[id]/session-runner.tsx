@@ -17,8 +17,10 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
-import { shouldShowFinishRetry } from "@/lib/session/finish-flow";
+import { shouldShowFinishRetry, runFinish, runEndEarly } from "@/lib/session/finish-flow";
 import { sessionSummaryTitle } from "@/lib/session/end-early-text";
+import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
+import { focusTrap } from "@/lib/focus-trap";
 import {
   abandonSession,
   deleteSet,
@@ -205,6 +207,10 @@ export function SessionRunner({
     { name: string; message: string; personalBest: string | null }[]
   >([]);
   const [endedEarly, setEndedEarly] = useState(false);
+  const endEarlyTriggerRef = useRef<HTMLButtonElement>(null);
+  const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
+  const endingRef = useRef(false);
+  const [ending, setEnding] = useState(false);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -357,7 +363,7 @@ export function SessionRunner({
    * that button lives in the header. Neither loses logged sets, which is why
    * both ask rather than block.
    */
-  const [confirming, setConfirming] = useState<"skip" | null>(null);
+  const [confirming, setConfirming] = useState<"skip" | "end_early" | null>(null);
 
   async function run<T extends { ok: boolean; error?: string }>(
     fn: () => Promise<T>
@@ -1113,14 +1119,48 @@ export function SessionRunner({
               Skip this exercise
             </GhostButton>
           )}
+          {confirming === "end_early" && (
+            <EndEarlyConfirm
+              totalSetsDone={totalSetsDone}
+              totalSetsPlanned={totalSetsPlanned}
+              triggerRef={endEarlyTriggerRef}
+              offlineError={endEarlyOfflineError}
+              onClearOfflineError={() => setEndEarlyOfflineError(false)}
+              onCancel={() => {
+                setConfirming(null);
+                setEndEarlyOfflineError(false);
+              }}
+              onConfirm={async () => {
+                await runEndEarly(
+                  {
+                    abandonSession: actions.abandonSession,
+                    refreshAfterSession: actions.refreshAfterSession,
+                    stopElapsed,
+                    resumeElapsed,
+                    setError,
+                    setPhase,
+                    setEndedEarly,
+                    navigate: (path: string) => router.push(path),
+                    onExit,
+                    inFlight: busyRef,
+                  },
+                  {
+                    sessionId,
+                    setsDone: totalSetsDone,
+                    setConfirming: (v) => setConfirming(v),
+                    setOfflineError: setEndEarlyOfflineError,
+                    endingRef,
+                    setEnding,
+                  },
+                );
+              }}
+              disabled={ending}
+            />
+          )}
           <GhostButton
+            buttonRef={endEarlyTriggerRef}
             disabled={busy}
-            onClick={async () => {
-              if (await run(() => actions.abandonSession(sessionId, elapsed))) {
-                setEndedEarly(true);
-                setPhase("done");
-              }
-            }}
+            onClick={() => setConfirming("end_early")}
           >
             End session early
           </GhostButton>
@@ -1474,13 +1514,16 @@ function GhostButton({
   children,
   onClick,
   disabled = false,
+  buttonRef,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  buttonRef?: React.RefObject<HTMLButtonElement | null>;
 }) {
   return (
     <button
+      ref={buttonRef}
       onClick={onClick}
       disabled={disabled}
       className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-60"
@@ -1528,4 +1571,133 @@ function CapabilityNote({
   if (vibrateEnabled && !vibrationSupported()) bits.push("vibration unsupported here");
 
   return <p className="mt-4 text-center text-[11px] text-muted/70">{bits.join(" · ")}</p>;
+}
+
+/**
+ * Confirmation dialog for ending a session early.
+ *
+ * Uses a native <dialog> element opened with showModal() for proper a11y:
+ * - modal semantics with backdrop
+ * - Escape key support via cancel event
+ * - focus trap with Tab/Shift+Tab cycling
+ * - focus management: initial focus on "Keep going", returns to trigger on close
+ * - offline error handling: shows error and clears on 'online' event
+ */
+function EndEarlyConfirm({
+  totalSetsDone,
+  totalSetsPlanned,
+  triggerRef,
+  offlineError,
+  onClearOfflineError,
+  onCancel,
+  onConfirm,
+  disabled = false,
+}: {
+  totalSetsDone: number;
+  totalSetsPlanned: number;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
+  offlineError: boolean;
+  onClearOfflineError: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+  disabled?: boolean;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const keepGoingRef = useRef<HTMLButtonElement>(null);
+  const endSessionRef = useRef<HTMLButtonElement>(null);
+  const onCancelRef = useRef(onCancel);
+  const onConfirmRef = useRef(onConfirm);
+
+  useEffect(() => {
+    onCancelRef.current = onCancel;
+    onConfirmRef.current = onConfirm;
+  });
+
+  useEffect(() => {
+    const handleOnline = () => {
+      onClearOfflineError();
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [onClearOfflineError]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    dialog.showModal();
+
+    const trap = focusTrap({
+      element: dialog,
+      onEscape: () => onCancelRef.current(),
+      returnFocusTo: triggerRef.current,
+      initialFocus: true,
+    });
+
+    const handleCancel = (e: Event) => {
+      e.preventDefault();
+      onCancelRef.current();
+    };
+
+    dialog.addEventListener("cancel", handleCancel);
+
+    return () => {
+      dialog.removeEventListener("cancel", handleCancel);
+      trap.release();
+      dialog.close();
+    };
+  }, [triggerRef]);
+
+  const handleKeepGoing = () => {
+    onCancelRef.current();
+  };
+
+  const handleEndSession = () => {
+    onConfirmRef.current();
+  };
+
+  const hasNoSets = totalSetsDone === 0;
+  const titleText = endEarlyConfirmTitle(totalSetsDone, totalSetsPlanned);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="end-early-title"
+      aria-describedby="end-early-desc"
+      className="max-w-[390px] rounded-xl border border-border bg-surface-2 px-4 py-4 backdrop:bg-bg/80"
+    >
+      <p id="end-early-title" className="text-sm font-medium">
+        {titleText}
+      </p>
+      <p id="end-early-desc" className="mt-2 text-sm text-muted">
+        {hasNoSets
+          ? "You can start it again from Today."
+          : "The session can\u2019t be resumed once ended."}
+      </p>
+      {offlineError && (
+        <p role="alert" className="mt-3 text-sm text-danger">
+          You&apos;re offline. Your session wasn&apos;t ended – try again when you&apos;re back
+          online.
+        </p>
+      )}
+      <div className="mt-4 flex gap-3">
+        <button
+          ref={keepGoingRef}
+          onClick={handleKeepGoing}
+          className="flex-1 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover min-h-11"
+        >
+          Keep going
+        </button>
+        <button
+          ref={endSessionRef}
+          disabled={disabled}
+          onClick={handleEndSession}
+          className="flex-1 rounded-lg bg-surface px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-surface-2 disabled:opacity-60 min-h-11"
+        >
+          End now
+        </button>
+      </div>
+    </dialog>
+  );
 }

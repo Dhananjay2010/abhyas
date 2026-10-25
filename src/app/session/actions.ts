@@ -22,7 +22,7 @@ import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { makeAbandonSessionDeps } from "@/lib/session/abandon-session-deps";
 import { finishSessionCore } from "@/lib/session/finish-session";
 import { makeFinishSessionDeps } from "@/lib/session/finish-session-deps";
-import { finishExerciseCore } from "@/lib/session/finish-exercise";
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
@@ -331,8 +331,6 @@ export async function deleteSet(
     .eq("is_warmup_set", false);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
-
-import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 
 export type { ProgressionFeedback };
 
