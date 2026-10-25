@@ -255,6 +255,80 @@ c4() {
 }
 test_mutant "Disable Rule 1 (20% threshold)" c4
 
+# U1: actions.ts doesn't pass applyProgression to finishExerciseCore
+u1() {
+  local file="$ACTIONS"
+  local search='applyProgression,'
+  local replace='applyProgression: async () => null,'
+  local count=$(grep -c "$search" "$file" || true)
+  if [ "$count" -lt 1 ]; then
+    echo "ERROR: Pattern '$search' not found" >&2
+    return 1
+  fi
+  sed -i "0,/$search/s/$search/$replace/" "$file"
+}
+test_mutant "U1: applyProgression not passed" u1
+
+# C4-bodyweight: isBodyweight always false
+c4_bodyweight() {
+  local file="$BUILD_INPUT"
+  local search='isBodyweight: ex.equipment_ids.length === 0,'
+  local replace='isBodyweight: false,'
+  local count=$(grep -Fc "$search" "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: Pattern found $count times (expected 1)" >&2
+    return 1
+  fi
+  sed -i "s/$search/$replace/" "$file"
+}
+test_mutant "C4: isBodyweight always false" c4_bodyweight
+
+# MSG: Remove bodyweight zero protection
+msg() {
+  local file="$PROG"
+  local search='if (currentWeight === 0 || currentWeight === null) {'
+  local replace='if (currentWeight === null) {'
+  local count=$(grep -Fc "$search" "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: Pattern found $count times (expected 1)" >&2
+    return 1
+  fi
+  sed -i "s/currentWeight === 0 || //" "$file"
+}
+test_mutant "MSG: remove 'currentWeight === 0' check" msg
+
+# SWAP: swap-prefill passes undefined equipmentIds
+swap_prefill() {
+  local file="src/lib/session/swap-prefill.ts"
+  local search='isBodyweight ? undefined : equipmentIds,'
+  local replace='undefined,'
+  local count=$(grep -Fc "$search" "$file" || true)
+  if [ "$count" -ne 2 ]; then
+    echo "ERROR: Pattern found $count times (expected 2)" >&2
+    return 1
+  fi
+  sed -i "s/$search/$replace/g" "$file"
+}
+test_mutant "SWAP: undefined equipmentIds in swap-prefill" swap_prefill
+
+# MED-3: No third-miss step-down
+med3() {
+  local file="$PROG"
+  # Remove the entire MED-3 block that checks failures >= 3
+  local count
+  count=$(grep -c 'if (failures >= 3 && reduced === currentWeight && equipmentIds) {' "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: MED-3 pattern found $count times (expected 1)" >&2
+    return 1
+  fi
+  perl -0pi -e 's/\/\/ MED-3: Third\+ consecutive miss.*?if \(failures >= 3 && reduced === currentWeight && equipmentIds\) \{.*?\n.*?\n.*?\n.*?\n.*?if \(stepped < currentWeight\) \{.*?return \{[^}]+\};\s*\}\s*\}/\/\/ MUTANT: MED-3 removed/s' "$file"
+  if cmp -s "$file" "$BACKUP_PROG"; then
+    echo "ERROR: MED-3 did not change the file" >&2
+    return 1
+  fi
+}
+test_mutant "MED-3: no third-miss step-down" med3
+
 echo
 echo "==========================================="
 echo "Mutant Test Summary"
