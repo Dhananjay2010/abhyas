@@ -9,6 +9,7 @@ import { finishSessionCore } from "../src/lib/session/finish-session";
 import type { SessionRow, SessionExerciseWithSets, ExerciseForUpdate, FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 
 const NOW = "2026-10-25T12:00:00Z";
+const NOW_FN = () => NOW;
 const NOW_MS = Date.parse(NOW);
 const FIVE_MIN_AGO = new Date(NOW_MS - 5 * 60 * 1000).toISOString();
 const THREE_MIN_AGO = new Date(NOW_MS - 3 * 60 * 1000).toISOString();
@@ -92,6 +93,7 @@ function makeFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionDeps &
     async updateExerciseStatus() {
       return { error: null };
     },
+    now: NOW_FN,
   };
 }
 

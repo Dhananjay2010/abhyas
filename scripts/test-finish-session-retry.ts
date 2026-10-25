@@ -9,6 +9,9 @@ import { finishSessionCore } from "../src/lib/session/finish-session";
 import type { FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 
 const NOW = "2026-10-25T12:00:00Z";
+const NOW_MS = Date.parse(NOW);
+const ONE_HOUR_AGO = new Date(NOW_MS - 60 * 60 * 1000).toISOString();
+const NOW_FN = () => NOW;
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -33,7 +36,7 @@ function makeFakeDeps(config: {
     async loadSession() {
       return {
         data: {
-          started_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+          started_at: ONE_HOUR_AGO,
           local_date: NOW.split("T")[0],
           user_id: "user-123",
         },
@@ -74,6 +77,7 @@ function makeFakeDeps(config: {
     async updateExerciseStatus() {
       return { error: null };
     },
+    now: NOW_FN,
   };
 }
 

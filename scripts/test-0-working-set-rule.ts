@@ -15,6 +15,7 @@ import { abandonSessionCore } from "../src/lib/session/abandon-session";
 const NOW = "2026-10-25T12:00:00Z";
 const NOW_MS = Date.parse(NOW);
 const THIRTY_MIN_AGO = new Date(NOW_MS - 30 * 60 * 1000).toISOString();
+const NOW_FN = () => NOW;
 
 let passed = 0;
 let failed = 0;
@@ -48,7 +49,7 @@ function makeFakeFinishSessionDeps(
 
   const session: SessionRow = {
     started_at: THIRTY_MIN_AGO,
-    local_date: new Date().toISOString().slice(0, 10),
+    local_date: NOW.slice(0, 10),
     user_id: "user-123",
   };
 
@@ -84,6 +85,7 @@ function makeFakeFinishSessionDeps(
       calls.push({ method: "updateExerciseStatus", table: "session_exercises", payload: { status }, filters: { id } });
       return { error: null };
     },
+    now: NOW_FN,
   };
 }
 

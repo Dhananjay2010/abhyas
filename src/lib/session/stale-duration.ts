@@ -48,7 +48,7 @@ export type StaleFinishInputExtended = {
 
 export type StaleFinishExtended = {
   durationSeconds: number | null;
-  endedAt: string;
+  endedAt: string | null;
   status: "completed" | "skipped";
 };
 
@@ -72,24 +72,25 @@ export function resolveStaleFinishExtended(input: StaleFinishInputExtended): Sta
 
   // No sets logged: skipped, duration = 0
   if (input.workingSetCount <= 0) {
-    const safeStartedAt = Number.isFinite(start) ? input.startedAt! : "1970-01-01T00:00:00.000Z";
-    return { durationSeconds: 0, endedAt: safeStartedAt, status: "skipped" };
+    if (!Number.isFinite(start) || !input.startedAt) {
+      return { durationSeconds: null, endedAt: null, status: "skipped" };
+    }
+    return { durationSeconds: 0, endedAt: input.startedAt, status: "skipped" };
   }
 
-  // Working sets exist but no last set timestamp: if started_at is valid, use it; otherwise null duration
+  // Working sets exist but no last set timestamp: if started_at is valid, use it; otherwise null
   if (input.lastSetCompletedAt === null) {
-    if (Number.isFinite(start)) {
-      return { durationSeconds: 0, endedAt: input.startedAt!, status: "completed" };
+    if (Number.isFinite(start) && input.startedAt) {
+      return { durationSeconds: 0, endedAt: input.startedAt, status: "completed" };
     }
-    return { durationSeconds: null, endedAt: "1970-01-01T00:00:00.000Z", status: "completed" };
+    return { durationSeconds: null, endedAt: null, status: "completed" };
   }
 
   const lastSetMs = Date.parse(input.lastSetCompletedAt);
 
-  // Invalid timestamps with sets: return null duration instead of measuring from epoch
+  // Invalid timestamps with sets: return null duration and endedAt instead of 1970 epoch
   if (!Number.isFinite(start) || !Number.isFinite(lastSetMs)) {
-    const safeEnd = Number.isFinite(lastSetMs) ? input.lastSetCompletedAt : "1970-01-01T00:00:00.000Z";
-    return { durationSeconds: null, endedAt: safeEnd, status: "completed" };
+    return { durationSeconds: null, endedAt: null, status: "completed" };
   }
 
   const safeStart = start;
