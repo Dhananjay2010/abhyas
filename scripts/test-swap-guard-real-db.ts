@@ -147,6 +147,18 @@ async function runTests() {
     return false;
   }
 
+  // Fetch a seeded exercise to use
+  const { data: exercises, error: exError } = await adminClient
+    .from("exercises")
+    .select("id")
+    .limit(1);
+  
+  if (exError || !exercises || exercises.length < 1) {
+    console.error("Failed to fetch seeded exercise:", exError);
+    return false;
+  }
+  const exerciseId = exercises[0].id;
+
   console.log("Test 1: No sets logged - swap allowed\n");
 
   // Create program, day, session, and exercise for user 1
@@ -157,6 +169,7 @@ async function runTests() {
     goal: "strength",
     level: "beginner",
     primary_track: "weights",
+    split_type: "upper_lower",
     days_per_week: 3,
     deload_week: 4,
     started_on: "2026-10-01",
@@ -189,7 +202,6 @@ async function runTests() {
   });
   check("Session created", !sessionError1, sessionError1?.message);
 
-  const exerciseId1 = "bench-press";
   const sessionExerciseId1 = randomUUID();
   const { error: sessionExerciseError1 } = await adminClient
     .from("session_exercises")
@@ -197,7 +209,7 @@ async function runTests() {
       id: sessionExerciseId1,
       session_id: sessionId1,
       user_id: userId1,
-      exercise_id: exerciseId1,
+      exercise_id: exerciseId,
       order_index: 0,
       planned_sets: 3,
       planned_reps_min: 8,
@@ -244,6 +256,7 @@ async function runTests() {
     goal: "strength",
     level: "beginner",
     primary_track: "weights",
+    split_type: "upper_lower",
     days_per_week: 3,
     deload_week: 4,
     started_on: "2026-10-01",
@@ -283,7 +296,7 @@ async function runTests() {
       id: sessionExerciseId2,
       session_id: sessionId2,
       user_id: userId2,
-      exercise_id: exerciseId1,
+      exercise_id: exerciseId,
       order_index: 0,
       planned_sets: 3,
       planned_reps_min: 8,
