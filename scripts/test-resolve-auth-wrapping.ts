@@ -31,7 +31,7 @@ try {
     }
   );
   
-  assert(normalResult.value === "User test-user processed", "A1: Normal auth flow succeeds");
+  assert("value" in normalResult && normalResult.value === "User test-user processed", "A1: Normal auth flow succeeds");
   
   // Test 2: No user - should return structured error
   const expiredResult = await resolveAuth(
@@ -42,8 +42,8 @@ try {
   );
   
   assert(isSessionExpired(expiredResult), "A1: No user returns structured error");
-  assert(expiredResult.ok === false, "A1: No user result has ok=false");
-  assert(expiredResult.code === "SESSION_EXPIRED", "A1: No user result has SESSION_EXPIRED code");
+  assert("ok" in expiredResult && expiredResult.ok === false, "A1: No user result has ok=false");
+  assert("code" in expiredResult && expiredResult.code === "SESSION_EXPIRED", "A1: No user result has SESSION_EXPIRED code");
   
   // Test 3: "Not signed in" error - should catch and return structured error
   const notSignedInResult = await resolveAuth(

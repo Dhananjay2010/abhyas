@@ -7,16 +7,16 @@
  * This test validates the behavior by calling validateAndUpdateProfile directly.
  */
 
-let passed = 0;
-let failed = 0;
+let passedDobTest = 0;
+let failedDobTest = 0;
 
 function check(condition: boolean, message: string) {
   if (condition) {
     console.log(`✅ PASS: ${message}`);
-    passed++;
+    passedDobTest++;
   } else {
     console.log(`❌ FAIL: ${message}`);
-    failed++;
+    failedDobTest++;
   }
 }
 

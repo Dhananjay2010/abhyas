@@ -4,14 +4,14 @@
  * from real data correctly.
  */
 
-let passed = 0;
+let passedProps = 0;
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
     console.error(`  ❌ ${message}`);
     throw new Error(message);
   } else {
-    passed++;
+    passedProps++;
     console.log(`  ✓ ${message}`);
   }
 }
