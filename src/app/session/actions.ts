@@ -29,6 +29,7 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
+import { progressForPlanningMode } from "@/lib/session/swap-progress";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -779,42 +780,6 @@ export type SwapResult = {
   currentWorkingWeightKg?: number | null;
 };
 
-/**
- * Fetch progress for a swapped exercise (#127).
- * Returns current_target_reps and current_working_weight_kg for target resolution.
- * Respects planning_mode: returns null for daily_menu mode.
- * 
- * Exported for testing.
- */
-export async function fetchSwapProgress(
-  supabase: {
-    from: (table: string) => {
-      select: (columns: string) => {
-        eq: (column: string, value: string) => {
-          eq: (column: string, value: string) => {
-            maybeSingle: () => Promise<{ data: { current_target_reps: number | null; current_working_weight_kg: number | null } | null }>;
-          };
-        };
-      };
-    };
-  },
-  userId: string,
-  exerciseId: string,
-  planningMode: string | null,
-): Promise<{ current_target_reps: number | null; current_working_weight_kg: number | null } | null> {
-  const remembersWeights = planningMode !== "daily_menu";
-  if (!remembersWeights) return null;
-  
-  const { data } = await supabase
-    .from("exercise_progress")
-    .select("current_target_reps, current_working_weight_kg")
-    .eq("user_id", userId)
-    .eq("exercise_id", exerciseId)
-    .maybeSingle();
-  
-  return data;
-}
-
 export async function swapExercise(input: {
   sessionExerciseId: string;
   newExerciseId: string;
@@ -847,7 +812,7 @@ export async function swapExercise(input: {
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
     supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
-    // #127: Fetch progress in parallel
+    // #127: Fetch progress in parallel (structure tested via swapProgressQuery in swap-progress.ts)
     supabase
       .from("exercise_progress")
       .select("current_target_reps, current_working_weight_kg")
@@ -864,9 +829,8 @@ export async function swapExercise(input: {
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
   
-  // #127: Apply planning_mode filter
-  const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
-  const progress = remembersWeights ? progressRes.data : null;
+  // #127: Apply planning_mode filter using progressForPlanningMode
+  const progress = progressForPlanningMode(settingsRes.data?.planning_mode, progressRes.data);
 
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range

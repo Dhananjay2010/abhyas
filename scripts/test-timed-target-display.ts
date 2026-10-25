@@ -587,26 +587,16 @@ check("Swap with null plan → min=8 (uses old plannedRepsMin, not old repsMin 1
 check("Swap with null plan → max=12 (uses old plannedRepsMax, not old repsMax 14)", swapWithNullPlan.repsMax === 12);
 
 // ============================================================================
-// Part 8: fetchSwapProgress behavioral test with fake client
+// Part 8: swapProgressQuery and progressForPlanningMode behavioral tests
 // ============================================================================
-console.log("\n--- Part 8: fetchSwapProgress behavioral test ---\n");
+console.log("\n--- Part 8: swapProgressQuery and progressForPlanningMode tests ---\n");
 
-import { fetchSwapProgress } from "../src/app/session/actions.js";
+import { swapProgressQuery, progressForPlanningMode, type SwapProgressClient } from "../src/lib/session/swap-progress.js";
 
 (async () => {
   // Fake client that tracks method calls
   const fakeCalls: string[] = [];
-  const fakeClient: {
-    from: (table: string) => {
-      select: (columns: string) => {
-        eq: (column: string, value: string) => {
-          eq: (column: string, value: string) => {
-            maybeSingle: () => Promise<{ data: { current_target_reps: number | null; current_working_weight_kg: number | null } | null }>;
-          };
-        };
-      };
-    };
-  } = {
+  const fakeClient: SwapProgressClient = {
     from: (table: string) => {
       fakeCalls.push(`from:${table}`);
       return {
@@ -633,19 +623,26 @@ import { fetchSwapProgress } from "../src/app/session/actions.js";
     },
   };
 
-  // Test: normal mode includes user_id filter
+  // Test: swapProgressQuery includes user_id filter
   fakeCalls.length = 0;
-  await fetchSwapProgress(fakeClient, "user-123", "ex-pushup", "structured");
-  check("fetchSwapProgress calls .from('exercise_progress')", fakeCalls.includes("from:exercise_progress"));
-  check("fetchSwapProgress calls .eq('user_id', userId)", fakeCalls.includes("eq:user_id=user-123"));
-  check("fetchSwapProgress calls .eq('exercise_id', exerciseId)", fakeCalls.includes("eq:exercise_id=ex-pushup"));
-  check("fetchSwapProgress calls .maybeSingle()", fakeCalls.includes("maybeSingle"));
+  const queryResult = await swapProgressQuery(fakeClient, "user-123", "ex-pushup");
+  check("swapProgressQuery calls .from('exercise_progress')", fakeCalls.includes("from:exercise_progress"));
+  check("swapProgressQuery calls .eq('user_id', userId)", fakeCalls.includes("eq:user_id=user-123"));
+  check("swapProgressQuery calls .eq('exercise_id', exerciseId)", fakeCalls.includes("eq:exercise_id=ex-pushup"));
+  check("swapProgressQuery calls .maybeSingle()", fakeCalls.includes("maybeSingle"));
+  check("swapProgressQuery returns expected data", queryResult.data?.current_target_reps === 16);
 
-  // Test: daily_menu mode returns null without querying
-  fakeCalls.length = 0;
-  const dailyMenuResult = await fetchSwapProgress(fakeClient, "user-123", "ex-pushup", "daily_menu");
-  check("fetchSwapProgress with daily_menu returns null", dailyMenuResult === null);
-  check("fetchSwapProgress with daily_menu does not query", fakeCalls.length === 0);
+  // Test: progressForPlanningMode with daily_menu returns null
+  const dailyMenuResult = progressForPlanningMode("daily_menu", { current_target_reps: 16, current_working_weight_kg: 60 });
+  check("progressForPlanningMode with daily_menu returns null", dailyMenuResult === null);
+
+  // Test: progressForPlanningMode with structured returns data
+  const structuredResult = progressForPlanningMode("structured", { current_target_reps: 16, current_working_weight_kg: 60 });
+  check("progressForPlanningMode with structured returns data", structuredResult?.current_target_reps === 16);
+
+  // Test: progressForPlanningMode with null planningMode returns data
+  const nullResult = progressForPlanningMode(null, { current_target_reps: 16, current_working_weight_kg: 60 });
+  check("progressForPlanningMode with null returns data", nullResult?.current_target_reps === 16);
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
