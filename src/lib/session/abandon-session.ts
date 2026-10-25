@@ -92,7 +92,7 @@ export async function abandonSessionCore(
 
   if (stale) {
     // Load exercises with sets for stale calculation
-    const { data: exercisesWithSets, error: setsError } = await deps.loadExercisesWithSets(sessionId);
+    const { data: exercisesWithSets, error: setsError} = await deps.loadExercisesWithSets(sessionId);
     if (setsError) return { ok: false, error: setsError };
 
     // Extract last set metadata using shared helper

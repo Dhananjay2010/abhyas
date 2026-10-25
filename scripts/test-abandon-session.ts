@@ -61,6 +61,7 @@ function makeFakeAbandonDeps(
     async loadExercisesWithSets() {
       return { data: [], error: null };
     },
+    now: () => "2026-10-25T12:00:00Z", // 30 min after started_at, not stale
   };
 }
 
