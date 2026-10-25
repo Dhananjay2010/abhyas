@@ -74,6 +74,7 @@ function makeFakeFinishSessionDeps(
     async updateExerciseStatus() {
       return { error: null };
     },
+    now: NOW_FN,
   };
 }
 

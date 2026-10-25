@@ -88,6 +88,7 @@ function makeStaleFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionD
     async updateExerciseStatus() {
       return { error: null };
     },
+    now: NOW_FN,
   };
 }
 
