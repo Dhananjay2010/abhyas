@@ -31,6 +31,7 @@ export type SwapExerciseDeps = {
     equipmentIds: string[],
     metric: ExerciseMetric,
     movementPattern: MovementPattern,
+    remembersWeights: boolean,
   ) => Promise<SwapWeightsResult>;
   
   /**
@@ -64,6 +65,7 @@ export type SwapExerciseCoreInput = {
     goal: UserGoal;
     level: ExperienceLevel;
   } | null;
+  remembersWeights: boolean;
 };
 
 export type SwapExerciseCoreResult = 
@@ -97,7 +99,7 @@ export async function swapExerciseCore(
   deps: SwapExerciseDeps,
   input: SwapExerciseCoreInput,
 ): Promise<SwapExerciseCoreResult> {
-  const { newExerciseId, sessionExerciseId, current, replacement, profile } = input;
+  const { newExerciseId, sessionExerciseId, current, replacement, profile, remembersWeights } = input;
   
   // Step 1: Validate swap target (REQUIRED)
   const isValid = await deps.validateSwapTarget({
@@ -123,6 +125,7 @@ export async function swapExerciseCore(
     equipmentIds,
     metric,
     replacement?.movement_pattern ?? "other",
+    remembersWeights,
   );
 
   /*

@@ -28,12 +28,11 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
-import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
-import { resolveSwapResultPayload } from "@/lib/session/swap-progress";
-import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
-import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligible-swap-list";
+import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
+
+export type { SwapResult };
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -735,18 +734,6 @@ export async function findAlternatives(
   return { ok: true, data: alternatives };
 }
 
-/** What the runner needs to redraw the exercise after a swap. */
-export type SwapResult = {
-  metric: Database["public"]["Enums"]["exercise_metric"];
-  repsMin: number | null;
-  repsMax: number | null;
-  equipmentIds: string[];
-  weightPrefill: number | null;
-  workingWeightKg: number | null;
-  currentTargetReps: number | null;
-  isBodyweight: boolean;
-};
-
 export async function swapExercise(input: {
   sessionExerciseId: string;
   newExerciseId: string;
@@ -756,7 +743,6 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  // Refuse swap if the exercise has logged sets
   const guardResult = await canSwapExercise(
     createSupabaseSwapGuardDeps(supabase),
     input.sessionExerciseId,
@@ -765,190 +751,7 @@ export async function swapExercise(input: {
     return { ok: false, error: guardResult.error };
   }
 
-  const [currentRes, replacementRes, profileRes, weightRes, settingsRes, injuryRes, equipmentRes] = await Promise.all([
-    supabase
-      .from("session_exercises")
-      .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
-      .eq("id", input.sessionExerciseId)
-      .maybeSingle(),
-    /*
-      The unit can change with the swap: the alternatives for a core slot
-      include holds, deliberately -- making a plank reachable from the swap list
-      was the point of ranking that list. Without carrying the metric the
-      session went on asking for reps while the screen named a plank.
-      
-      equipment_ids is also needed: when the session loads, isBodyweight is 
-      derived from whether equipment_ids is empty, and without it here a barbell
-      exercise swapped in would show "Added weight (kg)" instead of "Weight (kg)".
-      
-      movement_pattern is needed for swap prefill via suggestedWeight.
-    */
-    supabase
-      .from("exercises")
-      .select("id, metric, mechanic, equipment_ids, movement_pattern, slug, primary_muscles, contraindicated_regions, impact, spinal_load, level_min, tracks, default_rest_seconds, category, name, cue")
-      .eq("id", input.newExerciseId)
-      .maybeSingle(),
-    supabase.from("profiles").select("*").eq("id", user.id).single(),
-    supabase.from("body_metrics").select("weight_kg").eq("user_id", user.id).order("recorded_on", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
-    supabase.from("user_injuries").select("body_region, severity").eq("user_id", user.id),
-    supabase.from("user_equipment").select("equipment_id").eq("user_id", user.id),
-  ]);
-
-  // QA Steer 2(a): Fail closed if any required read fails
-  if (!currentRes.data) return { ok: false, error: "Exercise not found" };
-  if (!replacementRes.data) return { ok: false, error: "Replacement exercise not found" };
-  const profile = profileRes.data;
-  if (!profile || !profile.goal || !profile.level || !profile.primary_track) {
-    return { ok: false, error: "Profile not found or incomplete" };
-  }
-  if (injuryRes.error) return { ok: false, error: "Could not load injury data" };
-  if (equipmentRes.error) return { ok: false, error: "Could not load equipment data" };
-  
-  const current = currentRes.data;
-  const replacement = replacementRes.data;
-  
-  // Build GeneratorInput using shared helper
-  const weightKg = weightRes.data?.weight_kg ?? null;
-  const generatorInput = buildGeneratorInput({
-    userId: user.id,
-    profile: {
-      goal: profile.goal,
-      level: profile.level,
-      primary_track: profile.primary_track,
-      days_per_week: profile.days_per_week ?? 3,
-      yoga_days_per_week: profile.yoga_days_per_week ?? 0,
-      date_of_birth: profile.date_of_birth,
-      height_cm: profile.height_cm,
-      has_all_equipment: profile.has_all_equipment ?? false,
-    },
-    equipmentIds: (equipmentRes.data ?? []).map(e => e.equipment_id),
-    injuries: injuryRes.data ?? [],
-    weightKg: weightKg ? Number(weightKg) : null,
-  });
-  
-  // Get the current exercise (same columns as findAlternatives for consistency)
-  const currentExerciseRes = await supabase
-    .from("exercises")
-    .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
-    .eq("id", current.exercise_id)
-    .maybeSingle();
-  
-  if (!currentExerciseRes.data) {
-    return { ok: false, error: "Current exercise not found" };
-  }
-  
-  type ExerciseRow = typeof currentExerciseRes.data;
-  const currentExercise = currentExerciseRes.data as ExerciseRow & CandidateExercise;
-  
-  // Build swap pattern list
-  const patterns = getSwapPatterns(currentExercise.movement_pattern, generatorInput);
-  
-  // Get eligible pool
-  const poolRes = await supabase
-    .from("exercises")
-    .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
-    .in("movement_pattern", patterns)
-    .eq("is_active", true);
-  
-  if (poolRes.error) {
-    return { ok: false, error: "Could not load exercise pool" };
-  }
-  
-  type PoolRow = typeof poolRes.data[number];
-  const pool = (poolRes.data ?? []) as (PoolRow & CandidateExercise)[];
-  
-  // Get exercises already in this session
-  const siblingsRes = await supabase
-    .from("session_exercises")
-    .select("exercise_id")
-    .eq("session_id", current.session_id);
-  
-  if (siblingsRes.error) {
-    return { ok: false, error: "Could not load session exercises" };
-  }
-  
-  const alreadyInSession = new Set(
-    (siblingsRes.data ?? []).map((s) => s.exercise_id),
-  );
-  
-  // Use single source of truth for swap list
-  const ranked = buildEligibleSwapList({
-    currentExercise,
-    sessionExerciseId: input.sessionExerciseId,
-    generatorInput,
-    pool,
-    alreadyInSession,
-  });
-  
-  // Validator: accept iff target is in the eligible swap list
-  const validateSwapTarget = async (validateInput: { newExerciseId: string; sessionExerciseId: string }) => {
-    return ranked.some(e => e.id === validateInput.newExerciseId);
-  };
-  
-  const coreResult = await swapExerciseCore(
-    {
-      resolveSwapWeights: (sessionId, newExerciseId, equipmentIds, metric, movementPattern) =>
-        resolveSwapWeights(supabase, user.id, sessionId, newExerciseId, equipmentIds, metric, movementPattern),
-      validateSwapTarget,
-    },
-    {
-      newExerciseId: input.newExerciseId,
-      sessionExerciseId: input.sessionExerciseId,
-      current: {
-        exercise_id: current.exercise_id,
-        metric: current.metric,
-        planned_reps_min: current.planned_reps_min,
-        planned_reps_max: current.planned_reps_max,
-        session_id: current.session_id,
-      },
-      replacement: replacement ? {
-        metric: replacement.metric,
-        mechanic: replacement.mechanic,
-        equipment_ids: replacement.equipment_ids,
-        movement_pattern: replacement.movement_pattern,
-      } : null,
-      profile: profile ? {
-        goal: profile.goal,
-        level: profile.level,
-      } : null,
-    }
-  );
-  
-  // Handle validation failure
-  if (!coreResult.ok) {
-    return { ok: false, error: coreResult.error };
-  }
-  
-  const { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = coreResult;
-  
-  // Filter target reps for daily_menu users (they don't remember weights/targets)
-  const swapPayload = resolveSwapResultPayload({
-    planningMode: settingsRes.data?.planning_mode,
-    rawCurrentTargetReps: currentTargetReps,
-    rawWorkingWeightKg: workingWeightKg,
-    planRepsMin: repsMin,
-    planRepsMax: repsMax,
-  });
-  const filteredTargetReps = swapPayload.currentTargetReps;
-
-  const { error } = await supabase
-    .from("session_exercises")
-    .update({
-      exercise_id: input.newExerciseId,
-      swapped_from_exercise_id: current.exercise_id,
-      metric,
-      planned_reps_min: repsMin,
-      planned_reps_max: repsMax,
-    })
-    .eq("id", input.sessionExerciseId);
-
-  // Returned rather than left for the client to guess: the runner is mid-session
-  // and must not re-fetch, but it does have to redraw the target and the
-  // hold button with the range that was just written.
-  return error
-    ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps: filteredTargetReps, isBodyweight } };
+  return swapExerciseForUser(supabase, user.id, input);
 }
 
 // ---------------------------------------------------------------------------
