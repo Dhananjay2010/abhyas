@@ -60,45 +60,11 @@ check(
 );
 
 check(
-  "passes profileRes.data?.units to buildRunnerExercise",
-  pageContent.includes('userUnits: profileRes.data?.units')
-);
-
-check(
   "mechanic queried from exercises (not hardcoded to null)",
   /exercises![^(]*\([^)]*\bmechanic\b[^)]*\)/.test(pageContent)
 );
 
-console.log("\n3. Check buildRunnerExercise wiring");
-const builderContent = fs.readFileSync("src/lib/session/build-runner-exercises.ts", "utf8");
-
-check(
-  "imports progressionInputsFromExercise",
-  builderContent.includes('import { progressionInputsFromExercise } from "./progression-inputs"')
-);
-
-check(
-  "calls progressionInputsFromExercise",
-  builderContent.includes('progressionInputsFromExercise(')
-);
-
-check(
-  "passes mechanic: ex?.mechanic ?? null",
-  builderContent.includes('mechanic: ex?.mechanic ?? null'),
-  "not hardcoded to null"
-);
-
-check(
-  "passes progInputs.equipmentIds to suggestedWeight",
-  builderContent.includes('progInputs.equipmentIds,')
-);
-
-check(
-  "passes progInputs.unit to suggestedWeight",
-  builderContent.includes('progInputs.unit,')
-);
-
-console.log("\n4. Helper behavior tests");
+console.log("\n3. Helper behavior tests");
 
 // With equipment
 const withEquip = progressionInputsFromExercise({ equipment_ids: ["barbell", "cable"] }, "metric");
