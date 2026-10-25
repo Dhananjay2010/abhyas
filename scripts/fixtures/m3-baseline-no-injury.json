@@ -1,5 +1,5 @@
 {
-  "mainCommit": "0b359190f4301e7df8e3d840f1a3c018ad67c81e",
+  "mainCommit": "95724924e082710bf5a64fa0f96d10a7d0615277",
   "profiles": [
     {
       "userId": "bw-2d-30m-beginner",
@@ -956,11 +956,11 @@
               "sets": 4,
               "reps": "8-12",
               "swaps": [
-                "bradford-rocky-presses",
                 "landmine-linear-jammer",
                 "anti-gravity-press",
                 "clean-and-press",
-                "seated-barbell-military-press"
+                "seated-barbell-military-press",
+                "barbell-shoulder-press"
               ]
             },
             {
@@ -1096,8 +1096,8 @@
                 "landmine-linear-jammer",
                 "seated-barbell-military-press",
                 "clean-and-press",
-                "standing-bradford-press",
-                "bradford-rocky-presses"
+                "anti-gravity-press",
+                "barbell-shoulder-press"
               ]
             },
             {
@@ -1446,9 +1446,9 @@
               "swaps": [
                 "single-arm-linear-jammer",
                 "anti-gravity-press",
-                "bradford-rocky-presses",
                 "barbell-shoulder-press",
-                "standing-bradford-press"
+                "landmine-linear-jammer",
+                "clean-and-press"
               ]
             },
             {
@@ -1586,8 +1586,8 @@
                 "anti-gravity-press",
                 "single-arm-linear-jammer",
                 "clean-and-press",
-                "standing-bradford-press",
-                "landmine-linear-jammer"
+                "landmine-linear-jammer",
+                "barbell-shoulder-press"
               ]
             },
             {
@@ -1815,10 +1815,10 @@
               "reps": "3-6",
               "swaps": [
                 "clean-and-press",
-                "standing-bradford-press",
                 "landmine-linear-jammer",
                 "anti-gravity-press",
-                "seated-barbell-military-press"
+                "seated-barbell-military-press",
+                "single-arm-linear-jammer"
               ]
             },
             {
