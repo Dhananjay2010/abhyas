@@ -123,10 +123,10 @@ export function selectWarmup(input: WarmupInput): WarmupItem[] {
     return !needs || availableEquipment === null || availableEquipment.has(needs);
   };
   
-  // Item 8: Past knee excludes walking-lunge, skipping-light, and worlds-greatest
+  // Step 3: Past knee excludes walking-lunge, full-depth bodyweight-squat, skipping-light, and worlds-greatest
   const isExcludedForPastKnee = (slug: string) => {
     if (pastKneeInjury !== true) return false;
-    return slug === "walking-lunge" || slug === "skipping-light" || slug === "worlds-greatest";
+    return slug === "walking-lunge" || slug === "bodyweight-squat" || slug === "skipping-light" || slug === "worlds-greatest";
   };
   
   const cardioPool = byType("cardio");
