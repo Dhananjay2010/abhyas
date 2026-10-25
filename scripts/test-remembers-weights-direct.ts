@@ -35,11 +35,11 @@ function createMockSupabaseWithProgress() {
     },
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return {
     from: (table: string) => ({
       select: () => Object.assign({ _table: table }, chain),
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
 
