@@ -7,12 +7,12 @@ import type { WarmupItem } from "@/lib/program/warmup";
 import {
   formatClock,
   useBeeper,
-  useElapsed,
   useWakeLock,
   vibrate,
   vibrationSupported,
   displayElapsed,
 } from "@/lib/session/device";
+import { useElapsedWithClock } from "@/lib/session/use-elapsed-with-clock";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
@@ -166,7 +166,7 @@ export function SessionRunner({
   onExit?: () => void;
 }) {
   const router = useRouter();
-  const rawElapsed = useElapsed(startedAt, nowFn ?? Date.now);
+  const rawElapsed = useElapsedWithClock(startedAt, nowFn ?? Date.now);
   const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
   const elapsed = frozenElapsed ?? displayElapsed(rawElapsed, isStale);
   

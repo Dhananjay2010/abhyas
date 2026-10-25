@@ -10,7 +10,7 @@ export type StaleFinishInput = {
 };
 
 export type StaleFinish = {
-  durationSeconds: number;
+  durationSeconds: number | null;
   endedAt: string;
   status: "completed" | "skipped";
 };
@@ -34,24 +34,24 @@ export function resolveStaleFinish(input: StaleFinishInput): StaleFinish {
 
   // No sets logged: skipped, duration = 0
   if (input.workingSetCount <= 0) {
-    const safeStartedAt = Number.isFinite(start) && input.startedAt ? input.startedAt : new Date(0).toISOString();
+    const safeStartedAt = Number.isFinite(start) && input.startedAt ? input.startedAt : input.startedAt ?? "";
     return { durationSeconds: 0, endedAt: safeStartedAt, status: "skipped" };
   }
 
   // Working sets exist but no last set timestamp: completed with end=start (main's behavior)
   if (input.lastSetCompletedAt === null) {
-    const safeStartedAt = Number.isFinite(start) && input.startedAt ? input.startedAt : new Date(0).toISOString();
+    const safeStartedAt = Number.isFinite(start) && input.startedAt ? input.startedAt : input.startedAt ?? "";
     return { durationSeconds: 0, endedAt: safeStartedAt, status: "completed" };
   }
 
   const lastSetMs = Date.parse(input.lastSetCompletedAt);
 
-  // Invalid timestamps with sets: return 0 duration to avoid measuring from epoch
+  // Invalid timestamps with sets: return null duration instead of measuring from epoch
   if (!Number.isFinite(start) || !Number.isFinite(lastSetMs)) {
     const safeEnd = Number.isFinite(lastSetMs) && input.lastSetCompletedAt 
       ? input.lastSetCompletedAt 
-      : (Number.isFinite(start) && input.startedAt ? input.startedAt : new Date(0).toISOString());
-    return { durationSeconds: 0, endedAt: safeEnd, status: "completed" };
+      : (Number.isFinite(start) && input.startedAt ? input.startedAt : input.startedAt ?? input.lastSetCompletedAt ?? "");
+    return { durationSeconds: null, endedAt: safeEnd, status: "completed" };
   }
 
   const safeStart = start;

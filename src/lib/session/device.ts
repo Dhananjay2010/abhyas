@@ -150,13 +150,10 @@ export function vibrate(pattern: number | number[]) {
 }
 
 /** Counts elapsed seconds, resilient to the tab being backgrounded. */
-export function useElapsed(startedAtIso: string | null, nowFn: () => number): number {
+export function useElapsed(startedAtIso: string | null): number {
   const [start] = useState(() =>
     startedAtIso ? new Date(startedAtIso).getTime() : null,
   );
-  
-  // Capture the snapshot function for useSyncExternalStore
-  const getSnapshot = useCallback(() => Math.floor(nowFn() / 1000) * 1000, [nowFn]);
   
   // Use useSyncExternalStore to subscribe to time (an external system)
   // Returns 0 during SSR (getServerSnapshot)
@@ -166,7 +163,10 @@ export function useElapsed(startedAtIso: string | null, nowFn: () => number): nu
       const interval = setInterval(onStoreChange, 1000);
       return () => clearInterval(interval);
     }, []),
-    getSnapshot, // getSnapshot (client)
+    // Whole seconds, so consecutive reads within a second are equal: React
+    // requires getSnapshot to return the same value until the store changes,
+    // and a raw Date.now() would differ on every read.
+    () => Math.floor(Date.now() / 1000) * 1000, // getSnapshot (client)
     () => 0, // getServerSnapshot (SSR) - returns 0 so elapsed will be 0
   );
 
@@ -180,15 +180,4 @@ export function formatClock(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-/**
- * Cap elapsed time for stale sessions at 179:59 (10799 seconds).
- * 
- * @param elapsed - Raw elapsed seconds
- * @param isStale - Whether the session is stale
- * @returns Capped elapsed seconds
- */
-export function displayElapsed(elapsed: number, isStale: boolean): number {
-  return isStale ? Math.min(elapsed, 10799) : elapsed;
 }

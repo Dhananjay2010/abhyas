@@ -284,7 +284,10 @@ export async function closeStaleSessionsCore(
       const finish = resolveStaleFinish(input);
       
       // Cap duration at 6 hours (21600 seconds) to prevent unrealistic values
-      const cappedDuration = Math.min(finish.durationSeconds, STALE_INACTIVITY_THRESHOLD_SECONDS);
+      // Handle null duration (invalid timestamps) by passing null through
+      const cappedDuration = finish.durationSeconds === null
+        ? null
+        : Math.min(finish.durationSeconds, STALE_INACTIVITY_THRESHOLD_SECONDS);
       
       try {
         const updated = await deps.markSessionDone(id, finish.status, finish.endedAt, cappedDuration);
