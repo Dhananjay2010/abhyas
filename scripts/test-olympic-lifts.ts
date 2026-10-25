@@ -83,22 +83,18 @@ console.log("\n2. Current-knee user glute-bridge swaps contain NO Olympic lifts"
   if (!gluteBridge) {
     check("glute-bridge exists in catalogue", false);
   } else {
-    const patterns = buildPatternList(gluteBridge.movement_pattern, true, true);
-    const pool = catalogue.filter(e => patterns.includes(e.movement_pattern));
+    const kneeInput = base({
+      currentInjuryRegions: ["knee"],
+      anyKneeInjury: true,
+    });
     
-    const swaps = rankAlternatives(
-      gluteBridge,
-      pool,
-      {
-        level: "intermediate",
-        availableEquipment: null,
-        injuryRegions: ["knee"],
-        anyKneeInjury: true,
-        limit: 20,
-        scoreFn: () => 0,
-        tieBreakFn: () => 0,
-      }
-    );
+    const swaps = buildEligibleSwapList({
+      currentExercise: gluteBridge,
+      sessionExerciseId: "test-session-ex",
+      generatorInput: kneeInput,
+      pool: catalogue,
+      alreadyInSession: new Set([gluteBridge.id]),
+    });
     
     const olympicInSwaps = swaps.filter(e => isOlympicLift(e));
     check(`Current knee glute-bridge swaps: NO Olympic lifts`, olympicInSwaps.length === 0,

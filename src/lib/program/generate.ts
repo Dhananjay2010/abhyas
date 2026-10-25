@@ -296,7 +296,6 @@ export function shouldExcludeOlympicLift(
   }
 ): boolean {
   if (!isOlympicLift(ex)) return false;
-  
   // Exclude for beginners (matches main's shouldExcludeForSafety)
   if (input.level === "beginner") return true;
   

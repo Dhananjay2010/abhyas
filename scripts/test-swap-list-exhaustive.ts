@@ -81,16 +81,10 @@ const testProfiles = [
   },
 ];
 
-// Test exercise cases (from bug report + edge cases)
-const testCases = [
-  { slug: "pushup", pattern: "push" as const },
-  { slug: "bent-over-barbell-row", pattern: "pull" as const },
-  { slug: "barbell-squat", pattern: "squat" as const },
-  { slug: "barbell-lunge", pattern: "lunge" as const },
-  { slug: "arnold-dumbbell-press", pattern: "push" as const },
-  { slug: "goblet-squat", pattern: "squat" as const },
-  { slug: "incline-push-up-medium", pattern: "push" as const },
-];
+// Test ALL catalogue exercises as current exercise
+const testCases = catalogueExercises
+  .filter(e => e.movement_pattern) // Must have a pattern
+  .map(e => ({ slug: e.slug, pattern: e.movement_pattern }));
 
 console.log("Item A Gate: Swap list vs validator exhaustive consistency test");
 console.log("─".repeat(70));
