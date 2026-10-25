@@ -137,48 +137,49 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
   check("  message indicates cut > 20%", d.message.includes("cut more than 20%"));
 }
 
-console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
-
-// Same cases in imperial (stored as kg, displayed as lb)
-{
-  const d = run({
-    equipmentIds: ["dumbbell"],
-    meta: CURL,
-    state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 0 }),
-  });
-  check("Dumbbell 6 kg (13.2 lb) first miss → 5 kg (11 lb)", 
-    d.nextWorkingWeightKg === 5 && d.message.includes("11 lb"));
-}
-
-{
-  const d = run({
-    equipmentIds: ["dumbbell"],
-    meta: CURL,
-    state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
-  });
-  check("Dumbbell 12 kg (26.5 lb) first miss → 10 kg (22 lb)", 
-    d.nextWorkingWeightKg === 10 && d.message.includes("22 lb"));
-}
-
-{
-  const d = run({
-    equipmentIds: ["dumbbell"],
-    meta: CURL,
-    state: fresh({ currentWorkingWeightKg: 5, consecutiveFailures: 0 }),
-  });
-  check("Dumbbell 5 kg (11 lb) first miss → holds at 5 kg", 
-    d.nextWorkingWeightKg === 5 && d.message.includes("cut more than 20%") && d.message.includes("11 lb"));
-}
-
-{
-  const d = run({
-    equipmentIds: ["dumbbell"],
-    meta: CURL,
-    state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 0 }),
-  });
-  check("Dumbbell 7.5 kg (16.5 lb) first miss → holds at 7.5 kg", 
-    d.nextWorkingWeightKg === 7.5 && d.message.includes("cut more than 20%") && d.message.includes("16.5 lb"));
-}
+// M2: Imperial tests removed (imperial support removed)
+// console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
+//
+// // Same cases in imperial (stored as kg, displayed as lb)
+// {
+//   const d = run({
+//     equipmentIds: ["dumbbell"],
+//     meta: CURL,
+//     state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 0 }),
+//   });
+//   check("Dumbbell 6 kg (13.2 lb) first miss → 5 kg (11 lb)", 
+//     d.nextWorkingWeightKg === 5 && d.message.includes("11 lb"));
+// }
+//
+// {
+//   const d = run({
+//     equipmentIds: ["dumbbell"],
+//     meta: CURL,
+//     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
+//   });
+//   check("Dumbbell 12 kg (26.5 lb) first miss → 10 kg (22 lb)", 
+//     d.nextWorkingWeightKg === 10 && d.message.includes("22 lb"));
+// }
+//
+// {
+//   const d = run({
+//     equipmentIds: ["dumbbell"],
+//     meta: CURL,
+//     state: fresh({ currentWorkingWeightKg: 5, consecutiveFailures: 0 }),
+//   });
+//   check("Dumbbell 5 kg (11 lb) first miss → holds at 5 kg", 
+//     d.nextWorkingWeightKg === 5 && d.message.includes("cut more than 20%") && d.message.includes("11 lb"));
+// }
+//
+// {
+//   const d = run({
+//     equipmentIds: ["dumbbell"],
+//     meta: CURL,
+//     state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 0 }),
+//   });
+//   check("Dumbbell 7.5 kg (16.5 lb) first miss → holds at 7.5 kg", 
+//     d.nextWorkingWeightKg === 7.5 && d.message.includes("cut more than 20%") && d.message.includes("16.5 lb"));
+// }
 
 console.log("\n=== First-Miss: Leg Extension & Med Ball ===");
 
@@ -239,17 +240,18 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (metric, isolation) ===");
     d.nextWorkingWeightKg === 11.25 && d.consecutiveFailures === 0);
 }
 
-console.log("\n=== Two-Miss: Barbell 13.75 kg (imperial, isolation) ===");
-
-{
-  const d = run({
-    equipmentIds: ["barbell"],
-    meta: CURL,  // isolation
-    state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
-  });
-  check("Barbell 13.75 kg (30.5 lb) two-miss with equipment (isolation) → 12.5 kg (27.5 lb, loadable)", 
-    d.nextWorkingWeightKg === 12.5 && d.message.includes("27"));
-}
+// M2: Imperial test removed
+// console.log("\n=== Two-Miss: Barbell 13.75 kg (imperial, isolation) ===");
+//
+// {
+//   const d = run({
+//     equipmentIds: ["barbell"],
+//     meta: CURL,  // isolation
+//     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
+//   });
+//   check("Barbell 13.75 kg (30.5 lb) two-miss with equipment (isolation) → 12.5 kg (27.5 lb, loadable)", 
+//     d.nextWorkingWeightKg === 12.5 && d.message.includes("27"));
+// }
 
 {
   const d = run({

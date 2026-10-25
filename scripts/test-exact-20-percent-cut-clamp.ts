@@ -47,7 +47,7 @@ const MEDICINE_BALL_SLAM: ExerciseMeta = {
 };
 
 function makeState(overrides: Partial<ProgressState> = {}): ProgressState {
-  return { currentWorkingWeightKg: null, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, ...overrides };
+  return { currentWorkingWeightKg: null, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null, ...overrides };
 }
 
 const sets = (n: number, reps: number, w: number) =>

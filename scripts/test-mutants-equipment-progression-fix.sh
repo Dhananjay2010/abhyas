@@ -135,8 +135,8 @@ test_mutant "resolveTarget min → plan min" a1
 # A2: Remove equipment/unit spread (provide wrong defaults)
 a2() {
   local file="$BUILD_INPUT"
-  local search='...progressionInputsFromExercise(ex, userUnits),'
-  local replace='equipmentIds: undefined, unit: undefined,'
+  local search='...progressionInputsFromExercise(ex),'
+  local replace='equipmentIds: undefined,'
   local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
@@ -146,33 +146,52 @@ a2() {
 }
 test_mutant "Remove ...progressionInputsFromExercise" a2
 
-# B1: Unit choice hardcoded to kg
-b1() {
-  local file="$PROG_INPUTS"
-  local search='userUnits === "imperial" ? "lb" : "kg"'
-  local replace='"kg"'
-  local count=$(grep -c "$search" "$file" || true)
-  if [ "$count" -ne 1 ]; then
-    echo "ERROR: Pattern found $count times (expected 1)" >&2
-    return 1
-  fi
-  sed -i "s/$search/$replace/g" "$file"
-}
-test_mutant "Unit choice → always kg" b1
-
-# B2: actions.ts units fetch → undefined
-b2() {
-  local file="$ACTIONS"
-  local search='profileRes.data?.units'
-  local replace='undefined'
+# M1a: Back-off from current instead of pre-miss weight
+m1a() {
+  local file="$PROG"
+  local search='const weightToBackOffFrom = state.weightAtFailureStartKg ?? currentWeight;'
+  local replace='const weightToBackOffFrom = currentWeight;'
   local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "s/profileRes\\.data?\\.units/$replace/" "$file"
+  sed -i "s/const weightToBackOffFrom = state\\.weightAtFailureStartKg ?? currentWeight;/$replace/" "$file"
 }
-test_mutant "actions.ts units → undefined" b2
+test_mutant "M1a: back-off from current (not pre-miss)" m1a
+
+# M1b: Snap UP instead of DOWN
+m1b() {
+  local file="$PROG"
+  local search='const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;'
+  local replace='const snapped = Math.ceil(rawReduced / roundingGrid) * roundingGrid;'
+  local count=$(grep -Fc "$search" "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: Pattern found $count times (expected 1)" >&2
+    return 1
+  fi
+  sed -i "s/Math\\.floor/Math.ceil/" "$file"
+}
+test_mutant "M1b: snap UP instead of DOWN" m1b
+
+# M1c: Remove clamp to currentWeight (allow exceeding current)
+m1c() {
+  local file="$PROG"
+  # Find the section that checks reduced >= currentWeight and removes the hold logic
+  local count
+  count=$(grep -Fc 'if (reduced >= currentWeight) {' "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: clamp pattern found $count times (expected 1)" >&2
+    return 1
+  fi
+  # Replace the entire if block that holds when reduced >= currentWeight
+  perl -0pi -e 's/if \(reduced >= currentWeight\) \{\s*const holdMessage[^}]+\}\s*return \{[^}]+outcome: "hold",[^}]+\};\s*\}/\/\/ MUTANT: clamp removed/' "$file"
+  if cmp -s "$file" "$BACKUP_PROG"; then
+    echo "ERROR: M1c did not change the file" >&2
+    return 1
+  fi
+}
+test_mutant "M1c: no clamp to current weight" m1c
 
 # C1: One-step cap removed (allow multi-step)
 c1() {

@@ -68,10 +68,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     isDeload: false,
   });
   
-  const progInputs = progressionInputsFromExercise(
-    { equipment_ids: row.exercises?.equipment_ids ?? [] },
-    null
-  );
+  const progInputs = progressionInputsFromExercise({ equipment_ids: row.exercises?.equipment_ids ?? [] });
   const state = fresh({ currentTargetReps: progress.current_target_reps, currentWorkingWeightKg: progress.current_working_weight_kg });
   
   check("Push-ups: display shows stored 14", display.repsMax === 14);
@@ -161,10 +158,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     isDeload: false,
   });
   
-  const progInputs = progressionInputsFromExercise(
-    { equipment_ids: row.exercises?.equipment_ids ?? [] },
-    null
-  );
+  const progInputs = progressionInputsFromExercise({ equipment_ids: row.exercises?.equipment_ids ?? [] });
   const state = fresh({ currentTargetReps: progress.current_target_reps, currentWorkingWeightKg: progress.current_working_weight_kg });
   
   check("Pull-ups: display shows stored 14", display.repsMax === 14);
@@ -254,10 +248,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     isDeload: false,
   });
   
-  const progInputs = progressionInputsFromExercise(
-    { equipment_ids: row.exercises?.equipment_ids ?? [] },
-    null
-  );
+  const progInputs = progressionInputsFromExercise({ equipment_ids: row.exercises?.equipment_ids ?? [] });
   const state = fresh({ currentTargetReps: progress.current_target_reps, currentWorkingWeightKg: progress.current_working_weight_kg });
   
   check("Plank: display shows stored 45s", display.repsMax === 45);
@@ -347,10 +338,7 @@ console.log("\n=== Progression Display Consistency ===\n");
     isDeload: false,
   });
   
-  const progInputs = progressionInputsFromExercise(
-    { equipment_ids: row.exercises?.equipment_ids ?? [] },
-    null
-  );
+  const progInputs = progressionInputsFromExercise({ equipment_ids: row.exercises?.equipment_ids ?? [] });
   const state = fresh({ currentTargetReps: progress.current_target_reps, currentWorkingWeightKg: progress.current_working_weight_kg });
   
   check("Plank stored 500: display capped at 120s", display.repsMax === 120);
@@ -442,8 +430,7 @@ console.log("\n=== Progression Display Consistency ===\n");
   });
   
   const progInputs = progressionInputsFromExercise(
-    { equipment_ids: row.exercises?.equipment_ids ?? [] },
-    "kg"
+    { equipment_ids: row.exercises?.equipment_ids ?? [] }
   );
   const state = fresh({ currentTargetReps: progress.current_target_reps, currentWorkingWeightKg: progress.current_working_weight_kg });
   
@@ -535,8 +522,7 @@ console.log("\n=== Progression Display Consistency ===\n");
   });
   
   const progInputs = progressionInputsFromExercise(
-    { equipment_ids: row.exercises?.equipment_ids ?? [] },
-    "kg"
+    { equipment_ids: row.exercises?.equipment_ids ?? [] }
   );
   const state = fresh({ currentTargetReps: progress.current_target_reps, currentWorkingWeightKg: progress.current_working_weight_kg });
   
@@ -627,8 +613,7 @@ console.log("\n9. Dips (bodyweight on dip_bars) - stored 14");
     isDeload: false,
   });
   const progInputs = progressionInputsFromExercise(
-    { equipment_ids: ["dip_bars"] },
-    "kg"
+    { equipment_ids: ["dip_bars"] }
   );
   
   check("Dips: display target = 14", runner.repsMax === 14);
@@ -711,8 +696,7 @@ console.log("\n10. Push-ups stored 26 → capped at 24");
   // Hit 24 exactly
   const state = fresh({ currentTargetReps: 26, totalSessions: 10, weightAtFailureStartKg: null });
   const progInputs = progressionInputsFromExercise(
-    { equipment_ids: [] },
-    "kg"
+    { equipment_ids: [] }
   );
   
   const decision = evaluateProgression({
@@ -790,8 +774,7 @@ console.log("\n11. Stored 6 below plan min 8 → shows 8");
   
   const state = fresh({ currentTargetReps: 6, currentWorkingWeightKg: 60, totalSessions: 2, weightAtFailureStartKg: null });
   const progInputs = progressionInputsFromExercise(
-    { equipment_ids: ["barbell"] },
-    "kg"
+    { equipment_ids: ["barbell"] }
   );
   
   const decision = evaluateProgression({
@@ -871,7 +854,7 @@ console.log("\n12. Stored 0 → shows plan min");
   
   // Progression check: 3x8 (plan max) should progress
   const state = fresh({ currentTargetReps: 0, currentWorkingWeightKg: 100, totalSessions: 1, weightAtFailureStartKg: null });
-  const progInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] }, "kg");
+  const progInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] });
   
   const decision = evaluateProgression({
     sets: [{ reps: 8, weightKg: 100, durationSeconds: null }, { reps: 8, weightKg: 100, durationSeconds: null }, { reps: 8, weightKg: 100, durationSeconds: null }],
@@ -950,8 +933,7 @@ console.log("\n13. Weighted pull-ups (pull_up_bar + dip_belt)");
   
   const state = fresh({ currentTargetReps: 8, currentWorkingWeightKg: 10, totalSessions: 8, weightAtFailureStartKg: null });
   const progInputs = progressionInputsFromExercise(
-    { equipment_ids: ["pull_up_bar", "dip_belt"] },
-    "kg"
+    { equipment_ids: ["pull_up_bar", "dip_belt"] }
   );
   
   const decision = evaluateProgression({
@@ -1033,8 +1015,7 @@ console.log("\n14. Chin-ups stored 11 on 8-12 range → 11 progresses");
     totalSessions: 7 
   });
   const progInputs = progressionInputsFromExercise(
-    { equipment_ids: ["pull_up_bar"] },
-    "kg"
+    { equipment_ids: ["pull_up_bar"] }
   );
   
   const decision = evaluateProgression({

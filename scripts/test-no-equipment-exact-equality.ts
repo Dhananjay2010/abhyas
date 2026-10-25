@@ -82,7 +82,7 @@ for (const mechanic of mechanics) {
                   });
                   
                   // New call path: spread helper result for empty equipment
-                  const helperInputs = progressionInputsFromExercise({ equipment_ids: [] }, userUnits);
+                  const helperInputs = progressionInputsFromExercise({ equipment_ids: [] });
                   const newResult = evaluateProgression({
                     sets,
                     plannedSets: 4,
@@ -113,7 +113,7 @@ for (const mechanic of mechanics) {
                   
                   // Test suggestedWeight too
                   const oldSuggested = suggestedWeight(state, isDeload, meta);
-                  const newSuggested = suggestedWeight(state, isDeload, meta, helperInputs.equipmentIds, helperInputs.unit);
+                  const newSuggested = suggestedWeight(state, isDeload, meta, helperInputs.equipmentIds);
                   
                   check(`suggestedWeight ${mechanic}/${pattern}/${weight}kg/${isDeload}/${userUnits}`,
                     oldSuggested,

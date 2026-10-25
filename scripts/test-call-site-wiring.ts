@@ -103,7 +103,7 @@ console.log("\n4. Helper behavior tests");
 const withEquip = progressionInputsFromExercise({ equipment_ids: ["barbell", "cable"] });
 check("returns equipmentIds when equipment present", withEquip.equipmentIds !== undefined);
 check("equipmentIds is the array", JSON.stringify(withEquip.equipmentIds) === '["barbell","cable"]');
-check("unit is NOT returned (M2: removed)", (withEquip as any).unit === undefined);
+check("unit is NOT returned (M2: removed)", !("unit" in withEquip));
 
 // No equipment
 const noEquip = progressionInputsFromExercise({ equipment_ids: [] });

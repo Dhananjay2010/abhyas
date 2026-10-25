@@ -298,10 +298,10 @@ console.log('\n12. Sweep test: all outputs 0..200 in 0.25 steps are EXACTLY on-g
 {
   let offGridCount = 0;
   const testCases: Array<{ equipmentIds: string[]; unit: 'kg' | 'lb'; step: number }> = [
-    { equipmentIds: ['barbell'], step: 2.5 },
+    { equipmentIds: ['barbell'], unit: 'kg', step: 2.5 },
     { equipmentIds: ['dumbbell'], unit: 'lb', step: 5 },
-    { equipmentIds: ['cable_machine'], step: 2.5 },
-    { equipmentIds: ['leg_curl'], step: 5 },
+    { equipmentIds: ['cable_machine'], unit: 'kg', step: 2.5 },
+    { equipmentIds: ['leg_curl'], unit: 'kg', step: 5 },
     { equipmentIds: ['lat_pulldown'], unit: 'lb', step: 10 },
   ];
   
@@ -364,10 +364,10 @@ console.log('\n14. nextWeight from any grid value stays EXACTLY on-grid');
 {
   let offGridCount = 0;
   const testCases: Array<{ equipmentIds: string[]; unit: 'kg' | 'lb'; step: number; max: number }> = [
-    { equipmentIds: ['barbell'], step: 2.5, max: 200 },
+    { equipmentIds: ['barbell'], unit: 'kg', step: 2.5, max: 200 },
     { equipmentIds: ['dumbbell'], unit: 'lb', step: 5, max: 200 },
-    { equipmentIds: ['cable_machine'], step: 2.5, max: 100 },
-    { equipmentIds: ['leg_curl'], step: 5, max: 200 },
+    { equipmentIds: ['cable_machine'], unit: 'kg', step: 2.5, max: 100 },
+    { equipmentIds: ['leg_curl'], unit: 'kg', step: 5, max: 200 },
     { equipmentIds: ['lat_pulldown'], unit: 'lb', step: 10, max: 200 },
   ];
   

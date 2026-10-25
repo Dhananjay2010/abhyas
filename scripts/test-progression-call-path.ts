@@ -47,31 +47,29 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
 
 console.log("\n1. progressionInputsFromExercise helper extracts correct values");
 {
-  // Cable exercise with kg user
+  // Cable exercise
   const cableEx = { mechanic: "isolation", equipment_ids: ["cable_machine"] };
-  const inputs = progressionInputsFromExercise(cableEx, "metric");
+  const inputs = progressionInputsFromExercise(cableEx);
   check("cable equipment ids passed", (inputs.equipmentIds ?? []).includes("cable_machine"));
-  check("kg unit extracted", inputs.unit === "kg");
-  // mechanic no longer returned by helper
+  // M2: unit removed, all messages use kg
 }
 {
-  // Kettlebell exercise with imperial user
+  // Kettlebell exercise
   const kbEx = { mechanic: "compound", equipment_ids: ["kettlebell"] };
-  const inputs = progressionInputsFromExercise(kbEx, "imperial");
+  const inputs = progressionInputsFromExercise(kbEx);
   check("kettlebell equipment ids passed", (inputs.equipmentIds ?? []).includes("kettlebell"));
-  check("lb unit extracted", inputs.unit === "lb");
-  // mechanic no longer returned by helper
+  // M2: unit removed, all messages use kg
 }
 {
-  // Null units defaults to kg
+  // Barbell exercise (no units argument)
   const ex = { mechanic: "compound", equipment_ids: ["barbell"] };
-  const inputs = progressionInputsFromExercise(ex, null);
-  check("null units defaults to kg", inputs.unit === "kg");
+  const inputs = progressionInputsFromExercise(ex);
+  // M2: unit removed, all messages use kg
 }
 {
   // Empty equipment_ids handled
   const ex = { mechanic: null, equipment_ids: [] };
-  const inputs = progressionInputsFromExercise(ex, "metric");
+  const inputs = progressionInputsFromExercise(ex);
   check("empty equipment returns no fields", Object.keys(inputs).length === 0);
 }
 
@@ -87,7 +85,7 @@ console.log("\n2. QA repro: cable triceps pushdown 20 -> 22.5 (on 2.5 grid)");
   };
   
   const cableEx = { mechanic: "isolation", equipment_ids: ["cable_machine"] };
-  const inputs = progressionInputsFromExercise(cableEx, "metric");
+  const inputs = progressionInputsFromExercise(cableEx);
   
   const decision = evaluateProgression({
     sets: sets(3, 15, 20),
@@ -117,7 +115,7 @@ console.log("\n3. QA repro: kettlebell goblet squat 12 -> 14 (next bell)");
   };
   
   const kbEx = { mechanic: "compound", equipment_ids: ["kettlebell"] };
-  const inputs = progressionInputsFromExercise(kbEx, "metric");
+  const inputs = progressionInputsFromExercise(kbEx);
   
   const decision = evaluateProgression({
     sets: sets(3, 12, 12),
@@ -147,7 +145,7 @@ console.log("\n4. QA repro: kettlebell two-miss back-off 15 kg (no lighter bell)
   };
   
   const kbEx = { mechanic: "compound", equipment_ids: ["kettlebell"] };
-  const inputs = progressionInputsFromExercise(kbEx, "metric");
+  const inputs = progressionInputsFromExercise(kbEx);
   
   const decision = evaluateProgression({
     sets: sets(3, 7, 15), // #120: 3×7 is a real miss; 3×8 is in range (8-12) and #137 holds it
@@ -180,7 +178,7 @@ console.log("\n5. QA repro: lat pulldown first miss 40 -> 37.5 (one step down)")
   };
   
   const cableEx = { mechanic: "compound", equipment_ids: ["cable_machine"] };
-  const inputs = progressionInputsFromExercise(cableEx, "metric");
+  const inputs = progressionInputsFromExercise(cableEx);
   
   const decision = evaluateProgression({
     sets: sets(4, 5, 40),
@@ -210,7 +208,7 @@ console.log("\n6. QA repro: dumbbell hammer curl first miss 5 -> HOLD (20% guard
   };
   
   const dbEx = { mechanic: "isolation", equipment_ids: ["dumbbell"] };
-  const inputs = progressionInputsFromExercise(dbEx, "metric");
+  const inputs = progressionInputsFromExercise(dbEx);
   
   const decision = evaluateProgression({
     sets: sets(3, 5, 5),
@@ -241,7 +239,7 @@ console.log("\n7. QA repro: dumbbell two-miss back-off 5 -> HOLD (raw 90% cap, n
   };
   
   const dbEx = { mechanic: "isolation", equipment_ids: ["dumbbell"] };
-  const inputs = progressionInputsFromExercise(dbEx, "metric");
+  const inputs = progressionInputsFromExercise(dbEx);
   
   const decision = evaluateProgression({
     sets: sets(3, 5, 5),
@@ -272,7 +270,7 @@ console.log("\n8. QA repro: leg extension pin-stack two-miss back-off 30 -> HOLD
   };
   
   const machineEx = { mechanic: "isolation", equipment_ids: ["leg_extension"] };
-  const inputs = progressionInputsFromExercise(machineEx, "metric");
+  const inputs = progressionInputsFromExercise(machineEx);
   
   const decision = evaluateProgression({
     sets: sets(3, 7, 30), // #120: 3×7 is a real miss; 3×8 is in range (8-12) and #137 holds it
@@ -303,7 +301,7 @@ console.log("\n9. Main's back-off: KB 22 -> 18 kg (main's rounding, not RAW 90%)
   };
   
   const kbEx = { mechanic: "compound", equipment_ids: ["kettlebell"] };
-  const inputs = progressionInputsFromExercise(kbEx, "metric");
+  const inputs = progressionInputsFromExercise(kbEx);
   
   const decision = evaluateProgression({
     sets: sets(3, 8, 22),
@@ -335,7 +333,7 @@ console.log("\n10. Main's back-off: DB 13.75 -> 10 kg (main's rounding, not RAW 
   };
   
   const dbEx = { mechanic: "compound", equipment_ids: ["dumbbell"] };
-  const inputs = progressionInputsFromExercise(dbEx, "metric");
+  const inputs = progressionInputsFromExercise(dbEx);
   
   const decision = evaluateProgression({
     sets: sets(3, 8, 13.75),
@@ -367,7 +365,7 @@ console.log("\n11. QA repro: medicine ball two-miss back-off 4 -> 3 (on 1 kg gri
   };
   
   const mbEx = { mechanic: "compound", equipment_ids: ["medicine_ball"] };
-  const inputs = progressionInputsFromExercise(mbEx, "metric");
+  const inputs = progressionInputsFromExercise(mbEx);
   
   const decision = evaluateProgression({
     sets: sets(3, 8, 4),
@@ -397,14 +395,13 @@ console.log("\n10. suggestedWeight through helper (session page loader path)");
   };
   
   const bbEx = { mechanic: "compound", equipment_ids: ["barbell"] };
-  const inputs = progressionInputsFromExercise(bbEx, "metric");
+  const inputs = progressionInputsFromExercise(bbEx);
   
   const suggested = suggestedWeight(
     { currentWorkingWeightKg: 61.5 },
     false,
     BENCH,
     inputs.equipmentIds ?? [],
-    inputs.unit,
   );
   
   check("non-deload working weight returned as-is (no snap)", suggested === 61.5, `got ${suggested}`);
@@ -420,14 +417,13 @@ console.log("\n10. suggestedWeight through helper (session page loader path)");
   };
   
   const kbEx = { mechanic: "compound", equipment_ids: ["kettlebell"] };
-  const inputs = progressionInputsFromExercise(kbEx, "metric");
+  const inputs = progressionInputsFromExercise(kbEx);
   
   const suggested = suggestedWeight(
     { currentWorkingWeightKg: 13 },
     false,
     GOBLET_SQUAT,
     inputs.equipmentIds ?? [],
-    inputs.unit,
   );
   
   check("non-deload KB weight returned as-is (no snap to bell)", suggested === 13, `got ${suggested}`);
@@ -443,14 +439,13 @@ console.log("\n10. suggestedWeight through helper (session page loader path)");
   };
   
   const cableEx = { mechanic: "isolation", equipment_ids: ["cable_machine"] };
-  const inputs = progressionInputsFromExercise(cableEx, "metric");
+  const inputs = progressionInputsFromExercise(cableEx);
   
   const deloadSuggested = suggestedWeight(
     { currentWorkingWeightKg: 20 },
     true,
     TRICEPS_PUSHDOWN,
     inputs.equipmentIds ?? [],
-    inputs.unit,
   );
   
   check("cable deload 20 -> ~14 on grid", deloadSuggested === 12.5 || deloadSuggested === 15, `got ${deloadSuggested}`);

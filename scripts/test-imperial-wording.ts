@@ -1,9 +1,9 @@
 #!/usr/bin/env tsx
 /**
- * Test: Progression messages use correct unit wording
+ * Test: Progression messages use kg-only wording (M2)
  * 
- * Verifies that evaluateProgression messages say 'lb' for imperial users
- * and 'kg' for metric users.
+ * M2: Imperial removed. All progression messages now use 'kg' regardless
+ * of user preference. This verifies messages always say 'kg', never 'lb'.
  */
 
 import { evaluateProgression, type ExerciseMeta } from "../src/lib/program/progression";
@@ -36,19 +36,19 @@ const fresh = {
   bestWeightKg: 40,
   bestReps: 12,
   bestE1rm: 56,
-  totalSessions: 3, weightAtFailureStartKg: null,
+  totalSessions: 3,
+  weightAtFailureStartKg: null,
 };
 
 const success = Array.from({ length: 4 }, () => ({ reps: 12, weightKg: 40 }));
 
-console.log("1. Metric user sees 'kg' in progression messages");
+console.log("M2: All progression messages use 'kg' (imperial removed)");
 
-const metricInputs = progressionInputsFromExercise(
-  { equipment_ids: ["barbell"] },
-  "metric"
-);
+console.log("\n1. Equipment exercises show kg");
 
-const metricResult = evaluateProgression({
+const equipInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] });
+
+const equipResult = evaluateProgression({
   sets: success,
   plannedSets: 4,
   repsMin: 8,
@@ -57,21 +57,16 @@ const metricResult = evaluateProgression({
   meta: BENCH,
   state: fresh,
   isDeload: false,
-  ...metricInputs,
+  ...equipInputs,
 });
 
-check("Metric message contains 'kg'", metricResult.message.includes("kg"), `message: "${metricResult.message}"`);
-check("Metric message does not contain 'lb'", !metricResult.message.includes("lb"), `message: "${metricResult.message}"`);
+check("Equipment message contains 'kg'", equipResult.message.includes("kg"), `message: "${equipResult.message}"`);
+check("Equipment message does NOT contain 'lb'", !equipResult.message.includes("lb"), `message: "${equipResult.message}"`);
 
-console.log("\n2. Imperial user sees 'lb' in progression messages");
+console.log("\n2. First-miss drop shows kg");
 
-const imperialInputs = progressionInputsFromExercise(
-  { equipment_ids: ["barbell"] },
-  "imperial"
-);
-
-const imperialResult = evaluateProgression({
-  sets: success,
+const missResult = evaluateProgression({
+  sets: Array.from({ length: 4 }, () => ({ reps: 7, weightKg: 40 })),
   plannedSets: 4,
   repsMin: 8,
   repsMax: 12,
@@ -79,18 +74,32 @@ const imperialResult = evaluateProgression({
   meta: BENCH,
   state: fresh,
   isDeload: false,
-  ...imperialInputs,
+  ...equipInputs,
 });
 
-check("Imperial message contains 'lb'", imperialResult.message.includes("lb"), `message: "${imperialResult.message}"`);
-check("Imperial message does not contain 'kg'", !imperialResult.message.includes("kg"), `message: "${imperialResult.message}"`);
+check("First-miss message contains 'kg'", missResult.message.includes("kg"), `message: "${missResult.message}"`);
+check("First-miss message does NOT contain 'lb'", !missResult.message.includes("lb"), `message: "${missResult.message}"`);
 
-console.log("\n3. No-equipment user defaults to 'kg'");
+console.log("\n3. Two-miss back-off shows kg");
 
-const noEquipInputs = progressionInputsFromExercise(
-  { equipment_ids: [] },
-  "metric"
-);
+const twoMissResult = evaluateProgression({
+  sets: Array.from({ length: 4 }, () => ({ reps: 7, weightKg: 37.5 })),
+  plannedSets: 4,
+  repsMin: 8,
+  repsMax: 12,
+  feel: "right",
+  meta: BENCH,
+  state: { ...fresh, currentWorkingWeightKg: 37.5, consecutiveFailures: 1, weightAtFailureStartKg: 40 },
+  isDeload: false,
+  ...equipInputs,
+});
+
+check("Two-miss message contains 'kg'", twoMissResult.message.includes("kg"), `message: "${twoMissResult.message}"`);
+check("Two-miss message does NOT contain 'lb'", !twoMissResult.message.includes("lb"), `message: "${twoMissResult.message}"`);
+
+console.log("\n4. No-equipment exercises (no weight in message)");
+
+const noEquipInputs = progressionInputsFromExercise({ equipment_ids: [] });
 
 const noEquipResult = evaluateProgression({
   sets: success,
@@ -98,20 +107,20 @@ const noEquipResult = evaluateProgression({
   repsMin: 8,
   repsMax: 12,
   feel: "right",
-  meta: BENCH,
-  state: fresh,
+  meta: { ...BENCH, isBodyweight: true },
+  state: { ...fresh, currentWorkingWeightKg: null, bestWeightKg: null },
   isDeload: false,
   ...noEquipInputs,
 });
 
-// No-equipment returns undefined unit, so message won't have unit suffix
 check("No-equipment message exists", noEquipResult.message.length > 0, `message: "${noEquipResult.message}"`);
+check("No-equipment message does not mention weight unit", !noEquipResult.message.includes("kg") && !noEquipResult.message.includes("lb"), `message: "${noEquipResult.message}"`);
 
 console.log("\n=== SUMMARY ===");
 if (failures > 0) {
   console.log(`FAILED: ${failures} checks`);
   process.exit(1);
 } else {
-  console.log("✅ ALL CHECKS PASSED");
+  console.log("✅ ALL CHECKS PASSED - All messages use kg (M2)");
   process.exit(0);
 }

@@ -269,8 +269,7 @@ console.log("\n7. Kettlebell deload rounds to grid bell at or below 70%");
     { currentWorkingWeightKg: 20 },
     true,
     KETTLEBELL_SWING,
-    ["kettlebell"],
-    "kg"
+    ["kettlebell"]
   );
   check("20 kg deload -> 14 kg", deload === 14, `${deload}`);
 }
@@ -280,8 +279,7 @@ console.log("\n7. Kettlebell deload rounds to grid bell at or below 70%");
     { currentWorkingWeightKg: 24 },
     true,
     KETTLEBELL_SWING,
-    ["kettlebell"],
-    "kg"
+    ["kettlebell"]
   );
   check("24 kg deload -> 16 kg", deload === 16, `${deload}`);
 }
@@ -291,8 +289,7 @@ console.log("\n7. Kettlebell deload rounds to grid bell at or below 70%");
     { currentWorkingWeightKg: 32 },
     true,
     KETTLEBELL_SWING,
-    ["kettlebell"],
-    "kg"
+    ["kettlebell"]
   );
   check("32 kg deload -> 20 kg", deload === 20, `${deload}`);
 }
@@ -302,8 +299,7 @@ console.log("\n7. Kettlebell deload rounds to grid bell at or below 70%");
     { currentWorkingWeightKg: 16 },
     true,
     KETTLEBELL_SWING,
-    ["kettlebell"],
-    "kg"
+    ["kettlebell"]
   );
   check("16 kg deload -> 10 kg", deload === 10, `${deload}`);
 }
@@ -313,8 +309,7 @@ console.log("\n7. Kettlebell deload rounds to grid bell at or below 70%");
     { currentWorkingWeightKg: 10 },
     true,
     KETTLEBELL_SWING,
-    ["kettlebell"],
-    "kg"
+    ["kettlebell"]
   );
   check("10 kg deload -> 6 kg (never goes up)", deload === 6, `${deload}`);
 }
@@ -705,8 +700,7 @@ console.log("\n15. MINIMUM GUARD TESTS");
     { currentWorkingWeightKg: 2.5 },
     true,
     { ...BENCH, mechanic: "isolation" },
-    ["barbell"],
-    "kg"
+    ["barbell"]
   );
   check("barbell isolation 2.5 kg deload stays at 2.5 kg", deload !== null && deload >= 2.5, `${deload}`);
 }
@@ -784,8 +778,7 @@ console.log("\n  (e) Mutant: Kettlebell deload rounds up");
     { currentWorkingWeightKg: 24 },
     true,
     KETTLEBELL_SWING,
-    ["kettlebell"],
-    "kg"
+    ["kettlebell"]
   );
   check("Kettlebell deload rounds down to 16 kg", deload === 16, `${deload}`);
 }
