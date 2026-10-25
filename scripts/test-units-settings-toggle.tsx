@@ -360,12 +360,16 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     // The component starts at About step (disclaimer already accepted)
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Check that hints show imperial units (main's code shows "kg" and "cm", not "lb" or "ft")
-    const bodyText = container.textContent || "";
+    // Check that Weight field hint shows imperial unit (lb)
+    // Note: "kg" will still appear in the units picker label "Metric (kg, cm)"
+    const weightLabels = Array.from(container.querySelectorAll('label')).filter(
+      (el) => el.textContent?.includes("Weight")
+    );
+    const weightHintText = weightLabels.map((el) => el.textContent).join(" ");
     check(
-      "About step hints show imperial format (lb, not kg)",
-      bodyText.includes("lb") && !bodyText.includes("kg"),
-      `bodyText includes lb: ${bodyText.includes("lb")}, includes kg: ${bodyText.includes("kg")}`
+      "About step Weight hint shows imperial format (lb)",
+      weightHintText.includes("lb"),
+      `Weight label/hint text: "${weightHintText}"`
     );
 
     // Find and fill DOB (use 1990-05-12)
