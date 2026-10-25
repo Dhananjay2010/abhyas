@@ -339,6 +339,8 @@ export function OnboardingFlow({
                 // Only proceed if ready
                 if (!ready) return;
                 
+                if (heightCmValue === null || weightKgValue === null) return;
+                
                 // Detect browser timezone on client
                 const browserTimezone =
                   typeof window !== "undefined"
@@ -349,8 +351,8 @@ export function OnboardingFlow({
                   actions.saveAboutYou({
                     dateOfBirth: dateOfBirth!,
                     sex: sex!,
-                    heightCm: heightCmValue!,
-                    weightKg: weightKgValue!,
+                    heightCm: heightCmValue,
+                    weightKg: weightKgValue,
                     units,
                     browserTimezone,
                   }),
