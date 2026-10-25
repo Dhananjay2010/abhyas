@@ -601,6 +601,30 @@ export function evaluateProgression(input: {
   const currentWeight = baseWeight;
 
   /**
+   * Compute main's floored two-miss floor (without equipment snapping).
+   * Returns weight when weight <= increment OR floored target <= increment.
+   */
+  function computeTwoMissFloor(weight: number): number {
+    const liftIncrement = incrementFor(meta);
+    
+    if (weight <= liftIncrement) {
+      return weight;
+    }
+    
+    const rawReduced = weight * 0.9;
+    const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
+    const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
+    const cap = rawReduced - liftIncrement;
+    const target = Math.max(snapped, cap);
+    
+    if (target <= liftIncrement) {
+      return weight;
+    }
+    
+    return target;
+  }
+
+  /**
    * Compute what two-miss back-off would produce for a given weight.
    * Used as floor for first-miss to maintain invariant: first-miss >= two-miss.
    * 
@@ -757,10 +781,12 @@ export function evaluateProgression(input: {
       }
     }
     
-    // Rule 2: if candidate < two-miss result, hold instead (maintain invariant: first-miss >= two-miss)
+    // Rule 2: if candidate < max(main floor, RAW two-miss), hold instead
     if (candidateWeight !== currentWeight) {
-      const twoMissResult = computeTwoMissResult(currentWeight);
-      if (candidateWeight < twoMissResult) {
+      const mainFloor = computeTwoMissFloor(currentWeight);
+      const rawTwoMiss = meta.isBodyweight ? 0 : computeTwoMissResult(currentWeight);
+      const twoMissFloor = Math.max(mainFloor, rawTwoMiss);
+      if (candidateWeight < twoMissFloor) {
         candidateWeight = currentWeight;
         holdReason = 'twomiss';
       }
