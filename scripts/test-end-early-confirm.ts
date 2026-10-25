@@ -118,12 +118,14 @@ async function runTests() {
 
   console.log("\n6. runEndEarly returns true on success");
   {
+    let navigated = false;
     const ended = await runEndEarly(
       {
         abandonSession: async () => ({ ok: true }),
         stopElapsed: () => 100,
         resumeElapsed: () => {},
         setError: () => {},
+        navigateToToday: () => { navigated = true; },
       },
       {
         sessionId: "test-session",
@@ -135,12 +137,14 @@ async function runTests() {
     );
     
     assertEquals(ended, true, "Returns true on success");
+    assertTrue(navigated, "Navigates to /today on success");
   }
 
   console.log("\n7. runEndEarly returns false on ok:false");
   {
     let resumeElapsedCalled = false;
     let setErrorCalled = false;
+    let navigated = false;
     
     const ended = await runEndEarly(
       {
@@ -148,6 +152,7 @@ async function runTests() {
         stopElapsed: () => 100,
         resumeElapsed: () => { resumeElapsedCalled = true; },
         setError: (msg) => { if (msg) setErrorCalled = true; },
+        navigateToToday: () => { navigated = true; },
       },
       {
         sessionId: "test-session",
@@ -161,12 +166,14 @@ async function runTests() {
     assertEquals(ended, false, "Returns false on ok:false");
     assertTrue(resumeElapsedCalled, "Called resumeElapsed");
     assertTrue(setErrorCalled, "Called setError");
+    assertTrue(!navigated, "Does NOT navigate on failure");
   }
 
   console.log("\n8. runEndEarly returns false on thrown error");
   {
     let resumeElapsedCalled = false;
     let setErrorCalled = false;
+    let navigated = false;
     
     const ended = await runEndEarly(
       {
@@ -174,6 +181,7 @@ async function runTests() {
         stopElapsed: () => 100,
         resumeElapsed: () => { resumeElapsedCalled = true; },
         setError: (msg) => { if (msg) setErrorCalled = true; },
+        navigateToToday: () => { navigated = true; },
       },
       {
         sessionId: "test-session",
@@ -187,11 +195,13 @@ async function runTests() {
     assertEquals(ended, false, "Returns false on thrown error");
     assertTrue(resumeElapsedCalled, "Called resumeElapsed");
     assertTrue(setErrorCalled, "Called setError");
+    assertTrue(!navigated, "Does NOT navigate on error");
   }
 
   console.log("\n9. runEndEarly returns false on double-tap");
   {
     const endingRef = { current: true };
+    let navigated = false;
     
     const ended = await runEndEarly(
       {
@@ -199,6 +209,7 @@ async function runTests() {
         stopElapsed: () => 100,
         resumeElapsed: () => {},
         setError: () => {},
+        navigateToToday: () => { navigated = true; },
       },
       {
         sessionId: "test-session",
@@ -210,6 +221,7 @@ async function runTests() {
     );
     
     assertEquals(ended, false, "Returns false on double-tap (endingRef already true)");
+    assertTrue(!navigated, "Does NOT navigate on double-tap guard");
   }
 
   console.log(`\n✅ Passed: ${passed}`);

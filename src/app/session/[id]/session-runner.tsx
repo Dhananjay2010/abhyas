@@ -1229,6 +1229,7 @@ export function SessionRunner({
                     stopElapsed,
                     resumeElapsed,
                     setError,
+                    navigateToToday: () => router.push("/today"),
                   },
                   {
                     sessionId,

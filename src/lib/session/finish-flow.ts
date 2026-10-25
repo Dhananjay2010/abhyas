@@ -10,6 +10,7 @@ export async function runEndEarly(
     stopElapsed: () => number;
     resumeElapsed: () => void;
     setError: (error: string | null) => void;
+    navigateToToday: () => void;
   },
   params: {
     sessionId: string;
@@ -41,9 +42,10 @@ export async function runEndEarly(
     params.setConfirming(null);
     params.setOfflineError(false);
 
-    // Success: revalidateTrainingData() in abandonSession will redirect to /today
+    // Success: navigate to /today (works for both completed and skipped outcomes)
     params.endingRef.current = false;
     params.setEnding(false);
+    deps.navigateToToday();
     return true;
   } catch (err) {
     deps.resumeElapsed();

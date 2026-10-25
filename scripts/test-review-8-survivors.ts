@@ -194,8 +194,7 @@ async function runTests() {
       stopElapsed() { return 100; },
       resumeElapsed() { resumeElapsedCalled = true; },
       setError() {},
-      setPhase() {},
-      setEndedEarly() {},
+      navigateToToday() {},
     };
     const mockParams = {
       sessionId: "session-5",
