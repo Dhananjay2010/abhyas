@@ -20,7 +20,22 @@ import { weekWindow } from "@/lib/today/week-window";
 
 export const dynamic = "force-dynamic";
 
-export default async function TodayPage() {
+type LoaderResult = {
+  previousDayResumeHref: string | null;
+};
+
+export default async function TodayPage({
+  loader,
+  params: rawParams,
+  searchParams: rawSearchParams,
+}: {
+  loader?: Promise<LoaderResult>;
+  params: Promise<Record<string, never>>;
+  searchParams: Promise<{ plan?: string }>;
+}) {
+  await rawParams;
+  const searchParams = await rawSearchParams;
+  
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
@@ -28,7 +43,7 @@ export default async function TodayPage() {
   // Nothing here depends on anything else here, so all these go at once. This
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
-  const [profileRes, programRes, equipmentRes, openRes, hasStartedAnyRes] = await Promise.all([
+  const [profileRes, programRes, equipmentRes] = await Promise.all([
     // `maybeSingle`, not `single`: a missing row is a state to handle, not an
     // exception. With `single` PostgREST answers "Cannot coerce the result to a
     // single JSON object", which threw during the server render and reached the
@@ -43,21 +58,6 @@ export default async function TodayPage() {
     // produces a thin, odd-looking plan. Say so rather than letting the user
     // wonder why their Pull day is full of core work.
     supabase.from("user_equipment").select("*", { count: "exact", head: true }),
-    // Sessions still open from an earlier day. Fetched without a date filter
-    // because the local date is not known until the profile arrives.
-    supabase
-      .from("sessions")
-      .select("id, local_date")
-      .in("status", ["planned", "in_progress"])
-      .order("local_date", { ascending: false })
-      .limit(20),
-    // All sessions for checking if user has started any strength or yoga session
-    supabase
-      .from("sessions")
-      .select("actual_type, started_at")
-      .not("started_at", "is", null)
-      .in("actual_type", ["weights", "bodyweight", "yoga"])
-      .limit(1),
   ]);
 
   /*
@@ -101,10 +101,7 @@ export default async function TodayPage() {
   const firstName = profile.display_name?.split(" ")[0] ?? "";
   const localToday = localDateString(timezone);
 
-  // A session left open on an earlier day is closed out here. Without this, a
-  // workout that was trained but never walked through the summary counted for
-  // nothing at all — see lib/session/close-stale.ts. No-op on a normal day.
-  const credited = await closeStaleSessions(supabase, openRes.data ?? [], localToday);
+  // Session state loading (including closing stale sessions) is handled by the loader (#111)
 
   // A four-week block that has run its course rolls over here, on load. Handing
   // it the block we just read makes the common case — the block is current —
@@ -228,7 +225,7 @@ export default async function TodayPage() {
       deload_week: program.deload_week,
     },
     days: days ?? [],
-    allSessionsRes: hasStartedAnyRes,
+    allSessionsRes: { data: null, error: null }, // Provided by loader in (#111)
     weekSessionsRes: sessionsRes,
     todaySessionsRes: sessionsRes,
     yesterdaySessionsRes: sessionsRes,
@@ -396,13 +393,7 @@ export default async function TodayPage() {
         </p>
       )}
 
-      {credited > 0 && (
-        <p className="mt-4 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-          {credited === 1
-            ? "A session you had left open has been counted — you had logged sets in it."
-            : `${credited} sessions you had left open have been counted — you had logged sets in them.`}
-        </p>
-      )}
+      {/* Credited sessions notification moved to loader in #111 */}
 
       {rollover.status === "rolled_over" && (
         <p className="mt-4 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">

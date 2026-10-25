@@ -63,3 +63,32 @@ export function isoWeekday(iso: string): number {
 
 /** Weekday names indexed by ISO weekday (1=Monday, 7=Sunday). Index 0 is empty. */
 export const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
+
+/** Parse an ISO 8601 timestamp to milliseconds since epoch. */
+export function parseIsoMs(iso: string): number {
+  return Date.parse(iso);
+}
+
+/** Calculate seconds elapsed from an ISO timestamp to a reference time in milliseconds. */
+export function secondsSinceIso(iso: string, nowMs: number): number {
+  return (nowMs - parseIsoMs(iso)) / 1000;
+}
+
+/** Convert milliseconds since epoch to an ISO 8601 timestamp. */
+export function isoFromMs(ms: number): string {
+  return new Date(ms).toISOString();
+}
+
+/**
+ * Convert a single ISO date to HH:MM local time (in the caller's timezone).
+ * Returns null if the string is malformed or not a valid ISO 8601 timestamp.
+ */
+export function isoToLocalTime(iso: string): string | null {
+  const dt = new Date(iso);
+  if (isNaN(dt.getTime())) return null;
+  
+  const hours = dt.getHours().toString().padStart(2, "0");
+  const minutes = dt.getMinutes().toString().padStart(2, "0");
+  
+  return `${hours}:${minutes}`;
+}
