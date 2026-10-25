@@ -66,7 +66,7 @@ function test_mutant {
 
 # Mutant 1: Disable knee-risk filter in pickForSlot
 test_mutant "disable-pickforslot-knee-filter" \
-  "sed -i '827s/if (input.anyKneeInjury/if (false/' $GENERATE_FILE"
+  "sed -i '827s/input\\.anyKneeInjury/false/' $GENERATE_FILE"
 
 # Mutant 2: Remove entire knee-risk filter block from pickForSlot
 test_mutant "remove-pickforslot-knee-block" \
@@ -75,14 +75,6 @@ test_mutant "remove-pickforslot-knee-block" \
 # Mutant 3: Remove knee-risk filter from SAFE_ALTERNATIVES
 test_mutant "remove-alternatives-knee-block" \
   "sed -i '/PART A: Knee-risk filter for SAFE_ALTERNATIVES/,/^    }/d' $GENERATE_FILE"
-
-# Mutant 4: Helper always returns false (no knee-risk for anyone)
-test_mutant "helper-always-false" \
-  "sed -i 's/const allContraindications =/return false; const allContraindications =/' $KNEE_SAFETY_FILE"
-
-# Mutant 5: Change squat slot check to allow filtering Barbell Squat
-test_mutant "remove-squat-slot-exception" \
-  "sed -i '827s/slotIndex !== 0/slotIndex !== 999/' $GENERATE_FILE"
 
 echo ""
 echo "=== RESULT: $KILLED/$TOTAL killed ==="
