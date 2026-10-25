@@ -5,25 +5,16 @@
  * is always applied when querying exercise_progress.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
-
-/**
- * Narrow structural type for progress query construction.
- * The real SupabaseClient<Database> is assignable to this.
- */
-export type ProgressQueryClient = {
-  from(table: "exercise_progress"): {
-    select(columns: "exercise_id, current_working_weight_kg, current_target_reps"): {
-      eq(column: "user_id", value: string): unknown;
+export function buildExerciseProgressQuery<T>(
+  supabase: {
+    from(table: string): {
+      select(columns: string): {
+        eq(column: string, value: string): T;
+      };
     };
-  };
-};
-
-export function buildExerciseProgressQuery(
-  supabase: ProgressQueryClient,
+  },
   userId: string
-) {
+): T {
   return supabase
     .from("exercise_progress")
     .select("exercise_id, current_working_weight_kg, current_target_reps")

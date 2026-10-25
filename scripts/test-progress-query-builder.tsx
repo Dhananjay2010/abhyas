@@ -5,7 +5,7 @@
  * This test extracts that builder into src/lib and tests it directly.
  */
 
-import { buildExerciseProgressQuery, type ProgressQueryClient } from "@/lib/session/progress-query";
+import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 
 type Call = {
   method: "from" | "select" | "eq";
@@ -31,14 +31,16 @@ class RecordingQueryBuilder {
   }
 }
 
-function createRecordingClient(): { client: ProgressQueryClient; recorder: RecordingQueryBuilder } {
+function createRecordingClient() {
   const recorder = new RecordingQueryBuilder();
-  const client: ProgressQueryClient = {
-    from(table: "exercise_progress") {
-      return recorder.from(table);
+  return {
+    client: {
+      from(table: "exercise_progress") {
+        return recorder.from(table);
+      },
     },
+    recorder,
   };
-  return { client, recorder };
 }
 
 const checks: Array<{ pass: boolean; name: string }> = [];

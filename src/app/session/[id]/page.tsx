@@ -62,7 +62,13 @@ export default async function SessionPage({
       supabase.from("user_injuries").select("body_region, severity"),
       supabase.from("warmup_exercises").select("*").eq("is_active", true),
       supabase.from("user_equipment").select("equipment_id"),
-      buildExerciseProgressQuery(supabase, user.id),
+      // Inlined to avoid TypeScript "Type instantiation is excessively deep" error.
+      // The extracted helper buildExerciseProgressQuery (tested in test-progress-query-builder.tsx)
+      // documents the security requirement: .eq('user_id', userId) must always be present.
+      supabase
+        .from("exercise_progress")
+        .select("exercise_id, current_working_weight_kg, current_target_reps")
+        .eq("user_id", user.id),
     ]);
 
   // A failed query used to fall through to "this session has no exercises",
