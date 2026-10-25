@@ -141,9 +141,6 @@ const REAL_TIMER: RunnerTimer = {
   clearTimeout: (id: number | NodeJS.Timeout) => clearTimeout(id),
 };
 
-export type RunnerDeps = {
-  now: () => number;
-};
 
 export function SessionRunner({
   sessionId,
@@ -182,7 +179,7 @@ export function SessionRunner({
   addEventListener?: (type: string, handler: () => void) => void;
   removeEventListener?: (type: string, handler: () => void) => void;
   timer?: RunnerTimer;
-  deps?: RunnerDeps;
+  
 }) {
   // Stable event listener functions for focus retry
   const addEventListener = useCallback((type: string, handler: () => void) => {
