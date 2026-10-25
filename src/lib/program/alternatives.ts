@@ -381,5 +381,15 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (deduplicated.length >= limit) break;
   }
   
+  // QA Steer (k): Demote wall-sit to the end for past-knee squat swaps
+  // Wall-sit must never be index 0, and when 3+ items exist, it should be index >= 2
+  if (hasPastKnee && current.movement_pattern === "squat" && deduplicated.length >= 3) {
+    const wallSitIndex = deduplicated.findIndex(e => e.slug === "wall-sit");
+    if (wallSitIndex !== -1 && wallSitIndex < 2) {
+      const [wallSit] = deduplicated.splice(wallSitIndex, 1);
+      deduplicated.push(wallSit);
+    }
+  }
+  
   return deduplicated;
 }
