@@ -10,6 +10,7 @@ import {
 } from "./generate";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
+import { buildInjuryFlags } from "./injury-regions";
 
 type Client = SupabaseClient<Database>;
 
@@ -213,9 +214,7 @@ export async function createBlockForUser(
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions: (injuriesRes.data ?? [])
-      .filter((i) => i.severity === "current")
-      .map((i) => i.body_region),
+    ...buildInjuryFlags(injuriesRes.data ?? []),
     // M2 QA fix: Fall back to 45 when preferred_session_minutes is NULL
     // (happens for new users after migration 20261025000021, before they save the step)
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
