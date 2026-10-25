@@ -242,9 +242,6 @@ async function test1b1d() {
     throw new Error(`Button is still disabled after replay: ${logButton.textContent}`);
   }
   
-  // Check if sets are visible in the DOM
-  const setRows = screen.queryAllByText(/Set [12]/);
-  
   // Clear the replay calls - we're only testing the button click
   logSetCalls.length = 0;
   logSetDeferreds.length = 0;

@@ -61,11 +61,6 @@ export function isoWeekday(iso: string): number {
   return ((dow + 6) % 7) + 1;
 }
 
-/** Current timestamp in milliseconds. */
-export function nowMs(): number {
-  return Date.now();
-}
-
 /** Parse an ISO 8601 timestamp to milliseconds since epoch. */
 export function parseIsoMs(iso: string): number {
   return Date.parse(iso);

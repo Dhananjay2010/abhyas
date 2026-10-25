@@ -8,7 +8,6 @@ import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { resolveAuth } from "@/lib/session/auth-result";
-import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
 import { ageOn } from "@/lib/onboarding/options";
 import {
@@ -363,6 +362,9 @@ export async function deleteSet(
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+
+export type { ProgressionFeedback };
 
 /**
  * Complete an exercise and apply progression from what was actually logged.
