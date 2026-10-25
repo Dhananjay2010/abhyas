@@ -5,9 +5,19 @@
  * a result, allowing tests with fakes to verify the call-site wiring (S1, S2, S3).
  */
 
-import type { Database } from "@/lib/database.types";
 import { resolveSwapWeights, type SwapWeightsResult } from "@/lib/session/resolve-swap-weights";
 import { prescribe } from "@/lib/program/prescription";
+
+// Use explicit types to avoid Database enum resolution issues in CI
+type ExerciseMetric = "reps" | "seconds";
+type ExerciseMechanic = "compound" | "isolation";
+type MovementPattern = 
+  | "horizontal_press" | "vertical_press" | "horizontal_pull" | "vertical_pull"
+  | "squat" | "hinge" | "lunge" | "calf"
+  | "biceps" | "triceps" | "lateral_delt" | "rear_delt" | "forearm"
+  | "core" | "carry" | "neck" | "cardio" | "other";
+type UserGoal = "muscle_gain" | "strength" | "endurance" | "general_fitness";
+type ExperienceLevel = "beginner" | "intermediate" | "advanced";
 
 export type SwapExerciseDeps = {
   /**
@@ -20,8 +30,8 @@ export type SwapExerciseDeps = {
     sessionId: string,
     newExerciseId: string,
     equipmentIds: string[],
-    metric: Database["public"]["Enums"]["exercise_metric"],
-    movementPattern: Database["public"]["Enums"]["movement_pattern"],
+    metric: ExerciseMetric,
+    movementPattern: MovementPattern,
   ) => Promise<SwapWeightsResult>;
 };
 
@@ -29,25 +39,25 @@ export type SwapExerciseCoreInput = {
   newExerciseId: string;
   current: {
     exercise_id: string;
-    metric: Database["public"]["Enums"]["exercise_metric"];
+    metric: ExerciseMetric;
     planned_reps_min: number | null;
     planned_reps_max: number | null;
     session_id: string;
   };
   replacement: {
-    metric: Database["public"]["Enums"]["exercise_metric"];
-    mechanic: Database["public"]["Enums"]["exercise_mechanic"] | null;
+    metric: ExerciseMetric;
+    mechanic: ExerciseMechanic | null;
     equipment_ids: string[];
-    movement_pattern: Database["public"]["Enums"]["movement_pattern"];
+    movement_pattern: MovementPattern;
   } | null;
   profile: {
-    goal: Database["public"]["Enums"]["user_goal"];
-    level: Database["public"]["Enums"]["experience_level"];
+    goal: UserGoal;
+    level: ExperienceLevel;
   } | null;
 };
 
 export type SwapExerciseCoreResult = {
-  metric: Database["public"]["Enums"]["exercise_metric"];
+  metric: ExerciseMetric;
   repsMin: number | null;
   repsMax: number | null;
   equipmentIds: string[];
