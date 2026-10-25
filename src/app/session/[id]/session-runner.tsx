@@ -126,6 +126,16 @@ const FEELS: { value: Feel; label: string }[] = [
   { value: "hard", label: "Hard" },
 ];
 
+export type RunnerTimer = {
+  setTimeout: (callback: () => void, ms: number) => number | NodeJS.Timeout;
+  clearTimeout: (id: number | NodeJS.Timeout) => void;
+};
+
+const REAL_TIMER: RunnerTimer = {
+  setTimeout: (callback: () => void, ms: number) => setTimeout(callback, ms),
+  clearTimeout: (id: number | NodeJS.Timeout) => clearTimeout(id),
+};
+
 export function SessionRunner({
   sessionId,
   sessionStatus,
@@ -143,6 +153,7 @@ export function SessionRunner({
   onExit,
   addEventListener: addEventListenerProp,
   removeEventListener: removeEventListenerProp,
+  timer = REAL_TIMER,
 }: {
   sessionId: string;
   sessionStatus: Database["public"]["Enums"]["session_status"];
@@ -161,6 +172,7 @@ export function SessionRunner({
   onExit?: () => void;
   addEventListener?: (type: string, handler: () => void) => void;
   removeEventListener?: (type: string, handler: () => void) => void;
+  timer?: RunnerTimer;
 }) {
   // Stable event listener functions for focus retry
   const addEventListener = useCallback((type: string, handler: () => void) => {
@@ -394,9 +406,9 @@ export function SessionRunner({
     markSynced();
   }
   useEffect(() => {
-    const t = setTimeout(markSynced, 4000);
-    return () => clearTimeout(t);
-  }, []);
+    const t = timer.setTimeout(markSynced, 4000);
+    return () => timer.clearTimeout(t);
+  }, [timer]);
 
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);

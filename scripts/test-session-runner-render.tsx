@@ -15,7 +15,7 @@
 import "./helpers/setup-jsdom";
 
 import { render, act, screen } from "@testing-library/react";
-import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings } from "../src/app/session/[id]/session-runner";
+import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 import { savePendingSet } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 
@@ -96,18 +96,32 @@ function createDeferred<T>(): Deferred<T> {
   return { promise, resolve, reject };
 }
 
+// Fake timer for tests - calls callbacks immediately
+const fakeTimer: RunnerTimer = {
+  setTimeout: (callback: () => void, _ms: number) => {
+    // Call immediately for deterministic tests
+    callback();
+    return 0;
+  },
+  clearTimeout: (_id: number | NodeJS.Timeout) => {
+    // No-op
+  },
+};
+
 // Test 1b/1d: pending count per exercise feeding nextSetNumberFor
 async function test1b1d() {
   console.log("\n📋 Test 1b/1d: Pending count per exercise affects nextSetNumberFor");
   
   const logSetCalls: Array<{ sessionExerciseId: string; setNumber: number }> = [];
-  const logSetDeferred = createDeferred<{ ok: true }>();
+  const logSetDeferreds: Deferred<{ ok: true }>[] = [];
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async (input) => {
       logSetCalls.push({ sessionExerciseId: input.sessionExerciseId, setNumber: input.setNumber });
-      return logSetDeferred.promise;
+      const deferred = createDeferred<{ ok: true }>();
+      logSetDeferreds.push(deferred);
+      return deferred.promise;
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
@@ -192,10 +206,37 @@ async function test1b1d() {
   
   await act(async () => {});
   
+  // The runner will attempt to replay the 2 pending sets on mount
+  // Wait for those replay calls to be made
+  await act(async () => {});
+  
+  // Resolve those replays so the UI is ready for a new click
+  if (logSetDeferreds.length >= 2) {
+    // Resolve first set
+    await act(async () => {
+      logSetDeferreds[0].resolve({ ok: true });
+    });
+    // Resolve second set
+    await act(async () => {
+      logSetDeferreds[1].resolve({ ok: true });
+    });
+    // Wait for the controller to finish processing all results
+    await act(async () => {});
+    await act(async () => {});
+    await act(async () => {});
+  }
+  
   const logButton = screen.getByRole("button", { name: /set [0-9]+ done/i });
+  
+  // Verify button is enabled
+  const buttonDisabled = (logButton as HTMLButtonElement).disabled;
+  if (buttonDisabled) {
+    throw new Error(`Button is still disabled after replay: ${logButton.textContent}`);
+  }
   
   // Clear the replay calls - we're only testing the button click
   logSetCalls.length = 0;
+  logSetDeferreds.length = 0;
   
   // Click Log set
   await act(async () => {
@@ -203,9 +244,11 @@ async function test1b1d() {
   });
   
   // Button was clicked, now resolve the deferred
-  await act(async () => {
-    logSetDeferred.resolve({ ok: true });
-  });
+  if (logSetDeferreds.length > 0) {
+    await act(async () => {
+      logSetDeferreds[0].resolve({ ok: true });
+    });
+  }
   
   assert(logSetCalls.length === 1, "logSet called once after click");
   assert(logSetCalls[0].setNumber === 3, "logSet called with setNumber: 3 (accounting for 2 pending sets)");
