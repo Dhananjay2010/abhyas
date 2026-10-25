@@ -15,6 +15,7 @@ import type { Database } from "@/lib/database.types";
 import { addDays, isoWeekday } from "@/lib/dates";
 import { labelForDayType } from "@/lib/program/day-plan";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
+import { cycleWeekFor } from "@/lib/program/block-range";
 import { attachWorkingSetCounts } from "./yesterday-sessions";
 import { buildPageState } from "./page-wiring";
 import { buildTodayView } from "./page-helpers";
@@ -229,7 +230,40 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
 
   // Determine today's scheduled day from the template
   const todayIndex = isoWeekday(localToday);
-  const scheduled = days.find((d) => d.day_index === todayIndex) ?? null;
+  let scheduled = days.find((d) => d.day_index === todayIndex) ?? null;
+  
+  // Check if today's scheduled program_day was pulled forward and completed/in-progress earlier this week
+  let pulledForwardFrom: { dayName: string } | null = null;
+  if (scheduled && scheduled.day_type !== "rest") {
+    const todayCycleWeek = cycleWeekFor(
+      { started_on: program.started_on, week_offset: program.week_offset },
+      localToday
+    );
+    
+    const weekSessions = weekSessionsRes.data ?? [];
+    for (const sess of weekSessions) {
+      if (
+        sess.program_day_id === scheduled.id &&
+        sess.local_date < localToday &&
+        (sess.status === "completed" || sess.status === "in_progress") &&
+        ownsPlannedWorkout(sess.actual_type)
+      ) {
+        const sessCycleWeek = cycleWeekFor(
+          { started_on: program.started_on, week_offset: program.week_offset },
+          sess.local_date
+        );
+        
+        if (sessCycleWeek === todayCycleWeek) {
+          // This program_day was done earlier this week - today becomes rest
+          const earlierDayIndex = isoWeekday(sess.local_date);
+          const dayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+          pulledForwardFrom = { dayName: dayNames[earlierDayIndex] };
+          scheduled = null; // Today is now rest
+          break;
+        }
+      }
+    }
+  }
 
   // Which of today's session rows speaks for the day
   const ownsToday = (s: typeof todaySessions[number]) =>
@@ -258,8 +292,19 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     : undefined;
 
   const today = overrideDay ?? scheduled;
-  const dayType = override?.actual_type ?? scheduled?.day_type ?? null;
-  const dayLabel = labelForDayType(dayType ?? "rest", today?.label ?? null);
+  let dayType = override?.actual_type ?? scheduled?.day_type ?? null;
+  
+  // If today's scheduled workout was pulled forward and completed earlier this week, treat as rest
+  if (pulledForwardFrom && !override) {
+    dayType = "rest";
+  }
+  
+  let dayLabel = labelForDayType(dayType ?? "rest", today?.label ?? null);
+  
+  // If today's scheduled workout was pulled forward and completed earlier this week, show special label
+  if (pulledForwardFrom && !override) {
+    dayLabel = `Done ${pulledForwardFrom.dayName} (your choice)`;
+  }
 
   const overrideDiffers =
     override !== undefined &&
@@ -319,6 +364,41 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
       : undefined;
     const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
     if (label !== d.label) chosenByDayIndex.set(d.day_index, label);
+  }
+  
+  // Check for pulled-forward days: if a program_day was completed/in-progress earlier this week,
+  // its original weekday shows "Done <Day> (your choice)"
+  const dayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  for (const d of days) {
+    if (d.day_type === "rest") continue;
+    
+    const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
+    const dateCycleWeek = cycleWeekFor(
+      { started_on: program.started_on, week_offset: program.week_offset },
+      date
+    );
+    
+    // Check if this program_day was done earlier this week
+    for (const sess of weekSessions) {
+      if (
+        sess.program_day_id === d.id &&
+        sess.local_date < date &&
+        (sess.status === "completed" || sess.status === "in_progress") &&
+        ownsPlannedWorkout(sess.actual_type)
+      ) {
+        const sessCycleWeek = cycleWeekFor(
+          { started_on: program.started_on, week_offset: program.week_offset },
+          sess.local_date
+        );
+        
+        if (sessCycleWeek === dateCycleWeek) {
+          // This program_day was done earlier - show as "Done <Day> (your choice)"
+          const earlierDayIndex = isoWeekday(sess.local_date);
+          chosenByDayIndex.set(d.day_index, `Done ${dayNames[earlierDayIndex]} (your choice)`);
+          break;
+        }
+      }
+    }
   }
 
   // Build today view

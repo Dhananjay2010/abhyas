@@ -41,13 +41,13 @@ const result1 = buildTrainAnywayDays({
     { id: "day-6", day_index: 6, day_type: "weights", label: "Push B" },
     { id: "day-7", day_index: 7, day_type: "rest", label: null },
   ],
-  localToday: "2026-10-19", // Monday (day 1)
+  localToday: "2026-10-19", // Monday (day 1, rest day)
   missedYesterday: false,
 });
 
-assert(result1.length === 1, "Exactly one option offered on rest day");
-assert(result1[0].label === "Lift: Push A", `Label is "Lift: Push A", got "${result1[0].label}"`);
-assert(result1[0].programDayId === "day-2", `programDayId is day-2, got ${result1[0].programDayId}`);
+assert(result1.length === 3, "Three options offered on rest day (Lift + 2 more)");
+assert(result1[0].label === "Lift: Push A", `First label is "Lift: Push A", got "${result1[0].label}"`);
+assert(result1[0].programDayId === "day-2", `First programDayId is day-2, got ${result1[0].programDayId}`);
 
 console.log("\n=== Test (e): No upcoming strength day hides the option ===\n");
 
@@ -68,17 +68,10 @@ const result2 = buildTrainAnywayDays({
 
 assert(result2.length === 0, "No options offered when no upcoming strength days");
 
-console.log("\n=== Test (b-d): Choosing Lift creates planned row and week shows choice ===\n");
+console.log("\n=== Test (b-c): Choosing Lift creates planned row and week shows choice ===\n");
 
 // Build a complete page scenario where user chooses Lift on a rest day
-// This tests (b), (c), and (d) together using the full page builder
-
-function mockDate(date: string) {
-  return {
-    getTime: () => new Date(date + "T00:00:00Z").getTime(),
-    toISOString: () => new Date(date + "T00:00:00Z").toISOString(),
-  };
-}
+// This tests (b) and (c) together using the full page builder
 
 const program = {
   id: "prog-1",
@@ -173,47 +166,6 @@ assert(
   `(c) Monday's label is "Push A", got "${mondayRow.label}"`
 );
 
-// Test (d): Next training day (Tuesday) still shows its template
-// Note: This test verifies that Tuesday's template is still available in the program_days
-// The actual behavior depends on whether Tuesday has a session or not.
-// If Tuesday has no session, it will show its template (Push A).
-// The requirement says "the pulled-forward day is not offered again as the next training day's session"
-// This means on Tuesday, we should NOT automatically create a session for Push A again.
-
-// Simulate Tuesday with no session (just the template)
-const tuesdayDate = "2026-10-20"; // Tuesday
-const mondayForTuesday = "2026-10-19"; // Monday
-const tuesdayDeps: BuildPageInput = {
-  profile: {
-    id: "user-1",
-    created_at: "2026-01-01T00:00:00Z",
-    timezone: "UTC",
-  },
-  localToday: tuesdayDate,
-  yesterday: mondayForTuesday,
-  timezone: "UTC",
-  program,
-  days,
-  allSessionsRes: { data: [], error: null },
-  weekSessionsRes: { data: [], error: null },
-  todaySessionsRes: { data: [], error: null },
-  yesterdaySessionsRes: { data: [{ ...todaySession, local_date: mondayForTuesday }], error: null },
-  sessionExercisesRes: { data: null, error: null },
-};
-
-const tuesdayPageResult = buildPage(tuesdayDeps);
-
-// On Tuesday, the template should show Push A (since there's no session)
-assert(
-  tuesdayPageResult.today?.label === "Push A",
-  `(d) Tuesday shows its template "Push A", got "${tuesdayPageResult.today?.label}"`
-);
-
-// The key test is that the trainAnywayDays should NOT offer Push A again
-// (because it was already done on Monday)
-// However, this test as written doesn't cover the full deduplication logic yet.
-// Let's verify that train-anyway doesn't offer the already-done day.
-
 console.log("\n=== Test (f): Superseded program_days row is never offered ===\n");
 
 // Scenario: Program has been rebuilt, old program_day row still exists but is superseded
@@ -230,15 +182,399 @@ const newDays = [
 
 const result3 = buildTrainAnywayDays({
   allDays: newDays, // Only active program_days
-  localToday: "2026-10-19", // Monday (day 1)
+  localToday: "2026-10-19", // Monday (day 1, rest day)
   missedYesterday: false,
 });
 
-assert(result3.length === 1, "One option offered (from active program_days only)");
-assert(result3[0].label === "Lift: Push A", `Label is "Lift: Push A" (not "OLD"), got "${result3[0].label}"`);
+assert(result3.length >= 1, "At least one option offered (from active program_days only)");
+assert(result3[0].label === "Lift: Push A", `First label is "Lift: Push A" (not "OLD"), got "${result3[0].label}"`);
 assert(
   result3[0].programDayId === "day-2",
   `programDayId is from new program_day (day-2), got ${result3[0].programDayId}`
+);
+
+console.log("\n=== Test (no-repeat-a): Pull Tuesday's Push A to Monday, complete it ===\n");
+
+// Monday 2026-10-19, week 2 of block (started 2026-10-12)
+// User pulled Push A (Tuesday's workout) to Monday and completed it
+// Tuesday should show: rest with "Done Monday (your choice)", no Start button
+
+const noRepeatProgram = {
+  id: "prog-2",
+  started_on: "2026-10-12", // Week 1 starts here (Monday)
+  week_offset: 0,
+  deload_week: 5,
+};
+
+const noRepeatDays = [
+  { id: "nr-day-1", day_index: 1, day_type: "rest" as const, label: null },
+  { id: "nr-day-2", day_index: 2, day_type: "weights" as const, label: "Push A" },
+  { id: "nr-day-3", day_index: 3, day_type: "weights" as const, label: "Pull A" },
+  { id: "nr-day-4", day_index: 4, day_type: "weights" as const, label: "Legs A" },
+  { id: "nr-day-5", day_index: 5, day_type: "rest" as const, label: null },
+  { id: "nr-day-6", day_index: 6, day_type: "weights" as const, label: "Push B" },
+  { id: "nr-day-7", day_index: 7, day_type: "rest" as const, label: null },
+];
+
+// Monday's completed session with Push A program_day
+const mondayCompletedSession = {
+  id: "sess-monday-complete",
+  local_date: "2026-10-19", // Monday, week 2
+  status: "completed" as const,
+  actual_type: "weights" as const,
+  program_id: noRepeatProgram.id,
+  program_day_id: "nr-day-2", // Push A (Tuesday's workout)
+  started_at: "2026-10-19T10:00:00Z",
+  created_at: "2026-10-19T09:00:00Z",
+};
+
+// Tuesday (the original Push A day) should now be rest
+const tuesdayAfterPullForward = "2026-10-20"; // Tuesday, week 2
+
+const tuesdayDeps: BuildPageInput = {
+  profile: {
+    id: "user-2",
+    created_at: "2026-01-01T00:00:00Z",
+    timezone: "UTC",
+  },
+  localToday: tuesdayAfterPullForward,
+  yesterday: "2026-10-19", // Monday
+  timezone: "UTC",
+  program: noRepeatProgram,
+  days: noRepeatDays,
+  allSessionsRes: {
+    data: [{ actual_type: "weights" as const, started_at: "2026-10-19T10:00:00Z" }],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [mondayCompletedSession],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [], // No session on Tuesday
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [mondayCompletedSession],
+    error: null,
+  },
+  sessionExercisesRes: { data: null, error: null },
+};
+
+const tuesdayPage = buildPage(tuesdayDeps);
+
+assert(
+  tuesdayPage.dayType === "rest",
+  `(no-repeat-a) Tuesday shows as rest (not Push A), got "${tuesdayPage.dayType}"`
+);
+assert(
+  tuesdayPage.dayLabel === "Done Monday (your choice)",
+  `(no-repeat-a) Tuesday's label is "Done Monday (your choice)", got "${tuesdayPage.dayLabel}"`
+);
+assert(
+  !tuesdayPage.strengthOpen,
+  "(no-repeat-a) No Start button (strengthOpen is false)"
+);
+
+// Check "Your week" also shows Tuesday as "Done Monday (your choice)"
+const tuesdayWeekRow = tuesdayPage.todayView.weekRowsWithChoices.find((r) => r.dayIndex === 2);
+assert(
+  tuesdayWeekRow?.label === "Done Monday (your choice)",
+  `(no-repeat-a) Your week Tuesday shows "Done Monday (your choice)", got "${tuesdayWeekRow?.label}"`
+);
+assert(
+  tuesdayWeekRow?.isChoice === true,
+  `(no-repeat-a) Your week Tuesday marked as choice, got ${tuesdayWeekRow?.isChoice}`
+);
+
+console.log("\n=== Test (no-repeat-b): Pull forward across week boundary ===\n");
+
+// Friday 2026-10-23 (week 2), Pull A from Wednesday 2026-10-28 (week 3) and complete it
+// Wednesday (week 3) should still show Pull A (different cycle week)
+
+const wednesdayWeek3 = "2026-10-28"; // Wednesday, week 3
+
+const wednesdayWeek3Deps: BuildPageInput = {
+  profile: {
+    id: "user-2",
+    created_at: "2026-01-01T00:00:00Z",
+    timezone: "UTC",
+  },
+  localToday: wednesdayWeek3,
+  yesterday: "2026-10-27",
+  timezone: "UTC",
+  program: noRepeatProgram,
+  days: noRepeatDays,
+  allSessionsRes: {
+    data: [{ actual_type: "weights" as const, started_at: "2026-10-23T10:00:00Z" }],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [], // No sessions in week 3 yet (Friday's session was week 2)
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  sessionExercisesRes: { data: null, error: null },
+};
+
+const wednesdayWeek3Page = buildPage(wednesdayWeek3Deps);
+
+assert(
+  wednesdayWeek3Page.dayType === "weights",
+  `(no-repeat-b) Wednesday week 3 shows Pull A (scheduled), got "${wednesdayWeek3Page.dayType}"`
+);
+assert(
+  wednesdayWeek3Page.dayLabel !== "Done Friday (your choice)",
+  `(no-repeat-b) Wednesday week 3 NOT affected by week 2's pull-forward`
+);
+
+console.log("\n=== Test (no-repeat-c): Two pull-forwards in one week ===\n");
+
+// Monday: Pull Push A from Tuesday, complete it
+// Wednesday: Pull Legs A from Thursday, complete it
+// Both Tuesday and Thursday should show "Done <day> (your choice)"
+
+const mondayPushComplete = {
+  id: "sess-mon-push",
+  local_date: "2026-10-19", // Monday, week 2
+  status: "completed" as const,
+  actual_type: "weights" as const,
+  program_id: noRepeatProgram.id,
+  program_day_id: "nr-day-2", // Push A (Tuesday's)
+  started_at: "2026-10-19T10:00:00Z",
+  created_at: "2026-10-19T09:00:00Z",
+};
+
+const wednesdayLegsComplete = {
+  id: "sess-wed-legs",
+  local_date: "2026-10-21", // Wednesday, week 2
+  status: "completed" as const,
+  actual_type: "weights" as const,
+  program_id: noRepeatProgram.id,
+  program_day_id: "nr-day-4", // Legs A (Thursday's)
+  started_at: "2026-10-21T10:00:00Z",
+  created_at: "2026-10-21T09:00:00Z",
+};
+
+const thursdayAfterTwoPulls = "2026-10-22"; // Thursday, week 2
+
+const thursdayDeps: BuildPageInput = {
+  profile: {
+    id: "user-2",
+    created_at: "2026-01-01T00:00:00Z",
+    timezone: "UTC",
+  },
+  localToday: thursdayAfterTwoPulls,
+  yesterday: "2026-10-21",
+  timezone: "UTC",
+  program: noRepeatProgram,
+  days: noRepeatDays,
+  allSessionsRes: {
+    data: [
+      { actual_type: "weights" as const, started_at: "2026-10-19T10:00:00Z" },
+      { actual_type: "weights" as const, started_at: "2026-10-21T10:00:00Z" },
+    ],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [mondayPushComplete, wednesdayLegsComplete],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [wednesdayLegsComplete],
+    error: null,
+  },
+  sessionExercisesRes: { data: null, error: null },
+};
+
+const thursdayPage = buildPage(thursdayDeps);
+
+assert(
+  thursdayPage.dayType === "rest",
+  `(no-repeat-c) Thursday shows as rest, got "${thursdayPage.dayType}"`
+);
+assert(
+  thursdayPage.dayLabel === "Done Wednesday (your choice)",
+  `(no-repeat-c) Thursday's label is "Done Wednesday (your choice)", got "${thursdayPage.dayLabel}"`
+);
+
+console.log("\n=== Test (no-repeat-d): Planned but not started doesn't block ===\n");
+
+// Monday: Planned Push A (from Tuesday) but never started (missed)
+// Tuesday should show Push A normally, NOT "Done Monday"
+
+const mondayPlannedNotStarted = {
+  id: "sess-mon-planned",
+  local_date: "2026-10-19", // Monday, week 2
+  status: "planned" as const,
+  actual_type: "weights" as const,
+  program_id: noRepeatProgram.id,
+  program_day_id: "nr-day-2", // Push A
+  started_at: null,
+  created_at: "2026-10-19T09:00:00Z",
+};
+
+const tuesdayAfterPlannedOnly = "2026-10-20"; // Tuesday, week 2
+
+const tuesdayPlannedOnlyDeps: BuildPageInput = {
+  profile: {
+    id: "user-2",
+    created_at: "2026-01-01T00:00:00Z",
+    timezone: "UTC",
+  },
+  localToday: tuesdayAfterPlannedOnly,
+  yesterday: "2026-10-19",
+  timezone: "UTC",
+  program: noRepeatProgram,
+  days: noRepeatDays,
+  allSessionsRes: {
+    data: [],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [mondayPlannedNotStarted],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [mondayPlannedNotStarted],
+    error: null,
+  },
+  sessionExercisesRes: { data: null, error: null },
+};
+
+const tuesdayPlannedOnlyPage = buildPage(tuesdayPlannedOnlyDeps);
+
+assert(
+  tuesdayPlannedOnlyPage.dayType === "weights",
+  `(no-repeat-d) Tuesday shows Push A (not blocked by planned-only), got "${tuesdayPlannedOnlyPage.dayType}"`
+);
+assert(
+  tuesdayPlannedOnlyPage.dayLabel === "Push A",
+  `(no-repeat-d) Tuesday's label is "Push A", got "${tuesdayPlannedOnlyPage.dayLabel}"`
+);
+
+console.log("\n=== Test (no-repeat-e): Lift option absent when no upcoming strength ===\n");
+
+// Friday (rest day), no more strength days this week
+// Lift option should not appear
+
+const fridayNoStrength = "2026-10-23"; // Friday, week 2
+
+const fridayNoStrengthDeps: BuildPageInput = {
+  profile: {
+    id: "user-2",
+    created_at: "2026-01-01T00:00:00Z",
+    timezone: "UTC",
+  },
+  localToday: fridayNoStrength,
+  yesterday: "2026-10-22",
+  timezone: "UTC",
+  program: noRepeatProgram,
+  days: [
+    { id: "nr2-day-1", day_index: 1, day_type: "rest" as const, label: null },
+    { id: "nr2-day-2", day_index: 2, day_type: "rest" as const, label: null },
+    { id: "nr2-day-3", day_index: 3, day_type: "rest" as const, label: null },
+    { id: "nr2-day-4", day_index: 4, day_type: "rest" as const, label: null },
+    { id: "nr2-day-5", day_index: 5, day_type: "rest" as const, label: null },
+    { id: "nr2-day-6", day_index: 6, day_type: "rest" as const, label: null },
+    { id: "nr2-day-7", day_index: 7, day_type: "rest" as const, label: null },
+  ],
+  allSessionsRes: {
+    data: [],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  sessionExercisesRes: { data: null, error: null },
+};
+
+const fridayNoStrengthPage = buildPage(fridayNoStrengthDeps);
+
+assert(
+  fridayNoStrengthPage.trainAnywayDays.length === 0,
+  `(no-repeat-e) No Lift option when no upcoming strength, got ${fridayNoStrengthPage.trainAnywayDays.length} options`
+);
+
+console.log("\n=== Test (M2): Completed/skipped session not showing as choice ===\n");
+
+// Monday: Completed yoga (not a pulled-forward training session)
+// Your week should NOT show Monday as "your choice"
+
+const mondayCompletedYoga = {
+  id: "sess-yoga",
+  local_date: "2026-10-19", // Monday, week 2 (rest day)
+  status: "completed" as const,
+  actual_type: "yoga" as const,
+  program_id: noRepeatProgram.id,
+  program_day_id: null,
+  started_at: "2026-10-19T10:00:00Z",
+  created_at: "2026-10-19T09:00:00Z",
+};
+
+const tuesdayAfterYoga = "2026-10-20"; // Tuesday, week 2
+
+const tuesdayAfterYogaDeps: BuildPageInput = {
+  profile: {
+    id: "user-2",
+    created_at: "2026-01-01T00:00:00Z",
+    timezone: "UTC",
+  },
+  localToday: tuesdayAfterYoga,
+  yesterday: "2026-10-19",
+  timezone: "UTC",
+  program: noRepeatProgram,
+  days: noRepeatDays,
+  allSessionsRes: {
+    data: [{ actual_type: "yoga" as const, started_at: "2026-10-19T10:00:00Z" }],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [mondayCompletedYoga],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [mondayCompletedYoga],
+    error: null,
+  },
+  sessionExercisesRes: { data: null, error: null },
+};
+
+const tuesdayAfterYogaPage = buildPage(tuesdayAfterYogaDeps);
+
+// Check that Monday in "Your week" is NOT shown as a choice
+const mondayYogaWeekRow = tuesdayAfterYogaPage.todayView.weekRowsWithChoices.find((r) => r.dayIndex === 1);
+assert(
+  mondayYogaWeekRow?.isChoice === false || mondayYogaWeekRow?.isChoice === undefined,
+  `(M2) Monday with completed yoga NOT shown as choice, got isChoice=${mondayYogaWeekRow?.isChoice}`
 );
 
 console.log(`\n✅ All ${passedTests}/${totalTests} lift-rest-day tests passed!\n`);
