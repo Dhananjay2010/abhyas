@@ -285,13 +285,14 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     // Dynamically import OnboardingFlow after next/navigation is mocked
     const { OnboardingFlow } = await import("../src/app/onboarding/onboarding-flow");
 
-    let savedAboutYou: SaveAboutYouArgs | null;
+    type LocalSaveAboutYouArgs = { dateOfBirth: string; sex: string; heightCm: number; weightKg: number; units?: string; browserTimezone?: string };
+    let savedAboutYou: LocalSaveAboutYouArgs | null;
     savedAboutYou = null;
     let callCount = 0;
 
     const mockActions = {
       acceptDisclaimer: async () => ({ ok: true }) as const,
-      saveAboutYou: async (args: SaveAboutYouArgs) => {
+      saveAboutYou: async (args: LocalSaveAboutYouArgs) => {
         savedAboutYou = args;
         callCount++;
         return { ok: true } as const;
