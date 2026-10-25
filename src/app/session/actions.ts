@@ -35,6 +35,8 @@ import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 
+export type { SwapResult };
+
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
