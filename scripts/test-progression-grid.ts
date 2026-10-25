@@ -140,23 +140,23 @@ console.log("\n2. Failed set drops weight one grid step");
   check("lat pulldown 50 kg drops to 45 kg", d.nextWorkingWeightKg === 45, `${d.nextWorkingWeightKg}`);
 }
 {
-  // Dumbbell: 20 kg, missed target, should drop by 2.5 kg to 17.5 kg
+  // Dumbbell: 20 kg first miss, one step would be 17.5 but two-miss floor is 20 (90%=18, snap=20), so hold
   const d = run({
     sets: sets(4, 10, 20),
     state: fresh({ currentWorkingWeightKg: 20 }),
     equipmentIds: ["dumbbell"],
   });
-  check("dumbbell 20 kg drops to 17.5 kg", d.nextWorkingWeightKg === 17.5, `${d.nextWorkingWeightKg}`);
+  check("dumbbell 20 kg holds (first miss blocked by two-miss floor)", d.nextWorkingWeightKg === 20, `${d.nextWorkingWeightKg}`);
 }
 {
-  // Kettlebell: 16 kg, missed target, should drop to previous bell (14 kg)
+  // Kettlebell: 16 kg first miss, one bell would be 14 but two-miss floor is 16 (90%=14.4, snap=16), so hold
   const d = run({
     meta: KETTLEBELL_SWING,
     sets: sets(4, 10, 16),
     state: fresh({ currentWorkingWeightKg: 16 }),
     equipmentIds: ["kettlebell"],
   });
-  check("kettlebell 16 kg drops to 14 kg", d.nextWorkingWeightKg === 14, `${d.nextWorkingWeightKg}`);
+  check("kettlebell 16 kg holds (first miss blocked by two-miss floor)", d.nextWorkingWeightKg === 16, `${d.nextWorkingWeightKg}`);
 }
 
 console.log("\n3. Grid rounding for barbell");
@@ -387,7 +387,7 @@ console.log("\n11. Backed-off weights are rounded to grid");
     equipmentIds: ["barbell"],
   });
   check("outcome backed_off", d.outcome === "backed_off", d.outcome);
-  check("60 kg -> 52.5 kg (floored to barbell grid)", d.nextWorkingWeightKg === 52.5, `${d.nextWorkingWeightKg}`);
+  check("60 kg -> 55 kg (RAW 90% = 54, snap to 2.5 grid)", d.nextWorkingWeightKg === 55, `${d.nextWorkingWeightKg}`);
 }
 {
   // Pin-stack machine: 50 kg * 0.9 = 45 kg (on-grid)
@@ -895,7 +895,7 @@ console.log("\n21. Imperial first miss uses kg grid/bells (not lb)");
     equipmentIds: ["lat_pulldown"],
     unit: "lb",
   });
-  check("pin-stack 40 kg first miss with lb display: 40 -> 35 kg (not 30)", pinStackLbMiss.nextWorkingWeightKg === 35, `${pinStackLbMiss.nextWorkingWeightKg}`);
+  check("pin-stack 40 kg first miss with lb display: HOLD (two-miss floor is 40)", pinStackLbMiss.nextWorkingWeightKg === 40, `${pinStackLbMiss.nextWorkingWeightKg}`);
   
   // Kettlebell first miss with lb display: should use kg bell list
   const kbLbMiss = run({
@@ -951,18 +951,18 @@ console.log("\n22. Kettlebell 36, 40, 48 kg bells and success never decreases");
   check("kettlebell 41 kg (off-grid) -> 48 kg (next bell, not down to 40)", kb41.nextWorkingWeightKg === 48 && kb41.outcome === "progressed", `${kb41.outcome}, ${kb41.nextWorkingWeightKg}`);
 }
 
-console.log("\n23. Back-off: 90% rounded to 2.5 kg grid, never more than one increment drop");
+console.log("\n23. Back-off: RAW 90% cap with equipment");
 {
   // Hard-coded expected-value table test (imports real function)
   const backOffCases: Array<{current: number, meta: ExerciseMeta, expected: number, label: string}> = [
-    { current: 10, meta: { ...BENCH, movementPattern: "squat" }, expected: 7.5, label: "lower 10 kg" },
-    { current: 11, meta: { ...BENCH, movementPattern: "squat" }, expected: 7.5, label: "lower 11 kg" },
-    { current: 20, meta: { ...BENCH, movementPattern: "squat" }, expected: 17.5, label: "lower 20 kg" },
-    { current: 60, meta: { ...BENCH, movementPattern: "squat" }, expected: 52.5, label: "lower 60 kg" },
-    { current: 120, meta: { ...BENCH, movementPattern: "squat" }, expected: 107.5, label: "lower 120 kg" },
-    { current: 5.5, meta: BENCH, expected: 5.5, label: "upper 5.5 kg (hold)" },
-    { current: 2.75, meta: CURL, expected: 2.75, label: "isolation 2.75 kg (hold)" },
-    { current: 2.5, meta: CURL, expected: 2.5, label: "isolation 2.5 kg (hold)" },
+    { current: 10, meta: { ...BENCH, movementPattern: "squat" }, expected: 10, label: "lower 10 kg (hold: 90%=9, snap to 2.5 grid)" },
+    { current: 11, meta: { ...BENCH, movementPattern: "squat" }, expected: 10, label: "lower 11 kg (90%=9.9)" },
+    { current: 20, meta: { ...BENCH, movementPattern: "squat" }, expected: 20, label: "lower 20 kg (hold: 90%=18)" },
+    { current: 60, meta: { ...BENCH, movementPattern: "squat" }, expected: 55, label: "lower 60 kg (90%=54)" },
+    { current: 120, meta: { ...BENCH, movementPattern: "squat" }, expected: 110, label: "lower 120 kg (90%=108)" },
+    { current: 5.5, meta: BENCH, expected: 5, label: "upper 5.5 kg (90%=4.95)" },
+    { current: 2.75, meta: CURL, expected: 2.5, label: "isolation 2.75 kg (90%=2.475, 1.25 grid)" },
+    { current: 2.5, meta: CURL, expected: 2.5, label: "isolation 2.5 kg (hold at light)" },
   ];
   
   for (const testCase of backOffCases) {
@@ -1044,7 +1044,7 @@ console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric")
   // lb: use formatWeight (kgToLb -> roundLbToHalf -> format, no .0 for whole numbers)
   // kg: plain value (no formatWeight rounding, matches main)
   
-  // 42.5 kg * 0.9 = 38.25, round to 2.5 grid = 37.5 kg. Display in lb: 37.5 kg = 82.673 lb -> 82.5 lb
+  // 42.5 kg: RAW 90% = 38.25, snap to 2.5 grid >= 38.25 and < 42.5 = 40 kg. Display in lb: 40 kg = 88.185 lb -> 88 lb
   const backOff425 = run({
     meta: BENCH,
     sets: sets(4, 10, 42.5),
@@ -1052,9 +1052,9 @@ console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric")
     equipmentIds: ["barbell"],
     unit: "lb",
   });
-  check("42.5 kg back-off shows 82.5 lb (app formatter)", backOff425.message.includes("82.5 lb"), backOff425.message);
+  check("42.5 kg back-off shows 88 lb (RAW 90% cap)", backOff425.message.includes("88 lb"), backOff425.message);
   
-  // 57.5 kg * 0.9 = 51.75, round to 2.5 grid = 50 kg. Display in lb: 50 kg = 110.231 lb -> 110 lb (no .0)
+  // 57.5 kg: RAW 90% = 51.75, snap to 2.5 grid >= 51.75 and < 57.5 = 52.5 kg. Display in lb: 52.5 kg = 115.743 lb -> 115.5 lb
   const backOff575 = run({
     meta: BENCH,
     sets: sets(4, 10, 57.5),
@@ -1062,7 +1062,7 @@ console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric")
     equipmentIds: ["barbell"],
     unit: "lb",
   });
-  check("57.5 kg back-off shows 110 lb (app formatter, no .0)", backOff575.message.includes("110 lb") && !backOff575.message.includes("110.0"), backOff575.message);
+  check("57.5 kg back-off shows 115.5 lb (RAW 90% cap)", backOff575.message.includes("115.5 lb"), backOff575.message);
   
   // kg messages: plain kg value (no formatWeight rounding, matches main)
   // 15 kg progress -> 17.5 kg. Display in kg: "17.5 kg" (not "17.5" or "17.50")
