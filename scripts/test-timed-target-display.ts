@@ -606,6 +606,18 @@ import { progressForPlanningMode } from "../src/lib/session/swap-progress.js";
   const nullResult = progressForPlanningMode(null, { current_target_reps: 16, current_working_weight_kg: 60 });
   check("progressForPlanningMode with null returns data", nullResult?.current_target_reps === 16);
 
+  // Test: Filtered progress applied to swap shows plan range for daily_menu
+  const dailyMenuProgress = progressForPlanningMode("daily_menu", { current_target_reps: 16, current_working_weight_kg: 60 });
+  const swapWithFilteredProgress = applySwap(
+    originalExercise,
+    swapToBodyweightData,
+    { repsMin: 8, repsMax: 12 },
+    dailyMenuProgress ?? undefined,
+    true
+  );
+  check("Swap with daily_menu filtered progress → min=8 (uses plan, not stored 16)", swapWithFilteredProgress.repsMin === 8);
+  check("Swap with daily_menu filtered progress → max=12 (uses plan, not stored 16)", swapWithFilteredProgress.repsMax === 12);
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
 })();

@@ -32,6 +32,7 @@ import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/
 import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
+import { progressForPlanningMode } from "@/lib/session/swap-progress";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -792,7 +793,7 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes, settingsRes] = await Promise.all([
     supabase
       .from("session_exercises")
       .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
@@ -816,6 +817,7 @@ export async function swapExercise(input: {
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
+    supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
   ]);
 
   const current = currentRes.data;
@@ -836,6 +838,13 @@ export async function swapExercise(input: {
     metric,
     replacementRes.data?.movement_pattern ?? "other",
   );
+
+  // Filter target reps for daily_menu users (they don't remember weights/targets)
+  const filteredProgress = progressForPlanningMode(
+    settingsRes.data?.planning_mode,
+    { current_target_reps: currentTargetReps, current_working_weight_kg: workingWeightKg }
+  );
+  const filteredTargetReps = filteredProgress?.current_target_reps ?? null;
 
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range
@@ -878,7 +887,7 @@ export async function swapExercise(input: {
   // hold button with the range that was just written.
   return error
     ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } };
+    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps: filteredTargetReps, isBodyweight } };
 }
 
 // ---------------------------------------------------------------------------
