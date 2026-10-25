@@ -7,6 +7,7 @@ type DbCall = {
   table: string;
   selects?: string[];
   eqFilters?: Array<{ column: string; value: unknown }>;
+  inFilters?: Array<{ column: string; values: unknown[] }>;
   updatePayload?: Record<string, unknown>;
 };
 
