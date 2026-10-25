@@ -15,6 +15,7 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import { hydrateRoot } from "react-dom/client";
 import { JSDOM } from "jsdom";
+import { act } from "react";
 import { CapabilityNote } from "../src/app/session/[id]/session-runner.js";
 
 let passed = 0;
@@ -36,12 +37,12 @@ console.log("Testing session hydration (React error #418) with REAL src code\n")
 console.log("--- Step 1: Server render (no navigator) ---\n");
 
 // Clean up any existing globals from the environment
-const savedNavigator = (global as { navigator?: unknown }).navigator;
-const savedDocument = (global as { document?: unknown }).document;
-const savedWindow = (global as { window?: unknown }).window;
-Reflect.deleteProperty(global, "navigator");
-Reflect.deleteProperty(global, "document");
-Reflect.deleteProperty(global, "window");
+const savedNavigator = Reflect.get(globalThis, "navigator");
+const savedDocument = Reflect.get(globalThis, "document");
+const savedWindow = Reflect.get(globalThis, "window");
+Reflect.deleteProperty(globalThis, "navigator");
+Reflect.deleteProperty(globalThis, "document");
+Reflect.deleteProperty(globalThis, "window");
 
 const serverHTML = renderToString(
   <CapabilityNote
@@ -67,17 +68,17 @@ const dom = new JSDOM("<!DOCTYPE html><html><body><div id='root'></div></body></
 });
 
 // Set up jsdom globals with vibration support
-Object.defineProperty(global, "window", {
+Object.defineProperty(globalThis, "window", {
   value: dom.window,
   writable: true,
   configurable: true,
 });
-Object.defineProperty(global, "document", {
+Object.defineProperty(globalThis, "document", {
   value: dom.window.document,
   writable: true,
   configurable: true,
 });
-Object.defineProperty(global, "navigator", {
+Object.defineProperty(globalThis, "navigator", {
   value: dom.window.navigator,
   writable: true,
   configurable: true,
@@ -99,79 +100,130 @@ const container = dom.window.document.getElementById("root");
 if (!container) throw new Error("Container not found");
 container.innerHTML = serverHTML;
 
-// Capture hydration errors
+// Capture hydration errors and console.error
 const recoverableErrors: unknown[] = [];
+const consoleErrors: unknown[] = [];
+const originalConsoleError = console.error;
+console.error = (...args: unknown[]) => {
+  consoleErrors.push(args);
+  originalConsoleError(...args);
+};
 
-// Hydrate with error capture
-hydrateRoot(
-  container,
-  <CapabilityNote
-    wakeLock={{ supported: true, active: true, error: null }}
-    soundEnabled={false}
-    soundUnlocked={false}
-    vibrateEnabled={true}
-  />,
-  {
-    onRecoverableError: (error: unknown) => {
-      recoverableErrors.push(error);
-    },
-  }
-);
-
-// Step 3: Assertions
-console.log("--- Step 3: Verify no hydration errors ---\n");
-
-// Check for hydration-related errors
-const hydrationErrors = recoverableErrors.filter((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    message.includes("Hydration") ||
-    message.includes("hydration") ||
-    message.includes("#418") ||
-    message.includes("did not match")
-  );
+// Enable React act environment
+Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
+  value: true,
+  writable: true,
+  configurable: true,
 });
 
-check("No hydration errors detected", hydrationErrors.length === 0);
-
-// The initial render should still have "vibration unsupported here" because
-// useVibrationSupported returns false on initial render (getServerSnapshot)
-check(
-  "Container still has 'vibration unsupported here' after hydration",
-  container.innerHTML.includes("vibration unsupported here")
-);
-
-// Restore original globals to prevent errors in cleanup
-if (savedNavigator !== undefined) {
-  Object.defineProperty(global, "navigator", {
-    value: savedNavigator,
-    writable: true,
-    configurable: true,
+// Wrap in async IIFE to use await
+(async () => {
+  // Hydrate with error capture, wrapped in act()
+  await act(async () => {
+    hydrateRoot(
+      container,
+      <CapabilityNote
+        wakeLock={{ supported: true, active: true, error: null }}
+        soundEnabled={false}
+        soundUnlocked={false}
+        vibrateEnabled={true}
+      />,
+      {
+        onRecoverableError: (error: unknown) => {
+          recoverableErrors.push(error);
+        },
+      }
+    );
   });
-}
-if (savedDocument !== undefined) {
-  Object.defineProperty(global, "document", {
-    value: savedDocument,
-    writable: true,
-    configurable: true,
-  });
-}
-if (savedWindow !== undefined) {
-  Object.defineProperty(global, "window", {
-    value: savedWindow,
-    writable: true,
-    configurable: true,
-  });
-}
 
-console.log(`\n${passed} passed, ${failed} failed`);
+  // Restore console.error
+  console.error = originalConsoleError;
 
-if (hydrationErrors.length > 0) {
-  console.error("\nHydration errors detected:");
-  hydrationErrors.forEach((err) => {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(message);
+  // Step 3: Assertions
+  console.log("--- Step 3: Verify no hydration errors ---\n");
+
+  // Check for hydration-related errors in recoverable errors
+  const hydrationRecoverableErrors = recoverableErrors.filter((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    return (
+      message.includes("Hydration") ||
+      message.includes("hydration") ||
+      message.includes("#418") ||
+      message.includes("did not match")
+    );
   });
-}
 
-if (failed > 0) process.exit(1);
+  // Check for hydration-related errors in console.error
+  const hydrationConsoleErrors = consoleErrors.filter((args) => {
+    const message = args instanceof Array ? args.join(" ") : String(args);
+    return (
+      message.includes("Hydration") ||
+      message.includes("hydration") ||
+      message.includes("#418") ||
+      message.includes("did not match")
+    );
+  });
+
+  check(
+    "No hydration errors in onRecoverableError",
+    hydrationRecoverableErrors.length === 0
+  );
+  check("No hydration errors in console.error", hydrationConsoleErrors.length === 0);
+
+  // After hydration with vibration support, the text should NOT contain "vibration unsupported here"
+  // because useVibrationSupported will update the component after the first render
+  check(
+    "Post-hydration DOM does NOT contain 'vibration unsupported here'",
+    !container.innerHTML.includes("vibration unsupported here")
+  );
+
+  // Restore original globals to prevent errors in cleanup
+  if (savedNavigator !== undefined) {
+    Object.defineProperty(globalThis, "navigator", {
+      value: savedNavigator,
+      writable: true,
+      configurable: true,
+    });
+  } else {
+    Reflect.deleteProperty(globalThis, "navigator");
+  }
+  if (savedDocument !== undefined) {
+    Object.defineProperty(globalThis, "document", {
+      value: savedDocument,
+      writable: true,
+      configurable: true,
+    });
+  } else {
+    Reflect.deleteProperty(globalThis, "document");
+  }
+  if (savedWindow !== undefined) {
+    Object.defineProperty(globalThis, "window", {
+      value: savedWindow,
+      writable: true,
+      configurable: true,
+    });
+  } else {
+    Reflect.deleteProperty(globalThis, "window");
+  }
+
+  console.log(`\n${passed} passed, ${failed} failed`);
+
+  if (hydrationRecoverableErrors.length > 0 || hydrationConsoleErrors.length > 0) {
+    console.error("\nHydration errors detected:");
+    if (hydrationRecoverableErrors.length > 0) {
+      console.error("Recoverable errors:");
+      hydrationRecoverableErrors.forEach((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(message);
+      });
+    }
+    if (hydrationConsoleErrors.length > 0) {
+      console.error("Console errors:");
+      hydrationConsoleErrors.forEach((args) => {
+        console.error(...(args instanceof Array ? args : [args]));
+      });
+    }
+  }
+
+  if (failed > 0) process.exit(1);
+})();
