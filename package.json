@@ -304,8 +304,7 @@
     "test:seven-day-cutoff": "tsx scripts/test-seven-day-cutoff.ts",
     "test:sign-in-url-safety": "tsx scripts/test-sign-in-url-safety.ts",
     "test:signout-button-clear": "tsx scripts/test-signout-button-clear.tsx",
-    "test:storage-validation": "tsx scripts/test-storage-validation.ts",
-    "test:logset-session-expired": "tsx scripts/test-logset-session-expired.ts"
+    "test:storage-validation": "tsx scripts/test-storage-validation.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
