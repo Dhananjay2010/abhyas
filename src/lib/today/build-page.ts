@@ -247,7 +247,7 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
   
   // Check if today's scheduled program_day was pulled forward
   const todayPulledForward = scheduled && pulledForward.has(scheduled.id)
-    ? pulledForward.get(scheduled.id)!
+    ? pulledForward.get(scheduled.id) ?? null
     : null;
   
   if (todayPulledForward) {

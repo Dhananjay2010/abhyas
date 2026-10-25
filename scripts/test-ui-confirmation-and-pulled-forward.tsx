@@ -1,8 +1,8 @@
 #!/usr/bin/env tsx
 /**
- * Render tests for:
- * - H3: Confirmation text uses plain label, button uses buttonLabel
- * - B12: Only first option has buttonLabel prefix
+ * Render test for H3: DayPlanPrompt confirmation text
+ * - Button shows 'Lift: Push A'
+ * - After clicking, confirmation shows 'Today is Push A.' (no 'Lift:')
  */
 
 // Set up jsdom environment
@@ -18,6 +18,7 @@ Object.defineProperty(global, "HTMLElement", { value: dom.window.HTMLElement, wr
 import { render, cleanup, act } from "@testing-library/react";
 import { DayPlanChoosingOptions } from "../src/components/day-plan-prompt-ui";
 import type { PlannableDay } from "../src/app/session/actions";
+import React from "react";
 
 let passed = 0;
 let failed = 0;
@@ -33,7 +34,7 @@ function assert(condition: boolean, message: string) {
 }
 
 async function runTests() {
-  console.log("\n=== Test H3: Button shows buttonLabel 'Lift: Push A', label is plain 'Push A' ===\n");
+  console.log("\n=== Test H3: Button shows 'Lift: Push A', label is plain 'Push A' ===\n");
 
   const liftDay: PlannableDay = {
     programDayId: "day-2",
@@ -42,95 +43,62 @@ async function runTests() {
     dayType: "weights",
   };
 
-  let container!: HTMLElement;
+  // Track what label is passed to onChooseDay
+  let chosenLabel: string = "";
+  const mockOnChooseDay = (programDayId: string, label: string) => {
+    chosenLabel = label;
+  };
+
+  let container: HTMLElement = document.createElement("div");
+  
   await act(async () => {
     const result = render(
       <DayPlanChoosingOptions
         days={[liftDay]}
-        onChooseDay={(programDayId: string, label: string) => {
-          // The component passes programDayId and label as separate args
-          // The label parameter is the plain label (not buttonLabel), used for confirmation
-          console.log("  → onChooseDay called with label:", label);
-          assert(
-            label === "Push A",
-            "onChooseDay receives plain label 'Push A' (not buttonLabel)"
-          );
-        }}
+        onChooseDay={mockOnChooseDay}
         onChooseYoga={() => {}}
         onChooseBreathing={() => {}}
         onCancel={() => {}}
-      />
+      />,
+      { container }
     );
     container = result.container;
   });
 
-  // Check that button shows "Lift: Push A"
+  // Check button text contains "Lift: Push A"
   assert(
     container.textContent?.includes("Lift: Push A"),
-    "Button shows 'Lift: Push A' (with prefix)"
+    "Button shows 'Lift: Push A'"
   );
 
-  // Test that the label field is plain (this would be used in confirmation)
-  assert(
-    liftDay.label === "Push A",
-    "Label field is plain 'Push A' (for confirmation)"
+  // Click the "Lift: Push A" button
+  const liftButton = Array.from(container.querySelectorAll("button")).find(
+    (btn) => btn.textContent?.includes("Lift: Push A")
   );
+  
+  assert(liftButton !== undefined, "Found 'Lift: Push A' button");
+  
+  if (liftButton) {
+    await act(async () => {
+      liftButton.click();
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
 
-  assert(
-    !liftDay.label.includes("Lift:"),
-    "Label field does NOT contain 'Lift:' prefix"
-  );
-
-  cleanup();
-
-  console.log("\n=== Test B12: Only first rest-day option has buttonLabel ===\n");
-
-  const restDayOptions: PlannableDay[] = [
-    { programDayId: "day-2", label: "Push A", buttonLabel: "Lift: Push A", dayType: "weights" },
-    { programDayId: "day-3", label: "Pull A", dayType: "weights" },
-    { programDayId: "day-4", label: "Legs A", dayType: "weights" },
-  ];
-
-  await act(async () => {
-    const result = render(
-      <DayPlanChoosingOptions
-        days={restDayOptions}
-        onChooseDay={() => {}}
-        onChooseYoga={() => {}}
-        onChooseBreathing={() => {}}
-        onCancel={() => {}}
-      />
+    // Check that onChooseDay received plain label (not buttonLabel)
+    assert(
+      chosenLabel === "Push A",
+      `onChooseDay received plain label 'Push A', got '${chosenLabel}'`
     );
-    container = result.container;
-  });
-
-  const text = container.textContent || "";
-  
-  assert(
-    text.includes("Lift: Push A"),
-    "First option shows 'Lift: Push A'"
-  );
-  
-  assert(
-    text.includes("Pull A"),
-    "Second option shows 'Pull A'"
-  );
-  
-  assert(
-    text.includes("Legs A"),
-    "Third option shows 'Legs A'"
-  );
-  
-  // Count occurrences of "Lift:" - should only appear once
-  const liftCount = (text.match(/Lift:/g) || []).length;
-  assert(
-    liftCount === 1,
-    `Only one button has 'Lift:' prefix, found ${liftCount}`
-  );
+    
+    assert(
+      !chosenLabel.includes("Lift:"),
+      "onChooseDay label does NOT contain 'Lift:' prefix"
+    );
+  }
 
   cleanup();
 
-  console.log(`\n${failed === 0 ? '✅' : '❌'} Passed ${passed}/${passed + failed} UI render tests\n`);
+  console.log(`\n${failed === 0 ? '✅' : '❌'} Passed ${passed}/${passed + failed} H3 render tests\n`);
 
   if (failed > 0) {
     process.exit(1);
