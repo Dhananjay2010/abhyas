@@ -131,7 +131,7 @@ export async function startSessionFullCore(
       return { ok: false, error: updateResult.error };
     }
 
-    return { ok: true, sessionId: updateResult.sessionId };
+    return { ok: true, sessionId: existing.id };
   }
 
   // Ensure we have a current block
