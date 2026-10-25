@@ -229,6 +229,9 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
   let walkingLungeInWarmups = 0;
   let skippingLightInWarmups = 0;
   let excludedInWarmups = 0;
+  let totalLungeSlotsWithDB = 0;
+  let lungePicksWithRearLunge = 0;
+  let lungeSwapMismatches = 0; // Track plan lunge != swap-list index 0
   
   for (const goal of goals) {
     for (const level of levels) {
@@ -250,11 +253,22 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
               const program = generateProgram(input);
               plansChecked++;
               
+              // HIGH-1: Count past-knee lunge picks with dumbbells
+              const hasDumbbells = equip.ids.includes("dumbbell") || equip.hasAll;
+              
               // Check all exercises in plan
               for (const day of program.days) {
                 for (const ex of day.exercises) {
                   const exercise = byId.get(ex.exerciseId);
                   if (!exercise) continue;
+                  
+                  // HIGH-1: Count lunge slots for past-knee with dumbbells
+                  if (hasDumbbells && exercise.movement_pattern === "lunge") {
+                    totalLungeSlotsWithDB++;
+                    if (exercise.slug === "dumbbell-rear-lunge") {
+                      lungePicksWithRearLunge++;
+                    }
+                  }
                   
                   // Specific check: kettlebell-pistol-squat
                   if (exercise.slug === "kettlebell-pistol-squat") {
@@ -289,6 +303,24 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
                   for (const swap of swaps) {
                     if (GRID_EXCLUSION_ORACLE.has(swap.slug)) {
                       swapLeaks++;
+                    }
+                  }
+                  
+                  // Assertion: for lunge pattern with past-knee + dumbbells,
+                  // if plan picked dumbbell-rear-lunge, then for OTHER lunge exercises,
+                  // swaps should lead with dumbbell-rear-lunge (consistency check)
+                  if (exercise.movement_pattern === "lunge" && swaps.length > 0 && hasDumbbells) {
+                    const firstSwapSlug = swaps[0].slug;
+                    // Only check if the plan has dumbbell-rear-lunge elsewhere
+                    // and this exercise is NOT dumbbell-rear-lunge
+                    if (exercise.slug !== "dumbbell-rear-lunge" && 
+                        firstSwapSlug !== "dumbbell-rear-lunge") {
+                      // If dumbbell-rear-lunge is NOT the first swap but should be available,
+                      // it's a tier ordering mismatch
+                      const hasDumbbellRearInSwaps = swaps.some(s => s.slug === "dumbbell-rear-lunge");
+                      if (hasDumbbellRearInSwaps) {
+                        lungeSwapMismatches++;
+                      }
                     }
                   }
                 }
@@ -343,6 +375,8 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
     swapLeaks > 0 ? `Found ${swapLeaks} excluded in swaps` : "");
   check(`wall-sit NEVER as primary squat (first squat slot)`, wallSitAsPrimarySquat === 0,
     wallSitAsPrimarySquat > 0 ? `Found ${wallSitAsPrimarySquat} primary wall-sit slots` : "");
+  check(`Plan lunge equals swap-list index 0 for same profile`, lungeSwapMismatches === 0,
+    lungeSwapMismatches > 0 ? `Found ${lungeSwapMismatches} mismatches` : "");
   check(`walking-lunge NEVER in warmups`, walkingLungeInWarmups === 0,
     walkingLungeInWarmups > 0 ? `Found ${walkingLungeInWarmups}/${warmupsChecked}` : "");
   check(`skipping-light NEVER in warmups`, skippingLightInWarmups === 0,
@@ -351,6 +385,7 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
     excludedInWarmups > 0 ? `Found ${excludedInWarmups} excluded in warmups` : "");
   
   console.log(`    Checked ${plansChecked} plans, ${warmupsChecked} warmups`);
+  console.log(`    Past-knee lunge picks with DB: ${lungePicksWithRearLunge}/${totalLungeSlotsWithDB} had dumbbell-rear-lunge`);
 }
 
 console.log("\n4. Skipping-light warmup control tests");

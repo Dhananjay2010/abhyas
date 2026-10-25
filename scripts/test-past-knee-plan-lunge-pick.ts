@@ -310,38 +310,31 @@ console.log("\n6. Non-past-knee beginner with dumbbells (identity check)");
     (foundAnyLunge ? `got ${lungeSlug}` : "no lunge"));
 }
 
-console.log("\n7. Only dumbbell-rear-lunge bypasses knee contraindication in past-knee lunge pick");
+console.log("\n7. Past-knee + current HIP injury must NOT get dumbbell-rear-lunge (contraindication still applies)");
 {
-  // Test that NO other knee-contraindicated exercises appear via the past-knee lunge pick path
-  // Other knee-friendly exercises (goblet-squat, step-ups, etc.) may appear via:
-  // - KNEE_FRIENDLY_PRIMARIES (get +10 bonus in main slots)
-  // - KNEE_SAFE_QUAD_EXERCISES (H6 path for knee injuries)
-  // This test checks that ONLY dumbbell-rear-lunge can have knee contraindication AND appear in lunge slots
+  // The bypass at 839d91a0:809-838 skipped isEligible, so dumbbell-rear-lunge appeared
+  // even with a current hip injury. This test proves the bug existed and is now fixed.
   const input: GeneratorInput = {
-    userId: "test-lunge-bypass-past-knee",
+    userId: "test-past-knee-current-hip",
     blockNumber: 1,
     goal: "muscle_gain",
     level: "intermediate",
     primaryTrack: "weights",
-    daysPerWeek: 4,
+    daysPerWeek: 3,
     yogaDaysPerWeek: 0,
-    age: 30,
-    bmi: 23,
-    hasAllEquipment: true,
-    equipmentIds: [],
-    currentInjuryRegions: [],
+    age: 35,
+    bmi: 24,
+    hasAllEquipment: false,
+    equipmentIds: ["dumbbell", "flat_bench"],
+    currentInjuryRegions: ["hip"], // Current hip injury
     pastKneeInjury: true,
     catalogue,
   };
   
   const program = generateProgram(input);
-  const lungesWithKneeContra: string[] = [];
-  
-  // Get knee-friendly primaries that are allowed to have knee contraindications
-  const kneeFriendlySquats = ["goblet-squat", "box-squat", "leg-press", "split-squat-with-dumbbells"];
-  const kneeFriendlyLunges = ["dumbbell-rear-lunge", "barbell-step-ups", "dumbbell-step-ups", "step-up-with-knee-raise", "split-squat-with-dumbbells"];
-  const kneeSafeQuads = ["leg-extensions", "single-leg-leg-extension", "box-squat", "step-up-with-knee-raise", "dumbbell-step-ups"];
-  const allowedKneeContra = new Set([...kneeFriendlySquats, ...kneeFriendlyLunges, ...kneeSafeQuads]);
+  let foundDumbbellRearLunge = false;
+  let foundAnyLunge = false;
+  let lungeSlug = "";
   
   for (const day of program.days) {
     if (day.dayType === "rest" || day.dayType === "yoga") continue;
@@ -350,16 +343,23 @@ console.log("\n7. Only dumbbell-rear-lunge bypasses knee contraindication in pas
       const candidate = catalogue.find(c => c.id === ex.exerciseId);
       if (!candidate) continue;
       
-      if (candidate.movement_pattern === "lunge" &&
-          candidate.contraindicated_regions.includes("knee") && 
-          !allowedKneeContra.has(candidate.slug)) {
-        lungesWithKneeContra.push(candidate.slug);
+      if (candidate.movement_pattern === "lunge") {
+        foundAnyLunge = true;
+        lungeSlug = candidate.slug;
+        if (candidate.slug === "dumbbell-rear-lunge") {
+          foundDumbbellRearLunge = true;
+        }
       }
     }
   }
   
-  check("No unauthorized knee-contraindicated lunges (only allowed list)", lungesWithKneeContra.length === 0,
-    lungesWithKneeContra.length > 0 ? `found: ${lungesWithKneeContra.join(", ")}` : "");
+  check("Past-knee + current hip does NOT get dumbbell-rear-lunge", !foundDumbbellRearLunge,
+    foundDumbbellRearLunge ? "got dumbbell-rear-lunge (hip contraindication bypassed!)" : 
+    (foundAnyLunge ? `got safe lunge: ${lungeSlug}` : "no lunge"));
+  
+  // This test should FAIL on 839d91a0's generate.ts (before bypass removal)
+  // because the bypass at lines 809-838 skipped isEligible and allowed dumbbell-rear-lunge
+  // even with a current hip injury.
 }
 
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);

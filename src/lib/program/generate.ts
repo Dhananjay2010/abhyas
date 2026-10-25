@@ -3,6 +3,7 @@ import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
 import { isExcludedForPastKnee, kneeFriendlyBonus } from "./past-knee";
+import { pastKneeLungeTier } from "./past-knee-lunge-order";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -424,14 +425,29 @@ const EQUIPMENT_ALTERNATIVES: Record<string, string[][]> = {
   "goblet-squat": [["dumbbell"], ["kettlebell"]],
 };
 
-export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolean {
+/**
+ * Check if an exercise is eligible for a user, with optional past-knee tier-1 relaxations.
+ * 
+ * @param ex - The exercise to check
+ * @param input - User input (profile, injuries, equipment, etc.)
+ * @param relaxForPastKneeTier1 - If true, skip knee contraindication and level gate for tier-1 lunges
+ */
+export function isEligible(
+  ex: CandidateExercise,
+  input: GeneratorInput,
+  relaxForPastKneeTier1: boolean = false
+): boolean {
   // Track: a bodyweight-at-home user must never be shown gym-only work.
   if (input.primaryTrack === "bodyweight" && !ex.tracks.includes("bodyweight")) {
     return false;
   }
 
   // Level: never prescribe something above the user's stated experience.
-  if (LEVEL_RANK[ex.level_min] > LEVEL_RANK[input.level]) return false;
+  // UNLESS: past-knee tier-1 relaxation (dumbbell-rear-lunge for beginners)
+  const isPastKneeTier1 = input.pastKneeInjury && pastKneeLungeTier(ex) === 1;
+  if (!isPastKneeTier1 || !relaxForPastKneeTier1) {
+    if (LEVEL_RANK[ex.level_min] > LEVEL_RANK[input.level]) return false;
+  }
 
   // Equipment is a hard filter -- SPEC section 4.
   // M1 fix: Default is ALL-of logic (barbell AND bench both needed).
@@ -457,12 +473,19 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
 
   // QA Pass 10 C2, C3: Current injuries exclude anything that loads the affected joint.
   // Use both explicit tags AND derived contraindications.
+  // UNLESS: past-knee tier-1 relaxation (skip knee contraindication for dumbbell-rear-lunge)
   if (input.currentInjuryRegions.length > 0) {
     const allContraindications = [
       ...ex.contraindicated_regions,
       ...getDerivedContraindications(ex),
     ];
-    if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
+    
+    // For past-knee tier-1 relaxation, filter out knee from injury check
+    const injuriesToCheck = (isPastKneeTier1 && relaxForPastKneeTier1)
+      ? input.currentInjuryRegions.filter(r => r !== "knee")
+      : input.currentInjuryRegions;
+    
+    if (allContraindications.some((r) => injuriesToCheck.includes(r))) {
       return false;
     }
   }
@@ -648,9 +671,19 @@ function pickForSlot(
         stapleKey: isMainSlot
           ? stapleSortKey(e, p, input.hasAllEquipment, input.primaryTrack)
           : `1:${e.slug}`, // Non-main slots: no staple bonus
+        // Past-knee tier: for lunge pattern, tier 1 = highest priority (lowest tier number wins)
+        pastKneeTier: (input.pastKneeInjury && p === "lunge") ? pastKneeLungeTier(e) : 999,
         rng: rng(),
       }))
       .sort((a, b) => {
+        // 0. Past-knee lunge tier ordering (tier 1 = dumbbell-rear-lunge comes first)
+        if (input.pastKneeInjury && p === "lunge") {
+          // Lower tier number = higher priority (tier 1 beats tier 3)
+          // Tier 0 = not a past-knee option, goes last
+          const aTier = a.pastKneeTier === 0 ? 999 : a.pastKneeTier;
+          const bTier = b.pastKneeTier === 0 ? 999 : b.pastKneeTier;
+          if (aTier !== bTier) return aTier - bTier;
+        }
         // 1. Highest score wins
         if (a.score !== b.score) return b.score - a.score;
         // 2. For main slots: staples win among tied scores (deterministic)
@@ -740,7 +773,15 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
   );
   const yogaDays = Math.min(input.yogaDaysPerWeek, input.daysPerWeek - 1);
 
-  const pool = input.catalogue.filter((e) => isEligible(e, input));
+  // Build pool with standard eligibility, plus past-knee tier-1 relaxations
+  const pool = input.catalogue.filter((e) => {
+    if (isEligible(e, input, false)) return true;
+    // If standard check failed, try past-knee tier-1 relaxation
+    if (input.pastKneeInjury && pastKneeLungeTier(e) === 1) {
+      return isEligible(e, input, true);
+    }
+    return false;
+  });
   const rng = mulberry32(hashString(`${input.userId}:${input.blockNumber}`));
 
   const templates = templatesFor(trainingDays);
@@ -805,37 +846,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     
     entry.slots.slice(0, templateCount).forEach((pattern, i) => {
       const usedSet = i <= 3 ? usedToday : usedInBlock;
-      
-      // Past-knee: For lunge slots, prioritize dumbbell rear lunge when available
-      // Bypass contraindication check ONLY for dumbbell-rear-lunge (safe for past-knee despite knee tag)
-      // This is the only knee-contraindicated exercise past-knee users get in plan generation
-      if (input.pastKneeInjury && pattern === "lunge") {
-        const rearLunge = input.catalogue.find(e => {
-          if (e.slug !== "dumbbell-rear-lunge") return false;
-          if (usedSet.has(e.id)) return false;
-          if (!e.tracks.includes(input.primaryTrack)) return false;
-          
-          // NO level check: past-knee users at ALL levels (including beginners) get rear lunge
-          
-          // Equipment check
-          if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
-            const hasAll = e.equipment_ids.every(eid => input.equipmentIds.includes(eid));
-            if (!hasAll) return false;
-          }
-          
-          return true;
-        });
-        
-        if (rearLunge) {
-          usedSet.add(rearLunge.id);
-          if (i <= 3) {
-            usedInBlock.add(rearLunge.id);
-          }
-          pickedExercises.push({ ex: rearLunge, slotIndex: i });
-          return;
-        }
-        // Fall through to normal pickForSlot if dumbbell-rear-lunge unavailable
-      }
       
       // H6: For knee injuries on Lower/Full days, reserve first squat/quad slot for knee-safe moves
       const isQuadPattern = pattern === "squat" || pattern === "lunge";

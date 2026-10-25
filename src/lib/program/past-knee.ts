@@ -67,6 +67,9 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   // Running/sprinting moves (loads knee, mislabeled muscles)
   "wind-sprints",
   "chest-push-with-run-release",
+  
+  // Jogging (repeated knee loading)
+  "jogging-treadmill",
 ]);
 
 /**
@@ -185,21 +188,29 @@ export function kneeFriendlyBonus(ex: CandidateExercise, slotIndex: number): num
 
 /**
  * Get knee-friendly ranking boost for past-knee users in swap ranking.
- * Lunge: dumbbell-rear-lunge = 2 (must be #1), others = 1
+ * Reverse lunges = 2 (must be #1), split squats = 1, step-ups = 1
  * Squat: all knee-friendly = 1
- * Wall-sit: swap boost = 1 (top 5), but NOT a primary
+ * Wall-sit: swap boost = 1 (but never index 0 when other options exist)
  */
 export function getKneeFriendlyRankingBoost(candidate: CandidateExercise): number {
+  // Reverse lunges: tier 1, boost +2
   if (candidate.slug === "dumbbell-rear-lunge") return 2;
   
-  const forSquat = KNEE_FRIENDLY_PRIMARIES.squat ?? [];
-  const forLunge = KNEE_FRIENDLY_PRIMARIES.lunge ?? [];
+  // Split squats: tier 2, boost +1
+  const splitSquatSlugs = ["split-squat-with-dumbbells", "barbell-side-split-squat", "smith-single-leg-split-squat"];
+  if (splitSquatSlugs.includes(candidate.slug)) return 1;
   
-  if (forSquat.includes(candidate.slug) || forLunge.includes(candidate.slug)) {
+  // Step-ups: tier 3, boost +1
+  const stepUpSlugs = ["barbell-step-ups", "dumbbell-step-ups", "step-up-with-knee-raise"];
+  if (stepUpSlugs.includes(candidate.slug)) return 1;
+  
+  // Knee-friendly squats
+  const forSquat = KNEE_FRIENDLY_PRIMARIES.squat ?? [];
+  if (forSquat.includes(candidate.slug)) {
     return 1;
   }
   
-  // Wall-sit: swap boost only, not a primary
+  // Wall-sit: swap boost = 1 (ranking will place it at index 2+ when other options exist)
   if (candidate.slug === "wall-sit") {
     return 1;
   }

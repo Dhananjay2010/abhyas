@@ -103,6 +103,7 @@ run_mutant() {
 
 echo "=== Taking backups (once before any mutants) ==="
 backup_file "src/lib/program/past-knee.ts"
+backup_file "src/lib/program/past-knee-lunge-order.ts"
 backup_file "src/lib/program/generate.ts"
 backup_file "src/lib/program/alternatives.ts"
 backup_file "src/lib/program/warmup.ts"
@@ -193,16 +194,16 @@ sed -i '/if (ex.slug === "wall-sit" && slotIndex <= 3) {/,/}/d' src/lib/program/
 run_mutant "Remove wall-sit primary penalty" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
 
-# Mutant 14: Disable past-knee dumbbell-rear-lunge plan pick
-restore_file "src/lib/program/generate.ts"
-sed -i 's/if (input.pastKneeInjury && pattern === "lunge")/if (false \&\& input.pastKneeInjury \&\& pattern === "lunge")/' src/lib/program/generate.ts
-run_mutant "Disable past-knee lunge plan pick" "src/lib/program/generate.ts" || true
-restore_file "src/lib/program/generate.ts"
+# Mutant 14: Disable past-knee lunge tier ordering (use non-existent slug for tier 1)
+restore_file "src/lib/program/past-knee-lunge-order.ts"
+sed -i 's/if (ex.slug === "dumbbell-rear-lunge") return 1;/if (ex.slug === "nonexistent-lunge-slug") return 1;/' src/lib/program/past-knee-lunge-order.ts
+run_mutant "Disable past-knee tier-1 lunge (dumbbell-rear-lunge)" "src/lib/program/past-knee-lunge-order.ts" || true
+restore_file "src/lib/program/past-knee-lunge-order.ts"
 
-# Mutant 15: Re-add level gate (block beginners from getting dumbbell-rear-lunge)
+# Mutant 15: Disable level gate relaxation for past-knee tier-1
 restore_file "src/lib/program/generate.ts"
-sed -i '/NO level check: past-knee users/a\          if (e.level_min === "intermediate" && input.level === "beginner") return false;' src/lib/program/generate.ts
-run_mutant "Re-add level gate to dumbbell-rear-lunge pick" "src/lib/program/generate.ts" || true
+sed -i 's/const isPastKneeTier1 = input.pastKneeInjury && pastKneeLungeTier(ex) === 1;/const isPastKneeTier1 = false;/' src/lib/program/generate.ts
+run_mutant "Disable level gate relaxation for tier-1" "src/lib/program/generate.ts" || true
 restore_file "src/lib/program/generate.ts"
 
 echo ""

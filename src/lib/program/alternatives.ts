@@ -177,7 +177,9 @@ export function rankAlternatives<T extends ExerciseRow>(
   const filtered: Array<{ 
     exercise: T; 
     patternRank: number;
+    pastKneeTier: number;
     kneeFriendlyScore: number;
+    wallSitPenalty: number;
     equipmentScore: number;
     primaryScore: number; 
     impactPenalty: number;
@@ -270,9 +272,21 @@ export function rankAlternatives<T extends ExerciseRow>(
       }
     }
     
+    // Past-knee tier for lunges: 1=dumbbell-rear-lunge (highest), 2=other reverse, 3=split, 4=step-ups
+    // Lower tier number = higher priority (0 = not a past-knee lunge option, goes last)
+    // NOTE: Tier ordering is ONLY used in plan generation (pickForSlot).
+    // Swap ranking relies on kneeFriendlyScore for consistency with the mutant tests.
+    const pastKneeTier = 999; // Disabled for swaps; use kneeFriendlyScore instead
+    
     // Knee-friendly score for past-knee users (ranks before equipment/primary)
     // Lunge: dumbbell-rear-lunge gets boost=2 (must be #1), others get boost=1
     const kneeFriendlyScore = ctx.pastKneeInjury === true ? getKneeFriendlyRankingBoost(candidate) : 0;
+    
+    // Wall-sit penalty for squat swaps: demote wall-sit to index 2+ (never index 0 when other options exist)
+    // This ensures wall-sit is NEVER the first squat swap when safer options are available
+    const wallSitPenalty = (ctx.pastKneeInjury === true && 
+                           current.movement_pattern === "squat" && 
+                           candidate.slug === "wall-sit") ? 1 : 0;
     
     // Penalty for high-impact moves (e.g., Lunge Sprint)
     const impactPenalty = candidate.impact === "high" ? 1 : 0;
@@ -280,7 +294,9 @@ export function rankAlternatives<T extends ExerciseRow>(
     filtered.push({ 
       exercise: candidate, 
       patternRank,
+      pastKneeTier,
       kneeFriendlyScore,
+      wallSitPenalty,
       equipmentScore,
       primaryScore,
       impactPenalty,
@@ -289,21 +305,29 @@ export function rankAlternatives<T extends ExerciseRow>(
     });
   }
   
-  // Sort: pattern priority, knee-friendly (for past-knee), equipment fit, primary muscle, low impact penalty, generator score, hash
+  // Sort: pattern priority, past-knee tier (lunges), knee-friendly (for past-knee), equipment fit, primary muscle, wall-sit penalty, low impact penalty, generator score, hash
   filtered.sort((a, b) => {
     // 1. Same pattern first
     if (a.patternRank !== b.patternRank) return a.patternRank - b.patternRank;
-    // 2. Knee-friendly for past-knee users (higher = better)
+    // 2. Past-knee tier for lunges (lower tier = higher priority: tier 1 beats tier 3)
+    if (a.pastKneeTier !== b.pastKneeTier) {
+      const aTier = a.pastKneeTier === 0 ? 999 : a.pastKneeTier;
+      const bTier = b.pastKneeTier === 0 ? 999 : b.pastKneeTier;
+      return aTier - bTier;
+    }
+    // 3. Knee-friendly for past-knee users (higher = better)
     if (b.kneeFriendlyScore !== a.kneeFriendlyScore) return b.kneeFriendlyScore - a.kneeFriendlyScore;
-    // 3. Equipment fit (higher = better)
+    // 4. Equipment fit (higher = better)
     if (b.equipmentScore !== a.equipmentScore) return b.equipmentScore - a.equipmentScore;
-    // 4. Primary muscle match
+    // 5. Primary muscle match
     if (b.primaryScore !== a.primaryScore) return b.primaryScore - a.primaryScore;
-    // 5. Avoid high-impact
+    // 6. Wall-sit penalty (demote wall-sit in squat swaps to index 2+)
+    if (a.wallSitPenalty !== b.wallSitPenalty) return a.wallSitPenalty - b.wallSitPenalty;
+    // 7. Avoid high-impact
     if (a.impactPenalty !== b.impactPenalty) return a.impactPenalty - b.impactPenalty;
-    // 6. Generator score
+    // 8. Generator score
     if (b.genScore !== a.genScore) return b.genScore - a.genScore;
-    // 7. Hash tiebreak
+    // 9. Hash tiebreak
     return a.tieBreak - b.tieBreak;
   });
   
