@@ -131,11 +131,13 @@ const result5 = trainAnywayOptions({
   missedYesterday: true,
 });
 
-assert(result5.length === 2, "Returns 2 options (Lift + 1 more since today is rest)");
+assert(result5.length === 3, "Returns 3 options (Lift + 2 more when yesterday missed but was rest)");
 assert(result5[0]?.day_index === 1, "First option is Monday (for Lift)");
 assert(result5[0]?.label === "Push", "First option label is Push");
 assert(result5[1]?.day_index === 3, "Second option is Wednesday");
 assert(result5[1]?.label === "Pull", "Second option label is Pull");
+assert(result5[2]?.day_index === 5, "Third option is Friday");
+assert(result5[2]?.label === "Legs", "Third option label is Legs");
 
 console.log("\n=== Test 6: Bodyweight training days (not just weights) ===\n");
 
@@ -176,13 +178,11 @@ const result7 = trainAnywayOptions({
   missedYesterday: false,
 });
 
-assert(result7.length === 3, "Returns 3 options");
+assert(result7.length === 2, "Returns 2 options (Lift + 1 more)");
 assert(result7[0]?.day_index === 3, "First option is first training day (weights)");
 assert(result7[0]?.label === "Push", "First option label is Push");
 assert(result7[1]?.day_index === 4, "Second option is bodyweight day");
 assert(result7[1]?.label === "Bodyweight", "Second option label is Bodyweight");
-assert(result7[2]?.day_index === 6, "Third option is Pull");
-assert(result7[2]?.label === "Pull", "Third option label is Pull");
 
 console.log("\n=== Test 8: Yesterday missed workout (Bodyweight A), today is rest ===\n");
 

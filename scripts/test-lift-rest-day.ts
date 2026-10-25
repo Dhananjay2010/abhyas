@@ -54,6 +54,7 @@ const result1 = buildTrainAnywayDays({
 
 assert(result1.length === 2, `Two options offered on rest day (Lift + 1 more), got ${result1.length}`);
 assert(result1[0].buttonLabel === "Lift: Push A", `First buttonLabel is "Lift: Push A", got "${result1[0].buttonLabel}"`);
+assert(result1[0].label === "Push A", `First label is "Push A", got "${result1[0].label}"`);
 assert(result1[0].programDayId === "day-5", `First programDayId is day-5, got ${result1[0].programDayId}`);
 
 console.log("\n=== Test (e): No upcoming strength day hides the option ===\n");

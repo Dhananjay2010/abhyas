@@ -6,6 +6,15 @@
  * - B12: buttonLabel only, not in label
  */
 
+import { JSDOM } from "jsdom";
+
+// Set up jsdom environment
+const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
+  url: "http://localhost",
+});
+global.document = dom.window.document;
+global.window = dom.window as any;
+
 import { render } from "@testing-library/react";
 import { DayPlanChoosingOptions } from "../src/components/day-plan-prompt-ui";
 import type { PlannableDay } from "../src/app/session/actions";
@@ -66,7 +75,7 @@ const restDayOptions: PlannableDay[] = [
   { programDayId: "day-4", label: "Legs A", dayType: "weights" },
 ];
 
-const { getByText: getByTextMulti } = render(
+const { container: containerMulti } = render(
   <DayPlanChoosingOptions
     days={restDayOptions}
     onChooseDay={() => {}}
@@ -77,18 +86,25 @@ const { getByText: getByTextMulti } = render(
 );
 
 assert(
-  !!getByTextMulti("Lift: Push A"),
+  containerMulti.textContent?.includes("Lift: Push A"),
   "First option shows 'Lift: Push A'"
 );
 
 assert(
-  !!getByTextMulti("Pull A") && !getByTextMulti("Pull A").textContent?.includes("Lift:"),
-  "Second option shows 'Pull A' without Lift prefix"
+  containerMulti.textContent?.includes("Pull A"),
+  "Second option shows 'Pull A'"
 );
 
 assert(
-  !!getByTextMulti("Legs A") && !getByTextMulti("Legs A").textContent?.includes("Lift:"),
-  "Third option shows 'Legs A' without Lift prefix"
+  containerMulti.textContent?.includes("Legs A"),
+  "Third option shows 'Legs A'"
+);
+
+// Count occurrences of "Lift:" - should only appear once
+const liftCount = (containerMulti.textContent?.match(/Lift:/g) || []).length;
+assert(
+  liftCount === 1,
+  `Only one button has 'Lift:' prefix, found ${liftCount}`
 );
 
 console.log("\n✅ All UI render tests passed!\n");
