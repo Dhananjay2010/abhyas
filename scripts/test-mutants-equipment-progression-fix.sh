@@ -290,10 +290,10 @@ if [ "$SURVIVED" -gt 0 ] || [ "$SKIPPED" -gt 0 ]; then
   exit 1
 fi
 
-if [ "$KILLED" -ne 19 ]; then
-  echo "❌ FAILED: Expected 19 killed, got $KILLED"
+if [ "$KILLED" -ne 20 ]; then
+  echo "❌ FAILED: Expected 20 killed, got $KILLED"
   exit 1
 fi
 
-echo "✅ PASSED: All 19 mutants killed"
+echo "✅ PASSED: All 20 mutants killed"
 exit 0
