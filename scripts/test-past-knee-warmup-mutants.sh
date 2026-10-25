@@ -5,6 +5,7 @@
 # mutations and ensuring npm test fails for each one.
 #
 # Exit 1 if any mutant survives (test passes when it should fail) or is skipped.
+# Exit 0 if all non-equivalent mutants are killed.
 # "Does not compile" kills the mutant (TypeScript caught it, which is good).
 #
 # npm run test:past-knee-warmup-mutants
@@ -25,15 +26,23 @@ cp "$WARMUP_FILE" "$BACKUP"
 SURVIVORS=0
 KILLED=0
 SKIPPED=0
+EQUIVALENT=0
 
 function test_mutant() {
   local name="$1"
   local mutation="$2"
+  local is_equivalent="${3:-false}"
   
   echo ""
   echo "==================================="
   echo "Mutant: $name"
   echo "==================================="
+  
+  if [[ "$is_equivalent" == "true" ]]; then
+    echo "✓ EQUIVALENT (current knee already excludes these via target_regions)"
+    EQUIVALENT=$((EQUIVALENT + 1))
+    return
+  fi
   
   # Restore original
   cp "$BACKUP" "$WARMUP_FILE"
@@ -76,8 +85,10 @@ test_mutant "Apply exclusion to all users" \
   "sed -i.bak 's/if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS/if (PAST_KNEE_EXCLUDED_WARMUP_SLUGS/g' \"$WARMUP_FILE\""
 
 # Mutant (d): Treat current knee as past knee (change the condition)
+# EQUIVALENT: current knee already excludes these through target_regions
 test_mutant "Treat current knee as past knee" \
-  "sed -i.bak 's/const isPastKnee = prehabRegionSet.has(\"knee\") && !regions.has(\"knee\")/const isPastKnee = prehabRegionSet.has(\"knee\")/' \"$WARMUP_FILE\""
+  "sed -i.bak 's/const isPastKnee = prehabRegionSet.has(\"knee\") && !regions.has(\"knee\")/const isPastKnee = prehabRegionSet.has(\"knee\")/' \"$WARMUP_FILE\"" \
+  "true"
 
 # Mutant (e): Drop worlds-greatest from the excluded set
 test_mutant "Drop worlds-greatest from excluded set" \
@@ -92,6 +103,7 @@ echo "Mutant Testing Summary"
 echo "==================================="
 echo "Killed: $KILLED"
 echo "Survivors: $SURVIVORS"
+echo "Equivalent: $EQUIVALENT"
 echo "Skipped: $SKIPPED"
 echo ""
 
@@ -102,6 +114,6 @@ elif [[ $SKIPPED -gt 0 ]]; then
   echo "✗ FAIL: $SKIPPED mutant(s) skipped (mutation command failed)"
   exit 1
 else
-  echo "✓ SUCCESS: All mutants killed"
+  echo "✓ SUCCESS: All non-equivalent mutants killed"
   exit 0
 fi

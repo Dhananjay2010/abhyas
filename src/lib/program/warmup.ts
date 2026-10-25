@@ -24,11 +24,11 @@ export type WarmupItem = WarmupRow & { phase: "cardio" | "mobility" | "prehab" |
  * A past-knee user has knee in prehabRegions (any severity) but not in
  * injuryRegions (current). These exercises load the knee during mobility work.
  */
-export const PAST_KNEE_EXCLUDED_WARMUP_SLUGS = [
+export const PAST_KNEE_EXCLUDED_WARMUP_SLUGS: ReadonlySet<string> = new Set([
   "bodyweight-squat",
   "walking-lunge",
   "worlds-greatest",
-] as const;
+]);
 
 /** Cardio options in order of preference, by where the user trains. */
 const CARDIO_PREFERENCE: Record<string, string[]> = {
@@ -117,7 +117,7 @@ export function selectWarmup(input: {
     if (targetsInjury || contraindicated) return false;
     
     // Past-knee exclusion: exclude knee-loading mobility drills
-    if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes(w.slug as any)) {
+    if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug)) {
       return false;
     }
     
@@ -152,7 +152,7 @@ export function selectWarmup(input: {
       if (mobility.length >= 3) break;
       
       // Past-knee exclusion: skip knee-loading fallbacks
-      if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes(slug as any)) {
+      if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(slug)) {
         continue;
       }
       

@@ -38,7 +38,7 @@ const pastKneeAllEquip = selectWarmup({
 });
 
 const excludedSlugsAllEquip = pastKneeAllEquip.filter(w =>
-  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes(w.slug as any)
+  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug)
 );
 check("No excluded slugs (bodyweight-squat, walking-lunge, worlds-greatest)", 
   excludedSlugsAllEquip.length === 0,
@@ -73,7 +73,7 @@ const pastKneeBWOnly = selectWarmup({
 });
 
 const excludedSlugsBW = pastKneeBWOnly.filter(w =>
-  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes(w.slug as any)
+  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug)
 );
 check("No excluded slugs (bodyweight only)", 
   excludedSlugsBW.length === 0,
@@ -88,17 +88,17 @@ check("At least 3 mobility drills (bodyweight)", mobilityDrillsBW.length >= 3,
 // Test 3: Verify the constant is exported and correct
 console.log("\n3. PAST_KNEE_EXCLUDED_WARMUP_SLUGS constant");
 check("Constant includes bodyweight-squat", 
-  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes("bodyweight-squat")
+  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has("bodyweight-squat")
 );
 check("Constant includes walking-lunge", 
-  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes("walking-lunge")
+  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has("walking-lunge")
 );
 check("Constant includes worlds-greatest", 
-  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes("worlds-greatest")
+  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has("worlds-greatest")
 );
 check("Constant has exactly 3 slugs", 
-  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.length === 3,
-  `got ${PAST_KNEE_EXCLUDED_WARMUP_SLUGS.length}`
+  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.size === 3,
+  `got ${PAST_KNEE_EXCLUDED_WARMUP_SLUGS.size}`
 );
 
 // Test 4: Current knee injury should still exclude these (unchanged behavior)
@@ -114,7 +114,7 @@ const currentKnee = selectWarmup({
 });
 
 const currentKneeExcluded = currentKnee.filter(w =>
-  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes(w.slug as any)
+  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug)
 );
 check("Current knee also excludes these slugs", 
   currentKneeExcluded.length === 0,
@@ -139,7 +139,7 @@ const totalMobilityPool = warmups.filter(w =>
   (w.equipment_ids?.length === 0 || !w.equipment_ids)
 );
 const hasExcludedInPool = totalMobilityPool.some(w =>
-  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes(w.slug as any)
+  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug)
 );
 check("Excluded drills exist in mobility pool", hasExcludedInPool,
   "These should be available for users without past knee injury"
@@ -148,7 +148,7 @@ check("Excluded drills exist in mobility pool", hasExcludedInPool,
 // Actually verify that at least one excluded drill appears in the no-injury warmup for Lower
 // This catches the "apply exclusion to all users" mutant
 const hasSomeExcludedDrill = noInjury.some(w =>
-  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes(w.slug as any)
+  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug)
 );
 check("No-injury Lower warmup includes at least one excluded drill", hasSomeExcludedDrill,
   hasSomeExcludedDrill ? "" : "Should have bodyweight-squat, walking-lunge, or worlds-greatest"
@@ -177,6 +177,53 @@ check("Fallback scenario has at least 3 mobility drills",
   `got ${mobilityInFallback.length}: ${mobilityInFallback.map(w => w.slug).join(", ")}`
 );
 
+// Test 5c: REAL fallback path test with minimal seed rows
+console.log("\n5c. Fallback path with minimal seed subset (forces fallback)");
+// Create a minimal warmup set: only easy-bike (cardio), cat-cow (mobility), 
+// bodyweight-squat (mobility, knee-loading), and clamshell (prehab)
+const minimalWarmups: WarmupRow[] = warmups.filter(w =>
+  ["easy-bike", "cat-cow", "bodyweight-squat", "clamshell"].includes(w.slug)
+);
+
+// Past-knee user with quads training: cat-cow has no quad overlap, 
+// bodyweight-squat does but is excluded, so we get cat-cow only (1 drill)
+// then fallback tries to add: cat-cow (already there), arm-circles (missing),
+// bodyweight-squat (excluded for past knee), hip-circles (missing)
+const pastKneeFallback = selectWarmup({
+  warmups: minimalWarmups,
+  trainingMuscles: ["quads"], // Muscle with no overlap to cat-cow
+  injuryRegions: [],
+  prehabRegions: ["knee"],
+  track: "weights",
+  hasAllEquipment: true,
+  availableEquipment: null,
+});
+
+const pastKneeMobility = pastKneeFallback.filter(w => w.phase === "mobility");
+const hasBWSquatPastKnee = pastKneeMobility.some(w => w.slug === "bodyweight-squat");
+check("Fallback path excludes bodyweight-squat for past-knee", 
+  !hasBWSquatPastKnee,
+  `Mobility: ${pastKneeMobility.map(w => w.slug).join(", ")}`
+);
+
+// No-injury user: should get bodyweight-squat in the result (proves fallback ran and added it)
+const noInjuryFallback = selectWarmup({
+  warmups: minimalWarmups,
+  trainingMuscles: ["quads"],
+  injuryRegions: [],
+  prehabRegions: [],
+  track: "weights",
+  hasAllEquipment: true,
+  availableEquipment: null,
+});
+
+const noInjuryMobility = noInjuryFallback.filter(w => w.phase === "mobility");
+const hasBWSquatNoInjury = noInjuryMobility.some(w => w.slug === "bodyweight-squat");
+check("Fallback path includes bodyweight-squat for no-injury", 
+  hasBWSquatNoInjury,
+  `Mobility: ${noInjuryMobility.map(w => w.slug).join(", ")}`
+);
+
 // Test 6: Past knee + another region (e.g., past shoulder) should still exclude
 console.log("\n6. Past knee + past shoulder (combined injuries)");
 const pastKneePastShoulder = selectWarmup({
@@ -190,7 +237,7 @@ const pastKneePastShoulder = selectWarmup({
 });
 
 const excludedCombined = pastKneePastShoulder.filter(w =>
-  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes(w.slug as any)
+  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug)
 );
 check("Past knee + past shoulder excludes knee-loading drills", 
   excludedCombined.length === 0,
@@ -213,7 +260,7 @@ const currentKneeCheck = selectWarmup({
 // For Upper body, none of the excluded drills should appear (they're lower-body mobility)
 // But this is NOT because of isPastKnee logic; it's because they target knee region
 const currentKneeHasExcluded = currentKneeCheck.some(w =>
-  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.includes(w.slug as any)
+  PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug)
 );
 check("Current knee Upper warmup has no knee-loading drills", 
   !currentKneeHasExcluded,
