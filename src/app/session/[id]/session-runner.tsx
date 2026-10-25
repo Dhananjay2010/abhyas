@@ -16,6 +16,7 @@ import { withBusyGuard } from "@/lib/session/busy-guard";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
+import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { shouldShowFinishRetry } from "@/lib/session/finish-flow";
 import { sessionSummaryTitle } from "@/lib/session/end-early-text";
 import {
@@ -110,13 +111,13 @@ export type RunnerSettings = {
 
 /** Injectable timer for testing; defaults to real setTimeout. */
 export type RunnerTimer = {
-  setTimeout: (callback: () => void, ms: number) => unknown;
-  clearTimeout: (id: unknown) => void;
+  setTimeout: (callback: () => void, ms: number) => ReturnType<typeof globalThis.setTimeout>;
+  clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => void;
 };
 
 const REAL_TIMER: RunnerTimer = {
   setTimeout: (cb, ms) => globalThis.setTimeout(cb, ms),
-  clearTimeout: (id) => globalThis.clearTimeout(id as number),
+  clearTimeout: (id) => globalThis.clearTimeout(id),
 };
 
 type Phase = "warmup" | "work" | "cooldown" | "done";
@@ -361,15 +362,24 @@ export function SessionRunner({
   async function run<T extends { ok: boolean; error?: string }>(
     fn: () => Promise<T>
   ): Promise<boolean> {
-    const result = await withBusyGuard(() => busyRef.current, setBusy, fn);
-    if (result.busy) return false;
-    const { ok, error } = result.result;
-    if (!ok) {
-      setError(error ?? "Something went wrong");
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const r = await fn();
+      if (!r.ok) {
+        setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
+      } else {
+        setError(null);
+      }
+      return r.ok;
+    } catch (err) {
+      setError(runnerErrorMessage(err));
       return false;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
-    setError(null);
-    return true;
   }
 
   // ---- warm-up ----------------------------------------------------------
