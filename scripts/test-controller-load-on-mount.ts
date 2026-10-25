@@ -54,8 +54,6 @@ class FakeStorage implements Storage {
 
 async function runTests() {
   try {
-    let loadCalled = false;
-    
     // Create fake storage
     const fakeStorage = new FakeStorage();
 
