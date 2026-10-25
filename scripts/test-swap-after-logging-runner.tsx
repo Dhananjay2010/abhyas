@@ -120,6 +120,7 @@ console.log("Test swap-after-logging bug fix:\n");
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
       exercises={[exercise1]}
@@ -228,6 +229,7 @@ console.log("Test swap-after-logging bug fix:\n");
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
       exercises={[exercise2WithSet]}
