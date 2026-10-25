@@ -5,10 +5,12 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
-import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
+import { rankAlternatives } from "@/lib/program/alternatives";
+import { getSwapPatterns } from "@/lib/program/swap-patterns";
+import { buildSwapContext } from "@/lib/program/swap-context";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { resolveAuth } from "@/lib/session/auth-result";
-import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
+import { isEligible, score, hashString, buildInjuryFlags, type CandidateExercise } from "@/lib/program/generate";
 import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,
@@ -33,6 +35,7 @@ import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/
 import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
+import { progressForPlanningMode } from "@/lib/session/swap-progress";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -328,20 +331,18 @@ export async function logSet(input: {
           durationSeconds,
         }
       );
-      
-      if (!validationResult.ok) {
-        return validationResult;
-      }
+  
+  if (!validationResult.ok) {
+    return validationResult;
+  }
 
-      return logSetCore(supabase, user.id, {
-        sessionExerciseId: input.sessionExerciseId,
-        setNumber: input.setNumber,
-        reps: input.reps,
-        weightKg: input.weightKg,
-        durationSeconds,
-      });
-    }
-  );
+  return logSetCore(supabase, user.id, {
+    sessionExerciseId: input.sessionExerciseId,
+    setNumber: input.setNumber,
+    reps: input.reps,
+    weightKg: input.weightKg,
+    durationSeconds,
+  });
 }
 
 export async function deleteSet(
@@ -671,10 +672,6 @@ export async function findAlternatives(
     (siblingsRes.data ?? []).map((s) => s.exercise_id),
   );
   
-  const currentInjuryRegions = (injuriesRes.data ?? [])
-    .filter((i) => i.severity === "current")
-    .map((i) => i.body_region);
-
   const input = {
     userId: user.id,
     blockNumber: 1,
@@ -687,7 +684,7 @@ export async function findAlternatives(
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions,
+    ...buildInjuryFlags(injuriesRes.data ?? []),
     catalogue: [] as CandidateExercise[],
   };
 
@@ -717,8 +714,7 @@ export async function findAlternatives(
   const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
   
   // Build pattern list (current + fallbacks + knee-safe if applicable)
-  const hasKneeInjury = currentInjuryRegions.includes("knee");
-  const patterns = buildPatternList(pattern, hasKneeInjury);
+  const patterns = getSwapPatterns(pattern, input);
   
   // Helper to cast Supabase rows to typed pool rows
   type PoolRow = CandidateExercise & { cue: string | null };
@@ -757,17 +753,13 @@ export async function findAlternatives(
     }
   }
   
+  const scoreFn = (e: CandidateExercise) => score(e, wantCompound, input.level, input.primaryTrack);
+  const swapContext = buildSwapContext(input, scoreFn, tieBreak);
+  
   const ranked = rankAlternatives(
     currentExercise,
     eligible,
-    {
-      level: input.level,
-      availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
-      injuryRegions: input.currentInjuryRegions,
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack),
-      tieBreakFn: tieBreak,
-    },
+    swapContext,
   );
 
   const alternatives = ranked.map((e) => ({
@@ -788,6 +780,7 @@ export type SwapResult = {
   equipmentIds: string[];
   weightPrefill: number | null;
   workingWeightKg: number | null;
+  currentTargetReps: number | null;
   isBodyweight: boolean;
 };
 
@@ -800,7 +793,7 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes, settingsRes] = await Promise.all([
     supabase
       .from("session_exercises")
       .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
@@ -824,6 +817,7 @@ export async function swapExercise(input: {
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
+    supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
   ]);
 
   const current = currentRes.data;
@@ -835,7 +829,7 @@ export async function swapExercise(input: {
   const profile = profileRes.data;
 
   // Resolve weight prefill and working weight for the swapped-in exercise
-  const { weightPrefill, workingWeightKg, isBodyweight } = await resolveSwapWeights(
+  const { weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = await resolveSwapWeights(
     supabase,
     user.id,
     current.session_id,
@@ -844,6 +838,13 @@ export async function swapExercise(input: {
     metric,
     replacementRes.data?.movement_pattern ?? "other",
   );
+
+  // Filter target reps for daily_menu users (they don't remember weights/targets)
+  const filteredProgress = progressForPlanningMode(
+    settingsRes.data?.planning_mode,
+    { current_target_reps: currentTargetReps, current_working_weight_kg: workingWeightKg }
+  );
+  const filteredTargetReps = filteredProgress?.current_target_reps ?? null;
 
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range
@@ -886,7 +887,7 @@ export async function swapExercise(input: {
   // hold button with the range that was just written.
   return error
     ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, isBodyweight } };
+    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps: filteredTargetReps, isBodyweight } };
 }
 
 // ---------------------------------------------------------------------------
