@@ -1,16 +1,34 @@
 #!/usr/bin/env bash
 # Mutation testing for equipment progression fix
-# Validates: Rule 2 clamp, one-step increase cap, hold reasons, two-miss RAW 90% cap, mode weight
+# Validates: Rule 2 clamp, one-step increase cap, hold reasons, two-miss RAW 90% cap, mode weight, timed success
 
 set -euo pipefail
 
 PROG="src/lib/program/progression.ts"
 BACKUP=$(mktemp /tmp/prog-backup.XXXXXX.ts)
 
+cp "$PROG" "$BACKUP"
+[ -s "$BACKUP" ] || exit 1
+
 COUNT=0
 KILLED=0
 SURVIVED=0
 SKIPPED=0
+
+restore() {
+  [ -f "$BACKUP" ] && cp "$BACKUP" "$PROG"
+}
+
+cleanup() {
+  restore
+  rm -f "$BACKUP"
+}
+
+trap cleanup EXIT
+trap 'cleanup; exit 1' INT TERM
+
+echo "✓ Backup created"
+echo
 
 TESTS=(
   "npm run test:first-miss-pinned"
@@ -23,17 +41,6 @@ TESTS=(
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
-echo
-
-restore() {
-  [ -f "$BACKUP" ] && cp "$BACKUP" "$PROG" && rm -f "$BACKUP"
-}
-
-trap restore EXIT
-trap 'restore; exit 1' INT TERM
-
-cp "$PROG" "$BACKUP"
-echo "✓ Backup created"
 echo
 
 echo "Running baseline..."
@@ -54,7 +61,7 @@ test_mutant() {
   COUNT=$((COUNT + 1))
   printf "%-75s " "[$COUNT] $name"
   
-  cp "$BACKUP" "$PROG"
+  restore
   
   if ! $fn 2>/dev/null; then
     echo "⚠️  SKIP (mutation failed)"
@@ -62,7 +69,10 @@ test_mutant() {
     return
   fi
   
-  if cmp -s "$PROG" "$BACKUP"; then
+  if ! cmp -s "$PROG" "$BACKUP"; then
+    # Changed - good
+    :
+  else
     echo "⚠️  SKIP (unchanged)"
     SKIPPED=$((SKIPPED + 1))
     return
@@ -71,6 +81,7 @@ test_mutant() {
   if ! npx tsc --noEmit > /dev/null 2>&1; then
     echo "⚠️  SKIP (no compile)"
     SKIPPED=$((SKIPPED + 1))
+    restore
     return
   fi
   
@@ -81,6 +92,12 @@ test_mutant() {
       break
     fi
   done
+  
+  restore
+  if ! cmp -s "$PROG" "$BACKUP"; then
+    echo "❌ ERROR: restore failed"
+    exit 1
+  fi
   
   if [ "$fail" -eq 0 ]; then
     echo "❌ SURVIVED"
@@ -93,80 +110,64 @@ test_mutant() {
 
 # M1: Remove Rule 2 clamp
 m1() {
-  # Comment out lines 756-763 (Rule 2 block)
-  sed -i '756,763s/^/\/\/ MUTANT: /' "$PROG"
+  # Comment out lines: const twoMissFloor through the closing brace of the inner if
+  sed -i '/const twoMissFloor = Math\.max(mainFloor, rawTwoMiss);/{N;N;N;N;s/^/\/\/ MUTANT: /;s/\n/\n\/\/ MUTANT: /g;}' "$PROG"
 }
 test_mutant "Remove Rule 2 clamp (allow first-miss < two-miss)" m1
 
-# M2: Break one-step increase cap
+# M2: Replace mode with heaviest for base
 m2() {
-  # Line 548: change next = nextGrid to next = from + 2 * gridStep
-  sed -i '548s/next = nextGrid;/next = from + 2 * gridStep;/' "$PROG"
+  sed -i 's/const baseWeight = modeWeight > 0 ? modeWeight : state\.currentWorkingWeightKg;/const baseWeight = (working.length > 0 ? heaviest : null) ?? state.currentWorkingWeightKg;/' "$PROG"
 }
-test_mutant "Break one-step increase cap (multi-step jumps)" m2
+test_mutant "Replace mode with heaviest for base" m2
 
-# M3: Break kettlebell strictly-above
+# M3: Change tie->higher (reject tie->lower)
 m3() {
-  # Line 544: change > to >=
-  sed -i '544s/if (bell > from + epsilon) {/if (bell >= from) {/' "$PROG"
+  sed -i 's/count > maxCount || (count === maxCount && w < modeWeight)/count > maxCount || (count === maxCount \&\& w > modeWeight)/' "$PROG"
 }
-test_mutant "Break kettlebell strictly-above (same bell allowed)" m3
+test_mutant "Change tie->higher (should choose lower)" m3
 
-# M4: Remove weight from hold messages
+# M4: 14->17.5 overshoot (allow multi-step increase)
 m4() {
-  sed -i 's/holding at \${displayWeight(currentWeight, unit)}/holding at this weight/g' "$PROG"
-  sed -i 's/Staying at \${displayWeight(currentWeight, unit)}/Staying at this weight/g' "$PROG"
+  sed -i 's/next = nextGrid;/next = from + 2 * gridStep;/' "$PROG"
 }
-test_mutant "Remove weight from hold messages" m4
+test_mutant "14->17.5 overshoot (multi-step increase)" m4
 
-# M5: Replace mode with heaviest
+# M5: Overwrite smallest-weight holdReason (allow Rule 1 to overwrite)
 m5() {
-  # Lines 435-448: replace mostCommonWorkingWeight body
-  sed -i '435,448c\
-    const weights = sets.map(s => s.weightKg ?? 0).filter(w => w > 0);\
-    return weights.length > 0 ? Math.max(...weights) : 0;' "$PROG"
+  # Remove the early return that prevents Rule 1 from overwriting 'smallest'
+  sed -i '/if (candidateWeight === 0) {/,/holdReason = .smallest.;/{s/candidateWeight = currentWeight;/\/\/ candidateWeight = currentWeight;/; s/holdReason = .smallest.;/\/\/ holdReason = '\''smallest'\'';/}' "$PROG"
 }
-test_mutant "Replace mode with heaviest for fallback" m5
+test_mutant "Allow overwriting holdReason=smallest" m5
 
-# M6: Two-miss: change >= to > (reject values at target, only accept strictly above)
+# M6: Rounded cap with equipment (use snapped instead of RAW)
 m6() {
-  # Line 640: kettlebell two-miss, change >= to >
-  sed -i '640s/if (bell >= target/if (bell > target/' "$PROG"
+  # In computeTwoMissResult, change "target = rawReduced;" to use snapped logic
+  sed -i '/\/\/ RAW 90% cap with equipment/,/target = rawReduced;/{s/target = rawReduced;/const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5; target = Math.floor(rawReduced \/ roundingGrid) * roundingGrid;/}' "$PROG"
 }
-test_mutant "Two-miss RAW 90%: reject target value (need strictly above)" m6
+test_mutant "Rounded cap with equipment (use snapped instead of RAW)" m6
 
-# M7: Two-miss: standard equipment, change >= to >
+# M7: Disable Rule 1 (20% cut guard) - set threshold to 100% so it never triggers
 m7() {
-  # Find line with "nextDown >= target" and change to >
-  sed -i 's/if (nextDown >= target - 0.001 && nextDown < weight - 0.001) {/if (nextDown > target \&\& nextDown < weight) {/' "$PROG"
+  sed -i 's/if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {/if (cutFraction > 1.0) {/' "$PROG"
 }
-test_mutant "Two-miss standard equipment: reject target value" m7
+test_mutant "Disable Rule 1 (allow >20% cuts)" m7
 
-# M8: Disable Rule 1 (20% cut guard)
+# M8: RAW target rejected (need strictly above)
 m8() {
-  # Comment out Rule 1 block (lines 747-754)
-  sed -i '747,754s/^/\/\/ MUTANT: /' "$PROG"
+  sed -i 's/if (bell >= target - 0\.001 && bell < weight - 0\.001) {/if (bell > target \&\& bell < weight) {/' "$PROG"
 }
-test_mutant "Disable Rule 1 (allow >20% cuts)" m8
+test_mutant "RAW target rejected (need strictly above)" m8
 
-# M9: Swap smallest-weight holdReason to allow overwrite
+# M9: Timed success vs repsMax only (ignore currentTargetReps)
 m9() {
-  # Line 713: change candidateWeight = currentWeight; to candidateWeight = candidateWeight;
-  sed -i '713s/candidateWeight = currentWeight;/candidateWeight = candidateWeight;/' "$PROG"
+  sed -i 's/const target = heaviest === 0 ? (state\.currentTargetReps ?? repsMax) : repsMax;/const target = repsMax;/' "$PROG"
 }
-test_mutant "Allow overwriting holdReason=smallest" m9
-
-# M10: Restore stored-state base (revert mode-weight priority)
-m10() {
-  # Change: const baseWeight = modeWeight > 0 ? modeWeight : state.currentWorkingWeightKg;
-  # To:     const baseWeight = state.currentWorkingWeightKg ?? (modeWeight > 0 ? modeWeight : null);
-  sed -i 's/const baseWeight = modeWeight > 0 ? modeWeight : state.currentWorkingWeightKg;/const baseWeight = state.currentWorkingWeightKg ?? (modeWeight > 0 ? modeWeight : null);/' "$PROG"
-}
-test_mutant "Restore stored-state base (use stored weight over mode)" m10
+test_mutant "Timed success vs repsMax only (ignore currentTargetReps)" m9
 
 echo
 echo "==================================="
-echo "Total: $COUNT | Killed: $KILLED | Survived: $SURVIVED | Skipped: $SKIPPED"
+echo "Killed $KILLED | Survived $SURVIVED | Skipped $SKIPPED"
 echo
 
 if [ "$SURVIVED" -gt 0 ] || [ "$SKIPPED" -gt 0 ]; then

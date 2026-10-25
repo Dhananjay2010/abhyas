@@ -257,7 +257,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     repsMin: 8,
     repsMax: 12,
     feel: "right",
-    equipmentIds: ["pin_stack"],
+    equipmentIds: ["lat_pulldown"],
     unit: "kg",
     meta: CURL,
     state: makeState({ currentWorkingWeightKg: 42 }),
