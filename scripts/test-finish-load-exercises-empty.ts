@@ -8,8 +8,10 @@
  *   npx tsx scripts/test-finish-load-exercises-empty.ts
  */
 
+import { createClient } from "@supabase/supabase-js";
 import { finishSessionCore } from "../src/lib/session/finish-session";
-import type { SessionRow, FinishSessionDeps, SessionExerciseWithSets } from "../src/lib/session/finish-session-deps";
+import { makeFinishSessionDeps } from "../src/lib/session/finish-session-deps";
+import type { Database } from "../src/lib/database.types";
 
 let passed = 0;
 let failed = 0;
@@ -24,36 +26,55 @@ function assertTrue(condition: boolean, message: string) {
   }
 }
 
-function makeFakeDeps(exercises: SessionExerciseWithSets[] | null): FinishSessionDeps {
-  const sessionMetadata: SessionRow = {
-    started_at: "2026-10-24T14:00:00Z",
-    local_date: "2026-10-24",
-    user_id: "user-123",
+function makeFakeClient(exercisesData: unknown[]) {
+  const stubFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (url.includes("/rest/v1/sessions?")) {
+      if (init?.method === "PATCH") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Content-Range": "0-0/1" },
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          id: "session-1",
+          user_id: "user-123",
+          started_at: "2026-10-24T14:00:00Z",
+          local_date: "2026-10-24",
+          status: "in_progress",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    } else if (url.includes("/rest/v1/profiles?")) {
+      return new Response(
+        JSON.stringify({ id: "user-123", timezone: "UTC" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    } else if (url.includes("/rest/v1/session_exercises?")) {
+      if (init?.method === "PATCH") {
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(
+        JSON.stringify(exercisesData),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   };
 
-  return {
-    async loadSession() {
-      return { data: sessionMetadata, error: null };
-    },
-    async loadTimezone() {
-      return { data: { timezone: "UTC" }, error: null };
-    },
-    async loadExercises() {
-      return { data: exercises, error: null };
-    },
-    async updateSession() {
-      return { error: null, updatedCount: 1 };
-    },
-    async loadSessionStatus() {
-      return { data: { status: "in_progress" as const }, error: null };
-    },
-    async loadExercisesForUpdate() {
-      return { data: [], error: null };
-    },
-    async updateExerciseStatus() {
-      return { error: null };
-    },
-  };
+  return createClient<Database>("http://fake.local", "anon", {
+    auth: { persistSession: false },
+    global: { fetch: stubFetch },
+  });
 }
 
 async function runTests() {
@@ -61,7 +82,8 @@ async function runTests() {
 
   console.log("1. loadExercises returns empty array (g4)");
   {
-    const deps = makeFakeDeps([]);
+    const client = makeFakeClient([]);
+    const deps = makeFinishSessionDeps(client);
 
     const result = await finishSessionCore(deps, {
       sessionId: "session-1",
@@ -78,9 +100,16 @@ async function runTests() {
     }
   }
 
-  console.log("\n2. loadExercises returns null data");
+  console.log("\n2. loadExercises handles exercises with no sets");
   {
-    const deps = makeFakeDeps(null);
+    const client = makeFakeClient([
+      {
+        id: "ex-1",
+        rest_seconds: 60,
+        session_sets: [],
+      },
+    ]);
+    const deps = makeFinishSessionDeps(client);
 
     const result = await finishSessionCore(deps, {
       sessionId: "session-1",
@@ -88,7 +117,13 @@ async function runTests() {
       cooldownCompleted: false,
     });
 
-    assertTrue(result.ok, "finishSessionCore should handle null exercises");
+    assertTrue(result.ok, "finishSessionCore should handle exercises with no sets");
+    if (result.ok) {
+      assertTrue(
+        result.data.status === "skipped",
+        "Status should be skipped when no sets logged",
+      );
+    }
   }
 
   console.log(`\n✅ Passed: ${passed}`);

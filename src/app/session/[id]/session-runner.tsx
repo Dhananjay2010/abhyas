@@ -659,14 +659,13 @@ export function SessionRunner({
       return;
     }
     
-    // Track the already-settled result so finish() can check for recent failures.
-    // This doesn't wait on in-flight saves (logSet already awaited above), but
-    // it lets finish detect if this save failed.
-    const trackedPromise = pendingTracker.track(
+    // Track the save result so finish() can check for recent failures.
+    // We've already awaited logSet above, so the save is complete.
+    const ok = logSetResult;
+    pendingTracker.track(
       "logSet",
-      Promise.resolve({ ok: logSetResult }),
+      Promise.resolve({ ok }),
     );
-    const ok = await trackedPromise.then((r) => r.ok);
     setSavePending(pendingTracker.hasPending());
     if (!ok) {
       setSaveError("Couldn't save your set. Try again.");

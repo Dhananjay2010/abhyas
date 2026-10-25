@@ -12,15 +12,14 @@
  *   npx tsx scripts/test-deps-queries.ts
  */
 
+import { createClient } from "@supabase/supabase-js";
 import { makeFinishSessionDeps } from "../src/lib/session/finish-session-deps";
 import { makeFinishExerciseDeps } from "../src/lib/session/finish-exercise-deps";
 import { makeAbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 import type { Database } from "../src/lib/database.types";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 let passed = 0;
 let failed = 0;
-
 
 function assertTrue(condition: boolean, message: string) {
   if (condition) {
@@ -32,179 +31,151 @@ function assertTrue(condition: boolean, message: string) {
   }
 }
 
-type QueryCall = {
-  table: string;
+type RecordedRequest = {
+  url: string;
   method: string;
-  args: unknown[];
+  body: unknown;
+  headers: Record<string, string>;
 };
 
-interface FakeSupabase {
-  from(table: string): FakeQueryBuilder;
-}
-
-interface FakeQueryBuilder {
-  select(fields: string): FakeQueryBuilder;
-  eq(column: string, value: unknown): FakeQueryBuilder;
-  not(column: string, operator: string, value: string): FakeQueryBuilder;
-  update(patch: unknown, options?: unknown): FakeQueryBuilder;
-  maybeSingle(): Promise<{ data: unknown; error: null }>;
-}
-
 function makeFakeSupabase() {
-  const calls: QueryCall[] = [];
-  let chainedTable: string | null = null;
+  const requests: RecordedRequest[] = [];
 
-  const chainMethods: FakeQueryBuilder = {
-    select(fields: string) {
-      calls.push({ table: chainedTable!, method: "select", args: [fields] });
-      return chainMethods;
-    },
-    eq(column: string, value: unknown) {
-      calls.push({ table: chainedTable!, method: "eq", args: [column, value] });
-      return chainMethods;
-    },
-    not(column: string, operator: string, value: string) {
-      calls.push({ table: chainedTable!, method: "not", args: [column, operator, value] });
-      return chainMethods;
-    },
-    update(patch: unknown, options?: unknown) {
-      calls.push({ table: chainedTable!, method: "update", args: options ? [patch, options] : [patch] });
-      return chainMethods;
-    },
-    async maybeSingle() {
-      return { data: null, error: null };
-    },
+  const stubFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method ?? "GET";
+    const body = init?.body ? JSON.parse(init.body as string) : null;
+    const headers: Record<string, string> = {};
+    
+    if (init?.headers) {
+      const headersInit = init.headers as Record<string, string>;
+      Object.entries(headersInit).forEach(([key, value]) => {
+        headers[key.toLowerCase()] = value;
+      });
+    }
+
+    requests.push({ url, method, body, headers });
+
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Content-Range": "0-0/0" },
+    });
   };
 
-  const supabase: FakeSupabase = {
-    from(table: string) {
-      chainedTable = table;
-      calls.push({ table, method: "from", args: [table] });
-      return chainMethods;
-    },
-  };
+  const client = createClient<Database>("http://fake.local", "anon", {
+    auth: { persistSession: false },
+    global: { fetch: stubFetch },
+  });
 
-  // Cast to SupabaseClient for test purposes
-  return { supabase: supabase as unknown as SupabaseClient<Database>, calls };
+  return { client, requests };
 }
 
-console.log("\nTesting deps module query filters\n");
+async function runTests() {
+  console.log("\nTesting deps module query filters\n");
 
-// Test g1: finish-session-deps updateSession has .eq("status", "in_progress")
-console.log("g1. finish-session-deps updateSession filters by status=in_progress");
-{
-  const { supabase, calls } = makeFakeSupabase();
-  const deps = makeFinishSessionDeps(supabase);
+  // Test g1: finish-session-deps updateSession has .eq("status", "in_progress")
+  console.log("g1. finish-session-deps updateSession filters by status=in_progress");
+  {
+    const { client, requests } = makeFakeSupabase();
+    const deps = makeFinishSessionDeps(client);
 
-  (async () => {
     await deps.updateSession("session-1", {
       status: "completed",
       completed_at: "2026-10-24T15:00:00Z",
       duration_seconds: 3600,
     });
 
-    const updateCall = calls.find((c) => c.method === "update");
-    assertTrue(updateCall !== undefined, "update() called");
-
-    const eqStatusCall = calls.find(
-      (c) => c.method === "eq" && c.args[0] === "status" && c.args[1] === "in_progress"
+    const patchRequest = requests.find((r) => r.method === "PATCH" && r.url.includes("/rest/v1/sessions?"));
+    assertTrue(patchRequest !== undefined, "PATCH request to sessions table");
+    assertTrue(
+      patchRequest?.url.includes("status=eq.in_progress") ?? false,
+      "finish-session-deps updateSession has .eq('status', 'in_progress')"
     );
-    assertTrue(eqStatusCall !== undefined, "finish-session-deps updateSession has .eq('status', 'in_progress')");
-  })();
-}
+  }
 
-// Test g2: finish-exercise-deps updateExercise has .not("status", "in", "(completed,skipped)")
-console.log("\ng2. finish-exercise-deps updateExercise filters by status not in (completed,skipped)");
-{
-  const { supabase, calls } = makeFakeSupabase();
-  const deps = makeFinishExerciseDeps(supabase, async () => null);
+  // Test g2: finish-exercise-deps updateExercise has .not("status", "in", "(completed,skipped)")
+  console.log("\ng2. finish-exercise-deps updateExercise filters by status not in (completed,skipped)");
+  {
+    const { client, requests } = makeFakeSupabase();
+    const deps = makeFinishExerciseDeps(client, async () => null);
 
-  (async () => {
     await deps.updateExercise("exercise-1", {
       status: "completed",
       feel: "hard",
       completed_at: "2026-10-24T15:05:00Z",
     });
 
-    const updateCall = calls.find((c) => c.method === "update");
-    assertTrue(updateCall !== undefined, "update() called");
-
-    const notStatusCall = calls.find(
-      (c) =>
-        c.method === "not" &&
-        c.args[0] === "status" &&
-        c.args[1] === "in" &&
-        c.args[2] === "(completed,skipped)"
+    const patchRequest = requests.find((r) => r.method === "PATCH" && r.url.includes("/rest/v1/session_exercises?"));
+    assertTrue(patchRequest !== undefined, "PATCH request to session_exercises table");
+    const hasNotFilter = 
+      (patchRequest?.url.includes("status=not.in.(completed,skipped)") ||
+       patchRequest?.url.includes("status=not.in.%28completed%2Cskipped%29")) ?? false;
+    assertTrue(
+      hasNotFilter,
+      "finish-exercise-deps updateExercise has .not('status', 'in', '(completed,skipped)')"
     );
-    assertTrue(notStatusCall !== undefined, "finish-exercise-deps updateExercise has .not('status', 'in', '(completed,skipped)')");
-  })();
-}
+  }
 
-// Test g3: abandon-session-deps updateSession has .eq("status", "in_progress")
-console.log("\ng3. abandon-session-deps updateSession filters by status=in_progress");
-{
-  const { supabase, calls } = makeFakeSupabase();
-  const deps = makeAbandonSessionDeps(supabase);
+  // Test g3: abandon-session-deps updateSession has .eq("status", "in_progress")
+  console.log("\ng3. abandon-session-deps updateSession filters by status=in_progress");
+  {
+    const { client, requests } = makeFakeSupabase();
+    const deps = makeAbandonSessionDeps(client);
 
-  (async () => {
     await deps.updateSession("session-2", {
       status: "skipped",
       completed_at: null,
       duration_seconds: 120,
     });
 
-    const updateCall = calls.find((c) => c.method === "update");
-    assertTrue(updateCall !== undefined, "update() called");
-
-    const eqStatusCall = calls.find(
-      (c) => c.method === "eq" && c.args[0] === "status" && c.args[1] === "in_progress"
+    const patchRequest = requests.find((r) => r.method === "PATCH" && r.url.includes("/rest/v1/sessions?"));
+    assertTrue(patchRequest !== undefined, "PATCH request to sessions table");
+    assertTrue(
+      patchRequest?.url.includes("status=eq.in_progress") ?? false,
+      "abandon-session-deps updateSession has .eq('status', 'in_progress')"
     );
-    assertTrue(eqStatusCall !== undefined, "abandon-session-deps updateSession has .eq('status', 'in_progress')");
-  })();
-}
+  }
 
-// Test 7 and 7b: finish-session-deps loadTimezone reads profiles separately
-console.log("\n7 & 7b. finish-session-deps loadTimezone queries profiles.timezone by user_id");
-{
-  const { supabase, calls } = makeFakeSupabase();
-  const deps = makeFinishSessionDeps(supabase);
+  // Test 7 and 7b: finish-session-deps loadTimezone reads profiles separately
+  console.log("\n7 & 7b. finish-session-deps loadTimezone queries profiles.timezone by user_id");
+  {
+    const { client, requests } = makeFakeSupabase();
+    const deps = makeFinishSessionDeps(client);
 
-  (async () => {
-    // First verify loadSession doesn't embed profiles
-    calls.length = 0;
     await deps.loadSession("session-1");
     
-    const sessionsCall = calls.find((c) => c.table === "sessions" && c.method === "from");
-    assertTrue(sessionsCall !== undefined, "loadSession queries sessions table");
+    const sessionsRequest = requests.find((r) => r.method === "GET" && r.url.includes("/rest/v1/sessions?"));
+    assertTrue(sessionsRequest !== undefined, "loadSession queries sessions table");
+    assertTrue(
+      !(sessionsRequest?.url.includes("profiles") ?? false),
+      "loadSession does not embed profiles (7b)"
+    );
     
-    const selectCall = calls.find((c) => c.method === "select");
-    const selectFields = selectCall?.args[0] as string;
-    assertTrue(!selectFields.includes("profiles"), "loadSession does not embed profiles (7b)");
-    
-    // Now test loadTimezone
-    calls.length = 0;
+    requests.length = 0;
     await deps.loadTimezone("user-123");
     
-    const profilesCall = calls.find((c) => c.table === "profiles" && c.method === "from");
-    assertTrue(profilesCall !== undefined, "loadTimezone queries profiles table (7)");
-    
-    const profileSelectCall = calls.find((c) => c.method === "select");
-    const profileSelectFields = profileSelectCall?.args[0] as string;
-    assertTrue(profileSelectFields.includes("timezone"), "loadTimezone selects timezone (7)");
-    
-    const eqIdCall = calls.find(
-      (c) => c.method === "eq" && c.args[0] === "id" && c.args[1] === "user-123"
+    const profilesRequest = requests.find((r) => r.method === "GET" && r.url.includes("/rest/v1/profiles?"));
+    assertTrue(profilesRequest !== undefined, "loadTimezone queries profiles table (7)");
+    assertTrue(
+      profilesRequest?.url.includes("select=timezone") ?? false,
+      "loadTimezone selects timezone (7)"
     );
-    assertTrue(eqIdCall !== undefined, "loadTimezone filters by user_id (7)");
-  })();
-}
+    assertTrue(
+      profilesRequest?.url.includes("id=eq.user-123") ?? false,
+      "loadTimezone filters by user_id (7)"
+    );
+  }
 
-// Give async tests time to complete
-setTimeout(() => {
   console.log(`\n✅ Passed: ${passed}`);
   if (failed > 0) {
     console.log(`❌ Failed: ${failed}`);
     process.exit(1);
   }
   console.log("\n✨ All deps-queries tests passed!");
-}, 100);
+}
+
+runTests().catch((err) => {
+  console.error("\n❌ Test suite threw an error:");
+  console.error(err);
+  process.exit(1);
+});

@@ -8,9 +8,9 @@
  *   npx tsx scripts/test-finish-rest-seconds-mapping.ts
  */
 
+import { createClient } from "@supabase/supabase-js";
 import { makeFinishSessionDeps } from "../src/lib/session/finish-session-deps";
 import type { Database } from "../src/lib/database.types";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 let passed = 0;
 let failed = 0;
@@ -25,78 +25,71 @@ function assertTrue(condition: boolean, message: string, detail?: string) {
   }
 }
 
+type RecordedRequest = {
+  url: string;
+  method: string;
+  body: unknown;
+};
+
 function makeFakeClient(restSeconds: number | null) {
-  return {
-    from: (table: string) => {
-      if (table === "sessions") {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: {
-                  id: "session-1",
-                  user_id: "user-1",
-                  started_at: "2026-10-24T08:00:00Z",
-                  status: "in_progress" as const,
-                },
-                error: null,
-              }),
-            }),
-          }),
-        };
-      } else if (table === "profiles") {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: { id: "user-1", timezone: "UTC" },
-                error: null,
-              }),
-            }),
-          }),
-        };
-      } else if (table === "session_exercises") {
-        return {
-          select: () => ({
-            eq: () => ({
-              data: [
-                {
-                  id: "ex-1",
-                  order_index: 0,
-                  rest_seconds: restSeconds, // This field must be mapped
-                  session_sets: [
-                    {
-                      id: "set-1",
-                      is_warmup_set: false,
-                      completed_at: "2026-10-24T08:30:00Z",
-                    },
-                  ],
-                },
-              ],
-              error: null,
-            }),
-          }),
-        };
-      } else if (table === "session_sets") {
-        return {
-          select: () => ({
-            eq: () => ({
-              is: () => ({
-                count: async () => ({
-                  count: 1,
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      throw new Error(`Unexpected table: ${table}`);
-    },
-    rpc: () => ({
-      throwOnError: () => ({ data: null, error: null }),
-    }),
-  } as unknown as SupabaseClient<Database>;
+  const requests: RecordedRequest[] = [];
+
+  const stubFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const method = init?.method ?? "GET";
+    const body = init?.body ? JSON.parse(init.body as string) : null;
+
+    requests.push({ url, method, body });
+
+    if (url.includes("/rest/v1/sessions?")) {
+      return new Response(
+        JSON.stringify({
+          id: "session-1",
+          user_id: "user-1",
+          started_at: "2026-10-24T08:00:00Z",
+          status: "in_progress",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    } else if (url.includes("/rest/v1/profiles?")) {
+      return new Response(
+        JSON.stringify({ id: "user-1", timezone: "UTC" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    } else if (url.includes("/rest/v1/session_exercises?")) {
+      return new Response(
+        JSON.stringify([
+          {
+            id: "ex-1",
+            order_index: 0,
+            rest_seconds: restSeconds,
+            session_sets: [
+              {
+                id: "set-1",
+                is_warmup_set: false,
+                completed_at: "2026-10-24T08:30:00Z",
+              },
+            ],
+          },
+        ]),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    } else if (url.includes("/rest/v1/session_sets?")) {
+      return new Response(
+        JSON.stringify([]),
+        { status: 200, headers: { "Content-Type": "application/json", "Content-Range": "0-0/1" } }
+      );
+    }
+
+    return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  const client = createClient<Database>("http://fake.local", "anon", {
+    auth: { persistSession: false },
+    global: { fetch: stubFetch },
+  });
+
+  return { client, requests };
 }
 
 async function runTests() {
@@ -104,8 +97,8 @@ async function runTests() {
 
   console.log("1. loadExercises includes rest_seconds when present (12a)");
   {
-    const fakeClient = makeFakeClient(120);
-    const deps = makeFinishSessionDeps(fakeClient);
+    const { client } = makeFakeClient(120);
+    const deps = makeFinishSessionDeps(client);
 
     const result = await deps.loadExercises("session-1");
 
@@ -129,8 +122,8 @@ async function runTests() {
 
   console.log("\n2. loadExercises handles null rest_seconds");
   {
-    const fakeClient = makeFakeClient(null);
-    const deps = makeFinishSessionDeps(fakeClient);
+    const { client } = makeFakeClient(null);
+    const deps = makeFinishSessionDeps(client);
 
     const result = await deps.loadExercises("session-1");
 

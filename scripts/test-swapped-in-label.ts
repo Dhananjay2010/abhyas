@@ -46,15 +46,9 @@ console.log("\n2. Swapped-in exercise with partial sets on ended session");
   const sessionStatus = "completed" as "completed" | "skipped" | "in_progress";
   const isSwappedIn = true;
 
-  const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets);
-  
-  // Simulate Today page's logic
-  const isEnded = sessionStatus !== "in_progress";
-  const finalLabel = isSwappedIn && workingSetsLogged === 0 && isEnded
-    ? "Swapped in"
-    : label;
+  const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets, isSwappedIn);
 
-  assertEquals(finalLabel, "Partly done · 2 of 3 sets", "Label should show partial completion for swapped exercise with some sets");
+  assertEquals(label, "Partly done · 2 of 3 sets", "Label should show partial completion for swapped exercise with some sets");
 }
 
 // Test 3: Non-swapped exercise with 0 sets should show "Skipped"
@@ -65,15 +59,9 @@ console.log("\n3. Non-swapped exercise with 0 sets shows 'Skipped'");
   const sessionStatus = "completed" as "completed" | "skipped" | "in_progress";
   const isSwappedIn = false;
 
-  const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets);
-  
-  // Simulate Today page's logic
-  const isEnded = sessionStatus !== "in_progress";
-  const finalLabel = isSwappedIn && workingSetsLogged === 0 && isEnded
-    ? "Swapped in"
-    : label;
+  const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets, isSwappedIn);
 
-  assertEquals(finalLabel, "Skipped", "Label should be 'Skipped' for non-swapped exercise with 0 sets");
+  assertEquals(label, "Skipped", "Label should be 'Skipped' for non-swapped exercise with 0 sets");
 }
 
 // Test 4: In-progress session doesn't show any label
@@ -84,13 +72,9 @@ console.log("\n4. In-progress swapped exercise shows empty label");
   const sessionStatus = "in_progress" as const;
   const isSwappedIn = true;
 
-  const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets);
-  
-  const finalLabel = isSwappedIn && workingSetsLogged === 0 && sessionStatus !== "in_progress"
-    ? "Swapped in"
-    : label;
+  const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets, isSwappedIn);
 
-  assertEquals(finalLabel, "", "In-progress session should show empty label");
+  assertEquals(label, "", "In-progress session should show empty label");
 }
 
 // Test 5: Strikethrough should be false for swapped-in with 0 sets
@@ -101,11 +85,9 @@ console.log("\n5. Swapped-in with 0 sets has no strikethrough");
   const sessionStatus = "completed" as const;
   const isSwappedIn = true;
 
-  const { strikethrough } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets);
-  
-  const finalStrikethrough = isSwappedIn && workingSetsLogged === 0 ? false : strikethrough;
+  const { strikethrough } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets, isSwappedIn);
 
-  assertEquals(finalStrikethrough, false, "Swapped-in with 0 sets should not be struck through");
+  assertEquals(strikethrough, false, "Swapped-in with 0 sets should not be struck through");
 }
 
 console.log(`\n✅ Passed: ${passed}`);

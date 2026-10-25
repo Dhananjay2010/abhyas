@@ -523,11 +523,9 @@ export async function finishSession(input: {
  * skipped. The tradeoff: user cannot resume after early end if they had sets.
  * Alternative would be a new status like "partial" that's resumable but counts.
  *
- * Deliberately does NOT revalidate here. Revalidating re-renders the session
- * route, and page.tsx:84's "completed -> redirect to /today" guard would fire
- * before the summary could be shown. The summary's "Back to Today" button calls
- * refreshAfterSession() which revalidates Today, History and Progress when the
- * user leaves.
+ * Revalidates Today, History and Progress only on success. The summary's
+ * "Back to Today" button calls refreshAfterSession() which also revalidates
+ * when the user leaves.
  */
 export async function abandonSession(
   sessionId: string,

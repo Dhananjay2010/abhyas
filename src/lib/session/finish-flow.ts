@@ -137,7 +137,10 @@ export async function runEndEarly(
  * 
  * Returns true when:
  * - The finish failed (succeeded = false)
- * - The cooldown was NOT completed (if cooldown is done, we navigate away)
+ * - The cooldown was NOT completed (if cooldown is done, the summary shows immediately)
+ * 
+ * Note: On a failed cool-down Done, the runner stays on the cool-down screen
+ * and shows the retry button.
  * 
  * @param succeeded - Whether runFinish returned true
  * @param cooldownCompleted - Whether the cooldown phase was completed
