@@ -29,7 +29,7 @@ function createMockSupabaseWithProgress() {
       }
       // @ts-ignore
       if (this._table === "exercise_progress") {
-        return { data: { current_working_weight_kg: 100 }, error: null };
+        return { data: { current_working_weight_kg: 100, current_target_reps: 10 }, error: null };
       }
       return { data: null, error: null };
     },
