@@ -11,7 +11,7 @@
  */
 
 import './helpers/setup-jsdom';
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SettingsForm, type SettingsState, type SettingsActions } from '../src/app/settings/settings-form';
 import { SESSION_EXPIRED_CODE } from '../src/lib/auth/session-expired';
@@ -157,7 +157,7 @@ async function testH1_InjurySeverityStashOnSessionExpired(): Promise<TestResult>
     },
   };
 
-  const { getByText, queryByText } = render(
+  const { queryByText, getAllByText } = render(
     <SettingsForm
       userId={userId}
       initial={initialWithInjury}
@@ -169,8 +169,26 @@ async function testH1_InjurySeverityStashOnSessionExpired(): Promise<TestResult>
 
   const user = userEvent.setup();
 
-  // Find and click the "Past" severity button
-  const pastButton = getByText('past');
+  // Find the knee injury row and click its "Past" severity button
+  // There are two "Knee" labels: one in the selection area, one in the severity row
+  // We want the one that has "past" buttons nearby
+  const allPastButtons = getAllByText('past');
+  const allKneeLabels = getAllByText('Knee');
+  const kneeLabel = allKneeLabels.find(label => {
+    const row = label.closest('div[class*="flex items-center"]');
+    return row && within(row as HTMLElement).queryByText('past') !== null;
+  });
+  if (!kneeLabel) {
+    throw new Error('Could not find knee injury row with severity buttons');
+  }
+  const pastButton = allPastButtons.find(btn => {
+    const btnRow = btn.closest('div[class*="flex items-center"]');
+    const kneeRow = kneeLabel.closest('div[class*="flex items-center"]');
+    return btnRow === kneeRow;
+  });
+  if (!pastButton) {
+    throw new Error('Could not find past button in knee row');
+  }
   await user.click(pastButton);
 
   // Wait for the session expired prompt to appear

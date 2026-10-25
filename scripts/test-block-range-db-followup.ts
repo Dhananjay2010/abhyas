@@ -60,8 +60,8 @@ async function testM1_MidBlockRebuildPreservesDates() {
     try {
       await client.query("BEGIN");
       await client.query("SET LOCAL ROLE authenticated");
-      await client.query(`SELECT set_config('request.jwt.claims', json_build_object('sub', $1::uuid, 'role', 'authenticated')::text, true)`, [userId]);
-      await client.query(`SELECT set_config('request.jwt.claim.sub', $1::uuid, true)`, [userId]);
+      await client.query(`SELECT set_config('request.jwt.claims', json_build_object('sub', $1::text, 'role', 'authenticated')::text, true)`, [userId]);
+      await client.query(`SELECT set_config('request.jwt.claim.sub', $1::text, true)`, [userId]);
       
       // Rebuild on day 27 (Nov 10)
       await client.query(`

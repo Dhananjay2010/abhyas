@@ -62,7 +62,7 @@ async function testM1_RebuildPromptAfterEquipmentChange(): Promise<boolean> {
     setInjury: async () => ({ ok: true }),
   };
 
-  const { getByText, queryByText } = render(
+  const { getAllByRole, queryAllByText } = render(
     <SettingsForm
       userId={userId}
       initial={initialState}
@@ -75,8 +75,8 @@ async function testM1_RebuildPromptAfterEquipmentChange(): Promise<boolean> {
   const user = userEvent.setup();
 
   // Click kettlebell to add it (plan-affecting change)
-  const kettlebellChip = getByText('Kettlebell');
-  await user.click(kettlebellChip);
+  const kettlebellButtons = getAllByRole('button', { name: /kettlebell/i, pressed: false });
+  await user.click(kettlebellButtons[0]);
 
   // Wait for the save to complete
   await waitFor(() => {
@@ -87,7 +87,8 @@ async function testM1_RebuildPromptAfterEquipmentChange(): Promise<boolean> {
   await new Promise(resolve => setTimeout(resolve, 100));
 
   // Check if rebuild prompt appears
-  const rebuildPrompt = queryByText(/rebuild.*block/i);
+  const rebuildPrompts = queryAllByText(/rebuild.*block/i);
+  const rebuildPrompt = rebuildPrompts.length > 0 ? rebuildPrompts[0] : null;
   
   if (!rebuildPrompt) {
     console.error('  ❌ Rebuild prompt did not appear after equipment change');
@@ -115,7 +116,7 @@ async function testM1_RebuildPromptAfterInjuryChange(): Promise<boolean> {
     },
   };
 
-  const { getByText, queryByText } = render(
+  const { getAllByRole, queryAllByText } = render(
     <SettingsForm
       userId={userId}
       initial={initialState}
@@ -128,8 +129,8 @@ async function testM1_RebuildPromptAfterInjuryChange(): Promise<boolean> {
   const user = userEvent.setup();
 
   // Click shoulder injury to add it (plan-affecting change)
-  const shoulderChip = getByText('Shoulder');
-  await user.click(shoulderChip);
+  const shoulderButtons = getAllByRole('button', { name: /shoulder/i, pressed: false });
+  await user.click(shoulderButtons[0]);
 
   // Wait for the save to complete
   await waitFor(() => {
@@ -140,7 +141,8 @@ async function testM1_RebuildPromptAfterInjuryChange(): Promise<boolean> {
   await new Promise(resolve => setTimeout(resolve, 100));
 
   // Check if rebuild prompt appears
-  const rebuildPrompt = queryByText(/rebuild.*block/i);
+  const rebuildPrompts = queryAllByText(/rebuild.*block/i);
+  const rebuildPrompt = rebuildPrompts.length > 0 ? rebuildPrompts[0] : null;
   
   if (!rebuildPrompt) {
     console.error('  ❌ Rebuild prompt did not appear after injury change');
@@ -170,7 +172,7 @@ async function testM1_RebuildPromptAfterSessionLengthChange(): Promise<boolean> 
     setInjury: async () => ({ ok: true }),
   };
 
-  const { getByText, queryByText } = render(
+  const { getAllByRole, queryAllByText } = render(
     <SettingsForm
       userId={userId}
       initial={initialState}
@@ -183,8 +185,8 @@ async function testM1_RebuildPromptAfterSessionLengthChange(): Promise<boolean> 
   const user = userEvent.setup();
 
   // Click the 60-minute session length option
-  const sixtyMinOption = getByText('60 min');
-  await user.click(sixtyMinOption);
+  const sixtyMinButtons = getAllByRole('button', { name: /60 min/i });
+  await user.click(sixtyMinButtons[0]);
 
   // Wait for the save to complete
   await waitFor(() => {
@@ -195,7 +197,8 @@ async function testM1_RebuildPromptAfterSessionLengthChange(): Promise<boolean> 
   await new Promise(resolve => setTimeout(resolve, 100));
 
   // Check if rebuild prompt appears
-  const rebuildPrompt = queryByText(/rebuild.*block/i);
+  const rebuildPrompts = queryAllByText(/rebuild.*block/i);
+  const rebuildPrompt = rebuildPrompts.length > 0 ? rebuildPrompts[0] : null;
   
   if (!rebuildPrompt) {
     console.error('  ❌ Rebuild prompt did not appear after session length change');

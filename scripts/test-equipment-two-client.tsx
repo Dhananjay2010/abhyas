@@ -59,11 +59,11 @@ async function testTwoClientEquipment() {
     // If it's a network error in local dev, skip; in CI, fail
     if (signUpError.message.includes("fetch failed") || signUpError.message.includes("Failed to fetch")) {
       if (process.env.CI) {
-        throw new Error(`Supabase not available in CI: ${signUpError.message}`);
+        console.error(`\n❌ Supabase not available in CI: ${signUpError.message}\n`);
+        process.exit(1);
       }
       console.log("\n⏭️  Skipping test (Supabase not available)");
       console.log("   This test requires a running Supabase instance\n");
-      console.log("\n✅ Test skipped (would pass with Supabase)\n");
       process.exit(0);
     }
     throw new Error(`Sign up failed: ${signUpError.message}`);
