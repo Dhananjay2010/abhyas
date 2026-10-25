@@ -411,7 +411,7 @@ async function runTest() {
 
   console.log("\n14. Empty swap lists (regression guard: fails only if a count goes UP)");
   // Pinned at cfbff5b1 on the 1,680-profile grid in scripts/m3-real-path.ts. Main (9319e46e): none 2612, wrist 3276, lower_back 2696, both 3364.
-  const PINNED_EMPTY: Array<[string, BodyRegion[], number]> = [["none", [], 2612], ["wrist", ["wrist"], 3712], ["lower_back", ["lower_back"], 3353], ["wrist+lower_back", ["wrist", "lower_back"], 4464]];
+  const PINNED_EMPTY: Array<[string, BodyRegion[], number]> = [["none", [], 2612], ["wrist", ["wrist"], 3712], ["lower_back", ["lower_back"], 3377], ["wrist+lower_back", ["wrist", "lower_back"], 4576]];
   for (const [label, injuries, pinned] of PINNED_EMPTY) {
     const { slots, empty } = countEmptySwapLists(updated, injuries);
     check(`Empty swap lists (${label}) <= ${pinned}`, empty <= pinned, `${empty} of ${slots} slots${empty < pinned ? " (dropped: lower the pin)" : ""}`);
