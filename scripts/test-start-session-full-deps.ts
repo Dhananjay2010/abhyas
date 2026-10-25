@@ -9,14 +9,17 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 
 type Call = {
+  method: string;
   table: string;
+  params: Record<string, string>;
+  body?: unknown;
+  prefer?: string | null;
   select?: string;
   filters: Array<{ type: string; column: string; value: unknown }>;
   order?: Array<{ column: string; ascending: boolean }>;
   limit?: number;
   insert?: unknown;
   update?: unknown;
-  method?: string;
 };
 
 const calls: Call[] = [];
@@ -31,58 +34,103 @@ function resetCalls() {
 
 function createFakeSupabase(responses: Record<string, unknown>) {
   const stubFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
     const method = init?.method ?? "GET";
-    const bodyText = init?.body && typeof init.body === "string" ? init.body : null;
-    const body = bodyText ? JSON.parse(bodyText) : null;
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    const headers = new Headers(init?.headers);
+    const prefer = headers.get("prefer");
+    const accept = headers.get("accept");
     
-    const currentCall: Call = { table: "", filters: [] };
+    // Parse table from pathname
+    const table = url.pathname.replace("/rest/v1/", "").split("?")[0];
     
-    // Parse table from URL
-    const tableMatch = url.match(/\/([^/?]+)\?/);
-    if (tableMatch) {
-      currentCall.table = tableMatch[1];
+    // Get all query params
+    const params = Object.fromEntries(url.searchParams);
+    
+    // Parse structured info for backward compat with old assertions
+    const select = params.select;
+    const filters: Array<{ type: string; column: string; value: unknown }> = [];
+    const order: Array<{ column: string; ascending: boolean }> = [];
+    let limit: number | undefined;
+    
+    // Parse filters from params
+    for (const [key, value] of Object.entries(params)) {
+      if (key === "select" || key === "order" || key === "limit") continue;
+      
+      if (value.startsWith("eq.")) {
+        filters.push({ type: "eq", column: key, value: value.substring(3) });
+      } else if (value.startsWith("in.(")) {
+        const values = value.substring(4, value.length - 1).split(",");
+        filters.push({ type: "in", column: key, value: values });
+      }
     }
     
-    // Parse filters
-    if (url.includes("user_id=eq.")) {
-      const value = url.match(/user_id=eq\.([^&]+)/)?.[1];
-      if (value) currentCall.filters.push({ type: "eq", column: "user_id", value });
-    }
-    if (url.includes("local_date=eq.")) {
-      const value = url.match(/local_date=eq\.([^&]+)/)?.[1];
-      if (value) currentCall.filters.push({ type: "eq", column: "local_date", value });
-    }
-    if (url.includes("status=eq.")) {
-      const value = url.match(/status=eq\.([^&]+)/)?.[1];
-      if (value) currentCall.filters.push({ type: "eq", column: "status", value });
+    // Parse order
+    if (params.order) {
+      const orders = params.order.split(",");
+      for (const o of orders) {
+        const parts = o.split(".");
+        order.push({
+          column: parts[0],
+          ascending: parts[1] !== "desc",
+        });
+      }
     }
     
-    // Method and body
-    if (method === "POST" && body) {
-      currentCall.insert = body;
-      currentCall.method = "insert";
-    } else if (method === "PATCH" && body) {
-      currentCall.update = body;
-      currentCall.method = "update";
-    } else {
-      currentCall.method = "query";
+    // Parse limit
+    if (params.limit) {
+      limit = parseInt(params.limit, 10);
     }
     
-    // Response key
-    const accept = init?.headers && typeof init.headers === "object" && "Accept" in init.headers 
-      ? String(init.headers.Accept) 
-      : "";
-    const isSingle = url.includes("limit=1") || accept === "application/vnd.pgrst.object+json";
-    const isMaybeSingle = accept.includes("application/vnd.pgrst.object+json");
-    const key = `${currentCall.table}:${isSingle ? "single" : isMaybeSingle ? "maybeSingle" : currentCall.method}`;
+    const currentCall: Call = {
+      method,
+      table,
+      params,
+      body,
+      prefer,
+      select,
+      filters,
+      order: order.length > 0 ? order : undefined,
+      limit,
+      insert: method === "POST" ? body : undefined,
+      update: method === "PATCH" ? body : undefined,
+    };
     
     recordCall(currentCall);
     
-    const response = responses[key] || { data: null, error: null };
-    return new Response(JSON.stringify(response), {
+    // Determine response type
+    const isSingle = accept === "application/vnd.pgrst.object+json";
+    const isUpsert = prefer?.includes("resolution=");
+    const key = `${table}:${isSingle ? "single" : isUpsert ? "upsert" : method === "POST" ? "insert" : method === "PATCH" ? "update" : "query"}`;
+    
+    const responseObj = responses[key] || { data: null, error: null };
+    
+    // Handle errors
+    if (typeof responseObj === "object" && responseObj !== null && "error" in responseObj && responseObj.error) {
+      const err = responseObj.error as { code?: string; message?: string; details?: string };
+      if (err.code === "23505") {
+        return new Response(JSON.stringify(err), {
+          status: 409,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify(responseObj.error), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    
+    // Return data
+    const data = typeof responseObj === "object" && responseObj !== null && "data" in responseObj 
+      ? responseObj.data 
+      : null;
+    
+    return new Response(JSON.stringify(data), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "content-type": "application/json",
+        "content-range": "0-0/1",
+      },
     });
   };
   
@@ -134,7 +182,7 @@ async function test(name: string, fn: () => Promise<void>) {
     eq(calls[0].select, "timezone", "Select: timezone");
     eq(calls[0].filters.length, 1, "One filter");
     eq(calls[0].filters[0], { type: "eq", column: "id", value: USER_ID }, "Filter: id eq user_id");
-    eq(calls[0].method, "single", "Method: single");
+    eq(calls[0].method, "GET", "Method: GET");
   });
 
   await test("fetchOpenSessions: correct table, select, filters, and ordering", async () => {
@@ -147,7 +195,7 @@ async function test(name: string, fn: () => Promise<void>) {
     
     eq(calls.length, 1, "One call made");
     eq(calls[0].table, "sessions", "Table: sessions");
-    eq(calls[0].select, "id, status, local_date, actual_type, started_at", "Select columns");
+    eq(calls[0].select, "id,status,local_date,actual_type,started_at", "Select columns");
     eq(calls[0].filters.length, 1, "One filter");
     eq(calls[0].filters[0], { type: "in", column: "status", value: ["planned", "in_progress", "skipped"] }, "Filter: status in");
     eq(calls[0].order?.length, 2, "Two orderings");
@@ -198,7 +246,7 @@ async function test(name: string, fn: () => Promise<void>) {
     
     eq(calls.length, 1, "One call made");
     eq(calls[0].table, "program_day_exercises", "Table: program_day_exercises");
-    eq(calls[0].select, "exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)", "Select with join");
+    eq(calls[0].select, "exercise_id,order_index,target_sets,target_reps_min,target_reps_max,rest_seconds,exercises!program_day_exercises_exercise_id_fkey(metric)", "Select with join");
     eq(calls[0].filters.length, 1, "One filter");
     eq(calls[0].filters[0], { type: "eq", column: "program_day_id", value: "day-123" }, "Filter: program_day_id");
     eq(calls[0].order?.length, 1, "One ordering");
@@ -248,14 +296,14 @@ async function test(name: string, fn: () => Promise<void>) {
   await test("BUG CATCH: status filter on program_days", async () => {
     resetCalls();
     const fakeClient = createFakeSupabase({
-      "programs:maybeSingle": { 
-        data: { 
+      "programs:query": { 
+        data: [{ 
           id: "prog-1", 
           started_on: "2026-10-01", 
           deload_week: 4, 
           week_offset: 0,
           program_days: [{ id: "day-1", day_index: 0, day_type: "weights", status: "active" }]
-        }, 
+        }], 
         error: null 
       },
     });
@@ -315,7 +363,7 @@ async function test(name: string, fn: () => Promise<void>) {
       started_at: "2026-10-26T14:00:00Z",
     });
     
-    const updateCall = calls.find(c => c.method === "update");
+    const updateCall = calls.find(c => c.method === "PATCH" && c.update);
     if (!updateCall?.update) throw new Error("No update call");
     const payload = updateCall.update as Record<string, unknown>;
     eq(payload.started_at, "2026-10-26T14:00:00Z", "started_at passed through");
@@ -323,14 +371,14 @@ async function test(name: string, fn: () => Promise<void>) {
 
   await test("BUG CATCH: day id returned from loadProgram", async () => {
     const fakeClient = createFakeSupabase({
-      "programs:maybeSingle": { 
-        data: { 
+      "programs:query": { 
+        data: [{ 
           id: "prog-1",
           started_on: "2026-10-01",
           deload_week: 4,
           week_offset: 0,
           program_days: [{ id: "day-123", day_index: 0, day_type: "weights" }]
-        }, 
+        }], 
         error: null 
       },
     });
@@ -349,8 +397,8 @@ async function test(name: string, fn: () => Promise<void>) {
         data: null, 
         error: { code: "23505", message: "duplicate" } 
       },
-      "sessions:maybeSingle": { 
-        data: { id: "sess-other", created_at: "2026-10-26T10:00:00Z" }, 
+      "sessions:query": { 
+        data: [{ id: "sess-other", created_at: "2026-10-26T10:00:00Z" }], 
         error: null 
       },
     });
@@ -358,10 +406,10 @@ async function test(name: string, fn: () => Promise<void>) {
     
     await deps.updateSession("sess-1", "2026-10-26", { status: "in_progress" });
     
-    const rereadCall = calls.find(c => c.method === "maybeSingle" && c.table === "sessions");
+    const updateCalls = calls.filter(c => c.table === "sessions" && c.method === "PATCH");
+    const rereadCall = calls.filter(c => c.table === "sessions" && c.method === "GET")[0];
     if (!rereadCall) throw new Error("No 23505 re-read found");
-    const localDateFilter = rereadCall.filters.find(f => f.column === "local_date");
-    eq(localDateFilter?.value, "2026-10-26", "23505 re-read filters by passed local_date");
+    eq(rereadCall.params.local_date, "eq.2026-10-26", "23505 re-read filters by passed local_date");
   });
 
   await test("BUG CATCH: cross-date 23505 existingSessionId pass-through (h111)", async () => {
@@ -374,8 +422,8 @@ async function test(name: string, fn: () => Promise<void>) {
           details: "Key (user_id, local_date, status)=(user-123, 2026-10-25, in_progress) already exists.",
         },
       },
-      "sessions:maybeSingle": {
-        data: { id: "sess-other-day", created_at: "2026-10-24T10:00:00Z", local_date: "2026-10-24" },
+      "sessions:query": {
+        data: [{ id: "sess-other-day", created_at: "2026-10-24T10:00:00Z", local_date: "2026-10-24" }],
         error: null,
       },
     });
