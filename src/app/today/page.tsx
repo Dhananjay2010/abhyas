@@ -250,6 +250,7 @@ export default async function TodayPage() {
     dayLabel,
     overrideDiffers,
     pulledForwardMessage,
+    pulledForward,
     strengthDone,
     strengthOpen,
     performed,
@@ -269,7 +270,11 @@ export default async function TodayPage() {
   // The session's own exercises are loaded only when a workout has been started.
 
   const [plannable, performedRows] = await Promise.all([
-    needsPlannableDays ? plannableDays(supabase, program.id) : Promise.resolve([]),
+    needsPlannableDays 
+      ? plannableDays(supabase, program.id).then((days) =>
+          days.filter((day) => !pulledForward.has(day.programDayId))
+        )
+      : Promise.resolve([]),
     performed
       ? supabase
           .from("session_exercises")

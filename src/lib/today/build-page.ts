@@ -196,6 +196,9 @@ export type BuildPageOutput = {
 
   // Plannable days flag
   needsPlannableDays: boolean;
+  
+  // Pulled forward tracking
+  pulledForward: Map<string, { programDayId: string }>;
 };
 
 export function buildPage(input: BuildPageInput): BuildPageOutput {
@@ -427,6 +430,7 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     dayLabel,
     overrideDiffers,
     pulledForwardMessage: pulledForwardMessageText,
+    pulledForward,
     strengthDone,
     strengthOpen,
     performed,
