@@ -8,11 +8,9 @@ import "../scripts/helpers/setup-jsdom";
 import { registerFocusRetry } from "../src/lib/session/focus-retry";
 
 let passed = 0;
-let failed = 0;
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
-    failed++;
     console.error(`  ❌ ${message}`);
     throw new Error(message);
   } else {
@@ -62,7 +60,7 @@ try {
   assert(retryCount === 2, "8d2: retry NOT called when document still hidden");
   
   // Change to visible and trigger
-  (document as any).visibilityState = 'visible';
+  Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true, configurable: true });
   listeners.get("visibilitychange")?.forEach(fn => fn());
   assert(retryCount === 3, "8d2: retry called on visibilitychange to visible");
   
