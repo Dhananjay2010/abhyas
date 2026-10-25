@@ -10,7 +10,7 @@
  */
 
 import './helpers/setup-jsdom';
-import { render } from '@testing-library/react';
+import { render, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SettingsForm, type SettingsState, type SettingsActions } from '../src/app/settings/settings-form';
 import { SESSION_EXPIRED_CODE } from '../src/lib/auth/session-expired';
@@ -160,15 +160,30 @@ async function testM2_SameItemMultipleTapsKeepLatest(): Promise<boolean> {
   // Tap barbell to enable it
   const barbellChips = getAllByRole('button', { name: /barbell/i, pressed: false });
   await user.click(barbellChips[0]);
-  await new Promise(resolve => setTimeout(resolve, 200));
+  
+  // Wait for async startTransition to complete and stashing to finish
+  await waitFor(() => {
+    const p = getPendingChanges(userId);
+    if (!p) throw new Error('Waiting for stash after click 1');
+  }, { timeout: 2000 });
 
   // Tap barbell again to disable it (now it's pressed:true, so query without pressed filter)
   const barbellChipsPressed = getAllByRole('button', { name: /barbell/i });
   const pressedBarbell = barbellChipsPressed.find(btn => btn.getAttribute('aria-pressed') === 'true');
-  if (pressedBarbell) {
-    await user.click(pressedBarbell);
+  if (!pressedBarbell) {
+    console.error('  ❌ No pressed barbell button found after first click');
+    return false;
   }
-  await new Promise(resolve => setTimeout(resolve, 200));
+
+  await user.click(pressedBarbell);
+  
+  // Wait for async startTransition to complete
+  await waitFor(() => {
+    const p = getPendingChanges(userId);
+    if (!p) throw new Error('Waiting for stash after click 2');
+    const equipChanges = p.changes.filter(ch => ch.type === 'equipment' && hasEquipmentId(ch.patch, 'barbell'));
+    if (equipChanges.length === 0) throw new Error('Waiting for barbell change in stash');
+  }, { timeout: 2000 });
 
   // Check stash
   const pending = getPendingChanges(userId);
@@ -211,6 +226,7 @@ async function testM2_SameItemMultipleTapsKeepLatest(): Promise<boolean> {
 
   try {
     const result1 = await testM2_MultipleEquipmentTapsAccumulate();
+    cleanup();
     const result2 = await testM2_SameItemMultipleTapsKeepLatest();
 
     if (result1 && result2) {

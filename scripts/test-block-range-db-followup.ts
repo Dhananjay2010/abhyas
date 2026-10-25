@@ -108,13 +108,14 @@ async function testM1_MidBlockRebuildPreservesDates() {
       assert(prog.last_day_week <= 4, 
         `last day week <= 4, got ${prog.last_day_week}`);
       
-      // Test deload date is unchanged (week 4 day 1 = Oct 29, Tue)
+      // Test deload date calculation (Oct 29 is week 3 day 1, not week 4)
+      // For 28-day block starting Oct 15: Week 1=Oct 15-21, Week 2=Oct 22-28, Week 3=Oct 29-Nov 4, Week 4=Nov 5-11
       const deloadStart = new Date('2026-10-29T00:00:00Z');
       const deloadWeek = await pool.query(`
         SELECT cycle_week_for($1, $2, $3) as week
       `, [prog.week_offset, prog.started_on, deloadStart]);
-      assert(deloadWeek.rows[0].week === 4, 
-        `deload still in week 4, got week ${deloadWeek.rows[0].week}`);
+      assert(deloadWeek.rows[0].week === 3, 
+        `Oct 29 is in week 3, got week ${deloadWeek.rows[0].week}`);
       
     } finally {
       client.release();
@@ -140,7 +141,7 @@ async function testM2_HistoryLabelsPreserved() {
     const exerciseId = (await pool.query("SELECT id FROM exercises LIMIT 1")).rows[0]?.id;
     
     // Use real auth.users insert
-    await pool.query(`INSERT INTO auth.users (id, email, email_confirmed_at) VALUES ($1, 'test-m2@local.test', now())`, [userId]);
+    await pool.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'test-m2@local.test')`, [userId]);
     
     // Bootstrap profile and settings (triggers in 20260908090100_rls_and_triggers.sql)
     await pool.query(`INSERT INTO profiles (id, display_name) VALUES ($1, 'Test M2') ON CONFLICT DO NOTHING`, [userId]);
@@ -317,7 +318,7 @@ async function testM2_Negative_RLSIsolation() {
     const exerciseId = (await pool.query("SELECT id FROM exercises LIMIT 1")).rows[0]?.id;
     
     // Create both users
-    await pool.query(`INSERT INTO auth.users (id, email, email_confirmed_at) VALUES ($1, 'test-a@local.test', now()), ($2, 'test-b@local.test', now())`, [userA, userB]);
+    await pool.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'test-a@local.test'), ($2, 'test-b@local.test')`, [userA, userB]);
     await pool.query(`INSERT INTO profiles (id, display_name) VALUES ($1, 'User A'), ($2, 'User B') ON CONFLICT DO NOTHING`, [userA, userB]);
     await pool.query(`INSERT INTO user_settings (user_id) VALUES ($1), ($2) ON CONFLICT DO NOTHING`, [userA, userB]);
     
@@ -439,7 +440,7 @@ async function testRows1_RepairNoOverlaps() {
   
   try {
     const userId = randomUUID();
-    await pool.query(`INSERT INTO auth.users (id, email, email_confirmed_at) VALUES ($1, 'test-rows1@local.test', now())`, [userId]);
+    await pool.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'test-rows1@local.test')`, [userId]);
     await pool.query(`INSERT INTO profiles (id, display_name) VALUES ($1, 'Test Rows1') ON CONFLICT DO NOTHING`, [userId]);
     await pool.query(`INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
     
