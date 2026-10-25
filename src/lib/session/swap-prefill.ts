@@ -30,7 +30,7 @@ type TypedSupabase = SupabaseClient<Database>;
  * @param equipmentIds - Equipment IDs for the exercise (for bodyweight detection)
  * @param metric - Exercise metric
  * @param movementPattern - Movement pattern (for suggestedWeight)
- * @param unit - Weight unit for grid snapping
+ * @param progressValue - Optional pre-fetched progress value (removes duplicate query)
  * @returns Weight prefill in kg, or null
  */
 export async function resolveSwapPrefill(
@@ -41,18 +41,27 @@ export async function resolveSwapPrefill(
   equipmentIds: string[],
   metric: Database["public"]["Enums"]["exercise_metric"],
   movementPattern: Database["public"]["Enums"]["movement_pattern"],
+  progressValue?: number | null,
 ): Promise<number | null> {
   try {
-    // Check for exercise progress (the primary source)
-    const { data: progress } = await supabase
-      .from("exercise_progress")
-      .select("current_working_weight_kg")
-      .eq("user_id", userId)
-      .eq("exercise_id", exerciseId)
-      .maybeSingle();
+    // Use pre-fetched progress if provided (removes duplicate query from resolveSwapWeights)
+    let currentWorkingWeight: number | null = null;
+    
+    if (progressValue !== undefined) {
+      currentWorkingWeight = progressValue;
+    } else {
+      // Fallback: fetch progress (for legacy callers or direct usage)
+      const { data: progress } = await supabase
+        .from("exercise_progress")
+        .select("current_working_weight_kg")
+        .eq("user_id", userId)
+        .eq("exercise_id", exerciseId)
+        .maybeSingle();
+      currentWorkingWeight = progress?.current_working_weight_kg ?? null;
+    }
 
-    if (progress?.current_working_weight_kg !== null && progress?.current_working_weight_kg !== undefined) {
-      const working = Number(progress.current_working_weight_kg);
+    if (currentWorkingWeight !== null && currentWorkingWeight !== undefined) {
+      const working = Number(currentWorkingWeight);
       if (working > 0) {
         // Use the same suggestedWeight logic as session/[id]/page.tsx:141
         const isBodyweight = equipmentIds.length === 0;
