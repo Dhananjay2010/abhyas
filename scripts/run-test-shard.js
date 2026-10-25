@@ -4,6 +4,7 @@
  * Usage: node scripts/run-test-shard.js <shardIndex> <totalShards>
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');

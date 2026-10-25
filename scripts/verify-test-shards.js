@@ -5,6 +5,7 @@
  * Usage: node scripts/verify-test-shards.js <totalShards>
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
 const path = require('path');
 
