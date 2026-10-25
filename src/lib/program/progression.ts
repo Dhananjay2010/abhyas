@@ -558,6 +558,7 @@ export function evaluateProgression(input: {
 
       // Reps ceiling: cap at 2×repsMax
       const cappedTarget = nextTarget > ceiling ? ceiling : nextTarget;
+      const targetMoved = cappedTarget !== resolvedTarget;
 
       return {
         ...carried,
@@ -565,8 +566,12 @@ export function evaluateProgression(input: {
         nextTargetReps: cappedTarget,
         consecutiveFailures: 0,
         message: isTimed
-          ? `Every set held to the top of the range — target goes up to ${cappedTarget}s.`
-          : `Every set at the top of the range — target goes up to ${cappedTarget} reps.`,
+          ? targetMoved
+            ? `Every set held to the top of the range — target goes up to ${cappedTarget}s.`
+            : `Every set held to the top of the range — staying at ${cappedTarget}s.`
+          : targetMoved
+            ? `Every set at the top of the range — target goes up to ${cappedTarget} reps.`
+            : `Every set at the top of the range — staying at ${cappedTarget} reps.`,
       };
     }
 
