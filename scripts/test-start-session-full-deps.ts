@@ -5,7 +5,7 @@
  * filters (including status='active', user_id scoping), and payloads.
  */
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 
 type Call = {
@@ -29,77 +29,66 @@ function resetCalls() {
   calls.length = 0;
 }
 
-function createFakeSupabase(responses: Record<string, unknown>): SupabaseClient<Database> {
-  const fake = {
-    from(table: string) {
-      const currentCall: Call = { table, filters: [] };
-      
-      const builder = {
-        select(cols: string) {
-          currentCall.select = cols;
-          return builder;
-        },
-        eq(column: string, value: unknown) {
-          currentCall.filters.push({ type: "eq", column, value });
-          return builder;
-        },
-        in(column: string, values: unknown[]) {
-          currentCall.filters.push({ type: "in", column, value: values });
-          return builder;
-        },
-        order(column: string, opts?: { ascending?: boolean }) {
-          if (!currentCall.order) currentCall.order = [];
-          currentCall.order.push({ column, ascending: opts?.ascending ?? true });
-          return builder;
-        },
-        limit(n: number) {
-          currentCall.limit = n;
-          return builder;
-        },
-        insert(payload: unknown) {
-          currentCall.insert = payload;
-          currentCall.method = "insert";
-          return builder;
-        },
-        upsert(payload: unknown, opts?: unknown) {
-          void opts;
-          currentCall.insert = payload;
-          currentCall.method = "upsert";
-          return builder;
-        },
-        update(payload: unknown) {
-          currentCall.update = payload;
-          currentCall.method = "update";
-          return builder;
-        },
-        single() {
-          currentCall.method = "single";
-          recordCall(currentCall);
-          const key = `${table}:single`;
-          return Promise.resolve(responses[key] || { data: null, error: null });
-        },
-        maybeSingle() {
-          currentCall.method = "maybeSingle";
-          recordCall(currentCall);
-          const key = `${table}:maybeSingle`;
-          return Promise.resolve(responses[key] || { data: null, error: null });
-        },
-        then(resolve: (v: unknown) => void) {
-          if (!currentCall.method) {
-            currentCall.method = "query";
-          }
-          recordCall(currentCall);
-          const key = `${table}:${currentCall.method}`;
-          return Promise.resolve(responses[key] || { data: null, error: null }).then(resolve);
-        },
-      };
-      
-      return builder;
-    },
+function createFakeSupabase(responses: Record<string, unknown>) {
+  const stubFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const method = init?.method ?? "GET";
+    const bodyText = init?.body && typeof init.body === "string" ? init.body : null;
+    const body = bodyText ? JSON.parse(bodyText) : null;
+    
+    const currentCall: Call = { table: "", filters: [] };
+    
+    // Parse table from URL
+    const tableMatch = url.match(/\/([^/?]+)\?/);
+    if (tableMatch) {
+      currentCall.table = tableMatch[1];
+    }
+    
+    // Parse filters
+    if (url.includes("user_id=eq.")) {
+      const value = url.match(/user_id=eq\.([^&]+)/)?.[1];
+      if (value) currentCall.filters.push({ type: "eq", column: "user_id", value });
+    }
+    if (url.includes("local_date=eq.")) {
+      const value = url.match(/local_date=eq\.([^&]+)/)?.[1];
+      if (value) currentCall.filters.push({ type: "eq", column: "local_date", value });
+    }
+    if (url.includes("status=eq.")) {
+      const value = url.match(/status=eq\.([^&]+)/)?.[1];
+      if (value) currentCall.filters.push({ type: "eq", column: "status", value });
+    }
+    
+    // Method and body
+    if (method === "POST" && body) {
+      currentCall.insert = body;
+      currentCall.method = "insert";
+    } else if (method === "PATCH" && body) {
+      currentCall.update = body;
+      currentCall.method = "update";
+    } else {
+      currentCall.method = "query";
+    }
+    
+    // Response key
+    const accept = init?.headers && typeof init.headers === "object" && "Accept" in init.headers 
+      ? String(init.headers.Accept) 
+      : "";
+    const isSingle = url.includes("limit=1") || accept === "application/vnd.pgrst.object+json";
+    const isMaybeSingle = accept.includes("application/vnd.pgrst.object+json");
+    const key = `${currentCall.table}:${isSingle ? "single" : isMaybeSingle ? "maybeSingle" : currentCall.method}`;
+    
+    recordCall(currentCall);
+    
+    const response = responses[key] || { data: null, error: null };
+    return new Response(JSON.stringify(response), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   };
   
-  // @ts-expect-error - Partial Supabase client mock for testing
-  return fake;
+  return createClient<Database>("http://localhost:54321", "test-key", {
+    global: { fetch: stubFetch },
+  });
 }
 
 const USER_ID = "user-123";

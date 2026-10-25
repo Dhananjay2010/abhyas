@@ -29,10 +29,6 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-function assertExists<T>(value: T | null | undefined, msg: string): asserts value is T {
-  if (!value) throw new Error(msg);
-}
-
 
 function eq<T>(actual: T, expected: T, message: string) {
   if (actual !== expected) {
@@ -351,24 +347,24 @@ async function main() {
   });
 
   await test("BUG CATCH: started_at stamp inserted", async () => {
-    let insertPayload: Record<string, unknown> | null = null;
+    const inserts: Array<Record<string, unknown>> = [];
     const deps = createBasicDeps({
       insertSession: async (payload) => {
-        insertPayload = payload;
+        inserts.push(payload);
         return { ok: true, sessionId: "sess-new" };
       },
     });
 
     await startSessionFullCore(deps);
 
-    assertExists(insertPayload, "No insert payload");
-    // @ts-expect-error - assertExists narrows but TSC doesn't see it
+    const insertPayload = inserts[0];
+    if (insertPayload === undefined) throw new Error("No insert payload");
     if (!insertPayload.started_at) throw new Error("started_at not set");
     eq(insertPayload.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS)");
   });
 
   await test("BUG CATCH: deload week calculation", async () => {
-    let insertPayload: Record<string, unknown> | null = null;
+    const inserts: Array<Record<string, unknown>> = [];
     const deps = createBasicDeps({
       loadProgram: async () => ({
         ok: true,
@@ -377,35 +373,35 @@ async function main() {
         dayType: "weights",
       }),
       insertSession: async (payload) => {
-        insertPayload = payload;
+        inserts.push(payload);
         return { ok: true, sessionId: "sess-new" };
       },
     });
 
     await startSessionFullCore(deps);
 
-    // @ts-expect-error - assertExists narrows but TSC doesn't see it
-    assertExists(insertPayload, "No insert payload");
+    const insertPayload = inserts[0];
+    if (insertPayload === undefined) throw new Error("No insert payload");
     eq(insertPayload.week_in_block, 4, "Week in block calculated");
     eq(insertPayload.is_deload, true, "Deload flag set for week 4");
   });
 
   await test("BUG CATCH: near-midnight NY/UTC date differ", async () => {
-    let insertPayload: Record<string, unknown> | null = null;
+    const inserts: Array<Record<string, unknown>> = [];
     const nowMs = new Date("2026-10-26T04:30:00Z").getTime();
     const deps = createBasicDeps({
       nowMs,
       fetchProfile: async () => ({ timezone: "America/New_York" }),
       insertSession: async (payload) => {
-        insertPayload = payload;
+        inserts.push(payload);
         return { ok: true, sessionId: "sess-new" };
       },
     });
 
     await startSessionFullCore(deps);
 
-    // @ts-expect-error - assertExists narrows but TSC doesn't see it
-    assertExists(insertPayload, "No insert payload");
+    const insertPayload = inserts[0];
+    if (insertPayload === undefined) throw new Error("No insert payload");
     eq(insertPayload.local_date, "2026-10-26", "NY date is 2026-10-26 (00:30 EDT)");
   });
 
@@ -434,18 +430,18 @@ async function main() {
   });
 
   await test("BUG CATCH: full insert payload structure", async () => {
-    let insertPayload: Record<string, unknown> | null = null;
+    const inserts: Array<Record<string, unknown>> = [];
     const deps = createBasicDeps({
       insertSession: async (payload) => {
-        insertPayload = payload;
+        inserts.push(payload);
         return { ok: true, sessionId: "sess-new" };
       },
     });
 
     await startSessionFullCore(deps);
-    // @ts-expect-error - assertExists narrows but TSC doesn't see it
 
-    assertExists(insertPayload, "No insert payload");
+    const insertPayload = inserts[0];
+    if (insertPayload === undefined) throw new Error("No insert payload");
     eq(insertPayload.user_id, USER_ID, "user_id");
     eq(insertPayload.program_id, "prog-1", "program_id");
     eq(insertPayload.program_day_id, "day-1", "program_day_id");
@@ -512,7 +508,7 @@ async function main() {
   });
 
   await test("O1/R4: reusing skipped session sets exact started_at", async () => {
-    let updatePayload: { status: "in_progress"; started_at?: string } | null = null;
+    const updates: Array<{ status: "in_progress"; started_at?: string }> = [];
     const deps = createBasicDeps({
       fetchOpenSessions: async () => [{
         id: "sess-skipped",
@@ -522,20 +518,20 @@ async function main() {
         started_at: null,
       }],
       updateSession: async (_id, _today, payload) => {
-        updatePayload = payload;
+        updates.push(payload);
         return { ok: true, sessionId: "sess-skipped" };
       },
     });
 
-    // @ts-expect-error - assertExists narrows but TSC doesn't see it
     await startSessionFullCore(deps);
 
-    assertExists(updatePayload, "No update payload");
+    const updatePayload = updates[0];
+    if (updatePayload === undefined) throw new Error("No update payload");
     eq(updatePayload.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS) for skipped");
   });
 
   await test("O1/R4: reusing null-started session sets exact started_at", async () => {
-    let updatePayload: { status: "in_progress"; started_at?: string } | null = null;
+    const updates: Array<{ status: "in_progress"; started_at?: string }> = [];
     const deps = createBasicDeps({
       fetchOpenSessions: async () => [{
         id: "sess-planned",
@@ -545,20 +541,20 @@ async function main() {
         started_at: null,
       }],
       updateSession: async (_id, _today, payload) => {
-        updatePayload = payload;
+        updates.push(payload);
         return { ok: true, sessionId: "sess-planned" };
       },
     });
 
     await startSessionFullCore(deps);
 
-    assertExists(updatePayload, "No update payload");
-    // @ts-expect-error - assertExists should narrow type but TSC 5.x doesn't recognize it
+    const updatePayload = updates[0];
+    if (updatePayload === undefined) throw new Error("No update payload");
     eq(updatePayload.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS) for null-started");
   });
 
   await test("O1/R4: reusing in_progress session does NOT update started_at", async () => {
-    let updatePayload: { status: "in_progress"; started_at?: string } | null = null;
+    const updates: Array<{ status: "in_progress"; started_at?: string }> = [];
     const deps = createBasicDeps({
       fetchOpenSessions: async () => [{
         id: "sess-in-progress",
@@ -568,15 +564,15 @@ async function main() {
         started_at: "2026-10-26T08:00:00.000Z",
       }],
       updateSession: async (_id, _today, payload) => {
-        updatePayload = payload;
+        updates.push(payload);
         return { ok: true, sessionId: "sess-in-progress" };
       },
     });
 
     await startSessionFullCore(deps);
 
-    assertExists(updatePayload, "No update payload");
-    // @ts-expect-error - assertExists should narrow type but TSC 5.x doesn't recognize it
+    const updatePayload = updates[0];
+    if (updatePayload === undefined) throw new Error("No update payload");
     if ("started_at" in updatePayload) {
       throw new Error("started_at should NOT be updated for in_progress sessions");
     }
@@ -585,11 +581,11 @@ async function main() {
   await test("O3: NY vs UTC date boundary handling", async () => {
     const nyMidnightMinus2hUTC = new Date("2026-10-26T02:00:00.000Z").getTime();
     const expectedNYDate = "2026-10-25";
-    let insertPayload: Record<string, unknown> | null = null;
+    const inserts: Array<Record<string, unknown>> = [];
     const deps: StartSessionFullDeps = {
       ...createBasicDeps({
         insertSession: async (payload) => {
-          insertPayload = payload;
+          inserts.push(payload);
           return { ok: true, sessionId: "sess-new" };
         },
       }),
@@ -600,8 +596,8 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    assertExists(insertPayload, "No insert payload");
-    // @ts-expect-error - assertExists should narrow type but TSC 5.x doesn't recognize it
+    const insertPayload = inserts[0];
+    if (insertPayload === undefined) throw new Error("No insert payload");
     eq(insertPayload.local_date, expectedNYDate, "local_date in NY timezone (2026-10-25), not UTC (2026-10-26)");
   });
 

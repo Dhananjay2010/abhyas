@@ -29,26 +29,31 @@ function check(label: string, ok: boolean, detail = "") {
 }
 
 function createFakeTimer() {
-  const callbacks = new Map<unknown, () => void>();
-  let nextId = 0;
+  const callbacks: Array<() => void> = [];
+  const realHandles: Array<ReturnType<typeof globalThis.setTimeout>> = [];
   const timer: RunnerTimer = {
-    // @ts-expect-error - Timer mock returns number, not Timeout
     setTimeout: (callback: () => void, ms: number) => {
       void ms;
-      const id = nextId++;
-      callbacks.set(id, callback);
-      return id;
+      const handle = globalThis.setTimeout(() => {}, 999999999);
+      realHandles.push(handle);
+      callbacks.push(callback);
+      return handle;
     },
     clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => {
-      const cb = callbacks.get(id);
-      if (cb) callbacks.set(id, () => {});
+      const index = realHandles.indexOf(id);
+      if (index >= 0) {
+        globalThis.clearTimeout(id);
+        callbacks[index] = () => {};
+      }
     },
   };
   return {
     timer,
     advance: () => {
+      realHandles.forEach(h => globalThis.clearTimeout(h));
       callbacks.forEach(cb => cb());
-      callbacks.clear();
+      callbacks.length = 0;
+      realHandles.length = 0;
     },
   };
 }
