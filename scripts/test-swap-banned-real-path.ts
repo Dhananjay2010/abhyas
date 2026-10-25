@@ -14,6 +14,10 @@ import catalogue from "./fixtures/catalogue.json";
 import type { CandidateExercise } from "../src/lib/program/generate";
 import { buildEligibleSwapList, buildGeneratorInput } from "../src/lib/session/eligible-swap-list";
 import { getSwapPatterns } from "../src/lib/program/swap-patterns";
+import type { Database } from "../src/lib/database.types";
+
+type BodyRegion = Database["public"]["Enums"]["body_region"];
+type InjurySeverity = "current" | "past";
 
 const catalogueExercises = catalogue as CandidateExercise[];
 
@@ -28,7 +32,7 @@ let weightLookupCalled = false;
 
 function createDeps(
   currentExercise: CandidateExercise,
-  injuries: Array<{ body_region: string; severity: "current" | "past" }>
+  injuries: Array<{ body_region: BodyRegion; severity: InjurySeverity }>
 ): SwapExerciseDeps {
   return {
     resolveSwapWeights: async () => {
@@ -79,7 +83,7 @@ async function testBannedSwap(
   testName: string,
   currentExerciseSlug: string,
   targetExerciseSlug: string,
-  injuries: Array<{ body_region: string; severity: "current" | "past" }>,
+  injuries: Array<{ body_region: BodyRegion; severity: InjurySeverity }>,
 ) {
   console.log(`\n${testName}`);
   
