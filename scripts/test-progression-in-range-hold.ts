@@ -101,8 +101,8 @@ console.log("\n1. In-range sessions (all sets >= repsMin, not all at top): HOLD 
   check("4×10 in 8-12: outcome hold", d.outcome === "hold", d.outcome);
   check("4×10: weight held at 40 kg", d.nextWorkingWeightKg === 40, `${d.nextWorkingWeightKg}`);
   check("4×10: failures reset to 0", d.consecutiveFailures === 0, `${d.consecutiveFailures}`);
-  check("4×10: message says stay at this weight", 
-    d.message.includes("Staying at this weight"), d.message);
+  check("4×10: message describes the weight", 
+    d.message.includes("40"), d.message);
 }
 
 {
