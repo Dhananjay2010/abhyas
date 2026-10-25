@@ -44,17 +44,22 @@ console.log("--- Break 8a: Focus listener registered ---");
     retryCount++;
   });
 
-  check("Focus listener registered", listeners.has("focus") && listeners.get("focus")!.length === 1);
+  const focusListeners = listeners.get("focus");
+  if (!focusListeners) throw new Error("No focus listeners registered");
+  check("Focus listener registered", focusListeners.length === 1);
   check("Retry called on mount", retryCount === 1);
 
   // Simulate focus event
-  const focusHandler = listeners.get("focus")![0];
+  const focusHandler = focusListeners[0];
+  if (!focusHandler) throw new Error("Focus handler is undefined");
   focusHandler();
   check("Retry called on focus event", retryCount === 2);
 
   // Cleanup
   cleanup();
-  check("Focus listener removed after cleanup", listeners.get("focus")!.length === 0);
+  const focusListenersAfter = listeners.get("focus");
+  if (!focusListenersAfter) throw new Error("No focus listeners map after cleanup");
+  check("Focus listener removed after cleanup", focusListenersAfter.length === 0);
 }
 
 // Test 2: Registers visibilitychange listener
@@ -65,7 +70,9 @@ console.log("\n--- Break 8b: Visibilitychange listener registered ---");
 
   const addEventListener = (type: string, handler: () => void) => {
     if (!listeners.has(type)) listeners.set(type, []);
-    listeners.get(type)!.push(handler);
+    const handlers = listeners.get(type);
+    if (!handlers) throw new Error(`addEventListener (test2): No handlers array for type '${type}'`);
+    handlers.push(handler);
   };
 
   const removeEventListener = (type: string, handler: () => void) => {
@@ -88,16 +95,21 @@ console.log("\n--- Break 8b: Visibilitychange listener registered ---");
     retryCount++;
   });
 
-  check("Visibilitychange listener registered", listeners.has("visibilitychange") && listeners.get("visibilitychange")!.length === 1);
+  const visListeners = listeners.get("visibilitychange");
+  if (!visListeners) throw new Error("No visibilitychange listeners registered (test2)");
+  check("Visibilitychange listener registered", visListeners.length === 1);
 
   // Simulate visibility change to visible
-  const visHandler = listeners.get("visibilitychange")![0];
+  const visHandler = visListeners[0];
+  if (!visHandler) throw new Error("Visibilitychange handler is undefined (test2)");
   visHandler();
   check("Retry called on visibilitychange to visible", retryCount === 2); // 1 mount + 1 visibility
 
   // Cleanup
   cleanup();
-  check("Visibilitychange listener removed after cleanup", listeners.get("visibilitychange")!.length === 0);
+  const visListenersAfter = listeners.get("visibilitychange");
+  if (!visListenersAfter) throw new Error("No visibilitychange listeners map after cleanup (test2)");
+  check("Visibilitychange listener removed after cleanup", visListenersAfter.length === 0);
 }
 
 // Test 3: Retry called once on mount (Break 8c)
@@ -123,7 +135,9 @@ console.log("\n--- Break 8d: Focus and visibility registered once each ---");
 
   const addEventListener = (type: string, handler: () => void) => {
     if (!listeners.has(type)) listeners.set(type, []);
-    listeners.get(type)!.push(handler);
+    const handlers = listeners.get(type);
+    if (!handlers) throw new Error(`addEventListener (test4): No handlers array for type '${type}'`);
+    handlers.push(handler);
   };
 
   registerFocusRetry(addEventListener, () => {}, () => {});

@@ -30,7 +30,9 @@ try {
   
   const addEventListener = (type: string, handler: () => void) => {
     if (!listeners.has(type)) listeners.set(type, new Set());
-    listeners.get(type)!.add(handler);
+    const handlers = listeners.get(type);
+    if (!handlers) throw new Error(`addEventListener: No handlers set for type '${type}'`);
+    handlers.add(handler);
   };
   
   const removeEventListener = (type: string, handler: () => void) => {

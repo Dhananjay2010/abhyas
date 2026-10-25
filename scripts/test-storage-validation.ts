@@ -342,7 +342,8 @@ async function testLegacyFormatMigrated() {
   // Verify storage was updated to timestamped format
   const raw = storage.getItem(storageKey("test-user-id"));
   assert(raw !== null, "Storage not removed");
-  const parsed = JSON.parse(raw!);
+  if (!raw) throw new Error("Migration: raw storage value is null after assertion passed");
+  const parsed = JSON.parse(raw);
   assert(parsed["session-1"]?.timestamp !== undefined, "Timestamp added during migration");
   assert(Array.isArray(parsed["session-1"]?.sets), "Sets wrapped in timestamped structure");
 }
