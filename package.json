@@ -259,7 +259,15 @@
     "test:injury-regions": "tsx scripts/test-injury-regions.ts",
     "test:catalogue-knee-jumps": "tsx scripts/test-catalogue-knee-jumps.ts",
     "test:past-knee-coordinator": "tsx scripts/test-past-knee-coordinator.ts",
-    "test:timed-target-display": "tsx scripts/test-timed-target-display.ts"
+    "test:timed-target-display": "tsx scripts/test-timed-target-display.ts",
+    "test:critical-behaviors": "tsx scripts/test-critical-behaviors.ts",
+    "test:pending-set-controller": "tsx scripts/test-pending-set-controller.ts",
+    "test:pending-set-retry": "tsx scripts/test-pending-set-retry.ts",
+    "test:pending-set-signout-clear": "tsx scripts/test-pending-set-signout-clear.ts",
+    "test:pending-set-ui-states": "tsx scripts/test-pending-set-ui-states.ts",
+    "test:pending-set-user-isolation": "tsx scripts/test-pending-set-user-isolation.ts",
+    "test:session-runner-render": "tsx scripts/test-session-runner-render.tsx",
+    "test:session-expiry-retry-chain": "npm run test:pending-set-controller && npm run test:pending-set-ui-states && npm run test:pending-set-retry && npm run test:pending-set-signout-clear && npm run test:pending-set-user-isolation && npm run test:critical-behaviors && npm run test:session-runner-render && npm run test:swap-entry-box-reset && npm run test:is-missed-yesterday && echo 'session-expiry-retry: all tests passed'"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
