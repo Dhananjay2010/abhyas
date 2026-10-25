@@ -278,6 +278,7 @@
     "test:past-knee-wall-sit-demotion": "tsx scripts/test-past-knee-wall-sit-demotion.ts",
     "test:past-knee-wall-sit-grid": "tsx scripts/test-past-knee-wall-sit-grid.ts",
     "test:past-knee-squat-leading": "tsx scripts/test-past-knee-squat-leading.ts",
+    "test:past-knee-squat-variants-demotion": "tsx scripts/test-past-knee-squat-variants-demotion.ts",
     "test:past-knee-warmup": "tsx scripts/test-past-knee-warmup.ts",
     "test:olympic-lifts": "tsx scripts/test-olympic-lifts.ts",
     "test:item13-stripped": "tsx scripts/test-item13-stripped-catalogue.ts",
