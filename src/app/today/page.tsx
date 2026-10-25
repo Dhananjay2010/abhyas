@@ -17,7 +17,6 @@ import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
-import { weekWindow } from "@/lib/today/week-window";
 import { WarmupSection } from "@/components/today/warmup-section";
 
 export const dynamic = "force-dynamic";
@@ -101,17 +100,13 @@ export default async function TodayPage() {
     next occurrence, which is today for today.
   */
   const yesterday = addDays(localToday, -1);
-  
-  // Compute the session query window (cycle-week start through today+6) for H4
-  const sessionWindow = programRes.data
-    ? weekWindow({ started_on: programRes.data.started_on, week_offset: programRes.data.week_offset }, localToday)
-    : { start: yesterday, end: addDays(localToday, 6) };
+  const weekAheadEnd = addDays(localToday, 6);
 
   // Load session state and ensure current block in parallel. The rollover
   // doesn't write sessions, so these are independent.
   const [sessionState, rollover] = await Promise.all([
     loadTodaySessionState(
-      makeTodayLoaderDeps(supabase, { yesterday: sessionWindow.start, weekAheadEnd: sessionWindow.end }),
+      makeTodayLoaderDeps(supabase, { yesterday, weekAheadEnd }),
       localToday
     ),
     ensureCurrentBlock(
