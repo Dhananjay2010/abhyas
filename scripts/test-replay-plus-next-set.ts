@@ -12,7 +12,7 @@ import {
   type LogSetFunction,
   type PendingSetState,
 } from "../src/lib/session/pending-set-controller";
-import { SESSION_EXPIRED_CODE } from "../src/lib/session/auth-result";
+import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
 import type { Storage } from "../src/lib/session/pending-set-retry";
 import { storageKey } from "../src/lib/session/pending-set-retry";
 import { nextSetNumberFor } from "../src/lib/session/next-set-number";

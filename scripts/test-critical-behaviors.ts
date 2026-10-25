@@ -15,7 +15,7 @@ import {
   type LogSetFunction,
   type PendingSetState,
 } from "../src/lib/session/pending-set-controller";
-import { SESSION_EXPIRED_CODE } from "../src/lib/session/auth-result";
+import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
 import {
   savePendingSet,
   loadPendingSets,

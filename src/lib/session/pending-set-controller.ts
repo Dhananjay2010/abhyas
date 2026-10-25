@@ -43,13 +43,13 @@ export type PendingSetState = {
   replayed: PendingSet[];
 };
 
-export type SubmitResult =
+type SubmitResult =
   | { status: "saved" }
   | { status: "saved"; reason: "set_exists"; savedSets: Array<{ setNumber: number; reps: number | null; weightKg: number | null; durationSeconds: number | null }> }
   | { status: "expired" }
   | { status: "failed"; error: string };
 
-export type PendingSetController = {
+type PendingSetController = {
   submit(set: {
     sessionExerciseId: string;
     setNumber: number;

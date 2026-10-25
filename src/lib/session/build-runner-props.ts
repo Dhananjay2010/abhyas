@@ -10,7 +10,7 @@ import type { Database } from "../database.types";
 type SessionLike = { status: Database["public"]["Enums"]["session_status"] };
 type User = { id: string };
 
-export interface RunnerPropsCore {
+interface RunnerPropsCore {
   userId: string;
   sessionStatus: Database["public"]["Enums"]["session_status"];
 }

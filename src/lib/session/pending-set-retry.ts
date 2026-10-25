@@ -19,7 +19,7 @@ export type PendingSet = {
   clientId: string;
 };
 
-export type PendingSets = {
+type PendingSets = {
   [sessionId: string]: PendingSet[];
 };
 
@@ -31,14 +31,6 @@ type PendingSetsWithTimestamp = {
 };
 
 const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-export type LogSetFunction = (input: {
-  sessionExerciseId: string;
-  setNumber: number;
-  reps: number | null;
-  weightKg: number | null;
-  durationSeconds?: number | null;
-}) => Promise<{ ok: boolean; error?: string; code?: string }>;
 
 export type Storage = {
   getItem(key: string): string | null;
