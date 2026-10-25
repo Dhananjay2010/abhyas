@@ -316,7 +316,7 @@ async function main() {
         actual_type: null,
         started_at: null,
       }],
-      updateSession: async (sessionId) => ({ ok: true, sessionId: "WRONG-ID" }),
+      updateSession: async (id) => { void id; return { ok: true, sessionId: "WRONG-ID" }; },
     });
 
     const result = await startSessionFullCore(deps);

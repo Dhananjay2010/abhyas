@@ -32,7 +32,8 @@ function createFakeTimer() {
   const callbacks: (() => void)[] = [];
   return {
     timer: {
-      setTimeout: (callback: () => void, _ms: number) => {
+      setTimeout: (callback: () => void, ms: number) => {
+        void ms;
         const id = callbacks.length;
         callbacks.push(callback);
         return id as unknown as ReturnType<typeof globalThis.setTimeout>;

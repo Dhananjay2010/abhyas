@@ -61,7 +61,8 @@ function createFakeSupabase(responses: Record<string, unknown>): SupabaseClient<
           currentCall.method = "insert";
           return builder;
         },
-        upsert(payload: unknown, _opts?: unknown) {
+        upsert(payload: unknown, opts?: unknown) {
+          void opts;
           currentCall.insert = payload;
           currentCall.method = "upsert";
           return builder;
