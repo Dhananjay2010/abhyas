@@ -22,6 +22,7 @@ import {
   type CandidateExercise,
   type GeneratorInput,
 } from "../src/lib/program/generate";
+import { pastKneeLungeTier } from "../src/lib/program/past-knee-lunge-order";
 
 // Hard-coded expected knee-safe slugs (independent test oracle)
 // Adding box-squat to this list must make the test FAIL (not just a separate check)
@@ -653,18 +654,19 @@ for (const seed of testSeeds) {
               }
             }
             
-            // Rule 11b (PR #73): Past-knee lunge slots only use PAST_KNEE_LUNGE_EXERCISES (4-list)
+            // Rule 11b (PR #73): Past-knee lunge slots use tier ordering (tier > 0 allowed)
             if (severity.label === "past-knee") {
               for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
                 for (const ex of day.exercises) {
                   const exercise = byId.get(ex.exerciseId);
                   if (!exercise) continue;
                   
-                  // Check lunge pattern exercises
+                  // Check lunge pattern exercises - must be in tier ordering (tier > 0)
                   if (exercise.movement_pattern === "lunge") {
-                    if (!EXPECTED_PAST_KNEE_LUNGE_EXERCISES.has(exercise.slug)) {
-                      check(`${profileId} ${day.label}: past-knee lunge in 4-list`, false,
-                        `${exercise.name} [${exercise.slug}] is lunge but not in PAST_KNEE_LUNGE_EXERCISES`);
+                    const tier = pastKneeLungeTier(exercise);
+                    if (tier === 0) {
+                      check(`${profileId} ${day.label}: past-knee lunge in tier ordering`, false,
+                        `${exercise.name} [${exercise.slug}] is lunge but has tier 0 (excluded)`);
                       profileFailed = true;
                     }
                   }

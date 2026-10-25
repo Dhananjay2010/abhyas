@@ -3,6 +3,8 @@
  * 
  * Modeled on start-session-core.ts: takes injected dependencies and returns
  * a result, allowing tests with fakes to verify the call-site wiring (S1, S2, S3).
+ * 
+ * QA Steer (l): Includes server-side validator to ensure swap target is in eligible list.
  */
 
 import type { Database } from "@/lib/database.types";
@@ -31,10 +33,21 @@ export type SwapExerciseDeps = {
     movementPattern: MovementPattern,
     remembersWeights: boolean,
   ) => Promise<SwapWeightsResult>;
+  
+  /**
+   * Step 1: Validate that the swap target is in the eligible swap list.
+   * Returns true if valid, false if the swap should be rejected.
+   * REQUIRED: server must not trust client's newExerciseId.
+   */
+  validateSwapTarget: (input: {
+    newExerciseId: string;
+    sessionExerciseId: string;
+  }) => Promise<boolean>;
 };
 
 export type SwapExerciseCoreInput = {
   newExerciseId: string;
+  sessionExerciseId: string; // QA Steer (l): needed for validator
   current: {
     exercise_id: string;
     metric: ExerciseMetric;
@@ -55,16 +68,22 @@ export type SwapExerciseCoreInput = {
   remembersWeights: boolean;
 };
 
-export type SwapExerciseCoreResult = {
-  metric: ExerciseMetric;
-  repsMin: number | null;
-  repsMax: number | null;
-  equipmentIds: string[];
-  weightPrefill: number | null;
-  workingWeightKg: number | null;
-  currentTargetReps: number | null;
-  isBodyweight: boolean;
-};
+export type SwapExerciseCoreResult = 
+  | {
+      ok: true;
+      metric: ExerciseMetric;
+      repsMin: number | null;
+      repsMax: number | null;
+      equipmentIds: string[];
+      weightPrefill: number | null;
+      workingWeightKg: number | null;
+      currentTargetReps: number | null;
+      isBodyweight: boolean;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
 
 /**
  * Core swap logic with injected dependencies.
@@ -73,12 +92,27 @@ export type SwapExerciseCoreResult = {
  * - S3: the NEW exercise id is passed, not the old one
  * - S1/S2: weightPrefill and workingWeightKg are returned unchanged
  * - currentTargetReps is passed through unchanged
+ * 
+ * QA Steer (l): Server-side validation ensures swap target is in eligible list.
  */
 export async function swapExerciseCore(
   deps: SwapExerciseDeps,
   input: SwapExerciseCoreInput,
 ): Promise<SwapExerciseCoreResult> {
-  const { newExerciseId, current, replacement, profile, remembersWeights } = input;
+  const { newExerciseId, sessionExerciseId, current, replacement, profile, remembersWeights } = input;
+  
+  // Step 1: Validate swap target (REQUIRED)
+  const isValid = await deps.validateSwapTarget({
+    newExerciseId,
+    sessionExerciseId,
+  });
+  
+  if (!isValid) {
+    return {
+      ok: false,
+      error: "This exercise is not available as a swap for your profile",
+    };
+  }
   
   const metric = replacement?.metric ?? "reps";
   const equipmentIds = replacement?.equipment_ids ?? [];
@@ -121,6 +155,7 @@ export async function swapExerciseCore(
 
   // Return the resolved values unchanged (S1, S2, currentTargetReps test this)
   return {
+    ok: true,
     metric,
     repsMin,
     repsMax,

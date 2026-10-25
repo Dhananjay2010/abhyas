@@ -1,12 +1,16 @@
-import { swapExerciseForUser, type SwapResult } from "../src/lib/session/swap-exercise-for-user";
+import { swapExerciseForUser } from "../src/lib/session/swap-exercise-for-user";
 import type { Database } from "../src/lib/database.types";
+import { json, type SwapDbRequest } from "./helpers/fake-swap-db";
+import { buildDb, exercise, writes, SLOT_ID, USER_ID, type Account } from "./helpers/swap-scenario";
 
 type Metric = Database["public"]["Enums"]["exercise_metric"];
+const REPS: Metric = "reps";
 
 type DbCall = {
   table: string;
   selects?: string[];
   eqFilters?: Array<{ column: string; value: unknown }>;
+  inFilters?: Array<{ column: string; values: unknown[] }>;
   updatePayload?: Record<string, unknown>;
 };
 
@@ -28,11 +32,21 @@ function createFakeSupabase(
               eq: (column: string, value: unknown) => {
                 if (!call.eqFilters) call.eqFilters = [];
                 call.eqFilters.push({ column, value });
+                
+                // If filtering by session_id, return array of siblings
+                if (column === "session_id") {
+                  return Promise.resolve({
+                    data: [{ exercise_id: "old-ex" }, { exercise_id: "sibling-ex" }],
+                    error: null,
+                  });
+                }
+                
+                // Otherwise (filtering by id), return maybeSingle for current exercise
                 return {
                   maybeSingle: async () => ({
                     data: {
                       exercise_id: "old-ex",
-                      metric: "reps" as Metric,
+                      metric: REPS,
                       planned_reps_min: 6,
                       planned_reps_max: 8,
                       session_id: "sess-123",
@@ -62,16 +76,224 @@ function createFakeSupabase(
               eq: (column: string, value: unknown) => {
                 if (!call.eqFilters) call.eqFilters = [];
                 call.eqFilters.push({ column, value });
+                
+                // For single exercise lookup
+                if (column === "id") {
+                  return {
+                    maybeSingle: async () => ({
+                      data: {
+                        id: String(value),
+                        slug: value === "old-ex" ? "barbell-squat" : "goblet-squat",
+                        name: value === "old-ex" ? "Barbell Squat" : "Goblet Squat",
+                        cue: null,
+                        metric: REPS,
+                        mechanic: "compound",
+                        equipment_ids: value === "old-ex" ? ["bar"] : ["dumbbell"],
+                        movement_pattern: "squat",
+                        primary_muscles: ["quads"],
+                        level_min: 1,
+                        contraindicated_regions: [],
+                        impact: "moderate",
+                        spinal_load: "moderate",
+                        tracks: ["weights"],
+                        default_rest_seconds: 90,
+                        category: "compound",
+                      },
+                    }),
+                  };
+                }
+                
+                // For is_active filter in pool query
                 return {
-                  maybeSingle: async () => ({
-                    data: {
-                      metric: "reps" as Metric,
-                      mechanic: "compound",
-                      equipment_ids: ["bar"],
-                      movement_pattern: "squat",
-                    },
+                  in: (column2: string, values2: unknown[]) => {
+                    if (!call.inFilters) call.inFilters = [];
+                    call.inFilters.push({ column: column2, values: values2 });
+                    return Promise.resolve({
+                      data: [
+                        {
+                          id: "old-ex",
+                          slug: "barbell-squat",
+                          name: "Barbell Squat",
+                          cue: null,
+                          metric: REPS,
+                          mechanic: "compound",
+                          equipment_ids: ["bar"],
+                          movement_pattern: "squat",
+                          primary_muscles: ["quads"],
+                          level_min: 1,
+                          contraindicated_regions: [],
+                          impact: "moderate",
+                          spinal_load: "moderate",
+                          tracks: ["weights"],
+                          default_rest_seconds: 90,
+                          category: "compound",
+                        },
+                        {
+                          id: "new-ex",
+                          slug: "goblet-squat",
+                          name: "Goblet Squat",
+                          cue: null,
+                          metric: REPS,
+                          mechanic: "compound",
+                          equipment_ids: ["dumbbell"],
+                          movement_pattern: "squat",
+                          primary_muscles: ["quads"],
+                          level_min: 1,
+                          contraindicated_regions: [],
+                          impact: "moderate",
+                          spinal_load: "moderate",
+                          tracks: ["weights"],
+                          default_rest_seconds: 90,
+                          category: "compound",
+                        },
+                        {
+                          id: "sibling-ex",
+                          slug: "dumbbell-lunge",
+                          name: "Dumbbell Lunge",
+                          cue: null,
+                          metric: REPS,
+                          mechanic: "compound",
+                          equipment_ids: ["dumbbell"],
+                          movement_pattern: "lunge",
+                          primary_muscles: ["quads"],
+                          level_min: 1,
+                          contraindicated_regions: [],
+                          impact: "moderate",
+                          spinal_load: "moderate",
+                          tracks: ["weights"],
+                          default_rest_seconds: 90,
+                          category: "compound",
+                        },
+                      ],
+                      error: null,
+                    });
+                  },
+                };
+              },
+              in: (column: string, values: unknown[]) => {
+                if (!call.inFilters) call.inFilters = [];
+                call.inFilters.push({ column, values });
+                return {
+                  eq: (column2: string, value2: unknown) => {
+                    if (!call.eqFilters) call.eqFilters = [];
+                    call.eqFilters.push({ column: column2, value: value2 });
+                    return Promise.resolve({
+                      data: [
+                        {
+                          id: "old-ex",
+                          slug: "barbell-squat",
+                          name: "Barbell Squat",
+                          cue: null,
+                          metric: REPS,
+                          mechanic: "compound",
+                          equipment_ids: ["bar"],
+                          movement_pattern: "squat",
+                          primary_muscles: ["quads"],
+                          level_min: 1,
+                          contraindicated_regions: [],
+                          impact: "moderate",
+                          spinal_load: "moderate",
+                          tracks: ["weights"],
+                          default_rest_seconds: 90,
+                          category: "compound",
+                        },
+                        {
+                          id: "new-ex",
+                          slug: "goblet-squat",
+                          name: "Goblet Squat",
+                          cue: null,
+                          metric: REPS,
+                          mechanic: "compound",
+                          equipment_ids: ["dumbbell"],
+                          movement_pattern: "squat",
+                          primary_muscles: ["quads"],
+                          level_min: 1,
+                          contraindicated_regions: [],
+                          impact: "moderate",
+                          spinal_load: "moderate",
+                          tracks: ["weights"],
+                          default_rest_seconds: 90,
+                          category: "compound",
+                        },
+                        {
+                          id: "sibling-ex",
+                          slug: "dumbbell-lunge",
+                          name: "Dumbbell Lunge",
+                          cue: null,
+                          metric: REPS,
+                          mechanic: "compound",
+                          equipment_ids: ["dumbbell"],
+                          movement_pattern: "lunge",
+                          primary_muscles: ["quads"],
+                          level_min: 1,
+                          contraindicated_regions: [],
+                          impact: "moderate",
+                          spinal_load: "moderate",
+                          tracks: ["weights"],
+                          default_rest_seconds: 90,
+                          category: "compound",
+                        },
+                      ],
+                      error: null,
+                    });
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+      if (table === "body_metrics") {
+        return {
+          select: (fields: string) => {
+            call.selects = fields.split(",").map(f => f.trim());
+            return {
+              eq: (column: string, value: unknown) => {
+                if (!call.eqFilters) call.eqFilters = [];
+                call.eqFilters.push({ column, value });
+                return {
+                  order: () => ({
+                    limit: () => ({
+                      maybeSingle: async () => ({
+                        data: { weight_kg: 75 },
+                      }),
+                    }),
                   }),
                 };
+              },
+            };
+          },
+        };
+      }
+      if (table === "user_injuries") {
+        return {
+          select: (fields: string) => {
+            call.selects = fields.split(",").map(f => f.trim());
+            return {
+              eq: (column: string, value: unknown) => {
+                if (!call.eqFilters) call.eqFilters = [];
+                call.eqFilters.push({ column, value });
+                return Promise.resolve({ data: [], error: null });
+              },
+            };
+          },
+        };
+      }
+      if (table === "user_equipment") {
+        return {
+          select: (fields: string) => {
+            call.selects = fields.split(",").map(f => f.trim());
+            return {
+              eq: (column: string, value: unknown) => {
+                if (!call.eqFilters) call.eqFilters = [];
+                call.eqFilters.push({ column, value });
+                return Promise.resolve({ 
+                  data: [
+                    { equipment_id: "bar" },
+                    { equipment_id: "dumbbell" }
+                  ], 
+                  error: null 
+                });
               },
             };
           },
@@ -90,6 +312,12 @@ function createFakeSupabase(
                     data: {
                       goal: "strength",
                       level: "novice",
+                      primary_track: "weights",
+                      days_per_week: 4,
+                      yoga_days_per_week: 0,
+                      date_of_birth: "1990-01-01",
+                      height_cm: 175,
+                      has_all_equipment: true,
                     },
                   }),
                 };
@@ -304,12 +532,89 @@ async function testProgression() {
   console.log("✓ Progression: weightPrefill 100 kg, workingWeightKg 100 kg, currentTargetReps 10");
 }
 
+async function testValidatorRejects() {
+  const calls: DbCall[] = [];
+  const supabase = createFakeSupabase(
+    { working_weight_kg: 100, current_target_reps: 10 },
+    "progression",
+    calls,
+  );
+
+  // Try to swap to an exercise not in the eligible list (different movement pattern)
+  const result = await swapExerciseForUser(supabase, "user-1", {
+    sessionExerciseId: "se-1",
+    newExerciseId: "sibling-ex", // This is a lunge, current is squat
+  });
+
+  if (result.ok) {
+    throw new Error(`Validator should reject sibling-ex (different movement pattern), but it accepted it`);
+  }
+  
+  // Ensure no update was made
+  const updateCall = calls.find(c => c.table === "session_exercises" && c.updatePayload);
+  if (updateCall) {
+    throw new Error("Validator rejected but update was attempted");
+  }
+  
+  console.log("✓ Validator rejects ineligible swap: no update, no weight lookup");
+}
+
+/**
+ * Fail-closed reads, against the in-memory PostgREST behind a REAL supabase-js
+ * client (scripts/helpers/fake-swap-db.ts): no cast of a fake to the client
+ * type is needed.
+ */
+async function expectFailsClosed(
+  label: string,
+  expectedError: string,
+  breakRead: (req: SwapDbRequest) => Response | void,
+) {
+  const account: Account = { level: "intermediate", equipment: ["kettlebell", "dumbbell"], injuries: [] };
+  const db = buildDb({
+    account,
+    current: exercise("alternating-kettlebell-press"),
+    exercises: ["kettlebell-arnold-press", "kettlebell-seated-press"].map(exercise),
+  });
+  db.beforeRequest = breakRead;
+  const result = await swapExerciseForUser(db.client, USER_ID, {
+    sessionExerciseId: SLOT_ID,
+    newExerciseId: exercise("kettlebell-arnold-press").id,
+  });
+  if (result.ok) throw new Error(`${label} should fail closed, but swap succeeded`);
+  if (!result.error.includes(expectedError)) {
+    throw new Error(`Expected "${expectedError}" error, got: ${result.error}`);
+  }
+  if (writes(db).length > 0) throw new Error(`${label} failed but the swap was still written`);
+  console.log(`✓ ${label} fails closed: swap rejected, nothing written`);
+}
+
+const serverError = () => json(500, { code: "XX000", message: "injected read failure", details: null, hint: null });
+
+async function testProfileReadFailsClosed() {
+  await expectFailsClosed("Profile read", "Profile not found", (req) =>
+    req.method === "GET" && req.table === "profiles" ? serverError() : undefined);
+}
+
+async function testInjuryReadFailsClosed() {
+  await expectFailsClosed("Injury read", "Could not load injury data", (req) =>
+    req.method === "GET" && req.table === "user_injuries" ? serverError() : undefined);
+}
+
+async function testEquipmentReadFailsClosed() {
+  await expectFailsClosed("Equipment read", "Could not load equipment data", (req) =>
+    req.method === "GET" && req.table === "user_equipment" ? serverError() : undefined);
+}
+
 async function main() {
   console.log("Testing swapExerciseForUser with in-memory fake Supabase client...\n");
   
   await testWithRecording();
   await testDailyMenu();
   await testProgression();
+  await testValidatorRejects();
+  await testProfileReadFailsClosed();
+  await testInjuryReadFailsClosed();
+  await testEquipmentReadFailsClosed();
 
   console.log("\nAll swapExerciseForUser tests passed.");
   process.exit(0);
