@@ -44,7 +44,7 @@ function createBasicDeps(overrides: Partial<StartSessionFullDeps> = {}): StartSe
     fetchOpenSessions: async () => [],
     fetchResumeEnabled: async () => true,
     
-    updateSession: async (sessionId, today, payload) => ({ ok: true, sessionId }),
+    updateSession: async (sessionId) => ({ ok: true, sessionId }),
     ensureSessionExercises: async () => {},
     
     ensureCurrentBlock: async () => ({ status: "current", programId: "prog-1" }),
@@ -304,6 +304,203 @@ async function main() {
     if (result.ok) throw new Error("Expected error, got ok");
     if (!result.error.includes("program not found")) {
       throw new Error(`Expected "program not found" error, got: ${result.error}`);
+    }
+  });
+
+  await test("BUG CATCH: update returns different id than existing", async () => {
+    const deps = createBasicDeps({
+      fetchOpenSessions: async () => [{
+        id: "sess-planned",
+        status: "planned" as const,
+        local_date: TODAY,
+        actual_type: null,
+        started_at: null,
+      }],
+      updateSession: async (sessionId) => ({ ok: true, sessionId: "WRONG-ID" }),
+    });
+
+    const result = await startSessionFullCore(deps);
+
+    if (!result.ok) throw new Error(`Expected ok, got ${result.error}`);
+    if (result.sessionId !== "sess-planned") {
+      throw new Error(`updateSession returned wrong id but core used it: ${result.sessionId}`);
+    }
+  });
+
+  await test("BUG CATCH: update error propagates", async () => {
+    const deps = createBasicDeps({
+      fetchOpenSessions: async () => [{
+        id: "sess-planned",
+        status: "planned" as const,
+        local_date: TODAY,
+        actual_type: null,
+        started_at: null,
+      }],
+      updateSession: async () => ({ ok: false, error: "update failed" }),
+    });
+
+    const result = await startSessionFullCore(deps);
+
+    if (result.ok) throw new Error("Expected error, got ok");
+    eq(result.error, "update failed", "Update error propagated");
+  });
+
+  await test("BUG CATCH: started_at stamp inserted", async () => {
+    let insertPayload: unknown = null;
+    const deps = createBasicDeps({
+      insertSession: async (payload) => {
+        insertPayload = payload;
+        return { ok: true, sessionId: "sess-new" };
+      },
+    });
+
+    await startSessionFullCore(deps);
+
+    if (!insertPayload || typeof insertPayload !== "object") throw new Error("No insert payload");
+    const p = insertPayload as Record<string, unknown>;
+    if (!p.started_at) throw new Error("started_at not set");
+    eq(typeof p.started_at, "string", "started_at is string timestamp");
+  });
+
+  await test("BUG CATCH: deload week calculation", async () => {
+    let insertPayload: unknown = null;
+    const deps = createBasicDeps({
+      loadProgram: async () => ({
+        ok: true,
+        program: { id: "prog-1", started_on: "2026-10-01", deload_week: 4, week_offset: 0 },
+        dayId: "day-1",
+        dayType: "weights",
+      }),
+      insertSession: async (payload) => {
+        insertPayload = payload;
+        return { ok: true, sessionId: "sess-new" };
+      },
+    });
+
+    await startSessionFullCore(deps);
+
+    if (!insertPayload || typeof insertPayload !== "object") throw new Error("No insert payload");
+    const p = insertPayload as Record<string, unknown>;
+    eq(p.week_in_block, 4, "Week in block calculated");
+    eq(p.is_deload, true, "Deload flag set for week 4");
+  });
+
+  await test("BUG CATCH: near-midnight NY/UTC date differ", async () => {
+    let insertPayload: unknown = null;
+    const nowMs = new Date("2026-10-26T04:30:00Z").getTime();
+    const deps = createBasicDeps({
+      nowMs,
+      fetchProfile: async () => ({ timezone: "America/New_York" }),
+      insertSession: async (payload) => {
+        insertPayload = payload;
+        return { ok: true, sessionId: "sess-new" };
+      },
+    });
+
+    await startSessionFullCore(deps);
+
+    if (!insertPayload || typeof insertPayload !== "object") throw new Error("No insert payload");
+    const p = insertPayload as Record<string, unknown>;
+    eq(p.local_date, "2026-10-26", "NY date is 2026-10-26 (00:30 EDT)");
+  });
+
+  await test("BUG CATCH: seconds metric handled", async () => {
+    let insertedExercises: unknown[] = [];
+    const deps = createBasicDeps({
+      fetchPlannedExercises: async () => [{
+        exercise_id: "ex-plank",
+        order_index: 0,
+        target_sets: 3,
+        target_reps_min: 30,
+        target_reps_max: 60,
+        rest_seconds: 90,
+        exercises: { metric: "seconds" },
+      }],
+      insertExercises: async (exercises) => {
+        insertedExercises = exercises;
+        return { ok: true };
+      },
+    });
+
+    await startSessionFullCore(deps);
+
+    if (insertedExercises.length !== 1) throw new Error("Expected 1 exercise");
+    const ex = insertedExercises[0] as Record<string, unknown>;
+    eq(ex.metric, "seconds", "Metric is seconds");
+  });
+
+  await test("BUG CATCH: full insert payload structure", async () => {
+    let insertPayload: unknown = null;
+    const deps = createBasicDeps({
+      insertSession: async (payload) => {
+        insertPayload = payload;
+        return { ok: true, sessionId: "sess-new" };
+      },
+    });
+
+    await startSessionFullCore(deps);
+
+    if (!insertPayload || typeof insertPayload !== "object") throw new Error("No insert payload");
+    const p = insertPayload as Record<string, unknown>;
+    eq(p.user_id, USER_ID, "user_id");
+    eq(p.program_id, "prog-1", "program_id");
+    eq(p.program_day_id, "day-1", "program_day_id");
+    eq(p.local_date, TODAY, "local_date");
+    eq(p.status, "in_progress", "status");
+    eq(typeof p.started_at, "string", "started_at");
+    eq(typeof p.week_in_block, "number", "week_in_block");
+    eq(typeof p.is_deload, "boolean", "is_deload");
+  });
+
+  await test("BUG CATCH: today passed to stale step", async () => {
+    let staleTodayArg = "";
+    const deps = createBasicDeps({
+      buildStaleDeps: (openSessions, today) => {
+        staleTodayArg = today;
+        return {
+          today,
+          readOpenSessions: async () => openSessions,
+          closeStaleSessions: async () => 0,
+          checkRemainingInProgress: async () => ({ ok: true, sessionId: null }),
+        };
+      },
+    });
+
+    await startSessionFullCore(deps);
+
+    eq(staleTodayArg, TODAY, "Today passed to buildStaleDeps");
+  });
+
+  await test("BUG CATCH: exercise insert error propagates", async () => {
+    const deps = createBasicDeps({
+      insertExercises: async () => ({ ok: false, error: "insert exercises failed" }),
+    });
+
+    const result = await startSessionFullCore(deps);
+
+    if (result.ok) throw new Error("Expected error, got ok");
+    eq(result.error, "insert exercises failed", "Exercise insert error propagated");
+  });
+
+  await test("BUG CATCH: different-day existingSessionId skips insertExercises", async () => {
+    let exercisesInserted = false;
+    const deps = createBasicDeps({
+      insertSession: async () => ({
+        ok: false,
+        error: "You have an open session from a different day.",
+        existingSessionId: "sess-yesterday",
+      }),
+      insertExercises: async () => {
+        exercisesInserted = true;
+        return { ok: true };
+      },
+    });
+
+    const result = await startSessionFullCore(deps);
+
+    if (result.ok) throw new Error("Expected error when different-day session exists");
+    if (exercisesInserted) {
+      throw new Error("insertExercises was called despite different-day conflict");
     }
   });
 

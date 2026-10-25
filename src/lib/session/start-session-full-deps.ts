@@ -103,13 +103,7 @@ export function buildStartSessionFullDeps(
     },
 
     async insertSession(payload) {
-      const result = await startSessionCore(supabase, userId, payload);
-      // Handle race: if another request created an in_progress session between Case C and insert,
-      // return success with that session ID
-      if (!result.ok && "existingSessionId" in result && result.existingSessionId) {
-        return { ok: true, sessionId: result.existingSessionId };
-      }
-      return result;
+      return await startSessionCore(supabase, userId, payload);
     },
 
     async fetchPlannedExercises(dayId) {

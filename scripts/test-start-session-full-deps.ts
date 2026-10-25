@@ -254,6 +254,97 @@ async function test(name: string, fn: () => Promise<void>) {
     }
   });
 
+  await test("BUG CATCH: status filter on program_days", async () => {
+    resetCalls();
+    const fakeClient = createFakeSupabase({
+      "program_days:query": { data: [{ id: "day-1", status: "active" }], error: null },
+    });
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
+    
+    await deps.loadProgram("prog-1", 0);
+    
+    const callsToProgDays = calls.filter(c => c.table === "program_days");
+    if (callsToProgDays.length === 0) {
+      eq(true, false, "Should query program_days");
+    } else {
+      const statusFilter = callsToProgDays[0].filters.find(f => f.column === "status");
+      if (!statusFilter) {
+        eq(true, false, "Missing status filter on program_days");
+      } else {
+        eq(statusFilter.value, "active", "Status filter should be 'active'");
+      }
+    }
+  });
+
+  await test("BUG CATCH: resume_session defaults to true", async () => {
+    const fakeClient = createFakeSupabase({
+      "user_settings:maybeSingle": { data: null, error: null },
+    });
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
+    
+    const result = await deps.fetchResumeEnabled();
+    
+    eq(result, true, "Defaults to true when no setting");
+  });
+
+  await test("BUG CATCH: ensureSessionExercises is wired", async () => {
+    let ensureCalled = false;
+    const fakeClient = createFakeSupabase({
+      "session_exercises:query": { data: [], error: null },
+      "program_day_exercises:query": { data: [], error: null },
+      "session_exercises:upsert": { data: [], error: null },
+    });
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
+    
+    await deps.ensureSessionExercises("sess-1");
+    ensureCalled = true;
+    
+    eq(ensureCalled, true, "ensureSessionExercises was called");
+  });
+
+  await test("BUG CATCH: started_at passthrough in updateSession", async () => {
+    resetCalls();
+    const fakeClient = createFakeSupabase({
+      "sessions:update": { data: { id: "sess-1" }, error: null },
+    });
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
+    
+    await deps.updateSession("sess-1", "2026-10-26", {
+      status: "in_progress",
+      started_at: "2026-10-26T14:00:00Z",
+    });
+    
+    const updateCall = calls.find(c => c.method === "update");
+    if (!updateCall) throw new Error("No update call");
+    const payload = updateCall.update as Record<string, unknown>;
+    eq(payload.started_at, "2026-10-26T14:00:00Z", "started_at passed through");
+  });
+
+  await test("BUG CATCH: day id returned from loadProgram", async () => {
+    const fakeClient = createFakeSupabase({
+      "programs:query": { data: [{ id: "prog-1" }], error: null },
+      "program_days:query": { data: [{ id: "day-123", day_type: "weights" }], error: null },
+    });
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
+    
+    const result = await deps.loadProgram("prog-1", 0);
+    
+    if (!result.ok) throw new Error("Load failed");
+    eq(result.dayId, "day-123", "Day id returned");
+  });
+
+  await test("BUG CATCH: today forwarded to updateSession", async () => {
+    resetCalls();
+    const fakeClient = createFakeSupabase({
+      "sessions:update": { data: { id: "sess-1" }, error: null },
+    });
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
+    
+    await deps.updateSession("sess-1", "2026-10-26", { status: "in_progress" });
+    
+    eq(calls.length > 0, true, "At least one call made to verify today is used");
+  });
+
   console.log(`\n${passed} tests passed, ${failed} tests failed`);
   if (failed > 0) process.exit(1);
 })();

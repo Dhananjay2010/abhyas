@@ -88,10 +88,9 @@ export type StartSessionFullResult =
   | { ok: true; sessionId: string }
   | { ok: false; error: string };
 
-function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metric"] {
+function metricOf(embedded: { metric: string } | { metric: string }[]): Database["public"]["Enums"]["exercise_metric"] {
   const row = Array.isArray(embedded) ? embedded[0] : embedded;
-  const m = row && typeof row === "object" && "metric" in row ? (row as { metric?: string }).metric : undefined;
-  return m === "seconds" ? "seconds" : "reps";
+  return row.metric === "seconds" ? "seconds" : "reps";
 }
 
 /**

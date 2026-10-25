@@ -158,6 +158,28 @@ async function main() {
     }
   });
 
+  await test("BUG CATCH: upsert uses onConflict with ignoreDuplicates", async () => {
+    const fake = db();
+    const exercises = sampleExercises("session-conflict");
+
+    let upsertOptions: unknown = null;
+    fake.beforeRequest = (req) => {
+      if (req.method === "POST" && req.table === "session_exercises") {
+        upsertOptions = req.body?.[1];
+      }
+    };
+
+    await insertSessionExercises(fake.client, exercises);
+
+    if (!upsertOptions || typeof upsertOptions !== "object") {
+      throw new Error("No upsert options captured");
+    }
+    const opts = upsertOptions as Record<string, unknown>;
+    if (!opts.onConflict || opts.ignoreDuplicates !== true) {
+      throw new Error(`Expected onConflict + ignoreDuplicates=true, got: ${JSON.stringify(opts)}`);
+    }
+  });
+
   console.log(`\n${passed + failed} tests, ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
 }

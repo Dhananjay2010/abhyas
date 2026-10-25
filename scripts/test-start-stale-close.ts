@@ -625,6 +625,45 @@ async function testTodayChangesOutcome() {
   console.log("✓ Test (B5): today parameter changes outcome (same-date vs cross-date)");
 }
 
+/**
+ * Test (BUG CATCH): checkRemainingInProgress error propagates
+ */
+async function testRemainingCheckError() {
+  const sessions: Session[] = [
+    { id: "sess-stale", user_id: USER_ID, program_id: "prog-1", program_day_id: "day-1",
+      local_date: YESTERDAY, week_in_block: 1, is_deload: false, status: "in_progress",
+      actual_type: "weights", created_at: "2026-10-25T10:00:00Z", started_at: "2026-10-25T10:00:00Z",
+      completed_at: null, duration_seconds: null, planned_type: "weights" },
+  ];
+
+  const errorFetch: typeof fetch = async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url.includes("/sessions?") && url.includes("status=eq.in_progress") && url.includes("order=created_at.desc")) {
+      return new Response(JSON.stringify({ message: "Database error", code: "PGRST301" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  const client = createClient("http://test.supabase.co", "test-key", { global: { fetch: errorFetch } });
+  
+  const staleDeps = buildStartSessionStaleDeps(
+    client,
+    USER_ID,
+    [{ id: "sess-stale", status: "in_progress", local_date: YESTERDAY, actual_type: null, started_at: null }],
+    TODAY,
+    NOW_MS
+  );
+
+  const result = await startSessionStaleCore(staleDeps);
+
+  if (result.ok) {
+    throw new Error("Expected error, got ok");
+  }
+}
+
 // Run all tests
 (async () => {
   try {
@@ -636,6 +675,7 @@ async function testTodayChangesOutcome() {
     await testRemainingCheckFiltersStatus();
     await testSecondUserNotClosed();
     await testTodayChangesOutcome();
+    await testRemainingCheckError();
     console.log("\n✅ All tests passed");
     process.exit(0);
   } catch (error) {

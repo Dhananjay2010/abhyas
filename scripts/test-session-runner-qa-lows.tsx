@@ -379,6 +379,61 @@ console.log("\n3. L1: picking feel after conflict advances to next exercise");
   document.body.removeChild(container);
 }
 
+// Test 4: BUG CATCH - Timer is 4000ms
+await (async () => {
+  console.log("\n4. BUG CATCH: Timer duration is 4000ms");
+  
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  
+  const mockTimer = createMockTimer();
+  let timerDuration = 0;
+  const originalSetTimeout = mockTimer.timer.setTimeout;
+  mockTimer.timer.setTimeout = (callback: () => void, ms: number) => {
+    timerDuration = ms;
+    return originalSetTimeout(callback, ms);
+  };
+  
+  const root = createRoot(container);
+  await act(async () => {
+    root.render(<SessionRunner {...mockConfig()} timer={mockTimer.timer} />);
+  });
+  
+  check("Timer duration is 4000ms", timerDuration === 4000, `Got ${timerDuration}ms`);
+  
+  root.unmount();
+  document.body.removeChild(container);
+})();
+
+// Test 5: BUG CATCH - Timer cleared on unmount
+await (async () => {
+  console.log("\n5. BUG CATCH: Timer cleared on unmount");
+  
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  
+  const mockTimer = createMockTimer();
+  let clearCalled = false;
+  const originalClear = mockTimer.timer.clearTimeout;
+  mockTimer.timer.clearTimeout = (id: ReturnType<typeof globalThis.setTimeout>) => {
+    clearCalled = true;
+    originalClear(id);
+  };
+  
+  const root = createRoot(container);
+  await act(async () => {
+    root.render(<SessionRunner {...mockConfig()} timer={mockTimer.timer} />);
+  });
+  
+  await act(async () => {
+    root.unmount();
+  });
+  
+  check("clearTimeout called on unmount", clearCalled, "clearTimeout not called");
+  
+  document.body.removeChild(container);
+})();
+
 console.log(`\n${failures > 0 ? "FAILED" : "PASSED"}: ${failures} failure(s)\n`);
 process.exit(failures > 0 ? 1 : 0);
 
