@@ -32,8 +32,6 @@ import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/sessi
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
-import { progressForPlanningMode, resolveSwapResultPayload } from "@/lib/session/swap-progress";
-import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
 import { abandonSessionAction, finishSessionAction, finishExerciseAction as finishExerciseActionWrapper } from "@/lib/session/session-action-wrappers";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
