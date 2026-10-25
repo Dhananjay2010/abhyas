@@ -42,22 +42,15 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   // Full-depth squats
   "barbell-full-squat",
   
-  // Explosive loaded knee-flexion moves (jerks, speed/dynamic squats)
-  "squat-jerk",
+  // Explosive loaded knee-flexion moves (speed/dynamic squats)
   "speed-box-squat",
   "speed-squats",
   
-  // Kettlebell jerks (explosive overhead + deep catch)
-  "double-kettlebell-jerk",
-  "one-arm-kettlebell-jerk",
-  "one-arm-kettlebell-split-jerk",
-  "two-arm-kettlebell-jerk",
-  "one-arm-kettlebell-clean-and-jerk",
-  
-  // Kettlebell explosive presses and thruster (leg-driven)
-  "double-kettlebell-push-press",
-  "one-arm-kettlebell-push-press",
+  // Thrusters: banned for BOTH current AND past knee (item 14)
   "kettlebell-thruster",
+  
+  // Olympic lift jerks: banned for BOTH tiers (squat-jerk involves deep catch)
+  "squat-jerk",
   
   // Band/chain accommodating resistance BARBELL squats (variable load through range)
   "squat-with-bands",
@@ -197,4 +190,34 @@ export function getPastKneeExcludedSlugs(): ReadonlySet<string> {
 
 export function getKneeFriendlyPrimaries(pattern: Pattern): readonly string[] {
   return KNEE_FRIENDLY_PRIMARIES[pattern] ?? [];
+}
+
+/**
+ * Item 14: Kettlebell jerks and push presses are banned for CURRENT knee only.
+ * They are ALLOWED for past knee (not in PAST_KNEE_EXCLUDED_SLUGS).
+ * Thrusters are banned for BOTH tiers (in PAST_KNEE_EXCLUDED_SLUGS).
+ */
+const CURRENT_KNEE_ONLY_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
+  // Kettlebell jerks: explosive overhead + deep catch (current knee only)
+  "double-kettlebell-jerk",
+  "one-arm-kettlebell-jerk",
+  "one-arm-kettlebell-split-jerk",
+  "two-arm-kettlebell-jerk",
+  "one-arm-kettlebell-clean-and-jerk",
+  
+  // Kettlebell push presses: leg-driven explosive press (current knee only)
+  "double-kettlebell-push-press",
+  "one-arm-kettlebell-push-press",
+]);
+
+/**
+ * Check if an exercise should be excluded for CURRENT knee injuries only.
+ * These are allowed for past knee.
+ */
+export function isExcludedForCurrentKneeOnly(ex: CandidateExercise): boolean {
+  return CURRENT_KNEE_ONLY_EXCLUDED_SLUGS.has(ex.slug);
+}
+
+export function getCurrentKneeOnlyExcludedSlugs(): ReadonlySet<string> {
+  return CURRENT_KNEE_ONLY_EXCLUDED_SLUGS;
 }

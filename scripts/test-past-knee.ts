@@ -64,22 +64,15 @@ const EXPECTED_EXCLUDED_SLUGS = [
   // Full-depth squats
   "barbell-full-squat",
   
-  // Explosive loaded knee-flexion moves
-  "squat-jerk",
+  // Explosive loaded knee-flexion moves (speed/dynamic squats)
   "speed-box-squat",
   "speed-squats",
   
-  // Kettlebell jerks
-  "double-kettlebell-jerk",
-  "one-arm-kettlebell-jerk",
-  "one-arm-kettlebell-split-jerk",
-  "two-arm-kettlebell-jerk",
-  "one-arm-kettlebell-clean-and-jerk",
-  
-  // Kettlebell explosive presses and thruster
-  "double-kettlebell-push-press",
-  "one-arm-kettlebell-push-press",
+  // Thrusters: banned for BOTH current AND past knee (item 14)
   "kettlebell-thruster",
+  
+  // Olympic lift jerks: banned for BOTH tiers (squat-jerk involves deep catch)
+  "squat-jerk",
   
   // Band/chain BARBELL squats (NOT squats-with-bands which is beginner bodyweight+band)
   "squat-with-bands",
@@ -554,6 +547,131 @@ console.log("\n6. Goblet squat OR-logic: dumbbell-only past-knee vs healthy");
   //   `got: ${pastKneeDbSwaps.join(", ")}`);
   check("Healthy + DB: goblet-squat NOT in swaps", !healthyDbSwaps.includes("goblet-squat"),
     `got: ${healthyDbSwaps.join(", ")}`);
+}
+
+console.log("\n7. Item 14: Thruster/push press/kettlebell jerk tier rules");
+{
+  // Import the functions to get the exclusion lists
+  const { getPastKneeExcludedSlugs, getCurrentKneeOnlyExcludedSlugs } = require("../src/lib/program/past-knee");
+  const pastKneeExcluded = getPastKneeExcludedSlugs();
+  const currentKneeOnlyExcluded = getCurrentKneeOnlyExcludedSlugs();
+  
+  // Thrusters: banned for BOTH tiers (in past-knee exclusions)
+  check("kettlebell-thruster banned for past knee", pastKneeExcluded.has("kettlebell-thruster"));
+  
+  // Push presses: banned for current knee only, allowed for past knee
+  check("double-kettlebell-push-press NOT in past-knee exclusions", !pastKneeExcluded.has("double-kettlebell-push-press"));
+  check("one-arm-kettlebell-push-press NOT in past-knee exclusions", !pastKneeExcluded.has("one-arm-kettlebell-push-press"));
+  check("double-kettlebell-push-press in current-knee-only exclusions", currentKneeOnlyExcluded.has("double-kettlebell-push-press"));
+  check("one-arm-kettlebell-push-press in current-knee-only exclusions", currentKneeOnlyExcluded.has("one-arm-kettlebell-push-press"));
+  
+  // Kettlebell jerks: banned for current knee only, allowed for past knee
+  const kbJerks = ["double-kettlebell-jerk", "one-arm-kettlebell-jerk", "one-arm-kettlebell-split-jerk", "two-arm-kettlebell-jerk", "one-arm-kettlebell-clean-and-jerk"];
+  for (const slug of kbJerks) {
+    check(`${slug} NOT in past-knee exclusions`, !pastKneeExcluded.has(slug));
+    check(`${slug} in current-knee-only exclusions`, currentKneeOnlyExcluded.has(slug));
+  }
+  
+  // Test in plans: current knee excludes these, past knee allows them (if equipment available)
+  const currentKneeInput = base({
+    currentInjuryRegions: ["knee"],
+    anyKneeInjury: true,
+    equipmentIds: ["kettlebell"],
+  });
+  const pastKneeInput = base({
+    currentInjuryRegions: [],
+    anyKneeInjury: true,
+    equipmentIds: ["kettlebell"],
+  });
+  
+  const kbPushPress = bySlug.get("double-kettlebell-push-press");
+  const kbJerk = bySlug.get("double-kettlebell-jerk");
+  const kbThruster = bySlug.get("kettlebell-thruster");
+  
+  if (kbPushPress && kbJerk && kbThruster) {
+    const { isEligible } = require("../src/lib/program/generate");
+    
+    // Current knee: push press and jerk banned, thruster banned
+    check("Current knee: double-kettlebell-push-press BANNED", !isEligible(kbPushPress, currentKneeInput));
+    check("Current knee: double-kettlebell-jerk BANNED", !isEligible(kbJerk, currentKneeInput));
+    check("Current knee: kettlebell-thruster BANNED", !isEligible(kbThruster, currentKneeInput));
+    
+    // Past knee: push press and jerk allowed, thruster banned
+    check("Past knee: double-kettlebell-push-press ALLOWED", isEligible(kbPushPress, pastKneeInput));
+    check("Past knee: double-kettlebell-jerk ALLOWED", isEligible(kbJerk, pastKneeInput));
+    check("Past knee: kettlebell-thruster BANNED", !isEligible(kbThruster, pastKneeInput));
+  }
+  
+  // Test in swaps
+  const currentKneeSwaps = rankAlternatives(
+    bySlug.get("standing-military-press")!,
+    catalogue,
+    {
+      level: "intermediate",
+      availableEquipment: new Set(["kettlebell"]),
+      injuryRegions: ["knee"],
+      anyKneeInjury: true,
+      limit: 20,
+      scoreFn: (e) => 0,
+      tieBreakFn: (slug) => 0,
+    }
+  );
+  const currentKneeSlugs = currentKneeSwaps.map(e => e.slug);
+  
+  check("Current knee swaps: NO double-kettlebell-push-press", !currentKneeSlugs.includes("double-kettlebell-push-press"));
+  check("Current knee swaps: NO double-kettlebell-jerk", !currentKneeSlugs.includes("double-kettlebell-jerk"));
+  check("Current knee swaps: NO kettlebell-thruster", !currentKneeSlugs.includes("kettlebell-thruster"));
+  
+  const pastKneeSwaps = rankAlternatives(
+    bySlug.get("standing-military-press")!,
+    catalogue,
+    {
+      level: "intermediate",
+      availableEquipment: new Set(["kettlebell"]),
+      injuryRegions: [],
+      anyKneeInjury: true,
+      limit: 20,
+      scoreFn: (e) => 0,
+      tieBreakFn: (slug) => 0,
+    }
+  );
+  const pastKneeSlugs = pastKneeSwaps.map(e => e.slug);
+  
+  check("Past knee swaps: YES double-kettlebell-push-press (if equipment available)", 
+    pastKneeSlugs.includes("double-kettlebell-push-press") || !catalogue.find(e => e.slug === "double-kettlebell-push-press" && e.equipment_ids.every(id => ["kettlebell"].includes(id))),
+    `available swaps: ${pastKneeSlugs.join(", ")}`);
+  check("Past knee swaps: NO kettlebell-thruster", !pastKneeSlugs.includes("kettlebell-thruster"));
+}
+
+console.log("\n8. Item 14: Monotonicity test (every past-knee-banned is also current-knee-banned)");
+{
+  const { getPastKneeExcludedSlugs, getCurrentKneeOnlyExcludedSlugs } = require("../src/lib/program/past-knee");
+  const pastKneeExcluded = getPastKneeExcludedSlugs();
+  const currentKneeOnlyExcluded = getCurrentKneeOnlyExcludedSlugs();
+  
+  // For every past-knee-banned slug, check it's also banned for current knee
+  // (either via past-knee list OR current-knee-only list OR contraindications)
+  for (const slug of Array.from(pastKneeExcluded)) {
+    const ex = bySlug.get(slug);
+    if (!ex) {
+      check(`${slug} exists in catalogue`, false);
+      continue;
+    }
+    
+    const currentKneeInput = base({
+      currentInjuryRegions: ["knee"],
+      anyKneeInjury: true,
+      equipmentIds: ex.equipment_ids.length > 0 ? ex.equipment_ids : ["barbell"],
+    });
+    
+    const { isEligible } = require("../src/lib/program/generate");
+    const bannedForCurrent = !isEligible(ex, currentKneeInput);
+    
+    check(`Monotonicity: ${slug} banned for current knee (since it's banned for past)`, bannedForCurrent,
+      bannedForCurrent ? "" : "VIOLATION: past-knee ban must imply current-knee ban");
+  }
+  
+  console.log(`    Checked ${pastKneeExcluded.size} past-knee exclusions for monotonicity`);
 }
 
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);

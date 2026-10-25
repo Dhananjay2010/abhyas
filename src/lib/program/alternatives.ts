@@ -2,7 +2,7 @@ import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "@/lib/program/past-knee-lunge-order";
-import { isExcludedForPastKnee } from "@/lib/program/past-knee";
+import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly } from "@/lib/program/past-knee";
 
 
 export type ExerciseRow = CandidateExercise;
@@ -208,7 +208,13 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 2. Exclude dangerous/problematic exercises (hard-coded exclusion set)
     if (EXCLUDED_EXERCISE_SLUGS.has(candidate.slug)) continue;
     
-    // 2b. Past-knee exclusions (pistol squats, jumps, band/chain squats, etc.)
+    // 2a. Item 14: Current knee exclusions include BOTH current-knee-only AND past-knee exclusions
+    if (hasKneeInjury) {
+      if (isExcludedForCurrentKneeOnly(candidate)) continue;
+      if (isExcludedForPastKnee(candidate)) continue;
+    }
+    
+    // 2b. Past-knee exclusions (pistol squats, jumps, band/chain squats, thrusters, squat-jerk)
     if (hasPastKnee && isExcludedForPastKnee(candidate)) continue;
     
     // 3. Exclude pullovers when original is a compound pull

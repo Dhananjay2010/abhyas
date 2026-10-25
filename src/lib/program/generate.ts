@@ -3,7 +3,7 @@ import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
 import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "./past-knee-lunge-order";
-import { isExcludedForPastKnee } from "./past-knee";
+import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly } from "./past-knee";
 
 
 type Enums = Database["public"]["Enums"];
@@ -508,7 +508,14 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
   const hasPastKnee = (input.anyKneeInjury ?? false) && !hasCurrentKnee;
 
-  // Past-knee exclusions (pistol squats, jumps, band/chain squats, etc.)
+  // Item 14: Current knee exclusions include BOTH current-knee-only AND past-knee exclusions
+  // (current knee is more restrictive than past knee, so it inherits all past-knee bans)
+  if (hasCurrentKnee) {
+    if (isExcludedForCurrentKneeOnly(ex)) return false;
+    if (isExcludedForPastKnee(ex)) return false;
+  }
+
+  // Past-knee exclusions (pistol squats, jumps, band/chain squats, thrusters, squat-jerk)
   if (hasPastKnee && isExcludedForPastKnee(ex)) {
     return false;
   }

@@ -278,4 +278,36 @@ sed -i '/PR #73 coordinator: ANY knee injury.*excludes jump\/plyometric/,/^  }$/
 run_mutant "Disable jump/plyo guard for knee injuries" "src/lib/program/generate.ts" || true
 restore_file "src/lib/program/generate.ts"
 
+# === Item 14: Thruster/push press/kettlebell jerk tier mutants ===
+
+# Mutant 26: Remove kettlebell-thruster from past-knee exclusions (should fail: thruster must be banned for both tiers)
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/"kettlebell-thruster",/d' src/lib/program/past-knee.ts
+run_mutant "Item 14: Remove kettlebell-thruster exclusion" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 27: Add double-kettlebell-push-press to past-knee exclusions (should fail: push press allowed for past knee)
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/const PAST_KNEE_EXCLUDED_SLUGS.*=/,/];/{s/"kettlebell-thruster",/"kettlebell-thruster",\n  "double-kettlebell-push-press",/}' src/lib/program/past-knee.ts
+run_mutant "Item 14: Add push press to past-knee exclusions" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 28: Remove double-kettlebell-jerk from current-knee-only exclusions (should fail: jerk must be banned for current knee)
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/"double-kettlebell-jerk",/d' src/lib/program/past-knee.ts
+run_mutant "Item 14: Remove jerk from current-knee-only exclusions" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 29: Disable current-knee-only check in generate.ts
+restore_file "src/lib/program/generate.ts"
+sed -i 's/if (hasCurrentKnee && isExcludedForCurrentKneeOnly(ex)) {/if (false \&\& hasCurrentKnee \&\& isExcludedForCurrentKneeOnly(ex)) {/' src/lib/program/generate.ts
+run_mutant "Item 14: Disable current-knee-only check in generate.ts" "src/lib/program/generate.ts" || true
+restore_file "src/lib/program/generate.ts"
+
+# Mutant 30: Disable current-knee-only check in alternatives.ts
+restore_file "src/lib/program/alternatives.ts"
+sed -i 's/if (hasKneeInjury && isExcludedForCurrentKneeOnly(candidate)) continue;/if (false \&\& hasKneeInjury \&\& isExcludedForCurrentKneeOnly(candidate)) continue;/' src/lib/program/alternatives.ts
+run_mutant "Item 14: Disable current-knee-only check in alternatives.ts" "src/lib/program/alternatives.ts" || true
+restore_file "src/lib/program/alternatives.ts"
+
 echo ""
