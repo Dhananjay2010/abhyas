@@ -25,7 +25,6 @@ import {
   hashString,
   type CandidateExercise, 
   type GeneratorInput,
-  KNEE_SAFE_LUNGE_EXERCISES,
 } from "../src/lib/program/generate";
 import { buildPatternList, rankAlternatives } from "../src/lib/program/alternatives";
 import { getSwapPatterns } from "../src/lib/program/swap-patterns";

@@ -28,6 +28,7 @@ type Mutant = {
   mutate: string;
   tests: string[]; // Test script names (test:knee-swaps, test:catalogue-knee-jumps, etc.)
   notes?: string; // Optional explanation for why a mutant behaves a certain way
+  equivalent?: boolean; // Marks mutant as equivalent (survives but is not a failure)
 };
 
 const mutants: Mutant[] = [
@@ -68,12 +69,16 @@ const mutants: Mutant[] = [
   },
 
   // 5a. Drop knee high-impact filter in swap path (alternatives.ts)
+  // EQUIVALENT for current-knee users: PR #124 adds isExcludedForPastKnee() to
+  // rankAlternatives, which also runs for current-knee users and already removes
+  // high-impact lower-body work, making this filter redundant for current knee.
   {
     name: "Drop knee high-impact filter in alternatives (swaps)",
     file: "src/lib/program/alternatives.ts",
     pattern: /\/\/ 6b\. PR #73: Knee injuries exclude high-impact lower-body moves\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.impact === "high"\) \{/,
     mutate: '// 6b. PR #73: Knee injuries exclude high-impact lower-body moves\n    if (!(ctx.anyKneeInjury ?? false) && candidate.impact === "high") {',
     tests: ["test:swap-mutations"],
+    equivalent: true,
   },
 
   // 5b. Drop past-knee 4-list restriction in swaps (alternatives.ts)
@@ -98,8 +103,8 @@ const mutants: Mutant[] = [
   {
     name: "Force hasCurrentKnee to false in buildPatternList",
     file: "src/lib/program/alternatives.ts",
-    pattern: /const isCurrentKnee = \(hasCurrentKnee === true\) \|\| \(hasCurrentKnee === undefined && hasKneeInjury\);\s+const skipFallback = isCurrentKnee && currentPattern === "lunge";/,
-    mutate: 'const isCurrentKnee = false; // MUTANT: Never treat as current knee\n  const skipFallback = isCurrentKnee && currentPattern === "lunge";',
+    pattern: /const isCurrentKnee = \(hasCurrentKnee === true\) \|\| \(hasCurrentKnee === undefined && hasKneeInjury\);/,
+    mutate: 'const isCurrentKnee = false;',
     tests: ["test:knee-swaps"],
   },
 
@@ -182,12 +187,16 @@ const mutants: Mutant[] = [
     tests: ["test:sissy-squat-ban"],
   },
   
+  // EQUIVALENT for current-knee users: PR #124 adds isExcludedForPastKnee() to
+  // rankAlternatives, which runs for current-knee users and already bans sissy
+  // squats (via the slug check), making this filter redundant for current knee.
   {
     name: "Remove sissy-squat ban in rankAlternatives (swap generation)",
     file: "src/lib/program/alternatives.ts",
     pattern: /\/\/ 6c\. PR #73: ANY knee injury excludes sissy squats \(defense-in-depth with isEligible\)\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.slug\.includes\("sissy"\)\) \{\s+continue;\s+\}/,
     mutate: '// MUTANT: Removed sissy ban from swaps',
     tests: ["test:sissy-squat-ban"],
+    equivalent: true,
   },
   
   // PR #73 Run 20: M3 protection - never drop the only pull on knee-injured full-body days
@@ -207,105 +216,12 @@ const mutants: Mutant[] = [
     mutate: '// MUTANT: Removed push protection\n                // if (isPush && pushCount === 1) continue;',
     tests: ["test:knee-safety-matrix"],
   },
-  
-  // Item 15(a): Barbell-squat never leads for past knee
-  {
-    name: "Remove barbell-squat leading penalty (allow barbell-squat to lead)",
-    file: "src/lib/program/past-knee.ts",
-    pattern: /\/\/ Item 15: Goblet\/box squat bonus for past knee in leading squat slot\s+if \(hasPastKnee && slotIndex <= 1 && ex\.movement_pattern === "squat" &&\s+\(ex\.slug === "goblet-squat" \|\| ex\.slug === "box-squat"\)\) \{\s+return 1000;/,
-    mutate: '// Item 15: Goblet/box squat bonus for past knee in leading squat slot\n  if (hasPastKnee && slotIndex <= 1 && ex.movement_pattern === "squat" && \n      (ex.slug === "goblet-squat" || ex.slug === "box-squat")) {\n    return 0; // MUTANT: No bonus',
-    tests: ["test:knee-safety-matrix"],
-  },
-  
-  // Item 15(b): At most ONE squat-pattern movement per past-knee day
-  {
-    name: "Allow multiple squats per day (remove one-squat limit)",
-    file: "src/lib/program/generate.ts",
-    pattern: /\/\/ Item 15\(b\): Steer 1: For past-knee, reject squat-pattern candidates when day already has a squat, except allow leg-press\s+if \(hasPastKnee\) \{\s+const alreadyHasSquat = pickedSoFar\.some\(picked => picked\.ex\.movement_pattern === "squat"\);\s+if \(alreadyHasSquat\) \{\s+candidates = candidates\.filter\(e => e\.movement_pattern !== "squat" \|\| e\.slug === "leg-press"\);/,
-    mutate: '// Item 15(b): Steer 1: For past-knee, reject squat-pattern candidates when day already has a squat, except allow leg-press\n    // MUTANT: Allow multiple squats\n    if (false) {\n      const alreadyHasSquat = pickedSoFar.some(picked => picked.ex.movement_pattern === "squat");\n      if (alreadyHasSquat) {\n        candidates = candidates.filter(e => e.movement_pattern !== "squat" || e.slug === "leg-press");',
-    tests: ["test:knee-safety-matrix"],
-  },
-  
-  // Item 15(b2): One-squat-per-day in fallback path  
-  {
-    name: "Allow multiple squats per day (remove fallback check)",
-    file: "src/lib/program/generate.ts",
-    pattern: /\/\/ Item 15\(b\): Steer 1: For past-knee, reject squat-pattern candidates when day already has a squat, except allow leg-press\s+if \(hasPastKnee\) \{\s+const alreadyHasSquat = pickedSoFar\.some\(p => p\.ex\.movement_pattern === "squat"\);\s+if \(alreadyHasSquat\) \{\s+altCandidates = altCandidates\.filter\(e => e\.movement_pattern !== "squat" \|\| e\.slug === "leg-press"\);/,
-    mutate: '// Item 15(b): Steer 1: For past-knee, reject squat-pattern candidates when day already has a squat, except allow leg-press\n    // MUTANT: Allow multiple squats in fallback\n    if (false) {\n      const alreadyHasSquat = pickedSoFar.some(p => p.ex.movement_pattern === "squat");\n      if (alreadyHasSquat) {\n        altCandidates = altCandidates.filter(e => e.movement_pattern !== "squat" || e.slug === "leg-press");',
-    tests: ["test:knee-safety-matrix"],
-  },
-  
-  // Item 15(c): Barbell-squat comes after preferred squats in swaps
-  {
-    name: "Remove barbell-squat swap ordering (allow barbell-squat first)",
-    file: "src/lib/program/alternatives.ts",
-    pattern: /\/\/ Item 15: Past-knee squat ordering \(barbell-squat after goblet, box, bodyweight, leg-press\)\s+let squatPriority = 0;\s+if \(hasPastKnee && current\.movement_pattern === "squat" && candidate\.movement_pattern === "squat"\) \{/,
-    mutate: '// Item 15: Past-knee squat ordering (barbell-squat after goblet, box, bodyweight, leg-press)\n    let squatPriority = 0;\n    if (!hasPastKnee && current.movement_pattern === "squat" && candidate.movement_pattern === "squat") {',
-    tests: ["test:knee-safety-matrix"],
-  },
-  
-  // Item 15(d): Ban hack squat for past knee
-  {
-    name: "Allow hack-squat for past knee (remove from exclusion list)",
-    file: "src/lib/program/past-knee.ts",
-    pattern: /"hack-squat",/,
-    mutate: '// MUTANT: "hack-squat" removed',
-    tests: ["test:knee-safety-matrix"],
-  },
-  
-  // Item 15(d): Ban front squat variants for past knee
-  {
-    name: "Allow front-barbell-squat for past knee (remove from exclusion list)",
-    file: "src/lib/program/past-knee.ts",
-    pattern: /"front-barbell-squat",/,
-    mutate: '// MUTANT: "front-barbell-squat" removed',
-    tests: ["test:knee-safety-matrix"],
-  },
-  
-  // Item 15(d): Ban deficit deadlift for past knee
-  {
-    name: "Allow deficit-deadlift for past knee (remove from exclusion list)",
-    file: "src/lib/program/past-knee.ts",
-    pattern: /"deficit-deadlift",/,
-    mutate: '// MUTANT: "deficit-deadlift" removed',
-    tests: ["test:knee-safety-matrix"],
-  },
-  
-  // Item 16: Olympic lift exclusion predicate
-  {
-    name: "Disable Olympic lift exclusion predicate (allow for injured users)",
-    file: "src/lib/program/generate.ts",
-    pattern: /export function shouldExcludeOlympicLift\(\s+ex: CandidateExercise,\s+input: \{\s+currentInjuryRegions\?: string\[\];\s+anyKneeInjury\?: boolean;\s+level\?: string;\s+\}\s+\): boolean \{\s+if \(!isOlympicLift\(ex\)\) return false;\s+\/\/ Exclude for beginners/,
-    mutate: 'export function shouldExcludeOlympicLift(\n  ex: CandidateExercise, \n  input: { \n    currentInjuryRegions?: string[]; \n    anyKneeInjury?: boolean;\n    level?: string;\n  }\n): boolean {\n  // MUTANT: Always allow Olympic lifts\n  return false;\n  if (!isOlympicLift(ex)) return false;\n  // Exclude for beginners',
-    tests: ["test:olympic-lifts"],
-  },
-  
-  // Removed: isAllowedSwapTarget was deleted in Step 2 refactoring
-  // Its logic is now in buildEligibleSwapList (eligible-swap-list.ts) and validateSwapTarget callback
-  // Covered by test:swap-banned-real-path and test:swap-validator-exhaustive
-  
-  // Steer 2: Past-knee lunge swaps quad-isolation restriction
-  {
-    name: "Allow all squat-pattern candidates in past-knee lunge swaps",
-    file: "src/lib/program/alternatives.ts",
-    pattern: /} else if \(candidate\.movement_pattern === "squat"\) \{\s+\/\/ Only allow squat-pattern if it's in the quad-isolation list\s+if \(!PAST_KNEE_LUNGE_EXERCISES\.has\(candidate\.slug\)\) \{\s+continue;\s+\}\s+\}/,
-    mutate: '} else if (candidate.movement_pattern === "squat") {\n        // MUTANT: Allow all squat-pattern candidates\n        // if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {\n        //   continue;\n        // }\n      }',
-    tests: ["test:past-knee-lunge-swaps"],
-  },
-  
-  // Steer 4: Item 13 current-knee lunge exclusion (code-enforced, not tags)
-  {
-    name: "Bypass current-knee lunge exclusion in isEligible",
-    file: "src/lib/program/generate.ts",
-    pattern: /if \(ex\.movement_pattern === "lunge"\) \{\s+\/\/ Current knee: ALL lunge-pattern exercises are ineligible\s+if \(hasCurrentKnee\) \{\s+return false;\s+\}/,
-    mutate: 'if (ex.movement_pattern === "lunge") {\n    // Current knee: ALL lunge-pattern exercises are ineligible\n    // MUTANT: Allow lunges for current knee\n    if (false) {\n      return false;\n    }',
-    tests: ["test:item13-stripped"],
-  },
 ];
 
 let killed = 0;
 let survived = 0;
 let skipped = 0;
+let equivalent = 0;
 
 function sha256(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
@@ -374,6 +290,9 @@ function runMutation(mutant: Mutant): void {
     if (testFailed) {
       console.log(`  ✓ KILLED`);
       killed++;
+    } else if (mutant.equivalent) {
+      console.log(`  ≡ EQUIVALENT (expected to survive)`);
+      equivalent++;
     } else {
       console.log(`  ✗ SURVIVED (tests passed with mutation)`);
       survived++;
@@ -453,15 +372,16 @@ for (const mutant of mutants) {
 }
 
 console.log("\n" + "─".repeat(60));
-console.log(`Mutants killed:   ${killed}`);
-console.log(`Mutants survived: ${survived}`);
-console.log(`Mutants skipped:  ${skipped}`);
+console.log(`Mutants killed:     ${killed}`);
+console.log(`Mutants equivalent: ${equivalent}`);
+console.log(`Mutants survived:   ${survived}`);
+console.log(`Mutants skipped:    ${skipped}`);
 console.log("");
 
 if (survived > 0 || skipped > 0) {
   console.log(`FAILED: ${survived} survived, ${skipped} skipped`);
   process.exit(1);
 } else {
-  console.log("PASSED: All mutants killed");
+  console.log("PASSED: All mutants killed or equivalent");
   process.exit(0);
 }

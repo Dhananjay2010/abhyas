@@ -1,205 +1,166 @@
 #!/usr/bin/env bash
 #
-# Mutation tests for PR #124 in-scope code only:
-# - Swap list builder / validator (buildEligibleSwapList)
-# - Jump guard (lower-body check)
-# - Olympic lifts (anyKneeInjury check)
-# - Push press / thruster rules
-# - Validator acceptance logic
-# - Fail-closed reads
-# - Past-knee exclusions
+# Mutation tests for PR #124's in-scope swap-safety code.
+#
+# Each mutant replaces ONE exact literal that must occur exactly once in its
+# file (otherwise the mutant is reported as SKIPPED, never silently a no-op).
+# A mutant that does not type-check is also SKIPPED: it must be killed by a
+# behavioural test, not by tsc. The original file is always restored (trap).
 #
 # Exit 1 on any skip or survivor.
 
-set -e
+set -u
 
 KILLED=0
 SURVIVED=0
 SKIPPED=0
+CURRENT_FILE=""
+BACKUP=""
+
+restore() {
+  if [ -n "$CURRENT_FILE" ] && [ -n "$BACKUP" ] && [ -f "$BACKUP" ]; then
+    cp "$BACKUP" "$CURRENT_FILE"
+    rm -f "$BACKUP"
+  fi
+  CURRENT_FILE=""
+  BACKUP=""
+}
+trap restore EXIT INT TERM
+
+# replace_once FILE OLD NEW -> 0 if OLD occurred exactly once and was replaced
+replace_once() {
+  FILE="$1" OLD="$2" NEW="$3" node -e '
+    const fs = require("fs");
+    const { FILE, OLD, NEW } = process.env;
+    const src = fs.readFileSync(FILE, "utf8");
+    const n = src.split(OLD).length - 1;
+    if (n !== 1) { console.error(`  pattern occurs ${n} times`); process.exit(1); }
+    fs.writeFileSync(FILE, src.replace(OLD, () => NEW));
+  '
+}
+
+# run_mutant NAME FILE OLD NEW TEST...
+run_mutant() {
+  local name=$1 file=$2 old=$3 new=$4
+  shift 4
+  echo ""
+  echo "$name"
+  CURRENT_FILE="$file"
+  BACKUP="$(mktemp)"
+  cp "$file" "$BACKUP"
+
+  if ! replace_once "$file" "$old" "$new"; then
+    echo "  ⊘ SKIP: pattern not found exactly once"
+    SKIPPED=$((SKIPPED + 1))
+    restore
+    return
+  fi
+  if ! npx tsc --noEmit >/dev/null 2>&1; then
+    echo "  ⊘ SKIP: does not compile (must be killed by a test, not tsc)"
+    SKIPPED=$((SKIPPED + 1))
+    restore
+    return
+  fi
+  local killer=""
+  for t in "$@"; do
+    if ! npm run -s "$t" >/dev/null 2>&1; then
+      killer="$t"
+      break
+    fi
+  done
+  if [ -n "$killer" ]; then
+    echo "  ✓ KILLED by $killer"
+    KILLED=$((KILLED + 1))
+  else
+    echo "  ✗ SURVIVED ($*)"
+    SURVIVED=$((SURVIVED + 1))
+  fi
+  restore
+}
+
+FOR_USER=src/lib/session/swap-exercise-for-user.ts
+CORE=src/lib/session/swap-exercise-core.ts
+LIST=src/lib/session/eligible-swap-list.ts
+PAST_KNEE=src/lib/program/past-knee.ts
+ALT=src/lib/program/alternatives.ts
+ACTIONS=src/app/session/actions.ts
+B=test:swap-safety-behaviour
+X=test:swap-list-exhaustive
 
 echo "PR #124 In-Scope Mutation Testing"
 echo "──────────────────────────────────────────────────────────"
-echo ""
 
-# Helper functions
-mutate_file() {
-  local file=$1
-  local pattern=$2
-  local replacement=$3
-  
-  cp "$file" "${file}.backup"
-  
-  if grep -F -q "$pattern" "$file"; then
-    # Use perl for literal string replacement
-    perl -i -pe "s/\Q$pattern\E/$replacement/g" "$file"
-    return 0
-  else
-    return 1
-  fi
-}
+npm run -s "$B" >/dev/null 2>&1 || { echo "FATAL: baseline $B fails"; exit 1; }
 
-restore_file() {
-  local file=$1
-  if [ -f "${file}.backup" ]; then
-    mv "${file}.backup" "$file"
-  fi
-}
+run_mutant "1. Validator: always accept" "$FOR_USER" \
+  'return ranked.some(e => e.id === validateInput.newExerciseId);' \
+  'return true;' "$B"
 
-run_mutant() {
-  local name=$1
-  local file=$2
-  local pattern=$3
-  local replacement=$4
-  local test=$5
-  
-  echo ""
-  echo "$name"
-  
-  if ! mutate_file "$file" "$pattern" "$replacement"; then
-    echo "  ⊘ SKIP: Pattern not found"
-    SKIPPED=$((SKIPPED + 1))
-    restore_file "$file"
-    return
-  fi
-  
-  # Check if it compiles
-  if ! npx tsc --noEmit 2>/dev/null; then
-    echo "  ⊘ SKIP: Does not compile after mutation"
-    SKIPPED=$((SKIPPED + 1))
-    restore_file "$file"
-    return
-  fi
-  
-  # Run test
-  if npm run "$test" >/dev/null 2>&1; then
-    echo "  ✗ SURVIVED (test passed with mutation)"
-    SURVIVED=$((SURVIVED + 1))
-  else
-    echo "  ✓ KILLED"
-    KILLED=$((KILLED + 1))
-  fi
-  
-  restore_file "$file"
-}
+run_mutant "2. Server current-exercise fetch drops metric (exhaustive gate)" "$FOR_USER" \
+  '.select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
+    .eq("id", current.exercise_id)' \
+  '.select("id, slug, name, cue, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
+    .eq("id", current.exercise_id)' "$X"
 
-# 1. Validator always true
-run_mutant \
-  "Validator: always accept (bypass eligibility check)" \
-  "src/lib/session/swap-exercise-for-user.ts" \
-  "return ranked.some(e => e.id === validateInput.newExerciseId);" \
-  "return true;" \
-  "test:swap-list-exhaustive"
+run_mutant "2b. Server current-exercise fetch drops metric (behavioural)" "$FOR_USER" \
+  '.select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
+    .eq("id", current.exercise_id)' \
+  '.select("id, slug, name, cue, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
+    .eq("id", current.exercise_id)' "$B"
 
-# 2. Metric dropped from current-exercise fetch
-run_mutant \
-  "Current exercise fetch: drop metric field" \
-  "src/lib/session/swap-exercise-for-user.ts" \
-  ", metric," \
-  "," \
-  "test:swap-exercise-for-user"
+run_mutant "3. Siblings read: do not fail closed" "$FOR_USER" \
+  'if (siblingsRes.error) {' \
+  'if (false && siblingsRes.error) {' "$B"
 
-# 3. Sibling read not failing closed
-run_mutant \
-  "Siblings read: do not fail closed on error" \
-  "src/lib/session/swap-exercise-for-user.ts" \
-  'if (siblingsRes.error) {
-    return { ok: false, error: "Could not load session exercises" };
-  }' \
-  'if (false) {
-    return { ok: false, error: "Could not load session exercises" };
-  }' \
-  "test:swap-exercise-for-user"
+run_mutant "4. Swap list: remove sibling exclusion" "$LIST" \
+  '.filter(e => !alreadyInSession.has(e.id))' \
+  '.filter(e => e.id !== "")' "$B"
 
-# 4. Sibling exclusion removed
-run_mutant \
-  "Swap list: remove sibling exclusion" \
-  "src/lib/session/eligible-swap-list.ts" \
-  ".filter(e => !alreadyInSession.has(e.id))" \
-  ".filter(e => true)" \
-  "test:swap-list-exhaustive"
+run_mutant "5. Olympic lifts: allow for anyKneeInjury" "$PAST_KNEE" \
+  'if (input.anyKneeInjury) return true;' \
+  'if (input.anyKneeInjury) return false;' "$B"
 
-# 5. Olympic ban for past knee removed
-run_mutant \
-  "Olympic lifts: allow for anyKneeInjury" \
-  "src/lib/program/past-knee.ts" \
-  "if (input.anyKneeInjury) return true;" \
-  "if (false) return true;" \
-  "test:olympic-lifts"
+run_mutant "6. KB push press: allow for current knee" "$PAST_KNEE" \
+  '  "one-arm-kettlebell-push-press",
+]);' \
+  ']);' "$B"
 
-# 6. KB push press allowed for current knee
-run_mutant \
-  "KB push press: allow for current knee" \
-  "src/lib/program/past-knee.ts" \
-  '"one-arm-kettlebell-push-press",' \
-  "" \
-  "test:past-knee-lunge-swaps"
+run_mutant "7. Push press: ban for past knee" "$PAST_KNEE" \
+  '  "kettlebell-thruster",' \
+  '  "kettlebell-thruster", "one-arm-kettlebell-push-press",' "$B"
 
-# 7. Push press banned for past knee (should NOT be in exclusion list)
-# Note: This is testing that barbell/dumbbell push press stays allowed
-run_mutant \
-  "Push press: ban for past knee" \
-  "src/lib/program/past-knee.ts" \
-  '"one-arm-kettlebell-push-press",' \
-  '"barbell-push-press", "one-arm-kettlebell-push-press",' \
-  "test:olympic-lifts"
+run_mutant "8. Thruster: allow for past knee" "$PAST_KNEE" \
+  '  "kettlebell-thruster",' \
+  '' "$B"
 
-# 8. Thruster allowed for past knee
-run_mutant \
-  "Thruster: allow for past knee" \
-  "src/lib/program/past-knee.ts" \
-  '"kettlebell-thruster",' \
-  "" \
-  "test:olympic-lifts"
+run_mutant "9. Chest push with run release: allow for past knee" "$PAST_KNEE" \
+  '  "chest-push-with-run-release",' \
+  '' "$B"
 
-# 9. Chest-push-with-run-release allowed
-run_mutant \
-  "Chest push with run release: allow for past knee" \
-  "src/lib/program/past-knee.ts" \
-  '"chest-push-with-run-release",' \
-  "" \
-  "test:past-knee-jump-guard"
+run_mutant "10. Jump guard: lower-body check disabled" "$PAST_KNEE" \
+  'const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m));' \
+  'const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m)) && false;' "$B"
 
-# 10. Jump guard disabled
-run_mutant \
-  "Jump guard: allow all jumps regardless of muscle group" \
-  "src/lib/program/past-knee.ts" \
-  "const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m));" \
-  "const hasLowerBodyPrimary = false;" \
-  "test:past-knee-jump-guard"
+run_mutant "11. Current knee only: skip exclusions in swap ranking" "$ALT" \
+  'if (isExcludedForCurrentKneeOnly(candidate)) continue;' \
+  'if (isExcludedForCurrentKneeOnly(candidate) && false) continue;' "$B"
 
-# 11. Current-knee-only exclusion removed
-run_mutant \
-  "Current knee only: skip exclusions" \
-  "src/lib/program/alternatives.ts" \
-  "if (isExcludedForCurrentKneeOnly(candidate)) continue;" \
-  "if (false) continue;" \
-  "test:swap-list-exhaustive"
+run_mutant "12. Core: skip validator result" "$CORE" \
+  'if (!isValid) {' \
+  'if (false && !isValid) {' "$B"
 
-# 12. Core ignores the validator
-run_mutant \
-  "Core: skip validator check" \
-  "src/lib/session/swap-exercise-core.ts" \
-  "const isValid = await deps.validateSwapTarget({" \
-  "const isValid = true || await deps.validateSwapTarget({" \
-  "test:swap-exercise-for-user"
+run_mutant "13. Jump guard: ban upper-body plyos (false positive)" "$PAST_KNEE" \
+  'const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m));' \
+  'const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m)) || true;' "$B"
 
-# 13. Jump guard over-bans upper-body plyos
-run_mutant \
-  "Jump guard: ban upper-body plyos (false positive)" \
-  "src/lib/program/past-knee.ts" \
-  "const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m));" \
-  "const hasLowerBodyPrimary = true;" \
-  "test:past-knee-jump-guard"
+run_mutant "14. canSwapExercise: guard result ignored" "$ACTIONS" \
+  'if (!guardResult.allowed) {' \
+  'if (!guardResult.allowed && guardResult.error === "mutant: never matches") {' "$B"
 
-# 14. canSwapExercise check removed
-run_mutant \
-  "canSwapExercise: skip permission check" \
-  "src/app/session/actions.ts" \
-  "const guardResult = await canSwapExercise(" \
-  "const guardResult = { ok: true, data: true } as const; await (async () => canSwapExercise(" \
-  "test:swap-exercise-guard-source"
+run_mutant "15. Thruster: re-allow for current knee (subset proof)" "$PAST_KNEE" \
+  'const CURRENT_KNEE_BANNED = new Set([' \
+  'const CURRENT_KNEE_BANNED = new Set(["kettlebell-thruster-mutant-to-keep-the-count",' test:swap-list-exhaustive
 
-# Summary
 echo ""
 echo "──────────────────────────────────────────────────────────"
 echo "Mutants killed:   $KILLED"
@@ -210,7 +171,5 @@ echo ""
 if [ $SURVIVED -gt 0 ] || [ $SKIPPED -gt 0 ]; then
   echo "❌ FAILED: $SURVIVED survived, $SKIPPED skipped"
   exit 1
-else
-  echo "✅ PASSED: All mutants killed"
-  exit 0
 fi
+echo "✅ PASSED: All mutants killed"

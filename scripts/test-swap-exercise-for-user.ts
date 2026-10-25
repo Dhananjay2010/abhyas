@@ -249,8 +249,8 @@ function createFakeSupabase(
                 if (!call.eqFilters) call.eqFilters = [];
                 call.eqFilters.push({ column, value });
                 return {
-                  order: (column: string, options: unknown) => ({
-                    limit: (n: number) => ({
+                  order: () => ({
+                    limit: () => ({
                       maybeSingle: async () => ({
                         data: { weight_kg: 75 },
                       }),
