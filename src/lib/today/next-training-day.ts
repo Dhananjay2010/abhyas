@@ -27,7 +27,7 @@ export function nextTrainingDay(
 
     if (checkDay && ownsPlannedWorkout(checkDay.day_type)) {
       return {
-        dayName: DAY_NAMES[checkIndex],
+        dayName: DAY_NAMES[checkIndex - 1],
         dayIndex: checkIndex,
       };
     }
