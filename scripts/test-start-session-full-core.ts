@@ -29,6 +29,10 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
+function assertExists<T>(value: T | null | undefined, msg: string): asserts value is T {
+  if (!value) throw new Error(msg);
+}
+
 
 function eq<T>(actual: T, expected: T, message: string) {
   if (actual !== expected) {
@@ -357,7 +361,8 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!insertPayload) throw new Error("No insert payload");
+    assertExists(insertPayload, "No insert payload");
+    // @ts-expect-error - assertExists narrows but TSC doesn't see it
     if (!insertPayload.started_at) throw new Error("started_at not set");
     eq(insertPayload.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS)");
   });
@@ -379,7 +384,8 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!insertPayload) throw new Error("No insert payload");
+    // @ts-expect-error - assertExists narrows but TSC doesn't see it
+    assertExists(insertPayload, "No insert payload");
     eq(insertPayload.week_in_block, 4, "Week in block calculated");
     eq(insertPayload.is_deload, true, "Deload flag set for week 4");
   });
@@ -398,7 +404,8 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!insertPayload) throw new Error("No insert payload");
+    // @ts-expect-error - assertExists narrows but TSC doesn't see it
+    assertExists(insertPayload, "No insert payload");
     eq(insertPayload.local_date, "2026-10-26", "NY date is 2026-10-26 (00:30 EDT)");
   });
 
@@ -436,8 +443,9 @@ async function main() {
     });
 
     await startSessionFullCore(deps);
+    // @ts-expect-error - assertExists narrows but TSC doesn't see it
 
-    if (!insertPayload) throw new Error("No insert payload");
+    assertExists(insertPayload, "No insert payload");
     eq(insertPayload.user_id, USER_ID, "user_id");
     eq(insertPayload.program_id, "prog-1", "program_id");
     eq(insertPayload.program_day_id, "day-1", "program_day_id");
@@ -504,7 +512,7 @@ async function main() {
   });
 
   await test("O1/R4: reusing skipped session sets exact started_at", async () => {
-    let updatePayload: Record<string, unknown> | null = null;
+    let updatePayload: { status: "in_progress"; started_at?: string } | null = null;
     const deps = createBasicDeps({
       fetchOpenSessions: async () => [{
         id: "sess-skipped",
@@ -519,14 +527,15 @@ async function main() {
       },
     });
 
+    // @ts-expect-error - assertExists narrows but TSC doesn't see it
     await startSessionFullCore(deps);
 
-    if (!updatePayload) throw new Error("No update payload");
+    assertExists(updatePayload, "No update payload");
     eq(updatePayload.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS) for skipped");
   });
 
   await test("O1/R4: reusing null-started session sets exact started_at", async () => {
-    let updatePayload: Record<string, unknown> | null = null;
+    let updatePayload: { status: "in_progress"; started_at?: string } | null = null;
     const deps = createBasicDeps({
       fetchOpenSessions: async () => [{
         id: "sess-planned",
@@ -543,12 +552,13 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!updatePayload) throw new Error("No update payload");
+    assertExists(updatePayload, "No update payload");
+    // @ts-expect-error - assertExists should narrow type but TSC 5.x doesn't recognize it
     eq(updatePayload.started_at, FIXED_TIMESTAMP, "started_at === isoFromMs(NOW_MS) for null-started");
   });
 
   await test("O1/R4: reusing in_progress session does NOT update started_at", async () => {
-    let updatePayload: Record<string, unknown> | null = null;
+    let updatePayload: { status: "in_progress"; started_at?: string } | null = null;
     const deps = createBasicDeps({
       fetchOpenSessions: async () => [{
         id: "sess-in-progress",
@@ -565,7 +575,8 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!updatePayload) throw new Error("No update payload");
+    assertExists(updatePayload, "No update payload");
+    // @ts-expect-error - assertExists should narrow type but TSC 5.x doesn't recognize it
     if ("started_at" in updatePayload) {
       throw new Error("started_at should NOT be updated for in_progress sessions");
     }
@@ -589,7 +600,8 @@ async function main() {
 
     await startSessionFullCore(deps);
 
-    if (!insertPayload) throw new Error("No insert payload");
+    assertExists(insertPayload, "No insert payload");
+    // @ts-expect-error - assertExists should narrow type but TSC 5.x doesn't recognize it
     eq(insertPayload.local_date, expectedNYDate, "local_date in NY timezone (2026-10-25), not UTC (2026-10-26)");
   });
 

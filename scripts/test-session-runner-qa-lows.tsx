@@ -32,6 +32,7 @@ function createFakeTimer() {
   const callbacks = new Map<unknown, () => void>();
   let nextId = 0;
   const timer: RunnerTimer = {
+    // @ts-expect-error - Timer mock returns number, not Timeout
     setTimeout: (callback: () => void, ms: number) => {
       void ms;
       const id = nextId++;

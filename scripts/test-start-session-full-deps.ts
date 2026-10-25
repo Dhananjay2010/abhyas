@@ -15,7 +15,7 @@ type Call = {
   order?: Array<{ column: string; ascending: boolean }>;
   limit?: number;
   insert?: unknown;
-  update?: Record<string, unknown>;
+  update?: unknown;
   method?: string;
 };
 
@@ -98,6 +98,7 @@ function createFakeSupabase(responses: Record<string, unknown>): SupabaseClient<
     },
   };
   
+  // @ts-expect-error - Partial Supabase client mock for testing
   return fake;
 }
 
@@ -327,7 +328,8 @@ async function test(name: string, fn: () => Promise<void>) {
     
     const updateCall = calls.find(c => c.method === "update");
     if (!updateCall?.update) throw new Error("No update call");
-    eq(updateCall.update.started_at, "2026-10-26T14:00:00Z", "started_at passed through");
+    const payload = updateCall.update as Record<string, unknown>;
+    eq(payload.started_at, "2026-10-26T14:00:00Z", "started_at passed through");
   });
 
   await test("BUG CATCH: day id returned from loadProgram", async () => {
