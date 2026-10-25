@@ -8,6 +8,7 @@ import { isStaleSession } from "@/lib/session/is-stale-session";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
+import { shouldRedirectSession } from "@/lib/today/session-detection";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,11 @@ export default async function SessionPage({
 
   const session = sessionRes.data;
   if (!session) notFound();
-  if (session.status === "completed") redirect("/today");
+  
+  // Only redirect completed sessions. An in_progress session stays accessible
+  // regardless of timezone changes: a user who switches to a zone where it's
+  // the next day can still resume their active session.
+  if (shouldRedirectSession(session.status)) redirect("/today");
 
   const rows = session.session_exercises ?? [];
   const progressByExercise = new Map(
