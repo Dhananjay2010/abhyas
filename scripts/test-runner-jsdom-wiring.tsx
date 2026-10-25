@@ -885,7 +885,7 @@ console.log("\n7. End early confirm with set counts, sends frozen elapsed (w-tit
   await act(async () => {});
 
   // Check confirm dialog shows set counts
-  let textContent = container.textContent;
+  const textContent = container.textContent;
   const hasSetCounts = textContent !== null && textContent.includes("1 of 6");
   check("Confirm dialog shows '1 of 6 sets done'", hasSetCounts);
 

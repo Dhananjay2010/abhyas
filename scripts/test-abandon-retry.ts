@@ -39,7 +39,7 @@ async function runTests() {
   console.log("\n1. First abandon: updates session and exercises");
   {
     let updateCalled = false;
-    let exerciseUpdateCount = 0;
+    const exerciseUpdateCount = 0;
 
     const deps: AbandonSessionDeps = {
       async loadExercises() {
@@ -86,7 +86,7 @@ async function runTests() {
   {
     let updateCalled = false;
     let loadStatusCalled = false;
-    let exerciseUpdateCount = 0;
+    const exerciseUpdateCount = 0;
 
     const deps: AbandonSessionDeps = {
       async loadExercises() {
