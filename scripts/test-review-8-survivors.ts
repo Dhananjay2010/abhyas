@@ -155,6 +155,68 @@ async function runTests() {
     check("M16: abandon returns error when loadExercises fails", !result.ok);
   }
 
+  // M24: shouldShowFinishRetry considering cooldown
+  console.log("\nM24: shouldShowFinishRetry considering cooldown");
+  {
+    const { shouldShowFinishRetry } = await import("../src/lib/session/finish-flow");
+    
+    check("M24: show retry when failed without cooldown", shouldShowFinishRetry(false, false) === true);
+    check("M24: no retry when failed with cooldown done", shouldShowFinishRetry(false, true) === false);
+    check("M24: no retry when succeeded", shouldShowFinishRetry(true, false) === false);
+    check("M24: no retry when succeeded with cooldown", shouldShowFinishRetry(true, true) === false);
+  }
+
+  // M32: displayElapsed returns 0 for stale sessions
+  console.log("\nM32: displayElapsed returns 0 for stale sessions");
+  {
+    const { displayElapsed } = await import("../src/lib/session/display-elapsed");
+    
+    check("M32: displayElapsed returns raw for non-stale", displayElapsed(100, false) === 100);
+    check("M32: displayElapsed returns 0 for stale", displayElapsed(10000, true) === 0);
+  }
+
+  // M25: resumeElapsed called after failed abandon
+  console.log("\nM25: runEndEarly calls resumeElapsed after failed abandon");
+  {
+    const { runEndEarly } = await import("../src/lib/session/finish-flow");
+    
+    let resumeElapsedCalled = false;
+    const mockDeps = {
+      async abandonSession() {
+        return { ok: false, error: "Network error" };
+      },
+      stopElapsed() { return 100; },
+      resumeElapsed() { resumeElapsedCalled = true; },
+      setError() {},
+      setPhase() {},
+      setEndedEarly() {},
+    };
+    const mockParams = {
+      sessionId: "session-5",
+      setConfirming() {},
+      setOfflineError() {},
+      endingRef: { current: false },
+      setEnding() {},
+    };
+    
+    await runEndEarly(mockDeps, mockParams);
+    check("M25: resumeElapsed called after abandon fails", resumeElapsedCalled);
+  }
+
+  // M33: session page passes correct isStale value
+  console.log("\nM33: session page passes isStale based on isStaleSession");
+  {
+    const { isStaleSession } = await import("../src/lib/session/is-stale-session");
+    
+    // Test that isStaleSession returns correct values
+    const nowStr = "2026-10-25T12:00:00Z";
+    const recentStart = "2026-10-25T11:30:00Z"; // 30 min ago
+    const oldStart = "2026-10-24T12:00:00Z"; // 1 day ago
+    
+    check("M33: recent session not stale", !isStaleSession({ startedAt: recentStart, now: nowStr, timezone: "UTC" }));
+    check("M33: old session is stale", isStaleSession({ startedAt: oldStart, now: nowStr, timezone: "UTC" }));
+  }
+
   console.log("");
   if (failed > 0) {
     console.log(`❌ FAIL: ${failed} checks failed`);
