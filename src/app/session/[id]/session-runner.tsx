@@ -178,6 +178,7 @@ export function SessionRunner({
   addEventListener?: (type: string, handler: () => void) => void;
   removeEventListener?: (type: string, handler: () => void) => void;
   timer?: RunnerTimer;
+  deps?: RunnerDeps;
 }) {
   // Stable event listener functions for focus retry
   const addEventListener = useCallback((type: string, handler: () => void) => {
@@ -802,7 +803,7 @@ export function SessionRunner({
     const target = nextSetTarget(exercises, displayedExerciseId);
     if (!target) return;
 
-    const clientId = `${target.sessionExerciseId}:${target.setNumber}:${Date.now()}`;
+    const clientId = `${target.sessionExerciseId}:${target.setNumber}:${deps.now()}`;
 
     await createConcurrentGuard(async () => {
       setBusy(true);
