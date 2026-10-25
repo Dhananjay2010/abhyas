@@ -18,7 +18,7 @@ import "./helpers/setup-jsdom";
 // Mock next/navigation and actions BEFORE importing EditSets
 import Module from "node:module";
 
-let updateSetCalls: Array<{
+const updateSetCalls: Array<{
   sessionExerciseId: string;
   setNumber: number;
   reps: number | null;
