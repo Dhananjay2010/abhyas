@@ -1,8 +1,8 @@
 /**
- * No-Injury Baseline Test (PR #73 Run 20)
+ * No-Injury Baseline Test (PR #73 Run 21)
  * 
- * Ensures that plans for users with NO injuries match origin/main 95724924 baseline.
- * Uses SHA256 hashes of exercise ID lists for compact storage.
+ * Ensures that plans for users with NO injuries match origin/main 4866c750 baseline.
+ * Uses SHA256 hashes of FULL plan JSON for complete verification.
  * 
  * Wider coverage:
  * - Equipment: full-gym, kettlebell, db_bench, bb_rack, bands, machines
@@ -103,10 +103,8 @@ for (const entry of baseline) {
   
   try {
     const plan = generateProgram(input);
-    const exercises = plan.days.flatMap(day => 
-      day.exercises.map(e => e.exerciseId)
-    );
-    const canonical = JSON.stringify(exercises);
+    // Hash the FULL plan JSON (not just exercise IDs) for complete verification
+    const canonical = JSON.stringify(plan);
     const planHash = createHash("sha256").update(canonical).digest("hex");
     
     check(

@@ -14,6 +14,7 @@
 import { readFileSync } from "node:fs";
 import {
   generateProgram,
+  isEligible,
   type GeneratorInput,
   type CandidateExercise,
 } from "../src/lib/program/generate";
@@ -87,6 +88,36 @@ for (const current of [true, false]) {
 }
 
 console.log(`Testing ${testProfiles.length} profiles (current/past × equipment × days × minutes):`);
+console.log("");
+
+// Test 0: isEligible should reject sissy for past-knee (kills generate.ts:570 mutant)
+console.log("Testing isEligible (direct API):");
+{
+  const pastKneeInput: GeneratorInput = {
+    userId: "test-past-knee-eligible",
+    blockNumber: 1,
+    goal: "muscle_gain",
+    level: "expert",
+    primaryTrack: "weights",
+    daysPerWeek: 4,
+    yogaDaysPerWeek: 0,
+    age: 30,
+    bmi: 22,
+    hasAllEquipment: true,
+    equipmentIds: [],
+    currentInjuryRegions: [],  // Past-knee: no current injuries
+    anyKneeInjury: true,       // Past-knee: anyKneeInjury = true
+    preferredSessionMinutes: 60,
+    catalogue,
+  };
+  
+  const eligible = isEligible(sissy, pastKneeInput);
+  check(
+    `isEligible(weighted-sissy-squat, past-knee) = false`,
+    !eligible,
+    eligible ? "CRITICAL: sissy eligible for past-knee (generate.ts:570 mutant survived)" : undefined
+  );
+}
 console.log("");
 
 // Test 1: Plans should not have sissy

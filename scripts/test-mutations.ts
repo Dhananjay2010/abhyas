@@ -169,14 +169,18 @@ const mutants: Mutant[] = [
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
   },
   
-  // NOTE: Sissy ban in isEligible (generate.ts:570) is redundant for plans because
-  // weighted-sissy-squat has contraindicated_regions: ["knee"], so it's already filtered
-  // by the contraindication check in isEligible for current-knee users. For past-knee users,
-  // it's also filtered because it requires expert level + barbell/squat_rack equipment,
-  // which past-knee users at lower levels or with limited equipment won't have.
-  // However, the explicit ban serves as defense-in-depth and documents the design intent.
-  // The CRITICAL ban is in rankAlternatives (alternatives.ts) which prevents sissy from
-  // appearing in swap lists for past-knee users.
+  // PR #73 Run 21: Sissy ban in isEligible is the PRIMARY barrier for past-knee plans
+  // (weighted-sissy-squat has contraindicated_regions: ["knee"], but that only filters
+  // current-knee. Past-knee users have currentInjuryRegions: [] and rely on this explicit
+  // anyKneeInjury check at 570 to block sissy from plans). Removing 570 changes 139 past-knee plans.
+  // The alternatives.ts ban is the BACKSTOP for swaps (rankAlternatives doesn't call isEligible).
+  {
+    name: "Remove sissy-squat ban in isEligible (plan generation for past-knee)",
+    file: "src/lib/program/generate.ts",
+    pattern: /\/\/ PR #73 coordinator: ANY knee injury excludes sissy squats \(including weighted-sissy-squat\)\s+if \(input\.anyKneeInjury && ex\.slug\.includes\("sissy"\)\) \{\s+return false;\s+\}/,
+    mutate: '// MUTANT: Removed sissy ban from isEligible\n  // if (input.anyKneeInjury && ex.slug.includes("sissy")) {\n  //   return false;\n  // }',
+    tests: ["test:sissy-squat-ban"],
+  },
   
   {
     name: "Remove sissy-squat ban in rankAlternatives (swap generation)",

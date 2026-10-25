@@ -42,8 +42,11 @@ const testProfiles: Array<{input: GeneratorInput; label: string}> = [];
 // For BMI 32: height 1.75m -> weight = 32 * 1.75^2 = 98 kg
 // For BMI 35: height 1.7m -> weight = 35 * 1.7^2 = 101 kg
 
+type Level = "beginner" | "intermediate" | "expert";
+const levels: Level[] = ["beginner", "intermediate", "expert"];
+
 for (const bmi of [30, 32, 35]) {
-  for (const level of ["beginner", "intermediate", "expert"] as const) {
+  for (const level of levels) {
     for (const days of [3, 4, 5]) {
       testProfiles.push({
         label: `bmi${bmi}-${level}-${days}d`,
@@ -77,8 +80,7 @@ for (const { input, label } of testProfiles) {
   const highImpact = plan.days.flatMap((day) =>
     day.exercises
       .map((ex) => byId.get(ex.exerciseId))
-      .filter((e) => e && e.impact === "high")
-      .map((e) => ({ day: day.label, slug: e!.slug }))
+      .flatMap((e) => (e && e.impact === "high") ? [{ day: day.label, slug: e.slug }] : [])
   );
   
   if (highImpact.length > 0) {
