@@ -2,60 +2,62 @@
 /**
  * Test: SignOutButton clears pending sets (4b)
  * 
- * Tests that clearAllPendingSetsForUser is called by SignOutButton handleSignOut.
- * Verifies the integration: SignOutButton → clearAllPendingSetsForUser → localStorage.removeItem.
+ * Renders SignOutButton with injected clear and signOut,
+ * clicks it, and asserts clear is called with correct userId BEFORE signOut.
  */
 
-import { clearAllPendingSetsForUser } from "../src/lib/session/pending-set-retry";
+import "./helpers/setup-jsdom";
+import { render, act } from "@testing-library/react";
+import { SignOutButton } from "../src/app/settings/signout-button";
 
 async function runTest() {
   console.log('\n=== SignOutButton Clear Pending Sets Test (4b) ===\n');
   
-  // Create a fake Storage implementation
-  const store = new Map<string, string>();
-  const fakeStorage: Storage = {
-    getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => { store.set(key, value); },
-    removeItem: (key: string) => { store.delete(key); },
-    clear: () => { store.clear(); },
-    get length() { return store.size; },
-    key: (index: number) => Array.from(store.keys())[index] ?? null,
+  const userId = 'u1';
+  const callOrder: string[] = [];
+  
+  // Mock clearSets that records the call
+  const mockClearSets = (_storage: unknown, uid: string) => {
+    callOrder.push(`clear:${uid}`);
   };
   
-  const userId = 'u1';
-  const storageKey = `pending-sets:${userId}`;
+  // Mock signOut that records the call
+  const mockSignOut = async () => {
+    callOrder.push('signOut');
+    // Never returns (would redirect in real code)
+    return new Promise(() => {}) as Promise<never>;
+  };
   
-  fakeStorage.setItem(storageKey, JSON.stringify([
-    {
-      sessionExerciseId: 'ex1',
-      setNumber: 1,
-      reps: 10,
-      weightKg: 50,
-      durationSeconds: null,
-      clientId: 'test-1'
-    }
-  ]));
+  // Render SignOutButton with mocks
+  const { container } = render(
+    <SignOutButton 
+      userId={userId}
+      clearSets={mockClearSets}
+      signOut={mockSignOut}
+    />
+  );
   
-  const initialValue = fakeStorage.getItem(storageKey);
-  if (!initialValue) {
-    console.log('✗ Setup failed: pending sets not stored');
-    process.exit(1);
-  }
-  console.log(`✓ Setup: pending-sets:u1 exists before clear`);
-  
-  // SignOutButton calls clearAllPendingSetsForUser(window.localStorage, userId) in handleSignOut
-  // Test that function directly since server action mocking is complex in jsdom
-  clearAllPendingSetsForUser(fakeStorage, userId);
-  
-  const finalValue = fakeStorage.getItem(storageKey);
-  
-  if (finalValue !== null) {
-    console.log(`✗ Test failed: pending-sets:${userId} was not removed`);
-    console.log(`  Value after clear: ${finalValue}`);
+  const signOutButton = container.querySelector('button');
+  if (!signOutButton) {
+    console.log('✗ SignOutButton button not found');
     process.exit(1);
   }
   
-  console.log('✓ clearAllPendingSetsForUser (called by SignOutButton) removes pending-sets:u1');
+  // Click the button
+  await act(async () => {
+    signOutButton.click();
+    // Give React transition time to start
+    await new Promise(resolve => setTimeout(resolve, 10));
+  });
+  
+  // Verify clear was called with correct userId
+  if (callOrder.length === 0 || callOrder[0] !== `clear:${userId}`) {
+    console.log(`✗ clearSets not called with userId ${userId}`);
+    console.log(`  Call order: ${JSON.stringify(callOrder)}`);
+    process.exit(1);
+  }
+  
+  console.log(`✓ clearSets called with userId ${userId} before signOut`);
   console.log('\nTotal: 1, Passed: 1, Failed: 0\n');
 }
 

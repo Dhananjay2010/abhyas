@@ -140,6 +140,20 @@ export function SessionRunner({
   tomorrow,
   actions = REAL_ACTIONS,
   onExit,
+  addEventListener = (type: string, handler: () => void) => {
+    if (type === "focus") {
+      window.addEventListener(type, handler);
+    } else {
+      document.addEventListener(type, handler);
+    }
+  },
+  removeEventListener = (type: string, handler: () => void) => {
+    if (type === "focus") {
+      window.removeEventListener(type, handler);
+    } else {
+      document.removeEventListener(type, handler);
+    }
+  },
 }: {
   sessionId: string;
   sessionStatus: Database["public"]["Enums"]["session_status"];
@@ -156,6 +170,8 @@ export function SessionRunner({
   tomorrow?: NextDayPlan | null;
   actions?: SessionActions;
   onExit?: () => void;
+  addEventListener?: (type: string, handler: () => void) => void;
+  removeEventListener?: (type: string, handler: () => void) => void;
 }) {
   const router = useRouter();
   const elapsed = useElapsed(startedAt);
@@ -215,23 +231,11 @@ export function SessionRunner({
     if (!controller) return;
 
     return registerFocusRetry(
-      (type, handler) => {
-        if (type === "focus") {
-          window.addEventListener(type, handler);
-        } else {
-          document.addEventListener(type, handler);
-        }
-      },
-      (type, handler) => {
-        if (type === "focus") {
-          window.removeEventListener(type, handler);
-        } else {
-          document.removeEventListener(type, handler);
-        }
-      },
+      addEventListener,
+      removeEventListener,
       () => controller.onFocus()
     );
-  }, [controller]);
+  }, [controller, addEventListener, removeEventListener]);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
