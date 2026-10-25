@@ -503,6 +503,8 @@ async function test8d8e() {
   let visibilityHandler: (() => void) | null = null;
   let listenerCallCount = 0;
   
+  const logSetCalls: unknown[] = [];
+  
   const mockAddEventListener = (type: string, handler: () => void) => {
     listenerCallCount++;
     if (type === "focus") {
@@ -522,7 +524,10 @@ async function test8d8e() {
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
-    logSet: async () => ({ ok: true }),
+    logSet: async (input) => {
+      logSetCalls.push(input);
+      return { ok: true };
+    },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => ({ ok: true }),
@@ -564,12 +569,23 @@ async function test8d8e() {
   };
   
   const userId = "test-user-8de";
+  const sessionId = "session-8de";
   
   fakeStorage.clear();
   
+  // Seed pending set to trigger replay
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-8de"
+  }, fakeDeps);
+  
   render(
     <SessionRunner
-      sessionId="session-8de"
+      sessionId={sessionId}
       sessionStatus="in_progress"
       userId={userId}
       isDeload={false}
@@ -587,15 +603,32 @@ async function test8d8e() {
   );
   
   // Wait for initial mount
-  await act(async () => {
-    await new Promise(r => setTimeout(r, 50));
-  });
+  await act(async () => {});
   
   // Verify handlers were registered via the injected addEventListener
   // Breaks 8d/8e: Runner's add-listener adapters are no-ops OR runner passes a no-op retry
   assert(focusHandler !== null, "Focus listener registered (8d)");
   assert(visibilityHandler !== null, "Visibilitychange listener registered (8d)");
   assert(listenerCallCount >= 2, "addEventListener called for both listeners (8d)");
+  
+  // 8e: Assert logSet was called on mount for replay
+  assert(logSetCalls.length === 1, "8e: logSet called once on mount for replay");
+  
+  // 8f: Fire focus handler and assert another replay
+  logSetCalls.length = 0;
+  if (focusHandler) {
+    focusHandler();
+    await act(async () => {});
+    assert(logSetCalls.length === 1, "8f: logSet called after focus event");
+  }
+  
+  // Fire visibilitychange handler
+  logSetCalls.length = 0;
+  if (visibilityHandler) {
+    visibilityHandler();
+    await act(async () => {});
+    assert(logSetCalls.length === 1, "8f: logSet called after visibilitychange event");
+  }
   
   fakeStorage.clear();
 }
