@@ -14,6 +14,7 @@
 import type { Database } from "@/lib/database.types";
 import { addDays, isoWeekday } from "@/lib/dates";
 import { labelForDayType } from "@/lib/program/day-plan";
+import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { attachWorkingSetCounts } from "./yesterday-sessions";
 import { buildPageState } from "./page-wiring";
 import { buildTodayView } from "./page-helpers";
@@ -62,10 +63,13 @@ export type BuildPageInput = {
   todaySessionsRes: {
     data: Array<{
       id: string;
+      local_date: string;
       status: string;
       actual_type: DayType | null;
       program_id: string | null;
+      program_day_id: string | null;
       started_at: string | null;
+      created_at: string | null;
     }> | null;
     error: Error | null;
   };
@@ -73,6 +77,7 @@ export type BuildPageInput = {
   yesterdaySessionsRes: {
     data: Array<{
       id: string;
+      local_date: string;
       status: string;
       actual_type: DayType | null;
       program_id: string | null;
@@ -96,13 +101,6 @@ export type BuildPageInput = {
   timezone: string;
   localToday: string;
   yesterday: string;
-
-  // Day type
-  dayType: DayType | null;
-
-  // Session state
-  strengthDone: boolean;
-  strengthOpen: boolean;
 };
 
 export type BuildPageOutput = {
@@ -125,23 +123,66 @@ export type BuildPageOutput = {
     label: string | null;
   } | null;
 
-  // First training day
-  firstTrainingDay: {
-    dayIndex: number;
-    dayType: DayType;
-    label: string | null;
-    programDayId: string;
-  } | null;
-
-  // Plannable days (for missed or rest-day prompts)
-  plannable: Array<{
+  // Today's day info (derived from override or template)
+  override: {
     id: string;
+    status: string;
+    actual_type: DayType | null;
+    program_id: string | null;
+    program_day_id: string | null;
+    started_at: string | null;
+    created_at: string | null;
+  } | undefined;
+  
+  overrideDay: {
+    id: string;
+    day_index: number;
     day_type: DayType;
     label: string | null;
-  }>;
+  } | undefined;
+  
+  scheduled: {
+    id: string;
+    day_index: number;
+    day_type: DayType;
+    label: string | null;
+  } | null;
+  
+  today: {
+    id: string;
+    day_index: number;
+    day_type: DayType;
+    label: string | null;
+  } | null;
+  
+  dayType: DayType | null;
+  dayLabel: string;
+  overrideDiffers: boolean;
 
-  // Helper outputs
-  hasStartedAny: boolean | null;
+  // Session state
+  strengthDone: boolean;
+  strengthOpen: {
+    id: string;
+    status: string;
+    actual_type: DayType | null;
+    program_id: string | null;
+    program_day_id: string | null;
+    started_at: string | null;
+    created_at: string | null;
+  } | undefined;
+  
+  performed: {
+    id: string;
+    status: string;
+    actual_type: DayType | null;
+    program_id: string | null;
+    program_day_id: string | null;
+    started_at: string | null;
+    created_at: string | null;
+  } | undefined;
+
+  // Plannable days flag
+  needsPlannableDays: boolean;
 };
 
 export function buildPage(input: BuildPageInput): BuildPageOutput {
@@ -156,14 +197,11 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     timezone,
     localToday,
     yesterday,
-    dayType,
-    strengthDone,
-    strengthOpen,
   } = input;
 
-  // Filter yesterday's sessions to program sessions only
+  // Filter yesterday's sessions to program sessions on yesterday's date
   const yesterdayProgramSessions =
-    yesterdaySessionsRes.data?.filter((s) => s.program_id === program.id) ?? [];
+    yesterdaySessionsRes.data?.filter((s) => s.local_date === yesterday && s.program_id === program.id) ?? [];
 
   // Attach working set counts to yesterday's sessions
   const yesterdaySessionsWithCounts = attachWorkingSetCounts(
@@ -171,10 +209,64 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     yesterdayProgramSessions
   );
 
-  // Today's sessions
+  // Today's sessions (filtered to today's date and current program)
   const todaySessions = todaySessionsRes.data?.filter(
-    (s) => s.program_id === program.id
+    (s) => s.local_date === localToday && s.program_id === program.id
   ) ?? [];
+
+  // Determine today's scheduled day from the template
+  const todayIndex = isoWeekday(localToday);
+  const scheduled = days.find((d) => d.day_index === todayIndex) ?? null;
+
+  // Which of today's session rows speaks for the day
+  const ownsToday = (s: typeof todaySessions[number]) =>
+    s.actual_type !== null &&
+    (s.status === "planned" ||
+      (ownsPlannedWorkout(s.actual_type) &&
+        (s.status === "in_progress" || s.status === "completed" || s.status === "skipped")));
+
+  const OWNER_RANK: Record<string, number> = {
+    completed: 0,
+    in_progress: 1,
+    planned: 2,
+    skipped: 3,
+  };
+
+  const override = todaySessions
+    .filter(ownsToday)
+    .sort(
+      (a, b) =>
+        (OWNER_RANK[a.status] ?? 9) - (OWNER_RANK[b.status] ?? 9) ||
+        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
+    )[0];
+
+  const overrideDay = override?.program_day_id
+    ? days.find((d) => d.id === override.program_day_id)
+    : undefined;
+
+  const today = overrideDay ?? scheduled;
+  const dayType = override?.actual_type ?? scheduled?.day_type ?? null;
+  const dayLabel = labelForDayType(dayType ?? "rest", today?.label ?? null);
+
+  const overrideDiffers =
+    override !== undefined &&
+    (override.actual_type !== (scheduled?.day_type ?? null) ||
+      (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
+
+  const strengthDone = todaySessions.some(
+    (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type),
+  );
+
+  const strengthOpen = todaySessions.find(
+    (s) => (s.status === "in_progress" || s.status === "planned") && ownsPlannedWorkout(s.actual_type),
+  );
+
+  const performed =
+    override &&
+    ownsPlannedWorkout(override.actual_type) &&
+    (override.status === "completed" || override.started_at !== null)
+      ? override
+      : undefined;
 
   // Build page state (handles errored reads via yesterdayUnknown flag)
   const pageState = buildPageState({
@@ -189,19 +281,14 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     yesterday,
     dayType,
     strengthDone,
-    strengthOpen,
+    strengthOpen: !!strengthOpen,
   });
 
   const { hasStartedAny, todayStateInput } = pageState;
 
-  // Determine if we need plannable days (for prompts)
-  const needsPlannableDays =
-    dayType === "rest" || dayType === null || yesterdaySessionsWithCounts === null;
-
   // Build chosen days map
   // For each day in the week, check if there's a planned/in_progress session
   // that differs from the template, and store its label
-  const todayIndex = isoWeekday(localToday);
   const allSessions = allSessionsRes.data ?? [];
   const chosenByDayIndex = new Map<number, string>();
   for (const d of days) {
@@ -260,10 +347,9 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     missedYesterday,
   });
 
-  // Plannable days
-  const plannable = needsPlannableDays
-    ? days.filter((d) => d.day_index !== 0)
-    : [];
+  // Determine if we need plannable days (for prompts)
+  const needsPlannableDays =
+    (dayType === "rest" || missedYesterday) && !strengthDone && !strengthOpen;
 
   return {
     todayView,
@@ -271,8 +357,16 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     promptBlocks,
     trainAnywayDays,
     yesterdayDay,
-    firstTrainingDay: todayView.firstTrainingDay,
-    plannable,
-    hasStartedAny,
+    override,
+    overrideDay,
+    scheduled,
+    today,
+    dayType,
+    dayLabel,
+    overrideDiffers,
+    strengthDone,
+    strengthOpen,
+    performed,
+    needsPlannableDays,
   };
 }

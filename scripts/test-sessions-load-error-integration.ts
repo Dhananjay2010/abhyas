@@ -11,7 +11,6 @@
 
 import { hasStartedAnyOrNull } from "../src/lib/today/load-failure-guard";
 import { buildTodayView } from "../src/lib/today/page-helpers";
-import { buildTodayState } from "../src/lib/today/build-state";
 
 let totalTests = 0;
 let passedTests = 0;

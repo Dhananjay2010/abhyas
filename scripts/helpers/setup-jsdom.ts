@@ -36,7 +36,7 @@ export const mockNextRouter = {
 
 // Declare global mock type
 declare global {
-  // eslint-disable-next-line no-var
+   
   var mockNextNavigation: {
     useRouter: () => {
       refresh: () => void;

@@ -36,28 +36,58 @@ const baseInput = {
     deload_week: null,
   },
   days: [
+    { id: "day0", day_index: 0, day_type: "rest" as const, label: null },
     { id: "day1", day_index: 1, day_type: "weights" as const, label: "Push" },
     { id: "day2", day_index: 2, day_type: "rest" as const, label: null },
     { id: "day3", day_index: 3, day_type: "weights" as const, label: "Pull" },
+    { id: "day4", day_index: 4, day_type: "weights" as const, label: "Legs" },
+    { id: "day5", day_index: 5, day_type: "rest" as const, label: null },
+    { id: "day6", day_index: 6, day_type: "weights" as const, label: "Upper" },
+    { id: "day7", day_index: 7, day_type: "rest" as const, label: null },
   ],
   allSessionsRes: {
     data: [
       {
+        id: "old-session",
         local_date: "2026-01-10",
         status: "completed",
         actual_type: "weights" as const,
+        program_id: "prog-1",
         program_day_id: "day1",
         started_at: "2026-01-10T10:00:00Z",
+        created_at: "2026-01-10T10:00:00Z",
       },
     ],
     error: null,
   },
   todaySessionsRes: {
-    data: [],
+    data: [
+      {
+        id: "old-session",
+        local_date: "2026-01-10",
+        status: "completed",
+        actual_type: "weights" as const,
+        program_id: "prog-1",
+        program_day_id: "day1",
+        started_at: "2026-01-10T10:00:00Z",
+        created_at: "2026-01-10T10:00:00Z",
+      },
+    ],
     error: null,
   },
   yesterdaySessionsRes: {
-    data: [],
+    data: [
+      {
+        id: "old-session",
+        local_date: "2026-01-10",
+        status: "completed",
+        actual_type: "weights" as const,
+        program_id: "prog-1",
+        program_day_id: "day1",
+        started_at: "2026-01-10T10:00:00Z",
+        created_at: "2026-01-10T10:00:00Z",
+      },
+    ],
     error: null,
   },
   sessionExercisesRes: {
@@ -65,11 +95,8 @@ const baseInput = {
     error: null,
   },
   timezone: "America/New_York",
-  localToday: "2026-01-15", // Monday
-  yesterday: "2026-01-14", // Sunday (rest)
-  dayType: "weights" as const,
-  strengthDone: false,
-  strengthOpen: false,
+  localToday: "2026-01-12", // Monday (day_index 1)
+  yesterday: "2026-01-11", // Sunday (day_index 0, rest)
 };
 
 console.log("\n=== Test 1: Basic page build ===\n");
@@ -91,11 +118,6 @@ assert(
   "buildPage returns promptBlocks"
 );
 
-assert(
-  result1.hasStartedAny === true,
-  "buildPage computes hasStartedAny from allSessions"
-);
-
 console.log("\n=== Test 2: P2 - Sets error handling ===\n");
 
 // When sessionExercisesRes has an error, should mark yesterdayUnknown
@@ -103,7 +125,7 @@ const erroredSetsInput = {
   ...baseInput,
   yesterdaySessionsRes: {
     data: [
-      { id: "s1", status: "completed", actual_type: "weights" as const, program_id: "prog-1" },
+      { id: "s1", local_date: baseInput.yesterday, status: "completed", actual_type: "weights" as const, program_id: "prog-1" },
     ],
     error: null,
   },
@@ -128,14 +150,29 @@ assert(
 console.log("\n=== Test 3: P3 - Warm-ups as working ===\n");
 
 // Warm-ups should NOT count as working sets
+// Use a day that's actually a training day in the template (day 6 = Saturday = Upper/weights)
+const yesterdayTrainingDay = "2026-01-10"; // Saturday (day_index 6)
+const sessionsWithYesterday = [
+  ...baseInput.allSessionsRes.data!,
+  {
+    id: "s1",
+    local_date: yesterdayTrainingDay,
+    status: "completed",
+    actual_type: "weights" as const,
+    program_id: "prog-1",
+    program_day_id: "day6",
+    started_at: "2026-01-10T10:00:00Z",
+    created_at: "2026-01-10T10:00:00Z",
+  },
+];
+
 const warmupInput = {
   ...baseInput,
-  yesterdaySessionsRes: {
-    data: [
-      { id: "s1", status: "completed", actual_type: "weights" as const, program_id: "prog-1" },
-    ],
-    error: null,
-  },
+  localToday: "2026-01-11", // Sunday (day after Saturday)
+  yesterday: yesterdayTrainingDay,
+  allSessionsRes: { data: sessionsWithYesterday, error: null },
+  todaySessionsRes: { data: sessionsWithYesterday, error: null },
+  yesterdaySessionsRes: { data: sessionsWithYesterday, error: null },
   sessionExercisesRes: {
     data: [
       {
@@ -172,8 +209,8 @@ const allSessionsErrorInput = {
 const result4 = buildPage(allSessionsErrorInput);
 
 assert(
-  result4.hasStartedAny === null,
-  "P6: allSessionsRes error preserves null (not false)"
+  result4.promptBlocks.showFirstSessionOffer === false,
+  "P6: allSessionsRes error suppresses first session offer"
 );
 
 console.log("\n=== Test 5: P7 - Yesterday filter ===\n");
@@ -183,8 +220,8 @@ const multiDateInput = {
   ...baseInput,
   yesterdaySessionsRes: {
     data: [
-      { id: "s1", status: "completed", actual_type: "weights" as const, program_id: "prog-1" },
-      { id: "s2", status: "completed", actual_type: "weights" as const, program_id: "other" }, // different program
+      { id: "s1", local_date: baseInput.yesterday, status: "completed", actual_type: "weights" as const, program_id: "prog-1" },
+      { id: "s2", local_date: baseInput.yesterday, status: "completed", actual_type: "weights" as const, program_id: "other" }, // different program
     ],
     error: null,
   },

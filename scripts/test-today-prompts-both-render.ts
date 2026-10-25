@@ -16,6 +16,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TodayPrompts } from "../src/components/today/today-prompts";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -37,7 +38,7 @@ const mockRouter = {
   back: () => {},
   forward: () => {},
   bfcacheId: "test",
-} as any;
+} as Partial<AppRouterInstance> as AppRouterInstance;
 
 // Scenario: rest day after missed yesterday (showBothPrompt = true)
 const promptBlocks = {

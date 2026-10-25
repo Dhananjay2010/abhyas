@@ -12,7 +12,6 @@ import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { TodayPrompts } from "@/components/today/today-prompts";
 import { WarmupSection } from "@/components/today/warmup-section";
 import { buildPage } from "@/lib/today/build-page";
@@ -29,7 +28,7 @@ export default async function TodayPage() {
   // Nothing here depends on anything else here, so all these go at once. This
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
-  const [profileRes, programRes, equipmentRes, openRes, allSessionsRes] = await Promise.all([
+  const [profileRes, programRes, equipmentRes, openRes] = await Promise.all([
     // `maybeSingle`, not `single`: a missing row is a state to handle, not an
     // exception. With `single` PostgREST answers "Cannot coerce the result to a
     // single JSON object", which threw during the server render and reached the
@@ -204,125 +203,18 @@ export default async function TodayPage() {
   ]);
 
   const days = daysRes.data;
-  // Derived from the user's own local date rather than re-reading the clock,
-  // so the weekday and the date can never disagree at a midnight boundary.
-  const todayIndex = isoWeekday(localToday);
-  const scheduled = days?.find((d) => d.day_index === todayIndex);
 
+  // Fetch session_exercises for yesterday (needed for missed-day detection)
   const allSessions = sessionsRes.data ?? [];
-  const todaySessions = allSessions.filter((s) => s.local_date === localToday);
   const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
   const yesterdaySessionIds = yesterdaySessions.map((s) => s.id);
   
-  // Fetch session_exercises for yesterday (needed for missed-day detection)
   const sessionExercisesRes = yesterdaySessionIds.length > 0
     ? await supabase
         .from("session_exercises")
         .select("session_id, session_sets(is_warmup_set, reps, duration_seconds)")
         .in("session_id", yesterdaySessionIds)
     : { data: null, error: null };
-
-  /*
-    Which of today's session rows speaks for the day.
-
-    A "what about tomorrow?" choice made yesterday is a planned row for today,
-    and it wins over the weekday template -- without that the choice would be
-    written and then quietly ignored, which is worse than not offering it. But
-    the state of that row is not the point. Whatever the user actually did today
-    keeps the day's identity through every state it passes: planned, started,
-    abandoned, finished.
-
-    Reading only `planned` meant that starting a swapped day and leaving it
-    part-way flipped Today back to the block's label while "Resume session"
-    still resumed the swapped one -- the screen said Legs and the button gave
-    you Pull. Adding `in_progress` fixed that case and left two more: a session
-    ABANDONED (which is resumable now, so Start hands back a day the screen has
-    stopped naming) and a session FINISHED (where the header reverted to the
-    block's label above a list of the exercises that were actually done).
-
-    Yoga and breathing are the exception in every state but `planned`: they are
-    anytime activities and a six-minute breathing session does not rename the
-    day.
-  */
-  const ownsToday = (s: (typeof todaySessions)[number]) =>
-    s.actual_type !== null &&
-    (s.status === "planned" ||
-      (ownsPlannedWorkout(s.actual_type) &&
-        (s.status === "in_progress" || s.status === "completed" || s.status === "skipped")));
-
-  // Finished beats under way beats intended beats abandoned. Only the last two
-  // can genuinely coexist -- abandon a day, then choose something else for it.
-  const OWNER_RANK: Record<string, number> = {
-    completed: 0,
-    in_progress: 1,
-    planned: 2,
-    skipped: 3,
-  };
-  /*
-    Rank first, then newest. The tie is real: an account can carry several
-    abandoned rows for one day -- anything written before a restart began
-    reusing them does -- and `startSession` resumes the most recent of those.
-    Deciding it differently here would put Today's label and the Start button
-    back out of step, which is the bug this whole block exists to prevent.
-  */
-  const override = todaySessions
-    .filter(ownsToday)
-    .sort(
-      (a, b) =>
-        (OWNER_RANK[a.status] ?? 9) - (OWNER_RANK[b.status] ?? 9) ||
-        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
-    )[0];
-  const overrideDay = override?.program_day_id
-    ? days?.find((d) => d.id === override.program_day_id)
-    : undefined;
-
-  const today = overrideDay ?? scheduled;
-  const dayType = override?.actual_type ?? scheduled?.day_type ?? null;
-  const dayLabel = labelForDayType(dayType ?? "rest", today?.label ?? null);
-  /*
-    Only worth explaining when it actually differs from what the block said.
-
-    This compared program-day ids alone, which is wrong in the one case where
-    the id cannot be resolved: a rebuild replaces `program_days`, so every
-    session from before it points at a day of the retired block. `overrideDay`
-    is then undefined, the id comparison says "differs", and Today announced
-    "You chose this for today, so it replaces the Legs your block had
-    scheduled" -- on a Legs day, about a session nobody had chosen anything for.
-
-    So the type is checked first, which is what a rest, yoga or breathing
-    override changes, and the day ids only when the override's day is one this
-    block still has. An unresolvable id says nothing either way, and the label
-    on screen is the block's own in that case anyway.
-  */
-  const overrideDiffers =
-    override !== undefined &&
-    (override.actual_type !== (scheduled?.day_type ?? null) ||
-      (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
-
-  const strengthDone = todaySessions.some(
-    (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type),
-  );
-  const strengthOpen = todaySessions.find(
-    (s) => (s.status === "in_progress" || s.status === "planned") && ownsPlannedWorkout(s.actual_type),
-  );
-
-  /*
-    The day's workout, once it is a thing that happened rather than a thing that
-    was planned: started, or finished. Today used to list the block's template
-    for the rest of the day regardless, so after a session in which an exercise
-    was swapped, "Session complete. Well done." sat above the five exercises the
-    day STARTED with -- including the one swapped away and never performed. The
-    plan is what you intended; the screen should show what you did.
-
-    A day merely planned through "what about tomorrow?" has no session exercises
-    of its own yet, so it keeps the template.
-  */
-  const performed =
-    override &&
-    ownsPlannedWorkout(override.actual_type) &&
-    (override.status === "completed" || override.started_at !== null)
-      ? override
-      : undefined;
 
   // Build all Today page state using buildPage helper
   const pageResult = buildPage({
@@ -339,15 +231,12 @@ export default async function TodayPage() {
     },
     days: days ?? [],
     allSessionsRes: sessionsRes,
-    todaySessionsRes: { data: todaySessions, error: null },
-    yesterdaySessionsRes: { data: yesterdaySessions, error: null },
+    todaySessionsRes: sessionsRes,
+    yesterdaySessionsRes: sessionsRes,
     sessionExercisesRes,
     timezone,
     localToday,
     yesterday,
-    dayType,
-    strengthDone,
-    strengthOpen: !!strengthOpen,
   });
 
   const {
@@ -356,21 +245,28 @@ export default async function TodayPage() {
     promptBlocks,
     trainAnywayDays,
     yesterdayDay,
-    firstTrainingDay,
-    plannable: plannableFromHelper,
-    hasStartedAny,
+    scheduled,
+    today,
+    dayType,
+    dayLabel,
+    overrideDiffers,
+    strengthDone,
+    strengthOpen,
+    performed,
+    needsPlannableDays,
   } = pageResult;
 
   const { week, isDeload, weekRowsWithChoices } = todayView;
-  const { promptType, missedYesterday, isTraining, nextTrainingDay: nextTraining } = todayState;
+  const { isTraining, nextTrainingDay: nextTraining } = todayState;
+  const firstTrainingDay = todayView.firstTrainingDay;
 
+  // For display purposes only (not derivation)
+  const todayIndex = isoWeekday(localToday);
 
   // ---- wave 3 -------------------------------------------------------------
   // Load plannable days when the DayPlanPrompt can render (rest day or missed-yesterday).
   // The prompt offers "Swap the day", which needs the strength/bodyweight options.
   // The session's own exercises are loaded only when a workout has been started.
-  const needsPlannableDays =
-    (dayType === "rest" || missedYesterday) && !strengthDone && !strengthOpen;
 
   const [plannable, performedRows] = await Promise.all([
     needsPlannableDays ? plannableDays(supabase, program.id) : Promise.resolve([]),
@@ -405,7 +301,8 @@ export default async function TodayPage() {
     swappedIn: boolean;
   };
 
-  const template = (todayState.isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
+  const todayDay = days?.find((d) => d.id === today?.id);
+  const template = (todayState.isTraining ? (todayDay?.program_day_exercises ?? []) : []) as Array<{
     order_index: number;
     target_sets: number | null;
     target_reps_min: number | null;

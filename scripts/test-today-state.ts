@@ -705,9 +705,8 @@ assert(
   "buildTodayState: correctly identifies training day"
 );
 
-// Test that page.tsx mutations would be caught
-// Mutation 1: page.tsx setting answeredToday = false
-const mutationTest1 = buildTodayState({
+// Wiring check: verify answeredToday is correctly derived from sessions
+const wiringCheck1 = buildTodayState({
   profile: {
     created_at: "2026-10-20T10:00:00Z",
     timezone: "UTC",
@@ -732,8 +731,8 @@ const mutationTest1 = buildTodayState({
 });
 
 assert(
-  mutationTest1.answeredToday,
-  "buildTodayState detects answered=true from sessions (mutation 1 caught)"
+  wiringCheck1.answeredToday,
+  "buildTodayState detects answered=true from sessions (wiring check)"
 );
 
 // Test buildTodayState with today overridden to rest

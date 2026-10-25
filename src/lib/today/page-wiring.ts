@@ -4,7 +4,7 @@
  * This ensures that error states (null values) are correctly propagated through
  * to buildTodayState without being defaulted to false at the page layer.
  * 
- * Tests: b1 (failed load becomes false), f1 (offer shown on failed load).
+ * Tests: test-page-wiring.ts, test-load-failure-guard.ts
  */
 
 import type { Database } from "@/lib/database.types";
