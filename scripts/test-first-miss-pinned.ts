@@ -600,6 +600,22 @@ console.log("\n=== HARD-FEEL HOLD ===");
   check("Hard feel at 60 kg barbell: holds at 60", d.nextWorkingWeightKg === 60 && d.outcome === "hold");
 }
 
+console.log("\n=== IN-RANGE HOLD (4×10 in 8-12) ===");
+// Test that in-range sessions hold weight and reset failures
+{
+  const d = run({
+    sets: sets(4, 10, 40), // In range [8, 12], not at top
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: BENCH,
+    state: fresh({ currentWorkingWeightKg: 40, consecutiveFailures: 0 }),
+    feel: "right",
+  });
+  check("4×10 in 8-12: outcome hold", d.outcome === "hold");
+  check("4×10 in 8-12: weight unchanged at 40", d.nextWorkingWeightKg === 40);
+  check("4×10 in 8-12: failures reset to 0", d.consecutiveFailures === 0);
+}
+
 if (failures > 0) {
   console.error(`\n❌ ${failures} test(s) failed`);
   process.exit(1);

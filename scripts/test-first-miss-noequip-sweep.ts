@@ -58,6 +58,40 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
 const sets = (n: number, reps: number, w: number | null): LoggedSet[] =>
   Array.from({ length: n }, () => ({ reps, weightKg: w }));
 
+// Test specific in-range case (4×10 in 8-12): should hold with failures=0
+console.log("\n=== IN-RANGE HOLD (differs from main) ===");
+{
+  const inRangeResult = evaluateProgression({
+    sets: sets(4, 10, 40),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: {
+      mechanic: "compound",
+      metric: "reps",
+      movementPattern: "horizontal_press",
+      isBodyweight: false,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state: fresh({ currentWorkingWeightKg: 40, consecutiveFailures: 0 }),
+    isDeload: false,
+    equipmentIds: undefined,
+    unit: undefined,
+  });
+  
+  const pass = inRangeResult.outcome === "hold" && 
+               inRangeResult.consecutiveFailures === 0 &&
+               inRangeResult.nextWorkingWeightKg === 40;
+  
+  console.log(`  ${pass ? "ok  " : "FAIL"} 4×10 in 8-12: holds at 40, failures=0 (changed from main's behavior)`);
+  if (!pass) {
+    console.log(`       Got: outcome=${inRangeResult.outcome}, failures=${inRangeResult.consecutiveFailures}, weight=${inRangeResult.nextWorkingWeightKg}`);
+    process.exit(1);
+  }
+}
+
 let caseCount = 0;
 const buckets: { hash: string; count: number }[] = Array.from(
   { length: 64 },

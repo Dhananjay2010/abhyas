@@ -1201,5 +1201,19 @@ console.log("\n32. Back-off holds when reduced weight would be at or below incre
   check("back-off 7.5 kg lower: holds at 7.5 kg (reduced 5 <= increment 5)", backOff75.nextWorkingWeightKg === 7.5 && backOff75.outcome === "hold", `${backOff75.nextWorkingWeightKg}, ${backOff75.outcome}`);
 }
 
+console.log("\n33. In-range hold: 4×10 in 8-12 holds weight, resets failures");
+{
+  const inRange = run({
+    meta: BENCH,
+    sets: sets(4, 10, 40),
+    state: fresh({ currentWorkingWeightKg: 40, consecutiveFailures: 0 }),
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  check("4×10 in 8-12: outcome hold", inRange.outcome === "hold");
+  check("4×10 in 8-12: weight unchanged at 40", inRange.nextWorkingWeightKg === 40, `${inRange.nextWorkingWeightKg}`);
+  check("4×10 in 8-12: failures reset to 0", inRange.consecutiveFailures === 0, `${inRange.consecutiveFailures}`);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
