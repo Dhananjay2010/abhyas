@@ -373,29 +373,7 @@ export type { ProgressionFeedback };
  * Testable action body for finishExercise.
  * Extracted for testing the wiring from action to core.
  */
-export async function finishExerciseAction(
-  supabase: Awaited<ReturnType<typeof getAuthedClient>>["supabase"],
-  userId: string,
-  input: {
-    sessionExerciseId: string;
-    feel: SetFeel | null;
-    skipped?: boolean;
-  }
-): Promise<Result<ProgressionFeedback | null>> {
-  type ServerClient = typeof supabase;
-  
-  async function applyProgressionForAction(
-    supabase: ServerClient,
-    userId: string,
-    sessionExerciseId: string,
-    feel: SetFeel | null,
-  ): Promise<ProgressionFeedback | null> {
-    return await applyProgression(supabase, userId, sessionExerciseId, feel);
-  }
-  
-  const deps = makeFinishExerciseDeps(supabase, applyProgressionForAction);
-  return finishExerciseCore(deps, userId, input);
-}
+import { abandonSessionAction, finishSessionAction, finishExerciseAction as finishExerciseActionWrapper } from "@/lib/session/session-action-wrappers";
 
 export async function finishExercise(input: {
   sessionExerciseId: string;
@@ -406,7 +384,18 @@ export async function finishExercise(input: {
   if (rateLimit) return rateLimit;
   
   const { supabase, user } = await requireUser();
-  return await finishExerciseAction(supabase, user.id, input);
+  
+  type ServerClient = typeof supabase;
+  async function applyProgressionForAction(
+    supabase: ServerClient,
+    userId: string,
+    sessionExerciseId: string,
+    feel: SetFeel | null,
+  ): Promise<ProgressionFeedback | null> {
+    return await applyProgression(supabase, userId, sessionExerciseId, feel);
+  }
+  
+  return await finishExerciseActionWrapper(supabase, user.id, input, applyProgressionForAction);
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
@@ -568,17 +557,6 @@ async function upgradeVariation(
  * Testable action body for finishSession.
  * Extracted for testing the wiring from action to core.
  */
-export async function finishSessionAction(
-  supabase: Awaited<ReturnType<typeof getAuthedClient>>["supabase"],
-  input: {
-    sessionId: string;
-    durationSeconds: number;
-    cooldownCompleted: boolean;
-  }
-): Promise<Result<{ status: "completed" | "skipped" }>> {
-  return await finishSessionCore(makeFinishSessionDeps(supabase), input);
-}
-
 export async function finishSession(input: {
   sessionId: string;
   durationSeconds: number;
@@ -614,15 +592,6 @@ export async function finishSession(input: {
  * Testable action body for abandonSession.
  * Extracted for testing the wiring from action to core.
  */
-export async function abandonSessionAction(
-  supabase: Awaited<ReturnType<typeof getAuthedClient>>["supabase"],
-  sessionId: string,
-  elapsedSeconds: number,
-): Promise<Result> {
-  const deps = makeAbandonSessionDeps(supabase);
-  return await abandonSessionCore(deps, sessionId, elapsedSeconds);
-}
-
 export async function abandonSession(
   sessionId: string,
   elapsedSeconds: number,

@@ -10,7 +10,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
-import { abandonSessionAction } from "../src/app/session/actions";
+import { abandonSessionAction } from "../src/lib/session/session-action-wrappers";
 
 let passed = 0;
 let failed = 0;

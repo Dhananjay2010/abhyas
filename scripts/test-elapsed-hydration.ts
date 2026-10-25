@@ -42,7 +42,7 @@ function assertEqual<T>(actual: T, expected: T, msg: string = "") {
 
 // Component that uses elapsed timer
 function ElapsedDisplay({ startedAt }: { startedAt: string | null }) {
-  const elapsed = useElapsed(startedAt, Date.now);
+  const elapsed = useElapsed(startedAt);
   return React.createElement("div", { className: "elapsed" }, formatClock(elapsed));
 }
 
