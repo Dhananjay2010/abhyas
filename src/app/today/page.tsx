@@ -338,7 +338,7 @@ export default async function TodayPage() {
       deload_week: program.deload_week,
     },
     days: days ?? [],
-    allSessionsRes,
+    allSessionsRes: sessionsRes,
     todaySessionsRes: { data: todaySessions, error: null },
     yesterdaySessionsRes: { data: yesterdaySessions, error: null },
     sessionExercisesRes,

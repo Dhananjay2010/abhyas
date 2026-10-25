@@ -36,7 +36,8 @@ const mockRouter = {
   prefetch: () => Promise.resolve(),
   back: () => {},
   forward: () => {},
-};
+  bfcacheId: "test",
+} as any;
 
 // Scenario: rest day after missed yesterday (showBothPrompt = true)
 const promptBlocks = {
@@ -53,8 +54,8 @@ const yesterdayDay = {
 };
 
 const plannable = [
-  { id: "d1", day_type: "weights" as const, label: "Push" },
-  { id: "d2", day_type: "rest" as const, label: null },
+  { programDayId: "d1", dayType: "weights" as const, label: "Push" },
+  { programDayId: "d2", dayType: "rest" as const, label: "Rest" },
 ];
 
 const todayPrompts = createElement(

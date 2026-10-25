@@ -42,7 +42,13 @@ const baseInput = {
   ],
   allSessionsRes: {
     data: [
-      { actual_type: "weights" as const, started_at: "2026-01-10T10:00:00Z" },
+      {
+        local_date: "2026-01-10",
+        status: "completed",
+        actual_type: "weights" as const,
+        program_day_id: "day1",
+        started_at: "2026-01-10T10:00:00Z",
+      },
     ],
     error: null,
   },
@@ -201,6 +207,114 @@ const result5 = buildPage(multiDateInput);
 assert(
   result5.todayState.missedYesterday === false,
   "P7: Yesterday filter includes only current program sessions"
+);
+
+console.log("\n=== Test 6: chosenByDayIndex - Tomorrow choice shows ===\n");
+
+// Test that a choice made for tomorrow shows on tomorrow's row with a label
+// Use 2026-01-12 which is a real Monday
+const tomorrowChoiceInput = {
+  ...baseInput,
+  localToday: "2026-01-12", // Monday (day_index 1)
+  yesterday: "2026-01-11", // Sunday
+  allSessionsRes: {
+    data: [
+      // A planned session for Tuesday (tomorrow) with actual_type "weights" pointing to Pull
+      {
+        local_date: "2026-01-13", // Tuesday (day_index 2)
+        status: "planned",
+        actual_type: "weights" as const,
+        program_day_id: "day3", // Pull
+        started_at: null,
+      },
+      // User has started before
+      {
+        local_date: "2026-01-10",
+        status: "completed",
+        actual_type: "weights" as const,
+        program_day_id: "day1",
+        started_at: "2026-01-10T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  days: [
+    { id: "day1", day_index: 1, day_type: "weights" as const, label: "Push" },
+    { id: "day2", day_index: 2, day_type: "rest" as const, label: null }, // Tuesday template is Rest
+    { id: "day3", day_index: 3, day_type: "weights" as const, label: "Pull" },
+  ],
+};
+
+const result6 = buildPage(tomorrowChoiceInput);
+
+// Check that weekRowsWithChoices shows "Pull" for Tuesday (dayIndex 2)
+const tuesdayRow = result6.todayView.weekRowsWithChoices.find(r => r.dayIndex === 2);
+
+assert(
+  tuesdayRow !== undefined,
+  "Tuesday row exists in weekRowsWithChoices"
+);
+
+assert(
+  tuesdayRow!.label === "Pull",
+  `Tomorrow choice shows label "Pull", got "${tuesdayRow!.label}"`
+);
+
+assert(
+  tuesdayRow!.isChoice === true,
+  "Tomorrow choice has isChoice=true"
+);
+
+// Monday should show its template (Push) with no choice
+const mondayRow = result6.todayView.weekRowsWithChoices.find(r => r.dayIndex === 1);
+
+assert(
+  mondayRow!.label === "Push" && mondayRow!.isChoice === false,
+  "Monday (today) shows template with no choice"
+);
+
+console.log("\n=== Test 7: chosenByDayIndex - Unchanged plan shows no choice ===\n");
+
+// Test that when the session matches the template, isChoice=false
+const unchangedPlanInput = {
+  ...baseInput,
+  localToday: "2026-01-12", // Monday (day_index 1)
+  yesterday: "2026-01-11", // Sunday
+  allSessionsRes: {
+    data: [
+      // A planned session for Monday matching the template (Push)
+      {
+        local_date: "2026-01-12", // Monday
+        status: "planned",
+        actual_type: "weights" as const,
+        program_day_id: "day1", // Push - matches template
+        started_at: null,
+      },
+      // User has started before
+      {
+        local_date: "2026-01-10",
+        status: "completed",
+        actual_type: "weights" as const,
+        program_day_id: "day1",
+        started_at: "2026-01-10T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+};
+
+const result7 = buildPage(unchangedPlanInput);
+
+const mondayRow7 = result7.todayView.weekRowsWithChoices.find(r => r.dayIndex === 1);
+
+assert(
+  mondayRow7!.label === "Push",
+  "Unchanged plan shows template label"
+);
+
+assert(
+  mondayRow7!.isChoice === false,
+  "Unchanged plan has isChoice=false (no override)"
 );
 
 console.log("\n✅ All buildPage tests passed!\n");
