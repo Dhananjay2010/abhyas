@@ -17,8 +17,8 @@ import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
-import { countWorkingSets } from "@/lib/session/count-sets";
-import { isEndedEarly } from "@/lib/session/ended-early";
+import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
+import { StrengthDoneBanner } from "./strength-done-banner";
 
 export const dynamic = "force-dynamic";
 
@@ -305,7 +305,7 @@ export default async function TodayPage() {
   // only on a day following a missed one, the session's own exercises only once
   // a workout has been started. Run together so the uncommon day that needs
   // both still costs one round trip.
-  const [plannable, performedRows, completedSessionData] = await Promise.all([
+  const [plannable, performedRows, endedEarlySummary] = await Promise.all([
     askAboutToday ? plannableDays(supabase, program.id) : Promise.resolve([]),
     performed
       ? supabase
@@ -317,12 +317,9 @@ export default async function TodayPage() {
           .eq("session_id", performed.id)
           .order("order_index")
       : Promise.resolve(null),
-    // Load data for ended-early check on completed strength session
+    // Load ended-early summary for completed strength session
     completedStrengthSession
-      ? supabase
-          .from("session_exercises")
-          .select("id, status, planned_sets, session_sets(reps, duration_seconds, is_warmup_set)")
-          .eq("session_id", completedStrengthSession.id)
+      ? loadEndedEarlySummary(supabase, completedStrengthSession.id)
       : Promise.resolve(null),
   ]);
 
@@ -385,44 +382,6 @@ export default async function TodayPage() {
     localToday,
   });
 
-  // Determine if the completed strength session ended early
-  let sessionEndedEarly = false;
-  let completedSetCount = 0;
-  let totalPlannedSets = 0;
-  if (completedSessionData?.data) {
-    const exercises = completedSessionData.data as Array<{
-      id: string;
-      status: string | null;
-      planned_sets: number | null;
-      session_sets: Array<{
-        reps: number | null;
-        duration_seconds: number | null;
-        is_warmup_set: boolean | null;
-      }>;
-    }>;
-    
-    let hasPendingExercise = false;
-    let hasNoExercises = exercises.length === 0;
-    
-    for (const ex of exercises) {
-      if (ex.status === "pending") {
-        hasPendingExercise = true;
-      }
-      if (ex.status === "pending" || ex.status === "completed") {
-        totalPlannedSets += ex.planned_sets ?? 0;
-      }
-      completedSetCount += countWorkingSets(ex.session_sets);
-    }
-    
-    sessionEndedEarly = isEndedEarly({
-      isStrength: true,
-      status: "completed",
-      hasPendingExercise,
-      plannedSets: totalPlannedSets,
-      workingSetCount: completedSetCount,
-      hasNoExercises,
-    });
-  }
 
   // Recompute week and isDeload for UI display (header, deload banner, etc.)
   const { cycleWeekFor } = await import("@/lib/program/block-range");
@@ -597,16 +556,11 @@ export default async function TodayPage() {
       {isTraining && (
         <div className="mt-7">
           {strengthDone ? (
-            sessionEndedEarly ? (
-              <p className="rounded-xl border border-border bg-surface-2 px-5 py-4 text-center text-sm text-muted">
-                Session ended early.
-                {totalPlannedSets > 0 && ` ${completedSetCount} of ${totalPlannedSets} sets.`}
-              </p>
-            ) : (
-              <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
-                Session complete. Well done.
-              </p>
-            )
+            <StrengthDoneBanner
+              endedEarly={endedEarlySummary?.endedEarly ?? false}
+              workingSets={endedEarlySummary?.workingSets ?? 0}
+              plannedSets={endedEarlySummary?.plannedSets ?? 0}
+            />
           ) : (() => {
             const resumeHref = previousDayResumeHref(strengthOpen, localToday);
             return resumeHref ? (
