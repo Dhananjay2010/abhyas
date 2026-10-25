@@ -10,7 +10,7 @@ import {
   useElapsed,
   useWakeLock,
   vibrate,
-  vibrationSupported,
+  useVibrationSupported,
 } from "@/lib/session/device";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
@@ -1438,6 +1438,7 @@ function CapabilityNote({
   soundUnlocked: boolean;
   vibrateEnabled: boolean;
 }) {
+  const vibrationSupported = useVibrationSupported();
   const bits: string[] = [];
   bits.push(
     !wakeLock.supported
@@ -1447,7 +1448,7 @@ function CapabilityNote({
         : `screen may sleep${wakeLock.error ? ` (${wakeLock.error})` : ""}`,
   );
   if (soundEnabled) bits.push(soundUnlocked ? "sound ready" : "sound arms on first tap");
-  if (vibrateEnabled && !vibrationSupported()) bits.push("vibration unsupported here");
+  if (vibrateEnabled && !vibrationSupported) bits.push("vibration unsupported here");
 
   return <p className="mt-4 text-center text-[11px] text-muted/70">{bits.join(" · ")}</p>;
 }

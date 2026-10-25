@@ -139,6 +139,21 @@ export function useBeeper(enabled: boolean): Beeper {
 export const vibrationSupported = () =>
   typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
 
+/**
+ * Hook to check vibration support with SSR-safe hydration.
+ * Returns false during SSR and initial client render, then updates to actual
+ * support in an effect to prevent hydration mismatches.
+ */
+export function useVibrationSupported(): boolean {
+  const [supported, setSupported] = useState(false);
+  
+  useEffect(() => {
+    setSupported(vibrationSupported());
+  }, []);
+  
+  return supported;
+}
+
 export function vibrate(pattern: number | number[]) {
   if (vibrationSupported()) {
     try {
