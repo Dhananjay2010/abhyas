@@ -20,6 +20,7 @@ import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
 import { StrengthDoneBanner } from "./strength-done-banner";
 import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
+import { shouldLoadPlannableDays } from "@/lib/today/should-load-plannable";
 
 export const dynamic = "force-dynamic";
 
@@ -305,7 +306,9 @@ export default async function TodayPage() {
   // a workout has been started. Run together so the uncommon day that needs
   // both still costs one round trip.
   const [plannable, performedRows, endedEarlySummary] = await Promise.all([
-    askAboutToday ? plannableDays(supabase, program.id) : Promise.resolve([]),
+    shouldLoadPlannableDays({ askAboutToday, dayType })
+      ? plannableDays(supabase, program.id)
+      : Promise.resolve([]),
     performed
       ? supabase
           .from("session_exercises")
