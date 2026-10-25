@@ -17,6 +17,9 @@ import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
+import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
+import { StrengthDoneBanner } from "./strength-done-banner";
+import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
 
 export const dynamic = "force-dynamic";
 
@@ -252,9 +255,8 @@ export default async function TodayPage() {
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
-  const strengthDone = todaySessions.some(
-    (s) => s.status === "completed" && isStrength(s.actual_type),
-  );
+  const completedStrengthSession = pickLatestCompletedStrength(todaySessions);
+  const strengthDone = completedStrengthSession !== undefined;
   // Resume detection: from loader (searches all sessions, not just today)
   const strengthOpen = sessionState.strengthOpen;
 
@@ -302,7 +304,7 @@ export default async function TodayPage() {
   // only on a day following a missed one, the session's own exercises only once
   // a workout has been started. Run together so the uncommon day that needs
   // both still costs one round trip.
-  const [plannable, performedRows] = await Promise.all([
+  const [plannable, performedRows, endedEarlySummary] = await Promise.all([
     askAboutToday ? plannableDays(supabase, program.id) : Promise.resolve([]),
     performed
       ? supabase
@@ -313,6 +315,10 @@ export default async function TodayPage() {
           .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue)")
           .eq("session_id", performed.id)
           .order("order_index")
+      : Promise.resolve(null),
+    // Load ended-early summary for completed strength session
+    completedStrengthSession
+      ? loadEndedEarlySummary(supabase, completedStrengthSession.id)
       : Promise.resolve(null),
   ]);
 
@@ -548,9 +554,11 @@ export default async function TodayPage() {
       {isTraining && (
         <div className="mt-7">
           {strengthDone ? (
-            <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
-              Session complete. Well done.
-            </p>
+            <StrengthDoneBanner
+              endedEarly={endedEarlySummary?.endedEarly ?? false}
+              workingSets={endedEarlySummary?.workingSets ?? 0}
+              plannedSets={endedEarlySummary?.plannedSets ?? 0}
+            />
           ) : (() => {
             const resumeHref = previousDayResumeHref(strengthOpen, localToday);
             return resumeHref ? (
