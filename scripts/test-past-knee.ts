@@ -15,7 +15,7 @@
 import { readFileSync } from "node:fs";
 import { generateProgram, isEligible, score, hashString, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { rankAlternatives, buildPatternList, type AlternativesContext } from "../src/lib/program/alternatives";
-import { getPastKneeExcludedSlugs, getKneeFriendlyPrimaries } from "../src/lib/program/past-knee";
+import { getPastKneeExcludedSlugs, getKneeFriendlyPrimaries, isExcludedForPastKnee } from "../src/lib/program/past-knee";
 import { selectWarmup, type WarmupRow } from "../src/lib/program/warmup";
 
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf8"));
@@ -59,6 +59,16 @@ console.log("\n1. Catalogue validation: all past-knee slugs exist");
   check("weighted-sissy-squat MUST be excluded", excludedSlugs.includes("weighted-sissy-squat"));
   check("one-leg-barbell-squat MUST be excluded", excludedSlugs.includes("one-leg-barbell-squat"));
   check("lunge-sprint MUST be excluded", excludedSlugs.includes("lunge-sprint"));
+  
+  // Jumping exercise filter test (direct function call)
+  const jumpingSlugs = ["freehand-jump-squat", "knee-tuck-jump", "rocket-jump"];
+  for (const slug of jumpingSlugs) {
+    const ex = bySlug.get(slug);
+    if (ex) {
+      const excluded = isExcludedForPastKnee(ex);
+      check(`${slug} excluded by filter`, excluded);
+    }
+  }
   
   for (const slug of excludedSlugs) {
     const exists = bySlug.has(slug);
@@ -106,8 +116,10 @@ console.log("\n2. Grid test: past-knee across dimensions");
   // Explicit wired tests (must fail on b4845303)
   let plansWithKettlebellPistol = 0;
   let swapsWithKettlebellPistol = 0;
+  let plansWithJumping = 0;
   
   const excludedSlugs = Array.from(getPastKneeExcludedSlugs());
+  const jumpingSlugs = ["freehand-jump-squat", "knee-tuck-jump", "rocket-jump"];
   
   for (const goal of goals) {
     for (const level of levels) {
@@ -139,6 +151,11 @@ console.log("\n2. Grid test: past-knee across dimensions");
             // Explicit check: kettlebell-pistol-squat never in plans
             if (exercises.some(e => e.slug === "kettlebell-pistol-squat")) {
               plansWithKettlebellPistol++;
+            }
+            
+            // Check jumping exercises (high impact) never in plans
+            if (exercises.some(e => jumpingSlugs.includes(e.slug))) {
+              plansWithJumping++;
             }
             
             // Check 2: Check for barbell back squat as FIRST squat primary in Lower/Leg days
@@ -222,6 +239,8 @@ console.log("\n2. Grid test: past-knee across dimensions");
     plansWithKettlebellPistol > 0 ? `${plansWithKettlebellPistol} plans had kettlebell-pistol-squat` : "");
   check(`kettlebell-pistol-squat NEVER in swaps`, swapsWithKettlebellPistol === 0,
     swapsWithKettlebellPistol > 0 ? `${swapsWithKettlebellPistol} swap lists had kettlebell-pistol-squat` : "");
+  check(`Jumping exercises NEVER in past-knee plans`, plansWithJumping === 0,
+    plansWithJumping > 0 ? `${plansWithJumping} plans had jumping exercises` : "");
     
   console.log(`    Checked ${totalPlans} plans and ${swapListsChecked} swap lists`);
 }

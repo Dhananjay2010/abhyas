@@ -67,7 +67,7 @@ export function isExcludedForPastKnee(ex: CandidateExercise): boolean {
     return true;
   }
   
-  return isJumpingExercise(ex);
+  return false;
 }
 
 /**
