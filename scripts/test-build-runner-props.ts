@@ -1,12 +1,13 @@
 #!/usr/bin/env tsx
 /**
- * Test N6/N6s: buildRunnerProps extracts correct fields
+ * Test N6/N6s/N8: buildRunnerProps and buildSettingsProps extract correct fields
  * 
  * N6: userId must be user.id
  * N6s: sessionStatus must be session.status
+ * N8: settings userId must be user.id
  */
 
-import { buildRunnerProps } from "../src/lib/session/build-runner-props";
+import { buildRunnerProps, buildSettingsProps } from "../src/lib/session/build-runner-props";
 
 let passed = 0;
 
