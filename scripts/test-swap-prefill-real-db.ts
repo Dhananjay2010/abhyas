@@ -109,8 +109,6 @@ async function runTests() {
       goal: "muscle_gain",
       level: "intermediate",
       primary_track: "weights",
-      session_minutes: 60,
-      days_per_week: 4,
       onboarding_completed_at: new Date().toISOString(),
     });
 
