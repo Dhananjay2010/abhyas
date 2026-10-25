@@ -269,6 +269,11 @@
     "test:catalogue-knee-jumps": "tsx scripts/test-catalogue-knee-jumps.ts",
     "test:past-knee-coordinator": "tsx scripts/test-past-knee-coordinator.ts",
     "test:timed-target-display": "tsx scripts/test-timed-target-display.ts",
+    "test:unloaded-target-rules": "tsx scripts/test-unloaded-target-rules.tsx",
+    "test:swap-path-integration": "tsx scripts/test-swap-path-integration.tsx",
+    "test:progress-query-builder": "tsx scripts/test-progress-query-builder.tsx",
+    "test:planning-mode-swap": "tsx scripts/test-planning-mode-swap.tsx",
+    "test:format-target-range": "tsx scripts/test-format-target-range.tsx",
     "test:session-hydration-418": "tsx scripts/test-session-hydration-418.tsx",
     "test:m3-wrist": "tsx scripts/test-m3-wrist-lowerback-contraindications.ts"
   },

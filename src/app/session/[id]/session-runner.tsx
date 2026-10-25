@@ -16,6 +16,7 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
+import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
 import { applySwapTarget } from "@/lib/session/apply-swap-target";
 import {
@@ -812,11 +813,7 @@ export function SessionRunner({
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>
         <p className="mt-2 text-accent">
-          {current.plannedSets} sets ×{" "}
-          {current.repsMin === current.repsMax
-            ? current.repsMin
-            : `${current.repsMin}–${current.repsMax}`}
-          {isTimed ? "s" : " reps"}
+          {current.plannedSets} sets × {formatTargetRange({ min: current.repsMin, max: current.repsMax, metric: current.metric })}
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (

@@ -78,7 +78,6 @@ const findGuardCheck = (n: ts.Node): void => {
 // Find first write operation (.update( or .from("session_exercises"))
 const findFirstWrite = (n: ts.Node): void => {
   if (ts.isCallExpression(n)) {
-    const text = n.getText(sf);
     // Look for .update( or .from("session_exercises")
     if ((ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === "update") ||
         (n.expression.getText(sf).endsWith(".from") && 
