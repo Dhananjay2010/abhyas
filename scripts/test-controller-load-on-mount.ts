@@ -82,7 +82,7 @@ async function runTests() {
       sessionId: "test-session",
       sessionStatus: "in_progress",
       userId: "test-user",
-      onChange: () => { loadCalled = true; },
+      onChange: () => {},
       deps: fakeDeps,
     });
 
