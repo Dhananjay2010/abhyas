@@ -5,7 +5,7 @@
  */
 
 import "./helpers/setup-jsdom";
-import { render, screen, act, fireEvent } from "@testing-library/react";
+import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 import { SessionRunner } from "../src/app/session/[id]/session-runner";
 import type { RunnerExercise, SessionActions } from "../src/app/session/[id]/session-runner";
 import { savePendingSet } from "../src/lib/session/pending-set-retry";
@@ -94,51 +94,74 @@ const actions: SessionActions = {
   findAlternatives: async () => ({ ok: true, data: [] }),
 };
 
-function runTest() {
-  render(
-    <SessionRunner
-      sessionId="test-session"
-      sessionStatus="in_progress"
-      userId="test-user"
-      isDeload={false}
-      week={1}
-      warmupAlreadyDone={true}
-      startedAt={new Date(FIXED_TIME).toISOString()}
-      warmup={[]}
-      cooldown={[]}
-      exercises={[exercise]}
-      settings={{
-        perSetLogging: true,
-        restAutostart: false,
-        restSound: false,
-        restVibrate: false,
-        restOverrideSeconds: null,
-        cooldownEnabled: false,
-      }}
-      actions={actions}
-    />
+async function runTest() {
+  let container: HTMLElement;
+  
+  await act(async () => {
+    const result = render(
+      <SessionRunner
+        sessionId="test-session"
+        sessionStatus="in_progress"
+        userId="test-user"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date(FIXED_TIME).toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[exercise]}
+        settings={{
+          perSetLogging: true,
+          restAutostart: false,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+        }}
+        actions={actions}
+      />
+    );
+    container = result.container;
+  });
+
+  // Wait for the controller to load and display the retry button
+  await waitFor(
+    () => {
+      const retryButton = screen.queryByText(/Retry saving/i);
+      if (!retryButton) {
+        throw new Error("Retry button not found");
+      }
+      assert(retryButton !== null, "Retry button found after controller load");
+    },
+    { timeout: 5000 }
   );
 
-  const retryButton = screen.queryByText(/Retry saving/i);
-  assert(retryButton !== null, "Retry button found");
+  const retryButton = screen.getByText(/Retry saving/i);
   assert(retryButton instanceof HTMLButtonElement, "Retry button is HTMLButtonElement");
   assert(!retryButton.disabled, "Retry button initially enabled");
 
   // Click retry
-  act(() => {
+  await act(async () => {
     fireEvent.click(retryButton);
   });
 
   assert(logSetCalls === 1, "logSet called once after clicking Retry");
 
   // Button should now be disabled while retrying
-  const savingButton = screen.queryByText(/Saving.*set/i);
-  assert(savingButton !== null, "M9: Button shows 'Saving...' text while retrying");
+  await waitFor(() => {
+    const savingButton = screen.queryByText(/Saving.*set/i);
+    if (!savingButton) {
+      throw new Error("Saving button not found");
+    }
+    assert(savingButton !== null, "M9: Button shows 'Saving...' text while retrying");
+  });
+
+  const savingButton = screen.getByText(/Saving.*set/i);
   assert(savingButton instanceof HTMLButtonElement, "M9: Saving button is HTMLButtonElement");
   assert(savingButton.disabled, "M9: Button is disabled while retrying");
 
   // Try to click again (should be blocked)
-  act(() => {
+  await act(async () => {
     fireEvent.click(savingButton);
   });
 
@@ -148,9 +171,7 @@ function runTest() {
   process.exit(0);
 }
 
-try {
-  runTest();
-} catch (e) {
+runTest().catch((e) => {
   console.error("\n❌ M9 TEST FAILED:", e);
   process.exit(1);
-}
+});
