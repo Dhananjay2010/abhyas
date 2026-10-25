@@ -22,16 +22,17 @@ function test(condition: boolean, message: string) {
 
 console.log("\n=== Test weekWindow wiring ===\n");
 
-// Test 1: weekWindow returns correct range
+// Test 1: weekWindow includes yesterday on first day of cycle week
 // 2026-10-19 is Monday (7 days after 2026-10-12), so it's start of week 2
+// Window must start at yesterday (2026-10-18) to catch completed/in-progress sessions
 const window1 = weekWindow(
   { started_on: "2026-10-12", week_offset: 0 },
   "2026-10-19" // Monday of week 2
 );
 
 test(
-  window1.start === "2026-10-19",
-  `Week 2 Monday (2026-10-19): window starts at current cycle-week start (2026-10-19), got ${window1.start}`
+  window1.start === "2026-10-18",
+  `Week 2 Monday (2026-10-19): window starts at yesterday (2026-10-18), got ${window1.start}`
 );
 
 test(

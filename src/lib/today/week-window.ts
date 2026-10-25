@@ -19,7 +19,12 @@ export interface WeekWindow {
 }
 
 /**
- * Compute the session window from cycle-week start through today+6.
+ * Compute the session window from min(yesterday, cycle-week start) through today+6.
+ * 
+ * Starting at yesterday (not just cycle-week start) ensures:
+ * - Completed yesterday sessions are fetched (for missedYesterday detection)
+ * - In-progress yesterday sessions show resume link (#111/#116)
+ * - Programs starting tomorrow still include today
  */
 export function weekWindow(program: WeekWindowInput, localToday: string): WeekWindow {
   const { started_on } = program;
@@ -29,11 +34,16 @@ export function weekWindow(program: WeekWindowInput, localToday: string): WeekWi
   const daysSinceStart = daysBetween(started_on, localToday);
   const weeksElapsed = Math.floor(daysSinceStart / 7);
   
-  // Start of the current week, clamped to started_on (when weeksElapsed < 0)
-  const start = weeksElapsed >= 0 ? addDays(started_on, weeksElapsed * 7) : started_on;
+  // Start of the current cycle week, clamped to started_on (when weeksElapsed < 0)
+  const cycleWeekStart = weeksElapsed >= 0 ? addDays(started_on, weeksElapsed * 7) : started_on;
   
-  // Window extends from cycle week start through today+6 (for "Your week")
-  const end = addDays(localToday, 6);
+  // Always include yesterday to catch completed/in-progress sessions for resume & missed detection
+  const yesterday = addDays(localToday, -1);
+  const start = yesterday < cycleWeekStart ? yesterday : cycleWeekStart;
+  
+  // Window extends through today+6 (for "Your week"), but never earlier than today
+  const tentativeEnd = addDays(localToday, 6);
+  const end = tentativeEnd < localToday ? localToday : tentativeEnd;
   
   return {
     start,
