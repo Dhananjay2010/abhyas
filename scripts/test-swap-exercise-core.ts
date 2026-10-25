@@ -61,6 +61,7 @@ async function main() {
 
   const input: SwapExerciseCoreInput = {
     newExerciseId: NEW_EXERCISE_ID,
+    sessionExerciseId: "session-exercise-123",
     current: {
       exercise_id: OLD_EXERCISE_ID,
       metric: "reps" as const,
@@ -83,7 +84,22 @@ async function main() {
 
   console.log("Case 1: remembersWeights=true (progression mode)\n");
 
-  const result = await swapExerciseCore({ resolveSwapWeights: fakeResolveSwapWeights }, input);
+  const result = await swapExerciseCore({
+    resolveSwapWeights: fakeResolveSwapWeights,
+    validateSwapTarget: async () => true, // Always allow for test
+  }, input);
+
+  // Check that result succeeded
+  check(
+    "Result succeeded (ok: true)",
+    result.ok === true,
+    `got ok=${result.ok}`,
+  );
+  
+  if (!result.ok) {
+    console.error("Result failed:", result.error);
+    process.exit(1);
+  }
 
   // S3: Must pass the NEW exercise id, not the old one
   check(
@@ -136,7 +152,10 @@ async function main() {
     remembersWeights: false,
   };
 
-  const result2 = await swapExerciseCore({ resolveSwapWeights: fakeResolveSwapWeights }, noMemoryInput);
+  const result2 = await swapExerciseCore({ 
+    resolveSwapWeights: fakeResolveSwapWeights,
+    validateSwapTarget: async () => true,
+  }, noMemoryInput);
 
   check(
     "S3: passes NEW exercise id",
@@ -154,20 +173,20 @@ async function main() {
   // When remembersWeights is false, fake returns null (simulating real behavior)
   check(
     "S1: returns null weightPrefill when remembersWeights=false",
-    result2.weightPrefill === null,
-    `got ${result2.weightPrefill}`,
+    result2.ok && result2.weightPrefill === null,
+    `got ${result2.ok ? result2.weightPrefill : 'error'}`,
   );
 
   check(
     "S2: returns null workingWeightKg when remembersWeights=false",
-    result2.workingWeightKg === null,
-    `got ${result2.workingWeightKg}`,
+    result2.ok && result2.workingWeightKg === null,
+    `got ${result2.ok ? result2.workingWeightKg : 'error'}`,
   );
 
   check(
     "returns null currentTargetReps when remembersWeights=false",
-    result2.currentTargetReps === null,
-    `got ${result2.currentTargetReps}`,
+    result2.ok && result2.currentTargetReps === null,
+    `got ${result2.ok ? result2.currentTargetReps : 'error'}`,
   );
 
   console.log("\nCase 3: Bodyweight exercise\n");
@@ -202,7 +221,21 @@ async function main() {
     };
   };
 
-  const bwResult = await swapExerciseCore({ resolveSwapWeights: fakeBWResolveSwapWeights }, bodyweightInput);
+  const bwResult = await swapExerciseCore({
+    resolveSwapWeights: fakeBWResolveSwapWeights,
+    validateSwapTarget: async () => true, // Always allow for test
+  }, bodyweightInput);
+
+  check(
+    "Bodyweight result succeeded (ok: true)",
+    bwResult.ok === true,
+    `got ok=${bwResult.ok}`,
+  );
+  
+  if (!bwResult.ok) {
+    console.error("Bodyweight result failed:", bwResult.error);
+    process.exit(1);
+  }
 
   check(
     "S3: passes NEW exercise id for bodyweight",

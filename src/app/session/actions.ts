@@ -5,12 +5,9 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
-import { rankAlternatives } from "@/lib/program/alternatives";
 import { getSwapPatterns } from "@/lib/program/swap-patterns";
-import { buildSwapContext } from "@/lib/program/swap-context";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { isEligible, score, hashString, buildInjuryFlags, type CandidateExercise } from "@/lib/program/generate";
-import { ageOn } from "@/lib/onboarding/options";
+import type { CandidateExercise } from "@/lib/program/generate";
 import {
   describePersonalBest,
   evaluateProgression,
@@ -33,6 +30,7 @@ import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
+import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligible-swap-list";
 
 export type { SwapResult };
 
@@ -153,6 +151,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       updateSessionCore(supabase, existing.id, user.id, today, updatePayload),
       ensureSessionExercises(supabase, user.id, existing.id),
     ]);
+
     if (!updateResult.ok) {
       return { ok: false, error: updateResult.error };
     }
@@ -628,58 +627,31 @@ export async function findAlternatives(
   if (!profile) return { ok: false, error: "Profile not found" };
 
   const weightKg = weightRes.data?.weight_kg ?? null;
-  const bmi =
-    weightKg && profile.height_cm
-      ? Number(weightKg) / (Number(profile.height_cm) / 100) ** 2
-      : null;
 
   const alreadyInSession = new Set(
     (siblingsRes.data ?? []).map((s) => s.exercise_id),
   );
   
-  const input = {
+  // Build GeneratorInput using shared helper
+  const generatorInput = buildGeneratorInput({
     userId: user.id,
-    blockNumber: 1,
-    goal: profile.goal!,
-    level: profile.level!,
-    primaryTrack: profile.primary_track!,
-    daysPerWeek: profile.days_per_week ?? 3,
-    yogaDaysPerWeek: profile.yoga_days_per_week ?? 0,
-    age: profile.date_of_birth ? ageOn(profile.date_of_birth) : null,
-    bmi,
-    hasAllEquipment: profile.has_all_equipment ?? false,
+    profile: {
+      goal: profile.goal!,
+      level: profile.level!,
+      primary_track: profile.primary_track!,
+      days_per_week: profile.days_per_week ?? 3,
+      yoga_days_per_week: profile.yoga_days_per_week ?? 0,
+      date_of_birth: profile.date_of_birth,
+      height_cm: profile.height_cm,
+      has_all_equipment: profile.has_all_equipment ?? false,
+    },
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    ...buildInjuryFlags(injuriesRes.data ?? []),
-    catalogue: [] as CandidateExercise[],
-  };
+    injuries: injuriesRes.data ?? [],
+    weightKg: weightKg ? Number(weightKg) : null,
+  });
 
-  /*
-    Ranked, not simply the first six rows the database happened to return.
-
-    This used to `.slice(0, 6)` an unordered query, so the same handful came
-    back every time — and because that order is effectively the order the
-    catalogue was seeded in, it was alphabetical: a core slot with 57 eligible
-    exercises offered the same six names beginning with A and B, and nothing
-    else in the catalogue was reachable from the swap list at all.
-
-    Ranking by the generator's own `score`, with the mechanic of the exercise
-    being replaced, means a swap offers what the planner itself would have
-    considered for that slot: a compound for a compound, and the simplest setup
-    that does the job.
-
-    Ties are broken by a hash of the slug against this session exercise rather
-    than alphabetically. Scores bunch up hard — every equipment-free isolation
-    core movement scores identically — so an alphabetical tie-break just moved
-    the same problem one step along: the list became the first six A-to-C names
-    instead of the first six overall, and a plank was still unreachable. The
-    hash keeps the list stable for a given exercise, so it does not reshuffle
-    under the user between taps, while different slots surface different work.
-  */
-  const wantCompound = replacing?.mechanic !== "isolation";
-  const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
-  
   // Build pattern list (current + fallbacks + knee-safe if applicable)
-  const patterns = getSwapPatterns(pattern, input);
+  const patterns = getSwapPatterns(pattern, generatorInput);
   
   // Helper to cast Supabase rows to typed pool rows
   type PoolRow = CandidateExercise & { cue: string | null };
@@ -690,25 +662,20 @@ export async function findAlternatives(
   // Query pool with widened pattern list
   const poolRes = await supabase
     .from("exercises")
-    .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
+    .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
     .in("movement_pattern", patterns)
     .eq("is_active", true);
   
   const pool = asPoolRows(poolRes.data);
   
-  // Filter by isEligible first (generator safety rules: age, BMI, spinal load, etc.)
-  const eligible = pool
-    .filter((e) => !alreadyInSession.has(e.id))
-    .filter((e) => isEligible(e, { ...input, catalogue: [] }));
-  
-  // Find current exercise in the pool (not in eligible - it may be contraindicated)
+  // Find current exercise in the pool
   let currentExercise = pool.find((e) => e.id === current.exercise_id);
   
   // If current is inactive or missing, fetch it separately
   if (!currentExercise) {
     const inactiveRes = await supabase
       .from("exercises")
-      .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
+      .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
       .eq("id", current.exercise_id)
       .maybeSingle();
     
@@ -718,21 +685,24 @@ export async function findAlternatives(
     }
   }
   
-  const scoreFn = (e: CandidateExercise) => score(e, wantCompound, input.level, input.primaryTrack);
-  const swapContext = buildSwapContext(input, scoreFn, tieBreak);
-  
-  const ranked = rankAlternatives(
+  // Use single source of truth for swap list
+  const ranked = buildEligibleSwapList({
     currentExercise,
-    eligible,
-    swapContext,
-  );
+    sessionExerciseId,
+    generatorInput,
+    pool,
+    alreadyInSession,
+  });
 
-  const alternatives = ranked.map((e) => ({
-    exerciseId: e.id,
-    name: e.name,
-    cue: e.cue ?? null,
-    metric: e.metric ?? ("reps" as const),
-  }));
+  const alternatives = ranked.map((e) => {
+    const poolRow = pool.find(p => p.id === e.id);
+    return {
+      exerciseId: e.id,
+      name: e.name,
+      cue: poolRow?.cue ?? null,
+      metric: e.metric ?? ("reps" as const),
+    };
+  });
 
   return { ok: true, data: alternatives };
 }
