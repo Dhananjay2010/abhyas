@@ -2,8 +2,8 @@
  * Regression test: past-knee swap path in actions.ts must select secondary_muscles
  * 
  * actions.ts has TWO exercises.select() queries:
- * - Pool query (~701): .from("exercises").select("...").in("movement_pattern", patterns)
- * - Inactive fallback (~719): .from("exercises").select("...").eq("id", current.exercise_id)
+ * - Pool query (~723): .from("exercises").select("...").in("movement_pattern", patterns)
+ * - Inactive fallback (~741): .from("exercises").select("...").eq("id", current.exercise_id)
  * 
  * isHighImpactLegExercise loops over ex.secondary_muscles, throwing TypeError
  * when it's undefined. This test extracts BOTH column strings, asserts each contains
