@@ -106,6 +106,16 @@ export type RunnerSettings = {
   cooldownEnabled: boolean;
 };
 
+export type RunnerTimer = {
+  setTimeout: (callback: () => void, ms: number) => unknown;
+  clearTimeout: (id: unknown) => void;
+};
+
+const REAL_TIMER: RunnerTimer = {
+  setTimeout: (cb, ms) => globalThis.setTimeout(cb, ms),
+  clearTimeout: (id) => globalThis.clearTimeout(id as number),
+};
+
 type Phase = "warmup" | "work" | "cooldown" | "done";
 
 const FEELS: { value: Feel; label: string }[] = [
@@ -126,6 +136,7 @@ export function SessionRunner({
   settings,
   tomorrow,
   actions = REAL_ACTIONS,
+  timer,
   onExit,
 }: {
   sessionId: string;
@@ -140,9 +151,11 @@ export function SessionRunner({
   /** What tomorrow is, so the summary can ask about it. Null with no block. */
   tomorrow?: NextDayPlan | null;
   actions?: SessionActions;
+  timer?: RunnerTimer;
   onExit?: () => void;
 }) {
   const router = useRouter();
+  const timerImpl = timer ?? REAL_TIMER;
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
   
@@ -273,9 +286,9 @@ export function SessionRunner({
     markSynced();
   }
   useEffect(() => {
-    const t = setTimeout(markSynced, 4000);
-    return () => clearTimeout(t);
-  }, []);
+    const t = timerImpl.setTimeout(markSynced, 4000);
+    return () => timerImpl.clearTimeout(t);
+  }, [timerImpl]);
 
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);

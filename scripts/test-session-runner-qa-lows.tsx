@@ -11,9 +11,9 @@
  */
 import "./helpers/setup-jsdom";
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { SessionRunner, type SessionActions, type RunnerExercise } from "../src/app/session/[id]/session-runner";
+import { createRoot } from "react-dom/client";
+import { act } from "react";
+import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 import type { SetConflictResult } from "../src/app/session/actions";
 import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
 
@@ -24,6 +24,32 @@ let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
   console.log(`  ${ok ? "✓ " : "✗ "} ${label}${detail ? `  -- ${detail}` : ""}`);
+}
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function createFakeTimer() {
+  const callbacks: (() => void)[] = [];
+  return {
+    timer: {
+      setTimeout: (callback: () => void) => {
+        const id = callbacks.length;
+        callbacks.push(callback);
+        return id;
+      },
+      clearTimeout: (id: unknown) => {
+        if (typeof id === "number" && callbacks[id]) {
+          callbacks[id] = () => {};
+        }
+      },
+    } as RunnerTimer,
+    advance: () => {
+      callbacks.forEach(cb => cb());
+      callbacks.length = 0;
+    },
+  };
 }
 
 const baseExercise = (id: string, name: string): RunnerExercise => ({
@@ -65,6 +91,11 @@ console.log("\nTesting SessionRunner QA LOWs\n");
 // Test 1: L4 - logSet throws SESSION_EXPIRED → friendly error message shows
 console.log("1. L4: logSet throws SESSION_EXPIRED → friendly error message shows");
 {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const fakeTimer = createFakeTimer();
+
   const sessionExpiredActions: SessionActions = {
     ...defaultActions,
     logSet: async () => {
@@ -74,53 +105,57 @@ console.log("1. L4: logSet throws SESSION_EXPIRED → friendly error message sho
 
   const exercises: RunnerExercise[] = [baseExercise("ex1", "Bench Press")];
 
-  const { container, unmount } = render(
-    React.createElement(SessionRunner, {
-      sessionId: "sess-1",
-      isDeload: false,
-      week: 1,
-      warmupAlreadyDone: true,
-      startedAt: new Date().toISOString(),
-      warmup: [],
-      cooldown: [],
-      exercises,
-      settings: {
-        perSetLogging: true,
-        restAutostart: false,
-        restSound: false,
-        restVibrate: false,
-        restOverrideSeconds: null,
-        cooldownEnabled: false,
-      },
-      actions: sessionExpiredActions,
-    })
-  );
+  await act(async () => {
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "sess-1",
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt: new Date().toISOString(),
+        warmup: [],
+        cooldown: [],
+        exercises,
+        settings: {
+          perSetLogging: true,
+          restAutostart: false,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+        },
+        actions: sessionExpiredActions,
+        timer: fakeTimer.timer,
+      })
+    );
+    await sleep(50);
+  });
 
-  const user = userEvent.setup();
+  // Advance the fake timer to mark component as synced
+  await act(async () => {
+    fakeTimer.advance();
+    await sleep(10);
+  });
 
-  // Wait for component to sync (setTimeout 4000ms in useEffect)
-  await new Promise(r => setTimeout(r, 4100));
+  // Fill in reps and click log set button
+  await act(async () => {
+    const inputs = Array.from(container.querySelectorAll('input[type="number"]')) as HTMLInputElement[];
+    const repsInput = inputs[0];
+    if (repsInput) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "10");
+      repsInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    await sleep(10);
+  });
 
-  // Fill in reps input
-  const repsInput = screen.getAllByRole("spinbutton")[0];
-  await user.clear(repsInput);
-  await user.type(repsInput, "10");
-
-  // Click log set button
-  const logButton = screen.getByText(/Log set 1/);
-  await user.click(logButton);
-
-  // Wait for error to appear
-  try {
-    await waitFor(() => {
-      const text = container.textContent ?? "";
-      if (!text.includes("Your session has expired")) {
-        throw new Error("Error not shown yet");
-      }
-    }, { timeout: 3000 });
-  } catch {
-    // Timeout - error didn't appear
-  }
+  await act(async () => {
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const logButton = buttons.find(b => b.textContent?.includes("Log set 1"));
+    if (logButton) {
+      logButton.click();
+    }
+    await sleep(100);
+  });
 
   const text = container.textContent ?? "";
   const hasFriendlyMessage = text.includes("Your session has expired, please sign in again");
@@ -129,12 +164,18 @@ console.log("1. L4: logSet throws SESSION_EXPIRED → friendly error message sho
   check("Friendly error message shows", hasFriendlyMessage, hasFriendlyMessage ? "" : `got: "${text.slice(0, 200)}"`);
   check("Raw SESSION_EXPIRED code NOT shown", !hasRawCode);
 
-  unmount();
+  root.unmount();
+  document.body.removeChild(container);
 }
 
 // Test 2: L1 - conflict on last set → feel prompt appears
 console.log("\n2. L1: conflict on last set → feel prompt appears");
 {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const fakeTimer = createFakeTimer();
+
   const conflictActions: SessionActions = {
     ...defaultActions,
     logSet: async (): Promise<SetConflictResult> => ({
@@ -159,52 +200,56 @@ console.log("\n2. L1: conflict on last set → feel prompt appears");
     baseExercise("ex2", "Squat"),
   ];
 
-  const { container, unmount } = render(
-    React.createElement(SessionRunner, {
-      sessionId: "sess-2",
-      isDeload: false,
-      week: 1,
-      warmupAlreadyDone: true,
-      startedAt: new Date().toISOString(),
-      warmup: [],
-      cooldown: [],
-      exercises,
-      settings: {
-        perSetLogging: true,
-        restAutostart: false,
-        restSound: false,
-        restVibrate: false,
-        restOverrideSeconds: null,
-        cooldownEnabled: false,
-      },
-      actions: conflictActions,
-    })
-  );
+  await act(async () => {
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "sess-2",
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt: new Date().toISOString(),
+        warmup: [],
+        cooldown: [],
+        exercises,
+        settings: {
+          perSetLogging: true,
+          restAutostart: false,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+        },
+        actions: conflictActions,
+        timer: fakeTimer.timer,
+      })
+    );
+    await sleep(50);
+  });
 
-  const user = userEvent.setup();
-
-  // Wait for component to sync (setTimeout 4000ms in useEffect)
-  await new Promise(r => setTimeout(r, 4100));
+  await act(async () => {
+    fakeTimer.advance();
+    await sleep(10);
+  });
 
   // Fill in reps and click log set 3
-  const repsInput = screen.getAllByRole("spinbutton")[0];
-  await user.clear(repsInput);
-  await user.type(repsInput, "8");
-  
-  const logButton = screen.getByText(/Log set 3/);
-  await user.click(logButton);
+  await act(async () => {
+    const inputs = Array.from(container.querySelectorAll('input[type="number"]')) as HTMLInputElement[];
+    const repsInput = inputs[0];
+    if (repsInput) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "8");
+      repsInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    await sleep(10);
+  });
 
-  // Wait for feel prompt
-  try {
-    await waitFor(() => {
-      const text = container.textContent ?? "";
-      if (!text.includes("How did that feel")) {
-        throw new Error("Feel prompt not shown yet");
-      }
-    }, { timeout: 3000 });
-  } catch {
-    // Timeout - feel prompt didn't appear
-  }
+  await act(async () => {
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const logButton = buttons.find(b => b.textContent?.includes("Log set 3"));
+    if (logButton) {
+      logButton.click();
+    }
+    await sleep(100);
+  });
 
   const text = container.textContent ?? "";
   const hasFeelPrompt = text.includes("How did that feel");
@@ -213,12 +258,18 @@ console.log("\n2. L1: conflict on last set → feel prompt appears");
   check("Feel prompt appears after conflict on last set", hasFeelPrompt, hasFeelPrompt ? "" : text.slice(0, 200));
   check("Still on Exercise 1 (not jumped to Exercise 2)", stillOnExercise1);
 
-  unmount();
+  root.unmount();
+  document.body.removeChild(container);
 }
 
 // Test 3: L1 - picking feel after conflict advances to next exercise
 console.log("\n3. L1: picking feel after conflict advances to next exercise");
 {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const fakeTimer = createFakeTimer();
+
   const conflictThenOkActions: SessionActions = {
     ...defaultActions,
     logSet: async (): Promise<SetConflictResult> => ({
@@ -243,78 +294,74 @@ console.log("\n3. L1: picking feel after conflict advances to next exercise");
     baseExercise("ex2", "Squat"),
   ];
 
-  const { container, unmount } = render(
-    React.createElement(SessionRunner, {
-      sessionId: "sess-3",
-      isDeload: false,
-      week: 1,
-      warmupAlreadyDone: true,
-      startedAt: new Date().toISOString(),
-      warmup: [],
-      cooldown: [],
-      exercises,
-      settings: {
-        perSetLogging: true,
-        restAutostart: false,
-        restSound: false,
-        restVibrate: false,
-        restOverrideSeconds: null,
-        cooldownEnabled: false,
-      },
-      actions: conflictThenOkActions,
-    })
-  );
+  await act(async () => {
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "sess-3",
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt: new Date().toISOString(),
+        warmup: [],
+        cooldown: [],
+        exercises,
+        settings: {
+          perSetLogging: true,
+          restAutostart: false,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+        },
+        actions: conflictThenOkActions,
+        timer: fakeTimer.timer,
+      })
+    );
+    await sleep(50);
+  });
 
-  const user = userEvent.setup();
-
-  // Wait for component to sync (setTimeout 4000ms in useEffect)
-  await new Promise(r => setTimeout(r, 4100));
+  await act(async () => {
+    fakeTimer.advance();
+    await sleep(10);
+  });
 
   // Fill in reps and click log set 3
-  const repsInput = screen.getAllByRole("spinbutton")[0];
-  await user.clear(repsInput);
-  await user.type(repsInput, "8");
-  
-  const logButton = screen.getByText(/Log set 3/);
-  await user.click(logButton);
-
-  // Wait for feel prompt, then click Just right
-  let feelButton;
-  try {
-    await waitFor(() => {
-      feelButton = screen.queryByText("Just right");
-      if (!feelButton) {
-        throw new Error("Just right button not found");
-      }
-    }, { timeout: 3000 });
-    
-    if (feelButton) {
-      await user.click(feelButton);
-      // Wait a bit for the action to complete
-      await new Promise(r => setTimeout(r, 500));
+  await act(async () => {
+    const inputs = Array.from(container.querySelectorAll('input[type="number"]')) as HTMLInputElement[];
+    const repsInput = inputs[0];
+    if (repsInput) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "8");
+      repsInput.dispatchEvent(new Event("change", { bubbles: true }));
     }
-  } catch {
-    // Feel prompt didn't appear or button not found
-  }
+    await sleep(10);
+  });
 
-  // Wait for transition to exercise 2
-  try {
-    await waitFor(() => {
-      const text = container.textContent ?? "";
-      if (!text.includes("Exercise 2 of 2")) {
-        throw new Error("Not on exercise 2 yet");
-      }
-    }, { timeout: 5000 });
-  } catch {
-    // Didn't advance
-  }
+  await act(async () => {
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const logButton = buttons.find(b => b.textContent?.includes("Log set 3"));
+    if (logButton) {
+      logButton.click();
+    }
+    await sleep(100);
+  });
+
+  // Click "Just right" button
+  await act(async () => {
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const feelButton = buttons.find(b => b.textContent?.trim() === "Just right");
+    if (feelButton) {
+      feelButton.click();
+    }
+    await sleep(100);
+  });
 
   const text = container.textContent ?? "";
   const onExercise2 = text.includes("Exercise 2 of 2");
   
   check("Advanced to Exercise 2 after picking feel", onExercise2, onExercise2 ? "" : `Still showing: ${text.match(/Exercise \d+ of \d+/)?.[0]}`);
 
-  unmount();
+  root.unmount();
+  document.body.removeChild(container);
 }
 
 console.log(`\n${failures > 0 ? "FAILED" : "PASSED"}: ${failures} failure(s)\n`);
