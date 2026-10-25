@@ -1253,7 +1253,7 @@ export function SettingsForm({
                                   const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                                   const newChange = {
                                     key: "equipment",
-                                    type: "equipment" as SaveType,
+                                    type: "equipment" as const,
                                     patch: { operation: 'setItem' as const, equipmentId, enabled: newState },
                                     timestamp: Date.now()
                                   };
@@ -1301,7 +1301,7 @@ export function SettingsForm({
                                   const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                                   const newChange = {
                                     key: "equipment",
-                                    type: "equipment" as SaveType,
+                                    type: "equipment" as const,
                                     patch: { operation: 'setItem' as const, equipmentId, enabled: newState },
                                     timestamp: Date.now()
                                   };
@@ -1406,7 +1406,7 @@ export function SettingsForm({
                           const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                           const newChange = {
                             key: "injuries",
-                            type: "injury" as SaveType,
+                            type: "injury" as const,
                             patch: { operation: 'setInjury' as const, bodyRegion, present: newState, severity },
                             timestamp: Date.now()
                           };
@@ -1450,7 +1450,7 @@ export function SettingsForm({
                           const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                           const newChange = {
                             key: "injuries",
-                            type: "injury" as SaveType,
+                            type: "injury" as const,
                             patch: { operation: 'setInjury' as const, bodyRegion, present: newState, severity },
                             timestamp: Date.now()
                           };
@@ -1552,7 +1552,7 @@ export function SettingsForm({
                                 const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                                 const newChange = {
                                   key: "injuries",
-                                  type: "injury" as SaveType,
+                                  type: "injury" as const,
                                   patch: { operation: 'setInjury' as const, bodyRegion, present: true, severity },
                                   timestamp: Date.now()
                                 };
@@ -1598,7 +1598,7 @@ export function SettingsForm({
                                 const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                                 const newChange = {
                                   key: "injuries",
-                                  type: "injury" as SaveType,
+                                  type: "injury" as const,
                                   patch: { operation: 'setInjury' as const, bodyRegion, present: true, severity },
                                   timestamp: Date.now()
                                 };

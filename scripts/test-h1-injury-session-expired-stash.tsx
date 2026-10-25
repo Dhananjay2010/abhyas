@@ -16,6 +16,7 @@ import userEvent from '@testing-library/user-event';
 import { SettingsForm, type SettingsState, type SettingsActions } from '../src/app/settings/settings-form';
 import { SESSION_EXPIRED_CODE } from '../src/lib/auth/session-expired';
 import { getPendingChanges, clearPendingChanges } from '../src/lib/auth/pending-changes';
+import { resetSessionExpiredState } from '../src/components/session-expired-prompt';
 
 interface TestResult {
   passed: boolean;
@@ -361,16 +362,27 @@ async function testH1b_MultiRegionInjuryAccumulation(): Promise<TestResult> {
   console.log('\n🧪 H1 Regression: Injury tap crashes during session expiry\n');
 
   try {
+    cleanup();
+    clearPendingChanges();
+    resetSessionExpiredState();
     const result1 = await testH1_InjuryStashOnSessionExpired();
     console.log(result1.passed ? `  ✓ ${result1.message}` : `  ❌ ${result1.message}`);
     cleanup();
     clearPendingChanges();
+    resetSessionExpiredState();
 
+    cleanup();
+    clearPendingChanges();
+    resetSessionExpiredState();
     const result2 = await testH1_InjurySeverityStashOnSessionExpired();
     console.log(result2.passed ? `  ✓ ${result2.message}` : `  ❌ ${result2.message}`);
     cleanup();
     clearPendingChanges();
+    resetSessionExpiredState();
 
+    cleanup();
+    clearPendingChanges();
+    resetSessionExpiredState();
     const result3 = await testH1b_MultiRegionInjuryAccumulation();
     console.log(result3.passed ? `  ✓ ${result3.message}` : `  ❌ ${result3.message}`);
 

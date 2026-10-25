@@ -79,9 +79,9 @@ async function testUnmountFlush() {
       return { ok: true }; 
     },
     updateInjuries: async (patch) => { 
-      saveCalls.push({ type: "injuries", patch }); 
+      saveCalls.push({ type: "injury", patch }); 
       await new Promise(r => setTimeout(r, 100)); 
-      return { ok: true }; 
+      return { ok: true };
     },
     setEquipmentItem: async () => ({ ok: true }),
     setHasAllEquipment: async () => ({ ok: true }),
