@@ -1,33 +1,41 @@
 /**
  * Regression test: past-knee swap path in actions.ts must select secondary_muscles
  * 
- * actions.ts:701 and :719 select a pool WITHOUT secondary_muscles (initially).
+ * actions.ts has TWO exercises.select() queries:
+ * - Pool query (~701): .from("exercises").select("...").in("movement_pattern", patterns)
+ * - Inactive fallback (~719): .from("exercises").select("...").eq("id", current.exercise_id)
+ * 
  * isHighImpactLegExercise loops over ex.secondary_muscles, throwing TypeError
- * when it's undefined. This test catches that by extracting the actual column
- * string from actions.ts, reducing fixture rows to those columns, and running
- * the real isEligible and rankAlternatives on patterns that contain high-impact
- * non-leg moves.
+ * when it's undefined. This test extracts BOTH column strings, asserts each contains
+ * secondary_muscles, and runs isEligible/rankAlternatives on patterns with high-impact
+ * exercises that have leg secondaries.
  * 
  * npm run test:past-knee-actions-regression
  */
 import { readFileSync } from "node:fs";
-import type { Database } from "../src/lib/database.types";
 import { isEligible, hashString, score, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { rankAlternatives, buildPatternList, type AlternativesContext } from "../src/lib/program/alternatives";
 
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf8"));
 
-// Extract column list from actions.ts pool select query
+// Extract BOTH column lists from actions.ts select queries
 const actionsContent = readFileSync(__dirname + "/../src/app/session/actions.ts", "utf8");
 
-// Find the pool select query around line 701 - look for the pattern that includes "movement_pattern"
+// Find pool select query (line ~701) - has .in("movement_pattern"
 const poolSelectMatch = actionsContent.match(/\.from\("exercises"\)\s*\.select\("([^"]+)"\)\s*\.in\("movement_pattern"/);
 if (!poolSelectMatch) {
   throw new Error("Could not find pool select query in actions.ts");
 }
+const poolColumnsString = poolSelectMatch[1];
+const POOL_SELECT_COLUMNS = new Set(poolColumnsString.split(", ").map(c => c.trim()));
 
-const columnsString = poolSelectMatch[1];
-const ACTIONS_SELECT_COLUMNS = columnsString.split(", ").map(c => c.trim());
+// Find inactive fallback select query (line ~719) - has .eq("id", current.exercise_id)
+const inactiveSelectMatch = actionsContent.match(/\.from\("exercises"\)\s*\.select\("([^"]+)"\)\s*\.eq\("id", current\.exercise_id\)/);
+if (!inactiveSelectMatch) {
+  throw new Error("Could not find inactive select query in actions.ts");
+}
+const inactiveColumnsString = inactiveSelectMatch[1];
+const INACTIVE_SELECT_COLUMNS = new Set(inactiveColumnsString.split(", ").map(c => c.trim()));
 
 let failures = 0;
 function check(label: string, ok: boolean, detail: string = ""): void {
@@ -35,27 +43,23 @@ function check(label: string, ok: boolean, detail: string = ""): void {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-console.log("\n1. Verify actions.ts select columns extracted from source");
+console.log("\n1. Verify both actions.ts select columns extracted from source");
 {
-  console.log(`    Extracted ${ACTIONS_SELECT_COLUMNS.length} columns from actions.ts`);
-  check("ACTIONS_SELECT_COLUMNS includes secondary_muscles", ACTIONS_SELECT_COLUMNS.includes("secondary_muscles"));
-  console.log(`    Columns: ${ACTIONS_SELECT_COLUMNS.join(", ")}`);
+  console.log(`    Pool select: ${POOL_SELECT_COLUMNS.size} columns`);
+  check("Pool select includes secondary_muscles", POOL_SELECT_COLUMNS.has("secondary_muscles"));
+  console.log(`    Inactive select: ${INACTIVE_SELECT_COLUMNS.size} columns`);
+  check("Inactive select includes secondary_muscles", INACTIVE_SELECT_COLUMNS.has("secondary_muscles"));
 }
 
-console.log("\n2. Regression: past-knee swap path with high-impact non-leg exercises");
+console.log("\n2. Test with pool select columns (swap pool query)");
 {
-  // Reduce catalogue to only the columns actions.ts selects
-  const reducedCatalogue = catalogue.map((ex) => {
-    const reduced: Partial<CandidateExercise> = {};
-    for (const col of ACTIONS_SELECT_COLUMNS) {
-      if (col in ex) {
-        (reduced as Record<string, unknown>)[col] = (ex as Record<string, unknown>)[col];
-      }
-    }
-    return reduced;
-  }) as CandidateExercise[];
+  // Reduce catalogue to pool select columns
+  const poolCatalogue: CandidateExercise[] = JSON.parse(JSON.stringify(
+    catalogue.map((ex) => Object.fromEntries(
+      Object.entries(ex).filter(([k]) => POOL_SELECT_COLUMNS.has(k))
+    ))
+  ));
   
-  // Test input for past-knee user
   const input: GeneratorInput = {
     userId: "past-knee-regression",
     blockNumber: 1,
@@ -73,30 +77,28 @@ console.log("\n2. Regression: past-knee swap path with high-impact non-leg exerc
     catalogue: [],
   };
   
-  // Test multiple patterns that contain high-impact non-leg moves
-  const testPatterns: Array<{ anchor: string; pattern: string; reason: string }> = [
-    { anchor: "barbell-bench-press", pattern: "horizontal_press", reason: "contains plyo push-ups (high-impact, no leg muscles)" },
-    { anchor: "barbell-shoulder-press", pattern: "vertical_press", reason: "contains pike push-ups and overhead variations" },
-    { anchor: "crunches", pattern: "core", reason: "contains medicine-ball-scoop-throw (high-impact with leg secondaries)" },
-    { anchor: "treadmill-running", pattern: "cardio", reason: "contains wind-sprints (high-impact, mislabeled)" },
+  // Test patterns with high-impact non-leg moves that have leg secondaries
+  const testCases: Array<{ anchor: string; reason: string }> = [
+    { anchor: "barbell-bench-press-medium-grip", reason: "horizontal_press pool contains plyo push-ups" },
+    { anchor: "barbell-shoulder-press", reason: "vertical_press pool contains medicine-ball-scoop-throw (quads/hamstrings secondary)" },
+    { anchor: "crunches", reason: "core pool contains medicine-ball-full-twist" },
+    { anchor: "wind-sprints", reason: "cardio pool contains high-impact moves" },
   ];
   
   let totalCrashes = 0;
   
-  for (const { anchor, pattern, reason } of testPatterns) {
-    const current = reducedCatalogue.find((e) => e.slug === anchor);
+  for (const { anchor, reason } of testCases) {
+    const current = poolCatalogue.find((e) => e.slug === anchor);
     
     if (!current) {
-      console.log(`    Skipping ${anchor} (not in catalogue)`);
+      check(`${anchor} exists in catalogue`, false);
+      failures++;
       continue;
     }
     
-    // Build pattern list (same as actions.ts)
-    const patterns = buildPatternList(pattern as Database["public"]["Enums"]["movement_pattern"], false);
-    const pool = reducedCatalogue.filter((e) => patterns.includes(e.movement_pattern));
+    const patterns = buildPatternList(current.movement_pattern, false);
+    const pool = poolCatalogue.filter((e) => patterns.includes(e.movement_pattern));
     
-    // Filter by isEligible (this is where the crash occurs if secondary_muscles is missing)
-    let isEligibleCrashed = false;
     let crashError = "";
     let eligibleCount = 0;
     
@@ -106,55 +108,113 @@ console.log("\n2. Regression: past-knee swap path with high-impact non-leg exerc
           eligibleCount++;
         }
       }
+      
+      // Run rankAlternatives
+      const eligible = pool.filter((e) => isEligible(e, input));
+      const wantCompound = current.mechanic === "compound";
+      const ctx: AlternativesContext = {
+        level: input.level,
+        availableEquipment: new Set(input.equipmentIds),
+        injuryRegions: input.currentInjuryRegions,
+        pastKneeInjury: input.pastKneeInjury,
+        limit: 5,
+        scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, input.pastKneeInjury, 0),
+        tieBreakFn: (slug) => hashString(`ranking:${slug}`),
+      };
+      
+      const swaps = rankAlternatives(current, eligible, ctx);
+      console.log(`    ${anchor}: Pool ${pool.length}, Eligible ${eligibleCount}, Swaps ${swaps.length}`);
     } catch (err) {
-      isEligibleCrashed = true;
       crashError = err instanceof Error ? err.message : String(err);
       totalCrashes++;
+      console.log(`    ${anchor}: CRASHED - ${crashError}`);
+      console.log(`      Reason: ${reason}`);
+    }
+  }
+  
+  check("No crashes with pool select columns", totalCrashes === 0,
+    totalCrashes > 0 ? `${totalCrashes} pattern(s) crashed` : "");
+}
+
+console.log("\n3. Test with inactive select columns (fallback query)");
+{
+  // Reduce catalogue to inactive select columns
+  const inactiveCatalogue: CandidateExercise[] = JSON.parse(JSON.stringify(
+    catalogue.map((ex) => Object.fromEntries(
+      Object.entries(ex).filter(([k]) => INACTIVE_SELECT_COLUMNS.has(k))
+    ))
+  ));
+  
+  const input: GeneratorInput = {
+    userId: "past-knee-regression",
+    blockNumber: 1,
+    goal: "muscle_gain",
+    level: "intermediate",
+    primaryTrack: "weights",
+    daysPerWeek: 4,
+    yogaDaysPerWeek: 0,
+    age: 30,
+    bmi: 23,
+    hasAllEquipment: false,
+    equipmentIds: ["barbell", "dumbbell", "flat_bench", "squat_rack", "medicine_ball"],
+    currentInjuryRegions: [],
+    pastKneeInjury: true,
+    catalogue: [],
+  };
+  
+  const testCases: Array<{ anchor: string; reason: string }> = [
+    { anchor: "barbell-shoulder-press", reason: "vertical_press pool contains medicine-ball-scoop-throw" },
+    { anchor: "crunches", reason: "core pool contains high-impact moves with leg secondaries" },
+  ];
+  
+  let totalCrashes = 0;
+  
+  for (const { anchor, reason } of testCases) {
+    const current = inactiveCatalogue.find((e) => e.slug === anchor);
+    
+    if (!current) {
+      check(`${anchor} exists in catalogue`, false);
+      failures++;
+      continue;
     }
     
-    // Run rankAlternatives (also uses the high-impact filter)
-    const eligible = pool.filter((e) => isEligible(e, input));
+    const patterns = buildPatternList(current.movement_pattern, false);
+    const pool = inactiveCatalogue.filter((e) => patterns.includes(e.movement_pattern));
     
-    const wantCompound = current.mechanic === "compound";
-    const ctx: AlternativesContext = {
-      level: input.level,
-      availableEquipment: new Set(input.equipmentIds),
-      injuryRegions: input.currentInjuryRegions,
-      pastKneeInjury: input.pastKneeInjury,
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, input.pastKneeInjury, 0),
-      tieBreakFn: (slug) => hashString(`ranking:${slug}`),
-    };
-    
-    let rankAlternativesCrashed = false;
-    let rankCrashError = "";
-    let swaps: CandidateExercise[] = [];
+    let crashError = "";
+    let eligibleCount = 0;
     
     try {
-      swaps = rankAlternatives(current, eligible, ctx);
+      for (const ex of pool) {
+        if (isEligible(ex, input)) {
+          eligibleCount++;
+        }
+      }
+      
+      const eligible = pool.filter((e) => isEligible(e, input));
+      const wantCompound = current.mechanic === "compound";
+      const ctx: AlternativesContext = {
+        level: input.level,
+        availableEquipment: new Set(input.equipmentIds),
+        injuryRegions: input.currentInjuryRegions,
+        pastKneeInjury: input.pastKneeInjury,
+        limit: 5,
+        scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, input.pastKneeInjury, 0),
+        tieBreakFn: (slug) => hashString(`ranking:${slug}`),
+      };
+      
+      const swaps = rankAlternatives(current, eligible, ctx);
+      console.log(`    ${anchor}: Pool ${pool.length}, Eligible ${eligibleCount}, Swaps ${swaps.length}`);
     } catch (err) {
-      rankAlternativesCrashed = true;
-      rankCrashError = err instanceof Error ? err.message : String(err);
+      crashError = err instanceof Error ? err.message : String(err);
       totalCrashes++;
-    }
-    
-    if (isEligibleCrashed) {
-      console.log(`    ${anchor} (${pattern}): isEligible CRASHED - ${crashError}`);
+      console.log(`    ${anchor}: CRASHED - ${crashError}`);
       console.log(`      Reason: ${reason}`);
-    } else if (rankAlternativesCrashed) {
-      console.log(`    ${anchor} (${pattern}): rankAlternatives CRASHED - ${rankCrashError}`);
-      console.log(`      Reason: ${reason}`);
-    } else {
-      console.log(`    ${anchor} (${pattern}): Pool ${pool.length}, Eligible ${eligibleCount}, Swaps ${swaps.length}`);
     }
   }
   
-  check("No crashes in isEligible or rankAlternatives", totalCrashes === 0,
+  check("No crashes with inactive select columns", totalCrashes === 0,
     totalCrashes > 0 ? `${totalCrashes} pattern(s) crashed` : "");
-  
-  if (totalCrashes > 0) {
-    console.log("\n  ✗ REGRESSION: Missing secondary_muscles in actions.ts select causes crash");
-  }
 }
 
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);
