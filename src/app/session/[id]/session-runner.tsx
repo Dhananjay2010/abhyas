@@ -112,8 +112,8 @@ export type RunnerSettings = {
 };
 
 export type RunnerTimer = {
-  setTimeout: (callback: () => void, ms: number) => unknown;
-  clearTimeout: (id: unknown) => void;
+  setTimeout: (callback: () => void, ms: number) => ReturnType<typeof globalThis.setTimeout>;
+  clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => void;
 };
 
 const REAL_TIMER: RunnerTimer = {

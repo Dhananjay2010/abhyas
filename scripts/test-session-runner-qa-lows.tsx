@@ -32,14 +32,15 @@ function createFakeTimer() {
   const callbacks: (() => void)[] = [];
   return {
     timer: {
-      setTimeout: (callback: () => void) => {
+      setTimeout: (callback: () => void, _ms: number) => {
         const id = callbacks.length;
         callbacks.push(callback);
-        return id;
+        return id as unknown as ReturnType<typeof globalThis.setTimeout>;
       },
-      clearTimeout: (id: unknown) => {
-        if (typeof id === "number" && callbacks[id]) {
-          callbacks[id] = () => {};
+      clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => {
+        const numId = id as unknown as number;
+        if (typeof numId === "number" && callbacks[numId]) {
+          callbacks[numId] = () => {};
         }
       },
     } satisfies RunnerTimer,

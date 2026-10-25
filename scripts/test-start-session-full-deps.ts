@@ -29,8 +29,8 @@ function resetCalls() {
   calls.length = 0;
 }
 
-function createFakeSupabase(responses: Record<string, unknown>): Pick<SupabaseClient<Database>, "from"> {
-  return {
+function createFakeSupabase(responses: Record<string, unknown>) {
+  const fake = {
     from(table: string) {
       const currentCall: Call = { table, filters: [] };
       
@@ -96,6 +96,8 @@ function createFakeSupabase(responses: Record<string, unknown>): Pick<SupabaseCl
       return builder;
     },
   };
+  
+  return fake as unknown as SupabaseClient<Database>;
 }
 
 const USER_ID = "user-123";
