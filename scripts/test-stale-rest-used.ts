@@ -119,7 +119,6 @@ console.log("1. Stale session uses last set's exercise rest_seconds (90s)");
       sessionId: "session-1",
       durationSeconds: 9999,
       cooldownCompleted: true,
-    now: NOW_FN,
     });
 
     assertTrue(result.ok, "finishSession succeeds");
@@ -160,7 +159,6 @@ console.log("\n2. Stale session with null rest_seconds uses default 300s");
       sessionId: "session-2",
       durationSeconds: 9999,
       cooldownCompleted: true,
-    now: NOW_FN,
     });
 
     assertTrue(result.ok, "finishSession succeeds");
@@ -199,7 +197,6 @@ console.log("\n3. Stale session uses last working set's exercise rest, ignoring 
       sessionId: "session-3",
       durationSeconds: 9999,
       cooldownCompleted: true,
-    now: NOW_FN,
     });
 
     assertTrue(result.ok, "finishSession succeeds");
@@ -209,7 +206,7 @@ console.log("\n3. Stale session uses last working set's exercise rest, ignoring 
     const startTime = new Date("2026-10-23T10:00:00Z").getTime();
     
     assertTrue(update.patch.completed_at !== null && update.patch.completed_at !== undefined, "completed_at is not null");
-    const completedAtMs = new Date(update.patch.completed_at).getTime();
+    const completedAtMs = new Date(update.patch.completed_at!).getTime();
     assertTrue(completedAtMs > warmupSetTime, "completed_at uses chronologically last set (warmup)");
     
     const expectedDuration = Math.floor((warmupSetTime - startTime + 200 * 1000) / 1000);

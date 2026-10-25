@@ -107,6 +107,7 @@ function makeFakeDeps(startedAt: string | null): FinishSessionDeps & { calls: Ca
     async updateExerciseStatus() {
       return { error: null };
     },
+    now: () => "2026-10-25T12:00:00Z",
   };
 }
 
@@ -117,7 +118,6 @@ function makeFakeDeps(startedAt: string | null): FinishSessionDeps & { calls: Ca
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-    now: () => "2026-10-25T12:00:00Z",
   });
   
   check("null started_at → returns ok:false", result.ok === false);

@@ -86,13 +86,12 @@ async function runTests() {
   console.log("1. loadExercises returns empty array (g4)");
   {
     const client = makeFakeClient([]);
-    const deps = makeFinishSessionDeps(client);
+    const deps = { ...makeFinishSessionDeps(client), now: NOW_FN };
 
     const result = await finishSessionCore(deps, {
       sessionId: "session-1",
       durationSeconds: 1800,
       cooldownCompleted: false,
-      now: NOW_FN,
     });
 
     assertTrue(result.ok, "finishSessionCore should succeed with empty exercises");
@@ -113,13 +112,12 @@ async function runTests() {
         session_sets: [],
       },
     ]);
-    const deps = makeFinishSessionDeps(client);
+    const deps = { ...makeFinishSessionDeps(client), now: NOW_FN };
 
     const result = await finishSessionCore(deps, {
       sessionId: "session-1",
       durationSeconds: 1800,
       cooldownCompleted: false,
-      now: NOW_FN,
     });
 
     assertTrue(result.ok, "finishSessionCore should handle exercises with no sets");

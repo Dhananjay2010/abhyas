@@ -77,6 +77,7 @@ function makeFakeFinishSessionDeps(
       exerciseUpdates.push({ id, status });
       return { error: null };
     },
+    now: NOW_FN,
   };
 }
 
@@ -133,7 +134,7 @@ async function runTests() {
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
       
     );
 
@@ -165,7 +166,7 @@ async function runTests() {
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
       
     );
 
@@ -193,7 +194,7 @@ async function runTests() {
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
       
     );
 
@@ -222,7 +223,6 @@ async function runTests() {
       fake,
       "s1",
       1200,
-      NOW_FN,
     );
 
     assertEquals(fake.exerciseUpdates.length, 1, "One exercise updated");
@@ -269,7 +269,7 @@ async function runTests() {
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
       
     );
 
@@ -303,7 +303,7 @@ async function runTests() {
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
       
     );
 
