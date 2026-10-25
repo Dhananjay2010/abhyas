@@ -12,10 +12,9 @@ import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
-import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
-import { buildTodayRows, type TodayRow } from "@/lib/today/build-today-rows";
+import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 
@@ -251,8 +250,6 @@ export default async function TodayPage() {
     override !== undefined &&
     (override.actual_type !== (scheduled?.day_type ?? null) ||
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
-  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
-  const isDeload = week === program.deload_week;
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
   const strengthDone = todaySessions.some(
@@ -313,7 +310,7 @@ export default async function TodayPage() {
           // `metric` from the session row, not from `exercises`: it records the
           // unit the session was RUN in. Reading the catalogue's current metric
           // rendered a plank prescribed in reps last week as "2 x 8-12s".
-          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue), session_sets!session_sets_session_exercise_id_fkey(is_warmup_set, reps, duration_seconds)")
+          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue)")
           .eq("session_id", performed.id)
           .order("order_index")
       : Promise.resolve(null),
@@ -325,6 +322,18 @@ export default async function TodayPage() {
     day, so the block's own exercises for this weekday must not leak through
     underneath it.
   */
+  type TodayRow = {
+    key: string;
+    name: string;
+    cue: string | null;
+    metric: Database["public"]["Enums"]["exercise_metric"] | null;
+    sets: number | null;
+    repsMin: number | null;
+    repsMax: number | null;
+    restSeconds: number | null;
+    skipped: boolean;
+    swappedIn: boolean;
+  };
 
   const template = (isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
     order_index: number;
@@ -352,14 +361,24 @@ export default async function TodayPage() {
       name: string;
       cue: string | null;
     } | null;
-    session_sets: Array<{
-      is_warmup_set: boolean;
-      reps: number | null;
-      duration_seconds: number | null;
-    }>;
   }> | null;
 
-  const todayExercises: TodayRow[] = buildTodayRows({ actual, template, isDeload });
+  // Build today rows with deload computation
+  const todayExercises: TodayRow[] = buildTodayRowsForProgram({
+    actual,
+    template,
+    program: {
+      started_on: program.started_on,
+      week_offset: program.week_offset,
+      deload_week: program.deload_week,
+    },
+    localToday,
+  });
+
+  // Recompute week and isDeload for UI display (header, deload banner, etc.)
+  const { cycleWeekFor } = await import("@/lib/program/block-range");
+  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
+  const isDeload = week === program.deload_week;
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show
