@@ -921,6 +921,198 @@ async function testN12() {
   fakeStorage.clear();
 }
 
+// Test: Conflict handling (R4, R5b, R6, C1)
+async function testConflict() {
+  console.log("\n📋 Test Conflict: set_exists returns conflict resolution");
+  
+  const actions: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async () => ({
+      ok: false,
+      reason: "set_exists" as const,
+      savedSets: [
+        { setNumber: 1, reps: 12, weightKg: 55, durationSeconds: null },
+        { setNumber: 2, reps: 11, weightKg: 55, durationSeconds: null }
+      ]
+    }),
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+  };
+  
+  const exercises: RunnerExercise[] = [
+    {
+      id: "ex1",
+      exerciseId: "squat",
+      name: "Squat",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["quads"],
+      plannedSets: 3,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false,
+    },
+  ];
+  
+  const settings: RunnerSettings = {
+    perSetLogging: false,
+    restSound: false,
+    restVibrate: false,
+    restAutostart: false,
+    restOverrideSeconds: null,
+    cooldownEnabled: false,
+  };
+  
+  const userId = "test-user-conflict";
+  const sessionId = "session-conflict";
+  
+  fakeStorage.clear();
+  
+  render(
+    <SessionRunner
+      sessionId={sessionId}
+      sessionStatus="in_progress"
+      userId={userId}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={exercises}
+      settings={settings}
+      actions={actions}
+    />
+  );
+  
+  await act(async () => {});
+  
+  // Click Log set to trigger conflict
+  const logButton = screen.getByRole("button", { name: /log set/i });
+  await act(async () => {
+    logButton.click();
+  });
+  
+  await act(async () => {});
+  
+  // Assert conflict message is shown
+  const conflictMessage = screen.getByText(/that set was already saved/i);
+  assert(!!conflictMessage, "Conflict: Shows 'That set was already saved' message");
+  
+  // Assert server's sets are on screen
+  const set1Text = screen.getByText(/12/);
+  const set2Text = screen.getByText(/11/);
+  assert(!!set1Text && !!set2Text, "Conflict: Server's sets shown on screen");
+  
+  fakeStorage.clear();
+}
+
+// Test: Double-tap guard (R7)
+async function testDoubleTap() {
+  console.log("\n📋 Test Double-tap: Guard prevents duplicate logSet calls");
+  
+  const logSetCalls: unknown[] = [];
+  
+  const actions: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async (input) => {
+      logSetCalls.push(input);
+      // Simulate slow network
+      await new Promise(r => setTimeout(r, 100));
+      return { ok: true };
+    },
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+  };
+  
+  const exercises: RunnerExercise[] = [
+    {
+      id: "ex1",
+      exerciseId: "squat",
+      name: "Squat",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["quads"],
+      plannedSets: 3,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false,
+    },
+  ];
+  
+  const settings: RunnerSettings = {
+    perSetLogging: false,
+    restSound: false,
+    restVibrate: false,
+    restAutostart: false,
+    restOverrideSeconds: null,
+    cooldownEnabled: false,
+  };
+  
+  const userId = "test-user-doubletap";
+  const sessionId = "session-doubletap";
+  
+  fakeStorage.clear();
+  
+  render(
+    <SessionRunner
+      sessionId={sessionId}
+      sessionStatus="in_progress"
+      userId={userId}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={exercises}
+      settings={settings}
+      actions={actions}
+    />
+  );
+  
+  await act(async () => {});
+  
+  // Click Log set twice rapidly
+  const logButton = screen.getByRole("button", { name: /log set/i });
+  logButton.click();
+  logButton.click();
+  
+  // Wait for async operations
+  await act(async () => {
+    await new Promise(r => setTimeout(r, 150));
+  });
+  
+  // Assert only one logSet call was made
+  assert(logSetCalls.length === 1, "R7: Double-tap guard prevents duplicate logSet (only 1 call)");
+  
+  fakeStorage.clear();
+}
+
 // Run all tests
 (async () => {
   console.log("\n🧪 SessionRunner Render Tests (KEY ITEM - Task 2)\n");
@@ -933,6 +1125,8 @@ async function testN12() {
     await test9b();
     await testN11();
     await testN12();
+    await testConflict();
+    await testDoubleTap();
     
     console.log(`\n✅ All SessionRunner render tests passed! (${passed}/${passed + failed})\n`);
     process.exit(0);
