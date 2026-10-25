@@ -217,11 +217,11 @@ async function testR4AndR4s() {
   assert(replayCallCount === beforeSecondClick, "M9: logSet NOT called again (button disabled prevents double-click)");
   
   // Resolve the deferred promise
-  if (logSetDeferred) {
-    await act(async () => {
+  await act(async () => {
+    if (logSetDeferred) {
       logSetDeferred({ ok: true });
-    });
-  }
+    }
+  });
   
   console.log(`\n✅ Tests R4/R4s/M9 passed (${passed} assertions)`);
   console.log("\nMutation R4 killed: Removing error state or Retry button breaks retry UI");

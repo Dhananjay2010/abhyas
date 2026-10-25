@@ -199,11 +199,11 @@ async function testM9() {
   
   assert(replayCallCount === beforeSecondClick, "M9: logSet NOT called again (button disabled prevents double-click)");
   
-  if (logSetDeferred) {
-    await act(async () => {
+  await act(async () => {
+    if (logSetDeferred) {
       logSetDeferred({ ok: true });
-    });
-  }
+    }
+  });
   
   console.log(`\n✅ Test M9 passed (${passed} assertions)`);
   console.log("\nMutation M9 killed: Removing disabled={retrying} allows double-click");
