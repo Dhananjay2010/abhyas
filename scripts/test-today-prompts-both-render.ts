@@ -29,16 +29,16 @@ function assert(condition: boolean, message: string) {
 
 console.log("\n=== Test: TodayPrompts rest day after missed day (showBothPrompt) ===\n");
 
-// Mock router context
-const mockRouter = {
-  push: () => Promise.resolve(true),
-  replace: () => Promise.resolve(true),
-  refresh: () => {},
-  prefetch: () => Promise.resolve(),
+// Mock router context - complete AppRouterInstance with no casts
+const mockRouter: AppRouterInstance = {
   back: () => {},
   forward: () => {},
+  refresh: () => {},
+  push: () => {},
+  replace: () => {},
+  prefetch: () => {},
   bfcacheId: "test",
-} as Partial<AppRouterInstance> as AppRouterInstance;
+};
 
 // Scenario: rest day after missed yesterday (showBothPrompt = true)
 const promptBlocks = {
