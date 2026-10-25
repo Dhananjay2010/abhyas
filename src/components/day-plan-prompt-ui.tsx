@@ -118,7 +118,7 @@ export function DayPlanChoosingOptions({
           disabled={disabled}
           onClick={() => onChooseDay(d.programDayId, d.label)}
         >
-          {d.label}
+          {d.buttonLabel ?? d.label}
         </Choice>
       ))}
       <Choice wide disabled={disabled} onClick={onChooseYoga}>

@@ -36,6 +36,7 @@ export interface BuildTodayStateInput {
 
   // Days (template)
   days: Array<{
+    id: string;
     day_index: number;
     day_type: DayType;
     label: string | null;
@@ -72,6 +73,9 @@ export interface BuildTodayStateInput {
   strengthDone: boolean;
   strengthOpen: boolean;
   hasStartedSession: boolean | null;
+  
+  // Pulled-forward days (completed/in-progress on earlier rest days this cycle week)
+  pulledForwardDayIds?: Map<string, { programDayId: string }>;
 }
 
 export interface BuildTodayStateOutput {
@@ -96,14 +100,20 @@ export function buildTodayState(input: BuildTodayStateInput): BuildTodayStateOut
     strengthDone,
     strengthOpen,
     hasStartedSession,
+    pulledForwardDayIds,
   } = input;
 
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days.find((d) => d.day_index === yesterdayIndex);
 
+  // Check if yesterday's program_day was pulled forward (completed/in-progress earlier)
+  // If so, it's not "missed" - it was already done
+  const yesterdayWasPulledForward = yesterdayDay && pulledForwardDayIds?.has(yesterdayDay.id);
+
   // Check if yesterday was missed
   // If yesterday's data is unknown (errored read), treat as not missed
-  const missedYesterday = !yesterdayUnknown && isMissedTrainingDay({
+  // If yesterday was pulled forward and done earlier, also treat as not missed
+  const missedYesterday = !yesterdayUnknown && !yesterdayWasPulledForward && isMissedTrainingDay({
     date: yesterday,
     programStartedOn: program.started_on,
     profileCreatedAt: profile.created_at,

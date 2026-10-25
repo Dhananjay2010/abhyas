@@ -26,6 +26,7 @@ export type PageWiringInput = {
     started_on: string;
   };
   days: Array<{
+    id: string;
     day_index: number;
     day_type: DayType;
     label: string | null;
@@ -44,6 +45,7 @@ export type PageWiringInput = {
   dayType: DayType | null;
   strengthDone: boolean;
   strengthOpen: boolean;
+  pulledForwardDayIds?: Map<string, { programDayId: string }>;
 };
 
 export type PageWiringOutput = {
@@ -83,6 +85,7 @@ export function buildPageState(input: PageWiringInput): PageWiringOutput {
     strengthDone: input.strengthDone,
     strengthOpen: input.strengthOpen,
     hasStartedAny,
+    pulledForwardDayIds: input.pulledForwardDayIds,
   };
 
   return {

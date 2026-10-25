@@ -914,6 +914,7 @@ export type DayPlan =
 export type PlannableDay = {
   programDayId: string;
   label: string;
+  buttonLabel?: string;
   dayType: Database["public"]["Enums"]["day_type"];
 };
 

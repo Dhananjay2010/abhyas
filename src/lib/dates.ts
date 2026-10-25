@@ -60,3 +60,6 @@ export function isoWeekday(iso: string): number {
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
   return ((dow + 6) % 7) + 1;
 }
+
+/** Weekday names indexed by ISO weekday (1=Monday, 7=Sunday). Index 0 is empty. */
+export const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;

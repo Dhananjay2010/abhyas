@@ -15,13 +15,13 @@ import type { Database } from "@/lib/database.types";
 import { addDays, isoWeekday } from "@/lib/dates";
 import { labelForDayType } from "@/lib/program/day-plan";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
-import { cycleWeekFor } from "@/lib/program/block-range";
 import { attachWorkingSetCounts } from "./yesterday-sessions";
 import { buildPageState } from "./page-wiring";
 import { buildTodayView } from "./page-helpers";
 import { buildTodayState } from "./build-state";
 import { todayPromptBlocks } from "./prompt-blocks";
 import { buildTrainAnywayDays } from "./train-anyway";
+import { pulledForwardDays, pulledForwardLabel, pulledForwardMessage } from "./pulled-forward";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 
@@ -170,6 +170,7 @@ export type BuildPageOutput = {
   dayType: DayType | null;
   dayLabel: string;
   overrideDiffers: boolean;
+  pulledForwardMessage: string | null;
 
   // Session state
   strengthDone: boolean;
@@ -228,46 +229,26 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     (s) => s.local_date === localToday
   ) ?? [];
 
+  // Compute pulled-forward days (completed/in-progress on earlier rest days this cycle week)
+  const weekSessions = weekSessionsRes.data ?? [];
+  const pulledForward = pulledForwardDays({
+    program: { started_on: program.started_on, week_offset: program.week_offset },
+    days,
+    sessions: weekSessions,
+    localToday,
+  });
+  
   // Determine today's scheduled day from the template
   const todayIndex = isoWeekday(localToday);
   let scheduled = days.find((d) => d.day_index === todayIndex) ?? null;
   
-  // Check if today's scheduled program_day was pulled forward and completed/in-progress earlier this week
-  let pulledForwardFrom: { dayName: string } | null = null;
-  if (scheduled && scheduled.day_type !== "rest") {
-    const todayCycleWeek = cycleWeekFor(
-      { started_on: program.started_on, week_offset: program.week_offset },
-      localToday
-    );
-    
-    const weekSessions = weekSessionsRes.data ?? [];
-    for (const sess of weekSessions) {
-      if (
-        sess.program_day_id === scheduled.id &&
-        sess.local_date < localToday &&
-        (sess.status === "completed" || sess.status === "in_progress") &&
-        ownsPlannedWorkout(sess.actual_type)
-      ) {
-        const sessCycleWeek = cycleWeekFor(
-          { started_on: program.started_on, week_offset: program.week_offset },
-          sess.local_date
-        );
-        
-        if (sessCycleWeek === todayCycleWeek) {
-          // Check if the session was done on a rest day (pulled forward from template)
-          const earlierDayIndex = isoWeekday(sess.local_date);
-          const earlierTemplateDay = days.find((d) => d.day_index === earlierDayIndex);
-          
-          if (earlierTemplateDay && earlierTemplateDay.day_type === "rest") {
-            // This program_day was pulled forward onto a rest day - today becomes rest
-            const dayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-            pulledForwardFrom = { dayName: dayNames[earlierDayIndex] };
-            scheduled = null; // Today is now rest
-            break;
-          }
-        }
-      }
-    }
+  // Check if today's scheduled program_day was pulled forward
+  const todayPulledForward = scheduled && pulledForward.has(scheduled.id)
+    ? pulledForward.get(scheduled.id)!
+    : null;
+  
+  if (todayPulledForward) {
+    scheduled = null; // Today becomes rest
   }
 
   // Which of today's session rows speaks for the day
@@ -300,15 +281,17 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
   let dayType = override?.actual_type ?? scheduled?.day_type ?? null;
   
   // If today's scheduled workout was pulled forward and completed earlier this week, treat as rest
-  if (pulledForwardFrom && !override) {
+  if (todayPulledForward && !override) {
     dayType = "rest";
   }
   
   let dayLabel = labelForDayType(dayType ?? "rest", today?.label ?? null);
+  let pulledForwardMessageText: string | null = null;
   
   // If today's scheduled workout was pulled forward and completed earlier this week, show special label
-  if (pulledForwardFrom && !override) {
-    dayLabel = `Done ${pulledForwardFrom.dayName} (your choice)`;
+  if (todayPulledForward && !override) {
+    dayLabel = pulledForwardLabel(todayPulledForward);
+    pulledForwardMessageText = pulledForwardMessage(todayPulledForward);
   }
 
   const overrideDiffers =
@@ -345,6 +328,7 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     dayType,
     strengthDone,
     strengthOpen: !!strengthOpen,
+    pulledForwardDayIds: pulledForward,
   });
 
   const { hasStartedAny, todayStateInput } = pageState;
@@ -352,7 +336,6 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
   // Build chosen days map
   // For each day in the week, check if there's a planned/in_progress session
   // that differs from the template, and store its label
-  const weekSessions = weekSessionsRes.data ?? [];
   const chosenByDayIndex = new Map<number, string>();
   for (const d of days) {
     // The next time this weekday comes round, which is today for today
@@ -373,41 +356,12 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
   
   // Check for pulled-forward days: if a program_day was completed/in-progress earlier this week
   // on a rest day, its original weekday shows "Done <Day> (your choice)"
-  const dayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   for (const d of days) {
     if (d.day_type === "rest") continue;
     
-    const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
-    const dateCycleWeek = cycleWeekFor(
-      { started_on: program.started_on, week_offset: program.week_offset },
-      date
-    );
-    
-    // Check if this program_day was done earlier this week on a rest day
-    for (const sess of weekSessions) {
-      if (
-        sess.program_day_id === d.id &&
-        sess.local_date < date &&
-        (sess.status === "completed" || sess.status === "in_progress") &&
-        ownsPlannedWorkout(sess.actual_type)
-      ) {
-        const sessCycleWeek = cycleWeekFor(
-          { started_on: program.started_on, week_offset: program.week_offset },
-          sess.local_date
-        );
-        
-        if (sessCycleWeek === dateCycleWeek) {
-          // Check if the session was done on a rest day (pulled forward from template)
-          const earlierDayIndex = isoWeekday(sess.local_date);
-          const earlierTemplateDay = days.find((td) => td.day_index === earlierDayIndex);
-          
-          if (earlierTemplateDay && earlierTemplateDay.day_type === "rest") {
-            // This program_day was pulled forward onto a rest day - show as "Done <Day> (your choice)"
-            chosenByDayIndex.set(d.day_index, `Done ${dayNames[earlierDayIndex]} (your choice)`);
-            break;
-          }
-        }
-      }
+    const pulledInfo = pulledForward.get(d.id);
+    if (pulledInfo) {
+      chosenByDayIndex.set(d.day_index, pulledForwardLabel(pulledInfo));
     }
   }
 
@@ -448,6 +402,11 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     allDays: days,
     localToday,
     missedYesterday,
+    pulledForwardDayIds: pulledForward,
+    program: {
+      started_on: program.started_on,
+      week_offset: program.week_offset,
+    },
   });
 
   // Determine if we need plannable days (for prompts)
@@ -467,6 +426,7 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     dayType,
     dayLabel,
     overrideDiffers,
+    pulledForwardMessage: pulledForwardMessageText,
     strengthDone,
     strengthOpen,
     performed,

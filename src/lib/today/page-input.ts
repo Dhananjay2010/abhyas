@@ -17,6 +17,7 @@ export interface TodayStateInputRows {
     started_on: string;
   };
   days: Array<{
+    id: string;
     day_index: number;
     day_type: DayType;
     label: string | null;
@@ -41,6 +42,7 @@ export interface TodayStateInputRows {
   strengthDone: boolean;
   strengthOpen: boolean;
   hasStartedAny: boolean | null;
+  pulledForwardDayIds?: Map<string, { programDayId: string }>;
 }
 
 export function todayStateInputFromRows(rows: TodayStateInputRows) {
@@ -76,5 +78,6 @@ export function todayStateInputFromRows(rows: TodayStateInputRows) {
     strengthDone: rows.strengthDone,
     strengthOpen: rows.strengthOpen,
     hasStartedSession: rows.hasStartedAny,
+    pulledForwardDayIds: rows.pulledForwardDayIds,
   };
 }
