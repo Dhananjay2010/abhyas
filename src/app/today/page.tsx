@@ -16,6 +16,7 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
+import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 
 export const dynamic = "force-dynamic";
 
@@ -284,9 +285,15 @@ export default async function TodayPage() {
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
   const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
-  const missedYesterday =
-    (yesterdayDay?.day_type === "weights" || yesterdayDay?.day_type === "bodyweight") &&
-    !yesterdaySessions.some((s) => s.status === "completed" && isStrength(s.actual_type));
+  const missedYesterday = isMissedYesterday({
+    yesterday,
+    programStartedOn: program.started_on,
+    yesterdayIsTrainingDay:
+      yesterdayDay?.day_type === "weights" || yesterdayDay?.day_type === "bodyweight",
+    hadCompletedStrengthYesterday: yesterdaySessions.some(
+      (s) => s.status === "completed" && isStrength(s.actual_type),
+    ),
+  });
   // Only worth asking while today is still open to being changed.
   const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
 
