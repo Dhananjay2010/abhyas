@@ -76,7 +76,7 @@ export type StartSessionFullDeps = {
   
   insertSession: (payload: SessionInsert) => Promise<
     | { ok: true; sessionId: string }
-    | { ok: false; error: string }
+    | { ok: false; error: string; existingSessionId?: string }
   >;
   
   fetchPlannedExercises: (dayId: string) => Promise<ProgramDayExercise[] | null>;
@@ -190,6 +190,9 @@ export async function startSessionFullCore(
   ]);
 
   if (!insertResult.ok) {
+    if (insertResult.existingSessionId) {
+      return { ok: true, sessionId: insertResult.existingSessionId };
+    }
     return { ok: false, error: insertResult.error };
   }
 

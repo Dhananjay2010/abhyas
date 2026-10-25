@@ -364,6 +364,43 @@ async function test(name: string, fn: () => Promise<void>) {
     eq(calls.length > 0, true, "At least one call made to verify today is used");
   });
 
+  await test("BUG CATCH: cross-date 23505 existingSessionId pass-through (h111)", async () => {
+    const fakeClient = createFakeSupabase({
+      "sessions:single": {
+        data: null,
+        error: {
+          code: "23505",
+          message: "duplicate key",
+          details: "Key (user_id, local_date, status)=(user-123, 2026-10-25, in_progress) already exists.",
+        },
+      },
+      "sessions:maybeSingle": {
+        data: { id: "sess-other-day", created_at: "2026-10-24T10:00:00Z", local_date: "2026-10-24" },
+        error: null,
+      },
+    });
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
+    
+    const result = await deps.insertSession({
+      user_id: USER_ID,
+      local_date: "2026-10-25",
+      status: "in_progress",
+      program_id: "prog-1",
+      program_day_id: "day-1",
+      week_in_block: 1,
+      is_deload: false,
+      planned_type: "weights",
+      actual_type: "weights",
+      started_at: "2026-10-25T10:00:00Z",
+    });
+
+    if (result.ok) throw new Error("Expected error for cross-date conflict");
+    if (!("existingSessionId" in result)) {
+      throw new Error(`Result does not have existingSessionId property: ${JSON.stringify(result)}`);
+    }
+    eq(result.existingSessionId, "sess-other-day", "existingSessionId passed through");
+  });
+
   console.log(`\n${passed} tests passed, ${failed} tests failed`);
   if (failed > 0) process.exit(1);
 })();

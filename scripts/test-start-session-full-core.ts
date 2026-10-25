@@ -498,7 +498,10 @@ async function main() {
 
     const result = await startSessionFullCore(deps);
 
-    if (result.ok) throw new Error("Expected error when different-day session exists");
+    if (!result.ok) throw new Error(`Expected ok:true, got error: ${result.error}`);
+    if (result.sessionId !== "sess-yesterday") {
+      throw new Error(`Expected sessionId 'sess-yesterday', got: ${result.sessionId}`);
+    }
     if (exercisesInserted) {
       throw new Error("insertExercises was called despite different-day conflict");
     }
