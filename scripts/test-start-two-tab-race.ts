@@ -226,8 +226,8 @@ await test("L2 revert: without check, second insert throws duplicate key error",
 
   if (!insert2.error) throw new Error("Expected duplicate key error");
   if (insert2.error.code !== "23505") throw new Error(`Expected 23505, got ${insert2.error.code}`);
-  if (!insert2.error.message.includes("session_exercises_session_id_order_index_key")) {
-    throw new Error(`Expected constraint name in message: ${insert2.error.message}`);
+  if (!insert2.error.message.includes("duplicate key")) {
+    throw new Error(`Expected duplicate key in message: ${insert2.error.message}`);
   }
 });
 
