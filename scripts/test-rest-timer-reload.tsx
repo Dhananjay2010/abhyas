@@ -877,8 +877,8 @@ check("Expired key removed", !mockStorage.data.has(key));
 
 unmount7();
 
-// ===== CASE 8: Hydration safety =====
-console.log("\nCase 8: Hydration safety → storage read after mount, not during render\n");
+// ===== CASE 8: Hydration safety - no storage read during render =====
+console.log("\nCase 8: Hydration safety → storage read in effect, not render (SSR + hydration)\n");
 
 const exercise8 = makeExercise("ex-8", "bench", "Bench", 2, [
   { setNumber: 1, reps: 10, weightKg: null, durationSeconds: null },
@@ -891,8 +891,9 @@ mockStorage.data.set(key, JSON.stringify({
   restEndsAt: now + 90000,
 }));
 
-// Render synchronously - first render should NOT show rest panel
-const { container: c8, unmount: unmount8 } = render(
+// (a) Server-side render: storage should NOT be read during render
+const { renderToString } = await import("react-dom/server");
+const serverHtml = renderToString(
   <SessionRunner
     sessionId={sessionId}
     isDeload={false}
@@ -907,24 +908,53 @@ const { container: c8, unmount: unmount8 } = render(
   />,
 );
 
-// Check immediately (before effects run in act)
-// Note: render() flushes effects synchronously in React 18+, so we need to check
-// that the effect doesn't read storage during render (SSR-safe)
-const initialHasRest = c8.textContent?.includes("Rest") ?? false;
+check("Server HTML has no rest panel (no Skip button)", !serverHtml.includes(">Skip<"));
+check("Server HTML has no rest timer", !serverHtml.includes("Rest") || !serverHtml.includes("1:"));
 
-// After effects
+// (b) Hydrate with the server HTML and check for hydration errors
+const { hydrateRoot } = await import("react-dom/client");
+const container8 = document.createElement("div");
+container8.innerHTML = serverHtml;
+document.body.appendChild(container8);
+
+const hydrationErrors: Error[] = [];
+const root8 = hydrateRoot(
+  container8,
+  <SessionRunner
+    sessionId={sessionId}
+    isDeload={false}
+    week={1}
+    warmupAlreadyDone={true}
+    startedAt={new Date(now).toISOString()}
+    warmup={[]}
+    cooldown={[]}
+    exercises={[exercise8]}
+    settings={settings}
+    actions={actions}
+  />,
+  {
+    onRecoverableError: (error) => {
+      hydrationErrors.push(error);
+    },
+  },
+);
+
 await act(async () => {
   await new Promise((resolve) => setTimeout(resolve, 200));
 });
 
-const afterEffectsHasRest = c8.textContent?.includes("Rest") ?? false;
+check("No hydration errors", hydrationErrors.length === 0);
+check("No #418 hydration mismatch", !hydrationErrors.some((e) => e.message.includes("418") || e.message.includes("Hydration")));
 
-// SSR-safe means: either no rest initially (hydration-safe), or rest both times (from restore effect)
-// What we DON'T want: rest initially from a render-time storage read (would break SSR)
-check("Initial render has no rest panel (hydration safe)", !initialHasRest || afterEffectsHasRest);
-check("Rest panel appears after mount effect", afterEffectsHasRest);
+// (c) After effects, rest panel should appear
+const hasRestAfterHydration = container8.textContent?.includes("Rest") && container8.textContent?.includes("1:");
+check("Rest panel appears after hydration (client effects ran)", hasRestAfterHydration);
 
-unmount8();
+const restTimeText = container8.textContent?.match(/Rest.*?(1:\d\d)/s)?.[1];
+check("Rest shows ~1:30 remaining after hydration", restTimeText?.startsWith("1:2") || restTimeText?.startsWith("1:3") || restTimeText?.startsWith("1:29"), restTimeText);
+
+root8.unmount();
+document.body.removeChild(container8);
 
 // Restore Date.now
 Date.now = originalDateNow;

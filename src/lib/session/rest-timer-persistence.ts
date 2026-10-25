@@ -52,11 +52,11 @@ function isRestRecord(value: unknown): value is RestRecord {
     typeof value === "object" &&
     value !== null &&
     "sessionId" in value &&
-    typeof (value as Record<string, unknown>).sessionId === "string" &&
+    typeof value.sessionId === "string" &&
     "sessionExerciseId" in value &&
-    typeof (value as Record<string, unknown>).sessionExerciseId === "string" &&
+    typeof value.sessionExerciseId === "string" &&
     "restEndsAt" in value &&
-    typeof (value as Record<string, unknown>).restEndsAt === "number"
+    typeof value.restEndsAt === "number"
   );
 }
 
