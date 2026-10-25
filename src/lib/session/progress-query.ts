@@ -8,8 +8,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
+/**
+ * Narrow structural type for progress query construction.
+ * The real SupabaseClient<Database> is assignable to this.
+ */
+export type ProgressQueryClient = {
+  from(table: "exercise_progress"): {
+    select(columns: "exercise_id, current_working_weight_kg, current_target_reps"): {
+      eq(column: "user_id", value: string): unknown;
+    };
+  };
+};
+
 export function buildExerciseProgressQuery(
-  supabase: SupabaseClient<Database>,
+  supabase: ProgressQueryClient,
   userId: string
 ) {
   return supabase

@@ -3,11 +3,43 @@
  * 
  * The session/[id]/page.tsx builds a progress query that must filter by user_id.
  * This test extracts that builder into src/lib and tests it directly.
- * 
- * Test approach: verify the function's source code includes the security filter.
  */
 
-import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
+import { buildExerciseProgressQuery, type ProgressQueryClient } from "@/lib/session/progress-query";
+
+type Call = {
+  method: "from" | "select" | "eq";
+  args: unknown[];
+};
+
+class RecordingQueryBuilder {
+  calls: Call[] = [];
+
+  from(table: "exercise_progress") {
+    this.calls.push({ method: "from", args: [table] });
+    return this;
+  }
+
+  select(columns: "exercise_id, current_working_weight_kg, current_target_reps") {
+    this.calls.push({ method: "select", args: [columns] });
+    return this;
+  }
+
+  eq(column: "user_id", value: string) {
+    this.calls.push({ method: "eq", args: [column, value] });
+    return this;
+  }
+}
+
+function createRecordingClient(): { client: ProgressQueryClient; recorder: RecordingQueryBuilder } {
+  const recorder = new RecordingQueryBuilder();
+  const client: ProgressQueryClient = {
+    from(table: "exercise_progress") {
+      return recorder.from(table);
+    },
+  };
+  return { client, recorder };
+}
 
 const checks: Array<{ pass: boolean; name: string }> = [];
 function check(name: string, pass: boolean) {
@@ -17,46 +49,56 @@ function check(name: string, pass: boolean) {
 
 console.log("Testing exercise progress query builder\n");
 
-// --- Test 1: Function exists and is exported ---
+// --- Test 1: Query calls .from('exercise_progress') ---
+const mock1 = createRecordingClient();
+const userId = "test-user-123";
+buildExerciseProgressQuery(mock1.client, userId);
+
 check(
-  "buildExerciseProgressQuery function exists",
-  typeof buildExerciseProgressQuery === "function"
+  "Query calls .from('exercise_progress')",
+  mock1.recorder.calls.some((c) => c.method === "from" && c.args[0] === "exercise_progress")
 );
 
-// --- Test 2: Verify implementation includes required operations ---
-const fnSource = buildExerciseProgressQuery.toString();
-
+// --- Test 2: Query calls .select with correct columns ---
 check(
-  "Function calls .from('exercise_progress')",
-  fnSource.includes(".from(") && fnSource.includes('"exercise_progress"')
+  "Query calls .select with correct columns",
+  mock1.recorder.calls.some(
+    (c) =>
+      c.method === "select" &&
+      c.args[0] === "exercise_id, current_working_weight_kg, current_target_reps"
+  )
 );
 
+// --- Test 3: Query calls .eq('user_id', userId) - security filter ---
 check(
-  "Function calls .select with progress columns",
-  fnSource.includes(".select(") &&
-    fnSource.includes("exercise_id") &&
-    fnSource.includes("current_working_weight_kg") &&
-    fnSource.includes("current_target_reps")
+  "Query calls .eq('user_id', userId) - security filter",
+  mock1.recorder.calls.some((c) => c.method === "eq" && c.args[0] === "user_id" && c.args[1] === userId)
 );
 
+// --- Test 4: Different user ID is correctly applied ---
+const mock2 = createRecordingClient();
+const anotherUserId = "another-user-456";
+buildExerciseProgressQuery(mock2.client, anotherUserId);
+
 check(
-  "Function calls .eq('user_id', userId) - security filter present",
-  fnSource.includes(".eq(") && fnSource.includes('"user_id"') && fnSource.includes("userId")
+  "Query filters by the provided user_id",
+  mock2.recorder.calls.some((c) => c.method === "eq" && c.args[0] === "user_id" && c.args[1] === anotherUserId)
 );
 
-// --- Test 3: Function signature ---
+// --- Test 5: Query order is correct (from → select → eq) ---
+const fromIndex = mock1.recorder.calls.findIndex((c) => c.method === "from");
+const selectIndex = mock1.recorder.calls.findIndex((c) => c.method === "select");
+const eqIndex = mock1.recorder.calls.findIndex((c) => c.method === "eq");
+
 check(
-  "Function accepts supabase and userId parameters",
-  fnSource.includes("supabase") && fnSource.includes("userId")
+  "Query order: from before select before eq",
+  fromIndex >= 0 && selectIndex >= 0 && eqIndex >= 0 && fromIndex < selectIndex && selectIndex < eqIndex
 );
 
-// --- Test 4: Wiring check ---
-// The function is imported and used in src/app/session/[id]/page.tsx:
-// buildExerciseProgressQuery(supabase, user.id)
-
+// --- Test 6: Verify call count (should be exactly 3: from, select, eq) ---
 check(
-  "Function is used in session/[id]/page.tsx with user.id (see import on line 10, usage on line 65)",
-  true
+  "Query makes exactly 3 calls (from, select, eq)",
+  mock1.recorder.calls.length === 3
 );
 
 // --- Summary ---
