@@ -113,6 +113,13 @@ async function main() {
     `got ${result.workingWeightKg}, expected 100`,
   );
 
+  // Must return currentTargetReps unchanged
+  check(
+    "returns currentTargetReps unchanged",
+    result.currentTargetReps === 10,
+    `got ${result.currentTargetReps}, expected 10`,
+  );
+
   // Also verify isBodyweight is computed correctly (not bodyweight for barbell)
   check(
     "isBodyweight false for barbell",
@@ -155,6 +162,12 @@ async function main() {
     "S2: returns null workingWeightKg when remembersWeights=false",
     result2.workingWeightKg === null,
     `got ${result2.workingWeightKg}`,
+  );
+
+  check(
+    "returns null currentTargetReps when remembersWeights=false",
+    result2.currentTargetReps === null,
+    `got ${result2.currentTargetReps}`,
   );
 
   console.log("\nCase 3: Bodyweight exercise\n");
