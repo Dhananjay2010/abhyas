@@ -27,6 +27,7 @@ import {
   type RunnerSettings,
 } from "../src/app/session/[id]/session-runner";
 import type { StorageAdapter } from "../src/lib/session/rest-timer-persistence";
+import type { WarmupItem } from "../src/lib/program/warmup";
 
 const ok = async () => ({ ok: true }) as const;
 
@@ -574,12 +575,18 @@ unmount4();
 // ===== CASE 4b: Cooldown screen finish button clears storage =====
 console.log("\nCase 4b: Finish on cooldown screen (not-completed button) → storage cleared\n");
 
-const cooldownItem = {
+const cooldownItem: WarmupItem = {
   id: "cool-1",
-  phase: "cooldown" as const,
+  slug: "hamstring-stretch",
   name: "Hamstring stretch",
+  type: "stretch",
+  phase: "stretch",
+  target_regions: [],
+  target_muscles: [],
   duration_seconds: 30,
   instructions: ["Hold for 30s"],
+  equipment_ids: [],
+  contraindicated_regions: [],
 };
 
 const settingsWithCooldown: RunnerSettings = {
