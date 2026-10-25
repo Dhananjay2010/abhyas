@@ -81,9 +81,12 @@ run_mutant() {
     return 1
   fi
   
-  # Run both tests: past-knee grid AND plan lunge pick
+  # Run all past-knee tests
   if npm run test:past-knee 2>&1 | tee /tmp/mutant-output.txt | tail -5 && \
-     npm run test:past-knee-plan-lunge-pick 2>&1 | tee -a /tmp/mutant-output.txt | tail -5; then
+     npm run test:past-knee-plan-lunge-pick 2>&1 | tee -a /tmp/mutant-output.txt | tail -5 && \
+     npm run test:past-knee-plan-swap-consistency 2>&1 | tee -a /tmp/mutant-output.txt | tail -5 && \
+     npm run test:past-knee-call-sites 2>&1 | tee -a /tmp/mutant-output.txt | tail -5 && \
+     npm run test:past-knee-guards 2>&1 | tee -a /tmp/mutant-output.txt | tail -5; then
     echo "✗ Test passed (mutation survived)"
     SURVIVED_MUTANTS+=("$name")
     FAILED=1
@@ -107,6 +110,8 @@ backup_file "src/lib/program/past-knee-lunge-order.ts"
 backup_file "src/lib/program/generate.ts"
 backup_file "src/lib/program/alternatives.ts"
 backup_file "src/lib/program/warmup.ts"
+backup_file "src/app/session/actions.ts"
+backup_file "src/lib/program/persist.ts"
 
 echo ""
 echo "=== Baseline: tests should pass ==="
@@ -223,6 +228,47 @@ restore_file "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 sed -i '/"elevated-back-lunge",/d' src/lib/program/past-knee.ts
 run_mutant "Remove elevated-back-lunge exclusion" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
+# === MEDIUM-1: Call-site mutants ===
+
+# Mutant 19: Drop pastKneeInjury at swap site (actions.ts)
+restore_file "src/app/session/actions.ts"
+sed -i 's/pastKneeInjury: input.pastKneeInjury,/pastKneeInjury: false,/' src/app/session/actions.ts
+sed -i 's/input.primaryTrack, input.pastKneeInjury, 0/input.primaryTrack, false, 0/' src/app/session/actions.ts
+run_mutant "Drop pastKneeInjury at swap site" "src/app/session/actions.ts" || true
+restore_file "src/app/session/actions.ts"
+
+# Mutant 20: Drop pastKneeInjury at plan creation (persist.ts)
+restore_file "src/lib/program/persist.ts"
+sed -i '/pastKneeInjury: (injuriesRes.data/,/.some((i) => i.severity === "past" && i.body_region === "knee"),/d' src/lib/program/persist.ts
+run_mutant "Drop pastKneeInjury at plan creation" "src/lib/program/persist.ts" || true
+restore_file "src/lib/program/persist.ts"
+
+# Mutant 21: Remove kneeFriendlyBonus call in scoring
+restore_file "src/lib/program/generate.ts"
+sed -i 's/s += kneeFriendlyBonus(ex, slotIndex);/\/\/ s += kneeFriendlyBonus(ex, slotIndex);/' src/lib/program/generate.ts
+run_mutant "Remove kneeFriendlyBonus scoring" "src/lib/program/generate.ts" || true
+restore_file "src/lib/program/generate.ts"
+
+# === MEDIUM-2: Guard mutants ===
+
+# Mutant 22: Exclude ALL impact=high for past knee
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/export function isExcludedForPastKnee/,/^}$/{s/if (isJumpingExercise(ex)) return true;/if (ex.impact === "high") return true;\n  if (isJumpingExercise(ex)) return true;/}' src/lib/program/past-knee.ts
+run_mutant "Exclude ALL impact=high for past knee" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 23: Exclude squats-with-bands
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/const PAST_KNEE_EXCLUDED_SLUGS/,/];/{s/"elevated-back-lunge",/"elevated-back-lunge",\n  "squats-with-bands",/}' src/lib/program/past-knee.ts
+run_mutant "Exclude squats-with-bands" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 24: Skip cable-hip-adduction for everyone
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/const PAST_KNEE_EXCLUDED_SLUGS/,/];/{s/"elevated-back-lunge",/"elevated-back-lunge",\n  "cable-hip-adduction",/}' src/lib/program/past-knee.ts
+run_mutant "Skip cable-hip-adduction for everyone" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
 
 echo ""

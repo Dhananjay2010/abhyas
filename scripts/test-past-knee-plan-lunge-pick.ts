@@ -8,9 +8,7 @@
  * npm run test:past-knee-plan-lunge-pick
  */
 import { readFileSync } from "node:fs";
-import { generateProgram, isEligible, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
-import { isExcludedForPastKnee } from "../src/lib/program/past-knee";
-import { rankAlternatives } from "../src/lib/program/alternatives";
+import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf8"));
 
