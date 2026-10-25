@@ -10,11 +10,16 @@
 
 import { nextBest, roundToStoragePrecision, type ExerciseMeta } from "../src/lib/program/progression";
 
+let failures = 0;
+
 function check(label: string, pass: boolean, detail?: string): void {
   const mark = pass ? "✓" : "✗";
   const msg = detail ? ` (got ${detail})` : "";
   console.log(`  ${mark} ${label}${msg}`);
-  if (!pass) process.exitCode = 1;
+  if (!pass) {
+    failures++;
+    process.exitCode = 1;
+  }
 }
 
 console.log("Test: PB precision comparison");
@@ -103,19 +108,56 @@ console.log("\n4. Boundary: live rounds to exactly stored → not a PB");
   check("bestE1rm unchanged", result.bestE1rm === 56.00, `${result.bestE1rm}`);
 }
 
-console.log("\n5. Weight and reps also respect precision");
+console.log("\n5. Weight PBs: best_weight_kg is also numeric(6,2)");
 {
-  // Weights are typically whole or .25/.5 increments, but ensure they work with rounding
-  const result = nextBest(
-    [{ reps: 10, weightKg: 40.001 }], // Floating point noise
+  // 40.001 vs stored 40.00 → NOT a PB (rounds to 40.00)
+  const result1 = nextBest(
+    [{ reps: 10, weightKg: 40.001 }],
     { bestWeightKg: 40, bestReps: 10, bestE1rm: null },
     meta
   );
   
-  // Weight comparison uses direct >, so 40.001 > 40 → weight PB
-  check("weight PB detected even with floating point noise", 
-    result.personalBest?.kind === "weight",
-    result.personalBest ? `got ${result.personalBest.kind}` : "null");
+  check("40.001 vs 40.00: NOT a PB (rounds to 40.00)", 
+    result1.personalBest === null,
+    result1.personalBest ? `got ${result1.personalBest.kind}` : "null");
+  check("bestWeightKg stays 40.00", result1.bestWeightKg === 40.00, `${result1.bestWeightKg}`);
+  
+  // 40.01 vs stored 40.00 → PB
+  const result2 = nextBest(
+    [{ reps: 10, weightKg: 40.01 }],
+    { bestWeightKg: 40, bestReps: 10, bestE1rm: null },
+    meta
+  );
+  
+  check("40.01 vs 40.00: IS a PB", 
+    result2.personalBest?.kind === "weight",
+    result2.personalBest ? `got ${result2.personalBest.kind}` : "null");
+  check("bestWeightKg updated to 40.01", result2.bestWeightKg === 40.01, `${result2.bestWeightKg}`);
+}
+
+console.log("\n6. Boundary +0.01 tests");
+{
+  // 100.01 vs stored 100.00 → PB
+  const result1 = nextBest(
+    [{ reps: 10, weightKg: 100.01 }],
+    { bestWeightKg: 100.00, bestReps: 10, bestE1rm: null },
+    meta
+  );
+  
+  check("100.01 vs 100.00: IS a PB", 
+    result1.personalBest?.kind === "weight",
+    result1.personalBest ? `got ${result1.personalBest.kind}` : "null");
+  
+  // 100.004 vs stored 100.00 → NOT a PB (rounds to 100.00)
+  const result2 = nextBest(
+    [{ reps: 10, weightKg: 100.004 }],
+    { bestWeightKg: 100.00, bestReps: 10, bestE1rm: null },
+    meta
+  );
+  
+  check("100.004 vs 100.00: NOT a PB (rounds to 100.00)", 
+    result2.personalBest === null,
+    result2.personalBest ? `got ${result2.personalBest.kind}` : "null");
 }
 
 console.log("\nTest: roundToStoragePrecision function");
@@ -128,4 +170,6 @@ console.log("\nTest: roundToStoragePrecision function");
   check("0.005 → 0.01 (rounds up)", roundToStoragePrecision(0.005) === 0.01);
 }
 
-console.log("\n✓ All precision tests passed");
+if (failures === 0) {
+  console.log("\n✓ All precision tests passed");
+}

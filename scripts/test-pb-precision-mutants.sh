@@ -4,7 +4,8 @@
 set -e
 
 PROGRESSION_FILE="src/lib/program/progression.ts"
-BACKUP_FILE="/tmp/progression-backup.ts"
+TMP=$(mktemp -d)
+BACKUP_FILE="$TMP/progression.ts"
 
 echo "Mutant test: PB precision bug"
 echo "==============================="
@@ -16,9 +17,9 @@ cp "$PROGRESSION_FILE" "$BACKUP_FILE"
 cleanup() {
   echo "Restoring original file..."
   cp "$BACKUP_FILE" "$PROGRESSION_FILE"
-  rm -f "$BACKUP_FILE"
+  rm -rf "$TMP"
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 # Mutant 1: Remove rounding from e1rm calculation
 echo "Mutant 1: Remove roundToStoragePrecision() call"

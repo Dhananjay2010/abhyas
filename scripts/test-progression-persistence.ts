@@ -36,7 +36,12 @@ function createFakeClient(): { client: ProgressClient; getWritten: () => Progres
   const client: ProgressClient = {
     from: () => ({
       upsert: async (data: ProgressWrite) => {
-        written = data;
+        // Mimic Postgres numeric(6,2) rounding on best_e1rm and best_weight_kg
+        written = {
+          ...data,
+          best_e1rm: data.best_e1rm !== null ? Math.round(data.best_e1rm * 100) / 100 : null,
+          best_weight_kg: data.best_weight_kg !== null ? Math.round(data.best_weight_kg * 100) / 100 : null,
+        };
         return { data: null, error: null };
       },
     }),

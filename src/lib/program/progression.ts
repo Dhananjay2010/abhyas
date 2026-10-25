@@ -322,7 +322,8 @@ export function nextBest(
   for (const set of working) {
     const w = set.weightKg ?? 0;
     const v = valueOf(set) ?? 0;
-    if (bestWeightKg === null || w > bestWeightKg) bestWeightKg = w;
+    const roundedWeight = w > 0 ? roundToStoragePrecision(w) : w;
+    if (bestWeightKg === null || roundedWeight > bestWeightKg) bestWeightKg = roundedWeight;
     // For a hold this is the longest hold, not a rep count. Same column, same
     // "best so far" meaning, read through `metric`.
     if (bestReps === null || v > bestReps) bestReps = v;
