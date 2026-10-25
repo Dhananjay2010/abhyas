@@ -63,9 +63,9 @@ else
 fi
 
 # Final safety check: ensure source file is unmodified
-if ! git diff --exit-code -- "$SRC_FILE" > /dev/null 2>&1; then
+if ! diff -q "$TEMP_DIR/progression.ts.orig" "$SRC_FILE" > /dev/null; then
   echo "✗ ERROR: Source file was not properly restored!"
-  git checkout -- "$SRC_FILE"
+  cp "$TEMP_DIR/progression.ts.orig" "$SRC_FILE"
   exit 1
 fi
 

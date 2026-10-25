@@ -35,7 +35,7 @@ function createFakeClient(): { client: ProgressClient; getWritten: () => Progres
 
   const client: ProgressClient = {
     from: () => ({
-      upsert: async (data: ProgressWrite, _opts: { onConflict: string }) => {
+      upsert: async (data: ProgressWrite) => {
         written = data;
         return { data: null, error: null };
       },

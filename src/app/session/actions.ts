@@ -14,10 +14,8 @@ import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,
   evaluateProgression,
-  type ExerciseMeta,
-  type ProgressState,
 } from "@/lib/program/progression";
-import { buildProgressionInput, type SessionSetRow, type ExerciseProgressRow as ProgressRow } from "@/lib/session/build-progression-input";
+import { buildProgressionInput } from "@/lib/session/build-progression-input";
 import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";

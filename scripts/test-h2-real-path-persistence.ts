@@ -8,7 +8,6 @@
 
 import { evaluateProgression } from "../src/lib/program/progression";
 import { buildProgressionInput, type SessionExerciseRow, type SessionSetRow, type ExerciseProgressRow, type SessionRow } from "../src/lib/session/build-progression-input";
-import type { ProgressWrite } from "../src/lib/session/write-progress";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -60,18 +59,9 @@ console.log("\n1. New user (prior=null) 4×10@40 in 8-12 → stores weight=40");
   check("Decision: nextWorkingWeightKg = 40", decision.nextWorkingWeightKg === 40, `${decision.nextWorkingWeightKg}`);
   check("Decision: failures = 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
 
-  const write: ProgressWrite = {
-    current_working_weight_kg: decision.nextWorkingWeightKg,
-    current_target_reps: decision.nextTargetReps,
-    consecutive_failures: decision.consecutiveFailures,
-    best_weight_kg: decision.nextWorkingWeightKg,
-    best_reps: 10,
-    best_e1rm: decision.bestE1rm,
-    total_sessions: 1,
-  };
-
-  check("Write: current_working_weight_kg = 40", write.current_working_weight_kg === 40, `${write.current_working_weight_kg}`);
-  check("Write: consecutive_failures = 0", write.consecutive_failures === 0, `${write.consecutive_failures}`);
+  // Verify the decision output would be stored correctly
+  check("Write: current_working_weight_kg = 40", decision.nextWorkingWeightKg === 40, `${decision.nextWorkingWeightKg}`);
+  check("Write: consecutive_failures = 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
 }
 
 console.log("\n2. Existing user (prior=50) 4×10 in 8-12 → keeps stored weight 50");
