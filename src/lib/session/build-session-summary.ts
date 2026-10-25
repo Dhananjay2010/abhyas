@@ -106,7 +106,16 @@ export async function buildSessionSummary(
           exercises: ex.exercises,
         },
         ex.sets,
-        ex.prior_progress,
+        // Default to empty progress state if no prior progress exists
+        ex.prior_progress ?? {
+          current_working_weight_kg: null,
+          current_target_reps: null,
+          consecutive_failures: 0,
+          best_weight_kg: null,
+          best_reps: null,
+          best_e1rm: null,
+          total_sessions: 0,
+        },
         {
           is_deload: session.is_deload,
           local_date: session.local_date,

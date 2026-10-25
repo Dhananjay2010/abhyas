@@ -52,7 +52,9 @@ export function formatLoggedSets(
   }
 
   // Weighted: check if all sets used the same weight
-  const weights = working.map((s) => s.weightKg).filter((w): w is number => w !== null);
+  const weights = working
+    .map((s) => s.weightKg)
+    .filter((w): w is number => w !== null && w > 0);
   const allSameWeight = weights.length > 0 && weights.every((w) => w === weights[0]);
 
   if (allSameWeight) {

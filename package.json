@@ -309,7 +309,14 @@
     "test:past-knee-lunge-swaps": "tsx scripts/test-past-knee-lunge-swaps.ts",
     "test:swap-list-exhaustive": "tsx scripts/test-swap-list-exhaustive.ts",
     "test:swap-safety-behaviour": "tsx scripts/test-swap-safety-behaviour.ts",
-    "test:swap-banned-real-path": "tsx scripts/test-swap-banned-real-path.ts"
+    "test:swap-banned-real-path": "tsx scripts/test-swap-banned-real-path.ts",
+    "test:session-summary-from-db": "tsx scripts/test-session-summary-from-db.ts",
+    "test:format-logged-sets": "tsx scripts/test-format-logged-sets.ts",
+    "test:format-volume-lifted": "tsx scripts/test-format-volume-lifted.ts",
+    "test:mutant-session-summary": "bash scripts/mutant-test-session-summary.sh",
+    "test:mutant-logged-sets": "bash scripts/mutant-test-logged-sets.sh",
+    "test:mutant-volume-lifted": "bash scripts/mutant-test-volume-lifted.sh",
+    "test:mutant-week-done": "bash scripts/mutant-test-week-done.sh"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
