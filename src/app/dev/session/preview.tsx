@@ -48,8 +48,8 @@ const STUB: SessionActions = {
   */
   swapExercise: async (input: { newExerciseId: string }) =>
     input.newExerciseId === "alt3"
-      ? ({ ok: true as const, data: { metric: "seconds" as const, repsMin: 20, repsMax: 40, equipmentIds: [] } })
-      : ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+      ? ({ ok: true as const, data: { metric: "seconds" as const, repsMin: 20, repsMax: 40, equipmentIds: [], weightPrefill: null } })
+      : ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null } }),
   findAlternatives: async () => ({
     ok: true as const,
     data: [

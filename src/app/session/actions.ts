@@ -28,6 +28,7 @@ import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
+import { getLastPerformance } from "@/lib/exercise-history";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -752,6 +753,7 @@ export type SwapResult = {
   repsMin: number | null;
   repsMax: number | null;
   equipmentIds: string[];
+  weightPrefill: number | null;
 };
 
 export async function swapExercise(input: {
@@ -763,7 +765,7 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes, lastPerf] = await Promise.all([
     supabase
       .from("session_exercises")
       .select("exercise_id, metric, planned_reps_min, planned_reps_max")
@@ -785,6 +787,8 @@ export async function swapExercise(input: {
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
+    // Prefill weight from the user's last performance of the swapped-in exercise.
+    getLastPerformance(supabase, user.id, input.newExerciseId).catch(() => null),
   ]);
 
   const current = currentRes.data;
@@ -820,6 +824,8 @@ export async function swapExercise(input: {
   const repsMin = reranged ? reranged.repsMin : current.planned_reps_min;
   const repsMax = reranged ? reranged.repsMax : current.planned_reps_max;
 
+  const weightPrefill = lastPerf?.topSet?.weight_kg ?? null;
+
   const { error } = await supabase
     .from("session_exercises")
     .update({
@@ -836,7 +842,7 @@ export async function swapExercise(input: {
   // hold button with the range that was just written.
   return error
     ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds } };
+    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill } };
 }
 
 

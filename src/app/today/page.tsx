@@ -15,6 +15,7 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
+import { applyDeload } from "@/lib/program/prescription";
 
 export const dynamic = "force-dynamic";
 
@@ -406,18 +407,29 @@ export default async function TodayPage() {
           skipped: r.status === "skipped",
           swappedIn: r.swapped_from_exercise_id !== null,
         }))
-      : template.map((r) => ({
-          key: `p${r.order_index}`,
-          name: r.exercises?.name ?? "",
-          cue: r.exercises?.cue ?? null,
-          metric: r.exercises?.metric ?? null,
-          sets: r.target_sets,
-          repsMin: r.target_reps_min,
-          repsMax: r.target_reps_max,
-          restSeconds: r.rest_seconds,
-          skipped: false,
-          swappedIn: false,
-        }));
+      : template.map((r) => {
+          const base = {
+            sets: r.target_sets,
+            repsMin: r.target_reps_min,
+            repsMax: r.target_reps_max,
+            restSeconds: r.rest_seconds,
+          };
+          const prescription = isDeload && base.sets !== null
+            ? applyDeload({ sets: base.sets, repsMin: base.repsMin ?? 0, repsMax: base.repsMax ?? 0, restSeconds: base.restSeconds ?? 0 })
+            : base;
+          return {
+            key: `p${r.order_index}`,
+            name: r.exercises?.name ?? "",
+            cue: r.exercises?.cue ?? null,
+            metric: r.exercises?.metric ?? null,
+            sets: prescription.sets,
+            repsMin: prescription.repsMin,
+            repsMax: prescription.repsMax,
+            restSeconds: prescription.restSeconds,
+            skipped: false,
+            swappedIn: false,
+          };
+        });
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show
@@ -637,9 +649,9 @@ export default async function TodayPage() {
                     {row.metric === "seconds" ? "s" : ""}
                   </span>
                 </div>
-                {(row.swappedIn || row.skipped) && (
+                {(row.swappedIn || row.skipped || (isDeload && isTraining && !row.skipped && !(actual && actual.length > 0))) && (
                   <p className="mt-1 text-xs font-medium text-muted uppercase tracking-wider">
-                    {row.skipped ? "Skipped" : "Swapped in"}
+                    {row.skipped ? "Skipped" : row.swappedIn ? "Swapped in" : "Deload"}
                   </p>
                 )}
                 {row.cue && <p className="mt-1 text-sm text-muted">{row.cue}</p>}
