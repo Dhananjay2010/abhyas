@@ -8,7 +8,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_FILE="$SCRIPT_DIR/../src/lib/session/build-progression-input.ts"
 TEMP_DIR=$(mktemp -d)
-trap "rm -rf $TEMP_DIR; git checkout -- '$SRC_FILE' 2>/dev/null || true" EXIT
+trap "cp '$TEMP_DIR/build-progression-input.ts.orig' '$SRC_FILE' 2>/dev/null || true; rm -rf '$TEMP_DIR'" EXIT
 
 echo "=== Mutant Testing: buildProgressionInput (HIGH-2) ==="
 echo ""

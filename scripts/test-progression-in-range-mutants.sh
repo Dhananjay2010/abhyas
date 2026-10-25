@@ -8,7 +8,10 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_FILE="$SCRIPT_DIR/../src/lib/program/progression.ts"
 TEMP_DIR=$(mktemp -d)
-trap "git checkout -- '$SRC_FILE' 2>/dev/null || true; rm -rf $TEMP_DIR" EXIT
+trap "cp '$TEMP_DIR/progression.ts.orig' '$SRC_FILE' 2>/dev/null || true; rm -rf '$TEMP_DIR'" EXIT
+
+# Save original first
+cp "$SRC_FILE" "$TEMP_DIR/progression.ts.orig"
 
 # Function to run test with mutated code
 run_mutant_test() {
@@ -17,9 +20,6 @@ run_mutant_test() {
   
   echo "=== MUTANT TEST: $mutant_name ==="
   echo "Creating mutant..."
-  
-  # Copy original to temp
-  cp "$SRC_FILE" "$TEMP_DIR/progression.ts.orig"
   
   # Apply mutation
   sed "$sed_pattern" "$TEMP_DIR/progression.ts.orig" > "$SRC_FILE"

@@ -559,8 +559,9 @@ export function evaluateProgression(input: {
   // all at top) sessions hold the weight and reset consecutiveFailures to 0.
   // "Hard" feel never causes a deload or counts as a miss on its own (SPEC: '"hard" holds it').
   if (inRange) {
-    // HOLD: Keep the stored prescribed weight. Don't recompute from logged sets.
-    const currentWeight = state.currentWorkingWeightKg;
+    // HOLD: Use stored weight if available; otherwise fall back to heaviest logged working-set weight.
+    // For true bodyweight (no weights logged), keep null.
+    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
     return {
       ...carried,
       outcome: "hold",
