@@ -166,17 +166,31 @@ for (const spec of KNEE_PROFILES) {
 }
 
 // Test pk and pkb specific constraints
+console.log("\nTesting pk and pkb specific profiles...");
 const pkInput = makeGeneratorInput(pkSpec!, catalogue);
 const pkResult = generateProgram(pkInput);
 
 const pkLower = pkResult.days.find(d => d.focus === "lower");
-if (pkLower) {
-  const lungeSlotEx = pkLower.exercises.find(e => e.orderIndex === 2);
-  if (lungeSlotEx) {
-    const exData = catalogueById.get(lungeSlotEx.exerciseId);
-    if (exData && !PAST_KNEE_LUNGE_EXERCISES.has(exData.slug)) {
-      fail(`pk: lunge slot has ${lungeSlotEx.name}, not in PAST_KNEE_LUNGE_EXERCISES`);
-    }
+console.log("pk: Lower day found =", !!pkLower);
+if (!pkLower) {
+  fail("pk: No Lower day found");
+} else {
+  const lungeExercises = pkLower.exercises.filter(e => {
+    const ex = catalogueById.get(e.exerciseId);
+    return ex?.movement_pattern === "lunge" || ex?.movement_pattern === "squat";
+  });
+  
+  if (lungeExercises.length === 0) {
+    fail(`pk: Lower day has no lunge/squat exercises`);
+  }
+  
+  const pastKneeLungeEx = lungeExercises.find(e => {
+    const ex = catalogueById.get(e.exerciseId);
+    return ex && PAST_KNEE_LUNGE_EXERCISES.has(ex.slug) && e.orderIndex !== 0;
+  });
+  
+  if (!pastKneeLungeEx) {
+    fail(`pk: Lower day has no PAST_KNEE_LUNGE_EXERCISES exercise outside squat slot`);
   }
   
   // Check Back Squat sets
@@ -194,13 +208,25 @@ const pkbInput = makeGeneratorInput(pkbSpec!, catalogue);
 const pkbResult = generateProgram(pkbInput);
 
 const pkbLower = pkbResult.days.find(d => d.focus === "lower");
-if (pkbLower) {
-  const lungeSlotEx = pkbLower.exercises.find(e => e.orderIndex === 2);
-  if (lungeSlotEx) {
-    const exData = catalogueById.get(lungeSlotEx.exerciseId);
-    if (exData && !PAST_KNEE_LUNGE_EXERCISES.has(exData.slug)) {
-      fail(`pkb: lunge slot has ${lungeSlotEx.name}, not in PAST_KNEE_LUNGE_EXERCISES`);
-    }
+if (!pkbLower) {
+  fail("pkb: No Lower day found");
+} else {
+  const lungeExercises = pkbLower.exercises.filter(e => {
+    const ex = catalogueById.get(e.exerciseId);
+    return ex?.movement_pattern === "lunge" || ex?.movement_pattern === "squat";
+  });
+  
+  if (lungeExercises.length === 0) {
+    fail(`pkb: Lower day has no lunge/squat exercises`);
+  }
+  
+  const pastKneeLungeEx = lungeExercises.find(e => {
+    const ex = catalogueById.get(e.exerciseId);
+    return ex && PAST_KNEE_LUNGE_EXERCISES.has(ex.slug) && e.orderIndex !== 0;
+  });
+  
+  if (!pastKneeLungeEx) {
+    fail(`pkb: Lower day has no PAST_KNEE_LUNGE_EXERCISES exercise outside squat slot`);
   }
   
   // Check Back Squat sets
