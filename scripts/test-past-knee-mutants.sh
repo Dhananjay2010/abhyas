@@ -155,7 +155,7 @@ restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 6: Remove jumping exercise check
 restore_file "src/lib/program/past-knee.ts"
-sed -i 's/return isJumpingExercise(ex);/return false;/' src/lib/program/past-knee.ts
+sed -i 's/if (isJumpingExercise(ex)) {/if (false) {/' src/lib/program/past-knee.ts
 run_mutant "Remove jumping exercise check" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 
