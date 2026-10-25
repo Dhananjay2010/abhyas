@@ -375,10 +375,16 @@ async function test7b7c() {
       clientId: "pending-7b"
     }, fakeDeps);
     
+    // Override logSet to return SESSION_EXPIRED_CODE
+    const expiredActions: SessionActions = {
+      ...actions,
+      logSet: async () => ({ ok: false, error: "Not signed in", code: "SESSION_EXPIRED" })
+    };
+    
     render(
       <SessionRunner
         sessionId={sessionId}
-        sessionStatus="expired"
+        sessionStatus="in_progress"
         userId={userId}
         isDeload={false}
         week={1}
@@ -388,7 +394,7 @@ async function test7b7c() {
         cooldown={[]}
         exercises={exercises}
         settings={settings}
-        actions={actions}
+        actions={expiredActions}
       />
     );
     
@@ -396,7 +402,7 @@ async function test7b7c() {
     
     // Assert SessionExpiredPrompt is shown with Sign-in link
     const signInLink = screen.getByRole("link", { name: /sign in/i });
-    assert(!!signInLink, "7b: Shows Sign-in link for expired session with pending sets");
+    assert(!!signInLink, "7b: Shows Sign-in link when logSet returns SESSION_EXPIRED with pending sets");
   }
   
   // Test 7c: logSet rejects with network error on replay
