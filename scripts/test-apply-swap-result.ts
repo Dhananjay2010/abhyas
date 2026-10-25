@@ -55,6 +55,7 @@ const swapResult: SwapResult & { exerciseId: string; name: string; cue: string |
   equipmentIds: ["barbell"],
   weightPrefill: 24,
   workingWeightKg: 100,
+  currentTargetReps: 10,
   isBodyweight: false,
 };
 
@@ -82,6 +83,7 @@ const swapResult2: SwapResult & { exerciseId: string; name: string; cue: string 
   equipmentIds: [],
   weightPrefill: null,
   workingWeightKg: null,
+  currentTargetReps: null,
   isBodyweight: true,
 };
 
