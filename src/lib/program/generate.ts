@@ -1194,7 +1194,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     // H6: After slot assignment, ensure Lower/Full days for knee-injured users have at least 1 quad exercise
     const hasPastKnee = input.anyKneeInjury && !input.currentInjuryRegions.includes("knee");
     
-    if (!(hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {
+    if ((hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {
       const hasQuadWork = pickedExercises.some(p => p.ex.primary_muscles.includes("quads"));
       if (!hasQuadWork) {
         // PR #73: For knee injuries, add a knee-safe quad exercise
