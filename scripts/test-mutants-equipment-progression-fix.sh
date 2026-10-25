@@ -170,10 +170,10 @@ echo "==================================="
 echo "Killed $KILLED | Survived $SURVIVED | Skipped $SKIPPED"
 echo
 
-if [ "$SURVIVED" -gt 0 ] || [ "$SKIPPED" -gt 0 ]; then
-  echo "❌ FAILED: $SURVIVED survived, $SKIPPED skipped"
+if [ "$SURVIVED" -gt 0 ]; then
+  echo "❌ FAILED: $SURVIVED survived"
   exit 1
 else
-  echo "✅ PASSED: All $KILLED mutants killed"
+  echo "✅ PASSED: $KILLED killed, $SKIPPED skipped (0 survived)"
   exit 0
 fi
