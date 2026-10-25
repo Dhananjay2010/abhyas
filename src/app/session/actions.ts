@@ -183,13 +183,6 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const isDeloadWeek = week === program.deload_week;
 
   // ---- wave 2 -------------------------------------------------------------
-  // Before inserting a new session, close any stale sessions from earlier dates.
-  // Without this, a stale tab with an open session from yesterday would get a
-  // 23505 from the one-in-progress-session-per-user index and be stuck until
-  // the user reloads Today. Closing stale sessions first lets the new insert
-  // succeed. The openRes data was already fetched in wave 1.
-  await closeStaleSessions(supabase, openRes.data ?? [], today);
-
   // Create a new session and read the plan in parallel. The plan read does not
   // depend on the session insert result, and running them sequentially adds an
   // unnecessary round trip on the button the user is waiting on.
@@ -212,6 +205,68 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       .eq("program_day_id", day.id)
       .order("order_index"),
   ]);
+
+  // If the insert failed due to a stale session from an earlier date, close it
+  // and retry once. The 23505 re-read in startSessionCore filters by local_date,
+  // so if it returned an error, the stale session is from a different day.
+  if (!insertResult.ok && insertResult.error.includes("already in progress")) {
+    await closeStaleSessions(supabase, openRes.data ?? [], today);
+    
+    const retryResult = await startSessionCore(supabase, user.id, {
+      user_id: user.id,
+      program_id: program.id,
+      program_day_id: day.id,
+      local_date: today,
+      week_in_block: week,
+      is_deload: isDeloadWeek,
+      planned_type: day.day_type,
+      actual_type: day.day_type,
+      status: "in_progress",
+      started_at: new Date().toISOString(),
+    });
+    
+    if (!retryResult.ok) {
+      return { ok: false, error: retryResult.error };
+    }
+    
+    // Use the retry result for exercise insertion below
+    const planned = plannedRes.data;
+    if (planned && planned.length > 0) {
+      const exercisesToInsert = planned.map((p) => {
+        const dose = isDeloadWeek
+          ? applyDeload({
+              sets: p.target_sets,
+              repsMin: p.target_reps_min,
+              repsMax: p.target_reps_max,
+              restSeconds: p.rest_seconds,
+            })
+          : {
+              sets: p.target_sets,
+              repsMin: p.target_reps_min,
+              repsMax: p.target_reps_max,
+              restSeconds: p.rest_seconds,
+            };
+        return {
+          session_id: retryResult.sessionId,
+          user_id: user.id,
+          exercise_id: p.exercise_id,
+          order_index: p.order_index,
+          planned_sets: dose.sets,
+          planned_reps_min: dose.repsMin,
+          planned_reps_max: dose.repsMax,
+          rest_seconds: dose.restSeconds,
+          metric: metricOf(p.exercises),
+        };
+      });
+
+      const exerciseInsertResult = await insertSessionExercises(supabase, exercisesToInsert);
+      if (!exerciseInsertResult.ok) {
+        return { ok: false, error: exerciseInsertResult.error };
+      }
+    }
+    
+    return { ok: true, data: { sessionId: retryResult.sessionId } };
+  }
 
   if (!insertResult.ok) {
     return { ok: false, error: insertResult.error };

@@ -52,10 +52,15 @@ export function resolveSetConflict<T extends ExerciseForConflict>(
   // Find the current exercise after the update
   const currentExercise = updatedExercises[currentExerciseIndex];
 
-  // If the current exercise is now complete (all sets done), stay on it to show
-  // the feel prompt. Previously this jumped to the next exercise, which skipped
-  // the feel and left the exercise pending.
-  if (currentExercise && currentExercise.sets.length >= currentExercise.plannedSets) {
+  // If the current exercise is now complete (all sets done) and still pending,
+  // stay on it to show the feel prompt. Previously this jumped to the next exercise,
+  // which skipped the feel and left the exercise pending. If it's already completed
+  // (status="completed"), it was finished in another tab and we should advance.
+  if (
+    currentExercise &&
+    currentExercise.sets.length >= currentExercise.plannedSets &&
+    currentExercise.status === "pending"
+  ) {
     return {
       exercises: updatedExercises,
       nextExerciseIndex: currentExerciseIndex,

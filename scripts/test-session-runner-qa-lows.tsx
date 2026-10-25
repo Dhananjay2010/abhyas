@@ -10,40 +10,20 @@
  * test failures.
  */
 import "./helpers/setup-jsdom";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import React from "react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { SessionRunner, type SessionActions, type RunnerExercise } from "../src/app/session/[id]/session-runner";
 import type { SetConflictResult } from "../src/app/session/actions";
+import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
 
 export {};
 
-// Mock next/navigation by setting it in globalThis before the component imports it
-(globalThis as { next?: unknown }).next = {
-  router: {
-    push: () => {},
-    prefetch: () => {},
-    replace: () => {},
-    reload: () => {},
-    back: () => {},
-    forward: () => {},
-    refresh: () => {},
-    pathname: "/session/test",
-    query: {},
-  },
-};
+let failures = 0;
 
-let passed = 0;
-let failed = 0;
-
-async function test(name: string, fn: () => void | Promise<void>) {
-  try {
-    await fn();
-    console.log(`✓ ${name}`);
-    passed++;
-  } catch (err) {
-    console.error(`✗ ${name}`);
-    console.error(`  ${err instanceof Error ? err.message : String(err)}`);
-    failed++;
-  }
+function check(label: string, ok: boolean, detail = "") {
+  if (!ok) failures++;
+  console.log(`  ${ok ? "✓ " : "✗ "} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
 const baseExercise = (id: string, name: string): RunnerExercise => ({
@@ -78,222 +58,266 @@ const defaultActions: SessionActions = {
   planDay: async () => ({ ok: true }),
 };
 
-async function main() {
-  console.log("Testing SessionRunner QA LOWs\n");
+console.log("\nTesting SessionRunner QA LOWs\n");
 
-  await test("L4: logSet throws SESSION_EXPIRED → friendly error message shows", async () => {
-    const sessionExpiredActions: SessionActions = {
-      ...defaultActions,
-      logSet: async () => {
-        throw new Error("SESSION_EXPIRED: Your session has ended. Please sign in again.");
+(async () => {
+
+// Test 1: L4 - logSet throws SESSION_EXPIRED → friendly error message shows
+console.log("1. L4: logSet throws SESSION_EXPIRED → friendly error message shows");
+{
+  const sessionExpiredActions: SessionActions = {
+    ...defaultActions,
+    logSet: async () => {
+      throw new Error(`${SESSION_EXPIRED_CODE}: Your session has expired. Please sign in again.`);
+    },
+  };
+
+  const exercises: RunnerExercise[] = [baseExercise("ex1", "Bench Press")];
+
+  const { container, unmount } = render(
+    React.createElement(SessionRunner, {
+      sessionId: "sess-1",
+      isDeload: false,
+      week: 1,
+      warmupAlreadyDone: true,
+      startedAt: new Date().toISOString(),
+      warmup: [],
+      cooldown: [],
+      exercises,
+      settings: {
+        perSetLogging: true,
+        restAutostart: false,
+        restSound: false,
+        restVibrate: false,
+        restOverrideSeconds: null,
+        cooldownEnabled: false,
       },
-    };
+      actions: sessionExpiredActions,
+    })
+  );
 
-    const exercises: RunnerExercise[] = [baseExercise("ex1", "Bench Press")];
+  const user = userEvent.setup();
 
-    const { container } = render(
-      <SessionRunner
-        sessionId="sess-1"
-        isDeload={false}
-        week={1}
-        warmupAlreadyDone={true}
-        startedAt={new Date().toISOString()}
-        warmup={[]}
-        cooldown={[]}
-        exercises={exercises}
-        settings={{
-          perSetLogging: true,
-          restAutostart: false,
-          restSound: false,
-          restVibrate: false,
-          restOverrideSeconds: null,
-          cooldownEnabled: false,
-        }}
-        tomorrow={null}
-        actions={sessionExpiredActions}
-        onExit={undefined}
-      />,
-    );
+  // Wait for component to sync (setTimeout 4000ms in useEffect)
+  await new Promise(r => setTimeout(r, 4100));
 
-    // Find the reps input and submit button
-    const repsInput = container.querySelector('input[inputmode="decimal"]');
-    if (!repsInput) throw new Error("Reps input not found");
+  // Fill in reps input
+  const repsInput = screen.getAllByRole("spinbutton")[0];
+  await user.clear(repsInput);
+  await user.type(repsInput, "10");
 
-    const submitButton = screen.getByText("Log set 1");
-    if (!submitButton) throw new Error("Submit button not found");
+  // Click log set button
+  const logButton = screen.getByText(/Log set 1/);
+  await user.click(logButton);
 
-    // Enter reps and submit
-    fireEvent.change(repsInput, { target: { value: "10" } });
-    fireEvent.click(submitButton);
-
-    // Wait for the error message to appear
-    await waitFor(
-      () => {
-        const errorText = screen.queryByText(/Your session has ended/);
-        if (!errorText) {
-          throw new Error("Expected friendly error message not found");
-        }
-      },
-      { timeout: 1000 },
-    );
-
-    // Verify it's NOT showing the raw "SESSION_EXPIRED:" prefix
-    const rawError = screen.queryByText(/SESSION_EXPIRED:/);
-    if (rawError) {
-      throw new Error("Raw SESSION_EXPIRED error should not be shown to user");
-    }
-  });
-
-  await test("L1: conflict on last set → feel prompt appears", async () => {
-    const conflictActions: SessionActions = {
-      ...defaultActions,
-      logSet: async (): Promise<SetConflictResult> => ({
-        ok: false,
-        reason: "set_exists",
-        savedSets: [
-          { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
-          { setNumber: 2, reps: 9, weightKg: 60, durationSeconds: null },
-          { setNumber: 3, reps: 8, weightKg: 60, durationSeconds: null },
-        ],
-      }),
-    };
-
-    const exercises: RunnerExercise[] = [
-      { ...baseExercise("ex1", "Bench Press"), sets: [{ setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null }] },
-      baseExercise("ex2", "Squat"),
-    ];
-
-    const { container } = render(
-      <SessionRunner
-        sessionId="sess-2"
-        isDeload={false}
-        week={1}
-        warmupAlreadyDone={true}
-        startedAt={new Date().toISOString()}
-        warmup={[]}
-        cooldown={[]}
-        exercises={exercises}
-        settings={{
-          perSetLogging: true,
-          restAutostart: false,
-          restSound: false,
-          restVibrate: false,
-          restOverrideSeconds: null,
-          cooldownEnabled: false,
-        }}
-        tomorrow={null}
-        actions={conflictActions}
-        onExit={undefined}
-      />,
-    );
-
-    // Find the reps input and submit button for set 2
-    const repsInput = container.querySelector('input[inputmode="decimal"]');
-    if (!repsInput) throw new Error("Reps input not found");
-
-    const submitButton = screen.getByText(/Log set 2/);
-    if (!submitButton) throw new Error("Submit button not found");
-
-    // Enter reps and submit - this will trigger the conflict
-    fireEvent.change(repsInput, { target: { value: "9" } });
-    fireEvent.click(submitButton);
-
-    // Wait for the feel prompt to appear
-    await waitFor(
-      () => {
-        const feelPrompt = screen.queryByText(/How did that feel/);
-        if (!feelPrompt) {
-          throw new Error("Feel prompt should appear after conflict on last set");
-        }
-      },
-      { timeout: 1000 },
-    );
-
-    // Verify we're still on exercise 1 (index 0)
-    const exerciseTitle = screen.queryByText(/Exercise 1 of 2/);
-    if (!exerciseTitle) {
-      throw new Error("Should still be on Exercise 1 after conflict on last set");
-    }
-  });
-
-  await test("L1: picking feel after conflict advances to next exercise", async () => {
-    const conflictThenOkActions: SessionActions = {
-      ...defaultActions,
-      logSet: async (): Promise<SetConflictResult> => {
-        return {
-          ok: false,
-          reason: "set_exists",
-          savedSets: [
-            { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
-            { setNumber: 2, reps: 9, weightKg: 60, durationSeconds: null },
-            { setNumber: 3, reps: 8, weightKg: 60, durationSeconds: null },
-          ],
-        };
-      },
-    };
-
-    const exercises: RunnerExercise[] = [
-      { ...baseExercise("ex1", "Bench Press"), sets: [{ setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null }] },
-      baseExercise("ex2", "Squat"),
-    ];
-
-    const { container } = render(
-      <SessionRunner
-        sessionId="sess-3"
-        isDeload={false}
-        week={1}
-        warmupAlreadyDone={true}
-        startedAt={new Date().toISOString()}
-        warmup={[]}
-        cooldown={[]}
-        exercises={exercises}
-        settings={{
-          perSetLogging: true,
-          restAutostart: false,
-          restSound: false,
-          restVibrate: false,
-          restOverrideSeconds: null,
-          cooldownEnabled: false,
-        }}
-        tomorrow={null}
-        actions={conflictThenOkActions}
-        onExit={undefined}
-      />,
-    );
-
-    // Submit set 2 to trigger conflict
-    const repsInput = container.querySelector('input[inputmode="decimal"]');
-    if (!repsInput) throw new Error("Reps input not found");
-
-    const submitButton = screen.getByText(/Log set 2/);
-    fireEvent.change(repsInput, { target: { value: "9" } });
-    fireEvent.click(submitButton);
-
-    // Wait for feel prompt
+  // Wait for error to appear
+  try {
     await waitFor(() => {
-      if (!screen.queryByText(/How did that feel/)) {
-        throw new Error("Feel prompt should appear");
+      const text = container.textContent ?? "";
+      if (!text.includes("Your session has expired")) {
+        throw new Error("Error not shown yet");
       }
-    });
+    }, { timeout: 3000 });
+  } catch {
+    // Timeout - error didn't appear
+  }
 
-    // Click a feel button (e.g., "Good")
-    const goodButton = screen.getByText("Good");
-    fireEvent.click(goodButton);
+  const text = container.textContent ?? "";
+  const hasFriendlyMessage = text.includes("Your session has expired, please sign in again");
+  const hasRawCode = text.includes("SESSION_EXPIRED:");
+  
+  check("Friendly error message shows", hasFriendlyMessage, hasFriendlyMessage ? "" : `got: "${text.slice(0, 200)}"`);
+  check("Raw SESSION_EXPIRED code NOT shown", !hasRawCode);
 
-    // Wait for transition to next exercise
-    await waitFor(
-      () => {
-        const exerciseTitle = screen.queryByText(/Exercise 2 of 2/);
-        if (!exerciseTitle) {
-          throw new Error("Should advance to Exercise 2 after picking feel");
-        }
-      },
-      { timeout: 1000 },
-    );
-  });
-
-  console.log(`\n${passed + failed} tests, ${passed} passed, ${failed} failed`);
-  process.exit(failed > 0 ? 1 : 0);
+  unmount();
 }
 
-void main();
+// Test 2: L1 - conflict on last set → feel prompt appears
+console.log("\n2. L1: conflict on last set → feel prompt appears");
+{
+  const conflictActions: SessionActions = {
+    ...defaultActions,
+    logSet: async (): Promise<SetConflictResult> => ({
+      ok: false,
+      reason: "set_exists",
+      savedSets: [
+        { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
+        { setNumber: 2, reps: 9, weightKg: 60, durationSeconds: null },
+        { setNumber: 3, reps: 8, weightKg: 60, durationSeconds: null },
+      ],
+    }),
+  };
+
+  const exercises: RunnerExercise[] = [
+    { 
+      ...baseExercise("ex1", "Bench Press"), 
+      sets: [
+        { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
+        { setNumber: 2, reps: 9, weightKg: 60, durationSeconds: null },
+      ] 
+    },
+    baseExercise("ex2", "Squat"),
+  ];
+
+  const { container, unmount } = render(
+    React.createElement(SessionRunner, {
+      sessionId: "sess-2",
+      isDeload: false,
+      week: 1,
+      warmupAlreadyDone: true,
+      startedAt: new Date().toISOString(),
+      warmup: [],
+      cooldown: [],
+      exercises,
+      settings: {
+        perSetLogging: true,
+        restAutostart: false,
+        restSound: false,
+        restVibrate: false,
+        restOverrideSeconds: null,
+        cooldownEnabled: false,
+      },
+      actions: conflictActions,
+    })
+  );
+
+  const user = userEvent.setup();
+
+  // Wait for component to sync (setTimeout 4000ms in useEffect)
+  await new Promise(r => setTimeout(r, 4100));
+
+  // Fill in reps and click log set 3
+  const repsInput = screen.getAllByRole("spinbutton")[0];
+  await user.clear(repsInput);
+  await user.type(repsInput, "8");
+  
+  const logButton = screen.getByText(/Log set 3/);
+  await user.click(logButton);
+
+  // Wait for feel prompt
+  try {
+    await waitFor(() => {
+      const text = container.textContent ?? "";
+      if (!text.includes("How did that feel")) {
+        throw new Error("Feel prompt not shown yet");
+      }
+    }, { timeout: 3000 });
+  } catch {
+    // Timeout - feel prompt didn't appear
+  }
+
+  const text = container.textContent ?? "";
+  const hasFeelPrompt = text.includes("How did that feel");
+  const stillOnExercise1 = text.includes("Exercise 1 of 2");
+  
+  check("Feel prompt appears after conflict on last set", hasFeelPrompt, hasFeelPrompt ? "" : text.slice(0, 200));
+  check("Still on Exercise 1 (not jumped to Exercise 2)", stillOnExercise1);
+
+  unmount();
+}
+
+// Test 3: L1 - picking feel after conflict advances to next exercise
+console.log("\n3. L1: picking feel after conflict advances to next exercise");
+{
+  const conflictThenOkActions: SessionActions = {
+    ...defaultActions,
+    logSet: async (): Promise<SetConflictResult> => ({
+      ok: false,
+      reason: "set_exists",
+      savedSets: [
+        { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
+        { setNumber: 2, reps: 9, weightKg: 60, durationSeconds: null },
+        { setNumber: 3, reps: 8, weightKg: 60, durationSeconds: null },
+      ],
+    }),
+  };
+
+  const exercises: RunnerExercise[] = [
+    { 
+      ...baseExercise("ex1", "Bench Press"), 
+      sets: [
+        { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
+        { setNumber: 2, reps: 9, weightKg: 60, durationSeconds: null },
+      ] 
+    },
+    baseExercise("ex2", "Squat"),
+  ];
+
+  const { container, unmount } = render(
+    React.createElement(SessionRunner, {
+      sessionId: "sess-3",
+      isDeload: false,
+      week: 1,
+      warmupAlreadyDone: true,
+      startedAt: new Date().toISOString(),
+      warmup: [],
+      cooldown: [],
+      exercises,
+      settings: {
+        perSetLogging: true,
+        restAutostart: false,
+        restSound: false,
+        restVibrate: false,
+        restOverrideSeconds: null,
+        cooldownEnabled: false,
+      },
+      actions: conflictThenOkActions,
+    })
+  );
+
+  const user = userEvent.setup();
+
+  // Wait for component to sync (setTimeout 4000ms in useEffect)
+  await new Promise(r => setTimeout(r, 4100));
+
+  // Fill in reps and click log set 3
+  const repsInput = screen.getAllByRole("spinbutton")[0];
+  await user.clear(repsInput);
+  await user.type(repsInput, "8");
+  
+  const logButton = screen.getByText(/Log set 3/);
+  await user.click(logButton);
+
+  // Wait for feel prompt, then click Just right
+  let feelButton;
+  try {
+    await waitFor(() => {
+      feelButton = screen.queryByText("Just right");
+      if (!feelButton) {
+        throw new Error("Just right button not found");
+      }
+    }, { timeout: 3000 });
+    
+    if (feelButton) {
+      await user.click(feelButton);
+      // Wait a bit for the action to complete
+      await new Promise(r => setTimeout(r, 500));
+    }
+  } catch {
+    // Feel prompt didn't appear or button not found
+  }
+
+  // Wait for transition to exercise 2
+  try {
+    await waitFor(() => {
+      const text = container.textContent ?? "";
+      if (!text.includes("Exercise 2 of 2")) {
+        throw new Error("Not on exercise 2 yet");
+      }
+    }, { timeout: 5000 });
+  } catch {
+    // Didn't advance
+  }
+
+  const text = container.textContent ?? "";
+  const onExercise2 = text.includes("Exercise 2 of 2");
+  
+  check("Advanced to Exercise 2 after picking feel", onExercise2, onExercise2 ? "" : `Still showing: ${text.match(/Exercise \d+ of \d+/)?.[0]}`);
+
+  unmount();
+}
+
+console.log(`\n${failures > 0 ? "FAILED" : "PASSED"}: ${failures} failure(s)\n`);
+process.exit(failures > 0 ? 1 : 0);
+
+})();

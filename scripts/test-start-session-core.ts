@@ -84,7 +84,7 @@ async function main() {
         : undefined;
     const result = await start(fake);
     if (result.ok) throw new Error("expected an error");
-    eq(result.error, "Another session is already in progress. Please reload the page and try again.", `error message`);
+    eq(result.error, "Another session is already in progress.", `error message`);
   });
 
   await test("any other insert error is reported", async () => {

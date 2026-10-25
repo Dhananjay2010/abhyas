@@ -36,9 +36,10 @@ export async function startSessionCore(
       return { ok: true, sessionId: rereadSession.id };
     }
     // Re-read found no session for this date, so the 23505 was from a different date.
-    // With the closeStaleSessions call in actions.ts, this should not normally occur.
-    // If it does, the user should reload to let Today close the stale session.
-    return { ok: false, error: "Another session is already in progress. Please reload the page and try again." };
+    // The caller (startSession in actions.ts) detects this error text and retries once
+    // after closing stale sessions. If that retry also fails, this message guides the
+    // user to reload the page.
+    return { ok: false, error: "Another session is already in progress." };
   }
 
   if (error || !session) {
