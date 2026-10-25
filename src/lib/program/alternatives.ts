@@ -239,6 +239,11 @@ export function rankAlternatives<T extends ExerciseRow>(
       if (isLowerBody) continue;
     }
     
+    // 6c. PR #73: ANY knee injury excludes sissy squats (defense-in-depth with isEligible)
+    if ((ctx.anyKneeInjury ?? false) && candidate.slug.includes("sissy")) {
+      continue;
+    }
+    
     // 7. For dynamic press, exclude isometric and plyometric
     if (isDynamicPress) {
       if (isIsometric(candidate)) continue;

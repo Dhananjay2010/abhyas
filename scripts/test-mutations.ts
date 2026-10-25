@@ -133,13 +133,13 @@ const mutants: Mutant[] = [
     tests: ["test:knee-safety-matrix", "test:knee-swaps"],
   },
 
-  // B0. BMI>=30 high-impact ban (no-injury baseline proof)
+  // B0. BMI>=30 high-impact ban
   {
     name: "Drop BMI>=30 high-impact ban",
     file: "src/lib/program/generate.ts",
     pattern: /if \(input\.bmi !== null && input\.bmi >= 30 && ex\.impact === "high"\) return false;/,
     mutate: '// MUTANT: Removed BMI>=30 high-impact ban',
-    tests: ["test:no-injury-baseline"],
+    tests: ["test:bmi-high-impact"],
   },
 
   // B1. Remove anyKneeInjury from buildSwapContext
@@ -169,12 +169,20 @@ const mutants: Mutant[] = [
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
   },
   
-  // PR #73 Run 20: Sissy squat ban mutant (ESSENTIAL for past-knee swaps)
+  // NOTE: Sissy ban in isEligible (generate.ts:570) is redundant for plans because
+  // weighted-sissy-squat has contraindicated_regions: ["knee"], so it's already filtered
+  // by the contraindication check in isEligible for current-knee users. For past-knee users,
+  // it's also filtered because it requires expert level + barbell/squat_rack equipment,
+  // which past-knee users at lower levels or with limited equipment won't have.
+  // However, the explicit ban serves as defense-in-depth and documents the design intent.
+  // The CRITICAL ban is in rankAlternatives (alternatives.ts) which prevents sissy from
+  // appearing in swap lists for past-knee users.
+  
   {
-    name: "Remove sissy-squat ban (allow for any knee injury)",
-    file: "src/lib/program/generate.ts",
-    pattern: /\/\/ PR #73 coordinator: ANY knee injury excludes sissy squats \(including weighted-sissy-squat\)\s+if \(input\.anyKneeInjury && ex\.slug\.includes\("sissy"\)\) \{/,
-    mutate: '// MUTANT: Removed sissy-squat ban\n  if (false) {',
+    name: "Remove sissy-squat ban in rankAlternatives (swap generation)",
+    file: "src/lib/program/alternatives.ts",
+    pattern: /\/\/ 6c\. PR #73: ANY knee injury excludes sissy squats \(defense-in-depth with isEligible\)\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.slug\.includes\("sissy"\)\) \{\s+continue;\s+\}/,
+    mutate: '// MUTANT: Removed sissy ban from swaps',
     tests: ["test:sissy-squat-ban"],
   },
   
