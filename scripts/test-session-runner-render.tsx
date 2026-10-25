@@ -256,10 +256,10 @@ async function test1b1d() {
   // If button shows Set 3, that proves nextSetNumber accounts for pending sets
   assert(buttonText !== null, "1d: Button shows 'Set 3 done' (accounting for 2 pending)");
   
-  // Now resolve the replay deferreds to clean up
+  // Cleanup: resolve any pending logSet calls
   await act(async () => {
-    replayDeferreds[0].resolve({ ok: true });
-    replayDeferreds[1].resolve({ ok: true });
+    if (logSetDeferreds[0]) logSetDeferreds[0].resolve({ ok: true });
+    if (logSetDeferreds[1]) logSetDeferreds[1].resolve({ ok: true });
   });
   await act(async () => {});
   
