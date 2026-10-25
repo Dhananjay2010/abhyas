@@ -210,42 +210,18 @@ async function test1b1d() {
   await act(async () => {});
   
   // The runner will attempt to replay the 2 pending sets on mount
-  // Wait for those replay calls to be made
+  // Keep these deferreds unresolved so pending=2 at click time
   await act(async () => {});
   
-  
-  // Resolve those replays so the UI is ready for a new click
-  if (logSetDeferreds.length >= 1) {
-    // Resolve first set
-    await act(async () => {
-      logSetDeferreds[0].resolve({ ok: true });
-    });
-  }
-  
-  // Wait for more replays
-  await act(async () => {});
-  
-  if (logSetDeferreds.length >= 2) {
-    // Resolve second set
-    await act(async () => {
-      logSetDeferreds[1].resolve({ ok: true });
-    });
-    // Wait for the controller to finish processing all results
-    await act(async () => {});
-    await act(async () => {});
-    await act(async () => {});
-  }
+  // Verify 2 replay attempts were made
+  assert(logSetDeferreds.length === 2, "1b: 2 replay attempts on mount");
   
   const logButtons = screen.getAllByRole("button", { name: /set [0-9]+ done/i });
   const logButton = logButtons[logButtons.length - 1];
   
-  // Verify button is enabled
-  if (logButton.disabled) {
-    throw new Error(`Button is still disabled after replay: ${logButton.textContent}`);
-  }
-  
-  // Clear the replay calls - we're only testing the button click
+  // Clear the replay calls but keep deferreds unresolved (pending=2)
   logSetCalls.length = 0;
+  const replayDeferreds = logSetDeferreds.slice();
   logSetDeferreds.length = 0;
   
   // Click Log set
@@ -262,6 +238,13 @@ async function test1b1d() {
   
   assert(logSetCalls.length === 1, "logSet called once after click");
   assert(logSetCalls[0].setNumber === 3, "logSet called with setNumber: 3 (accounting for 2 pending sets)");
+  
+  // Now resolve the replay deferreds to clean up
+  await act(async () => {
+    replayDeferreds[0].resolve({ ok: true });
+    replayDeferreds[1].resolve({ ok: true });
+  });
+  await act(async () => {});
   
   fakeStorage.clear();
 }
@@ -1583,13 +1566,13 @@ async function testRetryButton() {
   const retryButtons = screen.queryAllByRole("button", { name: /retry/i });
   const retryButton = retryButtons.length > 0 ? retryButtons[retryButtons.length - 1] : null;
   
-  if (retryButton) {
-    await act(async () => {
-      retryButton.click();
-    });
-    await act(async () => {});
+  assert(retryButton !== null, "R3: Retry button exists");
+  await act(async () => {
+    retryButton.click();
+  });
+  await act(async () => {});
     
-    // R3: Retry button triggers another replay
+  // R3: Retry button triggers another replay
     assert(logSetCalls.length === 1, "R3: Retry button triggers logSet replay");
   }
   
