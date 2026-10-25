@@ -16,6 +16,7 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
+import { applySwapResult } from "@/lib/session/apply-swap";
 import { applySwapTarget } from "@/lib/session/apply-swap-target";
 import {
   abandonSession,
@@ -786,10 +787,8 @@ export function SessionRunner({
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>
         <p className="mt-2 text-accent">
-          {current.plannedSets} sets × {current.repsMin === current.repsMax
-            ? `${current.repsMin}${isTimed ? "s" : ""}`
-            : `${current.repsMin}–${current.repsMax}${isTimed ? "s" : ""}`}
-          {!isTimed && " reps"}
+          {current.plannedSets} sets × {current.repsMin}–{current.repsMax}
+          {isTimed ? "s" : " reps"}
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
@@ -890,7 +889,7 @@ export function SessionRunner({
               be logged against it and fed to progression. It also left a stale
               number in a hold's seconds field.
             */
-            key={`${current.id}:${nextSetNumber}`}
+            key={`${current.id}:${current.exerciseId}:${nextSetNumber}`}
             perSetLogging={settings.perSetLogging}
             metric={current.metric}
             targetSeconds={current.repsMax}
@@ -963,38 +962,32 @@ export function SessionRunner({
                         });
                         if (!ok || !box.value) return;
                         const swapped = box.value;
-                        
-                        // Apply main's swap update, then #127's target resolution
-                        setExercises((prev) =>
-                          prev.map((e) => {
+                        setExercises((prev) => {
+                          // #125: Apply weight prefill and metric change
+                          const withSwap = applySwapResult(prev, current.id, {
+                            ...swapped,
+                            exerciseId: a.exerciseId,
+                            name: a.name,
+                            cue: a.cue,
+                          }) as RunnerExercise[];
+                          
+                          // #127: Apply target resolution for unloaded exercises
+                          return withSwap.map((e) => {
                             if (e.id !== current.id) return e;
-                            
-                            // Main's inline update with planned range
                             const plannedRepsMin = swapped.repsMin ?? e.plannedRepsMin;
                             const plannedRepsMax = swapped.repsMax ?? e.plannedRepsMax;
-                            
-                            const updated = {
-                              ...e,
-                              name: a.name,
-                              cue: a.cue,
-                              exerciseId: a.exerciseId,
-                              metric: swapped.metric,
-                              plannedRepsMin,
-                              plannedRepsMax,
-                              repsMin: plannedRepsMin,
-                              repsMax: plannedRepsMax,
-                            };
-                            
-                            // #127: Always apply target resolution
-                            return applySwapTarget(updated, {
-                              equipmentIds: swapped.equipmentIds,
-                              currentTargetReps: swapped.currentTargetReps,
-                              currentWorkingWeightKg: swapped.currentWorkingWeightKg,
-                              plannedRepsMin,
-                              plannedRepsMax,
-                            });
-                          }),
-                        );
+                            return applySwapTarget(
+                              { ...e, plannedRepsMin, plannedRepsMax },
+                              {
+                                equipmentIds: swapped.equipmentIds,
+                                currentTargetReps: swapped.currentTargetReps,
+                                currentWorkingWeightKg: swapped.workingWeightKg,
+                                plannedRepsMin,
+                                plannedRepsMax,
+                              }
+                            );
+                          });
+                        });
                         setAlternatives(null);
                       }}
                       className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent disabled:opacity-60"
