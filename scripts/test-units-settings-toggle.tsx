@@ -441,34 +441,32 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
               `called ${callCount} times`
             );
 
+            check("saveAboutYou was called", callCount === 1);
             if (savedAboutYou) {
-              const dob = savedAboutYou.dateOfBirth;
-              const sex = savedAboutYou.sex;
+              const saved: LocalSaveAboutYouArgs = savedAboutYou;
               
               check(
                 "saveAboutYou received dateOfBirth 1990-05-12",
-                dob === "1990-05-12",
-                `got '${dob}'`
+                saved.dateOfBirth === "1990-05-12",
+                `got '${saved.dateOfBirth}'`
               );
 
               check(
                 "saveAboutYou received sex 'male'",
-                sex === "male",
-                `got '${sex}'`
+                saved.sex === "male",
+                `got '${saved.sex}'`
               );
 
-              const hcm = savedAboutYou.heightCm;
               check(
                 "saveAboutYou received heightCm ~175 (174-176)",
-                hcm >= 174 && hcm <= 176,
-                `got ${hcm}`
+                saved.heightCm >= 174 && saved.heightCm <= 176,
+                `got ${saved.heightCm}`
               );
 
-              const wkg = savedAboutYou.weightKg;
               check(
                 "saveAboutYou received weightKg ~79.8 (79.5-80.1)",
-                wkg >= 79.5 && wkg <= 80.1,
-                `got ${wkg.toFixed(2)}`
+                saved.weightKg >= 79.5 && saved.weightKg <= 80.1,
+                `got ${saved.weightKg.toFixed(2)}`
               );
             }
 
