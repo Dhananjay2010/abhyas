@@ -18,7 +18,7 @@ import "./helpers/setup-jsdom";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
-import { SessionRunner, type SessionActions, type Feel, type Muscle } from "../src/app/session/[id]/session-runner";
+import { SessionRunner, type SessionActions, type Feel, type Muscle, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 
 let failures = 0;
 
@@ -29,6 +29,30 @@ function check(label: string, ok: boolean, detail = "") {
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Fake timer for deterministic testing
+function createFakeTimer() {
+  const callbacks: (() => void)[] = [];
+  return {
+    timer: {
+      setTimeout: (callback: () => void) => {
+        const id = callbacks.length;
+        callbacks.push(callback);
+        return id;
+      },
+      clearTimeout: (id: unknown) => {
+        if (typeof id === "number" && callbacks[id]) {
+          callbacks[id] = () => {}; // no-op
+        }
+      },
+    } as RunnerTimer,
+    advance: () => {
+      // Fire all pending callbacks
+      callbacks.forEach(cb => cb());
+      callbacks.length = 0;
+    },
+  };
 }
 
 console.log("\nTesting SessionRunner component wiring with real rendering\n");
@@ -226,6 +250,7 @@ console.log("\n3. Double-click Log set calls logSet exactly once (9, 9b, 9d-runn
   const root = createRoot(container);
 
   let logSetCalls = 0;
+  const fakeTimer = createFakeTimer();
 
   const fakeActions: SessionActions = {
     async markWarmupDone() { return { ok: true }; },
@@ -286,28 +311,29 @@ console.log("\n3. Double-click Log set calls logSet exactly once (9, 9b, 9d-runn
           cooldownEnabled: false,
         },
         actions: fakeActions,
+        timer: fakeTimer.timer,
       })
     );
-    // Wait for the component to mark itself as synced (4 second timeout)
-    await sleep(4100);
+    await sleep(50);
+  });
+
+  // Advance the fake timer to mark component as synced
+  await act(async () => {
+    fakeTimer.advance();
+    await sleep(10);
   });
 
   // Double-click the "Set 1 done" button
   await act(async () => {
     const buttons = Array.from(container.querySelectorAll("button"));
-    console.log(`  [debug] Found ${buttons.length} buttons:`);
-    buttons.forEach((b, i) => console.log(`    ${i}: "${b.textContent}" disabled=${b.disabled}`));
     const setDoneButton = buttons.find(b => b.textContent?.includes("Set 1 done") && !b.disabled);
     if (setDoneButton) {
       setDoneButton.click();
       setDoneButton.click(); // Double-click
-    } else {
-      console.log(`  [debug] Set 1 done button not found or disabled`);
     }
     await sleep(100);
   });
 
-  console.log(`  [debug] Final logSetCalls=${logSetCalls}`);
   check("logSet called exactly once on double-click", logSetCalls === 1);
   const textContent = container.textContent ?? "";
   const noError = !textContent.includes("Couldn't save") && !textContent.includes("error");

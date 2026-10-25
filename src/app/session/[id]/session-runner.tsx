@@ -17,6 +17,7 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { shouldShowFinishRetry } from "@/lib/session/finish-flow";
+import { sessionSummaryTitle } from "@/lib/session/end-early-text";
 import {
   abandonSession,
   deleteSet,
@@ -107,6 +108,17 @@ export type RunnerSettings = {
   cooldownEnabled: boolean;
 };
 
+/** Injectable timer for testing; defaults to real setTimeout. */
+export type RunnerTimer = {
+  setTimeout: (callback: () => void, ms: number) => unknown;
+  clearTimeout: (id: unknown) => void;
+};
+
+const REAL_TIMER: RunnerTimer = {
+  setTimeout: (cb, ms) => globalThis.setTimeout(cb, ms),
+  clearTimeout: (id) => globalThis.clearTimeout(id as number),
+};
+
 type Phase = "warmup" | "work" | "cooldown" | "done";
 
 const FEELS: { value: Feel; label: string }[] = [
@@ -128,6 +140,7 @@ export function SessionRunner({
   settings,
   tomorrow,
   actions = REAL_ACTIONS,
+  timer,
   onExit,
 }: {
   sessionId: string;
@@ -143,6 +156,7 @@ export function SessionRunner({
   /** What tomorrow is, so the summary can ask about it. Null with no block. */
   tomorrow?: NextDayPlan | null;
   actions?: SessionActions;
+  timer?: RunnerTimer;
   onExit?: () => void;
 }) {
   const router = useRouter();
@@ -161,6 +175,8 @@ export function SessionRunner({
   const resumeElapsed = useCallback(() => {
     setFrozenElapsed(null);
   }, []);
+  
+  const timerImpl = timer ?? REAL_TIMER;
   
   const beeper = useBeeper(settings.restSound);
   
@@ -187,6 +203,7 @@ export function SessionRunner({
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
   >([]);
+  const [endedEarly, setEndedEarly] = useState(false);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -292,9 +309,9 @@ export function SessionRunner({
     markSynced();
   }
   useEffect(() => {
-    const t = setTimeout(markSynced, 4000);
-    return () => clearTimeout(t);
-  }, []);
+    const t = timerImpl.setTimeout(markSynced, 4000);
+    return () => timerImpl.clearTimeout(t);
+  }, [timerImpl]);
 
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
@@ -519,7 +536,7 @@ export function SessionRunner({
     );
     return (
       <Shell
-        title="Session complete"
+        title={sessionSummaryTitle(endedEarly)}
         subtitle={null}
         elapsed={elapsed}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
@@ -1090,8 +1107,8 @@ export function SessionRunner({
             disabled={busy}
             onClick={async () => {
               if (await run(() => actions.abandonSession(sessionId, elapsed))) {
-                if (onExit) onExit();
-                else router.push("/today");
+                setEndedEarly(true);
+                setPhase("done");
               }
             }}
           >
