@@ -219,7 +219,7 @@ async function runTests() {
           id,
           status,
           planned_sets,
-          session_sets(id, is_warmup_set)
+          session_sets(id, is_warmup_set, reps, duration_seconds)
         )
       `)
       .eq("id", sessionId)
