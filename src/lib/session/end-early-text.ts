@@ -1,5 +1,5 @@
 /**
- * Pure text helpers for end-early confirmation and summary.
+ * Pure text helpers for end-early confirmation.
  */
 
 /**
@@ -10,13 +10,4 @@
  */
 export function endEarlyConfirmTitle(setsDone: number, setsPlanned: number): string {
   return `End now? ${setsDone} of ${setsPlanned} sets done`;
-}
-
-/**
- * Generate the summary title for a session.
- * @param endedEarly - Whether the session was ended early
- * @returns The summary title text
- */
-export function sessionSummaryTitle(endedEarly: boolean): string {
-  return endedEarly ? "Session ended early" : "Session complete";
 }

@@ -5,7 +5,7 @@
  *   npx tsx scripts/test-end-early-confirm.ts
  */
 
-import { endEarlyConfirmTitle, sessionSummaryTitle } from "../src/lib/session/end-early-text";
+import { endEarlyConfirmTitle } from "../src/lib/session/end-early-text";
 import { runEndEarly } from "../src/lib/session/finish-flow";
 
 let passed = 0;
@@ -54,19 +54,7 @@ async function runTests() {
     assertEquals(title, "End now? 12 of 12 sets done", "Shows all sets done");
   }
 
-  console.log("\n4. sessionSummaryTitle for normal completion");
-  {
-    const title = sessionSummaryTitle(false);
-    assertEquals(title, "Session complete", "Normal completion title");
-  }
-
-  console.log("\n5. sessionSummaryTitle for early end");
-  {
-    const title = sessionSummaryTitle(true);
-    assertEquals(title, "Session ended early", "Early end title");
-  }
-
-  console.log("\n6. Render test: EndEarlyConfirm contains correct text");
+  console.log("\n4. Render test: EndEarlyConfirm contains correct text");
   {
     const { renderToStaticMarkup } = await import("react-dom/server");
     const React = await import("react");
@@ -97,7 +85,7 @@ async function runTests() {
     assertTrue(html.includes("session can&#x27;t be resumed") || html.includes("session can't be resumed"), "Contains warning text");
   }
 
-  console.log("\n7. Render test: EndEarlyConfirm with 0 sets shows different message");
+  console.log("\n5. Render test: EndEarlyConfirm with 0 sets shows different message");
   {
     const { renderToStaticMarkup } = await import("react-dom/server");
     const React = await import("react");
@@ -128,19 +116,14 @@ async function runTests() {
     assertTrue(html.includes("start it again from Today"), "Shows restart message for 0 sets");
   }
 
-  console.log("\n8. runEndEarly returns true on success");
+  console.log("\n6. runEndEarly returns true on success");
   {
-    let setEndedEarlyCalled = false;
-    let setPhaseCalled = false;
-    
     const ended = await runEndEarly(
       {
         abandonSession: async () => ({ ok: true }),
         stopElapsed: () => 100,
         resumeElapsed: () => {},
         setError: () => {},
-        setPhase: () => { setPhaseCalled = true; },
-        setEndedEarly: (v) => { setEndedEarlyCalled = v; },
       },
       {
         sessionId: "test-session",
@@ -152,11 +135,9 @@ async function runTests() {
     );
     
     assertEquals(ended, true, "Returns true on success");
-    assertTrue(setEndedEarlyCalled, "Called setEndedEarly(true)");
-    assertTrue(setPhaseCalled, "Called setPhase");
   }
 
-  console.log("\n9. runEndEarly returns false on ok:false");
+  console.log("\n7. runEndEarly returns false on ok:false");
   {
     let resumeElapsedCalled = false;
     let setErrorCalled = false;
@@ -167,8 +148,6 @@ async function runTests() {
         stopElapsed: () => 100,
         resumeElapsed: () => { resumeElapsedCalled = true; },
         setError: (msg) => { if (msg) setErrorCalled = true; },
-        setPhase: () => {},
-        setEndedEarly: () => {},
       },
       {
         sessionId: "test-session",
@@ -184,7 +163,7 @@ async function runTests() {
     assertTrue(setErrorCalled, "Called setError");
   }
 
-  console.log("\n10. runEndEarly returns false on thrown error");
+  console.log("\n8. runEndEarly returns false on thrown error");
   {
     let resumeElapsedCalled = false;
     let setErrorCalled = false;
@@ -195,8 +174,6 @@ async function runTests() {
         stopElapsed: () => 100,
         resumeElapsed: () => { resumeElapsedCalled = true; },
         setError: (msg) => { if (msg) setErrorCalled = true; },
-        setPhase: () => {},
-        setEndedEarly: () => {},
       },
       {
         sessionId: "test-session",
@@ -212,7 +189,7 @@ async function runTests() {
     assertTrue(setErrorCalled, "Called setError");
   }
 
-  console.log("\n11. runEndEarly returns false on double-tap");
+  console.log("\n9. runEndEarly returns false on double-tap");
   {
     const endingRef = { current: true };
     
@@ -222,8 +199,6 @@ async function runTests() {
         stopElapsed: () => 100,
         resumeElapsed: () => {},
         setError: () => {},
-        setPhase: () => {},
-        setEndedEarly: () => {},
       },
       {
         sessionId: "test-session",

@@ -19,7 +19,6 @@ import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { shouldShowFinishRetry, runEndEarly } from "@/lib/session/finish-flow";
-import { sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
 import { focusTrap } from "@/lib/focus-trap";
 import { formatTargetRange } from "@/lib/session/format-target-range";
@@ -216,7 +215,6 @@ export function SessionRunner({
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
   >([]);
-  const [endedEarly, setEndedEarly] = useState(false);
   const endEarlyTriggerRef = useRef<HTMLButtonElement>(null);
   const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
   const endingRef = useRef(false);
@@ -611,7 +609,7 @@ export function SessionRunner({
     );
     return (
       <Shell
-        title={sessionSummaryTitle(endedEarly)}
+        title="Session complete"
         subtitle={null}
         elapsed={elapsed}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
@@ -1231,8 +1229,6 @@ export function SessionRunner({
                     stopElapsed,
                     resumeElapsed,
                     setError,
-                    setPhase,
-                    setEndedEarly,
                   },
                   {
                     sessionId,

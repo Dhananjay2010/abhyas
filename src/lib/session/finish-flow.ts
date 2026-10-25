@@ -10,8 +10,6 @@ export async function runEndEarly(
     stopElapsed: () => number;
     resumeElapsed: () => void;
     setError: (error: string | null) => void;
-    setPhase: (phase: "done") => void;
-    setEndedEarly: (value: boolean) => void;
   },
   params: {
     sessionId: string;
@@ -43,11 +41,9 @@ export async function runEndEarly(
     params.setConfirming(null);
     params.setOfflineError(false);
 
-    // Always show summary, even for 0 sets
-    deps.setEndedEarly(true);
+    // Success: revalidateTrainingData() in abandonSession will redirect to /today
     params.endingRef.current = false;
     params.setEnding(false);
-    deps.setPhase("done");
     return true;
   } catch (err) {
     deps.resumeElapsed();
