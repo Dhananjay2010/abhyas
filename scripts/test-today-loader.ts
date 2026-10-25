@@ -95,7 +95,7 @@ console.log("\n3. f2: closeStale receives each row's real started_at");
   const allSessions: SessionForDetection[] = [];
   const todaySessions: SessionForDetection[] = [];
 
-  const result = await loadTodaySessionState(fake, allSessions, todaySessions, "2026-10-25");
+  await loadTodaySessionState(fake, allSessions, todaySessions, "2026-10-25");
 
   check("f2: closeStale called", fake.recordedCloseStaleInput.length === 2);
   check("f2: first row has real started_at", fake.recordedCloseStaleInput[0].started_at === "2026-10-24T10:00:00Z");
