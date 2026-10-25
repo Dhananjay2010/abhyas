@@ -10,9 +10,13 @@ import {
   useWakeLock,
   vibrate,
   vibrationSupported,
-  displayElapsed,
 } from "@/lib/session/device";
 import { useElapsedWithClock } from "@/lib/session/use-elapsed-with-clock";
+
+// Display elapsed time, frozen at 0 for stale sessions
+function displayElapsed(rawElapsed: number, isStale: boolean): number {
+  return isStale ? 0 : rawElapsed;
+}
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
