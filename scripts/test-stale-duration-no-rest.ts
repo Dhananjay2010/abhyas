@@ -22,16 +22,6 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
   }
 }
 
-function assertTrue(condition: boolean, message: string) {
-  if (condition) {
-    console.log(`  ok   ${message}`);
-    passed++;
-  } else {
-    console.error(`❌ ${message}`);
-    failed++;
-  }
-}
-
 console.log("\nTesting resolveStaleFinish backward compatibility (no restSeconds)\n");
 
 // Test 1: Without restSeconds, ends at last set time (main's behavior)

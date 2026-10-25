@@ -1,9 +1,5 @@
 import { isNetworkError } from "./network-error";
 
-type Result<T = undefined> =
-  | ({ ok: true } & (T extends undefined ? object : { data: T }))
-  | { ok: false; error: string };
-
 /**
  * Run the end-early flow (End session early button).
  * Pure function with dependency injection for testability.
