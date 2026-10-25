@@ -79,7 +79,7 @@ async function main() {
       best_weight_kg: "40",
       best_reps: 12,
       best_e1rm: "56",
-      total_sessions: 1,
+      total_sessions: 1, weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -144,7 +144,7 @@ async function main() {
       best_weight_kg: "60",
       best_reps: 12,
       best_e1rm: "84",
-      total_sessions: 2,
+      total_sessions: 2, weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -197,7 +197,7 @@ async function main() {
       best_weight_kg: "60", // Historical best is higher
       best_reps: 12,
       best_e1rm: "84",
-      total_sessions: 5,
+      total_sessions: 5, weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -247,7 +247,7 @@ async function main() {
       best_weight_kg: "60",
       best_reps: 12,
       best_e1rm: "84",
-      total_sessions: 3,
+      total_sessions: 3, weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -296,7 +296,7 @@ async function main() {
       best_weight_kg: null,
       best_reps: 12, // #120: Restore main's best
       best_e1rm: null,
-      total_sessions: 3,
+      total_sessions: 3, weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -348,7 +348,7 @@ async function main() {
       best_weight_kg: null,
       best_reps: 12,
       best_e1rm: null,
-      total_sessions: 3,
+      total_sessions: 3, weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -398,7 +398,7 @@ async function main() {
       best_weight_kg: null,
       best_reps: 45, // #120: Restore main's best
       best_e1rm: null,
-      total_sessions: 2,
+      total_sessions: 2, weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -452,7 +452,7 @@ async function main() {
       best_weight_kg: null,
       best_reps: 14,
       best_e1rm: null,
-      total_sessions: 5,
+      total_sessions: 5, weight_at_failure_start_kg: null,
     };
 
     const session1: SessionRow = {
@@ -519,7 +519,7 @@ async function main() {
       best_weight_kg: null,
       best_reps: 11,
       best_e1rm: null,
-      total_sessions: 3,
+      total_sessions: 3, weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {

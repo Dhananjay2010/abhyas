@@ -47,6 +47,7 @@ class InMemoryProgressClient implements ProgressClient {
           best_e1rm: numOrNull(data.best_e1rm),
           total_sessions: Number(data.total_sessions),
           updated_at: String(data.updated_at),
+          weight_at_failure_start_kg: numOrNull(data.weight_at_failure_start_kg),
         };
         const key = `${row.user_id}:${row.exercise_id}`;
         this.store.set(key, row);
@@ -79,7 +80,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Target Not Reached vs Holding at 
       current_target_reps: 500,
     };
     
-    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, null);
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] });
     const state: ProgressState = {
       currentTargetReps: progress.current_target_reps,
       currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -88,6 +89,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Target Not Reached vs Holding at 
       bestReps: stored?.best_reps ?? null,
       bestE1rm: stored?.best_e1rm ?? null,
       totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
     };
     
     const decision = evaluateProgression({
@@ -127,7 +129,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Target Not Reached vs Holding at 
       current_target_reps: stored?.current_target_reps ?? null,
     };
     
-    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, null);
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] });
     const state: ProgressState = {
       currentTargetReps: progress.current_target_reps,
       currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -136,6 +138,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Target Not Reached vs Holding at 
       bestReps: stored?.best_reps ?? null,
       bestE1rm: stored?.best_e1rm ?? null,
       totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
     };
     
     const decision = evaluateProgression({
@@ -180,7 +183,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Target Not Reached vs Holding at 
       current_target_reps: stored?.current_target_reps ?? null,
     };
     
-    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, null);
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] });
     const state: ProgressState = {
       currentTargetReps: progress.current_target_reps,
       currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -189,6 +192,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Target Not Reached vs Holding at 
       bestReps: stored?.best_reps ?? null,
       bestE1rm: stored?.best_e1rm ?? null,
       totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
     };
     
     const decision = evaluateProgression({
@@ -227,7 +231,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Target Not Reached vs Holding at 
       current_target_reps: stored?.current_target_reps ?? null,
     };
     
-    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, null);
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] });
     const state: ProgressState = {
       currentTargetReps: progress.current_target_reps,
       currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -236,6 +240,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Target Not Reached vs Holding at 
       bestReps: stored?.best_reps ?? null,
       bestE1rm: stored?.best_e1rm ?? null,
       totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
     };
     
     const decision = evaluateProgression({
@@ -278,7 +283,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Target Not Reached vs Holding at 
     current_target_reps: stored?.current_target_reps ?? null,
   };
   
-  const progInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] }, "kg");
+  const progInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] });
   const state: ProgressState = {
     currentTargetReps: progress.current_target_reps,
     currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -287,6 +292,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Target Not Reached vs Holding at 
     bestReps: stored?.best_reps ?? null,
     bestE1rm: stored?.best_e1rm ?? null,
     totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
   };
   
   const decision = evaluateProgression({
@@ -338,7 +344,7 @@ const STANDING_CALF_RAISE: ExerciseMeta = {
     current_target_reps: 12,
   };
   
-  const progInputs = progressionInputsFromExercise({ equipment_ids: ["machine_generic"] }, "kg");
+  const progInputs = progressionInputsFromExercise({ equipment_ids: ["machine_generic"] });
   const state: ProgressState = {
     currentTargetReps: progress.current_target_reps,
     currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -347,6 +353,7 @@ const STANDING_CALF_RAISE: ExerciseMeta = {
     bestReps: stored?.best_reps ?? null,
     bestE1rm: stored?.best_e1rm ?? null,
     totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
   };
   
   const decision = evaluateProgression({
@@ -380,7 +387,7 @@ const STANDING_CALF_RAISE: ExerciseMeta = {
     current_target_reps: 12,
   };
   
-  const progInputs = progressionInputsFromExercise({ equipment_ids: ["machine_generic"] }, "kg");
+  const progInputs = progressionInputsFromExercise({ equipment_ids: ["machine_generic"] });
   const state: ProgressState = {
     currentTargetReps: progress.current_target_reps,
     currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -389,6 +396,7 @@ const STANDING_CALF_RAISE: ExerciseMeta = {
     bestReps: stored?.best_reps ?? null,
     bestE1rm: stored?.best_e1rm ?? null,
     totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
   };
   
   const decision = evaluateProgression({
@@ -424,7 +432,7 @@ console.log("\n=== QA Bot 1: (3) Heavier Actual Weight ===\n");
     current_target_reps: 12,
   };
   
-  const progInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] }, "kg");
+  const progInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] });
   const state: ProgressState = {
     currentTargetReps: progress.current_target_reps,
     currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -433,6 +441,7 @@ console.log("\n=== QA Bot 1: (3) Heavier Actual Weight ===\n");
     bestReps: stored?.best_reps ?? null,
     bestE1rm: stored?.best_e1rm ?? null,
     totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
   };
   
   const decision = evaluateProgression({
@@ -475,7 +484,7 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
     current_target_reps: 14,
   };
   
-  const progInputs = progressionInputsFromExercise({ equipment_ids: ["dip_bars"] }, null);
+  const progInputs = progressionInputsFromExercise({ equipment_ids: ["dip_bars"] });
   const state: ProgressState = {
     currentTargetReps: progress.current_target_reps,
     currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -484,6 +493,7 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
     bestReps: stored?.best_reps ?? null,
     bestE1rm: stored?.best_e1rm ?? null,
     totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
   };
   
   const decision = evaluateProgression({
@@ -525,7 +535,7 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
     current_target_reps: 26,
   };
   
-  const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, null);
+  const progInputs = progressionInputsFromExercise({ equipment_ids: [] });
   const state: ProgressState = {
     currentTargetReps: progress.current_target_reps,
     currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -534,6 +544,7 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
     bestReps: stored?.best_reps ?? null,
     bestE1rm: stored?.best_e1rm ?? null,
     totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
   };
   
   const decision = evaluateProgression({
@@ -575,7 +586,7 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
     current_target_reps: 6,
   };
   
-  const progInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] }, "kg");
+  const progInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] });
   const state: ProgressState = {
     currentTargetReps: progress.current_target_reps,
     currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -584,6 +595,7 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
     bestReps: stored?.best_reps ?? null,
     bestE1rm: stored?.best_e1rm ?? null,
     totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
   };
   
   const decision = evaluateProgression({
@@ -625,7 +637,7 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
     current_target_reps: 0,
   };
   
-  const progInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] }, "kg");
+  const progInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] });
   const state: ProgressState = {
     currentTargetReps: progress.current_target_reps,
     currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -634,6 +646,7 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
     bestReps: stored?.best_reps ?? null,
     bestE1rm: stored?.best_e1rm ?? null,
     totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
   };
   
   const decision = evaluateProgression({
@@ -675,7 +688,7 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
     current_target_reps: 14,
   };
   
-  const progInputs = progressionInputsFromExercise({ equipment_ids: ["pull_up_bar", "dip_belt"] }, "kg");
+  const progInputs = progressionInputsFromExercise({ equipment_ids: ["pull_up_bar", "dip_belt"] });
   const state: ProgressState = {
     currentTargetReps: progress.current_target_reps,
     currentWorkingWeightKg: progress.current_working_weight_kg,
@@ -684,6 +697,7 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
     bestReps: stored?.best_reps ?? null,
     bestE1rm: stored?.best_e1rm ?? null,
     totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
   };
   
   const decision = evaluateProgression({
@@ -736,6 +750,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
       bestE1rm: null,
       personalBest: null,
       message: "",
+      weightAtFailureStartKg: null,
     },
     0,
     "2026-10-20"
@@ -747,7 +762,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
   // Session 1: 3x40s (below target) → NO progression
   {
     const stored = client.getProgress(USER_ID, plankId);
-    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, "kg");
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] });
     const state: ProgressState = {
       currentTargetReps: stored?.current_target_reps ?? null,
       currentWorkingWeightKg: null,
@@ -756,6 +771,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
       bestReps: stored?.best_reps ?? null,
       bestE1rm: null,
       totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
     };
     
     const decision = evaluateProgression({
@@ -791,7 +807,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
   // Session 2: 3x40s → NO progression
   {
     const stored = client.getProgress(USER_ID, plankId);
-    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, "kg");
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] });
     const state: ProgressState = {
       currentTargetReps: stored?.current_target_reps ?? null,
       currentWorkingWeightKg: null,
@@ -800,6 +816,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
       bestReps: stored?.best_reps ?? null,
       bestE1rm: null,
       totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
     };
     
     const decision = evaluateProgression({
@@ -835,7 +852,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
   // Session 3: 3x40s → NO progression
   {
     const stored = client.getProgress(USER_ID, plankId);
-    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, "kg");
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] });
     const state: ProgressState = {
       currentTargetReps: stored?.current_target_reps ?? null,
       currentWorkingWeightKg: null,
@@ -844,6 +861,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
       bestReps: stored?.best_reps ?? null,
       bestE1rm: null,
       totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
     };
     
     const decision = evaluateProgression({
@@ -879,7 +897,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
   // Session 4: 3x45s → PROGRESSES to 50s
   {
     const stored = client.getProgress(USER_ID, plankId);
-    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, "kg");
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] });
     const state: ProgressState = {
       currentTargetReps: stored?.current_target_reps ?? null,
       currentWorkingWeightKg: null,
@@ -888,6 +906,7 @@ console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
       bestReps: stored?.best_reps ?? null,
       bestE1rm: null,
       totalSessions: stored?.total_sessions ?? 0,
+      weightAtFailureStartKg: null,
     };
     
     const decision = evaluateProgression({

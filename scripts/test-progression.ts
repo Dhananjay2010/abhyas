@@ -186,12 +186,12 @@ console.log("\n10. Personal bests track even on a failed session");
 
 console.log("\n11. Deload suggests roughly 70% of working weight");
 {
-  const normal = suggestedWeight({ currentWorkingWeightKg: 100 }, false, SQUAT, ["barbell"], "kg");
-  const deload = suggestedWeight({ currentWorkingWeightKg: 100 }, true, SQUAT, ["barbell"], "kg");
+  const normal = suggestedWeight({ currentWorkingWeightKg: 100 }, false, SQUAT, ["barbell"]);
+  const deload = suggestedWeight({ currentWorkingWeightKg: 100 }, true, SQUAT, ["barbell"]);
   check("normal week suggests the working weight", normal === 100, `${normal}`);
   check("deload suggests 70 kg", deload === 70, `${deload}`);
   check("no suggestion without a working weight",
-    suggestedWeight({ currentWorkingWeightKg: null }, false, SQUAT, ["barbell"], "kg") === null);
+    suggestedWeight({ currentWorkingWeightKg: null }, false, SQUAT, ["barbell"]) === null);
 }
 
 console.log("\n12. A weight logged on a bodyweight exercise must count");
@@ -536,7 +536,6 @@ console.log("\nBodyweight exercises with added weight");
     true,
     SQUAT_BW,
     ["dip_belt"],
-    "kg",
   );
   check("deload suggestion for bodyweight lower-body rounds to 2.5 kg step",
     suggestedBwLower === 7.5, `${suggestedBwLower}`);
@@ -546,7 +545,6 @@ console.log("\nBodyweight exercises with added weight");
     true,
     PUSHUP_LOADED,
     ["dip_belt"],
-    "kg",
   );
   // 5 * 0.7 = 3.5, rounded to 1.25 kg step is 3.75, then grid-rounded to 2.5 kg (tie rounds down)
   check("deload suggestion for bodyweight upper-body rounds to dip_belt grid (2.5 kg)",
