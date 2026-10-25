@@ -454,12 +454,11 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
                 `got '${savedAboutYou.sex}'`
               );
 
+              const hcm = savedAboutYou.heightCm;
               check(
                 "saveAboutYou received heightCm ~175 (174-176)",
-                savedAboutYou.heightCm !== null &&
-                  savedAboutYou.heightCm >= 174 &&
-                  savedAboutYou.heightCm <= 176,
-                `got ${savedAboutYou.heightCm}`
+                hcm >= 174 && hcm <= 176,
+                `got ${hcm}`
               );
 
               const wkg = savedAboutYou.weightKg;
