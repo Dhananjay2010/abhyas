@@ -40,7 +40,7 @@ console.log("1. Valid startedAt: normal operation");
   check("endedAt is a valid ISO timestamp", !isNaN(Date.parse(result.endedAt)));
 }
 
-console.log("\n2. Invalid startedAt (null): returns null duration");
+console.log("\n2. Invalid startedAt (null): returns 0 duration for compatibility");
 {
   const result = resolveStaleFinish({
     startedAt: null,
@@ -49,11 +49,11 @@ console.log("\n2. Invalid startedAt (null): returns null duration");
     restSeconds: 120,
   });
 
-  check("Duration is null", result.durationSeconds === null);
+  check("Duration is 0", result.durationSeconds === 0);
   check("endedAt is valid", !isNaN(Date.parse(result.endedAt)));
 }
 
-console.log("\n3. Empty string startedAt: returns null duration");
+console.log("\n3. Empty string startedAt: returns 0 duration for compatibility");
 {
   const result = resolveStaleFinish({
     startedAt: "",
@@ -62,11 +62,11 @@ console.log("\n3. Empty string startedAt: returns null duration");
     restSeconds: 180,
   });
 
-  check("Duration is null", result.durationSeconds === null);
+  check("Duration is 0", result.durationSeconds === 0);
   check("endedAt is valid", !isNaN(Date.parse(result.endedAt)));
 }
 
-console.log("\n4. Invalid ISO string startedAt: returns null duration");
+console.log("\n4. Invalid ISO string startedAt: returns 0 duration for compatibility");
 {
   const result = resolveStaleFinish({
     startedAt: "not-a-date",
@@ -75,7 +75,7 @@ console.log("\n4. Invalid ISO string startedAt: returns null duration");
     restSeconds: 120,
   });
 
-  check("Duration is null", result.durationSeconds === null);
+  check("Duration is 0", result.durationSeconds === 0);
   check("endedAt is valid", !isNaN(Date.parse(result.endedAt)));
 }
 
@@ -101,7 +101,7 @@ console.log("\n6. Invalid startedAt with sets: doesn't measure from epoch (no-th
   });
 
   check("Status is completed", result.status === "completed");
-  check("Duration is null (not ~56 years from epoch)", result.durationSeconds === null);
+  check("Duration is 0 (not ~56 years from epoch)", result.durationSeconds === 0);
   check("endedAt is valid", !isNaN(Date.parse(result.endedAt)));
 }
 
@@ -115,7 +115,7 @@ console.log("\n7. Null startedAt with sets: doesn't measure from epoch");
   });
 
   check("Status is completed", result.status === "completed");
-  check("Duration is null (not from epoch)", result.durationSeconds === null);
+  check("Duration is 0 (not from epoch)", result.durationSeconds === 0);
   check("endedAt is valid", !isNaN(Date.parse(result.endedAt)));
 }
 

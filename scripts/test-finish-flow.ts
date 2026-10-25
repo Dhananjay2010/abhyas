@@ -24,7 +24,7 @@ async function testRunFinishConcurrency() {
   const deps: FinishFlowDeps = {
     finishSession: async () => {
       calls.push("finishSession");
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await Promise.resolve();
       return { ok: true, data: { status: "completed" as const } };
     },
     abandonSession: async () => ({ ok: true, data: { status: "completed" as const } }),
@@ -243,7 +243,7 @@ async function testRunEndEarlyConcurrency() {
   const deps: Omit<FinishFlowDeps, "finishSession"> = {
     abandonSession: async () => {
       calls.push("abandonSession");
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await Promise.resolve();
       return { ok: true };
     },
     refreshAfterSession: async () => ({ ok: true }),
