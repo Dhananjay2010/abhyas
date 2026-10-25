@@ -601,6 +601,384 @@ console.log("\n=== Progression Display Consistency ===\n");
   check("Bench press: 3x12 succeeds", decision.outcome === "progressed");
 }
 
+// Case 9: Dips (bodyweight on dip_bars) - stored 14
+console.log("\n9. Dips (bodyweight on dip_bars) - stored 14");
+{
+  const row: SessionExerciseInput = {
+    id: "se_dips",
+    exercise_id: "dips_exercise",
+    planned_sets: 3,
+    planned_reps_min: 8,
+    planned_reps_max: 12,
+    metric: "reps",
+    exercises: {
+      movement_pattern: "vertical_press",
+      mechanic: "compound",
+      equipment_ids: ["dip_bars"],
+    },
+  };
+  
+  const progress = { current_working_weight_kg: null, current_target_reps: 14 };
+  const runner = buildRunnerExercise({
+    row,
+    progress,
+    remembersWeights: true,
+    isDeload: false,
+    userUnits: "kg",
+  });
+  const progInputs = progressionInputsFromExercise(
+    { movement_pattern: "vertical_press", mechanic: "compound", equipment_ids: ["dip_bars"], progression_chain: null, progression_rank: null },
+    "kg"
+  );
+  
+  check("Dips: display target = 14", runner.repsMax === 14);
+  
+  // Hit 14 reps exactly (not above)
+  const state = fresh({ currentTargetReps: 14, totalSessions: 5 });
+  const decision = evaluateProgression({
+    sets: [{ reps: 14, weightKg: null, durationSeconds: null }, { reps: 14, weightKg: null, durationSeconds: null }, { reps: 14, weightKg: null, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "vertical_press",
+      metric: "reps",
+      isBodyweight: true,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  });
+  
+  check("Dips: 3x14 succeeds", decision.outcome === "progressed");
+  check("Dips: 3x13 does NOT succeed", evaluateProgression({
+    sets: [{ reps: 13, weightKg: null, durationSeconds: null }, { reps: 13, weightKg: null, durationSeconds: null }, { reps: 13, weightKg: null, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "vertical_press",
+      metric: "reps",
+      isBodyweight: true,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  }).outcome !== "progressed");
+}
+
+// Case 10: Push-ups stored 26 → capped at 24 (2×repsMax)
+console.log("\n10. Push-ups stored 26 → capped at 24");
+{
+  const row: SessionExerciseInput = {
+    id: "se_pushups",
+    exercise_id: "pushups_exercise",
+    planned_sets: 3,
+    planned_reps_min: 8,
+    planned_reps_max: 12,
+    metric: "reps",
+    exercises: {
+      movement_pattern: "horizontal_press",
+      mechanic: "compound",
+      equipment_ids: [],
+    },
+  };
+  
+  const progress = { current_working_weight_kg: null, current_target_reps: 26 };
+  const runner = buildRunnerExercise({
+    row,
+    progress,
+    remembersWeights: true,
+    isDeload: false,
+    userUnits: "kg",
+  });
+  check("Push-ups: display shows 24 (cap 2×12)", runner.repsMax === 24);
+  
+  // Hit 24 exactly
+  const state = fresh({ currentTargetReps: 26, totalSessions: 10 });
+  const progInputs = progressionInputsFromExercise(
+    { movement_pattern: "horizontal_press", mechanic: "compound", equipment_ids: [], progression_chain: null, progression_rank: null },
+    "kg"
+  );
+  
+  const decision = evaluateProgression({
+    sets: [{ reps: 24, weightKg: null, durationSeconds: null }, { reps: 24, weightKg: null, durationSeconds: null }, { reps: 24, weightKg: null, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "horizontal_press",
+      metric: "reps",
+      isBodyweight: true,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  });
+  
+  check("Push-ups: 3x24 succeeds", decision.outcome === "progressed");
+  check("Push-ups: 3x23 does NOT succeed", evaluateProgression({
+    sets: [{ reps: 23, weightKg: null, durationSeconds: null }, { reps: 23, weightKg: null, durationSeconds: null }, { reps: 23, weightKg: null, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "horizontal_press",
+      metric: "reps",
+      isBodyweight: true,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  }).outcome !== "progressed");
+}
+
+// Case 11: Stored 6 below plan min 8 → uses plan min
+console.log("\n11. Stored 6 below plan min 8 → shows 8");
+{
+  const row: SessionExerciseInput = {
+    id: "se_stored_below_min",
+    exercise_id: "squat_exercise",
+    planned_sets: 3,
+    planned_reps_min: 8,
+    planned_reps_max: 12,
+    metric: "reps",
+    exercises: {
+      movement_pattern: "squat",
+      mechanic: "compound",
+      equipment_ids: ["barbell"],
+    },
+  };
+  
+  const progress = { current_target_reps: 6, current_working_weight_kg: 60 };
+  const runner = buildRunnerExercise({
+    row,
+    progress,
+    remembersWeights: true,
+    isDeload: false,
+    userUnits: "kg",
+  });
+  check("Stored 6 < min 8: display shows plan range 8-12", runner.repsMin === 8 && runner.repsMax === 12);
+  
+  const state = fresh({ currentTargetReps: 6, currentWorkingWeightKg: 60, totalSessions: 2 });
+  const progInputs = progressionInputsFromExercise(
+    { movement_pattern: "squat", mechanic: "compound", equipment_ids: ["barbell"], progression_chain: null, progression_rank: null },
+    "kg"
+  );
+  
+  const decision = evaluateProgression({
+    sets: [{ reps: 12, weightKg: 60, durationSeconds: null }, { reps: 12, weightKg: 60, durationSeconds: null }, { reps: 12, weightKg: 60, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "squat",
+      metric: "reps",
+      isBodyweight: false,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  });
+  
+  check("Stored 6: 3x12 (plan max) succeeds", decision.outcome === "progressed");
+}
+
+// Case 12: Stored 0 → uses plan min
+console.log("\n12. Stored 0 → shows plan min");
+{
+  const row: SessionExerciseInput = {
+    id: "se_stored_zero",
+    exercise_id: "deadlift_exercise",
+    planned_sets: 3,
+    planned_reps_min: 5,
+    planned_reps_max: 8,
+    metric: "reps",
+    exercises: {
+      movement_pattern: "hinge",
+      mechanic: "compound",
+      equipment_ids: ["barbell"],
+    },
+  };
+  
+  const progress = { current_target_reps: 0, current_working_weight_kg: 100 };
+  const runner = buildRunnerExercise({
+    row,
+    progress,
+    remembersWeights: true,
+    isDeload: false,
+    userUnits: "kg",
+  });
+  check("Stored 0: display shows plan range 5-8", runner.repsMin === 5 && runner.repsMax === 8);
+}
+
+// Case 13: Weighted pull-ups (pull_up_bar + dip_belt)
+console.log("\n13. Weighted pull-ups (pull_up_bar + dip_belt)");
+{
+  const row: SessionExerciseInput = {
+    id: "se_weighted_pullups",
+    exercise_id: "weighted_pullups_exercise",
+    planned_sets: 3,
+    planned_reps_min: 5,
+    planned_reps_max: 8,
+    metric: "reps",
+    exercises: {
+      movement_pattern: "vertical_pull",
+      mechanic: "compound",
+      equipment_ids: ["pull_up_bar", "dip_belt"],
+    },
+  };
+  
+  const progress = { current_target_reps: 8, current_working_weight_kg: 10 };
+  const runner = buildRunnerExercise({
+    row,
+    progress,
+    remembersWeights: true,
+    isDeload: false,
+    userUnits: "kg",
+  });
+  check("Weighted pull-ups: display shows 8", runner.repsMax === 8);
+  
+  const state = fresh({ currentTargetReps: 8, currentWorkingWeightKg: 10, totalSessions: 8 });
+  const progInputs = progressionInputsFromExercise(
+    { movement_pattern: "vertical_pull", mechanic: "compound", equipment_ids: ["pull_up_bar", "dip_belt"], progression_chain: null, progression_rank: null },
+    "kg"
+  );
+  
+  const decision = evaluateProgression({
+    sets: [{ reps: 8, weightKg: 10, durationSeconds: null }, { reps: 8, weightKg: 10, durationSeconds: null }, { reps: 8, weightKg: 10, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 5,
+    repsMax: 8,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "vertical_pull",
+      metric: "reps",
+      isBodyweight: false,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  });
+  
+  check("Weighted pull-ups: 3x8@10kg succeeds", decision.outcome === "progressed");
+  check("Weighted pull-ups: 3x7@10kg does NOT succeed", evaluateProgression({
+    sets: [{ reps: 7, weightKg: 10, durationSeconds: null }, { reps: 7, weightKg: 10, durationSeconds: null }, { reps: 7, weightKg: 10, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 5,
+    repsMax: 8,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "vertical_pull",
+      metric: "reps",
+      isBodyweight: false,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  }).outcome !== "progressed");
+}
+
+// Case 14: Chin-ups stored 11 on 8-12 range → must progress at 11, not stay
+console.log("\n14. Chin-ups stored 11 on 8-12 range → 11 progresses");
+{
+  const row: SessionExerciseInput = {
+    id: "se_chinups",
+    exercise_id: "chinups_exercise",
+    planned_sets: 3,
+    planned_reps_min: 8,
+    planned_reps_max: 12,
+    metric: "reps",
+    exercises: {
+      movement_pattern: "vertical_pull",
+      mechanic: "compound",
+      equipment_ids: ["pull_up_bar"],
+    },
+  };
+  
+  const progress = { current_working_weight_kg: null, current_target_reps: 11 };
+  const runner = buildRunnerExercise({
+    row,
+    progress,
+    remembersWeights: true,
+    isDeload: false,
+    userUnits: "kg",
+  });
+  check("Chin-ups: display shows 11", runner.repsMax === 11);
+  
+  const state = fresh({ currentTargetReps: 11, totalSessions: 7 });
+  const progInputs = progressionInputsFromExercise(
+    { movement_pattern: "vertical_pull", mechanic: "compound", equipment_ids: ["pull_up_bar"], progression_chain: null, progression_rank: null },
+    "kg"
+  );
+  
+  const decision = evaluateProgression({
+    sets: [{ reps: 11, weightKg: null, durationSeconds: null }, { reps: 11, weightKg: null, durationSeconds: null }, { reps: 11, weightKg: null, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "vertical_pull",
+      metric: "reps",
+      isBodyweight: true,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  });
+  
+  check("Chin-ups: 3x11 PROGRESSES (not 'stay until top')", decision.outcome === "progressed");
+  check("Chin-ups: message does NOT say 'staying'", !(decision.message?.toLowerCase().includes("staying")));
+  check("Chin-ups: 3x10 does NOT progress", evaluateProgression({
+    sets: [{ reps: 10, weightKg: null, durationSeconds: null }, { reps: 10, weightKg: null, durationSeconds: null }, { reps: 10, weightKg: null, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta: {
+      mechanic: "compound",
+      movementPattern: "vertical_pull",
+      metric: "reps",
+      isBodyweight: true,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state,
+    isDeload: false,
+    ...progInputs,
+  }).outcome !== "progressed");
+}
+
 console.log("\n=== SUMMARY ===");
 if (failures > 0) {
   console.error(`❌ ${failures} test(s) failed\n`);
