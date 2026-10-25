@@ -68,7 +68,10 @@ async function test1() {
     updateProfileSettings: async (patch) => { calls.push({ type: "profile", patch }); await new Promise(r => setTimeout(r, 50)); return { ok: true }; },
     updateSessionSettings: async (patch) => { calls.push({ type: "session", patch }); return { ok: true }; },
     updateEquipment: async (patch) => { calls.push({ type: "equipment", patch }); return { ok: true }; },
-    updateInjuries: async (patch) => { calls.push({ type: "injuries", patch }); return { ok: true }; },
+    updateInjuries: async (patch) => { calls.push({ type: "injury", patch }); return { ok: true }; },
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
   };
 
   const { unmount, container } = render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
@@ -106,7 +109,10 @@ async function test2() {
     updateProfileSettings: async (patch) => { calls.push({ type: "profile", patch }); return { ok: true }; },
     updateSessionSettings: async (patch) => { calls.push({ type: "session", patch }); return { ok: true }; },
     updateEquipment: async (patch) => { calls.push({ type: "equipment", patch }); await new Promise(r => setTimeout(r, 50)); return { ok: true }; },
-    updateInjuries: async (patch) => { calls.push({ type: "injuries", patch }); return { ok: true }; },
+    updateInjuries: async (patch) => { calls.push({ type: "injury", patch }); return { ok: true }; },
+    setEquipmentItem: async (input) => { calls.push({ type: "equipment", patch: input }); await new Promise(r => setTimeout(r, 50)); return { ok: true }; },
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
   };
 
   const { unmount, container } = render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
@@ -130,7 +136,7 @@ async function test2() {
   await new Promise(r => setTimeout(r, 200));
 
   const equipCalls = calls.filter(c => c.type === "equipment");
-  assert(equipCalls.length > 0, "updateEquipment was called");
+  assert(equipCalls.length > 0, "setEquipmentItem was called");
   
   cleanup();
 }
@@ -146,6 +152,9 @@ async function test3() {
     updateSessionSettings: async () => ({ ok: true }),
     updateEquipment: async () => ({ ok: true }),
     updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
   };
 
   render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
@@ -203,6 +212,9 @@ async function test3b() {
     updateSessionSettings: async () => ({ ok: true }),
     updateEquipment: async () => ({ ok: true }),
     updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
   };
 
   render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
@@ -235,6 +247,9 @@ async function test4() {
     updateSessionSettings: async () => ({ ok: true }),
     updateEquipment: async () => ({ ok: true }),
     updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
   };
 
   const { container } = render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
@@ -289,6 +304,9 @@ async function test5a() {
     updateSessionSettings: async () => ({ ok: true }),
     updateEquipment: async () => ({ ok: true }),
     updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
   };
 
   const { container } = render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
@@ -329,6 +347,9 @@ async function test5b() {
     updateSessionSettings: async () => ({ ok: true }),
     updateEquipment: async () => ({ ok: true }),
     updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
   };
 
   const { container } = render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);

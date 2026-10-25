@@ -262,6 +262,12 @@ jobs:
           echo "Service role key configured (first 20 chars): ${SUPABASE_SERVICE_ROLE_KEY:0:20}..."
           npm run test:exercise-history-real-db
           npm run test:progress-rpcs-real-db
+          npm run test:progress-active-days
+          npm run test:superseded-override
+          npm run test:first-build-ended-on
+          npm run test:equipment-two-client
+          npm run test:injuries-two-client
+          npm run test:stale-stash-two-client
           npm run test:swap-prefill-real-db
           npx tsx scripts/test-delete-set.ts
           npx tsx scripts/test-skipped-session-shapes.ts
@@ -305,6 +311,9 @@ jobs:
         run: npm ci
 
       - name: Run block range DB tests
-        run: npm run test:block-range-db
+        run: |
+          npm run test:block-range-db
+          npm run test:block-range-cleanup
+          npm run test:block-range-db-followup
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/abhyas_test
