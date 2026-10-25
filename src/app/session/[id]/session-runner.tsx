@@ -1,28 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Database } from "@/lib/database.types";
 import type { WarmupItem } from "@/lib/program/warmup";
 import {
   formatClock,
-  getRunnerClockElapsed,
   useBeeper,
   useElapsed,
-  useHydrated,
   useWakeLock,
   vibrate,
   vibrationSupported,
 } from "@/lib/session/device";
-import { withBusyGuard } from "@/lib/session/busy-guard";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { runFinish, runEndEarly, shouldShowFinishRetry } from "@/lib/session/finish-flow";
-import { endEarlyConfirmTitle, sessionSummaryTitle } from "@/lib/session/end-early-text";
-import { focusTrap } from "@/lib/focus-trap";
-import { formatNumber } from "@/lib/format";
-import { PendingTracker } from "@/lib/session/pending-tracker";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import {
   abandonSession,
@@ -38,6 +30,11 @@ import {
   type Alternative,
   type SwapResult,
 } from "../actions";
+import { resolveSetConflict } from "@/lib/session/conflict-reducer";
+import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
+import { exercisesReducer } from "@/lib/session/exercises-reducer";
+import { nextSetTarget, pickCurrentExerciseIndex } from "@/lib/session/resume-state";
+import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -96,6 +93,8 @@ export type RunnerExercise = {
   sets: LoggedSet[];
   /** No external load: used for UI labeling of weight input. */
   isBodyweight: boolean;
+  /** completed_at of the latest working set, so a resume lands on this exercise. */
+  lastLoggedAt?: string | null;
 };
 
 export type RunnerSettings = {
@@ -121,7 +120,6 @@ export function SessionRunner({
   week,
   warmupAlreadyDone,
   startedAt,
-  isStale,
   warmup,
   cooldown,
   exercises: initialExercises,
@@ -135,7 +133,6 @@ export function SessionRunner({
   week: number;
   warmupAlreadyDone: boolean;
   startedAt: string | null;
-  isStale: boolean;
   warmup: WarmupItem[];
   cooldown: WarmupItem[];
   exercises: RunnerExercise[];
@@ -146,17 +143,31 @@ export function SessionRunner({
   onExit?: () => void;
 }) {
   const router = useRouter();
-  const { elapsed: rawElapsed, stop: stopElapsed, resume: resumeElapsed } = useElapsed(startedAt);
-  const elapsed = getRunnerClockElapsed(rawElapsed, isStale);
+  const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
-  const [exercises, setExercises] = useState(initialExercises);
+  
+  // Use reducer to manage exercises with server data merging
+  const [exercises, dispatch] = useReducer(
+    exercisesReducer,
+    initialExercises
+  );
+  
+  // Functional updates go through the reducer so they apply to the state at
+  // dispatch time (which may already include a resume merge), not to the
+  // `exercises` this render closed over.
+  const setExercises = useCallback((update: typeof initialExercises | ((prev: typeof initialExercises) => typeof initialExercises)) => {
+    dispatch(
+      typeof update === "function"
+        ? { type: "update", update }
+        : { type: "set", exercises: update },
+    );
+  }, []);
   const [error, setError] = useState<string | null>(null);
-  const [needsFinishRetry, setNeedsFinishRetry] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
   >([]);
-  const [endedEarly, setEndedEarly] = useState(false);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -168,17 +179,6 @@ export function SessionRunner({
   */
   const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
-  const endEarlyTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
-  const [ending, setEnding] = useState(false);
-  const endingRef = useRef(false);
-  const hydrated = useHydrated();
-
-  // Resume where the session actually stopped rather than at the top.
-  const firstUnfinished = Math.max(
-    0,
-    exercises.findIndex((e) => e.status === "pending"),
-  );
 
   /*
     Every exercise already finished, and the session still open.
@@ -203,8 +203,10 @@ export function SessionRunner({
     nothingPending ? "cooldown" : warmupAlreadyDone || warmup.length === 0 ? "work" : "warmup",
   );
   const [warmupIndex, setWarmupIndex] = useState(0);
+  // B1: the exercise the latest logged set belongs to, not simply the first
+  // pending one, so a resume lands where the user left off.
   const [exerciseIndex, setExerciseIndex] = useState(
-    exercises.findIndex((e) => e.status === "pending") === -1 ? 0 : firstUnfinished,
+    exercises.findIndex((e) => e.status === "pending") === -1 ? 0 : pickCurrentExerciseIndex(exercises),
   );
 
   const wakeLock = useWakeLock(phase !== "done");
@@ -244,6 +246,37 @@ export function SessionRunner({
     setRestRemaining(seconds);
   }, []);
 
+  // Fresh data on resume: refresh when resuming or navigating back
+  useResumeRefresh();
+
+  /*
+    B1: the props this runner mounted with may be a stale RSC payload from the
+    client router cache (a soft navigation back in within `staleTimes.dynamic`
+    reuses the first load's payload: old sets, the pre-swap exercise, exercise
+    one current). useResumeRefresh asks the server for fresh props on mount,
+    and until they arrive no set can be logged, so nothing is saved under an
+    exercise the database has moved past. When they arrive the server's list
+    wins, confirmed local sets are kept, and the current exercise is re-derived
+    from the database's latest logged set. If the refresh never lands (offline),
+    logging opens after a few seconds on what the runner has.
+  */
+  const [synced, markSynced] = useReducer(() => true, false);
+  // Adjusted during render when the props change (React's pattern for state
+  // derived from props), rather than in an effect a frame later.
+  const [seenExercises, setSeenExercises] = useState(initialExercises);
+  if (initialExercises !== seenExercises) {
+    setSeenExercises(initialExercises);
+    dispatch({ type: "merge", serverData: initialExercises });
+    if (initialExercises.some((e) => e.status === "pending")) {
+      setExerciseIndex(pickCurrentExerciseIndex(initialExercises));
+    }
+    markSynced();
+  }
+  useEffect(() => {
+    const t = setTimeout(markSynced, 4000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
 
@@ -279,9 +312,6 @@ export function SessionRunner({
    */
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
-  const pendingTracker = useRef(new PendingTracker()).current;
-  const [savePending, setSavePending] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   /**
    * Skipping an exercise cannot be undone — there is no navigation back to it
@@ -289,64 +319,26 @@ export function SessionRunner({
    * secondary actions. Leaving is confirmed separately, inside `Shell`, since
    * that button lives in the header. Neither loses logged sets, which is why
    * both ask rather than block.
-   *
-   * "End session early" also needs confirmation: it was one unguarded tap and
-   * the session cannot be resumed once ended.
    */
-  const [confirming, setConfirming] = useState<"skip" | "end_early" | null>(null);
+  const [confirming, setConfirming] = useState<"skip" | null>(null);
 
-  async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>): Promise<"busy" | boolean> {
-    const result = await withBusyGuard(
-      () => busyRef.current,
-      (busy) => {
-        busyRef.current = busy;
-        setBusy(busy);
-      },
-      async () => {
-        try {
-          const r = await fn();
-          if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
-          else setError(null);
-          return r.ok;
-        } catch (err) {
-          setError(runnerErrorMessage(err));
-          return false;
-        }
-      }
-    );
-
-    if (result.busy) return "busy";
-    return result.result;
-  }
-
-  async function finish(cooldownCompleted: boolean) {
-    await pendingTracker.waitForAll();
-    if (pendingTracker.hasRecentFailures()) {
-      setSaveError("Couldn't save your last set. Please retry.");
-      return;
-    }
-    setSavePending(false);
-    setSaveError(null);
+  async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>) {
+    if (busyRef.current) return false;
+    busyRef.current = true;
     setBusy(true);
-    setNeedsFinishRetry(false);
-    const succeeded = await runFinish(
-      {
-        finishSession: actions.finishSession,
-        abandonSession: actions.abandonSession,
-        refreshAfterSession: actions.refreshAfterSession,
-        stopElapsed,
-        resumeElapsed,
-        setError,
-        setPhase,
-        setEndedEarly,
-        navigate: (path: string) => router.push(path),
-        onExit,
-        inFlight: busyRef,
-      },
-      { sessionId, cooldownCompleted },
-    );
-    setNeedsFinishRetry(shouldShowFinishRetry(succeeded, cooldownCompleted));
-    setBusy(false);
+    try {
+      const r = await fn();
+      if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
+      else setError(null);
+      return r.ok;
+    } catch (err) {
+      // h2: Catch network errors (offline, timeout, etc)
+      setError(runnerErrorMessage(err));
+      return false;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   }
 
   // ---- warm-up ----------------------------------------------------------
@@ -361,6 +353,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <div onPointerDown={onAnyTap}>
           <p className="text-xs font-semibold tracking-wider text-accent uppercase">
@@ -425,6 +418,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <p className="text-muted">
           Static stretches for what you trained. Hold each for 30 seconds,
@@ -442,10 +436,26 @@ export function SessionRunner({
           ))}
         </ul>
         <div className="mt-10 space-y-3">
-          <BigButton disabled={busy || savePending} onClick={() => finish(true)}>
-            {savePending ? "Saving your set…" : "Done"}
+          <BigButton
+            disabled={busy}
+            onClick={async () => {
+              await run(() =>
+                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
+              );
+              setPhase("done");
+            }}
+          >
+            Done
           </BigButton>
-          <GhostButton disabled={busy || savePending} onClick={() => finish(false)}>
+          <GhostButton
+            disabled={busy}
+            onClick={async () => {
+              await run(() =>
+                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+              );
+              setPhase("done");
+            }}
+          >
             Skip cool-down
           </GhostButton>
         </div>
@@ -462,34 +472,21 @@ export function SessionRunner({
       (n, e) => n + e.sets.reduce((m, s) => m + (s.reps ?? 0) * (s.weightKg ?? 0), 0),
       0,
     );
-    const summaryTitle = sessionSummaryTitle(endedEarly);
     return (
       <Shell
-        title={summaryTitle}
+        title="Session complete"
         subtitle={null}
         elapsed={elapsed}
-        onExit={async () => {
-          try {
-            await actions.refreshAfterSession();
-          } catch {}
-          if (onExit) onExit();
-          else router.push("/today");
-        }}
+        onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
         confirmExit={false}
       >
-        {totalSetsDone === 0 && (
-          <div className="mb-6 rounded-xl border border-border bg-surface-2 px-4 py-3">
-            <p className="text-sm text-muted">
-              No sets logged, so this won&apos;t count as a workout.
-            </p>
-          </div>
-        )}
         <div className="space-y-3">
           <Stat label="Time" value={formatClock(elapsed)} />
           <Stat label="Sets logged" value={`${totalSetsDone}`} />
-          {volume > 0 && <Stat label="Total volume" value={`${formatNumber(Math.round(volume))} kg`} />}
+          {volume > 0 && <Stat label="Total volume" value={`${Math.round(volume)} kg`} />}
           <Stat
             label="Exercises"
             value={`${exercises.filter((e) => e.status === "completed").length} of ${exercises.length}`}
@@ -586,6 +583,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <p className="text-muted">
           This session has no exercises. That usually means the plan could not
@@ -637,53 +635,65 @@ export function SessionRunner({
     : ([...current.sets].reverse().find((s) => s.reps !== null)?.reps ?? null);
 
   async function onLogSet(
+    displayedExerciseId: string,
     reps: number | null,
     weightKg: number | null,
     durationSeconds: number | null = null,
   ) {
-    setSavePending(true);
-    setSaveError(null);
-    const logSetResult = await run(() =>
-      actions.logSet({
-        sessionExerciseId: current.id,
-        setNumber: nextSetNumber,
-        reps,
-        weightKg,
-        durationSeconds,
-      }),
-    );
-    
-    // Don't track busy-guard rejections as failures
-    if (logSetResult === "busy") {
-      setSavePending(false);
-      return;
-    }
-    
-    // Track the save result so finish() can check for recent failures.
-    // We've already awaited logSet above, so the save is complete.
-    const ok = logSetResult;
-    pendingTracker.track(
-      "logSet",
-      Promise.resolve({ ok }),
-    );
-    setSavePending(pendingTracker.hasPending());
-    if (!ok) {
-      setSaveError("Couldn't save your set. Try again.");
-      return;
-    }
-    setExercises((prev) =>
-      prev.map((e) =>
-        e.id === current.id
-          ? {
-              ...e,
-              sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
-            }
-          : e,
-      ),
-    );
-    if (settings.restAutostart && nextSetNumber < current.plannedSets) {
-      startRest(restSeconds);
-    }
+    // B1: the set goes under the exercise that was on screen when it was
+    // submitted, numbered from that exercise's own sets.
+    const target = nextSetTarget(exercises, displayedExerciseId);
+    if (!target) return;
+    // createConcurrentGuard holds busyRef for the whole save, so a double tap
+    // logs the set once.
+    await createConcurrentGuard(async () => {
+      setBusy(true);
+      try {
+        const result = await actions.logSet({
+          sessionExerciseId: target.sessionExerciseId,
+          setNumber: target.setNumber,
+          reps,
+          weightKg,
+          durationSeconds,
+        });
+
+        if (!result.ok) {
+          if ("reason" in result && result.reason === "set_exists") {
+            const resolution = resolveSetConflict(exercises, target.sessionExerciseId, exerciseIndex, result);
+            // The index and message come from this render; the sets are applied
+            // to the state at dispatch time so a resume merge is not undone.
+            setExercises((prev) => resolveSetConflict(prev, target.sessionExerciseId, exerciseIndex, result).exercises);
+            setExerciseIndex(resolution.nextExerciseIndex);
+            setMessage(resolution.message);
+            setError(null);
+            return;
+          }
+          setError("error" in result ? (result.error ?? "Something went wrong") : "Failed");
+          return;
+        }
+
+        setError(null);
+        setMessage(null);
+        setExercises((prev) =>
+          prev.map((e) =>
+            e.id === target.sessionExerciseId
+              ? {
+                  ...e,
+                  sets: [...e.sets, { setNumber: target.setNumber, reps, weightKg, durationSeconds }],
+                }
+              : e,
+          ),
+        );
+        if (settings.restAutostart && target.setNumber < current.plannedSets) {
+          startRest(restSeconds);
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Network error. Check your connection.";
+        setError(errorMessage);
+      } finally {
+        setBusy(false);
+      }
+    }, busyRef)();
   }
 
   /** Remove the most recently logged set, so a mistyped one can be corrected. */
@@ -743,7 +753,12 @@ export function SessionRunner({
     setBannerFor(next === -1 ? null : next);
     if (next === -1) {
       if (settings.cooldownEnabled) setPhase("cooldown");
-      else await finish(false);
+      else {
+        await run(() =>
+          actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+        );
+        setPhase("done");
+      }
     } else {
       setExerciseIndex(next);
     }
@@ -757,6 +772,7 @@ export function SessionRunner({
       onExit={() => (onExit ? onExit() : router.push("/today"))}
       wakeLock={wakeLock}
       error={error}
+        message={message}
     >
       <div onPointerDown={onAnyTap}>
         {bannerFor === exerciseIndex && progressNotes.length > 0 && (
@@ -877,12 +893,14 @@ export function SessionRunner({
             defaultReps={defaultReps}
             setNumber={nextSetNumber}
             isBodyweight={current.isBodyweight}
-            onLog={onLogSet}
+            onLog={(reps, weightKg, durationSeconds) =>
+              onLogSet(current.id, reps, weightKg, durationSeconds)
+            }
             onHoldComplete={() => {
               if (settings.restSound) beeper.beep();
               if (settings.restVibrate) vibrate([180, 90, 180]);
             }}
-            disabled={busy}
+            disabled={busy || !synced}
           />
         )}
 
@@ -1018,82 +1036,28 @@ export function SessionRunner({
             </GhostButton>
           )}
           <GhostButton
-            buttonRef={endEarlyTriggerRef}
-            disabled={busy || savePending}
-            onClick={() => setConfirming("end_early")}
+            disabled={busy}
+            onClick={async () => {
+              if (await run(() => actions.abandonSession(sessionId, elapsed))) {
+                if (onExit) onExit();
+                else router.push("/today");
+              }
+            }}
           >
-            {savePending ? "Saving your set…" : "End session early"}
+            End session early
           </GhostButton>
-          {saveError && (
-            <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
-              <p className="text-sm text-danger">{saveError}</p>
-            </div>
-          )}
-          {needsFinishRetry && error && (
-            <BigButton disabled={busy} onClick={() => finish(false)}>
-              Try again
-            </BigButton>
-          )}
-          {confirming === "end_early" && (
-            <EndEarlyConfirm
-              totalSetsDone={totalSetsDone}
-              totalSetsPlanned={totalSetsPlanned}
-              triggerRef={endEarlyTriggerRef}
-              offlineError={endEarlyOfflineError}
-              onClearOfflineError={() => setEndEarlyOfflineError(false)}
-              onCancel={() => {
-                setConfirming(null);
-                setEndEarlyOfflineError(false);
-              }}
-              onConfirm={async () => {
-                await pendingTracker.waitForAll();
-                if (pendingTracker.hasRecentFailures()) {
-                  setSaveError("Couldn't save your last set. Please retry.");
-                  setConfirming(null);
-                  return;
-                }
-                setSavePending(false);
-                setSaveError(null);
-                await runEndEarly(
-                  {
-                    abandonSession: actions.abandonSession,
-                    refreshAfterSession: actions.refreshAfterSession,
-                    stopElapsed,
-                    resumeElapsed,
-                    setError,
-                    setPhase,
-                    setEndedEarly,
-                    navigate: (path: string) => router.push(path),
-                    onExit,
-                    inFlight: busyRef,
-                  },
-                  {
-                    sessionId,
-                    setsDone: totalSetsDone,
-                    setConfirming,
-                    setOfflineError: setEndEarlyOfflineError,
-                    endingRef,
-                    setEnding,
-                  },
-                );
-              }}
-              disabled={busy || ending}
-            />
-          )}
         </div>
 
         <p className="mt-8 text-center text-xs text-muted">
           {totalSetsDone} of {totalSetsPlanned} sets logged
         </p>
 
-        {hydrated && (
-          <CapabilityNote
-            wakeLock={wakeLock}
-            soundEnabled={settings.restSound}
-            soundUnlocked={beeper.unlocked}
-            vibrateEnabled={settings.restVibrate}
-          />
-        )}
+        <CapabilityNote
+          wakeLock={wakeLock}
+          soundEnabled={settings.restSound}
+          soundUnlocked={beeper.unlocked}
+          vibrateEnabled={settings.restVibrate}
+        />
       </div>
     </Shell>
   );
@@ -1308,13 +1272,14 @@ function SetEntry({
   );
 }
 
-function Shell({
+export function Shell({
   title,
   subtitle,
   elapsed,
   onExit,
   wakeLock,
   error,
+  message,
   confirmExit = true,
   children,
 }: {
@@ -1324,6 +1289,7 @@ function Shell({
   onExit: () => void;
   wakeLock: { active: boolean };
   error: string | null;
+  message?: string | null;
   /** Off on the summary, where leaving is the expected next step. */
   confirmExit?: boolean;
   children: React.ReactNode;
@@ -1395,6 +1361,12 @@ function Shell({
         </p>
       )}
 
+      {message && (
+        <p className="mt-4 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-fg">
+          {message}
+        </p>
+      )}
+
       <div className="mt-8">{children}</div>
     </main>
   );
@@ -1424,16 +1396,13 @@ function GhostButton({
   children,
   onClick,
   disabled = false,
-  buttonRef,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
-  buttonRef?: React.RefObject<HTMLButtonElement | null>;
 }) {
   return (
     <button
-      ref={buttonRef}
       onClick={onClick}
       disabled={disabled}
       className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-60"
@@ -1481,133 +1450,4 @@ function CapabilityNote({
   if (vibrateEnabled && !vibrationSupported()) bits.push("vibration unsupported here");
 
   return <p className="mt-4 text-center text-[11px] text-muted/70">{bits.join(" · ")}</p>;
-}
-
-/**
- * Confirmation dialog for ending a session early.
- *
- * Uses a native <dialog> element opened with showModal() for proper a11y:
- * - modal semantics with backdrop
- * - Escape key support via cancel event
- * - focus trap with Tab/Shift+Tab cycling
- * - focus management: initial focus on "Keep going", returns to trigger on close
- * - offline error handling: shows error and clears on 'online' event
- */
-function EndEarlyConfirm({
-  totalSetsDone,
-  totalSetsPlanned,
-  triggerRef,
-  offlineError,
-  onClearOfflineError,
-  onCancel,
-  onConfirm,
-  disabled = false,
-}: {
-  totalSetsDone: number;
-  totalSetsPlanned: number;
-  triggerRef: React.RefObject<HTMLButtonElement | null>;
-  offlineError: boolean;
-  onClearOfflineError: () => void;
-  onCancel: () => void;
-  onConfirm: () => void;
-  disabled?: boolean;
-}) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const keepGoingRef = useRef<HTMLButtonElement>(null);
-  const endSessionRef = useRef<HTMLButtonElement>(null);
-  const onCancelRef = useRef(onCancel);
-  const onConfirmRef = useRef(onConfirm);
-
-  useEffect(() => {
-    onCancelRef.current = onCancel;
-    onConfirmRef.current = onConfirm;
-  });
-
-  useEffect(() => {
-    const handleOnline = () => {
-      onClearOfflineError();
-    };
-
-    window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
-  }, [onClearOfflineError]);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    dialog.showModal();
-
-    const trap = focusTrap({
-      element: dialog,
-      onEscape: () => onCancelRef.current(),
-      returnFocusTo: triggerRef.current,
-      initialFocus: true,
-    });
-
-    const handleCancel = (e: Event) => {
-      e.preventDefault();
-      onCancelRef.current();
-    };
-
-    dialog.addEventListener("cancel", handleCancel);
-
-    return () => {
-      dialog.removeEventListener("cancel", handleCancel);
-      trap.release();
-      dialog.close();
-    };
-  }, [triggerRef]);
-
-  const handleKeepGoing = () => {
-    onCancelRef.current();
-  };
-
-  const handleEndSession = () => {
-    onConfirmRef.current();
-  };
-
-  const hasNoSets = totalSetsDone === 0;
-  const titleText = endEarlyConfirmTitle(totalSetsDone, totalSetsPlanned);
-
-  return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby="end-early-title"
-      aria-describedby="end-early-desc"
-      className="max-w-[390px] rounded-xl border border-border bg-surface-2 px-4 py-4 backdrop:bg-bg/80"
-    >
-      <p id="end-early-title" className="text-sm font-medium">
-        {titleText}
-      </p>
-      <p id="end-early-desc" className="mt-2 text-sm text-muted">
-        {hasNoSets
-          ? "You can start it again from Today."
-          : "The session can\u2019t be resumed once ended."}
-      </p>
-      {offlineError && (
-        <p role="alert" className="mt-3 text-sm text-danger">
-          You&apos;re offline. Your session wasn&apos;t ended – try again when you&apos;re back
-          online.
-        </p>
-      )}
-      <div className="mt-4 flex gap-3">
-        <button
-          ref={keepGoingRef}
-          onClick={handleKeepGoing}
-          className="flex-1 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover min-h-11"
-        >
-          Keep going
-        </button>
-        <button
-          ref={endSessionRef}
-          disabled={disabled}
-          onClick={handleEndSession}
-          className="flex-1 rounded-lg bg-surface px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-surface-2 disabled:opacity-60 min-h-11"
-        >
-          End now
-        </button>
-      </div>
-    </dialog>
-  );
 }

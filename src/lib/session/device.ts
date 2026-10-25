@@ -16,16 +16,6 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
  * on someone's phone, they can see why without opening a console.
  */
 
-const noopSubscribe = () => () => {};
-
-/**
- * Returns true after hydration completes, false during SSR.
- * Prevents hydration mismatches when reading browser APIs during render.
- */
-export function useHydrated(): boolean {
-  return useSyncExternalStore(noopSubscribe, () => true, () => false);
-}
-
 export type WakeLockState = {
   supported: boolean;
   active: boolean;
@@ -34,13 +24,13 @@ export type WakeLockState = {
 
 export function useWakeLock(enabled: boolean): WakeLockState {
   const sentinelRef = useRef<WakeLockSentinel | null>(null);
-  const hydrated = useHydrated();
-  const supported = hydrated && typeof navigator !== "undefined" && "wakeLock" in navigator;
-  const [state, setState] = useState<WakeLockState>({
-    supported: false,
+  // Derived at first render rather than in an effect: it never changes.
+  const [state, setState] = useState<WakeLockState>(() => ({
+    supported: typeof navigator !== "undefined" && "wakeLock" in navigator,
     active: false,
     error: null,
-  });
+  }));
+  const supported = state.supported;
 
   useEffect(() => {
     if (!supported || !enabled) return;
@@ -85,7 +75,7 @@ export function useWakeLock(enabled: boolean): WakeLockState {
     };
   }, [enabled, supported]);
 
-  return { ...state, supported };
+  return state;
 }
 
 export type Beeper = {
@@ -159,106 +149,35 @@ export function vibrate(pattern: number | number[]) {
   }
 }
 
-/**
- * Calculate elapsed seconds from start to now, clamped at 0.
- * Pure function for testability.
- */
-export function elapsedSeconds(startMs: number, nowMs: number): number {
-  return Math.max(0, Math.floor((nowMs - startMs) / 1000));
-}
-
-/**
- * Return frozen elapsed if set, otherwise calculate elapsed from startMs to nowMs.
- * Pure helper for stop() logic.
- */
-export function freezeElapsed(frozen: number | null, startMs: number, nowMs: number): number {
-  return frozen ?? elapsedSeconds(startMs, nowMs);
-}
-
-export type ElapsedState = {
-  elapsed: number;
-  stop: () => number;
-  resume: () => void;
-};
-
-/**
- * Counts elapsed seconds, resilient to the tab being backgrounded.
- *
- * Starts from null to avoid hydration mismatches (React error #418).
- * Renders a stable placeholder derived from started_at until the first tick.
- */
-export function useElapsed(startedAtIso: string | null): ElapsedState {
+/** Counts elapsed seconds, resilient to the tab being backgrounded. */
+export function useElapsed(startedAtIso: string | null): number {
   const [start] = useState(() =>
-    startedAtIso ? new Date(startedAtIso).getTime() : Date.now(),
+    startedAtIso ? new Date(startedAtIso).getTime() : null,
   );
-  const [now, setNow] = useState<number | null>(null);
-  const [stopped, setStopped] = useState(false);
-  const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
-  const frozenSecondsRef = useRef<number | null>(null);
+  
+  // Use useSyncExternalStore to subscribe to time (an external system)
+  // Returns 0 during SSR (getServerSnapshot)
+  const now = useSyncExternalStore(
+    useCallback((onStoreChange: () => void) => {
+      // Subscribe to time updates every second
+      const interval = setInterval(onStoreChange, 1000);
+      return () => clearInterval(interval);
+    }, []),
+    // Whole seconds, so consecutive reads within a second are equal: React
+    // requires getSnapshot to return the same value until the store changes,
+    // and a raw Date.now() would differ on every read.
+    () => Math.floor(Date.now() / 1000) * 1000, // getSnapshot (client)
+    () => 0, // getServerSnapshot (SSR) - returns 0 so elapsed will be 0
+  );
 
-  useEffect(() => {
-    if (stopped) return;
-    const tick = () => setNow(Date.now());
-    tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
-  }, [stopped]);
-
-  const elapsed =
-    stopped && frozenElapsed !== null
-      ? frozenElapsed
-      : now !== null
-        ? elapsedSeconds(start, now)
-        : 0;
-
-  const stop = useCallback(() => {
-    if (frozenSecondsRef.current === null) {
-      const finalElapsed = freezeElapsed(frozenSecondsRef.current, start, Date.now());
-      frozenSecondsRef.current = finalElapsed;
-      setFrozenElapsed(finalElapsed);
-      setStopped(true);
-    }
-    return frozenSecondsRef.current ?? 0;
-  }, [start]);
-
-  const resume = useCallback(() => {
-    setStopped(false);
-    setFrozenElapsed(null);
-    frozenSecondsRef.current = null;
-  }, []);
-
-  return { elapsed, stop, resume };
+  // Return 0 during SSR and when there's no start time
+  if (start === null) return 0;
+  
+  return Math.max(0, Math.floor((now - start) / 1000));
 }
 
 export function formatClock(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-/**
- * Cap displayed elapsed time for stale sessions.
- * Stale sessions (past-day or >3h idle) should never show >= 180:00 on the clock.
- * Returns the elapsed time capped at 179:59 (3 hours - 1 second).
- */
-export function displayElapsed(elapsed: number, stale: boolean): number {
-  const THREE_HOURS_SECONDS = 3 * 60 * 60;
-  if (stale && elapsed >= THREE_HOURS_SECONDS) {
-    return THREE_HOURS_SECONDS - 1;
-  }
-  return elapsed;
-}
-
-/**
- * Get the display elapsed time for the runner's clock, accounting for stale sessions.
- * 
- * @param elapsed - Raw elapsed seconds from useElapsed
- * @param isStale - Whether the session is stale (past-day or >3h idle)
- * @returns Elapsed seconds to display (capped for stale sessions)
- */
-export function getRunnerClockElapsed(
-  elapsed: number,
-  isStale: boolean,
-): number {
-  return displayElapsed(elapsed, isStale);
 }
