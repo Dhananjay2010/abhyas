@@ -163,6 +163,8 @@ async function runTests() {
     benchPress.equipment_ids ?? [],
     "reps",
     benchPress.movement_pattern ?? "push",
+    undefined,
+    true,
   );
 
   check("Non-deload with progress returns working weight", prefillNonDeload === 100, `got ${prefillNonDeload}`);
@@ -176,9 +178,26 @@ async function runTests() {
     benchPress.equipment_ids ?? [],
     "reps",
     benchPress.movement_pattern ?? "push",
+    undefined,
+    true,
   );
 
   check("Deload with progress returns ~70%", prefillDeload !== null && prefillDeload >= 67.5 && prefillDeload <= 72.5, `got ${prefillDeload}`);
+
+  // remembersWeights = false: should return null even with progress
+  const prefillNoMemory = await resolveSwapPrefill(
+    adminClient,
+    userId,
+    benchPress.id,
+    false,
+    benchPress.equipment_ids ?? [],
+    "reps",
+    benchPress.movement_pattern ?? "push",
+    undefined,
+    false,
+  );
+
+  check("remembersWeights=false returns null (ignores progress)", prefillNoMemory === null, `got ${prefillNoMemory}`);
 
   // Test 2: Without progress but with history
   console.log("\nTest 2: Without progress, with history:");
@@ -291,9 +310,26 @@ async function runTests() {
     dumbbell.equipment_ids ?? [],
     "reps",
     dumbbell.movement_pattern ?? "push",
+    undefined,
+    true,
   );
 
   check("Without progress, with history returns last performance", prefillHistory === 30, `got ${prefillHistory}`);
+
+  // remembersWeights = false: should return null even with history
+  const prefillHistoryNoMemory = await resolveSwapPrefill(
+    adminClient,
+    userId,
+    dumbbell.id,
+    false,
+    dumbbell.equipment_ids ?? [],
+    "reps",
+    dumbbell.movement_pattern ?? "push",
+    undefined,
+    false,
+  );
+
+  check("remembersWeights=false returns null (ignores history)", prefillHistoryNoMemory === null, `got ${prefillHistoryNoMemory}`);
 
   // Test 3: No history at all
   console.log("\nTest 3: No history:");
@@ -306,6 +342,8 @@ async function runTests() {
     incline.equipment_ids ?? [],
     "reps",
     incline.movement_pattern ?? "push",
+    undefined,
+    true,
   );
 
   check("No history returns null", prefillNoHistory === null, `got ${prefillNoHistory}`);

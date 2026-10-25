@@ -75,14 +75,16 @@ const findGuardCheck = (n: ts.Node): void => {
   if (!ts.isFunctionLike(n) || n === fn) ts.forEachChild(n, findGuardCheck);
 };
 
-// Find first write operation (.update( or .from("session_exercises"))
+// Find first write operation (.update( or .from("session_exercises")) or swapExerciseForUser call
 const findFirstWrite = (n: ts.Node): void => {
   if (ts.isCallExpression(n)) {
-    // Look for .update( or .from("session_exercises")
+    // Look for .update( or .from("session_exercises") or swapExerciseForUser(...)
+    const callText = n.expression.getText(sf);
     if ((ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === "update") ||
-        (n.expression.getText(sf).endsWith(".from") && 
+        (callText.endsWith(".from") && 
          n.arguments.length > 0 && 
-         n.arguments[0].getText(sf).includes("session_exercises"))) {
+         n.arguments[0].getText(sf).includes("session_exercises")) ||
+        callText === "swapExerciseForUser") {
       if (firstWritePos === -1) {
         firstWritePos = n.pos;
       }
@@ -114,10 +116,10 @@ if (guardCheckPos <= guardCallPos) {
 }
 
 if (firstWritePos !== -1 && guardCallPos >= firstWritePos) {
-  fail("canSwapExercise guard must be called before any .update( or .from(\"session_exercises\") write");
+  fail("canSwapExercise guard must be called before any write (.update, .from(\"session_exercises\"), or swapExerciseForUser)");
 }
 
 console.log("  ✓ swapExercise calls canSwapExercise(createSupabaseSwapGuardDeps(supabase), input.sessionExerciseId)");
-console.log(`  ✓ guard call comes before any write operation`);
+console.log(`  ✓ guard call comes before any write operation (including swapExerciseForUser)`);
 console.log(`  ✓ guard is followed by if (!${guardResultName}.allowed) return ...`);
 console.log("\n✅ All swap exercise guard source assertions passed");
