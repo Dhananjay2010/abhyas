@@ -71,7 +71,7 @@ function savePendingSetBuggy(
   userId: string,
   sessionId: string,
   set: PendingSet,
-  deps: any
+  deps: { now: () => number }
 ) {
   const key = `pending_sets_${userId}_${sessionId}`;
   const existing = JSON.parse(storage.getItem(key) || '{"sets":[],"timestamp":0}');
