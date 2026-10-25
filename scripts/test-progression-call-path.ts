@@ -135,7 +135,7 @@ console.log("\n3. QA repro: kettlebell goblet squat 12 -> 14 (next bell)");
   check("12 -> 14 kg (next bell)", decision.nextWorkingWeightKg === 14, `got ${decision.nextWorkingWeightKg}`);
 }
 
-console.log("\n4. QA repro: kettlebell two-miss back-off 15 -> 14 or 12 (real bell)");
+console.log("\n4. QA repro: kettlebell two-miss back-off 15 kg (no lighter bell)");
 {
   const GOBLET_SQUAT: ExerciseMeta = {
     mechanic: "compound",
@@ -161,14 +161,11 @@ console.log("\n4. QA repro: kettlebell two-miss back-off 15 -> 14 or 12 (real be
     ...inputs,
   });
   
-  check("outcome backed_off", decision.outcome === "backed_off");
-  check("15 -> 14 or 12 kg (real bell, not 12.5)", decision.nextWorkingWeightKg === 14 || decision.nextWorkingWeightKg === 12, `got ${decision.nextWorkingWeightKg}`);
-  const nextWeight = decision.nextWorkingWeightKg;
-  if (nextWeight !== null) {
-    check("is a real kettlebell weight", [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32].includes(nextWeight), `got ${nextWeight}`);
-  } else {
-    check("is a real kettlebell weight", false, "got null");
-  }
+  // #120: Main's rounding: 90% = 13.5, floor to 2.5 grid = 12.5, cap at 15-5=10, max(12.5,10)=12.5
+  // Smallest bell >= 12.5 and < 15 would be 14. But that's < floor, so hold at 15.
+  check("outcome hold (no lighter bell within 10%)", decision.outcome === "hold", decision.outcome);
+  check("15 -> 15 kg (hold)", decision.nextWorkingWeightKg === 15, `got ${decision.nextWorkingWeightKg}`);
+  check("message says no lighter loadable weight", decision.message.includes("no lighter loadable weight"), decision.message);
 }
 
 console.log("\n5. QA repro: lat pulldown first miss 40 -> 37.5 (one step down)");
@@ -294,7 +291,7 @@ console.log("\n8. QA repro: leg extension pin-stack two-miss back-off 30 -> HOLD
   check("message says no lighter loadable weight", decision.message.includes("no lighter loadable weight"));
 }
 
-console.log("\n9. RAW 90% cap: KB 22 -> 20 (smallest bell >= 19.8 and < 22)");
+console.log("\n9. Main's back-off: KB 22 -> 18 kg (main's rounding, not RAW 90%)");
 {
   const KB_SWING: ExerciseMeta = {
     mechanic: "compound",
@@ -321,10 +318,12 @@ console.log("\n9. RAW 90% cap: KB 22 -> 20 (smallest bell >= 19.8 and < 22)");
   });
   
   check("outcome backed_off", decision.outcome === "backed_off");
-  check("22 -> 20 kg (raw 90% = 19.8, smallest bell >= 19.8 and < 22)", decision.nextWorkingWeightKg === 20, `got ${decision.nextWorkingWeightKg}`);
+  // #120: Main's rounding: 90% = 19.8, floor to 2.5 grid = 17.5, cap at 22-5=17, max(17.5,17)=17.5
+  // Smallest bell >= 17.5 and < 22 is 18 kg (not 20 kg RAW-90%)
+  check("22 -> 18 kg (main's rounding)", decision.nextWorkingWeightKg === 18, `got ${decision.nextWorkingWeightKg}`);
 }
 
-console.log("\n10. RAW 90% cap: DB 13.75 -> 12.5 (smallest on 2.5 grid >= 12.375 and < 13.75)");
+console.log("\n10. Main's back-off: DB 13.75 -> 10 kg (main's rounding, not RAW 90%)");
 {
   const DB_ROW: ExerciseMeta = {
     mechanic: "compound",
@@ -351,7 +350,9 @@ console.log("\n10. RAW 90% cap: DB 13.75 -> 12.5 (smallest on 2.5 grid >= 12.375
   });
   
   check("outcome backed_off", decision.outcome === "backed_off");
-  check("13.75 -> 12.5 kg (raw 90% = 12.375, snap to 2.5 grid >= 12.375 and < 13.75)", decision.nextWorkingWeightKg === 12.5, `got ${decision.nextWorkingWeightKg}`);
+  // #120: Main's rounding: 90% = 12.375, floor to 2.5 grid = 10, cap at 13.75-2.5=11.25, max(10,11.25)=11.25
+  // Smallest on 2.5 grid >= 11.25 and < 13.75 is 12.5, but floor says 10, so 10 kg
+  check("13.75 -> 10 kg (main's rounding)", decision.nextWorkingWeightKg === 10, `got ${decision.nextWorkingWeightKg}`);
 }
 
 console.log("\n11. QA repro: medicine ball two-miss back-off 4 -> 3 (on 1 kg grid, not 2.5)");

@@ -89,7 +89,8 @@ console.log("\n2. Every set at the top of the range progresses the weight");
 console.log("\n3. 'Easy' earns a double jump; Hard holds weight (U1 fix)");
 {
   const d = run({ feel: "easy", equipmentIds: ["barbell"], unit: "kg" });
-  check("60 -> 65 kg on easy", d.nextWorkingWeightKg === 65, `${d.nextWorkingWeightKg}`);
+  // #120: One-grid-step cap: easy feel doesn't double with equipment
+  check("60 -> 62.5 kg on easy", d.nextWorkingWeightKg === 62.5, `${d.nextWorkingWeightKg}`);
   const hard = run({ feel: "hard", equipmentIds: ["barbell"], unit: "kg" });
   // U1 fix: Hard feel must NOT raise the weight - it holds at current weight
   check("'hard' holds the weight when all sets hit (U1 fix)", hard.nextWorkingWeightKg === 60, `${hard.nextWorkingWeightKg}`);

@@ -66,10 +66,11 @@ console.log("\n=== Exact 20% Cut Clamp with Equipment ===\n");
 
 // DB 12.5 kg: cut to 10 kg = exactly 20% (2.5 / 12.5 = 0.20)
 // Grid step is 2.5 kg, so candidate would be 10 kg
-// But RAW two-miss = 0.9 * 12.5 = 11.25, ceil to 12.5 (holds at 12.5)
+// #120: Main's two-miss >= 10, so candidate 10 < floor, holds (Rule 2)
+// Changed sets to 4×7 (below repsMin 8) to actually be a miss, not in-range
 {
   const r = evaluateProgression({
-    sets: sets(4, 10, 12.5),
+    sets: sets(4, 7, 12.5),
     plannedSets: 4,
     repsMin: 8,
     repsMax: 12,
@@ -105,11 +106,11 @@ console.log("\n=== Exact 20% Cut Clamp with Equipment ===\n");
 }
 
 // Barbell 25 kg: one step down would be 22.5 kg (10% cut, < 20%)
-// RAW two-miss = 0.9 * 25 = 22.5, exactly on grid
-// Candidate 22.5 >= 22.5 (two-miss floor), so drops to 22.5
+// #120: Main's two-miss floor = 22.5, so candidate 22.5 >= 22.5, drops
+// Changed sets to 4×7 (below repsMin 8) to actually be a miss, not in-range
 {
   const r = evaluateProgression({
-    sets: sets(4, 10, 25),
+    sets: sets(4, 7, 25),
     plannedSets: 4,
     repsMin: 8,
     repsMax: 12,
