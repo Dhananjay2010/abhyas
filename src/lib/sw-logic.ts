@@ -98,3 +98,87 @@ export function getCacheName(brandId: string, buildId?: string): string {
   const version = buildId || "v1";
   return `${brandId}-offline-${version}`;
 }
+
+/**
+ * Plain JS source for the cachesToDelete function.
+ * 
+ * This is the single source of truth for cache cleanup logic.
+ * It's embedded directly in the service worker script (not via toString),
+ * so it survives production minification of the server bundle.
+ * 
+ * The exported cachesToDelete function below is built from this same source.
+ */
+export const CACHES_TO_DELETE_JS = `function cachesToDelete(allCacheNames, currentCacheName, brandPrefix) {
+  return allCacheNames.filter(function(cacheName) {
+    if (!cacheName.startsWith(brandPrefix)) {
+      return false;
+    }
+    if (cacheName === currentCacheName) {
+      return false;
+    }
+    return true;
+  });
+}`;
+
+/**
+ * Determine which caches should be deleted during service worker activation.
+ *
+ * Only deletes caches that:
+ * 1. Match the brand prefix (don't touch other brands' caches)
+ * 2. Are NOT the current cache name
+ *
+ * This function is built from CACHES_TO_DELETE_JS at module load time,
+ * ensuring both the service worker and tests use identical logic.
+ *
+ * @param allCacheNames - All cache names from caches.keys()
+ * @param currentCacheName - The cache name for this SW version
+ * @param brandPrefix - The brand-specific cache prefix (e.g. "abhyas-offline-")
+ * @returns Array of cache names to delete
+ */
+export const cachesToDelete: (
+  allCacheNames: string[],
+  currentCacheName: string,
+  brandPrefix: string
+) => string[] = new Function("return (" + CACHES_TO_DELETE_JS + ")")();
+
+/**
+ * ServiceWorkerRegistration interface for dependency injection in tests.
+ */
+export interface ServiceWorkerRegistrationLike {
+  unregister(): Promise<boolean>;
+  scope: string;
+}
+
+/**
+ * ServiceWorkerContainer interface for dependency injection in tests.
+ */
+export interface ServiceWorkerContainerLike {
+  register(scriptURL: string): Promise<ServiceWorkerRegistrationLike>;
+  getRegistrations(): Promise<readonly ServiceWorkerRegistrationLike[]>;
+}
+
+/**
+ * Sync service worker state based on environment.
+ *
+ * In production: registers /sw.js
+ * In development: unregisters all existing service workers
+ *
+ * Pure function extracted from ServiceWorkerRegistration component for testability.
+ *
+ * @param env - Environment (process.env.NODE_ENV)
+ * @param sw - ServiceWorkerContainer (navigator.serviceWorker)
+ * @returns Promise that resolves when sync is complete
+ */
+export async function syncServiceWorker(
+  env: string,
+  sw: ServiceWorkerContainerLike
+): Promise<void> {
+  if (env === "production") {
+    // Production: register the service worker
+    await sw.register("/sw.js");
+  } else {
+    // Development: unregister all existing service workers
+    const registrations = await sw.getRegistrations();
+    await Promise.all(registrations.map((reg) => reg.unregister()));
+  }
+}
