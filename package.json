@@ -267,7 +267,8 @@
     "test:pending-set-ui-states": "tsx scripts/test-pending-set-ui-states.ts",
     "test:pending-set-user-isolation": "tsx scripts/test-pending-set-user-isolation.ts",
     "test:session-runner-render": "tsx scripts/test-session-runner-render.tsx",
-    "test:session-expiry-retry-chain": "npm run test:pending-set-controller && npm run test:pending-set-ui-states && npm run test:pending-set-retry && npm run test:pending-set-signout-clear && npm run test:pending-set-user-isolation && npm run test:critical-behaviors && npm run test:session-runner-render && npm run test:swap-entry-box-reset && npm run test:is-missed-yesterday && echo 'session-expiry-retry: all tests passed'"
+    "test:session-expiry-retry-chain": "npm run test:pending-set-controller && npm run test:pending-set-ui-states && npm run test:pending-set-retry && npm run test:pending-set-signout-clear && npm run test:pending-set-user-isolation && npm run test:critical-behaviors && npm run test:session-runner-render && npm run test:swap-entry-box-reset && npm run test:is-missed-yesterday && npm run test:mutation-killers && echo 'session-expiry-retry: all tests passed'",
+    "test:mutation-killers": "tsx scripts/test-mutation-killers.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
