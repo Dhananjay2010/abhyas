@@ -310,4 +310,42 @@ sed -i 's/if (hasKneeInjury && isExcludedForCurrentKneeOnly(candidate)) continue
 run_mutant "Item 14: Disable current-knee-only check in alternatives.ts" "src/lib/program/alternatives.ts" || true
 restore_file "src/lib/program/alternatives.ts"
 
+# === Item 15: Past-knee squat rule mutants ===
+
+# Mutant 31: Remove deficit-deadlift from past-knee exclusions
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/"deficit-deadlift",/d' src/lib/program/past-knee.ts
+run_mutant "Item 15: Remove deficit-deadlift exclusion" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 32: Remove barbell-hack-squat from past-knee exclusions
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/"barbell-hack-squat",/d' src/lib/program/past-knee.ts
+run_mutant "Item 15: Remove barbell-hack-squat exclusion" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 33: Remove smith-machine-squat from past-knee exclusions
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/"smith-machine-squat",/d' src/lib/program/past-knee.ts
+run_mutant "Item 15: Remove smith-machine-squat exclusion" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 34: Remove front-barbell-squat from past-knee exclusions
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/"front-barbell-squat",/d' src/lib/program/past-knee.ts
+run_mutant "Item 15: Remove front-barbell-squat exclusion" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 35: Disable squat priority ordering in swap ranking
+restore_file "src/lib/program/alternatives.ts"
+sed -i '/Item 15: Past-knee squat ordering/,/^    }$/s/if (hasPastKnee && current.movement_pattern === "squat"/if (false \&\& hasPastKnee \&\& current.movement_pattern === "squat"/' src/lib/program/alternatives.ts
+run_mutant "Item 15: Disable squat priority ordering" "src/lib/program/alternatives.ts" || true
+restore_file "src/lib/program/alternatives.ts"
+
+# Mutant 36: Add barbell-deadlift to past-knee exclusions (should fail: floor deadlift must be allowed)
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/const PAST_KNEE_EXCLUDED_SLUGS.*=/,/];/{s/"deficit-deadlift",/"deficit-deadlift",\n  "barbell-deadlift",/}' src/lib/program/past-knee.ts
+run_mutant "Item 15: Add barbell-deadlift to exclusions (should fail)" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
 echo ""

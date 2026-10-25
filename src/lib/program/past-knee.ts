@@ -42,6 +42,14 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   // Full-depth squats
   "barbell-full-squat",
   
+  // Item 15: Banned squats for past knee (deficit deadlift, hack squat, Smith squat, front squat)
+  "deficit-deadlift",
+  "barbell-hack-squat",
+  "smith-machine-squat",
+  "front-barbell-squat",
+  "front-squat-clean-grip",
+  "front-squats-with-two-kettlebells",
+  
   // Explosive loaded knee-flexion moves (speed/dynamic squats)
   "speed-box-squat",
   "speed-squats",
@@ -134,12 +142,15 @@ export function isExcludedForPastKnee(ex: CandidateExercise): boolean {
  * Knee-friendly primary exercises for past-knee users.
  * These use controlled ROM or limited depth that's easier on the knee.
  * Priority order: preferred first.
+ * Item 15: goblet, box, bodyweight squat, leg press are allowed.
+ * Barbell back squat is allowed but never leads (handled via separate penalty).
  * REAL prod slugs only, verified in test-past-knee.ts.
  */
 const KNEE_FRIENDLY_PRIMARIES: Partial<Record<Pattern, string[]>> = {
   squat: [
     "goblet-squat",
     "box-squat",
+    "bodyweight-squat",
     "leg-press",
     "split-squat-with-dumbbells",
   ],
@@ -165,12 +176,18 @@ function isKneeFriendlyPrimary(ex: CandidateExercise): boolean {
 /**
  * Rank knee-friendly exercises higher than others for past-knee users.
  * Wall-sit gets NO bonus in primary slots (not a primary), but gets bonus in swaps.
+ * Item 15: Barbell back squat gets penalty in early slots (shouldn't lead).
  * Returns a bonus score (add to existing score).
  */
-export function kneeFriendlyBonus(ex: CandidateExercise, slotIndex: number): number {
+export function kneeFriendlyBonus(ex: CandidateExercise, slotIndex: number, hasPastKnee: boolean): number {
   // Wall-sit: never a primary (heavy penalty in first 4 slots)
   if (ex.slug === "wall-sit" && slotIndex <= 3) {
     return -100; // Heavy penalty to prevent selection as primary
+  }
+  
+  // Item 15: Barbell back squat penalty for past knee in primary slots (shouldn't lead)
+  if (hasPastKnee && ex.slug === "barbell-squat" && slotIndex <= 1 && ex.movement_pattern === "squat") {
+    return -20; // Penalty to make goblet/box squat lead instead
   }
   
   // Main slots (0-3) get preference for knee-friendly primaries

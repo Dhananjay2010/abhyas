@@ -194,6 +194,7 @@ export function rankAlternatives<T extends ExerciseRow>(
     exercise: T; 
     patternRank: number;
     pastKneeTier: number;
+    squatPriority: number;
     equipmentScore: number;
     primaryScore: number; 
     impactPenalty: number;
@@ -303,10 +304,22 @@ export function rankAlternatives<T extends ExerciseRow>(
       ? pastKneeLungeTier(candidate)
       : 999;
     
+    // Item 15: Past-knee squat ordering (barbell-squat after goblet, box, bodyweight, leg-press)
+    let squatPriority = 0;
+    if (hasPastKnee && current.movement_pattern === "squat" && candidate.movement_pattern === "squat") {
+      const preferredSquats = ["goblet-squat", "box-squat", "bodyweight-squat", "leg-press"];
+      if (preferredSquats.includes(candidate.slug)) {
+        squatPriority = -10; // High priority
+      } else if (candidate.slug === "barbell-squat") {
+        squatPriority = 10; // Lower priority (comes after preferred)
+      }
+    }
+    
     filtered.push({ 
       exercise: candidate, 
       patternRank,
       pastKneeTier,
+      squatPriority,
       equipmentScore,
       primaryScore,
       impactPenalty,
@@ -315,21 +328,23 @@ export function rankAlternatives<T extends ExerciseRow>(
     });
   }
   
-  // Sort: pattern priority, past-knee tier, equipment fit, primary muscle, low impact penalty, generator score, hash
+  // Sort: pattern priority, past-knee tier, squat priority, equipment fit, primary muscle, low impact penalty, generator score, hash
   filtered.sort((a, b) => {
     // 1. Same pattern first
     if (a.patternRank !== b.patternRank) return a.patternRank - b.patternRank;
     // 2. Past-knee lunge tier (lower tier = higher priority)
     if (a.pastKneeTier !== b.pastKneeTier) return a.pastKneeTier - b.pastKneeTier;
-    // 3. Equipment fit (higher = better)
+    // 3. Item 15: Past-knee squat priority (lower = better)
+    if (a.squatPriority !== b.squatPriority) return a.squatPriority - b.squatPriority;
+    // 4. Equipment fit (higher = better)
     if (b.equipmentScore !== a.equipmentScore) return b.equipmentScore - a.equipmentScore;
-    // 4. Primary muscle match
+    // 5. Primary muscle match
     if (b.primaryScore !== a.primaryScore) return b.primaryScore - a.primaryScore;
-    // 5. Avoid high-impact
+    // 6. Avoid high-impact
     if (a.impactPenalty !== b.impactPenalty) return a.impactPenalty - b.impactPenalty;
-    // 5. Generator score
+    // 7. Generator score
     if (b.genScore !== a.genScore) return b.genScore - a.genScore;
-    // 6. Hash tiebreak
+    // 8. Hash tiebreak
     return a.tieBreak - b.tieBreak;
   });
   

@@ -64,6 +64,14 @@ const EXPECTED_EXCLUDED_SLUGS = [
   // Full-depth squats
   "barbell-full-squat",
   
+  // Item 15: Banned squats for past knee (deficit deadlift, hack squat, Smith squat, front squat)
+  "deficit-deadlift",
+  "barbell-hack-squat",
+  "smith-machine-squat",
+  "front-barbell-squat",
+  "front-squat-clean-grip",
+  "front-squats-with-two-kettlebells",
+  
   // Explosive loaded knee-flexion moves (speed/dynamic squats)
   "speed-box-squat",
   "speed-squats",
@@ -651,7 +659,7 @@ console.log("\n8. Item 14: Monotonicity test (every past-knee-banned is also cur
   
   // For every past-knee-banned slug, check it's also banned for current knee
   // (either via past-knee list OR current-knee-only list OR contraindications)
-  for (const slug of Array.from(pastKneeExcluded)) {
+  for (const slug of Array.from(pastKneeExcluded) as string[]) {
     const ex = bySlug.get(slug);
     if (!ex) {
       check(`${slug} exists in catalogue`, false);
@@ -672,6 +680,102 @@ console.log("\n8. Item 14: Monotonicity test (every past-knee-banned is also cur
   }
   
   console.log(`    Checked ${pastKneeExcluded.size} past-knee exclusions for monotonicity`);
+}
+
+console.log("\n9. Item 15: Past-knee squat rule - banned exercises");
+{
+  const { getPastKneeExcludedSlugs } = require("../src/lib/program/past-knee");
+  const pastKneeExcluded = getPastKneeExcludedSlugs();
+  
+  // Banned for past knee (and current knee via monotonicity)
+  const item15Banned = ["deficit-deadlift", "barbell-hack-squat", "smith-machine-squat", 
+                        "front-barbell-squat", "front-squat-clean-grip", "front-squats-with-two-kettlebells"];
+  
+  for (const slug of item15Banned) {
+    check(`Item 15: ${slug} in past-knee exclusions`, pastKneeExcluded.has(slug));
+    
+    const ex = bySlug.get(slug);
+    if (ex) {
+      const pastKneeInput = base({
+        currentInjuryRegions: [],
+        anyKneeInjury: true,
+        equipmentIds: ex.equipment_ids.length > 0 ? ex.equipment_ids : ["barbell"],
+      });
+      const { isEligible } = require("../src/lib/program/generate");
+      check(`Item 15: ${slug} BANNED for past knee`, !isEligible(ex, pastKneeInput));
+    }
+  }
+  
+  // Allowed for past knee
+  const item15Allowed = ["goblet-squat", "box-squat", "bodyweight-squat", "leg-press", "barbell-squat"];
+  for (const slug of item15Allowed) {
+    check(`Item 15: ${slug} NOT in past-knee exclusions`, !pastKneeExcluded.has(slug));
+    
+    const ex = bySlug.get(slug);
+    if (ex) {
+      const pastKneeInput = base({
+        currentInjuryRegions: [],
+        anyKneeInjury: true,
+        equipmentIds: ex.equipment_ids.length > 0 ? ex.equipment_ids : ["barbell", "squat_rack"],
+      });
+      const { isEligible } = require("../src/lib/program/generate");
+      check(`Item 15: ${slug} ALLOWED for past knee`, isEligible(ex, pastKneeInput));
+    }
+  }
+  
+  // Floor deadlift stays allowed
+  const floorDeadlift = bySlug.get("barbell-deadlift");
+  if (floorDeadlift) {
+    check(`Item 15: barbell-deadlift NOT in past-knee exclusions`, !pastKneeExcluded.has("barbell-deadlift"));
+    const pastKneeInput = base({
+      currentInjuryRegions: [],
+      anyKneeInjury: true,
+      equipmentIds: ["barbell"],
+    });
+    const { isEligible } = require("../src/lib/program/generate");
+    check(`Item 15: barbell-deadlift ALLOWED for past knee`, isEligible(floorDeadlift, pastKneeInput));
+  }
+}
+
+console.log("\n10. Item 15: Swap ordering (barbell-squat after preferred squats)");
+{
+  const gobletSquat = bySlug.get("goblet-squat");
+  if (!gobletSquat) {
+    check("goblet-squat exists", false);
+  } else {
+    // Get past-knee squat swaps
+    const pastKneeSwaps = rankAlternatives(
+      gobletSquat,
+      catalogue,
+      {
+        level: "intermediate",
+        availableEquipment: new Set(["barbell", "squat_rack", "dumbbell"]),
+        injuryRegions: [],
+        anyKneeInjury: true,
+        limit: 20,
+        scoreFn: (e) => 0,
+        tieBreakFn: (slug) => 0,
+      }
+    );
+    const swapSlugs = pastKneeSwaps.map(e => e.slug);
+    
+    // Check ordering: barbell-squat should come after box-squat, bodyweight-squat, leg-press if present
+    const barbellIdx = swapSlugs.indexOf("barbell-squat");
+    const boxIdx = swapSlugs.indexOf("box-squat");
+    const bodyweightIdx = swapSlugs.indexOf("bodyweight-squat");
+    const legPressIdx = swapSlugs.indexOf("leg-press");
+    
+    if (barbellIdx >= 0 && boxIdx >= 0) {
+      check("Item 15: box-squat before barbell-squat in swaps", boxIdx < barbellIdx,
+        `box at ${boxIdx}, barbell at ${barbellIdx}`);
+    }
+    if (barbellIdx >= 0 && bodyweightIdx >= 0) {
+      check("Item 15: bodyweight-squat before barbell-squat in swaps", bodyweightIdx < barbellIdx,
+        `bodyweight at ${bodyweightIdx}, barbell at ${barbellIdx}`);
+    }
+    
+    console.log(`    Past-knee squat swap top 10: ${swapSlugs.slice(0, 10).join(", ")}`);
+  }
 }
 
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);
