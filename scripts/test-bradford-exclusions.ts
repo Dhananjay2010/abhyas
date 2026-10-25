@@ -56,8 +56,9 @@ console.log("\n1. Pinned case: Standing Military Press swaps for uninjured full-
     level: "intermediate",
     availableEquipment: null,
     injuryRegions: [],
+    pastKneeInjury: false,
     limit: 10,
-    scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
+    scoreFn: (e) => score(e, wantCompound, "intermediate", "weights", false, 0),
     tieBreakFn: (slug) => hashString(`test-bradford:${slug}`),
   };
   
@@ -110,6 +111,7 @@ console.log("\n2. Profile grid: Bradford exercises never appear in generated pla
           hasAllEquipment: eqSet.hasAll,
           goal: "muscle_gain",
           currentInjuryRegions: injurySet,
+          pastKneeInjury: false,
           age: 30,
           bmi: null,
           daysPerWeek: 4,
@@ -183,8 +185,9 @@ console.log("\n3. Profile grid: Bradford exercises never appear in swap lists");
             level,
             availableEquipment: eqSet.ids ? new Set(eqSet.ids) : null,
             injuryRegions: injurySet,
+            pastKneeInjury: injurySet.includes("knee"),
             limit: 10,
-            scoreFn: (e) => score(e, wantCompound, level, "weights"),
+            scoreFn: (e) => score(e, wantCompound, level, "weights", injurySet.includes("knee"), 0),
             tieBreakFn: (slug) => hashString(`test-bradford:${exerciseSlug}:${slug}`),
           };
           
@@ -239,6 +242,7 @@ console.log("\n4. Around The Worlds contraindication: never appears for shoulder
               hasAllEquipment: eqSet.hasAll,
               goal,
               currentInjuryRegions: ["shoulder"],
+              pastKneeInjury: false,
               age: 30,
               bmi: null,
               daysPerWeek: days,
@@ -280,8 +284,9 @@ console.log("\n4. Around The Worlds contraindication: never appears for shoulder
                   level,
                   availableEquipment,
                   injuryRegions: ["shoulder"],
+                  pastKneeInjury: false,
                   limit: 5,
-                  scoreFn: (e) => score(e, wantCompound, level, "weights"),
+                  scoreFn: (e) => score(e, wantCompound, level, "weights", false, 0),
                   tieBreakFn: (slug) => hashString(`test-atw:${input.userId}:${slug}`),
                 };
                 
@@ -315,6 +320,7 @@ console.log("\n4. Around The Worlds contraindication: never appears for shoulder
     hasAllEquipment: true,
     goal: "muscle_gain",
     currentInjuryRegions: [],
+    pastKneeInjury: false,
     age: 30,
     bmi: null,
     daysPerWeek: 4,
@@ -341,6 +347,135 @@ console.log("\n4. Around The Worlds contraindication: never appears for shoulder
   console.log(`\n  ${aroundWorldsFailCount === 0 ? "✓" : "✗"} ${aroundWorldsPassCount}/${aroundWorldsPassCount + aroundWorldsFailCount} Around The Worlds checks clean`);
   passCount += aroundWorldsPassCount;
   failCount += aroundWorldsFailCount;
+}
+
+console.log("\n5. ATW not in EXCLUDED_EXERCISE_SLUGS (must remain reachable for non-shoulder users)");
+{
+  const atwInExcluded = EXCLUDED_EXERCISE_SLUGS.has(SHOULDER_CONTRAINDICATED_SLUG);
+  check("around-the-worlds NOT in EXCLUDED_EXERCISE_SLUGS", !atwInExcluded);
+}
+
+console.log("\n6. Positive grid: ATW reachable for NON-shoulder users in plans and swap lists");
+{
+  const nonShoulderInjuries: Array<{ name: string; injuries: Array<"wrist" | "knee"> }> = [
+    { name: "no-injury", injuries: [] },
+    { name: "wrist-only", injuries: ["wrist"] },
+    { name: "knee-past", injuries: [] }, // past-knee uses pastKneeInjury flag
+  ];
+  
+  let atwEligibleCount = 0;
+  let atwInPoolCount = 0;
+  let casesChecked = 0;
+  
+  const atwExercise = find(SHOULDER_CONTRAINDICATED_SLUG);
+  
+  for (const injuryCase of nonShoulderInjuries) {
+    const isPastKnee = injuryCase.name === "knee-past";
+    
+    const input: GeneratorInput = {
+      userId: `atw-positive-${injuryCase.name}`,
+      blockNumber: 1,
+      level: "intermediate",
+      equipmentIds: ["dumbbell"],
+      hasAllEquipment: false,
+      goal: "muscle_gain",
+      currentInjuryRegions: injuryCase.injuries,
+      pastKneeInjury: isPastKnee,
+      age: 30,
+      bmi: null,
+      daysPerWeek: 4,
+      yogaDaysPerWeek: 0,
+      primaryTrack: "weights",
+      preferredSessionMinutes: 75,
+      catalogue,
+    };
+    
+    casesChecked++;
+    
+    // Check if ATW is eligible for this profile
+    if (isEligible(atwExercise, input)) {
+      atwEligibleCount++;
+    }
+    
+    // Check if ATW would appear in the pool for swap lists (horizontal_press exercises)
+    const patterns = buildPatternList("horizontal_press", input.currentInjuryRegions.includes("knee"));
+    const rawPool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+    const pool = rawPool.filter((e) => isEligible(e, input));
+    
+    if (pool.some(e => e.slug === SHOULDER_CONTRAINDICATED_SLUG)) {
+      atwInPoolCount++;
+    }
+  }
+  
+  console.log(`  ATW eligible (not filtered out): ${atwEligibleCount}/${casesChecked}`);
+  console.log(`  ATW in eligible pool for swaps: ${atwInPoolCount}/${casesChecked}`);
+  check("ATW eligible for non-shoulder users", atwEligibleCount === casesChecked);
+  check("ATW in swap pool for non-shoulder users", atwInPoolCount === casesChecked);
+}
+
+console.log("\n7. Catch-all: no shoulder-injured plan or swap contains bradford|rocky");
+{
+  const shoulderInput: GeneratorInput = {
+    userId: "shoulder-catchall",
+    blockNumber: 1,
+    level: "intermediate",
+    equipmentIds: [],
+    hasAllEquipment: true,
+    goal: "muscle_gain",
+    currentInjuryRegions: ["shoulder"],
+    pastKneeInjury: false,
+    age: 30,
+    bmi: null,
+    daysPerWeek: 4,
+    yogaDaysPerWeek: 0,
+    primaryTrack: "weights",
+    preferredSessionMinutes: 75,
+    catalogue,
+  };
+  
+  const program = generateProgram(shoulderInput);
+  const allExercises = program.days.flatMap(day => 
+    day.exercises.map(e => catalogue.find(ex => ex.id === e.exerciseId)!)
+  ).filter(Boolean);
+  
+  const bradfordRockyRegex = /bradford|rocky/i;
+  const planViolations = allExercises.filter(e => bradfordRockyRegex.test(e.name));
+  
+  check("No bradford|rocky in shoulder-injured plans", planViolations.length === 0, 
+    planViolations.map(e => e.name).join(", "));
+  
+  // Check swaps too
+  const availableEquipment = null; // has all
+  let swapViolationCount = 0;
+  
+  for (const day of program.days) {
+    for (const ex of day.exercises) {
+      const currentExercise = catalogue.find(e => e.id === ex.exerciseId);
+      if (!currentExercise) continue;
+      
+      const patterns = buildPatternList(currentExercise.movement_pattern, false);
+      const rawPool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+      const pool = rawPool.filter((e) => isEligible(e, shoulderInput));
+      
+      const wantCompound = currentExercise.mechanic !== "isolation";
+      const ctx: AlternativesContext = {
+        level: shoulderInput.level,
+        availableEquipment,
+        injuryRegions: shoulderInput.currentInjuryRegions,
+        pastKneeInjury: false,
+        limit: 10,
+        scoreFn: (e) => score(e, wantCompound, shoulderInput.level, shoulderInput.primaryTrack, false, 0),
+        tieBreakFn: (slug) => hashString(`catchall:${slug}`),
+      };
+      
+      const alternatives = rankAlternatives(currentExercise, pool, ctx);
+      const violations = alternatives.filter(e => bradfordRockyRegex.test(e.name));
+      swapViolationCount += violations.length;
+    }
+  }
+  
+  check("No bradford|rocky in shoulder-injured swaps", swapViolationCount === 0,
+    `${swapViolationCount} swap list violations`);
 }
 
 console.log(`\n${failCount === 0 ? "✓" : "✗"} ${passCount}/${passCount + failCount} checks passed`);
