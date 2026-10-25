@@ -124,17 +124,22 @@ const LOWER_BODY: ReadonlySet<Pattern> = new Set<Pattern>([
  * Smallest sensible jump for this exercise, per SPEC section 6:
  * isolation +1.25 kg, upper compound +2.5 kg, lower compound +5 kg.
  * 
- * When equipmentIds is provided, returns the larger of the mechanic-based increment
- * and the equipment grid step to ensure barbell exercises never use sub-2.5 kg increments.
+ * When equipmentIds is provided AND contains loadable equipment, returns the larger 
+ * of the mechanic-based increment and the equipment grid step to ensure barbell 
+ * exercises never use sub-2.5 kg increments.
  */
 export function incrementFor(meta: ExerciseMeta, equipmentIds?: string[]): number {
   const mechanicIncrement = meta.mechanic === "isolation" ? 1.25 : 
     LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;
   
-  // If equipment is specified, ensure we never go below the equipment grid
+  // If equipment is specified and contains loadable equipment, 
+  // ensure we never go below the equipment grid
   if (equipmentIds && equipmentIds.length > 0) {
-    const equipGrid = equipmentGridStep(equipmentIds, 'kg');
-    return Math.max(mechanicIncrement, equipGrid);
+    const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
+    if (hasLoadable) {
+      const equipGrid = equipmentGridStep(equipmentIds, 'kg');
+      return Math.max(mechanicIncrement, equipGrid);
+    }
   }
   
   return mechanicIncrement;
@@ -145,16 +150,21 @@ export function incrementFor(meta: ExerciseMeta, equipmentIds?: string[]): numbe
  * Upper-body and isolation: 1.25 kg. Lower-body: 2.5 kg.
  * Never 5 kg, and never doubled for 'easy' feel.
  * 
- * When equipmentIds is provided, returns the larger of the pattern-based step
- * and the equipment grid to ensure proper snapping.
+ * When equipmentIds is provided AND contains loadable equipment, returns the larger 
+ * of the pattern-based step and the equipment grid to ensure proper snapping.
  */
 export function addedWeightStep(meta: ExerciseMeta, equipmentIds?: string[]): number {
   const patternStep = meta.mechanic === "isolation" ? 1.25 :
     LOWER_BODY.has(meta.movementPattern) ? 2.5 : 1.25;
   
+  // If equipment is specified and contains loadable equipment, 
+  // ensure we never go below the equipment grid
   if (equipmentIds && equipmentIds.length > 0) {
-    const equipGrid = equipmentGridStep(equipmentIds, 'kg');
-    return Math.max(patternStep, equipGrid);
+    const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
+    if (hasLoadable) {
+      const equipGrid = equipmentGridStep(equipmentIds, 'kg');
+      return Math.max(patternStep, equipGrid);
+    }
   }
   
   return patternStep;

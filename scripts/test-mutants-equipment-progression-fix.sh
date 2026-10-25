@@ -60,6 +60,7 @@ TESTS=(
   "npm run test:progression-real-path"
   "npm run test:msg-bodyweight-zero"
   "npm run test:med3-third-miss"
+  "npm run test:barbell-grid-snap"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
@@ -298,36 +299,61 @@ msg() {
 }
 test_mutant "MSG: remove 'currentWeight === 0' check" msg
 
-# SWAP: swap-prefill passes undefined equipmentIds  
+# SWAP: swap-prefill passes undefined instead of conditional equipmentIds  
 swap_prefill() {
   local file="src/lib/session/swap-prefill.ts"
-  local search='isBodyweight ? undefined : equipmentIds'
-  local count=$(grep -c "$search" "$file" || true)
+  # Current code: isBodyweight ? undefined : equipmentIds
+  # Mutant: just undefined
+  local count=$(grep -c 'isBodyweight ? undefined : equipmentIds' "$file" || true)
   if [ "$count" -ne 2 ]; then
     echo "ERROR: Pattern found $count times (expected 2)" >&2
     return 1
   fi
-  sed -i "s/isBodyweight ? undefined : equipmentIds/undefined/g" "$file"
+  sed -i 's/isBodyweight ? undefined : equipmentIds/undefined/g' "$file"
+  if cmp -s "$file" "$BACKUP_PROG"; then
+    echo "ERROR: SWAP did not change the file" >&2
+    return 1
+  fi
 }
 test_mutant "SWAP: undefined equipmentIds in swap-prefill" swap_prefill
 
-# BARBELL: incrementFor ignores equipmentIds
+# BARBELL: incrementFor ignores equipmentIds (removes loadable check and grid logic)
 barbell_grid() {
   local file="$PROG"
-  local search='export function incrementFor(meta: ExerciseMeta, equipmentIds?: string[]): number {'
-  local count=$(grep -Fc "$search" "$file" || true)
+  # Check the signature exists
+  local count=$(grep -Fc 'export function incrementFor(meta: ExerciseMeta, equipmentIds?: string[]): number {' "$file" || true)
   if [ "$count" -ne 1 ]; then
-    echo "ERROR: incrementFor signature not found" >&2
+    echo "ERROR: incrementFor signature not found ($count times)" >&2
     return 1
   fi
-  # Remove equipmentIds parameter and equipment grid logic
-  perl -0pi -e 's/(export function incrementFor\(meta: ExerciseMeta), equipmentIds\?: string\[\]\): number \{[^}]*const mechanicIncrement[^;]+;\s*\/\/ If equipment is specified.*?return mechanicIncrement;\s*\}\s*return mechanicIncrement;\s*\}/$1): number { if (meta.mechanic === "isolation") return 1.25; return LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5; }/s' "$file"
+  # Remove the entire hasLoadable conditional block
+  perl -0pi -e 's/(const mechanicIncrement[^;]+;\s*)\/\/ If equipment is specified and contains loadable equipment.*?return Math\.max\(mechanicIncrement, equipGrid\);\s*\}\s*\}/$1/s' "$file"
   if cmp -s "$file" "$BACKUP_PROG"; then
     echo "ERROR: BARBELL did not change the file" >&2
     return 1
   fi
 }
 test_mutant "BARBELL: incrementFor ignores equipment grid" barbell_grid
+
+# MED-3: No third-miss step-down
+med3() {
+  local file="$PROG"
+  # Look for the MED-3 block starting line
+  local start_line=$(grep -n '// MED-3: Third+ consecutive miss' "$file" | cut -d: -f1)
+  if [ -z "$start_line" ]; then
+    echo "ERROR: MED-3 comment not found" >&2
+    return 1
+  fi
+  # Remove lines 834-854 (the entire MED-3 block)
+  sed -i '834,854d' "$file"
+  # Add a comment at line 834
+  sed -i '833a\    // MUTANT: MED-3 removed' "$file"
+  if cmp -s "$file" "$BACKUP_PROG"; then
+    echo "ERROR: MED-3 did not change the file" >&2
+    return 1
+  fi
+}
+test_mutant "MED-3: no third-miss step-down" med3
 
 echo
 echo "==========================================="
