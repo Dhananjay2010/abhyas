@@ -244,126 +244,39 @@
     "test:pending-set-await": "tsx scripts/test-pending-set-await.ts",
     "test:runner-jsdom-wiring": "tsx scripts/test-runner-jsdom-wiring.tsx"
   },
-  "dependencies": [
-    [
-      "@sentry/nextjs",
-      "^11.9.0"
-    ],
-    [
-      "@supabase/ssr",
-      "^0.12.7"
-    ],
-    [
-      "@supabase/supabase-js",
-      "^2.109.0"
-    ],
-    [
-      "@upstash/ratelimit",
-      "^2.2.0"
-    ],
-    [
-      "@upstash/redis",
-      "^1.39.0"
-    ],
-    [
-      "next",
-      "16.4.3"
-    ],
-    [
-      "react",
-      "19.2.8"
-    ],
-    [
-      "react-dom",
-      "19.2.8"
-    ]
-  ],
-  "devDependencies": [
-    [
-      "@electric-sql/pglite",
-      "^0.5.11"
-    ],
-    [
-      "@tailwindcss/postcss",
-      "^4"
-    ],
-    [
-      "@testing-library/react",
-      "^16.3.3"
-    ],
-    [
-      "@testing-library/user-event",
-      "^14.6.8"
-    ],
-    [
-      "@types/jsdom",
-      "^21.1.7"
-    ],
-    [
-      "@types/node",
-      "^20"
-    ],
-    [
-      "@types/react",
-      "^19"
-    ],
-    [
-      "@types/react-dom",
-      "^19"
-    ],
-    [
-      "@types/semver",
-      "^7.8.0"
-    ],
-    [
-      "eslint",
-      "^9"
-    ],
-    [
-      "eslint-config-next",
-      "16.3.4"
-    ],
-    [
-      "jsdom",
-      "^26.1.0"
-    ],
-    [
-      "png-chunk-text",
-      "^1.0.0"
-    ],
-    [
-      "semver",
-      "^7.8.5"
-    ],
-    [
-      "sharp",
-      "^0.35.5"
-    ],
-    [
-      "tailwindcss",
-      "^4"
-    ],
-    [
-      "tsx",
-      "^4.23.13"
-    ],
-    [
-      "typescript",
-      "^5"
-    ],
-    [
-      "pg",
-      "^8.23.1"
-    ],
-    [
-      "@types/pg",
-      "^8.23.1"
-    ]
-  ],
-  "engines": [
-    [
-      "node",
-      ">=22.13.0 <23"
-    ]
-  ]
+  "dependencies": {
+    "@sentry/nextjs": "^11.9.0",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.109.0",
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
+    "next": "16.4.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.11",
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/semver": "^7.8.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.4",
+    "jsdom": "^26.1.0",
+    "png-chunk-text": "^1.0.0",
+    "semver": "^7.8.5",
+    "sharp": "^0.35.5",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.13",
+    "typescript": "^5",
+    "pg": "^8.23.1",
+    "@types/pg": "^8.23.1"
+  },
+  "engines": {
+    "node": ">=22.13.0 <23"
+  }
 }
