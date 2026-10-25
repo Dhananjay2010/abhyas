@@ -222,16 +222,17 @@ export default async function HistoryPage({
     const hasPendingExercise = hasPendingExerciseBySession.get(s.id) ?? false;
     const hasNoExercises = exercises.length === 0;
     
-    // A completed strength session counts as ended early when:
-    // 1. At least one exercise is still 'pending' AND logged working sets < planned, OR
-    // 2. It has 0 working sets (no exercises or all pending with 0 sets)
+    // Use shared helper to determine if session ended early
     const isStrength = !isBreathing && s.actual_type !== "yoga";
-    const endedEarly = 
-      (hasPendingExercise && 
-       plannedSets !== undefined && 
-       plannedSets > 0 && 
-       workingSetCount < plannedSets) ||
-      (isStrength && s.status === "completed" && workingSetCount === 0 && (hasPendingExercise || hasNoExercises));
+    const { isEndedEarly } = await import("@/lib/session/ended-early");
+    const endedEarly = isEndedEarly({
+      isStrength,
+      status: s.status,
+      hasPendingExercise,
+      plannedSets,
+      workingSetCount,
+      hasNoExercises,
+    });
 
     return {
       id: s.id,
