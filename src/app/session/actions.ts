@@ -184,9 +184,29 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const isDeloadWeek = week === program.deload_week;
 
   // ---- wave 2 -------------------------------------------------------------
-  // Create a new session and read the plan in parallel. The plan read does not
-  // depend on the session insert result, and running them sequentially adds an
-  // unnecessary round trip on the button the user is waiting on.
+  // Case C: Idempotent session start - check for existing in_progress session first
+  const { data: existingInProgressSessions } = await supabase
+    .from("sessions")
+    .select("id, status, local_date, actual_type")
+    .eq("user_id", user.id)
+    .eq("local_date", today)
+    .eq("status", "in_progress");
+
+  if (existingInProgressSessions && existingInProgressSessions.length > 0) {
+    // An in_progress session already exists for this user + date, return it (idempotent)
+    return { ok: true, data: { sessionId: existingInProgressSessions[0].id } };
+  }
+
+  // L3: Before inserting, close stale sessions from other dates. A stale tab from yesterday
+  // that hasn't reloaded Today (so the loader's closeStaleSessions never ran) would otherwise
+  // hit 23505 and resume into yesterday's session with an 8-hour clock. closeStaleSessions
+  // applies #111's 6h inactivity rule, so calling it is safe for timezone shifts.
+  const staleSessions = (openRes.data ?? []).filter(s => s.local_date !== today);
+  if (staleSessions.length > 0) {
+    await closeStaleSessions(supabase, staleSessions, today);
+  }
+
+  // No existing in_progress session, create a new one and read the plan
   const [insertResult, plannedRes] = await Promise.all([
     startSessionCore(supabase, user.id, {
       user_id: user.id,

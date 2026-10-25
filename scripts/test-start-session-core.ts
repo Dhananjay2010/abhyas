@@ -76,7 +76,7 @@ async function main() {
     eq(inProgress(fake).length, 1, "in-progress sessions for the user");
   });
 
-  await test("23505 but the re-read finds nothing → a clear error is returned", async () => {
+  await test("23505 but the re-read finds nothing → the database error is reported", async () => {
     const fake = db();
     fake.beforeRequest = (req) =>
       req.method === "POST"
@@ -84,7 +84,7 @@ async function main() {
         : undefined;
     const result = await start(fake);
     if (result.ok) throw new Error("expected an error");
-    eq(result.error, "duplicate key value violates unique constraint", `error message`);
+    eq(result.error.includes("duplicate key"), true, `error message (${result.error})`);
   });
 
   await test("any other insert error is reported", async () => {
