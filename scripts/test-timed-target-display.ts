@@ -385,5 +385,70 @@ check("Swap recomputes repsMax", swappedExercise.repsMax === 18);
 check("Swap keeps workingWeightKg", swappedExercise.workingWeightKg === originalExercise.workingWeightKg);
 check("Swap keeps suggestedWeightKg", swappedExercise.suggestedWeightKg === originalExercise.suggestedWeightKg);
 
+// ============================================================================
+// Part 6: Swap with different progress scenarios
+// ============================================================================
+console.log("\n--- Part 6: Swap with progress scenarios ---\n");
+
+// Swap to bodyweight exercise with stored target (16 reps)
+const swapToBodyweightData: {
+  readonly id: string;
+  readonly name: string;
+  readonly cue: string | null;
+  readonly metric: "reps";
+  readonly primary_muscles: readonly ("chest" | "triceps")[];
+  readonly equipment_ids: readonly string[];
+} = {
+  id: "ex-wide-pushup",
+  name: "Push-up Wide",
+  cue: "Hands wider than shoulders",
+  metric: "reps",
+  primary_muscles: ["chest", "triceps"],
+  equipment_ids: [],
+};
+const bodyweightSwapProgress: ProgressInput = {
+  current_working_weight_kg: null,
+  current_target_reps: 16,
+};
+
+const bodyweightSwapped = applySwap(originalExercise, swapToBodyweightData, bodyweightSwapProgress, true);
+check("Swap to bodyweight with stored 16 → min=16", bodyweightSwapped.repsMin === 16);
+check("Swap to bodyweight with stored 16 → max=16", bodyweightSwapped.repsMax === 16);
+
+// Swap to loaded exercise (barbell) → uses plan range
+const swapToLoadedData: {
+  readonly id: string;
+  readonly name: string;
+  readonly cue: string | null;
+  readonly metric: "reps";
+  readonly primary_muscles: readonly ("chest" | "triceps")[];
+  readonly equipment_ids: readonly string[];
+} = {
+  id: "ex-barbell-bench",
+  name: "Barbell Bench Press",
+  cue: null,
+  metric: "reps",
+  primary_muscles: ["chest", "triceps"],
+  equipment_ids: ['barbell'],
+};
+const loadedSwapProgress: ProgressInput = {
+  current_working_weight_kg: 60,
+  current_target_reps: 16,
+};
+
+const loadedSwapped = applySwap(originalExercise, swapToLoadedData, loadedSwapProgress, true);
+check("Swap to loaded exercise → uses plan min", loadedSwapped.repsMin === originalExercise.repsMin);
+check("Swap to loaded exercise → uses plan max", loadedSwapped.repsMax === originalExercise.repsMax);
+
+// Swap with no progress row → uses plan range
+const noProgressSwapped = applySwap(originalExercise, swapToBodyweightData, undefined, true);
+check("Swap with no progress → uses plan min", noProgressSwapped.repsMin === originalExercise.repsMin);
+check("Swap with no progress → uses plan max", noProgressSwapped.repsMax === originalExercise.repsMax);
+
+// Swap with remembersWeights=false → uses plan range
+const dailyMenuSwapped = applySwap(originalExercise, swapToBodyweightData, bodyweightSwapProgress, false);
+check("Swap with remembersWeights=false → uses plan min", dailyMenuSwapped.repsMin === originalExercise.repsMin);
+check("Swap with remembersWeights=false → uses plan max", dailyMenuSwapped.repsMax === originalExercise.repsMax);
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

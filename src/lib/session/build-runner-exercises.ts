@@ -75,7 +75,7 @@ export type RunnerExerciseOutput = {
     weightKg: number | null;
     durationSeconds: number | null;
   }[];
-  lastLoggedAt: string | null;
+  lastLoggedAt?: string | null;
 };
 
 /**

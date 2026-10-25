@@ -752,6 +752,9 @@ export type SwapResult = {
   repsMin: number | null;
   repsMax: number | null;
   equipmentIds: string[];
+  /** Progress data for the replacement exercise (null if no row exists) */
+  currentTargetReps?: number | null;
+  currentWorkingWeightKg?: number | null;
 };
 
 export async function swapExercise(input: {
@@ -763,7 +766,7 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes, settingsRes, progressRes] = await Promise.all([
     supabase
       .from("session_exercises")
       .select("exercise_id, metric, planned_reps_min, planned_reps_max")
@@ -785,6 +788,13 @@ export async function swapExercise(input: {
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
+    supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
+    supabase
+      .from("exercise_progress")
+      .select("current_target_reps, current_working_weight_kg")
+      .eq("user_id", user.id)
+      .eq("exercise_id", input.newExerciseId)
+      .maybeSingle(),
   ]);
 
   const current = currentRes.data;
@@ -794,6 +804,10 @@ export async function swapExercise(input: {
   const metric = metricOf(replacement);
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
+  
+  // Respect planning_mode for progress data (same as page.tsx)
+  const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
+  const progress = remembersWeights ? progressRes.data : null;
 
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range
@@ -836,7 +850,17 @@ export async function swapExercise(input: {
   // hold button with the range that was just written.
   return error
     ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds } };
+    : { 
+        ok: true, 
+        data: { 
+          metric, 
+          repsMin, 
+          repsMax, 
+          equipmentIds,
+          currentTargetReps: progress?.current_target_reps ?? null,
+          currentWorkingWeightKg: progress?.current_working_weight_kg ?? null,
+        } 
+      };
 }
 
 
