@@ -162,22 +162,17 @@ async function main() {
     const fake = db();
     const exercises = sampleExercises("session-conflict");
 
-    let upsertOptions: unknown = null;
+    let isUpsert = false;
     fake.beforeRequest = (req) => {
       if (req.method === "POST" && req.table === "session_exercises") {
-        const bodyArray = Array.isArray(req.body) ? req.body : [];
-        upsertOptions = bodyArray.length > 1 ? bodyArray[1] : null;
+        isUpsert = req.prefer.includes("resolution=ignore-duplicates");
       }
     };
 
     await insertSessionExercises(fake.client, exercises);
 
-    if (!upsertOptions || typeof upsertOptions !== "object") {
-      throw new Error("No upsert options captured");
-    }
-    const opts = upsertOptions as Record<string, unknown>;
-    if (!opts.onConflict || opts.ignoreDuplicates !== true) {
-      throw new Error(`Expected onConflict + ignoreDuplicates=true, got: ${JSON.stringify(opts)}`);
+    if (!isUpsert) {
+      throw new Error("Expected upsert with ignoreDuplicates (resolution=ignore-duplicates in Prefer header)");
     }
   });
 
