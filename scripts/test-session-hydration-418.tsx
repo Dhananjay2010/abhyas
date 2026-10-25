@@ -129,14 +129,9 @@ check(
 console.log("\n--- Testing FIXED version (should match) ---\n");
 
 // Reset navigator to undefined for server simulation
-type GlobalWithOptional = typeof global & {
-  navigator?: unknown;
-  document?: unknown;
-  window?: unknown;
-};
-delete (global as GlobalWithOptional).navigator;
-delete (global as GlobalWithOptional).document;
-delete (global as GlobalWithOptional).window;
+Reflect.deleteProperty(global, "navigator");
+Reflect.deleteProperty(global, "document");
+Reflect.deleteProperty(global, "window");
 
 const serverHtmlFixed = renderToString(
   React.createElement(CapabilityNoteFixed, { vibrateEnabled: true })
