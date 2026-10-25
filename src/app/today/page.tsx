@@ -555,6 +555,13 @@ export default async function TodayPage() {
             <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
               Session complete. Well done.
             </p>
+          ) : strengthOpen && strengthOpen.local_date && strengthOpen.local_date !== localToday && strengthOpen.id ? (
+            <Link
+              href={`/session/${strengthOpen.id}`}
+              className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+            >
+              Resume session
+            </Link>
           ) : (
             /*
               "Resume" only once something has actually been started. A day
