@@ -406,4 +406,61 @@ assert(
   "P-MISSED-ANY: Veteran user doesn't get 'Welcome to your first workout'"
 );
 
+console.log("\n=== Test 9: P-REBUILD - Completed workout, then rebuild block ===\n");
+
+// User finished a workout today, then rebuilt the block (new program_id).
+// Today must show strengthDone=true, not offer Start or missed prompt.
+const rebuildInput = {
+  ...baseInput,
+  localToday: "2026-01-12", // Monday
+  yesterday: "2026-01-11", // Sunday
+  todaySessionsRes: {
+    data: [
+      {
+        id: "old-session",
+        local_date: "2026-01-12",
+        status: "completed",
+        actual_type: "weights" as const,
+        program_id: "old-program-id", // Different from current program
+        program_day_id: "old-day-1",
+        started_at: "2026-01-12T10:00:00Z",
+        created_at: "2026-01-12T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  allSessionsRes: {
+    data: [
+      {
+        local_date: "2026-01-12",
+        status: "completed",
+        actual_type: "weights" as const,
+        program_day_id: "old-day-1",
+        started_at: "2026-01-12T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  sessionExercisesRes: {
+    data: [],
+    error: null,
+  },
+};
+
+const result9 = buildPage(rebuildInput);
+
+assert(
+  result9.strengthDone === true,
+  "P-REBUILD: Completed strength session (old program_id) counts as strengthDone"
+);
+
+assert(
+  result9.todayState.missedYesterday === false,
+  "P-REBUILD: No false missed prompt after rebuild"
+);
+
 console.log("\n✅ All buildPage tests passed!\n");

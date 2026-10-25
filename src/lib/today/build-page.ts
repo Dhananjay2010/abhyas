@@ -209,9 +209,9 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
     yesterdayProgramSessions
   );
 
-  // Today's sessions (filtered to today's date and current program)
+  // Today's sessions (filtered to today's date only)
   const todaySessions = todaySessionsRes.data?.filter(
-    (s) => s.local_date === localToday && s.program_id === program.id
+    (s) => s.local_date === localToday
   ) ?? [];
 
   // Determine today's scheduled day from the template
