@@ -8,6 +8,8 @@
 import type { Result } from "@/app/session/actions";
 import { SESSION_EXPIRED_CODE } from "@/lib/auth/session-expired";
 
+export { SESSION_EXPIRED_CODE };
+
 /**
  * Resolve auth for a server action.
  * 

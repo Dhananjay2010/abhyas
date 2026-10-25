@@ -262,6 +262,7 @@ export function createPendingSetController(config: {
       }
 
       const remaining = loadPendingSets(storage, userId, sessionId, deps);
+      
       setState({
         pending: remaining,
         expired: remaining.length > 0 && authFailed,
@@ -280,7 +281,6 @@ export function createPendingSetController(config: {
     if (loaded.length > 0) {
       setState({
         pending: loaded,
-        expired: true,
       });
       replay();
     }
