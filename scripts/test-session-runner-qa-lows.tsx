@@ -82,6 +82,8 @@ const baseExercise = (id: string, name: string): RunnerExercise => ({
   metric: "reps" as const,
   primaryMuscles: [],
   plannedSets: 3,
+  plannedRepsMin: 8,
+  plannedRepsMax: 12,
   repsMin: 8,
   repsMax: 12,
   restSeconds: 90,
@@ -101,7 +103,7 @@ const defaultActions: SessionActions = {
   finishSession: async () => ({ ok: true }),
   abandonSession: async () => ({ ok: true }),
   findAlternatives: async () => ({ ok: true, data: [] }),
-  swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
+  swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
   refreshAfterSession: async () => ({ ok: true }),
   planDay: async () => ({ ok: true }),
 };
