@@ -107,12 +107,14 @@ async function main() {
           if (!ex) continue;
           
           // Check if exercise is excluded for past-knee
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if (isExcludedForPastKnee(ex as any)) {
             profileMismatches++;
             pastKneeBannedOffered.push(`${name} | ${current.slug} offered banned ${ex.slug}`);
           }
           
           // Check if Olympic lift is offered (should be excluded for past-knee by Decision a)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if (isOlympicLift(ex as any)) {
             profileMismatches++;
             pastKneeBannedOffered.push(`${name} | ${current.slug} offered banned Olympic lift ${ex.slug}`);
