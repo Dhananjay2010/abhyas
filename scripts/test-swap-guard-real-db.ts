@@ -173,6 +173,7 @@ async function runTests() {
     days_per_week: 3,
     deload_week: 4,
     started_on: "2026-10-01",
+    ends_on: "2026-11-17",
     status: "active",
   });
   check("Program created for user 1", !programError1, programError1?.message);
