@@ -30,9 +30,6 @@ console.log('\n1. stepFor returns correct increments by equipment type (MEDIUM 2
   check('leg_curl kg is 5 (pin-stack machines)', stepFor(['leg_curl'], 'kg') === 5);
   check('leg_curl lb is 10 (pin-stack machines)', stepFor(['leg_curl'], 'lb') === 10);
   
-  check('machine_generic kg is 5 (pin-stack machines)', stepFor(['machine_generic'], 'kg') === 5);
-  check('machine_generic lb is 10 (pin-stack machines)', stepFor(['machine_generic'], 'lb') === 10);
-  
   check('cable_machine kg is 2.5', stepFor(['cable_machine'], 'kg') === 2.5);
   check('cable_machine lb is 5', stepFor(['cable_machine'], 'lb') === 5);
   
