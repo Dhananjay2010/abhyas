@@ -787,7 +787,10 @@ export function SessionRunner({
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>
         <p className="mt-2 text-accent">
-          {current.plannedSets} sets × {current.repsMin}–{current.repsMax}
+          {current.plannedSets} sets ×{" "}
+          {current.repsMin === current.repsMax
+            ? current.repsMin
+            : `${current.repsMin}–${current.repsMax}`}
           {isTimed ? "s" : " reps"}
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
