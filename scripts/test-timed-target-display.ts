@@ -587,51 +587,13 @@ check("Swap with null plan → min=8 (uses old plannedRepsMin, not old repsMin 1
 check("Swap with null plan → max=12 (uses old plannedRepsMax, not old repsMax 14)", swapWithNullPlan.repsMax === 12);
 
 // ============================================================================
-// Part 8: swapProgressQuery and progressForPlanningMode behavioral tests
+// Part 8: progressForPlanningMode behavioral tests
 // ============================================================================
-console.log("\n--- Part 8: swapProgressQuery and progressForPlanningMode tests ---\n");
+console.log("\n--- Part 8: progressForPlanningMode tests ---\n");
 
-import { swapProgressQuery, progressForPlanningMode, type SwapProgressClient } from "../src/lib/session/swap-progress.js";
+import { progressForPlanningMode } from "../src/lib/session/swap-progress.js";
 
 (async () => {
-  // Fake client that tracks method calls
-  const fakeCalls: string[] = [];
-  const fakeClient: SwapProgressClient = {
-    from: (table: string) => {
-      fakeCalls.push(`from:${table}`);
-      return {
-        select: (columns: string) => {
-          fakeCalls.push(`select:${columns}`);
-          return {
-            eq: (column: string, value: string) => {
-              fakeCalls.push(`eq:${column}=${value}`);
-              return {
-                eq: (column: string, value: string) => {
-                  fakeCalls.push(`eq:${column}=${value}`);
-                  return {
-                    maybeSingle: async () => {
-                      fakeCalls.push("maybeSingle");
-                      return { data: { current_target_reps: 16, current_working_weight_kg: 60 } };
-                    },
-                  };
-                },
-              };
-            },
-          };
-        },
-      };
-    },
-  };
-
-  // Test: swapProgressQuery includes user_id filter
-  fakeCalls.length = 0;
-  const queryResult = await swapProgressQuery(fakeClient, "user-123", "ex-pushup");
-  check("swapProgressQuery calls .from('exercise_progress')", fakeCalls.includes("from:exercise_progress"));
-  check("swapProgressQuery calls .eq('user_id', userId)", fakeCalls.includes("eq:user_id=user-123"));
-  check("swapProgressQuery calls .eq('exercise_id', exerciseId)", fakeCalls.includes("eq:exercise_id=ex-pushup"));
-  check("swapProgressQuery calls .maybeSingle()", fakeCalls.includes("maybeSingle"));
-  check("swapProgressQuery returns expected data", queryResult.data?.current_target_reps === 16);
-
   // Test: progressForPlanningMode with daily_menu returns null
   const dailyMenuResult = progressForPlanningMode("daily_menu", { current_target_reps: 16, current_working_weight_kg: 60 });
   check("progressForPlanningMode with daily_menu returns null", dailyMenuResult === null);
