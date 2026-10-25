@@ -199,4 +199,10 @@ sed -i 's/if (input.pastKneeInjury && pattern === "lunge")/if (false \&\& input.
 run_mutant "Disable past-knee lunge plan pick" "src/lib/program/generate.ts" || true
 restore_file "src/lib/program/generate.ts"
 
+# Mutant 15: Re-add level gate (block beginners from getting dumbbell-rear-lunge)
+restore_file "src/lib/program/generate.ts"
+sed -i '/NO level check: past-knee users/a\          if (e.level_min === "intermediate" && input.level === "beginner") return false;' src/lib/program/generate.ts
+run_mutant "Re-add level gate to dumbbell-rear-lunge pick" "src/lib/program/generate.ts" || true
+restore_file "src/lib/program/generate.ts"
+
 echo ""

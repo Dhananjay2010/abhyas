@@ -807,16 +807,15 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       const usedSet = i <= 3 ? usedToday : usedInBlock;
       
       // Past-knee: For lunge slots, prioritize dumbbell rear lunge when available
-      // Bypass contraindication check (rear lunge is safe for past-knee despite knee tag)
+      // Bypass contraindication check ONLY for dumbbell-rear-lunge (safe for past-knee despite knee tag)
+      // This is the only knee-contraindicated exercise past-knee users get in plan generation
       if (input.pastKneeInjury && pattern === "lunge") {
         const rearLunge = input.catalogue.find(e => {
           if (e.slug !== "dumbbell-rear-lunge") return false;
           if (usedSet.has(e.id)) return false;
           if (!e.tracks.includes(input.primaryTrack)) return false;
           
-          // Level check
-          if (e.level_min === "expert" && input.level === "beginner") return false;
-          if (e.level_min === "intermediate" && input.level === "beginner") return false;
+          // NO level check: past-knee users at ALL levels (including beginners) get rear lunge
           
           // Equipment check
           if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
