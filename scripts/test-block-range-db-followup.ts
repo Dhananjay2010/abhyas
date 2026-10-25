@@ -47,6 +47,11 @@ async function setupAuthSchema(pool: Pool) {
     AS $$
       SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid;
     $$;
+    
+    -- Grant necessary permissions
+    GRANT USAGE ON SCHEMA auth TO authenticated;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON auth.users TO authenticated;
+    GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
   `);
 }
 
