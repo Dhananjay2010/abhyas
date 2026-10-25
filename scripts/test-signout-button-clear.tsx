@@ -9,6 +9,7 @@ import { render, act, screen } from "@testing-library/react";
 import { SignOutButton } from "../src/app/settings/signout-button";
 import { savePendingSet, clearAllPendingSetsForUser } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
+import type { Storage } from "../src/lib/session/pending-set-retry";
 
 let passed = 0;
 let failed = 0;
@@ -96,16 +97,17 @@ Object.defineProperty(window, 'localStorage', {
   assert(fakeStorage.getItem("pending-sets:u1") !== null, "u1 pending sets exist before");
   assert(fakeStorage.getItem("pending-sets:u2") !== null, "u2 pending sets exist before");
   
-  const clearSets = async () => {
+  const clearSets = (storage: Storage, userId: string) => {
     callOrder.push("clearSets");
-    clearAllPendingSetsForUser(fakeStorage, "u1");
+    assert(userId === "u1", "clearSets called with correct userId u1");
+    clearAllPendingSetsForUser(storage, userId);
   };
   
   type SignOutAction = () => Promise<never>;
   
   const signOutAction: SignOutAction = async () => {
     callOrder.push("signOut");
-    return new Promise(() => {}) as Promise<never>;
+    return new Promise(() => {});
   };
   
   render(

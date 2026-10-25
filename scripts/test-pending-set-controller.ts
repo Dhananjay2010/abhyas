@@ -14,6 +14,19 @@ import type { Storage } from "../src/lib/session/pending-set-retry";
 import { storageKey } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
+function createDeferred<T>() {
+  let resolveFunc: ((value: T) => void) | undefined;
+  let rejectFunc: ((reason?: unknown) => void) | undefined;
+  const promise = new Promise<T>((resolve, reject) => {
+    resolveFunc = resolve;
+    rejectFunc = reject;
+  });
+  if (!resolveFunc || !rejectFunc) {
+    throw new Error("Deferred not initialized");
+  }
+  return { promise, resolve: resolveFunc, reject: rejectFunc };
+}
+
 function createStorage(): Storage {
   const store = new Map<string, string>();
   return {
@@ -179,11 +192,9 @@ async function testUnresolvedPromiseNotMarkedSaved() {
   const storage = createStorage();
   const sessionId = "session-789";
 
-  let resolveLogSet!: (value: Result) => void;
+  const logSetDeferred = createDeferred<Result>();
   const logSet: LogSetFunction = () => {
-    return new Promise<Result>((resolve) => {
-      resolveLogSet = resolve;
-    });
+    return logSetDeferred.promise;
   };
 
   const states: PendingSetState[] = [];
@@ -206,11 +217,13 @@ async function testUnresolvedPromiseNotMarkedSaved() {
     clientId: "client-4",
   });
 
-  await Promise.resolve();
+  // Wait for the action to start
+  await new Promise(resolve => setTimeout(resolve, 0));
 
   assert(!states.some((s) => s.pending.length === 0), "Not marked as saved while promise unresolved");
 
-  resolveLogSet({ ok: true });
+  // Now resolve the action
+  logSetDeferred.resolve({ ok: true });
 
   const result = await submitPromise;
   assertEqual(result.status, "saved", "Marked as saved only after promise resolves");

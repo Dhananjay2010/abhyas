@@ -239,7 +239,6 @@ async function test1b1d() {
   
   const logButtons = screen.getAllByRole("button", { name: /set [0-9]+ done/i });
   const logButton = logButtons[logButtons.length - 1];
-  console.log("  [DEBUG] Button text:", logButton.textContent);
   
   // Verify button is enabled
   const buttonDisabled = (logButton as HTMLButtonElement).disabled;
