@@ -352,9 +352,13 @@ async function runTests(): Promise<TestResult[]> {
       try {
         await userEvent.click(toggle);
 
+        // LOW fix: Use waitFor deterministically instead of timing
         await waitFor(() => {
-          const errorText = container.textContent?.includes("Couldn't save");
-          return errorText === true;
+          const hasError = container.textContent?.includes("Couldn't save");
+          const sessionPrompt = container.querySelector('[data-testid="session-expired-prompt"]');
+          const noSessionPrompt = !sessionPrompt;
+          // Wait until both conditions are met
+          return hasError && noSessionPrompt;
         }, { timeout: 3000 });
 
         const hasError = container.textContent?.includes("Couldn't save");

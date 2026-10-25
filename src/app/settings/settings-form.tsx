@@ -261,14 +261,15 @@ export function SettingsForm({
           updateInjuries: actions.updateInjuries,
         });
         
-        // H1b fix: Never clear stash if ops were unrecognized (L5 fix)
+        // LOW fix: Show error once for unrecognized ops, then clear the entire stash
+        // (recognized ops were already replayed successfully)
         if (unrecognizedOps.length > 0) {
           const errorMsg = `Some changes could not be restored: ${unrecognizedOps.join(', ')}`;
           setError(errorMsg);
-          return;
         }
         
-        // Only clear the stash after ALL operations succeed
+        // Clear the stash after all recognized operations succeed
+        // (unrecognized ops are also cleared here after showing the error)
         clearPendingChanges();
       } catch (err) {
         // If session expired during restore, keep the stash and show prompt
@@ -277,7 +278,11 @@ export function SettingsForm({
           return;
         }
         // L5 fix: For other errors, keep the stash and show inline error (don't throw to error boundary)
-        const errorMsg = err instanceof Error ? err.message : 'Failed to restore pending changes';
+        let errorMsg = err instanceof Error ? err.message : 'Failed to restore pending changes';
+        // LOW fix: Replace raw "Failed to fetch" with friendly message
+        if (errorMsg.toLowerCase().includes("failed to fetch") || errorMsg.toLowerCase().includes("network")) {
+          errorMsg = "Couldn't restore your changes. Check your connection and try again.";
+        }
         setError(errorMsg);
       }
     });
@@ -1036,8 +1041,9 @@ export function SettingsForm({
           onClick={() => {
             const newState = !s.hasAllEquipment;
             
-            // L1 fix: Don't save has_all=false with empty equipment array
+            // MEDIUM fix: If turning off has_all with no items, flip state and show hint but don't save yet
             if (!newState && s.equipmentIds.length === 0) {
+              setS(prev => ({ ...prev, hasAllEquipment: false }));
               setEquipmentHint("Pick at least one item; nothing changes until you do");
               return;
             }
@@ -1202,6 +1208,9 @@ export function SettingsForm({
                             return;
                           }
                           
+                          // MEDIUM fix: First item pick after has_all turned off - save both together
+                          const isFirstItemAfterHasAllOff = newState && s.equipmentIds.length === 0 && !s.hasAllEquipment;
+                          
                           // Optimistic update
                           setS(prev => ({ 
                             ...prev, 
@@ -1243,7 +1252,10 @@ export function SettingsForm({
                           // Atomic server save (set explicit state)
                           startTransition(async () => {
                             try {
-                              const result = await actions.setEquipmentItem({ equipmentId, enabled: newState });
+                              // MEDIUM fix: If first item after has_all off, save both together
+                              const result = isFirstItemAfterHasAllOff
+                                ? await actions.updateEquipment({ hasAll: false, equipmentIds: [equipmentId] })
+                                : await actions.setEquipmentItem({ equipmentId, enabled: newState });
                               
                               // Check for session expiration in result
                               if (isSessionExpired(result)) {

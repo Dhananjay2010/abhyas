@@ -55,23 +55,44 @@ async function setupAuthSchema(pool: Pool) {
     }
   }
   
-  // Check if auth.uid() already exists with Supabase's real definition
-  const { rows } = await pool.query(`
-    SELECT p.prosrc, p.proname
+  // Check if auth.uid() already exists - look for our test marker
+  const { rows: uidRows } = await pool.query(`
+    SELECT obj_description(p.oid, 'pg_proc') as comment
     FROM pg_proc p
     JOIN pg_namespace n ON p.pronamespace = n.oid
     WHERE n.nspname = 'auth' AND p.proname = 'uid'
   `);
   
-  if (rows.length > 0) {
-    // Check if it's the test stub (our definition) or real Supabase
-    const isTestStub = rows[0].prosrc.includes("current_setting('request.jwt.claim.sub'");
-    if (!isTestStub) {
+  if (uidRows.length > 0) {
+    // Check if it's the test stub (has our marker comment) or real Supabase
+    const hasTestMarker = uidRows[0].comment === 'abhyas-test-stub';
+    if (!hasTestMarker) {
       if (process.env.CI) {
-        console.error("\n❌ GUARD: auth.uid() exists with non-test definition (refusing to replace real Supabase auth)");
+        console.error("\n❌ GUARD: auth.uid() exists without test marker (refusing to replace real Supabase auth)");
         process.exit(1);
       } else {
-        console.log("\n⏭️  Skipping auth schema setup (auth.uid() already exists with non-test definition)");
+        console.log("\n⏭️  Skipping auth schema setup (auth.uid() already exists without test marker)");
+        return;
+      }
+    }
+  }
+  
+  // Check if auth.users table exists - also check for marker
+  const { rows: tableRows } = await pool.query(`
+    SELECT obj_description(c.oid, 'pg_class') as comment
+    FROM pg_class c
+    JOIN pg_namespace n ON c.relnamespace = n.oid
+    WHERE n.nspname = 'auth' AND c.relname = 'users'
+  `);
+  
+  if (tableRows.length > 0) {
+    const hasTestMarker = tableRows[0].comment === 'abhyas-test-stub';
+    if (!hasTestMarker) {
+      if (process.env.CI) {
+        console.error("\n❌ GUARD: auth.users exists without test marker (refusing to replace real Supabase schema)");
+        process.exit(1);
+      } else {
+        console.log("\n⏭️  Skipping auth schema setup (auth.users already exists without test marker)");
         return;
       }
     }
@@ -87,12 +108,16 @@ async function setupAuthSchema(pool: Pool) {
       created_at timestamptz DEFAULT now()
     );
     
+    COMMENT ON TABLE auth.users IS 'abhyas-test-stub';
+    
     CREATE OR REPLACE FUNCTION auth.uid()
     RETURNS uuid
     LANGUAGE sql STABLE
     AS $$
       SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid;
     $$;
+    
+    COMMENT ON FUNCTION auth.uid() IS 'abhyas-test-stub';
     
     -- Grant necessary permissions
     GRANT USAGE ON SCHEMA auth TO authenticated;
