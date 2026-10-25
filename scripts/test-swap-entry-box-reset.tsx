@@ -69,7 +69,7 @@ function makeActions(
     restVibrate: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
-    units: "metric" as const,
+  units: "metric" as const,
   };
 
 function check(label: string, pass: boolean, detail?: string) {
