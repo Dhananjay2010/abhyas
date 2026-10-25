@@ -118,7 +118,7 @@ console.log("\n▶ Testing manifest would work for all brands...");
 const brands = getAllBrands();
 for (const brand of brands) {
   assert(
-    brand.colors.bg.match(/^#[0-9a-fA-F]{6}$/),
+    brand.colors.bg.match(/^#[0-9a-fA-F]{6}$/) !== null,
     `Brand "${brand.id}" colors.bg should be a valid hex color`
   );
   

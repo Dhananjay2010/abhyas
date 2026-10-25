@@ -165,8 +165,8 @@ assert(
 
 // Must have early return for non-GET (not respondWith)
 assert(
-  swRouteSource.includes("return") && !swRouteSource.includes("respondWith") ||
-  swRouteSource.match(/if[^{]*method[^{]*{[^}]*return[^}]*}/),
+  (swRouteSource.includes("return") && !swRouteSource.includes("respondWith")) ||
+  swRouteSource.match(/if[^{]*method[^{]*{[^}]*return[^}]*}/) !== null,
   "Service worker must return early (not call respondWith) for non-GET requests"
 );
 
