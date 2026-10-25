@@ -158,11 +158,8 @@ echo ""
 # Mutation 4: Add around-the-worlds to EXCLUDED_EXERCISE_SLUGS (must be killed)
 echo "4. Mutation: Add around-the-worlds to EXCLUDED_EXERCISE_SLUGS (ATW global)"
 
-# Add ATW to the global exclusion set
-sed -i '/export const EXCLUDED_EXERCISE_SLUGS.*Set\(\[/,/\]\);/ {
-  /\]\);/i\
-  "around-the-worlds", \/\/ MUTANT: ATW should NOT be globally excluded
-}' "$EXCLUSIONS_FILE"
+# Add ATW to the global exclusion set using a simpler sed approach
+sed -i '/neck-press/a\  "around-the-worlds", // MUTANT: ATW should NOT be globally excluded' "$EXCLUSIONS_FILE"
 
 # Verify mutation changed the file
 if cmp -s "$EXCLUSIONS_FILE" "$EXCLUSIONS_BACKUP"; then
