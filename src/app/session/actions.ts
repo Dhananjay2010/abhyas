@@ -33,8 +33,8 @@ import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } fr
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
+import { progressForPlanningMode, resolveSwapResultPayload } from "@/lib/session/swap-progress";
 import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
-import { progressForPlanningMode } from "@/lib/session/swap-progress";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -834,11 +834,14 @@ export async function swapExercise(input: {
     );
 
   // Filter target reps for daily_menu users (they don't remember weights/targets)
-  const filteredProgress = progressForPlanningMode(
-    settingsRes.data?.planning_mode,
-    { current_target_reps: currentTargetReps, current_working_weight_kg: workingWeightKg }
-  );
-  const filteredTargetReps = filteredProgress?.current_target_reps ?? null;
+  const swapPayload = resolveSwapResultPayload({
+    planningMode: settingsRes.data?.planning_mode,
+    rawCurrentTargetReps: currentTargetReps,
+    rawWorkingWeightKg: workingWeightKg,
+    planRepsMin: repsMin,
+    planRepsMax: repsMax,
+  });
+  const filteredTargetReps = swapPayload.currentTargetReps;
 
   const { error } = await supabase
     .from("session_exercises")
