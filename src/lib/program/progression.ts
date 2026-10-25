@@ -435,6 +435,7 @@ export function evaluateProgression(input: {
   /**
    * Find the most common working-set weight (mode).
    * Ties go to the lower weight.
+   * Returns 0 if no weights logged.
    */
   function mostCommonWorkingWeight(sets: LoggedSet[]): number {
     const weights = sets.map(s => s.weightKg ?? 0).filter(w => w > 0);
@@ -456,6 +457,11 @@ export function evaluateProgression(input: {
     return modeWeight;
   }
   
+  // Progression base is what was ACTUALLY lifted this session (mode), not stored weight.
+  // Only use stored weight when there are no logged working sets.
+  const modeWeight = mostCommonWorkingWeight(working);
+  const baseWeight = modeWeight > 0 ? modeWeight : state.currentWorkingWeightKg;
+  
   const carried = { ...base };
 
   // Success requires the full set count AND the top of the rep range on each.
@@ -465,8 +471,7 @@ export function evaluateProgression(input: {
 
   if (succeeded) {
     // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    const fallbackWeight = mostCommonWorkingWeight(working);
-    const currentWeight = state.currentWorkingWeightKg ?? (fallbackWeight > 0 ? fallbackWeight : null);
+    const currentWeight = baseWeight;
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
       // Hold at current weight (don't snap down)
       return {
@@ -529,7 +534,7 @@ export function evaluateProgression(input: {
     // Bodyweight with added weight: smaller steps, never doubled.
     // Loaded exercises: with equipment, ONE grid step only (never doubled); without equipment, standard increment (doubled on easy).
     const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
-    const from = state.currentWorkingWeightKg ?? fallbackWeight;
+    const from = baseWeight;
     
     let next: number;
     if (equipmentIds && unit) {
@@ -593,8 +598,7 @@ export function evaluateProgression(input: {
 
   // Missed the target.
   const failures = state.consecutiveFailures + 1;
-  const fallbackWeight = mostCommonWorkingWeight(working);
-  const currentWeight = state.currentWorkingWeightKg ?? (fallbackWeight > 0 ? fallbackWeight : null);
+  const currentWeight = baseWeight;
 
   /**
    * Compute what two-miss back-off would produce for a given weight.

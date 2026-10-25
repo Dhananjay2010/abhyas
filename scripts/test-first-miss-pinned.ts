@@ -220,6 +220,7 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (metric, isolation) ===");
 // SMALLEST loadable >= 11.25 is 12.5 (next barbell step up)
 {
   const d = run({
+    sets: sets(4, 10, 13.75),
     equipmentIds: ["barbell"],
     unit: "kg",
     meta: CURL,  // isolation
@@ -232,6 +233,7 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (metric, isolation) ===");
 // Two misses at 13.75 kg WITHOUT equipment (isolation): same logic → 11.25 (no equipment snap)
 {
   const d = run({
+    sets: sets(4, 10, 13.75),
     equipmentIds: undefined,
     unit: undefined,
     meta: CURL,  // isolation
@@ -245,6 +247,7 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (imperial, isolation) ===");
 
 {
   const d = run({
+    sets: sets(4, 10, 13.75),
     equipmentIds: ["barbell"],
     unit: "lb",
     meta: CURL,  // isolation
@@ -256,6 +259,7 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (imperial, isolation) ===");
 
 {
   const d = run({
+    sets: sets(4, 10, 13.75),
     equipmentIds: undefined,
     unit: undefined,
     meta: CURL,  // isolation
@@ -336,12 +340,14 @@ const equipments: Array<{ ids: string[]; unit: WeightUnit }> = [
 for (const { ids, unit } of equipments) {
   for (const weight of testWeights) {
     const firstMiss = run({
+      sets: sets(4, 10, weight), // Use actual weight being tested
       equipmentIds: ids,
       unit,
       meta: BENCH,
       state: fresh({ currentWorkingWeightKg: weight, consecutiveFailures: 0 }),
     });
     const twoMiss = run({
+      sets: sets(4, 10, weight), // Use actual weight being tested
       equipmentIds: ids,
       unit,
       meta: BENCH,
@@ -374,6 +380,8 @@ console.log("\n=== NEVER-RAISE Tests ===");
 // KB 3 kg first miss: next bell down is 3 or stays at 3? Should never raise.
 {
   const d = run({
+    sets: sets(4, 10, 3),
+    sets: sets(4, 10, 3),
     equipmentIds: ["kettlebell"],
     unit: "kg",
     meta: CURL,
@@ -385,6 +393,8 @@ console.log("\n=== NEVER-RAISE Tests ===");
 // lat_pulldown isolation 3 kg first miss: never raise
 {
   const d = run({
+    sets: sets(4, 10, 3),
+    sets: sets(4, 10, 3),
     equipmentIds: ["lat_pulldown"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
@@ -396,6 +406,8 @@ console.log("\n=== NEVER-RAISE Tests ===");
 // lat_pulldown 3kg two-miss tests helper never-raise: target 2.5 snaps to 5kg > 3kg
 {
   const d = run({
+    sets: sets(4, 10, 3),
+    sets: sets(4, 10, 3),
     equipmentIds: ["lat_pulldown"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
@@ -407,6 +419,8 @@ console.log("\n=== NEVER-RAISE Tests ===");
 // lat_pulldown isolation 4.5 kg first miss: never raise
 {
   const d = run({
+    sets: sets(4, 10, 4.5),
+    sets: sets(4, 10, 4.5),
     equipmentIds: ["lat_pulldown"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
@@ -418,6 +432,7 @@ console.log("\n=== NEVER-RAISE Tests ===");
 // leg_extension isolation 30 kg first miss: never raise, should be loadable
 {
   const d = run({
+    sets: sets(4, 10, 30),
     equipmentIds: ["leg_extension"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "lunge" },
@@ -431,6 +446,7 @@ console.log("\n=== HOLD Tests ===");
 // Barbell isolation 12.5 first miss → hold
 {
   const d = run({
+    sets: sets(4, 10, 12.5),
     equipmentIds: ["barbell"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation" },
@@ -443,6 +459,7 @@ console.log("\n=== HOLD Tests ===");
 // KB press 48 two-miss → hold (cap at 40.7, largest bell < 48 is 40, but 40 < 40.7)
 {
   const d = run({
+    sets: sets(4, 10, 48),
     equipmentIds: ["kettlebell"],
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound", movementPattern: "vertical_press" },
@@ -455,6 +472,7 @@ console.log("\n=== HOLD Tests ===");
 // Barbell compound 10 first miss → hold (25% cut)
 {
   const d = run({
+    sets: sets(4, 10, 10),
     equipmentIds: ["barbell"],
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
@@ -473,6 +491,7 @@ console.log("\n=== Mutant-Killing Tests ===");
   // Dumbbell 12.5 kg, step to 10 kg = 2.5 kg cut = 20.0% exactly
   // With >, this should drop. With >=, this would hold.
   const d = run({
+    sets: sets(4, 10, 12.5),
     equipmentIds: ["dumbbell"],
     unit: "kg",
     meta: CURL,
@@ -497,6 +516,7 @@ console.log("\n=== Mutant-Killing Tests ===");
 {
   // Kettlebell at 16 kg: RAW 90% = 14.4, two-miss ceil to 16 → holds (Rule 2 clamp)
   const d = run({
+    sets: sets(4, 10, 16),
     equipmentIds: ["kettlebell"],
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
@@ -508,6 +528,7 @@ console.log("\n=== Mutant-Killing Tests ===");
 {
   // Kettlebell at 12 kg: RAW 90% = 10.8, two-miss ceil to 12 → holds (Rule 2 clamp)
   const d = run({
+    sets: sets(4, 10, 12),
     equipmentIds: ["kettlebell"],
     unit: "kg",
     meta: CURL,
@@ -559,6 +580,7 @@ console.log("\n=== THRESHOLD BEHAVIOR ===");
 // With 0.50 threshold: would drop (33% < 50%)
 {
   const d = run({
+    sets: sets(4, 10, 10),
     equipmentIds: ["dumbbell"],
     unit: "kg",
     meta: CURL,

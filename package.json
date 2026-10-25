@@ -213,6 +213,8 @@
     "test:increase-cap": "tsx scripts/test-increase-cap.ts",
     "test:message-weight-consistency": "tsx scripts/test-message-weight-consistency.ts",
     "test:kettlebell-success": "tsx scripts/test-kettlebell-success.ts",
+    "test:timed-hold-message": "tsx scripts/test-timed-hold-message.ts",
+    "test:undo-consistency": "tsx scripts/test-undo-consistency.ts",
     "test:working-weight-display": "tsx scripts/test-working-weight-display.ts",
     "test:working-weight-no-rounding": "tsx scripts/test-working-weight-no-rounding.ts",
     "test:first-miss-two-miss-invariant": "tsx scripts/test-first-miss-two-miss-invariant.ts"

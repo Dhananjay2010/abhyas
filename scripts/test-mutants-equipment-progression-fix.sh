@@ -18,6 +18,8 @@ TESTS=(
   "npm run test:increase-cap"
   "npm run test:message-weight-consistency"
   "npm run test:kettlebell-success"
+  "npm run test:timed-hold-message"
+  "npm run test:undo-consistency"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
@@ -153,6 +155,14 @@ m9() {
   sed -i '713s/candidateWeight = currentWeight;/candidateWeight = candidateWeight;/' "$PROG"
 }
 test_mutant "Allow overwriting holdReason=smallest" m9
+
+# M10: Restore stored-state base (revert mode-weight priority)
+m10() {
+  # Change: const baseWeight = modeWeight > 0 ? modeWeight : state.currentWorkingWeightKg;
+  # To:     const baseWeight = state.currentWorkingWeightKg ?? (modeWeight > 0 ? modeWeight : null);
+  sed -i 's/const baseWeight = modeWeight > 0 ? modeWeight : state.currentWorkingWeightKg;/const baseWeight = state.currentWorkingWeightKg ?? (modeWeight > 0 ? modeWeight : null);/' "$PROG"
+}
+test_mutant "Restore stored-state base (use stored weight over mode)" m10
 
 echo
 echo "==================================="

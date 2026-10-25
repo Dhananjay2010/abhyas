@@ -32,7 +32,7 @@ function check(desc: string, pass: boolean): void {
   }
 }
 
-console.log("\n=== Message Weight Consistency: Most Common Working Weight ===\n");
+console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n");
 
 // Case: 1x11@72.5 + 4x12@70, no prior row → mode is 70 kg (miss case)
 {
@@ -190,6 +190,104 @@ console.log("\n=== Message Weight Consistency: Most Common Working Weight ===\n"
   check("Hold at smallest: 1x10@7.5 + 4x11@5 → holds at mode 5 kg", withEquip.nextWorkingWeightKg === 5);
   check("  message includes '5 kg'", withEquip.message.includes("5 kg"));
   check("  outcome is hold", withEquip.outcome === "hold");
+}
+
+console.log("\n=== Progression Base: Actual Lifted Weight, Not Stored ===\n");
+
+// QA case: stored 14 + 4x12@30 → must progress from 30, not 14
+{
+  const sets = [
+    makeSet(12, 30),
+    makeSet(12, 30),
+    makeSet(12, 30),
+    makeSet(12, 30),
+  ];
+  
+  const result = evaluateProgression({
+    sets,
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 14, consecutiveFailures: 0 }),
+    isDeload: false,
+  });
+  
+  check("Stored 14 + 4x12@30 → progresses from 30 to 32.5 kg (not from 14)", result.nextWorkingWeightKg === 32.5);
+  check("  message includes '32.5 kg'", result.message.includes("32.5 kg"));
+  check("  outcome is progressed", result.outcome === "progressed");
+}
+
+// Case: stored 70 + 4x12@65 → must progress from 65
+{
+  const sets = [
+    makeSet(12, 65),
+    makeSet(12, 65),
+    makeSet(12, 65),
+    makeSet(12, 65),
+  ];
+  
+  const result = evaluateProgression({
+    sets,
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 70, consecutiveFailures: 0 }),
+    isDeload: false,
+  });
+  
+  check("Stored 70 + 4x12@65 → progresses from 65 to 67.5 kg (not from 70)", result.nextWorkingWeightKg === 67.5);
+  check("  message includes '67.5 kg'", result.message.includes("67.5 kg"));
+  check("  outcome is progressed", result.outcome === "progressed");
+}
+
+// Case: 1x11@72.5 + 4x12@70 with no prior row (already tested above, verify message)
+{
+  const sets = [
+    makeSet(12, 72.5),
+    makeSet(12, 70),
+    makeSet(12, 70),
+    makeSet(12, 70),
+    makeSet(12, 70),
+  ];
+  
+  const withEquip = evaluateProgression({
+    sets,
+    plannedSets: 5,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: null, consecutiveFailures: 0 }),
+    isDeload: false,
+  });
+  
+  check("No prior row: 5x12 (1@72.5, 4@70) → from mode 70 to 72.5 kg", withEquip.nextWorkingWeightKg === 72.5);
+  check("  message weight matches next (72.5 kg)", withEquip.message.includes("72.5 kg"));
+  
+  const noEquip = evaluateProgression({
+    sets,
+    plannedSets: 5,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: undefined,
+    unit: undefined,
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: null, consecutiveFailures: 0 }),
+    isDeload: false,
+  });
+  
+  check("No equipment: from mode 70 to 71.25 kg", noEquip.nextWorkingWeightKg === 71.25);
 }
 
 console.log("\n✅ All message weight consistency tests passed\n");

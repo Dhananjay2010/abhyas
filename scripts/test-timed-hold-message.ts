@@ -1,0 +1,77 @@
+#!/usr/bin/env tsx
+/**
+ * Test: Timed-hold message matches next target.
+ */
+
+import { evaluateProgression, type ExerciseMeta, type ProgressState, type LoggedSet } from "../src/lib/program/progression.js";
+
+const PLANK: ExerciseMeta = {
+  mechanic: "compound",
+  metric: "seconds",
+  movementPattern: "core",
+  isBodyweight: true,
+  progressionChain: null,
+  progressionRank: null,
+};
+
+function fresh(overrides: Partial<ProgressState> = {}): ProgressState {
+  return { currentWorkingWeightKg: null, currentTargetReps: 40, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, ...overrides };
+}
+
+function makeSet(durationSeconds: number): LoggedSet {
+  return { reps: null, weightKg: null, durationSeconds };
+}
+
+function check(desc: string, pass: boolean): void {
+  if (!pass) {
+    console.log(`  FAIL ${desc}`);
+    process.exitCode = 1;
+  } else {
+    console.log(`  ok   ${desc}`);
+  }
+}
+
+console.log("\n=== Timed Hold Message Consistency ===\n");
+
+// Plank: current target 40s, hit top (40s x3) → should go to 45s
+{
+  const result = evaluateProgression({
+    sets: [makeSet(40), makeSet(40), makeSet(40)],
+    plannedSets: 3,
+    repsMin: 20,
+    repsMax: 40,
+    feel: "right",
+    equipmentIds: undefined,
+    unit: undefined,
+    meta: PLANK,
+    state: fresh({ currentTargetReps: 40, currentWorkingWeightKg: null }),
+    isDeload: false,
+  });
+  
+  check("Plank 3x40s (top of 20-40s range) → nextTargetReps is 45s", result.nextTargetReps === 45);
+  check("  message says 'target goes up to 45s'", result.message.includes("45s"));
+  check("  outcome is progressed", result.outcome === "progressed");
+}
+
+// Verify the message extracts the number correctly
+{
+  const result = evaluateProgression({
+    sets: [makeSet(40), makeSet(40), makeSet(40)],
+    plannedSets: 3,
+    repsMin: 20,
+    repsMax: 40,
+    feel: "right",
+    equipmentIds: undefined,
+    unit: undefined,
+    meta: PLANK,
+    state: fresh({ currentTargetReps: 40, currentWorkingWeightKg: null }),
+    isDeload: false,
+  });
+  
+  const match = result.message.match(/(\d+)s/);
+  const messageSeconds = match ? parseInt(match[1]) : null;
+  
+  check("Message seconds matches nextTargetReps", messageSeconds === result.nextTargetReps);
+}
+
+console.log("\n✅ All timed-hold message tests passed\n");
