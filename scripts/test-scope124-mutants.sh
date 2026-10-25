@@ -142,8 +142,8 @@ run_mutant "10. Jump guard: lower-body check disabled" "$PAST_KNEE" \
   'const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m)) && false;' "$B"
 
 run_mutant "11. Current knee only: skip exclusions in swap ranking" "$ALT" \
-  'if (isExcludedForCurrentKneeOnly(candidate)) continue;' \
-  'if (isExcludedForCurrentKneeOnly(candidate) && false) continue;' "$B"
+  '(hasKneeInjury && (isExcludedForCurrentKneeOnly(candidate) || isExcludedForPastKnee(candidate)))' \
+  '(hasKneeInjury && (false || isExcludedForPastKnee(candidate)))' "$B"
 
 run_mutant "12. Core: skip validator result" "$CORE" \
   'if (!isValid) {' \
@@ -157,9 +157,17 @@ run_mutant "14. canSwapExercise: guard result ignored" "$ACTIONS" \
   'if (!guardResult.allowed) {' \
   'if (!guardResult.allowed && guardResult.error === "mutant: never matches") {' "$B"
 
-run_mutant "15. Thruster: re-allow for current knee (subset proof)" "$PAST_KNEE" \
-  'const CURRENT_KNEE_BANNED = new Set([' \
-  'const CURRENT_KNEE_BANNED = new Set(["kettlebell-thruster-mutant-to-keep-the-count",' test:swap-list-exhaustive
+run_mutant "15. Thruster (past-knee list): re-allow for current knee in swaps" "$ALT" \
+  '(hasKneeInjury && (isExcludedForCurrentKneeOnly(candidate) || isExcludedForPastKnee(candidate)))' \
+  '(hasKneeInjury && isExcludedForCurrentKneeOnly(candidate))' "$B"
+
+run_mutant "16. Subset leak: backfill current-knee lists after exclusions (subset proof)" "$ALT" \
+  'if (prExcluded && hasPastKnee) continue;' \
+  'if (prExcluded) continue;' "$X"
+
+run_mutant "17. Olympic lifts: re-allow for past-knee in swaps (past-knee ban check)" "$PAST_KNEE" \
+  'if (input.anyKneeInjury) return true;' \
+  'if (false) return true;' "$X"
 
 echo ""
 echo "──────────────────────────────────────────────────────────"

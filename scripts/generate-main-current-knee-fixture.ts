@@ -2,10 +2,11 @@
 /**
  * Generate scripts/fixtures/main-current-knee-swaps.json
  * 
- * Captures main e559b89e's findAlternatives output for current-knee profiles
- * to prove that PR #124 only removes exercises (subset), never adds.
- * 
- * Run: npm run generate:main-current-knee-fixture
+ * Captures main's findAlternatives output for current-injury profiles (no
+ * past knee) to prove that PR #124 only removes exercises (subset), never adds.
+ *
+ * Run ON A MAIN CHECKOUT (with scripts/helpers/{fake-swap-db,server-action-stubs,swap-scenario}.ts
+ * copied in): npx tsx scripts/generate-main-current-knee-fixture.ts
  */
 import { writeFileSync } from "node:fs";
 import { installServerActionStubs } from "./helpers/server-action-stubs";
@@ -18,7 +19,7 @@ const CURRENT_KNEE_PROFILES: Array<{ name: string; account: Account }> = [
   { name: "Current knee, intermediate, home", account: { level: "intermediate", equipment: ["dumbbell", "adjustable_bench", "pull_up_bar"], injuries: [{ body_region: "knee", severity: "current" }] } },
   { name: "Current shoulder, beginner, bodyweight", account: { level: "beginner", equipment: [], injuries: [{ body_region: "shoulder", severity: "current" }] } },
   { name: "Current wrist, expert, gym", account: { level: "expert", equipment: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine"], injuries: [{ body_region: "wrist", severity: "current" }] } },
-  { name: "Past knee + current shoulder, intermediate", account: { level: "intermediate", equipment: ["dumbbell", "kettlebell", "pull_up_bar"], injuries: [{ body_region: "knee", severity: "past" }, { body_region: "shoulder", severity: "current" }] } },
+  { name: "Current knee, expert, full gym", account: { level: "expert", equipment: ["barbell", "dumbbell", "kettlebell", "flat_bench", "adjustable_bench", "squat_rack", "pull_up_bar", "cable_machine", "machine_generic", "medicine_ball"], injuries: [{ body_region: "knee", severity: "current" }] } },
 ];
 
 async function main() {
@@ -42,10 +43,9 @@ async function main() {
   }
 
   const output = {
-    _comment: "Generated from main e559b89e; re-run with: npm run generate:main-current-knee-fixture",
+    _comment: "Generated from main 93b31724 with scripts/generate-main-current-knee-fixture.ts (run on a main checkout)",
     _note: "This fixture captures main's findAlternatives output for current-knee profiles. PR #124 must only remove exercises (subset), never add.",
-    _sourceCommit: "e559b89e",
-    _validOn: ["e559b89e", "93b31724"],
+    _sourceCommit: "93b31724",
     profiles: result,
   };
 

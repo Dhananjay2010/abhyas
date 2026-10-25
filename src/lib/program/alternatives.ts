@@ -196,6 +196,8 @@ export function rankAlternatives<T extends ExerciseRow>(
   
   const filtered: Array<{ 
     exercise: T; 
+    /** Ranked as on main but never returned (see "Subset rule" below). */
+    hidden: boolean;
     patternRank: number;
     pastKneeTier: number;
     squatPriority: number;
@@ -214,16 +216,19 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (EXCLUDED_EXERCISE_SLUGS.has(candidate.slug)) continue;
     
     // 2a. Item 14: Current knee exclusions include BOTH current-knee-only AND past-knee exclusions
-    if (hasKneeInjury) {
-      if (isExcludedForCurrentKneeOnly(candidate)) continue;
-      if (isExcludedForPastKnee(candidate)) continue;
-    }
-    
     // 2b. Past-knee exclusions (pistol squats, jumps, band/chain squats, thrusters, squat-jerk)
-    if (hasPastKnee && isExcludedForPastKnee(candidate)) continue;
-    
     // 2c. Item 16: Olympic lifts excluded for beginners and injured members (same rule as generator)
-    if (shouldExcludeOlympicLift(candidate, { currentInjuryRegions: ctx.injuryRegions, anyKneeInjury: ctx.anyKneeInjury, level: ctx.level })) continue;
+    const prExcluded =
+      (hasKneeInjury && (isExcludedForCurrentKneeOnly(candidate) || isExcludedForPastKnee(candidate))) ||
+      (hasPastKnee && isExcludedForPastKnee(candidate)) ||
+      shouldExcludeOlympicLift(candidate, { currentInjuryRegions: ctx.injuryRegions, anyKneeInjury: ctx.anyKneeInjury, level: ctx.level });
+    // Subset rule: past-knee members get the new past-knee ranking, so their
+    // exclusions apply before ranking. Everyone else must see main's list minus
+    // the newly excluded exercises -- a strict subset, never a backfill -- so
+    // for them an excluded exercise keeps its ranked slot and is dropped after
+    // the limit is applied.
+    if (prExcluded && hasPastKnee) continue;
+    const hidden = prExcluded;
     
     // 3. Exclude pullovers when original is a compound pull
     // Pullovers are shoulder-extension moves and not appropriate substitutes
@@ -332,6 +337,7 @@ export function rankAlternatives<T extends ExerciseRow>(
     
     filtered.push({ 
       exercise: candidate, 
+      hidden,
       patternRank,
       pastKneeTier,
       squatPriority,
@@ -366,6 +372,7 @@ export function rankAlternatives<T extends ExerciseRow>(
   // Deduplicate AFTER sorting so the best-ranked variant wins
   const seen = new Map<string, boolean>();
   const deduplicated: T[] = [];
+  let slotsTaken = 0;
   
   for (const item of filtered) {
     const normalizedName = normalizeName(item.exercise.name);
@@ -374,10 +381,12 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (seen.has(dedupeKey)) continue;
     seen.set(dedupeKey, true);
     
-    deduplicated.push(item.exercise);
+    // A hidden (newly excluded) exercise still takes its slot: no backfill.
+    slotsTaken++;
+    if (!item.hidden) deduplicated.push(item.exercise);
     
     // Stop once we have enough
-    if (deduplicated.length >= limit) break;
+    if (slotsTaken >= limit) break;
   }
   
   // QA Steer (k): Demote wall-sit to the end for past-knee squat swaps

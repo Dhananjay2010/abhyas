@@ -16,11 +16,17 @@
  *   - up to two same-pattern catalogue exercises that were NOT offered must be
  *     refused with nothing written.
  * 
- * Subset proof (current-knee profiles only):
- *   - Load main e559b89e's captured findAlternatives output.
- *   - For every current-knee profile × exercise, assert that HEAD's offered
- *     set is a SUBSET of main's (never adds a move main doesn't offer).
+ * Subset proof (profiles in scripts/fixtures/main-current-knee-swaps.json:
+ * current knee, current shoulder, current wrist -- no past-knee profile, whose
+ * ranking this PR changes on purpose):
+ *   - Load main 93b31724's captured findAlternatives output (same fake DB).
+ *   - For every such profile × exercise, assert that HEAD's offered set is a
+ *     SUBSET of main's (never adds a move main doesn't offer).
  *   - Report lists that are strictly smaller (removals).
+ *
+ * Past-knee profiles (backfill is intentional, not subset-checked):
+ *   - Assert no offered exercise is banned for past-knee (via real isExcludedForPastKnee).
+ *   - Assert UI list equals server acceptance (offered = accepted, not-offered = refused).
  */
 import { readFileSync } from "node:fs";
 import { installServerActionStubs } from "./helpers/server-action-stubs";
@@ -29,6 +35,7 @@ import {
   type Account,
 } from "./helpers/swap-scenario";
 import { swapExerciseForUser } from "../src/lib/session/swap-exercise-for-user";
+import { isExcludedForPastKnee, shouldExcludeOlympicLift, isOlympicLift } from "../src/lib/program/past-knee";
 
 const PROFILES: Array<{ name: string; account: Account }> = [
   { name: "Healthy beginner, gym", account: { level: "beginner", equipment: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar"], injuries: [] } },
@@ -39,6 +46,7 @@ const PROFILES: Array<{ name: string; account: Account }> = [
   { name: "Current wrist, expert, gym", account: { level: "expert", equipment: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine"], injuries: [{ body_region: "wrist", severity: "current" }] } },
   { name: "Past knee + current shoulder, intermediate", account: { level: "intermediate", equipment: ["dumbbell", "kettlebell", "pull_up_bar"], injuries: [{ body_region: "knee", severity: "past" }, { body_region: "shoulder", severity: "current" }] } },
   { name: "Healthy expert, kettlebell-only", account: { level: "expert", equipment: ["kettlebell"], injuries: [] } },
+  { name: "Current knee, expert, full gym", account: { level: "expert", equipment: ["barbell", "dumbbell", "kettlebell", "flat_bench", "adjustable_bench", "squat_rack", "pull_up_bar", "cable_machine", "machine_generic", "medicine_ball"], injuries: [{ body_region: "knee", severity: "current" }] } },
 ];
 
 async function main() {
@@ -56,17 +64,24 @@ async function main() {
   let refusedChecks = 0;
   const offeredButRefused: string[] = [];
   const acceptedNotOffered: string[] = [];
+  const subsetViolations: string[] = [];
+  const pastKneeBannedOffered: string[] = [];
   
   // Subset proof tracking
   let subsetChecks = 0;
   let strictlySmaller = 0;
   const removals: Array<{ profile: string; exercise: string; removed: string[] }> = [];
+  
+  // Past-knee ban check tracking
+  let pastKneeBanChecks = 0;
 
   console.log("Item A gate: real findAlternatives vs real swapExerciseForUser");
   console.log("─".repeat(70));
 
   for (const { name, account } of PROFILES) {
     let profileMismatches = 0;
+    const hasPastKnee = account.injuries.some(inj => inj.body_region === "knee" && inj.severity === "past");
+    
     for (const current of currents) {
       // One sibling already in the session: the first other exercise of the same pattern.
       const sibling = currents.find((e) => e.id !== current.id && e.movement_pattern === current.movement_pattern);
@@ -84,15 +99,35 @@ async function main() {
       if (!res.ok) continue;
       const offered = new Set(res.data.map((a) => a.exerciseId));
 
-      // Subset proof for current-knee profiles
-      if (currentKneeProfiles.has(name) && mainSwaps[name]?.[current.slug]) {
+      // Past-knee profiles: check ban list compliance (no subset check, backfill is intentional)
+      if (hasPastKnee) {
+        pastKneeBanChecks++;
+        for (const id of offered) {
+          const ex = CATALOGUE.find(e => e.id === id);
+          if (!ex) continue;
+          
+          // Check if exercise is excluded for past-knee
+          if (isExcludedForPastKnee(ex as any)) {
+            profileMismatches++;
+            pastKneeBannedOffered.push(`${name} | ${current.slug} offered banned ${ex.slug}`);
+          }
+          
+          // Check if Olympic lift is offered (should be excluded for past-knee by Decision a)
+          if (isOlympicLift(ex as any)) {
+            profileMismatches++;
+            pastKneeBannedOffered.push(`${name} | ${current.slug} offered banned Olympic lift ${ex.slug}`);
+          }
+        }
+      }
+      // Non-past-knee profiles: subset proof
+      else if (currentKneeProfiles.has(name) && mainSwaps[name]?.[current.slug]) {
         subsetChecks++;
         const mainSet = new Set(mainSwaps[name][current.slug]);
         const added = [...offered].filter((id) => !mainSet.has(id));
         const removed = [...mainSet].filter((id) => !offered.has(id));
         if (added.length > 0) {
           const addedSlugs = added.map((id) => byId.get(id)?.slug ?? id).join(", ");
-          offeredButRefused.push(`SUBSET VIOLATION: ${name} | ${current.slug} added [${addedSlugs}] not in main`);
+          subsetViolations.push(`${name} | ${current.slug} added [${addedSlugs}] not in main`);
         }
         if (removed.length > 0) {
           strictlySmaller++;
@@ -134,8 +169,15 @@ async function main() {
   console.log(`Accepted-not-offered: ${acceptedNotOffered.length}`);
   for (const line of [...offeredButRefused, ...acceptedNotOffered].slice(0, 10)) console.log(`    ${line}`);
 
-  console.log("\nSubset proof (current-knee profiles vs main e559b89e):");
+  console.log("\nPast-knee ban checks:");
+  console.log(`  Combinations checked: ${pastKneeBanChecks}`);
+  console.log(`  Banned exercises offered: ${pastKneeBannedOffered.length}`);
+  for (const line of pastKneeBannedOffered.slice(0, 10)) console.log(`    ${line}`);
+
+  console.log("\nSubset proof (fixture profiles vs main 93b31724):");
   console.log(`  Subset checks: ${subsetChecks}`);
+  console.log(`  Subset violations (lists with an exercise main never offered): ${subsetViolations.length}`);
+  for (const line of subsetViolations.slice(0, 10)) console.log(`    ${line}`);
   console.log(`  Lists strictly smaller: ${strictlySmaller}`);
   console.log(`  Removals (top 20):`);
   for (const { profile, exercise, removed } of removals.slice(0, 20)) {
@@ -144,9 +186,11 @@ async function main() {
   }
   if (removals.length > 20) console.log(`    ... and ${removals.length - 20} more`);
 
-  const vacuous = combos !== PROFILES.length * currents.length || offeredChecks < 5000 || refusedChecks < 2000;
+  const vacuous = combos !== PROFILES.length * currents.length || offeredChecks < 5000 || refusedChecks < 2000 ||
+    subsetChecks + pastKneeBanChecks < currents.length * 2;
   if (vacuous) console.log("✗ coverage too small — the gate would be vacuous");
-  const ok = !vacuous && offeredButRefused.length === 0 && acceptedNotOffered.length === 0;
+  const ok = !vacuous && offeredButRefused.length === 0 && acceptedNotOffered.length === 0 && 
+    subsetViolations.length === 0 && pastKneeBannedOffered.length === 0;
   console.log(ok ? "✓ PASSED" : "✗ FAILED");
   process.exit(ok ? 0 : 1);
 }

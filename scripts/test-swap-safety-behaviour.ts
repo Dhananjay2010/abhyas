@@ -13,7 +13,7 @@
 import { installServerActionStubs } from "./helpers/server-action-stubs";
 import { json } from "./helpers/fake-swap-db";
 import {
-  buildDb, exercise, activateDb, writes, SLOT_ID, byId,
+  buildDb, exercise, activateDb, writes, SLOT_ID, byId, CATALOGUE,
   type Account, type CatalogueRow,
 } from "./helpers/swap-scenario";
 
@@ -138,6 +138,22 @@ async function main() {
   check("canSwapExercise: slot with a logged set → refused, nothing written", !logged.ok && !logged.wrote, JSON.stringify(logged));
   const offPattern = await trySwap(healthy("intermediate", ["kettlebell", "dumbbell", "barbell"]), "alternating-kettlebell-press", VP, "rack-pulls");
   check("validator: target outside the swap list (rack-pulls for a press) → refused, nothing written", !offPattern.ok && !offPattern.wrote, JSON.stringify(offPattern));
+
+  // Empty lists: two exercises that return [] for current-knee expert with full gym.
+  // Intentional and approved for now; safe fallback deferred to post-deadline
+  // injury-safe fallback follow-up.
+  console.log("\nEmpty lists (current-knee expert, full gym)");
+  const fullGym = ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine", "kettlebell"];
+  const emptyTurkish = await offered(knee("current", "expert", fullGym), "kettlebell-turkish-get-up-lunge-style", CATALOGUE.map(e => e.slug));
+  check("kettlebell-turkish-get-up-lunge-style: findAlternatives returns []", emptyTurkish.length === 0, `got ${emptyTurkish.length}`);
+  const emptySwings = await offered(knee("current", "expert", fullGym), "one-arm-kettlebell-swings", CATALOGUE.map(e => e.slug));
+  check("one-arm-kettlebell-swings: findAlternatives returns []", emptySwings.length === 0, `got ${emptySwings.length}`);
+  
+  // Server must refuse any swap attempt for these slots
+  const turkishSwap = await trySwap(knee("current", "expert", fullGym), "kettlebell-turkish-get-up-lunge-style", ["bodyweight-squat"], "bodyweight-squat");
+  check("kettlebell-turkish-get-up-lunge-style: server refuses swap, nothing written", !turkishSwap.ok && !turkishSwap.wrote, JSON.stringify(turkishSwap));
+  const swingsSwap = await trySwap(knee("current", "expert", fullGym), "one-arm-kettlebell-swings", ["bodyweight-squat"], "bodyweight-squat");
+  check("one-arm-kettlebell-swings: server refuses swap, nothing written", !swingsSwap.ok && !swingsSwap.wrote, JSON.stringify(swingsSwap));
 
   console.log(`\n${failures === 0 ? "✓" : "✗"} ${passes} passed, ${failures} failed`);
   process.exit(failures === 0 ? 0 : 1);
