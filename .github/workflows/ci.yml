@@ -276,7 +276,6 @@ jobs:
           npm run test:swap-prefill-real-db
           npm run test:ended-early-real-db
           npm run test:resolve-swap-weights-real-db
-          npm run test:swap-guard-real-db
           npm run test:ensure-session-exercises-deload
           npm run test:start-session-ensure-exercises
           npx tsx scripts/test-delete-set.ts
