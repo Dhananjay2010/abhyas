@@ -34,7 +34,7 @@ export async function resolveSwapWeights(
   newExerciseId: string,
   equipmentIds: string[],
   metric: Database["public"]["Enums"]["exercise_metric"],
-  movementPattern: string,
+  movementPattern: Database["public"]["Enums"]["movement_pattern"],
 ): Promise<SwapWeightsResult> {
   try {
     // Read session's is_deload flag, progress for the NEW exercise (in parallel)
