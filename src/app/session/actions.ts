@@ -30,6 +30,7 @@ import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
 import { resolveSwapResultPayload } from "@/lib/session/swap-progress";
 import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
+import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -582,6 +583,15 @@ export async function swapExercise(input: {
   if (rateLimit) return rateLimit as Result<SwapResult>;
   
   const { supabase, user } = await requireUser();
+
+  // Refuse swap if the exercise has logged sets
+  const guardResult = await canSwapExercise(
+    createSupabaseSwapGuardDeps(supabase),
+    input.sessionExerciseId,
+  );
+  if (!guardResult.allowed) {
+    return { ok: false, error: guardResult.error };
+  }
 
   const [currentRes, replacementRes, profileRes, settingsRes] = await Promise.all([
     supabase
