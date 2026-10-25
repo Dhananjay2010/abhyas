@@ -11,7 +11,7 @@
  */
 import { readFileSync } from "fs";
 import { join } from "path";
-import ts from "typescript";
+import * as ts from "typescript";
 
 const file = join(process.cwd(), "src/app/session/actions.ts");
 const sf = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
@@ -93,9 +93,9 @@ const findFirstWrite = (n: ts.Node): void => {
   if (!ts.isFunctionLike(n) || n === fn) ts.forEachChild(n, findFirstWrite);
 };
 
-findGuardCall(fn.body);
-findGuardCheck(fn.body);
-findFirstWrite(fn.body);
+findGuardCall(fn!.body!);
+findGuardCheck(fn!.body!);
+findFirstWrite(fn!.body!);
 
 // Validate findings
 if (guardCallPos === -1) {
