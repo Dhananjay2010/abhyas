@@ -341,6 +341,8 @@ console.log("\n10. Real createClient: lookup filters on session_exercise_id, set
 
 console.log("\n11. Wrong set number does not count as duplicate");
 {
+  const receivedKeys: Array<{ sessionExerciseId: string; setNumber: number }> = [];
+
   const stubFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
@@ -352,7 +354,15 @@ console.log("\n11. Wrong set number does not count as duplicate");
       );
     }
 
-    if (url.includes("session_sets") && method === "GET" && url.includes("set_number=eq.2")) {
+    if (url.includes("session_sets") && method === "GET") {
+      const seIdMatch = url.match(/session_exercise_id=eq\.([^&]+)/);
+      const setNumMatch = url.match(/set_number=eq\.(\d+)/);
+      if (seIdMatch && setNumMatch) {
+        receivedKeys.push({
+          sessionExerciseId: seIdMatch[1],
+          setNumber: parseInt(setNumMatch[1], 10),
+        });
+      }
       return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
     }
 
@@ -373,6 +383,11 @@ console.log("\n11. Wrong set number does not count as duplicate");
   if (!result.ok) {
     check("error code is SESSION_ENDED", result.code === "SESSION_ENDED");
   }
+  check("lookup key was captured", receivedKeys.length > 0);
+  if (receivedKeys.length > 0) {
+    check("lookup received correct session_exercise_id", receivedKeys[0].sessionExerciseId === "se-123");
+    check("lookup received correct set_number", receivedKeys[0].setNumber === 2);
+  }
 }
 
 console.log("\n12. String weight converts to number (20 vs '20.0')");
@@ -389,9 +404,8 @@ console.log("\n12. String weight converts to number (20 vs '20.0')");
     }
 
     if (url.includes("session_sets") && method === "GET") {
-      const data: ExistingSetRow[] = [{ reps: 10, weight_kg: 20.0, duration_seconds: null }];
       return new Response(
-        JSON.stringify(data),
+        JSON.stringify([{ reps: 10, weight_kg: "20.0", duration_seconds: null }]),
         { status: 200, headers: { "content-type": "application/json" } }
       );
     }

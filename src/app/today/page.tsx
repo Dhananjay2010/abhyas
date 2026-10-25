@@ -15,7 +15,7 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
-import { shouldUsePreviousDayLink } from "@/lib/today/session-detection";
+import { previousDayResumeHref } from "@/lib/today/session-detection";
 
 export const dynamic = "force-dynamic";
 
@@ -556,24 +556,27 @@ export default async function TodayPage() {
             <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
               Session complete. Well done.
             </p>
-          ) : shouldUsePreviousDayLink(strengthOpen, localToday) ? (
-            <Link
-              href={`/session/${strengthOpen!.id}`}
-              className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
-            >
-              Resume session
-            </Link>
-          ) : (
-            /*
-              "Resume" only once something has actually been started. A day
-              planned through "what about tomorrow?" is a session row that was
-              never begun, and calling that a resume told the user they had left
-              a workout half-done when they had not.
-            */
-            <StartSessionButton
-              label={strengthOpen?.started_at ? "Resume session" : "Start session"}
-            />
-          )}
+          ) : (() => {
+            const resumeHref = previousDayResumeHref(strengthOpen, localToday);
+            return resumeHref ? (
+              <Link
+                href={resumeHref}
+                className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+              >
+                Resume session
+              </Link>
+            ) : (
+              /*
+                "Resume" only once something has actually been started. A day
+                planned through "what about tomorrow?" is a session row that was
+                never begun, and calling that a resume told the user they had left
+                a workout half-done when they had not.
+              */
+              <StartSessionButton
+                label={strengthOpen?.started_at ? "Resume session" : "Start session"}
+              />
+            );
+          })()}
         </div>
       )}
 

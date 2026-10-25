@@ -54,7 +54,13 @@ export function buildLogSetValidationDeps(
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      if (!data) return null;
+      
+      return {
+        reps: data.reps,
+        weight_kg: typeof data.weight_kg === "string" ? Number(data.weight_kg) : data.weight_kg,
+        duration_seconds: data.duration_seconds,
+      };
     },
   };
 }

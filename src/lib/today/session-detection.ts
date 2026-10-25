@@ -55,20 +55,19 @@ export function shouldRedirectSession(status: string): boolean {
 }
 
 /**
- * Determine if a previous-day open session should use a direct link instead
- * of calling startSession. When an open session's local_date differs from
- * today, the Resume button should link directly to /session/{id} rather than
- * calling startSession (which would try to insert a new session with today's
- * date and hit the unique constraint).
+ * Return the href for resuming a previous-day open session, or null if the
+ * session should use the normal start flow. When an open session's local_date
+ * differs from today, return /session/{id} to link directly rather than calling
+ * startSession (which would try to insert a new session with today's date and
+ * hit the unique constraint).
  */
-export function shouldUsePreviousDayLink(
+export function previousDayResumeHref(
   strengthOpen: SessionForDetection | undefined,
   localToday: string
-): boolean {
-  return !!(
-    strengthOpen &&
-    strengthOpen.local_date &&
-    strengthOpen.local_date !== localToday &&
-    strengthOpen.id
-  );
+): string | null {
+  if (!strengthOpen) return null;
+  if (!strengthOpen.local_date) return null;
+  if (strengthOpen.local_date === localToday) return null;
+  if (!strengthOpen.id) return null;
+  return `/session/${strengthOpen.id}`;
 }
