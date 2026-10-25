@@ -50,7 +50,7 @@ console.log("\n2. Invalid startedAt (null): returns null duration");
   });
 
   check("Duration is null", result.durationSeconds === null);
-  check("endedAt is valid", !isNaN(Date.parse(result.endedAt || "1970-01-01T00:00:00Z")));
+  check("endedAt is null for invalid timestamp", result.endedAt === null);
 }
 
 console.log("\n3. Empty string startedAt: returns null duration");
@@ -63,7 +63,7 @@ console.log("\n3. Empty string startedAt: returns null duration");
   });
 
   check("Duration is null", result.durationSeconds === null);
-  check("endedAt is valid", !isNaN(Date.parse(result.endedAt || "1970-01-01T00:00:00Z")));
+  check("endedAt is null for invalid timestamp", result.endedAt === null);
 }
 
 console.log("\n4. Invalid ISO string startedAt: returns null duration");
@@ -76,7 +76,7 @@ console.log("\n4. Invalid ISO string startedAt: returns null duration");
   });
 
   check("Duration is null", result.durationSeconds === null);
-  check("endedAt is valid", !isNaN(Date.parse(result.endedAt || "1970-01-01T00:00:00Z")));
+  check("endedAt is null for invalid timestamp", result.endedAt === null);
 }
 
 console.log("\n5. No sets (skipped): invalid startedAt still handled");
@@ -88,7 +88,8 @@ console.log("\n5. No sets (skipped): invalid startedAt still handled");
   });
 
   check("Status is skipped", result.status === "skipped");
-  check("Duration is 0", result.durationSeconds === 0);
+  check("Duration is null for invalid timestamp", result.durationSeconds === null);
+  check("endedAt is null for invalid timestamp", result.endedAt === null);
 }
 
 console.log("\n6. Invalid startedAt with sets: doesn't measure from epoch (no-throw2)");
@@ -102,7 +103,7 @@ console.log("\n6. Invalid startedAt with sets: doesn't measure from epoch (no-th
 
   check("Status is completed", result.status === "completed");
   check("Duration is null (not ~56 years from epoch)", result.durationSeconds === null);
-  check("endedAt is valid", !isNaN(Date.parse(result.endedAt || "1970-01-01T00:00:00Z")));
+  check("endedAt is null for invalid timestamp", result.endedAt === null);
 }
 
 console.log("\n7. Null startedAt with sets: doesn't measure from epoch");
@@ -116,7 +117,7 @@ console.log("\n7. Null startedAt with sets: doesn't measure from epoch");
 
   check("Status is completed", result.status === "completed");
   check("Duration is null (not from epoch)", result.durationSeconds === null);
-  check("endedAt is valid", !isNaN(Date.parse(result.endedAt || "1970-01-01T00:00:00Z")));
+  check("endedAt is null for invalid timestamp", result.endedAt === null);
 }
 
 console.log(`\n✅ Passed: ${passed}`);
