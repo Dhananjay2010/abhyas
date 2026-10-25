@@ -5,11 +5,10 @@
  */
 
 import "./helpers/setup-jsdom";
-import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import { SessionRunner } from "../src/app/session/[id]/session-runner";
 import type { RunnerExercise, SessionActions } from "../src/app/session/[id]/session-runner";
-import { savePendingSet } from "../src/lib/session/pending-set-retry";
-import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
+import { SESSION_EXPIRED_CODE } from "../src/lib/session/auth-result";
 
 const FIXED_TIME = 1700000000000;
 
@@ -37,12 +36,11 @@ Object.defineProperty(window, 'localStorage', {
   configurable: true
 });
 
-const deps = createPendingSetDeps(FIXED_TIME);
-
 console.log("\n🧪 M9 TEST: Retry button disabled while retrying\n");
 
 let logSetCalls = 0;
-let logSetResolve: (() => void) | null = null;
+let logSetResolve: ((value: { ok: true; data: { setId: string } }) => void) | null = null;
+let throwExpired = true;
 
 const exercise: RunnerExercise = {
   id: "ex-1",
@@ -65,23 +63,17 @@ const exercise: RunnerExercise = {
   isBodyweight: false,
 };
 
-// Seed a pending set
-savePendingSet(window.localStorage, "test-user", "test-session", {
-  sessionExerciseId: "ex-1",
-  setNumber: 1,
-  reps: 10,
-  weightKg: 60,
-  durationSeconds: null,
-  clientId: "ex-1:1:1700000000000",
-}, deps);
-
 const actions: SessionActions = {
   markWarmupDone: async () => ({ ok: true }),
   logSet: async () => {
+    console.log("[TEST] logSet called, throwExpired=", throwExpired);
     logSetCalls++;
+    if (throwExpired) {
+      throw new Error(`${SESSION_EXPIRED_CODE}: Session expired`);
+    }
     // Return a deferred promise to hold "retrying" state
     return new Promise<{ ok: true; data: { setId: string } }>((resolve) => {
-      logSetResolve = () => resolve({ ok: true, data: { setId: "set-1" } });
+      logSetResolve = resolve;
     });
   },
   deleteSet: async () => ({ ok: true }),
@@ -95,77 +87,102 @@ const actions: SessionActions = {
 };
 
 async function runTest() {
-  let container: HTMLElement;
-  
-  await act(async () => {
-    const result = render(
-      <SessionRunner
-        sessionId="test-session"
-        sessionStatus="in_progress"
-        userId="test-user"
-        isDeload={false}
-        week={1}
-        warmupAlreadyDone={true}
-        startedAt={new Date(FIXED_TIME).toISOString()}
-        warmup={[]}
-        cooldown={[]}
-        exercises={[exercise]}
-        settings={{
-          perSetLogging: true,
-          restAutostart: false,
-          restSound: false,
-          restVibrate: false,
-          restOverrideSeconds: null,
-          cooldownEnabled: false,
-        }}
-        actions={actions}
-      />
-    );
-    container = result.container;
-  });
-
-  // Wait for the controller to load and display the retry button
-  await waitFor(
-    () => {
-      const retryButton = screen.queryByText(/Retry saving/i);
-      if (!retryButton) {
-        throw new Error("Retry button not found");
-      }
-      assert(retryButton !== null, "Retry button found after controller load");
-    },
-    { timeout: 5000 }
+  render(
+    <SessionRunner
+      sessionId="test-session"
+      sessionStatus="in_progress"
+      userId="test-user"
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[exercise]}
+      settings={{
+        perSetLogging: true,
+        restAutostart: false,
+        restSound: false,
+        restVibrate: false,
+        restOverrideSeconds: null,
+        cooldownEnabled: false,
+      }}
+      actions={actions}
+    />
   );
 
-  const retryButton = screen.getByText(/Retry saving/i);
-  assert(retryButton instanceof HTMLButtonElement, "Retry button is HTMLButtonElement");
-  assert(!retryButton.disabled, "Retry button initially enabled");
+  // Find and click "Log set 1" to create a pending set
+  const logButton = screen.getByText(/Log set 1/i);
+  assert(logButton !== null, "Log button found");
 
-  // Click retry
+  // Fill in reps field
+  const repsInput = screen.getByLabelText(/reps|seconds/i);
+  assert(repsInput !== null, "Reps input found");
+  
+  await act(async () => {
+    fireEvent.change(repsInput, { target: { value: "10" } });
+  });
+
+  // Fill in weight field
+  const weightInput = screen.getByLabelText(/weight/i);
+  assert(weightInput !== null, "Weight input found");
+  
+  await act(async () => {
+    fireEvent.change(weightInput, { target: { value: "60" } });
+  });
+
+  // Click Log set - this will throw SESSION_EXPIRED and create a pending set
+  await act(async () => {
+    fireEvent.click(logButton);
+  });
+
+  // Flush microtasks to let the logSet call happen
+  await act(async () => {});
+
+  assert(logSetCalls === 1, "logSet called once, threw SESSION_EXPIRED");
+
+  // Now the UI should show "Retry saving 1 set"
+  const retryButton = screen.queryByText(/Retry saving 1 set/i);
+  assert(retryButton !== null, "Retry button appeared after failed save");
+  assert(!('disabled' in retryButton && retryButton.disabled), "Retry button initially enabled");
+
+  // Swap logSet to return a deferred promise
+  throwExpired = false;
+
+  // Click Retry
   await act(async () => {
     fireEvent.click(retryButton);
   });
 
-  assert(logSetCalls === 1, "logSet called once after clicking Retry");
+  // Flush microtasks
+  await act(async () => {});
 
-  // Button should now be disabled while retrying
-  await waitFor(() => {
-    const savingButton = screen.queryByText(/Saving.*set/i);
-    if (!savingButton) {
-      throw new Error("Saving button not found");
-    }
-    assert(savingButton !== null, "M9: Button shows 'Saving...' text while retrying");
-  });
+  assert(logSetCalls === 2, "logSet called again after clicking Retry");
 
-  const savingButton = screen.getByText(/Saving.*set/i);
-  assert(savingButton instanceof HTMLButtonElement, "M9: Saving button is HTMLButtonElement");
-  assert(savingButton.disabled, "M9: Button is disabled while retrying");
+  // Button should now show "Saving 1 set…" and be disabled
+  const savingButton = screen.queryByText(/Saving 1 set/i);
+  assert(savingButton !== null, "M9: Button shows 'Saving...' text while retrying");
+  assert('disabled' in savingButton && savingButton.disabled === true, "M9: Button is disabled while retrying");
 
   // Try to click again (should be blocked)
   await act(async () => {
     fireEvent.click(savingButton);
   });
 
-  assert(logSetCalls === 1, "M9: logSet NOT called again (button disabled prevents double-click)");
+  await act(async () => {});
+
+  assert(logSetCalls === 2, "M9: logSet NOT called again (button disabled prevents double-click)");
+
+  // Resolve the deferred promise
+  if (logSetResolve) {
+    await act(async () => {
+      logSetResolve({ ok: true, data: { setId: "set-1" } });
+    });
+  }
+
+  // Final state: button should be gone (pending sets cleared)
+  const finalRetryButton = screen.queryByText(/Retry saving/i);
+  assert(finalRetryButton === null, "Retry button gone after successful save");
 
   console.log("\n✅ M9 TEST PASSED: Retry button disabled during replay\n");
   process.exit(0);
