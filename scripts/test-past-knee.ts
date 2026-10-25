@@ -642,8 +642,8 @@ console.log("\n7. Item 14: Thruster/push press/kettlebell jerk tier rules");
       injuryRegions: ["knee"],
       anyKneeInjury: true,
       limit: 20,
-      scoreFn: (e) => 0,
-      tieBreakFn: (slug) => 0,
+      scoreFn: (_e) => 0,
+      tieBreakFn: (_slug) => 0,
     }
   );
   const currentKneeSlugs = currentKneeSwaps.map(e => e.slug);
@@ -661,8 +661,8 @@ console.log("\n7. Item 14: Thruster/push press/kettlebell jerk tier rules");
       injuryRegions: [],
       anyKneeInjury: true,
       limit: 20,
-      scoreFn: (e) => 0,
-      tieBreakFn: (slug) => 0,
+      scoreFn: (_e) => 0,
+      tieBreakFn: (_slug) => 0,
     }
   );
   const pastKneeSlugs = pastKneeSwaps.map(e => e.slug);
@@ -677,7 +677,6 @@ console.log("\n8. Item 14: Monotonicity test (every past-knee-banned is also cur
 {
   
   const pastKneeExcluded = getPastKneeExcludedSlugs();
-  const currentKneeOnlyExcluded = getCurrentKneeOnlyExcludedSlugs();
   
   // For every past-knee-banned slug, check it's also banned for current knee
   // (either via past-knee list OR current-knee-only list OR contraindications)
@@ -785,17 +784,16 @@ console.log("\n10. Item 15: Swap ordering (barbell-squat after preferred squats)
         injuryRegions: [],
         anyKneeInjury: true,
         limit: 20,
-        scoreFn: (e) => 0,
-        tieBreakFn: (slug) => 0,
+        scoreFn: (_e) => 0,
+        tieBreakFn: (_slug) => 0,
       }
     );
     const swapSlugs = pastKneeSwaps.map(e => e.slug);
     
-    // Check ordering: barbell-squat should come after box-squat, bodyweight-squat, leg-press if present
+    // Check ordering: barbell-squat should come after box-squat, bodyweight-squat if present
     const barbellIdx = swapSlugs.indexOf("barbell-squat");
     const boxIdx = swapSlugs.indexOf("box-squat");
     const bodyweightIdx = swapSlugs.indexOf("bodyweight-squat");
-    const legPressIdx = swapSlugs.indexOf("leg-press");
     
     if (barbellIdx >= 0 && boxIdx >= 0) {
       check("Item 15: box-squat before barbell-squat in swaps", boxIdx < barbellIdx,
@@ -916,7 +914,6 @@ console.log("\n12. Item 8: Warm-up input builder and past-knee exclusions");
 console.log("\n13. Item 15: Past-knee squat rule - real generator grid tests");
 {
   // Test over past-knee grid: gym, home, DB-only, bodyweight; every level; 2-6 days
-  type Goal = "muscle_gain" | "strength" | "fat_loss" | "general_fitness";
   type Level = "beginner" | "intermediate" | "expert";
   type Track = "weights" | "bodyweight";
   

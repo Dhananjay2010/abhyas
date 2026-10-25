@@ -10,8 +10,6 @@
  */
 
 import { swapExerciseCore, type SwapExerciseDeps } from "../src/lib/session/swap-exercise-core";
-import { buildEligibleSwapList, buildGeneratorInput } from "../src/lib/session/eligible-swap-list";
-import { getSwapPatterns } from "../src/lib/program/swap-patterns";
 import catalogue from "./fixtures/catalogue.json";
 import type { CandidateExercise } from "../src/lib/program/generate";
 
@@ -50,7 +48,7 @@ async function testBannedSwap(
   testName: string,
   currentExerciseSlug: string,
   targetExerciseSlug: string,
-  injuries: Array<{ body_region: string; severity: "current" | "past" }>,
+  _injuries: Array<{ body_region: string; severity: "current" | "past" }>,
 ) {
   console.log(`\n${testName}`);
   

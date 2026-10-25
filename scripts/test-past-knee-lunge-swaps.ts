@@ -34,8 +34,8 @@ console.log("\n1. Past-knee lunge swaps: no barbell-squat, leg-press, goblet or 
         injuryRegions: [],
         anyKneeInjury: true,
         limit: 20,
-        scoreFn: (e) => 0,
-        tieBreakFn: (slug) => 0,
+        scoreFn: (_e) => 0,
+        tieBreakFn: (_slug) => 0,
       }
     );
     
@@ -72,8 +72,8 @@ console.log("\n2. Past-knee lunge swaps: only tiered lunges + quad-isolation lis
         injuryRegions: [],
         anyKneeInjury: true,
         limit: 20,
-        scoreFn: (e) => 0,
-        tieBreakFn: (slug) => 0,
+        scoreFn: (_e) => 0,
+        tieBreakFn: (_slug) => 0,
       }
     );
     
