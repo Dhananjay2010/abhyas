@@ -31,6 +31,18 @@ export async function swapExerciseForUser(
       .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
       .eq("id", input.sessionExerciseId)
       .maybeSingle(),
+    /*
+      The unit can change with the swap: the alternatives for a core slot
+      include holds, deliberately -- making a plank reachable from the swap list
+      was the point of ranking that list. Without carrying the metric the
+      session went on asking for reps while the screen named a plank.
+      
+      equipment_ids is also needed: when the session loads, isBodyweight is 
+      derived from whether equipment_ids is empty, and without it here a barbell
+      exercise swapped in would show "Added weight (kg)" instead of "Weight (kg)".
+      
+      movement_pattern is needed for swap prefill via suggestedWeight.
+    */
     supabase
       .from("exercises")
       .select("metric, mechanic, equipment_ids, movement_pattern")

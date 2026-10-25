@@ -34,6 +34,7 @@ import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { progressForPlanningMode } from "@/lib/session/swap-progress";
 import { swapExerciseForUser } from "@/lib/session/swap-exercise-for-user";
+import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -784,7 +785,13 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  // Reserved: PR #135 guard block will go here
+  const guardResult = await canSwapExercise(
+    createSupabaseSwapGuardDeps(supabase),
+    input.sessionExerciseId,
+  );
+  if (!guardResult.allowed) {
+    return { ok: false, error: guardResult.error };
+  }
 
   return swapExerciseForUser(supabase, user.id, input);
 }
