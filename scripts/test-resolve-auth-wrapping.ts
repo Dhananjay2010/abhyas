@@ -25,9 +25,9 @@ async function runTests() {
 try {
   // Test 1: Normal flow - auth succeeds
   const normalResult = await resolveAuth(
-    async () => ({ user: { id: "test-user" }, supabase: {} as any }),
-    async ({ user }) => {
-      return { value: `User ${user.id} processed` };
+    async () => ({ user: { id: "test-user" }, supabase: {} }),
+    async () => {
+      return { value: `User test-user processed` };
     }
   );
   
@@ -35,8 +35,8 @@ try {
   
   // Test 2: No user - should return structured error
   const expiredResult = await resolveAuth(
-    async () => ({ user: null, supabase: {} as any }),
-    async ({ user }) => {
+    async () => ({ user: null, supabase: {} }),
+    async () => {
       return { value: `Should not reach here` };
     }
   );
@@ -47,7 +47,7 @@ try {
   
   // Test 3: "Not signed in" error - should catch and return structured error
   const notSignedInResult = await resolveAuth(
-    async () => ({ user: { id: "test" }, supabase: {} as any }),
+    async () => ({ user: { id: "test" }, supabase: {} }),
     async () => {
       throw new Error("Not signed in");
     }
@@ -58,7 +58,7 @@ try {
   
   // Test 4: Action-level error - should propagate
   const actionResult = await resolveAuth(
-    async () => ({ user: { id: "test-user" }, supabase: {} as any }),
+    async () => ({ user: { id: "test-user" }, supabase: {} }),
     async () => {
       return { ok: false, error: "Action failed" };
     }
