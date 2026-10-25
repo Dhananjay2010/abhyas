@@ -346,6 +346,19 @@ export function SessionRunner({
     }
   }, [current?.id, alternativesForExerciseId]);
 
+  // Close the swap sheet when the first set is logged for the exercise
+  useEffect(() => {
+    if (alternativesForExerciseId && current?.id === alternativesForExerciseId) {
+      const hasSets = current.sets.length > 0;
+      if (hasSets) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: clearing stale UI state when sets are logged
+        setAlternatives(null);
+        setAlternativesForExerciseId(null);
+        setLoadingAlternatives(false);
+      }
+    }
+  }, [alternativesForExerciseId, current?.id, current?.sets.length]);
+
   const totalSetsPlanned = useMemo(
     () => exercises.reduce((n, e) => n + e.plannedSets, 0),
     [exercises],
@@ -1047,6 +1060,13 @@ export function SessionRunner({
                         // Guard against stale swaps: refuse if the sheet's exercise doesn't match the current one
                         if (alternativesForExerciseId !== current.id) {
                           setError("This swap sheet belongs to a different exercise");
+                          setAlternatives(null);
+                          setAlternativesForExerciseId(null);
+                          return;
+                        }
+                        // Refuse swap if the exercise has logged sets
+                        if (current.sets.length > 0) {
+                          setError("You've already logged a set for this exercise, so it can't be swapped.");
                           setAlternatives(null);
                           setAlternativesForExerciseId(null);
                           return;

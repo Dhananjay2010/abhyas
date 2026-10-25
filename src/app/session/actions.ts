@@ -36,6 +36,7 @@ import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { progressForPlanningMode, resolveSwapResultPayload } from "@/lib/session/swap-progress";
 import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
 import { abandonSessionAction, finishSessionAction, finishExerciseAction as finishExerciseActionWrapper } from "@/lib/session/session-action-wrappers";
+import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -796,6 +797,15 @@ export async function swapExercise(input: {
   if (rateLimit) return rateLimit;
   
   const { supabase, user } = await requireUser();
+
+  // Refuse swap if the exercise has logged sets
+  const guardResult = await canSwapExercise(
+    createSupabaseSwapGuardDeps(supabase),
+    input.sessionExerciseId,
+  );
+  if (!guardResult.allowed) {
+    return { ok: false, error: guardResult.error };
+  }
 
   const [currentRes, replacementRes, profileRes, settingsRes] = await Promise.all([
     supabase
