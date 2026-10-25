@@ -5,9 +5,11 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
-import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
+import { rankAlternatives } from "@/lib/program/alternatives";
+import { getSwapPatterns } from "@/lib/program/swap-patterns";
+import { buildSwapContext } from "@/lib/program/swap-context";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
+import { isEligible, score, hashString, buildInjuryFlags, type CandidateExercise } from "@/lib/program/generate";
 import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,
@@ -706,10 +708,6 @@ export async function findAlternatives(
     (siblingsRes.data ?? []).map((s) => s.exercise_id),
   );
   
-  const currentInjuryRegions = (injuriesRes.data ?? [])
-    .filter((i) => i.severity === "current")
-    .map((i) => i.body_region);
-
   const input = {
     userId: user.id,
     blockNumber: 1,
@@ -722,7 +720,7 @@ export async function findAlternatives(
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions,
+    ...buildInjuryFlags(injuriesRes.data ?? []),
     catalogue: [] as CandidateExercise[],
   };
 
@@ -752,8 +750,7 @@ export async function findAlternatives(
   const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
   
   // Build pattern list (current + fallbacks + knee-safe if applicable)
-  const hasKneeInjury = currentInjuryRegions.includes("knee");
-  const patterns = buildPatternList(pattern, hasKneeInjury);
+  const patterns = getSwapPatterns(pattern, input);
   
   // Helper to cast Supabase rows to typed pool rows
   type PoolRow = CandidateExercise & { cue: string | null };
@@ -792,17 +789,13 @@ export async function findAlternatives(
     }
   }
   
+  const scoreFn = (e: CandidateExercise) => score(e, wantCompound, input.level, input.primaryTrack);
+  const swapContext = buildSwapContext(input, scoreFn, tieBreak);
+  
   const ranked = rankAlternatives(
     currentExercise,
     eligible,
-    {
-      level: input.level,
-      availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
-      injuryRegions: input.currentInjuryRegions,
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack),
-      tieBreakFn: tieBreak,
-    },
+    swapContext,
   );
 
   const alternatives = ranked.map((e) => ({
