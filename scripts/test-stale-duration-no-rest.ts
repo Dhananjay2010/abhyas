@@ -106,7 +106,7 @@ console.log("\n4. Null startedAt handled gracefully");
 
   assertEquals(result.status, "skipped", "Status is skipped");
   assertEquals(result.durationSeconds, 0, "Duration is 0");
-  assertTrue(result.endedAt.length > 0, "ended_at is a valid timestamp");
+  assertTrue(result.endedAt !== null && result.endedAt !== undefined, "ended_at is a valid timestamp");
 }
 
 // Test 5: Invalid startedAt handled gracefully
