@@ -379,7 +379,7 @@ export function evaluateProgression(input: {
   equipmentIds?: string[];
   unit?: WeightUnit;
 }): Decision {
-  const { sets, plannedSets, repsMax, feel, meta, state, isDeload, equipmentIds, unit } = input;
+  const { sets, plannedSets, repsMin, repsMax, feel, meta, state, isDeload, equipmentIds, unit } = input;
 
   const isTimed = meta.metric === "seconds";
   /** What this set is measured in: seconds held for a hold, reps otherwise. */
@@ -436,7 +436,9 @@ export function evaluateProgression(input: {
   // Success requires the full set count AND the top of the rep range on each.
   const completedAllSets = working.length >= plannedSets;
   const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= repsMax);
+  const hitMinOfRange = working.every((set) => (valueOf(set) ?? 0) >= repsMin);
   const succeeded = completedAllSets && hitTopOfRange;
+  const inRange = completedAllSets && hitMinOfRange && !hitTopOfRange;
 
   if (succeeded) {
     // Hard feel: with equipment, hold at current weight; without equipment, progress normally
@@ -550,7 +552,31 @@ export function evaluateProgression(input: {
     };
   }
 
-  // Missed the target.
+  // In range (all sets >= repsMin) but not all at top: HOLD and reset failures.
+  // SPEC §Progression: "Stay at a weight until you hit the top of the rep range on every set"
+  // and "Stall rule: miss the target twice in a row → automatically drop ~10% and build back."
+  // A 'miss' is read as below repsMin or incomplete sets. In-range (all sets >= repsMin but not
+  // all at top) sessions hold the weight and reset consecutiveFailures to 0.
+  // "Hard" feel never causes a deload or counts as a miss on its own (SPEC: '"hard" holds it').
+  if (inRange) {
+    // HOLD: Use stored weight if available; otherwise fall back to heaviest logged working-set weight.
+    // For true bodyweight (no weights logged), keep null.
+    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+    return {
+      ...carried,
+      outcome: "hold",
+      nextWorkingWeightKg: currentWeight,
+      nextTargetReps: state.currentTargetReps ?? repsMax,
+      consecutiveFailures: 0,
+      message: isTimed
+        ? "Staying at this hold length until every set reaches the top of the range."
+        : currentWeight === null
+          ? "Staying here until every set reaches the top of the range."
+          : "Staying at this weight until every set reaches the top of the range.",
+    };
+  }
+
+  // MISS: sets incomplete, or any set's reps below repsMin. Increment consecutiveFailures.
   const failures = state.consecutiveFailures + 1;
   const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
 

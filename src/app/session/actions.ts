@@ -15,9 +15,8 @@ import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,
   evaluateProgression,
-  type ExerciseMeta,
-  type ProgressState,
 } from "@/lib/program/progression";
+import { buildProgressionInput } from "@/lib/session/build-progression-input";
 import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
@@ -441,52 +440,25 @@ async function applyProgression(
       .maybeSingle(),
   ]);
 
-  const meta: ExerciseMeta = {
-    mechanic: ex.mechanic,
-    movementPattern: ex.movement_pattern,
-    // The session's own unit, not the catalogue's. Scoring a finished session
-    // by what the exercise has since been re-tagged as would read a set of
-    // twelve reps as a twelve-second hold.
-    metric: se.metric ?? "reps",
-    isBodyweight: (ex.equipment_ids ?? []).length === 0,
-    progressionChain: ex.progression_chain,
-    progressionRank: ex.progression_rank,
-  };
-
   const prior = progressRes.data;
-  const state: ProgressState = {
-    currentWorkingWeightKg: prior?.current_working_weight_kg === null || prior === null
-      ? null
-      : Number(prior.current_working_weight_kg),
-    currentTargetReps: prior?.current_target_reps ?? null,
-    consecutiveFailures: prior?.consecutive_failures ?? 0,
-    bestWeightKg: prior?.best_weight_kg === null || prior === null ? null : Number(prior.best_weight_kg),
-    bestReps: prior?.best_reps ?? null,
-    bestE1rm: prior?.best_e1rm === null || prior === null ? null : Number(prior.best_e1rm),
-    totalSessions: prior?.total_sessions ?? 0,
-  };
+  const totalSessions = prior?.total_sessions ?? 0;
 
-  const decision = evaluateProgression({
-    sets: (setsRes.data ?? []).map((s) => ({
-      reps: s.reps,
-      weightKg: s.weight_kg === null ? null : Number(s.weight_kg),
-      durationSeconds: s.duration_seconds,
-    })),
-    plannedSets: se.planned_sets ?? 3,
-    repsMin: se.planned_reps_min ?? 8,
-    repsMax: se.planned_reps_max ?? 12,
-    feel,
-    meta,
-    state,
-    isDeload: sessionRes.data?.is_deload ?? false,
-  });
+  const decision = evaluateProgression(
+    buildProgressionInput(
+      se,
+      setsRes.data ?? [],
+      prior,
+      sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
+      feel
+    )
+  );
 
   await writeExerciseProgressCore(
     supabase,
     userId,
     se.exercise_id,
     decision,
-    state.totalSessions,
+    totalSessions,
     sessionRes.data?.local_date ?? null,
   );
 
