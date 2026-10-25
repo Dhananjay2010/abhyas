@@ -61,7 +61,7 @@ echo
 test_mutant() {
   local name="$1"
   local fn="$2"
-  local alt_file="$3"
+  local alt_file="${3:-}"
   
   COUNT=$((COUNT + 1))
   printf "%-75s " "[$COUNT] $name"
