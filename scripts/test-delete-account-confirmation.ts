@@ -30,7 +30,7 @@ async function runTests() {
     check('accepts "DELETE"', isDeleteConfirmed("DELETE") === true);
     check('rejects " DELETE " (leading/trailing spaces)', isDeleteConfirmed(" DELETE ") === false);
     check('rejects "delete" (lowercase)', isDeleteConfirmed("delete") === false);
-    check('rejects "DELETE/n" (trailing newline)', isDeleteConfirmed("DELETE\n") === false);
+    check('rejects "DELETE\\n" (trailing newline)', isDeleteConfirmed("DELETE\n") === false);
     check('rejects "Delete" (wrong case)', isDeleteConfirmed("Delete") === false);
     check('rejects "" (empty string)', isDeleteConfirmed("") === false);
   }
@@ -39,9 +39,9 @@ async function runTests() {
   {
     check('rejects " DELETE" (leading space only)', isDeleteConfirmed(" DELETE") === false);
     check('rejects "DELETE " (trailing space only)', isDeleteConfirmed("DELETE ") === false);
-    check('rejects "/nDELETE" (leading newline)', isDeleteConfirmed("\nDELETE") === false);
-    check('rejects "/tDELETE" (leading tab)', isDeleteConfirmed("\tDELETE") === false);
-    check('rejects "DELETE/t" (trailing tab)', isDeleteConfirmed("DELETE\t") === false);
+    check('rejects "\\nDELETE" (leading newline)', isDeleteConfirmed("\nDELETE") === false);
+    check('rejects "\\tDELETE" (leading tab)', isDeleteConfirmed("\tDELETE") === false);
+    check('rejects "DELETE\\t" (trailing tab)', isDeleteConfirmed("DELETE\t") === false);
     check('rejects "DELETEEXTRA" (extra chars)', isDeleteConfirmed("DELETEEXTRA") === false);
     check('rejects "DELET" (incomplete)', isDeleteConfirmed("DELET") === false);
   }

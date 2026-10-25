@@ -50,7 +50,7 @@ function extractColumnReferences(sql: string, table: string): Set<string> {
   
   // Extract columns from INSERT INTO table (col1, col2, ...)
   const insertColPattern = new RegExp(
-    `INSERT/s+INTO/s+(?:public/.)?${table}/s*/(([^)]+)/)`,
+    `INSERT\\s+INTO\\s+(?:public\\.)?${table}\\s*\\(([^)]+)\\)`,
     'gi'
   );
   

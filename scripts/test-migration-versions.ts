@@ -98,7 +98,7 @@ try {
       for (const file of files) {
         const content = readFileSync(resolve(MIGRATIONS_DIR, file), "utf-8");
         // Look for function creation
-        if (content.match(new RegExp(`create (or replace )?function public/.${fnName}/(`))) {
+        if (content.match(new RegExp(`create (or replace )?function public\\.${fnName}\\(`))) {
           found = true;
           check(`${fnName}() exists`, true, `defined in ${file}`);
           break;
