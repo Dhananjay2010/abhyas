@@ -8,6 +8,8 @@ import { validateAndUpdateProfile } from "./profile-update-logic";
 import { decideEquipmentUpdate } from "./equipment-logic";
 import { isAllowedSessionLength } from "@/lib/onboarding/session-length";
 import { getTodayIsoInTimezone } from "@/lib/dates/today-iso";
+import { setEquipmentItemCore, setHasAllEquipmentCore } from "@/lib/settings/equipment-core";
+import { setInjuryCore } from "@/lib/settings/injury-core";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -99,6 +101,42 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
 
   revalidatePath("/settings");
   revalidatePath("/today");
+  return { ok: true };
+}
+
+/** 
+ * Atomic equipment set: ensure item is in desired state (enabled or disabled).
+ * Idempotent and safe for stale clients.
+ */
+export async function setEquipmentItem(input: {
+  equipmentId: string;
+  enabled: boolean;
+}): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
+  const { supabase, user } = await requireUser();
+  const result = await setEquipmentItemCore(supabase, user.id, input.equipmentId, input.enabled);
+  
+  if (!result.ok) return { ok: false, error: result.error! };
+  
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+/**
+ * Set has_all_equipment flag to explicit state. Idempotent.
+ */
+export async function setHasAllEquipment(hasAll: boolean): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
+  const { supabase, user } = await requireUser();
+  const result = await setHasAllEquipmentCore(supabase, user.id, hasAll);
+  
+  if (!result.ok) return { ok: false, error: result.error! };
+  
+  revalidatePath("/settings");
   return { ok: true };
 }
 
@@ -207,6 +245,27 @@ export async function updateEquipment(input: {
     .eq("id", user.id);
   if (flagError) return { ok: false, error: flagError.message };
 
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+/**
+ * Set injury to explicit state: present or absent, with severity if present.
+ * Idempotent and safe for stale clients.
+ */
+export async function setInjury(input: {
+  bodyRegion: BodyRegion;
+  present: boolean;
+  severity?: InjurySeverity;
+}): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
+  const { supabase, user } = await requireUser();
+  const result = await setInjuryCore(supabase, user.id, input.bodyRegion, input.present, input.severity);
+  
+  if (!result.ok) return { ok: false, error: result.error! };
+  
   revalidatePath("/settings");
   return { ok: true };
 }

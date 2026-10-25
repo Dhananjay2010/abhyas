@@ -26,6 +26,9 @@ import {
   updateInjuries,
   updateProfileSettings,
   updateSessionSettings,
+  setEquipmentItem,
+  setHasAllEquipment,
+  setInjury,
   type Result,
 } from "./actions";
 import { decideClientEquipmentUpdate, getEquipmentOffMessage } from "./equipment-logic";
@@ -36,8 +39,9 @@ import { DobInput } from "@/components/onboarding/dob-input";
 import { validateDob, getDobErrorMessage } from "@/lib/onboarding/dob";
 import { isSessionExpired } from "@/lib/auth/session-expired";
 import { useSessionExpiredPrompt, notifySessionExpired } from "@/components/session-expired-prompt";
-import { stashPendingChanges, getPendingChanges, clearPendingChanges } from "@/lib/auth/pending-changes";
+import { stashPendingChanges, getPendingChanges, clearPendingChanges, type SaveType } from "@/lib/auth/pending-changes";
 import { usePathname } from "next/navigation";
+import { replayPendingOps } from "@/lib/settings/restore-pending";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -45,6 +49,9 @@ export type SettingsActions = {
   updateProfileSettings: typeof updateProfileSettings;
   updateEquipment: typeof updateEquipment;
   updateInjuries: typeof updateInjuries;
+  setEquipmentItem: typeof setEquipmentItem;
+  setHasAllEquipment: typeof setHasAllEquipment;
+  setInjury: typeof setInjury;
 };
 
 const REAL_ACTIONS: SettingsActions = {
@@ -52,6 +59,9 @@ const REAL_ACTIONS: SettingsActions = {
   updateProfileSettings,
   updateEquipment,
   updateInjuries,
+  setEquipmentItem,
+  setHasAllEquipment,
+  setInjury,
 };
 
 export type EquipmentRow = { id: string; name: string; category: string };
@@ -182,9 +192,10 @@ export function SettingsForm({
   
   /** Track retry metadata for each key (M1 fix #2) */
   const retryMetadata = useRef<Map<string, {
-    type: 'profile' | 'session' | 'equipment' | 'injuries';
-    patch: unknown;
+    type: SaveType;
+    patch?: Parameters<typeof actions.updateProfileSettings>[0] | Parameters<typeof actions.updateSessionSettings>[0] | unknown;
     affectsPlan?: boolean;
+    retryFn?: () => void;
   }>>(new Map());
   
   /** DOB error state (client-side validation) */
@@ -232,30 +243,62 @@ export function SettingsForm({
   }, []);
 
   const restorePendingChanges = useEffectEvent(() => {
-    // Re-apply each stashed save through the appropriate save function
     const pending = getPendingChanges(userId);
     if (!pending || pending.returnPath !== pathname) {
       return;
     }
 
-    clearPendingChanges();
-
-    for (const change of pending.changes) {
-      const { key, type, patch, affectsPlan } = change;
-      
-      if (type === 'profile' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
-        saveProfile(key, patch as Parameters<typeof actions.updateProfileSettings>[0], affectsPlan);
-      } else if (type === 'session' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
-        saveSession(key, patch as Parameters<typeof actions.updateSessionSettings>[0]);
-      } else if (type === 'equipment' && patch && typeof patch === 'object' && !Array.isArray(patch) && 'hasAll' in patch && 'equipmentIds' in patch) {
-        const equipPatch = patch as { hasAll: boolean; equipmentIds: string[] };
-        saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
-      } else if (type === 'injuries' && Array.isArray(patch)) {
-        // Re-enqueue injuries save directly
-        retryMetadata.current.set("injuries", { type: 'injuries', patch });
-        enqueueSave("injuries", () => actions.updateInjuries(patch as Parameters<typeof actions.updateInjuries>[0]), true);
+    // Use the extracted restore logic with real server actions
+    startTransition(async () => {
+      try {
+        const { handledCount, unrecognizedOps } = await replayPendingOps(pending.changes, {
+          updateProfileSettings: actions.updateProfileSettings,
+          updateSessionSettings: actions.updateSessionSettings,
+          setEquipmentItem: actions.setEquipmentItem,
+          setHasAllEquipment: actions.setHasAllEquipment,
+          setInjury: actions.setInjury,
+          updateEquipment: actions.updateEquipment,
+          updateInjuries: actions.updateInjuries,
+        });
+        
+        // LOW fix: Show error once for unrecognized ops, then clear the entire stash
+        // (recognized ops were already replayed successfully)
+        if (unrecognizedOps.length > 0) {
+          // LOW fix: Map raw keys to friendly labels
+          const friendlyLabels = unrecognizedOps.map(opKey => {
+            const [type] = opKey.split(':');
+            const typeLabels: Record<string, string> = {
+              profile: 'profile',
+              session: 'session preferences',
+              equipment: 'equipment',
+              injury: 'injuries',
+              injuries: 'injuries',
+            };
+            return typeLabels[type] || type;
+          });
+          const uniqueLabels = Array.from(new Set(friendlyLabels));
+          const errorMsg = `Some earlier changes couldn't be restored (${uniqueLabels.join(', ')})`;
+          setError(errorMsg);
+        }
+        
+        // Clear the stash after all recognized operations succeed
+        // (unrecognized ops are also cleared here after showing the error)
+        clearPendingChanges();
+      } catch (err) {
+        // If session expired during restore, keep the stash and show prompt
+        if (isSessionExpired(err)) {
+          notifySessionExpired();
+          return;
+        }
+        // L5 fix: For other errors, keep the stash and show inline error (don't throw to error boundary)
+        let errorMsg = err instanceof Error ? err.message : 'Failed to restore pending changes';
+        // LOW fix: Replace raw "Failed to fetch" with friendly message
+        if (errorMsg.toLowerCase().includes("failed to fetch") || errorMsg.toLowerCase().includes("network")) {
+          errorMsg = "Couldn't restore your changes. Check your connection and try again.";
+        }
+        setError(errorMsg);
       }
-    }
+    });
   });
 
   useEffect(() => {
@@ -318,6 +361,12 @@ export function SettingsForm({
       window.removeEventListener("pagehide", handlePageHide);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleFocus);
+      
+      // MEDIUM 1: Flush pending saves on unmount (soft navigation)
+      // This ensures saves complete even after the component unmounts
+      if (saveQueue.hasPending()) {
+        saveQueue.flush();
+      }
     };
   }, [saveQueue, router]);
 
@@ -338,6 +387,124 @@ export function SettingsForm({
     saveQueue.getStatus,
     saveQueue.getStatus
   );
+
+  // Item 5: Serialize initial props to detect changes from router.refresh()
+  const initialSerialized = useRef<string>(JSON.stringify(initial));
+  const [pendingPropsSync, setPendingPropsSync] = useState<SettingsState | null>(null);
+
+  // Item 5: Detect props changes and re-sync when queue is idle
+  useEffect(() => {
+    const newSerialized = JSON.stringify(initial);
+    
+    // Props haven't changed, nothing to do
+    if (newSerialized === initialSerialized.current) {
+      return;
+    }
+    
+    // Props changed - need to re-sync
+    if (queueStatus.state === "idle") {
+      // Queue is idle, re-sync immediately
+      initialSerialized.current = newSerialized;
+      
+      // Re-sync state from new props
+      startTransition(() => {
+        setS(initial);
+      });
+      
+      // Re-sync lastSavedValues
+      lastSavedValues.current = {
+        goal: initial.goal,
+        level: initial.level,
+        primaryTrack: initial.primaryTrack,
+        daysPerWeek: initial.daysPerWeek,
+        yogaDaysPerWeek: initial.yogaDaysPerWeek,
+        preferredSessionMinutes: initial.preferredSessionMinutes,
+        planningMode: initial.planningMode,
+        perSetLogging: initial.perSetLogging,
+        resumeSession: initial.resumeSession,
+        cooldownEnabled: initial.cooldownEnabled,
+        restAutostart: initial.restAutostart,
+        restSound: initial.restSound,
+        restVibrate: initial.restVibrate,
+        restOverrideSeconds: initial.restOverrideSeconds,
+        bodyweightPrompt: initial.bodyweightPrompt,
+        timezone: initial.timezone,
+      };
+      
+      // Re-sync equipment saved state
+      startTransition(() => {
+        setSavedEquipment({
+          hasAll: initial.hasAllEquipment,
+          ids: initial.equipmentIds,
+        });
+      });
+      
+      // Re-sync DOB
+      lastSavedDob.current = initial.dateOfBirth;
+      currentDob.current = initial.dateOfBirth;
+      
+      // M1 fix: Props sync must not clear planStale
+      // Keep rebuild prompt until user rebuilds/dismisses or derived from server state
+      startTransition(() => {
+        setPendingPropsSync(null);
+      });
+    } else {
+      // Queue is busy, defer re-sync until it drains
+      startTransition(() => {
+        setPendingPropsSync(initial);
+      });
+    }
+  }, [initial, queueStatus.state]);
+
+  // Item 5: Apply pending props sync after queue drains
+  useEffect(() => {
+    if (pendingPropsSync && queueStatus.state === "idle") {
+      const newSerialized = JSON.stringify(pendingPropsSync);
+      initialSerialized.current = newSerialized;
+      
+      // Re-sync state from pending props
+      startTransition(() => {
+        setS(pendingPropsSync);
+      });
+      
+      // Re-sync lastSavedValues
+      lastSavedValues.current = {
+        goal: pendingPropsSync.goal,
+        level: pendingPropsSync.level,
+        primaryTrack: pendingPropsSync.primaryTrack,
+        daysPerWeek: pendingPropsSync.daysPerWeek,
+        yogaDaysPerWeek: pendingPropsSync.yogaDaysPerWeek,
+        preferredSessionMinutes: pendingPropsSync.preferredSessionMinutes,
+        planningMode: pendingPropsSync.planningMode,
+        perSetLogging: pendingPropsSync.perSetLogging,
+        resumeSession: pendingPropsSync.resumeSession,
+        cooldownEnabled: pendingPropsSync.cooldownEnabled,
+        restAutostart: pendingPropsSync.restAutostart,
+        restSound: pendingPropsSync.restSound,
+        restVibrate: pendingPropsSync.restVibrate,
+        restOverrideSeconds: pendingPropsSync.restOverrideSeconds,
+        bodyweightPrompt: pendingPropsSync.bodyweightPrompt,
+        timezone: pendingPropsSync.timezone,
+      };
+      
+      // Re-sync equipment saved state
+      startTransition(() => {
+        setSavedEquipment({
+          hasAll: pendingPropsSync.hasAllEquipment,
+          ids: pendingPropsSync.equipmentIds,
+        });
+      });
+      
+      // Re-sync DOB
+      lastSavedDob.current = pendingPropsSync.dateOfBirth;
+      currentDob.current = pendingPropsSync.dateOfBirth;
+      
+      // M1 fix: Props sync must not clear planStale
+      startTransition(() => {
+        setPendingPropsSync(null);
+      });
+    }
+  }, [pendingPropsSync, queueStatus.state]);
 
   /** Get friendly field name for error messages (N1) */
   function getFieldDisplayName(key: string): string {
@@ -453,11 +620,11 @@ export function SettingsForm({
         setAnySaveOccurred(true);
         
         if (!result.ok) {
-          // N1: Only revert if no newer save is pending for this key
-          const shouldRevert = !saveQueue.hasPending() || 
-            (!saveQueue.getInFlightKeys().includes(key) && !saveQueue.getQueuedKeys().includes(key));
+          // LOW 2: Only revert if no newer save is pending for THIS key
+          // Don't revert if this key has another save in flight or queued
+          const keyHasNewerSave = saveQueue.getInFlightKeys().includes(key) || saveQueue.getQueuedKeys().includes(key);
           
-          if (shouldRevert) {
+          if (!keyHasNewerSave) {
             onFailure?.();
           }
           
@@ -503,11 +670,10 @@ export function SettingsForm({
           return;
         }
         
-        // N1: Only revert if no newer save is pending
-        const shouldRevert = !saveQueue.hasPending() || 
-          (!saveQueue.getInFlightKeys().includes(key) && !saveQueue.getQueuedKeys().includes(key));
+        // LOW 2: Only revert if no newer save is pending for THIS key
+        const keyHasNewerSave = saveQueue.getInFlightKeys().includes(key) || saveQueue.getQueuedKeys().includes(key);
         
-        if (shouldRevert) {
+        if (!keyHasNewerSave) {
           onFailure?.();
         }
         
@@ -530,10 +696,8 @@ export function SettingsForm({
     patch: Parameters<typeof actions.updateProfileSettings>[0],
     affectsPlan = false
   ) {
-    // Capture the new value being saved
-    const newValue = Object.values(patch)[0];
-    const apiKey = Object.keys(patch)[0];
-    const stateKey = mapApiKeyToStateKey(apiKey);
+    // LOW 3: Capture ALL keys in the patch for multi-key reverts
+    const patchEntries = Object.entries(patch);
     
     // Store retry metadata (M1 fix #2)
     retryMetadata.current.set(key, { type: 'profile', patch, affectsPlan });
@@ -543,18 +707,27 @@ export function SettingsForm({
       () => actions.updateProfileSettings(patch),
       affectsPlan,
       () => {
-        // On success: update lastSavedValues AND state
-        if (stateKey && stateKey in lastSavedValues.current) {
-          lastSavedValues.current[stateKey] = newValue as never;
-          // Also update state to match (for retry success case)
-          setS(prev => ({ ...prev, [stateKey]: newValue }));
+        // On success: update lastSavedValues AND state for ALL keys in patch
+        for (const [apiKey, newValue] of patchEntries) {
+          const stateKey = mapApiKeyToStateKey(apiKey);
+          if (stateKey && stateKey in lastSavedValues.current) {
+            lastSavedValues.current[stateKey] = newValue as never;
+            setS(prev => ({ ...prev, [stateKey]: newValue }));
+          }
         }
       },
       () => {
-        // On failure: revert to last saved value
-        if (stateKey && stateKey in lastSavedValues.current) {
-          setS(prev => ({ ...prev, [stateKey]: lastSavedValues.current[stateKey] }));
-        }
+        // LOW 3: On failure, revert ALL keys in the patch
+        setS(prev => {
+          const reverted = { ...prev };
+          for (const [apiKey] of patchEntries) {
+            const stateKey = mapApiKeyToStateKey(apiKey);
+            if (stateKey && stateKey in lastSavedValues.current) {
+              reverted[stateKey] = lastSavedValues.current[stateKey] as never;
+            }
+          }
+          return reverted;
+        });
       }
     );
   }
@@ -564,10 +737,8 @@ export function SettingsForm({
     key: string,
     patch: Parameters<typeof actions.updateSessionSettings>[0]
   ) {
-    // Capture the new value being saved
-    const newValue = Object.values(patch)[0];
-    const apiKey = Object.keys(patch)[0];
-    const stateKey = mapApiKeyToStateKey(apiKey);
+    // LOW 3: Capture ALL keys in the patch for multi-key reverts
+    const patchEntries = Object.entries(patch);
     
     // Store retry metadata (M1 fix #2)
     retryMetadata.current.set(key, { type: 'session', patch });
@@ -577,18 +748,27 @@ export function SettingsForm({
       () => actions.updateSessionSettings(patch),
       false,
       () => {
-        // On success: update lastSavedValues AND state
-        if (stateKey && stateKey in lastSavedValues.current) {
-          lastSavedValues.current[stateKey] = newValue as never;
-          // Also update state to match (for retry success case)
-          setS(prev => ({ ...prev, [stateKey]: newValue }));
+        // On success: update lastSavedValues AND state for ALL keys in patch
+        for (const [apiKey, newValue] of patchEntries) {
+          const stateKey = mapApiKeyToStateKey(apiKey);
+          if (stateKey && stateKey in lastSavedValues.current) {
+            lastSavedValues.current[stateKey] = newValue as never;
+            setS(prev => ({ ...prev, [stateKey]: newValue }));
+          }
         }
       },
       () => {
-        // On failure: revert to last saved value
-        if (stateKey && stateKey in lastSavedValues.current) {
-          setS(prev => ({ ...prev, [stateKey]: lastSavedValues.current[stateKey] }));
-        }
+        // LOW 3: On failure, revert ALL keys in the patch
+        setS(prev => {
+          const reverted = { ...prev };
+          for (const [apiKey] of patchEntries) {
+            const stateKey = mapApiKeyToStateKey(apiKey);
+            if (stateKey && stateKey in lastSavedValues.current) {
+              reverted[stateKey] = lastSavedValues.current[stateKey] as never;
+            }
+          }
+          return reverted;
+        });
       }
     );
   }
@@ -704,7 +884,7 @@ export function SettingsForm({
   function saveInjuries(injuries: Parameters<typeof actions.updateInjuries>[0]) {
     // Store retry metadata
     retryMetadata.current.set("injuries", {
-      type: 'injuries',
+      type: 'injury',
       patch: injuries
     });
     enqueueSave("injuries", () => actions.updateInjuries(injuries), true);
@@ -750,16 +930,19 @@ export function SettingsForm({
                     // M1 fix #2: Retry through appropriate save function
                     const metadata = retryMetadata.current.get(key);
                     if (metadata) {
-                      if (metadata.type === 'profile' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
-                        saveProfile(key, metadata.patch as Parameters<typeof actions.updateProfileSettings>[0], metadata.affectsPlan);
-                      } else if (metadata.type === 'session' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
-                        saveSession(key, metadata.patch as Parameters<typeof actions.updateSessionSettings>[0]);
-                      } else if (metadata.type === 'equipment' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch) && 'hasAll' in metadata.patch && 'equipmentIds' in metadata.patch) {
-                        const equipPatch = metadata.patch as { hasAll: boolean; equipmentIds: string[] };
-                        saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
-                      } else if (metadata.type === 'injuries' && Array.isArray(metadata.patch)) {
-                        saveInjuries(metadata.patch as Parameters<typeof actions.updateInjuries>[0]);
-                      }
+                    if (metadata.type === 'profile' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
+                      saveProfile(key, metadata.patch as Parameters<typeof actions.updateProfileSettings>[0], metadata.affectsPlan);
+                    } else if (metadata.type === 'session' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
+                      saveSession(key, metadata.patch as Parameters<typeof actions.updateSessionSettings>[0]);
+                    } else if (metadata.type === 'equipment' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch) && 'hasAll' in metadata.patch && 'equipmentIds' in metadata.patch) {
+                      const equipPatch = metadata.patch as { hasAll: boolean; equipmentIds: string[] };
+                      saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
+                    } else if (metadata.type === 'injury' && Array.isArray(metadata.patch)) {
+                      saveInjuries(metadata.patch as Parameters<typeof actions.updateInjuries>[0]);
+                    } else if (metadata.retryFn) {
+                      // Per-item equipment/injury retry (PRIORITY 1)
+                      metadata.retryFn();
+                    }
                     }
                   }}
                   className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-accent underline underline-offset-2"
@@ -869,37 +1052,121 @@ export function SettingsForm({
       <Section title="Equipment" note="We never suggest an exercise you cannot do.">
         <button
           onClick={() => {
-            const turningOff = s.hasAllEquipment;
+            const newState = !s.hasAllEquipment;
             
-            if (turningOff) {
-              const restoredIds = savedEquipment.ids.length > 0 
-                ? savedEquipment.ids 
-                : s.equipmentIds;
-              
-              if (restoredIds.length === 0) {
-                setS(prev => ({ ...prev, hasAllEquipment: false, equipmentIds: [] }));
-                setEquipmentHint("Pick at least one item; nothing changes until you do");
-                setEquipmentOffConfirmation(null);
-                return;
-              }
-              
-              setS(prev => ({ ...prev, hasAllEquipment: false, equipmentIds: restoredIds }));
-              saveEquipment(false, restoredIds, true);
-            } else {
-              const decision = decideClientEquipmentUpdate({
-                currentHasAll: s.hasAllEquipment,
-                currentEquipmentIds: s.equipmentIds,
-                action: "toggle",
-              });
-              
-              if (!decision.allow) {
-                setEquipmentHint(decision.hint);
-                return;
-              }
-              
-              setS(prev => ({ ...prev, hasAllEquipment: true }));
-              saveEquipment(true, s.equipmentIds);
+            // MEDIUM fix: If turning off has_all with no items, flip state and show hint but don't save yet
+            if (!newState && s.equipmentIds.length === 0) {
+              setS(prev => ({ ...prev, hasAllEquipment: false }));
+              setEquipmentHint("Pick at least one item; nothing changes until you do");
+              return;
             }
+            
+            // PRIORITY 1: Atomic has_all set (explicit state)
+            setS(prev => ({ ...prev, hasAllEquipment: newState }));
+            
+            // Store metadata with per-item operation (for retry and stashing)
+            const hasAllPatch = { operation: 'setHasAll' as const, hasAll: newState };
+            retryMetadata.current.set("equipment", { 
+              type: 'equipment', 
+              patch: hasAllPatch,
+              retryFn: () => {
+                startTransition(async () => {
+                  const result = await actions.setHasAllEquipment(newState);
+                  if (!result.ok) {
+                    setS(prev => ({ ...prev, hasAllEquipment: !newState }));
+                    const friendlyError = getFriendlyError("equipment", result.error);
+                    setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+                    setError(friendlyError);
+                  } else {
+                    setFieldErrors(prev => {
+                      const next = new Map(prev);
+                      next.delete("equipment");
+                      if (next.size === 0) setError(null);
+                      return next;
+                    });
+                    if (!newState) {
+                      setEquipmentOffConfirmation(
+                        getEquipmentOffMessage(s.equipmentIds.length > 0)
+                      );
+                    }
+                  }
+                });
+              }
+            });
+            
+            startTransition(async () => {
+              try {
+                const result = await actions.setHasAllEquipment(newState);
+                
+                // Check for session expiration in result
+                if (isSessionExpired(result)) {
+                  const metadata = retryMetadata.current.get("equipment");
+                  if (metadata) {
+                    const existing = getPendingChanges(userId);
+                    const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                    const newChange = {
+                      key: "equipment",
+                      type: metadata.type,
+                      patch: metadata.patch,
+                      timestamp: Date.now()
+                    };
+                    const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+                    stashPendingChanges(merged, pathname, userId);
+                  }
+                  notifySessionExpired();
+                  return;
+                }
+                
+                if (!result.ok) {
+                  // Revert on error
+                  setS(prev => ({ ...prev, hasAllEquipment: !newState }));
+                  const friendlyError = getFriendlyError("equipment", result.error);
+                  setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+                  setError(friendlyError);
+                } else {
+                  // Success: clear equipment errors
+                  setFieldErrors(prev => {
+                    const next = new Map(prev);
+                    next.delete("equipment");
+                    if (next.size === 0) setError(null);
+                    return next;
+                  });
+                  // M1 fix: Set plan stale after equipment change
+                  setPlanStale(true);
+                  if (!newState) {
+                    // L1 fix: Show guard message if no equipment selected
+                    if (s.equipmentIds.length === 0) {
+                      setEquipmentHint("Pick at least one item; nothing changes until you do");
+                    } else {
+                      // Show confirmation when turning off
+                      setEquipmentOffConfirmation(
+                        getEquipmentOffMessage(true)
+                      );
+                    }
+                  }
+                }
+              } catch (err) {
+                // Check for session expiration in thrown error
+                if (isSessionExpired(err)) {
+                  const metadata = retryMetadata.current.get("equipment");
+                  if (metadata) {
+                    const existing = getPendingChanges(userId);
+                    const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                    const newChange = {
+                      key: "equipment",
+                      type: metadata.type,
+                      patch: metadata.patch,
+                      timestamp: Date.now()
+                    };
+                    const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+                    stashPendingChanges(merged, pathname, userId);
+                  }
+                  notifySessionExpired();
+                  return;
+                }
+                throw err;
+              }
+            });
           }}
           aria-pressed={s.hasAllEquipment}
           className={`w-full rounded-xl border px-5 py-3 text-left text-sm font-semibold ${
@@ -944,24 +1211,163 @@ export function SettingsForm({
                         key={e.id}
                         aria-pressed={on}
                         onClick={() => {
-                          const decision = decideClientEquipmentUpdate({
-                            currentHasAll: s.hasAllEquipment,
-                            currentEquipmentIds: s.equipmentIds,
-                            action: "chip-click",
-                            chipId: e.id,
-                          });
+                          // PRIORITY 1: Atomic equipment set (explicit state) to prevent data loss
+                          const newState = !on;
+                          const equipmentId = e.id;
                           
-                          if (!decision.allow) {
-                            setEquipmentHint(decision.hint);
+                          // L1 fix: Don't remove last item if has_all is already false
+                          if (!newState && !s.hasAllEquipment && s.equipmentIds.length === 1) {
+                            setEquipmentHint("Pick at least one item or turn on \"I have it all\"");
                             return;
                           }
                           
+                          // MEDIUM fix: First item pick after has_all turned off - save both together
+                          const isFirstItemAfterHasAllOff = newState && s.equipmentIds.length === 0 && !s.hasAllEquipment && savedEquipment.hasAll;
+                          
+                          // Optimistic update
                           setS(prev => ({ 
                             ...prev, 
-                            hasAllEquipment: decision.newHasAll, 
-                            equipmentIds: decision.newEquipmentIds 
+                            equipmentIds: newState 
+                              ? [...prev.equipmentIds, equipmentId]
+                              : prev.equipmentIds.filter(id => id !== equipmentId)
                           }));
-                          saveEquipment(decision.newHasAll, decision.newEquipmentIds);
+                          
+                          // N1 fix: Store atomic updateEquipment for first item after has_all off
+                          const atomicPatch = isFirstItemAfterHasAllOff 
+                            ? { hasAll: false, equipmentIds: [equipmentId] }
+                            : { operation: 'setItem' as const, equipmentId, enabled: newState };
+                          
+                          retryMetadata.current.set("equipment", { 
+                            type: 'equipment', 
+                            patch: atomicPatch,
+                            retryFn: () => {
+                              startTransition(async () => {
+                                const result = isFirstItemAfterHasAllOff
+                                  ? await actions.updateEquipment({ hasAll: false, equipmentIds: [equipmentId] })
+                                  : await actions.setEquipmentItem({ equipmentId, enabled: newState });
+                                if (!result.ok) {
+                                  setS(prev => ({ 
+                                    ...prev, 
+                                    equipmentIds: newState 
+                                      ? prev.equipmentIds.filter(id => id !== equipmentId)
+                                      : [...prev.equipmentIds, equipmentId]
+                                  }));
+                                  const friendlyError = getFriendlyError("equipment", result.error);
+                                  setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+                                  setError(friendlyError);
+                                } else {
+                                  setFieldErrors(prev => {
+                                    const next = new Map(prev);
+                                    next.delete("equipment");
+                                    if (next.size === 0) setError(null);
+                                    return next;
+                                  });
+                                  // N1 fix: Clear hint after successful first pick
+                                  if (isFirstItemAfterHasAllOff) {
+                                    setEquipmentHint(null);
+                                  }
+                                }
+                              });
+                            }
+                          });
+                          
+                          // Atomic server save (set explicit state)
+                          startTransition(async () => {
+                            try {
+                              // MEDIUM fix: If first item after has_all off, save both together
+                              const result = isFirstItemAfterHasAllOff
+                                ? await actions.updateEquipment({ hasAll: false, equipmentIds: [equipmentId] })
+                                : await actions.setEquipmentItem({ equipmentId, enabled: newState });
+                              
+                              // Check for session expiration in result
+                              if (isSessionExpired(result)) {
+                                const metadata = retryMetadata.current.get("equipment");
+                                if (metadata) {
+                                  const existing = getPendingChanges(userId);
+                                  const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                                  // N1 fix: Stash atomic updateEquipment for first item after has_all off
+                                  const newChange = {
+                                    key: "equipment",
+                                    type: "equipment" as const,
+                                    patch: isFirstItemAfterHasAllOff 
+                                      ? { hasAll: false, equipmentIds: [equipmentId] }
+                                      : { operation: 'setItem' as const, equipmentId, enabled: newState },
+                                    timestamp: Date.now()
+                                  };
+                                  // M2 fix: Accumulate per-item equipment changes by equipmentId
+                                  // N1 fix: Don't filter updateEquipment (atomic has_all+item op)
+                                  const merged = existingChanges.filter(ch => {
+                                    if (ch.key !== "equipment") return true;
+                                    const p = ch.patch;
+                                    if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                        'operation' in p && p.operation === 'setItem' && 
+                                        'equipmentId' in p && p.equipmentId === equipmentId) return false;
+                                    return true;
+                                  }).concat(newChange);
+                                  stashPendingChanges(merged, pathname, userId);
+                                }
+                                notifySessionExpired();
+                                return;
+                              }
+                              
+                              if (!result.ok) {
+                                setS(prev => ({ 
+                                  ...prev, 
+                                  equipmentIds: newState 
+                                    ? prev.equipmentIds.filter(id => id !== equipmentId)
+                                    : [...prev.equipmentIds, equipmentId]
+                                }));
+                                const friendlyError = getFriendlyError("equipment", result.error);
+                                setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+                                setError(friendlyError);
+                              } else {
+                                // M1 fix: Set plan stale after equipment change
+                                setFieldErrors(prev => {
+                                  const next = new Map(prev);
+                                  next.delete("equipment");
+                                  if (next.size === 0) setError(null);
+                                  return next;
+                                });
+                                setPlanStale(true);
+                                // N1 LOW: Clear hint after successful first pick
+                                if (isFirstItemAfterHasAllOff) {
+                                  setEquipmentHint(null);
+                                }
+                              }
+                            } catch (err) {
+                              // Check for session expiration in thrown error
+                              if (isSessionExpired(err)) {
+                                const metadata = retryMetadata.current.get("equipment");
+                                if (metadata) {
+                                  const existing = getPendingChanges(userId);
+                                  const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                                  // N1 fix: Stash atomic updateEquipment for first item after has_all off
+                                  const newChange = {
+                                    key: "equipment",
+                                    type: "equipment" as const,
+                                    patch: isFirstItemAfterHasAllOff 
+                                      ? { hasAll: false, equipmentIds: [equipmentId] }
+                                      : { operation: 'setItem' as const, equipmentId, enabled: newState },
+                                    timestamp: Date.now()
+                                  };
+                                  // M2 fix: Accumulate per-item equipment changes by equipmentId
+                                  // N1 fix: Don't filter updateEquipment (atomic has_all+item op)
+                                  const merged = existingChanges.filter(ch => {
+                                    if (ch.key !== "equipment") return true;
+                                    const p = ch.patch;
+                                    if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                        'operation' in p && p.operation === 'setItem' && 
+                                        'equipmentId' in p && p.equipmentId === equipmentId) return false;
+                                    return true;
+                                  }).concat(newChange);
+                                  stashPendingChanges(merged, pathname, userId);
+                                }
+                                notifySessionExpired();
+                                return;
+                              }
+                              throw err;
+                            }
+                          });
                         }}
                         className={`rounded-full border px-4 py-2 text-sm ${
                           on
@@ -993,11 +1399,124 @@ export function SettingsForm({
                 key={r.value}
                 aria-pressed={Boolean(found)}
                 onClick={() => {
-                  const next = found
-                    ? s.injuries.filter((i) => i.bodyRegion !== r.value)
-                    : [...s.injuries, { bodyRegion: r.value, severity: "current" as const }];
+                  // PRIORITY 1: Atomic injury set (explicit state) to prevent data loss
+                  const newState = !found;
+                  const bodyRegion = r.value;
+                  const severity = newState ? "current" as const : undefined;
+                  
+                  // Optimistic update
+                  const next = newState
+                    ? [...s.injuries, { bodyRegion, severity: "current" as const }]
+                    : s.injuries.filter((i) => i.bodyRegion !== bodyRegion);
                   setS(prev => ({ ...prev, injuries: next }));
-                  saveInjuries(next);
+                  
+                  // Store metadata with per-item operation (for retry and stashing)
+                  const injuryPatch = { operation: 'setInjury' as const, bodyRegion, present: newState, severity };
+                  retryMetadata.current.set("injuries", { 
+                    type: 'injury', 
+                    patch: injuryPatch,
+                    retryFn: () => {
+                      startTransition(async () => {
+                        const result = await actions.setInjury({ bodyRegion, present: newState, severity });
+                        if (!result.ok) {
+                          setS(prev => ({ ...prev, injuries: found ? [found, ...prev.injuries] : prev.injuries.filter(i => i.bodyRegion !== bodyRegion) }));
+                          const friendlyError = getFriendlyError("injuries", result.error);
+                          setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
+                          setError(friendlyError);
+                        } else {
+                          setFieldErrors(prev => {
+                            const next = new Map(prev);
+                            next.delete("injuries");
+                            if (next.size === 0) setError(null);
+                            return next;
+                          });
+                        }
+                      });
+                    }
+                  });
+                  
+                  // Atomic server save (set explicit state)
+                  startTransition(async () => {
+                    try {
+                      const result = await actions.setInjury({ 
+                        bodyRegion, 
+                        present: newState,
+                        severity
+                      });
+                      
+                      // Check for session expiration in result
+                      if (isSessionExpired(result)) {
+                        const metadata = retryMetadata.current.get("injuries");
+                        if (metadata) {
+                          const existing = getPendingChanges(userId);
+                          const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                          const newChange = {
+                            key: "injuries",
+                            type: "injury" as const,
+                            patch: { operation: 'setInjury' as const, bodyRegion, present: newState, severity },
+                            timestamp: Date.now()
+                          };
+                          // H1b fix: Accumulate per-region injury changes by bodyRegion (like M2 equipment)
+                          const merged = existingChanges.filter(ch => {
+                            if (ch.key !== "injuries") return true;
+                            const p = ch.patch;
+                            if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                'operation' in p && p.operation === 'setInjury' && 
+                                'bodyRegion' in p && p.bodyRegion === bodyRegion) return false;
+                            return true;
+                          }).concat(newChange);
+                          stashPendingChanges(merged, pathname, userId);
+                        }
+                        notifySessionExpired();
+                        return;
+                      }
+                      
+                      if (!result.ok) {
+                        // Revert on error
+                        setS(prev => ({ ...prev, injuries: found ? [found, ...prev.injuries] : prev.injuries.filter(i => i.bodyRegion !== bodyRegion) }));
+                        const friendlyError = getFriendlyError("injuries", result.error);
+                        setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
+                        setError(friendlyError);
+                      } else {
+                        // Success: clear injuries errors and set plan stale (M1 fix)
+                        setFieldErrors(prev => {
+                          const next = new Map(prev);
+                          next.delete("injuries");
+                          if (next.size === 0) setError(null);
+                          return next;
+                        });
+                        setPlanStale(true);
+                      }
+                    } catch (err) {
+                      // Check for session expiration in thrown error
+                      if (isSessionExpired(err)) {
+                        const metadata = retryMetadata.current.get("injuries");
+                        if (metadata) {
+                          const existing = getPendingChanges(userId);
+                          const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                          const newChange = {
+                            key: "injuries",
+                            type: "injury" as const,
+                            patch: { operation: 'setInjury' as const, bodyRegion, present: newState, severity },
+                            timestamp: Date.now()
+                          };
+                          // H1b fix: Accumulate per-region injury changes by bodyRegion (like M2 equipment)
+                          const merged = existingChanges.filter(ch => {
+                            if (ch.key !== "injuries") return true;
+                            const p = ch.patch;
+                            if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                'operation' in p && p.operation === 'setInjury' && 
+                                'bodyRegion' in p && p.bodyRegion === bodyRegion) return false;
+                            return true;
+                          }).concat(newChange);
+                          stashPendingChanges(merged, pathname, userId);
+                        }
+                        notifySessionExpired();
+                        return;
+                      }
+                      throw err;
+                    }
+                  });
                 }}
                 className={`rounded-full border px-4 py-2 text-sm ${
                   found
@@ -1027,11 +1546,125 @@ export function SettingsForm({
                       key={sev}
                       aria-pressed={inj.severity === sev}
                       onClick={() => {
+                        // PRIORITY 1: Atomic injury severity change (explicit state)
+                        const bodyRegion = inj.bodyRegion;
+                        const severity = sev;
+                        
+                        // Optimistic update
                         const next = s.injuries.map((i) =>
-                          i.bodyRegion === inj.bodyRegion ? { ...i, severity: sev } : i,
+                          i.bodyRegion === bodyRegion ? { ...i, severity } : i,
                         );
                         setS(prev => ({ ...prev, injuries: next }));
-                        saveInjuries(next);
+                        
+                        // Store metadata with per-item operation (for retry and stashing)
+                        const injuryPatch = { operation: 'setInjury' as const, bodyRegion, present: true, severity };
+                        retryMetadata.current.set("injuries", { 
+                          type: 'injury', 
+                          patch: injuryPatch,
+                          retryFn: () => {
+                            startTransition(async () => {
+                              const result = await actions.setInjury({ bodyRegion, present: true, severity });
+                              if (!result.ok) {
+                                // L4 fix: Revert using functional update
+                                setS(prev => ({ ...prev, injuries: prev.injuries.map(i => 
+                                  i.bodyRegion === bodyRegion ? inj : i
+                                )}));
+                                const friendlyError = getFriendlyError("injuries", result.error);
+                                setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
+                                setError(friendlyError);
+                              } else {
+                                setFieldErrors(prev => {
+                                  const next = new Map(prev);
+                                  next.delete("injuries");
+                                  if (next.size === 0) setError(null);
+                                  return next;
+                                });
+                                setPlanStale(true);
+                              }
+                            });
+                          }
+                        });
+                        
+                        // Atomic server save (set explicit state with new severity)
+                        startTransition(async () => {
+                          try {
+                            const result = await actions.setInjury({ bodyRegion, present: true, severity });
+                            
+                            // Check for session expiration in result
+                            if (isSessionExpired(result)) {
+                              const metadata = retryMetadata.current.get("injuries");
+                              if (metadata) {
+                                const existing = getPendingChanges(userId);
+                                const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                                const newChange = {
+                                  key: "injuries",
+                                  type: "injury" as const,
+                                  patch: { operation: 'setInjury' as const, bodyRegion, present: true, severity },
+                                  timestamp: Date.now()
+                                };
+                                // H1b fix: Accumulate per-region injury changes by bodyRegion (like M2 equipment)
+                                const merged = existingChanges.filter(ch => {
+                                  if (ch.key !== "injuries") return true;
+                                  const p = ch.patch;
+                                  if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                      'operation' in p && p.operation === 'setInjury' && 
+                                      'bodyRegion' in p && p.bodyRegion === bodyRegion) return false;
+                                  return true;
+                                }).concat(newChange);
+                                stashPendingChanges(merged, pathname, userId);
+                              }
+                              notifySessionExpired();
+                              return;
+                            }
+                            
+                            if (!result.ok) {
+                              // L4 fix: Revert using functional update with latest state
+                              setS(prev => ({ ...prev, injuries: prev.injuries.map(i => 
+                                i.bodyRegion === bodyRegion ? inj : i
+                              )}));
+                              const friendlyError = getFriendlyError("injuries", result.error);
+                              setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
+                              setError(friendlyError);
+                            } else {
+                              // Success: clear injuries errors and set plan stale (M1 fix)
+                              setFieldErrors(prev => {
+                                const next = new Map(prev);
+                                next.delete("injuries");
+                                if (next.size === 0) setError(null);
+                                return next;
+                              });
+                              setPlanStale(true);
+                            }
+                          } catch (err) {
+                            // Check for session expiration in thrown error
+                            if (isSessionExpired(err)) {
+                              const metadata = retryMetadata.current.get("injuries");
+                              if (metadata) {
+                                const existing = getPendingChanges(userId);
+                                const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                                const newChange = {
+                                  key: "injuries",
+                                  type: "injury" as const,
+                                  patch: { operation: 'setInjury' as const, bodyRegion, present: true, severity },
+                                  timestamp: Date.now()
+                                };
+                                // H1b fix: Accumulate per-region injury changes by bodyRegion (like M2 equipment)
+                                const merged = existingChanges.filter(ch => {
+                                  if (ch.key !== "injuries") return true;
+                                  const p = ch.patch;
+                                  if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                      'operation' in p && p.operation === 'setInjury' && 
+                                      'bodyRegion' in p && p.bodyRegion === bodyRegion) return false;
+                                  return true;
+                                }).concat(newChange);
+                                stashPendingChanges(merged, pathname, userId);
+                              }
+                              notifySessionExpired();
+                              return;
+                            }
+                            throw err;
+                          }
+                        });
                       }}
                       className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize ${
                         inj.severity === sev ? "bg-accent text-accent-fg" : "text-muted"

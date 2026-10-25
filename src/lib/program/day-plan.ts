@@ -96,9 +96,34 @@ export async function resolveDay(
   const override = overrideRes.data;
 
   if (override?.actual_type) {
-    const day = override.program_day_id
+    let day = override.program_day_id
       ? days.find((d) => d.id === override.program_day_id)
       : undefined;
+    
+    // If the override points to a superseded day (not in active days list),
+    // try to resolve to the active day with the same day_index
+    if (!day && override.program_day_id) {
+      const { data: superseded } = await supabase
+        .from("program_days")
+        .select("day_index, label")
+        .eq("id", override.program_day_id)
+        .maybeSingle();
+      
+      if (superseded) {
+        // Try to find active day with same day_index
+        day = days.find((d) => d.day_index === superseded.day_index);
+        // If no match, use the superseded label as fallback
+        const label = day?.label ?? superseded.label;
+        return {
+          localDate,
+          dayType: override.actual_type,
+          label: labelForDayType(override.actual_type, label),
+          programDayId: day?.id ?? override.program_day_id,
+          isOverride: true,
+        };
+      }
+    }
+    
     return {
       localDate,
       dayType: override.actual_type,
