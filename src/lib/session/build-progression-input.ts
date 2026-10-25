@@ -34,17 +34,17 @@ export type SessionExerciseRow = {
 
 export type SessionSetRow = {
   reps: number | null;
-  weight_kg: string | null;
+  weight_kg: string | number | null;
   duration_seconds: number | null;
 };
 
 export type ExerciseProgressRow = {
-  current_working_weight_kg: string | null;
+  current_working_weight_kg: string | number | null;
   current_target_reps: number | null;
   consecutive_failures: number;
-  best_weight_kg: string | null;
+  best_weight_kg: string | number | null;
   best_reps: number | null;
-  best_e1rm: string | null;
+  best_e1rm: string | number | null;
   total_sessions: number;
 } | null;
 
@@ -106,6 +106,6 @@ export function buildProgressionInput(
     state,
     isDeload: session.is_deload ?? false,
     equipmentIds: ex.equipment_ids,
-    unit: undefined, // DB doesn't store unit preference, uses kg for storage
+    unit: "kg" as const, // DB stores weights in kg; needed for equipment grid drops
   };
 }

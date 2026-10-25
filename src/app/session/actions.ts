@@ -439,8 +439,8 @@ async function applyProgression(
   const decision = evaluateProgression(
     buildProgressionInput(
       se,
-      (setsRes.data ?? []) as SessionSetRow[],
-      prior as ProgressRow,
+      setsRes.data ?? [],
+      prior,
       sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
       feel
     )
