@@ -5,7 +5,6 @@
  */
 
 import { nextSetNumberFor } from "../src/lib/session/next-set-number";
-import { registerFocusRetry } from "../src/lib/session/focus-retry";
 import * as fs from "fs";
 
 let passed = 0;

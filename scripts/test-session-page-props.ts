@@ -19,7 +19,7 @@ function assert(condition: boolean, message: string) {
 console.log("\n🧪 Test N6/N6s/N8: Session page prop derivation\n");
 
 // Extract pure prop derivation logic
-function deriveSessionProps(session: any, user: any) {
+function deriveSessionProps(session: { status?: string } | null, user: { id?: string } | null) {
   return {
     sessionStatus: session?.status || "not_found",
     userId: user?.id || null,
