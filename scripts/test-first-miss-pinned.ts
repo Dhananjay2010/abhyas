@@ -167,7 +167,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
     state: fresh({ currentWorkingWeightKg: 5, consecutiveFailures: 0 }),
   });
   check("Dumbbell 5 kg (11 lb) first miss → holds at 5 kg", 
-    d.nextWorkingWeightKg === 5 && d.message.includes("11 lb"));
+    d.nextWorkingWeightKg === 5 && d.message.includes("cut more than 20%") && d.message.includes("11 lb"));
 }
 
 {
@@ -178,7 +178,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
     state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 0 }),
   });
   check("Dumbbell 7.5 kg (16.5 lb) first miss → holds at 7.5 kg", 
-    d.nextWorkingWeightKg === 7.5 && d.message.includes("16.5 lb"));
+    d.nextWorkingWeightKg === 7.5 && d.message.includes("cut more than 20%") && d.message.includes("16.5 lb"));
 }
 
 console.log("\n=== First-Miss: Leg Extension & Med Ball ===");
