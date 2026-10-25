@@ -33,6 +33,9 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   "barbell-walking-lunge",
   "lunge-sprint",
   
+  // Elevated/deficit lunges (knee-unsafe per #73: deficit adds knee flexion)
+  "elevated-back-lunge",
+  
   // Sissy squats
   "weighted-sissy-squat",
   
@@ -181,38 +184,6 @@ export function kneeFriendlyBonus(ex: CandidateExercise, slotIndex: number): num
   // Main slots (0-3) get preference for knee-friendly primaries
   if (slotIndex <= 3 && isKneeFriendlyPrimary(ex)) {
     return 10; // Strong bonus for knee-friendly primaries in main slots
-  }
-  
-  return 0;
-}
-
-/**
- * Get knee-friendly ranking boost for past-knee users in swap ranking.
- * Reverse lunges = 2 (must be #1), split squats = 1, step-ups = 1
- * Squat: all knee-friendly = 1
- * Wall-sit: swap boost = 1 (but never index 0 when other options exist)
- */
-export function getKneeFriendlyRankingBoost(candidate: CandidateExercise): number {
-  // Reverse lunges: tier 1, boost +2
-  if (candidate.slug === "dumbbell-rear-lunge") return 2;
-  
-  // Split squats: tier 2, boost +1
-  const splitSquatSlugs = ["split-squat-with-dumbbells", "barbell-side-split-squat", "smith-single-leg-split-squat"];
-  if (splitSquatSlugs.includes(candidate.slug)) return 1;
-  
-  // Step-ups: tier 3, boost +1
-  const stepUpSlugs = ["barbell-step-ups", "dumbbell-step-ups", "step-up-with-knee-raise"];
-  if (stepUpSlugs.includes(candidate.slug)) return 1;
-  
-  // Knee-friendly squats
-  const forSquat = KNEE_FRIENDLY_PRIMARIES.squat ?? [];
-  if (forSquat.includes(candidate.slug)) {
-    return 1;
-  }
-  
-  // Wall-sit: swap boost = 1 (ranking will place it at index 2+ when other options exist)
-  if (candidate.slug === "wall-sit") {
-    return 1;
   }
   
   return 0;

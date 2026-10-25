@@ -426,26 +426,27 @@ const EQUIPMENT_ALTERNATIVES: Record<string, string[][]> = {
 };
 
 /**
- * Check if an exercise is eligible for a user, with optional past-knee tier-1 relaxations.
+ * Check if an exercise is eligible for a user.
  * 
- * @param ex - The exercise to check
- * @param input - User input (profile, injuries, equipment, etc.)
- * @param relaxForPastKneeTier1 - If true, skip knee contraindication and level gate for tier-1 lunges
+ * Past-knee tier-1 relaxation is applied automatically when:
+ * - input.pastKneeInjury is true
+ * - exercise is tier-1 (dumbbell-rear-lunge)
+ * 
+ * Tier-1 relaxation:
+ * - NO level gate (beginners get it)
+ * - NO knee contraindication check
+ * - All other checks still apply (hip, ankle, lower_back, wrist, BMI>=30, equipment, etc.)
  */
-export function isEligible(
-  ex: CandidateExercise,
-  input: GeneratorInput,
-  relaxForPastKneeTier1: boolean = false
-): boolean {
+export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolean {
   // Track: a bodyweight-at-home user must never be shown gym-only work.
   if (input.primaryTrack === "bodyweight" && !ex.tracks.includes("bodyweight")) {
     return false;
   }
 
   // Level: never prescribe something above the user's stated experience.
-  // UNLESS: past-knee tier-1 relaxation (dumbbell-rear-lunge for beginners)
+  // UNLESS: past-knee tier-1 (dumbbell-rear-lunge for beginners)
   const isPastKneeTier1 = input.pastKneeInjury && pastKneeLungeTier(ex) === 1;
-  if (!isPastKneeTier1 || !relaxForPastKneeTier1) {
+  if (!isPastKneeTier1) {
     if (LEVEL_RANK[ex.level_min] > LEVEL_RANK[input.level]) return false;
   }
 
@@ -473,15 +474,15 @@ export function isEligible(
 
   // QA Pass 10 C2, C3: Current injuries exclude anything that loads the affected joint.
   // Use both explicit tags AND derived contraindications.
-  // UNLESS: past-knee tier-1 relaxation (skip knee contraindication for dumbbell-rear-lunge)
+  // UNLESS: past-knee tier-1 skips knee contraindication check
   if (input.currentInjuryRegions.length > 0) {
     const allContraindications = [
       ...ex.contraindicated_regions,
       ...getDerivedContraindications(ex),
     ];
     
-    // For past-knee tier-1 relaxation, filter out knee from injury check
-    const injuriesToCheck = (isPastKneeTier1 && relaxForPastKneeTier1)
+    // For past-knee tier-1, skip knee contraindication check
+    const injuriesToCheck = isPastKneeTier1
       ? input.currentInjuryRegions.filter(r => r !== "knee")
       : input.currentInjuryRegions;
     
@@ -773,15 +774,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
   );
   const yogaDays = Math.min(input.yogaDaysPerWeek, input.daysPerWeek - 1);
 
-  // Build pool with standard eligibility, plus past-knee tier-1 relaxations
-  const pool = input.catalogue.filter((e) => {
-    if (isEligible(e, input, false)) return true;
-    // If standard check failed, try past-knee tier-1 relaxation
-    if (input.pastKneeInjury && pastKneeLungeTier(e) === 1) {
-      return isEligible(e, input, true);
-    }
-    return false;
-  });
+  const pool = input.catalogue.filter((e) => isEligible(e, input));
   const rng = mulberry32(hashString(`${input.userId}:${input.blockNumber}`));
 
   const templates = templatesFor(trainingDays);

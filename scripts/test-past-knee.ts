@@ -232,6 +232,7 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
   let totalLungeSlotsWithDB = 0;
   let lungePicksWithRearLunge = 0;
   let lungeSwapMismatches = 0; // Track plan lunge != swap-list index 0
+  let wallSitAtIndex0WithOtherOptions = 0; // Track wall-sit at index 0 when other options exist
   
   for (const goal of goals) {
     for (const level of levels) {
@@ -306,21 +307,10 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
                     }
                   }
                   
-                  // Assertion: for lunge pattern with past-knee + dumbbells,
-                  // if plan picked dumbbell-rear-lunge, then for OTHER lunge exercises,
-                  // swaps should lead with dumbbell-rear-lunge (consistency check)
-                  if (exercise.movement_pattern === "lunge" && swaps.length > 0 && hasDumbbells) {
-                    const firstSwapSlug = swaps[0].slug;
-                    // Only check if the plan has dumbbell-rear-lunge elsewhere
-                    // and this exercise is NOT dumbbell-rear-lunge
-                    if (exercise.slug !== "dumbbell-rear-lunge" && 
-                        firstSwapSlug !== "dumbbell-rear-lunge") {
-                      // If dumbbell-rear-lunge is NOT the first swap but should be available,
-                      // it's a tier ordering mismatch
-                      const hasDumbbellRearInSwaps = swaps.some(s => s.slug === "dumbbell-rear-lunge");
-                      if (hasDumbbellRearInSwaps) {
-                        lungeSwapMismatches++;
-                      }
+                  // Wall-sit must be at index >= 2 for past-knee squat swaps when >= 3 options exist
+                  if (input.pastKneeInjury && exercise.movement_pattern === "squat" && swaps.length >= 3) {
+                    if (swaps[0].slug === "wall-sit") {
+                      wallSitAtIndex0WithOtherOptions++;
                     }
                   }
                 }
@@ -375,8 +365,8 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
     swapLeaks > 0 ? `Found ${swapLeaks} excluded in swaps` : "");
   check(`wall-sit NEVER as primary squat (first squat slot)`, wallSitAsPrimarySquat === 0,
     wallSitAsPrimarySquat > 0 ? `Found ${wallSitAsPrimarySquat} primary wall-sit slots` : "");
-  check(`Plan lunge equals swap-list index 0 for same profile`, lungeSwapMismatches === 0,
-    lungeSwapMismatches > 0 ? `Found ${lungeSwapMismatches} mismatches` : "");
+  check(`wall-sit NEVER at index 0 in squat swaps (when >= 3 options)`, wallSitAtIndex0WithOtherOptions === 0,
+    wallSitAtIndex0WithOtherOptions > 0 ? `Found ${wallSitAtIndex0WithOtherOptions} wall-sit at index 0` : "");
   check(`walking-lunge NEVER in warmups`, walkingLungeInWarmups === 0,
     walkingLungeInWarmups > 0 ? `Found ${walkingLungeInWarmups}/${warmupsChecked}` : "");
   check(`skipping-light NEVER in warmups`, skippingLightInWarmups === 0,

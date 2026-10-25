@@ -8,8 +8,9 @@
  * npm run test:past-knee-plan-lunge-pick
  */
 import { readFileSync } from "node:fs";
-import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import { generateProgram, isEligible, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { isExcludedForPastKnee } from "../src/lib/program/past-knee";
+import { rankAlternatives } from "../src/lib/program/alternatives";
 
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf8"));
 
@@ -185,7 +186,6 @@ console.log("\n4. No-dumbbell user (barbell + squat_rack) with past knee");
   const program = generateProgram(input);
   let foundLunge = false;
   let lungeSlug = "";
-  let isExcluded = false;
   
   for (const day of program.days) {
     if (day.dayType === "rest" || day.dayType === "yoga") continue;
@@ -197,7 +197,6 @@ console.log("\n4. No-dumbbell user (barbell + squat_rack) with past knee");
       if (candidate.movement_pattern === "lunge") {
         foundLunge = true;
         lungeSlug = candidate.slug;
-        isExcluded = isExcludedForPastKnee(candidate);
         break;
       }
     }
@@ -205,11 +204,13 @@ console.log("\n4. No-dumbbell user (barbell + squat_rack) with past knee");
   }
   
   if (foundLunge) {
-    check("No-dumbbell fallback is not excluded for past-knee", !isExcluded,
-      isExcluded ? `${lungeSlug} is past-knee excluded` : `got ${lungeSlug}`);
+    // Barbell-only past-knee users should get tier-3 split squat (barbell-side-split-squat)
+    check("Barbell-only fallback is barbell-side-split-squat", lungeSlug === "barbell-side-split-squat",
+      `Expected barbell-side-split-squat, got ${lungeSlug}`);
     console.log(`  Barbell-only fallback: ${lungeSlug}`);
   } else {
-    console.log("  note No lunge slot in this 4-day plan (may be squat-focused)");
+    failures++;
+    console.log("  FAIL No lunge slot in this 4-day plan (MUST have lunge)");
   }
 }
 
@@ -235,7 +236,6 @@ console.log("\n5. Kettlebell-only user with past knee");
   const program = generateProgram(input);
   let foundLunge = false;
   let lungeSlug = "";
-  let isExcluded = false;
   
   for (const day of program.days) {
     if (day.dayType === "rest" || day.dayType === "yoga") continue;
@@ -247,7 +247,6 @@ console.log("\n5. Kettlebell-only user with past knee");
       if (candidate.movement_pattern === "lunge") {
         foundLunge = true;
         lungeSlug = candidate.slug;
-        isExcluded = isExcludedForPastKnee(candidate);
         break;
       }
     }
@@ -255,11 +254,13 @@ console.log("\n5. Kettlebell-only user with past knee");
   }
   
   if (foundLunge) {
-    check("Kettlebell-only fallback is not excluded for past-knee", !isExcluded,
-      isExcluded ? `${lungeSlug} is past-knee excluded` : `got ${lungeSlug}`);
+    // Kettlebell-only past-knee users should get tier-4 step-up (step-up-with-knee-raise)
+    check("Kettlebell-only fallback is step-up-with-knee-raise", lungeSlug === "step-up-with-knee-raise",
+      `Expected step-up-with-knee-raise, got ${lungeSlug}`);
     console.log(`  Kettlebell-only fallback: ${lungeSlug}`);
   } else {
-    console.log("  note No lunge slot in this plan");
+    failures++;
+    console.log("  FAIL No lunge slot in this plan (MUST have lunge)");
   }
 }
 
@@ -360,6 +361,89 @@ console.log("\n7. Past-knee + current HIP injury must NOT get dumbbell-rear-lung
   // This test should FAIL on 839d91a0's generate.ts (before bypass removal)
   // because the bypass at lines 809-838 skipped isEligible and allowed dumbbell-rear-lunge
   // even with a current hip injury.
+}
+
+console.log("\n8. Beginner plan == swap[0]: beginners get dumbbell-rear-lunge in BOTH plan and swaps");
+{
+  // Test that beginners with dumbbells get dumbbell-rear-lunge in plan AND swaps
+  const input: GeneratorInput = {
+    userId: "test-beginner-plan-swap-consistency",
+    blockNumber: 1,
+    goal: "muscle_gain",
+    level: "beginner",
+    primaryTrack: "weights",
+    daysPerWeek: 3,
+    yogaDaysPerWeek: 0,
+    age: 25,
+    bmi: 22,
+    hasAllEquipment: false,
+    equipmentIds: ["dumbbell"],
+    currentInjuryRegions: [],
+    pastKneeInjury: true,
+    catalogue,
+  };
+  
+  const program = generateProgram(input);
+  let planHasRearLunge = false;
+  
+  for (const day of program.days) {
+    if (day.dayType === "rest" || day.dayType === "yoga") continue;
+    
+    for (const ex of day.exercises) {
+      const candidate = catalogue.find(c => c.id === ex.exerciseId);
+      if (!candidate) continue;
+      
+      if (candidate.movement_pattern === "lunge" && candidate.slug === "dumbbell-rear-lunge") {
+        planHasRearLunge = true;
+        break;
+      }
+    }
+    if (planHasRearLunge) break;
+  }
+  
+  check("Beginner plan has dumbbell-rear-lunge", planHasRearLunge);
+  
+  // Now test swaps: use a lunge anchor NOT dumbbell-rear-lunge
+  const barbellLunge = catalogue.find(e => e.slug === "barbell-lunge");
+  if (barbellLunge) {
+    const patterns = ["lunge"];
+    const rawPool = catalogue.filter(e => patterns.includes(e.movement_pattern));
+    const eligible = rawPool.filter(e => {
+      if (e.id === barbellLunge.id) return false;
+      return isEligible(e, { ...input, catalogue: [] });
+    });
+    
+    const ctx = {
+      level: input.level,
+      availableEquipment: new Set(input.equipmentIds),
+      injuryRegions: input.currentInjuryRegions,
+      pastKneeInjury: input.pastKneeInjury,
+      limit: 5,
+      scoreFn: (e: typeof catalogue[0]) => {
+        const wantCompound = barbellLunge.mechanic === "compound";
+        let s = 0;
+        if (e.mechanic === "compound" && wantCompound) s += 2;
+        return s;
+      },
+      tieBreakFn: (slug: string) => {
+        let h = 2166136261;
+        for (let i = 0; i < slug.length; i++) {
+          h ^= slug.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+      },
+    };
+    
+    const swaps = rankAlternatives(barbellLunge, eligible, ctx);
+    const swapLeadSlug = swaps.length > 0 ? swaps[0].slug : "";
+    
+    console.log(`  DEBUG: Eligible: ${eligible.map(e => e.slug).join(", ")}`);
+    console.log(`  DEBUG: Top 5 swaps: ${swaps.slice(0, 5).map(s => s.slug).join(", ")}`);
+    
+    check("Beginner swap[0] is dumbbell-rear-lunge", swapLeadSlug === "dumbbell-rear-lunge",
+      `Expected dumbbell-rear-lunge, got ${swapLeadSlug}`);
+  }
 }
 
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);

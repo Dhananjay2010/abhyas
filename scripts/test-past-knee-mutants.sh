@@ -206,4 +206,22 @@ sed -i 's/const isPastKneeTier1 = input.pastKneeInjury && pastKneeLungeTier(ex) 
 run_mutant "Disable level gate relaxation for tier-1" "src/lib/program/generate.ts" || true
 restore_file "src/lib/program/generate.ts"
 
+# Mutant 16: Remove wall-sit repositioning
+restore_file "src/lib/program/alternatives.ts"
+sed -i '/Post-sort repositioning: wall-sit must be at index/,/^  }$/d' src/lib/program/alternatives.ts
+run_mutant "Remove wall-sit repositioning" "src/lib/program/alternatives.ts" || true
+restore_file "src/lib/program/alternatives.ts"
+
+# Mutant 17: Remove jogging-treadmill exclusion
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/"jogging-treadmill",/d' src/lib/program/past-knee.ts
+run_mutant "Remove jogging-treadmill exclusion" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 18: Remove elevated-back-lunge exclusion
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/"elevated-back-lunge",/d' src/lib/program/past-knee.ts
+run_mutant "Remove elevated-back-lunge exclusion" "src/lib/program/past-knee.ts" || true
+restore_file "src/lib/program/past-knee.ts"
+
 echo ""
