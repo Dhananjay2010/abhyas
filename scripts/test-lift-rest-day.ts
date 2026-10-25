@@ -577,4 +577,221 @@ assert(
   `(M2) Monday with completed yoga NOT shown as choice, got isChoice=${mondayYogaWeekRow?.isChoice}`
 );
 
+console.log("\n=== Test (B7): in_progress pulled session counts ===\n");
+
+// Monday: in_progress Push A session (pulled from Tuesday)
+// Tuesday should show as rest with "Done Monday (your choice)"
+
+const mondayInProgressSession = {
+  id: "sess-inprog",
+  local_date: "2026-10-19", // Monday, week 2
+  status: "in_progress" as const,
+  actual_type: "weights" as const,
+  program_id: noRepeatProgram.id,
+  program_day_id: "nr-day-2", // Push A
+  started_at: "2026-10-19T10:00:00Z",
+  created_at: "2026-10-19T09:00:00Z",
+};
+
+const tuesdayAfterInProgress = "2026-10-20"; // Tuesday, week 2
+
+const tuesdayInProgressDeps: BuildPageInput = {
+  profile: {
+    id: "user-2",
+    created_at: "2026-01-01T00:00:00Z",
+    timezone: "UTC",
+  },
+  localToday: tuesdayAfterInProgress,
+  yesterday: "2026-10-19",
+  timezone: "UTC",
+  program: noRepeatProgram,
+  days: noRepeatDays,
+  allSessionsRes: {
+    data: [{ actual_type: "weights" as const, started_at: "2026-10-19T10:00:00Z" }],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [mondayInProgressSession],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [mondayInProgressSession],
+    error: null,
+  },
+  sessionExercisesRes: { data: null, error: null },
+};
+
+const tuesdayInProgressPage = buildPage(tuesdayInProgressDeps);
+
+assert(
+  tuesdayInProgressPage.dayType === "rest",
+  `(B7) Tuesday shows as rest when Monday in_progress, got "${tuesdayInProgressPage.dayType}"`
+);
+assert(
+  tuesdayInProgressPage.dayLabel === "Done Monday (your choice)",
+  `(B7) Tuesday's label is "Done Monday (your choice)", got "${tuesdayInProgressPage.dayLabel}"`
+);
+
+console.log("\n=== Test (B10): No Lift on training days ===\n");
+
+// Tuesday (Push A day): trainAnywayDays should not have any "Lift:" prefix
+
+const tuesdayTraining = "2026-10-20"; // Tuesday, week 2 (Push A)
+
+const tuesdayTrainingDeps: BuildPageInput = {
+  profile: {
+    id: "user-2",
+    created_at: "2026-01-01T00:00:00Z",
+    timezone: "UTC",
+  },
+  localToday: tuesdayTraining,
+  yesterday: "2026-10-19",
+  timezone: "UTC",
+  program: noRepeatProgram,
+  days: noRepeatDays,
+  allSessionsRes: {
+    data: [],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  sessionExercisesRes: { data: null, error: null },
+};
+
+const tuesdayTrainingPage = buildPage(tuesdayTrainingDeps);
+
+const hasLiftPrefix = tuesdayTrainingPage.trainAnywayDays.some((d) => d.buttonLabel?.includes("Lift:"));
+assert(
+  !hasLiftPrefix,
+  "(B10) Training day has no 'Lift:' prefix in any train-anyway option"
+);
+
+console.log("\n=== Test (B14): Cap of 3 options ===\n");
+
+// Rest day with many strength days: should offer max 3 options
+
+const manyStrengthDays = [
+  { id: "ms-day-1", day_index: 1, day_type: "rest" as const, label: null },
+  { id: "ms-day-2", day_index: 2, day_type: "weights" as const, label: "Push A" },
+  { id: "ms-day-3", day_index: 3, day_type: "weights" as const, label: "Pull A" },
+  { id: "ms-day-4", day_index: 4, day_type: "weights" as const, label: "Legs A" },
+  { id: "ms-day-5", day_index: 5, day_type: "weights" as const, label: "Push B" },
+  { id: "ms-day-6", day_index: 6, day_type: "weights" as const, label: "Pull B" },
+  { id: "ms-day-7", day_index: 7, day_type: "rest" as const, label: null },
+];
+
+const mondayManyStrength = "2026-10-19"; // Monday, rest
+
+const mondayManyDeps: BuildPageInput = {
+  profile: {
+    id: "user-2",
+    created_at: "2026-01-01T00:00:00Z",
+    timezone: "UTC",
+  },
+  localToday: mondayManyStrength,
+  yesterday: "2026-10-18",
+  timezone: "UTC",
+  program: noRepeatProgram,
+  days: manyStrengthDays,
+  allSessionsRes: {
+    data: [],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  sessionExercisesRes: { data: null, error: null },
+};
+
+const mondayManyPage = buildPage(mondayManyDeps);
+
+assert(
+  mondayManyPage.trainAnywayDays.length === 3,
+  `(B14) Max 3 options offered on rest day, got ${mondayManyPage.trainAnywayDays.length}`
+);
+
+console.log("\n=== Test (M2-fixed): Completed row INSIDE cycle week ===\n");
+
+// Tuesday 2026-10-20 (week 2): Completed Pull A (Wednesday's workout) row exists
+// Wednesday should show as rest with "Done Tuesday (your choice)"
+
+const tuesdayCompletedPull = {
+  id: "sess-tue-pull",
+  local_date: "2026-10-20", // Tuesday, week 2
+  status: "completed" as const,
+  actual_type: "weights" as const,
+  program_id: noRepeatProgram.id,
+  program_day_id: "nr-day-3", // Pull A (Wednesday's)
+  started_at: "2026-10-20T10:00:00Z",
+  created_at: "2026-10-20T09:00:00Z",
+};
+
+const wednesdayAfterTuePull = "2026-10-21"; // Wednesday, week 2
+
+const wednesdayM2Deps: BuildPageInput = {
+  profile: {
+    id: "user-2",
+    created_at: "2026-01-01T00:00:00Z",
+    timezone: "UTC",
+  },
+  localToday: wednesdayAfterTuePull,
+  yesterday: "2026-10-20",
+  timezone: "UTC",
+  program: noRepeatProgram,
+  days: noRepeatDays,
+  allSessionsRes: {
+    data: [{ actual_type: "weights" as const, started_at: "2026-10-20T10:00:00Z" }],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [tuesdayCompletedPull],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [tuesdayCompletedPull],
+    error: null,
+  },
+  sessionExercisesRes: { data: null, error: null },
+};
+
+const wednesdayM2Page = buildPage(wednesdayM2Deps);
+
+assert(
+  wednesdayM2Page.dayType === "rest",
+  `(M2) Wednesday shows as rest when Tuesday pulled its workout, got "${wednesdayM2Page.dayType}"`
+);
+
+const wednesdayM2Row = wednesdayM2Page.todayView.weekRowsWithChoices.find((r) => r.dayIndex === 3);
+assert(
+  wednesdayM2Row?.isChoice === true,
+  `(M2) Wednesday week row marked as choice, got ${wednesdayM2Row?.isChoice}`
+);
+
 console.log(`\n✅ All ${passedTests}/${totalTests} lift-rest-day tests passed!\n`);

@@ -502,10 +502,11 @@ assert(
   "F1: Week loop reads weekSessionsRes (not allSessionsRes), so planned Pull shows"
 );
 
-console.log("\n=== Test 9: P-MISSED-ANY - Veteran user, missed yesterday, empty week ===\n");
+console.log("\n=== Test 9 (M1): P-MISSED-ANY - Veteran user, missed yesterday, empty week ===\n");
 
 // A long-time user who trained weeks ago, missed yesterday (training day),
 // and has no sessions this week. Must get missed prompt, not first-day welcome.
+// M1: Production-shaped allSessionsRes (has started_at) tests has-started logic.
 const veteranMissedInput = {
   ...baseInput,
   localToday: "2026-01-12", // Monday (day_index 1, training day)
@@ -518,16 +519,17 @@ const veteranMissedInput = {
   allSessionsRes: {
     data: [
       {
-        local_date: "2026-01-03", // Weeks ago
-        status: "completed",
         actual_type: "weights" as const,
-        program_day_id: "day1",
         started_at: "2026-01-03T10:00:00Z",
       },
     ],
     error: null,
   },
   // Week window: empty (no sessions this week)
+  weekSessionsRes: {
+    data: [],
+    error: null,
+  },
   todaySessionsRes: {
     data: [],
     error: null,

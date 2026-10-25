@@ -263,4 +263,53 @@ assert(result10[1]?.label === "Legs", "Second option label is Legs");
 assert(result10[2]?.day_index === 3, "Third option is Wednesday Pull");
 assert(result10[2]?.label === "Pull", "Third option label is Pull");
 
+console.log("\n=== Test B11: Missed yesterday vs Lift dedupe ===\n");
+
+// Friday (rest), Thursday missed Legs, and Monday is Push (for Lift)
+// Should show: Lift: Push, Legs (missed), next distinct (not Push again)
+
+const result_b11 = trainAnywayOptions({
+  yesterdayDay: day(4, "weights", "Legs"),
+  todayDay: day(5, "rest"),
+  upcomingDays: [
+    day(6, "rest"),
+    day(7, "rest"),
+    day(1, "weights", "Push"),  // For Lift
+    day(2, "rest"),
+    day(3, "weights", "Pull"),
+    day(4, "rest"),
+  ],
+  missedYesterday: true,
+});
+
+assert(result_b11.length === 3, "(B11) Returns 3 options");
+assert(result_b11[0]?.day_index === 1, "(B11) First is Lift: Push (Monday)");
+assert(result_b11[0]?.label === "Push", "(B11) First label is Push");
+assert(result_b11[1]?.day_index === 4, "(B11) Second is missed Legs (Thursday)");
+assert(result_b11[1]?.label === "Legs", "(B11) Second label is Legs");
+assert(result_b11[2]?.day_index === 3, "(B11) Third is Pull (Wednesday, not Push again)");
+assert(result_b11[2]?.label === "Pull", "(B11) Third label is Pull");
+
+console.log("\n=== Test L6: Upcoming list excludes today ===\n");
+
+// Today is Monday (training day), upcoming should not include today's day_index
+
+const result_l6 = trainAnywayOptions({
+  yesterdayDay: null,
+  todayDay: day(1, "weights", "Push"),
+  upcomingDays: [
+    day(2, "rest"),
+    day(3, "weights", "Pull"),
+    day(4, "rest"),
+    day(5, "weights", "Legs"),
+    day(6, "rest"),
+    day(7, "rest"),
+  ],
+  missedYesterday: false,
+});
+
+// All options should be day_index > 1 or wrapped to next week
+const includesMonday = result_l6.some((d) => d.day_index === 1);
+assert(!includesMonday, "(L6) Upcoming list does not include today (Monday, day_index 1)");
+
 console.log("\n✅ All train-anyway tests passed\n");

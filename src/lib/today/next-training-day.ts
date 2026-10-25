@@ -3,7 +3,7 @@
  * Used for first-day rest day: "Your first session is <Weekday>".
  */
 
-import { addDays, isoWeekday } from "@/lib/dates";
+import { addDays, isoWeekday, DAY_NAMES } from "@/lib/dates";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import type { Database } from "@/lib/database.types";
 
@@ -13,16 +13,6 @@ export interface ProgramDay {
   day_index: number;
   day_type: DayType;
 }
-
-const DAY_NAMES = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
 
 export function nextTrainingDay(
   days: ProgramDay[],
@@ -37,7 +27,7 @@ export function nextTrainingDay(
 
     if (checkDay && ownsPlannedWorkout(checkDay.day_type)) {
       return {
-        dayName: DAY_NAMES[checkIndex - 1],
+        dayName: DAY_NAMES[checkIndex],
         dayIndex: checkIndex,
       };
     }
