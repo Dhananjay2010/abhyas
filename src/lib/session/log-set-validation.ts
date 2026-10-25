@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { decideSetWrite } from "./decide-set-write";
 
 type Client = SupabaseClient<Database>;
 
@@ -11,7 +12,7 @@ export type SessionExerciseWithStatus = {
 
 export type ExistingSetRow = {
   reps: number | null;
-  weight_kg: number | string | null;
+  weight_kg: number | null;
   duration_seconds: number | null;
 };
 
@@ -61,7 +62,7 @@ export function buildLogSetValidationDeps(
 export async function validateSessionForLogSet(
   deps: LogSetValidationDeps,
   sessionExerciseId: string,
-  setInput?: {
+  setInput: {
     setNumber: number;
     reps: number | null;
     weightKg: number | null;
@@ -90,29 +91,26 @@ export async function validateSessionForLogSet(
 
   const sessionStatus = sessionExercise.sessions.status;
   if (sessionStatus !== "in_progress") {
-    if (setInput) {
-      let existingSet: ExistingSetRow | null;
-      try {
-        existingSet = await deps.lookupExistingSet(sessionExerciseId, setInput.setNumber);
-      } catch {
-        return { 
-          ok: false, 
-          code: "SESSION_ENDED", 
-          error: "This session has ended." 
-        };
-      }
+    let existingSet: ExistingSetRow | null;
+    try {
+      existingSet = await deps.lookupExistingSet(sessionExerciseId, setInput.setNumber);
+    } catch {
+      return { 
+        ok: false, 
+        code: "SESSION_ENDED", 
+        error: "This session has ended." 
+      };
+    }
 
-      if (existingSet) {
-        const existingWeightKg = existingSet.weight_kg === null ? null : Number(existingSet.weight_kg);
-        const inputWeightKg = setInput.weightKg;
-        
-        const repsMatch = existingSet.reps === setInput.reps;
-        const weightMatch = existingWeightKg === inputWeightKg;
-        const durationMatch = existingSet.duration_seconds === setInput.durationSeconds;
-        
-        if (repsMatch && weightMatch && durationMatch) {
-          return { ok: true, status: sessionStatus };
-        }
+    if (existingSet) {
+      const decision = decideSetWrite(existingSet, {
+        reps: setInput.reps,
+        weightKg: setInput.weightKg,
+        durationSeconds: setInput.durationSeconds,
+      });
+      
+      if (decision === "duplicate_ok") {
+        return { ok: true, status: sessionStatus };
       }
     }
     

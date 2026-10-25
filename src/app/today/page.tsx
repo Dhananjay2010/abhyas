@@ -15,6 +15,7 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
+import { shouldUsePreviousDayLink } from "@/lib/today/session-detection";
 
 export const dynamic = "force-dynamic";
 
@@ -555,9 +556,9 @@ export default async function TodayPage() {
             <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
               Session complete. Well done.
             </p>
-          ) : strengthOpen && strengthOpen.local_date && strengthOpen.local_date !== localToday && strengthOpen.id ? (
+          ) : shouldUsePreviousDayLink(strengthOpen, localToday) ? (
             <Link
-              href={`/session/${strengthOpen.id}`}
+              href={`/session/${strengthOpen!.id}`}
               className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
             >
               Resume session

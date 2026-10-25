@@ -8,7 +8,7 @@
  *   npx tsx scripts/test-today-previous-day-resume.ts
  */
 
-import { findOpenStrengthSession, type SessionForDetection } from "../src/lib/today/session-detection";
+import { findOpenStrengthSession, shouldUsePreviousDayLink, type SessionForDetection } from "../src/lib/today/session-detection";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -123,7 +123,7 @@ console.log("\n3. No open session returns undefined");
   check("result is undefined", result === undefined);
 }
 
-console.log("\n4. Page logic: previous-day session should use direct link");
+console.log("\n4. shouldUsePreviousDayLink: previous-day session returns true");
 {
   const localToday = "2026-10-25";
   const strengthOpen: SessionForDetection = {
@@ -134,20 +134,11 @@ console.log("\n4. Page logic: previous-day session should use direct link");
     started_at: "2026-10-24T23:30:00Z",
   };
 
-  const shouldUseDirectLink = 
-    strengthOpen.local_date !== undefined &&
-    strengthOpen.local_date !== localToday &&
-    strengthOpen.id !== undefined;
-
-  check("should use direct link for previous-day session", shouldUseDirectLink);
-  
-  if (shouldUseDirectLink && strengthOpen.id) {
-    const expectedHref = `/session/${strengthOpen.id}`;
-    check("link href should be /session/yesterday-session", expectedHref === "/session/yesterday-session");
-  }
+  const result = shouldUsePreviousDayLink(strengthOpen, localToday);
+  check("should use direct link for previous-day session", result === true);
 }
 
-console.log("\n5. Page logic: same-day session should use StartSessionButton");
+console.log("\n5. shouldUsePreviousDayLink: same-day session returns false");
 {
   const localToday = "2026-10-25";
   const strengthOpen: SessionForDetection = {
@@ -158,12 +149,29 @@ console.log("\n5. Page logic: same-day session should use StartSessionButton");
     started_at: "2026-10-25T10:00:00Z",
   };
 
-  const shouldUseDirectLink = 
-    strengthOpen.local_date !== undefined &&
-    strengthOpen.local_date !== localToday &&
-    strengthOpen.id !== undefined;
+  const result = shouldUsePreviousDayLink(strengthOpen, localToday);
+  check("should NOT use direct link for same-day session", result === false);
+}
 
-  check("should NOT use direct link for same-day session", !shouldUseDirectLink);
+console.log("\n6. shouldUsePreviousDayLink: undefined strengthOpen returns false");
+{
+  const localToday = "2026-10-25";
+  const result = shouldUsePreviousDayLink(undefined, localToday);
+  check("undefined strengthOpen returns false", result === false);
+}
+
+console.log("\n7. shouldUsePreviousDayLink: session without id returns false");
+{
+  const localToday = "2026-10-25";
+  const strengthOpen: SessionForDetection = {
+    status: "in_progress",
+    actual_type: "weights",
+    local_date: "2026-10-24",
+    started_at: "2026-10-24T23:30:00Z",
+  };
+
+  const result = shouldUsePreviousDayLink(strengthOpen, localToday);
+  check("session without id returns false", result === false);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

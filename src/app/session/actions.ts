@@ -219,6 +219,9 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   ]);
 
   if (!insertResult.ok) {
+    if ("existingSessionId" in insertResult && insertResult.existingSessionId) {
+      return { ok: true, data: { sessionId: insertResult.existingSessionId } };
+    }
     return { ok: false, error: insertResult.error };
   }
 

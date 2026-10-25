@@ -53,3 +53,22 @@ export function creditedBannerText(credited: number): string | null {
 export function shouldRedirectSession(status: string): boolean {
   return status === "completed";
 }
+
+/**
+ * Determine if a previous-day open session should use a direct link instead
+ * of calling startSession. When an open session's local_date differs from
+ * today, the Resume button should link directly to /session/{id} rather than
+ * calling startSession (which would try to insert a new session with today's
+ * date and hit the unique constraint).
+ */
+export function shouldUsePreviousDayLink(
+  strengthOpen: SessionForDetection | undefined,
+  localToday: string
+): boolean {
+  return !!(
+    strengthOpen &&
+    strengthOpen.local_date &&
+    strengthOpen.local_date !== localToday &&
+    strengthOpen.id
+  );
+}

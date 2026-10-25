@@ -9,7 +9,7 @@ export async function startSessionCore(
   payload: Database["public"]["Tables"]["sessions"]["Insert"],
 ): Promise<
   | { ok: true; sessionId: string }
-  | { ok: false; error: string }
+  | { ok: false; error: string; existingSessionId?: string }
 > {
   const { data: session, error } = await client.from("sessions").insert(payload).select("id").single();
 
@@ -29,7 +29,8 @@ export async function startSessionCore(
       if (rereadSession.local_date !== payload.local_date) {
         return { 
           ok: false, 
-          error: "You have an open session from a different day. Please finish or abandon it before starting a new one." 
+          error: "You have an open session from a different day.",
+          existingSessionId: rereadSession.id
         };
       }
       return { ok: true, sessionId: rereadSession.id };

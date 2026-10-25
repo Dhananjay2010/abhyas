@@ -50,12 +50,7 @@ class FakeLogSetValidationDeps implements LogSetValidationDeps {
     return { sessions: session };
   }
 
-  async lookupExistingSet(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _sessionExerciseId: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _setNumber: number
-  ): Promise<ExistingSetRow | null> {
+  async lookupExistingSet(): Promise<ExistingSetRow | null> {
     return null;
   }
 }
@@ -73,7 +68,12 @@ console.log("\n1. Allows writes to in_progress sessions");
   const fake = new FakeLogSetValidationDeps();
   fake.setSessionExercise("se1", "in_progress");
 
-  const result = await validateSessionForLogSet(fake, "se1");
+  const result = await validateSessionForLogSet(fake, "se1", {
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+  });
 
   check("validation passes for in_progress", result.ok === true);
 }
@@ -83,7 +83,12 @@ console.log("\n2. Rejects writes to completed sessions");
   const fake = new FakeLogSetValidationDeps();
   fake.setSessionExercise("se2", "completed");
 
-  const result = await validateSessionForLogSet(fake, "se2");
+  const result = await validateSessionForLogSet(fake, "se2", {
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+  });
 
   check("validation fails for completed", result.ok === false);
   check("code is SESSION_ENDED", !result.ok && result.code === "SESSION_ENDED");
@@ -95,7 +100,12 @@ console.log("\n3. Rejects writes to skipped sessions");
   const fake = new FakeLogSetValidationDeps();
   fake.setSessionExercise("se3", "skipped");
 
-  const result = await validateSessionForLogSet(fake, "se3");
+  const result = await validateSessionForLogSet(fake, "se3", {
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+  });
 
   check("validation fails for skipped", result.ok === false);
   check("code is SESSION_ENDED", !result.ok && result.code === "SESSION_ENDED");
@@ -106,7 +116,12 @@ console.log("\n4. Rejects when session exercise not found (null)");
   const fake = new FakeLogSetValidationDeps();
   fake.setSessionExercise("se4", null);
 
-  const result = await validateSessionForLogSet(fake, "se4");
+  const result = await validateSessionForLogSet(fake, "se4", {
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+  });
 
   check("validation fails for null", result.ok === false);
   check("code is SESSION_NOT_FOUND", !result.ok && result.code === "SESSION_NOT_FOUND");
@@ -118,7 +133,12 @@ console.log("\n5. Rejects when lookup returns error");
   const fake = new FakeLogSetValidationDeps();
   fake.setLookupError("se5", new Error("Database error"));
 
-  const result = await validateSessionForLogSet(fake, "se5");
+  const result = await validateSessionForLogSet(fake, "se5", {
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+  });
 
   check("validation fails for lookup error", result.ok === false);
   check("code is SESSION_NOT_FOUND", !result.ok && result.code === "SESSION_NOT_FOUND");
