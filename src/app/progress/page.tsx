@@ -382,7 +382,7 @@ export default async function ProgressPage() {
               One session logged. Your trend will appear after your next workout.
             </p>
           ) : (
-            <BarChart points={volumePoints} unit="kg" title="Volume per session" />
+            <BarChart points={volumePoints} unit={weightLabel(units)} title="Volume per session" />
           )}
         </section>
       )}
