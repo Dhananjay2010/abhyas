@@ -185,7 +185,22 @@
     "test:settings-form-session-expired": "tsx scripts/test-settings-form-session-expired.tsx",
     "test:settings-user-stash-isolation": "tsx scripts/test-settings-user-stash-isolation.tsx",
     "test:pending-changes-stash": "tsx scripts/test-pending-changes-stash.ts",
-    "test:today-signout-clears-stash": "tsx scripts/test-today-signout-clears-stash.tsx"
+    "test:today-signout-clears-stash": "tsx scripts/test-today-signout-clears-stash.tsx",
+    "test:client-conflict-resync": "tsx scripts/test-client-conflict-resync.ts",
+    "test:decide-set-write": "tsx scripts/test-decide-set-write.ts",
+    "test:elapsed-hydration": "tsx scripts/test-elapsed-hydration.ts",
+    "test:exercises-reducer": "tsx scripts/test-exercises-reducer.ts",
+    "test:guard-concurrent": "tsx scripts/test-guard-concurrent.ts",
+    "test:log-set-core": "tsx scripts/test-log-set-core.ts",
+    "test:merge-sets": "tsx scripts/test-merge-sets.ts",
+    "test:resume-refresh": "tsx scripts/test-resume-refresh.ts",
+    "test:resume-state": "tsx scripts/test-resume-state.ts",
+    "test:shell-message": "tsx scripts/test-shell-message.tsx",
+    "test:start-session-core": "tsx scripts/test-start-session-core.ts",
+    "test:load-start-program": "tsx scripts/test-load-start-program.ts",
+    "test:load-plan-day": "tsx scripts/test-load-plan-day.ts",
+    "test:today-refetch": "tsx scripts/test-today-refetch.ts",
+    "test:update-session-core": "tsx scripts/test-update-session-core.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
