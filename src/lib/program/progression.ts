@@ -272,6 +272,31 @@ export function roundToStoragePrecision(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/**
+ * Compute the effective base weight for progression decisions.
+ * 
+ * When stored weight exists and all working sets are at or above it, the base
+ * is the lowest working-set weight (rounded to storage precision). Otherwise
+ * the stored weight is kept. Handles pure bodyweight (stored=0 with no added
+ * load) by preserving 0 rather than returning null.
+ */
+export function effectiveBaseWeight(
+  stored: number | null,
+  working: LoggedSet[],
+): number | null {
+  if (stored === null) return null;
+  if (stored === 0) {
+    const anyLoad = working.some((s) => (s.weightKg ?? 0) > 0);
+    return anyLoad ? Math.min(...working.map((s) => s.weightKg ?? 0)) : 0;
+  }
+  const allHeavierOrEqual = working.every((s) => (s.weightKg ?? 0) >= stored);
+  if (allHeavierOrEqual) {
+    const lowest = Math.min(...working.map((s) => s.weightKg ?? 0));
+    return lowest > 0 ? roundToStoragePrecision(lowest) : stored;
+  }
+  return stored;
+}
+
 export type BestState = {
   bestWeightKg: number | null;
   bestReps: number | null;
@@ -518,7 +543,7 @@ export function evaluateProgression(input: {
     // Bodyweight with added weight: smaller steps, never doubled.
     // Loaded exercises: standard increment, doubled when easy.
     const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
-    const from = state.currentWorkingWeightKg ?? heaviest;
+    const from = effectiveBaseWeight(state.currentWorkingWeightKg, working) ?? heaviest;
     
     // For kettlebells, we let roundToGrid handle moving to the next bell
     // For other equipment, we add the increment then round to grid
@@ -572,27 +597,7 @@ export function evaluateProgression(input: {
   // all at top) sessions hold the weight and reset consecutiveFailures to 0.
   // "Hard" feel never causes a deload or counts as a miss on its own (SPEC: '"hard" holds it').
   if (inRange) {
-    // HOLD: Use stored weight if available; otherwise fall back to heaviest logged working-set weight.
-    // For true bodyweight (no weights logged), keep null.
-    let currentWeight: number | null;
-    
-    const stored = state.currentWorkingWeightKg;
-    if (stored !== null && stored > 0) {
-      // Weight is stored: check if all completed working sets >= stored weight
-      const allSetsHeavierOrEqual = working.every((set) => (set.weightKg ?? 0) >= stored);
-      
-      if (allSetsHeavierOrEqual) {
-        // Store the LOWEST weight among completed working sets, rounded
-        const lowestUsed = Math.min(...working.map((s) => s.weightKg ?? 0));
-        currentWeight = lowestUsed > 0 ? roundToStoragePrecision(lowestUsed) : stored;
-      } else {
-        // At least one set was lighter: keep stored weight unchanged
-        currentWeight = stored;
-      }
-    } else {
-      // Nothing stored: fall back to heaviest (H2)
-      currentWeight = heaviest > 0 ? heaviest : null;
-    }
+    const currentWeight = effectiveBaseWeight(state.currentWorkingWeightKg, working);
     
     return {
       ...carried,
