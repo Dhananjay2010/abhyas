@@ -14,6 +14,8 @@ import { isEligible, score, hashString } from "@/lib/program/generate";
 import { rankAlternatives } from "@/lib/program/alternatives";
 import { getSwapPatterns } from "@/lib/program/swap-patterns";
 import { buildSwapContext } from "@/lib/program/swap-context";
+import { ageOn } from "@/lib/onboarding/options";
+import { buildInjuryFlags } from "@/lib/program/injury-regions";
 
 export type EligibleSwapListInput = {
   /** The exercise being swapped out */
@@ -105,26 +107,11 @@ export function buildGeneratorInput(params: {
     : null;
 
   const age = profile.date_of_birth 
-    ? (() => {
-        const dob = new Date(profile.date_of_birth);
-        const today = new Date();
-        let age = today.getFullYear() - dob.getFullYear();
-        const monthDiff = today.getMonth() - dob.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-          age--;
-        }
-        return age;
-      })()
+    ? ageOn(profile.date_of_birth)
     : null;
 
-  // Build injury flags
-  const currentInjuryRegions = injuries
-    .filter(i => i.severity === "current")
-    .map(i => i.body_region);
-  
-  const anyKneeInjury = injuries.some(i => 
-    i.body_region === "knee"
-  );
+  // Build injury flags using shared helper
+  const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
 
   return {
     userId,

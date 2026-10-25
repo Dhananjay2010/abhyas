@@ -321,7 +321,7 @@ export function rankAlternatives<T extends ExerciseRow>(
     
     // Item 15: Past-knee squat ordering (barbell-squat after goblet, box, bodyweight, leg-press)
     let squatPriority = 0;
-    if (!hasPastKnee && current.movement_pattern === "squat" && candidate.movement_pattern === "squat") {
+    if (hasPastKnee && current.movement_pattern === "squat" && candidate.movement_pattern === "squat") {
       const preferredSquats = ["goblet-squat", "box-squat", "bodyweight-squat", "leg-press"];
       if (preferredSquats.includes(candidate.slug)) {
         squatPriority = -10; // High priority

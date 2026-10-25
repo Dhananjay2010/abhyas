@@ -798,7 +798,8 @@ export async function swapExercise(input: {
   // QA Steer 2(a): Fail closed if any required read fails
   if (!currentRes.data) return { ok: false, error: "Exercise not found" };
   if (!replacementRes.data) return { ok: false, error: "Replacement exercise not found" };
-  if (!profileRes.data || !profileRes.data.goal || !profileRes.data.level) {
+  const profile = profileRes.data;
+  if (!profile || !profile.goal || !profile.level || !profile.primary_track) {
     return { ok: false, error: "Profile not found or incomplete" };
   }
   if (injuryRes.error) return { ok: false, error: "Could not load injury data" };
@@ -806,16 +807,15 @@ export async function swapExercise(input: {
   
   const current = currentRes.data;
   const replacement = replacementRes.data;
-  const profile = profileRes.data;
   
   // Build GeneratorInput using shared helper
   const weightKg = weightRes.data?.weight_kg ?? null;
   const generatorInput = buildGeneratorInput({
     userId: user.id,
     profile: {
-      goal: profile.goal!,
-      level: profile.level!,
-      primary_track: profile.primary_track!,
+      goal: profile.goal,
+      level: profile.level,
+      primary_track: profile.primary_track,
       days_per_week: profile.days_per_week ?? 3,
       yoga_days_per_week: profile.yoga_days_per_week ?? 0,
       date_of_birth: profile.date_of_birth,
@@ -827,10 +827,10 @@ export async function swapExercise(input: {
     weightKg: weightKg ? Number(weightKg) : null,
   });
   
-  // Get the current exercise
+  // Get the current exercise (same columns as findAlternatives for consistency)
   const currentExerciseRes = await supabase
     .from("exercises")
-    .select("id, slug, name, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
+    .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
     .eq("id", current.exercise_id)
     .maybeSingle();
   
@@ -838,7 +838,8 @@ export async function swapExercise(input: {
     return { ok: false, error: "Current exercise not found" };
   }
   
-  const currentExercise = currentExerciseRes.data as unknown as CandidateExercise;
+  type ExerciseRow = typeof currentExerciseRes.data;
+  const currentExercise = currentExerciseRes.data as ExerciseRow & CandidateExercise;
   
   // Build swap pattern list
   const patterns = getSwapPatterns(currentExercise.movement_pattern, generatorInput);
@@ -854,13 +855,18 @@ export async function swapExercise(input: {
     return { ok: false, error: "Could not load exercise pool" };
   }
   
-  const pool = (poolRes.data ?? []) as unknown as CandidateExercise[];
+  type PoolRow = typeof poolRes.data[number];
+  const pool = (poolRes.data ?? []) as (PoolRow & CandidateExercise)[];
   
   // Get exercises already in this session
   const siblingsRes = await supabase
     .from("session_exercises")
     .select("exercise_id")
     .eq("session_id", current.session_id);
+  
+  if (siblingsRes.error) {
+    return { ok: false, error: "Could not load session exercises" };
+  }
   
   const alreadyInSession = new Set(
     (siblingsRes.data ?? []).map((s) => s.exercise_id),
