@@ -12,6 +12,23 @@ GENERATE_FILE="$SCRIPT_DIR/../src/lib/program/generate.ts"
 EXCLUSIONS_BACKUP=$(mktemp)
 GENERATE_BACKUP=$(mktemp)
 
+# Take both backups ONCE before any mutations
+cp "$EXCLUSIONS_FILE" "$EXCLUSIONS_BACKUP"
+cp "$GENERATE_FILE" "$GENERATE_BACKUP"
+
+cleanup() {
+  if [ -s "$EXCLUSIONS_BACKUP" ]; then
+    cp "$EXCLUSIONS_BACKUP" "$EXCLUSIONS_FILE" 2>/dev/null || true
+  fi
+  if [ -s "$GENERATE_BACKUP" ]; then
+    cp "$GENERATE_BACKUP" "$GENERATE_FILE" 2>/dev/null || true
+  fi
+  rm -f "$EXCLUSIONS_BACKUP" "$GENERATE_BACKUP"
+}
+
+trap cleanup EXIT
+trap 'cleanup; exit 1' INT TERM
+
 echo "=== Bradford Exclusions Mutation Testing ==="
 echo ""
 
@@ -23,18 +40,6 @@ if ! npx tsx "$SCRIPT_DIR/test-bradford-exclusions.ts" &>/dev/null; then
 fi
 echo "✓ Baseline test passed"
 echo ""
-
-cleanup() {
-  if [ -f "$EXCLUSIONS_BACKUP" ]; then
-    cp "$EXCLUSIONS_BACKUP" "$EXCLUSIONS_FILE" 2>/dev/null || true
-  fi
-  if [ -f "$GENERATE_BACKUP" ]; then
-    cp "$GENERATE_BACKUP" "$GENERATE_FILE" 2>/dev/null || true
-  fi
-  rm -f "$EXCLUSIONS_BACKUP" "$GENERATE_BACKUP"
-}
-
-trap cleanup EXIT INT TERM
 
 run_test_and_verify_caught() {
   local mutation_name="$1"
@@ -58,7 +63,6 @@ run_test_and_verify_caught() {
 
 # Mutation 1: Remove bradford-rocky-presses from exclusion set
 echo "1. Mutation: Remove bradford-rocky-presses from exclusion set"
-cp "$EXCLUSIONS_FILE" "$EXCLUSIONS_BACKUP"
 sed -i 's/"bradford-rocky-presses",/\/\/ MUTANT: removed/' "$EXCLUSIONS_FILE"
 
 # Verify mutation changed the file
@@ -82,11 +86,14 @@ fi
 
 # Restore
 cp "$EXCLUSIONS_BACKUP" "$EXCLUSIONS_FILE"
+if ! cmp -s "$EXCLUSIONS_FILE" "$EXCLUSIONS_BACKUP"; then
+  echo "  ✗ FATAL: Restore failed"
+  exit 1
+fi
 echo ""
 
 # Mutation 2: Remove standing-bradford-press from exclusion set
 echo "2. Mutation: Remove standing-bradford-press from exclusion set"
-cp "$EXCLUSIONS_FILE" "$EXCLUSIONS_BACKUP"
 sed -i 's/"standing-bradford-press",/\/\/ MUTANT: removed/' "$EXCLUSIONS_FILE"
 
 # Verify mutation changed the file
@@ -110,13 +117,14 @@ fi
 
 # Restore
 cp "$EXCLUSIONS_BACKUP" "$EXCLUSIONS_FILE"
+if ! cmp -s "$EXCLUSIONS_FILE" "$EXCLUSIONS_BACKUP"; then
+  echo "  ✗ FATAL: Restore failed"
+  exit 1
+fi
 echo ""
 
 # Mutation 3: Remove around-the-worlds from shoulder contraindications
 echo "3. Mutation: Remove around-the-worlds from SHOULDER_CONTRAINDICATED_SLUGS"
-
-cp "$EXCLUSIONS_FILE" "$EXCLUSIONS_BACKUP"
-cp "$GENERATE_FILE" "$GENERATE_BACKUP"
 
 sed -i 's/"around-the-worlds",/\/\/ MUTANT: removed/' "$GENERATE_FILE"
 
@@ -140,8 +148,11 @@ if ! run_test_and_verify_caught "Remove around-the-worlds"; then
 fi
 
 # Restore
-cp "$EXCLUSIONS_BACKUP" "$EXCLUSIONS_FILE"
 cp "$GENERATE_BACKUP" "$GENERATE_FILE"
+if ! cmp -s "$GENERATE_FILE" "$GENERATE_BACKUP"; then
+  echo "  ✗ FATAL: Restore failed"
+  exit 1
+fi
 echo ""
 
 echo "=== Mutation Testing Results ==="
