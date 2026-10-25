@@ -31,9 +31,9 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
-import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
+import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
 import { progressForPlanningMode } from "@/lib/session/swap-progress";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 
@@ -154,7 +154,6 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       updateSessionCore(supabase, existing.id, user.id, today, updatePayload),
       ensureSessionExercises(supabase, user.id, existing.id),
     ]);
-
     if (!updateResult.ok) {
       return { ok: false, error: updateResult.error };
     }
@@ -827,20 +826,22 @@ export async function swapExercise(input: {
   if (!current) return { ok: false, error: "Exercise not found" };
 
   const replacement = replacementRes.data;
-  const metric = metricOf(replacement);
-  const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
 
-  // Resolve weight prefill and working weight for the swapped-in exercise
-  const { weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = await resolveSwapWeights(
-    supabase,
-    user.id,
-    current.session_id,
-    input.newExerciseId,
-    equipmentIds,
-    metric,
-    replacementRes.data?.movement_pattern ?? "other",
-  );
+  // Call the core with injected dependencies (testable with fakes)
+  const { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = 
+    await swapExerciseCore(
+      {
+        resolveSwapWeights: (sessionId, newExerciseId, equipmentIds, metric, movementPattern) =>
+          resolveSwapWeights(supabase, user.id, sessionId, newExerciseId, equipmentIds, metric, movementPattern),
+      },
+      {
+        newExerciseId: input.newExerciseId,
+        current,
+        replacement,
+        profile,
+      },
+    );
 
   // Filter target reps for daily_menu users (they don't remember weights/targets)
   const filteredProgress = progressForPlanningMode(
@@ -848,31 +849,6 @@ export async function swapExercise(input: {
     { current_target_reps: currentTargetReps, current_working_weight_kg: workingWeightKg }
   );
   const filteredTargetReps = filteredProgress?.current_target_reps ?? null;
-
-  /*
-    A changed unit needs a changed range. `planned_reps_min/max` are the range
-    in the exercise's own metric, so swapping eight-to-twelve reps for a hold
-    without re-prescribing would ask for an eight-second plank. The goal's hold
-    table is the same one the generator uses, so a swap lands on what the
-    planner would have prescribed for that slot.
-
-    Only the range is re-derived. Sets stay as the day dosed them -- including a
-    deload week's reduction, which `applyDeload` applies to sets and not to the
-    range -- because the swap is a substitution within the session, not a
-    re-planning of it.
-  */
-  const reranged =
-    metric !== current.metric && profile?.goal && profile?.level
-      ? prescribe(
-          profile.goal,
-          profile.level,
-          replacementRes.data?.mechanic === "isolation",
-          metric,
-        )
-      : null;
-
-  const repsMin = reranged ? reranged.repsMin : current.planned_reps_min;
-  const repsMax = reranged ? reranged.repsMax : current.planned_reps_max;
 
   const { error } = await supabase
     .from("session_exercises")
