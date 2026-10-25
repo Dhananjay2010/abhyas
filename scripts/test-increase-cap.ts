@@ -27,6 +27,15 @@ const LUNGE: ExerciseMeta = {
   progressionRank: null,
 };
 
+const CURL: ExerciseMeta = {
+  mechanic: "isolation",
+  metric: "reps",
+  movementPattern: "biceps",
+  isBodyweight: false,
+  progressionChain: null,
+  progressionRank: null,
+};
+
 function makeState(overrides: Partial<ProgressState> = {}): ProgressState {
   return {
     currentWorkingWeightKg: null,
@@ -166,7 +175,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     equipmentIds: ["dumbbell"],
     unit: "kg",
     meta: LUNGE,
-    state: fresh({ currentWorkingWeightKg: 14 }),
+    state: makeState({ currentWorkingWeightKg: 14 }),
     isDeload: false,
   });
   check("Dumbbell lunge 14 kg → 15 kg (easy feel, one-step cap)", d.nextWorkingWeightKg === 15);
@@ -183,7 +192,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     equipmentIds: ["dumbbell"],
     unit: "kg",
     meta: LUNGE,
-    state: fresh({ currentWorkingWeightKg: 15 }),
+    state: makeState({ currentWorkingWeightKg: 15 }),
     isDeload: false,
   });
   check("Dumbbell lunge 15 kg → 17.5 kg (one-step cap)", d.nextWorkingWeightKg === 17.5);
@@ -200,7 +209,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     equipmentIds: ["dumbbell"],
     unit: "kg",
     meta: LUNGE,
-    state: fresh({ currentWorkingWeightKg: 12 }),
+    state: makeState({ currentWorkingWeightKg: 12 }),
     isDeload: false,
   });
   check("Dumbbell lunge 12 kg → 12.5 kg (one-step cap)", d.nextWorkingWeightKg === 12.5);
@@ -217,7 +226,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     equipmentIds: ["barbell"],
     unit: "kg",
     meta: SQUAT,
-    state: fresh({ currentWorkingWeightKg: 72.5 }),
+    state: makeState({ currentWorkingWeightKg: 72.5 }),
     isDeload: false,
   });
   check("Barbell squat 72.5 kg → 75 kg (easy feel, one-step cap)", d.nextWorkingWeightKg === 75);
@@ -234,7 +243,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     equipmentIds: ["kettlebell"],
     unit: "kg",
     meta: CURL,
-    state: fresh({ currentWorkingWeightKg: 22 }),
+    state: makeState({ currentWorkingWeightKg: 22 }),
     isDeload: false,
   });
   check("Kettlebell 22 kg → 24 kg (one-step cap)", d.nextWorkingWeightKg === 24);
@@ -251,7 +260,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     equipmentIds: ["pin_stack"],
     unit: "kg",
     meta: CURL,
-    state: fresh({ currentWorkingWeightKg: 42 }),
+    state: makeState({ currentWorkingWeightKg: 42 }),
     isDeload: false,
   });
   check("Pin-stack 42 kg → 45 kg (one-step cap)", d.nextWorkingWeightKg === 45);
