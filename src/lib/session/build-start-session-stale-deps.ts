@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { 
-  closeStaleSessions, 
   closeStaleSessionsCore,
   type OpenSession 
 } from "./close-stale";
