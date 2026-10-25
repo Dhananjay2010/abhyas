@@ -179,4 +179,41 @@ check("Key exists before clear", storage6.data.has("abhyas:rest:session-6"));
 clearRest(storage6, sessionId6);
 check("Key removed after clear", !storage6.data.has("abhyas:rest:session-6"));
 
+// ===== CASE 7: 15-minute clamp - over limit returns null and removes key =====
+console.log("\nCase 7: 15-minute clamp - over limit returns null and removes key");
+
+const storage7 = createFakeStorage();
+const sessionId7 = "session-7";
+const currentTime7 = 1000000;
+const FIFTEEN_MIN_MS = 15 * 60 * 1000;
+const record7: RestRecord = {
+  sessionId: sessionId7,
+  sessionExerciseId: "exercise-7",
+  restEndsAt: currentTime7 + FIFTEEN_MIN_MS + 1000, // 15 min + 1 second
+};
+
+saveRest(storage7, record7);
+check("Key exists before load", storage7.data.has("abhyas:rest:session-7"));
+
+const loaded7 = loadRest(storage7, sessionId7, () => currentTime7);
+check("Over 15-minute limit returns null", loaded7 === null);
+check("Over 15-minute limit removes the key", !storage7.data.has("abhyas:rest:session-7"));
+
+// ===== CASE 8: 15-minute clamp - exactly at limit is returned =====
+console.log("\nCase 8: 15-minute clamp - exactly at limit is returned");
+
+const storage8 = createFakeStorage();
+const sessionId8 = "session-8";
+const currentTime8 = 1000000;
+const record8: RestRecord = {
+  sessionId: sessionId8,
+  sessionExerciseId: "exercise-8",
+  restEndsAt: currentTime8 + FIFTEEN_MIN_MS, // Exactly 15 minutes
+};
+
+saveRest(storage8, record8);
+const loaded8 = loadRest(storage8, sessionId8, () => currentTime8);
+check("Exactly 15-minute limit is returned", loaded8 !== null && loaded8.restEndsAt === record8.restEndsAt);
+check("Key not removed at boundary", storage8.data.has("abhyas:rest:session-8"));
+
 console.log("\n✅ All tests passed");

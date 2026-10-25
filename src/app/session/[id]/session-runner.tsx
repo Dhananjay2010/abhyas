@@ -813,7 +813,6 @@ export function SessionRunner({
         await run(() =>
           actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
         );
-        restPersistence.clear();
         setPhase("done");
       }
     } else {

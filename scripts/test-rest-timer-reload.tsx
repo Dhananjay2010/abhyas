@@ -286,25 +286,9 @@ unmount1();
 // ===== CASE 2: Finish exercise clears storage =====
 console.log("\nCase 2: Finish exercise → storage cleared\n");
 
-const exercise2a = {
-  ...makeExercise("ex-2a", "press", "Press", 1, [
-    { setNumber: 1, reps: 10, weightKg: null, durationSeconds: null },
-  ]),
-  status: "completed" as const,
-  feel: "right" as const,
-};
+const exercise2a = makeExercise("ex-2a", "press", "Press", 2);
 const exercise2b = makeExercise("ex-2b", "curl", "Curl", 1);
 
-mockStorage.data.set(key, JSON.stringify({
-  sessionId: sessionId,
-  sessionExerciseId: "ex-2a",
-  restEndsAt: now + 90000,
-}));
-
-check("Storage has key before finish", mockStorage.data.has(key));
-
-// Render with first exercise already complete (status + feel set)
-// The runner should skip to exercise 2b and clear storage for ex-2a
 const { container: c2, unmount: unmount2 } = render(
   <SessionRunner
     sessionId={sessionId}
@@ -321,16 +305,103 @@ const { container: c2, unmount: unmount2 } = render(
 );
 
 await act(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 4500));
+});
+
+await waitFor(() => {
+  if (!c2.textContent?.includes("Press")) throw new Error("Exercise not shown");
+});
+
+// Log set 1 to start rest
+const repsInput2 = [...c2.querySelectorAll("input")].find((input) =>
+  input.closest("label")?.textContent?.includes("Reps"),
+);
+
+if (!(repsInput2 instanceof HTMLInputElement)) {
+  console.log("  ✗ FAIL Reps input not found");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.change(repsInput2, { target: { value: "10" } });
+});
+
+const logBtn2 = [...c2.querySelectorAll("button")].find((b) =>
+  /Log set 1/.test(b.textContent ?? ""),
+);
+
+if (!logBtn2) {
+  console.log("  ✗ FAIL Log set button not found");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.click(logBtn2);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+});
+
+// Wait for rest panel to appear
+await waitFor(() => {
+  if (!c2.textContent?.includes("Rest")) throw new Error("Rest panel not shown");
+}, { timeout: 2000 });
+
+check("Rest starts after logging set 1", c2.textContent?.includes("Rest") ?? false);
+check("Storage has key after logging", mockStorage.data.has(key));
+
+// Log set 2 to complete the exercise
+const logBtn2b = [...c2.querySelectorAll("button")].find((b) =>
+  /Log set 2/.test(b.textContent ?? ""),
+);
+
+if (!logBtn2b) {
+  console.log("  ✗ FAIL Log set 2 button not found");
+  process.exit(1);
+}
+
+const repsInput2b = [...c2.querySelectorAll("input")].find((input) =>
+  input.closest("label")?.textContent?.includes("Reps"),
+);
+
+if (!(repsInput2b instanceof HTMLInputElement)) {
+  console.log("  ✗ FAIL Reps input not found for set 2");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.change(repsInput2b, { target: { value: "10" } });
+});
+
+await act(async () => {
+  fireEvent.click(logBtn2b);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+});
+
+// Now finish the exercise through the UI (all sets done, click feel)
+await waitFor(() => {
+  if (!c2.textContent?.includes("How did that feel?")) throw new Error("Feel prompt not shown");
+});
+
+const rightBtn = [...c2.querySelectorAll("button")].find((b) =>
+  b.textContent?.trim() === "Just right",
+);
+
+if (!rightBtn) {
+  console.log("  ✗ FAIL 'Just right' button not found");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.click(rightBtn);
   await new Promise((resolve) => setTimeout(resolve, 200));
 });
 
-// Should show exercise 2b (Curl)
+// Should move to next exercise and clear storage
 await waitFor(() => {
   if (!c2.textContent?.includes("Curl")) throw new Error("Next exercise not shown");
 });
 
 check("Moved to next exercise", c2.textContent?.includes("Curl") ?? false);
-check("Finish exercise clears storage", !mockStorage.data.has(key));
+check("Finish exercise clears storage immediately", !mockStorage.data.has(key));
 
 unmount2();
 
@@ -380,26 +451,11 @@ if (endEarlyButton) {
 
 unmount3();
 
-// ===== CASE 4: Finish session clears storage (no cooldown) =====
-console.log("\nCase 4: Finish session (no cooldown) → storage cleared\n");
+// ===== CASE 4: Finish session (no cooldown, last exercise) clears storage =====
+console.log("\nCase 4: Finish last exercise (no cooldown) → storage cleared inside onFinishExercise\n");
 
-const exercise4 = {
-  ...makeExercise("ex-4", "row", "Row", 1, [
-    { setNumber: 1, reps: 10, weightKg: null, durationSeconds: null },
-  ]),
-  status: "completed" as const,
-  feel: "right" as const,
-};
+const exercise4 = makeExercise("ex-4", "row", "Row", 2);
 
-mockStorage.data.set(key, JSON.stringify({
-  sessionId: sessionId,
-  sessionExerciseId: "ex-4",
-  restEndsAt: now + 90000,
-}));
-
-check("Storage has key before render", mockStorage.data.has(key));
-
-// Single exercise, already complete - session should finish immediately
 const { container: c4, unmount: unmount4 } = render(
   <SessionRunner
     sessionId={sessionId}
@@ -416,26 +472,267 @@ const { container: c4, unmount: unmount4 } = render(
 );
 
 await act(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 4500));
+});
+
+await waitFor(() => {
+  if (!c4.textContent?.includes("Row")) throw new Error("Exercise not shown");
+});
+
+// Log set 1 to start rest
+const repsInput4 = [...c4.querySelectorAll("input")].find((input) =>
+  input.closest("label")?.textContent?.includes("Reps"),
+);
+
+if (!(repsInput4 instanceof HTMLInputElement)) {
+  console.log("  ✗ FAIL Reps input not found");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.change(repsInput4, { target: { value: "10" } });
+});
+
+const logBtn4 = [...c4.querySelectorAll("button")].find((b) =>
+  /Log set 1/.test(b.textContent ?? ""),
+);
+
+if (!logBtn4) {
+  console.log("  ✗ FAIL Log set button not found");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.click(logBtn4);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+});
+
+await waitFor(() => {
+  if (!c4.textContent?.includes("Rest")) throw new Error("Rest panel not shown");
+}, { timeout: 2000 });
+
+check("Rest starts after logging set 1", c4.textContent?.includes("Rest") ?? false);
+check("Storage has key after logging", mockStorage.data.has(key));
+
+// Log set 2 to complete the exercise
+const logBtn4_2 = [...c4.querySelectorAll("button")].find((b) =>
+  /Log set 2/.test(b.textContent ?? ""),
+);
+
+if (!logBtn4_2) {
+  console.log("  ✗ FAIL Log set 2 button not found");
+  process.exit(1);
+}
+
+const repsInput4_2 = [...c4.querySelectorAll("input")].find((input) =>
+  input.closest("label")?.textContent?.includes("Reps"),
+);
+
+if (!(repsInput4_2 instanceof HTMLInputElement)) {
+  console.log("  ✗ FAIL Reps input not found for set 2");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.change(repsInput4_2, { target: { value: "10" } });
+});
+
+await act(async () => {
+  fireEvent.click(logBtn4_2);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+});
+
+// Now finish the exercise through the UI - this is the last exercise with no cooldown
+await waitFor(() => {
+  if (!c4.textContent?.includes("How did that feel?")) throw new Error("Feel prompt not shown");
+});
+
+const rightBtn4 = [...c4.querySelectorAll("button")].find((b) =>
+  b.textContent?.trim() === "Just right",
+);
+
+if (!rightBtn4) {
+  console.log("  ✗ FAIL 'Just right' button not found");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.click(rightBtn4);
   await new Promise((resolve) => setTimeout(resolve, 200));
 });
 
-// If session isn't automatically complete, look for a way to finish it
-if (c4.textContent?.includes("Done") || c4.textContent?.includes("Finish")) {
-  const doneBtn = [...c4.querySelectorAll("button")].find((b) =>
-    /Done|Finish/.test(b.textContent ?? "")
-  );
-  if (doneBtn) {
-    await act(async () => {
-      fireEvent.click(doneBtn);
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    });
-  }
-}
+// Should go to done phase and clear storage
+await waitFor(() => {
+  if (!c4.textContent?.includes("Session complete")) throw new Error("Summary not shown");
+});
 
-// Session should finish and clear storage
-check("Finish session (no cooldown) clears storage", !mockStorage.data.has(key));
+check("Session complete", c4.textContent?.includes("Session complete") ?? false);
+check("Finish last exercise clears storage (finishSession in onFinishExercise)", !mockStorage.data.has(key));
 
 unmount4();
+
+// ===== CASE 4b: Cooldown screen finish button clears storage =====
+console.log("\nCase 4b: Finish on cooldown screen (not-completed button) → storage cleared\n");
+
+const cooldownItem = {
+  id: "cool-1",
+  phase: "cooldown" as const,
+  name: "Hamstring stretch",
+  duration_seconds: 30,
+  instructions: ["Hold for 30s"],
+};
+
+const settingsWithCooldown: RunnerSettings = {
+  ...settings,
+  cooldownEnabled: true,
+};
+
+const exercise4b = makeExercise("ex-4b", "deadlift", "Deadlift", 2);
+
+const { container: c4b, unmount: unmount4b } = render(
+  <SessionRunner
+    sessionId={sessionId}
+    isDeload={false}
+    week={1}
+    warmupAlreadyDone={true}
+    startedAt={new Date(now).toISOString()}
+    warmup={[]}
+    cooldown={[cooldownItem]}
+    exercises={[exercise4b]}
+    settings={settingsWithCooldown}
+    actions={actions}
+  />,
+);
+
+await act(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 4500));
+});
+
+await waitFor(() => {
+  if (!c4b.textContent?.includes("Deadlift")) throw new Error("Exercise not shown");
+});
+
+// Log set to start rest
+const repsInput4b = [...c4b.querySelectorAll("input")].find((input) =>
+  input.closest("label")?.textContent?.includes("Reps"),
+);
+
+if (!(repsInput4b instanceof HTMLInputElement)) {
+  console.log("  ✗ FAIL Reps input not found");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.change(repsInput4b, { target: { value: "10" } });
+});
+
+const logBtn4b = [...c4b.querySelectorAll("button")].find((b) =>
+  /Log set 1/.test(b.textContent ?? ""),
+);
+
+if (!logBtn4b) {
+  console.log("  ✗ FAIL Log set button not found");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.click(logBtn4b);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+});
+
+await waitFor(() => {
+  if (!c4b.textContent?.includes("Rest")) throw new Error("Rest panel not shown");
+}, { timeout: 2000 });
+
+check("Rest starts after set 1", c4b.textContent?.includes("Rest") ?? false);
+
+// Log set 2 to complete the exercise
+const logBtn4b2 = [...c4b.querySelectorAll("button")].find((b) =>
+  /Log set 2/.test(b.textContent ?? ""),
+);
+
+if (!logBtn4b2) {
+  console.log("  ✗ FAIL Log set 2 button not found");
+  process.exit(1);
+}
+
+const repsInput4b2 = [...c4b.querySelectorAll("input")].find((input) =>
+  input.closest("label")?.textContent?.includes("Reps"),
+);
+
+if (!(repsInput4b2 instanceof HTMLInputElement)) {
+  console.log("  ✗ FAIL Reps input not found for set 2");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.change(repsInput4b2, { target: { value: "10" } });
+});
+
+await act(async () => {
+  fireEvent.click(logBtn4b2);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+});
+
+// Finish exercise to get to cooldown
+await waitFor(() => {
+  if (!c4b.textContent?.includes("How did that feel?")) throw new Error("Feel prompt not shown");
+});
+
+const rightBtn4b = [...c4b.querySelectorAll("button")].find((b) =>
+  b.textContent?.trim() === "Just right",
+);
+
+if (!rightBtn4b) {
+  console.log("  ✗ FAIL 'Just right' button not found");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.click(rightBtn4b);
+  await new Promise((resolve) => setTimeout(resolve, 200));
+});
+
+// Should be on cooldown screen now
+await waitFor(() => {
+  if (!c4b.textContent?.includes("Cool-down")) throw new Error("Cooldown screen not shown");
+});
+
+check("Cooldown screen shown", c4b.textContent?.includes("Cool-down") ?? false);
+
+// Put a valid rest record in storage (simulating leftover data)
+mockStorage.data.set(key, JSON.stringify({
+  sessionId: sessionId,
+  sessionExerciseId: "ex-4b",
+  restEndsAt: now + 90000,
+}));
+
+check("Storage has key before cooldown finish", mockStorage.data.has(key));
+
+// Click "Skip cool-down" button (cooldownCompleted: false)
+const skipCooldownBtn = [...c4b.querySelectorAll("button")].find((b) =>
+  /Skip cool-down/.test(b.textContent ?? ""),
+);
+
+if (!skipCooldownBtn) {
+  console.log("  ✗ FAIL Skip cool-down button not found");
+  process.exit(1);
+}
+
+await act(async () => {
+  fireEvent.click(skipCooldownBtn);
+  await new Promise((resolve) => setTimeout(resolve, 200));
+});
+
+// Should finish session and clear storage
+await waitFor(() => {
+  if (!c4b.textContent?.includes("Session complete")) throw new Error("Summary not shown");
+});
+
+check("Session complete after cooldown skip", c4b.textContent?.includes("Session complete") ?? false);
+check("Cooldown skip button clears storage", !mockStorage.data.has(key));
+
+unmount4b();
 
 // ===== CASE 5: Skip clears storage =====
 console.log("\nCase 5: Skip button → storage cleared\n");
