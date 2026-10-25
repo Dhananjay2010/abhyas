@@ -557,6 +557,14 @@ async function runAll() {
   console.log("  Migration: 20261025000025_block_range_followup.sql");
   console.log("═══════════════════════════════════════════════════════\n");
   
+  const setupPool = new Pool({ connectionString: DATABASE_URL });
+  try {
+    await setupAuthSchema(setupPool);
+    console.log("  ✓ Auth schema setup complete\n");
+  } finally {
+    await setupPool.end();
+  }
+  
   const pool = new Pool({ connectionString: DATABASE_URL });
   
   try {

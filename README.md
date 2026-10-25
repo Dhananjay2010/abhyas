@@ -591,5 +591,3 @@ This is a private project. For questions or issues, contact the repo owner.
 ## License
 
 Private. Not open source.
-
-# Force CI trigger
