@@ -40,10 +40,29 @@ if (text.includes("Deload")) {
   process.exit(1);
 }
 
-console.log("\n=== Test 2: Deload label does NOT show for skipped row ===\n");
+console.log("\n=== Test 2: isDeload={false} prevents label (planted-bug proof) ===\n");
+
+const { container: c2 } = render(
+  <WarmupSection
+    todayExercises={[exercise]}
+    actual={null}
+    strengthDone={false}
+    isDeload={false}
+    isTraining={true}
+  />
+);
+
+const text2 = c2.textContent || "";
+if (text2.includes("Deload")) {
+  console.error("❌ FAIL: Deload label shown when isDeload={false}");
+  process.exit(1);
+}
+console.log("✅ Deload label correctly NOT shown when isDeload={false}");
+
+console.log("\n=== Test 3: Deload label does NOT show for skipped row ===\n");
 
 const skipped = { ...exercise, skipped: true };
-const { container: c2 } = render(
+const { container: c3 } = render(
   <WarmupSection
     todayExercises={[skipped]}
     actual={null}
@@ -53,17 +72,17 @@ const { container: c2 } = render(
   />
 );
 
-const text2 = c2.textContent || "";
-if (text2.includes("Skipped") && !text2.includes("Deload")) {
+const text3 = c3.textContent || "";
+if (text3.includes("Skipped") && !text3.includes("Deload")) {
   console.log("✅ Deload label correctly NOT shown for skipped row");
 } else {
   console.error("❌ FAIL: Deload label should not show for skipped row");
   process.exit(1);
 }
 
-console.log("\n=== Test 3: Deload label does NOT show for non-training day ===\n");
+console.log("\n=== Test 4: Deload label does NOT show for non-training day ===\n");
 
-const { container: c3 } = render(
+const { container: nonTraining } = render(
   <WarmupSection
     todayExercises={[exercise]}
     actual={null}
@@ -73,17 +92,17 @@ const { container: c3 } = render(
   />
 );
 
-const text3 = c3.textContent || "";
-if (!text3.includes("Deload")) {
+const textNonTraining = nonTraining.textContent || "";
+if (!textNonTraining.includes("Deload")) {
   console.log("✅ Deload label correctly NOT shown for non-training day");
 } else {
   console.error("❌ FAIL: Deload label should not show for non-training day");
   process.exit(1);
 }
 
-console.log("\n=== Test 4: Deload label does NOT show when actuals exist ===\n");
+console.log("\n=== Test 5: Deload label does NOT show when actuals exist ===\n");
 
-const { container: c4 } = render(
+const { container: withActuals } = render(
   <WarmupSection
     todayExercises={[exercise]}
     actual={[{ reps: 10 }]}
@@ -93,17 +112,17 @@ const { container: c4 } = render(
   />
 );
 
-const text4 = c4.textContent || "";
-if (!text4.includes("Deload")) {
+const textWithActuals = withActuals.textContent || "";
+if (!textWithActuals.includes("Deload")) {
   console.log("✅ Deload label correctly NOT shown when actuals exist");
 } else {
   console.error("❌ FAIL: Deload label should not show when actuals exist");
   process.exit(1);
 }
 
-console.log("\n=== Test 5: Section renders for 0 rows ===\n");
+console.log("\n=== Test 6: Section renders for 0 rows ===\n");
 
-const { container: c5 } = render(
+const { container: emptyRows } = render(
   <WarmupSection
     todayExercises={[]}
     actual={null}
@@ -113,7 +132,7 @@ const { container: c5 } = render(
   />
 );
 
-if (c5.querySelector("section")) {
+if (emptyRows.querySelector("section")) {
   console.log("✅ Section renders for 0 rows");
 } else {
   console.error("❌ FAIL: Section should render for 0 rows");
