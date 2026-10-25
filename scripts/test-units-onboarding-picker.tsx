@@ -30,21 +30,41 @@ function check(label: string, pass: boolean, detail = "") {
 
 console.log("\nOnboarding units picker RTL render test\n");
 
-const initial = {
+type InitialState = {
+  displayName: string | null;
+  dateOfBirth: string | null;
+  sex: Sex | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  goal: Goal | null;
+  level: Level | null;
+  primaryTrack: Track | null;
+  daysPerWeek: number | null;
+  sessionMinutes: number | null;
+  yogaDaysPerWeek: number;
+  disclaimerAccepted: boolean;
+  hasAllEquipment: boolean;
+  equipmentIds: string[];
+  injuries: Array<{ bodyRegion: BodyRegion; severity: InjurySeverity }>;
+  units: "metric" | "imperial";
+};
+
+const initial: InitialState = {
+  displayName: null,
   dateOfBirth: null,
-  sex: null as Sex | null,
+  sex: null,
   heightCm: null,
   weightKg: null,
-  goal: null as Goal | null,
-  level: null as Level | null,
-  primaryTrack: null as Track | null,
+  goal: null,
+  level: null,
+  primaryTrack: null,
   daysPerWeek: null,
   sessionMinutes: null,
   yogaDaysPerWeek: 0,
   disclaimerAccepted: true,
   hasAllEquipment: false,
-  equipmentIds: [] as string[],
-  injuries: [] as { bodyRegion: BodyRegion; severity: InjurySeverity }[],
+  equipmentIds: [],
+  injuries: [],
   units: "metric" as const,
 };
 
@@ -104,20 +124,27 @@ if (imperialButton) {
   check("Weight hint shows lb after switch", weightHint.includes("lb"), `got: ${weightHint}`);
 
   // Check 4: Height placeholder is imperial
-  const heightInput = container.querySelector('input[placeholder*="5"]') as HTMLInputElement;
+  const heightInput = container.querySelector<HTMLInputElement>('input[placeholder*="5"]');
   check("Height placeholder is imperial format", !!heightInput, heightInput?.placeholder || "");
 
   // Check 5: Fill in DOB (required) - use explicit date parts
-  const dobDayInput = container.querySelector('input[placeholder="DD"]') as HTMLInputElement;
-  const dobMonthInput = container.querySelector('input[placeholder="MM"]') as HTMLInputElement;
-  const dobYearInput = container.querySelector('input[placeholder="YYYY"]') as HTMLInputElement;
-  
-  if (dobDayInput && dobMonthInput && dobYearInput) {
-    fireEvent.change(dobDayInput, { target: { value: "12" } });
-    fireEvent.change(dobMonthInput, { target: { value: "05" } });
-    fireEvent.change(dobYearInput, { target: { value: "1990" } });
-    fireEvent.blur(dobYearInput);
+  const dobDayInput = container.querySelector<HTMLInputElement>('input[placeholder="DD"]');
+  if (!(dobDayInput instanceof HTMLInputElement)) {
+    throw new Error("DOB day input not found");
   }
+  const dobMonthInput = container.querySelector<HTMLInputElement>('input[placeholder="MM"]');
+  if (!(dobMonthInput instanceof HTMLInputElement)) {
+    throw new Error("DOB month input not found");
+  }
+  const dobYearInput = container.querySelector<HTMLInputElement>('input[placeholder="YYYY"]');
+  if (!(dobYearInput instanceof HTMLInputElement)) {
+    throw new Error("DOB year input not found");
+  }
+
+  fireEvent.change(dobDayInput, { target: { value: "12" } });
+  fireEvent.change(dobMonthInput, { target: { value: "05" } });
+  fireEvent.change(dobYearInput, { target: { value: "1990" } });
+  fireEvent.blur(dobYearInput);
 
   // Check 6: Select sex (required)
   const maleButton = buttons.find((btn) => btn.textContent === "Male");
@@ -126,7 +153,7 @@ if (imperialButton) {
   }
 
   // Check 7: Type 154 lb and 5'9"
-  const allInputs = Array.from(container.querySelectorAll('input[type="number"]')) as HTMLInputElement[];
+  const allInputs = Array.from(container.querySelectorAll<HTMLInputElement>('input[type="number"]'));
   const weightInput = allInputs.find(inp => {
     const label = inp.closest('label')?.textContent || "";
     return label.includes("Weight") || label.includes("lb");
