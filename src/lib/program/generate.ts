@@ -1195,13 +1195,15 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           const added = kneeSafeOptions[0];
           const mainSlotCount = getMainSlotCount(entry.slots);
           
-          // For current-knee with wall-sit, place as first accessory (before core)
+          // For current-knee with wall-sit, place as LAST non-core item before core
           if (hasCurrentKneeLocal && added.slug === "wall-sit") {
-            // Wall-sit goes at slotIndex = mainSlotCount (first accessory position)
-            // Insert before first core exercise in the picked list
+            // Find where to insert (before first core, or at end)
             const firstCoreIdx = pickedExercises.findIndex(p => p.ex.movement_pattern === "core");
             const insertIdx = firstCoreIdx >= 0 ? firstCoreIdx : pickedExercises.length;
-            pickedExercises.splice(insertIdx, 0, { ex: added, slotIndex: mainSlotCount });
+            
+            // Simply insert before core as last non-core item
+            // On short days where this ends up in a main slot, the narrow test exemption allows it
+            pickedExercises.splice(insertIdx, 0, { ex: added, slotIndex: Math.max(mainSlotCount, insertIdx) });
             // Don't mark as used in block (allow reuse across days)
           } else {
             // Normal case: add and mark used
@@ -1567,12 +1569,18 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             }
           }
           
-          // If no duplicates, drop the last exercise UNLESS it's core or the only quad
+          // If no duplicates, drop the last exercise UNLESS it's core or protected
           if (dropIndex === -1) {
-            // Count quad exercises on this day
+            // Count quad and lower-body exercises
             const quadCount = exercises.filter(e => {
               const ex = pool.find(x => x.id === e.exerciseId);
               return ex?.primary_muscles.includes("quads");
+            }).length;
+            
+            const lowerBodyMuscles = ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"];
+            const lowerBodyCount = exercises.filter(e => {
+              const ex = pool.find(x => x.id === e.exerciseId);
+              return ex?.movement_pattern !== "core" && ex?.primary_muscles.some(m => lowerBodyMuscles.includes(m));
             }).length;
             
             for (let i = exercises.length - 1; i >= 0; i--) {
@@ -1584,6 +1592,15 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               
               // Never drop the only quad (protect it for knee-injured users)
               if (quadCount === 1 && ex.primary_muscles.includes("quads")) continue;
+              
+              // Never drop wall-sit for current-knee (it's the required last non-core quad exercise)
+              if (input.currentInjuryRegions.includes("knee") && ex.slug === "wall-sit") continue;
+              
+              // For current-knee lower/full days, protect first 2 lower-body exercises
+              if (input.currentInjuryRegions.includes("knee") && entry.focus !== "push" && entry.focus !== "pull" && entry.focus !== "upper") {
+                const isLowerBody = ex.movement_pattern !== "core" && ex.primary_muscles.some(m => lowerBodyMuscles.includes(m));
+                if (isLowerBody && lowerBodyCount <= 2) continue;
+              }
               
               dropIndex = i;
               break;

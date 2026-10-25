@@ -512,25 +512,34 @@ for (const seed of testSeeds) {
             // Note: Main-lift set count invariants (e.g., main >= accessory sets) are covered by a separate follow-up PR
             
             // Rule 9 (PR #73 follow-up): No timed hold (metric=seconds) in main slots - CURRENT KNEE ONLY
-            // PR #73 Run 13: Check timed holds in main slots
-            // Short-day exemption: days where non-core count <= mainSlotCount may have holds in "main" positions
+            // PR #73 Run 14: Check timed holds in main slots
+            // Narrow exemption: quads-primary isometric (wall-sit) allowed in main slot ONLY when it's the last non-core item
             if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               const mainSlotCount = getMainSlotCountForDay(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
-              const nonCoreCount = day.exercises.filter(ex => {
-                const e = byId.get(ex.exerciseId);
-                return e?.movement_pattern !== "core";
-              }).length;
-              const isShortDay = nonCoreCount <= mainSlotCount;
               
-              if (!isShortDay) {
-                const mains = day.exercises.filter((ex, idx) => idx < mainSlotCount);
+              // Find first core and last non-core positions
+              const firstCoreIdx = day.exercises.findIndex(ex => {
+                const e = byId.get(ex.exerciseId);
+                return e?.movement_pattern === "core";
+              });
+              const lastNonCoreIdx = firstCoreIdx >= 0 ? firstCoreIdx - 1 : day.exercises.length - 1;
+              
+              const mains = day.exercises.filter((ex, idx) => idx < mainSlotCount);
+              
+              for (const mainEx of mains) {
+                const exercise = byId.get(mainEx.exerciseId);
+                if (!exercise) continue;
                 
-                for (const mainEx of mains) {
-                  const exercise = byId.get(mainEx.exerciseId);
-                  if (!exercise) continue;
+                // Skip core exercises - they have different placement rules
+                if (exercise.movement_pattern === "core") continue;
+                
+                if (exercise.metric === "seconds") {
+                  // Check narrow exemption: quads-primary isometric at last non-core position
+                  const isQuadsPrimary = exercise.primary_muscles.includes("quads");
+                  const isLastNonCore = mainEx.orderIndex === lastNonCoreIdx;
                   
-                  if (exercise.metric === "seconds") {
+                  if (!(isQuadsPrimary && isLastNonCore)) {
                     check(`${profileId} ${day.label}: no timed hold in main slot`, false,
                       `${exercise.name} [${exercise.slug}] at position ${mainEx.orderIndex + 1} (template has ${mainSlotCount} main slots, day has ${day.exercises.length} exercises)`);
                     profileFailed = true;
@@ -557,17 +566,14 @@ for (const seed of testSeeds) {
                   return e?.movement_pattern === "core";
                 });
                 
-                // PR #73 Run 13: Wall Sit must be in accessory slots (after main slots)
-                // Short-day exemption: may be in "main" position if no accessory slots exist
-                const nonCoreCount = day.exercises.filter(ex => {
-                  const e = byId.get(ex.exerciseId);
-                  return e?.movement_pattern !== "core";
-                }).length;
-                const isShortDay = nonCoreCount <= mainSlotCount;
+                // PR #73 Run 14: Wall Sit must be last non-core item
+                // Narrow exemption: allowed in main slot ONLY when it's the last non-core item
+                const lastNonCoreIdx = firstCoreIndex >= 0 ? firstCoreIndex - 1 : day.exercises.length - 1;
+                const isLastNonCore = wallSitIndex === lastNonCoreIdx;
                 
-                if (!isShortDay && wallSitIndex < mainSlotCount) {
+                if (wallSitIndex < mainSlotCount && !isLastNonCore) {
                   check(`${profileId} ${day.label}: Wall Sit not in main slot`, false,
-                    `Wall Sit at position ${wallSitIndex + 1} (template has ${mainSlotCount} main slots, day has ${day.exercises.length} exercises)`);
+                    `Wall Sit at position ${wallSitIndex + 1}, not last non-core (template has ${mainSlotCount} main slots, day has ${day.exercises.length} exercises)`);
                   profileFailed = true;
                 }
                 
