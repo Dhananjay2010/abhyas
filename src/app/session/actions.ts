@@ -34,9 +34,7 @@ import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/
 import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
-import { startSessionStaleCore } from "@/lib/session/start-session-stale-core";
-import { insertSessionExercises } from "@/lib/session/insert-session-exercises";
-import { buildStartSessionStaleDeps } from "@/lib/session/build-start-session-stale-deps";
+import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { progressForPlanningMode } from "@/lib/session/swap-progress";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -90,220 +88,17 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   
   const { supabase, user } = await requireUser();
 
-  // ---- wave 1 -------------------------------------------------------------
-  // This action used to run seven round trips one after another, and it is the
-  // one the user waits on with their finger still on the button: the elapsed
-  // timer starts when the session row is inserted, so every second spent here
-  // is a second already gone by the time the runner appears on screen.
-  //
-  // Two of those dependencies were only apparent. The open-session lookup was
-  // filtered by today's local date, which needs the timezone from the profile;
-  // it now fetches open sessions regardless of date and matches the date in
-  // code, of which there is at most a handful. And the day lookup needed the
-  // active program's id, so the program is fetched with all seven of its days
-  // embedded and the right one is picked once the timezone is known.
-  const [profileRes, openRes, settingsRes] = await Promise.all([
-    supabase.from("profiles").select("timezone, primary_track").eq("id", user.id).single(),
-    supabase
-      .from("sessions")
-      // `skipped` is in here so that an attempt ended early can be picked up
-      // again -- see the reuse logic below.
-      .select("id, status, local_date, actual_type, started_at")
-      .in("status", ["planned", "in_progress", "skipped"])
-      .order("local_date", { ascending: false })
-      // Newest first within a date, so that where an account carries more than
-      // one abandoned row for today -- which only pre-fix data can -- the most
-      // recent attempt is the one resumed, rather than whichever row the
-      // database happened to hand back first.
-      .order("created_at", { ascending: false })
-      .limit(10),
-    supabase.from("user_settings").select("resume_session").eq("user_id", user.id).maybeSingle(),
-  ]);
+  const result = await startSessionFullCore({
+    supabase,
+    userId: user.id,
+    nowMs: Date.now(),
+  });
 
-  const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
-  const today = localDateString(timezone);
-  const resumeEnabled = settingsRes.data?.resume_session ?? true;
-
-  const todayRows = (openRes.data ?? []).filter((s) => s.local_date === today);
-  const existing = pickReusableSession(todayRows, resumeEnabled);
-
-  if (existing) {
-    // A session row can exist with no exercises attached -- an abandoned first
-    // attempt, or a row created by a yoga or breathing session earlier today.
-    // Returning it as-is used to strand the user on "this session has no
-    // exercises" with no way forward, permanently, because this branch would
-    // keep returning the same empty shell.
-    /*
-      This is the update path. The session exists with status 'skipped' or
-      status 'completed' and started_at: null (unstarted). The user pressed
-      "Start" from the Today page.
-
-      Stamped on a first start, and again when a deliberately abandoned
-      session is restarted. The session clock is wall time since
-      `started_at`, so carrying the old stamp across a quit at 7am and a
-      restart at 1pm would record a six-hour workout. Resuming an
-      `in_progress` session keeps its stamp, because that is the
-      phone-locked-mid-set case the clock is meant to survive.
-    */
-    const updatePayload = {
-      status: "in_progress" as const,
-      ...(existing.started_at === null || existing.status === "skipped"
-        ? { started_at: new Date().toISOString() }
-        : {}),
-    };
-
-    const [updateResult] = await Promise.all([
-      updateSessionCore(supabase, existing.id, user.id, today, updatePayload),
-      ensureSessionExercises(supabase, user.id, existing.id),
-    ]);
-
-    if (!updateResult.ok) {
-      return { ok: false, error: updateResult.error };
-    }
-
-    return { ok: true, data: { sessionId: updateResult.sessionId } };
+  if (!result.ok) {
+    return { ok: false, error: result.error };
   }
 
-  // Ensure we have a current block before creating a session (fixes E-5: stale tab bug)
-  const rolloverResult = await ensureCurrentBlock(supabase, user.id, today);
-  if (rolloverResult.status === "none") {
-    return { ok: false, error: "You have no active training block." };
-  }
-  if (rolloverResult.status === "error") {
-    return { ok: false, error: rolloverResult.error };
-  }
-
-  // From the local date already computed above, not a second read of the clock:
-  // deriving them separately let the weekday and the date disagree across a
-  // midnight boundary.
-  const dayIndex = isoWeekday(today);
-
-  const loadResult = await loadStartProgram(
-    createLoadStartProgramDeps(supabase),
-    rolloverResult.programId,
-    dayIndex
-  );
-  if (!loadResult.ok) return { ok: false, error: loadResult.error };
-
-  const { program, day } = loadResult;
-
-  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, today);
-  const isDeloadWeek = week === program.deload_week;
-
-  // ---- wave 2 -------------------------------------------------------------
-  // Case C: Idempotent session start - check for existing in_progress session first
-  const { data: existingInProgressSessions } = await supabase
-    .from("sessions")
-    .select("id, status, local_date, actual_type")
-    .eq("user_id", user.id)
-    .eq("local_date", today)
-    .eq("status", "in_progress");
-
-  if (existingInProgressSessions && existingInProgressSessions.length > 0) {
-    // An in_progress session already exists for this user + date, return it (idempotent)
-    return { ok: true, data: { sessionId: existingInProgressSessions[0].id } };
-  }
-
-  // L3: Before inserting, close stale sessions from other dates. A stale tab from yesterday
-  // that hasn't reloaded Today (so the loader's closeStaleSessions never ran) would otherwise
-  // hit 23505 and resume into yesterday's session with an 8-hour clock. closeStaleSessions
-  // applies #111's 6h inactivity rule, so calling it is safe for timezone shifts.
-  const staleDeps = buildStartSessionStaleDeps(supabase, user.id, openRes.data ?? [], today, Date.now());
-  const staleResult = await startSessionStaleCore(staleDeps);
-  if (!staleResult.ok) {
-    return { ok: false, error: staleResult.error };
-  }
-
-  // If a fresh cross-date session remains (< 6h, timezone shift), resume it
-  if (!staleResult.shouldInsert) {
-    return { ok: true, data: { sessionId: staleResult.resumeSessionId } };
-  }
-
-  // No existing in_progress session, create a new one and read the plan
-  const [insertResult, plannedRes] = await Promise.all([
-    startSessionCore(supabase, user.id, {
-      user_id: user.id,
-      program_id: program.id,
-      program_day_id: day.id,
-      local_date: today,
-      week_in_block: week,
-      is_deload: isDeloadWeek,
-      planned_type: day.day_type,
-      actual_type: day.day_type,
-      status: "in_progress",
-      started_at: new Date().toISOString(),
-    }),
-    supabase
-      .from("program_day_exercises")
-      // The exercise's metric comes along so the session can record the unit it
-      // was run in -- see `session_exercises.metric` and SPEC section 7.
-      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
-      .eq("program_day_id", day.id)
-      .order("order_index"),
-  ]);
-
-  if (!insertResult.ok) {
-    if ("existingSessionId" in insertResult && insertResult.existingSessionId) {
-      return { ok: true, data: { sessionId: insertResult.existingSessionId } };
-    }
-    return { ok: false, error: insertResult.error };
-  }
-
-  // Insert the session exercises. The insert is idempotent via upsert with
-  // ignoreDuplicates on (session_id, order_index), so in a two-tab race where
-  // both tabs try to insert exercises for the winner's session, the second
-  // insert is a no-op and returns success.
-  const planned = plannedRes.data;
-  if (planned && planned.length > 0) {
-    const exercisesToInsert = planned.map((p) => {
-      // Week 4 of a block cuts volume; the weight suggestion is reduced
-      // separately when the session is rendered.
-      const dose = isDeloadWeek
-        ? applyDeload({
-            sets: p.target_sets,
-            repsMin: p.target_reps_min,
-            repsMax: p.target_reps_max,
-            restSeconds: p.rest_seconds,
-          })
-        : {
-            sets: p.target_sets,
-            repsMin: p.target_reps_min,
-            repsMax: p.target_reps_max,
-            restSeconds: p.rest_seconds,
-          };
-      return {
-        session_id: insertResult.sessionId,
-        user_id: user.id, // corrected by the definer trigger
-        exercise_id: p.exercise_id,
-        order_index: p.order_index,
-        planned_sets: dose.sets,
-        planned_reps_min: dose.repsMin,
-        planned_reps_max: dose.repsMax,
-        rest_seconds: dose.restSeconds,
-        metric: metricOf(p.exercises),
-      };
-    });
-
-    const exerciseInsertResult = await insertSessionExercises(supabase, exercisesToInsert);
-    if (!exerciseInsertResult.ok) {
-      return { ok: false, error: exerciseInsertResult.error };
-    }
-  }
-
-  // Deliberately NOT revalidating. This action is invoked from a button on
-  // Today, and revalidating a path re-renders it — so `revalidatePath("/today")`
-  // here made Next render the whole Today screen again, five more queries, as
-  // part of this action's response, while the user stood waiting to start a
-  // workout they are about to navigate away from. It was pure cost on the one
-  // path where latency is felt most.
-  //
-  // Nothing goes stale as a result. The session's own screen is fetched fresh
-  // by the navigation that follows; Today is refreshed by
-  // `refreshAfterSession()` when the user comes back, and by `abandonSession`
-  // if they quit. The worst case is that returning to Today within the client
-  // cache's window shows "Start session" instead of "Resume session" — and
-  // pressing it finds this very session and resumes it.
-  return { ok: true, data: { sessionId: insertResult.sessionId } };
+  return { ok: true, data: { sessionId: result.sessionId } };
 }
 
 export async function markWarmupDone(sessionId: string): Promise<Result> {
