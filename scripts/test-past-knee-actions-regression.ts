@@ -11,6 +11,7 @@
  * npm run test:past-knee-actions-regression
  */
 import { readFileSync } from "node:fs";
+import type { Database } from "../src/lib/database.types";
 import { isEligible, hashString, score, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { rankAlternatives, buildPatternList, type AlternativesContext } from "../src/lib/program/alternatives";
 
@@ -91,7 +92,7 @@ console.log("\n2. Regression: past-knee swap path with high-impact non-leg exerc
     }
     
     // Build pattern list (same as actions.ts)
-    const patterns = buildPatternList(pattern, false);
+    const patterns = buildPatternList(pattern as Database["public"]["Enums"]["movement_pattern"], false);
     const pool = reducedCatalogue.filter((e) => patterns.includes(e.movement_pattern));
     
     // Filter by isEligible (this is where the crash occurs if secondary_muscles is missing)
