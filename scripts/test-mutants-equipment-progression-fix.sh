@@ -38,6 +38,7 @@ TESTS=(
   "npm run test:kettlebell-success"
   "npm run test:timed-hold-message"
   "npm run test:undo-consistency"
+  "npm run test:progression-display-target-consistency"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
@@ -161,15 +162,21 @@ test_mutant "RAW target rejected (need strictly above)" m8
 
 # M9: Success check ignores stored target (always use plan)
 m9() {
-  sed -i 's/currentTargetReps: state\.currentTargetReps,/currentTargetReps: null,/' "$PROG"
+  sed -i 's/currentTargetReps: state\.currentTargetReps,$/currentTargetReps: null,/' "$PROG"
 }
 test_mutant "Success check ignores stored target (always use plan)" m9
 
-# M10: C-2 Remove stored target sanitization (allow <=0/non-finite)
+# M10: Success check uses stored weight instead of state weight
 m10() {
-  sed -i '/const sanitizedTarget = (state\.currentTargetReps != null && Number\.isFinite(state\.currentTargetReps) && state\.currentTargetReps > 0)/,/: null;/c\  const sanitizedTarget = state.currentTargetReps;' "$PROG"
+  sed -i 's/currentWorkingWeightKg: state\.currentWorkingWeightKg,$/currentWorkingWeightKg: null,/' "$PROG"
 }
-test_mutant "C-2 Remove stored target sanitization (allow <=0/non-finite)" m10
+test_mutant "Success check uses stored weight instead of state weight" m10
+
+# M11: Remove reps cap (2×repsMax)
+m11() {
+  sed -i 's/const ceiling = isTimed ? HOLD_CEILING_SECONDS : 2 \* repsMax;/const ceiling = isTimed ? HOLD_CEILING_SECONDS : 999;/' "$PROG"
+}
+test_mutant "Remove reps cap (2×repsMax)" m11
 
 echo
 echo "==================================="

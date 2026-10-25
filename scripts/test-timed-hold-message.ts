@@ -240,4 +240,35 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
   check("C-2: stored target -5 behaves like null for reps exercise (3x12 → 14 reps)", result.outcome === "progressed" && result.nextTargetReps === 14);
 }
 
+// Reps cap: stored 23 at plan max 12, next would be 25 but caps at 2×12=24
+{
+  const PUSHUP: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "horizontal_press",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  
+  const result = evaluateProgression({
+    sets: [
+      { reps: 23, weightKg: 0 },
+      { reps: 23, weightKg: 0 },
+      { reps: 23, weightKg: 0 },
+    ],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: undefined,
+    unit: undefined,
+    meta: PUSHUP,
+    state: fresh({ currentTargetReps: 23, currentWorkingWeightKg: 0 }),
+    isDeload: false,
+  });
+  
+  check("Reps cap: stored 23 (plan max 12), next would be 25 but caps at 2×12=24", result.outcome === "progressed" && result.nextTargetReps === 24);
+}
+
 console.log("\n✅ All timed-hold message tests passed\n");

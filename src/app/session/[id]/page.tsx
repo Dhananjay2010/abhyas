@@ -8,6 +8,7 @@ import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
 import { mapSessionExercise } from "@/lib/session/build-runner-exercises";
+import { progressionInputsFromExercise } from "@/lib/session/progression-inputs";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ export default async function SessionPage({
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
       supabase
         .from("profiles")
-        .select("primary_track, has_all_equipment, timezone")
+        .select("primary_track, has_all_equipment, timezone, units")
         .eq("id", user.id)
         .single(),
       supabase.from("user_injuries").select("body_region, severity"),
@@ -116,6 +117,7 @@ export default async function SessionPage({
       name: string;
       cue: string | null;
       movement_pattern: Database["public"]["Enums"]["movement_pattern"];
+      mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
       primary_muscles: Muscle[];
       equipment_ids: string[];
     };
@@ -127,6 +129,8 @@ export default async function SessionPage({
       progress,
       remembersWeights,
     });
+    
+    const progInputs = progressionInputsFromExercise(ex ?? { equipment_ids: [] }, profileRes.data?.units);
     
     return {
       id: r.id,
@@ -152,13 +156,15 @@ export default async function SessionPage({
         { currentWorkingWeightKg: mapped.currentWorkingWeightKg },
         session.is_deload,
         {
-          mechanic: null,
+          mechanic: ex?.mechanic ?? null,
           movementPattern: ex?.movement_pattern ?? "other",
           metric: mapped.metric,
           isBodyweight: mapped.isBodyweight,
           progressionChain: null,
           progressionRank: null,
         },
+        progInputs.equipmentIds,
+        progInputs.unit,
       ),
       isBodyweight: mapped.isBodyweight,
       // Warm-up sets are excluded and the order applied here rather than in the

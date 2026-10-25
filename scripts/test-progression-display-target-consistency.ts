@@ -30,6 +30,10 @@ function fresh(overrides: Partial<ProgressState> = {}): ProgressState {
     currentWorkingWeightKg: null,
     currentTargetReps: null,
     consecutiveFailures: 0,
+    bestWeightKg: null,
+    bestReps: null,
+    bestE1rm: null,
+    totalSessions: 0,
     ...overrides,
   };
 }
@@ -46,7 +50,7 @@ const PUSHUP: ExerciseMeta = {
 const PLANK: ExerciseMeta = {
   mechanic: "isolation",
   metric: "seconds",
-  movementPattern: "anti_extension",
+  movementPattern: "core",
   isBodyweight: true,
   progressionChain: null,
   progressionRank: null,
@@ -64,7 +68,7 @@ const BENCH: ExerciseMeta = {
 const WEIGHTED_PLANK: ExerciseMeta = {
   mechanic: "isolation",
   metric: "seconds",
-  movementPattern: "anti_extension",
+  movementPattern: "core",
   isBodyweight: true,
   progressionChain: null,
   progressionRank: null,

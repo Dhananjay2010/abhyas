@@ -392,14 +392,19 @@ export function evaluateProgression(input: {
 
   const bests = nextBest(sets, state, meta);
 
-  // C-2: Sanitize stored target using Number.isFinite (treat null, non-finite, or <= 0 as absent)
-  const sanitizedTarget = (state.currentTargetReps != null && Number.isFinite(state.currentTargetReps) && state.currentTargetReps > 0) 
-    ? state.currentTargetReps 
-    : null;
+  // Get resolved target (what the display shows) for write-back
+  const resolvedTargetForBase = resolveTarget({
+    metric: isTimed ? "seconds" : "reps",
+    plannedMin: repsMin,
+    plannedMax: repsMax,
+    currentTargetReps: state.currentTargetReps,
+    isBodyweight: meta.isBodyweight,
+    currentWorkingWeightKg: state.currentWorkingWeightKg,
+  }).max;
 
   const base = {
     nextWorkingWeightKg: state.currentWorkingWeightKg,
-    nextTargetReps: sanitizedTarget ?? repsMax,
+    nextTargetReps: resolvedTargetForBase,
     consecutiveFailures: state.consecutiveFailures,
     wantsHarderVariation: false,
     bestWeightKg: bests.bestWeightKg,
@@ -474,13 +479,14 @@ export function evaluateProgression(input: {
   const completedAllSets = working.length >= plannedSets;
   
   // Use resolveTarget helper for success check (same target the display shows)
+  // Pass stored working weight to match display's loaded/unloaded rule
   const successTarget = resolveTarget({
     metric: isTimed ? "seconds" : "reps",
     plannedMin: repsMin,
     plannedMax: repsMax,
     currentTargetReps: state.currentTargetReps,
     isBodyweight: meta.isBodyweight,
-    currentWorkingWeightKg: heaviest > 0 ? heaviest : state.currentWorkingWeightKg,
+    currentWorkingWeightKg: state.currentWorkingWeightKg,
   }).max;
   
   const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= successTarget);
@@ -509,10 +515,23 @@ export function evaluateProgression(input: {
     if (heaviest === 0) {
       const canProgressVariation = meta.isBodyweight && meta.progressionChain !== null;
       const step = isTimed ? HOLD_STEP_SECONDS : 2;
-      const nextTarget = (sanitizedTarget ?? repsMax) + step;
+      
+      // Get resolved target (what the display showed) for write-back
+      const resolvedTarget = resolveTarget({
+        metric: isTimed ? "seconds" : "reps",
+        plannedMin: repsMin,
+        plannedMax: repsMax,
+        currentTargetReps: state.currentTargetReps,
+        isBodyweight: meta.isBodyweight,
+        currentWorkingWeightKg: state.currentWorkingWeightKg,
+      }).max;
+      
+      const nextTarget = resolvedTarget + step;
+      
       // Reps run out of usefulness relative to the range they started in; a
       // hold runs out at an absolute length, whatever it was prescribed at.
-      const ceiling = isTimed ? HOLD_CEILING_SECONDS : repsMax + 4;
+      // Cap: 120s for timed, 2×repsMax for reps
+      const ceiling = isTimed ? HOLD_CEILING_SECONDS : 2 * repsMax;
 
       if (canProgressVariation && nextTarget > ceiling) {
         return {
@@ -537,14 +556,17 @@ export function evaluateProgression(input: {
         };
       }
 
+      // Reps ceiling: cap at 2×repsMax
+      const cappedTarget = nextTarget > ceiling ? ceiling : nextTarget;
+
       return {
         ...carried,
         outcome: "progressed",
-        nextTargetReps: nextTarget,
+        nextTargetReps: cappedTarget,
         consecutiveFailures: 0,
         message: isTimed
-          ? `Every set held to the top of the range — target goes up to ${nextTarget}s.`
-          : `Every set at the top of the range — target goes up to ${nextTarget} reps.`,
+          ? `Every set held to the top of the range — target goes up to ${cappedTarget}s.`
+          : `Every set at the top of the range — target goes up to ${cappedTarget} reps.`,
       };
     }
 
@@ -830,7 +852,6 @@ export function evaluateProgression(input: {
     ...carried,
     outcome: "hold",
     nextWorkingWeightKg: nextWeight,
-    nextTargetReps: sanitizedTarget ?? repsMax,
     consecutiveFailures: failures,
     message,
   };
