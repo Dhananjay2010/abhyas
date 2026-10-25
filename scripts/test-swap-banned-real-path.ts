@@ -10,7 +10,7 @@
  */
 
 import { swapExerciseCore, type SwapExerciseDeps } from "../src/lib/session/swap-exercise-core";
-import catalogue from "./fixtures/catalogue.json";
+import { CATALOGUE, toCandidate } from "./helpers/swap-scenario";
 import type { CandidateExercise } from "../src/lib/program/generate";
 import { buildEligibleSwapList, buildGeneratorInput } from "../src/lib/session/eligible-swap-list";
 import { getSwapPatterns } from "../src/lib/program/swap-patterns";
@@ -19,7 +19,7 @@ import type { Database } from "../src/lib/database.types";
 type BodyRegion = Database["public"]["Enums"]["body_region"];
 type InjurySeverity = "current" | "past";
 
-const catalogueExercises = catalogue as CandidateExercise[];
+const catalogueExercises: CandidateExercise[] = CATALOGUE.map(toCandidate);
 
 let failures = 0;
 function check(label: string, ok: boolean, detail: string = ""): void {

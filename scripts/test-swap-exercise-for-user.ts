@@ -1,7 +1,10 @@
 import { swapExerciseForUser } from "../src/lib/session/swap-exercise-for-user";
 import type { Database } from "../src/lib/database.types";
+import { json, type SwapDbRequest } from "./helpers/fake-swap-db";
+import { buildDb, exercise, writes, SLOT_ID, USER_ID, type Account } from "./helpers/swap-scenario";
 
 type Metric = Database["public"]["Enums"]["exercise_metric"];
+const REPS: Metric = "reps";
 
 type DbCall = {
   table: string;
@@ -43,7 +46,7 @@ function createFakeSupabase(
                   maybeSingle: async () => ({
                     data: {
                       exercise_id: "old-ex",
-                      metric: "reps" as Metric,
+                      metric: REPS,
                       planned_reps_min: 6,
                       planned_reps_max: 8,
                       session_id: "sess-123",
@@ -79,11 +82,11 @@ function createFakeSupabase(
                   return {
                     maybeSingle: async () => ({
                       data: {
-                        id: value as string,
+                        id: String(value),
                         slug: value === "old-ex" ? "barbell-squat" : "goblet-squat",
                         name: value === "old-ex" ? "Barbell Squat" : "Goblet Squat",
                         cue: null,
-                        metric: "reps" as Metric,
+                        metric: REPS,
                         mechanic: "compound",
                         equipment_ids: value === "old-ex" ? ["bar"] : ["dumbbell"],
                         movement_pattern: "squat",
@@ -112,7 +115,7 @@ function createFakeSupabase(
                           slug: "barbell-squat",
                           name: "Barbell Squat",
                           cue: null,
-                          metric: "reps" as Metric,
+                          metric: REPS,
                           mechanic: "compound",
                           equipment_ids: ["bar"],
                           movement_pattern: "squat",
@@ -130,7 +133,7 @@ function createFakeSupabase(
                           slug: "goblet-squat",
                           name: "Goblet Squat",
                           cue: null,
-                          metric: "reps" as Metric,
+                          metric: REPS,
                           mechanic: "compound",
                           equipment_ids: ["dumbbell"],
                           movement_pattern: "squat",
@@ -148,7 +151,7 @@ function createFakeSupabase(
                           slug: "dumbbell-lunge",
                           name: "Dumbbell Lunge",
                           cue: null,
-                          metric: "reps" as Metric,
+                          metric: REPS,
                           mechanic: "compound",
                           equipment_ids: ["dumbbell"],
                           movement_pattern: "lunge",
@@ -181,7 +184,7 @@ function createFakeSupabase(
                           slug: "barbell-squat",
                           name: "Barbell Squat",
                           cue: null,
-                          metric: "reps" as Metric,
+                          metric: REPS,
                           mechanic: "compound",
                           equipment_ids: ["bar"],
                           movement_pattern: "squat",
@@ -199,7 +202,7 @@ function createFakeSupabase(
                           slug: "goblet-squat",
                           name: "Goblet Squat",
                           cue: null,
-                          metric: "reps" as Metric,
+                          metric: REPS,
                           mechanic: "compound",
                           equipment_ids: ["dumbbell"],
                           movement_pattern: "squat",
@@ -217,7 +220,7 @@ function createFakeSupabase(
                           slug: "dumbbell-lunge",
                           name: "Dumbbell Lunge",
                           cue: null,
-                          metric: "reps" as Metric,
+                          metric: REPS,
                           mechanic: "compound",
                           equipment_ids: ["dumbbell"],
                           movement_pattern: "lunge",
@@ -556,395 +559,50 @@ async function testValidatorRejects() {
   console.log("✓ Validator rejects ineligible swap: no update, no weight lookup");
 }
 
-async function testProfileReadFailsClosed() {
-  const calls: DbCall[] = [];
-  
-  // Create a fake that returns null profile
-  const fakeChain = {
-    from: (table: string) => {
-      const call: DbCall = { table };
-      calls.push(call);
-
-      if (table === "session_exercises") {
-        return {
-          select: (fields: string) => {
-            call.selects = fields.split(",").map(f => f.trim());
-            return {
-              eq: (column: string, value: unknown) => {
-                if (!call.eqFilters) call.eqFilters = [];
-                call.eqFilters.push({ column, value });
-                return {
-                  maybeSingle: async () => ({
-                    data: {
-                      exercise_id: "old-ex",
-                      metric: "reps" as Metric,
-                      planned_reps_min: 6,
-                      planned_reps_max: 8,
-                      session_id: "sess-123",
-                    },
-                  }),
-                };
-              },
-            };
-          },
-        };
-      }
-      
-      if (table === "profiles") {
-        return {
-          select: (fields: string) => {
-            call.selects = fields.split(",").map(f => f.trim());
-            return {
-              eq: (column: string, value: unknown) => {
-                if (!call.eqFilters) call.eqFilters = [];
-                call.eqFilters.push({ column, value });
-                return {
-                  single: async () => ({
-                    data: null, // Profile not found
-                  }),
-                };
-              },
-            };
-          },
-        };
-      }
-      
-      // Default responses for other tables
-      if (table === "exercises") {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({ data: { metric: "reps", mechanic: "compound", equipment_ids: ["bar"], movement_pattern: "squat" } }),
-            }),
-          }),
-        };
-      }
-      
-      if (table === "user_settings") {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: async () => ({ data: { planning_mode: "progression" } }),
-            }),
-          }),
-        };
-      }
-      
-      if (table === "body_metrics") {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => ({
-                limit: () => ({
-                  maybeSingle: async () => ({ data: { weight_kg: 75 } }),
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      
-      if (table === "user_injuries") {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ data: [], error: null }),
-          }),
-        };
-      }
-      
-      if (table === "user_equipment") {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ data: [{ equipment_id: "bar" }], error: null }),
-          }),
-        };
-      }
-      
-      throw new Error(`Unexpected table: ${table}`);
-    },
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = await swapExerciseForUser(fakeChain as any, "user-1", {
-    sessionExerciseId: "se-1",
-    newExerciseId: "new-ex",
+/**
+ * Fail-closed reads, against the in-memory PostgREST behind a REAL supabase-js
+ * client (scripts/helpers/fake-swap-db.ts): no cast of a fake to the client
+ * type is needed.
+ */
+async function expectFailsClosed(
+  label: string,
+  expectedError: string,
+  breakRead: (req: SwapDbRequest) => Response | void,
+) {
+  const account: Account = { level: "intermediate", equipment: ["kettlebell", "dumbbell"], injuries: [] };
+  const db = buildDb({
+    account,
+    current: exercise("alternating-kettlebell-press"),
+    exercises: ["kettlebell-arnold-press", "kettlebell-seated-press"].map(exercise),
   });
-
-  if (result.ok) {
-    throw new Error("Profile read should fail closed, but swap succeeded");
+  db.beforeRequest = breakRead;
+  const result = await swapExerciseForUser(db.client, USER_ID, {
+    sessionExerciseId: SLOT_ID,
+    newExerciseId: exercise("kettlebell-arnold-press").id,
+  });
+  if (result.ok) throw new Error(`${label} should fail closed, but swap succeeded`);
+  if (!result.error.includes(expectedError)) {
+    throw new Error(`Expected "${expectedError}" error, got: ${result.error}`);
   }
-  
-  if (!result.error.includes("Profile not found")) {
-    throw new Error(`Expected "Profile not found" error, got: ${result.error}`);
-  }
+  if (writes(db).length > 0) throw new Error(`${label} failed but the swap was still written`);
+  console.log(`✓ ${label} fails closed: swap rejected, nothing written`);
+}
 
-  console.log("✓ Profile read fails closed: swap rejected");
+const serverError = () => json(500, { code: "XX000", message: "injected read failure", details: null, hint: null });
+
+async function testProfileReadFailsClosed() {
+  await expectFailsClosed("Profile read", "Profile not found", (req) =>
+    req.method === "GET" && req.table === "profiles" ? serverError() : undefined);
 }
 
 async function testInjuryReadFailsClosed() {
-  const calls: DbCall[] = [];
-  
-  // Create a fake that returns injury error
-  const fakeChain = {
-    from: (table: string) => {
-      const call: DbCall = { table };
-      calls.push(call);
-
-      if (table === "session_exercises") {
-        return {
-          select: (fields: string) => {
-            call.selects = fields.split(",").map(f => f.trim());
-            return {
-              eq: (column: string, value: unknown) => {
-                if (!call.eqFilters) call.eqFilters = [];
-                call.eqFilters.push({ column, value });
-                return {
-                  maybeSingle: async () => ({
-                    data: {
-                      exercise_id: "old-ex",
-                      metric: "reps" as Metric,
-                      planned_reps_min: 6,
-                      planned_reps_max: 8,
-                      session_id: "sess-123",
-                    },
-                  }),
-                };
-              },
-            };
-          },
-        };
-      }
-      
-      if (table === "profiles") {
-        return {
-          select: (fields: string) => {
-            call.selects = fields.split(",").map(f => f.trim());
-            return {
-              eq: (column: string, value: unknown) => {
-                if (!call.eqFilters) call.eqFilters = [];
-                call.eqFilters.push({ column, value });
-                return {
-                  single: async () => ({
-                    data: {
-                      goal: "strength",
-                      level: "novice",
-                      primary_track: "weights",
-                      days_per_week: 4,
-                      yoga_days_per_week: 0,
-                      date_of_birth: "1990-01-01",
-                      height_cm: 175,
-                      has_all_equipment: true,
-                    },
-                  }),
-                };
-              },
-            };
-          },
-        };
-      }
-      
-      if (table === "exercises") {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({ data: { metric: "reps", mechanic: "compound", equipment_ids: ["bar"], movement_pattern: "squat" } }),
-            }),
-          }),
-        };
-      }
-      
-      if (table === "user_settings") {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: async () => ({ data: { planning_mode: "progression" } }),
-            }),
-          }),
-        };
-      }
-      
-      if (table === "body_metrics") {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => ({
-                limit: () => ({
-                  maybeSingle: async () => ({ data: { weight_kg: 75 } }),
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      
-      if (table === "user_injuries") {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ data: null, error: { message: "Database error" } }),
-          }),
-        };
-      }
-      
-      if (table === "user_equipment") {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ data: [{ equipment_id: "bar" }], error: null }),
-          }),
-        };
-      }
-      
-      throw new Error(`Unexpected table: ${table}`);
-    },
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = await swapExerciseForUser(fakeChain as any, "user-1", {
-    sessionExerciseId: "se-1",
-    newExerciseId: "new-ex",
-  });
-
-  if (result.ok) {
-    throw new Error("Injury read should fail closed, but swap succeeded");
-  }
-  
-  if (!result.error.includes("Could not load injury data")) {
-    throw new Error(`Expected "Could not load injury data" error, got: ${result.error}`);
-  }
-
-  console.log("✓ Injury read fails closed: swap rejected");
+  await expectFailsClosed("Injury read", "Could not load injury data", (req) =>
+    req.method === "GET" && req.table === "user_injuries" ? serverError() : undefined);
 }
 
 async function testEquipmentReadFailsClosed() {
-  const calls: DbCall[] = [];
-  
-  // Create a fake that returns equipment error
-  const fakeChain = {
-    from: (table: string) => {
-      const call: DbCall = { table };
-      calls.push(call);
-
-      if (table === "session_exercises") {
-        return {
-          select: (fields: string) => {
-            call.selects = fields.split(",").map(f => f.trim());
-            return {
-              eq: (column: string, value: unknown) => {
-                if (!call.eqFilters) call.eqFilters = [];
-                call.eqFilters.push({ column, value });
-                return {
-                  maybeSingle: async () => ({
-                    data: {
-                      exercise_id: "old-ex",
-                      metric: "reps" as Metric,
-                      planned_reps_min: 6,
-                      planned_reps_max: 8,
-                      session_id: "sess-123",
-                    },
-                  }),
-                };
-              },
-            };
-          },
-        };
-      }
-      
-      if (table === "profiles") {
-        return {
-          select: (fields: string) => {
-            call.selects = fields.split(",").map(f => f.trim());
-            return {
-              eq: (column: string, value: unknown) => {
-                if (!call.eqFilters) call.eqFilters = [];
-                call.eqFilters.push({ column, value });
-                return {
-                  single: async () => ({
-                    data: {
-                      goal: "strength",
-                      level: "novice",
-                      primary_track: "weights",
-                      days_per_week: 4,
-                      yoga_days_per_week: 0,
-                      date_of_birth: "1990-01-01",
-                      height_cm: 175,
-                      has_all_equipment: true,
-                    },
-                  }),
-                };
-              },
-            };
-          },
-        };
-      }
-      
-      if (table === "exercises") {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({ data: { metric: "reps", mechanic: "compound", equipment_ids: ["bar"], movement_pattern: "squat" } }),
-            }),
-          }),
-        };
-      }
-      
-      if (table === "user_settings") {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: async () => ({ data: { planning_mode: "progression" } }),
-            }),
-          }),
-        };
-      }
-      
-      if (table === "body_metrics") {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => ({
-                limit: () => ({
-                  maybeSingle: async () => ({ data: { weight_kg: 75 } }),
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      
-      if (table === "user_injuries") {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ data: [], error: null }),
-          }),
-        };
-      }
-      
-      if (table === "user_equipment") {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({ data: null, error: { message: "Database error" } }),
-          }),
-        };
-      }
-      
-      throw new Error(`Unexpected table: ${table}`);
-    },
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = await swapExerciseForUser(fakeChain as any, "user-1", {
-    sessionExerciseId: "se-1",
-    newExerciseId: "new-ex",
-  });
-
-  if (result.ok) {
-    throw new Error("Equipment read should fail closed, but swap succeeded");
-  }
-  
-  if (!result.error.includes("Could not load equipment data")) {
-    throw new Error(`Expected "Could not load equipment data" error, got: ${result.error}`);
-  }
-
-  console.log("✓ Equipment read fails closed: swap rejected");
+  await expectFailsClosed("Equipment read", "Could not load equipment data", (req) =>
+    req.method === "GET" && req.table === "user_equipment" ? serverError() : undefined);
 }
 
 async function main() {

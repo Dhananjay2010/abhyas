@@ -96,17 +96,13 @@ run_mutant "1. Validator: always accept" "$FOR_USER" \
   'return ranked.some(e => e.id === validateInput.newExerciseId);' \
   'return true;' "$B"
 
-run_mutant "2. Server current-exercise fetch drops metric (exhaustive gate)" "$FOR_USER" \
-  '.select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
-    .eq("id", current.exercise_id)' \
-  '.select("id, slug, name, cue, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
-    .eq("id", current.exercise_id)' "$X"
+run_mutant "2. Server loses the current exercise's real metric (exhaustive gate; dropping the column itself is now a tsc error)" "$FOR_USER" \
+  'const currentExercise: CandidateExercise = currentExerciseRes.data;' \
+  'const currentExercise: CandidateExercise = { ...currentExerciseRes.data, metric: "seconds" };' "$X"
 
-run_mutant "2b. Server current-exercise fetch drops metric (behavioural)" "$FOR_USER" \
-  '.select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
-    .eq("id", current.exercise_id)' \
-  '.select("id, slug, name, cue, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category")
-    .eq("id", current.exercise_id)' "$B"
+run_mutant "2b. Server loses the current exercise's real metric (behavioural)" "$FOR_USER" \
+  'const currentExercise: CandidateExercise = currentExerciseRes.data;' \
+  'const currentExercise: CandidateExercise = { ...currentExerciseRes.data, metric: "seconds" };' "$B"
 
 run_mutant "3. Siblings read: do not fail closed" "$FOR_USER" \
   'if (siblingsRes.error) {' \

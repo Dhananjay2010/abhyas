@@ -4,7 +4,8 @@
  * swapExerciseForUser against it.
  */
 import catalogue from "../fixtures/catalogue.json";
-import type { Database } from "../../src/lib/database.types";
+import { Constants, type Database } from "../../src/lib/database.types";
+import type { CandidateExercise } from "../../src/lib/program/generate";
 import { createSwapDb, type Row, type SwapDb } from "./fake-swap-db";
 import { stubState } from "./server-action-stubs";
 
@@ -76,4 +77,39 @@ export function writes(db: SwapDb): Row[] {
 export function activateDb(db: SwapDb): void {
   stubState.client = db.client;
   stubState.userId = USER_ID;
+}
+
+/**
+ * A catalogue row typed as the generator's CandidateExercise, without a cast:
+ * every enum column is narrowed against the generated Constants and an unknown
+ * value throws (a fixture/schema drift would fail the test loudly).
+ */
+type Enums = Database["public"]["Enums"];
+const E = Constants.public.Enums;
+
+function oneOf<T extends string>(allowed: readonly T[], value: string | null, field: string, slug: string): T {
+  const hit = allowed.find((v) => v === value);
+  if (hit === undefined) throw new Error(`catalogue ${slug}: ${field} "${value}" is not a known enum value`);
+  return hit;
+}
+
+export function toCandidate(row: CatalogueRow): CandidateExercise {
+  const s = row.slug;
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    movement_pattern: oneOf<Enums["movement_pattern"]>(E.movement_pattern, row.movement_pattern, "movement_pattern", s),
+    mechanic: row.mechanic === null ? null : oneOf<Enums["mechanic_type"]>(E.mechanic_type, row.mechanic, "mechanic", s),
+    metric: oneOf<Enums["exercise_metric"]>(E.exercise_metric, row.metric, "metric", s),
+    primary_muscles: row.primary_muscles.map((m) => oneOf<Enums["muscle"]>(E.muscle, m, "primary_muscles", s)),
+    equipment_ids: row.equipment_ids,
+    level_min: oneOf<Enums["fitness_level"]>(E.fitness_level, row.level_min, "level_min", s),
+    contraindicated_regions: row.contraindicated_regions.map((r) => oneOf<Enums["body_region"]>(E.body_region, r, "contraindicated_regions", s)),
+    impact: oneOf<Enums["impact_level"]>(E.impact_level, row.impact, "impact", s),
+    spinal_load: oneOf<Enums["spinal_load_level"]>(E.spinal_load_level, row.spinal_load, "spinal_load", s),
+    tracks: row.tracks.map((t) => oneOf<Enums["track_type"]>(E.track_type, t, "tracks", s)),
+    default_rest_seconds: row.default_rest_seconds,
+    category: oneOf<Enums["exercise_category"]>(E.exercise_category, row.category, "category", s),
+  };
 }

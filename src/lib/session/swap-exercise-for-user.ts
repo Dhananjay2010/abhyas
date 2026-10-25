@@ -101,8 +101,7 @@ export async function swapExerciseForUser(
     return { ok: false, error: "Current exercise not found" };
   }
   
-  type ExerciseRow = typeof currentExerciseRes.data;
-  const currentExercise = currentExerciseRes.data as ExerciseRow & CandidateExercise;
+  const currentExercise: CandidateExercise = currentExerciseRes.data;
   
   // Build swap pattern list
   const patterns = getSwapPatterns(currentExercise.movement_pattern, generatorInput);
@@ -118,8 +117,7 @@ export async function swapExerciseForUser(
     return { ok: false, error: "Could not load exercise pool" };
   }
   
-  type PoolRow = typeof poolRes.data[number];
-  const pool = (poolRes.data ?? []) as (PoolRow & CandidateExercise)[];
+  const pool: CandidateExercise[] = poolRes.data ?? [];
   
   // Get exercises already in this session
   const siblingsRes = await supabase

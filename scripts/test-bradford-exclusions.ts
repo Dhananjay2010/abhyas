@@ -472,7 +472,7 @@ console.log("\n7. Catch-all: no shoulder-injured plan or swap contains bradford|
   
   const program = generateProgram(shoulderInput);
   const allExercises = program.days.flatMap(day => 
-    day.exercises.map(e => catalogue.find(ex => ex.id === e.exerciseId)!)
+    day.exercises.flatMap(e => catalogue.filter(ex => ex.id === e.exerciseId))
   ).filter(Boolean);
   
   const bradfordRockyRegex = /bradford|rocky/i;

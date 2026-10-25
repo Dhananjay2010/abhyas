@@ -22,6 +22,10 @@ export type StubState = {
 
 export const stubState: StubState = { client: null, userId: "user-1" };
 
+function hasLoader(m: object): m is { _load: Loader } {
+  return "_load" in m && typeof m._load === "function";
+}
+
 export function installServerActionStubs(): void {
   const stubs: Record<string, unknown> = {
     "@/lib/supabase/auth": {
@@ -36,7 +40,8 @@ export function installServerActionStubs(): void {
       revalidateTrainingData: () => {},
     },
   };
-  const mod: { _load: Loader } = Module as unknown as { _load: Loader };
+  const mod: object = Module;
+  if (!hasLoader(mod)) throw new Error("node:module has no _load hook to stub");
   const original = mod._load;
   mod._load = (request, parent, isMain) =>
     request in stubs ? stubs[request] : original.call(Module, request, parent, isMain);

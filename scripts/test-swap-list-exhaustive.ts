@@ -31,11 +31,11 @@
 import { readFileSync } from "node:fs";
 import { installServerActionStubs } from "./helpers/server-action-stubs";
 import {
-  buildDb, activateDb, writes, CATALOGUE, SLOT_ID, USER_ID, byId,
+  buildDb, activateDb, writes, toCandidate, CATALOGUE, SLOT_ID, USER_ID, byId,
   type Account,
 } from "./helpers/swap-scenario";
 import { swapExerciseForUser } from "../src/lib/session/swap-exercise-for-user";
-import { isExcludedForPastKnee, shouldExcludeOlympicLift, isOlympicLift } from "../src/lib/program/past-knee";
+import { isExcludedForPastKnee, isOlympicLift } from "../src/lib/program/past-knee";
 
 const PROFILES: Array<{ name: string; account: Account }> = [
   { name: "Healthy beginner, gym", account: { level: "beginner", equipment: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar"], injuries: [] } },
@@ -59,6 +59,9 @@ async function main() {
   const currentKneeProfiles = new Set(Object.keys(mainSwaps));
 
   const currents = CATALOGUE.filter((e) => e.movement_pattern);
+  const candidateById = new Map(CATALOGUE.map((e) => [e.id, toCandidate(e)]));
+  const pastKneeProfileCount = PROFILES.filter(({ account }) =>
+    account.injuries.some((inj) => inj.body_region === "knee" && inj.severity === "past")).length;
   let combos = 0;
   let offeredChecks = 0;
   let refusedChecks = 0;
@@ -103,19 +106,17 @@ async function main() {
       if (hasPastKnee) {
         pastKneeBanChecks++;
         for (const id of offered) {
-          const ex = CATALOGUE.find(e => e.id === id);
+          const ex = candidateById.get(id);
           if (!ex) continue;
           
           // Check if exercise is excluded for past-knee
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          if (isExcludedForPastKnee(ex as any)) {
+          if (isExcludedForPastKnee(ex)) {
             profileMismatches++;
             pastKneeBannedOffered.push(`${name} | ${current.slug} offered banned ${ex.slug}`);
           }
           
           // Check if Olympic lift is offered (should be excluded for past-knee by Decision a)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          if (isOlympicLift(ex as any)) {
+          if (isOlympicLift(ex)) {
             profileMismatches++;
             pastKneeBannedOffered.push(`${name} | ${current.slug} offered banned Olympic lift ${ex.slug}`);
           }
@@ -189,7 +190,8 @@ async function main() {
   if (removals.length > 20) console.log(`    ... and ${removals.length - 20} more`);
 
   const vacuous = combos !== PROFILES.length * currents.length || offeredChecks < 5000 || refusedChecks < 2000 ||
-    subsetChecks + pastKneeBanChecks < currents.length * 2;
+    subsetChecks !== currentKneeProfiles.size * currents.length ||
+    pastKneeBanChecks !== pastKneeProfileCount * currents.length;
   if (vacuous) console.log("✗ coverage too small — the gate would be vacuous");
   const ok = !vacuous && offeredButRefused.length === 0 && acceptedNotOffered.length === 0 && 
     subsetViolations.length === 0 && pastKneeBannedOffered.length === 0;
