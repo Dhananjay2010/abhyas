@@ -487,10 +487,126 @@ console.log("Test swap entry box reset (HIGH-1):\n");
   // Case 5: User-typed value survives re-render
   await testUserTypeSurvival();
 
+  // Case 6: Value typed BEFORE swap is DISCARDED (coordinator requirement)
+  console.log("\nCase 6: Value typed BEFORE swap is discarded");
+
+  const case6: RunnerExercise = {
+    id: "se6",
+    exerciseId: "old-exercise-id",
+    name: "Old Exercise",
+    cue: null,
+    metric: "reps",
+    primaryMuscles: ["chest"],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 60,
+    workingWeightKg: 40,
+    suggestedWeightKg: 40,
+    status: "pending",
+    feel: null,
+    sets: [],
+    isBodyweight: false,
+  };
+
+  const case6Actions = makeActions(
+    "New Exercise",
+    "new-exercise-id",
+    "reps",
+    8,
+    12,
+    24.5, // Prefill for new exercise
+    50, // Working weight for new exercise
+    false,
+  );
+
+  const r6 = render(
+    <SessionRunner
+      sessionId="s1"
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date().toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[{ ...case6 }]}
+      settings={settings}
+      actions={case6Actions}
+    />,
+  );
+
+  const weightInput6 = () =>
+    [...r6.container.querySelectorAll("input")].find((i) =>
+      (i.closest("label")?.textContent ?? "").match(/Weight \(kg\)|Added weight/),
+    ) as HTMLInputElement | undefined;
+
+  await waitFor(() => {
+    if (!weightInput6()) throw new Error("no weight input");
+  });
+
+  // Type 50 into the OLD exercise's box
+  await act(async () => {
+    fireEvent.change(weightInput6()!, { target: { value: "50" } });
+  });
+
+  check("User typed 50 before swap", weightInput6()?.value === "50");
+
+  // Now swap to new exercise
+  const swapBtn6 = [...r6.container.querySelectorAll("button")].find((b) =>
+    /Swap this exercise/.test(b.textContent ?? ""),
+  );
+  if (!swapBtn6) throw new Error("Swap button not found");
+
+  await act(async () => {
+    fireEvent.click(swapBtn6);
+  });
+
+  await waitFor(() => {
+    if (
+      ![...r6.container.querySelectorAll("button")].some((b) =>
+        /New Exercise/.test(b.textContent ?? ""),
+      )
+    )
+      throw new Error("alternative not shown");
+  });
+
+  const alt6 = [...r6.container.querySelectorAll("button")].find((b) =>
+    /New Exercise/.test(b.textContent ?? ""),
+  );
+  if (!alt6) throw new Error("Alternative button not found");
+
+  await act(async () => {
+    fireEvent.click(alt6);
+  });
+
+  await waitFor(() => {
+    if (!/New Exercise/.test(r6.container.textContent ?? ""))
+      throw new Error("not swapped");
+  });
+
+  // The box should show the NEW exercise's prefill (24.5), NOT the typed 50
+  const finalValue = weightInput6()?.value ?? "";
+  check(
+    "Pre-swap typed value discarded, shows new prefill",
+    finalValue === "24.5",
+    `got "${finalValue}", not "50"`,
+  );
+
+  const text6 = r6.container.textContent ?? "";
+  const header6Match = text6.match(/Working weight 50 kg · today 24\.5 kg/)?.[0];
+  check(
+    'Header shows new exercise working weight',
+    header6Match !== undefined,
+    header6Match ? `got: "${header6Match}"` : "not found",
+  );
+
+  r6.unmount();
+
   console.log("\n✅ All entry box swap tests passed");
   console.log(
     "\n⚠️  This test MUST FAIL on 493710f5 (old key format) and PASS after the fix.\n",
   );
+  console.log("🔑 Key includes exerciseId, so pre-swap typed values are discarded\n");
   process.exit(0);
 })().catch((e) => {
   console.error(e);

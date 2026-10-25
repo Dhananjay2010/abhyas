@@ -8,8 +8,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { randomUUID } from "crypto";
-import { applyDeload } from "@/lib/program/prescription";
-import { todayPrescription } from "@/lib/today/deload-prescription";
+import { ensureSessionExercises } from "@/app/session/actions";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://localhost:54321";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
@@ -198,115 +197,53 @@ async function testEnsureSessionExercisesDeload() {
   check("Empty planned deload session created", !sessionError, sessionError?.message);
   if (sessionError) return false;
 
-  // Now call ensureSessionExercises by querying - this simulates startSession
-  // In real code, ensureSessionExercises would be called here
-  // For this test, we'll directly test the behavior by checking what SHOULD happen
-
-  // Calculate expected values using the SAME functions as the fix
-  const expectedBench = applyDeload({
-    sets: 4,
-    repsMin: 8,
-    repsMax: 12,
-    restSeconds: 180,
-  });
-
-  const expectedDumbbell = applyDeload({
-    sets: 5,
-    repsMin: 6,
-    repsMax: 10,
-    restSeconds: 240,
-  });
-
-  // Also calculate using todayPrescription to verify they match
-  const todayBench = todayPrescription(
-    {
-      target_sets: 4,
-      target_reps_min: 8,
-      target_reps_max: 12,
-      rest_seconds: 180,
-    },
-    true,
-  );
-
-  const todayDumbbell = todayPrescription(
-    {
-      target_sets: 5,
-      target_reps_min: 6,
-      target_reps_max: 10,
-      rest_seconds: 240,
-    },
-    true,
-  );
-
-  console.log("Expected deload prescription:");
-  console.log(`  Bench: ${expectedBench.sets} sets (from 4)`);
-  console.log(`  Dumbbell: ${expectedDumbbell.sets} sets (from 5)`);
-
-  check("Bench deload sets match todayPrescription", expectedBench.sets === todayBench.sets);
-  check("Bench reps unchanged", expectedBench.repsMin === 8 && expectedBench.repsMax === 12);
-  check("Dumbbell deload sets match todayPrescription", expectedDumbbell.sets === todayDumbbell.sets);
-
-  // Now simulate what ensureSessionExercises should do
-  // (In real code this would be called via the action)
-  const { data: sessionData } = await adminClient
+  // Verify session has no exercises before calling ensureSessionExercises
+  const { data: beforeData } = await adminClient
     .from("sessions")
-    .select("program_day_id, is_deload, session_exercises(id)")
+    .select("session_exercises(id)")
     .eq("id", sessionId)
     .maybeSingle();
 
-  check("Session loaded", !!sessionData);
-  check("Session has no exercises yet", (sessionData?.session_exercises ?? []).length === 0);
-  check("Session is marked deload", sessionData?.is_deload === true);
+  check("Session has no exercises before", (beforeData?.session_exercises ?? []).length === 0);
 
-  // Insert with deload applied (what the fixed code does)
-  const { error: insertError } = await adminClient
-    .from("session_exercises")
-    .insert([
-      {
-        session_id: sessionId,
-        user_id: userId,
-        exercise_id: bench.id,
-        order_index: 0,
-        planned_sets: expectedBench.sets,
-        planned_reps_min: expectedBench.repsMin,
-        planned_reps_max: expectedBench.repsMax,
-        rest_seconds: expectedBench.restSeconds,
-        metric: bench.metric,
-      },
-      {
-        session_id: sessionId,
-        user_id: userId,
-        exercise_id: dumbbell.id,
-        order_index: 1,
-        planned_sets: expectedDumbbell.sets,
-        planned_reps_min: expectedDumbbell.repsMin,
-        planned_reps_max: expectedDumbbell.repsMax,
-        rest_seconds: expectedDumbbell.restSeconds,
-        metric: dumbbell.metric,
-      },
-    ]);
+  console.log("\nCalling ensureSessionExercises (the real function)...");
 
-  check("Session exercises created with deload", !insertError, insertError?.message);
+  // Call the REAL ensureSessionExercises function
+  await ensureSessionExercises(adminClient, userId, sessionId);
 
-  // Verify the created exercises match expectations
+  // Verify the created exercises have deload-reduced sets
   const { data: createdExercises } = await adminClient
     .from("session_exercises")
-    .select("planned_sets, planned_reps_min, planned_reps_max, order_index")
+    .select("planned_sets, planned_reps_min, planned_reps_max, rest_seconds, order_index")
     .eq("session_id", sessionId)
     .order("order_index");
 
   check("2 exercises created", createdExercises?.length === 2);
+
+  // Bench: 4 sets → 2 sets (deload)
+  const benchSets = createdExercises?.[0].planned_sets;
   check(
-    "Bench has deload sets",
-    createdExercises?.[0].planned_sets === expectedBench.sets,
-    `got ${createdExercises?.[0].planned_sets}, expected ${expectedBench.sets}`,
+    "Bench has 2 deload sets (from 4)",
+    benchSets === 2,
+    `got ${benchSets}`,
   );
+  check("Bench reps unchanged (8-12)", createdExercises?.[0].planned_reps_min === 8 && createdExercises?.[0].planned_reps_max === 12);
+
+  // Dumbbell: 5 sets → 3 sets (deload)
+  const dumbbellSets = createdExercises?.[1].planned_sets;
   check(
-    "Dumbbell has deload sets",
-    createdExercises?.[1].planned_sets === expectedDumbbell.sets,
-    `got ${createdExercises?.[1].planned_sets}, expected ${expectedDumbbell.sets}`,
+    "Dumbbell has 3 deload sets (from 5)",
+    dumbbellSets === 3,
+    `got ${dumbbellSets}`,
   );
-  check("Reps unchanged", createdExercises?.[0].planned_reps_min === 8);
+  check("Dumbbell reps unchanged (6-10)", createdExercises?.[1].planned_reps_min === 6 && createdExercises?.[1].planned_reps_max === 10);
+
+  console.log("\nExpected:");
+  console.log(`  Bench: 4 → 2 sets (deload)`);
+  console.log(`  Dumbbell: 5 → 3 sets (deload)`);
+  console.log("\nActual:");
+  console.log(`  Bench: ${benchSets} sets`);
+  console.log(`  Dumbbell: ${dumbbellSets} sets`);
 
   // Cleanup
   console.log("\nCleaning up...");

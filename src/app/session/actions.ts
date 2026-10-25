@@ -29,6 +29,7 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
+import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -801,36 +802,16 @@ export async function swapExercise(input: {
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
 
-  // Get session to read is_deload for weight prefill (outside start-session block)
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("is_deload")
-    .eq("id", current.session_id)
-    .maybeSingle();
-
-  const isDeload = session?.is_deload ?? false;
-
-  // Resolve weight prefill using the same logic as session/[id]/page.tsx
-  const weightPrefill = await resolveSwapPrefill(
+  // Resolve weight prefill and working weight for the swapped-in exercise
+  const { weightPrefill, workingWeightKg, isBodyweight } = await resolveSwapWeights(
     supabase,
     user.id,
+    current.session_id,
     input.newExerciseId,
-    isDeload,
     equipmentIds,
     metric,
     replacementRes.data?.movement_pattern ?? "other",
   );
-
-  // Get working weight from exercise_progress for the new exercise
-  const { data: progress } = await supabase
-    .from("exercise_progress")
-    .select("current_working_weight_kg")
-    .eq("user_id", user.id)
-    .eq("exercise_id", input.newExerciseId)
-    .maybeSingle();
-
-  const workingWeightKg = progress?.current_working_weight_kg ?? null;
-  const isBodyweight = equipmentIds.length === 0;
 
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range
@@ -883,7 +864,7 @@ export async function swapExercise(input: {
  * Idempotent: it does nothing when rows already exist, so it is safe to call
  * on every resume.
  */
-async function ensureSessionExercises(
+export async function ensureSessionExercises(
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
   userId: string,
   sessionId: string,
