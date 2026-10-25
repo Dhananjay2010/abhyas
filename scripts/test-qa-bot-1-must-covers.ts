@@ -1,12 +1,15 @@
 #!/usr/bin/env tsx
 /**
- * QA Bot 1 Must-Cover (7): Timed holds only progress when reaching the target
+ * UNIT TEST: QA Bot 1 Must-Cover (7) - Timed holds progression logic
  * 
- * Multi-session test proving that 40s holds with a stored 45s target
- * do not progress, across 3 consecutive sessions.
+ * Unit test of evaluateProgression() proving that 40s holds with a stored 45s target
+ * do not progress, across 3 consecutive sessions, then 45s progresses.
  * 
- * NOTE: Must-covers (2) and (3) are now in test-qa-bot-1-full-path.ts
- * which tests through the complete write path with ProgressClient.
+ * NOTE: This is a UNIT TEST directly calling evaluateProgression().
+ * The FULL PATH test (through writeExerciseProgressCore + ProgressClient) is in
+ * test-qa-bot-1-full-path.ts, which tests the complete integration.
+ * 
+ * Must-covers (2) and (3) are also in test-qa-bot-1-full-path.ts.
  */
 
 import { evaluateProgression, type ExerciseMeta, type ProgressState } from "../src/lib/program/progression.js";

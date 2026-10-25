@@ -711,6 +711,208 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
   check("Weighted pull-ups: next weight 12.5", decision.nextWorkingWeightKg === 12.5);
 }
 
+console.log("\n=== QA Bot 1: (7) Timed Holds - Multi-Session Stability ===\n");
+{
+  // Stored 45s, 3 sessions of 3x40s should NOT progress, then 3x45s progresses to 50s
+  const plankId = "plank_exercise_id";
+  
+  // Seed: stored 45s
+  await writeExerciseProgressCore(
+    client,
+    USER_ID,
+    plankId,
+    {
+      outcome: "progressed",
+      nextWorkingWeightKg: null,
+      nextTargetReps: 45,
+      message: null,
+      wantsHarderVariation: false,
+    },
+    0,
+    "2026-10-20"
+  );
+  
+  const storedProgress = client.getProgress(USER_ID, plankId);
+  check("QA (7) seed: stored target 45s", storedProgress?.current_target_reps === 45);
+  
+  // Session 1: 3x40s (below target) → NO progression
+  {
+    const stored = client.getProgress(USER_ID, plankId);
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, "kg");
+    const state: ProgressState = {
+      currentTargetReps: stored?.current_target_reps ?? null,
+      currentWorkingWeightKg: null,
+      consecutiveFailures: stored?.consecutive_failures ?? 0,
+      bestWeightKg: null,
+      bestReps: stored?.best_reps ?? null,
+      bestE1rm: null,
+      totalSessions: stored?.total_sessions ?? 0,
+    };
+    
+    const decision = evaluateProgression({
+      sets: [
+        { reps: null, weightKg: null, durationSeconds: 40 },
+        { reps: null, weightKg: null, durationSeconds: 40 },
+        { reps: null, weightKg: null, durationSeconds: 40 },
+      ],
+      plannedSets: 3,
+      repsMin: 30,
+      repsMax: 45,
+      feel: null,
+      meta: {
+        mechanic: "isolation",
+        metric: "seconds",
+        movementPattern: "other",
+        isBodyweight: true,
+        progressionChain: null,
+        progressionRank: null,
+      },
+      state,
+      isDeload: false,
+      ...progInputs,
+    });
+    
+    await writeExerciseProgressCore(client, USER_ID, plankId, decision, state.totalSessions, "2026-10-21");
+    check("QA (7) session 1: 3x40s (target 45s) → NO progression", decision.outcome !== "progressed");
+    
+    const after = client.getProgress(USER_ID, plankId);
+    check("QA (7) session 1: target stays 45s", after?.current_target_reps === 45);
+  }
+  
+  // Session 2: 3x40s → NO progression
+  {
+    const stored = client.getProgress(USER_ID, plankId);
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, "kg");
+    const state: ProgressState = {
+      currentTargetReps: stored?.current_target_reps ?? null,
+      currentWorkingWeightKg: null,
+      consecutiveFailures: stored?.consecutive_failures ?? 0,
+      bestWeightKg: null,
+      bestReps: stored?.best_reps ?? null,
+      bestE1rm: null,
+      totalSessions: stored?.total_sessions ?? 0,
+    };
+    
+    const decision = evaluateProgression({
+      sets: [
+        { reps: null, weightKg: null, durationSeconds: 40 },
+        { reps: null, weightKg: null, durationSeconds: 40 },
+        { reps: null, weightKg: null, durationSeconds: 40 },
+      ],
+      plannedSets: 3,
+      repsMin: 30,
+      repsMax: 45,
+      feel: null,
+      meta: {
+        mechanic: "isolation",
+        metric: "seconds",
+        movementPattern: "other",
+        isBodyweight: true,
+        progressionChain: null,
+        progressionRank: null,
+      },
+      state,
+      isDeload: false,
+      ...progInputs,
+    });
+    
+    await writeExerciseProgressCore(client, USER_ID, plankId, decision, state.totalSessions, "2026-10-22");
+    check("QA (7) session 2: 3x40s (target 45s) → NO progression", decision.outcome !== "progressed");
+    
+    const after = client.getProgress(USER_ID, plankId);
+    check("QA (7) session 2: target stays 45s", after?.current_target_reps === 45);
+  }
+  
+  // Session 3: 3x40s → NO progression
+  {
+    const stored = client.getProgress(USER_ID, plankId);
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, "kg");
+    const state: ProgressState = {
+      currentTargetReps: stored?.current_target_reps ?? null,
+      currentWorkingWeightKg: null,
+      consecutiveFailures: stored?.consecutive_failures ?? 0,
+      bestWeightKg: null,
+      bestReps: stored?.best_reps ?? null,
+      bestE1rm: null,
+      totalSessions: stored?.total_sessions ?? 0,
+    };
+    
+    const decision = evaluateProgression({
+      sets: [
+        { reps: null, weightKg: null, durationSeconds: 40 },
+        { reps: null, weightKg: null, durationSeconds: 40 },
+        { reps: null, weightKg: null, durationSeconds: 40 },
+      ],
+      plannedSets: 3,
+      repsMin: 30,
+      repsMax: 45,
+      feel: null,
+      meta: {
+        mechanic: "isolation",
+        metric: "seconds",
+        movementPattern: "other",
+        isBodyweight: true,
+        progressionChain: null,
+        progressionRank: null,
+      },
+      state,
+      isDeload: false,
+      ...progInputs,
+    });
+    
+    await writeExerciseProgressCore(client, USER_ID, plankId, decision, state.totalSessions, "2026-10-23");
+    check("QA (7) session 3: 3x40s (target 45s) → NO progression", decision.outcome !== "progressed");
+    
+    const after = client.getProgress(USER_ID, plankId);
+    check("QA (7) session 3: target stays 45s", after?.current_target_reps === 45);
+  }
+  
+  // Session 4: 3x45s → PROGRESSES to 50s
+  {
+    const stored = client.getProgress(USER_ID, plankId);
+    const progInputs = progressionInputsFromExercise({ equipment_ids: [] }, "kg");
+    const state: ProgressState = {
+      currentTargetReps: stored?.current_target_reps ?? null,
+      currentWorkingWeightKg: null,
+      consecutiveFailures: stored?.consecutive_failures ?? 0,
+      bestWeightKg: null,
+      bestReps: stored?.best_reps ?? null,
+      bestE1rm: null,
+      totalSessions: stored?.total_sessions ?? 0,
+    };
+    
+    const decision = evaluateProgression({
+      sets: [
+        { reps: null, weightKg: null, durationSeconds: 45 },
+        { reps: null, weightKg: null, durationSeconds: 45 },
+        { reps: null, weightKg: null, durationSeconds: 45 },
+      ],
+      plannedSets: 3,
+      repsMin: 30,
+      repsMax: 45,
+      feel: null,
+      meta: {
+        mechanic: "isolation",
+        metric: "seconds",
+        movementPattern: "other",
+        isBodyweight: true,
+        progressionChain: null,
+        progressionRank: null,
+      },
+      state,
+      isDeload: false,
+      ...progInputs,
+    });
+    
+    await writeExerciseProgressCore(client, USER_ID, plankId, decision, state.totalSessions, "2026-10-24");
+    check("QA (7) session 4: 3x45s (target 45s) → PROGRESSES", decision.outcome === "progressed");
+    check("QA (7) session 4: next target 50s", decision.nextTargetReps === 50);
+    
+    const after = client.getProgress(USER_ID, plankId);
+    check("QA (7) session 4: target written as 50s", after?.current_target_reps === 50);
+  }
+}
+
 console.log("\n=== SUMMARY ===");
 if (failures > 0) {
   console.error(`❌ ${failures} test(s) failed\n`);
