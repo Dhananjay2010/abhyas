@@ -970,7 +970,7 @@ export function SessionRunner({
                           plannedMin: swapped.repsMin ?? 8,
                           plannedMax: swapped.repsMax ?? 12,
                           currentTargetReps: null, // No progress for new exercise
-                          isBodyweight: newIsBodyweight,
+                          equipmentIds: swapped.equipmentIds ?? [],
                           currentWorkingWeightKg: null, // No weight for new exercise
                         });
                         
