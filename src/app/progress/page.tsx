@@ -6,7 +6,7 @@ import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-c
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
-import { getUnitsPreference } from "@/lib/units";
+import { getUnitsPreference, kgToDisplay, weightLabel } from "@/lib/units";
 import { LogWeight } from "./log-weight";
 
 export const dynamic = "force-dynamic";
@@ -133,7 +133,7 @@ export default async function ProgressPage() {
   const weights = [...(weightsRes.data ?? [])].reverse();
   const weightPoints: Point[] = weights.map((w) => ({
     label: shortDate(w.recorded_on),
-    value: Number(w.weight_kg),
+    value: kgToDisplay(Number(w.weight_kg), units),
   }));
   const latestWeight = weights.length ? Number(weights[weights.length - 1].weight_kg) : null;
 
@@ -144,7 +144,7 @@ export default async function ProgressPage() {
   );
   const volumePoints: Point[] = volumeRows
     .slice(-14)
-    .map((v) => ({ label: shortDate(v.local_date), value: Number(v.volume_kg) }));
+    .map((v) => ({ label: shortDate(v.local_date), value: kgToDisplay(Number(v.volume_kg), units) }));
 
   // Per-lift strength as small multiples: a five-line chart is unreadable on a
   // phone, and each lift is its own question anyway. Data is fetched newest-first;
@@ -162,7 +162,8 @@ export default async function ProgressPage() {
     deloadDates
   ).slice(0, 6);
 
-  const totalVolume = volumeRows.reduce((n, v) => n + Number(v.volume_kg), 0);
+  const totalVolumeKg = volumeRows.reduce((n, v) => n + Number(v.volume_kg), 0);
+  const totalVolume = kgToDisplay(totalVolumeKg, units);
   const hasAnything = weights.length > 0 || volumeRows.length > 0;
 
   return (
@@ -214,7 +215,7 @@ export default async function ProgressPage() {
               : "One entry logged. Add another to see your trend over time."}
           </p>
         ) : (
-          <LineChart points={weightPoints} unit="kg" title="Body weight" />
+          <LineChart points={weightPoints} unit={weightLabel(units)} title="Body weight" />
         )}
         <LogWeight current={latestWeight} units={units} />
       </section>
@@ -230,7 +231,7 @@ export default async function ProgressPage() {
               One session logged. Your trend will appear after your next workout.
             </p>
           ) : (
-            <BarChart points={volumePoints} unit="kg" title="Volume per session" />
+            <BarChart points={volumePoints} unit={weightLabel(units)} title="Volume per session" />
           )}
         </section>
       )}

@@ -434,6 +434,115 @@ export function parseHeight(
 export type UnitsPreference = "metric" | "imperial";
 
 // ============================================================
+// LOAD CONVERSION AND FORMATTING
+// ============================================================
+
+/**
+ * Convert kg to display unit (kg or lb).
+ * 
+ * @param kg - Weight in kilograms
+ * @param units - 'metric' or 'imperial'
+ * @returns Weight in the display unit
+ */
+export function kgToDisplay(kg: number | null | undefined, units: UnitsPreference): number {
+  if (kg == null || !Number.isFinite(kg)) return 0;
+  return units === "imperial" ? kgToLb(kg) : kg;
+}
+
+/**
+ * Convert from display unit to kg.
+ * Input is rounded to appropriate precision before conversion.
+ * 
+ * For imperial: rounds the lb value AFTER conversion to maintain
+ * round-trip stability: user enters 135 lb → stores as exact kg equivalent
+ * → displays back as 135 lb.
+ * 
+ * @param value - Weight in display unit (kg or lb)
+ * @param units - 'metric' | 'imperial'
+ * @returns Weight in kilograms, rounded to 0.01 kg precision
+ */
+export function displayToKg(value: number | null | undefined, units: UnitsPreference): number {
+  if (value == null || !Number.isFinite(value) || value <= 0) return 0;
+  
+  if (units === "imperial") {
+    // Convert directly, then round to 0.01 kg precision
+    // This ensures round-trip stability: 135 lb → 61.23 kg → 135 lb
+    const kg = lbToKg(value);
+    return Math.round(kg * 100) / 100;
+  }
+  
+  // Metric: round to 0.5 kg (plate step) then store
+  const roundedKg = Math.round(value * 2) / 2;
+  return Math.round(roundedKg * 100) / 100;
+}
+
+/**
+ * Format a load (weight) with unit label.
+ * 
+ * @param kg - Weight in kilograms (canonical storage)
+ * @param units - 'metric' or 'imperial'
+ * @returns Formatted string like "135 lb" or "60 kg"
+ */
+export function formatLoad(kg: number | null | undefined, units: UnitsPreference): string {
+  if (kg == null || !Number.isFinite(kg) || kg <= 0) return "—";
+  
+  const value = kgToDisplay(kg, units);
+  const label = units === "imperial" ? "lb" : "kg";
+  
+  if (units === "imperial") {
+    // Round to 0.5 lb for display
+    const rounded = roundLbToHalf(value);
+    const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+    return `${formatted} ${label}`;
+  }
+  
+  // Metric: round to 0.5 kg (common plate step)
+  const rounded = Math.round(value * 2) / 2;
+  const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+  return `${formatted} ${label}`;
+}
+
+/**
+ * Round a value to standard plate/weight increments.
+ * Uses 2.5 kg / 5 lb step (smallest standard plate).
+ * 
+ * @param value - Weight value in the display unit
+ * @param units - 'metric' or 'imperial'
+ * @returns Rounded value in the same unit
+ */
+export function roundToPlate(value: number | null | undefined, units: UnitsPreference): number {
+  if (value == null || !Number.isFinite(value) || value <= 0) return 0;
+  
+  const step = units === "imperial" ? 5 : 2.5;
+  const halfStep = step / 2;
+  const epsilon = 1e-9;
+  
+  // Find the two nearest grid points
+  const lowerMultiple = Math.floor(value / step);
+  const lowerValue = lowerMultiple * step;
+  const upperValue = (lowerMultiple + 1) * step;
+  
+  // Calculate distance to midpoint
+  const midpoint = lowerValue + halfStep;
+  const distanceToMidpoint = value - midpoint;
+  
+  // Determine rounding direction
+  let result: number;
+  if (distanceToMidpoint < -epsilon) {
+    // Below midpoint: round down
+    result = lowerValue;
+  } else if (distanceToMidpoint > epsilon) {
+    // Above midpoint: round up
+    result = upperValue;
+  } else {
+    // At midpoint (tie): round down for safety
+    result = lowerValue;
+  }
+  
+  return Math.max(0, result);
+}
+
+// ============================================================
 // VALIDATION
 // ============================================================
 
