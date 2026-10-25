@@ -21,7 +21,7 @@ function makeExercise(
   id: string,
   exerciseId: string,
   name: string,
-  sets: any[] = [],
+  sets: Array<{ setNumber: number; reps: number | null; weightKg: number | null; durationSeconds: number | null }> = [],
 ): RunnerExercise {
   return {
     id,
@@ -143,7 +143,7 @@ console.log("Test swap sheet close on exercise change:\n");
 
   if (swapBtn) {
     await act(async () => {
-      fireEvent.click(swapBtn);
+      fireEvent.click(swapBtn!);
     });
 
     // Wait for alternatives to load
@@ -202,7 +202,7 @@ console.log("Test swap sheet close on exercise change:\n");
 
   if (swapBtn) {
     await act(async () => {
-      fireEvent.click(swapBtn);
+      fireEvent.click(swapBtn!);
     });
 
     await waitFor(() => {
