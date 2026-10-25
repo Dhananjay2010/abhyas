@@ -1,3 +1,5 @@
+import type { PendingOpType } from '@/lib/settings/restore-pending';
+
 /**
  * Pending settings changes stashed in sessionStorage when a session expires.
  * Preserved for ~10 minutes so they can be re-applied after sign-in.
@@ -6,7 +8,7 @@
 const STORAGE_KEY = 'abhyas_pending_settings';
 const MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 
-export type SaveType = 'profile' | 'session' | 'equipment' | 'injuries';
+export type SaveType = PendingOpType;
 
 export interface PendingChange {
   key: string;
