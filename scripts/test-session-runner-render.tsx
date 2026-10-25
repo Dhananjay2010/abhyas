@@ -14,7 +14,7 @@
 
 import "./helpers/setup-jsdom";
 
-import { render, act, screen } from "@testing-library/react";
+import { render, act, screen, cleanup } from "@testing-library/react";
 import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 import { savePendingSet } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
@@ -377,6 +377,7 @@ async function testN7() {
   assert(savingRows.length >= 2, "Shows 'Saving...' rows for pending sets");
   
   // Now test with a different userId - pending sets should NOT appear
+  cleanup(); // Unmount the first render
   fakeStorage.clear();
   savePendingSet(fakeStorage, "other-user", sessionId, {
     sessionExerciseId: "ex1",
@@ -606,7 +607,7 @@ async function test8d8e() {
   let listenerCallCount = 0;
   
   const logSetCalls: unknown[] = [];
-  const logSetDeferreds: Deferred<{ ok: true }>[] = [];
+  let replayCount = 0;
   
   const mockAddEventListener = (type: string, handler: () => void) => {
     listenerCallCount++;
@@ -629,9 +630,9 @@ async function test8d8e() {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async (input) => {
       logSetCalls.push(input);
-      const deferred = createDeferred<{ ok: true }>();
-      logSetDeferreds.push(deferred);
-      return deferred.promise;
+      replayCount++;
+      // All replays succeed - we just want to verify handlers trigger replays
+      return { ok: true };
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
@@ -678,14 +679,23 @@ async function test8d8e() {
   
   fakeStorage.clear();
   
-  // Seed pending set to trigger replay
+  // Seed 2 pending sets to trigger replays
   savePendingSet(fakeStorage, userId, sessionId, {
     sessionExerciseId: "ex1",
     setNumber: 1,
     reps: 10,
     weightKg: 50,
     durationSeconds: null,
-    clientId: "pending-8de"
+    clientId: "pending-8de-1"
+  }, fakeDeps);
+  
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 2,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-8de-2"
   }, fakeDeps);
   
   render(
@@ -708,6 +718,8 @@ async function test8d8e() {
     />
   );
   
+  // Wait for the initial replay to complete
+  await act(async () => {});
   await act(async () => {});
   
   // Verify handlers were registered via the injected addEventListener
@@ -715,37 +727,47 @@ async function test8d8e() {
   assert(visibilityHandler !== null, "Visibilitychange listener registered (8d)");
   assert(listenerCallCount >= 2, "addEventListener called for both listeners (8d)");
   
-  // 8e: Assert logSet was called on mount for replay
-  assert(logSetCalls.length === 1, "8e: logSet called once on mount for replay");
+  // 8e: Assert logSet was called on mount for replay (both pending sets)
+  assert(logSetCalls.length === 2, "8e: logSet called for both pending sets on mount for replay");
   
-  // Resolve the initial replay
-  await act(async () => {
-    logSetDeferreds[0].resolve({ ok: true });
-  });
+  // After initial replay succeeds, pending sets are cleared
+  // To test that handlers can trigger replays, add a new pending set
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 3,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-8de-3"
+  }, fakeDeps);
   
-  // 8f: Fire focus handler and assert another replay
+  // 8f: Fire focus handler and assert it triggers replay
   logSetCalls.length = 0;
-  logSetDeferreds.length = 0;
   if (focusHandler) {
     await act(async () => {
       if (focusHandler) focusHandler();
     });
+    await act(async () => {});
     assert(logSetCalls.length === 1, "8f: logSet called after focus event");
-    // Resolve it
-    if (logSetDeferreds.length > 0) {
-      await act(async () => {
-        logSetDeferreds[0].resolve({ ok: true });
-      });
-    }
   }
+  
+  // Add another pending set for visibilitychange test
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 4,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-8de-4"
+  }, fakeDeps);
   
   // Fire visibilitychange handler
   logSetCalls.length = 0;
-  logSetDeferreds.length = 0;
   if (visibilityHandler) {
     await act(async () => {
       if (visibilityHandler) visibilityHandler();
     });
+    await act(async () => {});
     assert(logSetCalls.length === 1, "8f: logSet called after visibilitychange event");
   }
   
