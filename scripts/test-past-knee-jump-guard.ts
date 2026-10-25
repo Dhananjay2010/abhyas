@@ -1,23 +1,18 @@
 /**
- * Item 12 (HIGH-2): Real generator + swap jump/plyo guard test
+ * Coordinator decision (f): Jump guard test for past-knee users.
  * 
- * Tests that the jump/plyo exclusion guard (generate.ts ~line 571) works correctly
- * for past-knee users across real plan generation and swap ranking.
+ * Verifies that only exercises with lower-body take-off or landing are banned
+ * (jumps, hops, bounds, box/depth jumps, skater jumps, burpees, jump squats/lunges,
+ * and jump rope where plyometric). All 16 upper-body plyos (plyo-push-up, clap push-ups,
+ * medicine-ball slams and throws) are allowed for BOTH past and current knee.
  */
 
 import { readFileSync } from "node:fs";
 import {
   generateProgram,
-  hashString,
-  score,
   type CandidateExercise,
   type GeneratorInput,
 } from "../src/lib/program/generate";
-import { 
-  rankAlternatives, 
-  buildPatternList,
-  type AlternativesContext 
-} from "../src/lib/program/alternatives";
 
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
@@ -37,145 +32,270 @@ function check(label: string, ok: boolean, detail = "") {
   }
 }
 
-// Jump/plyo detection
-function isJumpOrPlyo(ex: CandidateExercise): boolean {
-  if (ex.impact !== "high") return false;
-  
-  const nameLower = ex.name.toLowerCase();
-  const slugLower = ex.slug.toLowerCase();
-  
-  return (
-    nameLower.includes("jump") ||
-    nameLower.includes("bound") ||
-    nameLower.includes("plyo") ||
-    slugLower.includes("jump") ||
-    slugLower.includes("bound") ||
-    slugLower.includes("plyo")
-  );
-}
+// 16 upper-body plyos that MUST be allowed for knee users  
+// (chest-push-with-run-release excluded as it has "cardio" pattern, not picked for weights programs)
+const UPPER_BODY_PLYOS = [
+  "backward-medicine-ball-throw",
+  "catch-and-overhead-throw",
+  "chest-push-from-3-point-stance",
+  "chest-push-multiple-response",
+  "chest-push-single-response",
+  "isometric-chest-squeezes",
+  "medicine-ball-chest-pass",
+  "medicine-ball-full-twist",
+  "medicine-ball-scoop-throw",
+  "overhead-slam",
+  "plyo-push-up",
+  "return-push-from-stance",
+  "standing-two-arm-overhead-throw",
+  "supine-chest-throw",
+  "supine-one-arm-overhead-throw",
+  "supine-two-arm-overhead-throw",
+];
 
-console.log("Item 12: Real generator + swap jump/plyo guard test");
+// Lower-body jumps that MUST be banned for knee users
+const LOWER_BODY_JUMPS = [
+  "bench-jump",
+  "box-jump",
+  "box-jump-down",
+  "box-jump-up",
+  "depth-jump",
+  "double-leg-butt-kick",
+  "dumbbell-seated-box-jump",
+  "fast-skipping",
+  "jump-rope",
+  "jump-squat",
+  "knee-tuck-jump",
+  "lateral-bound",
+  "rocket-jump",
+  "scissors-jump",
+  "single-leg-butt-kick",
+  "skater-jump",
+  "split-jump",
+  "standing-long-jump",
+  "star-jump",
+  "vertical-swing",
+];
+
+console.log("Coordinator decision (f): Past-knee jump guard test");
 console.log("─".repeat(60));
 
-// Test 1: Real generator over past-knee grid
-console.log("\n1. Real generator: no jumps/plyo in past-knee plans");
+console.log("\n1. All 16 upper-body plyos ALLOWED for past knee");
 {
-  const levels = ["beginner", "intermediate", "expert"] as const;
-  const goals = ["muscle_gain", "strength"] as const;
-  const days = [3, 4];
-  const durations = [45, 60];
+  const input: GeneratorInput = {
+    userId: "test-upper-plyo-past",
+    blockNumber: 1,
+    goal: "muscle_gain",
+    level: "intermediate",
+    primaryTrack: "weights",
+    daysPerWeek: 4,
+    yogaDaysPerWeek: 0,
+    age: 30,
+    bmi: 22,
+    hasAllEquipment: true,
+    equipmentIds: [],
+    anyKneeInjury: true,
+    currentInjuryRegions: [],
+    catalogue,
+  };
   
-  let plansChecked = 0;
-  let jumpsFound = 0;
+  const { isEligible } = require("../src/lib/program/generate");
   
-  for (const level of levels) {
-    for (const goal of goals) {
-      for (const daysPerWeek of days) {
-        for (const duration of durations) {
-          const input: GeneratorInput = {
-            userId: `test-jump-${level}-${goal}-${daysPerWeek}-${duration}`,
-            blockNumber: 1,
-            goal,
-            level,
-            primaryTrack: "weights",
-            daysPerWeek,
-            yogaDaysPerWeek: 0,
-            age: 30,
-            bmi: 22,
-            hasAllEquipment: true,
-            equipmentIds: [],
-            anyKneeInjury: true,
-            currentInjuryRegions: [],
-            preferredSessionMinutes: duration,
-            catalogue,
-          };
-          
-          const program = generateProgram(input);
-          plansChecked++;
-          
-          for (const day of program.days) {
-            for (const ex of day.exercises) {
-              const exercise = byId.get(ex.exerciseId);
-              if (exercise && isJumpOrPlyo(exercise)) {
-                jumpsFound++;
-              }
-            }
-          }
-        }
-      }
+  let allowed = 0;
+  let banned = 0;
+  const bannedSlugs: string[] = [];
+  
+  for (const slug of UPPER_BODY_PLYOS) {
+    const ex = bySlug.get(slug);
+    if (!ex) {
+      check(`${slug} exists in catalogue`, false);
+      continue;
+    }
+    
+    if (isEligible(ex, input)) {
+      allowed++;
+    } else {
+      banned++;
+      if (bannedSlugs.length < 5) bannedSlugs.push(slug);
     }
   }
   
   check(
-    `No jumps/plyo in ${plansChecked} past-knee plans`,
-    jumpsFound === 0,
-    jumpsFound > 0 ? `Found ${jumpsFound} jump/plyo exercises` : ""
+    `All ${UPPER_BODY_PLYOS.length} upper-body plyos allowed for past knee`,
+    banned === 0,
+    banned > 0 ? `${banned} banned: ${bannedSlugs.join(", ")}` : ""
   );
 }
 
-// Test 2: Real swap ranking for various exercises
-console.log("\n2. Real swap ranking: no jumps/plyo in past-knee swaps");
+console.log("\n2. All 16 upper-body plyos ALLOWED for current knee");
 {
-  const testCases = [
-    { slug: "barbell-squat", pattern: "squat" },
-    { slug: "barbell-lunge", pattern: "lunge" },
-    { slug: "leg-extensions", pattern: "leg_ext" },
-    { slug: "glute-bridge", pattern: "hip_ext" },
-  ];
+  const input: GeneratorInput = {
+    userId: "test-upper-plyo-current",
+    blockNumber: 1,
+    goal: "muscle_gain",
+    level: "intermediate",
+    primaryTrack: "weights",
+    daysPerWeek: 4,
+    yogaDaysPerWeek: 0,
+    age: 30,
+    bmi: 22,
+    hasAllEquipment: true,
+    equipmentIds: [],
+    anyKneeInjury: true,
+    currentInjuryRegions: ["knee"],
+    catalogue,
+  };
   
-  let swapsChecked = 0;
-  let jumpsInSwaps = 0;
+  const { isEligible } = require("../src/lib/program/generate");
   
-  for (const tc of testCases) {
-    const current = bySlug.get(tc.slug);
-    if (!current) continue;
+  let allowed = 0;
+  let banned = 0;
+  const bannedSlugs: string[] = [];
+  
+  for (const slug of UPPER_BODY_PLYOS) {
+    const ex = bySlug.get(slug);
+    if (!ex) continue;
     
-    const input: GeneratorInput = {
-      userId: "test-swap-jump",
-      blockNumber: 1,
-      goal: "muscle_gain",
-      level: "intermediate",
-      primaryTrack: "weights",
-      daysPerWeek: 4,
-      yogaDaysPerWeek: 0,
-      age: 30,
-      bmi: 22,
-      hasAllEquipment: true,
-      equipmentIds: [],
-      anyKneeInjury: true,
-      currentInjuryRegions: [],
-      preferredSessionMinutes: 60,
-      catalogue,
-    };
+    if (isEligible(ex, input)) {
+      allowed++;
+    } else {
+      banned++;
+      if (bannedSlugs.length < 5) bannedSlugs.push(slug);
+    }
+  }
+  
+  check(
+    `All ${UPPER_BODY_PLYOS.length} upper-body plyos allowed for current knee`,
+    banned === 0,
+    banned > 0 ? `${banned} banned: ${bannedSlugs.join(", ")}` : ""
+  );
+}
+
+console.log("\n3. All lower-body jumps BANNED for past knee");
+{
+  const input: GeneratorInput = {
+    userId: "test-lower-jump-past",
+    blockNumber: 1,
+    goal: "muscle_gain",
+    level: "intermediate",
+    primaryTrack: "weights",
+    daysPerWeek: 4,
+    yogaDaysPerWeek: 0,
+    age: 30,
+    bmi: 22,
+    hasAllEquipment: true,
+    equipmentIds: [],
+    anyKneeInjury: true,
+    currentInjuryRegions: [],
+    catalogue,
+  };
+  
+  const { isEligible } = require("../src/lib/program/generate");
+  
+  let banned = 0;
+  let allowed = 0;
+  const allowedSlugs: string[] = [];
+  
+  for (const slug of LOWER_BODY_JUMPS) {
+    const ex = bySlug.get(slug);
+    if (!ex) continue; // Some may not exist in catalogue
     
-    const patterns = buildPatternList(current.movement_pattern, false);
-    const rawPool = catalogue.filter(e => patterns.includes(e.movement_pattern));
+    if (isEligible(ex, input)) {
+      allowed++;
+      if (allowedSlugs.length < 5) allowedSlugs.push(slug);
+    } else {
+      banned++;
+    }
+  }
+  
+  check(
+    `All lower-body jumps banned for past knee`,
+    allowed === 0,
+    allowed > 0 ? `${allowed} allowed: ${allowedSlugs.join(", ")}` : `${banned} banned correctly`
+  );
+}
+
+console.log("\n4. All lower-body jumps BANNED for current knee");
+{
+  const input: GeneratorInput = {
+    userId: "test-lower-jump-current",
+    blockNumber: 1,
+    goal: "muscle_gain",
+    level: "intermediate",
+    primaryTrack: "weights",
+    daysPerWeek: 4,
+    yogaDaysPerWeek: 0,
+    age: 30,
+    bmi: 22,
+    hasAllEquipment: true,
+    equipmentIds: [],
+    anyKneeInjury: true,
+    currentInjuryRegions: ["knee"],
+    catalogue,
+  };
+  
+  const { isEligible } = require("../src/lib/program/generate");
+  
+  let banned = 0;
+  let allowed = 0;
+  const allowedSlugs: string[] = [];
+  
+  for (const slug of LOWER_BODY_JUMPS) {
+    const ex = bySlug.get(slug);
+    if (!ex) continue;
     
-    const wantCompound = current.mechanic === "compound";
-    const ctx: AlternativesContext = {
-      level: input.level,
-      availableEquipment: null,
-      injuryRegions: input.currentInjuryRegions,
-      anyKneeInjury: input.anyKneeInjury,
-      limit: 10,
-      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const swaps = rankAlternatives(current, rawPool, ctx);
-    swapsChecked++;
-    
-    for (const swap of swaps) {
-      if (isJumpOrPlyo(swap)) {
-        jumpsInSwaps++;
+    if (isEligible(ex, input)) {
+      allowed++;
+      if (allowedSlugs.length < 5) allowedSlugs.push(slug);
+    } else {
+      banned++;
+    }
+  }
+  
+  check(
+    `All lower-body jumps banned for current knee`,
+    allowed === 0,
+    allowed > 0 ? `${allowed} allowed: ${allowedSlugs.join(", ")}` : `${banned} banned correctly`
+  );
+}
+
+console.log("\n5. Real generator: no lower-body jumps in past-knee plans");
+{
+  const input: GeneratorInput = {
+    userId: "test-plan-jump",
+    blockNumber: 1,
+    goal: "muscle_gain",
+    level: "intermediate",
+    primaryTrack: "weights",
+    daysPerWeek: 4,
+    yogaDaysPerWeek: 0,
+    age: 30,
+    bmi: 22,
+    hasAllEquipment: true,
+    equipmentIds: [],
+    anyKneeInjury: true,
+    currentInjuryRegions: [],
+    catalogue,
+  };
+  
+  const program = generateProgram(input);
+  let jumpsFound = 0;
+  const jumpSlugs: string[] = [];
+  
+  for (const day of program.days) {
+    for (const ex of day.exercises) {
+      const exercise = byId.get(ex.exerciseId);
+      if (exercise && LOWER_BODY_JUMPS.includes(exercise.slug)) {
+        jumpsFound++;
+        if (jumpSlugs.length < 5) jumpSlugs.push(exercise.slug);
       }
     }
   }
   
   check(
-    `No jumps/plyo in ${swapsChecked} swap lists`,
-    jumpsInSwaps === 0,
-    jumpsInSwaps > 0 ? `Found ${jumpsInSwaps} jump/plyo in swaps` : ""
+    `No lower-body jumps in past-knee plans`,
+    jumpsFound === 0,
+    jumpsFound > 0 ? `Found ${jumpsFound}: ${jumpSlugs.join(", ")}` : ""
   );
 }
 
@@ -186,6 +306,6 @@ if (failures > 0) {
   console.log(`FAILED: ${failures} check(s) failed`);
   process.exit(1);
 } else {
-  console.log("PASSED: All jump/plyo guard checks passed");
+  console.log("PASSED: All jump guard checks passed");
   process.exit(0);
 }

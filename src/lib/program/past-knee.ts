@@ -83,27 +83,33 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
  * Check if an exercise is plyometric/jumping (beyond explicit slugs).
  */
 /**
- * QA Steer (f): Identifies jumping exercises for past-knee exclusion.
- * Only excludes high-impact lower-body plyos and jump/bound/plyo keyword exercises.
- * Upper-body plyos (plyo-push-up, medicine-ball-chest-pass, etc.) are allowed.
+ * Coordinator decision (f): Identifies jumping exercises for past-knee exclusion.
+ * Bans only exercises with lower-body take-off or landing: jumps, hops, bounds,
+ * box and depth jumps, skater jumps, burpees, jump squats and lunges, and jump rope
+ * where catalogued as plyometric. Upper-body plyos (17 total: plyo-push-up, clap push-ups,
+ * standing medicine-ball slams and throws) stay allowed for BOTH knee tiers.
+ * Rule based on movement and body part, not category alone.
  */
 function isJumpingExercise(ex: CandidateExercise): boolean {
   const nameLower = ex.name.toLowerCase();
   const slugLower = ex.slug.toLowerCase();
   
-  // Lower-body muscles that indicate a jumping exercise
-  const lowerBodyMuscles = new Set(["quads", "glutes", "hamstrings", "calves"]);
+  // Lower-body muscles that indicate a jumping/landing exercise
+  const lowerBodyMuscles = new Set(["quads", "glutes", "hamstrings", "calves", "adductors"]);
   const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m));
   
-  // High-impact lower-body plyometric exercises with jump/bound/plyo keywords
-  if (ex.impact === "high" && hasLowerBodyPrimary && (
-    nameLower.includes("jump") || 
-    nameLower.includes("bound") || 
-    nameLower.includes("plyo") ||
-    slugLower.includes("jump") ||
-    slugLower.includes("bound") ||
-    slugLower.includes("plyo")
-  )) {
+  // Jumping keywords indicating take-off or landing
+  const jumpKeywords = ["jump", "bound", "hop", "plyo", "skip"];
+  const hasJumpKeyword = jumpKeywords.some(kw => 
+    nameLower.includes(kw) || slugLower.includes(kw));
+  
+  // Lower-body plyometrics with jumping movement (take-off/landing)
+  if (hasLowerBodyPrimary && hasJumpKeyword) {
+    return true;
+  }
+  
+  // Additional patterns: burpees (full-body but with jump component)
+  if (nameLower.includes("burpee") || slugLower.includes("burpee")) {
     return true;
   }
   
