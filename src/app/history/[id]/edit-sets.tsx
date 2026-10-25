@@ -294,7 +294,11 @@ export function EditSets({ sessionId, units, exercises }: EditSetsProps) {
                         <div className="flex-1">
                           <input
                             type="number"
-                            value={editedSet.weight_kg ?? ""}
+                            value={
+                              editedSet.weight_kg !== null
+                                ? kgToDisplay(editedSet.weight_kg, units)
+                                : ""
+                            }
                             onChange={(e) =>
                               handleSetChange(
                                 set.session_exercise_id,
@@ -303,10 +307,10 @@ export function EditSets({ sessionId, units, exercises }: EditSetsProps) {
                                 e.target.value
                               )
                             }
-                            placeholder="kg"
+                            placeholder={weightLabel(units)}
                             min="0"
-                            max="500"
-                            step="0.5"
+                            max={units === "imperial" ? "1100" : "500"}
+                            step={units === "metric" ? "2.5" : "5"}
                             className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
                           />
                           {errors.has(`${key}-weight_kg`) && (
