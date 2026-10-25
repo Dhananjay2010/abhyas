@@ -40,7 +40,7 @@ export type TrainAnywayInput = {
  * - For blocks with no strength days, return empty array (yoga/breathe handled separately)
  */
 export function trainAnywayOptions(input: TrainAnywayInput): TrainAnywayDay[] {
-  const { todayDay, yesterdayDay, upcomingDays, missedYesterday } = input;
+  const { yesterdayDay, upcomingDays, missedYesterday } = input;
 
   const result: TrainAnywayDay[] = [];
   const seenIndices = new Set<number>();

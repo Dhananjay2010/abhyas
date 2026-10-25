@@ -4,7 +4,6 @@
  * Ensures H4 (weekWindow) and M5 (pulled-forward message) reach the UI after merges.
  */
 
-import { strict as assert } from "node:assert";
 import { weekWindow } from "../src/lib/today/week-window";
 import { pulledForwardMessage } from "../src/lib/today/pulled-forward";
 
