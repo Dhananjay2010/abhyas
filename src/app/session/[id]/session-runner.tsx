@@ -16,7 +16,7 @@ import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { kgToDisplay, displayToKg, formatLoad, roundToPlate, type UnitsPreference } from "@/lib/units";
+import { kgToDisplay, displayToKg, formatLoad, roundToPlate, snapPrescribedWeight, type UnitsPreference } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
@@ -661,9 +661,10 @@ export function SessionRunner({
   const nextSetNumber = setsDone + 1;
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
+  // For imperial: snap prescription to lb grid so prefill matches working weight line.
   const lastWeight =
     [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ??
-    current.suggestedWeightKg;
+    snapPrescribedWeight(current.suggestedWeightKg, settings.units);
 
   /**
    * What the reps field starts on — and, for the first set, nothing.
@@ -848,8 +849,8 @@ export function SessionRunner({
           <p className="mt-2 text-sm text-muted">
             Working weight {formatLoad(current.workingWeightKg, settings.units)}
             {current.suggestedWeightKg !== null &&
-              current.suggestedWeightKg !== current.workingWeightKg &&
-              ` · today ${formatLoad(current.suggestedWeightKg, settings.units)}`}
+              snapPrescribedWeight(current.suggestedWeightKg, settings.units) !== current.workingWeightKg &&
+              ` · today ${formatLoad(snapPrescribedWeight(current.suggestedWeightKg, settings.units), settings.units)}`}
           </p>
         )}
         {isDeload && (
@@ -1341,7 +1342,7 @@ function SetEntry({
           <input
             type="number"
             inputMode="decimal"
-            step={units === "metric" ? "2.5" : "5"}
+            step={units === "metric" ? "0.5" : "5"}
             min={0}
             max={999}
             value={weight}

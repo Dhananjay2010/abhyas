@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateSet, deleteSet } from "../actions";
-import { kgToDisplay, displayToKg, weightLabel, type UnitsPreference } from "@/lib/units";
+import { kgToDisplay, displayToKg, weightLabel, roundLbToHalf, type UnitsPreference } from "@/lib/units";
 
 interface SetData {
   session_exercise_id: string;
@@ -296,7 +296,9 @@ export function EditSets({ sessionId, units, exercises }: EditSetsProps) {
                             type="number"
                             value={
                               editedSet.weight_kg !== null
-                                ? kgToDisplay(editedSet.weight_kg, units)
+                                ? units === "imperial"
+                                  ? roundLbToHalf(kgToDisplay(editedSet.weight_kg, units))
+                                  : kgToDisplay(editedSet.weight_kg, units)
                                 : ""
                             }
                             onChange={(e) =>

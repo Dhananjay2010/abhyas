@@ -334,8 +334,8 @@ type LogSetCall = {
     `got "${metricPrefillValue}"`
   );
 
-  // Check 7: Metric step is 2.5
-  check("Metric step is 2.5", weightInputMetric.step === "2.5", `got step="${weightInputMetric.step}"`);
+  // Check 7: Metric step is 0.5 (restored to match main)
+  check("Metric step is 0.5", weightInputMetric.step === "0.5", `got step="${weightInputMetric.step}"`);
 
   // Find reps input
   const repsInputMetric = [...rMetric.container.querySelectorAll<HTMLInputElement>("input")].find(

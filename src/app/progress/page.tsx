@@ -6,7 +6,7 @@ import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-c
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
-import { getUnitsPreference, kgToDisplay, weightLabel } from "@/lib/units";
+import { getUnitsPreference, kgToDisplay, weightLabel, formatVolume } from "@/lib/units";
 import { LogWeight } from "./log-weight";
 import { loadProgramDays } from "@/lib/progress/load-program-days";
 
@@ -326,11 +326,7 @@ export default async function ProgressPage() {
               value={
                 progressQueryFailed 
                   ? "—"
-                  : totalVolume! >= 10000
-                    ? `${Math.round(totalVolume! / 1000).toLocaleString("en-US")}t`
-                    : totalVolume! >= 1000
-                      ? `${(totalVolume! / 1000).toFixed(1).replace(/(\d)(?=(\d{3})+\.)/g, '$1,')}t`
-                      : `${Math.round(totalVolume!).toLocaleString("en-US")}kg`
+                  : formatVolume(totalVolume!, units)
               }
               sub={progressQueryFailed ? "error loading" : "all time"}
             />

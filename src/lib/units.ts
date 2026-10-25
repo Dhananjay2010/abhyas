@@ -472,6 +472,8 @@ export function kgToDisplay(kg: number | null | undefined, units: UnitsPreferenc
  * round-trip stability: user enters 135 lb → stores as exact kg equivalent
  * → displays back as 135 lb.
  * 
+ * For metric: identity conversion - stores exactly what was typed.
+ * 
  * @param value - Weight in display unit (kg or lb)
  * @param units - 'metric' | 'imperial'
  * @returns Weight in kilograms, rounded to 0.01 kg precision
@@ -486,9 +488,8 @@ export function displayToKg(value: number | null | undefined, units: UnitsPrefer
     return Math.round(kg * 100) / 100;
   }
   
-  // Metric: round to 0.5 kg (plate step) then store
-  const roundedKg = Math.round(value * 2) / 2;
-  return Math.round(roundedKg * 100) / 100;
+  // Metric: identity - store exactly what was typed, rounded to 0.01 kg
+  return Math.round(value * 100) / 100;
 }
 
 /**
@@ -511,9 +512,10 @@ export function formatLoad(kg: number | null | undefined, units: UnitsPreference
     return `${formatted} ${label}`;
   }
   
-  // Metric: round to 0.5 kg (common plate step)
-  const rounded = Math.round(value * 2) / 2;
-  const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+  // Metric: display exactly as stored, up to 2 decimal places
+  // Drop trailing zeros: 11.25 kg, 63.75 kg, 8.75 kg, 9 kg
+  const rounded = Math.round(value * 100) / 100;
+  const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(2).replace(/\.?0+$/, '');
   return `${formatted} ${label}`;
 }
 
@@ -555,6 +557,35 @@ export function roundToPlate(value: number | null | undefined, units: UnitsPrefe
   }
   
   return Math.max(0, result);
+}
+
+/**
+ * Convert prescribed kg to the display unit and snap to the appropriate grid.
+ * 
+ * For imperial: converts kg to lb and snaps DOWN to 0.5 lb increments to avoid
+ * false PBs when logging the prefilled value. Rounds down conservatively so
+ * logging the prefilled value never exceeds the prescription.
+ * For metric: returns kg as-is (identity).
+ * 
+ * Use this for BOTH working weight display and prefill to ensure they agree.
+ * 
+ * @param prescribedKg - Prescribed weight in kilograms
+ * @param units - 'metric' or 'imperial'
+ * @returns Snapped weight in kg
+ */
+export function snapPrescribedWeight(prescribedKg: number | null | undefined, units: UnitsPreference): number | null {
+  if (prescribedKg == null || !Number.isFinite(prescribedKg) || prescribedKg <= 0) return null;
+  
+  if (units === "imperial") {
+    // Convert to lb, snap DOWN to 0.5 lb grid (conservative), convert back to kg
+    const lb = kgToLb(prescribedKg);
+    // Floor to nearest 0.5 lb to avoid false PBs
+    const snappedLb = Math.floor(lb * 2) / 2;
+    return Math.round(lbToKg(snappedLb) * 100) / 100;
+  }
+  
+  // Metric: identity
+  return prescribedKg;
 }
 
 // ============================================================
