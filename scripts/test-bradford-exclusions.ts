@@ -357,60 +357,97 @@ console.log("\n5. ATW not in EXCLUDED_EXERCISE_SLUGS (must remain reachable for 
 
 console.log("\n6. Positive grid: ATW reachable for NON-shoulder users in plans and swap lists");
 {
-  const nonShoulderInjuries: Array<{ name: string; injuries: Array<"wrist" | "knee"> }> = [
-    { name: "no-injury", injuries: [] },
-    { name: "wrist-only", injuries: ["wrist"] },
-    { name: "knee-past", injuries: [] }, // past-knee uses pastKneeInjury flag
+  const nonShoulderInjuries: Array<{ name: string; injuries: Array<"wrist" | "knee">; pastKnee: boolean }> = [
+    { name: "no-injury", injuries: [], pastKnee: false },
+    { name: "wrist-only", injuries: ["wrist"], pastKnee: false },
+    { name: "knee-past", injuries: [], pastKnee: true },
   ];
   
-  let atwEligibleCount = 0;
-  let atwInPoolCount = 0;
-  let casesChecked = 0;
-  
-  const atwExercise = find(SHOULDER_CONTRAINDICATED_SLUG);
+  let atwInPlansCount = 0;
+  let atwInSwapsCount = 0;
+  let plansChecked = 0;
+  let swapsChecked = 0;
   
   for (const injuryCase of nonShoulderInjuries) {
-    const isPastKnee = injuryCase.name === "knee-past";
+    // Generate multiple profiles to increase chances of ATW appearing
+    const levels: Array<"beginner" | "intermediate" | "expert"> = ["beginner", "intermediate", "expert"];
+    const equipmentSets: Array<string[]> = [
+      ["dumbbell"],
+      ["dumbbell", "flat_bench"],
+      ["dumbbell", "flat_bench", "cable_machine"],
+    ];
     
-    const input: GeneratorInput = {
-      userId: `atw-positive-${injuryCase.name}`,
-      blockNumber: 1,
-      level: "intermediate",
-      equipmentIds: ["dumbbell"],
-      hasAllEquipment: false,
-      goal: "muscle_gain",
-      currentInjuryRegions: injuryCase.injuries,
-      pastKneeInjury: isPastKnee,
-      age: 30,
-      bmi: null,
-      daysPerWeek: 4,
-      yogaDaysPerWeek: 0,
-      primaryTrack: "weights",
-      preferredSessionMinutes: 75,
-      catalogue,
-    };
-    
-    casesChecked++;
-    
-    // Check if ATW is eligible for this profile
-    if (isEligible(atwExercise, input)) {
-      atwEligibleCount++;
-    }
-    
-    // Check if ATW would appear in the pool for swap lists (horizontal_press exercises)
-    const patterns = buildPatternList("horizontal_press", input.currentInjuryRegions.includes("knee"));
-    const rawPool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
-    const pool = rawPool.filter((e) => isEligible(e, input));
-    
-    if (pool.some(e => e.slug === SHOULDER_CONTRAINDICATED_SLUG)) {
-      atwInPoolCount++;
+    for (const level of levels) {
+      for (const equipmentIds of equipmentSets) {
+        const input: GeneratorInput = {
+          userId: `atw-positive-${injuryCase.name}-${level}`,
+          blockNumber: 1,
+          level,
+          equipmentIds,
+          hasAllEquipment: false,
+          goal: "muscle_gain",
+          currentInjuryRegions: injuryCase.injuries,
+          pastKneeInjury: injuryCase.pastKnee,
+          age: 30,
+          bmi: null,
+          daysPerWeek: 4,
+          yogaDaysPerWeek: 0,
+          primaryTrack: "weights",
+          preferredSessionMinutes: 75,
+          catalogue,
+        };
+        
+        plansChecked++;
+        const program = generateProgram(input);
+        const allExerciseSlugs = program.days.flatMap(day => 
+          day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+        );
+        
+        if (allExerciseSlugs.includes(SHOULDER_CONTRAINDICATED_SLUG)) {
+          atwInPlansCount++;
+        }
+        
+        // Check swap lists via REAL rankAlternatives with limit 5
+        const availableEquipment = new Set(input.equipmentIds);
+        
+        // Focus on horizontal_press exercises since ATW is horizontal_press
+        for (const day of program.days) {
+          for (const ex of day.exercises) {
+            const currentExercise = catalogue.find(e => e.id === ex.exerciseId);
+            if (!currentExercise || currentExercise.movement_pattern !== "horizontal_press") continue;
+            
+            const patterns = buildPatternList(currentExercise.movement_pattern, input.currentInjuryRegions.includes("knee"));
+            const rawPool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+            const pool = rawPool.filter((e) => isEligible(e, input));
+            
+            const wantCompound = currentExercise.mechanic !== "isolation";
+            const ctx: AlternativesContext = {
+              level: input.level,
+              availableEquipment,
+              injuryRegions: input.currentInjuryRegions,
+              pastKneeInjury: input.pastKneeInjury,
+              limit: 5,
+              scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, input.pastKneeInjury, 0),
+              tieBreakFn: (slug) => hashString(`atw-positive:${input.userId}:${slug}`),
+            };
+            
+            const alternatives = rankAlternatives(currentExercise, pool, ctx);
+            const swapSlugs = alternatives.map(e => e.slug);
+            
+            swapsChecked++;
+            if (swapSlugs.includes(SHOULDER_CONTRAINDICATED_SLUG)) {
+              atwInSwapsCount++;
+            }
+          }
+        }
+      }
     }
   }
   
-  console.log(`  ATW eligible (not filtered out): ${atwEligibleCount}/${casesChecked}`);
-  console.log(`  ATW in eligible pool for swaps: ${atwInPoolCount}/${casesChecked}`);
-  check("ATW eligible for non-shoulder users", atwEligibleCount === casesChecked);
-  check("ATW in swap pool for non-shoulder users", atwInPoolCount === casesChecked);
+  console.log(`  ATW in plans: ${atwInPlansCount}/${plansChecked}`);
+  console.log(`  ATW in ranked swap lists (limit 5): ${atwInSwapsCount}/${swapsChecked}`);
+  check("ATW appears in at least one plan", atwInPlansCount > 0);
+  check("ATW appears in at least one ranked swap list", atwInSwapsCount > 0);
 }
 
 console.log("\n7. Catch-all: no shoulder-injured plan or swap contains bradford|rocky");

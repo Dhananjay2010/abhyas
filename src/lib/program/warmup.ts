@@ -59,8 +59,9 @@ export function selectWarmup(input: {
   track: Track;
   availableEquipment: Set<string> | null;
   hasAllEquipment: boolean;
+  pastKneeInjury?: boolean;
 }): WarmupItem[] {
-  const { warmups, trainingMuscles, injuryRegions = [], prehabRegions = injuryRegions, track, availableEquipment, hasAllEquipment } = input;
+  const { warmups, trainingMuscles, injuryRegions = [], prehabRegions = injuryRegions, track, availableEquipment, hasAllEquipment, pastKneeInjury = false } = input;
   const muscles = new Set(trainingMuscles);
   const regions = new Set(injuryRegions);
   const prehabRegionSet = new Set(prehabRegions);
@@ -86,13 +87,22 @@ export function selectWarmup(input: {
     const needs = CARDIO_EQUIPMENT[slug];
     return !needs || availableEquipment === null || availableEquipment.has(needs);
   };
+  
+  // Past knee: exclude walking-lunge and skipping-light
+  const isExcludedForPastKnee = (slug: string) => {
+    if (pastKneeInjury !== true) return false;
+    return slug === "walking-lunge" || slug === "skipping-light";
+  };
+  
   const cardioPool = byType("cardio");
   const cardio =
     preference
       .filter(canUse)
+      .filter(slug => !isExcludedForPastKnee(slug))
       .map((slug) => cardioPool.find((w) => w.slug === slug))
       .find(Boolean) ??
-    cardioPool.find((w) => canUse(w.slug)) ??
+    cardioPool.find(w => canUse(w.slug) && !isExcludedForPastKnee(w.slug)) ??
+    cardioPool.find(w => !isExcludedForPastKnee(w.slug)) ??
     cardioPool[0];
 
   // QA Pass 10 H7: Filter mobility pool by injuries BEFORE ranking
@@ -100,7 +110,9 @@ export function selectWarmup(input: {
     // Exclude any warmup that targets an injured region OR is contraindicated for the injury
     const targetsInjury = w.target_regions.some((r) => regions.has(r));
     const contraindicated = (w.contraindicated_regions ?? []).some((r) => regions.has(r));
-    return !targetsInjury && !contraindicated;
+    // Past knee: exclude walking-lunge and skipping-light
+    const excludedForPastKnee = isExcludedForPastKnee(w.slug);
+    return !targetsInjury && !contraindicated && !excludedForPastKnee;
   });
   
   // 2. Five minutes of mobility for what is about to be trained. Exercises that
@@ -134,7 +146,8 @@ export function selectWarmup(input: {
       
       // Filter out contraindicated movements
       const isContraindicated = w.target_regions.some((r) => regions.has(r));
-      if (!isContraindicated) {
+      const excludedForPastKnee = isExcludedForPastKnee(w.slug);
+      if (!isContraindicated && !excludedForPastKnee) {
         mobility.push(w);
       }
     }
@@ -161,10 +174,23 @@ export function selectWarmup(input: {
     .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0))
     .slice(0, 3);
 
+  // Filter "full depth" cues for any knee injury (past or current)
+  const hasKneeInjury = injuryRegions.includes("knee") || pastKneeInjury === true;
+  const filterFullDepthCues = (instructions: string[]) => {
+    if (!hasKneeInjury) return instructions;
+    return instructions.map(instruction => {
+      const lower = instruction.toLowerCase();
+      if (lower.includes("full depth")) {
+        return instruction.replace(/full depth/gi, "controlled range");
+      }
+      return instruction;
+    });
+  };
+
   return [
-    ...(cardio ? [{ ...cardio, phase: "cardio" as const }] : []),
-    ...mobility.map((w) => ({ ...w, phase: "mobility" as const })),
-    ...prehab.map((w) => ({ ...w, phase: "prehab" as const })),
+    ...(cardio ? [{ ...cardio, phase: "cardio" as const, instructions: filterFullDepthCues(cardio.instructions) }] : []),
+    ...mobility.map((w) => ({ ...w, phase: "mobility" as const, instructions: filterFullDepthCues(w.instructions) })),
+    ...prehab.map((w) => ({ ...w, phase: "prehab" as const, instructions: filterFullDepthCues(w.instructions) })),
   ];
 }
 

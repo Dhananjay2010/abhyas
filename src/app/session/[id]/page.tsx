@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
-import { filterFullDepthCues } from "@/lib/program/past-knee";
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
@@ -183,7 +182,7 @@ export default async function SessionPage({
   const allInjuries = injuriesRes.data ?? [];
   const allInjuryRegions = allInjuries.map((i) => i.body_region);
   const currentInjuryRegions = allInjuries.filter((i) => i.severity === "current").map((i) => i.body_region);
-  const hasKneeInjury = allInjuryRegions.includes("knee");
+  const pastKneeInjury = allInjuries.some((i) => i.severity === "past" && i.body_region === "knee");
   
   const warmup = selectWarmup({
     warmups: allWarmupRows,
@@ -195,10 +194,8 @@ export default async function SessionPage({
     availableEquipment: profileRes.data?.has_all_equipment
       ? null
       : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
-  }).map(item => ({
-    ...item,
-    instructions: filterFullDepthCues(item.instructions, hasKneeInjury),
-  }));
+    pastKneeInjury,
+  });
 
   // Cool-down uses only CURRENT injuries for exclusion
   const cooldown = selectCooldown({

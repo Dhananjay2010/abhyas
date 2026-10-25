@@ -10,7 +10,7 @@ export type AlternativesContext = {
   level: Database["public"]["Enums"]["fitness_level"];
   availableEquipment: Set<string> | null;
   injuryRegions: Database["public"]["Enums"]["body_region"][];
-  pastKneeInjury: boolean;
+  pastKneeInjury?: boolean;
   limit?: number;
   scoreFn: (exercise: ExerciseRow) => number;
   tieBreakFn: (slug: string) => number;
@@ -226,7 +226,7 @@ export function rankAlternatives<T extends ExerciseRow>(
     }
     
     // 9. Past knee: exclude problematic moves
-    if (ctx.pastKneeInjury && isExcludedForPastKnee(candidate)) {
+    if (ctx.pastKneeInjury === true && isExcludedForPastKnee(candidate)) {
       continue;
     }
     

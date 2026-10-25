@@ -640,7 +640,6 @@ export async function findAlternatives(
   const currentInjuryRegions = (injuriesRes.data ?? [])
     .filter((i) => i.severity === "current")
     .map((i) => i.body_region);
-  
   const pastKneeInjury = (injuriesRes.data ?? [])
     .some((i) => i.severity === "past" && i.body_region === "knee");
 

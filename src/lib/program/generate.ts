@@ -2,7 +2,7 @@ import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
-import { isExcludedForPastKnee, getKneeFriendlyPrimaries, isKneeFriendlyPrimary, kneeFriendlyBonus, isBarbellBackSquat } from "./past-knee";
+import { isExcludedForPastKnee, kneeFriendlyBonus } from "./past-knee";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -46,7 +46,7 @@ export type GeneratorInput = {
   /** Current injuries hard-filter. Past ones only drive warm-up prehab. */
   currentInjuryRegions: BodyRegion[];
   /** Past knee injury: apply lighter restrictions than current knee. */
-  pastKneeInjury: boolean;
+  pastKneeInjury?: boolean;
   /** Preferred session length in minutes. Affects exercise count. */
   preferredSessionMinutes?: number;
   catalogue: CandidateExercise[];
@@ -468,7 +468,7 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   }
   
   // Past knee injury: exclude problematic moves (pistol, single-leg squat, jumping/walking lunges, sissy squats)
-  if (input.pastKneeInjury && isExcludedForPastKnee(ex)) {
+  if (input.pastKneeInjury === true && isExcludedForPastKnee(ex)) {
     return false;
   }
 
@@ -524,7 +524,7 @@ export function score(
   }
   
   // Past knee: prefer knee-friendly primaries in main slots
-  if (pastKneeInjury) {
+  if (pastKneeInjury === true) {
     s += kneeFriendlyBonus(ex, slotIndex);
   }
 
