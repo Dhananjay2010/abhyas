@@ -250,9 +250,9 @@ m15() {
 }
 test_mutant "Success check uses Math.min(successTarget, repsMax)" m15
 
-# M16: Replace input equipment_ids with [] in actions.ts
+# M16: Replace ex with {...ex, equipment_ids: []} in actions.ts
 m16() {
-  sed -i 's/buildApplyProgressionInput(/buildApplyProgressionInput(se, { ...ex, equipment_ids: [] }, sessionRes.data, setsRes.data ?? [], progressRes.data, profileRes.data?.units, feel); \/\/ MUTANT\n  const _unused = buildApplyProgressionInput(/' "$ACTIONS"
+  sed -i '/buildApplyProgressionInput(/,/feel,$/{s/    ex,$/    { ...ex, equipment_ids: [] },/}' "$ACTIONS"
 }
 test_mutant "Replace input equipment_ids with [] (actions.ts wiring)" m16 "ACTIONS"
 
@@ -276,7 +276,7 @@ test_mutant "Drop progInputs.equipmentIds in buildRunnerExercise" m18 "BUILDER"
 
 # M19: Drop userUnits in buildApplyProgressionInput
 m19() {
-  sed -i 's/userUnits: userUnits,/userUnits: null,/' "$CORE"
+  sed -i 's/    userUnits,$/    userUnits: null,/' "$CORE"
 }
 test_mutant "Drop userUnits in buildApplyProgressionInput" m19 "CORE"
 
