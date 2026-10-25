@@ -47,6 +47,11 @@ check(
 );
 
 check(
+  "actions.ts passes ex (not {...ex, equipment_ids: []}) to buildApplyProgressionInput",
+  /buildApplyProgressionInput\(\s*se,\s*ex,/.test(actionsContent)
+);
+
+check(
   "actions.ts calls applyProgressionCore",
   actionsContent.includes('await applyProgressionCore(supabase, userId, input)')
 );
