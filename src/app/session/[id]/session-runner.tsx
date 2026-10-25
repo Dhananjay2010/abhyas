@@ -322,7 +322,7 @@ export function SessionRunner({
         };
       });
     });
-  }, [pendingSetState.replayed, setExercises]);
+  }, [pendingSetState.replayed]);
 
   // ---- rest timer -------------------------------------------------------
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);

@@ -204,7 +204,7 @@ async function testAutoRetryAfterFailedReplay() {
 
   // Simulate focus event (auto-retry)
   controller.onFocus();
-  await Promise.resolve();
+  await controller.replay();
 
   assertEqual(callCount, 2, "logSet called again on focus after failed replay");
   const afterSecondReplay = states[states.length - 1];
