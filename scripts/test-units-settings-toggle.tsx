@@ -168,7 +168,7 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
   console.log("\n3. LogWeight: Type 176 lb, click Save, assert ~79.8 kg sent; type 50 lb shows error, no save");
 
   {
-    let savedKg: number;
+    let savedKg = 0;
     let callCount = 0;
 
     const mockLogAction = async (kg: number) => {
@@ -285,14 +285,6 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     // Dynamically import OnboardingFlow after next/navigation is mocked
     const { OnboardingFlow } = await import("../src/app/onboarding/onboarding-flow");
 
-    interface SaveAboutYouArgs {
-      dateOfBirth: string | null;
-      sex: string | null;
-      heightCm: number | null;
-      weightKg: number | null;
-    }
-
-    type SaveAboutYouArgs = { dateOfBirth: string; sex: string; heightCm: number; weightKg: number; units?: string; browserTimezone?: string };
     let savedAboutYou: SaveAboutYouArgs | null;
     savedAboutYou = null;
     let callCount = 0;
