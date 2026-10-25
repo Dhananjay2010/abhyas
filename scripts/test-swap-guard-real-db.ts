@@ -162,7 +162,7 @@ async function runTests() {
     started_on: "2026-10-01",
     status: "active",
   });
-  check("Program created for user 1", !programError1);
+  check("Program created for user 1", !programError1, programError1?.message);
 
   const dayId1 = randomUUID();
   const { error: dayError1 } = await adminClient.from("program_days").insert({
@@ -172,7 +172,7 @@ async function runTests() {
     day_index: 1,
     day_type: "weights",
   });
-  check("Program day created", !dayError1);
+  check("Program day created", !dayError1, dayError1?.message);
 
   const sessionId1 = randomUUID();
   const { error: sessionError1 } = await adminClient.from("sessions").insert({
@@ -187,7 +187,7 @@ async function runTests() {
     actual_type: "weights",
     status: "in_progress",
   });
-  check("Session created", !sessionError1);
+  check("Session created", !sessionError1, sessionError1?.message);
 
   const exerciseId1 = "bench-press";
   const sessionExerciseId1 = randomUUID();
@@ -205,7 +205,7 @@ async function runTests() {
       rest_seconds: 90,
       metric: "reps",
     });
-  check("Session exercise created", !sessionExerciseError1);
+  check("Session exercise created", !sessionExerciseError1, sessionExerciseError1?.message);
 
   // Test: no sets logged, swap should be allowed
   const deps1 = createSupabaseSwapGuardDeps(client1);
@@ -249,7 +249,7 @@ async function runTests() {
     started_on: "2026-10-01",
     status: "active",
   });
-  check("Program created for user 2", !programError2);
+  check("Program created for user 2", !programError2, programError2?.message);
 
   const dayId2 = randomUUID();
   const { error: dayError2 } = await adminClient.from("program_days").insert({
@@ -259,7 +259,7 @@ async function runTests() {
     day_index: 1,
     day_type: "weights",
   });
-  check("Program day created for user 2", !dayError2);
+  check("Program day created for user 2", !dayError2, dayError2?.message);
 
   const sessionId2 = randomUUID();
   const { error: sessionError2 } = await adminClient.from("sessions").insert({
@@ -274,7 +274,7 @@ async function runTests() {
     actual_type: "weights",
     status: "in_progress",
   });
-  check("Session created for user 2", !sessionError2);
+  check("Session created for user 2", !sessionError2, sessionError2?.message);
 
   const sessionExerciseId2 = randomUUID();
   const { error: sessionExerciseError2 } = await adminClient
@@ -291,7 +291,7 @@ async function runTests() {
       rest_seconds: 90,
       metric: "reps",
     });
-  check("Session exercise created for user 2", !sessionExerciseError2);
+  check("Session exercise created for user 2", !sessionExerciseError2, sessionExerciseError2?.message);
 
   // Log a set for user 2 with the SAME session_exercise_id (shouldn't block user 1)
   const { error: setError2 } = await adminClient.from("session_sets").insert({

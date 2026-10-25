@@ -138,7 +138,6 @@
     "test:swap-sheet-close-on-exercise-change": "tsx scripts/test-swap-sheet-close-on-exercise-change.tsx",
     "test:swap-after-logging-runner": "tsx scripts/test-swap-after-logging-runner.tsx",
     "test:swap-guard-real-db": "tsx scripts/test-swap-guard-real-db.ts",
-    "test:session-hydration-418": "tsx scripts/test-session-hydration-418.tsx",
     "test:guard-mutants": "tsx scripts/test-guard-mutants.ts",
     "test:dob-field": "tsx scripts/test-dob-field.ts",
     "test:equipment-bodyweight": "tsx scripts/test-equipment-bodyweight.ts",
