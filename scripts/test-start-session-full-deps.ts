@@ -29,7 +29,7 @@ function resetCalls() {
   calls.length = 0;
 }
 
-function createFakeSupabase(responses: Record<string, unknown>) {
+function createFakeSupabase(responses: Record<string, unknown>): SupabaseClient<Database> {
   const fake = {
     from(table: string) {
       const currentCall: Call = { table, filters: [] };
