@@ -288,31 +288,26 @@ console.log("\n3. Double-click Log set calls logSet exactly once (9, 9b, 9d-runn
         actions: fakeActions,
       })
     );
-    await sleep(100);
+    // Wait for the component to mark itself as synced (4 second timeout)
+    await sleep(4100);
   });
 
-  // Double-click the "Done" button for set 1
+  // Double-click the "Set 1 done" button
   await act(async () => {
-    // Fill in reps
-    const inputs = container.querySelectorAll("input[type='number']");
-    const repsInput = Array.from(inputs).find(i => 
-      i.getAttribute("aria-label")?.includes("reps") || i.getAttribute("placeholder")?.includes("reps")
-    ) as HTMLInputElement;
-    if (repsInput) {
-      repsInput.value = "5";
-      repsInput.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-    await sleep(50);
-
     const buttons = Array.from(container.querySelectorAll("button"));
-    const doneButton = buttons.find(b => b.textContent?.trim() === "Done" && !b.disabled);
-    if (doneButton) {
-      doneButton.click();
-      doneButton.click(); // Double-click
+    console.log(`  [debug] Found ${buttons.length} buttons:`);
+    buttons.forEach((b, i) => console.log(`    ${i}: "${b.textContent}" disabled=${b.disabled}`));
+    const setDoneButton = buttons.find(b => b.textContent?.includes("Set 1 done") && !b.disabled);
+    if (setDoneButton) {
+      setDoneButton.click();
+      setDoneButton.click(); // Double-click
+    } else {
+      console.log(`  [debug] Set 1 done button not found or disabled`);
     }
     await sleep(100);
   });
 
+  console.log(`  [debug] Final logSetCalls=${logSetCalls}`);
   check("logSet called exactly once on double-click", logSetCalls === 1);
   const textContent = container.textContent ?? "";
   const noError = !textContent.includes("Couldn't save") && !textContent.includes("error");
