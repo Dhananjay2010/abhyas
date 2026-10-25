@@ -229,6 +229,7 @@ export default async function SessionDetailPage({
 
       <EditSets
         sessionId={session.id}
+        units={units}
         exercises={(exercises ?? []).map((e) => ({
           id: e.id,
           name: (e.exercises as unknown as { name: string } | null)?.name ?? "Exercise",

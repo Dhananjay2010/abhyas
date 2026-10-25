@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateSet, deleteSet } from "../actions";
+import { kgToDisplay, displayToKg, weightLabel, type UnitsPreference } from "@/lib/units";
 
 interface SetData {
   session_exercise_id: string;
@@ -15,6 +16,7 @@ interface SetData {
 
 interface EditSetsProps {
   sessionId: string;
+  units: UnitsPreference;
   exercises: Array<{
     id: string;
     name: string;
@@ -23,7 +25,7 @@ interface EditSetsProps {
   }>;
 }
 
-export function EditSets({ sessionId, exercises }: EditSetsProps) {
+export function EditSets({ sessionId, units, exercises }: EditSetsProps) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -58,7 +60,13 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
     const currentSet = editedSets.get(key);
     if (!currentSet) return;
 
-    const numValue = value === "" ? null : parseFloat(value);
+    let numValue = value === "" ? null : parseFloat(value);
+    
+    // Convert display units to kg for weight field
+    if (field === "weight_kg" && numValue !== null) {
+      const kgValue = displayToKg(numValue, units);
+      numValue = kgValue;
+    }
     
     // Validation
     const newErrors = new Map(errors);
@@ -70,7 +78,7 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
       } else if (field === "reps" && numValue > 100) {
         newErrors.set(`${key}-${field}`, "Maximum 100 reps");
       } else if (field === "weight_kg" && numValue > 500) {
-        newErrors.set(`${key}-${field}`, "Maximum 500 kg");
+        newErrors.set(`${key}-${field}`, `Maximum ${units === "imperial" ? "1100 lb" : "500 kg"}`);
       } else if (field === "duration_seconds" && numValue > 3600) {
         newErrors.set(`${key}-${field}`, "Maximum 1 hour");
       } else {
