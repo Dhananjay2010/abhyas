@@ -18,10 +18,6 @@ export function SignOutButton({
   const [error, setError] = useState<string | null>(null);
 
   async function handleSignOut() {
-    if (typeof window !== "undefined") {
-      clearSets(window.localStorage, userId);
-    }
-    
     startTransition(async () => {
       clearPendingChanges();
       const result = await signOut();
@@ -29,6 +25,11 @@ export function SignOutButton({
       if (!result.ok) {
         // Show a friendly error message instead of exposing internal error details
         setError("Unable to sign out. Please try again.");
+      } else {
+        // Clear pending sets only after successful sign-out
+        if (typeof window !== "undefined") {
+          clearSets(window.localStorage, userId);
+        }
       }
     });
   }
