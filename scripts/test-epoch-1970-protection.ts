@@ -8,6 +8,7 @@
 
 import { resolveStaleFinishExtended } from "../src/lib/session/stale-duration";
 import { finishSessionCore } from "../src/lib/session/finish-session";
+import type { FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 
 let passed = 0;
 let failed = 0;
@@ -65,7 +66,7 @@ console.log("\n(b) finishSessionCore with null started_at and working sets");
 
 type Call = { method: string; patch?: Record<string, unknown> };
 
-function makeFakeDeps(startedAt: string | null) {
+function makeFakeDeps(startedAt: string | null): FinishSessionDeps & { calls: Call[] } {
   const calls: Call[] = [];
   return {
     calls,
@@ -112,7 +113,7 @@ function makeFakeDeps(startedAt: string | null) {
 // Case 1: null started_at with working sets
 {
   const deps = makeFakeDeps(null);
-  const result = await finishSessionCore(deps as any, {
+  const result = await finishSessionCore(deps, {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
