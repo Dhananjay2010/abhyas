@@ -36,7 +36,12 @@ function createFakeClient(): { client: ProgressClient; getWritten: () => Progres
   const client: ProgressClient = {
     from: () => ({
       upsert: async (data: ProgressWrite) => {
-        written = data;
+        // Mimic Postgres numeric(6,2) rounding on best_e1rm and best_weight_kg
+        written = {
+          ...data,
+          best_e1rm: data.best_e1rm !== null ? Math.round(data.best_e1rm * 100) / 100 : null,
+          best_weight_kg: data.best_weight_kg !== null ? Math.round(data.best_weight_kg * 100) / 100 : null,
+        };
         return { data: null, error: null };
       },
     }),
@@ -325,6 +330,93 @@ async function main() {
 
     const written2 = fake2.getWritten();
     check("In-range after miss persisted: consecutive_failures=0", written2?.consecutive_failures === 0, `${written2?.consecutive_failures}`);
+  }
+
+  console.log("\n4. QA bug: identical sessions (4×10 @ 40 kg) don't show false PB on session 2");
+  {
+    // Session 1: 4×10 @ 40 kg (e1RM = 40×(1+10/30) = 53.333..., stored as 53.33)
+    const state1: ProgressState = {
+      currentWorkingWeightKg: 40,
+      currentTargetReps: 12,
+      consecutiveFailures: 0,
+      bestWeightKg: null,
+      bestReps: null,
+      bestE1rm: null,
+      totalSessions: 0,
+    };
+
+    const decision1 = evaluateProgression({
+      sets: sets(4, 10, 40),
+      plannedSets: 4,
+      repsMin: 8,
+      repsMax: 12,
+      feel: "right",
+      meta: BENCH,
+      state: state1,
+      isDeload: false,
+      equipmentIds: ["barbell"],
+      unit: "kg",
+    });
+
+    check("Session 1: bestE1rm stored as 53.33", decision1.bestE1rm === 53.33, `${decision1.bestE1rm}`);
+    check("Session 1: no PB on first session (nothing to beat)", decision1.personalBest === null, 
+      decision1.personalBest ? `got ${decision1.personalBest.kind}` : undefined);
+
+    // Persist session 1
+    const fake1 = createFakeClient();
+    await writeExerciseProgressCore(
+      fake1.client,
+      "user-1",
+      "ex-bench",
+      decision1,
+      state1.totalSessions,
+      "2026-10-31",
+    );
+
+    const written1 = fake1.getWritten();
+    check("Session 1 persisted: best_e1rm=53.33", written1?.best_e1rm === 53.33, `${written1?.best_e1rm}`);
+
+    // Session 2: identical 4×10 @ 40 kg
+    const state2: ProgressState = {
+      currentWorkingWeightKg: written1?.current_working_weight_kg ?? 40,
+      currentTargetReps: written1?.current_target_reps ?? 12,
+      consecutiveFailures: written1?.consecutive_failures ?? 0,
+      bestWeightKg: written1?.best_weight_kg ?? 40,
+      bestReps: written1?.best_reps ?? 10,
+      bestE1rm: written1?.best_e1rm ?? 53.33,
+      totalSessions: written1?.total_sessions ?? 1,
+    };
+
+    const decision2 = evaluateProgression({
+      sets: sets(4, 10, 40),
+      plannedSets: 4,
+      repsMin: 8,
+      repsMax: 12,
+      feel: "right",
+      meta: BENCH,
+      state: state2,
+      isDeload: false,
+      equipmentIds: ["barbell"],
+      unit: "kg",
+    });
+
+    check("Session 2: NO false PB for identical session", decision2.personalBest === null, 
+      decision2.personalBest ? `FAIL: got ${decision2.personalBest.kind}` : undefined);
+    check("Session 2: bestE1rm unchanged at 53.33", decision2.bestE1rm === 53.33, `${decision2.bestE1rm}`);
+
+    // Persist session 2
+    const fake2 = createFakeClient();
+    await writeExerciseProgressCore(
+      fake2.client,
+      "user-1",
+      "ex-bench",
+      decision2,
+      state2.totalSessions,
+      "2026-11-01",
+    );
+
+    const written2 = fake2.getWritten();
+    check("Session 2 persisted: best_e1rm unchanged at 53.33", written2?.best_e1rm === 53.33, `${written2?.best_e1rm}`);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
