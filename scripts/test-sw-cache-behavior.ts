@@ -9,12 +9,6 @@
 
 import { cachesToDelete } from "../src/lib/sw-logic";
 
-function assert(condition: boolean, message: string): void {
-  if (!condition) {
-    throw new Error(`❌ ${message}`);
-  }
-}
-
 function assertArrayEquals(actual: string[], expected: string[], message: string): void {
   const actualSorted = [...actual].sort();
   const expectedSorted = [...expected].sort();

@@ -109,8 +109,6 @@ async function runTests() {
 
   console.log("\n▶ Testing syncServiceWorker with no existing registrations in dev...");
 
-  let devEmptyUnregisterCount = 0;
-
   const devEmptySW: ServiceWorkerContainerLike = {
     async register() {
       throw new Error("Should not register in dev");
@@ -120,12 +118,8 @@ async function runTests() {
     },
   };
 
+  // Should complete successfully without throwing
   await syncServiceWorker("development", devEmptySW);
-
-  assert(
-    devEmptyUnregisterCount === 0,
-    "In development with no existing SWs: should not call unregister"
-  );
 
   console.log("  ✓ In development with no existing SWs: completes successfully");
   console.log("  ✓ In development with no existing SWs: does not throw");

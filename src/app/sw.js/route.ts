@@ -12,7 +12,6 @@ import { NextResponse } from "next/server";
 
 import { branding } from "@/lib/branding";
 import { OFFLINE_SCREEN_HEADING, OFFLINE_SCREEN_BODY, OFFLINE_SCREEN_BUTTON_LABEL } from "@/lib/offline-copy";
-import { cachesToDelete } from "@/lib/sw-logic";
 
 /**
  * Get the current build version for cache naming.
