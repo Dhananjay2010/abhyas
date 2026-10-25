@@ -1245,8 +1245,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           const added = kneeSafeOptions[0];
           const mainSlotCount = getMainSlotCount(entry.slots);
           
-          // For current-knee with wall-sit, place as LAST non-core item before core
-          if (hasCurrentKneeLocal && added.slug === "wall-sit") {
+          // Item 9: For ANY knee injury (current or past) with wall-sit, place as LAST non-core item before core
+          if ((hasCurrentKneeLocal || hasPastKnee) && added.slug === "wall-sit") {
             // Find where to insert (before first core, or at end)
             const firstCoreIdx = pickedExercises.findIndex(p => p.ex.movement_pattern === "core");
             const insertIdx = firstCoreIdx >= 0 ? firstCoreIdx : pickedExercises.length;
