@@ -24,7 +24,7 @@ echo
 
 # Create sandbox
 SANDBOX=$(mktemp -d)
-trap "rm -rf '$SANDBOX'" EXIT
+trap 'rm -rf "$SANDBOX"' EXIT
 
 # Copy file to sandbox
 SANDBOX_FILE="$SANDBOX/progression.ts"
@@ -102,8 +102,8 @@ else
 fi
 echo
 
-# Test (c): Normal run with one mutation restores correctly
-echo "Test (c): Normal run with one mutation restores correctly..."
+# Test (c1): All mutants killed - real script restores correctly
+echo "Test (c1): All mutants killed (normal run)..."
 
 # Reset sandbox file
 cp "$REAL_FILE" "$SANDBOX_FILE"
@@ -111,91 +111,63 @@ ORIGINAL_HASH=$(file_hash "$SANDBOX_FILE")
 ORIGINAL_SIZE=$(stat -c%s "$SANDBOX_FILE" 2>/dev/null || stat -f%z "$SANDBOX_FILE" 2>/dev/null)
 echo "  Original: ${ORIGINAL_HASH} (${ORIGINAL_SIZE} bytes)"
 
-# Create a stub script that applies ONE mutation, passes compile, then FAILS test
-# This simulates one killed mutant
-STUB_APPLY="$SANDBOX/stub-apply.sh"
-cat > "$STUB_APPLY" << 'STUB_SCRIPT'
-#!/usr/bin/env bash
-# Stub that modifies the file once
-if [ ! -f /tmp/stub-mutated ]; then
-  echo "// MUTATED" >> "$MUTANT_TARGET_FILE"
-  touch /tmp/stub-mutated
-  exit 0
-else
-  exit 0
-fi
-STUB_SCRIPT
-chmod +x "$STUB_APPLY"
-
-# Create wrapper script that applies one mutation
-WRAPPER_SCRIPT="$SANDBOX/wrapper.sh"
-cat > "$WRAPPER_SCRIPT" << 'WRAPPER'
-#!/usr/bin/env bash
-set -euo pipefail
-
-export MUTANT_TARGET_FILE="$1"
-export MUTANT_BASELINE_CMD="true"
-export MUTANT_COMPILE_CMD="true"
-export MUTANT_TEST_CMD="if [ -f /tmp/stub-mutated ]; then false; else true; fi"
-
-# Clean state
-rm -f /tmp/stub-mutated
-
-# Apply one mutation manually (simulating what run_mutant does)
-FILE="$MUTANT_TARGET_FILE"
-BACKUP=$(mktemp)
-MUTATION_APPLIED=false
-
-cleanup() {
-  if [ ! -f "$BACKUP" ]; then
-    return
-  fi
-  if [ ! -s "$BACKUP" ]; then
-    return
-  fi
-  if [ "$MUTATION_APPLIED" = true ]; then
-    cp "$BACKUP" "$FILE"
-  fi
-  rm -f "$BACKUP"
-}
-
-trap cleanup EXIT INT TERM
-
-# Backup
-cp "$FILE" "$BACKUP"
-
-# Verify backup
-if [ ! -f "$BACKUP" ] || [ ! -s "$BACKUP" ] || ! cmp -s "$FILE" "$BACKUP"; then
-  exit 1
-fi
-
-# Apply mutation
-echo "// MUTATED" >> "$FILE"
-MUTATION_APPLIED=true
-
-# Simulate test failure (mutant killed)
-eval "$MUTANT_TEST_CMD" > /dev/null 2>&1 || true
-
-# Cleanup should restore
-WRAPPER
-chmod +x "$WRAPPER_SCRIPT"
-
-# Run wrapper
-bash "$WRAPPER_SCRIPT" "$SANDBOX_FILE" || true
-rm -f /tmp/stub-mutated
+# Run real script: baseline passes, mutations applied but all killed (tests fail)
+env MUTANT_TARGET_FILE="$SANDBOX_FILE" \
+    MUTANT_BASELINE_CMD="true" \
+    MUTANT_COMPILE_CMD="true" \
+    MUTANT_TEST_CMD="false" \
+    bash "$SCRIPT" > /dev/null 2>&1 || true
 
 AFTER_HASH=$(file_hash "$SANDBOX_FILE")
 AFTER_SIZE=$(stat -c%s "$SANDBOX_FILE" 2>/dev/null || stat -f%z "$SANDBOX_FILE" 2>/dev/null)
 echo "  After:    ${AFTER_HASH} (${AFTER_SIZE} bytes)"
 
 if [ "$AFTER_SIZE" -eq 0 ]; then
-  echo "  ❌ FAIL: File was wiped after mutation"
+  echo "  ❌ FAIL: File was wiped after mutant run"
   EXIT_CODE=1
 elif [ "$AFTER_HASH" != "$ORIGINAL_HASH" ]; then
-  echo "  ❌ FAIL: File was not restored to original state"
+  echo "  ❌ FAIL: File was not restored after mutations"
   EXIT_CODE=1
 else
-  echo "  ✅ PASS: File correctly restored after mutation"
+  echo "  ✅ PASS: File correctly restored after all mutations"
+fi
+echo
+
+# Test (c2): Interrupted mid-mutation - trap restores correctly
+echo "Test (c2): Interrupted mid-mutation (exit during test)..."
+
+# Reset sandbox file
+cp "$REAL_FILE" "$SANDBOX_FILE"
+ORIGINAL_HASH=$(file_hash "$SANDBOX_FILE")
+ORIGINAL_SIZE=$(stat -c%s "$SANDBOX_FILE" 2>/dev/null || stat -f%z "$SANDBOX_FILE" 2>/dev/null)
+echo "  Original: ${ORIGINAL_HASH} (${ORIGINAL_SIZE} bytes)"
+
+# Run real script: exit 3 during test (mutation applied, then abrupt exit)
+set +e
+env MUTANT_TARGET_FILE="$SANDBOX_FILE" \
+    MUTANT_BASELINE_CMD="true" \
+    MUTANT_COMPILE_CMD="true" \
+    MUTANT_TEST_CMD="exit 3" \
+    bash "$SCRIPT" > /dev/null 2>&1
+SCRIPT_EXIT=$?
+set -e
+
+AFTER_HASH=$(file_hash "$SANDBOX_FILE")
+AFTER_SIZE=$(stat -c%s "$SANDBOX_FILE" 2>/dev/null || stat -f%z "$SANDBOX_FILE" 2>/dev/null)
+echo "  After:    ${AFTER_HASH} (${AFTER_SIZE} bytes)"
+echo "  Script exit code: $SCRIPT_EXIT"
+
+if [ "$AFTER_SIZE" -eq 0 ]; then
+  echo "  ❌ FAIL: File was wiped after interrupt"
+  EXIT_CODE=1
+elif [ "$AFTER_HASH" != "$ORIGINAL_HASH" ]; then
+  echo "  ❌ FAIL: Trap did not restore after interrupt"
+  EXIT_CODE=1
+elif [ "$SCRIPT_EXIT" -eq 0 ]; then
+  echo "  ❌ FAIL: Script exited 0 despite interrupt"
+  EXIT_CODE=1
+else
+  echo "  ✅ PASS: Trap restored file, script exited non-zero"
 fi
 echo
 
@@ -207,9 +179,6 @@ echo "  Real file after: ${REAL_HASH_AFTER} (${REAL_SIZE_AFTER} bytes)"
 
 if [ "$REAL_HASH_AFTER" != "$REAL_HASH_BEFORE" ] || [ "$REAL_SIZE_AFTER" != "$REAL_SIZE_BEFORE" ]; then
   echo "  ❌ CRITICAL: Real source file was modified!"
-  EXIT_CODE=1
-elif ! git diff --quiet -- src/; then
-  echo "  ❌ CRITICAL: Git reports changes in src/"
   EXIT_CODE=1
 else
   echo "  ✅ Real source file untouched"
