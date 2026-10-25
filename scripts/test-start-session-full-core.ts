@@ -44,7 +44,7 @@ function createBasicDeps(overrides: Partial<StartSessionFullDeps> = {}): StartSe
     fetchOpenSessions: async () => [],
     fetchResumeEnabled: async () => true,
     
-    updateSession: async () => ({ ok: true }),
+    updateSession: async (sessionId, today, payload) => ({ ok: true, sessionId }),
     ensureSessionExercises: async () => {},
     
     ensureCurrentBlock: async () => ({ status: "current", programId: "prog-1" }),
@@ -260,11 +260,12 @@ async function main() {
           started_at: null,
         },
       ],
-      updateSession: async (sessionId, payload) => {
+      updateSession: async (sessionId, today, payload) => {
         updateCalled = true;
         eq(sessionId, "sess-planned", "Planned session updated");
+        eq(today, TODAY, "Today date passed correctly");
         eq(payload.status, "in_progress", "Status updated to in_progress");
-        return { ok: true };
+        return { ok: true, sessionId };
       },
     });
 
