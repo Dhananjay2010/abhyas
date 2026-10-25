@@ -7,8 +7,6 @@ import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { resolveAuth } from "@/lib/session/auth-result";
-import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
 import { ageOn } from "@/lib/onboarding/options";
 import {
@@ -28,6 +26,7 @@ import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
+import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 
@@ -220,6 +219,9 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   ]);
 
   if (!insertResult.ok) {
+    if ("existingSessionId" in insertResult && insertResult.existingSessionId) {
+      return { ok: true, data: { sessionId: insertResult.existingSessionId } };
+    }
     return { ok: false, error: insertResult.error };
   }
 
@@ -301,22 +303,33 @@ export async function logSet(input: {
   const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
   if (invalid) return { ok: false, error: invalid };
 
-  return await resolveAuth(
-    async () => {
-      const { supabase, user } = await getAuthedClient();
-      return { user, supabase };
-    },
-    async ({ user, supabase }) => {
-      if (!user) throw new Error("Not signed in");
-      return logSetCore(supabase, user.id, {
-        sessionExerciseId: input.sessionExerciseId,
-        setNumber: input.setNumber,
-        reps: input.reps,
-        weightKg: input.weightKg,
-        durationSeconds,
-      });
+  const { supabase, user } = await requireUser();
+
+  // Reject writes to sessions that are no longer in_progress or don't exist
+  // For ended sessions, allow idempotent retry if the exact set already exists
+  const validationDeps = buildLogSetValidationDeps(supabase);
+  const validationResult = await validateSessionForLogSet(
+    validationDeps, 
+    input.sessionExerciseId,
+    {
+      setNumber: input.setNumber,
+      reps: input.reps,
+      weightKg: input.weightKg,
+      durationSeconds,
     }
   );
+  
+  if (!validationResult.ok) {
+    return validationResult;
+  }
+
+  return logSetCore(supabase, user.id, {
+    sessionExerciseId: input.sessionExerciseId,
+    setNumber: input.setNumber,
+    reps: input.reps,
+    weightKg: input.weightKg,
+    durationSeconds,
+  });
 }
 
 export async function deleteSet(
@@ -335,6 +348,8 @@ export async function deleteSet(
     .eq("is_warmup_set", false);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
+
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 
 export type { ProgressionFeedback };
 

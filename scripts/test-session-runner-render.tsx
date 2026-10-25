@@ -269,8 +269,7 @@ async function test1b1d() {
   }
   
   assert(logSetCalls.length === 1, "logSet called once after click");
-  console.log("  [DEBUG] Logged set number:", logSetCalls[0].setNumber);
-  assert(logSetCalls[0].setNumber === 3, `logSet called with setNumber: 3 (accounting for 2 pending sets), got ${logSetCalls[0].setNumber}`);
+  assert(logSetCalls[0].setNumber === 3, "logSet called with setNumber: 3 (accounting for 2 pending sets)");
   
   fakeStorage.clear();
 }
