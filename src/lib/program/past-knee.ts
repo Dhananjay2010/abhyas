@@ -198,8 +198,14 @@ export function kneeFriendlyBonus(ex: CandidateExercise, slotIndex: number, hasP
     return -100; // Heavy penalty to prevent selection as primary
   }
   
-  // Item 15: Barbell back squat penalty for past knee in primary slots (shouldn't lead)
-  if (hasPastKnee && ex.slug === "barbell-squat" && slotIndex <= 1 && ex.movement_pattern === "squat") {
+  // Item 15 & QA Steer (o): Barbell back squat penalty for past knee in primary slots (shouldn't lead)
+  // Covers all barbell squat variants: barbell-squat, wide-stance-barbell-squat, etc.
+  const isBarbellSquat = ex.movement_pattern === "squat" && 
+    ex.equipment_ids.includes("barbell") && 
+    ex.slug.includes("barbell") && 
+    ex.slug.includes("squat") &&
+    !ex.slug.includes("front"); // Front squats are different
+  if (hasPastKnee && isBarbellSquat && slotIndex <= 1) {
     return -1000; // Heavy penalty to ensure goblet/box squat leads instead
   }
   

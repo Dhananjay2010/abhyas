@@ -816,7 +816,7 @@ console.log("\n10. Item 15: Swap ordering (barbell-squat after preferred squats)
 console.log("\n11. Item 13: Current-knee 4-move quad list enforced in CODE (not catalogue tags)");
 {
   // Strip contraindicated_regions tags from a test copy of the catalogue
-  const strippedCatalogue = catalogue.map(e => ({ ...e, contraindicated_regions: [] as any[] }));
+  const strippedCatalogue = catalogue.map(e => ({ ...e, contraindicated_regions: [] }));
   
   const { KNEE_SAFE_QUAD_EXERCISES, isEligible } = require("../src/lib/program/generate");
   const kneeSafeQuadSlugs = Array.from(KNEE_SAFE_QUAD_EXERCISES) as string[];

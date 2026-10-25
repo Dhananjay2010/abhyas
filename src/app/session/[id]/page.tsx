@@ -138,7 +138,7 @@ export default async function SessionPage({
   
   // Item 8: Pass ALL injuries (current + past) to warm-up picker
   const allInjuries = (injuriesRes.data ?? []).map(i => ({
-    severity: i.severity as "current" | "past",
+    severity: i.severity,
     body_region: i.body_region
   }));
   
