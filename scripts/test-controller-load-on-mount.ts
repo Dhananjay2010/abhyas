@@ -67,6 +67,16 @@ async function runTests() {
       logSet: async () => ({ ok: true as const }),
     };
 
+    // Spy on getItem to detect load() call
+    let getItemCalled = false;
+    const originalGetItem = fakeStorage.getItem.bind(fakeStorage);
+    fakeStorage.getItem = function(key: string): string | null {
+      if (key.includes("pending-sets")) {
+        getItemCalled = true;
+      }
+      return originalGetItem(key);
+    };
+
     // Create controller with proper config object
     const controller = createPendingSetController({
       storage: fakeStorage,

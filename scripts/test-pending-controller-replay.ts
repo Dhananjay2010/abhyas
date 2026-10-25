@@ -62,14 +62,20 @@ async function runTests() {
     let logSetCallCount = 0;
     let lastState: any = null;
 
-    const mockLogSet = async (input: any) => {
+    const mockLogSet = async (input: {
+      sessionExerciseId: string;
+      setNumber: number;
+      reps: number | null;
+      weightKg: number | null;
+      durationSeconds?: number | null;
+    }) => {
       logSetCallCount++;
       // First call fails
       if (logSetCallCount === 1) {
-        return { ok: false, error: "Network failure" };
+        return { ok: false as const, error: "Network failure" };
       }
       // Second call succeeds
-      return { ok: true };
+      return { ok: true as const };
     };
 
     // Save a pending set
