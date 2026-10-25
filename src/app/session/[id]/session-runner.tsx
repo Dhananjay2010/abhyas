@@ -285,14 +285,15 @@ export function SessionRunner({
   const current = exercises[exerciseIndex];
   const restSeconds = settings.restOverrideSeconds ?? current?.restSeconds ?? 90;
 
-  // MUTANT: useEffect removed to test that the test fails without the fix
-  // useEffect(() => {
-  //   if (current && alternativesForExerciseId && alternativesForExerciseId !== current.id) {
-  //     setAlternatives(null);
-  //     setAlternativesForExerciseId(null);
-  //     setLoadingAlternatives(false);
-  //   }
-  // }, [current, alternativesForExerciseId]);
+  // Close the swap sheet when the active exercise changes
+  useEffect(() => {
+    const currentId = current?.id;
+    if (currentId && alternativesForExerciseId && alternativesForExerciseId !== currentId) {
+      setAlternatives(null);
+      setAlternativesForExerciseId(null);
+      setLoadingAlternatives(false);
+    }
+  }, [current?.id, alternativesForExerciseId]);
 
   const totalSetsPlanned = useMemo(
     () => exercises.reduce((n, e) => n + e.plannedSets, 0),
