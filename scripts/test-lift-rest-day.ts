@@ -690,40 +690,69 @@ assert(
   "(B10) Training day has no 'Lift:' prefix in any train-anyway option"
 );
 
-console.log("\n=== Test (B14): Cap of 2 options on rest day without missed ===\n");
+console.log("\n=== Test (B14): Cap of 3 options total (Lift + missed + 1 more) ===\n");
 
-// Rest day with many strength days: should offer max 2 options (Lift + 1 more)
-// because missedYesterday = false
+// Rest day with many strength days, and yesterday was a missed training day
+// Should offer max 3 options: Lift first (Push A), missed second (Shoulders), one more third (Pull A)
+// The 4th, 5th, etc. candidates should be dropped
 
+// Program starting Sunday 2026-10-12 (week 1)
+// Day 1 (Sun) = weights Push A
+// Day 2 (Mon) = weights Pull A
+// Day 3 (Tue) = rest
+// Day 4 (Wed) = weights Legs A
+// Day 5 (Thu) = weights Push B
+// Day 6 (Fri) = weights Pull B
+// Day 7 (Sat) = weights Shoulders
 const manyStrengthDays = [
-  { id: "ms-day-1", day_index: 1, day_type: "rest" as const, label: null },
-  { id: "ms-day-2", day_index: 2, day_type: "weights" as const, label: "Push A" },
-  { id: "ms-day-3", day_index: 3, day_type: "weights" as const, label: "Pull A" },
+  { id: "ms-day-1", day_index: 1, day_type: "weights" as const, label: "Push A" },
+  { id: "ms-day-2", day_index: 2, day_type: "weights" as const, label: "Pull A" },
+  { id: "ms-day-3", day_index: 3, day_type: "rest" as const, label: null },
   { id: "ms-day-4", day_index: 4, day_type: "weights" as const, label: "Legs A" },
   { id: "ms-day-5", day_index: 5, day_type: "weights" as const, label: "Push B" },
   { id: "ms-day-6", day_index: 6, day_type: "weights" as const, label: "Pull B" },
-  { id: "ms-day-7", day_index: 7, day_type: "rest" as const, label: null },
+  { id: "ms-day-7", day_index: 7, day_type: "weights" as const, label: "Shoulders" },
 ];
 
-const mondayManyStrength = "2026-10-13"; // Monday, rest (first day of cycle week)
+const sundayManyProgram = {
+  ...noRepeatProgram,
+  id: "prog-many-strength",
+  started_on: "2026-10-12", // Sunday week 1
+  current_cycle: 1,
+};
 
-const mondayManyDeps: BuildPageInput = {
+// Test on Tuesday 2026-10-14 (week 1, day 3 = rest): Monday (Pull A) was missed
+const tuesdayRest = "2026-10-14"; // Tuesday week 1
+
+// Create a completed session for Sunday to have "started"
+const sundaySession = {
+  id: "sess-sun-w1",
+  local_date: "2026-10-12", // Sunday week 1 (Push A)
+  status: "completed" as const,
+  actual_type: "weights" as const,
+  program_id: sundayManyProgram.id,
+  program_day_id: "ms-day-1", // Push A
+  started_at: "2026-10-12T10:00:00Z",
+  created_at: "2026-10-12T09:00:00Z",
+};
+
+const tuesdayManyDeps: BuildPageInput = {
   profile: {
     id: "user-2",
     created_at: "2026-01-01T00:00:00Z",
     timezone: "UTC",
   },
-  localToday: mondayManyStrength,
-  yesterday: "2026-10-12",
+  localToday: tuesdayRest,
+  yesterday: "2026-10-13", // Monday (day 2, Pull A - missed)
   timezone: "UTC",
-  program: noRepeatProgram,
+  program: sundayManyProgram,
   days: manyStrengthDays,
   allSessionsRes: {
-    data: [],
+    data: [{ actual_type: "weights" as const, started_at: "2026-10-12T10:00:00Z" }],
     error: null,
   },
   weekSessionsRes: {
-    data: [],
+    data: [sundaySession],
     error: null,
   },
   todaySessionsRes: {
@@ -731,17 +760,44 @@ const mondayManyDeps: BuildPageInput = {
     error: null,
   },
   yesterdaySessionsRes: {
-    data: [],
+    data: [], // No session yesterday = Monday missed
     error: null,
   },
   sessionExercisesRes: { data: null, error: null },
 };
 
-const mondayManyPage = buildPage(mondayManyDeps);
+const tuesdayManyPage = buildPage(tuesdayManyDeps);
 
 assert(
-  mondayManyPage.trainAnywayDays.length === 2,
-  `(B14) Max 2 options on rest day (Lift + 1), got ${mondayManyPage.trainAnywayDays.length}`
+  tuesdayManyPage.trainAnywayDays.length === 3,
+  `(B14) Max 3 options total (Lift + missed + 1), got ${tuesdayManyPage.trainAnywayDays.length}`
+);
+
+// Verify that the 4th+ candidates are dropped:
+// Rest-day list (upcoming in cycle week): Legs A (day 4), Push B (day 5), Pull B (day 6), Shoulders (day 7)
+// Missed: Pull A (day 2, yesterday)
+// Expected top 3: Legs A (Lift, first upcoming), Pull A (missed), Push B (third)
+// Dropped: Pull B, Shoulders (4th and 5th)
+const labels = tuesdayManyPage.trainAnywayDays.map(d => d.label);
+assert(
+  labels.length === 3 && labels[0] === "Legs A",
+  `(B14) First option is Legs A (Lift), got ${labels[0]}`
+);
+assert(
+  labels[1] === "Pull A",
+  `(B14) Second option is Pull A (missed yesterday), got ${labels[1]}`
+);
+assert(
+  labels[2] === "Push B",
+  `(B14) Third option is Push B, got ${labels[2]}`
+);
+assert(
+  !labels.includes("Pull B"),
+  "(B14) 4th candidate 'Pull B' is dropped"
+);
+assert(
+  !labels.includes("Shoulders"),
+  "(B14) 5th candidate 'Shoulders' is dropped"
 );
 
 console.log("\n=== Test (M2-fixed): Completed row INSIDE cycle week ===\n");
