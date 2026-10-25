@@ -161,6 +161,56 @@ async function main() {
     check("Miss: weight drops to 57.5", decision.nextWorkingWeightKg === 57.5, `${decision.nextWorkingWeightKg}`);
   }
 
+  console.log("\n3. State weight test: current=50 vs best=60 (would catch best_weight_kg swap)");
+  {
+    const sessionExercise: SessionExerciseRow = {
+      id: "se-3",
+      session_id: "sess-3",
+      exercise_id: "ex-bench",
+      planned_sets: 4,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "horizontal_press",
+        equipment_ids: ["barbell"],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    };
+
+    const sets: SessionSetRow[] = [
+      { reps: 10, weight_kg: "50", duration_seconds: null },
+      { reps: 10, weight_kg: "50", duration_seconds: null },
+      { reps: 10, weight_kg: "50", duration_seconds: null },
+      { reps: 10, weight_kg: "50", duration_seconds: null },
+    ];
+
+    const progress: ExerciseProgressRow = {
+      current_working_weight_kg: "50", // Current prescribed weight
+      current_target_reps: 12,
+      consecutive_failures: 0,
+      best_weight_kg: "60", // Historical best is higher
+      best_reps: 12,
+      best_e1rm: "84",
+      total_sessions: 5,
+    };
+
+    const session: SessionRow = {
+      is_deload: false,
+      local_date: "2026-10-25",
+      program_id: "prog-1",
+    };
+
+    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
+    const decision = evaluateProgression(input);
+
+    check("State weight: outcome hold (in-range)", decision.outcome === "hold", decision.outcome);
+    check("State weight: next weight is current (50), not best (60)", decision.nextWorkingWeightKg === 50, `${decision.nextWorkingWeightKg}`);
+    check("State weight: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
+  }
+
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
   
   if (failures === 0) {
