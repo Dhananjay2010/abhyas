@@ -802,7 +802,7 @@ export function SessionRunner({
     const target = nextSetTarget(exercises, displayedExerciseId);
     if (!target) return;
 
-    const clientId = `${target.sessionExerciseId}:${target.setNumber}:${deps.now()}`;
+    const clientId = `${target.sessionExerciseId}:${target.setNumber}:${Date.now()}`;
 
     await createConcurrentGuard(async () => {
       setBusy(true);
