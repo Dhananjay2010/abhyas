@@ -1427,7 +1427,7 @@ function Stat({ label, value }: { label: string; value: string }) {
  * implemented navigator.vibrate at all -- so the state is shown rather than
  * assumed.
  */
-function CapabilityNote({
+export function CapabilityNote({
   wakeLock,
   soundEnabled,
   soundUnlocked,

@@ -3,18 +3,19 @@
  * Test: Session page hydration fix (React error #418)
  *
  * Hydration mismatch when /session/* page is reloaded: CapabilityNote component
- * calls vibrationSupported() during render, which checks typeof navigator.
- * On server: navigator is undefined → returns false
- * On client: navigator may be defined → returns true
- * Result: Server renders "vibration unsupported here", client doesn't (or vice versa)
+ * calls vibrationSupported() during render via useVibrationSupported hook.
+ * Without the fix, server would differ from client's initial render.
  *
- * Fix: useVibrationSupported hook returns false during SSR/initial render,
- * then updates to actual value in an effect.
+ * This test imports the REAL useVibrationSupported and CapabilityNote from src,
+ * renders on server (no navigator), hydrates on client (with navigator.vibrate),
+ * and asserts no hydration error.
  */
 
 import React from "react";
 import { renderToString } from "react-dom/server";
+import { hydrateRoot } from "react-dom/client";
 import { JSDOM } from "jsdom";
+import { CapabilityNote } from "../src/app/session/[id]/session-runner.js";
 
 let passed = 0;
 let failed = 0;
@@ -29,122 +30,45 @@ function check(label: string, condition: boolean) {
   }
 }
 
-console.log("Testing session hydration (React error #418)\n");
+console.log("Testing session hydration (React error #418) with REAL src code\n");
 
-// Mock the vibrationSupported function as it exists in device.ts
-const vibrationSupportedOriginal = () =>
-  typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+// Step 1: Server-side render WITHOUT navigator
+console.log("--- Step 1: Server render (no navigator) ---\n");
 
-// Simplified CapabilityNote component that exhibits the bug
-function CapabilityNoteBuggy({ vibrateEnabled }: { vibrateEnabled: boolean }) {
-  const bits: string[] = [];
-  bits.push("screen kept awake");
-  // This is the problematic line - calls vibrationSupported() during render
-  if (vibrateEnabled && !vibrationSupportedOriginal()) {
-    bits.push("vibration unsupported here");
-  }
-  return React.createElement("p", { className: "note" }, bits.join(" · "));
-}
-
-// Fixed version using useSyncExternalStore
-function useVibrationSupported(): boolean {
-  return React.useSyncExternalStore(
-    React.useCallback(() => () => {}, []), // subscribe (no-op)
-    () => typeof navigator !== "undefined" && typeof navigator.vibrate === "function", // getSnapshot
-    () => false, // getServerSnapshot (SSR) - returns false
-  );
-}
-
-function CapabilityNoteFixed({ vibrateEnabled }: { vibrateEnabled: boolean }) {
-  const bits: string[] = [];
-  bits.push("screen kept awake");
-  const vibrationSupported = useVibrationSupported();
-  if (vibrateEnabled && !vibrationSupported) {
-    bits.push("vibration unsupported here");
-  }
-  return React.createElement("p", { className: "note" }, bits.join(" · "));
-}
-
-// Test 1: Buggy version causes hydration mismatch
-console.log("--- Testing BUGGY version (should show mismatch) ---\n");
-
-// Server render (no navigator)
-const serverHtmlBuggy = renderToString(
-  React.createElement(CapabilityNoteBuggy, { vibrateEnabled: true })
-);
-console.log("Server HTML:", serverHtmlBuggy);
-check(
-  "Server renders with 'vibration unsupported here' (no navigator)",
-  serverHtmlBuggy.includes("vibration unsupported here")
-);
-
-// Client render in JSDOM (has navigator, but no vibrate function)
-const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
-
-// Set up global environment for client simulation
-Object.defineProperty(global, "navigator", {
-  value: dom.window.navigator,
-  writable: true,
-  configurable: true,
-});
-Object.defineProperty(global, "document", {
-  value: dom.window.document,
-  writable: true,
-  configurable: true,
-});
-Object.defineProperty(global, "window", {
-  value: dom.window,
-  writable: true,
-  configurable: true,
-});
-
-// Now vibrationSupportedOriginal() will return false on client too (JSDOM doesn't have vibrate)
-// But in a real browser with vibration support, it would return true
-// Let's simulate a browser with vibration support
-Object.defineProperty(dom.window.navigator, "vibrate", {
-  value: () => true,
-  writable: true,
-  configurable: true,
-});
-
-const clientHtmlBuggy = renderToString(
-  React.createElement(CapabilityNoteBuggy, { vibrateEnabled: true })
-);
-console.log("Client HTML (with vibrate):", clientHtmlBuggy);
-
-// In a browser with vibration support, vibrationSupported() returns true,
-// so the condition vibrateEnabled && !vibrationSupported() is false,
-// meaning "vibration unsupported here" is NOT added
-check(
-  "Client with vibration does NOT render 'vibration unsupported here'",
-  !clientHtmlBuggy.includes("vibration unsupported here")
-);
-
-check(
-  "HYDRATION MISMATCH: server and client HTML differ",
-  serverHtmlBuggy !== clientHtmlBuggy
-);
-
-// Test 2: Fixed version has no hydration mismatch
-console.log("\n--- Testing FIXED version (should match) ---\n");
-
-// Reset navigator to undefined for server simulation
+// Clean up any existing globals from the environment
+const savedNavigator = (global as { navigator?: unknown }).navigator;
+const savedDocument = (global as { document?: unknown }).document;
+const savedWindow = (global as { window?: unknown }).window;
 Reflect.deleteProperty(global, "navigator");
 Reflect.deleteProperty(global, "document");
 Reflect.deleteProperty(global, "window");
 
-const serverHtmlFixed = renderToString(
-  React.createElement(CapabilityNoteFixed, { vibrateEnabled: true })
-);
-console.log("Server HTML:", serverHtmlFixed);
-check(
-  "Server renders with 'vibration unsupported here' (initial state is false)",
-  serverHtmlFixed.includes("vibration unsupported here")
+const serverHTML = renderToString(
+  <CapabilityNote
+    wakeLock={{ supported: true, active: true, error: null }}
+    soundEnabled={false}
+    soundUnlocked={false}
+    vibrateEnabled={true}
+  />
 );
 
-// Client initial render (before effects run) should also have supported=false
-Object.defineProperty(global, "navigator", {
-  value: dom.window.navigator,
+console.log("Server HTML:", serverHTML);
+check(
+  "Server renders with 'vibration unsupported here'",
+  serverHTML.includes("vibration unsupported here")
+);
+
+// Step 2: Client-side hydration WITH navigator.vibrate
+console.log("\n--- Step 2: Client hydration (with navigator.vibrate) ---\n");
+
+const dom = new JSDOM("<!DOCTYPE html><html><body><div id='root'></div></body></html>", {
+  url: "http://localhost/",
+  pretendToBeVisual: true,
+});
+
+// Set up jsdom globals with vibration support
+Object.defineProperty(global, "window", {
+  value: dom.window,
   writable: true,
   configurable: true,
 });
@@ -153,30 +77,101 @@ Object.defineProperty(global, "document", {
   writable: true,
   configurable: true,
 });
-Object.defineProperty(global, "window", {
-  value: dom.window,
+Object.defineProperty(global, "navigator", {
+  value: dom.window.navigator,
   writable: true,
   configurable: true,
 });
+
+// Add vibrate function to navigator (simulating a browser that supports vibration)
+const vibrateFunc = function (pattern: number | number[]): boolean {
+  return true;
+};
 Object.defineProperty(dom.window.navigator, "vibrate", {
-  value: () => true,
+  value: vibrateFunc,
   writable: true,
   configurable: true,
+  enumerable: true,
 });
 
-const clientHtmlFixed = renderToString(
-  React.createElement(CapabilityNoteFixed, { vibrateEnabled: true })
-);
-console.log("Client HTML (initial render):", clientHtmlFixed);
-check(
-  "Client initial render also has 'vibration unsupported here' (useState default is false)",
-  clientHtmlFixed.includes("vibration unsupported here")
+// Inject server HTML into container
+const container = dom.window.document.getElementById("root");
+if (!container) throw new Error("Container not found");
+container.innerHTML = serverHTML;
+
+// Capture hydration errors
+const recoverableErrors: unknown[] = [];
+
+// Hydrate with error capture
+hydrateRoot(
+  container,
+  <CapabilityNote
+    wakeLock={{ supported: true, active: true, error: null }}
+    soundEnabled={false}
+    soundUnlocked={false}
+    vibrateEnabled={true}
+  />,
+  {
+    onRecoverableError: (error: unknown) => {
+      recoverableErrors.push(error);
+    },
+  }
 );
 
+// Step 3: Assertions
+console.log("--- Step 3: Verify no hydration errors ---\n");
+
+// Check for hydration-related errors
+const hydrationErrors = recoverableErrors.filter((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("Hydration") ||
+    message.includes("hydration") ||
+    message.includes("#418") ||
+    message.includes("did not match")
+  );
+});
+
+check("No hydration errors detected", hydrationErrors.length === 0);
+
+// The initial render should still have "vibration unsupported here" because
+// useVibrationSupported returns false on initial render (getServerSnapshot)
 check(
-  "NO HYDRATION MISMATCH: server and client initial HTML match",
-  serverHtmlFixed === clientHtmlFixed
+  "Container still has 'vibration unsupported here' after hydration",
+  container.innerHTML.includes("vibration unsupported here")
 );
+
+// Restore original globals to prevent errors in cleanup
+if (savedNavigator !== undefined) {
+  Object.defineProperty(global, "navigator", {
+    value: savedNavigator,
+    writable: true,
+    configurable: true,
+  });
+}
+if (savedDocument !== undefined) {
+  Object.defineProperty(global, "document", {
+    value: savedDocument,
+    writable: true,
+    configurable: true,
+  });
+}
+if (savedWindow !== undefined) {
+  Object.defineProperty(global, "window", {
+    value: savedWindow,
+    writable: true,
+    configurable: true,
+  });
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
+
+if (hydrationErrors.length > 0) {
+  console.error("\nHydration errors detected:");
+  hydrationErrors.forEach((err) => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(message);
+  });
+}
+
 if (failed > 0) process.exit(1);
