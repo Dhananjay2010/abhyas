@@ -301,14 +301,6 @@ export default async function TodayPage() {
     ),
   });
 
-  // Detect pull-forwards: sessions done earlier this week for their scheduled weekday
-  const pulledForward = pulledForwardDays({
-    sessions: allSessions,
-    program,
-    days: days ?? [],
-    localToday,
-  });
-
   // Only worth asking while today is still open to being changed.
   const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
 
