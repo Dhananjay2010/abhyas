@@ -1,12 +1,12 @@
 #!/usr/bin/env tsx
 /**
  * Test Today page deload wiring (MEDIUM-1):
- * Ensures Today calls mapTemplateRows(rows, session.is_deload).
+ * Ensures Today calls buildTodayRows with the correct isDeload flag.
  * 
- * Must FAIL if Today passes false or skips mapTemplateRows.
+ * Must FAIL if Today passes false or skips buildTodayRows.
  */
 
-import { mapTemplateRows } from "@/lib/today/map-template-rows";
+import { buildTodayRows } from "@/lib/today/build-today-rows";
 
 function check(label: string, pass: boolean, detail?: string) {
   if (pass) {
@@ -19,7 +19,6 @@ function check(label: string, pass: boolean, detail?: string) {
 
 console.log("Test Today deload wiring\n");
 
-// Test the mapTemplateRows function that Today uses
 const template = [{
   order_index: 0,
   target_sets: 4,
@@ -29,31 +28,35 @@ const template = [{
   exercises: { name: "Bench Press", cue: null, metric: "reps" as const },
 }];
 
-console.log("Case 1: Normal week (isDeload = false)\n");
-const normalResult = mapTemplateRows(template, false);
+console.log("Case 1: No actual rows, normal week\n");
+const normalResult = buildTodayRows({ actual: null, template, isDeload: false });
 check("Normal sets unchanged", normalResult[0].sets === 4, `got ${normalResult[0].sets}`);
 check("Normal reps unchanged", normalResult[0].repsMin === 8 && normalResult[0].repsMax === 12);
 
-console.log("\nCase 2: Deload week (isDeload = true)\n");
-const deloadResult = mapTemplateRows(template, true);
+console.log("\nCase 2: No actual rows, deload week\n");
+const deloadResult = buildTodayRows({ actual: null, template, isDeload: true });
 check("Deload sets reduced", deloadResult[0].sets === 2, `got ${deloadResult[0].sets} (from 4)`);
 check("Deload reps unchanged", deloadResult[0].repsMin === 8 && deloadResult[0].repsMax === 12);
 check("Deload rest unchanged", deloadResult[0].restSeconds === 180);
 
-console.log("\nCase 3: High-volume exercise (5 sets → 3 in deload)\n");
-const highVolumeTemplate = [{
+console.log("\nCase 3: Actual rows present (win over template+deload)\n");
+const actual = [{
   order_index: 0,
-  target_sets: 5,
-  target_reps_min: 6,
-  target_reps_max: 10,
-  rest_seconds: 240,
-  exercises: { name: "Squat", cue: null, metric: "reps" as const },
+  planned_sets: 3,
+  planned_reps_min: 10,
+  planned_reps_max: 15,
+  rest_seconds: 120,
+  status: "pending" as const,
+  metric: "reps" as const,
+  swapped_from_exercise_id: null,
+  exercises: { name: "Dumbbell Press", cue: "slow eccentric" },
 }];
 
-const highVolumeDeloadResult = mapTemplateRows(highVolumeTemplate, true);
-check("High-volume deload sets", highVolumeDeloadResult[0].sets === 3, `got ${highVolumeDeloadResult[0].sets} (from 5)`);
+const actualResult = buildTodayRows({ actual, template, isDeload: true });
+check("Actual rows win over deload", actualResult[0].sets === 3, `got ${actualResult[0].sets} (not 2 from deload)`);
+check("Actual name used", actualResult[0].name === "Dumbbell Press");
 
 console.log("\n✅ All Today deload wiring tests passed");
 console.log("\nMutant coverage:");
 console.log("  M1: Today passing false → would fail case 2");
-console.log("  M1b: Today skipping mapTemplateRows → would fail case 2\n");
+console.log("  M1b: buildTodayRows passing false internally → would fail case 2\n");

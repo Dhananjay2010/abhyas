@@ -66,10 +66,18 @@ export async function resolveSwapWeights(
       movementPattern,
     );
 
+    // On error reading is_deload, log and return null prefill (don't silently use full weight)
+    if (sessionRes.error) {
+      console.error("[resolveSwapWeights] Failed to read is_deload:", sessionRes.error);
+      // Still compute working weight if progress succeeded
+      const v = progressRes.data?.current_working_weight_kg;
+      const workingWeightKg = v == null ? null : Number(v);
+      return { weightPrefill: null, workingWeightKg, isBodyweight: equipmentIds.length === 0 };
+    }
+
     // On progress error, working weight is null (no header line)
-    const workingWeightKg = progressRes.error
-      ? null
-      : Number(progressRes.data?.current_working_weight_kg ?? null);
+    const progressValue = progressRes.data?.current_working_weight_kg;
+    const workingWeightKg = progressRes.error || progressValue == null ? null : Number(progressValue);
 
     const isBodyweight = equipmentIds.length === 0;
 

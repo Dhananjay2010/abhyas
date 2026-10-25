@@ -8,7 +8,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { randomUUID } from "crypto";
-import { ensureSessionExercises } from "@/app/session/actions";
+import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://localhost:54321";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";

@@ -15,7 +15,7 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
-import { mapTemplateRows } from "@/lib/today/map-template-rows";
+import { buildTodayRows } from "@/lib/today/build-today-rows";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 
 export const dynamic = "force-dynamic";
@@ -350,7 +350,7 @@ export default async function TodayPage() {
     planned_reps_min: number | null;
     planned_reps_max: number | null;
     rest_seconds: number | null;
-    status: string | null;
+    status: Database["public"]["Enums"]["exercise_status"] | null;
     swapped_from_exercise_id: string | null;
     metric: Database["public"]["Enums"]["exercise_metric"] | null;
     exercises: {
@@ -359,21 +359,7 @@ export default async function TodayPage() {
     } | null;
   }> | null;
 
-  const todayExercises: TodayRow[] =
-    actual && actual.length > 0
-      ? actual.map((r) => ({
-          key: `s${r.order_index}`,
-          name: r.exercises?.name ?? "",
-          cue: r.exercises?.cue ?? null,
-          metric: r.metric ?? null,
-          sets: r.planned_sets,
-          repsMin: r.planned_reps_min,
-          repsMax: r.planned_reps_max,
-          restSeconds: r.rest_seconds,
-          skipped: r.status === "skipped",
-          swappedIn: r.swapped_from_exercise_id !== null,
-        }))
-      : mapTemplateRows(template, isDeload);
+  const todayExercises: TodayRow[] = buildTodayRows({ actual, template, isDeload });
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show
