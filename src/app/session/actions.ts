@@ -332,17 +332,19 @@ export async function logSet(input: {
         }
       );
   
-  if (!validationResult.ok) {
-    return validationResult;
-  }
+      if (!validationResult.ok) {
+        return validationResult;
+      }
 
-  return logSetCore(supabase, user.id, {
-    sessionExerciseId: input.sessionExerciseId,
-    setNumber: input.setNumber,
-    reps: input.reps,
-    weightKg: input.weightKg,
-    durationSeconds,
-  });
+      return logSetCore(supabase, user.id, {
+        sessionExerciseId: input.sessionExerciseId,
+        setNumber: input.setNumber,
+        reps: input.reps,
+        weightKg: input.weightKg,
+        durationSeconds,
+      });
+    }
+  );
 }
 
 export async function deleteSet(
