@@ -38,26 +38,28 @@ if (global.window && global.window.HTMLDialogElement) {
 }
 
 // Polyfill requestAnimationFrame for JSDOM
+// This implementation is driven by the same timer infrastructure as setTimeout,
+// so when tests inject fake timers, rAF is also controlled.
 if (!global.requestAnimationFrame) {
-  let rafId = 0;
-  const rafCallbacks = new Map<number, FrameRequestCallback>();
-  
+  let nextRafId = 1;
+  const rafHandles = new Map<number, ReturnType<typeof setTimeout>>();
+
   global.requestAnimationFrame = (callback: FrameRequestCallback) => {
-    const id = ++rafId;
-    rafCallbacks.set(id, callback);
-    setImmediate(() => {
-      const cb = rafCallbacks.get(id);
-      if (cb) {
-        rafCallbacks.delete(id);
-        cb(Date.now());
-      }
-    });
-    return id;
+    const rafId = nextRafId++;
+    const handle = setTimeout(() => {
+      rafHandles.delete(rafId);
+      callback(Date.now());
+    }, 0);
+    rafHandles.set(rafId, handle);
+    return rafId;
   };
-}
-if (!global.cancelAnimationFrame) {
+  
   global.cancelAnimationFrame = (id: number) => {
-    // No-op for this simple polyfill
+    const handle = rafHandles.get(id);
+    if (handle) {
+      clearTimeout(handle);
+      rafHandles.delete(id);
+    }
   };
 }
 

@@ -275,7 +275,8 @@
     "test:finish-session-wiring": "tsx scripts/test-finish-session-wiring.ts",
     "test:today-ended-early-wiring": "tsx scripts/test-today-ended-early-wiring.ts",
     "test:abandon-no-revalidate-wiring": "tsx scripts/test-abandon-no-revalidate-wiring.ts",
-    "test:session-ended-early": "tsx scripts/test-session-ended-early.ts"
+    "test:session-ended-early": "tsx scripts/test-session-ended-early.ts",
+    "test:raf-fake-timer": "tsx scripts/test-raf-fake-timer.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
