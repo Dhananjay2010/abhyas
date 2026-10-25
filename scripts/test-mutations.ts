@@ -291,36 +291,33 @@ console.log("─".repeat(60));
 // Baseline: ensure tests pass before any mutations
 // Note: test:knee-safety-matrix has 73 known failures (≤2 core rule, pre-existing from main c00c8487)
 console.log("\nRunning baseline tests...");
-try {
-  const testedAlready = new Set<string>();
-  for (const mutant of mutants) {
-    for (const test of mutant.tests) {
-      if (testedAlready.has(test)) continue;
-      testedAlready.add(test);
-      
-      // Run test and check result
+const testedAlready = new Set<string>();
+for (const mutant of mutants) {
+  for (const test of mutant.tests) {
+    if (testedAlready.has(test)) continue;
+    testedAlready.add(test);
+    
+    // Run test and capture output
+    try {
       const result = execSync(`npm run ${test}`, { stdio: "pipe", encoding: "utf8" });
+      // Test passed with exit code 0
+    } catch (error: any) {
+      const output = error.stdout || "";
       
       // For test:knee-safety-matrix, allow exactly 73 failures (known issue from main)
-      if (test === "test:knee-safety-matrix" && result.includes("✗ 73 test(s) failed")) {
-        console.log(`  ${test}: 73 known failures (≤2 core rule, pre-existing)`);
+      if (test === "test:knee-safety-matrix" && output.includes("✗ 73 test(s) failed")) {
+        console.log(`  ${test}: 73 known failures (≤2 core rule, pre-existing from main)`);
         continue;
       }
       
-      // For other tests or unexpected failure counts, check passed
-      if (result.includes("failed") || result.includes("FAIL")) {
-        throw new Error(`Unexpected failure in ${test}`);
-      }
-      
-      testedAlready.add(test);
+      // Unexpected failure
+      console.error(`❌ FATAL: Baseline test ${test} failed unexpectedly`);
+      console.error(output || error.message);
+      process.exit(1);
     }
   }
-  console.log("✓ Baseline tests pass (with 73 known failures)\n");
-} catch (e) {
-  console.error("❌ FATAL: Baseline tests fail before mutations");
-  console.error(e instanceof Error ? e.message : String(e));
-  process.exit(1);
 }
+console.log("✓ Baseline tests pass (with 73 known failures)\n");
 
 // Setup SIGINT/SIGTERM trap to restore files on interrupt
 const backupFiles: string[] = [];
