@@ -177,17 +177,17 @@ console.log("\n2. High-impact leg exercise rule (data-driven from catalogue fiel
   }
   check(`All ${EXPECTED_HIGH_IMPACT_LEG_SLUGS.length} high-impact leg exercises excluded`, highImpactLegExcluded === EXPECTED_HIGH_IMPACT_LEG_SLUGS.length);
   
-  // Explicit wired checks for jumping rule killing mutant 5
+  // QA Steer (f): Coordinator decision - upper-body plyos WITHOUT lower-body take-off are ALLOWED
   const plyoPushUp = bySlug.get("plyo-push-up");
   const plyoKbPushups = bySlug.get("plyo-kettlebell-pushups");
   
   if (plyoPushUp) {
-    check("plyo-push-up excluded for past-knee", isExcludedForPastKnee(plyoPushUp), 
-      "Jumping filter must catch upper-body plyo moves");
+    check("plyo-push-up ALLOWED for past-knee", !isExcludedForPastKnee(plyoPushUp), 
+      "Upper-body plyos without lower-body take-off are allowed per coordinator decision");
   }
   if (plyoKbPushups) {
-    check("plyo-kettlebell-pushups excluded for past-knee", isExcludedForPastKnee(plyoKbPushups),
-      "Jumping filter must catch upper-body plyo moves");
+    check("plyo-kettlebell-pushups ALLOWED for past-knee", !isExcludedForPastKnee(plyoKbPushups),
+      "Upper-body plyos without lower-body take-off are allowed per coordinator decision");
   }
 }
 

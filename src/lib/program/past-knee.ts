@@ -128,10 +128,18 @@ function isHighImpactLegExercise(ex: CandidateExercise): boolean {
     return true;
   }
   
-  // Lower-body muscles - check if ANY primary muscle is a leg muscle
+  // Lower-body muscles - check if ANY primary OR secondary muscle is a leg muscle
+  // QA: medicine-ball-scoop-throw has shoulders primary but quads/hamstrings secondary + high impact
   const legMuscles = ["quads", "glutes", "hamstrings", "adductors", "calves"];
   
   for (const muscle of ex.primary_muscles) {
+    if (legMuscles.includes(muscle)) {
+      return true;
+    }
+  }
+  
+  // Also check secondary muscles for high-impact exercises with leg involvement
+  for (const muscle of ex.secondary_muscles || []) {
     if (legMuscles.includes(muscle)) {
       return true;
     }
