@@ -68,7 +68,7 @@ async function testTwoClientEquipment() {
     }
     throw new Error(`Sign up failed: ${signUpError.message}`);
   }
-  const userId = signUpData.user!.id;
+  userId = signUpData.user!.id;
   
   console.log(`  Created test user: ${userId}`);
   

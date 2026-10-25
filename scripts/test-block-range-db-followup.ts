@@ -31,6 +31,52 @@ function assert(condition: boolean, message: string) {
 
 // Setup auth schema for Postgres container test environment
 async function setupAuthSchema(pool: Pool) {
+  // L7 Guard: Never run against a real Supabase database
+  const allowStub = process.env.ALLOW_AUTH_SCHEMA_STUB === '1';
+  const isCI = !!process.env.CI;
+  
+  if (!allowStub) {
+    // Check DATABASE_URL for localhost or abhyas_test
+    const url = DATABASE_URL || '';
+    const isLocalhost = url.includes('localhost') || url.includes('127.0.0.1') || url.includes('::1');
+    const isTestDb = url.includes('abhyas_test');
+    
+    if (!isCI) {
+      console.log("\n⏭️  Skipping auth schema setup (not CI, set ALLOW_AUTH_SCHEMA_STUB=1 to allow)");
+      console.log("   DATABASE_URL:", url.replace(/:[^:@]+@/, ':***@'));
+      return;
+    }
+    
+    if (!isLocalhost && !isTestDb) {
+      console.error("\n❌ GUARD: auth schema setup refused (not localhost/abhyas_test)");
+      console.error("   DATABASE_URL:", url.replace(/:[^:@]+@/, ':***@'));
+      console.error("   Set ALLOW_AUTH_SCHEMA_STUB=1 to bypass (DANGEROUS)");
+      process.exit(1);
+    }
+  }
+  
+  // Check if auth.uid() already exists with Supabase's real definition
+  const { rows } = await pool.query(`
+    SELECT p.prosrc, p.proname
+    FROM pg_proc p
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE n.nspname = 'auth' AND p.proname = 'uid'
+  `);
+  
+  if (rows.length > 0) {
+    // Check if it's the test stub (our definition) or real Supabase
+    const isTestStub = rows[0].prosrc.includes("current_setting('request.jwt.claim.sub'");
+    if (!isTestStub) {
+      if (process.env.CI) {
+        console.error("\n❌ GUARD: auth.uid() exists with non-test definition (refusing to replace real Supabase auth)");
+        process.exit(1);
+      } else {
+        console.log("\n⏭️  Skipping auth schema setup (auth.uid() already exists with non-test definition)");
+        return;
+      }
+    }
+  }
+  
   await pool.query(`
     CREATE SCHEMA IF NOT EXISTS auth;
     

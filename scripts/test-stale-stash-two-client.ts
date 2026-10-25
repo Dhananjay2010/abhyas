@@ -175,7 +175,7 @@ async function testInjuriesTwoClient() {
     console.log(`\nClient A: Removes knee (stashes operation due to 401)`);
     const stashedOperations: PendingChange[] = [
       {
-        key: "injury",
+        key: "injuries",
         type: "injury",
         patch: { operation: "setInjury", bodyRegion: "knee", present: false },
         timestamp: Date.now(),

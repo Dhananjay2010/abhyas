@@ -192,7 +192,7 @@ export function SettingsForm({
   
   /** Track retry metadata for each key (M1 fix #2) */
   const retryMetadata = useRef<Map<string, {
-    type: 'profile' | 'session' | 'equipment' | 'injuries';
+    type: SaveType;
     patch?: Parameters<typeof actions.updateProfileSettings>[0] | Parameters<typeof actions.updateSessionSettings>[0] | unknown;
     affectsPlan?: boolean;
     retryFn?: () => void;
@@ -251,7 +251,7 @@ export function SettingsForm({
     // Use the extracted restore logic with real server actions
     startTransition(async () => {
       try {
-        await replayPendingOps(pending.changes, {
+        const { handledCount, unrecognizedOps } = await replayPendingOps(pending.changes, {
           updateProfileSettings: actions.updateProfileSettings,
           updateSessionSettings: actions.updateSessionSettings,
           setEquipmentItem: actions.setEquipmentItem,
@@ -261,6 +261,13 @@ export function SettingsForm({
           updateInjuries: actions.updateInjuries,
         });
         
+        // H1b fix: Never clear stash if ops were unrecognized (L5 fix)
+        if (unrecognizedOps.length > 0) {
+          const errorMsg = `Some changes could not be restored: ${unrecognizedOps.join(', ')}`;
+          setError(errorMsg);
+          return;
+        }
+        
         // Only clear the stash after ALL operations succeed
         clearPendingChanges();
       } catch (err) {
@@ -269,9 +276,9 @@ export function SettingsForm({
           notifySessionExpired();
           return;
         }
-        // L5 fix: For other errors, keep the stash (don't clear it)
-        // The user may be able to retry after fixing the issue
-        throw err;
+        // L5 fix: For other errors, keep the stash and show inline error (don't throw to error boundary)
+        const errorMsg = err instanceof Error ? err.message : 'Failed to restore pending changes';
+        setError(errorMsg);
       }
     });
   });
@@ -418,10 +425,9 @@ export function SettingsForm({
       lastSavedDob.current = initial.dateOfBirth;
       currentDob.current = initial.dateOfBirth;
       
-      // LOW 4 (QA Bots 1 and 2): Clear planStale when props re-sync
-      // Props changed means router.refresh brought new data (possibly from rebuild)
+      // M1 fix: Props sync must not clear planStale
+      // Keep rebuild prompt until user rebuilds/dismisses or derived from server state
       startTransition(() => {
-        setPlanStale(false);
         setPendingPropsSync(null);
       });
     } else {
@@ -475,9 +481,8 @@ export function SettingsForm({
       lastSavedDob.current = pendingPropsSync.dateOfBirth;
       currentDob.current = pendingPropsSync.dateOfBirth;
       
-      // LOW 4 (QA Bots 1 and 2): Clear planStale when props re-sync
+      // M1 fix: Props sync must not clear planStale
       startTransition(() => {
-        setPlanStale(false);
         setPendingPropsSync(null);
       });
     }
@@ -861,7 +866,7 @@ export function SettingsForm({
   function saveInjuries(injuries: Parameters<typeof actions.updateInjuries>[0]) {
     // Store retry metadata
     retryMetadata.current.set("injuries", {
-      type: 'injuries',
+      type: 'injury',
       patch: injuries
     });
     enqueueSave("injuries", () => actions.updateInjuries(injuries), true);
@@ -907,19 +912,19 @@ export function SettingsForm({
                     // M1 fix #2: Retry through appropriate save function
                     const metadata = retryMetadata.current.get(key);
                     if (metadata) {
-                      if (metadata.type === 'profile' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
-                        saveProfile(key, metadata.patch as Parameters<typeof actions.updateProfileSettings>[0], metadata.affectsPlan);
-                      } else if (metadata.type === 'session' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
-                        saveSession(key, metadata.patch as Parameters<typeof actions.updateSessionSettings>[0]);
-                      } else if (metadata.type === 'equipment' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch) && 'hasAll' in metadata.patch && 'equipmentIds' in metadata.patch) {
-                        const equipPatch = metadata.patch as { hasAll: boolean; equipmentIds: string[] };
-                        saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
-                      } else if (metadata.type === 'injuries' && Array.isArray(metadata.patch)) {
-                        saveInjuries(metadata.patch as Parameters<typeof actions.updateInjuries>[0]);
-                      } else if (metadata.retryFn) {
-                        // Per-item equipment/injury retry (PRIORITY 1)
-                        metadata.retryFn();
-                      }
+                    if (metadata.type === 'profile' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
+                      saveProfile(key, metadata.patch as Parameters<typeof actions.updateProfileSettings>[0], metadata.affectsPlan);
+                    } else if (metadata.type === 'session' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
+                      saveSession(key, metadata.patch as Parameters<typeof actions.updateSessionSettings>[0]);
+                    } else if (metadata.type === 'equipment' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch) && 'hasAll' in metadata.patch && 'equipmentIds' in metadata.patch) {
+                      const equipPatch = metadata.patch as { hasAll: boolean; equipmentIds: string[] };
+                      saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
+                    } else if (metadata.type === 'injury' && Array.isArray(metadata.patch)) {
+                      saveInjuries(metadata.patch as Parameters<typeof actions.updateInjuries>[0]);
+                    } else if (metadata.retryFn) {
+                      // Per-item equipment/injury retry (PRIORITY 1)
+                      metadata.retryFn();
+                    }
                     }
                   }}
                   className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-accent underline underline-offset-2"
@@ -1030,6 +1035,12 @@ export function SettingsForm({
         <button
           onClick={() => {
             const newState = !s.hasAllEquipment;
+            
+            // L1 fix: Don't save has_all=false with empty equipment array
+            if (!newState && s.equipmentIds.length === 0) {
+              setEquipmentHint("Pick at least one item; nothing changes until you do");
+              return;
+            }
             
             // PRIORITY 1: Atomic has_all set (explicit state)
             setS(prev => ({ ...prev, hasAllEquipment: newState }));
@@ -1184,6 +1195,12 @@ export function SettingsForm({
                           // PRIORITY 1: Atomic equipment set (explicit state) to prevent data loss
                           const newState = !on;
                           const equipmentId = e.id;
+                          
+                          // L1 fix: Don't remove last item if has_all is already false
+                          if (!newState && !s.hasAllEquipment && s.equipmentIds.length === 1) {
+                            setEquipmentHint("Pick at least one item or turn on \"I have it all\"");
+                            return;
+                          }
                           
                           // Optimistic update
                           setS(prev => ({ 
@@ -1350,7 +1367,7 @@ export function SettingsForm({
                   // Store metadata with per-item operation (for retry and stashing)
                   const injuryPatch = { operation: 'setInjury' as const, bodyRegion, present: newState, severity };
                   retryMetadata.current.set("injuries", { 
-                    type: 'injuries', 
+                    type: 'injury', 
                     patch: injuryPatch,
                     retryFn: () => {
                       startTransition(async () => {
@@ -1389,11 +1406,19 @@ export function SettingsForm({
                           const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                           const newChange = {
                             key: "injuries",
-                            type: "injuries" as SaveType,
-                            patch: metadata.patch,
+                            type: "injury" as SaveType,
+                            patch: { operation: 'setInjury' as const, bodyRegion, present: newState, severity },
                             timestamp: Date.now()
                           };
-                          const merged = existingChanges.filter(ch => ch.key !== "injuries").concat(newChange);
+                          // H1b fix: Accumulate per-region injury changes by bodyRegion (like M2 equipment)
+                          const merged = existingChanges.filter(ch => {
+                            if (ch.key !== "injuries") return true;
+                            const p = ch.patch;
+                            if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                'operation' in p && p.operation === 'setInjury' && 
+                                'bodyRegion' in p && p.bodyRegion === bodyRegion) return false;
+                            return true;
+                          }).concat(newChange);
                           stashPendingChanges(merged, pathname, userId);
                         }
                         notifySessionExpired();
@@ -1425,11 +1450,19 @@ export function SettingsForm({
                           const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                           const newChange = {
                             key: "injuries",
-                            type: "injuries" as SaveType,
-                            patch: metadata.patch,
+                            type: "injury" as SaveType,
+                            patch: { operation: 'setInjury' as const, bodyRegion, present: newState, severity },
                             timestamp: Date.now()
                           };
-                          const merged = existingChanges.filter(ch => ch.key !== "injuries").concat(newChange);
+                          // H1b fix: Accumulate per-region injury changes by bodyRegion (like M2 equipment)
+                          const merged = existingChanges.filter(ch => {
+                            if (ch.key !== "injuries") return true;
+                            const p = ch.patch;
+                            if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                'operation' in p && p.operation === 'setInjury' && 
+                                'bodyRegion' in p && p.bodyRegion === bodyRegion) return false;
+                            return true;
+                          }).concat(newChange);
                           stashPendingChanges(merged, pathname, userId);
                         }
                         notifySessionExpired();
@@ -1480,7 +1513,7 @@ export function SettingsForm({
                         // Store metadata with per-item operation (for retry and stashing)
                         const injuryPatch = { operation: 'setInjury' as const, bodyRegion, present: true, severity };
                         retryMetadata.current.set("injuries", { 
-                          type: 'injuries', 
+                          type: 'injury', 
                           patch: injuryPatch,
                           retryFn: () => {
                             startTransition(async () => {
@@ -1519,11 +1552,19 @@ export function SettingsForm({
                                 const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                                 const newChange = {
                                   key: "injuries",
-                                  type: "injuries" as SaveType,
-                                  patch: metadata.patch,
+                                  type: "injury" as SaveType,
+                                  patch: { operation: 'setInjury' as const, bodyRegion, present: true, severity },
                                   timestamp: Date.now()
                                 };
-                                const merged = existingChanges.filter(ch => ch.key !== "injuries").concat(newChange);
+                                // H1b fix: Accumulate per-region injury changes by bodyRegion (like M2 equipment)
+                                const merged = existingChanges.filter(ch => {
+                                  if (ch.key !== "injuries") return true;
+                                  const p = ch.patch;
+                                  if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                      'operation' in p && p.operation === 'setInjury' && 
+                                      'bodyRegion' in p && p.bodyRegion === bodyRegion) return false;
+                                  return true;
+                                }).concat(newChange);
                                 stashPendingChanges(merged, pathname, userId);
                               }
                               notifySessionExpired();
@@ -1557,11 +1598,19 @@ export function SettingsForm({
                                 const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                                 const newChange = {
                                   key: "injuries",
-                                  type: "injuries" as SaveType,
-                                  patch: metadata.patch,
+                                  type: "injury" as SaveType,
+                                  patch: { operation: 'setInjury' as const, bodyRegion, present: true, severity },
                                   timestamp: Date.now()
                                 };
-                                const merged = existingChanges.filter(ch => ch.key !== "injuries").concat(newChange);
+                                // H1b fix: Accumulate per-region injury changes by bodyRegion (like M2 equipment)
+                                const merged = existingChanges.filter(ch => {
+                                  if (ch.key !== "injuries") return true;
+                                  const p = ch.patch;
+                                  if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                      'operation' in p && p.operation === 'setInjury' && 
+                                      'bodyRegion' in p && p.bodyRegion === bodyRegion) return false;
+                                  return true;
+                                }).concat(newChange);
                                 stashPendingChanges(merged, pathname, userId);
                               }
                               notifySessionExpired();

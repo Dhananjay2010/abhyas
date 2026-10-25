@@ -189,6 +189,73 @@ async function testM1_RebuildPromptAfterSessionLengthChange(): Promise<boolean> 
   return true;
 }
 
+async function testM1_RebuildPromptSurvivesPropsSync(): Promise<boolean> {
+  const userId = '00000000-0000-0000-0000-000000000004';
+
+  const actions: SettingsActions = {
+    updateProfileSettings: async () => ({ ok: true }),
+    updateSessionSettings: async () => ({ ok: true }),
+    updateEquipment: async () => ({ ok: true }),
+    updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
+  };
+
+  const { getAllByRole, queryAllByText, rerender } = render(
+    <SettingsForm
+      userId={userId}
+      initial={initialState}
+      equipment={equipment}
+      timezones={timezones}
+      actions={actions}
+    />
+  );
+
+  const user = userEvent.setup();
+
+  // Click kettlebell to trigger rebuild prompt
+  const kettlebellButtons = getAllByRole('button', { name: /kettlebell/i, pressed: false });
+  await user.click(kettlebellButtons[0]);
+
+  // Wait for rebuild prompt to appear
+  await waitFor(() => {
+    const rebuildPrompts = queryAllByText(/rebuild.*block/i);
+    if (rebuildPrompts.length === 0) {
+      throw new Error('Rebuild prompt did not appear yet');
+    }
+  }, { timeout: 3000 });
+
+  console.log('  ✓ Rebuild prompt appeared after equipment change');
+
+  // Simulate a revalidate by rerendering with updated props (like after a save)
+  const updatedState = { ...initialState, equipmentIds: [...initialState.equipmentIds, 'kettlebell'] };
+  act(() => {
+    rerender(
+      <SettingsForm
+        userId={userId}
+        initial={updatedState}
+        equipment={equipment}
+        timezones={timezones}
+        actions={actions}
+      />
+    );
+  });
+
+  // Wait a bit for the rerender to settle
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  // Check if rebuild prompt is STILL visible
+  const rebuildPromptsAfterRerender = queryAllByText(/rebuild.*block/i);
+  if (rebuildPromptsAfterRerender.length === 0) {
+    console.error('  ❌ Rebuild prompt vanished after props sync (M1 bug)');
+    return false;
+  }
+
+  console.log('  ✓ Rebuild prompt survived props sync');
+  return true;
+}
+
 (async () => {
   console.log('\n🧪 M1 Regression: Rebuild prompt never shows after per-item saves\n');
 
@@ -196,8 +263,9 @@ async function testM1_RebuildPromptAfterSessionLengthChange(): Promise<boolean> 
     const result1 = await testM1_RebuildPromptAfterEquipmentChange();
     const result2 = await testM1_RebuildPromptAfterInjuryChange();
     const result3 = await testM1_RebuildPromptAfterSessionLengthChange();
+    const result4 = await testM1_RebuildPromptSurvivesPropsSync();
 
-    if (result1 && result2 && result3) {
+    if (result1 && result2 && result3 && result4) {
       console.log('\n✅ All M1 tests passed!\n');
       process.exit(0);
     } else {

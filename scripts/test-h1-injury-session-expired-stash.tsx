@@ -11,11 +11,11 @@
  */
 
 import './helpers/setup-jsdom';
-import { render, waitFor, within } from '@testing-library/react';
+import { render, waitFor, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SettingsForm, type SettingsState, type SettingsActions } from '../src/app/settings/settings-form';
 import { SESSION_EXPIRED_CODE } from '../src/lib/auth/session-expired';
-import { getPendingChanges } from '../src/lib/auth/pending-changes';
+import { getPendingChanges, clearPendingChanges } from '../src/lib/auth/pending-changes';
 
 interface TestResult {
   passed: boolean;
@@ -103,7 +103,7 @@ async function testH1_InjuryStashOnSessionExpired(): Promise<TestResult> {
     };
   }
 
-  const injuryChange = pending.changes.find(ch => ch.type === 'injuries');
+  const injuryChange = pending.changes.find(ch => ch.type === 'injury');
   
   if (!injuryChange) {
     return {
@@ -212,7 +212,7 @@ async function testH1_InjurySeverityStashOnSessionExpired(): Promise<TestResult>
     };
   }
 
-  const injuryChange = pending.changes.find(ch => ch.type === 'injuries');
+  const injuryChange = pending.changes.find(ch => ch.type === 'injury');
   
   if (!injuryChange) {
     return {
@@ -246,17 +246,135 @@ async function testH1_InjurySeverityStashOnSessionExpired(): Promise<TestResult>
   };
 }
 
+async function testH1b_MultiRegionInjuryAccumulation(): Promise<TestResult> {
+  const userId = '00000000-0000-0000-0000-000000000003';
+  const actions: SettingsActions = {
+    updateProfileSettings: async () => ({ ok: true }),
+    updateSessionSettings: async () => ({ ok: true }),
+    updateEquipment: async () => ({ ok: true }),
+    updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => {
+      // Simulate session expired
+      return { ok: false, error: SESSION_EXPIRED_CODE, code: SESSION_EXPIRED_CODE };
+    },
+  };
+
+  const { getAllByRole, queryByText } = render(
+    <SettingsForm
+      userId={userId}
+      initial={initialState}
+      equipment={equipment}
+      timezones={timezones}
+      actions={actions}
+    />
+  );
+
+  const user = userEvent.setup();
+  
+  // Tap Knee first (find the unpressed chip button in the selection area)
+  const allKneeButtons = getAllByRole('button', { name: /knee/i });
+  const kneeChip = allKneeButtons.find(btn => btn.getAttribute('aria-pressed') === 'false');
+  if (!kneeChip) {
+    return {
+      passed: false,
+      message: 'No unpressed Knee chip button found',
+    };
+  }
+  
+  // Tap Lower back second
+  const allLowerBackButtons = getAllByRole('button', { name: /lower back/i });
+  const lowerBackChip = allLowerBackButtons.find(btn => btn.getAttribute('aria-pressed') === 'false');
+  if (!lowerBackChip) {
+    return {
+      passed: false,
+      message: 'No unpressed Lower back chip button found',
+    };
+  }
+  
+  // Tap both quickly
+  await user.click(kneeChip);
+  await user.click(lowerBackChip);
+  
+  // Wait for session expired prompt and stashing to complete
+  await waitFor(() => {
+    if (!queryByText(/session.*expired/i)) {
+      throw new Error('Waiting for session expired prompt');
+    }
+  }, { timeout: 2000 });
+  
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  // Check that both regions are stashed
+  const pending = getPendingChanges(userId);
+  
+  if (!pending) {
+    // Debug: check sessionStorage directly
+    const raw = typeof window !== 'undefined' ? window.sessionStorage.getItem('abhyas_pending_settings') : null;
+    return {
+      passed: false,
+      message: `No pending changes stashed. SessionStorage raw: ${raw ? 'exists' : 'null'}`,
+    };
+  }
+  
+  const injuryChanges = pending.changes.filter(ch => ch.type === 'injury');
+  
+  if (injuryChanges.length < 2) {
+    return {
+      passed: false,
+      message: `Expected 2 injury changes (knee + lower_back), got ${injuryChanges.length}. Changes: ${JSON.stringify(injuryChanges)}`,
+    };
+  }
+  
+  const kneeChange = injuryChanges.find(ch => {
+    const p = ch.patch;
+    return p && typeof p === 'object' && 'bodyRegion' in p && p.bodyRegion === 'knee';
+  });
+  
+  const lowerBackChange = injuryChanges.find(ch => {
+    const p = ch.patch;
+    return p && typeof p === 'object' && 'bodyRegion' in p && p.bodyRegion === 'lower_back';
+  });
+  
+  if (!kneeChange) {
+    return {
+      passed: false,
+      message: 'Knee change not found in stash (overwritten by lower_back)',
+    };
+  }
+  
+  if (!lowerBackChange) {
+    return {
+      passed: false,
+      message: 'Lower back change not found in stash',
+    };
+  }
+  
+  return {
+    passed: true,
+    message: 'Both knee and lower_back injury changes accumulated in stash (H1b fix)',
+  };
+}
+
 (async () => {
   console.log('\n🧪 H1 Regression: Injury tap crashes during session expiry\n');
 
   try {
     const result1 = await testH1_InjuryStashOnSessionExpired();
     console.log(result1.passed ? `  ✓ ${result1.message}` : `  ❌ ${result1.message}`);
+    cleanup();
+    clearPendingChanges();
 
     const result2 = await testH1_InjurySeverityStashOnSessionExpired();
     console.log(result2.passed ? `  ✓ ${result2.message}` : `  ❌ ${result2.message}`);
+    cleanup();
+    clearPendingChanges();
 
-    if (result1.passed && result2.passed) {
+    const result3 = await testH1b_MultiRegionInjuryAccumulation();
+    console.log(result3.passed ? `  ✓ ${result3.message}` : `  ❌ ${result3.message}`);
+
+    if (result1.passed && result2.passed && result3.passed) {
       console.log('\n✅ All H1 tests passed!\n');
       process.exit(0);
     } else {
