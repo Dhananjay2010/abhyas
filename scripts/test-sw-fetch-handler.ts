@@ -6,6 +6,8 @@
  *
  * This test includes a mutant that DOES cache navigations, which should
  * fail the test, proving the test would catch that regression.
+ * 
+ * Test validates the navigation-caching guard runs in CI.
  */
 
 console.log("Testing Service Worker Fetch Handler");
