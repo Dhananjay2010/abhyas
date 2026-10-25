@@ -311,24 +311,23 @@ swap_prefill() {
 }
 test_mutant "SWAP: undefined equipmentIds in swap-prefill" swap_prefill
 
-# MED-3: No third-miss step-down
-med3() {
+# BARBELL: incrementFor ignores equipmentIds
+barbell_grid() {
   local file="$PROG"
-  # Remove the entire MED-3 block that checks failures >= 3
-  local count
-  count=$(grep -c 'if (failures >= 3 && reduced === currentWeight && equipmentIds) {' "$file" || true)
+  local search='export function incrementFor(meta: ExerciseMeta, equipmentIds?: string[]): number {'
+  local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
-    echo "ERROR: MED-3 pattern found $count times (expected 1)" >&2
+    echo "ERROR: incrementFor signature not found" >&2
     return 1
   fi
-  # Remove the MED-3 block by replacing it with a comment
-  perl -0pi -e 's/\s*\/\/ MED-3: Third\+ consecutive miss[^\n]*\n\s*if \(failures >= 3 && reduced === currentWeight && equipmentIds\) \{[^}]*\{[^}]*\}[^}]*\}/\n    \/\/ MUTANT: MED-3 removed/s' "$file"
+  # Remove equipmentIds parameter and equipment grid logic
+  perl -0pi -e 's/(export function incrementFor\(meta: ExerciseMeta), equipmentIds\?: string\[\]\): number \{[^}]*const mechanicIncrement[^;]+;\s*\/\/ If equipment is specified.*?return mechanicIncrement;\s*\}\s*return mechanicIncrement;\s*\}/$1): number { if (meta.mechanic === "isolation") return 1.25; return LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5; }/s' "$file"
   if cmp -s "$file" "$BACKUP_PROG"; then
-    echo "ERROR: MED-3 did not change the file" >&2
+    echo "ERROR: BARBELL did not change the file" >&2
     return 1
   fi
 }
-test_mutant "MED-3: no third-miss step-down" med3
+test_mutant "BARBELL: incrementFor ignores equipment grid" barbell_grid
 
 echo
 echo "==========================================="

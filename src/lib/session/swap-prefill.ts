@@ -87,7 +87,7 @@ export async function resolveSwapPrefill(
             progressionChain: null,
             progressionRank: null,
           },
-          isBodyweight ? undefined : equipmentIds,
+          undefined,
         );
       }
     }
@@ -114,7 +114,7 @@ export async function resolveSwapPrefill(
           progressionChain: null,
           progressionRank: null,
         },
-        isBodyweight ? undefined : equipmentIds,
+        undefined,
       );
     }
 

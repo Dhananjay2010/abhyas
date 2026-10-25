@@ -123,20 +123,41 @@ const LOWER_BODY: ReadonlySet<Pattern> = new Set<Pattern>([
 /**
  * Smallest sensible jump for this exercise, per SPEC section 6:
  * isolation +1.25 kg, upper compound +2.5 kg, lower compound +5 kg.
+ * 
+ * When equipmentIds is provided, returns the larger of the mechanic-based increment
+ * and the equipment grid step to ensure barbell exercises never use sub-2.5 kg increments.
  */
-export function incrementFor(meta: ExerciseMeta): number {
-  if (meta.mechanic === "isolation") return 1.25;
-  return LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;
+export function incrementFor(meta: ExerciseMeta, equipmentIds?: string[]): number {
+  const mechanicIncrement = meta.mechanic === "isolation" ? 1.25 : 
+    LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;
+  
+  // If equipment is specified, ensure we never go below the equipment grid
+  if (equipmentIds && equipmentIds.length > 0) {
+    const equipGrid = equipmentGridStep(equipmentIds, 'kg');
+    return Math.max(mechanicIncrement, equipGrid);
+  }
+  
+  return mechanicIncrement;
 }
 
 /**
  * Step size for added weight on bodyweight exercises.
  * Upper-body and isolation: 1.25 kg. Lower-body: 2.5 kg.
  * Never 5 kg, and never doubled for 'easy' feel.
+ * 
+ * When equipmentIds is provided, returns the larger of the pattern-based step
+ * and the equipment grid to ensure proper snapping.
  */
-export function addedWeightStep(meta: ExerciseMeta): number {
-  if (meta.mechanic === "isolation") return 1.25;
-  return LOWER_BODY.has(meta.movementPattern) ? 2.5 : 1.25;
+export function addedWeightStep(meta: ExerciseMeta, equipmentIds?: string[]): number {
+  const patternStep = meta.mechanic === "isolation" ? 1.25 :
+    LOWER_BODY.has(meta.movementPattern) ? 2.5 : 1.25;
+  
+  if (equipmentIds && equipmentIds.length > 0) {
+    const equipGrid = equipmentGridStep(equipmentIds, 'kg');
+    return Math.max(patternStep, equipGrid);
+  }
+  
+  return patternStep;
 }
 
 /**
@@ -634,7 +655,8 @@ export function evaluateProgression(input: {
       }
     } else {
       // No equipment info: use standard increment, doubled when easy (preserve old behavior)
-      const step = isBodyweightWithAddedWeight ? addedWeightStep(meta) : incrementFor(meta);
+      // Pass equipmentIds to incrementFor/addedWeightStep to respect equipment grid even in fallback
+      const step = isBodyweightWithAddedWeight ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
       const jump = isBodyweightWithAddedWeight || feel !== "easy" ? step : step * 2;
       const rawNext = from + jump;
       next = roundToGrid(rawNext, equipmentIds, undefined, step, 'up');
@@ -963,7 +985,7 @@ export function suggestedWeight(
   
   // Deload: about 70% of working weight, on a loadable increment.
   // Bodyweight exercises with added weight use their own smaller steps.
-  const step = meta.isBodyweight && w > 0 ? addedWeightStep(meta) : incrementFor(meta);
+  const step = meta.isBodyweight && w > 0 ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
   
   // For kettlebells, skip rounding to step and go directly to bell grid
   const isKettlebell = equipmentIds?.includes('kettlebell');
