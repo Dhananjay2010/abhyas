@@ -9,6 +9,7 @@
  * 
  * This test fails when the fix is reverted: the raw error leaks to the user.
  */
+import "./helpers/setup-jsdom";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
