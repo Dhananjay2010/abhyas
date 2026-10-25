@@ -31,17 +31,16 @@ async function main() {
   // Fake resolveSwapWeights that records which exercise id it received
   let capturedExerciseId: string | null = null;
   const fakeResolveSwapWeights: SwapExerciseDeps["resolveSwapWeights"] = async (
-    _sessionId,
+    _,
     newExerciseId,
     equipmentIds,
-    _metric,
-    _movementPattern,
   ) => {
     capturedExerciseId = newExerciseId;
     // Return distinct values so we can verify they're passed through unchanged
     return {
       weightPrefill: 42.5,
       workingWeightKg: 100,
+      currentTargetReps: 10,
       isBodyweight: equipmentIds.length === 0,
     };
   };
@@ -92,6 +91,13 @@ async function main() {
     `got ${result.workingWeightKg}, expected 100`,
   );
 
+  // currentTargetReps: Must be passed through unchanged
+  check(
+    "currentTargetReps passed through unchanged",
+    result.currentTargetReps === 10,
+    `got ${result.currentTargetReps}, expected 10`,
+  );
+
   // Also verify isBodyweight is computed correctly (not bodyweight for barbell)
   check(
     "isBodyweight false for barbell",
@@ -113,16 +119,15 @@ async function main() {
   };
 
   const fakeBWResolveSwapWeights: SwapExerciseDeps["resolveSwapWeights"] = async (
-    _sessionId,
+    _,
     newExerciseId,
     equipmentIds,
-    _metric,
-    _movementPattern,
   ) => {
     capturedExerciseId = newExerciseId;
     return {
       weightPrefill: null,
       workingWeightKg: null,
+      currentTargetReps: null,
       isBodyweight: equipmentIds.length === 0,
     };
   };
