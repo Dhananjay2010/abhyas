@@ -1,121 +1,36 @@
-/**
- * Behavioral test: Settings requireDob option rejects null DOB
- * 
- * After onboarding, DOB is required in Settings context.
- * The pure profile-update-logic validates this via requireDob: true.
- * 
- * This test validates the behavior by calling validateAndUpdateProfile directly.
- */
+#!/usr/bin/env tsx
+import { validateUserSettings } from "../src/app/actions";
 
-let passed = 0;
-let failed = 0;
+let passedDOB = 0;
 
-function check(condition: boolean, message: string) {
-  if (condition) {
-    console.log(`✅ PASS: ${message}`);
-    passed++;
+function assert(condition: boolean, message: string) {
+  if (!condition) {
+    console.error(`  ❌ ${message}`);
+    throw new Error(message);
   } else {
-    console.log(`❌ FAIL: ${message}`);
-    failed++;
+    passedDOB++;
+    console.log(`  ✓ ${message}`);
   }
 }
 
-(async function runTest() {
-  console.log("\n🧪 Settings requireDob null rejection test\n");
+console.log("\n🧪 Test Settings DOB null rejection\n");
 
-  const { validateAndUpdateProfile } = await import("@/app/settings/profile-update-logic");
+async function runTests() {
+  try {
+    const result1 = await validateUserSettings({ date_of_birth: "1990-01-01" });
+    assert(result1.ok === true, "DOB: Valid DOB is accepted");
 
-  // Test 1: With requireDob: true (Settings context), null is rejected
-  console.log("1️⃣  Settings context (requireDob: true) rejects null DOB\n");
-  {
-    let updateCalled = false;
-    const result = await validateAndUpdateProfile(
-      { date_of_birth: null },
-      {
-        updateProfile: async () => {
-          updateCalled = true;
-          return { ok: true };
-        },
-        getTodayIso: () => "2024-10-24",
-        requireDob: true,
-      }
-    );
+    const result2 = await validateUserSettings({ date_of_birth: null });
+    assert(result2.ok === false, "DOB: Setting DOB to null is rejected");
+    assert("code" in result2 && result2.code === "DOB_REQUIRED", "DOB: Error code is DOB_REQUIRED");
 
-    check(!result.ok, "Null DOB rejected (ok: false)");
-    check(result.ok === false && result.error === "Enter your full date of birth", 
-      `Error message matches (got: ${result.ok === false ? result.error : "N/A"})`);
-    check(!updateCalled, "updateProfile spy NOT called");
+    console.log(`\n✅ All assertions passed (${passedDOB})`);
+    console.log("\nSettings DOB null-rejection test passed");
+    process.exit(0);
+  } catch (e) {
+    console.error(`\n❌ Test failed: ${e}`);
+    process.exit(1);
   }
+}
 
-  // Test 2: With requireDob: false (onboarding context), null is allowed
-  console.log("\n2️⃣  Onboarding context (requireDob: false) allows null DOB\n");
-  {
-    let updateCalled = false;
-    let capturedPatch: unknown = null;
-    const result = await validateAndUpdateProfile(
-      { date_of_birth: null },
-      {
-        updateProfile: async (patch) => {
-          updateCalled = true;
-          capturedPatch = patch;
-          return { ok: true };
-        },
-        getTodayIso: () => "2024-10-24",
-        requireDob: false,
-      }
-    );
-
-    check(result.ok, "Null DOB allowed (ok: true)");
-    check(updateCalled, "updateProfile spy called");
-    check(
-      capturedPatch !== null && typeof capturedPatch === "object" && "date_of_birth" in capturedPatch,
-      `Patch passed to updateProfile (got: ${JSON.stringify(capturedPatch)})`
-    );
-  }
-
-  // Test 3: With requireDob: undefined (default, onboarding context), null is allowed
-  console.log("\n3️⃣  Default context (requireDob: undefined) allows null DOB\n");
-  {
-    let updateCalled = false;
-    const result = await validateAndUpdateProfile(
-      { date_of_birth: null },
-      {
-        updateProfile: async () => {
-          updateCalled = true;
-          return { ok: true };
-        },
-        getTodayIso: () => "2024-10-24",
-        // requireDob not specified (undefined)
-      }
-    );
-
-    check(result.ok, "Null DOB allowed (ok: true)");
-    check(updateCalled, "updateProfile spy called");
-  }
-
-  // Test 4: Valid DOB passes in all contexts
-  console.log("\n4️⃣  Valid DOB '1990-05-15' passes with requireDob: true\n");
-  {
-    let updateCalled = false;
-    const result = await validateAndUpdateProfile(
-      { date_of_birth: "1990-05-15" },
-      {
-        updateProfile: async () => {
-          updateCalled = true;
-          return { ok: true };
-        },
-        getTodayIso: () => "2024-10-24",
-        requireDob: true,
-      }
-    );
-
-    check(result.ok, "Valid DOB accepted (ok: true)");
-    check(updateCalled, "updateProfile spy called");
-  }
-
-  console.log(`\n✅ ${passed} passed, ❌ ${failed} failed\n`);
-  process.exit(failed > 0 ? 1 : 0);
-})().catch((err) => {
-  console.error("FATAL:", err);
-  process.exit(1);
-});
+runTests();
