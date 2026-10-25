@@ -35,11 +35,10 @@ const days = [
 const firstDay = findFirstTrainingDay(days);
 
 assert(firstDay !== null, "Must find a first training day");
-// firstDay already checked above
-assert(firstDay.dayIndex === 2, "First training day must be day 2 (Tuesday), not day 1");
-assert(firstDay!.label === "Push", "Label must be Push");
-// firstDay already checked above
-assert(firstDay.dayType === "weights", "Day type must be weights");
-assert(firstDay!.programDayId === "day-2", "Program day ID must be day-2");
+const firstDayDef = assertDefined(firstDay, 'firstDay');
+assert(firstDayDef.dayIndex === 2, "First training day must be day 2 (Tuesday), not day 1");
+assert(firstDayDef.label === "Push", "Label must be Push");
+assert(firstDayDef.dayType === "weights", "Day type must be weights");
+assert(firstDayDef.programDayId === "day-2", "Program day ID must be day-2");
 
 console.log("\n✅ First training day (day 1 = rest) test passed\n");
