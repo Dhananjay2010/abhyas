@@ -354,4 +354,56 @@ assert(
   "Unchanged plan has isChoice=false (no override)"
 );
 
+console.log("\n=== Test 8: P-MISSED-ANY - Veteran user, missed yesterday, empty week ===\n");
+
+// A long-time user who trained weeks ago, missed yesterday (training day),
+// and has no sessions this week. Must get missed prompt, not first-day welcome.
+const veteranMissedInput = {
+  ...baseInput,
+  localToday: "2026-01-12", // Monday (day_index 1, training day)
+  yesterday: "2026-01-11", // Sunday (day_index 7, rest day in fixture but treating as training for test)
+  days: [
+    ...baseInput.days.slice(0, 6),
+    { id: "day7", day_index: 7, day_type: "weights" as const, label: "Upper" }, // Make Sunday a training day
+  ],
+  // All-time query: user trained weeks ago
+  allSessionsRes: {
+    data: [
+      {
+        local_date: "2026-01-03", // Weeks ago
+        status: "completed",
+        actual_type: "weights" as const,
+        program_day_id: "day1",
+        started_at: "2026-01-03T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  // Week window: empty (no sessions this week)
+  todaySessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [], // No session yesterday = missed
+    error: null,
+  },
+  sessionExercisesRes: {
+    data: [],
+    error: null,
+  },
+};
+
+const result8 = buildPage(veteranMissedInput);
+
+assert(
+  result8.todayState.missedYesterday === true,
+  "P-MISSED-ANY: Veteran user who missed yesterday gets missed prompt"
+);
+
+assert(
+  result8.promptBlocks.showFirstSessionOffer === false,
+  "P-MISSED-ANY: Veteran user doesn't get 'Welcome to your first workout'"
+);
+
 console.log("\n✅ All buildPage tests passed!\n");

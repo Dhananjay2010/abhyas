@@ -28,7 +28,7 @@ export default async function TodayPage() {
   // Nothing here depends on anything else here, so all these go at once. This
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
-  const [profileRes, programRes, equipmentRes, openRes] = await Promise.all([
+  const [profileRes, programRes, equipmentRes, openRes, hasStartedAnyRes] = await Promise.all([
     // `maybeSingle`, not `single`: a missing row is a state to handle, not an
     // exception. With `single` PostgREST answers "Cannot coerce the result to a
     // single JSON object", which threw during the server render and reached the
@@ -230,7 +230,7 @@ export default async function TodayPage() {
       deload_week: program.deload_week,
     },
     days: days ?? [],
-    allSessionsRes: sessionsRes,
+    allSessionsRes: hasStartedAnyRes,
     todaySessionsRes: sessionsRes,
     yesterdaySessionsRes: sessionsRes,
     sessionExercisesRes,
