@@ -7,6 +7,8 @@ import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { resolveAuth } from "@/lib/session/auth-result";
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
 import { ageOn } from "@/lib/onboarding/options";
 import {
@@ -47,6 +49,7 @@ export type SetConflictResult = {
     durationSeconds: number | null;
   }>;
 };
+
 
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
@@ -303,33 +306,41 @@ export async function logSet(input: {
   const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
   if (invalid) return { ok: false, error: invalid };
 
-  const { supabase, user } = await requireUser();
+  return await resolveAuth(
+    async () => {
+      const { supabase, user } = await getAuthedClient();
+      return { user, supabase };
+    },
+    async ({ user, supabase }) => {
+      if (!user) throw new Error("Not signed in");
+      
+      // Reject writes to sessions that are no longer in_progress or don't exist
+      // For ended sessions, allow idempotent retry if the exact set already exists
+      const validationDeps = buildLogSetValidationDeps(supabase);
+      const validationResult = await validateSessionForLogSet(
+        validationDeps, 
+        input.sessionExerciseId,
+        {
+          setNumber: input.setNumber,
+          reps: input.reps,
+          weightKg: input.weightKg,
+          durationSeconds,
+        }
+      );
+      
+      if (!validationResult.ok) {
+        return validationResult;
+      }
 
-  // Reject writes to sessions that are no longer in_progress or don't exist
-  // For ended sessions, allow idempotent retry if the exact set already exists
-  const validationDeps = buildLogSetValidationDeps(supabase);
-  const validationResult = await validateSessionForLogSet(
-    validationDeps, 
-    input.sessionExerciseId,
-    {
-      setNumber: input.setNumber,
-      reps: input.reps,
-      weightKg: input.weightKg,
-      durationSeconds,
+      return logSetCore(supabase, user.id, {
+        sessionExerciseId: input.sessionExerciseId,
+        setNumber: input.setNumber,
+        reps: input.reps,
+        weightKg: input.weightKg,
+        durationSeconds,
+      });
     }
   );
-  
-  if (!validationResult.ok) {
-    return validationResult;
-  }
-
-  return logSetCore(supabase, user.id, {
-    sessionExerciseId: input.sessionExerciseId,
-    setNumber: input.setNumber,
-    reps: input.reps,
-    weightKg: input.weightKg,
-    durationSeconds,
-  });
 }
 
 export async function deleteSet(
@@ -349,9 +360,6 @@ export async function deleteSet(
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
-import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
-
-export type { ProgressionFeedback };
 
 /**
  * Complete an exercise and apply progression from what was actually logged.
