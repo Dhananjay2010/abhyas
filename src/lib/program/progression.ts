@@ -103,6 +103,12 @@ export const HOLD_STEP_SECONDS = 5;
  */
 export const HOLD_CEILING_SECONDS = 120;
 
+/**
+ * First-miss hold threshold: when a single equipment grid step would cut more
+ * than this fraction of the current load, hold at the current weight instead.
+ */
+export const FIRST_MISS_HOLD_THRESHOLD = 0.20;
+
 /** Patterns driven by the legs and hips, where jumps can be larger. */
 const LOWER_BODY: ReadonlySet<Pattern> = new Set<Pattern>([
   "squat",
@@ -548,9 +554,75 @@ export function evaluateProgression(input: {
   const failures = state.consecutiveFailures + 1;
   const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
 
+  /**
+   * Shared helper: compute what the two-miss back-off would return.
+   * Used by both the actual two-miss path and the first-miss invariant clamp.
+   * 
+   * Returns the SMALLEST loadable value >= 90% (rounded to grid, at most one increment below) and < current.
+   * If no such value exists, returns current (hold).
+   */
+  function computeTwoMissResult(weight: number): number {
+    const liftIncrement = incrementFor(meta);
+    
+    // Hold at light weight
+    if (weight <= liftIncrement) {
+      return weight;
+    }
+    
+    const rawReduced = weight * 0.9;
+    const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
+    
+    // Snap to 2.5 or 1.25 grid, at most one increment below 90%
+    const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
+    const cap = rawReduced - liftIncrement;
+    const target = Math.max(snapped, cap);
+    
+    // Hold at light weight after reduction
+    if (target <= liftIncrement) {
+      return weight;
+    }
+    
+    // With equipment: find SMALLEST loadable value >= target and < current
+    if (equipmentIds && unit) {
+      let candidate: number | null = null;
+      
+      if (equipmentIds.includes('kettlebell')) {
+        // Kettlebell: find smallest bell >= target and < current
+        const bells = KETTLEBELL_WEIGHTS_KG;
+        for (const bell of bells) {
+          if (bell >= target - 0.001 && bell < weight - 0.001) {
+            candidate = bell;
+            break;
+          }
+        }
+      } else {
+        // Standard equipment: snap up to loadable grid
+        const gridStep = equipmentGridStep(equipmentIds, 'kg');
+        const snappedUp = Math.ceil(target / gridStep) * gridStep;
+        if (snappedUp < weight - 0.001) {
+          candidate = snappedUp;
+        }
+      }
+      
+      // If no loadable value found < current, hold
+      if (candidate === null) {
+        return weight;
+      }
+      
+      return candidate;
+    }
+    
+    // No equipment: return target (already capped and snapped)
+    // Never-raise check
+    if (target > weight) {
+      return weight;
+    }
+    
+    return target;
+  }
+
   if (failures >= 2 && currentWeight !== null && currentWeight > 0) {
     // Bodyweight with any stored or used added weight: drop to bodyweight entirely.
-    // Loaded exercises: reduce by ~10%.
     if (meta.isBodyweight) {
       return {
         ...carried,
@@ -561,11 +633,12 @@ export function evaluateProgression(input: {
         message: "Missed twice in a row — back to bodyweight to build up again.",
       };
     }
-    // Back-off: 90%, round to 2.5 kg grid (1.25 for isolation), never drop more than one increment
-    const liftIncrement = incrementFor(meta);
     
-    // HOLD when current weight is at or below the minimum step
-    if (currentWeight <= liftIncrement) {
+    // Use the shared helper for two-miss logic
+    const reduced = computeTwoMissResult(currentWeight);
+    
+    // If helper returned current weight, it's a hold
+    if (reduced === currentWeight) {
       return {
         ...carried,
         outcome: "hold",
@@ -576,59 +649,6 @@ export function evaluateProgression(input: {
       };
     }
     
-    const rawReduced = currentWeight * 0.9;
-    let reduced: number;
-    
-    if (equipmentIds && equipmentIds.includes('kettlebell')) {
-      // Kettlebell: snap to real bell (down), never more than one bell below current
-      const bells = KETTLEBELL_WEIGHTS_KG;
-      const currentIndex = bells.indexOf(currentWeight);
-      let targetIndex: number;
-      
-      if (currentIndex >= 0) {
-        // Current is exactly on a bell, drop at most one bell
-        targetIndex = Math.max(0, currentIndex - 1);
-      } else {
-        // Current is off-grid, find the bell at or below 90%
-        targetIndex = bells.findIndex(b => b >= rawReduced);
-        if (targetIndex === -1) {
-          targetIndex = bells.length - 1;
-        } else if (bells[targetIndex] > rawReduced && targetIndex > 0) {
-          targetIndex--;
-        }
-        // Ensure we don't drop more than one bell below current
-        const currentBellIndex = bells.findIndex(b => b >= currentWeight);
-        if (currentBellIndex > 0 && targetIndex < currentBellIndex - 1) {
-          targetIndex = currentBellIndex - 1;
-        }
-      }
-      
-      reduced = bells[targetIndex];
-    } else {
-      // Standard equipment: use 2.5 kg grid (1.25 kg for isolation), NOT the lift increment
-      const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
-      const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
-      // Never drop more than one lift increment below the 90% value
-      const minAllowed = rawReduced - liftIncrement;
-      reduced = Math.max(snapped, minAllowed);
-    }
-    
-    // Never RAISE on back-off
-    if (reduced > currentWeight) {
-      reduced = currentWeight;
-    }
-    
-    // HOLD if the computed weight is at or below the minimum step
-    if (reduced <= liftIncrement) {
-      return {
-        ...carried,
-        outcome: "hold",
-        nextWorkingWeightKg: currentWeight,
-        nextTargetReps: repsMax,
-        consecutiveFailures: 0,
-        message: "Missed twice in a row but already at light weight — holding to build back up.",
-      };
-    }
     return {
       ...carried,
       outcome: "backed_off",
@@ -643,26 +663,41 @@ export function evaluateProgression(input: {
   let nextWeight = currentWeight;
   if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
     const isKettlebell = equipmentIds.includes('kettlebell');
+    let candidateWeight: number;
+    
     if (isKettlebell) {
-      // Kettlebell: drop exactly one bell (always kg list, state is kg)
+      // Kettlebell: find the largest bell STRICTLY below current
       const bells = KETTLEBELL_WEIGHTS_KG;
-      const currentIndex = bells.indexOf(currentWeight);
-      if (currentIndex > 0) {
-        nextWeight = bells[currentIndex - 1];
-      } else {
-        // Not exactly on a bell, round down to previous bell
-        const candidate = roundToGrid(currentWeight - 0.1, equipmentIds, unit, incrementFor(meta), 'down');
-        // Never raise on miss
-        nextWeight = candidate < currentWeight ? candidate : currentWeight;
+      const epsilon = 0.001;
+      let found = currentWeight;  // Default to hold
+      for (let i = bells.length - 1; i >= 0; i--) {
+        if (bells[i] < currentWeight - epsilon) {
+          found = bells[i];
+          break;
+        }
       }
+      candidateWeight = found;
     } else {
-      // Standard equipment: drop by one grid step (always kg grid, state is kg)
+      // Standard equipment: find the largest grid point STRICTLY below current
       const gridStep = equipmentGridStep(equipmentIds, 'kg');
-      const rawDrop = currentWeight - gridStep;
-      const candidate = roundToGrid(rawDrop, equipmentIds, unit, gridStep, 'down');
-      // Never raise on miss
-      nextWeight = candidate < currentWeight ? candidate : currentWeight;
+      const epsilon = 0.001;
+      const stepsBelow = Math.floor((currentWeight - epsilon) / gridStep);
+      candidateWeight = stepsBelow * gridStep;
     }
+    
+    // Rule 1: if cut > 20%, hold instead
+    const cutFraction = (currentWeight - candidateWeight) / currentWeight;
+    if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {
+      candidateWeight = currentWeight;
+    }
+    
+    // Rule 2: if candidate < two-miss result, hold instead
+    const twoMissFloor = computeTwoMissResult(currentWeight);
+    if (candidateWeight < twoMissFloor) {
+      candidateWeight = currentWeight;
+    }
+    
+    nextWeight = candidateWeight;
   }
 
   const message = isTimed
@@ -671,7 +706,9 @@ export function evaluateProgression(input: {
       ? "Staying here until every set reaches the top of the range."
       : nextWeight !== null && nextWeight !== currentWeight
         ? `Missed the target — dropping to ${displayWeight(nextWeight, unit)}.`
-        : "Staying at this weight until every set reaches the top of the range.";
+        : equipmentIds && unit && currentWeight !== null && currentWeight > 0
+          ? "Missed the target but holding at this weight — it is the smallest available step."
+          : "Staying at this weight until every set reaches the top of the range.";
   
   return {
     ...carried,
@@ -698,13 +735,11 @@ export function suggestedWeight(
   const w = state.currentWorkingWeightKg;
   if (w === null || w <= 0) return null;
   
-  // Non-deload: snap current weight to grid if equipment info available, but never raise
+  // Non-deload: return current weight as-is
+  // Progression logic already ensures loadable values for increases
+  // Decreases may be off-grid due to rounding, but that's acceptable
+  // Holds keep exact weight
   if (!isDeload) {
-    if (equipmentIds && unit) {
-      const step = meta.isBodyweight && w > 0 ? addedWeightStep(meta) : incrementFor(meta);
-      const snapped = roundToGrid(w, equipmentIds, unit, step, 'down');
-      return Math.min(w, snapped);
-    }
     return w;
   }
   
