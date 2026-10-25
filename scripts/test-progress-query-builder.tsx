@@ -6,8 +6,9 @@
  */
 
 import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 
-// Mock Supabase client that tracks query construction
 type QueryStep = {
   method: string;
   args: unknown[];
@@ -16,27 +17,32 @@ type QueryStep = {
 class MockQueryBuilder {
   steps: QueryStep[] = [];
 
-  from(table: string) {
+  from(table: string): this {
     this.steps.push({ method: "from", args: [table] });
     return this;
   }
 
-  select(columns: string) {
+  select(columns: string): this {
     this.steps.push({ method: "select", args: [columns] });
     return this;
   }
 
-  eq(column: string, value: unknown) {
+  eq(column: string, value: unknown): this {
     this.steps.push({ method: "eq", args: [column, value] });
     return this;
   }
 }
 
-class MockClient {
+class InstrumentedSupabaseClient {
   builder = new MockQueryBuilder();
 
   from(table: string) {
     return this.builder.from(table);
+  }
+
+  // Cast to SupabaseClient for the test
+  asSupabaseClient(): SupabaseClient<Database> {
+    return this as unknown as SupabaseClient<Database>;
   }
 }
 
@@ -49,10 +55,9 @@ function check(name: string, pass: boolean) {
 console.log("Testing exercise progress query builder\n");
 
 // --- Test 1: Query builder includes .eq('user_id', userId) ---
-const mockClient = new MockClient();
+const mockClient = new InstrumentedSupabaseClient();
 const userId = "test-user-123";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-buildExerciseProgressQuery(mockClient as any, userId);
+buildExerciseProgressQuery(mockClient.asSupabaseClient(), userId);
 
 check(
   "Query calls .from('exercise_progress')",
@@ -77,9 +82,9 @@ check(
 );
 
 // --- Test 2: Different user ID is correctly applied ---
-const mockClient2 = new MockClient();
+const mockClient2 = new InstrumentedSupabaseClient();
 const anotherUserId = "another-user-456";
-buildExerciseProgressQuery(mockClient2, anotherUserId);
+buildExerciseProgressQuery(mockClient2.asSupabaseClient(), anotherUserId);
 
 check(
   "Query filters by the provided user_id",

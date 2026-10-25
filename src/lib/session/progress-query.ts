@@ -8,10 +8,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
-type QueryBuilder = ReturnType<SupabaseClient<Database>["from"]>;
-
 export function buildExerciseProgressQuery(
-  supabase: { from: (table: string) => QueryBuilder },
+  supabase: SupabaseClient<Database>,
   userId: string
 ) {
   return supabase
