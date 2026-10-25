@@ -302,11 +302,6 @@
     "test:pb-precision": "tsx scripts/test-pb-precision.ts",
     "test:pb-precision-mutants": "bash scripts/test-pb-precision-mutants.sh",
     "test:package-json-valid": "tsx scripts/test-package-json-valid.ts",
-<<<<<<< HEAD
-    "test:knee-volume": "tsx scripts/test-knee-volume.ts",
-    "test:knee-volume-identity": "tsx scripts/test-knee-volume-identity.ts",
-    "test:knee-volume-mutants": "bash scripts/test-knee-volume-mutants.sh"
-=======
     "test:scope124-mutants": "bash scripts/test-scope124-mutants.sh",
     "test:item13-stripped": "tsx scripts/test-item13-stripped-catalogue.ts",
     "test:olympic-lifts": "tsx scripts/test-olympic-lifts.ts",
@@ -314,8 +309,10 @@
     "test:past-knee-lunge-swaps": "tsx scripts/test-past-knee-lunge-swaps.ts",
     "test:swap-list-exhaustive": "tsx scripts/test-swap-list-exhaustive.ts",
     "test:swap-safety-behaviour": "tsx scripts/test-swap-safety-behaviour.ts",
-    "test:swap-banned-real-path": "tsx scripts/test-swap-banned-real-path.ts"
->>>>>>> origin/main
+    "test:swap-banned-real-path": "tsx scripts/test-swap-banned-real-path.ts",
+    "test:knee-volume": "tsx scripts/test-knee-volume.ts",
+    "test:knee-volume-identity": "tsx scripts/test-knee-volume-identity.ts",
+    "test:knee-volume-mutants": "bash scripts/test-knee-volume-mutants.sh"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

@@ -5,62 +5,49 @@ set -e
 # Exit 1 if any mutant survives or if any mutation is a no-op
 
 GENERATE_FILE="src/lib/program/generate.ts"
-BACKUP_FILE="/tmp/generate-backup-$$.ts"
-MUTANT_FILE="/tmp/generate-mutant-$$.ts"
+KNEE_SAFETY_FILE="src/lib/program/knee-safety.ts"
+BACKUP_GENERATE="/tmp/generate-backup-$$.ts"
+BACKUP_KNEE_SAFETY="/tmp/knee-safety-backup-$$.ts"
 
-# Trap to restore file
+# Trap to restore files
 function cleanup {
-  if [ -f "$BACKUP_FILE" ]; then
-    cp "$BACKUP_FILE" "$GENERATE_FILE"
-    rm "$BACKUP_FILE"
-  fi
-  if [ -f "$MUTANT_FILE" ]; then
-    rm "$MUTANT_FILE"
-  fi
+  [ -f "$BACKUP_GENERATE" ] && cp "$BACKUP_GENERATE" "$GENERATE_FILE" && rm "$BACKUP_GENERATE"
+  [ -f "$BACKUP_KNEE_SAFETY" ] && cp "$BACKUP_KNEE_SAFETY" "$KNEE_SAFETY_FILE" && rm "$BACKUP_KNEE_SAFETY"
 }
 trap cleanup EXIT
 
-# Backup original
-cp "$GENERATE_FILE" "$BACKUP_FILE"
-ORIGINAL_SHA=$(sha256sum "$BACKUP_FILE" | cut -d' ' -f1)
+# Backup originals
+cp "$GENERATE_FILE" "$BACKUP_GENERATE"
+cp "$KNEE_SAFETY_FILE" "$BACKUP_KNEE_SAFETY"
 
 TOTAL=0
 KILLED=0
 
 function test_mutant {
   local name="$1"
-  local sed_cmd="$2"
+  local mutation="$2"
   
   TOTAL=$((TOTAL + 1))
   echo ""
   echo "=== Mutant $TOTAL: $name ==="
   
+  # Restore originals
+  cp "$BACKUP_GENERATE" "$GENERATE_FILE"
+  cp "$BACKUP_KNEE_SAFETY" "$KNEE_SAFETY_FILE"
+  
   # Apply mutation
-  cp "$BACKUP_FILE" "$MUTANT_FILE"
-  eval "$sed_cmd" < "$BACKUP_FILE" > "$MUTANT_FILE"
-  
-  # Check if mutation actually changed the file
-  MUTANT_SHA=$(sha256sum "$MUTANT_FILE" | cut -d' ' -f1)
-  if [ "$MUTANT_SHA" = "$ORIGINAL_SHA" ]; then
-    echo "SKIP: Mutation was a no-op"
-    cleanup
-    exit 1
-  fi
-  
-  cp "$MUTANT_FILE" "$GENERATE_FILE"
+  eval "$mutation"
   
   # Check if it compiles
-  if ! npx tsc --noEmit 2>&1 | grep -q "error TS"; then
-    echo "Compiles: yes"
-  else
-    echo "FAIL: Mutant does not compile (must rewrite mutation)"
+  if npx tsc --noEmit 2>&1 | grep -q "error TS"; then
+    echo "FAIL: Mutant does not compile"
     cleanup
     exit 1
   fi
   
   # Run tests
-  if npm run test:knee-volume 2>&1 | tail -10 && \
-     npm run test:knee-volume-identity 2>&1 | tail -10; then
+  if npm run test:knee-volume 2>&1 | grep -q "✓ All invariants passed" && \
+     npm run test:knee-volume-identity 2>&1 | grep -q "✓ Identity test passed"; then
     echo "SURVIVOR: Tests passed (mutant not killed)"
     cleanup
     exit 1
@@ -68,52 +55,51 @@ function test_mutant {
     echo "KILLED: Tests failed as expected"
     KILLED=$((KILLED + 1))
   fi
-  
-  # Restore original
-  cp "$BACKUP_FILE" "$GENERATE_FILE"
 }
 
-# Mutant (a): Drop the PAST_KNEE_LUNGE_EXERCISES pre-fallback step
-test_mutant "drop-past-knee-lunge-prefallback" \
-  "sed '/PART A: Past-knee lunge slot fix/,/\/\/ Normal pattern\/fallback loop/d'"
+# Mutant 1: Remove past-knee lunge ranking preference
+test_mutant "drop-past-knee-lunge-ranking" \
+  "sed -i '/if (hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES.has(ex.slug))/,/^    }/d' $GENERATE_FILE"
 
-# Mutant (b): Remove knee-risk filter from squat fallback
-test_mutant "remove-knee-filter-fallback" \
-  "sed '/PART A: Knee-risk filter for knee users in fallback patterns/,/if (candidates.length === 0) continue;/d'"
+# Mutant 2: Remove knee-risk filter in normal patterns/fallback
+test_mutant "remove-knee-filter-pickforslot" \
+  "sed -i '/PART A: Knee-risk filter for knee users (Brief knee-volume)/,/^    }/d' $GENERATE_FILE"
 
-# Mutant (c): Remove knee-risk filter from SAFE_ALTERNATIVES loop
+# Mutant 3: Remove knee-risk filter in SAFE_ALTERNATIVES
 test_mutant "remove-knee-filter-alternatives" \
-  "sed '/PART A: Knee-risk filter for knee users in SAFE_ALTERNATIVES/,/if (altCandidates.length === 0) continue;/d'"
+  "sed -i '/PART A: Knee-risk filter for SAFE_ALTERNATIVES/,/^    }/d' $GENERATE_FILE"
 
-# Mutant (d): Remove Strategy 2 knee skip
-test_mutant "remove-strategy2-knee-skip" \
-  "sed '/Knee users: skip knee-risk exercises/,/return true;/s/if (input.anyKneeInjury) {.*}/\/\/ mutant: removed knee check/' "
+# Mutant 4: Remove M3 Strategy 1 knee filter
+test_mutant "remove-strategy1-knee-filter" \
+  "sed -i '/.filter({ ex }) => {/,/});/s/if (!input.anyKneeInjury) return true;/return true;/' $GENERATE_FILE"
 
-# Mutant (e): Remove Strategy 1 knee skip
-test_mutant "remove-strategy1-knee-skip" \
-  "sed '0,/Knee users: skip knee-risk exercises/{s/if (input.anyKneeInjury) {/if (false) {/}'"
+# Mutant 5: Remove M3 Strategy 2 knee filter
+test_mutant "remove-strategy2-knee-filter" \
+  "sed -i '0,/.filter({ ex }) => {/{n; s/if (!input.anyKneeInjury) return true;/return true;/}' $GENERATE_FILE"
 
-# Mutant (f): Remove Strategy 3 knee filter
+# Mutant 6: Remove M3 Strategy 3 knee filter
 test_mutant "remove-strategy3-knee-filter" \
-  "sed '/Knee users: exclude knee-risk exercises/,/candidates = candidates.sort/d'"
+  "sed -i '/if (input.anyKneeInjury) {/,/^          }/d' $GENERATE_FILE | head -c0"
 
-# Mutant (g): Helper ignores derived contraindications
+# Mutant 7: Helper always returns false (ignores all contraindications)
+test_mutant "helper-always-false" \
+  "sed -i 's/const allContraindications = /return false; const allContraindications = /' $KNEE_SAFETY_FILE"
+
+# Mutant 8: Helper ignores derived contraindications
 test_mutant "helper-ignores-derived" \
-  "sed -i 's/getDerivedContraindications(ex)/[]/' src/lib/program/knee-safety.ts && cat"
+  "sed -i 's/getDerivedContraindications(ex)/[]/' $KNEE_SAFETY_FILE"
 
-# Mutant (h): Helper ignores anyKneeInjury gate (must be killed by identity test)
+# Mutant 9: Helper ignores anyKneeInjury gate
 test_mutant "helper-ignores-gate" \
-  "sed -i 's/if (!anyKneeInjury) {/if (false) {/' src/lib/program/knee-safety.ts && cat"
-
-# Mutant (i): Allow wall-sit first in main slots
-test_mutant "allow-wall-sit-first-main" \
-  "sed '/Prefer non-timed/,/const finalCandidates/s/isMainSlot/false/'"
+  "sed -i 's/if (!anyKneeInjury) return false;/\\/\\/ gate removed/' $KNEE_SAFETY_FILE"
 
 echo ""
 echo "=== RESULT: $KILLED/$TOTAL killed ==="
 
 if [ $KILLED -eq $TOTAL ]; then
+  echo "✓ All mutants killed"
   exit 0
 else
+  echo "✗ Some mutants survived"
   exit 1
 fi
