@@ -20,6 +20,9 @@ import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { makeAbandonSessionDeps } from "@/lib/session/abandon-session-deps";
+import { finishSessionCore } from "@/lib/session/finish-session";
+import { makeFinishSessionDeps } from "@/lib/session/finish-session-deps";
+import { finishExerciseCore } from "@/lib/session/finish-exercise";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
@@ -515,27 +518,17 @@ export async function finishSession(input: {
   sessionId: string;
   durationSeconds: number;
   cooldownCompleted: boolean;
-}): Promise<Result> {
+}): Promise<Result<{ status: "completed" | "skipped" }>> {
   const rateLimit = await checkActionRateLimit("session");
-  if (rateLimit) return rateLimit;
+  if (rateLimit) return rateLimit as Result<{ status: "completed" | "skipped" }>;
   
   const { supabase } = await requireUser();
-  const { error } = await supabase
-    .from("sessions")
-    .update({
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      duration_seconds: input.durationSeconds,
-      cooldown_completed: input.cooldownCompleted,
-    })
-    .eq("id", input.sessionId);
-  if (error) return { ok: false, error: error.message };
 
   // Deliberately NOT revalidating here. Revalidating refreshes the session
   // route, whose "completed -> redirect to /today" guard then fires before the
   // client can show the summary, so the user never saw their totals or what
   // progression changed. Today is refreshed when they leave the summary.
-  return { ok: true };
+  return await finishSessionCore(makeFinishSessionDeps(supabase), input);
 }
 
 /**
@@ -560,9 +553,7 @@ export async function abandonSession(
 
   const { supabase } = await requireUser();
   const deps = makeAbandonSessionDeps(supabase);
-  const result = await abandonSessionCore(deps, sessionId, elapsedSeconds);
-  if (result.ok) revalidateTrainingData();
-  return result;
+  return await abandonSessionCore(deps, sessionId, elapsedSeconds);
 }
 
 /**
