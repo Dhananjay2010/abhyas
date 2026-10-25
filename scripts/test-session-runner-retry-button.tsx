@@ -168,7 +168,7 @@ async function testR4AndR4s() {
   
   // Wait for initial replay to fail
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Allow useEffect to run
   });
   
   await act(async () => {});
@@ -187,7 +187,7 @@ async function testR4AndR4s() {
   });
   
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Allow state update to propagate
   });
   
   assert(replayCallCount > beforeClick, "R4s: Clicking Retry button triggers controller.replay() (replayCallCount increased)");

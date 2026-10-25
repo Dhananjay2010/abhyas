@@ -163,7 +163,7 @@ async function test8f() {
   
   // Wait for mount
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Allow useEffect to run
   });
   
   await act(async () => {});
