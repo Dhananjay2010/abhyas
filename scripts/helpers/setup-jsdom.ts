@@ -23,6 +23,32 @@ Object.defineProperty(global, "self", { value: dom.window, writable: true, confi
 // Set React act environment flag
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+// Polyfill dialog.showModal() and dialog.close() for JSDOM
+if (global.window && global.window.HTMLDialogElement) {
+  if (!global.window.HTMLDialogElement.prototype.showModal) {
+    global.window.HTMLDialogElement.prototype.showModal = function () {
+      this.setAttribute("open", "");
+    };
+  }
+  if (!global.window.HTMLDialogElement.prototype.close) {
+    global.window.HTMLDialogElement.prototype.close = function () {
+      this.removeAttribute("open");
+    };
+  }
+}
+
+// Polyfill requestAnimationFrame for JSDOM
+if (!global.requestAnimationFrame) {
+  global.requestAnimationFrame = (callback: FrameRequestCallback) => {
+    return setTimeout(() => callback(Date.now()), 0) as unknown as number;
+  };
+}
+if (!global.cancelAnimationFrame) {
+  global.cancelAnimationFrame = (id: number) => {
+    clearTimeout(id);
+  };
+}
+
 // Track router.refresh calls for tests
 export const mockNextRouter = {
   refresh: () => {},

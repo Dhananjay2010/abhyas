@@ -364,7 +364,7 @@ console.log("\n3. Double-click busyRef guard: action called exactly once (9, 9b,
       return text !== null && text.includes("Set 1 done");
     });
     check("Set 1 done button found", setDoneButton !== undefined);
-    if (setDoneButton instanceof HTMLButtonElement && !setDoneButton.disabled) {
+    if (setDoneButton && !setDoneButton.disabled) {
       setDoneButton.click();
       setDoneButton.click(); // Double-click
     }
@@ -624,6 +624,10 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
   let receivedDuration: number | null = null;
   const clock = createFakeClock(Date.parse("2026-10-25T12:00:00Z"));
 
+  // Mock Date.now() to use fake clock
+  const originalDateNow = Date.now;
+  Date.now = clock.nowMs;
+
   const fakeActions: SessionActions = {
     async markWarmupDone() { return { ok: true }; },
     async logSet() { return { ok: true }; },
@@ -749,6 +753,8 @@ console.log("\n6. End early confirm with set counts, sends frozen elapsed (w-tit
   check("Summary shows 'Session ended early'", hasEndEarlyTitle);
   check("abandonSession received frozen duration", receivedDuration !== null && receivedDuration === 120);
 
+  Date.now = originalDateNow;
+
   root.unmount();
   document.body.removeChild(container);
 }
@@ -762,6 +768,10 @@ console.log("\n7. Done sends frozen elapsed time (f1, f2)");
 
   let receivedDuration: number | null = null;
   const clock = createFakeClock(Date.parse("2026-10-25T12:00:00Z"));
+
+  // Mock Date.now() to use fake clock
+  const originalDateNow = Date.now;
+  Date.now = clock.nowMs;
 
   const fakeActions: SessionActions = {
     async markWarmupDone() { return { ok: true }; },
@@ -847,6 +857,8 @@ console.log("\n7. Done sends frozen elapsed time (f1, f2)");
   const textContent = container.textContent;
   const hasSummary = textContent !== null && textContent.includes("Session complete");
   check("Shows summary after finish", hasSummary);
+
+  Date.now = originalDateNow;
 
   root.unmount();
   document.body.removeChild(container);
