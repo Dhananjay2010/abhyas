@@ -1573,8 +1573,7 @@ async function testRetryButton() {
   await act(async () => {});
     
   // R3: Retry button triggers another replay
-    assert(logSetCalls.length === 1, "R3: Retry button triggers logSet replay");
-  }
+  assert(logSetCalls.length === 1, "R3: Retry button triggers logSet replay");
   
   fakeStorage.clear();
 }
