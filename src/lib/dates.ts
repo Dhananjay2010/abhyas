@@ -70,3 +70,8 @@ export function parseIsoMs(iso: string): number {
 export function secondsSinceIso(iso: string, nowMs: number): number {
   return (nowMs - parseIsoMs(iso)) / 1000;
 }
+
+/** Convert milliseconds since epoch to an ISO 8601 timestamp. */
+export function isoFromMs(ms: number): string {
+  return new Date(ms).toISOString();
+}

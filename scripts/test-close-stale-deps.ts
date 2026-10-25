@@ -8,12 +8,9 @@
  */
 
 import { buildCloseStaleDeps, type CloseStaleQueries, type SessionExerciseRow } from "../src/lib/session/close-stale-deps";
+import type { Database } from "../src/lib/database.types";
 
-type SessionsUpdate = {
-  status?: string;
-  completed_at?: string | null;
-  duration_seconds?: number | null;
-};
+type SessionsUpdate = Database["public"]["Tables"]["sessions"]["Update"];
 
 class FakeCloseStaleQueries implements CloseStaleQueries {
   private sessions = new Map<string, { 

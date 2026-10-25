@@ -3,7 +3,7 @@ import type { Database } from "@/lib/database.types";
 import { resolveStaleFinish, type StaleFinishInput } from "./stale-duration";
 import { buildCloseStaleDeps, supabaseCloseStaleQueries } from "./close-stale-deps";
 import type { CloseStaleDeps } from "./close-stale-deps";
-import { secondsSinceIso } from "@/lib/dates";
+import { secondsSinceIso, isoFromMs } from "@/lib/dates";
 
 export type { CloseStaleDeps };
 
@@ -143,14 +143,14 @@ export async function closeStaleSessionsCore(
   for (const id of ids) {
     const session = byId.get(id);
     
-    // Rows with no started_at dated before today become skipped
+    // Rows with no started_at: use set times or close if stuck
     if (!session?.started_at) {
       // If there are logged sets, use the last set's time for staleness check
       const lastSetTime = lastSetCompletedAt.get(id);
       if (!lastSetTime) {
         // No started_at and no sets - mark as stale if:
         // - planned rows dated before today, or
-        // - in_progress rows (stuck state, should be closed)
+        // - in_progress rows (rare stuck state from pre-fix data or crashes)
         if (session && (session.local_date < today || session.status === "in_progress")) {
           stale.push(id);
         }
@@ -232,7 +232,7 @@ export async function closeStaleSessionsCore(
               await deps.markPlannedSkipped(id);
             } else {
               // in_progress rows need to be marked done with duration null
-              await deps.markSessionDone(id, "skipped", new Date(nowMs).toISOString(), null);
+              await deps.markSessionDone(id, "skipped", isoFromMs(nowMs), null);
             }
           } catch (error) {
             console.error(`Failed to mark session ${id} as skipped:`, error);
