@@ -244,6 +244,63 @@ async function testEnsureSessionExercisesDeload() {
   console.log(`  Bench: ${benchSets} sets`);
   console.log(`  Dumbbell: ${dumbbellSets} sets`);
 
+  // E3: Test normal week (4 sets stay 4)
+  console.log("\n--- Case 2: Normal week (E3) ---\n");
+
+  // Create a normal (non-deload) session
+  const normalSessionId = randomUUID();
+  const { error: normalSessionError } = await adminClient
+    .from("sessions")
+    .insert({
+      id: normalSessionId,
+      user_id: userId,
+      program_day_id: dayId,
+      program_id: programId,
+      local_date: "2026-10-15",
+      status: "planned",
+      actual_type: "weights",
+      is_deload: false, // Normal week, not deload
+    });
+
+  check("Normal week session created", !normalSessionError, normalSessionError?.message);
+  if (normalSessionError) return false;
+
+  console.log("\nCalling ensureSessionExercises for normal week...");
+
+  // Call the REAL ensureSessionExercises function
+  await ensureSessionExercises(adminClient, userId, normalSessionId);
+
+  // Verify the created exercises have FULL sets (not deloaded)
+  const { data: normalExercises } = await adminClient
+    .from("session_exercises")
+    .select("planned_sets, planned_reps_min, planned_reps_max, rest_seconds, order_index")
+    .eq("session_id", normalSessionId)
+    .order("order_index");
+
+  check("2 exercises created", normalExercises?.length === 2);
+
+  // E3: Normal week must keep full sets (4 stays 4, 5 stays 5)
+  const normalBenchSets = normalExercises?.[0].planned_sets;
+  check(
+    "E3: Normal week Bench keeps 4 sets",
+    normalBenchSets === 4,
+    `got ${normalBenchSets}, expected 4`,
+  );
+
+  const normalDumbbellSets = normalExercises?.[1].planned_sets;
+  check(
+    "E3: Normal week Dumbbell keeps 5 sets",
+    normalDumbbellSets === 5,
+    `got ${normalDumbbellSets}, expected 5`,
+  );
+
+  console.log("\nExpected:");
+  console.log(`  Bench: 4 sets (normal)`);
+  console.log(`  Dumbbell: 5 sets (normal)`);
+  console.log("\nActual:");
+  console.log(`  Bench: ${normalBenchSets} sets`);
+  console.log(`  Dumbbell: ${normalDumbbellSets} sets`);
+
   // Cleanup
   console.log("\nCleaning up...");
   await adminClient.auth.admin.deleteUser(userId);
