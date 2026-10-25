@@ -16,13 +16,10 @@ import React from "react";
 import { render, fireEvent } from "@testing-library/react";
 import { OnboardingFlow } from "../src/app/onboarding/onboarding-flow";
 import type { Database } from "../src/lib/database.types";
+import type { Goal, Level, Track, Sex } from "../src/lib/onboarding/options";
 
-type Sex = Database["public"]["Enums"]["sex_type"];
 type BodyRegion = Database["public"]["Enums"]["body_region"];
 type InjurySeverity = Database["public"]["Enums"]["injury_severity"];
-type Goal = Database["public"]["Enums"]["goal"];
-type Level = Database["public"]["Enums"]["level"];
-type Track = Database["public"]["Enums"]["track"];
 
 let failures = 0;
 
