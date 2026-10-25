@@ -786,6 +786,16 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
+  // Refuse swap if the exercise has logged sets
+  const { canSwapExercise, createSupabaseSwapGuardDeps } = await import("@/lib/session/swap-guard");
+  const guardResult = await canSwapExercise(
+    createSupabaseSwapGuardDeps(supabase),
+    input.sessionExerciseId,
+  );
+  if (!guardResult.allowed) {
+    return { ok: false, error: guardResult.error };
+  }
+
   const [currentRes, replacementRes, profileRes, settingsRes] = await Promise.all([
     supabase
       .from("session_exercises")
