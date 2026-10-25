@@ -106,7 +106,7 @@ export default async function SettingsPage() {
         <section>
           <h2 className="text-lg font-semibold mb-2">Account</h2>
           <div className="space-y-3">
-            <SignOutButton userId={user.id} />
+            <SignOutButton userId={userId} />
             <a
               href="/settings/delete-account"
               className="block rounded-xl border border-danger/30 bg-danger/10 px-6 py-3 text-sm font-medium text-danger transition-colors hover:bg-danger/20"

@@ -44,7 +44,6 @@ import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
 import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
-import { getPendingCountForExercise } from "@/lib/session/pending-count";
 import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
 import { resolveSetConflict, type ConflictResult } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
