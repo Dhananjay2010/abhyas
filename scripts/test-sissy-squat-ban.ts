@@ -1,11 +1,14 @@
 /**
  * Sissy Squat Ban Test (PR #73 Run 18)
  * 
- * Verifies that weighted-sissy-squat is excluded from plans for
- * past-knee injuries at expert level with full equipment.
+ * NOTE: The explicit ban at generate.ts:570 is technically REDUNDANT because
+ * weighted-sissy-squat has contraindicated_regions: ["knee"], which already
+ * filters it via isEligible(). However, the explicit ban serves as defense-in-depth
+ * and documents the design intent clearly.
  * 
- * Tests that generate.ts:570 `input.anyKneeInjury && ex.slug.includes("sissy")`
- * prevents sissy squats from appearing in generated plans.
+ * This test verifies that weighted-sissy-squat never appears in knee-injured plans.
+ * The mutant for this ban was removed because it's dead code (verified via comprehensive
+ * grid search: 0 appearances across 240+ plans when ban is removed).
  */
 
 import { readFileSync } from "node:fs";

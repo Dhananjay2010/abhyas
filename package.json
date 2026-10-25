@@ -231,7 +231,9 @@
     "test:mutations": "tsx scripts/test-mutations.ts",
     "test:quad-coverage-grid": "tsx scripts/test-quad-coverage-grid.ts",
     "test:knee-safety-matrix": "tsx scripts/test-knee-safety-matrix.ts",
-    "test:swap-mutations": "bash scripts/mutant-test-swap.sh"
+    "test:swap-mutations": "tsx scripts/test-swap-mutations.ts",
+    "test:knee-swaps": "tsx scripts/test-knee-swaps.ts",
+    "test:swap-context": "tsx scripts/test-swap-context.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

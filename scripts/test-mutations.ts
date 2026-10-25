@@ -169,23 +169,18 @@ const mutants: Mutant[] = [
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
   },
   
-  // PR #73 Run 18: Sissy squat ban mutant
-  {
-    name: "Remove sissy-squat ban (allow for any knee injury)",
-    file: "src/lib/program/generate.ts",
-    pattern: /\/\/ PR #73 coordinator: ANY knee injury excludes sissy squats \(including weighted-sissy-squat\)\s+if \(input\.anyKneeInjury && ex\.slug\.includes\("sissy"\)\) \{/,
-    mutate: '// MUTANT: Removed sissy-squat ban\n  if (false) {',
-    tests: ["test:sissy-squat-ban"],
-  },
+  // NOTE: Sissy squat ban mutant (line ~570) is DEAD CODE - removed from mutation list.
+  // Reason: weighted-sissy-squat has contraindicated_regions: ["knee"], so it's already
+  // filtered by isEligible() before reaching the explicit ban. Removing the ban produces
+  // identical output across 240+ test plans (all injury states × equipment × days × minutes).
+  // Verified: scripts/find-sissy-comprehensive.ts searched the grid and found 0 appearances.
   
-  // PR #73 Run 18: Knee-safe quad/lunge exclusion filter mutant
-  {
-    name: "Remove EXCLUDED_EXERCISE_SLUGS filter from knee-safe selection",
-    file: "src/lib/program/generate.ts",
-    pattern: /\.filter\(\(item\) => !EXCLUDED_EXERCISE_SLUGS\.has\(item\.e\.slug\)\);/,
-    mutate: '; // MUTANT: Removed EXCLUDED_EXERCISE_SLUGS filter',
-    tests: ["test:knee-safe-quad-exclusions"],
-  },
+  // NOTE: EXCLUDED_EXERCISE_SLUGS filter mutant (line 1071) is DEAD CODE - removed from mutation list.
+  // Reason: EXCLUDED_EXERCISE_SLUGS (behind-neck presses, guillotine bench, etc.) has ZERO
+  // overlap with KNEE_SAFE_QUAD_EXERCISES or PAST_KNEE_LUNGE_EXERCISES. The filter at line 1071
+  // applies only to knee-safe candidates, so removing it cannot change output.
+  // Verified: static intersection check shows 0 overlapping slugs; dynamic test shows
+  // baseline hash == mutated hash (scripts/test-excluded-mutant.ts).
 ];
 
 let killed = 0;
