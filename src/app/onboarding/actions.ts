@@ -40,6 +40,7 @@ export async function saveAboutYou(input: {
   sex: Database["public"]["Enums"]["sex_type"];
   heightCm: number;
   weightKg: number;
+  units?: "metric" | "imperial";
   browserTimezone?: string; // Optional: browser-detected timezone from client
 }): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("default");
@@ -68,6 +69,7 @@ export async function saveAboutYou(input: {
     date_of_birth: input.dateOfBirth,
     sex: input.sex,
     height_cm: input.heightCm,
+    ...(input.units && { units: input.units }),
   };
 
   // Record browser timezone only if profile.timezone is currently NULL

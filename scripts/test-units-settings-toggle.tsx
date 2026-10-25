@@ -168,7 +168,7 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
   console.log("\n3. LogWeight: Type 176 lb, click Save, assert ~79.8 kg sent; type 50 lb shows error, no save");
 
   {
-    let savedKg: number | null = null;
+    let savedKg: number;
     let callCount = 0;
 
     const mockLogAction = async (kg: number) => {
@@ -292,7 +292,9 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
       weightKg: number | null;
     }
 
-    let savedAboutYou: SaveAboutYouArgs | null = null;
+    type SaveAboutYouArgs = { dateOfBirth: string; sex: string; heightCm: number; weightKg: number; units?: string; browserTimezone?: string };
+    let savedAboutYou: SaveAboutYouArgs | null;
+    savedAboutYou = null;
     let callCount = 0;
 
     const mockActions = {

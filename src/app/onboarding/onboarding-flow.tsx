@@ -135,7 +135,7 @@ export function OnboardingFlow({
   const [dobTouched, setDobTouched] = useState(false);
   
   const [sex, setSex] = useState<Sex | null>(initial.sex);
-  const [units] = useState<UnitsPreference>(initial.units);
+  const [units, setUnits] = useState<UnitsPreference>(initial.units);
   const [heightCm, setHeightCm] = useState(
     initial.heightCm ? formatHeight(initial.heightCm, units, false) : ""
   );
@@ -351,6 +351,7 @@ export function OnboardingFlow({
                     sex: sex!,
                     heightCm: heightCmValue!,
                     weightKg: weightKgValue!,
+                    units,
                     browserTimezone,
                   }),
                 );
@@ -362,6 +363,35 @@ export function OnboardingFlow({
         }
       >
         <div className="space-y-5">
+          <div>
+            <span className="text-sm font-medium text-fg">Units</span>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <OptionCard
+                compact
+                label="Metric (kg, cm)"
+                selected={units === "metric"}
+                onClick={() => {
+                  setUnits("metric");
+                  setHeightCm("");
+                  setWeightKg("");
+                  setHeightTouched(false);
+                  setWeightTouched(false);
+                }}
+              />
+              <OptionCard
+                compact
+                label="Imperial (lb, ft/in)"
+                selected={units === "imperial"}
+                onClick={() => {
+                  setUnits("imperial");
+                  setHeightCm("");
+                  setWeightKg("");
+                  setHeightTouched(false);
+                  setWeightTouched(false);
+                }}
+              />
+            </div>
+          </div>
           <DobInput
             value={dateOfBirth}
             onChange={setDateOfBirth}
