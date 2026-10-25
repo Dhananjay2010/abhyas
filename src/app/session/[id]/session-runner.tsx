@@ -16,7 +16,7 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
-import { applySwap } from "@/lib/session/build-runner-exercises";
+import { applySwapResult } from "@/lib/session/apply-swap";
 import {
   abandonSession,
   deleteSet,
@@ -784,10 +784,8 @@ export function SessionRunner({
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>
         <p className="mt-2 text-accent">
-          {current.plannedSets} sets × {current.repsMin === current.repsMax
-            ? `${current.repsMin}${isTimed ? "s" : ""}`
-            : `${current.repsMin}–${current.repsMax}${isTimed ? "s" : ""}`}
-          {!isTimed && " reps"}
+          {current.plannedSets} sets × {current.repsMin}–{current.repsMax}
+          {isTimed ? "s" : " reps"}
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
@@ -888,7 +886,7 @@ export function SessionRunner({
               be logged against it and fed to progression. It also left a stale
               number in a hold's seconds field.
             */
-            key={`${current.id}:${nextSetNumber}`}
+            key={`${current.id}:${current.exerciseId}:${nextSetNumber}`}
             perSetLogging={settings.perSetLogging}
             metric={current.metric}
             targetSeconds={current.repsMax}
@@ -961,43 +959,13 @@ export function SessionRunner({
                         });
                         if (!ok || !box.value) return;
                         const swapped = box.value;
-                        
-                        // M-5: Use pure applySwap function with progress from server
-                        // Server already filtered progress based on remembersWeights (planning_mode)
-                        const swappedProgress =
-                          swapped.currentTargetReps !== undefined || swapped.currentWorkingWeightKg !== undefined
-                            ? {
-                                current_target_reps: swapped.currentTargetReps ?? null,
-                                current_working_weight_kg: swapped.currentWorkingWeightKg ?? null,
-                              }
-                            : undefined;
-                        
-                        const swappedData = {
-                          id: a.exerciseId,
-                          name: a.name,
-                          cue: a.cue,
-                          metric: swapped.metric,
-                          primary_muscles: current.primaryMuscles,
-                          equipment_ids: swapped.equipmentIds ?? [],
-                        };
-                        
-                        const updated = applySwap(current, swappedData, swappedProgress, true);
-                        
                         setExercises((prev) =>
-                          prev.map((e) =>
-                            e.id === current.id
-                              ? {
-                                  ...updated,
-                                  // Update planned range from server
-                                  plannedSets: current.plannedSets,
-                                  restSeconds: current.restSeconds,
-                                  status: current.status,
-                                  feel: current.feel,
-                                  sets: current.sets,
-                                  lastLoggedAt: current.lastLoggedAt,
-                                }
-                              : e,
-                          ),
+                          applySwapResult(prev, current.id, {
+                            ...swapped,
+                            exerciseId: a.exerciseId,
+                            name: a.name,
+                            cue: a.cue,
+                          }) as RunnerExercise[],
                         );
                         setAlternatives(null);
                       }}

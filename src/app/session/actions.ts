@@ -26,10 +26,12 @@ import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { progressionInputsFromExercise } from "@/lib/session/progression-inputs";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
+import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
+import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
+import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -411,7 +413,7 @@ async function applyProgression(
   };
   if (!ex) return null;
 
-  const [sessionRes, setsRes, progressRes, profileRes] = await Promise.all([
+  const [sessionRes, setsRes, progressRes] = await Promise.all([
     supabase.from("sessions").select("is_deload, local_date, program_id").eq("id", se.session_id).maybeSingle(),
     supabase
       .from("session_sets")
@@ -425,7 +427,6 @@ async function applyProgression(
       .eq("user_id", userId)
       .eq("exercise_id", se.exercise_id)
       .maybeSingle(),
-    supabase.from("profiles").select("units").eq("id", userId).maybeSingle(),
   ]);
 
   const meta: ExerciseMeta = {
@@ -466,7 +467,6 @@ async function applyProgression(
     meta,
     state,
     isDeload: sessionRes.data?.is_deload ?? false,
-    ...progressionInputsFromExercise(ex, profileRes.data?.units),
   });
 
   await writeExerciseProgressCore(
@@ -777,9 +777,9 @@ export type SwapResult = {
   repsMin: number | null;
   repsMax: number | null;
   equipmentIds: string[];
-  /** Progress data for the replacement exercise (null if no row exists) */
-  currentTargetReps?: number | null;
-  currentWorkingWeightKg?: number | null;
+  weightPrefill: number | null;
+  workingWeightKg: number | null;
+  isBodyweight: boolean;
 };
 
 export async function swapExercise(input: {
@@ -791,10 +791,10 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes, settingsRes, progressRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes] = await Promise.all([
     supabase
       .from("session_exercises")
-      .select("exercise_id, metric, planned_reps_min, planned_reps_max")
+      .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
       .eq("id", input.sessionExerciseId)
       .maybeSingle(),
     /*
@@ -806,20 +806,15 @@ export async function swapExercise(input: {
       equipment_ids is also needed: when the session loads, isBodyweight is 
       derived from whether equipment_ids is empty, and without it here a barbell
       exercise swapped in would show "Added weight (kg)" instead of "Weight (kg)".
+      
+      movement_pattern is needed for swap prefill via suggestedWeight.
     */
     supabase
       .from("exercises")
-      .select("metric, mechanic, equipment_ids")
+      .select("metric, mechanic, equipment_ids, movement_pattern")
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
-    supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
-    supabase
-      .from("exercise_progress")
-      .select("current_target_reps, current_working_weight_kg")
-      .eq("user_id", user.id)
-      .eq("exercise_id", input.newExerciseId)
-      .maybeSingle(),
   ]);
 
   const current = currentRes.data;
@@ -829,10 +824,17 @@ export async function swapExercise(input: {
   const metric = metricOf(replacement);
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
-  
-  // Respect planning_mode for progress data (same as page.tsx)
-  const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
-  const progress = remembersWeights ? progressRes.data : null;
+
+  // Resolve weight prefill and working weight for the swapped-in exercise
+  const { weightPrefill, workingWeightKg, isBodyweight } = await resolveSwapWeights(
+    supabase,
+    user.id,
+    current.session_id,
+    input.newExerciseId,
+    equipmentIds,
+    metric,
+    replacementRes.data?.movement_pattern ?? "other",
+  );
 
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range
@@ -875,67 +877,7 @@ export async function swapExercise(input: {
   // hold button with the range that was just written.
   return error
     ? { ok: false, error: error.message }
-    : { 
-        ok: true, 
-        data: { 
-          metric, 
-          repsMin, 
-          repsMax, 
-          equipmentIds,
-          currentTargetReps: progress?.current_target_reps ?? null,
-          currentWorkingWeightKg: progress?.current_working_weight_kg ?? null,
-        } 
-      };
-}
-
-
-/**
- * Make sure a session has its exercises, copying them from the program day.
- *
- * Idempotent: it does nothing when rows already exist, so it is safe to call
- * on every resume.
- */
-async function ensureSessionExercises(
-  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
-  userId: string,
-  sessionId: string,
-): Promise<void> {
-  // One round trip answers both questions this needs: whether the session
-  // already has exercises, and which program day to copy them from. It used to
-  // ask them separately, on the resume path, which is the path a user takes
-  // when they have already been waiting once.
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("program_day_id, actual_type, session_exercises(id)")
-    .eq("id", sessionId)
-    .maybeSingle();
-
-  if ((session?.session_exercises ?? []).length > 0) return;
-
-  // Yoga and breathing sessions have no exercises by design.
-  if (!session?.program_day_id) return;
-  if (session.actual_type === "yoga" || session.actual_type === "meditation") return;
-
-  const { data: planned } = await supabase
-    .from("program_day_exercises")
-    .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
-    .eq("program_day_id", session.program_day_id)
-    .order("order_index");
-  if (!planned || planned.length === 0) return;
-
-  await supabase.from("session_exercises").insert(
-    planned.map((p) => ({
-      session_id: sessionId,
-      user_id: userId,
-      exercise_id: p.exercise_id,
-      order_index: p.order_index,
-      planned_sets: p.target_sets,
-      planned_reps_min: p.target_reps_min,
-      planned_reps_max: p.target_reps_max,
-      rest_seconds: p.rest_seconds,
-      metric: metricOf(p.exercises),
-    })),
-  );
+    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, isBodyweight } };
 }
 
 // ---------------------------------------------------------------------------
