@@ -303,11 +303,11 @@ export async function logSet(input: {
 
   return await resolveAuth(
     async () => {
-      const { user } = await getAuthedClient();
-      return { user };
+      const { supabase, user } = await getAuthedClient();
+      return { user, supabase };
     },
-    async () => {
-      const { supabase, user } = await requireUser();
+    async ({ user, supabase }) => {
+      if (!user) throw new Error("Not signed in");
       return logSetCore(supabase, user.id, {
         sessionExerciseId: input.sessionExerciseId,
         setNumber: input.setNumber,

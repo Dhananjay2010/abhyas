@@ -54,19 +54,25 @@ export function storageKey(userId: string): string {
 }
 
 /**
+ * Type guard to check if value is a record object.
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
  * Validate that a value is a well-formed PendingSet.
  */
 function isValidPendingSet(value: unknown): value is PendingSet {
-  if (!value || typeof value !== 'object') return false;
-  const obj = value as Record<string, unknown>;
+  if (!isRecord(value)) return false;
   
   return (
-    typeof obj.sessionExerciseId === 'string' &&
-    typeof obj.setNumber === 'number' &&
-    (obj.reps === null || typeof obj.reps === 'number') &&
-    (obj.weightKg === null || typeof obj.weightKg === 'number') &&
-    (obj.durationSeconds === null || typeof obj.durationSeconds === 'number') &&
-    typeof obj.clientId === 'string'
+    typeof value.sessionExerciseId === 'string' &&
+    typeof value.setNumber === 'number' &&
+    (value.reps === null || typeof value.reps === 'number') &&
+    (value.weightKg === null || typeof value.weightKg === 'number') &&
+    (value.durationSeconds === null || typeof value.durationSeconds === 'number') &&
+    typeof value.clientId === 'string'
   );
 }
 
@@ -74,13 +80,12 @@ function isValidPendingSet(value: unknown): value is PendingSet {
  * Validate that a value is a plain object of arrays of well-formed PendingSets.
  */
 function isValidPendingSets(value: unknown): value is PendingSets {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return false;
   }
   
-  const obj = value as Record<string, unknown>;
-  for (const key in obj) {
-    const entry = obj[key];
+  for (const key in value) {
+    const entry = value[key];
     if (!Array.isArray(entry)) return false;
     for (const set of entry) {
       if (!isValidPendingSet(set)) return false;
@@ -94,21 +99,19 @@ function isValidPendingSets(value: unknown): value is PendingSets {
  * Validate timestamped format.
  */
 function isValidTimestampedSets(value: unknown): value is PendingSetsWithTimestamp {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return false;
   }
   
-  const obj = value as Record<string, unknown>;
-  for (const key in obj) {
-    const entry = obj[key];
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+  for (const key in value) {
+    const entry = value[key];
+    if (!isRecord(entry)) {
       return false;
     }
-    const timestamped = entry as Record<string, unknown>;
-    if (!Array.isArray(timestamped.sets) || typeof timestamped.timestamp !== 'number') {
+    if (!Array.isArray(entry.sets) || typeof entry.timestamp !== 'number') {
       return false;
     }
-    for (const set of timestamped.sets) {
+    for (const set of entry.sets) {
       if (!isValidPendingSet(set)) return false;
     }
   }
