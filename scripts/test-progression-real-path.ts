@@ -111,7 +111,7 @@ async function main() {
     check("Persisted: weight=40", written?.current_working_weight_kg === 40, `${written?.current_working_weight_kg}`);
   }
 
-  console.log("\n2. Real miss (4×7 below min=8): increments failures and drops weight");
+  console.log("\n2. Real miss (4×7 below min=8): increments failures, holds weight (no equipment)");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-2",
@@ -158,7 +158,9 @@ async function main() {
 
     check("Miss: outcome hold (first miss)", decision.outcome === "hold", decision.outcome);
     check("Miss: failures=1", decision.consecutiveFailures === 1, `${decision.consecutiveFailures}`);
-    check("Miss: weight drops to 57.5", decision.nextWorkingWeightKg === 57.5, `${decision.nextWorkingWeightKg}`);
+    check("Miss: weight holds at 60 (no equipmentIds/unit)", decision.nextWorkingWeightKg === 60, `${decision.nextWorkingWeightKg}`);
+    check("Builder: no equipmentIds", input.equipmentIds === undefined, `${input.equipmentIds}`);
+    check("Builder: no unit", input.unit === undefined, `${input.unit}`);
   }
 
   console.log("\n3. State weight test: current=50 vs best=60 (would catch best_weight_kg swap)");
@@ -209,6 +211,56 @@ async function main() {
     check("State weight: outcome hold (in-range)", decision.outcome === "hold", decision.outcome);
     check("State weight: next weight is current (50), not best (60)", decision.nextWorkingWeightKg === 50, `${decision.nextWorkingWeightKg}`);
     check("State weight: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
+  }
+
+  console.log("\n4. Two consecutive misses: deload ~10% (even without equipmentIds)");
+  {
+    const sessionExercise: SessionExerciseRow = {
+      id: "se-4",
+      session_id: "sess-4",
+      exercise_id: "ex-bench",
+      planned_sets: 4,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "horizontal_press",
+        equipment_ids: ["barbell"],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    };
+
+    const sets: SessionSetRow[] = [
+      { reps: 7, weight_kg: "40", duration_seconds: null },
+      { reps: 7, weight_kg: "40", duration_seconds: null },
+      { reps: 7, weight_kg: "40", duration_seconds: null },
+      { reps: 7, weight_kg: "40", duration_seconds: null },
+    ];
+
+    const progress: ExerciseProgressRow = {
+      current_working_weight_kg: "40",
+      current_target_reps: 12,
+      consecutive_failures: 1, // Already failed once
+      best_weight_kg: "60",
+      best_reps: 12,
+      best_e1rm: "84",
+      total_sessions: 3,
+    };
+
+    const session: SessionRow = {
+      is_deload: false,
+      local_date: "2026-10-25",
+      program_id: "prog-1",
+    };
+
+    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
+    const decision = evaluateProgression(input);
+
+    check("Two misses: outcome backed_off", decision.outcome === "backed_off", decision.outcome);
+    check("Two misses: deloads to 35 kg (-12.5%, ~10%)", decision.nextWorkingWeightKg === 35, `${decision.nextWorkingWeightKg}`);
+    check("Two misses: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
