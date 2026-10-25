@@ -228,7 +228,7 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
   let plansChecked = 0;
   let kettlebelPistolInPlans = 0;
   let excludedInPlans = 0;
-  let wallSitAsPrimarySquat = 0;
+  // TODO-PUSH2: wallSitAsPrimarySquat removed (unused until item 9)
   let swapLeaks = 0;
   let warmupsChecked = 0;
   let walkingLungeInWarmups = 0;
@@ -236,7 +236,7 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
   let excludedInWarmups = 0;
   let totalLungeSlotsWithDB = 0;
   let lungePicksWithRearLunge = 0;
-  let wallSitAtIndex0WithOtherOptions = 0; // Track wall-sit at index 0 when other options exist
+  // TODO-PUSH2: wallSitAtIndex0WithOtherOptions removed (unused until item 5)
   
   for (const goal of goals) {
     for (const level of levels) {
