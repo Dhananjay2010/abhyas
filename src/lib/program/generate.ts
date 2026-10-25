@@ -1713,8 +1713,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               // Never drop core
               if (ex.movement_pattern === "core") continue;
               
-              // Never drop the only quad (protect it for knee-injured users)
-              if (quadCount === 1 && ex.primary_muscles.includes("quads")) continue;
+              // MUTANT: Removed quad protection
+              // if (quadCount === 1 && ex.primary_muscles.includes("quads")) continue;
               
               // Never drop wall-sit for current-knee (it's the required last non-core quad exercise)
               if (input.currentInjuryRegions.includes("knee") && ex.slug === "wall-sit") continue;
