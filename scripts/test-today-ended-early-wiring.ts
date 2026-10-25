@@ -31,11 +31,11 @@ console.log("\nTesting Today page ended-early display wiring\n");
 // Test countWorkingSets
 {
   const count = countWorkingSets([
-    { is_warmup_set: true },
-    { is_warmup_set: false },
-    { is_warmup_set: false },
+    { is_warmup_set: true, reps: 5, duration_seconds: null },
+    { is_warmup_set: false, reps: 10, duration_seconds: null },
+    { is_warmup_set: false, reps: 10, duration_seconds: null },
   ]);
-  assertTrue(count === 2, "countWorkingSets counts non-warmup sets");
+  assertTrue(count === 2, "countWorkingSets counts non-warmup sets with logged data");
 }
 
 // Test getCompletionDisplay

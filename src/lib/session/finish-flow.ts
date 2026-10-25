@@ -31,10 +31,16 @@ export interface FinishFlowDeps {
  * Pure function with dependency injection for testability.
  */
 export async function runEndEarly(
-  deps: Omit<FinishFlowDeps, "finishSession">,
+  deps: {
+    abandonSession: (sessionId: string, durationSeconds: number) => Promise<{ ok: boolean; error?: string }>;
+    stopElapsed: () => number;
+    resumeElapsed: () => void;
+    setError: (error: string | null) => void;
+    setPhase: (phase: "done") => void;
+    setEndedEarly: (value: boolean) => void;
+  },
   params: {
     sessionId: string;
-    setsDone: number;
     setConfirming: (value: null) => void;
     setOfflineError: (value: boolean) => void;
     endingRef: { current: boolean };

@@ -3,6 +3,8 @@
  */
 
 import { exerciseCompletion } from "../session/completion";
+import { countWorkingSets as countWorkingSetsCore } from "../session/count-sets";
+import type { SetForCounting } from "../session/count-sets";
 
 export type SessionStatus = "in_progress" | "completed" | "skipped";
 
@@ -12,10 +14,11 @@ export type CompletionDisplay = {
 };
 
 /**
- * Count working sets (non-warmup sets) from a list of sets.
+ * Count working sets (non-warmup sets with logged data) from a list of sets.
+ * Uses the core implementation from count-sets.ts.
  */
-export function countWorkingSets(sets: Array<{ is_warmup_set: boolean }>): number {
-  return sets.filter((s) => !s.is_warmup_set).length;
+export function countWorkingSets(sets: Array<SetForCounting>): number {
+  return countWorkingSetsCore(sets);
 }
 
 /**

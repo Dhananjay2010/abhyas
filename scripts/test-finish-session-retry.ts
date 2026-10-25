@@ -8,6 +8,11 @@
 import { finishSessionCore } from "../src/lib/session/finish-session";
 import type { FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 
+const NOW = "2026-10-25T12:00:00Z";
+const NOW_MS = Date.parse(NOW);
+const ONE_HOUR_AGO = new Date(NOW_MS - 60 * 60 * 1000).toISOString();
+const LOCAL_DATE = NOW.split("T")[0];
+
 let testsPassed = 0;
 let testsFailed = 0;
 
@@ -32,7 +37,7 @@ function makeFakeDeps(config: {
       return {
         data: {
           started_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-          local_date: new Date().toISOString().split("T")[0],
+          local_date: NOW.split("T")[0],
           user_id: "user-123",
         },
     async loadTimezone() {
@@ -47,7 +52,7 @@ function makeFakeDeps(config: {
           {
         rest_seconds: null,
             session_sets: [
-              { id: "set1", is_warmup_set: false, completed_at: new Date().toISOString() },
+              { id: "set1", is_warmup_set: false, completed_at: NOW },
             ],
           },
         ],

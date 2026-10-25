@@ -48,7 +48,7 @@ if (!global.requestAnimationFrame) {
     const rafId = nextRafId++;
     const handle = setTimeout(() => {
       rafHandles.delete(rafId);
-      callback(Date.now());
+      callback(0);
     }, 0);
     rafHandles.set(rafId, handle);
     return rafId;

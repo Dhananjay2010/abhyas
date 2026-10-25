@@ -6,11 +6,7 @@
  */
 
 import { formatClock } from "../src/lib/session/device";
-
-// displayElapsed is now inlined in session-runner.tsx
-function displayElapsed(rawElapsed: number, isStale: boolean): number {
-  return isStale ? Math.min(rawElapsed, 179 * 60 + 59) : rawElapsed;
-}
+import { displayElapsed } from "../src/lib/session/display-elapsed";
 import { isStaleSession } from "../src/lib/session/is-stale-session";
 
 let passed = 0;
@@ -63,61 +59,59 @@ async function runTests() {
     assertTrue(clockText.startsWith("90:") || clockText.startsWith("91:"), "Clock shows ~90 minutes");
   }
 
-  console.log("\n2. Stale session (past day): displayElapsed caps at 179:59");
+  console.log("\n2. Stale session (past day): displayElapsed returns 0");
   {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const startedAt = yesterday.toISOString();
-    const now = new Date().toISOString();
+    const now = "2026-10-25T12:00:00Z";
+    const startedAt = "2026-10-24T12:00:00Z"; // Yesterday
     const timezone = "UTC";
 
     const stale = isStaleSession({ startedAt, now, timezone });
     assertEquals(stale, true, "Session is stale (past day)");
 
-    const actualElapsed = Math.floor((Date.now() - yesterday.getTime()) / 1000);
+    const actualElapsed = Math.floor((Date.parse(now) - Date.parse(startedAt)) / 1000);
     assertTrue(actualElapsed >= THREE_HOURS_SECONDS, "Actual elapsed >= 3 hours");
 
     const display = displayElapsed(actualElapsed, stale);
     const clockText = formatClock(display);
 
-    assertEquals(display, THREE_HOURS_SECONDS - 1, "displayElapsed capped at 179:59");
-    assertEquals(clockText, "179:59", "Clock shows 179:59");
+    assertEquals(display, 0, "displayElapsed returns 0 for stale session");
+    assertEquals(clockText, "0:00", "Clock shows 0:00");
   }
 
-  console.log("\n3. Stale session (> 3 hours idle same day): displayElapsed caps at 179:59");
+  console.log("\n3. Stale session (> 3 hours idle same day): displayElapsed returns 0");
   {
-    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-    const now = new Date().toISOString();
+    const now = "2026-10-25T16:00:00Z";
+    const startedAt = "2026-10-25T12:00:00Z"; // 4 hours ago
     const timezone = "UTC";
 
-    const stale = isStaleSession({ startedAt: fourHoursAgo, now, timezone });
+    const stale = isStaleSession({ startedAt, now, timezone });
     assertEquals(stale, true, "Session is stale (> 3 hours)");
 
-    const actualElapsed = Math.floor((Date.now() - new Date(fourHoursAgo).getTime()) / 1000);
+    const actualElapsed = Math.floor((Date.parse(now) - Date.parse(startedAt)) / 1000);
     assertTrue(actualElapsed >= THREE_HOURS_SECONDS, "Actual elapsed >= 3 hours");
 
     const display = displayElapsed(actualElapsed, stale);
     const clockText = formatClock(display);
 
-    assertEquals(display, THREE_HOURS_SECONDS - 1, "displayElapsed capped at 179:59");
-    assertEquals(clockText, "179:59", "Clock shows 179:59");
+    assertEquals(display, 0, "displayElapsed returns 0 for stale session");
+    assertEquals(clockText, "0:00", "Clock shows 0:00");
   }
 
   console.log("\n4. displayElapsed edge cases");
   {
     // Exactly 3 hours, stale
     const threeHours = 3 * 60 * 60;
-    assertEquals(displayElapsed(threeHours, true), threeHours - 1, "Exactly 3h stale → 179:59");
+    assertEquals(displayElapsed(threeHours, true), 0, "Exactly 3h stale → 0");
     
     // Just under 3 hours, stale
-    assertEquals(displayElapsed(threeHours - 1, true), threeHours - 1, "179:59 stale → 179:59");
+    assertEquals(displayElapsed(threeHours - 1, true), 0, "179:59 stale → 0");
     
     // Just under 3 hours, not stale
     assertEquals(displayElapsed(threeHours - 1, false), threeHours - 1, "179:59 non-stale → 179:59");
     
     // Way over 3 hours, stale
     const fiveHours = 5 * 60 * 60;
-    assertEquals(displayElapsed(fiveHours, true), threeHours - 1, "5h stale → 179:59");
+    assertEquals(displayElapsed(fiveHours, true), 0, "5h stale → 0");
   }
 
   console.log("\n5. formatClock function test: various times");

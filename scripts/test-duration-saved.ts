@@ -8,6 +8,13 @@
 import { finishSessionCore } from "../src/lib/session/finish-session";
 import type { SessionRow, SessionExerciseWithSets, ExerciseForUpdate, FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 
+const NOW = "2026-10-25T12:00:00Z";
+const NOW_MS = Date.parse(NOW);
+const FIVE_MIN_AGO = new Date(NOW_MS - 5 * 60 * 1000).toISOString();
+const THREE_MIN_AGO = new Date(NOW_MS - 3 * 60 * 1000).toISOString();
+const TWO_MIN_AGO = new Date(NOW_MS - 2 * 60 * 1000).toISOString();
+const ONE_MIN_AGO = new Date(NOW_MS - 60 * 1000).toISOString();
+
 let passed = 0;
 let failed = 0;
 
@@ -45,11 +52,9 @@ type UpdateCall = {
 
 function makeFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionDeps & { updateCalls: UpdateCall[] } {
   const updateCalls: UpdateCall[] = [];
-  const now = new Date();
-  const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
   const sessionMetadata: SessionRow = {
-    started_at: fiveMinutesAgo.toISOString(),
-    local_date: fiveMinutesAgo.toISOString().split('T')[0],
+    started_at: FIVE_MIN_AGO,
+    local_date: FIVE_MIN_AGO.split('T')[0],
     user_id: "user-123",
   };
 
@@ -96,14 +101,12 @@ console.log("\nTesting duration_seconds is saved correctly (not 0)\n");
 // Test 1: Non-stale session with working sets saves client duration
 console.log("1. Non-stale session saves client-provided duration");
 {
-  const now = new Date();
-  const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000);
   const exercises: SessionExerciseWithSets[] = [
     {
       rest_seconds: 90,
       session_sets: [
-        { id: "set-1", is_warmup_set: false, completed_at: twoMinutesAgo.toISOString() },
-        { id: "set-2", is_warmup_set: false, completed_at: now.toISOString() },
+        { id: "set-1", is_warmup_set: false, completed_at: TWO_MIN_AGO },
+        { id: "set-2", is_warmup_set: false, completed_at: NOW },
       ],
     },
   ];
@@ -130,12 +133,11 @@ console.log("1. Non-stale session saves client-provided duration");
 // Test 2: Non-stale session with only warmup sets saves client duration
 console.log("\n2. Non-stale skipped session saves client-provided duration");
 {
-  const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
   const exercises: SessionExerciseWithSets[] = [
     {
       rest_seconds: 90,
       session_sets: [
-        { id: "set-1", is_warmup_set: true, completed_at: oneMinuteAgo.toISOString() },
+        { id: "set-1", is_warmup_set: true, completed_at: ONE_MIN_AGO },
       ],
     },
   ];
@@ -162,12 +164,11 @@ console.log("\n2. Non-stale skipped session saves client-provided duration");
 // Test 3: Duration is clamped to valid range
 console.log("\n3. Duration is clamped to [0, 21600]");
 {
-  const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
   const exercises: SessionExerciseWithSets[] = [
     {
       rest_seconds: 90,
       session_sets: [
-        { id: "set-1", is_warmup_set: false, completed_at: threeMinutesAgo.toISOString() },
+        { id: "set-1", is_warmup_set: false, completed_at: THREE_MIN_AGO },
       ],
     },
   ];

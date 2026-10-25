@@ -12,6 +12,11 @@ import { finishSessionCore } from "../src/lib/session/finish-session";
 import type { FinishSessionDeps, SessionRow, SessionExerciseWithSets } from "../src/lib/session/finish-session-deps";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
 
+const NOW = "2026-10-25T12:00:00Z";
+const NOW_MS = Date.parse(NOW);
+const THIRTY_MIN_AGO = new Date(NOW_MS - 30 * 60 * 1000).toISOString();
+const LOCAL_DATE = NOW.slice(0, 10);
+
 let passed = 0;
 let failed = 0;
 
@@ -43,7 +48,7 @@ function makeFakeFinishSessionDeps(
   const calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> = [];
 
   const session: SessionRow = {
-    started_at: new Date(Date.now() - 1800000).toISOString(),
+    started_at: THIRTY_MIN_AGO,
     local_date: new Date().toISOString().slice(0, 10),
     user_id: "user-123",
   };

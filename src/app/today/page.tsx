@@ -14,11 +14,9 @@ import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRows, type TodayRow } from "@/lib/today/build-today-rows";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
-import { isSessionEndedEarly } from "@/lib/today/session-ended-early";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 
 export const dynamic = "force-dynamic";
@@ -315,7 +313,7 @@ export default async function TodayPage() {
           // `metric` from the session row, not from `exercises`: it records the
           // unit the session was RUN in. Reading the catalogue's current metric
           // rendered a plank prescribed in reps last week as "2 x 8-12s".
-          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue), session_sets!session_sets_session_exercise_id_fkey(is_warmup_set)")
+          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue), session_sets!session_sets_session_exercise_id_fkey(is_warmup_set, reps, duration_seconds)")
           .eq("session_id", performed.id)
           .order("order_index")
       : Promise.resolve(null),
@@ -356,13 +354,12 @@ export default async function TodayPage() {
     } | null;
     session_sets: Array<{
       is_warmup_set: boolean;
+      reps: number | null;
+      duration_seconds: number | null;
     }>;
   }> | null;
 
   const todayExercises: TodayRow[] = buildTodayRows({ actual, template, isDeload });
-
-  // Determine if the completed session was ended early (has pending exercises)
-  const endedEarly = isSessionEndedEarly(performed, actual);
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show
@@ -533,7 +530,7 @@ export default async function TodayPage() {
         <div className="mt-7">
           {strengthDone ? (
             <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
-              {sessionSummaryTitle(endedEarly)}
+              Session complete. Well done.
             </p>
           ) : (() => {
             const resumeHref = previousDayResumeHref(strengthOpen, localToday);

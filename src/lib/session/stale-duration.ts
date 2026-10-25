@@ -61,34 +61,34 @@ export type StaleFinishExtended = {
  * If any sets were logged:
  *   - When restSeconds is undefined (not passed): ended_at = last_set.completed_at (main's behavior)
  *   - When restSeconds is passed: ended_at = last_set.completed_at + rest interval
- *   Rest interval uses the exercise's planned rest_seconds, capped at 300s (5 min).
+ *   Rest interval uses the exercise's planned rest_seconds, clamped to [0, 300] seconds.
  *   If passed but null/non-finite, uses 300s default.
  *
  * If no sets logged:
  *   ended_at = started_at, duration = 0, status = skipped.
  */
 export function resolveStaleFinishExtended(input: StaleFinishInputExtended): StaleFinishExtended {
-  const start = Date.parse(input.startedAt ?? "");
+  const start = input.startedAt ? Date.parse(input.startedAt) : NaN;
 
   // No sets logged: skipped, duration = 0
   if (input.workingSetCount <= 0) {
-    const safeStartedAt = Number.isFinite(start) && input.startedAt ? input.startedAt : input.startedAt ?? "";
+    const safeStartedAt = Number.isFinite(start) ? input.startedAt! : "1970-01-01T00:00:00.000Z";
     return { durationSeconds: 0, endedAt: safeStartedAt, status: "skipped" };
   }
 
-  // Working sets exist but no last set timestamp: completed with end=start (main's behavior)
+  // Working sets exist but no last set timestamp: if started_at is valid, use it; otherwise null duration
   if (input.lastSetCompletedAt === null) {
-    const safeStartedAt = Number.isFinite(start) && input.startedAt ? input.startedAt : input.startedAt ?? "";
-    return { durationSeconds: 0, endedAt: safeStartedAt, status: "completed" };
+    if (Number.isFinite(start)) {
+      return { durationSeconds: 0, endedAt: input.startedAt!, status: "completed" };
+    }
+    return { durationSeconds: null, endedAt: "1970-01-01T00:00:00.000Z", status: "completed" };
   }
 
   const lastSetMs = Date.parse(input.lastSetCompletedAt);
 
   // Invalid timestamps with sets: return null duration instead of measuring from epoch
   if (!Number.isFinite(start) || !Number.isFinite(lastSetMs)) {
-    const safeEnd = Number.isFinite(lastSetMs) && input.lastSetCompletedAt 
-      ? input.lastSetCompletedAt 
-      : (Number.isFinite(start) && input.startedAt ? input.startedAt : input.startedAt ?? input.lastSetCompletedAt ?? "");
+    const safeEnd = Number.isFinite(lastSetMs) ? input.lastSetCompletedAt : "1970-01-01T00:00:00.000Z";
     return { durationSeconds: null, endedAt: safeEnd, status: "completed" };
   }
 
@@ -101,10 +101,10 @@ export function resolveStaleFinishExtended(input: StaleFinishInputExtended): Sta
     // Main's behavior: end at last set, no rest interval
     endedAtMs = safeLastSet;
   } else {
-    // New behavior: add rest interval
+    // New behavior: add rest interval, clamped to [0, 300] seconds
     let restMs = 300 * 1000; // default 300s
     if (input.restSeconds != null && Number.isFinite(input.restSeconds)) {
-      const clamped = Math.min(300, input.restSeconds);
+      const clamped = Math.max(0, Math.min(300, input.restSeconds));
       restMs = clamped * 1000;
     }
     endedAtMs = safeLastSet + restMs;

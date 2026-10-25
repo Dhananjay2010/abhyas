@@ -9,6 +9,10 @@ import { finishSessionCore } from "../src/lib/session/finish-session";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
 import type { Database } from "../src/lib/database.types";
 
+const NOW = "2026-10-25T12:00:00Z";
+const NOW_MS = Date.parse(NOW);
+const THIRTY_MIN_AGO = new Date(NOW_MS - 30 * 60 * 1000).toISOString();
+
 let passed = 0;
 let failed = 0;
 
@@ -107,7 +111,7 @@ async function runTests() {
   console.log("1. finishSession: exercise with all sets → completed");
   {
     const session = {
-      started_at: new Date(Date.now() - 1800000).toISOString(),
+      started_at: THIRTY_MIN_AGO,
       local_date: "2026-10-24",
       user_id: "user-123",
     };
@@ -118,9 +122,9 @@ async function runTests() {
         status: "pending" as const,
         rest_seconds: null,
         session_sets: [
-          { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
-          { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
-          { id: "s3", is_warmup_set: false, completed_at: new Date().toISOString() },
+          { id: "s1", is_warmup_set: false, completed_at: NOW },
+          { id: "s2", is_warmup_set: false, completed_at: NOW },
+          { id: "s3", is_warmup_set: false, completed_at: NOW },
         ],
       },
     ];
@@ -140,7 +144,7 @@ async function runTests() {
   console.log("\n2. finishSession: exercise with partial sets → completed");
   {
     const session = {
-      started_at: new Date(Date.now() - 1800000).toISOString(),
+      started_at: THIRTY_MIN_AGO,
       local_date: "2026-10-24",
       user_id: "user-123",
     };
@@ -151,8 +155,8 @@ async function runTests() {
         status: "pending" as const,
         rest_seconds: null,
         session_sets: [
-          { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
-          { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
+          { id: "s1", is_warmup_set: false, completed_at: NOW },
+          { id: "s2", is_warmup_set: false, completed_at: NOW },
         ],
       },
     ];
@@ -171,7 +175,7 @@ async function runTests() {
   console.log("\n3. finishSession: exercise with no sets → skipped");
   {
     const session = {
-      started_at: new Date(Date.now() - 1800000).toISOString(),
+      started_at: THIRTY_MIN_AGO,
       local_date: "2026-10-24",
       user_id: "user-123",
     };
@@ -227,7 +231,7 @@ async function runTests() {
   console.log("\n5. finishSession: mix of completed, partial, and skipped");
   {
     const session = {
-      started_at: new Date(Date.now() - 1800000).toISOString(),
+      started_at: THIRTY_MIN_AGO,
       local_date: "2026-10-24",
       user_id: "user-123",
     };
@@ -238,9 +242,9 @@ async function runTests() {
         status: "pending" as const,
         rest_seconds: null,
         session_sets: [
-          { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
-          { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
-          { id: "s3", is_warmup_set: false, completed_at: new Date().toISOString() },
+          { id: "s1", is_warmup_set: false, completed_at: NOW },
+          { id: "s2", is_warmup_set: false, completed_at: NOW },
+          { id: "s3", is_warmup_set: false, completed_at: NOW },
         ],
       },
       {
@@ -249,7 +253,7 @@ async function runTests() {
         status: "pending" as const,
         rest_seconds: null,
         session_sets: [
-          { id: "s4", is_warmup_set: false, completed_at: new Date().toISOString() },
+          { id: "s4", is_warmup_set: false, completed_at: NOW },
         ],
       },
       {
@@ -277,7 +281,7 @@ async function runTests() {
   console.log("\n6. finishSession: already-completed exercises not updated");
   {
     const session = {
-      started_at: new Date(Date.now() - 1800000).toISOString(),
+      started_at: THIRTY_MIN_AGO,
       local_date: "2026-10-24",
       user_id: "user-123",
     };
@@ -288,9 +292,9 @@ async function runTests() {
         status: "completed" as const,
         rest_seconds: null,
         session_sets: [
-          { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
-          { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
-          { id: "s3", is_warmup_set: false, completed_at: new Date().toISOString() },
+          { id: "s1", is_warmup_set: false, completed_at: NOW },
+          { id: "s2", is_warmup_set: false, completed_at: NOW },
+          { id: "s3", is_warmup_set: false, completed_at: NOW },
         ],
       },
     ];

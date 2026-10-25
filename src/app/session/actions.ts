@@ -34,6 +34,7 @@ import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { progressForPlanningMode } from "@/lib/session/swap-progress";
+import { abandonSessionAction, finishSessionAction, finishExerciseAction as finishExerciseActionWrapper } from "@/lib/session/session-action-wrappers";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -370,8 +371,6 @@ export type { ProgressionFeedback };
  * Testable action body for finishExercise.
  * Extracted for testing the wiring from action to core.
  */
-import { abandonSessionAction, finishSessionAction, finishExerciseAction as finishExerciseActionWrapper } from "@/lib/session/session-action-wrappers";
-
 export async function finishExercise(input: {
   sessionExerciseId: string;
   feel: SetFeel | null;
@@ -597,7 +596,9 @@ export async function abandonSession(
   if (rateLimit) return rateLimit;
 
   const { supabase } = await requireUser();
-  return await abandonSessionAction(supabase, sessionId, elapsedSeconds);
+  const result = await abandonSessionAction(supabase, sessionId, elapsedSeconds);
+  if (result.ok) revalidateTrainingData();
+  return result;
 }
 
 /**

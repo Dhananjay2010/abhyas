@@ -12,11 +12,7 @@ import {
   vibrationSupported,
 } from "@/lib/session/device";
 import { useElapsedWithClock } from "@/lib/session/use-elapsed-with-clock";
-
-// Display elapsed time, frozen at 0 for stale sessions
-function displayElapsed(rawElapsed: number, isStale: boolean): number {
-  return isStale ? 0 : rawElapsed;
-}
+import { displayElapsed } from "@/lib/session/display-elapsed";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
@@ -1162,19 +1158,14 @@ export function SessionRunner({
                 await runEndEarly(
                   {
                     abandonSession: actions.abandonSession,
-                    refreshAfterSession: actions.refreshAfterSession,
                     stopElapsed,
                     resumeElapsed,
                     setError,
                     setPhase,
                     setEndedEarly,
-                    navigate: (path: string) => router.push(path),
-                    onExit,
-                    inFlight: busyRef,
                   },
                   {
                     sessionId,
-                    setsDone: totalSetsDone,
                     setConfirming: (v) => setConfirming(v),
                     setOfflineError: setEndEarlyOfflineError,
                     endingRef,

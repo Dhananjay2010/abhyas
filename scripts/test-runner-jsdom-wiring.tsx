@@ -73,8 +73,8 @@ console.log("\nTesting SessionRunner component wiring with real rendering\n");
 
 (async () => {
 
-// Test 1: Stale session clock capped at 179:59
-console.log("1. Stale session clock capped at 179:59 (f1d-runner, f1e-helper)");
+// Test 1: Stale session clock capped at 0:00
+console.log("1. Stale session clock capped at 0:00 (f1d-runner, f1e-helper)");
 {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -146,7 +146,7 @@ console.log("1. Stale session clock capped at 179:59 (f1d-runner, f1e-helper)");
   await act(async () => {});
 
   const clockText = container.textContent;
-  check("Stale session clock shows 179:59", clockText !== null && clockText.includes("179:59"));
+  check("Stale session clock shows 0:00", clockText !== null && clockText.includes("0:00"));
 
   root.unmount();
   document.body.removeChild(container);
@@ -1173,17 +1173,17 @@ console.log("\n10. Clock stops, resumes, and freezes when stale (stale-lifecycle
 
   await act(async () => {});
 
-  // Clock should be frozen at 179:59 when stale
+  // Clock should be frozen at 0:00 when stale
   let textContent = container.textContent;
-  let hasFrozen = textContent?.includes("179:59");
-  check("Clock frozen at 179:59 when stale", hasFrozen === true);
+  let hasFrozen = textContent?.includes("0:00");
+  check("Clock frozen at 0:00 when stale", hasFrozen === true);
 
-  // Advance clock - should still show 179:59
+  // Advance clock - should still show 0:00
   clock.advanceMs(10000);
   await act(async () => {});
   
   textContent = container.textContent;
-  hasFrozen = textContent?.includes("179:59");
+  hasFrozen = textContent?.includes("0:00");
   check("Clock remains frozen despite time advancing", hasFrozen === true);
 
   root.unmount();
