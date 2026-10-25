@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { planDay, type DayPlan, type PlannableDay } from "@/app/session/actions";
-import { DayPlanInitialChoices, DayPlanChoosingOptions } from "./day-plan-prompt-ui";
 
 /**
  * "What about tomorrow?" — SPEC.md section 7.
@@ -23,8 +22,6 @@ export function DayPlanPrompt({
   days,
   heading,
   intro,
-  isRestDay = false,
-  hideKeepAndRest = false,
   onPlan = planDay,
 }: {
   /** The day being planned, as a local `YYYY-MM-DD`. */
@@ -37,10 +34,6 @@ export function DayPlanPrompt({
   days: PlannableDay[];
   heading: string;
   intro?: string;
-  /** If true, show only "Pick a workout" button (rest day already settled). */
-  isRestDay?: boolean;
-  /** If true (when today is already rest + yesterday missed), hide Keep it and Rest buttons. */
-  hideKeepAndRest?: boolean;
   /** Injected so the prompt can be driven without a signed-in session. */
   onPlan?: typeof planDay;
 }) {
@@ -76,7 +69,7 @@ export function DayPlanPrompt({
             setSettled(null);
             setChoosing(true);
           }}
-          className="mt-2 min-h-[44px] text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-success/10"
+          className="mt-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg"
         >
           Change it
         </button>
@@ -93,24 +86,48 @@ export function DayPlanPrompt({
       </p>
 
       {!choosing ? (
-        <DayPlanInitialChoices
-          isRestDay={isRestDay}
-          hideKeepAndRest={hideKeepAndRest}
-          buttonLabel={intro}
-          onChoosing={() => setChoosing(true)}
-          onKeep={() => choose({ kind: "keep" }, plannedLabel)}
-          onRest={() => choose({ kind: "rest" }, "a rest day")}
-          disabled={pending}
-        />
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <Choice disabled={pending} onClick={() => choose({ kind: "keep" }, plannedLabel)}>
+            Keep it
+          </Choice>
+          <Choice disabled={pending} onClick={() => setChoosing(true)}>
+            Swap the day
+          </Choice>
+          <Choice disabled={pending} onClick={() => choose({ kind: "rest" }, "a rest day")}>
+            Rest
+          </Choice>
+        </div>
       ) : (
-        <DayPlanChoosingOptions
-          days={days}
-          onChooseDay={(programDayId, label) => choose({ kind: "training", programDayId }, label)}
-          onChooseYoga={() => choose({ kind: "yoga" }, "yoga")}
-          onChooseBreathing={() => choose({ kind: "breathing" }, "breathing")}
-          onCancel={() => setChoosing(false)}
-          disabled={pending}
-        />
+        <div className="mt-4 space-y-2">
+          {days.map((d) => (
+            <Choice
+              key={d.programDayId}
+              wide
+              disabled={pending}
+              onClick={() =>
+                choose({ kind: "training", programDayId: d.programDayId }, d.label)
+              }
+            >
+              {d.label}
+            </Choice>
+          ))}
+          <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+            Yoga
+          </Choice>
+          <Choice
+            wide
+            disabled={pending}
+            onClick={() => choose({ kind: "breathing" }, "breathing")}
+          >
+            Breathing
+          </Choice>
+          <button
+            onClick={() => setChoosing(false)}
+            className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg"
+          >
+            Never mind
+          </button>
+        </div>
       )}
 
       {error && (
@@ -122,5 +139,29 @@ export function DayPlanPrompt({
         </p>
       )}
     </section>
+  );
+}
+
+function Choice({
+  children,
+  onClick,
+  disabled,
+  wide = false,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  wide?: boolean;
+}) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className={`rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm font-medium transition-colors hover:text-fg disabled:opacity-50 ${
+        wide ? "w-full text-left" : "text-center"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
