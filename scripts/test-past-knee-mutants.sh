@@ -125,31 +125,31 @@ fi
 
 # Mutant 1: Remove kettlebell-pistol-squat exclusion
 restore_file "src/lib/program/past-knee.ts"
-sed -i 's/"kettlebell-pistol-squat",/"__DISABLED__",/' src/lib/program/past-knee.ts
+sed -i '/"kettlebell-pistol-squat",/d' src/lib/program/past-knee.ts
 run_mutant "Remove kettlebell-pistol-squat exclusion" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 2: Remove barbell-walking-lunge exclusion
 restore_file "src/lib/program/past-knee.ts"
-sed -i 's/"barbell-walking-lunge",/"__DISABLED__",/' src/lib/program/past-knee.ts
+sed -i '/"barbell-walking-lunge",/d' src/lib/program/past-knee.ts
 run_mutant "Remove barbell-walking-lunge exclusion" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 3: Remove weighted-sissy-squat exclusion
 restore_file "src/lib/program/past-knee.ts"
-sed -i 's/"weighted-sissy-squat",/"__DISABLED__",/' src/lib/program/past-knee.ts
+sed -i '/"weighted-sissy-squat",/d' src/lib/program/past-knee.ts
 run_mutant "Remove weighted-sissy-squat exclusion" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 4: Remove one-leg-barbell-squat exclusion
 restore_file "src/lib/program/past-knee.ts"
-sed -i 's/"one-leg-barbell-squat",/"__DISABLED__",/' src/lib/program/past-knee.ts
+sed -i '/"one-leg-barbell-squat",/d' src/lib/program/past-knee.ts
 run_mutant "Remove one-leg-barbell-squat exclusion" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 5: Remove lunge-sprint exclusion
 restore_file "src/lib/program/past-knee.ts"
-sed -i 's/"lunge-sprint",/"__DISABLED__",/' src/lib/program/past-knee.ts
+sed -i '/"lunge-sprint",/d' src/lib/program/past-knee.ts
 run_mutant "Remove lunge-sprint exclusion" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 

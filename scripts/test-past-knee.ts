@@ -54,6 +54,12 @@ console.log("\n1. Catalogue validation: all past-knee slugs exist");
   const excludedSlugs = Array.from(getPastKneeExcludedSlugs());
   const friendlySlugs = [...getKneeFriendlyPrimaries("squat"), ...getKneeFriendlyPrimaries("lunge")];
   
+  // Explicit wired checks (must fail on removal)
+  check("kettlebell-pistol-squat MUST be excluded", excludedSlugs.includes("kettlebell-pistol-squat"));
+  check("weighted-sissy-squat MUST be excluded", excludedSlugs.includes("weighted-sissy-squat"));
+  check("one-leg-barbell-squat MUST be excluded", excludedSlugs.includes("one-leg-barbell-squat"));
+  check("lunge-sprint MUST be excluded", excludedSlugs.includes("lunge-sprint"));
+  
   for (const slug of excludedSlugs) {
     const exists = bySlug.has(slug);
     if (!exists) {
