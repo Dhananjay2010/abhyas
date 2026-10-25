@@ -116,6 +116,7 @@
     "test:error-sentry-once": "tsx scripts/test-error-sentry-once.ts",
     "test:ensure-session-exercises-deload": "tsx scripts/test-ensure-session-exercises-deload.ts",
     "test:start-session-ensure-exercises": "tsx scripts/test-start-session-ensure-exercises.ts",
+    "test:start-session-ensure-exercises-real-db": "tsx scripts/test-start-session-ensure-exercises-module-mock.ts",
     "test:bottom-nav-offline-context": "tsx scripts/test-bottom-nav-offline-context.ts",
     "test:offline-retry-reserved-space": "tsx scripts/test-offline-retry-reserved-space.ts",
     "test:sw-route-behavioral": "tsx scripts/test-sw-route-behavioral.ts",

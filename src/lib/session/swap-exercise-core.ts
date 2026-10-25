@@ -5,19 +5,16 @@
  * a result, allowing tests with fakes to verify the call-site wiring (S1, S2, S3).
  */
 
+import type { Database } from "@/lib/database.types";
 import type { SwapWeightsResult } from "@/lib/session/resolve-swap-weights";
 import { prescribe } from "@/lib/program/prescription";
 
-// Use explicit types to avoid Database enum resolution issues in CI
-type ExerciseMetric = "reps" | "seconds";
-type ExerciseMechanic = "compound" | "isolation";
-type MovementPattern = 
-  | "horizontal_press" | "vertical_press" | "horizontal_pull" | "vertical_pull"
-  | "squat" | "hinge" | "lunge" | "calf"
-  | "biceps" | "triceps" | "lateral_delt" | "rear_delt" | "forearm"
-  | "core" | "carry" | "neck" | "cardio" | "other";
-type UserGoal = "muscle_gain" | "strength" | "fat_loss" | "general_fitness" | "flexibility_stress" | null;
-type ExperienceLevel = "beginner" | "intermediate" | "expert" | null;
+// Derive types from generated Database schema to prevent drift
+type ExerciseMetric = Database["public"]["Enums"]["exercise_metric"];
+type ExerciseMechanic = Database["public"]["Enums"]["mechanic_type"];
+type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
+type UserGoal = Database["public"]["Enums"]["fitness_goal"] | null;
+type ExperienceLevel = Database["public"]["Enums"]["fitness_level"] | null;
 
 export type SwapExerciseDeps = {
   /**
