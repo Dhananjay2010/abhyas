@@ -19,7 +19,7 @@ function assert(condition: boolean, message: string) {
 console.log("\n🧪 Test N6/N6s/N8: Session page prop derivation\n");
 
 // Extract pure prop derivation logic
-function deriveSessionProps(session: { status?: string } | null, user: { id?: string } | null) {
+function deriveSessionProps(session: { id?: string; status?: string; user_id?: string } | null, user: { id?: string } | null) {
   return {
     sessionStatus: session?.status || "not_found",
     userId: user?.id || null,
@@ -57,7 +57,7 @@ async function runTests() {
     assert(props4.sessionStatus === "in_progress", "Session status present without user");
     assert(props4.userId === null, "No userId when user is null");
 
-    console.log(`\n✅ All assertions passed (${passed})`);
+    console.log(`\n✅ All assertions passed (${passedProps})`);
     console.log("\nMutation N6/N6s/N8 killed: Session page derives status and userId correctly");
     console.log("Break: Swapping sessionStatus/userId assignments breaks prop derivation");
     process.exit(0);
