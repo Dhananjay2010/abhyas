@@ -556,7 +556,7 @@ async function testSecondUserNotClosed() {
 }
 
 /**
- * Test (B5): today parameter changes the outcome
+ * Test: today parameter changes the outcome
  * 
  * If today is 2026-10-25, then the session is same-date (not stale candidate).
  * If today is 2026-10-26, then the session is cross-date (stale candidate, closed).
@@ -597,13 +597,13 @@ async function testTodayChangesOutcome() {
   const resultYesterday = await startSessionStaleCore(depsYesterday);
 
   if (!resultYesterday.ok) {
-    throw new Error(`Test (B5) case 1 failed: ${resultYesterday.error}`);
+    throw new Error(`Test case 1 failed: ${resultYesterday.error}`);
   }
   if (!resultYesterday.shouldInsert) {
-    throw new Error(`Test (B5) case 1 failed: Expected shouldInsert=true (no stale candidates), got false`);
+    throw new Error(`Test case 1 failed: Expected shouldInsert=true (no stale candidates), got false`);
   }
   if (sessions[0].status !== "in_progress") {
-    throw new Error(`Test (B5) case 1 failed: Session should remain in_progress (same date)`);
+    throw new Error(`Test case 1 failed: Session should remain in_progress (same date)`);
   }
 
   // Case 2: today = TODAY (cross-date, stale candidate)
@@ -613,16 +613,16 @@ async function testTodayChangesOutcome() {
   const resultToday = await startSessionStaleCore(depsToday);
 
   if (!resultToday.ok) {
-    throw new Error(`Test (B5) case 2 failed: ${resultToday.error}`);
+    throw new Error(`Test case 2 failed: ${resultToday.error}`);
   }
   if (!resultToday.shouldInsert) {
-    throw new Error(`Test (B5) case 2 failed: Expected shouldInsert=true (stale closed), got false`);
+    throw new Error(`Test case 2 failed: Expected shouldInsert=true (stale closed), got false`);
   }
   if (sessions[0].status === "in_progress") {
-    throw new Error(`Test (B5) case 2 failed: Session should be closed (cross-date stale)`);
+    throw new Error(`Test case 2 failed: Session should be closed (cross-date stale)`);
   }
 
-  console.log("✓ Test (B5): today parameter changes outcome (same-date vs cross-date)");
+  console.log("✓ Test: today parameter changes outcome (same-date vs cross-date)");
 }
 
 /**
