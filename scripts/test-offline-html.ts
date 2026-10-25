@@ -15,7 +15,7 @@ function assert(condition: boolean, message: string): void {
 }
 
 function countTags(html: string, tag: string): number {
-  const openingTags = html.match(new RegExp(`<${tag}[\\s>]`, "gi")) || [];
+  const openingTags = html.match(new RegExp(`<${tag}[/s>]`, "gi")) || [];
   return openingTags.length;
 }
 

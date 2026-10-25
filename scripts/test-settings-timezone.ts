@@ -161,7 +161,7 @@ async function runTests() {
   }
   {
     const result = canonicalizeTimezone("\tAmerica/New_York\n");
-    check('trims "\\tAmerica/New_York\\n" → "America/New_York"', result === "America/New_York");
+    check('trims "/tAmerica/New_York/n" → "America/New_York"', result === "America/New_York");
   }
 
   console.log("\n9. sanitizeTimezonePatch accepts null (gym default)");

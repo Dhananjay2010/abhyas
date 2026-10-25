@@ -131,9 +131,9 @@ console.log("\n4. config.matcher consistency");
   }
   
   check("MIDDLEWARE_MATCHER and config.matcher have consistent behavior", consistent);
-  check("MIDDLEWARE_MATCHER includes robots.txt exclusion", MIDDLEWARE_MATCHER.includes("robots\\.txt"));
-  check("MIDDLEWARE_MATCHER includes sitemap.xml exclusion", MIDDLEWARE_MATCHER.includes("sitemap\\.xml"));
-  check("MIDDLEWARE_MATCHER uses any-depth image pattern (.*\\.)", MIDDLEWARE_MATCHER.includes(".*\\."));
+  check("MIDDLEWARE_MATCHER includes robots.txt exclusion", MIDDLEWARE_MATCHER.includes("robots/.txt"));
+  check("MIDDLEWARE_MATCHER includes sitemap.xml exclusion", MIDDLEWARE_MATCHER.includes("sitemap/.xml"));
+  check("MIDDLEWARE_MATCHER uses any-depth image pattern (.*/.)", MIDDLEWARE_MATCHER.includes(".*/."));
 }
 
 console.log("\n5. PUBLIC_PATHS includes SEO routes");

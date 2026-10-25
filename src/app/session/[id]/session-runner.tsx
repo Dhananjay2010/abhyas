@@ -817,7 +817,7 @@ export function SessionRunner({
       return;
     }
 
-    const target = nextSetTarget(exercises, displayedExerciseId);
+    const target = nextSetTarget(exercises, displayedExerciseId, pendingSetState.pending);
     if (!target) return;
 
     const clientId = `${target.sessionExerciseId}:${target.setNumber}:${Date.now()}`;

@@ -225,7 +225,7 @@ function runMutation(mutant: Mutant): void {
 
   // 1. Verify pattern exists
   const original = readFileSync(file, "utf8");
-  const regex = typeof pattern === "string" ? new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) : pattern;
+  const regex = typeof pattern === "string" ? new RegExp(pattern.replace(/[.*+?^${}()|[\]/]/g, '/$&')) : pattern;
   
   if (!regex.test(original)) {
     console.log(`  ⊘ SKIP: Pattern not found`);

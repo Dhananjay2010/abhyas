@@ -272,7 +272,7 @@ async function testPrecachingAtInstall() {
   console.log("\n▶ Verifying SW extracts /_next/static/* URLs from HTML...");
 
   assert(
-    swScript.includes("/_next/static/") || swScript.includes("/_next\\\\/static\\\\/"),
+    swScript.includes("/_next/static/") || swScript.includes("/_next///static///"),
     "SW must extract /_next/static/* URLs from HTML"
   );
 

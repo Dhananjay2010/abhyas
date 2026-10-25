@@ -198,7 +198,7 @@ function testCompiledMatcher(): TestResult[] {
     // Test 1: Compiled regex should not contain literal \$ outside the main capturing group
     // The bug manifests as \$ between the main capturing group and the Next.js suffix
     // Pattern: ....*).*))\$(\.json|... (WRONG) vs ....*).*))(\.json|... (CORRECT)
-    const hasLiteralDollarBug = /\)\)\\?\$\(/.test(regexp);
+    const hasLiteralDollarBug = /\)\)/?\$\(/.test(regexp);
     results.push({
       passed: !hasLiteralDollarBug,
       message: hasLiteralDollarBug

@@ -67,13 +67,25 @@ export function reconcileWithServer<T extends ResumeExercise>(local: T[], server
  * Where the next set for the exercise on screen goes: that exercise's id and
  * the number after its last set. Null when it is not there or not pending, so
  * a tap left over from a screen that has since changed saves nothing.
+ * 
+ * Counts BOTH confirmed and pending sets to avoid set number collisions during replay.
  */
 export function nextSetTarget<T extends ResumeExercise>(
   exercises: T[],
   displayedExerciseId: string,
+  pendingSets?: Array<{ sessionExerciseId: string; setNumber: number }>,
 ): { sessionExerciseId: string; setNumber: number } | null {
   const exercise = exercises.find((e) => e.id === displayedExerciseId);
   if (!exercise || exercise.status !== "pending") return null;
-  const highest = exercise.sets.reduce((max, s) => Math.max(max, s.setNumber), 0);
+  
+  // Count confirmed sets
+  const highestConfirmed = exercise.sets.reduce((max, s) => Math.max(max, s.setNumber), 0);
+  
+  // Count pending sets for THIS exercise
+  const highestPending = (pendingSets || [])
+    .filter(p => p.sessionExerciseId === exercise.id)
+    .reduce((max, s) => Math.max(max, s.setNumber), 0);
+  
+  const highest = Math.max(highestConfirmed, highestPending);
   return { sessionExerciseId: exercise.id, setNumber: highest + 1 };
 }

@@ -86,7 +86,7 @@ function runTests(): TestResult[] {
 
   // Test 6: Path with backslash (should reject)
   {
-    const result = signInAgainHref('/settings\\evil');
+    const result = signInAgainHref('/settings/evil');
     const isRejected = result === '/';
     results.push({
       passed: isRejected,

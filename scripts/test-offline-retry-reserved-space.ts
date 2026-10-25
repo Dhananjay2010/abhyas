@@ -60,7 +60,7 @@ function testOfflineRetryReservedSpace() {
     
     // Must have a non-breaking space or similar placeholder for the hidden state
     assert(
-      source.includes("\\u00A0") || source.includes("&nbsp;") || source.includes(" "),
+      source.includes("/u00A0") || source.includes("&nbsp;") || source.includes(" "),
       "Always-rendered feedback should have placeholder (nbsp or similar) for hidden state"
     );
   }

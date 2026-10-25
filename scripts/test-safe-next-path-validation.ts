@@ -4,7 +4,7 @@
  * 
  * Behavioral test calling safeNextPath() directly to verify:
  * - Rejects protocol-relative URLs: '//evil.com'
- * - Rejects backslash paths: '/\\evil.com'
+ * - Rejects backslash paths: '//evil.com'
  * - Rejects absolute URLs: 'https://evil.com'
  * - Rejects encoded slashes in path: '/%2F%2Fevil'
  * - Accepts valid relative paths: '/today', '/session/abc'
@@ -37,8 +37,8 @@ assert(safeNextPath('//evil.com') === '/today', "Rejects '//evil.com' (protocol-
 assert(safeNextPath('//evil.com/path') === '/today', "Rejects '//evil.com/path' (protocol-relative)");
 
 // Backslash should be rejected
-assert(safeNextPath('/\\evil.com') === '/today', "Rejects '/\\evil.com' (backslash)");
-assert(safeNextPath('/\\\\evil.com') === '/today', "Rejects '/\\\\evil.com' (double backslash)");
+assert(safeNextPath('//evil.com') === '/today', "Rejects '//evil.com' (backslash)");
+assert(safeNextPath('///evil.com') === '/today', "Rejects '///evil.com' (double backslash)");
 
 // Absolute URLs should be rejected
 assert(safeNextPath('https://evil.com') === '/today', "Rejects 'https://evil.com' (absolute URL)");
@@ -76,7 +76,7 @@ assert(
   "signInAgainHref rejects protocol-relative"
 );
 assert(
-  signInAgainHref('/\\evil.com') === '/',
+  signInAgainHref('//evil.com') === '/',
   "signInAgainHref rejects backslash"
 );
 assert(

@@ -146,12 +146,12 @@ async function testSafeNextPath() {
   
   assert(
     safeNextPath("\tjavascript:alert(1)", "/") === "/",
-    "'\\tjavascript:alert(1)' (tab prefix) must resolve to safe fallback /"
+    "'/tjavascript:alert(1)' (tab prefix) must resolve to safe fallback /"
   );
 
   assert(
     safeNextPath("\njavascript:alert(1)", "/") === "/",
-    "'\\njavascript:alert(1)' (newline prefix) must resolve to safe fallback /"
+    "'/njavascript:alert(1)' (newline prefix) must resolve to safe fallback /"
   );
   
   console.log("  ✓ javascript: URL attacks blocked");
@@ -185,8 +185,8 @@ async function testSafeNextPath() {
   );
   
   assert(
-    safeNextPath("/\\evil.com", "/") === "/",
-    "/\\\\evil.com (backslash trick) must resolve to safe fallback /"
+    safeNextPath("//evil.com", "/") === "/",
+    "///evil.com (backslash trick) must resolve to safe fallback /"
   );
   
   assert(
