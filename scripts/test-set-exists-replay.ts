@@ -56,7 +56,7 @@ console.log("Testing set_exists replay handling\n");
 
 async function main() {
   const storage = createStorage();
-  const deps = createPendingSetDeps(FIXED_TIME);
+  const deps = createPendingSetDeps(() => FIXED_TIME);
   const userId = "test-user";
   const sessionId = "session-123";
 

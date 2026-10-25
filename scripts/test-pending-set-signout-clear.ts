@@ -59,7 +59,7 @@ function assertEqual<T>(actual: T, expected: T, message: string): void {
 console.log("Testing pending set sign-out clear\n");
 
 const storage = createStorage();
-const deps = createPendingSetDeps(FIXED_TIME);
+const deps = createPendingSetDeps(() => FIXED_TIME);
 const userId = "test-user";
 const sessionId = "session-123";
 

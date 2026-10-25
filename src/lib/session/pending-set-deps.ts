@@ -8,8 +8,8 @@ export type PendingSetDeps = {
   now: () => number;
 };
 
-export function createPendingSetDeps(fixedTime?: number): PendingSetDeps {
+export function createPendingSetDeps(now: () => number = Date.now): PendingSetDeps {
   return {
-    now: () => (fixedTime !== undefined ? fixedTime : Date.now()),
+    now,
   };
 }

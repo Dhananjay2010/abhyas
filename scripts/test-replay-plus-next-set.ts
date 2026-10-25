@@ -86,7 +86,7 @@ async function testReplayPlusNextSetNoCollision() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -168,7 +168,7 @@ async function testPendingSetCountPerExercise() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -249,7 +249,7 @@ async function testReplayedSetsUpdateUI() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,

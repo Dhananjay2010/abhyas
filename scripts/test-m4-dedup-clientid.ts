@@ -30,7 +30,7 @@ class FakeStorage implements Storage {
 console.log("\n🧪 M4 TEST: clientId dedup prevents duplicate saves\n");
 
 const storage = new FakeStorage();
-const deps = createPendingSetDeps(FIXED_TIME);
+const deps = createPendingSetDeps(() => FIXED_TIME);
 
 const set1: PendingSet = {
   sessionExerciseId: "ex-1",

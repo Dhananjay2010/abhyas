@@ -65,7 +65,7 @@ async function testInvalidJsonCleared() {
   const storage = createStorage();
   storage.setItem(storageKey("test-user-id"), "not valid json{{{");
 
-  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(FIXED_TIME));
+  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(() => FIXED_TIME));
 
   assertEqual(result, {}, "Returns empty object for invalid JSON");
   assertEqual(storage.getItem(storageKey("test-user-id")), null, "Storage key is cleared");
@@ -77,7 +77,7 @@ async function testArrayRejected() {
   const storage = createStorage();
   storage.setItem(storageKey("test-user-id"), JSON.stringify([{ sessionId: "foo" }]));
 
-  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(FIXED_TIME));
+  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(() => FIXED_TIME));
 
   assertEqual(result, {}, "Returns empty object for array");
   assertEqual(storage.getItem(storageKey("test-user-id")), null, "Storage key is cleared");
@@ -94,7 +94,7 @@ async function testWrongShapeRejected() {
     JSON.stringify({ "session-1": { setNumber: 1 } })
   );
 
-  let result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(FIXED_TIME));
+  let result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(() => FIXED_TIME));
   assertEqual(result, {}, "Rejects object instead of array");
   assertEqual(storage.getItem(storageKey("test-user-id")), null, "Storage cleared");
 
@@ -112,7 +112,7 @@ async function testWrongShapeRejected() {
     })
   );
 
-  result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(FIXED_TIME));
+  result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(() => FIXED_TIME));
   assertEqual(result, {}, "Rejects sets with missing fields");
   assertEqual(storage.getItem(storageKey("test-user-id")), null, "Storage cleared");
 
@@ -133,7 +133,7 @@ async function testWrongShapeRejected() {
     })
   );
 
-  result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(FIXED_TIME));
+  result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(() => FIXED_TIME));
   assertEqual(result, {}, "Rejects sets with wrong field types");
   assertEqual(storage.getItem(storageKey("test-user-id")), null, "Storage cleared");
 }
@@ -176,7 +176,7 @@ async function testWellFormedDataPasses() {
 
   storage.setItem(storageKey("test-user-id"), JSON.stringify(wellFormed));
 
-  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(FIXED_TIME));
+  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(() => FIXED_TIME));
 
   assertEqual(result, wellFormed, "Returns well-formed data unchanged");
   assert(storage.getItem(storageKey("test-user-id")) !== null, "Storage not cleared");
@@ -188,7 +188,7 @@ async function testLoadPendingSetsWithInvalidStorage() {
   const storage = createStorage();
   storage.setItem(storageKey("test-user-id"), "invalid json");
 
-  const result = loadPendingSets(storage, "test-user-id", "session-1", createPendingSetDeps(FIXED_TIME));
+  const result = loadPendingSets(storage, "test-user-id", "session-1", createPendingSetDeps(() => FIXED_TIME));
 
   assertEqual(result, [], "Returns empty array when storage is invalid");
   assertEqual(storage.getItem(storageKey("test-user-id")), null, "Invalid storage is cleared");
@@ -210,9 +210,9 @@ async function testSavePendingSetValidation() {
     weightKg: 50,
     durationSeconds: null,
     clientId: "client-1",
-  }, createPendingSetDeps(FIXED_TIME));
+  }, createPendingSetDeps(() => FIXED_TIME));
 
-  const loaded = loadPendingSets(storage, "test-user-id", "session-1", createPendingSetDeps(FIXED_TIME));
+  const loaded = loadPendingSets(storage, "test-user-id", "session-1", createPendingSetDeps(() => FIXED_TIME));
   assertEqual(loaded.length, 1, "Set saved despite invalid prior storage");
   assertEqual(loaded[0]?.setNumber, 1, "Correct set loaded");
 }
@@ -237,7 +237,7 @@ async function testNullFieldsValid() {
 
   storage.setItem(storageKey("test-user-id"), JSON.stringify(withNulls));
 
-  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(FIXED_TIME));
+  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(() => FIXED_TIME));
 
   assertEqual(result, withNulls, "Null fields are accepted");
 }
@@ -264,7 +264,7 @@ async function testExtraFieldsIgnored() {
 
   storage.setItem(storageKey("test-user-id"), JSON.stringify(withExtra));
 
-  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(FIXED_TIME));
+  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(() => FIXED_TIME));
 
   assert(result["session-1"]?.[0]?.setNumber === 1, "Data with extra fields is accepted");
 }
@@ -309,7 +309,7 @@ async function testStaleEntriesPruned() {
 
   storage.setItem(storageKey("test-user-id"), JSON.stringify(withStale));
 
-  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(FIXED_TIME));
+  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(() => FIXED_TIME));
 
   assert(result["old-session"] === undefined, "Stale session (>7 days) is pruned");
   assert(result["recent-session"] !== undefined, "Recent session is kept");
@@ -337,7 +337,7 @@ async function testLegacyFormatMigrated() {
 
   storage.setItem(storageKey("test-user-id"), JSON.stringify(legacyFormat));
 
-  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(FIXED_TIME));
+  const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(() => FIXED_TIME));
 
   assertEqual(result["session-1"]?.length, 1, "Legacy data migrated successfully");
   assertEqual(result["session-1"]?.[0]?.setNumber, 1, "Data intact after migration");
@@ -385,7 +385,7 @@ async function testTimestampUpdatedOnSave() {
     weightKg: 50,
     durationSeconds: null,
     clientId: "client-2",
-  }, createPendingSetDeps(FIXED_TIME));
+  }, createPendingSetDeps(() => FIXED_TIME));
 
   const raw = storage.getItem(storageKey("test-user-id"));
   if (!raw) throw new Error("Timestamp update: raw storage value is null");

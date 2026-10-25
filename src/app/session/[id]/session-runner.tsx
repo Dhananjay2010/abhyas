@@ -161,6 +161,7 @@ export function SessionRunner({
   addEventListener: addEventListenerProp,
   removeEventListener: removeEventListenerProp,
   timer = REAL_TIMER,
+  now = Date.now,
 }: {
   sessionId: string;
   sessionStatus: Database["public"]["Enums"]["session_status"];
@@ -180,6 +181,7 @@ export function SessionRunner({
   addEventListener?: (type: string, handler: () => void) => void;
   removeEventListener?: (type: string, handler: () => void) => void;
   timer?: RunnerTimer;
+  now?: () => number;
   
 }) {
   // Stable event listener functions for focus retry
@@ -246,7 +248,7 @@ export function SessionRunner({
       sessionStatus,
       userId,
       onChange: setPendingSetState,
-      deps: createPendingSetDeps(),
+      deps: createPendingSetDeps(now),
     });
   });
 
@@ -842,7 +844,7 @@ export function SessionRunner({
     const target = nextSetTarget(exercises, displayedExerciseId, pendingSetState.pending);
     if (!target) return;
 
-    const clientId = `${target.sessionExerciseId}:${target.setNumber}:${Date.now()}`;
+    const clientId = `${target.sessionExerciseId}:${target.setNumber}:${now()}`;
 
     await createConcurrentGuard(async () => {
       setBusy(true);

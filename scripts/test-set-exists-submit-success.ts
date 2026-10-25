@@ -43,7 +43,7 @@ console.log("\nTesting set_exists in submit\n");
 
 async function runTest() {
   const storage = createStorage();
-  const deps = createPendingSetDeps(FIXED_TIME);
+  const deps = createPendingSetDeps(() => FIXED_TIME);
   const userId = "user-1";
   const sessionId = "sess-1";
   

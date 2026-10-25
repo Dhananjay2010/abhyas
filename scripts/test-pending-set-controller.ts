@@ -108,7 +108,7 @@ async function testRapidFocusAndReplay() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -166,7 +166,7 @@ async function testPrefilledStorageLoadsAndReplays() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -202,7 +202,7 @@ async function testUnresolvedPromiseNotMarkedSaved() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -294,7 +294,7 @@ async function testSingleFlightReplayGuard() {
 
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -334,7 +334,7 @@ async function testSessionExpiredHandling() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -386,7 +386,7 @@ async function testDuplicate23505() {
 
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -417,7 +417,7 @@ async function testNetworkErrorKeepsPending() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -457,7 +457,7 @@ async function testThrownSessionExpired() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -508,7 +508,7 @@ async function testThrownSessionExpiredInReplay() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -567,7 +567,7 @@ async function testReplayedSetsReported() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -613,7 +613,7 @@ async function testReplayIntoEndedSessionRefused() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,
@@ -678,7 +678,7 @@ async function testReplayErrorAfterSignIn() {
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
     userId: "test-user-id",
-    deps: createPendingSetDeps(FIXED_TIME),
+    deps: createPendingSetDeps(() => FIXED_TIME),
     storage,
     logSet,
     sessionId,

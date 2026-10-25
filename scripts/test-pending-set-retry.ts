@@ -33,7 +33,7 @@ function createStorage(): Storage {
 }
 
 function createTestDeps(): PendingSetDeps {
-  return createPendingSetDeps(FIXED_TIME);
+  return createPendingSetDeps(() => FIXED_TIME);
 }
 
 let exitCode = 0;

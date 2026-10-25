@@ -58,7 +58,7 @@ function assertEqual<T>(actual: T, expected: T, message: string): void {
 console.log("Testing pending set user isolation\n");
 
 const storage = createStorage();
-const deps = createPendingSetDeps(FIXED_TIME);
+const deps = createPendingSetDeps(() => FIXED_TIME);
 const sessionId = "session-123";
 
 // Test: storageKey returns different keys for different users

@@ -45,7 +45,7 @@ console.log("\nTesting SESSION_EXPIRED outbox behavior\n");
 
 async function runTest() {
   const storage = createStorage();
-  const deps = createPendingSetDeps(FIXED_TIME);
+  const deps = createPendingSetDeps(() => FIXED_TIME);
   const userId = "user-1";
   const sessionId = "sess-1";
   
