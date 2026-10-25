@@ -6,6 +6,7 @@ import { getSiteInfo } from "@/lib/legal/site-info";
 import { SignOutButton } from "./signout-button";
 import { buildTimezoneOptions } from "@/lib/timezone-options";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
+import { buildSettingsProps } from "@/lib/session/build-runner-props";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,9 @@ export default async function SettingsPage() {
 
   const { supportEmail } = getSiteInfo();
 
+  // N8: Extract userId via tested helper
+  const { userId } = buildSettingsProps(user);
+
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
@@ -68,7 +72,7 @@ export default async function SettingsPage() {
         Signed in as {user.email}. Changes save as you make them.
       </p>
 
-      <SettingsForm initial={initial} equipment={equipment} timezones={timezones} userId={user.id} />
+      <SettingsForm initial={initial} equipment={equipment} timezones={timezones} userId={userId} />
 
       <div className="mt-12 space-y-8 border-t border-border pt-8">
         <section>
