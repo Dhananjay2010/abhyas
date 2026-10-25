@@ -538,6 +538,105 @@ async function main() {
     check("Chin-ups 3×11: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
   }
 
+  console.log("\n10. C4: isBodyweight assertions");
+  {
+    // Bodyweight exercise (empty equipment_ids)
+    const bwEx: SessionExerciseRow = {
+      exercise_id: "ex-pushup",
+      planned_sets: 4,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "horizontal_press",
+        equipment_ids: [],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    };
+
+    const bwProgress: ExerciseProgressRow = {
+      current_working_weight_kg: null,
+      current_target_reps: 12,
+      consecutive_failures: 0,
+      best_weight_kg: null,
+      best_reps: 12,
+      best_e1rm: null,
+      total_sessions: 3,
+      weight_at_failure_start_kg: null,
+    };
+
+    const bwInput = buildProgressionInput(bwEx, [], bwProgress, { is_deload: false, local_date: "2026-10-25", program_id: "prog-1" }, "right");
+    check("C4: isBodyweight true for empty equipment_ids", bwInput.meta.isBodyweight === true);
+
+    // Loaded exercise (pull_up_bar)
+    const loadedEx: SessionExerciseRow = {
+      exercise_id: "ex-pullup",
+      planned_sets: 4,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "vertical_pull",
+        equipment_ids: ["pull_up_bar"],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    };
+
+    const loadedInput = buildProgressionInput(loadedEx, [], bwProgress, { is_deload: false, local_date: "2026-10-25", program_id: "prog-1" }, "right");
+    check("C4: isBodyweight false for pull_up_bar", loadedInput.meta.isBodyweight === false);
+  }
+
+  console.log("\n11. C4: Weighted-dip case (+10 kg, no equipment)");
+  {
+    // Dips with added weight, but no equipment listed
+    const dipEx: SessionExerciseRow = {
+      exercise_id: "ex-dip-weighted",
+      planned_sets: 4,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "horizontal_press",
+        equipment_ids: [], // Bodyweight + added weight, but no equipment
+        progression_chain: null,
+        progression_rank: null,
+      },
+    };
+
+    const dipSets: SessionSetRow[] = [
+      { reps: 12, weight_kg: "10", duration_seconds: null },
+      { reps: 12, weight_kg: "10", duration_seconds: null },
+      { reps: 12, weight_kg: "10", duration_seconds: null },
+    ];
+
+    const dipProgress: ExerciseProgressRow = {
+      current_working_weight_kg: "10",
+      current_target_reps: 12,
+      consecutive_failures: 0,
+      best_weight_kg: "10",
+      best_reps: 12,
+      best_e1rm: null,
+      total_sessions: 3,
+      weight_at_failure_start_kg: null,
+    };
+
+    const session: SessionRow = {
+      is_deload: false,
+      local_date: "2026-10-25",
+      program_id: "prog-1",
+    };
+
+    const input = buildProgressionInput(dipEx, dipSets, dipProgress, session, "easy");
+    const decision = evaluateProgression(input);
+
+    // Easy at top: should progress. With no equipment, bodyweight added-weight step is 1.25 kg
+    // From 10 kg, one step = 11.25 kg (not 15 kg which would be 2×2.5 steps)
+    check("Weighted dip +10 kg, 3×12 easy: progressed", decision.outcome === "progressed", decision.outcome);
+    check("Weighted dip +10 kg easy: next weight 11.25 kg (C4: mutant gives 15)", decision.nextWorkingWeightKg === 11.25, `got ${decision.nextWorkingWeightKg}`);
+  }
+
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
   
   if (failures === 0) {

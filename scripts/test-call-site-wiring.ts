@@ -47,6 +47,14 @@ check(
   "userUnits parameter removed per M2"
 );
 
+// U1: Static assertion that applyProgression is passed to finishExerciseCore
+check(
+  "actions.ts passes applyProgression to finishExerciseCore (U1)",
+  actionsContent.includes('finishExerciseCore(supabase, user.id, input, { applyProgression })') &&
+  actionsContent.includes('async function applyProgression('),
+  "U1: finishExerciseCore must receive applyProgression"
+);
+
 console.log("\n2. Check page.tsx wiring");
 const pageContent = fs.readFileSync("src/app/session/[id]/page.tsx", "utf8");
 

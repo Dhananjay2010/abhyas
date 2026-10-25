@@ -799,6 +799,28 @@ export function evaluateProgression(input: {
     const weightToBackOffFrom = state.weightAtFailureStartKg ?? currentWeight;
     const reduced = computeTwoMissResult(weightToBackOffFrom, true); // M1: snap DOWN for two-miss back-off
     
+    // MED-3: Third+ consecutive miss - if 0.9x back-off doesn't change weight, drop one grid step
+    if (failures >= 3 && reduced === currentWeight && equipmentIds) {
+      const gridStep = equipmentGridStep(equipmentIds, 'kg');
+      const oneStepDown = currentWeight - gridStep;
+      
+      // Floor at equipment's smallest load (0 for bodyweight, gridStep for others)
+      const floor = meta.isBodyweight ? 0 : gridStep;
+      const stepped = Math.max(floor, oneStepDown);
+      
+      if (stepped < currentWeight) {
+        return {
+          ...carried,
+          outcome: "backed_off",
+          nextWorkingWeightKg: stepped,
+          nextTargetReps: repsMax,
+          consecutiveFailures: 0,
+          weightAtFailureStartKg: null, // MED-3: clear on third-miss step-down
+          message: `Missed three times in a row — dropping one step to ${displayKg(stepped)} to break through.`,
+        };
+      }
+    }
+    
     // If helper returned same weight, it's a hold
     if (reduced === weightToBackOffFrom) {
       const holdMessage = equipmentIds
