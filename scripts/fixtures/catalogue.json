@@ -70,7 +70,9 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -353,7 +355,9 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -384,7 +388,9 @@
       "kettlebell"
     ],
     "level_min": "expert",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "wrist"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -1144,7 +1150,9 @@
       "barbell"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "low",
     "tracks": [
@@ -1503,7 +1511,8 @@
     "level_min": "beginner",
     "contraindicated_regions": [
       "elbow",
-      "shoulder"
+      "shoulder",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "none",
@@ -2914,7 +2923,9 @@
       "cable_machine"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -4411,7 +4422,8 @@
     "level_min": "beginner",
     "contraindicated_regions": [
       "elbow",
-      "shoulder"
+      "shoulder",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "none",
@@ -4442,7 +4454,8 @@
     "level_min": "beginner",
     "contraindicated_regions": [
       "elbow",
-      "shoulder"
+      "shoulder",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "none",
@@ -4536,7 +4549,8 @@
     ],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "shoulder"
+      "shoulder",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -4632,7 +4646,9 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -5712,7 +5728,8 @@
     "equipment_ids": [],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "shoulder"
+      "shoulder",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "none",
@@ -6310,7 +6327,8 @@
     ],
     "level_min": "expert",
     "contraindicated_regions": [
-      "knee"
+      "knee",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -6342,7 +6360,8 @@
     ],
     "level_min": "expert",
     "contraindicated_regions": [
-      "knee"
+      "knee",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -8381,7 +8400,9 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "wrist"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -8414,7 +8435,8 @@
     "level_min": "intermediate",
     "contraindicated_regions": [
       "hip",
-      "knee"
+      "knee",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "low",
@@ -8448,7 +8470,8 @@
     ],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "knee"
+      "knee",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "low",
@@ -8480,7 +8503,9 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -10459,7 +10484,8 @@
     ],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "shoulder"
+      "shoulder",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -10576,7 +10602,9 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -10645,7 +10673,8 @@
     ],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "shoulder"
+      "shoulder",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -10710,7 +10739,9 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "low",
     "tracks": [
@@ -10765,7 +10796,9 @@
       "barbell"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "low",
     "tracks": [
@@ -11342,7 +11375,8 @@
     "equipment_ids": [],
     "level_min": "beginner",
     "contraindicated_regions": [
-      "shoulder"
+      "shoulder",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "none",
@@ -12694,7 +12728,9 @@
     ],
     "equipment_ids": [],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -12777,7 +12813,9 @@
       "barbell"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "low",
     "tracks": [
@@ -14567,7 +14605,9 @@
     ],
     "equipment_ids": [],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "wrist"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -14688,7 +14728,8 @@
     ],
     "level_min": "expert",
     "contraindicated_regions": [
-      "knee"
+      "knee",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -15128,7 +15169,9 @@
       "cable_machine"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -16336,7 +16379,9 @@
       "barbell"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "low",
     "tracks": [
@@ -16693,7 +16738,8 @@
     ],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "shoulder"
+      "shoulder",
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -16752,7 +16798,9 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -16961,7 +17009,9 @@
       "dumbbell"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "high",
     "spinal_load": "low",
     "tracks": [
