@@ -141,63 +141,83 @@ type LogSetCall = {
     }
   );
 
-  check("Weight input found", !!weightInputImperial);
-
-  let prefillValue = 0;
-  if (weightInputImperial) {
-    // Check 3: Prefill is multiple of 5 lb
-    prefillValue = parseFloat(weightInputImperial.value || "0");
-    check(
-      "Prefill is multiple of 5 lb",
-      prefillValue % 5 === 0,
-      `got ${prefillValue} lb`
-    );
-    check(
-      "Prefill is ~130 lb (60 kg)",
-      prefillValue >= 125 && prefillValue <= 135,
-      `got ${prefillValue}`
-    );
-
-    // Check 4: Step is 5
-    check("Weight step is 5", weightInputImperial.step === "5", `got step="${weightInputImperial.step}"`);
-
-    // Find reps input
-    const repsInputImperial = [...rImperial.container.querySelectorAll<HTMLInputElement>("input")].find(
-      (i) => i !== weightInputImperial && (i.closest("label")?.textContent ?? "").includes("Reps")
-    );
-
-    if (repsInputImperial) {
-      // Type 8 reps and 135 lb
-      await act(async () => {
-        fireEvent.change(repsInputImperial, { target: { value: "8" } });
-        fireEvent.change(weightInputImperial, { target: { value: "135" } });
-      });
-
-      // Find Log button
-      const logButton = [...rImperial.container.querySelectorAll("button")].find(
-        (btn) => btn.textContent?.includes("Log set") || btn.textContent?.includes("Done")
-      );
-
-      if (logButton && !logButton.disabled) {
-        await act(async () => {
-          fireEvent.click(logButton);
-        });
-
-        await waitFor(() => {
-          if (logSetCallsImperial.length === 0) throw new Error("logSet not called");
-        });
-
-        // Check 5: logSet received ~61.2 kg
-        const call = logSetCallsImperial[0];
-        const expectedKg = 135 * 0.453592;
-        check(
-          "logSet received ~61.2 kg",
-          call.weightKg !== null && call.weightKg >= 60.8 && call.weightKg <= 61.5,
-          `expected ~${expectedKg.toFixed(1)}, got ${call.weightKg?.toFixed(2)}`
-        );
-      }
-    }
+  if (!weightInputImperial) {
+    throw new Error("Imperial weight input not found");
   }
+
+  // Check 3: Prefill is multiple of 5 lb
+  const prefillValue = parseFloat(weightInputImperial.value || "0");
+  check(
+    "Prefill is multiple of 5 lb",
+    prefillValue % 5 === 0,
+    `got ${prefillValue} lb`
+  );
+  check(
+    "Prefill is ~130 lb (60 kg)",
+    prefillValue >= 125 && prefillValue <= 135,
+    `got ${prefillValue}`
+  );
+
+  // Check 4: Step is 5
+  check("Weight step is 5", weightInputImperial.step === "5", `got step="${weightInputImperial.step}"`);
+
+  // Find reps input
+  const repsInputImperial = [...rImperial.container.querySelectorAll<HTMLInputElement>("input")].find(
+    (i) => i !== weightInputImperial && (i.closest("label")?.textContent ?? "").includes("Reps")
+  );
+
+  if (!repsInputImperial) {
+    throw new Error("Imperial reps input not found");
+  }
+
+  // Clear weight input and type 135 lb with 8 reps
+  await act(async () => {
+    fireEvent.change(weightInputImperial, { target: { value: "" } });
+    fireEvent.change(weightInputImperial, { target: { value: "135" } });
+    fireEvent.change(repsInputImperial, { target: { value: "8" } });
+  });
+
+  // Wait for synced state (4-second timeout in SessionRunner)
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 4500));
+  });
+
+  // Wait for button to become enabled
+  await waitFor(() => {
+    const btn = [...rImperial.container.querySelectorAll("button")].find(
+      (b) => b.textContent?.includes("Log set")
+    );
+    if (!btn || btn.disabled) {
+      throw new Error("Log button not ready");
+    }
+  });
+
+  // Find Log button
+  const logButton = [...rImperial.container.querySelectorAll("button")].find(
+    (btn) => btn.textContent?.includes("Log set")
+  );
+
+  if (!logButton) {
+    throw new Error("Log button not found");
+  }
+
+  await act(async () => {
+    fireEvent.click(logButton);
+  });
+
+  await waitFor(() => {
+    if (logSetCallsImperial.length === 0) throw new Error("logSet not called");
+  });
+
+  // Check 5: logSet received ~61.23 kg (135 lb)
+  const imperialCall = logSetCallsImperial[0];
+  const expectedKg = 135 * 0.453592; // 61.23492
+  check(
+    "logSet received ~61.23 kg (135 lb typed)",
+    imperialCall.weightKg !== null && 
+    Math.abs(imperialCall.weightKg - expectedKg) < 0.05,
+    `expected ${expectedKg.toFixed(2)}, got ${imperialCall.weightKg?.toFixed(2)}`
+  );
 
   rImperial.unmount();
 
@@ -302,21 +322,75 @@ type LogSetCall = {
     }
   );
 
-  check("Metric weight input found", !!weightInputMetric);
-
-  let metricPrefillValue = "";
-  if (weightInputMetric) {
-    // Check 6: Metric prefill is exact (60, not rounded)
-    metricPrefillValue = weightInputMetric.value;
-    check(
-      "Metric prefill is exact 60 kg",
-      metricPrefillValue === "60",
-      `got "${metricPrefillValue}"`
-    );
-
-    // Check 7: Metric step is 2.5
-    check("Metric step is 2.5", weightInputMetric.step === "2.5", `got step="${weightInputMetric.step}"`);
+  if (!weightInputMetric) {
+    throw new Error("Metric weight input not found");
   }
+
+  // Check 6: Metric prefill is exact (60, not rounded)
+  const metricPrefillValue = weightInputMetric.value;
+  check(
+    "Metric prefill is exact 60 kg",
+    metricPrefillValue === "60",
+    `got "${metricPrefillValue}"`
+  );
+
+  // Check 7: Metric step is 2.5
+  check("Metric step is 2.5", weightInputMetric.step === "2.5", `got step="${weightInputMetric.step}"`);
+
+  // Find reps input
+  const repsInputMetric = [...rMetric.container.querySelectorAll<HTMLInputElement>("input")].find(
+    (i) => i !== weightInputMetric && (i.closest("label")?.textContent ?? "").includes("Reps")
+  );
+
+  if (!repsInputMetric) {
+    throw new Error("Metric reps input not found");
+  }
+
+  // Type 62.5 kg with 8 reps
+  await act(async () => {
+    fireEvent.change(weightInputMetric, { target: { value: "62.5" } });
+    fireEvent.change(repsInputMetric, { target: { value: "8" } });
+  });
+
+  // Wait for synced state (4-second timeout in SessionRunner)
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 4500));
+  });
+
+  // Wait for button to become enabled
+  await waitFor(() => {
+    const btn = [...rMetric.container.querySelectorAll("button")].find(
+      (b) => b.textContent?.includes("Log set")
+    );
+    if (!btn || btn.disabled) {
+      throw new Error("Metric log button not ready");
+    }
+  });
+
+  // Find Log button
+  const logButtonMetric = [...rMetric.container.querySelectorAll("button")].find(
+    (btn) => btn.textContent?.includes("Log set")
+  );
+
+  if (!logButtonMetric) {
+    throw new Error("Metric log button not found");
+  }
+
+  await act(async () => {
+    fireEvent.click(logButtonMetric);
+  });
+
+  await waitFor(() => {
+    if (logSetCallsMetric.length === 0) throw new Error("Metric logSet not called");
+  });
+
+  // Check 8: logSet received exactly 62.5 kg (no conversion)
+  const metricCall = logSetCallsMetric[0];
+  check(
+    "logSet received exactly 62.5 kg (metric typed)",
+    metricCall.weightKg === 62.5,
+    `expected 62.5, got ${metricCall.weightKg}`
+  );
 
   rMetric.unmount();
 
