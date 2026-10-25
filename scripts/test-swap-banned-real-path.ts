@@ -12,6 +12,8 @@
 import { swapExerciseCore, type SwapExerciseDeps } from "../src/lib/session/swap-exercise-core";
 import catalogue from "./fixtures/catalogue.json";
 import type { CandidateExercise } from "../src/lib/program/generate";
+import { buildEligibleSwapList, buildGeneratorInput } from "../src/lib/session/eligible-swap-list";
+import { getSwapPatterns } from "../src/lib/program/swap-patterns";
 
 const catalogueExercises = catalogue as CandidateExercise[];
 
@@ -23,36 +25,65 @@ function check(label: string, ok: boolean, detail: string = ""): void {
 
 // Spies to track if functions were called
 let weightLookupCalled = false;
-let dbUpdateCalled = false;
 
-const deps: SwapExerciseDeps = {
-  resolveSwapWeights: async () => {
-    weightLookupCalled = true;
-    return {
-      weightPrefill: null,
-      workingWeightKg: null,
-      currentTargetReps: null,
-      isBodyweight: false,
-    };
-  },
-  validateSwapTarget: async ({ newExerciseId }) => {
-    // Build real validator using buildEligibleSwapList
-    // For this test, we'll return false for banned exercises
-    const bannedExercises = ["barbell-full-squat", "arnold-dumbbell-press"];
-    const candidate = catalogueExercises.find(e => e.id === newExerciseId);
-    return !candidate || !bannedExercises.includes(candidate.slug);
-  },
-};
+function createDeps(
+  currentExercise: CandidateExercise,
+  injuries: Array<{ body_region: string; severity: "current" | "past" }>
+): SwapExerciseDeps {
+  return {
+    resolveSwapWeights: async () => {
+      weightLookupCalled = true;
+      return {
+        weightPrefill: null,
+        workingWeightKg: null,
+        currentTargetReps: null,
+        isBodyweight: false,
+      };
+    },
+    validateSwapTarget: async ({ newExerciseId }) => {
+      // Use real buildEligibleSwapList to determine eligibility
+      const generatorInput = buildGeneratorInput({
+        userId: "test-user",
+        profile: {
+          goal: "muscle_gain",
+          level: "intermediate",
+          primary_track: "weights",
+          days_per_week: 4,
+          yoga_days_per_week: 0,
+          date_of_birth: "1990-01-01",
+          height_cm: 175,
+          has_all_equipment: true,
+        },
+        equipmentIds: ["barbell", "dumbbell", "flat_bench", "squat_rack"],
+        injuries,
+        weightKg: 75,
+      });
+
+      const patterns = getSwapPatterns(currentExercise.movement_pattern, generatorInput);
+      const pool = catalogueExercises.filter(e => patterns.includes(e.movement_pattern));
+
+      const eligibleList = buildEligibleSwapList({
+        currentExercise,
+        sessionExerciseId: "test-session-ex-id",
+        generatorInput,
+        pool,
+        alreadyInSession: new Set([currentExercise.id]),
+      });
+
+      return eligibleList.some(e => e.id === newExerciseId);
+    },
+  };
+}
 
 async function testBannedSwap(
   testName: string,
   currentExerciseSlug: string,
   targetExerciseSlug: string,
+  injuries: Array<{ body_region: string; severity: "current" | "past" }>,
 ) {
   console.log(`\n${testName}`);
   
   weightLookupCalled = false;
-  dbUpdateCalled = false;
   
   const currentEx = catalogueExercises.find(e => e.slug === currentExerciseSlug);
   const targetEx = catalogueExercises.find(e => e.slug === targetExerciseSlug);
@@ -61,6 +92,8 @@ async function testBannedSwap(
     check("Exercises found in catalogue", false, `current: ${!!currentEx}, target: ${!!targetEx}`);
     return;
   }
+  
+  const deps = createDeps(currentEx, injuries);
   
   const result = await swapExerciseCore(deps, {
     newExerciseId: targetEx.id,
@@ -86,7 +119,6 @@ async function testBannedSwap(
   
   check("Swap was refused", !result.ok);
   check("Weight lookup was NOT called", !weightLookupCalled, `called: ${weightLookupCalled}`);
-  check("DB update was NOT called", !dbUpdateCalled, `called: ${dbUpdateCalled}`);
   
   if (result.ok) {
     console.log("  ⚠️  Swap was accepted (should have been refused)");
@@ -101,6 +133,7 @@ async function testBannedSwap(
     "Test 1: barbell-full-squat refused for current knee",
     "goblet-squat", // Current exercise (knee-friendly)
     "barbell-full-squat", // Target (contraindicated for knee)
+    [{ body_region: "knee", severity: "current" }],
   );
 
   // Test 2: arnold-dumbbell-press for current shoulder injury
@@ -108,6 +141,7 @@ async function testBannedSwap(
     "Test 2: arnold-dumbbell-press refused for current shoulder",
     "dumbbell-shoulder-press", // Current exercise
     "arnold-dumbbell-press", // Target (contraindicated for shoulder)
+    [{ body_region: "shoulder", severity: "current" }],
   );
 
   console.log("\n=== Summary ===");
