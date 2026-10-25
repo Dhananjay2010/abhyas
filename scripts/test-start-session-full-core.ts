@@ -293,7 +293,12 @@ async function main() {
       loadProgram: async () => ({ ok: false, error: "program not found" }),
     });
 
-    const result = await startSessionFullCore(deps);
+    let result: Awaited<ReturnType<typeof startSessionFullCore>>;
+    try {
+      result = await startSessionFullCore(deps);
+    } catch (err) {
+      throw new Error(`Core crashed instead of returning error: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     if (result.ok) throw new Error("Expected error, got ok");
     if (!result.error.includes("program not found")) {
