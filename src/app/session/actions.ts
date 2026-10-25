@@ -153,7 +153,6 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       updateSessionCore(supabase, existing.id, user.id, today, updatePayload),
       ensureSessionExercises(supabase, user.id, existing.id),
     ]);
-
     if (!updateResult.ok) {
       return { ok: false, error: updateResult.error };
     }

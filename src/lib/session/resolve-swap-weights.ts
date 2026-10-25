@@ -85,7 +85,7 @@ export async function resolveSwapWeights(
     }
 
     // On progress error, working weight and target reps are null
-    // Note: progressValue and progressValueNum already computed above (line 60-61)
+    // Note: progressValue and progressValueNum already computed above when reading current_working_weight_kg
     const workingWeightKg = progressRes.error || progressValue == null ? null : progressValueNum;
     const repsValue = progressRes.data?.current_target_reps;
     const currentTargetReps = progressRes.error || repsValue == null ? null : Number(repsValue);
