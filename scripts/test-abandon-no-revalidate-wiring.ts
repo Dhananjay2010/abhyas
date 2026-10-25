@@ -38,8 +38,11 @@ async function test() {
     if (url.includes("/rest/v1/sessions?")) {
       queryCalled = true;
       if (init?.method === "PATCH") {
-        const body = init.body ? JSON.parse(init.body) : {};
-        statusSaved = body.status ?? null;
+        let body: Record<string, unknown> = {};
+        if (init.body && typeof init.body === "string") {
+          body = JSON.parse(init.body);
+        }
+        statusSaved = typeof body.status === "string" ? body.status : null;
         return new Response(JSON.stringify([body]), {
           status: 200,
           headers: { "Content-Type": "application/json", "Content-Range": "0-0/1" },

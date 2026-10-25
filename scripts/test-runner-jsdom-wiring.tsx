@@ -30,23 +30,22 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-type FakeTimerHandle = ReturnType<typeof setTimeout>;
-
 function createFakeTimer(): {
   timer: RunnerTimer;
   advance: () => void;
 } {
-  const callbacks = new Map<FakeTimerHandle, () => void>();
+  type TimerId = ReturnType<typeof globalThis.setTimeout>;
+  const callbacks = new Map<TimerId, () => void>();
   let nextId = 1;
 
   return {
     timer: {
-      setTimeout: (callback: () => void, _ms: number): FakeTimerHandle => {
-        const id = nextId++ as FakeTimerHandle;
+      setTimeout: (callback: () => void, _ms: number): TimerId => {
+        const id = (nextId++ as unknown) as TimerId;
         callbacks.set(id, callback);
         return id;
       },
-      clearTimeout: (id: FakeTimerHandle): void => {
+      clearTimeout: (id: TimerId): void => {
         callbacks.delete(id);
       },
     },
@@ -563,7 +562,7 @@ console.log("\n5. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
           name: "Overhead Press",
           cue: null,
           metric: "reps",
-          primaryMuscles: ["shoulders"],
+          primaryMuscles: ["front_delts"],
           plannedSets: 3,
           repsMin: 8,
           repsMax: 12,
