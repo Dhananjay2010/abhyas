@@ -152,15 +152,109 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
   console.log(`  Message: "${d.message}"`);
   
   // Expected: next loadable dumbbell step (should be 15 kg for standard dumbbells)
-  // If it goes to 20, that's a multi-step jump
-  if (d.nextWorkingWeightKg === 20) {
-    console.log(`  ⚠️  Multi-step jump: 14 → 20 (+6 kg)`);
-    check("  (documenting) produces 20 kg", d.nextWorkingWeightKg === 20);
-  } else if (d.nextWorkingWeightKg === 15 || d.nextWorkingWeightKg === 16 || d.nextWorkingWeightKg === 16.5 || d.nextWorkingWeightKg === 17.5) {
-    check("Dumbbell lunge 14 kg → one step up", true);
-  } else {
-    console.log(`  Unexpected result: ${d.nextWorkingWeightKg} kg`);
-  }
+  check("Dumbbell lunge 14 kg → 15 kg (right feel, one-step cap)", d.nextWorkingWeightKg === 15);
+}
+
+// DB lunge 14 -> 15 (easy feel)
+{
+  const d = evaluateProgression({
+    sets: Array(4).fill({ reps: 12, weightKg: 14 }),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "easy",
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+    meta: LUNGE,
+    state: fresh({ currentWorkingWeightKg: 14 }),
+    isDeload: false,
+  });
+  check("Dumbbell lunge 14 kg → 15 kg (easy feel, one-step cap)", d.nextWorkingWeightKg === 15);
+}
+
+// DB lunge 15 -> 17.5
+{
+  const d = evaluateProgression({
+    sets: Array(4).fill({ reps: 12, weightKg: 15 }),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+    meta: LUNGE,
+    state: fresh({ currentWorkingWeightKg: 15 }),
+    isDeload: false,
+  });
+  check("Dumbbell lunge 15 kg → 17.5 kg (one-step cap)", d.nextWorkingWeightKg === 17.5);
+}
+
+// DB lunge 12 -> 12.5
+{
+  const d = evaluateProgression({
+    sets: Array(4).fill({ reps: 12, weightKg: 12 }),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+    meta: LUNGE,
+    state: fresh({ currentWorkingWeightKg: 12 }),
+    isDeload: false,
+  });
+  check("Dumbbell lunge 12 kg → 12.5 kg (one-step cap)", d.nextWorkingWeightKg === 12.5);
+}
+
+// Squat 72.5 -> 75 (easy)
+{
+  const d = evaluateProgression({
+    sets: Array(4).fill({ reps: 12, weightKg: 72.5 }),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "easy",
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: SQUAT,
+    state: fresh({ currentWorkingWeightKg: 72.5 }),
+    isDeload: false,
+  });
+  check("Barbell squat 72.5 kg → 75 kg (easy feel, one-step cap)", d.nextWorkingWeightKg === 75);
+}
+
+// KB 22 -> 24
+{
+  const d = evaluateProgression({
+    sets: Array(4).fill({ reps: 12, weightKg: 22 }),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 22 }),
+    isDeload: false,
+  });
+  check("Kettlebell 22 kg → 24 kg (one-step cap)", d.nextWorkingWeightKg === 24);
+}
+
+// Pin-stack 42 -> 45
+{
+  const d = evaluateProgression({
+    sets: Array(4).fill({ reps: 12, weightKg: 42 }),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: ["pin_stack"],
+    unit: "kg",
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 42 }),
+    isDeload: false,
+  });
+  check("Pin-stack 42 kg → 45 kg (one-step cap)", d.nextWorkingWeightKg === 45);
 }
 
 console.log("\nCase 4: Dumbbell 14 kg with EASY feel");
