@@ -67,7 +67,7 @@ async function testFailedToFetchInRestorePending(): Promise<boolean> {
     setInjury: async () => ({ ok: true }),
   };
 
-  let container: HTMLElement;
+  let container!: HTMLElement;
   
   await act(async () => {
     const result = render(
@@ -86,7 +86,7 @@ async function testFailedToFetchInRestorePending(): Promise<boolean> {
 
   // Wait for error message
   await waitFor(() => {
-    const hasError = container!.textContent?.includes("Couldn't restore your changes");
+    const hasError = container.textContent?.includes("Couldn't restore your changes");
     return hasError === true;
   }, { timeout: 3000 });
 

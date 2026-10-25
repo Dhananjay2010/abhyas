@@ -66,7 +66,7 @@ async function testUnrecognizedStashCleanup(): Promise<boolean> {
     setInjury: async () => ({ ok: true }),
   };
 
-  let container: HTMLElement;
+  let container!: HTMLElement;
   
   await act(async () => {
     const result = render(
@@ -145,7 +145,7 @@ async function testUnrecognizedStashKeepsRecognized(): Promise<boolean> {
     setInjury: async () => ({ ok: true }),
   };
 
-  let container: HTMLElement;
+  let container!: HTMLElement;
   
   await act(async () => {
     const result = render(
