@@ -739,8 +739,7 @@ export function SessionRunner({
         setError(result.error);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Network error";
-      setError(message);
+      setError(runnerErrorMessage(err));
     } finally {
       busyRef.current = false;
       setBusy(false);

@@ -289,10 +289,10 @@ export function isDuplicateError(errOrResponse: unknown): boolean {
     errOrResponse &&
     typeof errOrResponse === 'object' &&
     'ok' in errOrResponse &&
-    errOrResponse.ok === false
+    errOrResponse.ok === false &&
+    'code' in errOrResponse
   ) {
-    const err = errOrResponse as { ok: false; error?: string; code?: string };
-    return err.code === '23505';
+    return errOrResponse.code === '23505';
   }
   
   return false;
