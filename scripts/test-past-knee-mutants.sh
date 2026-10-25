@@ -182,11 +182,12 @@ sed -i 's/if (ctx.pastKneeInjury === true && candidate.slug === "goblet-squat")/
 run_mutant "Remove goblet OR-logic gating" "src/lib/program/alternatives.ts" || true
 restore_file "src/lib/program/alternatives.ts"
 
-# Mutant 12: Disable rear-lunge #1 boost
-restore_file "src/lib/program/past-knee.ts"
-sed -i 's/if (candidate.slug === "dumbbell-rear-lunge") return 2;/if (candidate.slug === "dumbbell-rear-lunge") return 1;/' src/lib/program/past-knee.ts
-run_mutant "Disable rear-lunge ranking boost" "src/lib/program/past-knee.ts" || true
-restore_file "src/lib/program/past-knee.ts"
+# Mutant 12: Reverse past-knee lunge tier order (step-ups first, rear lunge last)
+restore_file "src/lib/program/past-knee-lunge-order.ts"
+sed -i 's/if (ex.slug === "dumbbell-rear-lunge") return 1;/if (ex.slug === "dumbbell-rear-lunge") return 4;/' src/lib/program/past-knee-lunge-order.ts
+sed -i 's/if (stepUpSlugs.includes(ex.slug)) return 4;/if (stepUpSlugs.includes(ex.slug)) return 1;/' src/lib/program/past-knee-lunge-order.ts
+run_mutant "Reverse past-knee lunge tier order" "src/lib/program/past-knee-lunge-order.ts" || true
+restore_file "src/lib/program/past-knee-lunge-order.ts"
 
 # Mutant 13: Remove wall-sit primary penalty (allow as primary squat)
 restore_file "src/lib/program/past-knee.ts"

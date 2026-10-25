@@ -84,14 +84,18 @@ const EXPECTED_EXCLUDED_SLUGS = [
   // Band/chain BARBELL squats (NOT squats-with-bands which is beginner bodyweight+band)
   "squat-with-bands",
   "squat-with-chains",
-  "box-squat-with-bands",
   "box-squat-with-chains",
+  "box-squat-with-bands",
   "reverse-band-box-squat",
   "reverse-band-power-squat",
   
   // Running/sprinting moves (loads knee, mislabeled muscles)
   "wind-sprints",
   "chest-push-with-run-release",
+  "jogging-treadmill",
+  
+  // Elevated/deficit lunges (knee-unsafe per #73: deficit adds knee flexion)
+  "elevated-back-lunge",
 ];
 
 console.log("\n1. Catalogue validation: hard-coded exclusion list behaviour");
@@ -231,7 +235,6 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
   let excludedInWarmups = 0;
   let totalLungeSlotsWithDB = 0;
   let lungePicksWithRearLunge = 0;
-  let lungeSwapMismatches = 0; // Track plan lunge != swap-list index 0
   let wallSitAtIndex0WithOtherOptions = 0; // Track wall-sit at index 0 when other options exist
   
   for (const goal of goals) {

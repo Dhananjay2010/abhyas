@@ -278,7 +278,7 @@ export function rankAlternatives<T extends ExerciseRow>(
       ? pastKneeLungeTier(candidate)
       : 999;
     
-    // Knee-friendly squat boost (for past-knee squat swaps only)
+    // Knee-friendly bonus for past-knee squat swaps (goblet, box, leg-press, wall-sit get +1)
     const kneeFriendlySquatBoost = (ctx.pastKneeInjury === true && current.movement_pattern === "squat")
       ? (["goblet-squat", "box-squat", "leg-press", "split-squat-with-dumbbells", "wall-sit"].includes(candidate.slug) ? 1 : 0)
       : 0;
