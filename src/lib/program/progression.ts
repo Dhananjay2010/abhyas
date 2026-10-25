@@ -553,9 +553,11 @@ export function evaluateProgression(input: {
   }
 
   // In range (all sets >= repsMin) but not all at top: HOLD and reset failures.
-  // SPEC §Progression: "All prescribed sets completed and every set's reps >= repsMin (in range), 
-  // but not all at the top: HOLD the weight and reset consecutiveFailures to 0."
-  // Hard feel on its own must never cause a deload or count as a miss; it can block an increase.
+  // SPEC §Progression: "Stay at a weight until you hit the top of the rep range on every set"
+  // and "Stall rule: miss the target twice in a row → automatically drop ~10% and build back."
+  // A 'miss' is read as below repsMin or incomplete sets. In-range (all sets >= repsMin but not
+  // all at top) sessions hold the weight and reset consecutiveFailures to 0.
+  // "Hard" feel never causes a deload or counts as a miss on its own (SPEC: '"hard" holds it').
   if (inRange) {
     const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
     return {
