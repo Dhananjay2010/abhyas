@@ -48,8 +48,9 @@ async function runTests() {
     // Create a new database for this test
     try {
       await pool.query(`CREATE DATABASE ${dbName}`);
-    } catch (err: any) {
-      if (err.code !== '42P04') { // database already exists
+    } catch (err) {
+      const error = err as { code?: string };
+      if (error.code !== '42P04') { // database already exists
         throw err;
       }
     }
