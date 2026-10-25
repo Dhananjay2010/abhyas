@@ -257,11 +257,12 @@ run_mutant \
   "export const FIRST_MISS_HOLD_THRESHOLD = 0.20;" \
   "export const FIRST_MISS_HOLD_THRESHOLD = 0.50;"
 
-# Mutant (c): > to >= - EQUIVALENT
-# Proof: Grid step g: candidate w−g; an exact 20% cut means w=5g; RAW 0.9w=4.5g ceils to 5g=w, 
-# so two-miss holds and Rule 2 holds the first miss. Kettlebells: the only adjacent 20% pair is 
-# 10→8, and no bell lies in [9,10). No equipment: no Rule 1.
-# Therefore (c) is equivalent to the original and cannot be killed by tests.
+# Mutant (c): > to >=
+run_mutant \
+  "(c) > to >=" \
+  "Change cutFraction > THRESHOLD to >=" \
+  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {" \
+  "if (cutFraction >= FIRST_MISS_HOLD_THRESHOLD) {"
 
 # Mutant (d): Guard inverted (always hold)
 run_mutant \
@@ -288,14 +289,19 @@ run_mutant \
 run_mutant \
   "(g) hold when candidate < two-miss" \
   "Don't hold when candidate < two-miss" \
-  "      if (candidateWeight < twoMissFloor) {
+  "    if (candidateWeight !== currentWeight) {
+      const twoMissFloor = computeTwoMissResult(currentWeight);
+      if (candidateWeight < twoMissFloor) {
         candidateWeight = currentWeight;
         holdReason = 'twomiss';
-      }" \
-  "      if (candidateWeight < twoMissFloor) {
+      }
+    }" \
+  "    if (candidateWeight !== currentWeight) {
+      const twoMissFloor = computeTwoMissResult(currentWeight);
+      if (candidateWeight < twoMissFloor) {
         candidateWeight = candidateWeight;
-        holdReason = 'twomiss';
-      }"
+      }
+    }"
 
 # Mutant (h): first-miss hold snap
 run_mutant \
@@ -347,7 +353,7 @@ echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-TOTAL=11
+TOTAL=12
 KILLED=$((TOTAL - FAILED - ${#SKIPPED[@]}))
 echo "Total mutants:                   $TOTAL"
 echo "Killed:                          $KILLED"
