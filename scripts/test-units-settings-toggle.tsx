@@ -442,16 +442,19 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
             );
 
             if (savedAboutYou) {
+              const dob = savedAboutYou.dateOfBirth;
+              const sex = savedAboutYou.sex;
+              
               check(
                 "saveAboutYou received dateOfBirth 1990-05-12",
-                savedAboutYou.dateOfBirth === "1990-05-12",
-                `got '${savedAboutYou.dateOfBirth}'`
+                dob === "1990-05-12",
+                `got '${dob}'`
               );
 
               check(
                 "saveAboutYou received sex 'male'",
-                savedAboutYou.sex === "male",
-                `got '${savedAboutYou.sex}'`
+                sex === "male",
+                `got '${sex}'`
               );
 
               const hcm = savedAboutYou.heightCm;
