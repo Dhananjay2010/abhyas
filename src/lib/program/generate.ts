@@ -1201,9 +1201,18 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             const firstCoreIdx = pickedExercises.findIndex(p => p.ex.movement_pattern === "core");
             const insertIdx = firstCoreIdx >= 0 ? firstCoreIdx : pickedExercises.length;
             
-            // Simply insert before core as last non-core item
-            // On short days where this ends up in a main slot, the narrow test exemption allows it
-            pickedExercises.splice(insertIdx, 0, { ex: added, slotIndex: Math.max(mainSlotCount, insertIdx) });
+            // Check if this is a "short day" where there are no accessory slots
+            // Short day = template has only main + core slots (no accessories)
+            const coreSlotCount = entry.slots.filter(s => s === "core").length;
+            const isShortDay = entry.slots.length === mainSlotCount + coreSlotCount;
+            
+            if (isShortDay && insertIdx > 0) {
+              // Short day: REPLACE the last non-core exercise to stay within template limits
+              pickedExercises[insertIdx - 1] = { ex: added, slotIndex: pickedExercises[insertIdx - 1].slotIndex };
+            } else {
+              // Normal day with accessory slots: INSERT as last non-core item
+              pickedExercises.splice(insertIdx, 0, { ex: added, slotIndex: Math.max(mainSlotCount, insertIdx) });
+            }
             // Don't mark as used in block (allow reuse across days)
           } else {
             // Normal case: add and mark used
