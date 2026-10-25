@@ -3,6 +3,8 @@ import type { Database } from "@/lib/database.types";
 import { generateProgram, CARRY_OVER_SLOTS, type GeneratorInput, type CandidateExercise } from "./generate";
 import { ageOn } from "@/lib/onboarding/options";
 import { addDays } from "@/lib/dates";
+import { buildInjuryFlags } from "./injury-regions";
+import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
 
 type Client = SupabaseClient<Database>;
 
@@ -68,7 +70,8 @@ export async function extractCarryOver(
   const { data: days } = await supabase
     .from("program_days")
     .select("id, day_index")
-    .eq("program_id", programId);
+    .eq("program_id", programId)
+    .eq("status", "active");
 
   if (!days || days.length === 0) return {};
   const dayIndexById = new Map(days.map((d) => [d.id, d.day_index]));
@@ -162,10 +165,8 @@ async function callRolloverRPC(
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions: (injuriesRes.data ?? [])
-      .filter((i) => i.severity === "current")
-      .map((i) => i.body_region),
-    preferredSessionMinutes: profile.preferred_session_minutes ?? 60,
+    ...buildInjuryFlags(injuriesRes.data ?? []),
+    preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver,
   };

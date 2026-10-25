@@ -14,6 +14,9 @@ const STUB: SettingsActions = {
   updateProfileSettings: ok,
   updateEquipment: ok,
   updateInjuries: ok,
+  setEquipmentItem: ok,
+  setHasAllEquipment: ok,
+  setInjury: ok,
 };
 
 const EQUIPMENT: EquipmentRow[] = [

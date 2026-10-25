@@ -39,6 +39,9 @@ async function main() {
     updateSessionSettings: (patch: unknown) => Promise<Result>;
     updateEquipment: (input: unknown) => Promise<Result>;
     updateInjuries: (injuries: unknown[]) => Promise<Result>;
+    setEquipmentItem: (input: unknown) => Promise<Result>;
+    setHasAllEquipment: (hasAll: boolean) => Promise<Result>;
+    setInjury: (input: unknown) => Promise<Result>;
   }
   
   type SettingsGoal = "strength" | "fat_loss" | "muscle_gain" | "general_fitness" | "flexibility_stress";
@@ -91,6 +94,9 @@ async function main() {
       updateSessionSettings: async () => ({ ok: true }),
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const initial: SettingsState = {
@@ -174,6 +180,9 @@ async function main() {
       updateSessionSettings: async () => ({ ok: true }),
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const initial: SettingsState = {
@@ -244,6 +253,9 @@ async function main() {
       updateSessionSettings: async () => ({ ok: true }),
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const initial: SettingsState = {

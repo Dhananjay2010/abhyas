@@ -12,15 +12,10 @@ import { exerciseCompletion } from "@/lib/session/completion";
 import { countWorkingSets } from "@/lib/session/count-sets";
 import { formatVolume, formatLoad, getUnitsPreference } from "@/lib/units";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
+import { computeSessionDuration, formatDurationMinutes } from "@/lib/history/compute-duration";
 
 export const dynamic = "force-dynamic";
-
-function longDate(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-GB", {
-    weekday: "long", day: "numeric", month: "long", timeZone: "UTC",
-  }).format(new Date(Date.UTC(y, m - 1, d)));
-}
 
 const FEEL_LABEL: Record<string, string> = {
   easy: "felt easy",
@@ -43,9 +38,13 @@ export default async function SessionDetailPage({
   // Fetch profile for units and timezone
   const { data: profile } = await supabase
     .from("profiles")
-    .select("units, timezone")
+    .select("units, timezone, created_at")
     .eq("id", user.id)
     .single();
+  
+  // Get auth user created_at as fallback
+  const { data: authUser } = await supabase.auth.getUser();
+  const signupDate = profile?.created_at || authUser?.user?.created_at || new Date().toISOString();
   
   const units = getUnitsPreference(profile?.units);
 
@@ -70,6 +69,7 @@ export default async function SessionDetailPage({
       .sort((a, b) => (a.routine_step ?? 1) - (b.routine_step ?? 1));
     const first = logs[0] ?? null;
     const routineName = first?.routine_name ?? null;
+    const timezone = resolveTimezoneWithProfile(profile?.timezone);
     return (
       <BreathingDetail
         name={routineName ?? pattern?.name ?? first?.pattern_name ?? "Breathing"}
@@ -79,6 +79,8 @@ export default async function SessionDetailPage({
         slug={routineName ? null : (pattern?.slug ?? null)}
         isRoutine={routineName !== null}
         localDate={session.local_date}
+        startedAt={session.started_at}
+        timezone={timezone}
         seconds={
           logs.length > 0 ? logs.reduce((n, l) => n + l.seconds, 0) : session.duration_seconds
         }
@@ -96,7 +98,7 @@ export default async function SessionDetailPage({
   const ids = (exercises ?? []).map((e) => e.id);
   const { data: sets } = await supabase
     .from("session_sets")
-    .select("session_exercise_id, set_number, reps, weight_kg, duration_seconds, is_warmup_set")
+    .select("session_exercise_id, set_number, reps, weight_kg, duration_seconds, is_warmup_set, completed_at")
     .in("session_exercise_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"])
     .order("set_number");
 
@@ -108,11 +110,26 @@ export default async function SessionDetailPage({
     (session.program_days as unknown as { label: string } | null)?.label ?? null,
     session.actual_type,
   );
-  const minutes = session.duration_seconds ? Math.round(session.duration_seconds / 60) : null;
+  
+  // Item 9: Duration - use stored duration_seconds, or compute from sets if NULL
+  const lastSetCompletedAt = sets && sets.length > 0 
+    ? sets[sets.length - 1].completed_at 
+    : null;
+  const durationSeconds = computeSessionDuration(
+    session.duration_seconds,
+    session.started_at,
+    lastSetCompletedAt
+  );
+  const minutes = durationSeconds !== null ? Math.round(durationSeconds / 60) : null;
+  
   const volume = (sets ?? []).reduce(
     (n, s) => n + (s.reps ?? 0) * Number(s.weight_kg ?? 0),
     0,
   );
+
+  // TZ-2: Format date and time consistently (item 9: always from started_at)
+  const timezone = resolveTimezoneWithProfile(profile?.timezone);
+  const dateTimeLabel = formatSessionDateTime(session.started_at, session.local_date, timezone);
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-16">
@@ -122,7 +139,7 @@ export default async function SessionDetailPage({
 
       <h1 className="mt-4 text-3xl font-bold tracking-tight">{label}</h1>
       <p className="mt-1 text-sm text-muted">
-        {longDate(session.local_date)}
+        {dateTimeLabel}
         {session.week_in_block && ` · week ${session.week_in_block}`}
         {session.is_deload && " · deload"}
       </p>
@@ -133,6 +150,7 @@ export default async function SessionDetailPage({
         startedAt={session.started_at}
         completedAt={session.completed_at}
         timezone={resolveTimezoneWithProfile(profile?.timezone)}
+        signupDate={signupDate}
       />
 
       <dl className="mt-6 grid grid-cols-3 gap-2 text-center">

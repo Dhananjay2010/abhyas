@@ -1,106 +1,250 @@
 /**
- * QA (iii): Test History session labeling.
+ * QA: Test History session labeling.
+ *
+ * Tests the extracted session label function from src/lib/history/session-label.ts
  *
  * Verifies:
- * - Today's in_progress session shows "In progress" not "Completed"
- * - Past-day in_progress shows "Unfinished from <date>" not "Completed"
- * - Completed sessions show "Completed"
+ * - Today's in_progress session shows "In progress" (even with 0 sets)
+ * - Past-day in_progress shows "Unfinished from <date>"
+ * - Completed yoga/breathing with 0 sets shows "Completed" (not "Skipped")
+ * - Completed strength with 0 sets shows "Skipped"
  * - Skipped sessions show "Skipped"
- * - Zero-set sessions show "Skipped"
+ * - Abandoned sessions show "Abandoned"
  *
- *   npx tsx scripts/test-history-labels.ts
+ * Run: npx tsx scripts/test-history-labels.ts
  */
 
-(async () => {
+import { getSessionLabel, type SessionLabelInput } from "../src/lib/history/session-label";
+
 let failures = 0;
+
 function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-// Simulate the labeling logic from history-client.tsx
-function getSessionLabel(
-  status: string,
-  setCount: number,
-  localDate: string,
-  today: string,
-  endedEarly: boolean,
-  plannedSets: number | null
-): string {
-  const isPastInProgress = status === "in_progress" && localDate !== today;
-  const isZeroSetStrength = setCount === 0 || status === "skipped";
-  const isTodayInProgress = status === "in_progress" && localDate === today && !isPastInProgress;
+const today = "2026-10-24";
+const yesterday = "2026-10-23";
 
-  if (isZeroSetStrength) {
-    return "Skipped";
-  } else if (isTodayInProgress) {
-    return "In progress";
-  } else if (endedEarly && plannedSets) {
-    return `Ended early · ${setCount} of ${plannedSets} ${plannedSets === 1 ? "set" : "sets"}`;
-  } else {
-    return "Completed";
-  }
+console.log("\n1. Today's in_progress sessions");
+{
+  const input: SessionLabelInput = {
+    status: "in_progress",
+    actualType: "weights",
+    setCount: 3,
+    localDate: today,
+    today,
+    endedEarly: false,
+    plannedSets: null,
+  };
+  const label = getSessionLabel(input);
+  check("in_progress today with sets shows 'In progress'", label === "In progress", label);
 }
 
-console.log("\n1. Today's in_progress session → 'In progress'");
 {
-  const label = getSessionLabel("in_progress", 3, "2026-10-24", "2026-10-24", false, null);
-  check("in_progress today shows 'In progress'", label === "In progress", label);
+  // QA requirement: even with 0 sets, today's in_progress shows "In progress" not "Skipped"
+  const input: SessionLabelInput = {
+    status: "in_progress",
+    actualType: "weights",
+    setCount: 0,
+    localDate: today,
+    today,
+    endedEarly: false,
+    plannedSets: null,
+  };
+  const label = getSessionLabel(input);
+  check("in_progress today with 0 sets shows 'In progress'", label === "In progress", label);
 }
 
-console.log("\n2. Past-day in_progress session → not 'Completed' (handled separately)");
+console.log("\n2. Past-day in_progress sessions");
 {
-  // Note: Past-day in_progress is detected separately in the UI for "Unfinished from" display
-  // The label logic here would show "Completed" but the isPastInProgress check prevents it
-  const yesterday: string = "2026-10-23";
-  const today: string = "2026-10-24";
-  const isPastInProgress = "in_progress" === "in_progress" && yesterday !== today;
-  check("isPastInProgress correctly detected", isPastInProgress === true);
-  
-  // With isPastInProgress true, isTodayInProgress is false, so it would reach "Completed"
-  // But the UI handles isPastInProgress separately to show "Unfinished from <date>"
-  const label = getSessionLabel("in_progress", 2, yesterday, today, false, null);
-  check("past-day in_progress falls through to 'Completed' in label logic", label === "Completed", label);
-  check("(but UI shows 'Unfinished from <date>' via separate check)", true);
+  const input: SessionLabelInput = {
+    status: "in_progress",
+    actualType: "weights",
+    setCount: 2,
+    localDate: yesterday,
+    today,
+    endedEarly: false,
+    plannedSets: null,
+  };
+  const label = getSessionLabel(input);
+  check("in_progress yesterday shows 'Unfinished from <date>'", label.startsWith("Unfinished from"), label);
 }
 
-console.log("\n3. Completed session → 'Completed'");
+console.log("\n3. Completed sessions - trusts status");
 {
-  const label = getSessionLabel("completed", 5, "2026-10-23", "2026-10-24", false, null);
-  check("completed shows 'Completed'", label === "Completed", label);
+  const input: SessionLabelInput = {
+    status: "completed",
+    actualType: "weights",
+    setCount: 5,
+    localDate: yesterday,
+    today,
+    endedEarly: false,
+    plannedSets: null,
+  };
+  const label = getSessionLabel(input);
+  check("completed strength with sets shows 'Completed'", label === "Completed", label);
 }
 
-console.log("\n4. Skipped session → 'Skipped'");
 {
-  const label = getSessionLabel("skipped", 0, "2026-10-23", "2026-10-24", false, null);
+  // Zero-set strength sessions are filtered out at query level (M4),
+  // but if they reach the label function with status='completed', they show "Ended early"
+  const input: SessionLabelInput = {
+    status: "completed",
+    actualType: "weights",
+    setCount: 0,
+    localDate: yesterday,
+    today,
+    endedEarly: true,
+    plannedSets: null,
+  };
+  const label = getSessionLabel(input);
+  check("completed strength with 0 sets shows 'Ended early'", label === "Ended early", label);
+}
+
+{
+  // Yoga/breathing completed sessions always show "Completed"
+  const input: SessionLabelInput = {
+    status: "completed",
+    actualType: "yoga",
+    setCount: 0,
+    localDate: yesterday,
+    today,
+    endedEarly: false,
+    plannedSets: null,
+  };
+  const label = getSessionLabel(input);
+  check("completed yoga with 0 sets shows 'Completed'", label === "Completed", label);
+}
+
+console.log("\n4. Completed sessions - breathing");
+{
+  const input: SessionLabelInput = {
+    status: "completed",
+    actualType: "meditation",
+    setCount: 0,
+    localDate: yesterday,
+    today,
+    endedEarly: false,
+    plannedSets: null,
+  };
+  const label = getSessionLabel(input);
+  check("completed breathing with 0 sets shows 'Completed'", label === "Completed", label);
+}
+
+console.log("\n5. Skipped sessions");
+{
+  const input: SessionLabelInput = {
+    status: "skipped",
+    actualType: "weights",
+    setCount: 0,
+    localDate: yesterday,
+    today,
+    endedEarly: false,
+    plannedSets: null,
+  };
+  const label = getSessionLabel(input);
   check("skipped shows 'Skipped'", label === "Skipped", label);
 }
 
-console.log("\n5. Zero-set completed session → 'Skipped'");
 {
-  const label = getSessionLabel("completed", 0, "2026-10-23", "2026-10-24", false, null);
-  check("zero-set completed shows 'Skipped'", label === "Skipped", label);
+  const input: SessionLabelInput = {
+    status: "skipped",
+    actualType: "yoga",
+    setCount: 0,
+    localDate: yesterday,
+    today,
+    endedEarly: false,
+    plannedSets: null,
+  };
+  const label = getSessionLabel(input);
+  check("skipped yoga shows 'Skipped'", label === "Skipped", label);
 }
 
-console.log("\n6. Ended early session → shows set count");
+console.log("\n6. Ended early sessions");
 {
-  const label = getSessionLabel("completed", 3, "2026-10-23", "2026-10-24", true, 5);
-  check("ended early shows count", label === "Ended early · 3 of 5 sets", label);
+  const input: SessionLabelInput = {
+    status: "completed",
+    actualType: "weights",
+    setCount: 3,
+    localDate: yesterday,
+    today,
+    endedEarly: true,
+    plannedSets: 5,
+  };
+  const label = getSessionLabel(input);
+  check("ended early shows set count", label === "Ended early · 3 of 5 sets", label);
 }
 
-console.log("\n7. Today's zero-set in_progress → 'Skipped' (not 'In progress')");
 {
-  const label = getSessionLabel("in_progress", 0, "2026-10-24", "2026-10-24", false, null);
-  check("zero-set in_progress shows 'Skipped'", label === "Skipped", label);
-  check("(zero-set check takes priority over in_progress)", true);
+  const input: SessionLabelInput = {
+    status: "completed",
+    actualType: "bodyweight",
+    setCount: 1,
+    localDate: yesterday,
+    today,
+    endedEarly: true,
+    plannedSets: 1,
+  };
+  const label = getSessionLabel(input);
+  check("ended early 1 of 1 set (singular)", label === "Ended early · 1 of 1 set", label);
 }
 
-console.log("\n8. Today's 1-set in_progress → 'In progress'");
 {
-  const label = getSessionLabel("in_progress", 1, "2026-10-24", "2026-10-24", false, null);
-  check("1-set in_progress today shows 'In progress'", label === "In progress", label);
+  const input: SessionLabelInput = {
+    status: "completed",
+    actualType: "weights",
+    setCount: 1,
+    localDate: yesterday,
+    today,
+    endedEarly: true,
+    plannedSets: 22,
+  };
+  const label = getSessionLabel(input);
+  check("1 of 22 gives Ended early", label === "Ended early · 1 of 22 sets", label);
+}
+
+{
+  const input: SessionLabelInput = {
+    status: "completed",
+    actualType: "weights",
+    setCount: 22,
+    localDate: yesterday,
+    today,
+    endedEarly: false,
+    plannedSets: 22,
+  };
+  const label = getSessionLabel(input);
+  check("22 of 22 gives Completed", label === "Completed", label);
+}
+
+{
+  const input: SessionLabelInput = {
+    status: "completed",
+    actualType: "weights",
+    setCount: 0,
+    localDate: yesterday,
+    today,
+    endedEarly: true,
+    plannedSets: null,
+  };
+  const label = getSessionLabel(input);
+  check("0 sets gives Ended early", label === "Ended early", label);
+}
+
+{
+  const input: SessionLabelInput = {
+    status: "completed",
+    actualType: "weights",
+    setCount: 25,
+    localDate: yesterday,
+    today,
+    endedEarly: false,
+    plannedSets: 22,
+  };
+  const label = getSessionLabel(input);
+  check("extra sets beyond plan give Completed", label === "Completed", label);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
-})();

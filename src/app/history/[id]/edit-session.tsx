@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { updateSessionDateTime } from "../actions";
 import { utcToZonedDateTime, zonedDateTimeToUtc } from "@/lib/timezone";
+import { localDateString } from "@/lib/dates";
+import { validateSessionTimes } from "@/lib/history/validate-session-times";
 
 interface EditSessionProps {
   sessionId: string;
@@ -10,9 +12,17 @@ interface EditSessionProps {
   startedAt: string | null;
   completedAt: string | null;
   timezone: string;
+  signupDate: string;
 }
 
-export function EditSession({ sessionId, localDate, startedAt, completedAt, timezone }: EditSessionProps) {
+export function EditSession({ 
+  sessionId, 
+  localDate, 
+  startedAt, 
+  completedAt, 
+  timezone,
+  signupDate,
+}: EditSessionProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +35,16 @@ export function EditSession({ sessionId, localDate, startedAt, completedAt, time
   const [editedStartTime, setEditedStartTime] = useState(startZoned?.time || "");
   const [editedEndTime, setEditedEndTime] = useState(endZoned?.time || "");
 
+  // Calculate date picker limits with useMemo
+  const minDate = useMemo(() => {
+    const signupLocalDate = utcToZonedDateTime(signupDate, timezone).date;
+    return signupLocalDate;
+  }, [signupDate, timezone]);
+
+  const maxDate = useMemo(() => {
+    return localDateString(timezone);
+  }, [timezone]);
+
   const handleSave = () => {
     setError(null);
     
@@ -34,27 +54,18 @@ export function EditSession({ sessionId, localDate, startedAt, completedAt, time
       return;
     }
     
-    // Parse times to compare
-    const [startHour, startMin] = editedStartTime.split(":").map(Number);
-    const [endHour, endMin] = editedEndTime.split(":").map(Number);
-    const startMinutes = startHour * 60 + startMin;
-    const endMinutes = endHour * 60 + endMin;
+    // Validate session times
+    const validation = validateSessionTimes(editedDate, editedStartTime, editedEndTime);
     
-    if (endMinutes <= startMinutes) {
-      setError("End time must be after start time");
-      return;
-    }
-    
-    const durationMinutes = endMinutes - startMinutes;
-    if (durationMinutes > 600) { // 10 hours
-      setError("Duration cannot exceed 10 hours");
+    if (!validation.success) {
+      setError(validation.error);
       return;
     }
 
     startTransition(async () => {
       // Convert from member's timezone to UTC
       const newStartedAt = zonedDateTimeToUtc(editedDate, editedStartTime, timezone);
-      const newCompletedAt = zonedDateTimeToUtc(editedDate, editedEndTime, timezone);
+      const newCompletedAt = zonedDateTimeToUtc(validation.endDate, editedEndTime, timezone);
       
       // Extract local date in member's timezone from the start time
       const startZonedDate = utcToZonedDateTime(newStartedAt, timezone).date;
@@ -89,7 +100,7 @@ export function EditSession({ sessionId, localDate, startedAt, completedAt, time
     <div className="mt-4 rounded-lg border border-border bg-surface p-4">
       <h3 className="text-sm font-medium">Edit Session</h3>
       {error && (
-        <div className="mt-2 rounded bg-red-500/10 px-3 py-2 text-sm text-red-600">
+        <div className="mt-2 rounded bg-[rgb(var(--destructive-rgb)/0.1)] px-3 py-2 text-sm text-[rgb(var(--destructive-rgb))]">
           {error}
         </div>
       )}
@@ -100,6 +111,8 @@ export function EditSession({ sessionId, localDate, startedAt, completedAt, time
             type="date"
             value={editedDate}
             onChange={(e) => setEditedDate(e.target.value)}
+            min={minDate}
+            max={maxDate}
             className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"
           />
         </div>

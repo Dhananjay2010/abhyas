@@ -573,7 +573,7 @@ export type Database = {
           id: string
           level: Database["public"]["Enums"]["fitness_level"] | null
           onboarding_completed_at: string | null
-          preferred_session_minutes: number
+          preferred_session_minutes: number | null
           primary_track: Database["public"]["Enums"]["track_type"] | null
           sex: Database["public"]["Enums"]["sex_type"] | null
           timezone: string | null
@@ -687,6 +687,7 @@ export type Database = {
           id: string
           label: string | null
           program_id: string
+          status: string
           user_id: string
         }
         Insert: {
@@ -696,6 +697,7 @@ export type Database = {
           id?: string
           label?: string | null
           program_id: string
+          status?: string
           user_id: string
         }
         Update: {
@@ -705,6 +707,7 @@ export type Database = {
           id?: string
           label?: string | null
           program_id?: string
+          status?: string
           user_id?: string
         }
         Relationships: [

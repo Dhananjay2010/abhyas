@@ -20,6 +20,7 @@ import {
 import {
   SESSION_LENGTH_OPTIONS,
   DEFAULT_SESSION_LENGTH,
+  initialStepIndex,
 } from "@/lib/onboarding/session-length";
 import { validateDob, getDobErrorMessage } from "@/lib/onboarding/dob";
 import { DobInput } from "@/components/onboarding/dob-input";
@@ -879,16 +880,4 @@ export function OnboardingFlow({
       )}
     </StepShell>
   );
-}
-
-/** Resume where they left off, based on what is already saved. */
-function initialStepIndex(initial: InitialState): number {
-  if (!initial.disclaimerAccepted) return 0;
-  if (!initial.dateOfBirth || !initial.sex || !initial.heightCm || !initial.weightKg) return 1;
-  if (!initial.goal) return 2;
-  if (!initial.level) return 3;
-  if (!initial.primaryTrack) return 4;
-  if (!initial.daysPerWeek) return 5;
-  if (!initial.sessionMinutes) return 6;
-  return 7;
 }

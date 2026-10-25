@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { addDays, localDateString } from "@/lib/dates";
+import { retirePreviousBlock } from "./retire-previous-block";
 import {
   generateProgram,
   type CandidateExercise,
@@ -9,6 +10,7 @@ import {
 } from "./generate";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
+import { buildInjuryFlags } from "./injury-regions";
 
 type Client = SupabaseClient<Database>;
 
@@ -212,9 +214,9 @@ export async function createBlockForUser(
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions: (injuriesRes.data ?? [])
-      .filter((i) => i.severity === "current")
-      .map((i) => i.body_region),
+    ...buildInjuryFlags(injuriesRes.data ?? []),
+    // M2 QA fix: Fall back to 45 when preferred_session_minutes is NULL
+    // (happens for new users after migration 20261025000021, before they save the step)
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver: options.carryOver,
@@ -254,11 +256,10 @@ export async function createBlockForUser(
 
   // For first builds, use the legacy insert path
   // Retire any previous active block before inserting the new one.
-  await supabase
-    .from("programs")
-    .update({ status: "completed" })
-    .eq("user_id", userId)
-    .eq("status", "active");
+  const retireResult = await retirePreviousBlock(supabase, userId, today);
+  if (!retireResult.ok) {
+    return { ok: false, error: retireResult.error! };
+  }
 
   const startedOn = today;
   const endsOn = addDays(startedOn, 27); // four weeks inclusive

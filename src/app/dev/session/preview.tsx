@@ -48,8 +48,8 @@ const STUB: SessionActions = {
   */
   swapExercise: async (input: { newExerciseId: string }) =>
     input.newExerciseId === "alt3"
-      ? ({ ok: true as const, data: { metric: "seconds" as const, repsMin: 20, repsMax: 40, equipmentIds: [] } })
-      : ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+      ? ({ ok: true as const, data: { metric: "seconds" as const, repsMin: 20, repsMax: 40, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: true } })
+      : ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
   findAlternatives: async () => ({
     ok: true as const,
     data: [
@@ -88,7 +88,7 @@ const EXERCISES: RunnerExercise[] = [
     id: "e1", exerciseId: "x1", name: "Barbell Bench Press",
     cue: "Compound push movement targeting chest, front delts, triceps. Barbell, Bench.",
     metric: "reps",
-    primaryMuscles: ["chest"], plannedSets: 4, repsMin: 8, repsMax: 12,
+    primaryMuscles: ["chest"], plannedSets: 4, plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12,
     restSeconds: 8, workingWeightKg: 60, suggestedWeightKg: 60,
     status: "pending", feel: null, sets: [], isBodyweight: false,
   },
@@ -96,7 +96,7 @@ const EXERCISES: RunnerExercise[] = [
     id: "e2", exerciseId: "x2", name: "Wide-Grip Lat Pulldown",
     cue: "Compound pull movement targeting lats. Lat pulldown.",
     metric: "reps",
-    primaryMuscles: ["lats"], plannedSets: 3, repsMin: 8, repsMax: 12,
+    primaryMuscles: ["lats"], plannedSets: 3, plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12,
     restSeconds: 8, workingWeightKg: null, suggestedWeightKg: null,
     status: "pending", feel: null, sets: [], isBodyweight: false,
   },
@@ -106,7 +106,7 @@ const EXERCISES: RunnerExercise[] = [
     id: "e3", exerciseId: "x3", name: "Plank",
     cue: "Isolation targeting abs.",
     metric: "seconds",
-    primaryMuscles: ["abs"], plannedSets: 2, repsMin: 6, repsMax: 10,
+    primaryMuscles: ["abs"], plannedSets: 2, plannedRepsMin: 6, plannedRepsMax: 10, repsMin: 6, repsMax: 10,
     restSeconds: 8, workingWeightKg: null, suggestedWeightKg: null,
     status: "pending", feel: null, sets: [], isBodyweight: true,
   },

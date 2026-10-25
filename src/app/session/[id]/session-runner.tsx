@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Database } from "@/lib/database.types";
 import type { WarmupItem } from "@/lib/program/warmup";
@@ -10,12 +10,15 @@ import {
   useElapsed,
   useWakeLock,
   vibrate,
-  vibrationSupported,
+  useVibrationSupported,
 } from "@/lib/session/device";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { kgToDisplay, displayToKg, formatLoad, type UnitsPreference } from "@/lib/units";
+import { runnerErrorMessage } from "@/lib/session/runner-error-message";
+import { formatTargetRange } from "@/lib/session/format-target-range";
+import { applySwapResult } from "@/lib/session/apply-swap";
+import { applySwapTarget } from "@/lib/session/apply-swap-target";
 import {
   abandonSession,
   deleteSet,
@@ -30,6 +33,11 @@ import {
   type Alternative,
   type SwapResult,
 } from "../actions";
+import { resolveSetConflict } from "@/lib/session/conflict-reducer";
+import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
+import { exercisesReducer } from "@/lib/session/exercises-reducer";
+import { nextSetTarget, pickCurrentExerciseIndex } from "@/lib/session/resume-state";
+import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -78,6 +86,8 @@ export type RunnerExercise = {
   metric: Database["public"]["Enums"]["exercise_metric"];
   primaryMuscles: Muscle[];
   plannedSets: number;
+  plannedRepsMin: number;
+  plannedRepsMax: number;
   repsMin: number;
   repsMax: number;
   restSeconds: number;
@@ -88,6 +98,8 @@ export type RunnerExercise = {
   sets: LoggedSet[];
   /** No external load: used for UI labeling of weight input. */
   isBodyweight: boolean;
+  /** completed_at of the latest working set, so a resume lands on this exercise. */
+  lastLoggedAt?: string | null;
 };
 
 export type RunnerSettings = {
@@ -139,9 +151,27 @@ export function SessionRunner({
   const router = useRouter();
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
-  const [exercises, setExercises] = useState(initialExercises);
+  
+  // Use reducer to manage exercises with server data merging
+  const [exercises, dispatch] = useReducer(
+    exercisesReducer,
+    initialExercises
+  );
+  
+  // Functional updates go through the reducer so they apply to the state at
+  // dispatch time (which may already include a resume merge), not to the
+  // `exercises` this render closed over.
+  const setExercises = useCallback((update: typeof initialExercises | ((prev: typeof initialExercises) => typeof initialExercises)) => {
+    dispatch(
+      typeof update === "function"
+        ? { type: "update", update }
+        : { type: "set", exercises: update },
+    );
+  }, []);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
+  const [alternativesForExerciseId, setAlternativesForExerciseId] = useState<string | null>(null);
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
   >([]);
@@ -156,12 +186,6 @@ export function SessionRunner({
   */
   const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
-
-  // Resume where the session actually stopped rather than at the top.
-  const firstUnfinished = Math.max(
-    0,
-    exercises.findIndex((e) => e.status === "pending"),
-  );
 
   /*
     Every exercise already finished, and the session still open.
@@ -186,8 +210,10 @@ export function SessionRunner({
     nothingPending ? "cooldown" : warmupAlreadyDone || warmup.length === 0 ? "work" : "warmup",
   );
   const [warmupIndex, setWarmupIndex] = useState(0);
+  // B1: the exercise the latest logged set belongs to, not simply the first
+  // pending one, so a resume lands where the user left off.
   const [exerciseIndex, setExerciseIndex] = useState(
-    exercises.findIndex((e) => e.status === "pending") === -1 ? 0 : firstUnfinished,
+    exercises.findIndex((e) => e.status === "pending") === -1 ? 0 : pickCurrentExerciseIndex(exercises),
   );
 
   const wakeLock = useWakeLock(phase !== "done");
@@ -227,11 +253,66 @@ export function SessionRunner({
     setRestRemaining(seconds);
   }, []);
 
+  // Fresh data on resume: refresh when resuming or navigating back
+  useResumeRefresh();
+
+  /*
+    B1: the props this runner mounted with may be a stale RSC payload from the
+    client router cache (a soft navigation back in within `staleTimes.dynamic`
+    reuses the first load's payload: old sets, the pre-swap exercise, exercise
+    one current). useResumeRefresh asks the server for fresh props on mount,
+    and until they arrive no set can be logged, so nothing is saved under an
+    exercise the database has moved past. When they arrive the server's list
+    wins, confirmed local sets are kept, and the current exercise is re-derived
+    from the database's latest logged set. If the refresh never lands (offline),
+    logging opens after a few seconds on what the runner has.
+  */
+  const [synced, markSynced] = useReducer(() => true, false);
+  // Adjusted during render when the props change (React's pattern for state
+  // derived from props), rather than in an effect a frame later.
+  const [seenExercises, setSeenExercises] = useState(initialExercises);
+  if (initialExercises !== seenExercises) {
+    setSeenExercises(initialExercises);
+    dispatch({ type: "merge", serverData: initialExercises });
+    if (initialExercises.some((e) => e.status === "pending")) {
+      setExerciseIndex(pickCurrentExerciseIndex(initialExercises));
+    }
+    markSynced();
+  }
+  useEffect(() => {
+    const t = setTimeout(markSynced, 4000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
 
   const current = exercises[exerciseIndex];
   const restSeconds = settings.restOverrideSeconds ?? current?.restSeconds ?? 90;
+
+  // Close the swap sheet when the active exercise changes
+  useEffect(() => {
+    const currentId = current?.id;
+    if (currentId && alternativesForExerciseId && alternativesForExerciseId !== currentId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: clearing stale UI state when the active exercise changes
+      setAlternatives(null);
+      setAlternativesForExerciseId(null);
+      setLoadingAlternatives(false);
+    }
+  }, [current?.id, alternativesForExerciseId]);
+
+  // Close the swap sheet when the first set is logged for the exercise
+  useEffect(() => {
+    if (alternativesForExerciseId && current?.id === alternativesForExerciseId) {
+      const hasSets = current.sets.length > 0;
+      if (hasSets) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: clearing stale UI state when sets are logged
+        setAlternatives(null);
+        setAlternativesForExerciseId(null);
+        setLoadingAlternatives(false);
+      }
+    }
+  }, [alternativesForExerciseId, current?.id, current?.sets.length]);
 
   const totalSetsPlanned = useMemo(
     () => exercises.reduce((n, e) => n + e.plannedSets, 0),
@@ -283,8 +364,7 @@ export function SessionRunner({
       return r.ok;
     } catch (err) {
       // h2: Catch network errors (offline, timeout, etc)
-      const message = err instanceof Error ? err.message : "Network error. Check your connection.";
-      setError(message);
+      setError(runnerErrorMessage(err));
       return false;
     } finally {
       busyRef.current = false;
@@ -304,6 +384,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <div onPointerDown={onAnyTap}>
           <p className="text-xs font-semibold tracking-wider text-accent uppercase">
@@ -368,6 +449,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <p className="text-muted">
           Static stretches for what you trained. Hold each for 30 seconds,
@@ -429,6 +511,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
         confirmExit={false}
       >
         <div className="space-y-3">
@@ -531,6 +614,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <p className="text-muted">
           This session has no exercises. That usually means the plan could not
@@ -582,33 +666,65 @@ export function SessionRunner({
     : ([...current.sets].reverse().find((s) => s.reps !== null)?.reps ?? null);
 
   async function onLogSet(
+    displayedExerciseId: string,
     reps: number | null,
     weightKg: number | null,
     durationSeconds: number | null = null,
   ) {
-    const ok = await run(() =>
-      actions.logSet({
-        sessionExerciseId: current.id,
-        setNumber: nextSetNumber,
-        reps,
-        weightKg,
-        durationSeconds,
-      }),
-    );
-    if (!ok) return;
-    setExercises((prev) =>
-      prev.map((e) =>
-        e.id === current.id
-          ? {
-              ...e,
-              sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
-            }
-          : e,
-      ),
-    );
-    if (settings.restAutostart && nextSetNumber < current.plannedSets) {
-      startRest(restSeconds);
-    }
+    // B1: the set goes under the exercise that was on screen when it was
+    // submitted, numbered from that exercise's own sets.
+    const target = nextSetTarget(exercises, displayedExerciseId);
+    if (!target) return;
+    // createConcurrentGuard holds busyRef for the whole save, so a double tap
+    // logs the set once.
+    await createConcurrentGuard(async () => {
+      setBusy(true);
+      try {
+        const result = await actions.logSet({
+          sessionExerciseId: target.sessionExerciseId,
+          setNumber: target.setNumber,
+          reps,
+          weightKg,
+          durationSeconds,
+        });
+
+        if (!result.ok) {
+          if ("reason" in result && result.reason === "set_exists") {
+            const resolution = resolveSetConflict(exercises, target.sessionExerciseId, exerciseIndex, result);
+            // The index and message come from this render; the sets are applied
+            // to the state at dispatch time so a resume merge is not undone.
+            setExercises((prev) => resolveSetConflict(prev, target.sessionExerciseId, exerciseIndex, result).exercises);
+            setExerciseIndex(resolution.nextExerciseIndex);
+            setMessage(resolution.message);
+            setError(null);
+            return;
+          }
+          setError("error" in result ? (result.error ?? "Something went wrong") : "Failed");
+          return;
+        }
+
+        setError(null);
+        setMessage(null);
+        setExercises((prev) =>
+          prev.map((e) =>
+            e.id === target.sessionExerciseId
+              ? {
+                  ...e,
+                  sets: [...e.sets, { setNumber: target.setNumber, reps, weightKg, durationSeconds }],
+                }
+              : e,
+          ),
+        );
+        if (settings.restAutostart && target.setNumber < current.plannedSets) {
+          startRest(restSeconds);
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Network error. Check your connection.";
+        setError(errorMessage);
+      } finally {
+        setBusy(false);
+      }
+    }, busyRef)();
   }
 
   /** Remove the most recently logged set, so a mistyped one can be corrected. */
@@ -687,6 +803,7 @@ export function SessionRunner({
       onExit={() => (onExit ? onExit() : router.push("/today"))}
       wakeLock={wakeLock}
       error={error}
+        message={message}
     >
       <div onPointerDown={onAnyTap}>
         {bannerFor === exerciseIndex && progressNotes.length > 0 && (
@@ -697,8 +814,7 @@ export function SessionRunner({
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>
         <p className="mt-2 text-accent">
-          {current.plannedSets} sets × {current.repsMin}–{current.repsMax}
-          {isTimed ? "s" : " reps"}
+          {current.plannedSets} sets × {formatTargetRange({ min: current.repsMin, max: current.repsMax, metric: current.metric })}
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
@@ -799,7 +915,7 @@ export function SessionRunner({
               be logged against it and fed to progression. It also left a stale
               number in a hold's seconds field.
             */
-            key={`${current.id}:${nextSetNumber}`}
+            key={`${current.id}:${current.exerciseId}:${nextSetNumber}`}
             perSetLogging={settings.perSetLogging}
             metric={current.metric}
             targetSeconds={current.repsMax}
@@ -807,13 +923,14 @@ export function SessionRunner({
             defaultReps={defaultReps}
             setNumber={nextSetNumber}
             isBodyweight={current.isBodyweight}
-            units={settings.units}
-            onLog={onLogSet}
+            onLog={(reps, weightKg, durationSeconds) =>
+              onLogSet(current.id, reps, weightKg, durationSeconds)
+            }
             onHoldComplete={() => {
               if (settings.restSound) beeper.beep();
               if (settings.restVibrate) vibrate([180, 90, 180]);
             }}
-            disabled={busy}
+            disabled={busy || !synced}
           />
         )}
 
@@ -851,6 +968,20 @@ export function SessionRunner({
                     <button
                       disabled={busy}
                       onClick={async () => {
+                        // Guard against stale swaps: refuse if the sheet's exercise doesn't match the current one
+                        if (alternativesForExerciseId !== current.id) {
+                          setError("This swap sheet belongs to a different exercise");
+                          setAlternatives(null);
+                          setAlternativesForExerciseId(null);
+                          return;
+                        }
+                        // Refuse swap if the exercise has logged sets
+                        if (current.sets.length > 0) {
+                          setError("You've already logged a set for this exercise, so it can't be swapped.");
+                          setAlternatives(null);
+                          setAlternativesForExerciseId(null);
+                          return;
+                        }
                         /*
                           `run` reports success as a boolean, so the payload is
                           carried out in a box. It is needed: a swap can change
@@ -871,22 +1002,34 @@ export function SessionRunner({
                         });
                         if (!ok || !box.value) return;
                         const swapped = box.value;
-                        setExercises((prev) =>
-                          prev.map((e) =>
-                            e.id === current.id
-                              ? {
-                                  ...e,
-                                  name: a.name,
-                                  cue: a.cue,
-                                  exerciseId: a.exerciseId,
-                                  metric: swapped.metric,
-                                  repsMin: swapped.repsMin ?? e.repsMin,
-                                  repsMax: swapped.repsMax ?? e.repsMax,
-                                }
-                              : e,
-                          ),
-                        );
+                        setExercises((prev) => {
+                          // #125: Apply weight prefill and metric change
+                          const withSwap = applySwapResult(prev, current.id, {
+                            ...swapped,
+                            exerciseId: a.exerciseId,
+                            name: a.name,
+                            cue: a.cue,
+                          }) as RunnerExercise[];
+                          
+                          // #127: Apply target resolution for unloaded exercises
+                          return withSwap.map((e) => {
+                            if (e.id !== current.id) return e;
+                            const plannedRepsMin = swapped.repsMin ?? e.plannedRepsMin;
+                            const plannedRepsMax = swapped.repsMax ?? e.plannedRepsMax;
+                            return applySwapTarget(
+                              { ...e, plannedRepsMin, plannedRepsMax },
+                              {
+                                equipmentIds: swapped.equipmentIds,
+                                currentTargetReps: swapped.currentTargetReps,
+                                currentWorkingWeightKg: swapped.workingWeightKg,
+                                plannedRepsMin,
+                                plannedRepsMax,
+                              }
+                            );
+                          });
+                        });
                         setAlternatives(null);
+                        setAlternativesForExerciseId(null);
                       }}
                       className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent disabled:opacity-60"
                     >
@@ -898,7 +1041,10 @@ export function SessionRunner({
               </ul>
             )}
             <div className="mt-3">
-              <GhostButton onClick={() => setAlternatives(null)}>Cancel</GhostButton>
+              <GhostButton onClick={() => {
+                setAlternatives(null);
+                setAlternativesForExerciseId(null);
+              }}>Cancel</GhostButton>
             </div>
           </div>
         )}
@@ -913,6 +1059,7 @@ export function SessionRunner({
                 setLoadingAlternatives(false);
                 if (!r.ok) return setError(r.error);
                 setAlternatives(r.data);
+                setAlternativesForExerciseId(current.id);
               }}
             >
               {loadingAlternatives ? "Finding alternatives…" : "Swap this exercise"}
@@ -1002,7 +1149,6 @@ function SetEntry({
   defaultReps,
   setNumber,
   isBodyweight,
-  units,
   onLog,
   onHoldComplete,
   disabled = false,
@@ -1012,14 +1158,12 @@ function SetEntry({
   metric: Database["public"]["Enums"]["exercise_metric"];
   /** Top of the target range, which is what the hold counts down from. */
   targetSeconds: number;
-  /** Weight in kg (canonical storage) */
   defaultWeight: number | null;
   /** Null on the first set of an exercise, so it has to be entered. */
   defaultReps: number | null;
   setNumber: number;
   /** True for bodyweight exercises: changes weight label and default. */
   isBodyweight: boolean;
-  units: UnitsPreference;
   onLog: (
     reps: number | null,
     weightKg: number | null,
@@ -1030,17 +1174,14 @@ function SetEntry({
   disabled?: boolean;
 }) {
   const isTimed = metric === "seconds";
-  const weightUnitLabel = units === "imperial" ? "lb" : "kg";
 
   // Remounted per set via a key at the call site, so the fields reset naturally
   // rather than being reset from an effect.
   const [reps, setReps] = useState(defaultReps !== null ? String(defaultReps) : "");
   // For bodyweight exercises, only prefill if the last set actually used added weight.
   const shouldPrefillWeight = !isBodyweight || (defaultWeight !== null && defaultWeight > 0);
-  // Convert kg to display unit for prefill
-  const displayWeight = defaultWeight !== null ? kgToDisplay(defaultWeight, units) : null;
   const [weight, setWeight] = useState(
-    shouldPrefillWeight && displayWeight !== null ? String(displayWeight) : "",
+    shouldPrefillWeight && defaultWeight !== null ? String(defaultWeight) : "",
   );
 
   /**
@@ -1088,16 +1229,14 @@ function SetEntry({
   // round trip rather than after one. An empty field is only meaningful when
   // per-set logging is off, where the runner records that a set happened
   // without asking for numbers; here it means the user has not said yet.
-  // Convert display weight to kg for validation
-  const weightKg = weight === "" ? null : displayToKg(Number(weight), units);
   const invalid =
     reps === ""
       ? isTimed
         ? "Hold it, or enter the seconds you held."
         : "Enter the reps you did."
       : isTimed
-        ? validateSet(null, weightKg, Number(reps))
-        : validateSet(Number(reps), weightKg);
+        ? validateSet(null, weight === "" ? null : Number(weight), Number(reps))
+        : validateSet(Number(reps), weight === "" ? null : Number(weight));
 
   if (!perSetLogging) {
     return (
@@ -1152,7 +1291,7 @@ function SetEntry({
           />
         </label>
         <label className="block">
-          <span className="text-sm text-muted">{isBodyweight ? `Added weight (${weightUnitLabel})` : `Weight (${weightUnitLabel})`}</span>
+          <span className="text-sm text-muted">{isBodyweight ? "Added weight (kg)" : "Weight (kg)"}</span>
           <input
             type="number"
             inputMode="decimal"
@@ -1179,10 +1318,10 @@ function SetEntry({
           disabled={disabled || invalid !== null || holdEndsAt !== null}
           onClick={() =>
             isTimed
-              ? onLog(null, weightKg, Number(reps))
+              ? onLog(null, weight === "" ? null : Number(weight), Number(reps))
               : onLog(
                   reps === "" ? null : Number(reps),
-                  weightKg,
+                  weight === "" ? null : Number(weight),
                 )
           }
         >
@@ -1193,13 +1332,14 @@ function SetEntry({
   );
 }
 
-function Shell({
+export function Shell({
   title,
   subtitle,
   elapsed,
   onExit,
   wakeLock,
   error,
+  message,
   confirmExit = true,
   children,
 }: {
@@ -1209,6 +1349,7 @@ function Shell({
   onExit: () => void;
   wakeLock: { active: boolean };
   error: string | null;
+  message?: string | null;
   /** Off on the summary, where leaving is the expected next step. */
   confirmExit?: boolean;
   children: React.ReactNode;
@@ -1280,6 +1421,12 @@ function Shell({
         </p>
       )}
 
+      {message && (
+        <p className="mt-4 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-fg">
+          {message}
+        </p>
+      )}
+
       <div className="mt-8">{children}</div>
     </main>
   );
@@ -1340,7 +1487,7 @@ function Stat({ label, value }: { label: string; value: string }) {
  * implemented navigator.vibrate at all -- so the state is shown rather than
  * assumed.
  */
-function CapabilityNote({
+export function CapabilityNote({
   wakeLock,
   soundEnabled,
   soundUnlocked,
@@ -1351,6 +1498,7 @@ function CapabilityNote({
   soundUnlocked: boolean;
   vibrateEnabled: boolean;
 }) {
+  const vibrationSupported = useVibrationSupported();
   const bits: string[] = [];
   bits.push(
     !wakeLock.supported
@@ -1360,7 +1508,7 @@ function CapabilityNote({
         : `screen may sleep${wakeLock.error ? ` (${wakeLock.error})` : ""}`,
   );
   if (soundEnabled) bits.push(soundUnlocked ? "sound ready" : "sound arms on first tap");
-  if (vibrateEnabled && !vibrationSupported()) bits.push("vibration unsupported here");
+  if (vibrateEnabled && !vibrationSupported) bits.push("vibration unsupported here");
 
   return <p className="mt-4 text-center text-[11px] text-muted/70">{bits.join(" · ")}</p>;
 }

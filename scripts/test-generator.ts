@@ -19,7 +19,7 @@ import {
 // Defaults to the committed BUILT fixture (base + migrations) so staples
 // like glute-bridge and doorway-row from migration 140100 are present.
 const fixture = process.argv[2] ?? "scripts/fixtures/catalogue.json";
-const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
+const catalogue: CandidateExercise[] = JSON.parse(readFileSync(fixture, "utf8"));
 const byId = new Map(catalogue.map((e) => [e.id, e]));
 
 let failures = 0;

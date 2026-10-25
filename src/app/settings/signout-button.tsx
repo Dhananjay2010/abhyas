@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { signOutAction } from "@/lib/auth/signout";
+import { clearPendingChanges } from "@/lib/auth/pending-changes";
 
 export function SignOutButton() {
   const [pending, startTransition] = useTransition();
@@ -9,6 +10,7 @@ export function SignOutButton() {
 
   async function handleSignOut() {
     startTransition(async () => {
+      clearPendingChanges();
       const result = await signOutAction();
       // If we reach here, signOut failed (success redirects and never returns)
       if (!result.ok) {

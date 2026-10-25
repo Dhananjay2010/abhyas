@@ -6,8 +6,9 @@ import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-c
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
-import { getUnitsPreference, kgToDisplay, weightLabel } from "@/lib/units";
+import { getUnitsPreference } from "@/lib/units";
 import { LogWeight } from "./log-weight";
+import { loadProgramDays } from "@/lib/progress/load-program-days";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export default async function ProgressPage() {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("timezone, onboarding_completed_at, units")
+      .select("timezone, onboarding_completed_at, units, primary_track")
       .eq("id", user.id)
       .single(),
     // Fetch recent data descending, reverse for processing. NEVER order
@@ -59,17 +60,19 @@ export default async function ProgressPage() {
       .order("local_date", { ascending: false })
       .limit(600),
     // Ordered oldest-first for building day records
+    // Exclude superseded blocks (preserve history only, not used for streaks/charts)
     supabase
       .from("programs")
       .select("id, started_on, ends_on, ended_on, created_at")
+      .neq("status", "superseded")
       .order("started_on")
       .order("created_at"),
     supabase
       .from("sessions")
-      .select("id, local_date, status, actual_type, is_deload")
+      .select("id, local_date, status, actual_type, is_deload, duration_seconds")
       .order("local_date", { ascending: false })
       .limit(500),
-    supabase.from("program_days").select("program_id, day_index, day_type"),
+    loadProgramDays(supabase),
   ]);
 
   const profile = profileRes.data;
@@ -79,6 +82,28 @@ export default async function ProgressPage() {
   const timezone = resolveTimezoneWithProfile(profile.timezone);
   const today = localDateString(timezone);
   const units = getUnitsPreference(profile.units);
+  const primaryTrack = profile.primary_track;
+
+  // ---- progress summary (days trained, volume) ------------------------
+  // Use RPC to avoid 414 URI too long errors (was passing 500+ session IDs in .in())
+  // @ts-expect-error - RPC function not in generated types yet
+  const { data: progressData, error: progressError } = await supabase.rpc("progress_summary", {
+    p_user: user.id,
+  });
+
+  const progressQueryFailed = !!progressError;
+  if (progressError) {
+    console.error("Failed to load progress summary:", progressError);
+  }
+
+  type ProgressSummary = {
+    days_trained: number;
+    local_dates: string[];
+    total_volume_kg: number;
+    session_count: number;
+  };
+  const summary = progressData as ProgressSummary | null;
+  const totalVolume = progressQueryFailed ? null : (Number(summary?.total_volume_kg) ?? 0);
 
   // ---- streaks -----------------------------------------------------------
   // Across every block, not just the active one: a streak that reset because a
@@ -103,12 +128,25 @@ export default async function ProgressPage() {
   // ONLY when status = 'completed' AND working_sets >= 1
   const sessionIds = (sessionsRes.data ?? []).map((s) => s.id);
 
-  const { data: volumeData } = await supabase
-    .from("session_volume")
-    .select("session_id, set_count")
-    .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
+  // Use RPC to get set counts without unbounded .in() filter
+  // @ts-expect-error - RPC function not in generated types yet
+  const { data: setCountsData, error: setCountsError } = await supabase.rpc("get_session_set_counts", {
+    p_user: user.id,
+    p_session_ids: sessionIds,
+  });
+  
+  if (setCountsError) {
+    console.error("Failed to load session set counts:", setCountsError);
+  }
 
-  const workingSetsBySession = new Map((volumeData ?? []).map((v) => [v.session_id, v.set_count || 0]));
+  type SetCountRow = { session_id: string; set_count: number };
+  const setCounts = (setCountsData ?? []) as unknown as SetCountRow[];
+  const workingSetsBySession = new Map(
+    setCounts.map((v) => [
+      v.session_id,
+      Number(v.set_count) || 0,
+    ])
+  );
 
   // Map all sessions with their working set counts
   // countsTowardStreak will enforce the rules (completed + working sets for strength)
@@ -116,7 +154,7 @@ export default async function ProgressPage() {
     local_date: s.local_date,
     actual_type: s.actual_type,
     status: s.status,
-    working_set_count: workingSetsBySession.get(s.id),
+    working_set_count: workingSetsBySession.get(s.id) as number | undefined,
   }));
 
   const dayRecords = buildDayRecords({
@@ -142,19 +180,37 @@ export default async function ProgressPage() {
     (v): v is typeof v & { local_date: string; volume_kg: number } =>
       v.local_date !== null && v.volume_kg !== null && Number(v.volume_kg) > 0,
   );
-  const volumePoints: Point[] = volumeRows
-    .slice(-14)
-    .map((v) => ({ label: shortDate(v.local_date), value: kgToDisplay(Number(v.volume_kg), units) }));
 
   // Per-lift strength as small multiples: a five-line chart is unreadable on a
   // phone, and each lift is its own question anyway. Data is fetched newest-first;
   // the helper reverses it so charts plot chronologically (oldest to newest).
   // B1/B2/C2: Include all sessions in charts (deload points marked with isDeload flag)
-  const deloadDates = new Set(
-    (sessionsRes.data ?? [])
-      .filter(s => s.is_deload === true)
-      .map(s => s.local_date)
-  );
+  // Track dates where ALL sessions are deloads (don't mark a date if ANY session is non-deload)
+  const sessionsByDate = new Map<string, Array<{ id: string; isDeload: boolean }>>();
+  for (const s of sessionsRes.data ?? []) {
+    if (!sessionsByDate.has(s.local_date)) {
+      sessionsByDate.set(s.local_date, []);
+    }
+    sessionsByDate.get(s.local_date)!.push({ id: s.id, isDeload: s.is_deload === true });
+  }
+  
+  const deloadDates = new Set<string>();
+  for (const [date, sessions] of sessionsByDate.entries()) {
+    // Only mark date as deload if ALL sessions on that date are deloads
+    if (sessions.length > 0 && sessions.every(s => s.isDeload)) {
+      deloadDates.add(date);
+    }
+  }
+  
+  // Volume chart with deload markers (change 7: headline skips deload sessions)
+  const volumePoints: Point[] = volumeRows
+    .slice(-14)
+    .map((v) => ({ 
+      label: shortDate(v.local_date), 
+      value: kgToDisplay(Number(v.volume_kg), units),
+      isDeload: deloadDates.has(v.local_date)
+    }));
+  
   const strengthCharts = buildStrengthChartsFromDescendingRows(
     strengthRes.data ?? [],
     shortDate,
@@ -162,42 +218,137 @@ export default async function ProgressPage() {
     deloadDates
   ).slice(0, 6);
 
-  const totalVolumeKg = volumeRows.reduce((n, v) => n + Number(v.volume_kg), 0);
-  const totalVolume = kgToDisplay(totalVolumeKg, units);
+  // totalVolume now comes from progress_summary RPC (computed server-side)
   const hasAnything = weights.length > 0 || volumeRows.length > 0;
+
+  // ---- yoga/breathing stats (QA M-4) ------------------------------------
+  // For yoga and breathing members, compute stats from completed sessions
+  const isYogaOrBreathing = primaryTrack === "yoga" || primaryTrack === "meditation";
+  let yogaStats = null;
+  let yogaStatsError = !!sessionsRes.error;
+  if (isYogaOrBreathing) {
+    if (sessionsRes.error) {
+      console.error("Failed to load sessions for yoga stats:", sessionsRes.error);
+    } else {
+      try {
+        const { computeYogaStats } = await import("@/lib/progress/yoga-stats");
+        // Filter to completed yoga or breathing sessions
+        const yogaBreathingSessions = (sessionsRes.data ?? [])
+          .filter((s) => 
+            s.status === "completed" && 
+            (s.actual_type === "yoga" || s.actual_type === "meditation")
+          )
+          .map((s) => ({
+            local_date: s.local_date,
+            duration_seconds: s.duration_seconds,
+          }));
+        yogaStats = computeYogaStats(yogaBreathingSessions, today);
+      } catch (error) {
+        console.error("Failed to compute yoga stats:", error);
+        yogaStatsError = true;
+      }
+    }
+  }
+
+  // Check if member has any strength data (to decide whether to show volume/strength sections)
+  const hasStrengthData = volumeRows.length > 0 || (strengthRes.data ?? []).length > 0;
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <h1 className="text-3xl font-bold tracking-tight">Progress</h1>
 
       <section className="mt-6 grid grid-cols-2 gap-3">
-        <StatTile
-          label="Streak"
-          value={`${streaks.current}`}
-          sub={streaks.current === 1 ? "day in a row" : "days in a row"}
-        />
-        <StatTile
-          label="Best streak"
-          value={`${streaks.longest}`}
-          sub={streaks.longest === 1 ? "day" : "days"}
-        />
-        <StatTile label="Days trained" value={`${streaks.totalSessions}`} sub="all time" />
-        <StatTile
-          label="Volume lifted"
-          value={
-            totalVolume >= 10000
-              ? `${Math.round(totalVolume / 1000)}t`
-              : totalVolume >= 1000
-                ? `${(totalVolume / 1000).toFixed(1)}t`
-                : `${Math.round(totalVolume)}kg`
-          }
-          sub="all time"
-        />
+        {isYogaOrBreathing && yogaStats ? (
+          <>
+            <StatTile
+              label="Sessions this week"
+              value={yogaStatsError ? "—" : `${yogaStats.sessionsThisWeek}`}
+              sub="Mon to today"
+            />
+            <StatTile
+              label="Minutes this week"
+              value={yogaStatsError ? "—" : `${yogaStats.minutesThisWeek}`}
+              sub="Mon to today"
+            />
+            <StatTile
+              label="Minutes this month"
+              value={yogaStatsError ? "—" : `${yogaStats.minutesThisMonth}`}
+              sub={new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(today + "T00:00:00Z"))}
+            />
+            <StatTile
+              label="Sessions all time"
+              value={yogaStatsError ? "—" : `${yogaStats.sessionsAllTime}`}
+              sub="total completed"
+            />
+          </>
+        ) : isYogaOrBreathing ? (
+          <>
+            <StatTile
+              label="Sessions this week"
+              value="—"
+              sub="Mon to today"
+            />
+            <StatTile
+              label="Minutes this week"
+              value="—"
+              sub="Mon to today"
+            />
+            <StatTile
+              label="Minutes this month"
+              value="—"
+              sub={new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(today + "T00:00:00Z"))}
+            />
+            <StatTile
+              label="Sessions all time"
+              value="—"
+              sub="total completed"
+            />
+          </>
+        ) : (
+          <>
+            <StatTile
+              label="Streak"
+              value={progressQueryFailed ? "—" : `${streaks.current}`}
+              sub={progressQueryFailed ? "error loading" : (streaks.current === 1 ? "day in a row" : "days in a row")}
+            />
+            <StatTile
+              label="Best streak"
+              value={progressQueryFailed ? "—" : `${streaks.longest}`}
+              sub={progressQueryFailed ? "error loading" : (streaks.longest === 1 ? "day" : "days")}
+            />
+            <StatTile 
+              label="Days trained" 
+              value={progressQueryFailed ? "—" : `${streaks.totalSessions}`} 
+              sub={progressQueryFailed ? "error loading" : "all time"} 
+            />
+            <StatTile
+              label="Volume lifted"
+              value={
+                progressQueryFailed 
+                  ? "—"
+                  : totalVolume! >= 10000
+                    ? `${Math.round(totalVolume! / 1000).toLocaleString("en-US")}t`
+                    : totalVolume! >= 1000
+                      ? `${(totalVolume! / 1000).toFixed(1).replace(/(\d)(?=(\d{3})+\.)/g, '$1,')}t`
+                      : `${Math.round(totalVolume!).toLocaleString("en-US")}kg`
+              }
+              sub={progressQueryFailed ? "error loading" : "all time"}
+            />
+          </>
+        )}
       </section>
       
-      <p className="mt-3 text-xs text-muted">
-        Your streak counts scheduled training days you trained. Missing one resets it. Breathe sessions don&apos;t count.
-      </p>
+      {(progressQueryFailed || setCountsError || yogaStatsError) && (
+        <p className="mt-3 rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-4 py-2 text-sm text-[var(--color-danger)]">
+          Couldn&apos;t load some stats
+        </p>
+      )}
+      
+      {!isYogaOrBreathing && (
+        <p className="mt-3 text-xs text-muted">
+          Your streak counts scheduled training days you trained. Missing one resets it. Breathe sessions don&apos;t count.
+        </p>
+      )}
 
       {!hasAnything && (
         <p className="mt-8 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
@@ -220,7 +371,7 @@ export default async function ProgressPage() {
         <LogWeight current={latestWeight} units={units} />
       </section>
 
-      {volumeRows.length > 0 && (
+      {(!isYogaOrBreathing || hasStrengthData) && volumeRows.length > 0 && (
         <section className="mt-10">
           <h2 className="text-sm font-semibold">Volume per session</h2>
           <p className="mb-3 text-xs text-muted">
@@ -231,12 +382,12 @@ export default async function ProgressPage() {
               One session logged. Your trend will appear after your next workout.
             </p>
           ) : (
-            <BarChart points={volumePoints} unit={weightLabel(units)} title="Volume per session" />
+            <BarChart points={volumePoints} unit="kg" title="Volume per session" />
           )}
         </section>
       )}
 
-      {strengthCharts.length > 0 && (
+      {(!isYogaOrBreathing || hasStrengthData) && strengthCharts.length > 0 && (
         <section className="mt-10">
           <h2 className="text-sm font-semibold">Strength by lift</h2>
           <p className="mb-4 text-xs text-muted">

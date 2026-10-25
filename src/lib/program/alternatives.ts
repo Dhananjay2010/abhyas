@@ -1,5 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
+import { PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
+import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 
 export type ExerciseRow = CandidateExercise;
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -8,6 +10,7 @@ export type AlternativesContext = {
   level: Database["public"]["Enums"]["fitness_level"];
   availableEquipment: Set<string> | null;
   injuryRegions: Database["public"]["Enums"]["body_region"][];
+  anyKneeInjury?: boolean;
   limit?: number;
   scoreFn: (exercise: ExerciseRow) => number;
   tieBreakFn: (slug: string) => number;
@@ -34,13 +37,21 @@ const KNEE_SAFE_LOWER_PATTERNS: MovementPattern[] = ["hinge", "core"];
 export function buildPatternList(
   currentPattern: MovementPattern,
   hasKneeInjury: boolean,
+  hasCurrentKnee?: boolean,
 ): MovementPattern[] {
   const patterns: MovementPattern[] = [currentPattern];
   
-  // Add direct fallback (lunge↔squat)
-  const fallback = FALLBACK_PATTERNS[currentPattern];
-  if (fallback && !patterns.includes(fallback)) {
-    patterns.push(fallback);
+  // For CURRENT knee injuries on lunge pattern, DON'T add squat fallback
+  // (would widen to barbell-squat, hack-squat, etc. which aren't on the knee-safe list)
+  // For PAST knee, DO add squat fallback (PAST_KNEE_LUNGE_EXERCISES are squat pattern)
+  const skipFallback = (hasCurrentKnee ?? hasKneeInjury) && currentPattern === "lunge";
+  
+  if (!skipFallback) {
+    // Add direct fallback (lunge↔squat)
+    const fallback = FALLBACK_PATTERNS[currentPattern];
+    if (fallback && !patterns.includes(fallback)) {
+      patterns.push(fallback);
+    }
   }
   
   // For knee injuries on lower-body patterns, add knee-safe alternatives
@@ -151,9 +162,16 @@ export function rankAlternatives<T extends ExerciseRow>(
   const limit = ctx.limit ?? 5;
   const userLevelRank = LEVEL_ORDER[ctx.level];
   const hasKneeInjury = ctx.injuryRegions.includes("knee");
+  const hasPastKnee = (ctx.anyKneeInjury ?? false) && !hasKneeInjury;
   
   // Build priority order: same pattern, then fallback, then knee-safe
-  const patternPriority = buildPatternList(current.movement_pattern, hasKneeInjury);
+  // For past-knee lunge swaps, we need squat pattern (the 4-list are squat pattern)
+  let patternPriority: MovementPattern[];
+  if (hasPastKnee && current.movement_pattern === "lunge") {
+    patternPriority = ["lunge", "squat"]; // Must include squat for the 4-list
+  } else {
+    patternPriority = buildPatternList(current.movement_pattern, ctx.anyKneeInjury ?? false);
+  }
   
   // Is current a dynamic press (reps-based, not iso/plyo)?
   const isDynamicPress = 
@@ -161,6 +179,14 @@ export function rankAlternatives<T extends ExerciseRow>(
     current.metric === "reps" &&
     !isIsometric(current) &&
     current.impact !== "high";
+  
+  // Is current a compound pull (for pullover exclusion)?
+  // Exception: if current is itself a pullover, allow pullover swaps
+  const isCompoundPull =
+    (current.movement_pattern === "horizontal_pull" || current.movement_pattern === "vertical_pull") &&
+    current.mechanic === "compound";
+  const isPulloverOriginal =
+    current.name.toLowerCase().includes("pullover") || current.slug.includes("pullover");
   
   const filtered: Array<{ 
     exercise: T; 
@@ -176,24 +202,55 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 1. Exclude current exercise
     if (candidate.id === current.id) continue;
     
-    // 2. Pattern priority (lower rank = better)
+    // 2. Exclude dangerous/problematic exercises (hard-coded exclusion set)
+    if (EXCLUDED_EXERCISE_SLUGS.has(candidate.slug)) continue;
+    
+    // 3. Exclude pullovers when original is a compound pull
+    // Pullovers are shoulder-extension moves and not appropriate substitutes
+    if (isCompoundPull && !isPulloverOriginal) {
+      const nameLower = candidate.name.toLowerCase();
+      if (nameLower.includes("pullover") || candidate.slug.includes("pullover")) {
+        continue;
+      }
+    }
+    
+    // 4. Pattern priority (lower rank = better)
     const patternRank = patternPriority.indexOf(candidate.movement_pattern);
     if (patternRank === -1) continue; // Not in our pattern list
     
-    // 3. Level check: candidate level must be <= user level
+    // 4b. Past-knee lunge swaps: ONLY allow the 4-exercise quad list
+    if (hasPastKnee && current.movement_pattern === "lunge") {
+      if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
+        continue;
+      }
+    }
+    
+    // 5. Level check: candidate level must be <= user level
     const candidateLevelRank = LEVEL_ORDER[candidate.level_min];
     if (candidateLevelRank > userLevelRank) continue;
     
-    // 4. Beginners never get high-impact (plyometric) moves
+    // 6. Beginners never get high-impact (plyometric) moves
     if (ctx.level === "beginner" && candidate.impact === "high") continue;
     
-    // 5. For dynamic press, exclude isometric and plyometric
+    // 6b. PR #73: Knee injuries exclude high-impact lower-body moves
+    if ((ctx.anyKneeInjury ?? false) && candidate.impact === "high") {
+      const lowerBodyMuscles = ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"];
+      const isLowerBody = candidate.primary_muscles.some(m => lowerBodyMuscles.includes(m));
+      if (isLowerBody) continue;
+    }
+    
+    // 6c. PR #73: ANY knee injury excludes sissy squats (defense-in-depth with isEligible)
+    if ((ctx.anyKneeInjury ?? false) && candidate.slug.includes("sissy")) {
+      continue;
+    }
+    
+    // 7. For dynamic press, exclude isometric and plyometric
     if (isDynamicPress) {
       if (isIsometric(candidate)) continue;
       if (candidate.impact === "high") continue;
     }
     
-    // 6. Injury filtering: exclude if any contraindicated region intersects
+    // 8. Injury filtering: exclude if any contraindicated region intersects
     if (
       candidate.contraindicated_regions.some((region) =>
         ctx.injuryRegions.includes(region)
@@ -202,10 +259,11 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
-    // 7. Equipment check: all-of semantics
+    // 9. Equipment check: all-of semantics
     if (ctx.availableEquipment !== null && candidate.equipment_ids.length > 0) {
+      const equipment = ctx.availableEquipment;
       const allAvailable = candidate.equipment_ids.every((id) =>
-        ctx.availableEquipment!.has(id)
+        equipment.has(id)
       );
       if (!allAvailable) continue;
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 /**
  * Device capabilities used during a guided session.
@@ -22,15 +22,29 @@ export type WakeLockState = {
   error: string | null;
 };
 
+export const wakeLockSupported = () =>
+  typeof navigator !== "undefined" && "wakeLock" in navigator;
+
+/**
+ * Hook to check wake lock support with SSR-safe hydration.
+ * Returns false during SSR, then the actual support on the client.
+ * Uses useSyncExternalStore to avoid hydration mismatches.
+ */
+export function useWakeLockSupported(): boolean {
+  return useSyncExternalStore(
+    useCallback(() => () => {}, []), // subscribe (no-op, capability doesn't change)
+    () => wakeLockSupported(), // getSnapshot (client)
+    () => false, // getServerSnapshot (SSR) - returns false so server HTML matches initial client render
+  );
+}
+
 export function useWakeLock(enabled: boolean): WakeLockState {
   const sentinelRef = useRef<WakeLockSentinel | null>(null);
-  // Derived at first render rather than in an effect: it never changes.
-  const [state, setState] = useState<WakeLockState>(() => ({
-    supported: typeof navigator !== "undefined" && "wakeLock" in navigator,
+  const supported = useWakeLockSupported();
+  const [activeState, setActiveState] = useState<{ active: boolean; error: string | null }>(() => ({
     active: false,
     error: null,
   }));
-  const supported = state.supported;
 
   useEffect(() => {
     if (!supported || !enabled) return;
@@ -45,13 +59,12 @@ export function useWakeLock(enabled: boolean): WakeLockState {
           return;
         }
         sentinelRef.current = sentinel;
-        setState({ supported: true, active: true, error: null });
+        setActiveState({ active: true, error: null });
         sentinel.addEventListener("release", () => {
-          setState((s) => ({ ...s, active: false }));
+          setActiveState((s) => ({ ...s, active: false }));
         });
       } catch (e) {
-        setState({
-          supported: true,
+        setActiveState({
           active: false,
           error: e instanceof Error ? e.message : "Wake lock refused",
         });
@@ -75,7 +88,11 @@ export function useWakeLock(enabled: boolean): WakeLockState {
     };
   }, [enabled, supported]);
 
-  return state;
+  return {
+    supported,
+    active: activeState.active,
+    error: activeState.error,
+  };
 }
 
 export type Beeper = {
@@ -139,6 +156,19 @@ export function useBeeper(enabled: boolean): Beeper {
 export const vibrationSupported = () =>
   typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
 
+/**
+ * Hook to check vibration support with SSR-safe hydration.
+ * Returns false during SSR, then the actual support on the client.
+ * Uses useSyncExternalStore to avoid hydration mismatches.
+ */
+export function useVibrationSupported(): boolean {
+  return useSyncExternalStore(
+    useCallback(() => () => {}, []), // subscribe (no-op, capability doesn't change)
+    () => vibrationSupported(), // getSnapshot (client)
+    () => false, // getServerSnapshot (SSR) - returns false so server HTML matches initial client render
+  );
+}
+
 export function vibrate(pattern: number | number[]) {
   if (vibrationSupported()) {
     try {
@@ -151,18 +181,28 @@ export function vibrate(pattern: number | number[]) {
 
 /** Counts elapsed seconds, resilient to the tab being backgrounded. */
 export function useElapsed(startedAtIso: string | null): number {
-  // Lazy state initialisers run once and are the sanctioned place for a clock
-  // read; a ref would be impure during render.
   const [start] = useState(() =>
-    startedAtIso ? new Date(startedAtIso).getTime() : Date.now(),
+    startedAtIso ? new Date(startedAtIso).getTime() : null,
   );
-  const [now, setNow] = useState(() => Date.now());
+  
+  // Use useSyncExternalStore to subscribe to time (an external system)
+  // Returns 0 during SSR (getServerSnapshot)
+  const now = useSyncExternalStore(
+    useCallback((onStoreChange: () => void) => {
+      // Subscribe to time updates every second
+      const interval = setInterval(onStoreChange, 1000);
+      return () => clearInterval(interval);
+    }, []),
+    // Whole seconds, so consecutive reads within a second are equal: React
+    // requires getSnapshot to return the same value until the store changes,
+    // and a raw Date.now() would differ on every read.
+    () => Math.floor(Date.now() / 1000) * 1000, // getSnapshot (client)
+    () => 0, // getServerSnapshot (SSR) - returns 0 so elapsed will be 0
+  );
 
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
+  // Return 0 during SSR and when there's no start time
+  if (start === null) return 0;
+  
   return Math.max(0, Math.floor((now - start) / 1000));
 }
 

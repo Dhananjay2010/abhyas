@@ -43,6 +43,11 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
 
+      - name: Test built service worker output
+        run: npm run test:sw-built-output
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
 
       - name: Test sitemap and robots routes
         run: npm run test:sitemap-route
@@ -223,6 +228,33 @@ jobs:
                 RAISE EXCEPTION 'Expected 6 exercise progress records, found %', test_exercise_progress;
               END IF;
               
+              -- Test partial unique index: one in_progress session per user
+              -- First, ensure no in_progress sessions exist for test user
+              DELETE FROM sessions 
+              WHERE user_id = '00000000-0000-0000-0000-000000000001' 
+              AND status = 'in_progress';
+              
+              -- Insert first in_progress session (should succeed)
+              INSERT INTO sessions (user_id, local_date, status, planned_type, actual_type)
+              VALUES ('00000000-0000-0000-0000-000000000001', '2026-10-24', 'in_progress', 'weights', 'weights');
+              
+              -- Attempt to insert second in_progress session for same user (should fail with 23505)
+              BEGIN
+                INSERT INTO sessions (user_id, local_date, status, planned_type, actual_type)
+                VALUES ('00000000-0000-0000-0000-000000000001', '2026-10-25', 'in_progress', 'weights', 'weights');
+                
+                -- If we reach here, the constraint didn't fire
+                RAISE EXCEPTION 'Expected duplicate in_progress session to fail with 23505, but it succeeded';
+              EXCEPTION
+                WHEN unique_violation THEN
+                  -- Expected: 23505 unique_violation
+                  RAISE NOTICE 'Correctly rejected duplicate in_progress session with 23505';
+              END;
+              
+              -- Verify a completed session for the same user is still allowed
+              INSERT INTO sessions (user_id, local_date, status, planned_type, actual_type)
+              VALUES ('00000000-0000-0000-0000-000000000001', '2026-10-25', 'completed', 'weights', 'weights');
+              
               RAISE NOTICE 'All seed validation checks passed!';
             END \$\$;
           "
@@ -234,8 +266,22 @@ jobs:
           export SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep '^SERVICE_ROLE_KEY=' | cut -d '=' -f 2- | tr -d '"')
           echo "Service role key configured (first 20 chars): ${SUPABASE_SERVICE_ROLE_KEY:0:20}..."
           npm run test:exercise-history-real-db
+          npm run test:progress-rpcs-real-db
+          npm run test:progress-active-days
+          npm run test:superseded-override
+          npm run test:first-build-ended-on
+          npm run test:equipment-two-client
+          npm run test:injuries-two-client
+          npm run test:stale-stash-two-client
+          npm run test:swap-prefill-real-db
+          npm run test:ended-early-real-db
+          npm run test:resolve-swap-weights-real-db
+          npm run test:swap-guard-real-db
+          npm run test:ensure-session-exercises-deload
+          npm run test:start-session-ensure-exercises
           npx tsx scripts/test-delete-set.ts
           npx tsx scripts/test-skipped-session-shapes.ts
+          REAL_DB=1 npm run test:history-edit-validation-db
         env:
           REAL_DB: "1"
 
@@ -275,6 +321,9 @@ jobs:
         run: npm ci
 
       - name: Run block range DB tests
-        run: npm run test:block-range-db
+        run: |
+          npm run test:block-range-db
+          npm run test:block-range-cleanup
+          npm run test:block-range-db-followup
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/abhyas_test
