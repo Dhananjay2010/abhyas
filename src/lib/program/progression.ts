@@ -846,7 +846,9 @@ export function evaluateProgression(input: {
             ? `Missed the target but holding at ${displayWeight(currentWeight, unit)} — one step down would cut more than 20%.`
             : holdReason === 'twomiss'
               ? `Missed the target but holding at ${displayWeight(currentWeight, unit)} — one step down would exceed the two-miss limit.`
-              : `Staying at ${displayWeight(currentWeight, unit)} until every set reaches the top of the range.`;
+              : currentWeight === 0 || meta.isBodyweight
+                ? "Staying at this weight until every set reaches the top of the range."
+                : `Staying at ${displayWeight(currentWeight, unit)} until every set reaches the top of the range.`;
   
   return {
     ...carried,
