@@ -1242,6 +1242,7 @@ export function SessionRunner({
                     setEnding,
                   },
                 );
+                restPersistence.clear();
               }}
               disabled={ending}
             />
