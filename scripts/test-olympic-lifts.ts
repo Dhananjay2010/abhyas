@@ -9,10 +9,10 @@ import {
   generateProgram, 
   type CandidateExercise, 
   type GeneratorInput,
-  isOlympicLift,
   isEligible,
 } from "../src/lib/program/generate";
 import { buildPatternList, rankAlternatives } from "../src/lib/program/alternatives";
+import { isOlympicLift } from "../src/lib/program/past-knee";
 import { buildEligibleSwapList } from "../src/lib/session/eligible-swap-list";
 
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf8"));

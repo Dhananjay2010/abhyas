@@ -2,8 +2,8 @@ import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "@/lib/program/past-knee-lunge-order";
-import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly } from "@/lib/program/past-knee";
-import { shouldExcludeOlympicLift, PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
+import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly, shouldExcludeOlympicLift } from "@/lib/program/past-knee";
+import { PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
 
 
 export type ExerciseRow = CandidateExercise;

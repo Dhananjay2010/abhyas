@@ -2,9 +2,6 @@ import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
-import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "./past-knee-lunge-order";
-import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly, kneeFriendlyBonus } from "./past-knee";
-
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -270,46 +267,6 @@ export function hashString(s: string): number {
 }
 
 /**
- * Item 16: Check if exercise contains Olympic lift patterns (clean, snatch, jerk).
- * Exported for use in both generator and swap filtering.
- */
-export function isOlympicLift(ex: CandidateExercise): boolean {
-  const nameLower = ex.name.toLowerCase();
-  const slugLower = ex.slug.toLowerCase();
-  const olympicPatterns = ["clean", "snatch", "jerk"];
-  return olympicPatterns.some(pattern => 
-    slugLower.includes(pattern) || nameLower.includes(pattern));
-}
-
-/**
- * Item 16: Check if Olympic lifts should be excluded based on user profile.
- * Generator rule (matches main): excludes Olympic lifts for beginners, current injuries, and age 50+.
- * Swap rule (Steer 1): also excludes for past knee (anyKneeInjury), making swaps stricter than plans.
- * In swap context (no age/slot), applies beginner + current injury + past knee checks.
- */
-export function shouldExcludeOlympicLift(
-  ex: CandidateExercise, 
-  input: { 
-    currentInjuryRegions?: string[]; 
-    anyKneeInjury?: boolean;
-    level?: string;
-  }
-): boolean {
-  if (!isOlympicLift(ex)) return false;
-  // Exclude for beginners (matches main's shouldExcludeForSafety)
-  if (input.level === "beginner") return true;
-  
-  // Exclude for members with CURRENT injuries (matches main's shouldExcludeForSafety)
-  const hasCurrentInjury = (input.currentInjuryRegions?.length ?? 0) > 0;
-  if (hasCurrentInjury) return true;
-  
-  // Swap-only: exclude for past knee (Steer 1 decision: swap set ⊆ plan set)
-  if (input.anyKneeInjury) return true;
-  
-  return false;
-}
-
-/**
  * Exercises to exclude from automated programming due to safety concerns.
  * 
  * QA Pass 10 C1: Apply to main slots for ALL goals, and to all slots for
@@ -352,8 +309,12 @@ function shouldExcludeForSafety(
     return true;
   }
   
-  // Item 16: Olympic lifts (using shared predicate)
-  if (isOlympicLift(ex)) {
+  // Olympic lifts: clean, snatch, jerk (check slug and name)
+  const olympicPatterns = [
+    "clean", "snatch", "jerk"
+  ];
+  if (olympicPatterns.some(pattern => 
+    slugLower.includes(pattern) || nameLower.includes(pattern))) {
     return true;
   }
   
@@ -540,27 +501,8 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
     return false;
   }
 
-  // Compute knee flags once
-  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
-  const hasPastKnee = (input.anyKneeInjury ?? false) && !hasCurrentKnee;
-
-  // Item 14: Current knee exclusions include BOTH current-knee-only AND past-knee exclusions
-  // (current knee is more restrictive than past knee, so it inherits all past-knee bans)
-  if (hasCurrentKnee) {
-    if (isExcludedForCurrentKneeOnly(ex)) return false;
-    if (isExcludedForPastKnee(ex)) return false;
-  }
-
-  // Past-knee exclusions (pistol squats, jumps, band/chain squats, thrusters, squat-jerk)
-  if (hasPastKnee && isExcludedForPastKnee(ex)) {
-    return false;
-  }
-
   // Level: never prescribe something above the user's stated experience.
-  // UNLESS: past-knee tier-1 (dumbbell-rear-lunge) for beginners
-  if (!isPastKneeTier1LevelExempt(ex, input.anyKneeInjury ?? false, hasCurrentKnee)) {
-    if (LEVEL_RANK[ex.level_min] > LEVEL_RANK[input.level]) return false;
-  }
+  if (LEVEL_RANK[ex.level_min] > LEVEL_RANK[input.level]) return false;
 
   // Equipment is a hard filter -- SPEC section 4.
   // M1 fix: Default is ALL-of logic (barbell AND bench both needed).
@@ -591,7 +533,6 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
       ...ex.contraindicated_regions,
       ...getDerivedContraindications(ex),
     ];
-    
     if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
       return false;
     }
@@ -637,16 +578,16 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   }
 
   // PR #73 QA scoped policy: Lunge slots use different lists for current vs past knee
-  // Current knee: NO lunge-pattern exercises (only KNEE_SAFE_QUAD_EXERCISES for quad slots)
-  // Past knee: tier-based ordering (dumbbell-rear-lunge, reverse lunges, split squats, step-ups)
+  // Current knee: step-ups and split squats (KNEE_SAFE_LUNGE_EXERCISES)
+  // Past knee: quad isolation list (PAST_KNEE_LUNGE_EXERCISES)
+  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
   
   if (ex.movement_pattern === "lunge") {
-    // Current knee: ALL lunge-pattern exercises are ineligible
-    if (hasCurrentKnee) {
+    if (hasCurrentKnee && !KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
       return false;
     }
-    // Past knee: allow lunges in tier ordering (tier > 0)
-    if (hasPastKnee && pastKneeLungeTier(ex) === 0) {
+    if (hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {
       return false;
     }
   }
@@ -858,9 +799,6 @@ function pickForSlot(
   // QA: slot 3 must get OHP/DB press, not front raises.
   const wantCompound = slotIndex < CARRY_OVER_SLOTS || slotIndex <= 3;
   const isMainSlot = slotIndex <= 3;
-  
-  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
-  const hasPastKnee = (input.anyKneeInjury ?? false) && !hasCurrentKnee;
 
   // Keep the main lifts from the previous block so progression is not reset.
   if (slotIndex < CARRY_OVER_SLOTS && dayIndex !== undefined && input.carryOver) {
@@ -873,17 +811,8 @@ function pickForSlot(
   
   for (const p of [pattern, PATTERN_FALLBACK[pattern]]) {
     if (!p) continue;
-    
     let candidates = pool.filter((e) => e.movement_pattern === p && !used.has(e.id));
     if (candidates.length === 0) continue;
-    
-    // Item 15(b): Steer 1: For past-knee, reject squat-pattern candidates when day already has a squat, except allow leg-press
-    if (hasPastKnee) {
-      const alreadyHasSquat = pickedSoFar.some(picked => picked.ex.movement_pattern === "squat");
-      if (alreadyHasSquat) {
-        candidates = candidates.filter(e => e.movement_pattern !== "squat" || e.slug === "leg-press");
-      }
-    }
 
     // QA Pass 10 C1: Exclude unsafe exercises (plyometric, Olympic, behind-neck, throws)
     // for main slots (all goals) and all slots (beginners, injured, age 50+)
@@ -902,26 +831,21 @@ function pickForSlot(
     const ranked = candidates
       .map((e) => ({
         e,
-        score: score(e, wantCompound, input.level, input.primaryTrack) + 
-               (hasPastKnee ? kneeFriendlyBonus(e, slotIndex, hasPastKnee) : 0),
-        // Past-knee lunge tier ordering (lower tier = higher priority)
-        pastKneeTier: hasPastKnee && p === "lunge" ? pastKneeLungeTier(e) : 999,
+        score: score(e, wantCompound, input.level, input.primaryTrack),
         stapleKey: isMainSlot
           ? stapleSortKey(e, p, input.hasAllEquipment, input.primaryTrack)
           : `1:${e.slug}`, // Non-main slots: no staple bonus
         rng: rng(),
       }))
       .sort((a, b) => {
-        // 1. Past-knee lunge tier (lower tier = higher priority)
-        if (a.pastKneeTier !== b.pastKneeTier) return a.pastKneeTier - b.pastKneeTier;
-        // 2. Highest score wins
+        // 1. Highest score wins
         if (a.score !== b.score) return b.score - a.score;
-        // 3. For main slots: staples win among tied scores (deterministic)
+        // 2. For main slots: staples win among tied scores (deterministic)
         //    For accessories: skip to RNG for variety
         if (isMainSlot && a.stapleKey !== b.stapleKey) {
           return a.stapleKey < b.stapleKey ? -1 : a.stapleKey > b.stapleKey ? 1 : 0;
         }
-        // 4. RNG breaks ties (provides variety for accessories across blocks)
+        // 3. RNG breaks ties (provides variety for accessories across blocks)
         return b.rng - a.rng;
       })
       .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));
@@ -936,18 +860,9 @@ function pickForSlot(
   // out all primary options (e.g., knee injury rules out squats/lunges).
   const alternatives = SAFE_ALTERNATIVES[pattern] ?? [];
   for (const altPattern of alternatives) {
-    let altCandidates = pool.filter(
+    const altCandidates = pool.filter(
       (e) => e.movement_pattern === altPattern && !used.has(e.id)
     );
-    if (altCandidates.length === 0) continue;
-    
-    // Item 15(b): Steer 1: For past-knee, reject squat-pattern candidates when day already has a squat, except allow leg-press
-    if (hasPastKnee) {
-      const alreadyHasSquat = pickedSoFar.some(p => p.ex.movement_pattern === "squat");
-      if (alreadyHasSquat) {
-        altCandidates = altCandidates.filter(e => e.movement_pattern !== "squat" || e.slug === "leg-press");
-      }
-    }
     if (altCandidates.length === 0) continue;
     
     // Apply safety filter to alternative candidates too
@@ -1264,7 +1179,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     // H6: After slot assignment, ensure Lower/Full days for knee-injured users have at least 1 quad exercise
     const hasPastKnee = input.anyKneeInjury && !input.currentInjuryRegions.includes("knee");
     
-    if (!(hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {
+    if ((hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {
       const hasQuadWork = pickedExercises.some(p => p.ex.primary_muscles.includes("quads"));
       if (!hasQuadWork) {
         // PR #73: For knee injuries, add a knee-safe quad exercise
@@ -1291,22 +1206,10 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         if (kneeSafeOptions.length > 0) {
           const added = kneeSafeOptions[0];
+          const mainSlotCount = getMainSlotCount(entry.slots);
           
-          // Item 15(b): Steer 1: For past-knee, skip if we already have a squat and this candidate is also a squat (except leg-press)
-          let shouldAddQuad = true;
-          if (hasPastKnee && added.movement_pattern === "squat") {
-            const alreadyHasSquat = pickedExercises.some(p => p.ex.movement_pattern === "squat");
-            if (alreadyHasSquat && added.slug !== "leg-press") {
-              // Skip adding this squat to maintain one-squat-per-day rule
-              shouldAddQuad = false;
-            }
-          }
-          
-          if (shouldAddQuad) {
-            const mainSlotCount = getMainSlotCount(entry.slots);
-          
-          // Item 9: For ANY knee injury (current or past) with wall-sit, place as LAST non-core item before core
-          if ((hasCurrentKneeLocal || hasPastKnee) && added.slug === "wall-sit") {
+          // For current-knee with wall-sit, place as LAST non-core item before core
+          if (hasCurrentKneeLocal && added.slug === "wall-sit") {
             // Find where to insert (before first core, or at end)
             const firstCoreIdx = pickedExercises.findIndex(p => p.ex.movement_pattern === "core");
             const insertIdx = firstCoreIdx >= 0 ? firstCoreIdx : pickedExercises.length;
@@ -1373,7 +1276,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             usedInBlock.add(added.id);
             pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
           }
-          } // End shouldAddQuad
         }
       }
       
@@ -1604,16 +1506,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         const slotIdx = entry.slots.length + i;
         const picked = pickForSlot(pattern, slotIdx, pool, usedInBlock, input, rng, dayIndex, pickedExercises);
         if (!picked) break;
-        
-        // Item 15(b): Steer 1: For past-knee, reject squat-pattern picks when day already has a squat, except allow leg-press
-        const hasPastKnee = input.anyKneeInjury && !input.currentInjuryRegions.includes("knee");
-        if (hasPastKnee && picked.movement_pattern === "squat") {
-          const alreadyHasSquat = pickedExercises.some(p => p.ex.movement_pattern === "squat");
-          if (alreadyHasSquat && picked.slug !== "leg-press") {
-            break; // Skip this and all subsequent extras to maintain one-squat rule
-          }
-        }
-        
         usedInBlock.add(picked.id);
         pickedExercises.push({ ex: picked, slotIndex: slotIdx });
       }

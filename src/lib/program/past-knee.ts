@@ -271,3 +271,41 @@ export function isExcludedForCurrentKneeOnly(ex: CandidateExercise): boolean {
 export function getCurrentKneeOnlyExcludedSlugs(): ReadonlySet<string> {
   return CURRENT_KNEE_ONLY_EXCLUDED_SLUGS;
 }
+
+/**
+ * Item 16: Check if exercise contains Olympic lift patterns (clean, snatch, jerk).
+ * Decision (a): Swap-side filtering for knee injuries.
+ */
+export function isOlympicLift(ex: CandidateExercise): boolean {
+  const nameLower = ex.name.toLowerCase();
+  const slugLower = ex.slug.toLowerCase();
+  const olympicPatterns = ["clean", "snatch", "jerk"];
+  return olympicPatterns.some(pattern => 
+    slugLower.includes(pattern) || nameLower.includes(pattern));
+}
+
+/**
+ * Item 16: Check if Olympic lifts should be excluded based on user profile.
+ * Swap-only rule (Decision a): excludes Olympic lifts for beginners, current injuries, and any knee injury (past or current).
+ */
+export function shouldExcludeOlympicLift(
+  ex: CandidateExercise, 
+  input: { 
+    currentInjuryRegions?: string[]; 
+    anyKneeInjury?: boolean;
+    level?: string;
+  }
+): boolean {
+  if (!isOlympicLift(ex)) return false;
+  // Exclude for beginners
+  if (input.level === "beginner") return true;
+  
+  // Exclude for members with CURRENT injuries
+  const hasCurrentInjury = (input.currentInjuryRegions?.length ?? 0) > 0;
+  if (hasCurrentInjury) return true;
+  
+  // Swap-only: exclude for past knee (Decision a)
+  if (input.anyKneeInjury) return true;
+  
+  return false;
+}
