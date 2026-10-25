@@ -58,7 +58,7 @@ async function runTests() {
     const fakeStorage = new FakeStorage();
 
     const fakeDeps: PendingSetDeps = {
-      now: () => Date.now(),
+      now: () => 1700000000000,
     };
 
     const mockActions = {

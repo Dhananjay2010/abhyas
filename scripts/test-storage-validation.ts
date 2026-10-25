@@ -271,8 +271,8 @@ async function testStaleEntriesPruned() {
 
   const storage = createStorage();
   
-  const eightDaysAgo = Date.now() - (8 * 24 * 60 * 60 * 1000);
-  const twoDaysAgo = Date.now() - (2 * 24 * 60 * 60 * 1000);
+  const eightDaysAgo = 1700000000000 - (8 * 24 * 60 * 60 * 1000);
+  const twoDaysAgo = 1700000000000 - (2 * 24 * 60 * 60 * 1000);
   
   // Directly store timestamped format with old and recent entries
   const withStale = {
@@ -353,7 +353,7 @@ async function testTimestampUpdatedOnSave() {
 
   const storage = createStorage();
   
-  const oldTimestamp = Date.now() - (1000 * 60); // 1 minute ago
+  const oldTimestamp = 1700000000000 - (1000 * 60); // 1 minute ago
   
   storage.setItem(
     storageKey("test-user-id"),
