@@ -15,7 +15,7 @@ const PLANK: ExerciseMeta = {
 };
 
 function fresh(overrides: Partial<ProgressState> = {}): ProgressState {
-  return { currentWorkingWeightKg: null, currentTargetReps: 40, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, ...overrides };
+  return { currentWorkingWeightKg: null, currentTargetReps: 40, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null, ...overrides };
 }
 
 function makeSet(durationSeconds: number): LoggedSet {
@@ -42,7 +42,6 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
     repsMax: 40,
     feel: "right",
     equipmentIds: undefined,
-    unit: undefined,
     meta: PLANK,
     state: fresh({ currentTargetReps: 40, currentWorkingWeightKg: null }),
     isDeload: false,
@@ -62,7 +61,6 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
     repsMax: 40,
     feel: "right",
     equipmentIds: undefined,
-    unit: undefined,
     meta: PLANK,
     state: fresh({ currentTargetReps: 40, currentWorkingWeightKg: null }),
     isDeload: false,
@@ -83,7 +81,6 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
     repsMax: 40,
     feel: "right",
     equipmentIds: undefined,
-    unit: undefined,
     meta: PLANK,
     state: fresh({ currentTargetReps: 45, currentWorkingWeightKg: null }),
     isDeload: false,
@@ -101,7 +98,6 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
     repsMax: 40,
     feel: "right",
     equipmentIds: undefined,
-    unit: undefined,
     meta: PLANK,
     state: fresh({ currentTargetReps: 45, currentWorkingWeightKg: null }),
     isDeload: false,
@@ -133,7 +129,7 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
     repsMax: 10,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: SQUAT,
     state: fresh({ currentTargetReps: 12, currentWorkingWeightKg: 100 }),
     isDeload: false,
@@ -151,7 +147,6 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
     repsMax: 40,
     feel: "right",
     equipmentIds: undefined,
-    unit: undefined,
     meta: PLANK,
     state: fresh({ currentTargetReps: 0, currentWorkingWeightKg: null }),
     isDeload: false,
@@ -169,7 +164,6 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
     repsMax: 40,
     feel: "right",
     equipmentIds: undefined,
-    unit: undefined,
     meta: PLANK,
     state: fresh({ currentTargetReps: -5, currentWorkingWeightKg: null }),
     isDeload: false,
@@ -200,7 +194,6 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: undefined,
-    unit: undefined,
     meta: PUSHUP,
     state: fresh({ currentTargetReps: 0, currentWorkingWeightKg: 0 }),
     isDeload: false,
@@ -231,7 +224,6 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: undefined,
-    unit: undefined,
     meta: PUSHUP,
     state: fresh({ currentTargetReps: -5, currentWorkingWeightKg: 0 }),
     isDeload: false,
@@ -262,7 +254,6 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: undefined,
-    unit: undefined,
     meta: PUSHUP,
     state: fresh({ currentTargetReps: 23, currentWorkingWeightKg: 0 }),
     isDeload: false,

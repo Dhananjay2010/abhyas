@@ -64,7 +64,7 @@ for (const mechanic of mechanics) {
                     bestWeightKg: weight,
                     bestReps: 12,
                     bestE1rm: weight * 1.4,
-                    totalSessions: 3,
+                    totalSessions: 3, weightAtFailureStartKg: null,
                   };
                   
                   const sets = Array.from({ length: 4 }, () => ({ reps, weightKg: weight }));

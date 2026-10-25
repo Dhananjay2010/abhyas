@@ -15,7 +15,7 @@ const PRESS: ExerciseMeta = {
 };
 
 function fresh(overrides: Partial<ProgressState> = {}): ProgressState {
-  return { currentWorkingWeightKg: null, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, ...overrides };
+  return { currentWorkingWeightKg: null, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null, ...overrides };
 }
 
 function makeSet(reps: number, weightKg: number): LoggedSet {
@@ -42,7 +42,7 @@ console.log("\n=== Kettlebell Success Progression ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
     meta: PRESS,
     state: fresh({ currentWorkingWeightKg: 16 }),
     isDeload: false,
@@ -61,7 +61,7 @@ console.log("\n=== Kettlebell Success Progression ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
     meta: PRESS,
     state: fresh({ currentWorkingWeightKg: 12 }),
     isDeload: false,
@@ -80,7 +80,7 @@ console.log("\n=== Kettlebell Success Progression ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
     meta: PRESS,
     state: fresh({ currentWorkingWeightKg: 24 }),
     isDeload: false,

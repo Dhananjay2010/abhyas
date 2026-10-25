@@ -45,7 +45,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestWeightKg: 60,
   bestReps: 12,
   bestE1rm: 84,
-  totalSessions: 3,
+  totalSessions: 3, weightAtFailureStartKg: null,
   ...over,
 });
 
@@ -82,16 +82,16 @@ console.log("\n2. Every set at the top of the range progresses the weight");
   check("squat 100 -> 105 kg", d.nextWorkingWeightKg === 105, `${d.nextWorkingWeightKg}`);
 }
 {
-  const d = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 15 }), sets: sets(4, 12, 15), equipmentIds: ["dumbbell"], unit: "kg" });
+  const d = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 15 }), sets: sets(4, 12, 15), equipmentIds: ["dumbbell"] });
   check("curl 15 -> 17.5 kg (isolation 1.25 + grid round up)", d.nextWorkingWeightKg === 17.5, `${d.nextWorkingWeightKg}`);
 }
 
 console.log("\n3. 'Easy' earns a double jump; Hard holds weight (U1 fix)");
 {
-  const d = run({ feel: "easy", equipmentIds: ["barbell"], unit: "kg" });
+  const d = run({ feel: "easy", equipmentIds: ["barbell"] });
   // #120: One-grid-step cap: easy feel doesn't double with equipment
   check("60 -> 62.5 kg on easy", d.nextWorkingWeightKg === 62.5, `${d.nextWorkingWeightKg}`);
-  const hard = run({ feel: "hard", equipmentIds: ["barbell"], unit: "kg" });
+  const hard = run({ feel: "hard", equipmentIds: ["barbell"] });
   // U1 fix: Hard feel must NOT raise the weight - it holds at current weight
   check("'hard' holds the weight when all sets hit (U1 fix)", hard.nextWorkingWeightKg === 60, `${hard.nextWorkingWeightKg}`);
   check("'hard' outcome is hold", hard.outcome === "hold", hard.outcome);
@@ -99,14 +99,14 @@ console.log("\n3. 'Easy' earns a double jump; Hard holds weight (U1 fix)");
 
 console.log("\n4. Falling short of the top is in-range: hold and reset failures");
 {
-  const d = run({ sets: sets(4, 10), equipmentIds: ["barbell"], unit: "kg" });
+  const d = run({ sets: sets(4, 10), equipmentIds: ["barbell"] });
   check("4×10 in 8-12: outcome hold", d.outcome === "hold", d.outcome);
   check("4×10 in-range: weight held at 60", d.nextWorkingWeightKg === 60, `${d.nextWorkingWeightKg}`);
   check("4×10 in-range: failures reset to 0", d.consecutiveFailures === 0, `${d.consecutiveFailures}`);
 }
 {
   // Real miss: below repsMin
-  const d = run({ sets: sets(4, 7), equipmentIds: ["barbell"], unit: "kg" });
+  const d = run({ sets: sets(4, 7), equipmentIds: ["barbell"] });
   check("4×7 below min: outcome hold", d.outcome === "hold", d.outcome);
   check("4×7 real miss: weight drops one grid step (60 -> 57.5)", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
   check("4×7 real miss: failure counted", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
@@ -122,7 +122,7 @@ console.log("\n4. Falling short of the top is in-range: hold and reset failures"
 
 console.log("\n5. Two consecutive real misses backs the weight off ~10%");
 {
-  const d = run({ sets: sets(4, 7), state: fresh({ consecutiveFailures: 1 }), equipmentIds: ["barbell"], unit: "kg" });
+  const d = run({ sets: sets(4, 7), state: fresh({ consecutiveFailures: 1 }), equipmentIds: ["barbell"] });
   check("outcome backed_off", d.outcome === "backed_off", d.outcome);
   check("60 -> 52.5 kg", d.nextWorkingWeightKg === 52.5, `${d.nextWorkingWeightKg}`);
   check("failures reset after backing off", d.consecutiveFailures === 0);
@@ -168,7 +168,7 @@ console.log("\n8. Bodyweight progresses by reps, then by variation");
 console.log("\n9. First time on an exercise");
 {
   const d = run({
-    state: fresh({ currentWorkingWeightKg: null, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0 }),
+    state: fresh({ currentWorkingWeightKg: null, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null }),
     sets: sets(4, 12, 40),
   });
   check("uses the weight actually lifted as the base", d.nextWorkingWeightKg === 42.5,
@@ -204,7 +204,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     feel: "right",
     state: fresh({ currentWorkingWeightKg: 25, currentTargetReps: 12 }),
     equipmentIds: ["dip_bars"],
-    unit: "kg",
+    
   });
   check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 27.5,
     `${weighted.nextWorkingWeightKg}`);
@@ -262,7 +262,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
       state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 45 }),
       isDeload: false,
       equipmentIds: [],
-      unit: "kg",
+      
       ...over,
     });
 
@@ -410,7 +410,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 45, bestReps: 45 }),
     isDeload: false,
     equipmentIds: [],
-    unit: "kg",
+    
   });
   check("a longer hold is a hold best, not a rep count",
     longer.personalBest?.kind === "hold", `${longer.personalBest?.kind}`);
@@ -483,7 +483,7 @@ console.log("\nBodyweight exercises with added weight");
     sets: sets(4, 12, 5),
     state: fresh({ currentWorkingWeightKg: 5, currentTargetReps: 12 }),
     equipmentIds: ["dip_belt"],
-    unit: "kg",
+    
   });
   check("upper-body bodyweight with 5 kg added goes to 7.5 kg (grid round up)",
     upper.nextWorkingWeightKg === 7.5, `${upper.nextWorkingWeightKg}`);
@@ -593,7 +593,7 @@ console.log("\n19. With equipment: explicit equipment param tests");
     sets: sets(4, 12, 15),
     state: fresh({ currentWorkingWeightKg: 15 }),
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
   });
   check("curl 15 kg with dumbbell: 15 -> 17.5", curlWithEquip.nextWorkingWeightKg === 17.5, `${curlWithEquip.nextWorkingWeightKg}`);
   
@@ -602,7 +602,7 @@ console.log("\n19. With equipment: explicit equipment param tests");
     sets: sets(4, 12, 25),
     state: fresh({ currentWorkingWeightKg: 25 }),
     equipmentIds: ["dip_bars"],
-    unit: "kg",
+    
   });
   check("dip +25 kg with dip_bars: 25 -> 27.5", dipWithEquip.nextWorkingWeightKg === 27.5, `${dipWithEquip.nextWorkingWeightKg}`);
 }

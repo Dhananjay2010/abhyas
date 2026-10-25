@@ -88,7 +88,7 @@ async function main() {
       program_id: "prog-1",
     };
 
-    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
     check("In-range: outcome hold", decision.outcome === "hold", decision.outcome);
@@ -153,7 +153,7 @@ async function main() {
       program_id: "prog-1",
     };
 
-    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
     check("Miss: outcome hold (first miss)", decision.outcome === "hold", decision.outcome);
@@ -206,7 +206,7 @@ async function main() {
       program_id: "prog-1",
     };
 
-    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
     check("State weight: outcome hold (in-range)", decision.outcome === "hold", decision.outcome);
@@ -256,7 +256,7 @@ async function main() {
       program_id: "prog-1",
     };
 
-    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
     check("Two misses: outcome backed_off", decision.outcome === "backed_off", decision.outcome);
@@ -305,7 +305,7 @@ async function main() {
       program_id: "prog-1",
     };
 
-    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
     // #120: With stored target 12, resolveTarget returns 12 as min, so 3×10 is a miss (not in-range)
@@ -357,7 +357,7 @@ async function main() {
       program_id: "prog-1",
     };
 
-    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
     // #120: Unloaded uses resolveTarget for min; stored target=12, so min=12 (not plan min=8)
@@ -407,7 +407,7 @@ async function main() {
       program_id: "prog-1",
     };
 
-    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
     // #120: With stored target 45 s, resolveTarget returns 45 as min, so 2×35s is a miss (not in-range)
@@ -461,7 +461,7 @@ async function main() {
       program_id: "prog-1",
     };
 
-    const input1 = buildProgressionInput(sessionExercise1, sets1, progress1, session1, "right", "metric");
+    const input1 = buildProgressionInput(sessionExercise1, sets1, progress1, session1, "right");
     const decision1 = evaluateProgression(input1);
 
     // #120: 3×12 below stored target 14, should hold (not progress)
@@ -477,7 +477,7 @@ async function main() {
       { reps: 14, weight_kg: null, duration_seconds: null },
     ];
 
-    const input2 = buildProgressionInput(sessionExercise1, sets2, progress1, session1, "right", "metric");
+    const input2 = buildProgressionInput(sessionExercise1, sets2, progress1, session1, "right");
     const decision2 = evaluateProgression(input2);
 
     // #120: 3×14 hits stored target 14, should progress to 16
@@ -528,7 +528,7 @@ async function main() {
       program_id: "prog-1",
     };
 
-    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
     // #120: 3×11 at stored target 11 should progress to 13

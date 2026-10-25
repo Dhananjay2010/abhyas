@@ -36,7 +36,7 @@ const fresh = {
   bestWeightKg: 40,
   bestReps: 12,
   bestE1rm: 56,
-  totalSessions: 3,
+  totalSessions: 3, weightAtFailureStartKg: null,
 };
 
 const success = Array.from({ length: 4 }, () => ({ reps: 12, weightKg: 40 }));

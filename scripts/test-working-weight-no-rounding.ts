@@ -43,7 +43,6 @@ const w12 = suggestedWeight(
   false, // non-deload
   DUMBBELL,
   ["dumbbell"],
-  "kg",
 );
 check("12kg dumbbell working weight stays 12kg (not snapped to 10kg)", w12 === 12, `got ${w12}`);
 
@@ -53,7 +52,6 @@ const w13 = suggestedWeight(
   false, // non-deload
   DUMBBELL,
   ["dumbbell"],
-  "kg",
 );
 check("13.75kg working weight stays 13.75kg (not snapped)", w13 === 13.75, `got ${w13}`);
 
@@ -63,7 +61,6 @@ const w10 = suggestedWeight(
   false,
   DUMBBELL,
   ["dumbbell"],
-  "kg",
 );
 check("10kg stays 10kg", w10 === 10, `got ${w10}`);
 

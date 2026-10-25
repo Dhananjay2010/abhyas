@@ -52,7 +52,6 @@ const w12WithEquip = suggestedWeight(
   false,
   DUMBBELL,
   ["dumbbell"],
-  "kg",
 );
 check("With equipment, 12kg stays 12kg (non-deload)", w12WithEquip === 12, `got ${w12WithEquip}`);
 

@@ -44,11 +44,11 @@ const atCapDecision = evaluateProgression({
     bestWeightKg: null,
     bestReps: 24,
     bestE1rm: null,
-    totalSessions: 10,
+    totalSessions: 10, weightAtFailureStartKg: null,
   },
   isDeload: false,
   equipmentIds: [],
-  unit: "kg",
+  
 });
 
 check(
@@ -76,11 +76,11 @@ const belowCapDecision = evaluateProgression({
     bestWeightKg: null,
     bestReps: 12,
     bestE1rm: null,
-    totalSessions: 5,
+    totalSessions: 5, weightAtFailureStartKg: null,
   },
   isDeload: false,
   equipmentIds: [],
-  unit: "kg",
+  
 });
 
 check(

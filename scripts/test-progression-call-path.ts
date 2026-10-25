@@ -41,7 +41,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestWeightKg: 60,
   bestReps: 12,
   bestE1rm: 84,
-  totalSessions: 3,
+  totalSessions: 3, weightAtFailureStartKg: null,
   ...over,
 });
 
@@ -478,7 +478,6 @@ console.log("\n11. No equipment info: fallback behavior preserved");
     state: fresh({ currentWorkingWeightKg: 60 }),
     isDeload: false,
     equipmentIds: undefined,
-    unit: undefined,
   });
   
   check("no equipment: progression still works", decision.outcome === "progressed");

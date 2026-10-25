@@ -44,7 +44,7 @@ function makeState(overrides: Partial<ProgressState> = {}): ProgressState {
     bestWeightKg: null,
     bestReps: null,
     bestE1rm: null,
-    totalSessions: 0,
+    totalSessions: 0, weightAtFailureStartKg: null,
     ...overrides,
   };
 }
@@ -83,7 +83,7 @@ console.log("Case 1: Barbell Squat 72.5 kg, all sets hit, RIGHT feel");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: SQUAT,
     state: makeState({ currentWorkingWeightKg: 72.5 }),
     isDeload: false,
@@ -113,7 +113,7 @@ console.log("\nCase 2: Barbell Squat 72.5 kg, all sets hit, EASY feel");
     repsMax: 12,
     feel: "easy",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: SQUAT,
     state: makeState({ currentWorkingWeightKg: 72.5 }),
     isDeload: false,
@@ -139,7 +139,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
     meta: LUNGE,
     state: makeState({ currentWorkingWeightKg: 14 }),
     isDeload: false,
@@ -162,7 +162,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     repsMax: 12,
     feel: "easy",
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
     meta: LUNGE,
     state: makeState({ currentWorkingWeightKg: 14 }),
     isDeload: false,
@@ -179,7 +179,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
     meta: LUNGE,
     state: makeState({ currentWorkingWeightKg: 15 }),
     isDeload: false,
@@ -196,7 +196,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
     meta: LUNGE,
     state: makeState({ currentWorkingWeightKg: 12 }),
     isDeload: false,
@@ -213,7 +213,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     repsMax: 12,
     feel: "easy",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: SQUAT,
     state: makeState({ currentWorkingWeightKg: 72.5 }),
     isDeload: false,
@@ -230,7 +230,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
     meta: CURL,
     state: makeState({ currentWorkingWeightKg: 22 }),
     isDeload: false,
@@ -247,7 +247,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["lat_pulldown"],
-    unit: "kg",
+    
     meta: CURL,
     state: makeState({ currentWorkingWeightKg: 42 }),
     isDeload: false,
@@ -268,7 +268,7 @@ console.log("\nCase 4: Dumbbell 14 kg with EASY feel");
     repsMax: 12,
     feel: "easy",
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
     meta: LUNGE,
     state: makeState({ currentWorkingWeightKg: 14 }),
     isDeload: false,
@@ -293,7 +293,7 @@ console.log("\nCase 5: Kettlebell 22 kg → next bell");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
     meta: LUNGE,
     state: makeState({ currentWorkingWeightKg: 22 }),
     isDeload: false,
@@ -319,7 +319,7 @@ console.log("\nCase 6: Kettlebell 22 kg with EASY feel");
     repsMax: 12,
     feel: "easy",
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
     meta: LUNGE,
     state: makeState({ currentWorkingWeightKg: 22 }),
     isDeload: false,

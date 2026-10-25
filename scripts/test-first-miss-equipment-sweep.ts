@@ -19,15 +19,15 @@ import {
 import { gridStepFor, KETTLEBELL_WEIGHTS_KG, type WeightUnit } from "../src/lib/session/equipment-grid";
 
 const EQUIPMENTS: Array<{ ids: string[]; unit: WeightUnit }> = [
-  { ids: ["barbell"], unit: "kg" },
-  { ids: ["dumbbell"], unit: "kg" },
-  { ids: ["kettlebell"], unit: "kg" },
-  { ids: ["cable_machine"], unit: "kg" },
-  { ids: ["lat_pulldown"], unit: "kg" },
-  { ids: ["leg_extension"], unit: "kg" },
-  { ids: ["leg_press"], unit: "kg" },
-  { ids: ["leg_curl"], unit: "kg" },
-  { ids: ["medicine_ball"], unit: "kg" },
+  { ids: ["barbell"] },
+  { ids: ["dumbbell"] },
+  { ids: ["kettlebell"] },
+  { ids: ["cable_machine"] },
+  { ids: ["lat_pulldown"] },
+  { ids: ["leg_extension"] },
+  { ids: ["leg_press"] },
+  { ids: ["leg_curl"] },
+  { ids: ["medicine_ball"] },
   { ids: ["barbell"], unit: "lb" },
   { ids: ["dumbbell"], unit: "lb" },
   { ids: ["kettlebell"], unit: "lb" },
@@ -78,7 +78,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestWeightKg: 60,
   bestReps: 12,
   bestE1rm: 84,
-  totalSessions: 3,
+  totalSessions: 3, weightAtFailureStartKg: null,
   ...over,
 });
 

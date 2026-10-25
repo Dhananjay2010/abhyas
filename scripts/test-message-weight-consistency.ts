@@ -16,7 +16,7 @@ const CURL: ExerciseMeta = {
 };
 
 function fresh(overrides: Partial<ProgressState> = {}): ProgressState {
-  return { currentWorkingWeightKg: null, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, ...overrides };
+  return { currentWorkingWeightKg: null, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null, ...overrides };
 }
 
 function makeSet(reps: number, weightKg: number): LoggedSet {
@@ -52,7 +52,7 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: null, consecutiveFailures: 0 }),
     isDeload: false,
@@ -70,7 +70,6 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     repsMax: 12,
     feel: "right",
     equipmentIds: undefined,
-    unit: undefined,
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: null, consecutiveFailures: 0 }),
     isDeload: false,
@@ -98,7 +97,7 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: null, consecutiveFailures: 0 }),
     isDeload: false,
@@ -125,7 +124,7 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: null, consecutiveFailures: 0 }),
     isDeload: false,
@@ -153,7 +152,7 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: null, consecutiveFailures: 0 }),
     isDeload: false,
@@ -181,7 +180,7 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     repsMax: 12,
     feel: "right",
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: null, consecutiveFailures: 0 }),
     isDeload: false,
@@ -210,7 +209,7 @@ console.log("\n=== Progression Base: Actual Lifted Weight, Not Stored ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 14, consecutiveFailures: 0 }),
     isDeload: false,
@@ -237,7 +236,7 @@ console.log("\n=== Progression Base: Actual Lifted Weight, Not Stored ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 70, consecutiveFailures: 0 }),
     isDeload: false,
@@ -265,7 +264,7 @@ console.log("\n=== Progression Base: Actual Lifted Weight, Not Stored ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: null, consecutiveFailures: 0 }),
     isDeload: false,
@@ -281,7 +280,6 @@ console.log("\n=== Progression Base: Actual Lifted Weight, Not Stored ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: undefined,
-    unit: undefined,
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: null, consecutiveFailures: 0 }),
     isDeload: false,

@@ -76,7 +76,7 @@ console.log("\n=== Exact 20% Cut Clamp with Equipment ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
     meta: CURL,
     state: makeState({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
     isDeload: false,
@@ -96,7 +96,7 @@ console.log("\n=== Exact 20% Cut Clamp with Equipment ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
     meta: KB_SWING,
     state: makeState({ currentWorkingWeightKg: 10, consecutiveFailures: 0 }),
     isDeload: false,
@@ -116,7 +116,7 @@ console.log("\n=== Exact 20% Cut Clamp with Equipment ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: SQUAT,
     state: makeState({ currentWorkingWeightKg: 25, consecutiveFailures: 0 }),
     isDeload: false,
@@ -136,7 +136,7 @@ console.log("\n=== Exact 20% Cut Clamp with Equipment ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["medicine_ball"],
-    unit: "kg",
+    
     meta: MEDICINE_BALL_SLAM,
     state: makeState({ currentWorkingWeightKg: 5, consecutiveFailures: 0 }),
     isDeload: false,

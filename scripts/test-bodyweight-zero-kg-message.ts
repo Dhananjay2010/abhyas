@@ -46,11 +46,11 @@ const metricDecision = evaluateProgression({
     bestWeightKg: 0,
     bestReps: 10,
     bestE1rm: null,
-    totalSessions: 5,
+    totalSessions: 5, weightAtFailureStartKg: null,
   },
   isDeload: false,
   equipmentIds: [],
-  unit: "kg",
+  
 });
 
 check(
@@ -78,11 +78,10 @@ const imperialDecision = evaluateProgression({
     bestWeightKg: 0,
     bestReps: 10,
     bestE1rm: null,
-    totalSessions: 5,
+    totalSessions: 5, weightAtFailureStartKg: null,
   },
   isDeload: false,
   equipmentIds: [],
-  unit: "lb",
 });
 
 check(

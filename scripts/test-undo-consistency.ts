@@ -16,7 +16,8 @@ const BENCH: ExerciseMeta = {
 };
 
 function fresh(overrides: Partial<ProgressState> = {}): ProgressState {
-  return { currentWorkingWeightKg: null, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, ...overrides };
+  return { currentWorkingWeightKg: 60, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: 60, bestReps: 12, bestE1rm: 90, totalSessions: 5, weightAtFailureStartKg: null, ...overrides };
+  return { currentWorkingWeightKg: null, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null, ...overrides };
 }
 
 function makeSet(reps: number, weightKg: number): LoggedSet {
@@ -50,7 +51,7 @@ console.log("\n=== Undo Consistency: Final Logged Sets ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: BENCH,
     state: fresh({ currentWorkingWeightKg: 60, consecutiveFailures: 0 }),
     isDeload: false,
@@ -79,7 +80,7 @@ console.log("\n=== Undo Consistency: Final Logged Sets ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: BENCH,
     state: fresh({ currentWorkingWeightKg: 60, consecutiveFailures: 0 }),
     isDeload: false,
@@ -107,7 +108,7 @@ console.log("\n=== Undo Consistency: Final Logged Sets ===\n");
     repsMax: 12,
     feel: "right",
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     meta: BENCH,
     state: fresh({ currentWorkingWeightKg: 60, consecutiveFailures: 0 }),
     isDeload: false,

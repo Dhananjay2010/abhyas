@@ -309,7 +309,6 @@ const result = buildRunnerExercise({
   progress,
   remembersWeights: true,
   isDeload: false,
-  userUnits: null,
 });
 
 // Verify all fields are present and correct
@@ -361,7 +360,6 @@ const loadedResult = buildRunnerExercise({
   progress: { current_working_weight_kg: 60, current_target_reps: 14 },
   remembersWeights: true,
   isDeload: false,
-  userUnits: null,
 });
 check("Loaded exercise uses plan min", loadedResult.repsMin === 8);
 check("Loaded exercise uses plan max", loadedResult.repsMax === 12);

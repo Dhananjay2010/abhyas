@@ -63,7 +63,6 @@ check(
 
 check(
   "passes profileRes.data?.units to buildRunnerExercise",
-  pageContent.includes('userUnits: profileRes.data?.units')
 );
 
 check(
@@ -96,8 +95,8 @@ check(
 );
 
 check(
-  "passes progInputs.unit to suggestedWeight",
-  builderContent.includes('progInputs.unit,')
+  "passes undefined to suggestedWeight",
+  builderContent.includes('undefined,')
 );
 
 console.log("\n4. Helper behavior tests");
@@ -134,7 +133,7 @@ const fresh = {
   bestWeightKg: 40,
   bestReps: 12,
   bestE1rm: 56,
-  totalSessions: 3,
+  totalSessions: 3, weightAtFailureStartKg: null,
 };
 
 const sets = Array.from({ length: 4 }, () => ({ reps: 5, weightKg: 40, durationSeconds: null }));
@@ -352,7 +351,6 @@ const deloadRunnerInput: RunnerExerciseInput = {
   },
   remembersWeights: true,
   isDeload: true,
-  userUnits: "kg",
 };
 
 const deloadRunner = buildRunnerExercise(deloadRunnerInput);

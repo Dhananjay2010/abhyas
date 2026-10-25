@@ -56,6 +56,7 @@ async function main() {
     bestE1rm: 112,
     personalBest: { kind: "weight", value: 80 },
     message: "Deload week — weights held where they were.",
+    weightAtFailureStartKg: null,
   };
 
   await writeExerciseProgressCore(
@@ -90,6 +91,7 @@ async function main() {
     bestE1rm: 84,
     personalBest: null,
     message: "Deload week — weights held where they were.",
+    weightAtFailureStartKg: null,
   };
 
   await writeExerciseProgressCore(
@@ -121,6 +123,7 @@ async function main() {
     bestE1rm: 84,
     personalBest: null,
     message: "All sets at the top of the range — up to 62.5 kg.",
+    weightAtFailureStartKg: null,
   };
 
   await writeExerciseProgressCore(
@@ -151,6 +154,7 @@ async function main() {
     bestE1rm: null,
     personalBest: { kind: "hold", value: 50 },
     message: "Deload week — nothing moves this week.",
+    weightAtFailureStartKg: null,
   };
 
   await writeExerciseProgressCore(
@@ -183,6 +187,7 @@ async function main() {
     bestE1rm: 88,
     personalBest: { kind: "e1rm", value: 88 },
     message: "Deload week — weights held where they were.",
+    weightAtFailureStartKg: null,
   };
 
   await writeExerciseProgressCore(

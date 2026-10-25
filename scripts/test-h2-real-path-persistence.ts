@@ -51,7 +51,7 @@ console.log("\n1. New user (prior=null) 4×10@40 in 8-12 → stores weight=40");
     program_id: "prog-1",
   };
 
-  const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+  const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
   check("Builder: state.currentWorkingWeightKg is null", input.state.currentWorkingWeightKg === null, `${input.state.currentWorkingWeightKg}`);
 
   const decision = evaluateProgression(input);
@@ -106,7 +106,7 @@ console.log("\n2. Existing user (prior=50) 4×10 in 8-12 → keeps stored weight
     program_id: "prog-1",
   };
 
-  const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+  const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
   const decision = evaluateProgression(input);
   
   check("Existing user: nextWorkingWeightKg = 50 (stored, not logged)", decision.nextWorkingWeightKg === 50, `${decision.nextWorkingWeightKg}`);
@@ -146,7 +146,7 @@ console.log("\n3. Planned sets null defaults to 3");
     program_id: "prog-1",
   };
 
-  const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "metric");
+  const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
   check("Null planned_sets defaults to 3", input.plannedSets === 3, `${input.plannedSets}`);
 }
 

@@ -78,7 +78,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestWeightKg: 60,
   bestReps: 12,
   bestE1rm: 84,
-  totalSessions: 3,
+  totalSessions: 3, weightAtFailureStartKg: null,
   ...over,
 });
 
@@ -96,7 +96,7 @@ const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) =>
     state: fresh(),
     isDeload: false,
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
     ...over,
   });
 
@@ -409,7 +409,7 @@ console.log("\n12. Kettlebell normal progression moves exactly one bell");
     sets: sets(4, 12, 16),
     state: fresh({ currentWorkingWeightKg: 16 }),
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
     feel: "right",
   });
   check("16 kg with 'right' feel -> 18 kg (one bell)", d.nextWorkingWeightKg === 18, `${d.nextWorkingWeightKg}`);
@@ -417,15 +417,15 @@ console.log("\n12. Kettlebell normal progression moves exactly one bell");
 
 console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight for every equipment type");
 {
-  const equipmentTypes: Array<{ ids: string[]; unit: "kg" | "lb"; name: string }> = [
-    { ids: ["barbell"], unit: "kg", name: "barbell" },
-    { ids: ["dumbbell"], unit: "kg", name: "dumbbell" },
-    { ids: ["lat_pulldown"], unit: "kg", name: "pin-stack machine" },
-    { ids: ["cable_machine"], unit: "kg", name: "cable" },
-    { ids: ["kettlebell"], unit: "kg", name: "kettlebell" },
-    { ids: ["pull_up_bar"], unit: "kg", name: "pull_up_bar (non-loadable fallback)" },
-    { ids: ["dip_bars"], unit: "kg", name: "dip_bars (non-loadable fallback)" },
-    { ids: ["dip_belt"], unit: "kg", name: "dip_belt (added weight)" },
+  const equipmentTypes: Array<{ ids: string[]; name: string }> = [
+    { ids: ["barbell"], name: "barbell" },
+    { ids: ["dumbbell"], name: "dumbbell" },
+    { ids: ["lat_pulldown"], name: "pin-stack machine" },
+    { ids: ["cable_machine"], name: "cable" },
+    { ids: ["kettlebell"], name: "kettlebell" },
+    { ids: ["pull_up_bar"], name: "pull_up_bar (non-loadable fallback)" },
+    { ids: ["dip_bars"], name: "dip_bars (non-loadable fallback)" },
+    { ids: ["dip_belt"], name: "dip_belt (added weight)" },
   ];
   
   const liftTypes: Array<{ meta: ExerciseMeta; name: string }> = [
@@ -450,7 +450,6 @@ console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight f
             sets: sets(4, 12, weight),
             state: fresh({ currentWorkingWeightKg: weight }),
             equipmentIds: equipment.ids,
-            unit: equipment.unit,
             feel,
           });
           
@@ -510,7 +509,6 @@ console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight f
               sets: sets(4, 12, rightWeight),
               state: fresh({ currentWorkingWeightKg: rightWeight }),
               equipmentIds: equipment.ids,
-              unit: equipment.unit,
               feel: "right",
             });
             if (d.nextWorkingWeightKg) {
@@ -535,7 +533,6 @@ console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight f
         sets: successSets,
         state: fresh({ currentWorkingWeightKg: successWeight }),
         equipmentIds: equipment.ids,
-        unit: equipment.unit,
         feel: "right",
       });
       
@@ -553,7 +550,6 @@ console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight f
           sets: missedSets,
           state: fresh({ currentWorkingWeightKg: progressedWeight }),
           equipmentIds: equipment.ids,
-          unit: equipment.unit,
         });
         
         // Should drop exactly one equipment grid step
@@ -584,7 +580,6 @@ console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight f
           sets: sets(4, 12, addedWeight),
           state: fresh({ currentWorkingWeightKg: addedWeight }),
           equipmentIds: equipment.ids,
-          unit: equipment.unit,
         });
         check(
           `${equipment.name} × ${liftType.name}: loaded lift never goes to 0`,
@@ -601,7 +596,6 @@ console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight f
           sets: sets(4, 12, kb16),
           state: fresh({ currentWorkingWeightKg: kb16 }),
           equipmentIds: equipment.ids,
-          unit: equipment.unit,
           feel: "right",
         });
         if (d.outcome === "progressed") {
@@ -626,7 +620,7 @@ console.log("\n14. KG/LB UNIT TEST");
     sets: sets(4, 12, kgWeight),
     state: fresh({ currentWorkingWeightKg: kgWeight }),
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
   });
   
   // Barbell kg grid: 2.5 kg steps
@@ -644,7 +638,6 @@ console.log("\n14. KG/LB UNIT TEST");
     sets: sets(4, 12, lbStoredKg),
     state: fresh({ currentWorkingWeightKg: lbStoredKg }),
     equipmentIds: ["barbell"],
-    unit: "lb",
   });
   
   // Barbell with lb display: still uses kg grid (2.5 kg steps)
@@ -662,7 +655,7 @@ console.log("\n14. KG/LB UNIT TEST");
     sets: sets(4, 12, kbKg),
     state: fresh({ currentWorkingWeightKg: kbKg }),
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
   });
   check(
     "kg: kettlebell 16 kg → 18 kg (kg bell)",
@@ -677,7 +670,6 @@ console.log("\n14. KG/LB UNIT TEST");
     sets: sets(4, 12, kbLbStored),
     state: fresh({ currentWorkingWeightKg: kbLbStored }),
     equipmentIds: ["kettlebell"],
-    unit: "lb",
   });
   check(
     "lb display: kettlebell 16 kg → 18 kg (kg bell, not lb)",
@@ -694,7 +686,7 @@ console.log("\n15. MINIMUM GUARD TESTS");
     sets: sets(4, 7, 2.5), // First miss
     state: fresh({ currentWorkingWeightKg: 2.5 }),
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
   });
   check("barbell isolation 2.5 kg first miss stays at 2.5 kg", missDecision.nextWorkingWeightKg === 2.5, `${missDecision.nextWorkingWeightKg}`);
   
@@ -704,7 +696,7 @@ console.log("\n15. MINIMUM GUARD TESTS");
     sets: sets(4, 7, 2.5), // Second miss
     state: fresh({ currentWorkingWeightKg: 2.5, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
   });
   check("barbell isolation 2.5 kg back-off stays at 2.5 kg", backoffDecision.nextWorkingWeightKg !== null && backoffDecision.nextWorkingWeightKg >= 2.5, `${backoffDecision.nextWorkingWeightKg}`);
   
@@ -814,7 +806,7 @@ console.log("\n18. Kettlebell 4 kg progression (min bell)");
       sets: sets(4, 12, 4),
       state: fresh({ currentWorkingWeightKg: 4 }),
       equipmentIds: ["kettlebell"],
-      unit: "kg",
+      
     });
     check(
       `kettlebell 4 kg ${liftType.name}: 4 -> 6`,
@@ -831,7 +823,6 @@ console.log("\n19. Units: kg storage with lb display");
     sets: sets(4, 12, 40),
     state: fresh({ currentWorkingWeightKg: 40 }),
     equipmentIds: ["barbell"],
-    unit: "lb",
   });
   check("barbell 40 kg with lb display: 40 -> 42.5 kg (not 45)", barbellLb.nextWorkingWeightKg === 42.5, `${barbellLb.nextWorkingWeightKg}`);
   
@@ -840,7 +831,6 @@ console.log("\n19. Units: kg storage with lb display");
     sets: sets(4, 12, 24),
     state: fresh({ currentWorkingWeightKg: 24 }),
     equipmentIds: ["kettlebell"],
-    unit: "lb",
   });
   check("kettlebell 24 kg with lb display: 24 -> 28 kg (not 25)", kettlebellLb.nextWorkingWeightKg === 28, `${kettlebellLb.nextWorkingWeightKg}`);
   
@@ -850,7 +840,6 @@ console.log("\n19. Units: kg storage with lb display");
     state: fresh({ currentWorkingWeightKg: 16 }),
     equipmentIds: ["kettlebell"],
     feel: "hard",
-    unit: "lb",
   });
   check("kettlebell 16 kg Hard with lb display: holds at 16 kg (not 15)", kbHardLb.nextWorkingWeightKg === 16, `${kbHardLb.nextWorkingWeightKg}`);
 }
@@ -862,7 +851,7 @@ console.log("\n20. noData keeps off-grid stored weight (no snap down)");
     sets: [],
     state: fresh({ currentWorkingWeightKg: 57.3 }),
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
   });
   check("noData with off-grid 57.3 kg: keeps 57.3 kg", noDataOffGrid.nextWorkingWeightKg === 57.3, `${noDataOffGrid.nextWorkingWeightKg}`);
   
@@ -872,7 +861,7 @@ console.log("\n20. noData keeps off-grid stored weight (no snap down)");
     sets: [],
     state: fresh({ currentWorkingWeightKg: 17 }),
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
   });
   check("noData with off-grid 17 kg KB: keeps 17 kg", noDataKbOffGrid.nextWorkingWeightKg === 17, `${noDataKbOffGrid.nextWorkingWeightKg}`);
 }
@@ -884,7 +873,6 @@ console.log("\n21. Imperial first miss uses kg grid/bells (not lb)");
     sets: sets(4, 7, 60),
     state: fresh({ currentWorkingWeightKg: 60 }),
     equipmentIds: ["barbell"],
-    unit: "lb",
   });
   check("barbell 60 kg first miss with lb display: 60 -> 57.5 kg (not 55)", barbellLbMiss.nextWorkingWeightKg === 57.5, `${barbellLbMiss.nextWorkingWeightKg}`);
   
@@ -894,7 +882,6 @@ console.log("\n21. Imperial first miss uses kg grid/bells (not lb)");
     sets: sets(4, 7, 40),
     state: fresh({ currentWorkingWeightKg: 40 }),
     equipmentIds: ["lat_pulldown"],
-    unit: "lb",
   });
   check("pin-stack 40 kg first miss with lb display: 40 -> 35 kg (not 30)", pinStackLbMiss.nextWorkingWeightKg === 35, `${pinStackLbMiss.nextWorkingWeightKg}`);
   
@@ -904,7 +891,6 @@ console.log("\n21. Imperial first miss uses kg grid/bells (not lb)");
     sets: sets(4, 7, 20),
     state: fresh({ currentWorkingWeightKg: 20 }),
     equipmentIds: ["kettlebell"],
-    unit: "lb",
   });
   check("kettlebell 20 kg first miss with lb display: 20 -> 18 kg (not 15)", kbLbMiss.nextWorkingWeightKg === 18, `${kbLbMiss.nextWorkingWeightKg}`);
 }
@@ -917,7 +903,7 @@ console.log("\n22. Kettlebell 36, 40, 48 kg bells and success never decreases");
     sets: sets(4, 12, 32),
     state: fresh({ currentWorkingWeightKg: 32 }),
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
   });
   check("kettlebell 32 kg -> 36 kg (next bell)", kb32.nextWorkingWeightKg === 36, `${kb32.nextWorkingWeightKg}`);
   
@@ -927,7 +913,7 @@ console.log("\n22. Kettlebell 36, 40, 48 kg bells and success never decreases");
     sets: sets(4, 12, 36),
     state: fresh({ currentWorkingWeightKg: 36 }),
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
   });
   check("kettlebell 36 kg -> 40 kg (next bell)", kb36.nextWorkingWeightKg === 40, `${kb36.nextWorkingWeightKg}`);
   
@@ -937,7 +923,7 @@ console.log("\n22. Kettlebell 36, 40, 48 kg bells and success never decreases");
     sets: sets(4, 12, 40),
     state: fresh({ currentWorkingWeightKg: 40 }),
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
   });
   check("kettlebell 40 kg -> 48 kg (next bell)", kb40.nextWorkingWeightKg === 48, `${kb40.nextWorkingWeightKg}`);
   
@@ -947,7 +933,7 @@ console.log("\n22. Kettlebell 36, 40, 48 kg bells and success never decreases");
     sets: sets(4, 12, 41),
     state: fresh({ currentWorkingWeightKg: 41 }),
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
   });
   check("kettlebell 41 kg (off-grid) -> 48 kg (next bell, not down to 40)", kb41.nextWorkingWeightKg === 48 && kb41.outcome === "progressed", `${kb41.outcome}, ${kb41.nextWorkingWeightKg}`);
 }
@@ -972,7 +958,7 @@ console.log("\n23. Back-off: 90% rounded to 2.5 kg grid, never more than one inc
       sets: sets(4, 7, testCase.current),
       state: fresh({ currentWorkingWeightKg: testCase.current, consecutiveFailures: 1 }),
       equipmentIds: ["barbell"],
-      unit: "kg",
+      
     });
     check(
       `back-off ${testCase.label}: ${testCase.current} -> ${testCase.expected} kg`,
@@ -1005,7 +991,7 @@ console.log("\n25. First miss and back-off never raise weight");
     sets: sets(4, 7, 0.5),
     state: fresh({ currentWorkingWeightKg: 0.5 }),
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
   });
   check("first miss 0.5 kg: holds at 0.5 kg (not 2.5)", firstMiss05.nextWorkingWeightKg === 0.5, `${firstMiss05.nextWorkingWeightKg}`);
   
@@ -1015,7 +1001,7 @@ console.log("\n25. First miss and back-off never raise weight");
     sets: sets(4, 7, 1),
     state: fresh({ currentWorkingWeightKg: 1 }),
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
   });
   check("first miss 1 kg: holds at 1 kg (not 2.5)", firstMiss1.nextWorkingWeightKg === 1, `${firstMiss1.nextWorkingWeightKg}`);
   
@@ -1025,7 +1011,7 @@ console.log("\n25. First miss and back-off never raise weight");
     sets: sets(4, 10, 3),
     state: fresh({ currentWorkingWeightKg: 3 }),
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
   });
   check("kettlebell first miss 3 kg: holds at 3 kg (not 4)", kbFirstMiss3.nextWorkingWeightKg === 3, `${kbFirstMiss3.nextWorkingWeightKg}`);
   
@@ -1035,7 +1021,7 @@ console.log("\n25. First miss and back-off never raise weight");
     sets: sets(4, 10, 2.5),
     state: fresh({ currentWorkingWeightKg: 2.5, consecutiveFailures: 1 }),
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
   });
   check("back-off 2.5 kg: holds at 2.5 kg (not less)", backOff25.nextWorkingWeightKg === 2.5, `${backOff25.nextWorkingWeightKg}`);
 }
@@ -1051,7 +1037,6 @@ console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric")
     sets: sets(4, 7, 42.5),
     state: fresh({ currentWorkingWeightKg: 42.5, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
-    unit: "lb",
   });
   check("42.5 kg back-off shows 82.5 lb (app formatter)", backOff425.message.includes("82.5 lb"), backOff425.message);
   
@@ -1061,7 +1046,6 @@ console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric")
     sets: sets(4, 7, 57.5),
     state: fresh({ currentWorkingWeightKg: 57.5, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
-    unit: "lb",
   });
   check("57.5 kg back-off shows 110 lb (app formatter, no .0)", backOff575.message.includes("110 lb") && !backOff575.message.includes("110.0"), backOff575.message);
   
@@ -1071,7 +1055,6 @@ console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric")
     sets: sets(4, 12, 15),
     state: fresh({ currentWorkingWeightKg: 15 }),
     equipmentIds: ["barbell"],
-    unit: undefined,
   });
   check("15 kg progress shows '17.5 kg' (plain, matches main)", progressKg.message.includes("17.5 kg"), progressKg.message);
   
@@ -1081,7 +1064,6 @@ console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric")
     sets: sets(4, 7, 16.25),
     state: fresh({ currentWorkingWeightKg: 16.25, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
-    unit: undefined,
   });
   check("16.25 kg back-off shows '12.5 kg' (plain, no rounding)", backOffKg.message.includes("12.5 kg") && !backOffKg.message.includes("12.50"), backOffKg.message);
 }
@@ -1094,7 +1076,7 @@ console.log("\n27. Back-off never raises weight");
     sets: sets(4, 7, 1),
     state: fresh({ currentWorkingWeightKg: 1, consecutiveFailures: 1 }),
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
   });
   check("back-off 1 kg: holds at 1 kg (never raises)", backOff1.nextWorkingWeightKg === 1, `${backOff1.nextWorkingWeightKg}`);
   
@@ -1104,7 +1086,7 @@ console.log("\n27. Back-off never raises weight");
     sets: sets(4, 7, 0.5),
     state: fresh({ currentWorkingWeightKg: 0.5, consecutiveFailures: 1 }),
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
   });
   check("back-off 0.5 kg: holds at 0.5 kg (never raises)", backOff05.nextWorkingWeightKg === 0.5, `${backOff05.nextWorkingWeightKg}`);
 }
@@ -1117,7 +1099,7 @@ console.log("\n28. Kettlebell back-off lands on real bell, one step down at most
     sets: sets(4, 7, 48),
     state: fresh({ currentWorkingWeightKg: 48, consecutiveFailures: 1 }),
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
   });
   check("kettlebell back-off 48 kg: 48 -> 48 kg (holds, no bell between cap and current)", kbBackOff48.nextWorkingWeightKg === 48, `${kbBackOff48.nextWorkingWeightKg}`);
   
@@ -1127,7 +1109,7 @@ console.log("\n28. Kettlebell back-off lands on real bell, one step down at most
     sets: sets(4, 7, 20),
     state: fresh({ currentWorkingWeightKg: 20, consecutiveFailures: 1 }),
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
   });
   check("kettlebell back-off 20 kg: 20 -> 18 kg (one bell down)", kbBackOff20.nextWorkingWeightKg === 18, `${kbBackOff20.nextWorkingWeightKg}`);
 }
@@ -1140,7 +1122,7 @@ console.log("\n29. Back-off max drop: never more than one increment below 90%");
     sets: sets(4, 7, 11),
     state: fresh({ currentWorkingWeightKg: 11, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
   });
   check("back-off 11 kg: 11 -> 7.5 kg (not 5 kg)", backOff11.nextWorkingWeightKg === 7.5, `${backOff11.nextWorkingWeightKg}`);
   
@@ -1150,7 +1132,7 @@ console.log("\n29. Back-off max drop: never more than one increment below 90%");
     sets: sets(4, 7, 6),
     state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
   });
   check("back-off 6 kg: 6 -> 5 kg (not 2.5 kg)", backOff6.nextWorkingWeightKg === 5, `${backOff6.nextWorkingWeightKg}`);
 }
@@ -1164,7 +1146,7 @@ console.log("\n30. Isolation back-off uses 1.25 kg grid (not 2.5 kg)");
     sets: sets(4, 7, 13.75),
     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
     equipmentIds: ["dumbbell"],
-    unit: "kg",
+    
   });
   check("isolation back-off 13.75 kg: 13.75 -> 12.5 kg (loadable)", backOffIso.nextWorkingWeightKg === 12.5, `${backOffIso.nextWorkingWeightKg}`);
   check("isolation back-off 13.75 kg message says 'dropping to 12.5 kg'", backOffIso.message.includes("dropping to 12.5 kg") || backOffIso.message.includes("27"), backOffIso.message);
@@ -1182,7 +1164,7 @@ console.log("\n31. Kettlebell back-off: SMALLEST loadable >= target and < curren
     sets: sets(4, 7, 22),
     state: fresh({ currentWorkingWeightKg: 22, consecutiveFailures: 1 }),
     equipmentIds: ["kettlebell"],
-    unit: "kg",
+    
   });
   check("kettlebell back-off 22 kg (off-grid): 22 -> 18 kg (smallest >= target)", kbBackOff22.nextWorkingWeightKg === 18, `${kbBackOff22.nextWorkingWeightKg}`);
 }
@@ -1197,7 +1179,7 @@ console.log("\n32. Back-off holds when reduced weight would be at or below incre
     sets: sets(4, 7, 7.5),
     state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
   });
   check("back-off 7.5 kg lower: holds at 7.5 kg (reduced 5 <= increment 5)", backOff75.nextWorkingWeightKg === 7.5 && backOff75.outcome === "hold", `${backOff75.nextWorkingWeightKg}, ${backOff75.outcome}`);
 }
@@ -1209,7 +1191,7 @@ console.log("\n33. In-range hold: 4×10 in 8-12 holds weight, resets failures");
     sets: sets(4, 10, 40),
     state: fresh({ currentWorkingWeightKg: 40, consecutiveFailures: 0 }),
     equipmentIds: ["barbell"],
-    unit: "kg",
+    
   });
   check("4×10 in 8-12: outcome hold", inRange.outcome === "hold");
   check("4×10 in 8-12: weight unchanged at 40", inRange.nextWorkingWeightKg === 40, `${inRange.nextWorkingWeightKg}`);

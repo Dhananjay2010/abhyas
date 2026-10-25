@@ -41,7 +41,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestWeightKg: 60,
   bestReps: 12,
   bestE1rm: 84,
-  totalSessions: 3,
+  totalSessions: 3, weightAtFailureStartKg: null,
   ...over,
 });
 
@@ -92,7 +92,6 @@ for (const mechanic of MECHANICS) {
               state,
               isDeload: deload,
               equipmentIds: undefined,
-              unit: undefined,
             };
 
             const result = evaluateProgression(input);
