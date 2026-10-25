@@ -165,7 +165,8 @@ async function main() {
     let upsertOptions: unknown = null;
     fake.beforeRequest = (req) => {
       if (req.method === "POST" && req.table === "session_exercises") {
-        upsertOptions = req.body?.[1];
+        const bodyArray = Array.isArray(req.body) ? req.body : [];
+        upsertOptions = bodyArray.length > 1 ? bodyArray[1] : null;
       }
     };
 

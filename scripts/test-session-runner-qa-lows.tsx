@@ -380,23 +380,43 @@ console.log("\n3. L1: picking feel after conflict advances to next exercise");
 }
 
 // Test 4: BUG CATCH - Timer is 4000ms
+console.log("\n4. BUG CATCH: Timer duration is 4000ms");
 await (async () => {
-  console.log("\n4. BUG CATCH: Timer duration is 4000ms");
-  
   const container = document.createElement("div");
   document.body.appendChild(container);
   
-  const mockTimer = createMockTimer();
+  const fakeTimer = createFakeTimer();
   let timerDuration = 0;
-  const originalSetTimeout = mockTimer.timer.setTimeout;
-  mockTimer.timer.setTimeout = (callback: () => void, ms: number) => {
+  const originalSetTimeout = fakeTimer.timer.setTimeout;
+  fakeTimer.timer.setTimeout = (callback: () => void, ms: number) => {
     timerDuration = ms;
     return originalSetTimeout(callback, ms);
   };
   
   const root = createRoot(container);
   await act(async () => {
-    root.render(<SessionRunner {...mockConfig()} timer={mockTimer.timer} />);
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "sess-timer-test",
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt: FIXED_TIMESTAMP,
+        warmup: [],
+        cooldown: [],
+        exercises: [baseExercise("ex1", "Test Exercise")],
+        settings: {
+          perSetLogging: true,
+          restAutostart: false,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+        },
+        actions: defaultActions,
+        timer: fakeTimer.timer,
+      })
+    );
   });
   
   check("Timer duration is 4000ms", timerDuration === 4000, `Got ${timerDuration}ms`);
@@ -406,23 +426,43 @@ await (async () => {
 })();
 
 // Test 5: BUG CATCH - Timer cleared on unmount
+console.log("\n5. BUG CATCH: Timer cleared on unmount");
 await (async () => {
-  console.log("\n5. BUG CATCH: Timer cleared on unmount");
-  
   const container = document.createElement("div");
   document.body.appendChild(container);
   
-  const mockTimer = createMockTimer();
+  const fakeTimer = createFakeTimer();
   let clearCalled = false;
-  const originalClear = mockTimer.timer.clearTimeout;
-  mockTimer.timer.clearTimeout = (id: ReturnType<typeof globalThis.setTimeout>) => {
+  const originalClear = fakeTimer.timer.clearTimeout;
+  fakeTimer.timer.clearTimeout = (id: ReturnType<typeof globalThis.setTimeout>) => {
     clearCalled = true;
     originalClear(id);
   };
   
   const root = createRoot(container);
   await act(async () => {
-    root.render(<SessionRunner {...mockConfig()} timer={mockTimer.timer} />);
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "sess-unmount-test",
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt: FIXED_TIMESTAMP,
+        warmup: [],
+        cooldown: [],
+        exercises: [baseExercise("ex1", "Test Exercise")],
+        settings: {
+          perSetLogging: true,
+          restAutostart: false,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+        },
+        actions: defaultActions,
+        timer: fakeTimer.timer,
+      })
+    );
   });
   
   await act(async () => {
