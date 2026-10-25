@@ -17,7 +17,6 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "@/lib/program/progression";
-import { prescribe } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
@@ -55,20 +54,6 @@ async function requireUser() {
   const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");
   return { supabase, user };
-}
-
-/**
- * The metric to stamp on a session exercise, from an embedded `exercises` row.
- *
- * PostgREST types a to-one embed as either an object or an array depending on
- * how it infers the relationship, and the shape is not worth arguing with at
- * four call sites. `reps` is the safe default: it is the column default too,
- * and it is what every exercise was before `metric` existed.
- */
-function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metric"] {
-  const row = Array.isArray(embedded) ? embedded[0] : embedded;
-  const m = (row as { metric?: string } | null | undefined)?.metric;
-  return m === "seconds" ? "seconds" : "reps";
 }
 
 /**
