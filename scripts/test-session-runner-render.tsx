@@ -112,13 +112,15 @@ const fakeTimer: RunnerTimer = {
 async function test1b1d() {
   console.log("\n📋 Test 1b/1d: Pending count per exercise affects nextSetNumberFor");
   
-  const logSetCalls: Array<{ sessionExerciseId: string; setNumber: number }> = [];
+  const logSetCalls: Array<{ sessionExerciseId: string; setNumber: number; source?: string }> = [];
   const logSetDeferreds: Deferred<{ ok: true }>[] = [];
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async (input) => {
-      logSetCalls.push({ sessionExerciseId: input.sessionExerciseId, setNumber: input.setNumber });
+      const source = logSetCalls.length < 2 ? "replay" : "click";
+      logSetCalls.push({ sessionExerciseId: input.sessionExerciseId, setNumber: input.setNumber, source });
+      console.log(`  [DEBUG] logSet called: setNumber=${input.setNumber}, source=${source}`);
       const deferred = createDeferred<{ ok: true }>();
       logSetDeferreds.push(deferred);
       return deferred.promise;
@@ -201,6 +203,7 @@ async function test1b1d() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
   
@@ -210,16 +213,27 @@ async function test1b1d() {
   // Wait for those replay calls to be made
   await act(async () => {});
   
+  console.log(`  [DEBUG] After mount, logSetDeferreds.length: ${logSetDeferreds.length}`);
+  
   // Resolve those replays so the UI is ready for a new click
-  if (logSetDeferreds.length >= 2) {
+  if (logSetDeferreds.length >= 1) {
     // Resolve first set
     await act(async () => {
       logSetDeferreds[0].resolve({ ok: true });
     });
+    console.log("  [DEBUG] Resolved first replay");
+  }
+  
+  // Wait for more replays
+  await act(async () => {});
+  console.log(`  [DEBUG] After first resolve, logSetDeferreds.length: ${logSetDeferreds.length}`);
+  
+  if (logSetDeferreds.length >= 2) {
     // Resolve second set
     await act(async () => {
       logSetDeferreds[1].resolve({ ok: true });
     });
+    console.log("  [DEBUG] Resolved second replay");
     // Wait for the controller to finish processing all results
     await act(async () => {});
     await act(async () => {});
@@ -227,12 +241,17 @@ async function test1b1d() {
   }
   
   const logButton = screen.getByRole("button", { name: /set [0-9]+ done/i });
+  console.log("  [DEBUG] Button text:", logButton.textContent);
   
   // Verify button is enabled
   const buttonDisabled = (logButton as HTMLButtonElement).disabled;
   if (buttonDisabled) {
     throw new Error(`Button is still disabled after replay: ${logButton.textContent}`);
   }
+  
+  // Check if sets are visible in the DOM
+  const setRows = screen.queryAllByText(/Set [12]/);
+  console.log("  [DEBUG] Set rows found:", setRows.length, setRows.map(r => r.textContent));
   
   // Clear the replay calls - we're only testing the button click
   logSetCalls.length = 0;
@@ -251,7 +270,8 @@ async function test1b1d() {
   }
   
   assert(logSetCalls.length === 1, "logSet called once after click");
-  assert(logSetCalls[0].setNumber === 3, "logSet called with setNumber: 3 (accounting for 2 pending sets)");
+  console.log("  [DEBUG] Logged set number:", logSetCalls[0].setNumber);
+  assert(logSetCalls[0].setNumber === 3, `logSet called with setNumber: 3 (accounting for 2 pending sets), got ${logSetCalls[0].setNumber}`);
   
   fakeStorage.clear();
 }
@@ -343,6 +363,7 @@ async function testN7() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
   
@@ -380,6 +401,7 @@ async function testN7() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
   
@@ -469,6 +491,7 @@ async function test7b7c() {
         exercises={exercises}
         settings={settings}
         actions={actions}
+      timer={fakeTimer}
       />
     );
     
@@ -679,6 +702,7 @@ async function test8d8e() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
       addEventListener={mockAddEventListener}
       removeEventListener={mockRemoveEventListener}
     />
@@ -807,6 +831,7 @@ async function test9b() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
   
@@ -918,6 +943,7 @@ async function testN11() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
   
@@ -1017,6 +1043,7 @@ async function testN12() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
   
@@ -1101,6 +1128,7 @@ async function testConflict() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
   
@@ -1213,6 +1241,7 @@ async function testDoubleTap() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
   
@@ -1306,6 +1335,7 @@ async function testFailedSubmit() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
   
@@ -1414,6 +1444,7 @@ async function testN7sCompletedSession() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
   
@@ -1515,6 +1546,7 @@ async function testRetryButton() {
       exercises={exercises}
       settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
   
