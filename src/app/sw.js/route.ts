@@ -12,6 +12,7 @@ import { NextResponse } from "next/server";
 
 import { branding } from "@/lib/branding";
 import { OFFLINE_SCREEN_HEADING, OFFLINE_SCREEN_BODY, OFFLINE_SCREEN_BUTTON_LABEL } from "@/lib/offline-copy";
+import { cachesToDelete } from "@/lib/sw-logic";
 
 /**
  * Get the current build version for cache naming.
@@ -121,14 +122,19 @@ self.addEventListener("activate", (event) => {
     (async () => {
       const cacheNames = await caches.keys();
       const brandPrefix = "${brandId}-offline-";
-      await Promise.all(
-        cacheNames.map((cacheName) => {
-          // Only delete caches with this brand's prefix that aren't the current one
-          if (cacheName.startsWith(brandPrefix) && cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
+      
+      // Inlined cachesToDelete logic from src/lib/sw-logic.ts
+      const toDelete = cacheNames.filter((cacheName) => {
+        if (!cacheName.startsWith(brandPrefix)) {
+          return false;
+        }
+        if (cacheName === CACHE_NAME) {
+          return false;
+        }
+        return true;
+      });
+      
+      await Promise.all(toDelete.map((cacheName) => caches.delete(cacheName)));
       await self.clients.claim();
     })()
   );

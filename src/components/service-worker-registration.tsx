@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { syncServiceWorker } from "@/lib/sw-logic";
 
 /**
  * Registers the PWA service worker on the client.
@@ -17,34 +18,28 @@ export function ServiceWorkerRegistration() {
       return;
     }
 
-    if (process.env.NODE_ENV === "production") {
-      // Production: register the service worker
-      navigator.serviceWorker
-        .register("/sw.js")
-        .then((registration) => {
-          console.log("Service Worker registered:", registration.scope);
-
-          // Check for updates periodically (every hour)
-          setInterval(
-            () => {
-              registration.update();
-            },
-            60 * 60 * 1000
-          );
-        })
-        .catch((error) => {
-          console.error("Service Worker registration failed:", error);
-        });
-    } else {
-      // Development: unregister any existing service worker
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        for (const registration of registrations) {
-          registration.unregister().then(() => {
-            console.log("Service Worker unregistered in development:", registration.scope);
+    const env = process.env.NODE_ENV;
+    
+    syncServiceWorker(env, navigator.serviceWorker)
+      .then(() => {
+        if (env === "production") {
+          // In production, set up periodic update checks (every hour)
+          navigator.serviceWorker.ready.then((registration) => {
+            setInterval(
+              () => {
+                registration.update();
+              },
+              60 * 60 * 1000
+            );
           });
         }
+      })
+      .catch((error) => {
+        if (env === "production") {
+          console.error("Service Worker registration failed:", error);
+        }
+        // In dev, unregister failures are not critical
       });
-    }
   }, []);
 
   return null;
