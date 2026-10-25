@@ -26,7 +26,8 @@ export type SwapWeightsResult = {
  * @param equipmentIds - Equipment IDs of the new exercise
  * @param metric - Metric of the new exercise
  * @param movementPattern - Movement pattern of the new exercise
- * @returns Weight prefill, working weight, and bodyweight flag
+ * @param remembersWeights - Whether to use remembered weights (false in daily_menu mode)
+ * @returns Weight prefill, working weight, target reps, and bodyweight flag
  */
 export async function resolveSwapWeights(
   supabase: SupabaseClient<Database>,
@@ -36,8 +37,15 @@ export async function resolveSwapWeights(
   equipmentIds: string[],
   metric: Database["public"]["Enums"]["exercise_metric"],
   movementPattern: Database["public"]["Enums"]["movement_pattern"],
+  remembersWeights: boolean,
 ): Promise<SwapWeightsResult> {
   try {
+    // When remembersWeights is false (daily_menu mode), skip progress/history entirely
+    // (same rule as the session page)
+    if (!remembersWeights) {
+      return { weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: equipmentIds.length === 0 };
+    }
+
     // Read session's is_deload flag, progress for the NEW exercise (in parallel)
     const [sessionRes, progressRes] = await Promise.all([
       supabase
@@ -71,6 +79,7 @@ export async function resolveSwapWeights(
       metric,
       movementPattern,
       progressValueNum,
+      remembersWeights,
     );
 
     // On error reading is_deload, log and return null prefill (don't silently use full weight)
