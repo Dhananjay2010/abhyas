@@ -46,7 +46,6 @@ import { resolveSetConflict } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
 import { nextSetTarget, pickCurrentExerciseIndex } from "@/lib/session/resume-state";
-import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
