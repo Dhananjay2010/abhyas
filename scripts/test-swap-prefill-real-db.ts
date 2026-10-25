@@ -197,6 +197,7 @@ async function runTests() {
       split_type: "upper_lower",
       deload_week: 4,
       week_offset: 0,
+      days_per_week: 4,
     });
 
   check("Program created", !programError, programError?.message);
