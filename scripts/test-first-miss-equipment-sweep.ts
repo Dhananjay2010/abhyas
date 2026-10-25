@@ -12,7 +12,6 @@
 import {
   evaluateProgression,
   suggestedWeight,
-  FIRST_MISS_HOLD_THRESHOLD,
   type ExerciseMeta,
   type ProgressState,
   type LoggedSet,
@@ -48,7 +47,7 @@ const PATTERNS: Array<ExerciseMeta["movementPattern"]> = [
 const FEELS: Array<"easy" | "right" | "hard" | null> = ["easy", "right", "hard", null];
 
 // Generate on-grid and off-grid weights for each equipment
-function* generateWeights(equipmentIds: string[], _unit: WeightUnit): Generator<number> {
+function* generateWeights(equipmentIds: string[]): Generator<number> {
   if (equipmentIds.includes("kettlebell")) {
     // Test kettlebell weights
     for (const bell of KETTLEBELL_WEIGHTS_KG) {
@@ -104,7 +103,7 @@ for (const { ids, unit } of EQUIPMENTS) {
   for (const mechanic of MECHANICS) {
     for (const pattern of PATTERNS) {
       for (const feel of FEELS) {
-        for (const weight of generateWeights(ids, unit)) {
+        for (const weight of generateWeights(ids)) {
           const meta: ExerciseMeta = {
             mechanic,
             metric: "reps",
