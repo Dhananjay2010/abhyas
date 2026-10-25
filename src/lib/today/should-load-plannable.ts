@@ -8,15 +8,10 @@
  * Without case 2, the rest-day prompt shows only Yoga/Breathing/Never mind.
  */
 export function shouldLoadPlannableDays(params: {
-  missedYesterday: boolean;
-  strengthDone: boolean;
-  strengthOpen: boolean;
+  askAboutToday: boolean;
   dayType: string | null;
 }): boolean {
-  const { missedYesterday, strengthDone, strengthOpen, dayType } = params;
+  const { askAboutToday, dayType } = params;
 
-  const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
-  const todayIsRest = dayType === "rest";
-
-  return askAboutToday || todayIsRest;
+  return askAboutToday || dayType === "rest";
 }

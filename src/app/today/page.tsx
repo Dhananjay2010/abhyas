@@ -306,12 +306,7 @@ export default async function TodayPage() {
   // a workout has been started. Run together so the uncommon day that needs
   // both still costs one round trip.
   const [plannable, performedRows, endedEarlySummary] = await Promise.all([
-    shouldLoadPlannableDays({
-      missedYesterday,
-      strengthDone,
-      strengthOpen: strengthOpen !== undefined,
-      dayType,
-    })
+    shouldLoadPlannableDays({ askAboutToday, dayType })
       ? plannableDays(supabase, program.id)
       : Promise.resolve([]),
     performed

@@ -18,45 +18,27 @@ function check(label: string, ok: boolean, detail = "") {
 console.log("\n1. Rest day with yesterday not missed loads plannable days");
 {
   const shouldLoad = shouldLoadPlannableDays({
-    missedYesterday: false,
-    strengthDone: false,
-    strengthOpen: false,
+    askAboutToday: false,
     dayType: "rest",
   });
 
   check("shouldLoadPlannableDays returns true", shouldLoad === true);
 }
 
-console.log("\n2. Rest day with strength done still loads plannable days");
+console.log("\n2. Rest day even when askAboutToday is true");
 {
   const shouldLoad = shouldLoadPlannableDays({
-    missedYesterday: false,
-    strengthDone: true,
-    strengthOpen: false,
+    askAboutToday: true,
     dayType: "rest",
   });
 
   check("shouldLoadPlannableDays returns true", shouldLoad === true);
 }
 
-console.log("\n3. Rest day with strength open still loads plannable days");
+console.log("\n3. Rest day is sufficient (askAboutToday false)");
 {
   const shouldLoad = shouldLoadPlannableDays({
-    missedYesterday: false,
-    strengthDone: false,
-    strengthOpen: true,
-    dayType: "rest",
-  });
-
-  check("shouldLoadPlannableDays returns true", shouldLoad === true);
-}
-
-console.log("\n4. Rest day with missed yesterday loads plannable days");
-{
-  const shouldLoad = shouldLoadPlannableDays({
-    missedYesterday: true,
-    strengthDone: false,
-    strengthOpen: false,
+    askAboutToday: false,
     dayType: "rest",
   });
 
