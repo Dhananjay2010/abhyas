@@ -212,65 +212,110 @@ console.log("\n3. Profile grid: Bradford exercises never appear in swap lists");
 
 console.log("\n4. Around The Worlds contraindication: never appears for shoulder-injured users");
 {
-  const shoulderProfiles: Array<{
-    level: "beginner" | "intermediate" | "expert";
-    equipmentIds: string[];
-    hasAll: boolean;
-  }> = [
-    { level: "beginner", equipmentIds: [], hasAll: true },
-    { level: "intermediate", equipmentIds: ["dumbbell"], hasAll: false },
-    { level: "expert", equipmentIds: [], hasAll: true },
+  const goals: Array<"fat_loss" | "muscle_gain" | "strength" | "general_fitness"> = ["fat_loss", "muscle_gain", "strength", "general_fitness"];
+  const levels: Array<"beginner" | "intermediate" | "expert"> = ["beginner", "intermediate", "expert"];
+  const equipmentSets: Array<{ name: string; ids: string[]; hasAll: boolean }> = [
+    { name: "full-gym", ids: [], hasAll: true },
+    { name: "barbell-setup", ids: ["barbell", "squat_rack", "flat_bench", "dumbbell"], hasAll: false },
+    { name: "dumbbell-bench", ids: ["dumbbell", "adjustable_bench"], hasAll: false },
+    { name: "bodyweight", ids: [], hasAll: false },
   ];
+  const daysOptions = [3, 4, 5];
+  const minutesOptions = [45, 75];
   
   let aroundWorldsPassCount = 0;
   let aroundWorldsFailCount = 0;
   
-  for (const profile of shoulderProfiles) {
-    const input: GeneratorInput = {
-      userId: `shoulder-${profile.level}`,
-      blockNumber: 1,
-      level: profile.level,
-      equipmentIds: profile.equipmentIds,
-      hasAllEquipment: profile.hasAll,
-      goal: "muscle_gain",
-      currentInjuryRegions: ["shoulder"],
-      age: 30,
-      bmi: null,
-      daysPerWeek: 4,
-      yogaDaysPerWeek: 0,
-      primaryTrack: "weights",
-      preferredSessionMinutes: 75,
-      catalogue,
-    };
-    
-    const program = generateProgram(input);
-    const allExerciseSlugs = program.days.flatMap(day => 
-      day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
-    );
-    
-    if (allExerciseSlugs.includes(SHOULDER_CONTRAINDICATED_SLUG)) {
-      console.log(`  ✗ ${input.userId}: found ${SHOULDER_CONTRAINDICATED_SLUG} in plan`);
-      aroundWorldsFailCount++;
-    } else {
-      aroundWorldsPassCount++;
+  for (const goal of goals) {
+    for (const level of levels) {
+      for (const eqSet of equipmentSets) {
+        for (const days of daysOptions) {
+          for (const minutes of minutesOptions) {
+            const input: GeneratorInput = {
+              userId: `shoulder-${goal}-${level}-${eqSet.name}-${days}d-${minutes}m`,
+              blockNumber: 1,
+              level,
+              equipmentIds: eqSet.ids,
+              hasAllEquipment: eqSet.hasAll,
+              goal,
+              currentInjuryRegions: ["shoulder"],
+              age: 30,
+              bmi: null,
+              daysPerWeek: days,
+              yogaDaysPerWeek: 0,
+              primaryTrack: "weights",
+              preferredSessionMinutes: minutes,
+              catalogue,
+            };
+            
+            const program = generateProgram(input);
+            const allExerciseSlugs = program.days.flatMap(day => 
+              day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+            );
+            
+            // Check ATW not in plan
+            if (allExerciseSlugs.includes(SHOULDER_CONTRAINDICATED_SLUG)) {
+              console.log(`  ✗ ${input.userId}: found ${SHOULDER_CONTRAINDICATED_SLUG} in plan`);
+              aroundWorldsFailCount++;
+            } else {
+              aroundWorldsPassCount++;
+            }
+            
+            // For each exercise in the plan, test the actions.ts swap path
+            const availableEquipment = eqSet.hasAll ? null : new Set(eqSet.ids);
+            
+            for (const day of program.days) {
+              for (const ex of day.exercises) {
+                const currentExercise = catalogue.find(e => e.id === ex.exerciseId);
+                if (!currentExercise) continue;
+                
+                const patterns = buildPatternList(currentExercise.movement_pattern, false);
+                const rawPool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+                
+                // Filter through isEligible (as actions.ts does)
+                const pool = rawPool.filter((e) => isEligible(e, input));
+                
+                const wantCompound = currentExercise.mechanic !== "isolation";
+                const ctx: AlternativesContext = {
+                  level,
+                  availableEquipment,
+                  injuryRegions: ["shoulder"],
+                  limit: 5,
+                  scoreFn: (e) => score(e, wantCompound, level, "weights"),
+                  tieBreakFn: (slug) => hashString(`test-atw:${input.userId}:${slug}`),
+                };
+                
+                const alternatives = rankAlternatives(currentExercise, pool, ctx);
+                const swapSlugs = alternatives.map(e => e.slug);
+                
+                if (swapSlugs.includes(SHOULDER_CONTRAINDICATED_SLUG)) {
+                  console.log(`  ✗ ${input.userId} ${currentExercise.slug}: ATW in swaps`);
+                  aroundWorldsFailCount++;
+                } else {
+                  aroundWorldsPassCount++;
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
   
-  // Also test swaps for a chest exercise (isEligible + rankAlternatives path)
-  const chestExercise = find("barbell-bench-press-medium-grip");
-  const patterns = buildPatternList(chestExercise.movement_pattern, false);
-  const rawPool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+  // Positive control: ATW should still be reachable for no-injury users
+  console.log("\n  Positive control: ATW reachable for no-injury users");
+  let positiveControlPass = false;
   
-  // Filter through isEligible first (as the action.ts swap path does)
-  const swapInput: GeneratorInput = {
-    userId: "test-swap-shoulder",
+  // ATW requires dumbbells, so test with full gym
+  const noInjuryInput: GeneratorInput = {
+    userId: "no-injury-control",
     blockNumber: 1,
     level: "intermediate",
     equipmentIds: [],
     hasAllEquipment: true,
     goal: "muscle_gain",
-    currentInjuryRegions: ["shoulder"],
-    age: null,
+    currentInjuryRegions: [],
+    age: 30,
     bmi: null,
     daysPerWeek: 4,
     yogaDaysPerWeek: 0,
@@ -279,29 +324,21 @@ console.log("\n4. Around The Worlds contraindication: never appears for shoulder
     catalogue,
   };
   
-  const pool = rawPool.filter((e) => isEligible(e, swapInput));
-  
-  const wantCompound = chestExercise.mechanic !== "isolation";
-  const ctx: AlternativesContext = {
-    level: "intermediate",
-    availableEquipment: null,
-    injuryRegions: ["shoulder"],
-    limit: 10,
-    scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-    tieBreakFn: (slug) => hashString(`test-around-worlds:${slug}`),
-  };
-  
-  const alternatives = rankAlternatives(chestExercise, pool, ctx);
-  const slugs = alternatives.map(e => e.slug);
-  
-  if (slugs.includes(SHOULDER_CONTRAINDICATED_SLUG)) {
-    console.log(`  ✗ around-the-worlds in swaps for shoulder-injured`);
-    aroundWorldsFailCount++;
-  } else {
-    aroundWorldsPassCount++;
+  // Check if ATW is eligible at all
+  const atwExercise = find(SHOULDER_CONTRAINDICATED_SLUG);
+  if (isEligible(atwExercise, noInjuryInput)) {
+    positiveControlPass = true;
   }
   
-  console.log(`  ${aroundWorldsFailCount === 0 ? "✓" : "✗"} ${aroundWorldsPassCount}/${aroundWorldsPassCount + aroundWorldsFailCount} Around The Worlds checks clean`);
+  if (positiveControlPass) {
+    console.log("  ✓ ATW is eligible for no-injury full-gym users");
+    aroundWorldsPassCount++;
+  } else {
+    console.log("  ✗ ATW not eligible for no-injury users (positive control failed)");
+    aroundWorldsFailCount++;
+  }
+  
+  console.log(`\n  ${aroundWorldsFailCount === 0 ? "✓" : "✗"} ${aroundWorldsPassCount}/${aroundWorldsPassCount + aroundWorldsFailCount} Around The Worlds checks clean`);
   passCount += aroundWorldsPassCount;
   failCount += aroundWorldsFailCount;
 }

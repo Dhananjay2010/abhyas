@@ -6,9 +6,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXCLUSIONS_FILE="$SCRIPT_DIR/../src/lib/program/exclusions.ts"
+GENERATE_FILE="$SCRIPT_DIR/../src/lib/program/generate.ts"
 
-# Create unique temporary backup file
+# Create unique temporary backup files
 EXCLUSIONS_BACKUP=$(mktemp)
+GENERATE_BACKUP=$(mktemp)
 
 echo "=== Bradford Exclusions Mutation Testing ==="
 echo ""
@@ -26,7 +28,10 @@ cleanup() {
   if [ -f "$EXCLUSIONS_BACKUP" ]; then
     cp "$EXCLUSIONS_BACKUP" "$EXCLUSIONS_FILE" 2>/dev/null || true
   fi
-  rm -f "$EXCLUSIONS_BACKUP"
+  if [ -f "$GENERATE_BACKUP" ]; then
+    cp "$GENERATE_BACKUP" "$GENERATE_FILE" 2>/dev/null || true
+  fi
+  rm -f "$EXCLUSIONS_BACKUP" "$GENERATE_BACKUP"
 }
 
 trap cleanup EXIT INT TERM
@@ -110,8 +115,7 @@ echo ""
 # Mutation 3: Remove around-the-worlds from shoulder contraindications
 echo "3. Mutation: Remove around-the-worlds from SHOULDER_CONTRAINDICATED_SLUGS"
 
-GENERATE_FILE="$SCRIPT_DIR/../src/lib/program/generate.ts"
-GENERATE_BACKUP=$(mktemp)
+cp "$EXCLUSIONS_FILE" "$EXCLUSIONS_BACKUP"
 cp "$GENERATE_FILE" "$GENERATE_BACKUP"
 
 sed -i 's/"around-the-worlds",/\/\/ MUTANT: removed/' "$GENERATE_FILE"
@@ -119,8 +123,6 @@ sed -i 's/"around-the-worlds",/\/\/ MUTANT: removed/' "$GENERATE_FILE"
 # Verify mutation changed the file
 if cmp -s "$GENERATE_FILE" "$GENERATE_BACKUP"; then
   echo "  ✗ FATAL: Mutation did not change the file"
-  cp "$GENERATE_BACKUP" "$GENERATE_FILE" 2>/dev/null || true
-  rm -f "$GENERATE_BACKUP"
   cleanup
   exit 1
 fi
@@ -128,22 +130,18 @@ fi
 # Verify mutation marker is present
 if ! grep -qF -- "// MUTANT: removed" "$GENERATE_FILE"; then
   echo "  ✗ FATAL: Mutation marker not found"
-  cp "$GENERATE_BACKUP" "$GENERATE_FILE" 2>/dev/null || true
-  rm -f "$GENERATE_BACKUP"
   cleanup
   exit 1
 fi
 
 if ! run_test_and_verify_caught "Remove around-the-worlds"; then
-  cp "$GENERATE_BACKUP" "$GENERATE_FILE" 2>/dev/null || true
-  rm -f "$GENERATE_BACKUP"
   cleanup
   exit 1
 fi
 
 # Restore
+cp "$EXCLUSIONS_BACKUP" "$EXCLUSIONS_FILE"
 cp "$GENERATE_BACKUP" "$GENERATE_FILE"
-rm -f "$GENERATE_BACKUP"
 echo ""
 
 echo "=== Mutation Testing Results ==="
