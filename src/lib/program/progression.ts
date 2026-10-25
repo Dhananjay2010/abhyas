@@ -569,22 +569,13 @@ export function evaluateProgression(input: {
       return weight;
     }
     
-    // Two-miss cap: smallest loadable value >= 90% of current (raw) and < current
-    // With equipment, we find the loadable value directly.
-    // Without equipment, we use the grid snap and increment floor as before.
     const rawReduced = weight * 0.9;
+    const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
     
-    let target: number;
-    if (equipmentIds && unit) {
-      // RAW 90% cap with equipment
-      target = rawReduced;
-    } else {
-      // No equipment: snap to grid and apply increment floor
-      const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
-      const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
-      const cap = rawReduced - liftIncrement;
-      target = Math.max(snapped, cap);
-    }
+    // Snap to 2.5 or 1.25 grid, at most one increment below 90%
+    const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
+    const cap = rawReduced - liftIncrement;
+    const target = Math.max(snapped, cap);
     
     // Hold at light weight after reduction
     if (target <= liftIncrement) {
@@ -643,23 +634,83 @@ export function evaluateProgression(input: {
       };
     }
     
-    // Use the shared helper for two-miss logic
-    const reduced = computeTwoMissResult(currentWeight);
+    // Two-miss back-off: RAW 90% cap with equipment, rounded with no equipment
+    const liftIncrement = incrementFor(meta);
     
-    // If helper returned current weight, it's a hold
-    if (reduced === currentWeight) {
-      const holdMessage = equipmentIds && unit
-        ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
-        : "Missed twice in a row but already at light weight — holding to build back up.";
-      
+    if (currentWeight <= liftIncrement) {
       return {
         ...carried,
         outcome: "hold",
         nextWorkingWeightKg: currentWeight,
         nextTargetReps: repsMax,
         consecutiveFailures: 0,
-        message: holdMessage,
+        message: "Missed twice in a row but already at light weight — holding to build back up.",
       };
+    }
+    
+    const rawReduced = currentWeight * 0.9;
+    let target: number;
+    
+    if (equipmentIds && unit) {
+      // RAW 90% cap with equipment
+      target = rawReduced;
+    } else {
+      // No equipment: snap to grid, at most one increment below 90%
+      const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
+      const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
+      const cap = rawReduced - liftIncrement;
+      target = Math.max(snapped, cap);
+    }
+    
+    if (target <= liftIncrement) {
+      return {
+        ...carried,
+        outcome: "hold",
+        nextWorkingWeightKg: currentWeight,
+        nextTargetReps: repsMax,
+        consecutiveFailures: 0,
+        message: "Missed twice in a row but already at light weight — holding to build back up.",
+      };
+    }
+    
+    // Find smallest loadable value >= target and < current
+    let reduced = target;
+    if (equipmentIds && unit) {
+      let candidate: number | null = null;
+      
+      if (equipmentIds.includes('kettlebell')) {
+        const bells = KETTLEBELL_WEIGHTS_KG;
+        for (const bell of bells) {
+          if (bell >= target - 0.001 && bell < currentWeight - 0.001) {
+            candidate = bell;
+            break;
+          }
+        }
+      } else {
+        const gridStep = equipmentGridStep(equipmentIds, 'kg');
+        const snappedUp = Math.ceil(target / gridStep) * gridStep;
+        if (snappedUp < currentWeight - 0.001) {
+          candidate = snappedUp;
+        }
+      }
+      
+      if (candidate === null) {
+        return {
+          ...carried,
+          outcome: "hold",
+          nextWorkingWeightKg: currentWeight,
+          nextTargetReps: repsMax,
+          consecutiveFailures: 0,
+          message: "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up.",
+        };
+      }
+      
+      reduced = candidate;
+    } else {
+      // No equipment: never raise
+      if (target > currentWeight) {
+        reduced = currentWeight;
+      }
     }
     
     return {

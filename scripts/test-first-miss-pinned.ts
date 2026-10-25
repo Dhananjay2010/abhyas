@@ -530,8 +530,8 @@ console.log("\n=== Mutant-Killing Tests ===");
   const twoW = twoMiss.nextWorkingWeightKg ?? 0;
   
   check("Barbell 2.75 kg isolation first-miss >= two-miss", firstW >= twoW);
-  check("  (without clamp: first would be 2.5, two would be 2.75, violating invariant)", 
-    firstW === 2.75 && twoW === 2.75);
+  check("  (RAW 90% cap: both go to 2.5 kg)", 
+    firstW === 2.5 && twoW === 2.5);
 }
 
 console.log("\n=== THRESHOLD BEHAVIOR ===");
