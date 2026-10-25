@@ -20,6 +20,11 @@ restore_file() {
   local backup_name="${file//\//___}.backup"
   if [ -f "$BACKUP_DIR/$backup_name" ] && [ -s "$BACKUP_DIR/$backup_name" ]; then
     cp "$BACKUP_DIR/$backup_name" "$file"
+    # Verify restore succeeded
+    if ! cmp -s "$file" "$BACKUP_DIR/$backup_name"; then
+      echo "✗ Failed to restore $file"
+      FAILED=1
+    fi
   fi
 }
 
@@ -51,7 +56,8 @@ cleanup() {
   fi
 }
 
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'FAILED=1; cleanup; exit 1' INT TERM
 
 run_mutant() {
   local name="$1"
@@ -93,7 +99,7 @@ run_mutant() {
   fi
 }
 
-echo "=== Taking backups ==="
+echo "=== Taking backups (once before any mutants) ==="
 backup_file "src/lib/program/past-knee.ts"
 backup_file "src/lib/program/generate.ts"
 backup_file "src/lib/program/alternatives.ts"
@@ -133,44 +139,56 @@ restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 5: Disable jumping check
 restore_file "src/lib/program/past-knee.ts"
-sed -i 's/return isJumpingExercise(ex);/return false;/' src/lib/program/past-knee.ts
+sed -i 's/if (isJumpingExercise(ex)) return true;/if (false) return true;/' src/lib/program/past-knee.ts
 run_mutant "Disable jumping exercise filter" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 
-# Mutant 6: Disable isEligible gate
+# Mutant 6: Disable high-impact-leg check
+restore_file "src/lib/program/past-knee.ts"
+sed -i 's/if (isHighImpactLegExercise(ex)) return true;/if (false) return true;/' src/lib/program/past-knee.ts
+run_mutant "Disable high-impact-leg exercise filter" "src/lib/program/past-knee.ts"
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 7: Disable isEligible gate
 restore_file "src/lib/program/generate.ts"
 sed -i 's/if (input.pastKneeInjury === true/if (false \&\& input.pastKneeInjury === true/' src/lib/program/generate.ts
 run_mutant "Disable isEligible gate" "src/lib/program/generate.ts"
 restore_file "src/lib/program/generate.ts"
 
-# Mutant 7: Disable rankAlternatives gate
+# Mutant 8: Disable rankAlternatives gate
 restore_file "src/lib/program/alternatives.ts"
 sed -i 's/if (ctx.pastKneeInjury === true \&\& isExcludedForPastKnee/if (false \&\& ctx.pastKneeInjury === true \&\& isExcludedForPastKnee/' src/lib/program/alternatives.ts
 run_mutant "Disable rankAlternatives gate" "src/lib/program/alternatives.ts"
 restore_file "src/lib/program/alternatives.ts"
 
-# Mutant 8: Remove walking-lunge warmup exclusion
+# Mutant 9: Remove walking-lunge warmup exclusion
 restore_file "src/lib/program/warmup.ts"
 sed -i 's/slug === "walking-lunge"/false/' src/lib/program/warmup.ts
 run_mutant "Remove warmup walking-lunge exclusion" "src/lib/program/warmup.ts"
 restore_file "src/lib/program/warmup.ts"
 
-# Mutant 9: Remove skipping-light warmup exclusion
+# Mutant 10: Remove skipping-light warmup exclusion
 restore_file "src/lib/program/warmup.ts"
 sed -i 's/slug === "skipping-light"/false/' src/lib/program/warmup.ts
 run_mutant "Remove warmup skipping-light exclusion" "src/lib/program/warmup.ts"
 restore_file "src/lib/program/warmup.ts"
 
-# Mutant 10: Disable goblet OR logic gating
+# Mutant 11: Disable goblet OR logic gating
 restore_file "src/lib/program/alternatives.ts"
 sed -i 's/if (ctx.pastKneeInjury === true && candidate.slug === "goblet-squat")/if (candidate.slug === "goblet-squat")/' src/lib/program/alternatives.ts
 run_mutant "Remove goblet OR-logic gating" "src/lib/program/alternatives.ts"
 restore_file "src/lib/program/alternatives.ts"
 
-# Mutant 11: Disable rear-lunge #1 boost
+# Mutant 12: Disable rear-lunge #1 boost
 restore_file "src/lib/program/past-knee.ts"
 sed -i 's/if (candidate.slug === "dumbbell-rear-lunge") return 2;/if (candidate.slug === "dumbbell-rear-lunge") return 1;/' src/lib/program/past-knee.ts
 run_mutant "Disable rear-lunge ranking boost" "src/lib/program/past-knee.ts"
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 13: Allow wall-sit as primary (remove from swap-only enforcement)
+restore_file "src/lib/program/past-knee.ts"
+sed -i '/if (candidate.slug === "wall-sit")/,/}/d' src/lib/program/past-knee.ts
+run_mutant "Allow wall-sit as primary" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 
 echo ""
