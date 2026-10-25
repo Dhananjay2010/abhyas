@@ -17,8 +17,6 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { shouldShowFinishRetry } from "@/lib/session/finish-flow";
-import { endEarlyConfirmTitle, sessionSummaryTitle } from "@/lib/session/end-early-text";
-import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import {
   abandonSession,
   deleteSet,
@@ -38,9 +36,6 @@ import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
 import { nextSetTarget, pickCurrentExerciseIndex } from "@/lib/session/resume-state";
 import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
-import { focusTrap } from "@/lib/focus-trap";
-import { formatNumber } from "@/lib/format";
-import { PendingTracker } from "@/lib/session/pending-tracker";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -152,19 +147,19 @@ export function SessionRunner({
 }) {
   const router = useRouter();
   const rawElapsed = useElapsed(startedAt);
-  const frozenElapsedRef = useRef<number | null>(null);
+  const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
   const elapsed = isStale 
     ? Math.min(rawElapsed, 10799) // Cap at 179:59 for stale sessions
-    : (frozenElapsedRef.current ?? rawElapsed);
+    : (frozenElapsed ?? rawElapsed);
   
   const stopElapsed = useCallback(() => {
     const current = rawElapsed;
-    frozenElapsedRef.current = current;
+    setFrozenElapsed(current);
     return current;
   }, [rawElapsed]);
   
   const resumeElapsed = useCallback(() => {
-    frozenElapsedRef.current = null;
+    setFrozenElapsed(null);
   }, []);
   
   const beeper = useBeeper(settings.restSound);
@@ -192,7 +187,6 @@ export function SessionRunner({
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
   >([]);
-  const [endedEarly, setEndedEarly] = useState(false);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -337,8 +331,6 @@ export function SessionRunner({
    */
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
-  
-  const pendingTracker = useMemo(() => new PendingTracker(), []);
 
   /**
    * Skipping an exercise cannot be undone — there is no navigation back to it

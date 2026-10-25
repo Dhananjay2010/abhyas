@@ -16,7 +16,7 @@
 
 import "./helpers/setup-jsdom";
 import React from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { createRoot } from "react-dom/client";
 import { act } from "react";
 import { SessionRunner, type SessionActions, type Feel, type Muscle } from "../src/app/session/[id]/session-runner";
 
@@ -372,8 +372,8 @@ console.log("\n4. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
             type: "stretch" as const,
             target_regions: [],
             target_muscles: [],
-            show_in_cooldown: true,
-            show_in_warmup: false,
+            equipment_ids: [],
+            contraindicated_regions: [],
           },
         ],
         exercises: [{
@@ -596,9 +596,6 @@ console.log("\n6. Done sends frozen elapsed time, clock stops after finish (f1, 
     );
     await sleep(100);
   });
-
-  // Get clock text before finish
-  const clockBeforeFinish = container.textContent ?? "";
 
   // Click "Skip cool-down" (finish)
   await act(async () => {
