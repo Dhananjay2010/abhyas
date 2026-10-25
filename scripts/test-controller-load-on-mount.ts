@@ -22,17 +22,42 @@ console.log("\n🧪 Test 8f: controller.load() called on mount\n");
 import { createPendingSetController } from "../src/lib/session/pending-set-controller";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 
+// Typed fake Storage implementation
+class FakeStorage implements Storage {
+  private data: Map<string, string> = new Map();
+  
+  get length(): number {
+    return this.data.size;
+  }
+  
+  clear(): void {
+    this.data.clear();
+  }
+  
+  getItem(key: string): string | null {
+    return this.data.get(key) ?? null;
+  }
+  
+  key(index: number): string | null {
+    const keys = Array.from(this.data.keys());
+    return keys[index] ?? null;
+  }
+  
+  removeItem(key: string): void {
+    this.data.delete(key);
+  }
+  
+  setItem(key: string, value: string): void {
+    this.data.set(key, value);
+  }
+}
+
 async function runTests() {
   try {
-    // Fake storage
-    const fakeStorage: Storage = {
-      getItem: () => null,
-      setItem: () => {},
-      removeItem: () => {},
-      clear: () => {},
-      key: () => null,
-      length: 0,
-    };
+    let loadCalled = false;
+    
+    // Create fake storage
+    const fakeStorage = new FakeStorage();
 
     const fakeDeps: PendingSetDeps = {
       now: () => Date.now(),
@@ -42,24 +67,25 @@ async function runTests() {
       logSet: async () => ({ ok: true as const }),
     };
 
-    // Create controller
-    const controller = createPendingSetController(
-      fakeStorage,
-      "test-user",
-      "test-session",
-      fakeDeps,
-      mockActions.logSet,
-      () => {} // onChange
-    );
+    // Create controller with proper config object
+    const controller = createPendingSetController({
+      storage: fakeStorage,
+      logSet: mockActions.logSet,
+      sessionId: "test-session",
+      sessionStatus: "in_progress",
+      userId: "test-user",
+      onChange: () => { loadCalled = true; },
+      deps: fakeDeps,
+    });
 
     // Verify controller has load method
     assert(typeof controller.load === "function", "8f: controller has load() method");
 
     // Call load to simulate mount behavior
-    await controller.load();
+    controller.load();
     
-    // If load() runs without error, it's working
-    assert(true, "8f: controller.load() executes successfully");
+    // Verify getItem was called (load reads from storage)
+    assert(getItemCalled, "8f: controller.load() reads from storage (getItem called for pending-sets)");
 
     console.log(`\n✅ All assertions passed (${passed})`);
     console.log("\nMutation 8f killed: SessionRunner calls controller.load() on mount");
