@@ -150,7 +150,7 @@ console.log("\n4. QA repro: kettlebell two-miss back-off 15 kg (no lighter bell)
   const inputs = progressionInputsFromExercise(kbEx, "metric");
   
   const decision = evaluateProgression({
-    sets: sets(3, 8, 15),
+    sets: sets(3, 7, 15), // #120: 3×7 is a real miss; 3×8 is in range (8-12) and #137 holds it
     plannedSets: 3,
     repsMin: 8,
     repsMax: 12,
@@ -161,11 +161,11 @@ console.log("\n4. QA repro: kettlebell two-miss back-off 15 kg (no lighter bell)
     ...inputs,
   });
   
-  // #120: Main's rounding: 90% = 13.5, floor to 2.5 grid = 12.5, cap at 15-5=10, max(12.5,10)=12.5
-  // Smallest bell >= 12.5 and < 15 would be 14. But that's < floor, so hold at 15.
-  check("outcome hold (no lighter bell within 10%)", decision.outcome === "hold", decision.outcome);
-  check("15 -> 15 kg (hold)", decision.nextWorkingWeightKg === 15, `got ${decision.nextWorkingWeightKg}`);
-  check("message says no lighter loadable weight", decision.message.includes("no lighter loadable weight"), decision.message);
+  // #120: Main's rounding (steer c): 90% = 13.5, floor to 2.5 grid = 12.5, cap 13.5-5 = 8.5,
+  // target = max(12.5, 8.5) = 12.5; smallest bell >= 12.5 and < 15 is 14, so it backs off to 14.
+  check("outcome backed_off (main's rounding finds the 14 kg bell)", decision.outcome === "backed_off", decision.outcome);
+  check("15 -> 14 kg (real bell)", decision.nextWorkingWeightKg === 14, `got ${decision.nextWorkingWeightKg}`);
+  check("message says dropping to 14 kg", decision.message.includes("dropping to 14 kg"), decision.message);
 }
 
 console.log("\n5. QA repro: lat pulldown first miss 40 -> 37.5 (one step down)");
@@ -275,7 +275,7 @@ console.log("\n8. QA repro: leg extension pin-stack two-miss back-off 30 -> HOLD
   const inputs = progressionInputsFromExercise(machineEx, "metric");
   
   const decision = evaluateProgression({
-    sets: sets(3, 8, 30),
+    sets: sets(3, 7, 30), // #120: 3×7 is a real miss; 3×8 is in range (8-12) and #137 holds it
     plannedSets: 3,
     repsMin: 8,
     repsMax: 12,
@@ -288,7 +288,7 @@ console.log("\n8. QA repro: leg extension pin-stack two-miss back-off 30 -> HOLD
   
   check("outcome hold", decision.outcome === "hold");
   check("30 -> 30 kg (hold: raw 90% = 27, snap to 5 grid >= 27 and < 30 = 30, not < 30)", decision.nextWorkingWeightKg === 30, `got ${decision.nextWorkingWeightKg}`);
-  check("message says no lighter loadable weight", decision.message.includes("no lighter loadable weight"));
+  check("message says no lighter loadable weight", decision.message.includes("no lighter loadable weight"), decision.message);
 }
 
 console.log("\n9. Main's back-off: KB 22 -> 18 kg (main's rounding, not RAW 90%)");

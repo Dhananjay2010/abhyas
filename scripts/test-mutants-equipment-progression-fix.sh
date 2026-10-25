@@ -188,27 +188,37 @@ c1() {
 }
 test_mutant "One-step cap removed" c1
 
-# C2: Success check ignores stored target
+# C2: Success check ignores stored target (mutates the successTarget resolveTarget call only)
 c2() {
   local file="$PROG"
-  local pattern='currentTargetReps: state.currentTargetReps,'
-  # Count occurrences
-  local count=$(grep -Fc "$pattern" "$file" || true)
-  if [ "$count" -lt 2 ]; then
-    echo "ERROR: Pattern found $count times (expected >= 2)" >&2
+  local count
+  count=$(grep -Fc 'const successTarget = resolveTarget({' "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: successTarget pattern found $count times (expected 1)" >&2
     return 1
   fi
-  # Replace first occurrence only
-  sed -i "0,/$pattern/{s/currentTargetReps: state\\.currentTargetReps,/currentTargetReps: null,/}" "$file"
+  perl -0pi -e 's/(const successTarget = resolveTarget\(\{[^}]*?)currentTargetReps: state\.currentTargetReps,/$1currentTargetReps: null,/s' "$file"
+  if cmp -s "$file" "$BACKUP_PROG"; then
+    echo "ERROR: C2 did not change the file" >&2
+    return 1
+  fi
 }
 test_mutant "Success check ignores stored target" c2
 
-# C3: Remove Rule 2 clamp
+# C3: Remove Rule 2 clamp only (the twoMissFloor hold), leaving Rule 1 and nextWeight intact
 c3() {
   local file="$PROG"
-  # Multi-line: comment out the if block checking candidateWeight !== currentWeight with twoMissFloor
-  # The block spans from "if (candidateWeight !== currentWeight) {" to its closing brace
-  sed -i '/if (candidateWeight !== currentWeight) {/{N;N;N;N;N;N;N;N;s/^/\/\/ MUTANT: /;s/\n/\n\/\/ MUTANT: /g;}' "$file"
+  local count
+  count=$(grep -Fc "const twoMissFloor = computeTwoMissResult(currentWeight);" "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: Rule 2 pattern found $count times (expected 1)" >&2
+    return 1
+  fi
+  perl -0pi -e "s/(const twoMissFloor = computeTwoMissResult\(currentWeight\);\n\s*if \(candidateWeight < twoMissFloor\) \{\n\s*)candidateWeight = currentWeight;\n(\s*)holdReason = 'twomiss';/\$1\/\/ MUTANT: Rule 2 hold removed\n\$2void 0;/" "$file"
+  if cmp -s "$file" "$BACKUP_PROG"; then
+    echo "ERROR: C3 did not change the file" >&2
+    return 1
+  fi
 }
 test_mutant "Remove Rule 2 clamp" c3
 
