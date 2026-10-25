@@ -123,37 +123,27 @@ async function runTests() {
   const userId2 = authData2.user.id;
   console.log(`✓ Created test user 2: ${userId2}\n`);
 
-  // Create client for user 1
-  const { data: sessionData1 } = await adminClient.auth.admin.generateLink({
-    type: "magiclink",
-    email: testEmail1,
-  });
-
+  // Sign in as user 1
   const client1 = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const { error: setSessionError1 } = await client1.auth.setSession({
-    access_token: sessionData1.properties?.access_token!,
-    refresh_token: sessionData1.properties?.refresh_token!,
+  const { error: signInError1 } = await client1.auth.signInWithPassword({
+    email: testEmail1,
+    password: testPassword,
   });
 
-  if (setSessionError1) {
-    console.error("❌ Failed to set session for user 1:", setSessionError1);
+  if (signInError1) {
+    console.error("❌ Failed to sign in as user 1:", signInError1);
     return false;
   }
 
-  // Create client for user 2
-  const { data: sessionData2 } = await adminClient.auth.admin.generateLink({
-    type: "magiclink",
-    email: testEmail2,
-  });
-
+  // Sign in as user 2
   const client2 = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const { error: setSessionError2 } = await client2.auth.setSession({
-    access_token: sessionData2.properties?.access_token!,
-    refresh_token: sessionData2.properties?.refresh_token!,
+  const { error: signInError2 } = await client2.auth.signInWithPassword({
+    email: testEmail2,
+    password: testPassword,
   });
 
-  if (setSessionError2) {
-    console.error("❌ Failed to set session for user 2:", setSessionError2);
+  if (signInError2) {
+    console.error("❌ Failed to sign in as user 2:", signInError2);
     return false;
   }
 

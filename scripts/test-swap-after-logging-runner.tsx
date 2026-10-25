@@ -199,7 +199,6 @@ console.log("Test swap-after-logging bug fix:\n");
     { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null },
   ]);
 
-  let handlerError: string | null = null;
   const actions2: SessionActions = {
     ...actions1,
     swapExercise: async () => {
