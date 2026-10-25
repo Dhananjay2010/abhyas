@@ -1,10 +1,9 @@
 #!/usr/bin/env tsx
 /**
- * Test: buildTrainAnywayDays deduplication for duplicate labels
+ * Test: buildTrainAnywayDays offers next strength day with "Lift: " prefix
  *
- * Tests that when yesterday was a missed "Pull" and an upcoming day is also "Pull",
- * the train-anyway options list "Pull" only once.
- * This proves break g3 (no deduplication in seenLabels) is caught.
+ * Tests that on a rest day, the train-anyway option is the next upcoming strength day
+ * with the "Lift: " prefix.
  */
 
 import { buildTrainAnywayDays } from "../src/lib/today/train-anyway";
@@ -23,13 +22,11 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-console.log("\n=== Test 1: Duplicate Pull (missed yesterday + upcoming) ===\n");
+console.log("\n=== Test 1: Rest day offers next strength day with Lift prefix ===\n");
 
-// Scenario: Today is Thursday 2026-10-22 (day 4 = Legs)
-// Yesterday was Wednesday (day 3 = Pull) - missed
-// Upcoming: Sat (day 6 = Push), Sun (day 7 = Pull), Mon (day 1 = rest), Tue (day 2 = Push)
-// Expected: [Pull (from yesterday), Push (from day 6), then next distinct which wraps to Legs]
-// Key test: Pull appears only once even though day 7 is also Pull
+// Scenario: Today is Monday 2026-10-19 (day 1 = rest)
+// Upcoming: Tue (day 2 = Push), Wed (day 3 = Pull), Thu (day 4 = Legs)
+// Expected: [Lift: Push] - only the next strength day
 
 const result1 = buildTrainAnywayDays({
   allDays: [
@@ -39,82 +36,68 @@ const result1 = buildTrainAnywayDays({
     { id: "day-4", day_index: 4, day_type: "weights", label: "Legs" },
     { id: "day-5", day_index: 5, day_type: "rest", label: null },
     { id: "day-6", day_index: 6, day_type: "weights", label: "Push" },
-    { id: "day-7", day_index: 7, day_type: "weights", label: "Pull" },
-  ],
-  localToday: "2026-10-22", // Thursday (day 4)
-  missedYesterday: true,
-});
-
-console.log("Result 1:", result1.map(d => d.label).join(", "));
-
-const pullCount1 = result1.filter(d => d.label === "Pull").length;
-assert(
-  pullCount1 === 1,
-  `Pull appears exactly once (missed yesterday, deduplicated with upcoming day 7), got ${pullCount1}`
-);
-
-console.log("\n=== Test 2: Duplicate Push (missed yesterday + 2 upcoming Push days) ===\n");
-
-// Scenario: Today is Wednesday 2026-10-21 (day 3 = Pull)
-// Yesterday was Tuesday (day 2 = Push) - missed
-// Upcoming: Thu (day 4 = Legs), Fri (day 5 = rest), Sat (day 6 = Push), Sun (day 7 = Pull), Mon (day 1 = rest), Tue (day 2 = Push)
-// Expected: [Push (from yesterday), Legs (from day 4), Pull (from day 7)]
-// Key test: Push appears only once even though day 6 and day 2 (next week) are also Push
-
-const result2 = buildTrainAnywayDays({
-  allDays: [
-    { id: "day-1", day_index: 1, day_type: "rest", label: null },
-    { id: "day-2", day_index: 2, day_type: "weights", label: "Push" },
-    { id: "day-3", day_index: 3, day_type: "weights", label: "Pull" },
-    { id: "day-4", day_index: 4, day_type: "weights", label: "Legs" },
-    { id: "day-5", day_index: 5, day_type: "rest", label: null },
-    { id: "day-6", day_index: 6, day_type: "weights", label: "Push" },
-    { id: "day-7", day_index: 7, day_type: "weights", label: "Pull" },
-  ],
-  localToday: "2026-10-21", // Wednesday (day 3)
-  missedYesterday: true,
-});
-
-console.log("Result 2:", result2.map(d => d.label).join(", "));
-
-const pushCount2 = result2.filter(d => d.label === "Push").length;
-assert(
-  pushCount2 === 1,
-  `Push appears exactly once (missed yesterday, deduplicated with upcoming days 6 & 2), got ${pushCount2}`
-);
-
-console.log("\n=== Test 3: No missed day, still deduplicates upcoming Push days ===\n");
-
-// Scenario: Today is Monday 2026-10-19 (day 1 = rest), no missed yesterday
-// Upcoming: Tue (day 2 = Push), Wed (day 3 = Pull), Thu (day 4 = Legs), Fri (day 5 = rest), Sat (day 6 = Push)
-// Expected: [Push (from day 2), Pull (from day 3)] - only 2 distinct upcoming
-// Key test: Push appears only once even though day 6 is also Push
-
-const result3 = buildTrainAnywayDays({
-  allDays: [
-    { id: "day-1", day_index: 1, day_type: "rest", label: null },
-    { id: "day-2", day_index: 2, day_type: "weights", label: "Push" },
-    { id: "day-3", day_index: 3, day_type: "weights", label: "Pull" },
-    { id: "day-4", day_index: 4, day_type: "weights", label: "Legs" },
-    { id: "day-5", day_index: 5, day_type: "rest", label: null },
-    { id: "day-6", day_index: 6, day_type: "weights", label: "Push" },
-    { id: "day-7", day_index: 7, day_type: "weights", label: "Pull" },
+    { id: "day-7", day_index: 7, day_type: "rest", label: null },
   ],
   localToday: "2026-10-19", // Monday (day 1)
   missedYesterday: false,
 });
 
+console.log("Result 1:", result1.map(d => d.label).join(", "));
+
+assert(result1.length === 1, "Exactly one option offered");
+assert(result1[0].label === "Lift: Push", `Label is "Lift: Push", got "${result1[0].label}"`);
+
+console.log("\n=== Test 2: Rest day on Friday offers next strength day (wraps to Monday) ===\n");
+
+// Scenario: Today is Friday 2026-10-23 (day 5 = rest)
+// Upcoming: Sat (day 6 = rest), Sun (day 7 = rest), Mon (day 1 = Push), Tue (day 2 = Pull)
+// Expected: [Lift: Push] - wraps to next week
+
+const result2 = buildTrainAnywayDays({
+  allDays: [
+    { id: "day-1", day_index: 1, day_type: "weights", label: "Push" },
+    { id: "day-2", day_index: 2, day_type: "weights", label: "Pull" },
+    { id: "day-3", day_index: 3, day_type: "weights", label: "Legs" },
+    { id: "day-4", day_index: 4, day_type: "rest", label: null },
+    { id: "day-5", day_index: 5, day_type: "rest", label: null },
+    { id: "day-6", day_index: 6, day_type: "rest", label: null },
+    { id: "day-7", day_index: 7, day_type: "rest", label: null },
+  ],
+  localToday: "2026-10-23", // Friday (day 5)
+  missedYesterday: false,
+});
+
+console.log("Result 2:", result2.map(d => d.label).join(", "));
+
+assert(result2.length === 1, "Exactly one option offered");
+assert(result2[0].label === "Lift: Push", `Label wraps to "Lift: Push", got "${result2[0].label}"`);
+
+console.log("\n=== Test 3: Rest day offers bodyweight training day ===\n");
+
+// Scenario: Today is Thursday 2026-10-22 (day 4 = rest)
+// Upcoming: Fri (day 5 = Bodyweight A), Sat (day 6 = rest), Sun (day 7 = Bodyweight B)
+// Expected: [Lift: Bodyweight A] - next training day is bodyweight
+
+const result3 = buildTrainAnywayDays({
+  allDays: [
+    { id: "day-1", day_index: 1, day_type: "rest", label: null },
+    { id: "day-2", day_index: 2, day_type: "rest", label: null },
+    { id: "day-3", day_index: 3, day_type: "rest", label: null },
+    { id: "day-4", day_index: 4, day_type: "rest", label: null },
+    { id: "day-5", day_index: 5, day_type: "bodyweight", label: "Bodyweight A" },
+    { id: "day-6", day_index: 6, day_type: "rest", label: null },
+    { id: "day-7", day_index: 7, day_type: "bodyweight", label: "Bodyweight B" },
+  ],
+  localToday: "2026-10-22", // Thursday (day 4)
+  missedYesterday: false,
+});
+
 console.log("Result 3:", result3.map(d => d.label).join(", "));
 
-const pushCount3 = result3.filter(d => d.label === "Push").length;
+assert(result3.length === 1, "Exactly one option offered");
 assert(
-  pushCount3 === 1,
-  `Push appears exactly once in upcoming (deduplicated day 2 vs day 6), got ${pushCount3}`
-);
-
-assert(
-  result3.length === 2,
-  `Only 2 distinct upcoming training days offered, got ${result3.length}`
+  result3[0].label === "Lift: Bodyweight A",
+  `Label is "Lift: Bodyweight A", got "${result3[0].label}"`
 );
 
 console.log(`\n✅ All ${passedTests}/${totalTests} buildTrainAnywayDays deduplication tests passed!\n`);

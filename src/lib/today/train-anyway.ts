@@ -32,48 +32,21 @@ export type TrainAnywayInput = {
  * Determine which workout options to offer in the "Or train today anyway" prompt on a rest day.
  * 
  * Product rule (decided):
- * - On a rest day, offer yesterday's missed workout first if:
- *   - Yesterday was a training day with no finished session
- *   - AND the user had started before (day-1 guard applies)
- * - Then offer the next 2 distinct upcoming training days
- * - Never offer only Yoga/Breathe when training days exist
+ * - On a rest day, offer the next upcoming strength day first ("Lift: <day name>")
  * - For blocks with no strength days, return empty array (yoga/breathe handled separately)
+ * - This lets users pull forward their next planned workout to today
  */
 export function trainAnywayOptions(input: TrainAnywayInput): TrainAnywayDay[] {
-  const { yesterdayDay, upcomingDays, missedYesterday } = input;
+  const { upcomingDays } = input;
 
   const result: TrainAnywayDay[] = [];
 
-  // If yesterday was missed, offer yesterday's workout first
-  if (missedYesterday && yesterdayDay && isTrainingDay(yesterdayDay.day_type)) {
-    result.push(yesterdayDay);
-  }
-
-  // Then offer the next 2 distinct upcoming training days
+  // Offer the next upcoming strength day
   const trainingDays = upcomingDays.filter((d) => isTrainingDay(d.day_type));
   
-  // Get the next 2 distinct training days (by day_index to avoid duplicates, and by label)
-  const distinctTrainingDays: TrainAnywayDay[] = [];
-  const seenIndices = new Set<number>();
-  const seenLabels = new Set<string>();
-  
-  // Add yesterday to seen sets if it was offered (to avoid duplicates in upcoming)
-  if (missedYesterday && yesterdayDay && isTrainingDay(yesterdayDay.day_type)) {
-    seenIndices.add(yesterdayDay.day_index);
-    seenLabels.add((yesterdayDay.label ?? "Training").toLowerCase());
+  if (trainingDays.length > 0) {
+    result.push(trainingDays[0]);
   }
-  
-  for (const day of trainingDays) {
-    const normalizedLabel = (day.label ?? "Training").toLowerCase();
-    if (!seenIndices.has(day.day_index) && !seenLabels.has(normalizedLabel)) {
-      distinctTrainingDays.push(day);
-      seenIndices.add(day.day_index);
-      seenLabels.add(normalizedLabel);
-    }
-    if (distinctTrainingDays.length >= 2) break;
-  }
-  
-  result.push(...distinctTrainingDays.slice(0, 2));
 
   return result;
 }
@@ -139,7 +112,7 @@ export function buildTrainAnywayDays({
     if (!programDay) return null;
     return {
       programDayId: programDay.id,
-      label: programDay.label ?? "Training",
+      label: `Lift: ${programDay.label ?? "Training"}`,
       dayType: programDay.day_type,
     };
   }).filter((d): d is PlannableDay => d !== null);
