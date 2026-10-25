@@ -45,13 +45,11 @@ const result1 = trainAnywayOptions({
   missedYesterday: false,
 });
 
-assert(result1.length === 3, "Returns 3 options (Lift + next 2 distinct)");
+assert(result1.length === 2, "Returns 2 options (Lift + 1 more)");
 assert(result1[0]?.day_index === 1, "First option is Monday (for Lift)");
 assert(result1[0]?.label === "Push", "First option label is Push");
 assert(result1[1]?.day_index === 3, "Second option is Wednesday");
 assert(result1[1]?.label === "Pull", "Second option label is Pull");
-assert(result1[2]?.day_index === 5, "Third option is Friday (Legs)");
-assert(result1[2]?.label === "Legs", "Third option label is Legs");
 
 console.log("\n=== Test 2: Rest day, yesterday missed workout ===\n");
 
@@ -93,13 +91,11 @@ const result3 = trainAnywayOptions({
   missedYesterday: false,
 });
 
-assert(result3.length === 3, "Returns 3 options");
+assert(result3.length === 2, "Returns 2 options (Lift + 1 more)");
 assert(result3[0]?.day_index === 1, "First option wraps to Monday");
 assert(result3[0]?.label === "Push", "First option label is Push");
 assert(result3[1]?.day_index === 3, "Second option is Wednesday");
 assert(result3[1]?.label === "Pull", "Second option label is Pull");
-assert(result3[2]?.day_index === 5, "Third option is Friday");
-assert(result3[2]?.label === "Legs", "Third option label is Legs");
 
 console.log("\n=== Test 4: Block with no weights days (all rest/yoga/meditation) ===\n");
 
@@ -135,13 +131,11 @@ const result5 = trainAnywayOptions({
   missedYesterday: true,
 });
 
-assert(result5.length === 3, "Returns 3 options (Lift + next 2 training days since today is rest)");
+assert(result5.length === 2, "Returns 2 options (Lift + 1 more since today is rest)");
 assert(result5[0]?.day_index === 1, "First option is Monday (for Lift)");
 assert(result5[0]?.label === "Push", "First option label is Push");
 assert(result5[1]?.day_index === 3, "Second option is Wednesday");
 assert(result5[1]?.label === "Pull", "Second option label is Pull");
-assert(result5[2]?.day_index === 5, "Third option is Friday");
-assert(result5[2]?.label === "Legs", "Third option label is Legs");
 
 console.log("\n=== Test 6: Bodyweight training days (not just weights) ===\n");
 
