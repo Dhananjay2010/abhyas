@@ -1598,7 +1598,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               
               // For current-knee lower/full days, protect first 2 lower-body exercises
               if (input.currentInjuryRegions.includes("knee") && entry.focus !== "push" && entry.focus !== "pull" && entry.focus !== "upper") {
-                const isLowerBody = ex.movement_pattern !== "core" && ex.primary_muscles.some(m => lowerBodyMuscles.includes(m));
+                // We already skipped core exercises above, so just check for lower-body muscles
+                const isLowerBody = ex.primary_muscles.some(m => lowerBodyMuscles.includes(m));
                 if (isLowerBody && lowerBodyCount <= 2) continue;
               }
               

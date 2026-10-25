@@ -19,7 +19,7 @@ const goals: Array<"general_fitness" | "muscle_gain" | "strength" | "fat_loss" |
   "flexibility_stress",
 ];
 
-const levels: Array<"beginner" | "intermediate" | "advanced"> = ["beginner", "intermediate", "advanced"];
+const levels: Array<"beginner" | "intermediate" | "expert"> = ["beginner", "intermediate", "expert"];
 const daysPerWeekOptions = [2, 3, 4, 5, 6];
 const sessionLengths = [30, 45, 60, 75];
 const bmiOptions = [22, 27, 32]; // Normal, overweight, obese
@@ -51,12 +51,12 @@ for (const goal of goals) {
               for (const age of ages) {
                 totalPlans++;
                 
-                const input: GeneratorInput = {
-                  userId: `test-${goal}-${level}-${daysPerWeek}d-${sessionMinutes}m-bmi${bmi}-b${blockNumber}-${equipment.name}-age${age}`,
-                  blockNumber,
-                  goal,
-                  level,
-                  primaryTrack: "strength",
+              const input: GeneratorInput = {
+                userId: `test-${goal}-${level}-${daysPerWeek}d-${sessionMinutes}m-bmi${bmi}-b${blockNumber}-${equipment.name}-age${age}`,
+                blockNumber,
+                goal,
+                level,
+                primaryTrack: "weights",
                   daysPerWeek,
                   yogaDaysPerWeek: 0,
                   age,
