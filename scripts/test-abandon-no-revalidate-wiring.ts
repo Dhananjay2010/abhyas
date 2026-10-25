@@ -5,13 +5,12 @@
  * This test ensures abandonSession no longer calls revalidateTrainingData,
  * which would cause premature redirect before the summary is shown.
  * 
- * The test verifies that abandonSessionCore is called without side effects.
+ * The test verifies that abandonSessionAction is called without side effects.
  */
 
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
-import { abandonSessionCore } from "../src/lib/session/abandon-session";
-import { makeAbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
+import { abandonSessionAction } from "../src/app/session/actions";
 
 let passed = 0;
 let failed = 0;
@@ -94,10 +93,9 @@ async function test() {
     global: { fetch: stubFetch },
   });
 
-  const deps = makeAbandonSessionDeps(client);
-  const result = await abandonSessionCore(deps, "session-1", 600);
+  const result = await abandonSessionAction(client, "session-1", 600);
 
-  assertTrue(result.ok, "abandonSessionCore succeeds");
+  assertTrue(result.ok, "abandonSessionAction succeeds");
   assertTrue(queryCalled, "Database query was made");
   assertTrue(
     statusSaved === "completed",
@@ -112,7 +110,7 @@ test()
       console.log(`❌ Failed: ${failed}`);
       process.exit(1);
     }
-    console.log("\n✨ abandonSession no-revalidate wiring test passed!");
+    console.log("\n✨ abandonSession action wiring test passed!");
     console.log("(abandonSession action must NOT call revalidateTrainingData)");
   })
   .catch((err) => {

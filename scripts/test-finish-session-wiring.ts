@@ -3,7 +3,7 @@
  * Wiring test: finishSession action calls finishSessionCore.
  * 
  * This test ensures the production wiring is intact. It will fail if:
- * - finishSession stops calling finishSessionCore
+ * - finishSessionAction stops calling finishSessionCore
  * - The 0-working-set → skipped rule is removed
  * - Timezone handling is removed
  * - Idempotency guard is removed
@@ -11,8 +11,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
-import { finishSessionCore } from "../src/lib/session/finish-session";
-import { makeFinishSessionDeps } from "../src/lib/session/finish-session-deps";
+import { finishSessionAction } from "../src/app/session/actions";
 
 let passed = 0;
 let failed = 0;
@@ -102,16 +101,13 @@ async function test() {
     global: { fetch: stubFetch },
   });
 
-  const deps = makeFinishSessionDeps(client);
-  deps.now = () => "2026-10-25T12:30:00Z";
-
-  const result = await finishSessionCore(deps, {
+  const result = await finishSessionAction(client, {
     sessionId: "session-1",
     durationSeconds: 1800,
     cooldownCompleted: false,
   });
 
-  assertTrue(result.ok, "finishSessionCore succeeds");
+  assertTrue(result.ok, "finishSessionAction succeeds");
   if (result.ok) {
     assertTrue(
       result.data.status === "skipped",
@@ -128,7 +124,7 @@ test()
       console.log(`❌ Failed: ${failed}`);
       process.exit(1);
     }
-    console.log("\n✨ finishSessionCore wiring test passed!");
+    console.log("\n✨ finishSession action wiring test passed!");
   })
   .catch((err) => {
     console.error("\n❌ Test suite threw an error:");
