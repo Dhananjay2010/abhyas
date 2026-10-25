@@ -282,9 +282,8 @@
     "test:m3-wrist": "tsx scripts/test-m3-wrist-lowerback-contraindications.ts",
     "test:remembers-weights-direct": "tsx scripts/test-remembers-weights-direct.ts",
     "test:swap-exercise-for-user": "tsx scripts/test-swap-exercise-for-user.ts",
-    "test:week-window": "tsx scripts/test-week-window.ts",
-    "test:week-window-wiring": "tsx scripts/test-week-window-wiring.ts",
-    "test:warmup-deload-label": "tsx scripts/test-warmup-deload-label.tsx"
+    "test:warmup-deload-label": "tsx scripts/test-warmup-deload-label.tsx",
+    "test:warmup-section-wiring": "tsx scripts/test-warmup-section-wiring.tsx"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
