@@ -144,6 +144,7 @@
     "test:swap-exercise-guard-source": "tsx scripts/test-swap-exercise-guard-source.ts",
     "test:swap-sheet-close-on-exercise-change": "tsx scripts/test-swap-sheet-close-on-exercise-change.tsx",
     "test:swap-after-logging-runner": "tsx scripts/test-swap-after-logging-runner.tsx",
+    "test:swap-guard-real-db": "tsx scripts/test-swap-guard-real-db.ts",
     "test:swap-guard-mock-deps": "tsx scripts/test-swap-guard-mock-deps.ts",
     "test:guard-mutants": "tsx scripts/test-guard-mutants.ts",
     "test:dob-field": "tsx scripts/test-dob-field.ts",
