@@ -1,5 +1,5 @@
 {
-  "mainCommit": "6893463b4d647280cc124f7e9f45337837a9cb95",
+  "mainCommit": "0b359190f4301e7df8e3d840f1a3c018ad67c81e",
   "profiles": [
     {
       "userId": "bw-2d-30m-beginner",
@@ -295,8 +295,7 @@
               "reps": "8-12",
               "swaps": [
                 "pullups",
-                "v-bar-pullup",
-                "wide-grip-rear-pull-up"
+                "v-bar-pullup"
               ]
             },
             {
@@ -318,9 +317,9 @@
               "swaps": [
                 "bent-over-two-dumbbell-row",
                 "bent-over-two-dumbbell-row-with-palms-in",
-                "straight-arm-dumbbell-pullover",
                 "inverted-row",
-                "doorway-row"
+                "doorway-row",
+                "table-row"
               ]
             },
             {
@@ -437,8 +436,7 @@
               "reps": "8-12",
               "swaps": [
                 "pullups",
-                "v-bar-pullup",
-                "wide-grip-rear-pull-up"
+                "v-bar-pullup"
               ]
             },
             {
@@ -460,9 +458,9 @@
               "swaps": [
                 "bent-over-two-dumbbell-row",
                 "bent-over-two-dumbbell-row-with-palms-in",
-                "straight-arm-dumbbell-pullover",
                 "inverted-row",
-                "table-row"
+                "table-row",
+                "doorway-row"
               ]
             },
             {
@@ -941,10 +939,10 @@
               "reps": "8-12",
               "swaps": [
                 "wide-grip-barbell-bench-press",
-                "barbell-guillotine-bench-press",
                 "bench-press-powerlifting",
                 "reverse-triceps-bench-press",
-                "reverse-band-bench-press"
+                "reverse-band-bench-press",
+                "front-raise-and-pullover"
               ]
             },
             {
@@ -1078,10 +1076,10 @@
               "reps": "8-12",
               "swaps": [
                 "wide-grip-barbell-bench-press",
-                "barbell-guillotine-bench-press",
                 "bench-press-powerlifting",
                 "reverse-band-bench-press",
-                "reverse-triceps-bench-press"
+                "reverse-triceps-bench-press",
+                "front-raise-and-pullover"
               ]
             },
             {
@@ -1225,9 +1223,9 @@
               "swaps": [
                 "barbell-incline-bench-press-medium-grip",
                 "wide-grip-decline-barbell-bench-press",
-                "barbell-guillotine-bench-press",
                 "wide-grip-barbell-bench-press",
-                "bench-press-powerlifting"
+                "bench-press-powerlifting",
+                "reverse-triceps-bench-press"
               ]
             },
             {
@@ -1235,11 +1233,11 @@
               "sets": 4,
               "reps": "8-12",
               "swaps": [
-                "standing-barbell-press-behind-neck",
                 "single-arm-linear-jammer",
                 "anti-gravity-press",
                 "clean-and-press",
-                "barbell-shoulder-press"
+                "barbell-shoulder-press",
+                "seated-barbell-military-press"
               ]
             },
             {
@@ -1290,9 +1288,9 @@
               "swaps": [
                 "v-bar-pulldown",
                 "full-range-of-motion-lat-pulldown",
-                "wide-grip-pulldown-behind-the-neck",
                 "one-arm-lat-pulldown",
-                "underhand-cable-pulldowns"
+                "underhand-cable-pulldowns",
+                "close-grip-front-lat-pulldown"
               ]
             },
             {
@@ -1315,8 +1313,8 @@
                 "bent-over-two-dumbbell-row",
                 "bent-over-two-dumbbell-row-with-palms-in",
                 "dumbbell-incline-row",
-                "straight-arm-dumbbell-pullover",
-                "one-arm-kettlebell-row"
+                "one-arm-kettlebell-row",
+                "seated-one-arm-cable-pulley-rows"
               ]
             },
             {
@@ -1424,9 +1422,9 @@
               "swaps": [
                 "wide-grip-barbell-bench-press",
                 "decline-barbell-bench-press",
-                "barbell-guillotine-bench-press",
                 "barbell-incline-bench-press-medium-grip",
-                "bench-press-powerlifting"
+                "bench-press-powerlifting",
+                "reverse-triceps-bench-press"
               ]
             },
             {
@@ -1435,10 +1433,10 @@
               "reps": "8-12",
               "swaps": [
                 "one-arm-lat-pulldown",
-                "wide-grip-pulldown-behind-the-neck",
                 "v-bar-pulldown",
                 "full-range-of-motion-lat-pulldown",
-                "underhand-cable-pulldowns"
+                "underhand-cable-pulldowns",
+                "close-grip-front-lat-pulldown"
               ]
             },
             {
@@ -1447,10 +1445,10 @@
               "reps": "8-12",
               "swaps": [
                 "single-arm-linear-jammer",
-                "standing-barbell-press-behind-neck",
                 "anti-gravity-press",
                 "bradford-rocky-presses",
-                "barbell-shoulder-press"
+                "barbell-shoulder-press",
+                "standing-bradford-press"
               ]
             },
             {
@@ -1574,10 +1572,10 @@
               "reps": "3-6",
               "swaps": [
                 "barbell-incline-bench-press-medium-grip",
-                "barbell-guillotine-bench-press",
                 "wide-grip-decline-barbell-bench-press",
                 "wide-grip-barbell-bench-press",
-                "bench-press-powerlifting"
+                "bench-press-powerlifting",
+                "reverse-triceps-bench-press"
               ]
             },
             {
@@ -1654,7 +1652,7 @@
                 "underhand-cable-pulldowns",
                 "v-bar-pulldown",
                 "one-arm-lat-pulldown",
-                "wide-grip-pulldown-behind-the-neck"
+                "full-range-of-motion-lat-pulldown"
               ]
             },
             {
@@ -1677,8 +1675,8 @@
                 "dumbbell-incline-row",
                 "bent-over-two-dumbbell-row",
                 "bent-over-two-dumbbell-row-with-palms-in",
-                "straight-arm-dumbbell-pullover",
-                "bent-over-two-arm-long-bar-row"
+                "bent-over-two-arm-long-bar-row",
+                "t-bar-row-with-handle"
               ]
             },
             {
@@ -1806,9 +1804,9 @@
               "swaps": [
                 "decline-barbell-bench-press",
                 "barbell-incline-bench-press-medium-grip",
-                "barbell-guillotine-bench-press",
                 "wide-grip-barbell-bench-press",
-                "bench-press-with-chains"
+                "bench-press-with-chains",
+                "reverse-band-bench-press"
               ]
             },
             {
@@ -1819,8 +1817,8 @@
                 "clean-and-press",
                 "standing-bradford-press",
                 "landmine-linear-jammer",
-                "standing-barbell-press-behind-neck",
-                "anti-gravity-press"
+                "anti-gravity-press",
+                "seated-barbell-military-press"
               ]
             },
             {
@@ -1885,11 +1883,11 @@
               "sets": 4,
               "reps": "3-6",
               "swaps": [
-                "wide-grip-pulldown-behind-the-neck",
                 "one-arm-lat-pulldown",
                 "v-bar-pulldown",
                 "full-range-of-motion-lat-pulldown",
-                "close-grip-front-lat-pulldown"
+                "close-grip-front-lat-pulldown",
+                "underhand-cable-pulldowns"
               ]
             },
             {
@@ -1912,8 +1910,8 @@
                 "bent-over-two-dumbbell-row-with-palms-in",
                 "dumbbell-incline-row",
                 "bent-over-two-dumbbell-row",
-                "straight-arm-dumbbell-pullover",
-                "bent-over-two-arm-long-bar-row"
+                "bent-over-two-arm-long-bar-row",
+                "inverted-row"
               ]
             },
             {
