@@ -90,9 +90,9 @@ console.log("\n1. Catalogue validation: all past-knee slugs exist and explosive 
   console.log(`    Checked ${excludedSlugs.length} excluded slugs, ${highImpactSquatLunge.length} high-impact exercises`);
 }
 
-console.log("\n2. Wide grid test: 5 goals × 3 levels × tracks × equipment × days");
+console.log("\n2. Wide grid test: 4 goals × 3 levels × tracks × equipment × days");
 {
-  type Goal = "muscle_gain" | "strength" | "fat_loss" | "general_fitness" | "endurance";
+  type Goal = "muscle_gain" | "strength" | "fat_loss" | "general_fitness";
   type Level = "beginner" | "intermediate" | "expert";
   type Track = "weights" | "bodyweight";
   
