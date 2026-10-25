@@ -11,6 +11,9 @@
 
 import { finishSessionCore } from "../src/lib/session/finish-session";
 
+const NOW = "2026-10-25T12:00:00Z";
+const NOW_FN = () => NOW;
+
 let passed = 0;
 let failed = 0;
 
@@ -85,7 +88,7 @@ async function runTests() {
     const deps = makeFakeDeps(false);
     const result = await finishSessionCore(
       deps,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
     );
 
     assertEquals(result.ok, true, "First call succeeds");
@@ -100,7 +103,7 @@ async function runTests() {
     const deps = makeFakeDeps(true); // Session already completed
     const result = await finishSessionCore(
       deps,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
     );
 
     assertEquals(result.ok, true, "Second call succeeds idempotently");
@@ -160,8 +163,8 @@ async function runTests() {
     };
 
     const [result1, result2] = await Promise.all([
-      finishSessionCore(deps1, { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }),
-      finishSessionCore(deps1, { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }),
+      finishSessionCore(deps1, { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN }),
+      finishSessionCore(deps1, { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN }),
     ]);
 
     assertEquals(result1.ok, true, "First concurrent call succeeds");

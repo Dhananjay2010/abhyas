@@ -13,6 +13,9 @@ import { finishSessionCore } from "../src/lib/session/finish-session";
 import { makeFinishSessionDeps } from "../src/lib/session/finish-session-deps";
 import type { Database } from "../src/lib/database.types";
 
+const NOW = "2026-10-25T12:00:00Z";
+const NOW_FN = () => NOW;
+
 let passed = 0;
 let failed = 0;
 
@@ -89,6 +92,7 @@ async function runTests() {
       sessionId: "session-1",
       durationSeconds: 1800,
       cooldownCompleted: false,
+      now: NOW_FN,
     });
 
     assertTrue(result.ok, "finishSessionCore should succeed with empty exercises");
@@ -115,6 +119,7 @@ async function runTests() {
       sessionId: "session-1",
       durationSeconds: 1800,
       cooldownCompleted: false,
+      now: NOW_FN,
     });
 
     assertTrue(result.ok, "finishSessionCore should handle exercises with no sets");

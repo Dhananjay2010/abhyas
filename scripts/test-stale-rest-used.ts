@@ -8,6 +8,9 @@
 import { finishSessionCore } from "../src/lib/session/finish-session";
 import type { SessionRow, SessionExerciseWithSets, ExerciseForUpdate, FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 
+const NOW = "2026-10-25T12:00:00Z";
+const NOW_FN = () => NOW;
+
 let passed = 0;
 let failed = 0;
 
@@ -116,6 +119,7 @@ console.log("1. Stale session uses last set's exercise rest_seconds (90s)");
       sessionId: "session-1",
       durationSeconds: 9999,
       cooldownCompleted: true,
+    now: NOW_FN,
     });
 
     assertTrue(result.ok, "finishSession succeeds");
@@ -156,6 +160,7 @@ console.log("\n2. Stale session with null rest_seconds uses default 300s");
       sessionId: "session-2",
       durationSeconds: 9999,
       cooldownCompleted: true,
+    now: NOW_FN,
     });
 
     assertTrue(result.ok, "finishSession succeeds");
@@ -194,6 +199,7 @@ console.log("\n3. Stale session uses last working set's exercise rest, ignoring 
       sessionId: "session-3",
       durationSeconds: 9999,
       cooldownCompleted: true,
+    now: NOW_FN,
     });
 
     assertTrue(result.ok, "finishSession succeeds");
@@ -202,7 +208,8 @@ console.log("\n3. Stale session uses last working set's exercise rest, ignoring 
     const warmupSetTime = new Date("2026-10-23T10:30:00Z").getTime();
     const startTime = new Date("2026-10-23T10:00:00Z").getTime();
     
-    const completedAtMs = new Date(update.patch.completed_at!).getTime();
+    assertTrue(update.patch.completed_at !== null && update.patch.completed_at !== undefined, "completed_at is not null");
+    const completedAtMs = new Date(update.patch.completed_at).getTime();
     assertTrue(completedAtMs > warmupSetTime, "completed_at uses chronologically last set (warmup)");
     
     const expectedDuration = Math.floor((warmupSetTime - startTime + 200 * 1000) / 1000);

@@ -10,6 +10,7 @@ import { abandonSessionCore } from "../src/lib/session/abandon-session";
 import type { Database } from "../src/lib/database.types";
 
 const NOW = "2026-10-25T12:00:00Z";
+const NOW_FN = () => NOW;
 const NOW_MS = Date.parse(NOW);
 const THIRTY_MIN_AGO = new Date(NOW_MS - 30 * 60 * 1000).toISOString();
 
@@ -132,7 +133,7 @@ async function runTests() {
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
       
     );
 
@@ -164,7 +165,7 @@ async function runTests() {
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
       
     );
 
@@ -192,7 +193,7 @@ async function runTests() {
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
       
     );
 
@@ -221,7 +222,7 @@ async function runTests() {
       fake,
       "s1",
       1200,
-      
+      NOW_FN,
     );
 
     assertEquals(fake.exerciseUpdates.length, 1, "One exercise updated");
@@ -268,7 +269,7 @@ async function runTests() {
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
       
     );
 
@@ -302,7 +303,7 @@ async function runTests() {
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true, now: NOW_FN },
       
     );
 

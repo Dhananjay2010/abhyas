@@ -37,7 +37,8 @@ console.log("1. Valid startedAt: normal operation");
 
   check("Status is completed", result.status === "completed");
   check("Duration is a finite positive number", Number.isFinite(result.durationSeconds) && (result.durationSeconds ?? 0) > 0);
-  check("endedAt is a valid ISO timestamp", !isNaN(Date.parse(result.endedAt || "1970-01-01T00:00:00Z")));
+  check("endedAt is not null", result.endedAt !== null);
+  check("endedAt is a valid ISO timestamp", result.endedAt !== null && !isNaN(Date.parse(result.endedAt)));
 }
 
 console.log("\n2. Invalid startedAt (null): returns null duration");

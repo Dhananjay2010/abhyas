@@ -3,6 +3,9 @@ import { finishSessionCore } from "../src/lib/session/finish-session";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
 import type { SessionRow, SessionExerciseWithSets, ExerciseForUpdate } from "../src/lib/session/finish-session-deps";
 
+const NOW = "2026-10-25T12:00:00Z";
+const NOW_FN = () => NOW;
+
 let passed = 0;
 let failed = 0;
 
@@ -121,6 +124,7 @@ async function testFinishSessionRequiresInProgressFilter() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
+    now: NOW_FN,
   });
 
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
@@ -145,6 +149,7 @@ async function testFinishSessionRespectsDecideAbandonStatusZeroSets() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
+    now: NOW_FN,
   });
 
   assertTrue(result.ok, "finishSession with 0 working sets should succeed");
@@ -173,6 +178,7 @@ async function testFinishSessionRespectsDecideAbandonStatusWithWorkingSets() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
+    now: NOW_FN,
   });
 
   assertTrue(result.ok, "finishSession with working sets should succeed");
@@ -191,6 +197,7 @@ async function testFinishSessionHandlesReadError() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
+    now: NOW_FN,
   });
 
   assertEquals(result.ok, false, "finishSession must return {ok:false} on read error");
@@ -212,6 +219,7 @@ async function testFinishSessionHandlesUpdateError() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
+    now: NOW_FN,
   });
 
   assertEquals(result.ok, false, "finishSession must return {ok:false} on update error");
@@ -233,6 +241,7 @@ async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
+    now: NOW_FN,
   });
 
   assertTrue(resultCompleted.ok && resultCompleted.data.status === "completed", "completed session returned");
@@ -250,6 +259,7 @@ async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
+    now: NOW_FN,
   });
 
   assertTrue(resultSkipped.ok && resultSkipped.data.status === "skipped", "skipped session returned");
@@ -330,6 +340,7 @@ async function testFinishSessionNullDurationForNullStartedAt() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
+    now: NOW_FN,
   });
 
   assertEquals(result.ok, false, "finishSession with null started_at must return error");
@@ -364,6 +375,7 @@ async function testFinishSessionNullDurationForInvalidStartedAt() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
+    now: NOW_FN,
   });
 
   assertEquals(result.ok, false, "finishSession with invalid started_at must return error");
@@ -388,6 +400,7 @@ async function testFinishSessionNullDurationForInvalidLastSetTime() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
+    now: NOW_FN,
   });
 
   assertEquals(result.ok, false, "finishSession with invalid lastSet time must return error");
