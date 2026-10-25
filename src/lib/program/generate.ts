@@ -1193,11 +1193,15 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         if (kneeSafeOptions.length > 0) {
           const added = kneeSafeOptions[0];
+          const mainSlotCount = getMainSlotCount(entry.slots);
           
-          // For current-knee with wall-sit, allow reuse across days
+          // For current-knee with wall-sit, place as first accessory (before core)
           if (hasCurrentKneeLocal && added.slug === "wall-sit") {
-            // Add at end; will be positioned before core during sort
-            pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+            // Wall-sit goes at slotIndex = mainSlotCount (first accessory position)
+            // Insert before first core exercise in the picked list
+            const firstCoreIdx = pickedExercises.findIndex(p => p.ex.movement_pattern === "core");
+            const insertIdx = firstCoreIdx >= 0 ? firstCoreIdx : pickedExercises.length;
+            pickedExercises.splice(insertIdx, 0, { ex: added, slotIndex: mainSlotCount });
             // Don't mark as used in block (allow reuse across days)
           } else {
             // Normal case: add and mark used

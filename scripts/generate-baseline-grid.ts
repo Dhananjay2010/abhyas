@@ -10,7 +10,6 @@ import { execSync } from "node:child_process";
 import { rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createHash } from "node:crypto";
 
 const WORKTREE = join(tmpdir(), "abhyas-main-baseline");
 
@@ -62,7 +61,7 @@ for (const goal of goals) {
                 for (const block of blocks) {
                   const groupId = \`\${goal.substring(0,2)}-\${level[0]}-\${track.substring(0,2)}-\${eqSet.id}-\${daysPerWeek}d-\${minutes}m-a\${age}-b\${bmi}-blk\${block}\`;
                   
-                  const input: any = {
+                  const input = {
                     userId: groupId,
                     blockNumber: block,
                     goal,

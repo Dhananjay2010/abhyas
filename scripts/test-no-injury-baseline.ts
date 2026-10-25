@@ -47,10 +47,14 @@ console.log("─".repeat(60));
 console.log(`Testing ${baseline.metadata.planCount} plan profiles from main\n`);
 
 // Parse profile IDs and test each one
+let parsedCount = 0;
 for (const [profileId, expectedHash] of Object.entries(baseline.plans)) {
   // Parse ID: ge-b-we-none-3d-45m-a30-b23-blk1
   const parts = profileId.split("-");
-  if (parts.length < 9) continue;
+  if (parts.length < 9) {
+    check(`${profileId}`, false, "Unparseable profile ID (wrong format)");
+    continue;
+  }
   
   const goalMap: Record<string, string> = {
     ge: "general_fitness",
@@ -78,12 +82,28 @@ for (const [profileId, expectedHash] of Object.entries(baseline.plans)) {
   const equipmentIds = equipment === "none" ? [] : equipment === "full" ? [] : [equipment];
   const hasAllEquipment = equipment === "full";
   
+  // Type guards
+  function isFitnessGoal(s: string): s is Database["public"]["Enums"]["fitness_goal"] {
+    return ["general_fitness", "muscle_gain", "strength", "fat_loss", "flexibility_stress"].includes(s);
+  }
+  function isFitnessLevel(s: string): s is Database["public"]["Enums"]["fitness_level"] {
+    return ["beginner", "intermediate", "advanced"].includes(s);
+  }
+  function isTrackType(s: string): s is Database["public"]["Enums"]["track_type"] {
+    return ["strength", "hypertrophy", "power", "endurance", "flexibility", "yoga", "bodyweight", "weights"].includes(s);
+  }
+  
+  if (!isFitnessGoal(goal) || !isFitnessLevel(level) || !isTrackType(track)) {
+    check(`${profileId}`, false, "Invalid goal/level/track");
+    continue;
+  }
+  
   const input: GeneratorInput = {
     userId: profileId,
     blockNumber: block,
-    goal: goal as Database["public"]["Enums"]["fitness_goal"],
-    level: level as Database["public"]["Enums"]["fitness_level"],
-    primaryTrack: track as Database["public"]["Enums"]["track_type"],
+    goal,
+    level,
+    primaryTrack: track,
     daysPerWeek: days,
     yogaDaysPerWeek: track === "yoga" ? days : 0,
     age,
@@ -101,6 +121,7 @@ for (const [profileId, expectedHash] of Object.entries(baseline.plans)) {
     const planJson = JSON.stringify(plan);
     const planHash = createHash("sha256").update(planJson).digest("hex");
     
+    parsedCount++;
     check(
       `${profileId}`,
       planHash === expectedHash,
@@ -112,6 +133,13 @@ for (const [profileId, expectedHash] of Object.entries(baseline.plans)) {
     check(`${profileId}`, false, `Error generating plan: ${err}`);
   }
 }
+
+// Assert parsed count matches metadata
+check(
+  "Parsed count matches metadata.planCount",
+  parsedCount === baseline.metadata.planCount,
+  `Expected ${baseline.metadata.planCount}, got ${parsedCount}`
+);
 
 console.log("\n" + "─".repeat(60));
 console.log(`Summary: ${passed} passed, ${failed} failed`);

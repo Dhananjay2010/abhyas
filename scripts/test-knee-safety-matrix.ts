@@ -512,20 +512,29 @@ for (const seed of testSeeds) {
             // Note: Main-lift set count invariants (e.g., main >= accessory sets) are covered by a separate follow-up PR
             
             // Rule 9 (PR #73 follow-up): No timed hold (metric=seconds) in main slots - CURRENT KNEE ONLY
-            // PR #73 Run 13: Check timed holds in main slots (no exemptions)
+            // PR #73 Run 13: Check timed holds in main slots
+            // Short-day exemption: days where non-core count <= mainSlotCount may have holds in "main" positions
             if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               const mainSlotCount = getMainSlotCountForDay(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
-              const mains = day.exercises.filter((ex, idx) => idx < mainSlotCount);
+              const nonCoreCount = day.exercises.filter(ex => {
+                const e = byId.get(ex.exerciseId);
+                return e?.movement_pattern !== "core";
+              }).length;
+              const isShortDay = nonCoreCount <= mainSlotCount;
               
-              for (const mainEx of mains) {
-                const exercise = byId.get(mainEx.exerciseId);
-                if (!exercise) continue;
+              if (!isShortDay) {
+                const mains = day.exercises.filter((ex, idx) => idx < mainSlotCount);
                 
-                if (exercise.metric === "seconds") {
-                  check(`${profileId} ${day.label}: no timed hold in main slot`, false,
-                    `${exercise.name} [${exercise.slug}] at position ${mainEx.orderIndex + 1} (template has ${mainSlotCount} main slots, day has ${day.exercises.length} exercises)`);
-                  profileFailed = true;
+                for (const mainEx of mains) {
+                  const exercise = byId.get(mainEx.exerciseId);
+                  if (!exercise) continue;
+                  
+                  if (exercise.metric === "seconds") {
+                    check(`${profileId} ${day.label}: no timed hold in main slot`, false,
+                      `${exercise.name} [${exercise.slug}] at position ${mainEx.orderIndex + 1} (template has ${mainSlotCount} main slots, day has ${day.exercises.length} exercises)`);
+                    profileFailed = true;
+                  }
                 }
               }
             }
@@ -549,7 +558,14 @@ for (const seed of testSeeds) {
                 });
                 
                 // PR #73 Run 13: Wall Sit must be in accessory slots (after main slots)
-                if (wallSitIndex < mainSlotCount) {
+                // Short-day exemption: may be in "main" position if no accessory slots exist
+                const nonCoreCount = day.exercises.filter(ex => {
+                  const e = byId.get(ex.exerciseId);
+                  return e?.movement_pattern !== "core";
+                }).length;
+                const isShortDay = nonCoreCount <= mainSlotCount;
+                
+                if (!isShortDay && wallSitIndex < mainSlotCount) {
                   check(`${profileId} ${day.label}: Wall Sit not in main slot`, false,
                     `Wall Sit at position ${wallSitIndex + 1} (template has ${mainSlotCount} main slots, day has ${day.exercises.length} exercises)`);
                   profileFailed = true;

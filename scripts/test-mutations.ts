@@ -174,6 +174,24 @@ const mutants: Mutant[] = [
     mutate: '// MUTANT: Disabled wall-sit reuse',
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
   },
+
+  // PR #73 Run 13: B4 sissy ban mutant (#104 exclusions)
+  {
+    name: "Remove sissy-squat ban (allow in past-knee swaps)",
+    file: "src/lib/program/generate.ts",
+    pattern: /if \(hasPastKnee && EXCLUDED_EXERCISE_SLUGS\.has\(candidate\.slug\)\) continue;/,
+    mutate: '// MUTANT: Removed sissy ban',
+    tests: ["test:knee-swaps", "test:past-knee-coordinator"],
+  },
+
+  // PR #73 Run 13: #104 filter overlap assertion
+  {
+    name: "Allow KNEE_SAFE_QUAD to overlap with EXCLUDED_EXERCISE_SLUGS",
+    file: "src/lib/program/generate.ts",
+    pattern: /\.filter\(\(item\) => !EXCLUDED_EXERCISE_SLUGS\.has\(item\.e\.slug\)\);/,
+    mutate: '.filter((item) => true); // MUTANT: Removed exclusion filter',
+    tests: ["test:knee-safety-matrix"],
+  },
 ];
 
 let killed = 0;
