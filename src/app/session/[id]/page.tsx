@@ -2,13 +2,12 @@ import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
-import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
-import { mapSessionExercise } from "@/lib/session/build-runner-exercises";
-import { progressionInputsFromExercise } from "@/lib/session/progression-inputs";
+import { buildRunnerExercise } from "@/lib/session/build-runner-exercises";
+import { shouldRedirectSession } from "@/lib/today/session-detection";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +55,7 @@ export default async function SessionPage({
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
       supabase
         .from("profiles")
-        .select("primary_track, has_all_equipment, timezone, units")
+        .select("primary_track, has_all_equipment, timezone")
         .eq("id", user.id)
         .single(),
       supabase.from("user_injuries").select("body_region, severity"),
@@ -88,7 +87,11 @@ export default async function SessionPage({
 
   const session = sessionRes.data;
   if (!session) notFound();
-  if (session.status === "completed") redirect("/today");
+  
+  // Only redirect completed sessions. An in_progress session stays accessible
+  // regardless of timezone changes: a user who switches to a zone where it's
+  // the next day can still resume their active session.
+  if (shouldRedirectSession(session.status)) redirect("/today");
 
   const rows = session.session_exercises ?? [];
   const progressByExercise = new Map(
@@ -117,77 +120,17 @@ export default async function SessionPage({
       name: string;
       cue: string | null;
       movement_pattern: Database["public"]["Enums"]["movement_pattern"];
-      mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
       primary_muscles: Muscle[];
       equipment_ids: string[];
     };
     const progress = remembersWeights ? progressByExercise.get(ex?.id ?? "") : undefined;
     
-    // Use extracted pure function for target resolution (M-2)
-    const mapped = mapSessionExercise({
+    return buildRunnerExercise({
       row: r,
       progress,
       remembersWeights,
+      isDeload: session.is_deload,
     });
-    
-    const progInputs = progressionInputsFromExercise(ex ?? { equipment_ids: [] }, profileRes.data?.units);
-    
-    return {
-      id: r.id,
-      exerciseId: mapped.exerciseId,
-      name: ex?.name ?? "Exercise",
-      cue: ex?.cue ?? null,
-      /*
-        The session's own unit, not the catalogue's. A session resumed after the
-        exercise was re-tagged must keep running in the unit its sets were
-        logged in, or half the sets in one exercise would be reps and half
-        seconds.
-      */
-      metric: mapped.metric,
-      primaryMuscles: ex?.primary_muscles ?? [],
-      plannedSets: r.planned_sets ?? 3,
-      repsMin: mapped.repsMin,
-      repsMax: mapped.repsMax,
-      restSeconds: r.rest_seconds ?? 90,
-      status: r.status,
-      feel: r.feel,
-      workingWeightKg: mapped.currentWorkingWeightKg,
-      suggestedWeightKg: suggestedWeight(
-        { currentWorkingWeightKg: mapped.currentWorkingWeightKg },
-        session.is_deload,
-        {
-          mechanic: ex?.mechanic ?? null,
-          movementPattern: ex?.movement_pattern ?? "other",
-          metric: mapped.metric,
-          isBodyweight: mapped.isBodyweight,
-          progressionChain: null,
-          progressionRank: null,
-        },
-        progInputs.equipmentIds,
-        progInputs.unit,
-      ),
-      isBodyweight: mapped.isBodyweight,
-      // Warm-up sets are excluded and the order applied here rather than in the
-      // query. PostgREST is documented to filter an embedded resource without
-      // dropping its parent, but if that were ever wrong the failure would be
-      // silent and severe: a session that has not been started yet has no
-      // logged sets, so every exercise would vanish from the runner. A handful
-      // of rows per exercise is not worth taking that on trust.
-      // Where a resume should land (B1): the latest working set says which
-      // exercise the user was in the middle of.
-      lastLoggedAt: (r.session_sets ?? [])
-        .filter((set) => !set.is_warmup_set)
-        .reduce<string | null>((latest, set) => (latest === null || set.completed_at > latest ? set.completed_at : latest), null),
-      sets: (r.session_sets ?? [])
-        .filter((set) => !set.is_warmup_set)
-        .sort((a, b) => a.set_number - b.set_number)
-        .map((set) => ({
-          setNumber: set.set_number,
-          reps: set.reps,
-          weightKg: set.weight_kg === null ? null : Number(set.weight_kg),
-          durationSeconds: set.duration_seconds,
-        })),
-    };
   });
 
   const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];

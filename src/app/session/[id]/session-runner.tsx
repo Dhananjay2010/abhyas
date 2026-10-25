@@ -16,7 +16,7 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
-import { resolveTarget } from "@/lib/session/display-target";
+import { applySwap } from "@/lib/session/build-runner-exercises";
 import {
   abandonSession,
   deleteSet,
@@ -962,32 +962,39 @@ export function SessionRunner({
                         if (!ok || !box.value) return;
                         const swapped = box.value;
                         
-                        // M-5: Recompute target for new exercise using shared helper
-                        // No progress available for new exercise, so it will use plan range
-                        const newIsBodyweight = (swapped.equipmentIds ?? []).length === 0;
-                        const newTarget = resolveTarget({
+                        // M-5: Use pure applySwap function with progress from server
+                        // Server already filtered progress based on remembersWeights (planning_mode)
+                        const swappedProgress =
+                          swapped.currentTargetReps !== undefined || swapped.currentWorkingWeightKg !== undefined
+                            ? {
+                                current_target_reps: swapped.currentTargetReps ?? null,
+                                current_working_weight_kg: swapped.currentWorkingWeightKg ?? null,
+                              }
+                            : undefined;
+                        
+                        const swappedData = {
+                          id: a.exerciseId,
+                          name: a.name,
+                          cue: a.cue,
                           metric: swapped.metric,
-                          plannedMin: swapped.repsMin ?? 8,
-                          plannedMax: swapped.repsMax ?? 12,
-                          currentTargetReps: null, // No progress for new exercise
-                          isBodyweight: newIsBodyweight,
-                          currentWorkingWeightKg: null, // No weight for new exercise
-                        });
+                          primary_muscles: current.primaryMuscles,
+                          equipment_ids: swapped.equipmentIds ?? [],
+                        };
+                        
+                        const updated = applySwap(current, swappedData, swappedProgress, true);
                         
                         setExercises((prev) =>
                           prev.map((e) =>
                             e.id === current.id
                               ? {
-                                  ...e,
-                                  name: a.name,
-                                  cue: a.cue,
-                                  exerciseId: a.exerciseId,
-                                  metric: swapped.metric,
-                                  repsMin: newTarget.min,
-                                  repsMax: newTarget.max,
-                                  isBodyweight: newIsBodyweight,
-                                  workingWeightKg: null,
-                                  suggestedWeightKg: null,
+                                  ...updated,
+                                  // Update planned range from server
+                                  plannedSets: current.plannedSets,
+                                  restSeconds: current.restSeconds,
+                                  status: current.status,
+                                  feel: current.feel,
+                                  sets: current.sets,
+                                  lastLoggedAt: current.lastLoggedAt,
                                 }
                               : e,
                           ),
