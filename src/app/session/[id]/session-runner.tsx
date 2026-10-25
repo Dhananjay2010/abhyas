@@ -234,6 +234,8 @@ export function SessionRunner({
         if (settings.restSound) beeper.beep();
         if (settings.restVibrate) vibrate([180, 90, 180]);
         setRestEndsAt(null);
+        // No clearRest here: loadRest drops expired values, so a reload after
+        // the timer reaches 0 will find nothing to restore.
       }
     };
     tick();

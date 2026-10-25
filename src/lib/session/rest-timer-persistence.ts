@@ -5,6 +5,8 @@
  * sleeps or real browsers.
  */
 
+import { useMemo } from "react";
+
 export type StorageAdapter = {
   getItem: (key: string) => string | null;
   setItem: (key: string, value: string) => void;
@@ -16,6 +18,16 @@ export type RestRecord = {
   sessionExerciseId: string;
   setNumber: number;
   restEndsAt: number;
+};
+
+/**
+ * No-op storage for when sessionStorage is unavailable (SSR, private mode).
+ * Hoisted to module scope so it's stable across renders.
+ */
+const NO_OP_STORAGE: StorageAdapter = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
 };
 
 /**
@@ -109,18 +121,17 @@ export function clearRest(storage: StorageAdapter, sessionId: string): void {
  *
  * Returns callbacks to save/load/clear the rest timer. Called once on mount to
  * restore a rest in progress, and whenever the rest state changes.
+ *
+ * The returned object is stable (memoized) so it doesn't cause useCallback
+ * dependencies to change on every render.
  */
 export function useRestPersistence(
   sessionId: string,
   currentSessionExerciseId: string | undefined,
-  storage: StorageAdapter = typeof sessionStorage !== "undefined" ? sessionStorage : {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-  },
+  storage: StorageAdapter = typeof sessionStorage !== "undefined" ? sessionStorage : NO_OP_STORAGE,
   now: () => number = Date.now,
 ) {
-  return {
+  return useMemo(() => ({
     save: (sessionExerciseId: string, setNumber: number, restEndsAt: number) => {
       saveRest(storage, { sessionId, sessionExerciseId, setNumber, restEndsAt });
     },
@@ -139,5 +150,5 @@ export function useRestPersistence(
     clear: () => {
       clearRest(storage, sessionId);
     },
-  };
+  }), [sessionId, currentSessionExerciseId, storage, now]);
 }
