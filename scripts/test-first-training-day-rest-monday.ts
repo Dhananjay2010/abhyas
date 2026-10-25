@@ -8,7 +8,6 @@
 
 import { findFirstTrainingDay } from "../src/lib/today/first-training-day";
 
-import { assertDefined } from "./test-helpers";
 function assert(condition: boolean, message: string) {
   if (!condition) {
     console.error(`❌ FAIL: ${message}`);
