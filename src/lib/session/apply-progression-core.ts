@@ -45,6 +45,61 @@ export type ApplyProgressionInput = {
 };
 
 /**
+ * Build ApplyProgressionInput from raw Supabase query results.
+ * Takes the exact row structures as actions.ts receives them.
+ */
+export function buildApplyProgressionInputFromRows(params: {
+  se: {
+    id: string;
+    exercise_id: string;
+    planned_sets: number | null;
+    planned_reps_min: number | null;
+    planned_reps_max: number | null;
+    metric: Database["public"]["Enums"]["exercise_metric"] | null;
+    exercises: {
+      mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
+      movement_pattern: MovementPattern;
+      equipment_ids: string[];
+      progression_chain: string | null;
+      progression_rank: number | null;
+    };
+  };
+  sessionRow: {
+    is_deload: boolean | null;
+    local_date: string | null;
+  } | null;
+  setsRows: {
+    reps: number | null;
+    weight_kg: number | null;
+    duration_seconds: number | null;
+  }[];
+  progressRow: {
+    current_working_weight_kg: number | null;
+    current_target_reps: number | null;
+    consecutive_failures: number;
+    best_weight_kg: number | null;
+    best_reps: number | null;
+    best_e1rm: number | null;
+    total_sessions: number;
+  } | null;
+  profileRow: {
+    units: string | null;
+  } | null;
+  feel: SetFeel | null;
+}): ApplyProgressionInput {
+  const { se, sessionRow, setsRows, progressRow, profileRow, feel } = params;
+  return buildApplyProgressionInput(
+    { id: se.id, exercise_id: se.exercise_id, planned_sets: se.planned_sets, planned_reps_min: se.planned_reps_min, planned_reps_max: se.planned_reps_max, metric: se.metric },
+    se.exercises,
+    sessionRow,
+    setsRows,
+    progressRow,
+    profileRow?.units,
+    feel,
+  );
+}
+
+/**
  * Build ApplyProgressionInput from Supabase query results.
  * Pure function for testing the input builder in isolation.
  */
@@ -134,12 +189,14 @@ export async function applyProgressionCore(
   };
 
   const state = {
-    currentWorkingWeightKg: prior?.current_working_weight_kg ?? null,
+    currentWorkingWeightKg: prior?.current_working_weight_kg === null || prior === null
+      ? null
+      : Number(prior.current_working_weight_kg),
     currentTargetReps: prior?.current_target_reps ?? null,
     consecutiveFailures: prior?.consecutive_failures ?? 0,
-    bestWeightKg: prior?.best_weight_kg ?? null,
+    bestWeightKg: prior?.best_weight_kg === null || prior === null ? null : Number(prior.best_weight_kg),
     bestReps: prior?.best_reps ?? null,
-    bestE1rm: prior?.best_e1rm ?? null,
+    bestE1rm: prior?.best_e1rm === null || prior === null ? null : Number(prior.best_e1rm),
     totalSessions: prior?.total_sessions ?? 0,
   };
 

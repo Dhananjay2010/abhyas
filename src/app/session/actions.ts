@@ -24,7 +24,7 @@ import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { applyProgressionCore, buildApplyProgressionInput } from "@/lib/session/apply-progression-core";
+import { applyProgressionCore, buildApplyProgressionInputFromRows } from "@/lib/session/apply-progression-core";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
@@ -430,17 +430,18 @@ async function applyProgression(
     supabase.from("profiles").select("units").eq("id", userId).maybeSingle(),
   ]);
 
-  const input = buildApplyProgressionInput(
-    se,
-    ex,
-    sessionRes.data,
-    setsRes.data ?? [],
-    progressRes.data,
-    profileRes.data?.units,
-    feel,
+  const decision = await applyProgressionCore(
+    supabase,
+    userId,
+    buildApplyProgressionInputFromRows({
+      se: { ...se, exercises: ex },
+      sessionRow: sessionRes.data,
+      setsRows: setsRes.data ?? [],
+      progressRow: progressRes.data,
+      profileRow: profileRes.data,
+      feel,
+    })
   );
-
-  const decision = await applyProgressionCore(supabase, userId, input);
 
   // Outgrew a bodyweight variation: upgrade the plan so next time is harder.
   if (decision.wantsHarderVariation && ex.progression_chain) {

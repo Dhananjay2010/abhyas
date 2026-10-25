@@ -250,11 +250,17 @@ m15() {
 }
 test_mutant "Success check uses Math.min(successTarget, repsMax)" m15
 
-# M16: Replace ex with {...ex, equipment_ids: []} in actions.ts
-m16() {
-  sed -i '/buildApplyProgressionInput(/,/feel,$/{s/    ex,$/    { ...ex, equipment_ids: [] },/}' "$ACTIONS"
+# A1: equipment_ids → [] in buildApplyProgressionInputFromRows (with comment) - M16 retargeted
+a1() {
+  sed -i '/export function buildApplyProgressionInputFromRows/,/^}$/{ s/se\.exercises,$/{ ...se.exercises, equipment_ids: [] }, \/\/ A1\/M16 mutant\n    \/\/ se.exercises,/ }' "$CORE"
 }
-test_mutant "Replace input equipment_ids with [] (actions.ts wiring)" m16 "ACTIONS"
+test_mutant "equipment_ids → [] in buildApplyProgressionInputFromRows - kills M16" a1 "CORE"
+
+# A2: units → "metric" in buildApplyProgressionInputFromRows (with comment) - M16 retargeted
+a2() {
+  sed -i 's/profileRow.*units,/"metric", \/\/ A2\/M16 mutant/' "$CORE"
+}
+test_mutant "units → 'metric' in buildApplyProgressionInputFromRows - kills M16" a2 "CORE"
 
 # M17a: Drop equipment_ids in buildApplyProgressionInput
 m17a() {
@@ -262,23 +268,47 @@ m17a() {
 }
 test_mutant "Drop equipment_ids in buildApplyProgressionInput" m17a "CORE"
 
-# M17b: Pass empty equipment_ids with comment in apply-progression-core.ts
-m17b() {
+# M18: Pass empty equipment_ids with comment in apply-progression-core.ts
+m18() {
   sed -i 's/\.\.\.progressionInputsFromExercise(ex, userUnits)/\/\/ ...progressionInputsFromExercise(ex, userUnits)\n    ...progressionInputsFromExercise({ ...ex, equipment_ids: [] }, userUnits)/' "$CORE"
 }
-test_mutant "Pass empty equipment_ids in core (comment keeps text)" m17b "CORE"
+test_mutant "Pass empty equipment_ids in core (comment keeps text)" m18 "CORE"
 
-# M18: Drop progInputs.equipmentIds in build-runner-exercises.ts
-m18() {
+# M19: Drop progInputs.equipmentIds in build-runner-exercises.ts
+m19() {
   sed -i 's/progInputs\.equipmentIds,/\/\/ progInputs.equipmentIds,\n    [],/' "$BUILDER"
 }
-test_mutant "Drop progInputs.equipmentIds in buildRunnerExercise" m18 "BUILDER"
+test_mutant "Drop progInputs.equipmentIds in buildRunnerExercise" m19 "BUILDER"
 
-# M19: Drop userUnits in buildApplyProgressionInput
-m19() {
-  sed -i 's/    userUnits,$/    userUnits: null,/' "$CORE"
+# M19b: Drop sets in buildApplyProgressionInput
+m19b() {
+  sed -i 's/    sets,$/    sets: [], \/\/ M19b/' "$CORE"
 }
-test_mutant "Drop userUnits in buildApplyProgressionInput" m19 "CORE"
+test_mutant "Drop sets in buildApplyProgressionInput" m19b "CORE"
+
+# M20: Force userUnits to "metric" in buildApplyProgressionInput
+m20() {
+  sed -i 's/    userUnits,$/    userUnits: "metric", \/\/ M20/' "$CORE"
+}
+test_mutant "Force userUnits to 'metric' in buildApplyProgressionInput" m20 "CORE"
+
+# B2: Drop userUnits to null in buildApplyProgressionInput
+b2() {
+  sed -i 's/    userUnits,$/    userUnits: null, \/\/ B2/' "$CORE"
+}
+test_mutant "Drop userUnits to null in buildApplyProgressionInput - kills B2" b2 "CORE"
+
+# B3: Drop is_deload in buildApplyProgressionInput
+b3() {
+  sed -i 's/is_deload: session.*is_deload[^,]*/is_deload: null, \/\/ B3 mutant/' "$CORE"
+}
+test_mutant "Drop is_deload in buildApplyProgressionInput - kills B3" b3 "CORE"
+
+# B4: Drop local_date in buildApplyProgressionInput
+b4() {
+  sed -i 's/local_date: session.*local_date[^,]*/local_date: null, \/\/ B4 mutant/' "$CORE"
+}
+test_mutant "Drop local_date in buildApplyProgressionInput - kills B4" b4 "CORE"
 
 echo
 echo "==================================="
@@ -290,10 +320,10 @@ if [ "$SURVIVED" -gt 0 ] || [ "$SKIPPED" -gt 0 ]; then
   exit 1
 fi
 
-if [ "$KILLED" -ne 20 ]; then
-  echo "❌ FAILED: Expected 20 killed, got $KILLED"
+if [ "$KILLED" -ne 25 ]; then
+  echo "❌ FAILED: Expected 25 killed, got $KILLED"
   exit 1
 fi
 
-echo "✅ PASSED: All 20 mutants killed"
+echo "✅ PASSED: All 25 mutants killed"
 exit 0

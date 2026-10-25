@@ -30,8 +30,8 @@ console.log("1. Check actions.ts wiring");
 const actionsContent = fs.readFileSync("src/app/session/actions.ts", "utf8");
 
 check(
-  "imports applyProgressionCore and buildApplyProgressionInput",
-  actionsContent.includes('import { applyProgressionCore, buildApplyProgressionInput } from "@/lib/session/apply-progression-core"')
+  "imports applyProgressionCore and buildApplyProgressionInputFromRows",
+  actionsContent.includes('import { applyProgressionCore, buildApplyProgressionInputFromRows } from "@/lib/session/apply-progression-core"')
 );
 
 check(
@@ -41,19 +41,20 @@ check(
 );
 
 check(
-  "actions.ts calls buildApplyProgressionInput with profileRes.data?.units",
-  actionsContent.includes('buildApplyProgressionInput(') &&
-  actionsContent.includes('profileRes.data?.units')
+  "actions.ts calls buildApplyProgressionInputFromRows with profileRow",
+  actionsContent.includes('buildApplyProgressionInputFromRows({') &&
+  actionsContent.includes('profileRow: profileRes.data')
 );
 
 check(
-  "actions.ts passes ex (not {...ex, equipment_ids: []}) to buildApplyProgressionInput",
-  /buildApplyProgressionInput\(\s*se,\s*ex,/.test(actionsContent)
+  "actions.ts passes se.exercises (grep-only extra)",
+  /se: \{ \.\.\.se, exercises: ex \}/.test(actionsContent)
 );
 
 check(
-  "actions.ts calls applyProgressionCore",
-  actionsContent.includes('await applyProgressionCore(supabase, userId, input)')
+  "actions.ts calls applyProgressionCore with buildApplyProgressionInputFromRows result",
+  actionsContent.includes('applyProgressionCore(') &&
+  actionsContent.includes('buildApplyProgressionInputFromRows({')
 );
 
 console.log("\n2. Check page.tsx wiring");
@@ -185,7 +186,7 @@ check(
 
 
 // Behavioral wiring tests (async)
-import { applyProgressionCore, buildApplyProgressionInput, type ApplyProgressionInput } from "../src/lib/session/apply-progression-core";
+import { applyProgressionCore, buildApplyProgressionInput, buildApplyProgressionInputFromRows, type ApplyProgressionInput } from "../src/lib/session/apply-progression-core";
 import type { ProgressClient, ProgressWrite } from "../src/lib/session/write-progress";
 
 // Type narrowing helpers
@@ -326,9 +327,9 @@ async function runBehavioralTests() {
   );
 
   // Test 4: buildApplyProgressionInput preserves equipment and units
-  const exerciseData = {
-    mechanic: "compound" as const,
-    movement_pattern: "other" as const,
+  const exerciseData: ApplyProgressionInput["exercise"] = {
+    mechanic: "compound",
+    movement_pattern: "other",
     equipment_ids: ["machine_generic"],
     progression_chain: null,
     progression_rank: null,
@@ -351,9 +352,171 @@ async function runBehavioralTests() {
   );
 
   check(
-    "buildApplyProgressionInput: preserves userUnits",
+    "buildApplyProgressionInput: preserves userUnits (metric)",
     builtInput.userUnits === "metric",
     `got ${builtInput.userUnits}`
+  );
+
+  // Test 5: buildApplyProgressionInput preserves imperial units (kills B2)
+  const imperialBuiltInput = buildApplyProgressionInput(
+    { id: "se2", exercise_id: "ex2", planned_sets: 3, planned_reps_min: 8, planned_reps_max: 12, metric: "reps" },
+    exerciseData,
+    { is_deload: false, local_date: "2026-10-25" },
+    [],
+    null,
+    "imperial",
+    null
+  );
+
+  check(
+    "buildApplyProgressionInput: preserves userUnits (imperial) - kills B2",
+    imperialBuiltInput.userUnits === "imperial",
+    `got ${imperialBuiltInput.userUnits}`
+  );
+
+  // Test 6: buildApplyProgressionInput preserves is_deload (kills B3)
+  const deloadBuiltInput = buildApplyProgressionInput(
+    { id: "se3", exercise_id: "ex3", planned_sets: 3, planned_reps_min: 8, planned_reps_max: 12, metric: "reps" },
+    exerciseData,
+    { is_deload: true, local_date: "2026-10-25" },
+    [
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+    ],
+    { current_working_weight_kg: 40, current_target_reps: 12, consecutive_failures: 0, best_weight_kg: 40, best_reps: 12, best_e1rm: null, total_sessions: 3 },
+    "metric",
+    "right"
+  );
+
+  check(
+    "buildApplyProgressionInput: preserves is_deload true - kills B3",
+    deloadBuiltInput.session.is_deload === true,
+    `got ${deloadBuiltInput.session.is_deload}`
+  );
+
+  // Test 7: deload session yields deload_week outcome (kills B3 behaviorally)
+  const deloadDecision = await applyProgressionCore(testClient, "user_deload", deloadBuiltInput);
+  check(
+    "deload session: deload_week outcome (not progressed) - kills B3 behaviorally",
+    deloadDecision.outcome === "deload_week",
+    `got ${deloadDecision.outcome}`
+  );
+
+  // Test 8: buildApplyProgressionInput preserves local_date (kills B4)
+  const dateBuiltInput = buildApplyProgressionInput(
+    { id: "se4", exercise_id: "ex4", planned_sets: 3, planned_reps_min: 8, planned_reps_max: 12, metric: "reps" },
+    exerciseData,
+    { is_deload: false, local_date: "2026-10-25" },
+    [
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+    ],
+    { current_working_weight_kg: 40, current_target_reps: 12, consecutive_failures: 0, best_weight_kg: 40, best_reps: 12, best_e1rm: null, total_sessions: 3 },
+    "metric",
+    "right"
+  );
+
+  check(
+    "buildApplyProgressionInput: preserves local_date - kills B4",
+    dateBuiltInput.session.local_date === "2026-10-25",
+    `got ${dateBuiltInput.session.local_date}`
+  );
+
+  // Test 9: in-memory client receives last_performed_on (kills B4 behaviorally)
+  await applyProgressionCore(testClient, "user_date", dateBuiltInput);
+  const writeResult = testClient.getLastWrite();
+  check(
+    "in-memory client received last_performed_on === local_date - kills B4 behaviorally",
+    writeResult?.last_performed_on === "2026-10-25",
+    `got ${writeResult?.last_performed_on}`
+  );
+
+  // Test 10: buildApplyProgressionInputFromRows - machine_generic 40 kg → 45 (kills A1)
+  const rowsInput1 = buildApplyProgressionInputFromRows({
+    se: {
+      id: "se_rows",
+      exercise_id: "ex_rows",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "other",
+        equipment_ids: ["machine_generic"],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    },
+    sessionRow: { is_deload: false, local_date: "2026-10-25" },
+    setsRows: [
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+      { reps: 12, weight_kg: 40, duration_seconds: null },
+    ],
+    progressRow: {
+      current_working_weight_kg: 40,
+      current_target_reps: 12,
+      consecutive_failures: 0,
+      best_weight_kg: 40,
+      best_reps: 12,
+      best_e1rm: null,
+      total_sessions: 3,
+    },
+    profileRow: { units: "metric" },
+    feel: "right",
+  });
+
+  const rowsDecision1 = await applyProgressionCore(testClient, "user_rows1", rowsInput1);
+  check(
+    "buildApplyProgressionInputFromRows: machine_generic 40 kg → 45 kg - kills A1",
+    rowsDecision1.nextWorkingWeightKg === 45,
+    `got ${rowsDecision1.nextWorkingWeightKg}`
+  );
+
+  // Test 11: buildApplyProgressionInputFromRows - imperial units flow through (kills A2)
+  const rowsInput2 = buildApplyProgressionInputFromRows({
+    se: {
+      id: "se_rows2",
+      exercise_id: "ex_rows2",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+      exercises: {
+        mechanic: "isolation",
+        movement_pattern: "other",
+        equipment_ids: ["dumbbell"],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    },
+    sessionRow: { is_deload: false, local_date: "2026-10-25" },
+    setsRows: [
+      { reps: 12, weight_kg: 7.5, duration_seconds: null },
+      { reps: 12, weight_kg: 7.5, duration_seconds: null },
+      { reps: 12, weight_kg: 7.5, duration_seconds: null },
+    ],
+    progressRow: {
+      current_working_weight_kg: 7.5,
+      current_target_reps: 12,
+      consecutive_failures: 0,
+      best_weight_kg: 7.5,
+      best_reps: 12,
+      best_e1rm: null,
+      total_sessions: 3,
+    },
+    profileRow: { units: "imperial" },
+    feel: "right",
+  });
+
+  const rowsDecision2 = await applyProgressionCore(testClient, "user_rows2", rowsInput2);
+  check(
+    "buildApplyProgressionInputFromRows: imperial units → message has ' lb' - kills A2",
+    rowsDecision2.message.includes(" lb") && !rowsDecision2.message.includes(" kg"),
+    `got: ${rowsDecision2.message}`
   );
 
   // Test 5: buildRunnerExercise deload - equipment grid snapping
