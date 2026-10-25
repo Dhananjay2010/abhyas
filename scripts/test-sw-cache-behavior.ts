@@ -187,7 +187,8 @@ async function runTests() {
       "other-cache",
     ];
 
-    let activateHandler: ((event: { waitUntil: (p: Promise<void>) => void }) => void) | null = null;
+    type ActivateHandler = (event: { waitUntil: (p: Promise<void>) => void }) => void;
+    let activateHandler: ActivateHandler | null = null;
 
     const fakeGlobal = {
       caches: {
@@ -201,9 +202,12 @@ async function runTests() {
       clients: {
         claim: async () => undefined,
       },
-      addEventListener: (_event: string, handler: (...args: unknown[]) => void) => {
+      addEventListener: (
+        _event: string,
+        handler: ActivateHandler
+      ) => {
         if (_event === "activate") {
-          activateHandler = handler as (event: { waitUntil: (p: Promise<void>) => void }) => void;
+          activateHandler = handler;
         }
       },
     };
@@ -231,20 +235,19 @@ async function runTests() {
       throw new Error("Activate handler was not registered");
     }
 
-    // Trigger the activate event (non-null asserted after check above)
-    type ActivateHandler = (event: { waitUntil: (p: Promise<void>) => void }) => void;
-    let activatePromise: Promise<void> | null = null;
-    (activateHandler as ActivateHandler)({
-      waitUntil: (p: Promise<void>) => {
-        activatePromise = p;
-      },
-    });
+    // Trigger activate event and wait for it to complete
+    const activatePromise = await (function invokeActivateHandler(
+      handler: ActivateHandler
+    ): Promise<Promise<void>> {
+      return new Promise((resolve) => {
+        handler({
+          waitUntil: (p: Promise<void>) => {
+            resolve(p);
+          },
+        });
+      });
+    })(activateHandler);
 
-    if (!activatePromise) {
-      throw new Error("Activate handler did not call event.waitUntil");
-    }
-
-    // Wait for activation to complete
     await activatePromise;
 
     // Verify the correct caches were deleted

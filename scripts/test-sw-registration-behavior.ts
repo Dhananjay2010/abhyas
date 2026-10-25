@@ -36,7 +36,7 @@ async function runTests() {
         `Should register /sw.js, got ${scriptURL}`
       );
       productionRegistered = true;
-      return {} as ServiceWorkerRegistration;
+      return { unregister: async () => true, scope: "https://example.com/" };
     },
     async getRegistrations() {
       productionGetRegistrationsCalled = true;
@@ -84,10 +84,10 @@ async function runTests() {
   const devSW: ServiceWorkerContainerLike = {
     async register() {
       devRegistered = true;
-      return {} as ServiceWorkerRegistration;
+      return { unregister: async () => true, scope: "https://example.com/" };
     },
     async getRegistrations() {
-      return [mockRegistration1, mockRegistration2] as ServiceWorkerRegistration[];
+      return [mockRegistration1, mockRegistration2];
     },
   };
 

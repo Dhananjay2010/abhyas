@@ -131,19 +131,19 @@ export function cachesToDelete(
 }
 
 /**
- * ServiceWorkerContainer interface for dependency injection in tests.
- */
-export interface ServiceWorkerContainerLike {
-  register(scriptURL: string): Promise<ServiceWorkerRegistration>;
-  getRegistrations(): Promise<readonly ServiceWorkerRegistration[]>;
-}
-
-/**
  * ServiceWorkerRegistration interface for dependency injection in tests.
  */
 export interface ServiceWorkerRegistrationLike {
   unregister(): Promise<boolean>;
   scope: string;
+}
+
+/**
+ * ServiceWorkerContainer interface for dependency injection in tests.
+ */
+export interface ServiceWorkerContainerLike {
+  register(scriptURL: string): Promise<ServiceWorkerRegistrationLike>;
+  getRegistrations(): Promise<readonly ServiceWorkerRegistrationLike[]>;
 }
 
 /**
