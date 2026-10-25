@@ -103,7 +103,7 @@ export function buildProgressionInput(
   // that accounts for stored progression target. For loaded exercises, use plan range.
   const resolvedMin = resolveTarget({
     metric: sessionExercise.metric ?? "reps",
-    plannedMin: sessionExercise.planned_reps_min ?? 8,
+    plannedMin: sessionExercise.planned_reps_max ?? 12,
     plannedMax: sessionExercise.planned_reps_max ?? 12,
     currentTargetReps: progress?.current_target_reps ?? null,
     equipmentIds: ex.equipment_ids ?? [],
