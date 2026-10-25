@@ -5,6 +5,9 @@
  * filters (including status='active', user_id scoping), and payloads.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../src/lib/database.types";
+
 type Call = {
   table: string;
   select?: string;
@@ -26,7 +29,7 @@ function resetCalls() {
   calls.length = 0;
 }
 
-function createFakeSupabase(responses: Record<string, unknown>) {
+function createFakeSupabase(responses: Record<string, unknown>): Pick<SupabaseClient<Database>, "from"> {
   return {
     from(table: string) {
       const currentCall: Call = { table, filters: [] };
@@ -58,7 +61,7 @@ function createFakeSupabase(responses: Record<string, unknown>) {
           currentCall.method = "insert";
           return builder;
         },
-        upsert(payload: unknown, opts?: unknown) {
+        upsert(payload: unknown, _opts?: unknown) {
           currentCall.insert = payload;
           currentCall.method = "upsert";
           return builder;
@@ -129,7 +132,7 @@ async function test(name: string, fn: () => Promise<void>) {
     const fakeClient = createFakeSupabase({
       "profiles:single": { data: { timezone: "America/New_York" }, error: null },
     });
-    const deps = buildStartSessionFullDeps(fakeClient as any, USER_ID, NOW_MS);
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
     
     await deps.fetchProfile();
     
@@ -145,7 +148,7 @@ async function test(name: string, fn: () => Promise<void>) {
     const fakeClient = createFakeSupabase({
       "sessions:query": { data: [], error: null },
     });
-    const deps = buildStartSessionFullDeps(fakeClient as any, USER_ID, NOW_MS);
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
     
     await deps.fetchOpenSessions();
     
@@ -164,7 +167,7 @@ async function test(name: string, fn: () => Promise<void>) {
     const fakeClient = createFakeSupabase({
       "user_settings:maybeSingle": { data: { resume_session: false }, error: null },
     });
-    const deps = buildStartSessionFullDeps(fakeClient as any, USER_ID, NOW_MS);
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
     
     await deps.fetchResumeEnabled();
     
@@ -179,7 +182,7 @@ async function test(name: string, fn: () => Promise<void>) {
     const fakeClient = createFakeSupabase({
       "sessions:query": { data: [], error: null },
     });
-    const deps = buildStartSessionFullDeps(fakeClient as any, USER_ID, NOW_MS);
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
     
     await deps.findInProgressToday("2026-10-26");
     
@@ -196,7 +199,7 @@ async function test(name: string, fn: () => Promise<void>) {
     const fakeClient = createFakeSupabase({
       "program_day_exercises:query": { data: [], error: null },
     });
-    const deps = buildStartSessionFullDeps(fakeClient as any, USER_ID, NOW_MS);
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
     
     await deps.fetchPlannedExercises("day-123");
     
@@ -213,19 +216,21 @@ async function test(name: string, fn: () => Promise<void>) {
     const fakeClient = createFakeSupabase({
       "sessions:update": { data: null, error: { message: "Network error" } },
     });
-    const deps = buildStartSessionFullDeps(fakeClient as any, USER_ID, NOW_MS);
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
     
     const result = await deps.updateSession("sess-123", "2026-10-26", { status: "in_progress" });
     
     eq(result.ok, false, "Result: not ok");
-    eq((result as any).error, "Network error", "Error message propagated");
+    if (!result.ok) {
+      eq(result.error, "Network error", "Error message propagated");
+    }
   });
 
   await test("insertExercises error propagation", async () => {
     const fakeClient = createFakeSupabase({
       "session_exercises:upsert": { data: null, error: { message: "Insert failed" } },
     });
-    const deps = buildStartSessionFullDeps(fakeClient as any, USER_ID, NOW_MS);
+    const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
     
     const result = await deps.insertExercises([
       {
@@ -242,7 +247,9 @@ async function test(name: string, fn: () => Promise<void>) {
     ]);
     
     eq(result.ok, false, "Result: not ok");
-    eq((result as any).error, "Insert failed", "Error message propagated");
+    if (!result.ok) {
+      eq(result.error, "Insert failed", "Error message propagated");
+    }
   });
 
   console.log(`\n${passed} tests passed, ${failed} tests failed`);
