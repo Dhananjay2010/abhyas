@@ -311,42 +311,6 @@ export function shouldExcludeOlympicLift(
 }
 
 /**
- * Steer 2: Validate if a target exercise is allowed as a swap for the given user.
- * Checks that the target passes both isEligible and rankAlternatives exclusions.
- * Returns true if the swap is allowed, false otherwise.
- * This should be called in swapExercise BEFORE any write to reject invalid swaps.
- */
-export function isAllowedSwapTarget(
-  target: CandidateExercise,
-  input: GeneratorInput
-): boolean {
-  // First check: isEligible (equipment, level, injury contraindications, Olympic lifts, etc.)
-  if (!isEligible(target, input)) {
-    return false;
-  }
-  
-  // Second check: rankAlternatives exclusions (Olympic lifts with anyKneeInjury, past-knee exclusions)
-  // These mirror the filters in rankAlternatives that happen AFTER isEligible
-  
-  // Olympic lift exclusion (includes past knee check that generator doesn't have)
-  if (shouldExcludeOlympicLift(target, {
-    currentInjuryRegions: input.currentInjuryRegions,
-    anyKneeInjury: input.anyKneeInjury,
-    level: input.level,
-  })) {
-    return false;
-  }
-  
-  // Past-knee exclusions (from rankAlternatives, applied after isEligible)
-  const hasPastKnee = input.anyKneeInjury && !input.currentInjuryRegions.includes("knee");
-  if (hasPastKnee && isExcludedForPastKnee(target)) {
-    return false;
-  }
-  
-  return true;
-}
-
-/**
  * Exercises to exclude from automated programming due to safety concerns.
  * 
  * QA Pass 10 C1: Apply to main slots for ALL goals, and to all slots for

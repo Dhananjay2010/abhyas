@@ -69,7 +69,10 @@ async function main() {
 
   console.log("Case 1: Normal swap with barbell exercise\n");
 
-  const result = await swapExerciseCore({ resolveSwapWeights: fakeResolveSwapWeights }, input);
+  const result = await swapExerciseCore({
+    resolveSwapWeights: fakeResolveSwapWeights,
+    validateSwapTarget: async () => true, // Always allow for test
+  }, input);
 
   // Check that result succeeded
   check(
@@ -145,7 +148,10 @@ async function main() {
     };
   };
 
-  const bwResult = await swapExerciseCore({ resolveSwapWeights: fakeBWResolveSwapWeights }, bodyweightInput);
+  const bwResult = await swapExerciseCore({
+    resolveSwapWeights: fakeBWResolveSwapWeights,
+    validateSwapTarget: async () => true, // Always allow for test
+  }, bodyweightInput);
 
   check(
     "Bodyweight result succeeded (ok: true)",

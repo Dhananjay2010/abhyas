@@ -34,11 +34,11 @@ export type SwapExerciseDeps = {
   ) => Promise<SwapWeightsResult>;
   
   /**
-   * QA Steer (l): Validate that the swap target is in the eligible swap list.
+   * Step 1: Validate that the swap target is in the eligible swap list.
    * Returns true if valid, false if the swap should be rejected.
-   * Optional for backward compatibility with existing tests.
+   * REQUIRED: server must not trust client's newExerciseId.
    */
-  validateSwapTarget?: (input: {
+  validateSwapTarget: (input: {
     newExerciseId: string;
     sessionExerciseId: string;
   }) => Promise<boolean>;
@@ -99,19 +99,17 @@ export async function swapExerciseCore(
 ): Promise<SwapExerciseCoreResult> {
   const { newExerciseId, sessionExerciseId, current, replacement, profile } = input;
   
-  // QA Steer (l): Validate swap target if validator is provided
-  if (deps.validateSwapTarget) {
-    const isValid = await deps.validateSwapTarget({
-      newExerciseId,
-      sessionExerciseId,
-    });
-    
-    if (!isValid) {
-      return {
-        ok: false,
-        error: "This exercise is not available as a swap for your profile",
-      };
-    }
+  // Step 1: Validate swap target (REQUIRED)
+  const isValid = await deps.validateSwapTarget({
+    newExerciseId,
+    sessionExerciseId,
+  });
+  
+  if (!isValid) {
+    return {
+      ok: false,
+      error: "This exercise is not available as a swap for your profile",
+    };
   }
   
   const metric = replacement?.metric ?? "reps";
