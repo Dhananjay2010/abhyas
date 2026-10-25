@@ -29,7 +29,26 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-// No setup needed - use real Supabase auth.uid() and auth.users
+// Setup auth schema for Postgres container test environment
+async function setupAuthSchema(pool: Pool) {
+  await pool.query(`
+    CREATE SCHEMA IF NOT EXISTS auth;
+    
+    CREATE TABLE IF NOT EXISTS auth.users (
+      id uuid PRIMARY KEY,
+      email text UNIQUE NOT NULL,
+      raw_user_meta_data jsonb DEFAULT '{}'::jsonb,
+      created_at timestamptz DEFAULT now()
+    );
+    
+    CREATE OR REPLACE FUNCTION auth.uid()
+    RETURNS uuid
+    LANGUAGE sql STABLE
+    AS $$
+      SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid;
+    $$;
+  `);
+}
 
 async function testM1_MidBlockRebuildPreservesDates() {
   console.log("\n━━━ TEST M1: Mid-block rebuild preserves dates and boundaries ━━━\n");
