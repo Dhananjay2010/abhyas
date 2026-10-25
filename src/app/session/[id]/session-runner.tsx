@@ -10,13 +10,14 @@ import {
   useElapsed,
   useWakeLock,
   vibrate,
-  vibrationSupported,
+  useVibrationSupported,
 } from "@/lib/session/device";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { applySwapResult } from "@/lib/session/apply-swap";
+import { applySwapTarget } from "@/lib/session/apply-swap-target";
 import {
   abandonSession,
   deleteSet,
@@ -84,6 +85,8 @@ export type RunnerExercise = {
   metric: Database["public"]["Enums"]["exercise_metric"];
   primaryMuscles: Muscle[];
   plannedSets: number;
+  plannedRepsMin: number;
+  plannedRepsMax: number;
   repsMin: number;
   repsMax: number;
   restSeconds: number;
@@ -166,6 +169,7 @@ export function SessionRunner({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
+  const [alternativesForExerciseId, setAlternativesForExerciseId] = useState<string | null>(null);
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
   >([]);
@@ -283,6 +287,17 @@ export function SessionRunner({
 
   const current = exercises[exerciseIndex];
   const restSeconds = settings.restOverrideSeconds ?? current?.restSeconds ?? 90;
+
+  // Close the swap sheet when the active exercise changes
+  useEffect(() => {
+    const currentId = current?.id;
+    if (currentId && alternativesForExerciseId && alternativesForExerciseId !== currentId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: clearing stale UI state when the active exercise changes
+      setAlternatives(null);
+      setAlternativesForExerciseId(null);
+      setLoadingAlternatives(false);
+    }
+  }, [current?.id, alternativesForExerciseId]);
 
   const totalSetsPlanned = useMemo(
     () => exercises.reduce((n, e) => n + e.plannedSets, 0),
@@ -784,7 +799,10 @@ export function SessionRunner({
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>
         <p className="mt-2 text-accent">
-          {current.plannedSets} sets × {current.repsMin}–{current.repsMax}
+          {current.plannedSets} sets ×{" "}
+          {current.repsMin === current.repsMax
+            ? current.repsMin
+            : `${current.repsMin}–${current.repsMax}`}
           {isTimed ? "s" : " reps"}
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
@@ -939,6 +957,13 @@ export function SessionRunner({
                     <button
                       disabled={busy}
                       onClick={async () => {
+                        // Guard against stale swaps: refuse if the sheet's exercise doesn't match the current one
+                        if (alternativesForExerciseId !== current.id) {
+                          setError("This swap sheet belongs to a different exercise");
+                          setAlternatives(null);
+                          setAlternativesForExerciseId(null);
+                          return;
+                        }
                         /*
                           `run` reports success as a boolean, so the payload is
                           carried out in a box. It is needed: a swap can change
@@ -959,15 +984,34 @@ export function SessionRunner({
                         });
                         if (!ok || !box.value) return;
                         const swapped = box.value;
-                        setExercises((prev) =>
-                          applySwapResult(prev, current.id, {
+                        setExercises((prev) => {
+                          // #125: Apply weight prefill and metric change
+                          const withSwap = applySwapResult(prev, current.id, {
                             ...swapped,
                             exerciseId: a.exerciseId,
                             name: a.name,
                             cue: a.cue,
-                          }) as RunnerExercise[],
-                        );
+                          }) as RunnerExercise[];
+                          
+                          // #127: Apply target resolution for unloaded exercises
+                          return withSwap.map((e) => {
+                            if (e.id !== current.id) return e;
+                            const plannedRepsMin = swapped.repsMin ?? e.plannedRepsMin;
+                            const plannedRepsMax = swapped.repsMax ?? e.plannedRepsMax;
+                            return applySwapTarget(
+                              { ...e, plannedRepsMin, plannedRepsMax },
+                              {
+                                equipmentIds: swapped.equipmentIds,
+                                currentTargetReps: swapped.currentTargetReps,
+                                currentWorkingWeightKg: swapped.workingWeightKg,
+                                plannedRepsMin,
+                                plannedRepsMax,
+                              }
+                            );
+                          });
+                        });
                         setAlternatives(null);
+                        setAlternativesForExerciseId(null);
                       }}
                       className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent disabled:opacity-60"
                     >
@@ -979,7 +1023,10 @@ export function SessionRunner({
               </ul>
             )}
             <div className="mt-3">
-              <GhostButton onClick={() => setAlternatives(null)}>Cancel</GhostButton>
+              <GhostButton onClick={() => {
+                setAlternatives(null);
+                setAlternativesForExerciseId(null);
+              }}>Cancel</GhostButton>
             </div>
           </div>
         )}
@@ -994,6 +1041,7 @@ export function SessionRunner({
                 setLoadingAlternatives(false);
                 if (!r.ok) return setError(r.error);
                 setAlternatives(r.data);
+                setAlternativesForExerciseId(current.id);
               }}
             >
               {loadingAlternatives ? "Finding alternatives…" : "Swap this exercise"}
@@ -1421,7 +1469,7 @@ function Stat({ label, value }: { label: string; value: string }) {
  * implemented navigator.vibrate at all -- so the state is shown rather than
  * assumed.
  */
-function CapabilityNote({
+export function CapabilityNote({
   wakeLock,
   soundEnabled,
   soundUnlocked,
@@ -1432,6 +1480,7 @@ function CapabilityNote({
   soundUnlocked: boolean;
   vibrateEnabled: boolean;
 }) {
+  const vibrationSupported = useVibrationSupported();
   const bits: string[] = [];
   bits.push(
     !wakeLock.supported
@@ -1441,7 +1490,7 @@ function CapabilityNote({
         : `screen may sleep${wakeLock.error ? ` (${wakeLock.error})` : ""}`,
   );
   if (soundEnabled) bits.push(soundUnlocked ? "sound ready" : "sound arms on first tap");
-  if (vibrateEnabled && !vibrationSupported()) bits.push("vibration unsupported here");
+  if (vibrateEnabled && !vibrationSupported) bits.push("vibration unsupported here");
 
   return <p className="mt-4 text-center text-[11px] text-muted/70">{bits.join(" · ")}</p>;
 }

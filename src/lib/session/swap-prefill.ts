@@ -68,6 +68,7 @@ export async function resolveSwapPrefill(
       currentWorkingWeight = progress?.current_working_weight_kg ?? null;
     }
 
+
     if (currentWorkingWeight !== null && currentWorkingWeight !== undefined) {
       const working = Number(currentWorkingWeight);
       if (working > 0) {

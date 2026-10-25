@@ -18,7 +18,7 @@ type ExperienceLevel = Database["public"]["Enums"]["fitness_level"] | null;
 
 export type SwapExerciseDeps = {
   /**
-   * Resolve weight prefill and working weight for the swapped-in exercise.
+   * Resolve weight prefill, working weight, and current target reps for the swapped-in exercise.
    * 
    * The core passes input.newExerciseId (not the old exercise id) to this,
    * which is what S3 tests.
@@ -62,6 +62,7 @@ export type SwapExerciseCoreResult = {
   equipmentIds: string[];
   weightPrefill: number | null;
   workingWeightKg: number | null;
+  currentTargetReps: number | null;
   isBodyweight: boolean;
 };
 
@@ -71,6 +72,7 @@ export type SwapExerciseCoreResult = {
  * Tests can inject fake resolveSwapWeights to verify:
  * - S3: the NEW exercise id is passed, not the old one
  * - S1/S2: weightPrefill and workingWeightKg are returned unchanged
+ * - currentTargetReps is passed through unchanged
  */
 export async function swapExerciseCore(
   deps: SwapExerciseDeps,
@@ -81,9 +83,9 @@ export async function swapExerciseCore(
   const metric = replacement?.metric ?? "reps";
   const equipmentIds = replacement?.equipment_ids ?? [];
 
-  // Resolve weight prefill and working weight for the swapped-in exercise.
+  // Resolve weight prefill, working weight, and current target reps for the swapped-in exercise.
   // This passes input.newExerciseId (not current.exercise_id), which is what S3 tests.
-  const { weightPrefill, workingWeightKg, isBodyweight } = await deps.resolveSwapWeights(
+  const { weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = await deps.resolveSwapWeights(
     current.session_id,
     newExerciseId,
     equipmentIds,
@@ -117,7 +119,7 @@ export async function swapExerciseCore(
   const repsMin = reranged ? reranged.repsMin : current.planned_reps_min;
   const repsMax = reranged ? reranged.repsMax : current.planned_reps_max;
 
-  // Return the resolved values unchanged (S1, S2 test this)
+  // Return the resolved values unchanged (S1, S2, currentTargetReps test this)
   return {
     metric,
     repsMin,
@@ -125,6 +127,7 @@ export async function swapExerciseCore(
     equipmentIds,
     weightPrefill,
     workingWeightKg,
+    currentTargetReps,
     isBodyweight,
   };
 }

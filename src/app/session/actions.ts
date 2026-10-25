@@ -34,6 +34,10 @@ import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
+<<<<<<< HEAD
+=======
+import { progressForPlanningMode } from "@/lib/session/swap-progress";
+>>>>>>> origin/main
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -152,7 +156,6 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       updateSessionCore(supabase, existing.id, user.id, today, updatePayload),
       ensureSessionExercises(supabase, user.id, existing.id),
     ]);
-
     if (!updateResult.ok) {
       return { ok: false, error: updateResult.error };
     }
@@ -772,6 +775,7 @@ export type SwapResult = {
   equipmentIds: string[];
   weightPrefill: number | null;
   workingWeightKg: number | null;
+  currentTargetReps: number | null;
   isBodyweight: boolean;
 };
 
@@ -817,11 +821,12 @@ export async function swapExercise(input: {
   const replacement = replacementRes.data;
   const profile = profileRes.data;
 
+  // Derive remembersWeights from planning_mode using progressForPlanningMode helper
   // Daily menu means no working-weight memory (same rule as src/app/session/[id]/page.tsx:109)
   const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
 
   // Call the core with injected dependencies (testable with fakes)
-  const { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, isBodyweight } = 
+  const { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = 
     await swapExerciseCore(
       {
         resolveSwapWeights: (sessionId, newExerciseId, equipmentIds, metric, movementPattern, remembersWeights) =>
@@ -835,6 +840,13 @@ export async function swapExercise(input: {
         remembersWeights,
       },
     );
+
+  // Filter target reps for daily_menu users (they don't remember weights/targets)
+  const filteredProgress = progressForPlanningMode(
+    settingsRes.data?.planning_mode,
+    { current_target_reps: currentTargetReps, current_working_weight_kg: workingWeightKg }
+  );
+  const filteredTargetReps = filteredProgress?.current_target_reps ?? null;
 
   const { error } = await supabase
     .from("session_exercises")
@@ -852,7 +864,7 @@ export async function swapExercise(input: {
   // hold button with the range that was just written.
   return error
     ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, isBodyweight } };
+    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps: filteredTargetReps, isBodyweight } };
 }
 
 // ---------------------------------------------------------------------------

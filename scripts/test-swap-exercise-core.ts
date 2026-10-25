@@ -46,6 +46,7 @@ async function main() {
       return {
         weightPrefill: null,
         workingWeightKg: null,
+        currentTargetReps: null,
         isBodyweight: equipmentIds.length === 0,
       };
     }
@@ -53,6 +54,7 @@ async function main() {
     return {
       weightPrefill: 42.5,
       workingWeightKg: 100,
+      currentTargetReps: 10,
       isBodyweight: equipmentIds.length === 0,
     };
   };
@@ -182,6 +184,7 @@ async function main() {
     return {
       weightPrefill: null,
       workingWeightKg: null,
+      currentTargetReps: null,
       isBodyweight: equipmentIds.length === 0,
     };
   };
