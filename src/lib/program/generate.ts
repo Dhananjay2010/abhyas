@@ -806,6 +806,38 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     entry.slots.slice(0, templateCount).forEach((pattern, i) => {
       const usedSet = i <= 3 ? usedToday : usedInBlock;
       
+      // Past-knee: For lunge slots, prioritize dumbbell rear lunge when available
+      // Bypass contraindication check (rear lunge is safe for past-knee despite knee tag)
+      if (input.pastKneeInjury && pattern === "lunge") {
+        const rearLunge = input.catalogue.find(e => {
+          if (e.slug !== "dumbbell-rear-lunge") return false;
+          if (usedSet.has(e.id)) return false;
+          if (!e.tracks.includes(input.primaryTrack)) return false;
+          
+          // Level check
+          if (e.level_min === "expert" && input.level === "beginner") return false;
+          if (e.level_min === "intermediate" && input.level === "beginner") return false;
+          
+          // Equipment check
+          if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
+            const hasAll = e.equipment_ids.every(eid => input.equipmentIds.includes(eid));
+            if (!hasAll) return false;
+          }
+          
+          return true;
+        });
+        
+        if (rearLunge) {
+          usedSet.add(rearLunge.id);
+          if (i <= 3) {
+            usedInBlock.add(rearLunge.id);
+          }
+          pickedExercises.push({ ex: rearLunge, slotIndex: i });
+          return;
+        }
+        // Fall through to normal pickForSlot if dumbbell-rear-lunge unavailable
+      }
+      
       // H6: For knee injuries on Lower/Full days, reserve first squat/quad slot for knee-safe moves
       const isQuadPattern = pattern === "squat" || pattern === "lunge";
       if (hasKneeInjury && isLowerOrFullDay && isQuadPattern && !firstQuadSlotHandled) {

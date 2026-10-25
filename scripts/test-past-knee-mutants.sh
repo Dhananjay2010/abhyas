@@ -81,7 +81,9 @@ run_mutant() {
     return 1
   fi
   
-  if npm run test:past-knee 2>&1 | tee /tmp/mutant-output.txt | tail -5; then
+  # Run both tests: past-knee grid AND plan lunge pick
+  if npm run test:past-knee 2>&1 | tee /tmp/mutant-output.txt | tail -5 && \
+     npm run test:past-knee-plan-lunge-pick 2>&1 | tee -a /tmp/mutant-output.txt | tail -5; then
     echo "✗ Test passed (mutation survived)"
     SURVIVED_MUTANTS+=("$name")
     FAILED=1
@@ -190,5 +192,11 @@ restore_file "src/lib/program/past-knee.ts"
 sed -i '/if (ex.slug === "wall-sit" && slotIndex <= 3) {/,/}/d' src/lib/program/past-knee.ts
 run_mutant "Remove wall-sit primary penalty" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 14: Disable past-knee dumbbell-rear-lunge plan pick
+restore_file "src/lib/program/generate.ts"
+sed -i 's/if (input.pastKneeInjury && pattern === "lunge")/if (false \&\& input.pastKneeInjury \&\& pattern === "lunge")/' src/lib/program/generate.ts
+run_mutant "Disable past-knee lunge plan pick" "src/lib/program/generate.ts" || true
+restore_file "src/lib/program/generate.ts"
 
 echo ""
