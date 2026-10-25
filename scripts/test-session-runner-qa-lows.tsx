@@ -26,10 +26,6 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "✓ " : "✗ "} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-async function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function createFakeTimer() {
   const callbacks: (() => void)[] = [];
   return {
@@ -128,13 +124,11 @@ console.log("1. L4: logSet throws SESSION_EXPIRED → friendly error message sho
         timer: fakeTimer.timer,
       })
     );
-    await sleep(50);
   });
 
   // Advance the fake timer to mark component as synced
   await act(async () => {
     fakeTimer.advance();
-    await sleep(10);
   });
 
   // Fill in reps and click log set button
@@ -145,7 +139,6 @@ console.log("1. L4: logSet throws SESSION_EXPIRED → friendly error message sho
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "10");
       repsInput.dispatchEvent(new Event("change", { bubbles: true }));
     }
-    await sleep(10);
   });
 
   await act(async () => {
@@ -154,8 +147,11 @@ console.log("1. L4: logSet throws SESSION_EXPIRED → friendly error message sho
     if (logButton) {
       logButton.click();
     }
-    await sleep(100);
   });
+
+  // Flush microtasks
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { await Promise.resolve(); });
 
   const text = container.textContent ?? "";
   const hasFriendlyMessage = text.includes("Your session has expired, please sign in again");
@@ -223,12 +219,10 @@ console.log("\n2. L1: conflict on last set → feel prompt appears");
         timer: fakeTimer.timer,
       })
     );
-    await sleep(50);
   });
 
   await act(async () => {
     fakeTimer.advance();
-    await sleep(10);
   });
 
   // Fill in reps and click log set 3
@@ -239,7 +233,6 @@ console.log("\n2. L1: conflict on last set → feel prompt appears");
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "8");
       repsInput.dispatchEvent(new Event("change", { bubbles: true }));
     }
-    await sleep(10);
   });
 
   await act(async () => {
@@ -248,8 +241,11 @@ console.log("\n2. L1: conflict on last set → feel prompt appears");
     if (logButton) {
       logButton.click();
     }
-    await sleep(100);
   });
+
+  // Flush microtasks
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { await Promise.resolve(); });
 
   const text = container.textContent ?? "";
   const hasFeelPrompt = text.includes("How did that feel");
@@ -317,12 +313,10 @@ console.log("\n3. L1: picking feel after conflict advances to next exercise");
         timer: fakeTimer.timer,
       })
     );
-    await sleep(50);
   });
 
   await act(async () => {
     fakeTimer.advance();
-    await sleep(10);
   });
 
   // Fill in reps and click log set 3
@@ -333,7 +327,6 @@ console.log("\n3. L1: picking feel after conflict advances to next exercise");
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "8");
       repsInput.dispatchEvent(new Event("change", { bubbles: true }));
     }
-    await sleep(10);
   });
 
   await act(async () => {
@@ -342,8 +335,11 @@ console.log("\n3. L1: picking feel after conflict advances to next exercise");
     if (logButton) {
       logButton.click();
     }
-    await sleep(100);
   });
+
+  // Flush microtasks
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { await Promise.resolve(); });
 
   // Click "Just right" button
   await act(async () => {
@@ -352,8 +348,11 @@ console.log("\n3. L1: picking feel after conflict advances to next exercise");
     if (feelButton) {
       feelButton.click();
     }
-    await sleep(100);
   });
+
+  // Flush microtasks
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { await Promise.resolve(); });
 
   const text = container.textContent ?? "";
   const onExercise2 = text.includes("Exercise 2 of 2");
