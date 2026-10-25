@@ -28,6 +28,22 @@ const mockSession = {
   user_id: "user-456",
   status: "in_progress" as const,
   created_at: "2026-01-01",
+  actual_type: null,
+  breathing_pattern_id: null,
+  completed_at: null,
+  cooldown_completed: false,
+  date: "2026-01-01",
+  ended_at: null,
+  is_deload: false,
+  meditation_video_id: null,
+  note: null,
+  planned_type: "weights" as const,
+  program_week: 1,
+  recovery_video_id: null,
+  started_at: null,
+  warmup_completed: false,
+  week_seq: 1,
+  yoga_video_id: null,
 } as const;
 
 const mockUser = {
