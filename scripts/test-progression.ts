@@ -117,7 +117,7 @@ console.log("\n5. Two misses in a row backs the weight off ~10%");
 {
   const d = run({ sets: sets(4, 10), state: fresh({ consecutiveFailures: 1 }), equipmentIds: ["barbell"], unit: "kg" });
   check("outcome backed_off", d.outcome === "backed_off", d.outcome);
-  check("60 -> 52.5 kg", d.nextWorkingWeightKg === 52.5, `${d.nextWorkingWeightKg}`);
+  check("60 -> 55 kg (raw 90% = 54, snap to 2.5 grid >= 54 and < 60)", d.nextWorkingWeightKg === 55, `${d.nextWorkingWeightKg}`);
   check("failures reset after backing off", d.consecutiveFailures === 0);
 }
 

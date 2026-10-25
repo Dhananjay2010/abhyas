@@ -1141,9 +1141,9 @@ console.log("\n29. Back-off max drop: never more than one increment below 90%");
     equipmentIds: ["barbell"],
     unit: "kg",
   });
-  check("back-off 11 kg: 11 -> 7.5 kg (not 5 kg)", backOff11.nextWorkingWeightKg === 7.5, `${backOff11.nextWorkingWeightKg}`);
+  check("back-off 11 kg: 11 -> 10 kg (RAW 90% = 9.9, snap to 2.5 grid)", backOff11.nextWorkingWeightKg === 10, `${backOff11.nextWorkingWeightKg}`);
   
-  // 6 kg * 0.9 = 5.4, floor to 2.5 grid = 5, but max drop = 5.4 - 2.5 = 2.9, so 5 is OK
+  // 6 kg * 0.9 = 5.4 (RAW cap), smallest on 2.5 grid >= 5.4 and < 6 = none, so HOLD
   const backOff6 = run({
     meta: BENCH,
     sets: sets(4, 10, 6),
@@ -1151,7 +1151,7 @@ console.log("\n29. Back-off max drop: never more than one increment below 90%");
     equipmentIds: ["barbell"],
     unit: "kg",
   });
-  check("back-off 6 kg: 6 -> 5 kg (not 2.5 kg)", backOff6.nextWorkingWeightKg === 5, `${backOff6.nextWorkingWeightKg}`);
+  check("back-off 6 kg: HOLD at 6 kg (RAW 90% = 5.4, no loadable in range)", backOff6.nextWorkingWeightKg === 6, `${backOff6.nextWorkingWeightKg}`);
 }
 
 console.log("\n30. Isolation back-off uses 1.25 kg grid (not 2.5 kg)");
@@ -1166,16 +1166,15 @@ console.log("\n30. Isolation back-off uses 1.25 kg grid (not 2.5 kg)");
     unit: "kg",
   });
   check("isolation back-off 13.75 kg: 13.75 -> 12.5 kg (loadable)", backOffIso.nextWorkingWeightKg === 12.5, `${backOffIso.nextWorkingWeightKg}`);
-  check("isolation back-off 13.75 kg message says 'dropping to 12.5 kg'", backOffIso.message.includes("dropping to 12.5 kg") || backOffIso.message.includes("27"), backOffIso.message);
+  check("isolation back-off 13.75 kg message says 'dropping to 12.5 kg'", backOffIso.message === "Missed twice in a row — dropping to 12.5 kg to build back.", backOffIso.message);
   const curl15 = run({ meta: CURL, sets: sets(4, 12, 15), state: fresh({ currentWorkingWeightKg: 15 }), equipmentIds: undefined, unit: undefined });
   check("unwired curl 15 kg -> 'up to 16.25 kg' (main's kg wording, not 16.3)", curl15.nextWorkingWeightKg === 16.25 && curl15.message.includes("up to 16.25 kg"), curl15.message);
 }
 
 console.log("\n31. Kettlebell back-off: SMALLEST loadable >= target and < current");
 {
-  // 22 kg (not a real bell, between 20 and 24) * 0.9 = 19.8
-  // Compound: target = max(floor(19.8/2.5)*2.5, 19.8-2.5) = max(17.5, 17.3) = 17.5
-  // Smallest bell >= 17.5 and < 22: 18kg
+  // 22 kg (not a real bell, between 20 and 24) * 0.9 = 19.8 (RAW cap)
+  // Smallest bell >= 19.8 and < 22: 20 kg
   const kbBackOff22 = run({
     meta: KETTLEBELL_SWING,
     sets: sets(4, 10, 22),
@@ -1183,7 +1182,7 @@ console.log("\n31. Kettlebell back-off: SMALLEST loadable >= target and < curren
     equipmentIds: ["kettlebell"],
     unit: "kg",
   });
-  check("kettlebell back-off 22 kg (off-grid): 22 -> 18 kg (smallest >= target)", kbBackOff22.nextWorkingWeightKg === 18, `${kbBackOff22.nextWorkingWeightKg}`);
+  check("kettlebell back-off 22 kg: 22 -> 20 kg (RAW 90% = 19.8, smallest bell >= 19.8)", kbBackOff22.nextWorkingWeightKg === 20, `${kbBackOff22.nextWorkingWeightKg}`);
 }
 
 console.log("\n32. Back-off holds when reduced weight would be at or below increment");

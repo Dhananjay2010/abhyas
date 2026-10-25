@@ -196,7 +196,7 @@ console.log("\n5. QA repro: lat pulldown first miss 40 -> 37.5 (one step down)")
   check("40 -> 37.5 kg (one cable step down)", decision.nextWorkingWeightKg === 37.5, `got ${decision.nextWorkingWeightKg}`);
 }
 
-console.log("\n6. QA repro: dumbbell hammer curl first miss 5 -> 2.5 (one step down)");
+console.log("\n6. QA repro: dumbbell hammer curl first miss 5 -> HOLD (20% guard)");
 {
   const HAMMER_CURL: ExerciseMeta = {
     mechanic: "isolation",
@@ -223,10 +223,11 @@ console.log("\n6. QA repro: dumbbell hammer curl first miss 5 -> 2.5 (one step d
   });
   
   check("outcome hold", decision.outcome === "hold");
-  check("5 -> 2.5 kg (one dumbbell step down)", decision.nextWorkingWeightKg === 2.5, `got ${decision.nextWorkingWeightKg}`);
+  check("5 -> 5 kg (hold: one step down = 50% cut > 20% guard)", decision.nextWorkingWeightKg === 5, `got ${decision.nextWorkingWeightKg}`);
+  check("message says 20% cut", decision.message.includes("one step down would cut more than 20%"));
 }
 
-console.log("\n7. QA repro: dumbbell two-miss back-off 5 -> 2.5 (on 2.5 grid, not 3.75)");
+console.log("\n7. QA repro: dumbbell two-miss back-off 5 -> HOLD (raw 90% cap, no loadable value)");
 {
   const HAMMER_CURL: ExerciseMeta = {
     mechanic: "isolation",
@@ -252,11 +253,12 @@ console.log("\n7. QA repro: dumbbell two-miss back-off 5 -> 2.5 (on 2.5 grid, no
     ...inputs,
   });
   
-  check("outcome backed_off", decision.outcome === "backed_off");
-  check("5 -> 3.75 kg (main's 90% of 5, 1.25 kg grid)", decision.nextWorkingWeightKg === 3.75, `got ${decision.nextWorkingWeightKg}`);
+  check("outcome hold", decision.outcome === "hold");
+  check("5 -> 5 kg (hold: raw 90% = 4.5, no loadable value >= 4.5 and < 5)", decision.nextWorkingWeightKg === 5, `got ${decision.nextWorkingWeightKg}`);
+  check("message says no lighter loadable weight", decision.message.includes("no lighter loadable weight"));
 }
 
-console.log("\n8. QA repro: leg extension pin-stack two-miss back-off 30 -> 25 (on 5 kg grid, not 26.25)");
+console.log("\n8. QA repro: leg extension pin-stack two-miss back-off 30 -> HOLD (raw 90% cap)");
 {
   const LEG_EXTENSION: ExerciseMeta = {
     mechanic: "isolation",
@@ -282,11 +284,72 @@ console.log("\n8. QA repro: leg extension pin-stack two-miss back-off 30 -> 25 (
     ...inputs,
   });
   
-  check("outcome backed_off", decision.outcome === "backed_off");
-  check("30 -> 26.25 kg (main's 90% of 30, 1.25 kg grid)", decision.nextWorkingWeightKg === 26.25, `got ${decision.nextWorkingWeightKg}`);
+  check("outcome hold", decision.outcome === "hold");
+  check("30 -> 30 kg (hold: raw 90% = 27, snap to 5 grid >= 27 and < 30 = 30, not < 30)", decision.nextWorkingWeightKg === 30, `got ${decision.nextWorkingWeightKg}`);
+  check("message says no lighter loadable weight", decision.message.includes("no lighter loadable weight"));
 }
 
-console.log("\n9. QA repro: medicine ball two-miss back-off 4 -> 3 (on 1 kg grid, not 2.5)");
+console.log("\n9. RAW 90% cap: KB 22 -> 20 (smallest bell >= 19.8 and < 22)");
+{
+  const KB_SWING: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "other",
+    isBodyweight: false,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  
+  const kbEx = { mechanic: "compound", equipment_ids: ["kettlebell"] };
+  const inputs = progressionInputsFromExercise(kbEx, "metric");
+  
+  const decision = evaluateProgression({
+    sets: sets(3, 8, 22),
+    plannedSets: 3,
+    repsMin: 10,
+    repsMax: 12,
+    feel: "right",
+    meta: KB_SWING,
+    state: fresh({ currentWorkingWeightKg: 22, currentTargetReps: 12, consecutiveFailures: 1 }),
+    isDeload: false,
+    ...inputs,
+  });
+  
+  check("outcome backed_off", decision.outcome === "backed_off");
+  check("22 -> 20 kg (raw 90% = 19.8, smallest bell >= 19.8 and < 22)", decision.nextWorkingWeightKg === 20, `got ${decision.nextWorkingWeightKg}`);
+}
+
+console.log("\n10. RAW 90% cap: DB 13.75 -> 12.5 (smallest on 2.5 grid >= 12.375 and < 13.75)");
+{
+  const DB_ROW: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "back",
+    isBodyweight: false,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  
+  const dbEx = { mechanic: "compound", equipment_ids: ["dumbbell"] };
+  const inputs = progressionInputsFromExercise(dbEx, "metric");
+  
+  const decision = evaluateProgression({
+    sets: sets(3, 8, 13.75),
+    plannedSets: 3,
+    repsMin: 10,
+    repsMax: 12,
+    feel: "right",
+    meta: DB_ROW,
+    state: fresh({ currentWorkingWeightKg: 13.75, currentTargetReps: 12, consecutiveFailures: 1 }),
+    isDeload: false,
+    ...inputs,
+  });
+  
+  check("outcome backed_off", decision.outcome === "backed_off");
+  check("13.75 -> 12.5 kg (raw 90% = 12.375, snap to 2.5 grid >= 12.375 and < 13.75)", decision.nextWorkingWeightKg === 12.5, `got ${decision.nextWorkingWeightKg}`);
+}
+
+console.log("\n11. QA repro: medicine ball two-miss back-off 4 -> 3 (on 1 kg grid, not 2.5)");
 {
   const MEDICINE_BALL_SLAM: ExerciseMeta = {
     mechanic: "compound",
@@ -338,7 +401,7 @@ console.log("\n10. suggestedWeight through helper (session page loader path)");
     inputs.unit,
   );
   
-  check("off-grid working weight snaps down to grid", suggested === 60, `got ${suggested}`);
+  check("non-deload working weight returned as-is (no snap)", suggested === 61.5, `got ${suggested}`);
 }
 {
   const GOBLET_SQUAT: ExerciseMeta = {
@@ -361,7 +424,7 @@ console.log("\n10. suggestedWeight through helper (session page loader path)");
     inputs.unit,
   );
   
-  check("off-grid KB weight snaps to real bell", suggested === 12, `got ${suggested}`);
+  check("non-deload KB weight returned as-is (no snap to bell)", suggested === 13, `got ${suggested}`);
 }
 {
   const TRICEPS_PUSHDOWN: ExerciseMeta = {
