@@ -324,7 +324,7 @@ console.log("\n10. RAW 90% cap: DB 13.75 -> 12.5 (smallest on 2.5 grid >= 12.375
   const DB_ROW: ExerciseMeta = {
     mechanic: "compound",
     metric: "reps",
-    movementPattern: "back",
+    movementPattern: "horizontal_pull",
     isBodyweight: false,
     progressionChain: null,
     progressionRank: null,

@@ -82,7 +82,7 @@ const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) =>
 
 console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 
-// Dumbbell 6 → 5 (drops one step)
+// Dumbbell 6 → holds at 6 (Rule 2 clamp: two-miss RAW 90%=5.4, no loadable in range, holds at 6)
 {
   const d = run({
     equipmentIds: ["dumbbell"],
@@ -90,11 +90,11 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 0 }),
   });
-  check("Dumbbell 6 kg first miss → 5 kg", d.nextWorkingWeightKg === 5 && d.consecutiveFailures === 1);
-  check("  message indicates drop", d.message.includes("dropping to 5 kg"));
+  check("Dumbbell 6 kg first miss → holds at 6 kg (Rule 2: first-miss >= two-miss)", d.nextWorkingWeightKg === 6 && d.consecutiveFailures === 1);
+  check("  message indicates two-miss limit", d.message.includes("exceed the two-miss limit"));
 }
 
-// Dumbbell 12 → 10 (drops one step)
+// Dumbbell 12 → holds at 12 (Rule 2 clamp: two-miss RAW 90%=10.8, ceil to 12.5 >= 12, holds at 12)
 {
   const d = run({
     equipmentIds: ["dumbbell"],
@@ -102,8 +102,8 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
-  check("Dumbbell 12 kg first miss → 10 kg", d.nextWorkingWeightKg === 10 && d.consecutiveFailures === 1);
-  check("  message indicates drop", d.message.includes("dropping to 10 kg"));
+  check("Dumbbell 12 kg first miss → holds at 12 kg (Rule 2: first-miss >= two-miss)", d.nextWorkingWeightKg === 12 && d.consecutiveFailures === 1);
+  check("  message indicates two-miss limit", d.message.includes("exceed the two-miss limit"));
 }
 
 // Dumbbell 5 → holds (smallest loadable, or below increment)
@@ -135,6 +135,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
 
 // Same cases in imperial (stored as kg, displayed as lb)
+// Imperial: Dumbbell 6 kg → holds (Rule 2 clamp)
 {
   const d = run({
     equipmentIds: ["dumbbell"],
@@ -142,10 +143,11 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 0 }),
   });
-  check("Dumbbell 6 kg (13.2 lb) first miss → 5 kg (11 lb)", 
-    d.nextWorkingWeightKg === 5 && d.message.includes("11 lb"));
+  check("Dumbbell 6 kg (13.2 lb) first miss → holds at 6 kg (Rule 2: first-miss >= two-miss)", 
+    d.nextWorkingWeightKg === 6 && d.message.includes("exceed the two-miss limit"));
 }
 
+// Imperial: Dumbbell 12 kg → holds (Rule 2 clamp)
 {
   const d = run({
     equipmentIds: ["dumbbell"],
@@ -153,8 +155,8 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
-  check("Dumbbell 12 kg (26.5 lb) first miss → 10 kg (22 lb)", 
-    d.nextWorkingWeightKg === 10 && d.message.includes("22 lb"));
+  check("Dumbbell 12 kg (26.5 lb) first miss → holds at 12 kg (Rule 2: first-miss >= two-miss)", 
+    d.nextWorkingWeightKg === 12 && d.message.includes("exceed the two-miss limit"));
 }
 
 {
@@ -266,6 +268,7 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (imperial, isolation) ===");
 console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
 
 // Test that increases land on loadable values (via evaluateProgression)
+// Off-grid 12 kg → next grid point is 12.5 kg (one-step cap: smallest loadable strictly > from)
 {
   const decision = run({
     sets: sets(4, 12, 12),
@@ -274,11 +277,11 @@ console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
-  check("Increase from 12kg dumbbell lands on loadable value", decision.nextWorkingWeightKg === 15);
+  check("Increase from 12kg dumbbell → 12.5 kg (one-step cap)", decision.nextWorkingWeightKg === 12.5);
   
   // suggestedWeight just returns that value
-  const w = suggestedWeight({ currentWorkingWeightKg: 15 }, false, CURL, ["dumbbell"], "kg");
-  check("  suggestedWeight returns 15 (loadable)", w === 15);
+  const w = suggestedWeight({ currentWorkingWeightKg: 12.5 }, false, CURL, ["dumbbell"], "kg");
+  check("  suggestedWeight returns 12.5 (loadable)", w === 12.5);
 }
 
 // Test that decreases land on grid (via two-miss)
@@ -480,48 +483,48 @@ console.log("\n=== Mutant-Killing Tests ===");
 
 // Exact 20% boundary without two-miss floor interference
 {
-  // Barbell compound 12.5kg: RAW 90% = 11.25, two-miss floor is 12.5, so HOLD (rule 2)
+  // Barbell compound 12.5kg: RAW 90% = 11.25, two-miss ceil to 12.5 → holds (Rule 2 clamp)
   const d = run({
     equipmentIds: ["barbell"],
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
   });
-  check("12.5kg barbell compound exact 20% cut: drops to 10kg (> not >=)", d.nextWorkingWeightKg === 10);
+  check("12.5kg barbell compound holds at 12.5 kg (Rule 2: first-miss >= two-miss)", d.nextWorkingWeightKg === 12.5);
 }
 
-// (f) Kill kettlebell <= mutant: ensure strictly-below
+// (f) Kettlebell: Rule 2 clamp prevents drops below two-miss result
 {
-  // Kettlebell at 16 kg. Next bell down is 14 kg. If we allow <=, it would stay at 16.
-  // With <, it must go to 14.
+  // Kettlebell at 16 kg: RAW 90% = 14.4, two-miss ceil to 16 → holds (Rule 2 clamp)
   const d = run({
     equipmentIds: ["kettlebell"],
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 16, consecutiveFailures: 0 }),
   });
-  check("Kettlebell 16 kg first miss: must drop to 14 kg (strictly below)", d.nextWorkingWeightKg === 14);
+  check("Kettlebell 16 kg first miss: holds at 16 kg (Rule 2: first-miss >= two-miss)", d.nextWorkingWeightKg === 16);
 }
 
-// More kettlebell strictly-below tests
 {
+  // Kettlebell at 12 kg: RAW 90% = 10.8, two-miss ceil to 12 → holds (Rule 2 clamp)
   const d = run({
     equipmentIds: ["kettlebell"],
     unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
-  check("Kettlebell 12 kg first miss: must drop to 10 kg (strictly below)", d.nextWorkingWeightKg === 10);
+  check("Kettlebell 12 kg first miss: holds at 12 kg (Rule 2: first-miss >= two-miss)", d.nextWorkingWeightKg === 12);
 }
 
 {
+  // Kettlebell at 24 kg: RAW 90% = 21.6, two-miss ceil to 24 → holds (Rule 2 clamp)
   const d = run({
     equipmentIds: ["kettlebell"],
     unit: "kg",
     meta: BENCH,
     state: fresh({ currentWorkingWeightKg: 24, consecutiveFailures: 0 }),
   });
-  check("Kettlebell 24 kg first miss: must drop to 20 kg (strictly below)", d.nextWorkingWeightKg === 20);
+  check("Kettlebell 24 kg first miss: holds at 24 kg (Rule 2: first-miss >= two-miss)", d.nextWorkingWeightKg === 24);
 }
 
 // (g) Kill invariant clamp removal: test case where first-miss < two-miss without clamp

@@ -205,7 +205,17 @@
     "test:load-start-program": "tsx scripts/test-load-start-program.ts",
     "test:load-plan-day": "tsx scripts/test-load-plan-day.ts",
     "test:today-refetch": "tsx scripts/test-today-refetch.ts",
-    "test:update-session-core": "tsx scripts/test-update-session-core.ts"
+    "test:update-session-core": "tsx scripts/test-update-session-core.ts",
+    "test:progression-call-path": "tsx scripts/test-progression-call-path.ts",
+    "test:call-site-wiring": "tsx scripts/test-call-site-wiring.ts",
+    "test:no-equipment-exact-equality": "tsx scripts/test-no-equipment-exact-equality.ts",
+    "test:imperial-wording": "tsx scripts/test-imperial-wording.ts",
+    "test:increase-cap": "tsx scripts/test-increase-cap.ts",
+    "test:message-weight-consistency": "tsx scripts/test-message-weight-consistency.ts",
+    "test:kettlebell-success": "tsx scripts/test-kettlebell-success.ts",
+    "test:working-weight-display": "tsx scripts/test-working-weight-display.ts",
+    "test:working-weight-no-rounding": "tsx scripts/test-working-weight-no-rounding.ts",
+    "test:first-miss-two-miss-invariant": "tsx scripts/test-first-miss-two-miss-invariant.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

@@ -46,7 +46,7 @@ const w13 = suggestedWeight(
 );
 check("13.75kg shows as 13.75kg", w13 === 13.75, `got ${w13}`);
 
-// With equipment params, it would snap (proving the test is meaningful)
+// Even with equipment params, non-deload returns as-is
 const w12WithEquip = suggestedWeight(
   { currentWorkingWeightKg: 12 },
   false,
@@ -54,7 +54,7 @@ const w12WithEquip = suggestedWeight(
   ["dumbbell"],
   "kg",
 );
-check("With equipment, 12kg snaps to 10kg", w12WithEquip === 10, `got ${w12WithEquip}`);
+check("With equipment, 12kg stays 12kg (non-deload)", w12WithEquip === 12, `got ${w12WithEquip}`);
 
 console.log("\n2. On-grid weights stay the same");
 

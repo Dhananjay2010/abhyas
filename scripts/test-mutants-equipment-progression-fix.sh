@@ -1,214 +1,168 @@
 #!/usr/bin/env bash
-# Mutation testing for equipment-aware progression fix
-# Tests call-site wiring and helper behavior
+# Mutation testing for equipment progression fix
+# Validates: Rule 2 clamp, one-step increase cap, hold reasons, two-miss RAW 90% cap, mode weight
 
 set -euo pipefail
 
-HELPER_FILE="src/lib/session/progression-inputs.ts"
-ACTIONS_FILE="src/app/session/actions.ts"
-PAGE_FILE="src/app/session/[id]/page.tsx"
+PROG="src/lib/program/progression.ts"
+BACKUP=$(mktemp /tmp/prog-backup.XXXXXX.ts)
 
-HELPER_BACKUP="/tmp/helper-backup-$$.ts"
-ACTIONS_BACKUP="/tmp/actions-backup-$$.ts"
-PAGE_BACKUP="/tmp/page-backup-$$.ts"
+COUNT=0
+KILLED=0
+SURVIVED=0
+SKIPPED=0
 
-MUTANT_COUNT=0
-KILLED_COUNT=0
-SURVIVED_COUNT=0
-SKIPPED_COUNT=0
-
-# Test suite to run for each mutant
 TESTS=(
-  "npm run test:progression"
-  "npm run test:progression-grid"
-  "npm run test:progression-call-path"
-  "npm run test:call-site-wiring"
-  "npm run test:no-equipment-exact-equality"
-  "npm run test:imperial-wording"
+  "npm run test:first-miss-pinned"
+  "npm run test:first-miss-two-miss-invariant"
+  "npm run test:increase-cap"
+  "npm run test:message-weight-consistency"
+  "npm run test:kettlebell-success"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
 echo
 
-# Validate all test scripts exist
-for test in "${TESTS[@]}"; do
-  script_name=$(echo "$test" | sed 's/npm run //')
-  if ! grep -q "\"$script_name\":" package.json; then
-    echo "ERROR: Test script '$script_name' not found in package.json"
+restore() {
+  [ -f "$BACKUP" ] && cp "$BACKUP" "$PROG" && rm -f "$BACKUP"
+}
+
+trap restore EXIT
+trap 'restore; exit 1' INT TERM
+
+cp "$PROG" "$BACKUP"
+echo "✓ Backup created"
+echo
+
+echo "Running baseline..."
+for t in "${TESTS[@]}"; do
+  if ! $t > /dev/null 2>&1; then
+    echo "❌ Baseline failed: $t"
+    $t 2>&1 | tail -30
     exit 1
   fi
 done
-echo "✓ All test scripts validated"
+echo "✅ Baseline pass"
 echo
 
-# Save backups
-cp "$HELPER_FILE" "$HELPER_BACKUP"
-cp "$ACTIONS_FILE" "$ACTIONS_BACKUP"
-cp "$PAGE_FILE" "$PAGE_BACKUP"
-echo "Saved backups"
-echo
-
-# Restore on ANY exit
-trap 'cp "$HELPER_BACKUP" "$HELPER_FILE" 2>/dev/null; cp "$ACTIONS_BACKUP" "$ACTIONS_FILE" 2>/dev/null; cp "$PAGE_BACKUP" "$PAGE_FILE" 2>/dev/null; rm -f "$HELPER_BACKUP" "$ACTIONS_BACKUP" "$PAGE_BACKUP"' EXIT
-
-# Check baseline
-echo "Running baseline tests..."
-baseline_ok=1
-for test in "${TESTS[@]}"; do
-  if ! $test > /dev/null 2>&1; then
-    echo "ERROR: Baseline test failed: $test"
-    $test 2>&1 | tail -20
-    baseline_ok=0
-    break
-  fi
-done
-
-if [ "$baseline_ok" -eq 0 ]; then
-  echo "Baseline must be green before mutation testing"
-  exit 1
-fi
-echo "Baseline: all tests pass"
-echo
-
-# Helper to test one mutant
 test_mutant() {
   local name="$1"
-  local file="$2"
-  local find_str="$3"
-  local replace_str="$4"
+  local fn="$2"
   
-  MUTANT_COUNT=$((MUTANT_COUNT + 1))
-  printf "%-60s " "[$MUTANT_COUNT] $name"
+  COUNT=$((COUNT + 1))
+  printf "%-75s " "[$COUNT] $name"
   
-  # Validate search string exists
-  if ! grep -qF "$find_str" "$file" 2>/dev/null; then
-    echo "⚠️  SKIP (search string not found)"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-    return 1
+  cp "$BACKUP" "$PROG"
+  
+  if ! $fn 2>/dev/null; then
+    echo "⚠️  SKIP (mutation failed)"
+    SKIPPED=$((SKIPPED + 1))
+    return
   fi
   
-  # Restore originals
-  cp "$HELPER_BACKUP" "$HELPER_FILE"
-  cp "$ACTIONS_BACKUP" "$ACTIONS_FILE"
-  cp "$PAGE_BACKUP" "$PAGE_FILE"
-  
-  # Plant mutant using perl
-  perl -i -pe 'BEGIN{undef $/;} s/\Q'"$find_str"'\E/'"$replace_str"'/s' "$file" 2>/dev/null || {
-    echo "⚠️  SKIP (perl failed)"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-    return 1
-  }
-  
-  # Verify file changed (compare against backup)
-  local backup_file="$HELPER_BACKUP"
-  if [ "$file" = "$ACTIONS_FILE" ]; then
-    backup_file="$ACTIONS_BACKUP"
-  elif [ "$file" = "$PAGE_FILE" ]; then
-    backup_file="$PAGE_BACKUP"
+  if cmp -s "$PROG" "$BACKUP"; then
+    echo "⚠️  SKIP (unchanged)"
+    SKIPPED=$((SKIPPED + 1))
+    return
   fi
   
-  if cmp -s "$file" "$backup_file"; then
-    echo "⚠️  SKIP (file unchanged)"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-    return 1
+  if ! npx tsc --noEmit > /dev/null 2>&1; then
+    echo "⚠️  SKIP (no compile)"
+    SKIPPED=$((SKIPPED + 1))
+    return
   fi
   
-  # Verify still compiles
-  if ! npm run typecheck > /dev/null 2>&1; then
-    echo "⚠️  SKIP (does not compile)"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-    return 1
-  fi
-  
-  # Run targeted tests
-  local has_new_failure=0
-  for test in "${TESTS[@]}"; do
-    if ! $test > /dev/null 2>&1; then
-      has_new_failure=1
+  local fail=0
+  for t in "${TESTS[@]}"; do
+    if ! $t > /dev/null 2>&1; then
+      fail=1
       break
     fi
   done
   
-  if [ "$has_new_failure" -eq 0 ]; then
+  if [ "$fail" -eq 0 ]; then
     echo "❌ SURVIVED"
-    SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
+    SURVIVED=$((SURVIVED + 1))
   else
     echo "✅ KILLED"
-    KILLED_COUNT=$((KILLED_COUNT + 1))
+    KILLED=$((KILLED + 1))
   fi
 }
 
-# M1: Helper returns equipmentIds/unit for empty
-test_mutant \
-  "Helper returns equipment for empty array" \
-  "$HELPER_FILE" \
-  "return {};" \
-  "return { equipmentIds: [], unit: 'kg' as WeightUnit };" || true
+# M1: Remove Rule 2 clamp
+m1() {
+  # Comment out lines 756-763 (Rule 2 block)
+  sed -i '756,763s/^/\/\/ MUTANT: /' "$PROG"
+}
+test_mutant "Remove Rule 2 clamp (allow first-miss < two-miss)" m1
 
-# M2: Helper forces unit to kg (breaks imperial wording)
-test_mutant \
-  "Helper forces unit to kg" \
-  "$HELPER_FILE" \
-  'const unit: WeightUnit = userUnits === "imperial" ? "lb" : "kg";' \
-  'const unit: WeightUnit = "kg";' || true
+# M2: Break one-step increase cap
+m2() {
+  # Line 548: change next = nextGrid to next = from + 2 * gridStep
+  sed -i '548s/next = nextGrid;/next = from + 2 * gridStep;/' "$PROG"
+}
+test_mutant "Break one-step increase cap (multi-step jumps)" m2
 
-# M3: actions.ts doesn't spread helper
-test_mutant \
-  "actions.ts: remove helper spread" \
-  "$ACTIONS_FILE" \
-  "...progressionInputsFromExercise(ex, profileRes.data?.units)," \
-  "" || true
+# M3: Break kettlebell strictly-above
+m3() {
+  # Line 544: change > to >=
+  sed -i '544s/if (bell > from + epsilon) {/if (bell >= from) {/' "$PROG"
+}
+test_mutant "Break kettlebell strictly-above (same bell allowed)" m3
 
-# M4: page.tsx hardcodes mechanic to null
-test_mutant \
-  "page.tsx: mechanic hardcoded to null" \
-  "$PAGE_FILE" \
-  "mechanic: ex?.mechanic ?? null," \
-  "mechanic: null," || true
+# M4: Remove weight from hold messages
+m4() {
+  sed -i 's/holding at \${displayWeight(currentWeight, unit)}/holding at this weight/g' "$PROG"
+  sed -i 's/Staying at \${displayWeight(currentWeight, unit)}/Staying at this weight/g' "$PROG"
+}
+test_mutant "Remove weight from hold messages" m4
 
-# M5: page.tsx doesn't select mechanic from exercises
-test_mutant \
-  "page.tsx: mechanic not selected from exercises" \
-  "$PAGE_FILE" \
-  "movement_pattern, mechanic, primary_muscles" \
-  "movement_pattern, primary_muscles" || true
+# M5: Replace mode with heaviest
+m5() {
+  # Lines 435-448: replace mostCommonWorkingWeight body
+  sed -i '435,448c\
+    const weights = sets.map(s => s.weightKg ?? 0).filter(w => w > 0);\
+    return weights.length > 0 ? Math.max(...weights) : 0;' "$PROG"
+}
+test_mutant "Replace mode with heaviest for fallback" m5
 
-# M6: page.tsx passes undefined units to helper
-test_mutant \
-  "page.tsx: undefined units to helper" \
-  "$PAGE_FILE" \
-  "progressionInputsFromExercise(ex ?? { equipment_ids: [] }, profileRes.data?.units)" \
-  "progressionInputsFromExercise(ex ?? { equipment_ids: [] }, undefined)" || true
+# M6: Two-miss: change >= to > (reject values at target, only accept strictly above)
+m6() {
+  # Line 640: kettlebell two-miss, change >= to >
+  sed -i '640s/if (bell >= target/if (bell > target/' "$PROG"
+}
+test_mutant "Two-miss RAW 90%: reject target value (need strictly above)" m6
 
-# M7: page.tsx doesn't pass equipmentIds (replace with undefined so it compiles)
-test_mutant \
-  "page.tsx: remove equipmentIds from suggestedWeight" \
-  "$PAGE_FILE" \
-  "progInputs.equipmentIds," \
-  "undefined," || true
+# M7: Two-miss: standard equipment, change >= to >
+m7() {
+  # Find line with "nextDown >= target" and change to >
+  sed -i 's/if (nextDown >= target - 0.001 && nextDown < weight - 0.001) {/if (nextDown > target \&\& nextDown < weight) {/' "$PROG"
+}
+test_mutant "Two-miss standard equipment: reject target value" m7
 
-# M8: page.tsx doesn't pass unit
-test_mutant \
-  "page.tsx: remove unit from suggestedWeight" \
-  "$PAGE_FILE" \
-  "progInputs.unit," \
-  "" || true
+# M8: Disable Rule 1 (20% cut guard)
+m8() {
+  # Comment out Rule 1 block (lines 747-754)
+  sed -i '747,754s/^/\/\/ MUTANT: /' "$PROG"
+}
+test_mutant "Disable Rule 1 (allow >20% cuts)" m8
+
+# M9: Swap smallest-weight holdReason to allow overwrite
+m9() {
+  # Line 713: change candidateWeight = currentWeight; to candidateWeight = candidateWeight;
+  sed -i '713s/candidateWeight = currentWeight;/candidateWeight = candidateWeight;/' "$PROG"
+}
+test_mutant "Allow overwriting holdReason=smallest" m9
 
 echo
 echo "==================================="
-echo "Total mutants: $MUTANT_COUNT"
-echo "Killed: $KILLED_COUNT"
-echo "Survived: $SURVIVED_COUNT"
-echo "Skipped: $SKIPPED_COUNT"
+echo "Total: $COUNT | Killed: $KILLED | Survived: $SURVIVED | Skipped: $SKIPPED"
 echo
 
-if [ "$SURVIVED_COUNT" -gt 0 ]; then
-  echo "❌ MUTATION TEST FAILED: $SURVIVED_COUNT mutants survived"
-  exit 1
-elif [ "$SKIPPED_COUNT" -gt 0 ]; then
-  echo "❌ MUTATION TEST FAILED: $SKIPPED_COUNT mutants skipped"
+if [ "$SURVIVED" -gt 0 ] || [ "$SKIPPED" -gt 0 ]; then
+  echo "❌ FAILED: $SURVIVED survived, $SKIPPED skipped"
   exit 1
 else
-  echo "✅ MUTATION TEST PASSED: All mutants killed"
+  echo "✅ PASSED: All $KILLED mutants killed"
   exit 0
 fi
