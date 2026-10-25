@@ -193,6 +193,7 @@ const result3 = buildTrainAnywayDays({
   allDays: newDays, // Only active program_days
   localToday: "2026-10-19", // Monday (day 1, rest day)
   missedYesterday: false,
+  program: { started_on: "2026-10-12", week_offset: 0 }, // Required for Lift logic
 });
 
 assert(result3.length >= 1, "At least one option offered (from active program_days only)");
