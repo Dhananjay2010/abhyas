@@ -35,22 +35,6 @@ export function findOpenStrengthSession(
 }
 
 /**
- * Build the input for closeStaleSessions from Today page's open sessions query.
- */
-export function todayCloseInput(
-  openRows: Array<{ id: string; local_date: string; started_at: string | null; actual_type: string | null; status: string }> | null
-): Array<{ id: string; local_date: string; started_at: string | null; actual_type: string | null; status: string }> {
-  if (!openRows) return [];
-  return openRows.map(row => ({
-    id: row.id,
-    local_date: row.local_date,
-    started_at: row.started_at,
-    actual_type: row.actual_type,
-    status: row.status
-  }));
-}
-
-/**
  * Get the credited sessions banner text for Today page.
  * Returns null if no banner should be shown.
  */

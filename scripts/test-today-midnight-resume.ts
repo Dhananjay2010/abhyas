@@ -1,7 +1,6 @@
 /**
- * Test Today page helpers: session detection, close-stale input, banner text.
+ * Test Today page helpers: session detection and banner text.
  * - findOpenStrengthSession finds in_progress or planned strength sessions
- * - todayCloseInput preserves real started_at for close-stale
  * - creditedBannerText formats banner messages
  * 
  *   npx tsx scripts/test-today-midnight-resume.ts
@@ -9,7 +8,6 @@
 
 import { 
   findOpenStrengthSession,
-  todayCloseInput,
   creditedBannerText,
   shouldRedirectSession
 } from "../src/lib/today/session-detection";
@@ -93,24 +91,7 @@ console.log("\n10. Test I: shouldRedirectSession keeps in_progress sessions acce
   check("planned does NOT redirect", shouldRedirectSession("planned") === false);
 }
 
-console.log("\n11. todayCloseInput preserves started_at for close-stale");
-{
-  const rawRows = [
-    { id: "s1", local_date: "2026-10-25", started_at: "2026-10-24T23:30:00Z", actual_type: "weights", status: "in_progress" },
-    { id: "s2", local_date: "2026-10-24", started_at: null, actual_type: "bodyweight", status: "in_progress" },
-  ];
-
-  const input = todayCloseInput(rawRows);
-
-  check("returns correct count", input.length === 2);
-  check("s1 id preserved", input[0].id === "s1");
-  check("s1 started_at preserved", input[0].started_at === "2026-10-24T23:30:00Z");
-  check("s1 local_date preserved", input[0].local_date === "2026-10-25");
-  check("s2 null started_at preserved", input[1].started_at === null);
-  check("handles null input", todayCloseInput(null).length === 0);
-}
-
-console.log("\n12. creditedBannerText generates correct message for Today page");
+console.log("\n11. creditedBannerText generates correct message for Today page");
 {
   check("0 credited returns null", creditedBannerText(0) === null);
   check("1 credited returns singular", creditedBannerText(1) === "A session you had left open has been counted — you had logged sets in it.");

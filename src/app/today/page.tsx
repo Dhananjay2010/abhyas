@@ -10,8 +10,7 @@ import { addDays, isoWeekday, localDateString } from "@/lib/dates";
 import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
-import { closeStaleSessions } from "@/lib/session/close-stale";
-import { loadTodaySessionState } from "@/lib/today/loader";
+import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
@@ -28,7 +27,7 @@ export default async function TodayPage() {
   // Nothing here depends on anything else here, so all three go at once. This
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
-  const [profileRes, programRes, equipmentRes, openRes] = await Promise.all([
+  const [profileRes, programRes, equipmentRes] = await Promise.all([
     // `maybeSingle`, not `single`: a missing row is a state to handle, not an
     // exception. With `single` PostgREST answers "Cannot coerce the result to a
     // single JSON object", which threw during the server render and reached the
@@ -43,14 +42,6 @@ export default async function TodayPage() {
     // produces a thin, odd-looking plan. Say so rather than letting the user
     // wonder why their Pull day is full of core work.
     supabase.from("user_equipment").select("*", { count: "exact", head: true }),
-    // Sessions still open from an earlier day. Fetched without a date filter
-    // because the local date is not known until the profile arrives.
-    supabase
-      .from("sessions")
-      .select("id, local_date, started_at, actual_type, status")
-      .in("status", ["planned", "in_progress"])
-      .order("local_date", { ascending: false })
-      .limit(20),
   ]);
 
   /*
@@ -94,16 +85,6 @@ export default async function TodayPage() {
   const firstName = profile.display_name?.split(" ")[0] ?? "";
   const localToday = localDateString(timezone);
 
-  // A four-week block that has run its course rolls over here, on load. Handing
-  // it the block we just read makes the common case — the block is current —
-  // free: it compares two dates and returns, with no query of its own.
-  const rollover = await ensureCurrentBlock(
-    supabase,
-    user.id,
-    localToday,
-    programRes.data,
-  );
-
   /*
     The days "Your week" can be about, plus yesterday.
 
@@ -116,6 +97,24 @@ export default async function TodayPage() {
   */
   const yesterday = addDays(localToday, -1);
   const weekAheadEnd = addDays(localToday, 6);
+
+  // Load session state: closes stale sessions BEFORE reading recent sessions.
+  // Ensures resume detection, missed-yesterday check, and today's override see
+  // post-close statuses rather than stale in_progress rows.
+  const sessionState = await loadTodaySessionState(
+    makeTodayLoaderDeps(supabase, { yesterday, weekAheadEnd }),
+    localToday
+  );
+
+  // A four-week block that has run its course rolls over here, on load. Handing
+  // it the block we just read makes the common case — the block is current —
+  // free: it compares two dates and returns, with no query of its own.
+  const rollover = await ensureCurrentBlock(
+    supabase,
+    user.id,
+    localToday,
+    programRes.data,
+  );
 
   // A rollover replaced the active block, so the row read above is stale.
   // This happens on one day in twenty-eight. Query for the new block by its
@@ -154,41 +153,15 @@ export default async function TodayPage() {
   // The week's days arrive with each day's exercises embedded. That is one
   // round trip instead of two, and it removes the dependency that forced the
   // exercise query to wait for the day query to name today's row.
-  const [daysRes, sessionsRes] = await Promise.all([
-    supabase
-      .from("program_days")
-      // One string literal: Supabase infers the row type from it, and a
-      // concatenation degrades the result to GenericStringError.
-      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
-      .eq("status", "active")
-      .eq("program_id", program.id)
-      .order("day_index")
-      .order("order_index", { referencedTable: "program_day_exercises" }),
-    // Judged per training type, not "most recent session of any kind". A
-    // one-minute breathing session used to be the newest row and made Today
-    // announce "Session complete", hiding the Start button and locking the user
-    // out of their actual workout for the rest of the day.
-    // Yesterday comes along for the ride, because SPEC section 7 asks the same
-    // "what about tomorrow?" question about today when yesterday was a training
-    // day nobody finished. One extra date in an `in` filter is free; a second
-    // query would not be.
-    /*
-      Yesterday through to a week today. One range filter rather than a list of
-      dates, and the same single round trip either way.
-
-      The week ahead is needed because "Your week" used to render the block's
-      template labels only, so a choice made last night about today or tomorrow
-      was invisible there: the user picked Rest for tomorrow and the week still
-      said Push.
-    */
-    supabase
-      .from("sessions")
-      .select("id, status, actual_type, local_date, program_day_id, started_at, created_at")
-      .gte("local_date", yesterday)
-      .lte("local_date", weekAheadEnd)
-      // Newest first, which is how `startSession` breaks the same tie.
-      .order("created_at", { ascending: false }),
-  ]);
+  const daysRes = await supabase
+    .from("program_days")
+    // One string literal: Supabase infers the row type from it, and a
+    // concatenation degrades the result to GenericStringError.
+    .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
+    .eq("status", "active")
+    .eq("program_id", program.id)
+    .order("day_index")
+    .order("order_index", { referencedTable: "program_day_exercises" });
 
   const days = daysRes.data;
   // Derived from the user's own local date rather than re-reading the clock,
@@ -196,19 +169,8 @@ export default async function TodayPage() {
   const todayIndex = isoWeekday(localToday);
   const scheduled = days?.find((d) => d.day_index === todayIndex);
 
-  const allSessions = sessionsRes.data ?? [];
-  const todaySessions = allSessions.filter((s) => s.local_date === localToday);
-
-  // Load session state: closes stale sessions and prepares view data (c2, e1, f2)
-  const sessionState = await loadTodaySessionState(
-    {
-      fetchOpenSessions: () => Promise.resolve(openRes.data),
-      closeStale: (input, today) => closeStaleSessions(supabase, input, today),
-    },
-    allSessions,
-    todaySessions,
-    localToday
-  );
+  // Session state already loaded before wave 2, with allSessions and todaySessions
+  const { allSessions, todaySessions } = sessionState;
 
   const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
 

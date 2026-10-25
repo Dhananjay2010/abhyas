@@ -5,67 +5,50 @@
  *   npx tsx scripts/test-supabase-adapter.ts
  */
 
-import { supabaseCloseStaleQueries, type SessionExerciseRow } from "../src/lib/session/close-stale-deps";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+import { supabaseCloseStaleQueries } from "../src/lib/session/close-stale-deps";
 import type { Database } from "../src/lib/database.types";
 
-type CallRecord = {
-  table?: string;
-  select?: string;
-  updateData?: Record<string, unknown>;
-  updateOptions?: { count?: string };
-  eqColumn?: string;
-  eqValue?: unknown;
-  inColumn?: string;
-  inValues?: unknown[];
+type RecordedRequest = {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body: string | null;
 };
 
-class RecordingSupabaseClient {
-  private calls: CallRecord[] = [];
-  
-  getCalls(): CallRecord[] {
-    return this.calls;
-  }
+const recorded: RecordedRequest[] = [];
 
-  from(table: string) {
-    const call: CallRecord = { table };
-    this.calls.push(call);
-    
-    return {
-      select: (columns: string) => {
-        call.select = columns;
-        return {
-          in: (column: string, values: string[]) => {
-            call.inColumn = column;
-            call.inValues = values;
-            return Promise.resolve({ 
-              data: [] as SessionExerciseRow[], 
-              error: null 
-            });
-          }
-        };
-      },
-      update: (data: Record<string, unknown>, options?: { count?: string }) => {
-        call.updateData = data;
-        call.updateOptions = options;
-        return {
-          eq: (column: string, value: unknown) => {
-            call.eqColumn = column;
-            call.eqValue = value;
-            return {
-              eq: (column2: string, value2: unknown) => {
-                // Record the status guard
-                if (column2 === "status") {
-                  call.eqValue = value2;
-                }
-                return Promise.resolve({ error: null, count: 1 });
-              }
-            };
-          }
-        };
+function stubFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  const method = init?.method ?? "GET";
+  const headers: Record<string, string> = {};
+  
+  if (init?.headers) {
+    if (init.headers instanceof Headers) {
+      init.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+    } else if (Array.isArray(init.headers)) {
+      for (const [key, value] of init.headers) {
+        headers[key] = value;
       }
-    };
+    } else {
+      Object.assign(headers, init.headers);
+    }
   }
+  
+  const body = init?.body ? String(init.body) : null;
+  
+  recorded.push({ url, method, headers, body });
+  
+  // Return empty success responses
+  const emptyData: unknown[] = [];
+  return Promise.resolve(
+    new Response(JSON.stringify(emptyData), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  );
 }
 
 let failures = 0;
@@ -78,39 +61,44 @@ function check(label: string, ok: boolean, detail = "") {
 
 console.log("\n1. ad1: updateSessionIfStatus passes guardStatus to .eq");
 {
-  const client = new RecordingSupabaseClient();
-  const adapter = supabaseCloseStaleQueries(client as unknown as SupabaseClient<Database>);
+  recorded.length = 0;
+  const client = createClient<Database>("http://fake.local", "anon", { global: { fetch: stubFetch } });
+  const adapter = supabaseCloseStaleQueries(client);
   
   await adapter.updateSessionIfStatus("sess1", "in_progress", { status: "completed" });
   
-  const calls = client.getCalls();
-  check("table is sessions", calls[0].table === "sessions");
-  check("ad1: status guard is in_progress", calls[0].eqValue === "in_progress");
+  check("one PATCH request", recorded.length === 1);
+  check("ad1: status filter in URL", recorded[0].url.includes("status=eq.in_progress"));
+  check("ad1: id filter in URL", recorded[0].url.includes("id=eq.sess1"));
+  const preferHeader = recorded[0].headers["Prefer"] ?? recorded[0].headers["prefer"];
+  check("ad2: Prefer count=exact header", preferHeader?.includes("count=exact") === true, `got: ${preferHeader}`);
 }
 
-console.log("\n2. ad2: updateSessionIfStatus passes { count: 'exact' }");
+console.log("\n2. ad2: updateSessionIfStatus passes { count: 'exact' } in second call");
 {
-  const client = new RecordingSupabaseClient();
-  const adapter = supabaseCloseStaleQueries(client as unknown as SupabaseClient<Database>);
+  recorded.length = 0;
+  const client = createClient<Database>("http://fake.local", "anon", { global: { fetch: stubFetch } });
+  const adapter = supabaseCloseStaleQueries(client);
   
   await adapter.updateSessionIfStatus("sess2", "planned", { status: "skipped" });
   
-  const calls = client.getCalls();
-  check("ad2: count option is 'exact'", calls[0].updateOptions?.count === "exact");
+  check("one PATCH request", recorded.length === 1);
+  check("status filter in URL", recorded[0].url.includes("status=eq.planned"));
+  const preferHeader = recorded[0].headers["Prefer"] ?? recorded[0].headers["prefer"];
+  check("ad2: Prefer count=exact header", preferHeader?.includes("count=exact") === true, `got: ${preferHeader}`);
 }
 
 console.log("\n3. selectSessionSets calls session_exercises with .in");
 {
-  const client = new RecordingSupabaseClient();
-  const adapter = supabaseCloseStaleQueries(client as unknown as SupabaseClient<Database>);
+  recorded.length = 0;
+  const client = createClient<Database>("http://fake.local", "anon", { global: { fetch: stubFetch } });
+  const adapter = supabaseCloseStaleQueries(client);
   
   await adapter.selectSessionSets(["s1", "s2"]);
   
-  const calls = client.getCalls();
-  check("table is session_exercises", calls[0].table === "session_exercises");
-  check("selects session_id and sets", calls[0].select?.includes("session_id") === true);
-  check("uses .in for ids", calls[0].inColumn === "session_id");
-  check("passes correct ids", JSON.stringify(calls[0].inValues) === '["s1","s2"]');
+  check("one GET request", recorded.length === 1);
+  check("table is session_exercises", recorded[0].url.includes("/session_exercises"));
+  check("uses .in for ids", recorded[0].url.includes("session_id=in."));
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
