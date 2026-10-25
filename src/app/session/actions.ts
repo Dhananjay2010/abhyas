@@ -17,7 +17,7 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "@/lib/program/progression";
-import { applyDeload, prescribe } from "@/lib/program/prescription";
+import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
@@ -31,10 +31,8 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
-import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
-import { progressForPlanningMode, resolveSwapResultPayload, remembersWeightsFor } from "@/lib/session/swap-progress";
-import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
+import { progressForPlanningMode } from "@/lib/session/swap-progress";
 import { swapExerciseForUser } from "@/lib/session/swap-exercise-for-user";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];

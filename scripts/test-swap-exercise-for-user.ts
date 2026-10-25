@@ -1,7 +1,7 @@
 import { swapExerciseForUser } from "../src/lib/session/swap-exercise-for-user";
-import type { Database } from "../src/types/supabase";
+import type { Database } from "../src/lib/database.types";
 
-type Metric = Database["public"]["Enums"]["metric"];
+type Metric = Database["public"]["Enums"]["exercise_metric"];
 
 function createFakeSupabase(progressRow: { working_weight_kg: number; current_target_reps: number } | null, planningMode: "daily_menu" | "progression" | null) {
   const fakeChain = {

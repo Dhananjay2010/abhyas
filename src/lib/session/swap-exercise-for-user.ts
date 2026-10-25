@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/supabase";
+import type { Database } from "@/lib/database.types";
 import { swapExerciseCore } from "./swap-exercise-core";
 import { resolveSwapWeights } from "./resolve-swap-weights";
 import { remembersWeightsFor, resolveSwapResultPayload } from "./swap-progress";
@@ -7,7 +7,7 @@ import { remembersWeightsFor, resolveSwapResultPayload } from "./swap-progress";
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
 export type SwapResult = {
-  metric: Database["public"]["Enums"]["metric"];
+  metric: Database["public"]["Enums"]["exercise_metric"];
   repsMin: number | null;
   repsMax: number | null;
   equipmentIds: string[];
