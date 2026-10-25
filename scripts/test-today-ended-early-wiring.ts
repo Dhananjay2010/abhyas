@@ -1,16 +1,14 @@
 #!/usr/bin/env tsx
 /**
- * Wiring test: Today page shows 'Session ended early' for early-ended sessions.
+ * Smoke test: Today page helper functions are correctly typed and imported.
  * 
- * This test ensures the Today page wiring is intact. It will fail if:
- * - countWorkingSets import is removed
- * - getCompletionDisplay import is removed
- * - sessionSummaryTitle import is removed
- * - The ended-early detection logic is removed
+ * This test verifies that the helper functions (countWorkingSets, getCompletionDisplay,
+ * sessionSummaryTitle) exist, are correctly typed, and produce expected output.
+ * It does NOT test that the Today page actually uses these functions - that would
+ * require rendering the page component.
  */
 
-// This is a smoke test that the imports and types are correct
-// Full integration would require rendering the page, which needs a complex setup
+// Smoke test: verify imports and basic functionality
 
 import { countWorkingSets, getCompletionDisplay } from "../src/lib/today/row-helpers";
 import { sessionSummaryTitle } from "../src/lib/session/end-early-text";
