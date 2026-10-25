@@ -332,7 +332,8 @@
     "test:bodyweight-zero-kg-message": "tsx scripts/test-bodyweight-zero-kg-message.ts",
     "test:reps-cap-message": "tsx scripts/test-reps-cap-message.ts",
     "test:msg-bodyweight-zero": "tsx scripts/test-msg-bodyweight-zero.ts",
-    "test:med3-third-miss": "tsx scripts/test-med3-third-miss.ts"
+    "test:med3-third-miss": "tsx scripts/test-med3-third-miss.ts",
+    "test:barbell-grid-snap": "tsx scripts/test-barbell-grid-snap.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
