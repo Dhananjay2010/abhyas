@@ -309,7 +309,19 @@
     "test:past-knee-lunge-swaps": "tsx scripts/test-past-knee-lunge-swaps.ts",
     "test:swap-list-exhaustive": "tsx scripts/test-swap-list-exhaustive.ts",
     "test:swap-safety-behaviour": "tsx scripts/test-swap-safety-behaviour.ts",
-    "test:swap-banned-real-path": "tsx scripts/test-swap-banned-real-path.ts"
+    "test:swap-banned-real-path": "tsx scripts/test-swap-banned-real-path.ts",
+    "test:units-conversion-boundary": "tsx scripts/test-units-conversion-boundary.ts",
+    "test:units-edit-sets": "tsx scripts/test-units-edit-sets.tsx",
+    "test:units-kg-lb-conversion": "tsx scripts/test-units-kg-lb-conversion.tsx",
+    "test:units-onboarding-picker": "tsx scripts/test-units-onboarding-picker.tsx",
+    "test:units-runner-render": "tsx scripts/test-units-runner-render.tsx",
+    "test:units-settings-toggle": "tsx scripts/test-units-settings-toggle.tsx",
+    "test:units-metric-identity-input": "tsx scripts/test-units-metric-identity-input.ts",
+    "test:units-metric-identity-display": "tsx scripts/test-units-metric-identity-display.ts",
+    "test:units-imperial-precision": "tsx scripts/test-units-imperial-precision.ts",
+    "test:units-imperial-display-rounding": "tsx scripts/test-units-imperial-display-rounding.ts",
+    "test:units-history-edit-conversion": "tsx scripts/test-units-history-edit-conversion.tsx",
+    "test:units-no-pb-on-prefill": "tsx scripts/test-units-no-pb-on-prefill.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
