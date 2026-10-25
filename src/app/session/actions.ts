@@ -28,6 +28,7 @@ import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/sessi
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { startSessionFullCore } from "@/lib/session/start-session-full-core";
+import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
 import { progressForPlanningMode } from "@/lib/session/swap-progress";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -81,11 +82,8 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   
   const { supabase, user } = await requireUser();
 
-  const result = await startSessionFullCore({
-    supabase,
-    userId: user.id,
-    nowMs: Date.now(),
-  });
+  const deps = buildStartSessionFullDeps(supabase, user.id, Date.now());
+  const result = await startSessionFullCore(deps);
 
   if (!result.ok) {
     return { ok: false, error: result.error };

@@ -2,33 +2,87 @@
  * Core logic for the full startSession flow, extracted from actions.ts
  * to make it testable without 'use server' constraints.
  * 
- * This handles:
- * - Resume logic (#111)
- * - Case C (idempotent same-date in_progress check)
- * - L3 (stale session closing before insert)
- * - Session insert
- * - Exercise insert
+ * Takes small typed dependency functions instead of raw supabase client,
+ * making it easy to test with plain typed fakes (no network, no `as`, no `!`).
  */
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { localDateString, isoWeekday } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { applyDeload } from "@/lib/program/prescription";
 import { pickReusableSession } from "@/lib/session/reusable-session";
-import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "./load-start-program";
-import { startSessionCore } from "./start-session-core";
-import { updateSessionCore } from "./update-session-core";
-import { ensureSessionExercises } from "./ensure-session-exercises";
-import { insertSessionExercises } from "./insert-session-exercises";
-import { buildStartSessionStaleDeps } from "./build-start-session-stale-deps";
+import type { StartSessionStaleDeps } from "./start-session-stale-core";
 import { startSessionStaleCore } from "./start-session-stale-core";
 
+type SessionRow = Database["public"]["Tables"]["sessions"]["Row"];
+type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
+
+type SessionExerciseInsert = {
+  session_id: string;
+  user_id: string;
+  exercise_id: string;
+  order_index: number;
+  planned_sets: number;
+  planned_reps_min: number | null;
+  planned_reps_max: number | null;
+  rest_seconds: number;
+  metric: "reps" | "seconds";
+};
+
+export type OpenSession = {
+  id: string;
+  status: string;
+  local_date: string;
+  actual_type: Database["public"]["Enums"]["day_type"] | null;
+  started_at: string | null;
+};
+
+export type ProgramDayExercise = {
+  exercise_id: string;
+  order_index: number;
+  target_sets: number;
+  target_reps_min: number;
+  target_reps_max: number;
+  rest_seconds: number;
+  exercises: { metric: string } | { metric: string }[];
+};
+
 export type StartSessionFullDeps = {
-  supabase: SupabaseClient<Database>;
   userId: string;
   nowMs: number;
+  
+  fetchProfile: () => Promise<{ timezone?: string | null } | null>;
+  fetchOpenSessions: () => Promise<OpenSession[]>;
+  fetchResumeEnabled: () => Promise<boolean>;
+  
+  updateSession: (sessionId: string, payload: { status: string; started_at?: string }) => Promise<{ ok: true } | { ok: false; error: string }>;
+  ensureSessionExercises: (sessionId: string) => Promise<void>;
+  
+  ensureCurrentBlock: (today: string) => Promise<
+    | { status: "none" }
+    | { status: "current"; programId: string }
+    | { status: "rolled_over"; programId: string }
+    | { status: "error"; error: string }
+  >;
+  
+  loadProgram: (programId: string, dayIndex: number) => Promise<
+    | { ok: true; program: { id: string; started_on: string; deload_week: number; week_offset: number }; dayId: string; dayType: string }
+    | { ok: false; error: string }
+  >;
+  
+  findInProgressToday: (today: string) => Promise<SessionRow[]>;
+  
+  buildStaleDeps: (openSessions: OpenSession[], today: string, nowMs: number) => StartSessionStaleDeps;
+  
+  insertSession: (payload: SessionInsert) => Promise<
+    | { ok: true; sessionId: string }
+    | { ok: true; existingSessionId: string }
+    | { ok: false; error: string }
+  >;
+  
+  fetchPlannedExercises: (dayId: string) => Promise<ProgramDayExercise[] | null>;
+  
+  insertExercises: (exercises: SessionExerciseInsert[]) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
 export type StartSessionFullResult =
@@ -43,31 +97,24 @@ function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metr
 
 /**
  * Full startSession flow core logic.
- * Testable via fake-postgrest by injecting a real supabase client with stub fetch.
+ * Testable via plain typed fake functions.
  */
 export async function startSessionFullCore(
   deps: StartSessionFullDeps
 ): Promise<StartSessionFullResult> {
-  const { supabase, userId, nowMs } = deps;
+  const { userId, nowMs } = deps;
   
   // ---- wave 1 -------------------------------------------------------------
-  const [profileRes, openRes, settingsRes] = await Promise.all([
-    supabase.from("profiles").select("timezone, primary_track").eq("id", userId).single(),
-    supabase
-      .from("sessions")
-      .select("id, status, local_date, actual_type, started_at")
-      .in("status", ["planned", "in_progress", "skipped"])
-      .order("local_date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(10),
-    supabase.from("user_settings").select("resume_session").eq("user_id", userId).maybeSingle(),
+  const [profile, openSessions, resumeEnabled] = await Promise.all([
+    deps.fetchProfile(),
+    deps.fetchOpenSessions(),
+    deps.fetchResumeEnabled(),
   ]);
 
-  const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
+  const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const today = localDateString(timezone, new Date(nowMs));
-  const resumeEnabled = settingsRes.data?.resume_session ?? true;
 
-  const todayRows = (openRes.data ?? []).filter((s) => s.local_date === today);
+  const todayRows = openSessions.filter((s) => s.local_date === today);
   const existing = pickReusableSession(todayRows, resumeEnabled);
 
   if (existing) {
@@ -78,20 +125,17 @@ export async function startSessionFullCore(
         : {}),
     };
 
-    const [updateResult] = await Promise.all([
-      updateSessionCore(supabase, existing.id, userId, today, updatePayload),
-      ensureSessionExercises(supabase, userId, existing.id),
-    ]);
-
+    const updateResult = await deps.updateSession(existing.id, updatePayload);
     if (!updateResult.ok) {
       return { ok: false, error: updateResult.error };
     }
 
-    return { ok: true, sessionId: updateResult.sessionId };
+    await deps.ensureSessionExercises(existing.id);
+    return { ok: true, sessionId: existing.id };
   }
 
-  // Ensure we have a current block before creating a session
-  const rolloverResult = await ensureCurrentBlock(supabase, userId, today);
+  // Ensure we have a current block
+  const rolloverResult = await deps.ensureCurrentBlock(today);
   if (rolloverResult.status === "none") {
     return { ok: false, error: "You have no active training block." };
   }
@@ -101,74 +145,58 @@ export async function startSessionFullCore(
 
   const dayIndex = isoWeekday(today);
 
-  const loadResult = await loadStartProgram(
-    createLoadStartProgramDeps(supabase),
-    rolloverResult.programId,
-    dayIndex
-  );
+  const loadResult = await deps.loadProgram(rolloverResult.programId, dayIndex);
   if (!loadResult.ok) return { ok: false, error: loadResult.error };
 
-  const { program, day } = loadResult;
+  const { program, dayId, dayType } = loadResult;
 
   const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, today);
   const isDeloadWeek = week === program.deload_week;
 
   // ---- wave 2 -------------------------------------------------------------
-  // Case C: Idempotent session start - check for existing in_progress session first
-  const { data: existingInProgressSessions } = await supabase
-    .from("sessions")
-    .select("id, status, local_date, actual_type")
-    .eq("user_id", userId)
-    .eq("local_date", today)
-    .eq("status", "in_progress");
-
-  if (existingInProgressSessions && existingInProgressSessions.length > 0) {
-    // An in_progress session already exists for this user + date, return it (idempotent)
-    return { ok: true, sessionId: existingInProgressSessions[0].id };
+  // Case C: Idempotent session start
+  const existingInProgress = await deps.findInProgressToday(today);
+  if (existingInProgress.length > 0) {
+    return { ok: true, sessionId: existingInProgress[0].id };
   }
 
-  // L3: Before inserting, close stale sessions from other dates
-  const staleDeps = buildStartSessionStaleDeps(supabase, userId, openRes.data ?? [], today, nowMs);
+  // L3: Close stale sessions
+  const staleDeps = deps.buildStaleDeps(openSessions, today, nowMs);
   const staleResult = await startSessionStaleCore(staleDeps);
   if (!staleResult.ok) {
     return { ok: false, error: staleResult.error };
   }
 
-  // If a fresh cross-date session remains (< 6h, timezone shift), resume it
+  // #111: Resume fresh cross-date session
   if (!staleResult.shouldInsert) {
     return { ok: true, sessionId: staleResult.resumeSessionId };
   }
 
-  // No existing in_progress session, create a new one and read the plan
-  const [insertResult, plannedRes] = await Promise.all([
-    startSessionCore(supabase, userId, {
-      user_id: userId,
-      program_id: program.id,
-      program_day_id: day.id,
-      local_date: today,
-      week_in_block: week,
-      is_deload: isDeloadWeek,
-      planned_type: day.day_type,
-      actual_type: day.day_type,
-      status: "in_progress",
-      started_at: new Date(nowMs).toISOString(),
-    }),
-    supabase
-      .from("program_day_exercises")
-      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
-      .eq("program_day_id", day.id)
-      .order("order_index"),
-  ]);
+  // Insert new session
+  const insertResult = await deps.insertSession({
+    user_id: userId,
+    program_id: program.id,
+    program_day_id: dayId,
+    local_date: today,
+    week_in_block: week,
+    is_deload: isDeloadWeek,
+    planned_type: dayType as Database["public"]["Enums"]["day_type"],
+    actual_type: dayType as Database["public"]["Enums"]["day_type"],
+    status: "in_progress",
+    started_at: new Date(nowMs).toISOString(),
+  });
 
   if (!insertResult.ok) {
-    if ("existingSessionId" in insertResult && insertResult.existingSessionId) {
-      return { ok: true, sessionId: insertResult.existingSessionId };
+    if ("existingSessionId" in insertResult) {
+      return { ok: true, sessionId: insertResult.existingSessionId as string };
     }
     return { ok: false, error: insertResult.error };
   }
 
-  // Insert the session exercises
-  const planned = plannedRes.data;
+  const sessionId = ("sessionId" in insertResult ? insertResult.sessionId : insertResult.existingSessionId) as string;
+
+  // Insert exercises
+  const planned = await deps.fetchPlannedExercises(dayId);
   if (planned && planned.length > 0) {
     const exercisesToInsert = planned.map((p) => {
       const dose = isDeloadWeek
@@ -185,9 +213,9 @@ export async function startSessionFullCore(
             restSeconds: p.rest_seconds,
           };
       return {
-        session_id: insertResult.sessionId,
+        session_id: sessionId,
         user_id: userId,
-        exercise_id: p.exercise_id,
+        exercise_id: p.exercise_id as string,
         order_index: p.order_index,
         planned_sets: dose.sets,
         planned_reps_min: dose.repsMin,
@@ -197,11 +225,11 @@ export async function startSessionFullCore(
       };
     });
 
-    const exerciseInsertResult = await insertSessionExercises(supabase, exercisesToInsert);
+    const exerciseInsertResult = await deps.insertExercises(exercisesToInsert);
     if (!exerciseInsertResult.ok) {
       return { ok: false, error: exerciseInsertResult.error };
     }
   }
 
-  return { ok: true, sessionId: insertResult.sessionId };
+  return { ok: true, sessionId };
 }
