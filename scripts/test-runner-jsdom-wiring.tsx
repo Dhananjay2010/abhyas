@@ -362,7 +362,19 @@ console.log("\n4. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
         isStale: false,
         warmup: [],
         cooldown: [
-          { id: "cool-1", phase: "cooldown" as const, name: "Hamstring stretch", instructions: [], duration_seconds: 30 },
+          { 
+            id: "cool-1", 
+            phase: "stretch" as const, 
+            name: "Hamstring stretch", 
+            instructions: [], 
+            duration_seconds: 30,
+            slug: "hamstring-stretch",
+            type: "stretch" as const,
+            target_regions: [],
+            target_muscles: [],
+            show_in_cooldown: true,
+            show_in_warmup: false,
+          },
         ],
         exercises: [{
           id: "ex-1",
