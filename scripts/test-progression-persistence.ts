@@ -65,7 +65,7 @@ console.log("\nTest: In-range sessions persist consecutive_failures=0\n");
 async function main() {
   console.log("1. Two in-range sessions (4×10) hold at 40 with failures=0 persisted both times");
   {
-    // First session: 4×10 in 8-12 range
+    // First session: 4×10 in 8-12 range, logged at 40 kg but prescribed is 40 kg
     const state1: ProgressState = {
       currentWorkingWeightKg: 40,
       currentTargetReps: 12,
@@ -108,22 +108,21 @@ async function main() {
     check("Session 1 persisted: consecutive_failures=0", written1?.consecutive_failures === 0, `${written1?.consecutive_failures}`);
     check("Session 1 persisted: weight=40", written1?.current_working_weight_kg === 40, `${written1?.current_working_weight_kg}`);
 
-    // Read back into state for session 2
+    // OWNER DECISION (a): In-range hold keeps STORED prescribed weight, not recomputed from logged.
+    // Session 2: 4×10 in-range, but user logged at 42 kg (heavier than prescribed 40 kg).
+    // The hold should keep prescribed 40 kg, not adopt the logged 42 kg.
     const state2: ProgressState = {
-      currentWorkingWeightKg: written1?.current_working_weight_kg ?? 40,
-      currentTargetReps: written1?.current_target_reps ?? 12,
-      consecutiveFailures: written1?.consecutive_failures ?? 0,
-      bestWeightKg: written1?.best_weight_kg ?? 40,
-      bestReps: written1?.best_reps ?? 12,
-      bestE1rm: written1?.best_e1rm ?? 56,
-      totalSessions: written1?.total_sessions ?? 2,
+      currentWorkingWeightKg: 40, // Prescribed/stored is 40
+      currentTargetReps: 12,
+      consecutiveFailures: 0,
+      bestWeightKg: 40,
+      bestReps: 12,
+      bestE1rm: 56,
+      totalSessions: 2,
     };
 
-    check("State 2 loaded: failures=0", state2.consecutiveFailures === 0);
-
-    // Second session: 4×10 again
     const decision2 = evaluateProgression({
-      sets: sets(4, 10, 40),
+      sets: sets(4, 10, 42), // User logged at 42 kg (different from stored 40)
       plannedSets: 4,
       repsMin: 8,
       repsMax: 12,
@@ -136,7 +135,7 @@ async function main() {
     });
 
     check("Session 2: outcome hold (not backed_off)", decision2.outcome === "hold", decision2.outcome);
-    check("Session 2: weight held at 40 (not deloaded)", decision2.nextWorkingWeightKg === 40, `${decision2.nextWorkingWeightKg}`);
+    check("Session 2: weight held at stored 40 (not logged 42)", decision2.nextWorkingWeightKg === 40, `${decision2.nextWorkingWeightKg}`);
     check("Session 2: failures still 0", decision2.consecutiveFailures === 0, `${decision2.consecutiveFailures}`);
 
     // Persist session 2
@@ -152,7 +151,7 @@ async function main() {
 
     const written2 = fake2.getWritten();
     check("Session 2 persisted: consecutive_failures=0", written2?.consecutive_failures === 0, `${written2?.consecutive_failures}`);
-    check("Session 2 persisted: weight=40", written2?.current_working_weight_kg === 40, `${written2?.current_working_weight_kg}`);
+    check("Session 2 persisted: weight=40 (stored, not logged 42)", written2?.current_working_weight_kg === 40, `${written2?.current_working_weight_kg}`);
   }
 
   console.log("\n2. Two real miss sessions (4×7) deload from 60 to 52.5 with failures persisted correctly");

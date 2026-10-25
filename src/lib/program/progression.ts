@@ -559,7 +559,8 @@ export function evaluateProgression(input: {
   // all at top) sessions hold the weight and reset consecutiveFailures to 0.
   // "Hard" feel never causes a deload or counts as a miss on its own (SPEC: '"hard" holds it').
   if (inRange) {
-    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+    // HOLD: Keep the stored prescribed weight. Don't recompute from logged sets.
+    const currentWeight = state.currentWorkingWeightKg;
     return {
       ...carried,
       outcome: "hold",
@@ -567,7 +568,7 @@ export function evaluateProgression(input: {
       nextTargetReps: state.currentTargetReps ?? repsMax,
       consecutiveFailures: 0,
       message: isTimed
-        ? "Staying at this length until every set reaches the top of the range."
+        ? "Staying at this hold length until every set reaches the top of the range."
         : currentWeight === null
           ? "Staying here until every set reaches the top of the range."
           : "Staying at this weight until every set reaches the top of the range.",

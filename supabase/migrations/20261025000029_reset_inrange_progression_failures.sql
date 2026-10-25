@@ -8,10 +8,12 @@
 -- build back." A 'miss' is read as below repsMin or incomplete sets. In-range sessions 
 -- (all sets >= repsMin but not all at top) should hold the weight and reset consecutiveFailures.
 --
--- This migration resets all consecutive_failures > 0 to 0. This is the safe direction:
--- it forgets at most one real miss per exercise, which prevents incorrect deloads.
--- The alternative (keeping incorrect failure counts) would trigger premature ~10% deloads
--- after two normal in-range sessions.
+-- This migration resets ALL rows with consecutive_failures > 0 to 0 for all users. 
+-- TRADE-OFF: This includes rows at 2 failures (would have deloaded next session) and real 
+-- misses (below repsMin or incomplete). This is an accepted trade-off in the safe direction: 
+-- it forgets at most one or two real misses per exercise, preventing incorrect deloads. 
+-- The alternative (keeping incorrect failure counts from in-range sessions) would trigger 
+-- premature ~10% deloads after two normal in-range sessions.
 --
 -- Idempotent: can run multiple times safely.
 -- Prod-safe: only resets failure counters, does not change weights or targets.
