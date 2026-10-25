@@ -92,6 +92,9 @@ async function runTests(): Promise<TestResult[]> {
         updateProfileSettings: async () => ({ ok: true }),
         updateEquipment: async () => ({ ok: true }),
         updateInjuries: async () => ({ ok: true }),
+        setEquipmentItem: async () => ({ ok: true }),
+        setHasAllEquipment: async () => ({ ok: true }),
+        setInjury: async () => ({ ok: true }),
       };
 
       render(
@@ -153,6 +156,9 @@ async function runTests(): Promise<TestResult[]> {
       updateProfileSettings: async () => ({ ok: true }),
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     render(
@@ -182,7 +188,79 @@ async function runTests(): Promise<TestResult[]> {
     clearPendingChanges();
   }
 
-  // Test 3: Sign-out clears the stash
+  // Test 3: Per-item equipment stash from user A is not replayed for user B
+  {
+    clearPendingChanges();
+
+    // User A (userId: 'user-a-789') stashes per-item equipment change
+    const userAEquipmentChanges: PendingChange[] = [
+      {
+        key: 'equipment',
+        type: 'equipment',
+        patch: { operation: 'setItem', equipmentId: 'barbell', enabled: true },
+        timestamp: Date.now()
+      }
+    ];
+    
+    const stashed = stashPendingChanges(userAEquipmentChanges, '/settings', 'user-a-789');
+
+    if (!stashed) {
+      results.push({
+        passed: false,
+        message: 'Test 3: FAILED - Could not stash per-item equipment changes'
+      });
+    } else {
+      // Now User B (userId: 'user-b-012') loads the page
+      let equipmentSaved = false;
+      const actions: SettingsActions = {
+        updateSessionSettings: async () => ({ ok: true }),
+        updateProfileSettings: async () => ({ ok: true }),
+        updateEquipment: async () => {
+          equipmentSaved = true;
+          return { ok: true };
+        },
+        setEquipmentItem: async () => {
+          equipmentSaved = true;
+          return { ok: true };
+        },
+        setHasAllEquipment: async () => {
+          equipmentSaved = true;
+          return { ok: true };
+        },
+        updateInjuries: async () => ({ ok: true }),
+        setInjury: async () => ({ ok: true }),
+      };
+
+      render(
+        <SettingsForm
+          initial={{ ...initialState, equipmentIds: [] }}
+          equipment={equipment}
+          timezones={timezones}
+          userId="user-b-012"
+          actions={actions}
+        />
+      );
+
+      await waitFor(() => new Promise(resolve => setTimeout(resolve, 100)));
+
+      // User B should NOT have User A's per-item equipment change applied
+      if (equipmentSaved) {
+        results.push({
+          passed: false,
+          message: 'Test 3: FAILED - User B had User A\'s per-item equipment stash applied (leak!)'
+        });
+      } else {
+        results.push({
+          passed: true,
+          message: 'Test 3: PASSED - User B did not see User A\'s per-item equipment stash'
+        });
+      }
+    }
+
+    clearPendingChanges();
+  }
+
+  // Test 4: Sign-out clears the stash
   {
     clearPendingChanges();
 
@@ -203,7 +281,7 @@ async function runTests(): Promise<TestResult[]> {
     if (!pending) {
       results.push({
         passed: false,
-        message: 'Test 3: FAILED - Could not stash changes'
+        message: 'Test 4: FAILED - Could not stash changes'
       });
     } else {
       // Simulate sign-out by calling clearPendingChanges
@@ -215,12 +293,12 @@ async function runTests(): Promise<TestResult[]> {
       if (pending !== null) {
         results.push({
           passed: false,
-          message: 'Test 3: FAILED - Stash was not cleared on sign-out'
+          message: 'Test 4: FAILED - Stash was not cleared on sign-out'
         });
       } else {
         results.push({
           passed: true,
-          message: 'Test 3: PASSED - Sign-out cleared the stash'
+          message: 'Test 4: PASSED - Sign-out cleared the stash'
         });
       }
     }
