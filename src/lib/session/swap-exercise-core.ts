@@ -5,7 +5,7 @@
  * a result, allowing tests with fakes to verify the call-site wiring (S1, S2, S3).
  */
 
-import { resolveSwapWeights, type SwapWeightsResult } from "@/lib/session/resolve-swap-weights";
+import type { SwapWeightsResult } from "@/lib/session/resolve-swap-weights";
 import { prescribe } from "@/lib/program/prescription";
 
 // Use explicit types to avoid Database enum resolution issues in CI

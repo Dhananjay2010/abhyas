@@ -31,11 +31,11 @@ async function main() {
   // Fake resolveSwapWeights that records which exercise id it received
   let capturedExerciseId: string | null = null;
   const fakeResolveSwapWeights: SwapExerciseDeps["resolveSwapWeights"] = async (
-    sessionId,
+    _sessionId,
     newExerciseId,
     equipmentIds,
-    metric,
-    movementPattern,
+    _metric,
+    _movementPattern,
   ) => {
     capturedExerciseId = newExerciseId;
     // Return distinct values so we can verify they're passed through unchanged

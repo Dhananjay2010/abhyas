@@ -239,8 +239,9 @@ async function testStartSessionEnsureExercises() {
 
   // Verify correct sets
   const sessionExercises = afterData?.session_exercises ?? [];
-  check("Bench exercise created", sessionExercises.some((e: any) => e.planned_sets === 4));
-  check("Dumbbell exercise created", sessionExercises.some((e: any) => e.planned_sets === 3));
+  type SessionExerciseRow = { id: string; planned_sets: number | null; exercise_id: string };
+  check("Bench exercise created", sessionExercises.some((e: SessionExerciseRow) => e.planned_sets === 4));
+  check("Dumbbell exercise created", sessionExercises.some((e: SessionExerciseRow) => e.planned_sets === 3));
 
   console.log("\n✅ ensureSessionExercises test passed");
   console.log("\n⚠️  MUTANT A1 LIMITATION:");
