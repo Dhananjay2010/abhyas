@@ -2,7 +2,7 @@
  * Shared exercise exclusions for safety.
  * 
  * These exercises are excluded from both plan generation and swap suggestions
- * due to safety concerns (behind-the-neck bar positions, guillotine press variant, etc.)
+ * due to safety concerns (behind-the-neck bar positions, Bradford presses, guillotine press variant, etc.)
  */
 
 export const EXCLUDED_EXERCISE_SLUGS: ReadonlySet<string> = new Set([
@@ -12,4 +12,6 @@ export const EXCLUDED_EXERCISE_SLUGS: ReadonlySet<string> = new Set([
   "barbell-guillotine-bench-press",
   "neck-press",
   "low-pulley-row-to-neck",
+  "bradford-rocky-presses",
+  "standing-bradford-press",
 ]);
