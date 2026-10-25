@@ -9,7 +9,7 @@ export async function startSessionCore(
   payload: Database["public"]["Tables"]["sessions"]["Insert"],
 ): Promise<
   | { ok: true; sessionId: string }
-  | { ok: false; error: string }
+  | { ok: false; error: string; existingSessionId?: string }
 > {
   const { data: session, error } = await client.from("sessions").insert(payload).select("id").single();
 
@@ -18,7 +18,7 @@ export async function startSessionCore(
     // The partial unique index rejected a duplicate. Re-read and return the existing session.
     const { data: rereadSession } = await client
       .from("sessions")
-      .select("id, created_at")
+      .select("id, created_at, local_date")
       .eq("user_id", userId)
       .eq("status", "in_progress")
       .order("created_at", { ascending: false })
@@ -26,6 +26,13 @@ export async function startSessionCore(
       .maybeSingle();
 
     if (rereadSession) {
+      if (rereadSession.local_date !== payload.local_date) {
+        return { 
+          ok: false, 
+          error: "You have an open session from a different day.",
+          existingSessionId: rereadSession.id
+        };
+      }
       return { ok: true, sessionId: rereadSession.id };
     }
     // Re-read failed, fall through to generic error
