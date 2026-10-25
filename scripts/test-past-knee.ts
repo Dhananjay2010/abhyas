@@ -64,11 +64,14 @@ const EXPECTED_EXCLUDED_SLUGS = [
   // Full-depth squats
   "barbell-full-squat",
   
-  // Item 15: Banned squats for past knee (deficit deadlift, hack squat, Smith squat, front squat)
+  // Item 15: Banned squats for past knee (deficit deadlift, hack squat variants, Smith squat, front squat variants)
   "deficit-deadlift",
   "barbell-hack-squat",
+  "hack-squat",
+  "narrow-stance-hack-squats",
   "smith-machine-squat",
   "front-barbell-squat",
+  "front-barbell-squat-to-a-bench",
   "front-squat-clean-grip",
   "front-squats-with-two-kettlebells",
   
@@ -237,6 +240,15 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
   let lungePicksWithRearLunge = 0;
   // TODO-PUSH2: wallSitAtIndex0WithOtherOptions removed (unused until item 5)
   
+  // Item 15(d): Track banned squat variants (hack, front, deficit deadlift)
+  const item15dBannedSlugs = new Set([
+    "deficit-deadlift", "barbell-hack-squat", "hack-squat", "narrow-stance-hack-squats",
+    "smith-machine-squat", "front-barbell-squat", "front-barbell-squat-to-a-bench",
+    "front-squat-clean-grip", "front-squats-with-two-kettlebells",
+  ]);
+  let item15dBannedInPlans = 0;
+  let item15dBannedInSwaps = 0;
+  
   for (const goal of goals) {
     for (const level of levels) {
       for (const track of tracks) {
@@ -285,6 +297,11 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
                     excludedInPlans++;
                   }
                   
+                  // Item 15(d): Check for banned squat variants in plans
+                  if (item15dBannedSlugs.has(exercise.slug)) {
+                    item15dBannedInPlans++;
+                  }
+                  
                   // Check top-5 swap list (actions.ts path: isEligible pool, then rankAlternatives)
                   const patterns = buildPatternList(exercise.movement_pattern, false);
                   const rawPool = catalogue.filter(e => patterns.includes(e.movement_pattern));
@@ -308,6 +325,10 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
                   for (const swap of swaps) {
                     if (GRID_EXCLUSION_ORACLE.has(swap.slug)) {
                       swapLeaks++;
+                    }
+                    // Item 15(d): Check for banned squat variants in swaps
+                    if (item15dBannedSlugs.has(swap.slug)) {
+                      item15dBannedInSwaps++;
                     }
                   }
                   
@@ -369,6 +390,10 @@ console.log("\n3. Wide grid test: plans, warm-ups, swap lists never contain excl
     excludedInPlans > 0 ? `Found ${excludedInPlans} excluded exercises` : "");
   check(`No excluded exercises in top-5 swap lists`, swapLeaks === 0,
     swapLeaks > 0 ? `Found ${swapLeaks} excluded in swaps` : "");
+  check(`Item 15(d): No hack/front squat/deficit deadlift in plans`, item15dBannedInPlans === 0,
+    item15dBannedInPlans > 0 ? `Found ${item15dBannedInPlans} banned exercises in plans` : "");
+  check(`Item 15(d): No hack/front squat/deficit deadlift in swaps`, item15dBannedInSwaps === 0,
+    item15dBannedInSwaps > 0 ? `Found ${item15dBannedInSwaps} banned exercises in swaps` : "");
   // TODO-PUSH2 item 9: wall-sit primary squat check disabled
   // check(`wall-sit NEVER as primary squat (first squat slot)`, wallSitAsPrimarySquat === 0,
   //   wallSitAsPrimarySquat > 0 ? `Found ${wallSitAsPrimarySquat} primary wall-sit slots` : "");
@@ -688,8 +713,18 @@ console.log("\n9. Item 15: Past-knee squat rule - banned exercises");
   const pastKneeExcluded = getPastKneeExcludedSlugs();
   
   // Banned for past knee (and current knee via monotonicity)
-  const item15Banned = ["deficit-deadlift", "barbell-hack-squat", "smith-machine-squat", 
-                        "front-barbell-squat", "front-squat-clean-grip", "front-squats-with-two-kettlebells"];
+  // Item 15(d): All hack squat variants, all front squat variants, Smith squat, deficit deadlift
+  const item15Banned = [
+    "deficit-deadlift",
+    "barbell-hack-squat",
+    "hack-squat",
+    "narrow-stance-hack-squats",
+    "smith-machine-squat",
+    "front-barbell-squat",
+    "front-barbell-squat-to-a-bench",
+    "front-squat-clean-grip",
+    "front-squats-with-two-kettlebells",
+  ];
   
   for (const slug of item15Banned) {
     check(`Item 15: ${slug} in past-knee exclusions`, pastKneeExcluded.has(slug));
@@ -778,15 +813,15 @@ console.log("\n10. Item 15: Swap ordering (barbell-squat after preferred squats)
   }
 }
 
-console.log("\n11. Item 13: Current-knee 4-move lunge list enforced in CODE (not catalogue tags)");
+console.log("\n11. Item 13: Current-knee 4-move quad list enforced in CODE (not catalogue tags)");
 {
   // Strip contraindicated_regions tags from a test copy of the catalogue
   const strippedCatalogue = catalogue.map(e => ({ ...e, contraindicated_regions: [] as any[] }));
   
-  const { KNEE_SAFE_LUNGE_EXERCISES } = require("../src/lib/program/generate");
-  const kneeSafeLungeSlugs = Array.from(KNEE_SAFE_LUNGE_EXERCISES) as string[];
+  const { KNEE_SAFE_QUAD_EXERCISES, isEligible } = require("../src/lib/program/generate");
+  const kneeSafeQuadSlugs = Array.from(KNEE_SAFE_QUAD_EXERCISES) as string[];
   
-  console.log(`    Hardcoded KNEE_SAFE_LUNGE_EXERCISES: ${kneeSafeLungeSlugs.join(", ")}`);
+  console.log(`    Hardcoded KNEE_SAFE_QUAD_EXERCISES: ${kneeSafeQuadSlugs.join(", ")}`);
   
   const currentKneeInput = base({
     currentInjuryRegions: ["knee"],
@@ -795,27 +830,34 @@ console.log("\n11. Item 13: Current-knee 4-move lunge list enforced in CODE (not
     catalogue: strippedCatalogue,
   });
   
-  // These should be ALLOWED for current knee (in the hardcoded list)
-  for (const slug of kneeSafeLungeSlugs) {
+  // These quad isolation exercises should be ALLOWED for current knee (in the hardcoded list)
+  for (const slug of kneeSafeQuadSlugs) {
     const ex = bySlug.get(slug);
     if (ex) {
       const strippedEx = { ...ex, contraindicated_regions: [] };
-      const { isEligible } = require("../src/lib/program/generate");
       const eligible = isEligible(strippedEx, currentKneeInput);
-      check(`Item 13: ${slug} ALLOWED for current knee (hardcoded, tags stripped)`, 
+      check(`Item 13: ${slug} ALLOWED for current knee (hardcoded quad, tags stripped)`, 
         eligible,
-        eligible ? "" : `Equipment: ${ex.equipment_ids.join(", ")}, hasAllEquipment: ${currentKneeInput.hasAllEquipment}, equipmentIds: ${currentKneeInput.equipmentIds.join(", ")}`);
+        eligible ? "" : `Equipment: ${ex.equipment_ids.join(", ")}, hasAllEquipment: ${currentKneeInput.hasAllEquipment}`);
     }
   }
   
-  // These should be BANNED for current knee (NOT in the hardcoded list)
-  const bannedLunges = ["dumbbell-rear-lunge", "barbell-lunge", "reverse-lunge"];
-  for (const slug of bannedLunges) {
+  // Step-ups and split squats (lunge-pattern) should be BANNED for current knee (even with tags stripped)
+  const bannedLungesForCurrentKnee = [
+    "split-squat-with-dumbbells",
+    "smith-single-leg-split-squat",
+    "step-up-with-knee-raise",
+    "barbell-step-ups",
+    "dumbbell-step-ups",
+    "dumbbell-rear-lunge",
+    "barbell-lunge",
+    "reverse-lunge",
+  ];
+  for (const slug of bannedLungesForCurrentKnee) {
     const ex = bySlug.get(slug);
     if (ex && ex.movement_pattern === "lunge") {
       const strippedEx = { ...ex, contraindicated_regions: [] };
-      const { isEligible } = require("../src/lib/program/generate");
-      check(`Item 13: ${slug} BANNED for current knee (not in hardcoded list, tags stripped)`, 
+      check(`Item 13: ${slug} BANNED for current knee (lunge pattern, tags stripped)`, 
         !isEligible(strippedEx, currentKneeInput));
     }
   }
@@ -872,6 +914,86 @@ console.log("\n12. Item 8: Warm-up input builder and past-knee exclusions");
   
   check("Item 8: buildWarmupInput doesn't set pastKneeInjury for healthy user", 
     healthyInput.pastKneeInjury === false);
+}
+
+console.log("\n13. Item 15: Past-knee squat rule - real generator grid tests");
+{
+  // Test over past-knee grid: gym, home, DB-only; every level; 2-6 days
+  type Goal = "muscle_gain" | "strength" | "fat_loss" | "general_fitness";
+  type Level = "beginner" | "intermediate" | "expert";
+  type Track = "weights" | "bodyweight";
+  
+  const levels: Level[] = ["beginner", "intermediate", "expert"];
+  const equipmentSets: Array<{ label: string; hasAll: boolean; ids: string[] }> = [
+    { label: "Gym", hasAll: false, ids: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine", "leg_press"] },
+    { label: "Home", hasAll: false, ids: ["dumbbell", "adjustable_bench", "pull_up_bar"] },
+    { label: "DB", hasAll: false, ids: ["dumbbell", "adjustable_bench"] },
+  ];
+  const dayCounts = [2, 3, 4, 5, 6];
+  
+  let gridChecked = 0;
+  let backSquatLeads = 0;
+  let daysWithTwoSquats = 0;
+  const bannedSlugsFound: string[] = [];
+  
+  const item15dBannedSlugs = new Set([
+    "deficit-deadlift", "barbell-hack-squat", "hack-squat", "narrow-stance-hack-squats",
+    "smith-machine-squat", "front-barbell-squat", "front-barbell-squat-to-a-bench",
+    "front-squat-clean-grip", "front-squats-with-two-kettlebells",
+  ]);
+  
+  for (const level of levels) {
+    for (const equip of equipmentSets) {
+      for (const days of dayCounts) {
+        const input = base({
+          goal: "muscle_gain",
+          level,
+          primaryTrack: "weights",
+          daysPerWeek: days,
+          hasAllEquipment: equip.hasAll,
+          equipmentIds: equip.ids,
+          anyKneeInjury: true,
+          currentInjuryRegions: [],
+        });
+        
+        const program = generateProgram(input);
+        gridChecked++;
+        
+        for (const day of program.days) {
+          const squatExercises = day.exercises
+            .map(ex => byId.get(ex.exerciseId))
+            .filter(e => e && e.movement_pattern === "squat");
+          
+          // (a) barbell-squat never leads
+          if (squatExercises.length > 0 && squatExercises[0]?.slug === "barbell-squat") {
+            backSquatLeads++;
+          }
+          
+          // (b) at most ONE squat-pattern movement per day
+          if (squatExercises.length > 1) {
+            daysWithTwoSquats++;
+          }
+          
+          // (d) none of the banned slugs
+          for (const ex of day.exercises) {
+            const exercise = byId.get(ex.exerciseId);
+            if (exercise && item15dBannedSlugs.has(exercise.slug)) {
+              bannedSlugsFound.push(exercise.slug);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  check(`Item 15(a): barbell-squat NEVER leads squat slot`, backSquatLeads === 0,
+    backSquatLeads > 0 ? `Found ${backSquatLeads} days with barbell-squat leading` : "");
+  check(`Item 15(b): at most ONE squat per past-knee day`, daysWithTwoSquats === 0,
+    daysWithTwoSquats > 0 ? `Found ${daysWithTwoSquats} days with 2+ squats` : "");
+  check(`Item 15(d): no banned squats in plans (grid)`, bannedSlugsFound.length === 0,
+    bannedSlugsFound.length > 0 ? `Found: ${bannedSlugsFound.slice(0, 5).join(", ")}` : "");
+  
+  console.log(`    Grid checked: ${gridChecked} past-knee programs`);
 }
 
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);

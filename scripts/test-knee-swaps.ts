@@ -58,8 +58,22 @@ const BANNED_FOR_KNEE = new Set([
   "sissy-squat", "weighted-sissy-squat",
 ]);
 
-// Knee-safe lunge list (must match generator)
-const EXPECTED_KNEE_SAFE_LUNGES = Array.from(KNEE_SAFE_LUNGE_EXERCISES);
+// Knee-safe lunge list for CURRENT knee (must match generator)
+// Current knee: NO lunge-pattern exercises allowed (only quad isolation in KNEE_SAFE_QUAD_EXERCISES)
+const EXPECTED_CURRENT_KNEE_SAFE_LUNGES: string[] = [];
+
+// Past knee: lunge-pattern exercises from tier system ARE allowed
+// Tier 1: dumbbell-rear-lunge
+// Tier 3: split squats
+// Tier 4: step-ups
+const EXPECTED_PAST_KNEE_SAFE_LUNGES = [
+  "dumbbell-rear-lunge",
+  "split-squat-with-dumbbells",
+  "smith-single-leg-split-squat",
+  "barbell-step-ups",
+  "dumbbell-step-ups",
+  "step-up-with-knee-raise",
+];
 
 function simulateSwapPath(
   currentExercise: CandidateExercise,
@@ -191,13 +205,15 @@ for (const testCase of TEST_CASES) {
       banned.length > 0 ? `Found: ${banned.slice(0, 3).join(", ")}` : undefined
     );
     
-    // For lunge pattern, verify ALL are from knee-safe list (no squat pattern widening)
+    // For lunge pattern, verify ALL are from knee-safe list
     if (pattern === "lunge") {
       const lungeExercises = swapList.filter(ex => ex.movement_pattern === "lunge");
+      const hasCurrentKnee = testCase.injuries.some(inj => inj.region === "knee" && inj.severity === "current");
+      const expectedLunges = hasCurrentKnee ? EXPECTED_CURRENT_KNEE_SAFE_LUNGES : EXPECTED_PAST_KNEE_SAFE_LUNGES;
       const unsafeLunges: string[] = [];
       
       for (const ex of lungeExercises) {
-        if (!EXPECTED_KNEE_SAFE_LUNGES.includes(ex.slug)) {
+        if (!expectedLunges.includes(ex.slug)) {
           unsafeLunges.push(ex.slug);
         }
       }
@@ -210,7 +226,6 @@ for (const testCase of TEST_CASES) {
       
       // Verify NO squat-pattern exercises in lunge swaps for CURRENT knee users
       // (Past knee users get squat-pattern quad isolation exercises, which is correct)
-      const hasCurrentKnee = testCase.injuries.some(inj => inj.region === "knee" && inj.severity === "current");
       const squatExercises = swapList.filter(ex => ex.movement_pattern === "squat");
       
       if (hasCurrentKnee) {

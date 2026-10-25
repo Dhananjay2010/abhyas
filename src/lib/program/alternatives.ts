@@ -239,8 +239,9 @@ export function rankAlternatives<T extends ExerciseRow>(
     const patternRank = patternPriority.indexOf(candidate.movement_pattern);
     if (patternRank === -1) continue; // Not in our pattern list
     
-    // 4b. Past-knee lunge swaps: use tier ordering (allow tier > 0)
-    if (hasPastKnee && current.movement_pattern === "lunge") {
+    // 4b. Past-knee lunge swaps: use tier ordering for lunge-pattern candidates (allow tier > 0)
+    // Squat-pattern candidates are allowed as quad isolation fallbacks (no tier filter)
+    if (hasPastKnee && current.movement_pattern === "lunge" && candidate.movement_pattern === "lunge") {
       if (pastKneeLungeTier(candidate) === 0) {
         continue;
       }

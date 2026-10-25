@@ -207,6 +207,60 @@ const mutants: Mutant[] = [
     mutate: '// MUTANT: Removed push protection\n                // if (isPush && pushCount === 1) continue;',
     tests: ["test:knee-safety-matrix"],
   },
+  
+  // Item 15(a): Barbell-squat never leads for past knee
+  {
+    name: "Remove barbell-squat leading penalty (allow barbell-squat to lead)",
+    file: "src/lib/program/past-knee.ts",
+    pattern: /\/\/ Item 15: Goblet\/box squat bonus for past knee in leading squat slot\s+if \(hasPastKnee && slotIndex <= 1 && ex\.movement_pattern === "squat" &&\s+\(ex\.slug === "goblet-squat" \|\| ex\.slug === "box-squat"\)\) \{\s+return 1000;/,
+    mutate: '// Item 15: Goblet/box squat bonus for past knee in leading squat slot\n  if (hasPastKnee && slotIndex <= 1 && ex.movement_pattern === "squat" && \n      (ex.slug === "goblet-squat" || ex.slug === "box-squat")) {\n    return 0; // MUTANT: No bonus',
+    tests: ["test:past-knee"],
+  },
+  
+  // Item 15(b): At most ONE squat-pattern movement per past-knee day
+  {
+    name: "Allow multiple squats per day (remove one-squat limit)",
+    file: "src/lib/program/generate.ts",
+    pattern: /\/\/ Item 15\(b\): Past-knee users get at most ONE squat-pattern movement per day\s+\/\/ If trying to pick a squat pattern and there's already one, use lunge\/leg press instead\s+if \(hasPastKnee && pattern === "squat"\) \{/,
+    mutate: '// Item 15(b): Past-knee users get at most ONE squat-pattern movement per day\n  // If trying to pick a squat pattern and there\'s already one, use lunge/leg press instead\n  if (!hasPastKnee && pattern === "squat") {',
+    tests: ["test:past-knee"],
+  },
+  
+  // Item 15(c): Barbell-squat comes after preferred squats in swaps
+  {
+    name: "Remove barbell-squat swap ordering (allow barbell-squat first)",
+    file: "src/lib/program/alternatives.ts",
+    pattern: /\/\/ Item 15: Past-knee squat ordering \(barbell-squat after goblet, box, bodyweight, leg-press\)\s+let squatPriority = 0;\s+if \(hasPastKnee && current\.movement_pattern === "squat" && candidate\.movement_pattern === "squat"\) \{/,
+    mutate: '// Item 15: Past-knee squat ordering (barbell-squat after goblet, box, bodyweight, leg-press)\n    let squatPriority = 0;\n    if (!hasPastKnee && current.movement_pattern === "squat" && candidate.movement_pattern === "squat") {',
+    tests: ["test:past-knee"],
+  },
+  
+  // Item 15(d): Ban hack squat for past knee
+  {
+    name: "Allow hack-squat for past knee (remove from exclusion list)",
+    file: "src/lib/program/past-knee.ts",
+    pattern: /"hack-squat",/,
+    mutate: '// MUTANT: "hack-squat" removed',
+    tests: ["test:past-knee"],
+  },
+  
+  // Item 15(d): Ban front squat variants for past knee
+  {
+    name: "Allow front-barbell-squat for past knee (remove from exclusion list)",
+    file: "src/lib/program/past-knee.ts",
+    pattern: /"front-barbell-squat",/,
+    mutate: '// MUTANT: "front-barbell-squat" removed',
+    tests: ["test:past-knee"],
+  },
+  
+  // Item 15(d): Ban deficit deadlift for past knee
+  {
+    name: "Allow deficit-deadlift for past knee (remove from exclusion list)",
+    file: "src/lib/program/past-knee.ts",
+    pattern: /"deficit-deadlift",/,
+    mutate: '// MUTANT: "deficit-deadlift" removed',
+    tests: ["test:past-knee"],
+  },
 ];
 
 let killed = 0;

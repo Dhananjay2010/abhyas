@@ -45,8 +45,11 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   // Item 15: Banned squats for past knee (deficit deadlift, hack squat, Smith squat, front squat)
   "deficit-deadlift",
   "barbell-hack-squat",
+  "hack-squat",
+  "narrow-stance-hack-squats",
   "smith-machine-squat",
   "front-barbell-squat",
+  "front-barbell-squat-to-a-bench",
   "front-squat-clean-grip",
   "front-squats-with-two-kettlebells",
   
@@ -187,7 +190,13 @@ export function kneeFriendlyBonus(ex: CandidateExercise, slotIndex: number, hasP
   
   // Item 15: Barbell back squat penalty for past knee in primary slots (shouldn't lead)
   if (hasPastKnee && ex.slug === "barbell-squat" && slotIndex <= 1 && ex.movement_pattern === "squat") {
-    return -20; // Penalty to make goblet/box squat lead instead
+    return -1000; // Heavy penalty to ensure goblet/box squat leads instead
+  }
+  
+  // Item 15: Goblet/box squat bonus for past knee in leading squat slot
+  if (hasPastKnee && slotIndex <= 1 && ex.movement_pattern === "squat" && 
+      (ex.slug === "goblet-squat" || ex.slug === "box-squat")) {
+    return 1000; // Heavy bonus to ensure these lead over barbell-squat
   }
   
   // Main slots (0-3) get preference for knee-friendly primaries

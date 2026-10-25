@@ -3,7 +3,7 @@ import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
 import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "./past-knee-lunge-order";
-import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly } from "./past-knee";
+import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly, kneeFriendlyBonus } from "./past-knee";
 
 
 type Enums = Database["public"]["Enums"];
@@ -841,6 +841,60 @@ function pickForSlot(
   // QA: slot 3 must get OHP/DB press, not front raises.
   const wantCompound = slotIndex < CARRY_OVER_SLOTS || slotIndex <= 3;
   const isMainSlot = slotIndex <= 3;
+  
+  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+  const hasPastKnee = (input.anyKneeInjury ?? false) && !hasCurrentKnee;
+  
+  // Item 15(b): Past-knee users get at most ONE squat-pattern movement per day
+  // If trying to pick a squat pattern and there's already one, use lunge/leg press instead
+  if (hasPastKnee && pattern === "squat") {
+    const alreadyHasSquat = pickedSoFar.some(p => p.ex.movement_pattern === "squat");
+    if (alreadyHasSquat) {
+      // Try past-knee lunge order first, then leg press
+      for (const altPattern of ["lunge", "leg_press"] as const) {
+        const altCandidates = pool.filter(
+          (e) => e.movement_pattern === altPattern && !used.has(e.id)
+        );
+        if (altCandidates.length === 0) continue;
+        
+        // For lunge, use tier-based ordering
+        if (altPattern === "lunge") {
+          const tieredLunges = altCandidates
+            .filter(e => pastKneeLungeTier(e) > 0)
+            .map(e => ({
+              e,
+              tier: pastKneeLungeTier(e),
+              score: score(e, wantCompound, input.level, input.primaryTrack),
+              rng: rng(),
+            }))
+            .sort((a, b) => {
+              if (a.tier !== b.tier) return a.tier - b.tier;
+              if (a.score !== b.score) return b.score - a.score;
+              return b.rng - a.rng;
+            });
+          
+          if (tieredLunges.length > 0) return tieredLunges[0].e;
+        } else {
+          // For leg press, use normal scoring
+          const ranked = altCandidates
+            .map(e => ({
+              e,
+              score: score(e, wantCompound, input.level, input.primaryTrack),
+              rng: rng(),
+            }))
+            .sort((a, b) => {
+              if (a.score !== b.score) return b.score - a.score;
+              return b.rng - a.rng;
+            });
+          
+          if (ranked.length > 0) return ranked[0].e;
+        }
+      }
+      
+      // If no lunge or leg press available, return null to skip this slot
+      return null;
+    }
+  }
 
   // Keep the main lifts from the previous block so progression is not reset.
   if (slotIndex < CARRY_OVER_SLOTS && dayIndex !== undefined && input.carryOver) {
@@ -870,13 +924,11 @@ function pickForSlot(
     // to ensure intermediate users get OHP, not front raises. Accessories (4+)
     // rely on RNG for block-to-block variety.
     
-    const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
-    const hasPastKnee = (input.anyKneeInjury ?? false) && !hasCurrentKnee;
-    
     const ranked = candidates
       .map((e) => ({
         e,
-        score: score(e, wantCompound, input.level, input.primaryTrack),
+        score: score(e, wantCompound, input.level, input.primaryTrack) + 
+               (hasPastKnee ? kneeFriendlyBonus(e, slotIndex, hasPastKnee) : 0),
         // Past-knee lunge tier ordering (lower tier = higher priority)
         pastKneeTier: hasPastKnee && p === "lunge" ? pastKneeLungeTier(e) : 999,
         stapleKey: isMainSlot
