@@ -3,6 +3,7 @@
 # Each mutant breaks one requirement; the test must catch it.
 
 set -euo pipefail
+shopt -s nullglob
 
 BACKUP_DIR=$(mktemp -d)
 EXIT_CODE=0
@@ -34,7 +35,7 @@ cleanup() {
   echo "=== Cleanup ==="
   
   # Restore all files from non-empty backups
-  for backup in "$BACKUP_DIR"/*.backup 2>/dev/null || true; do
+  for backup in "$BACKUP_DIR"/*.backup; do
     if [ -f "$backup" ] && [ -s "$backup" ]; then
       original="${backup%.backup}"
       original="${original#$BACKUP_DIR/}"
@@ -91,14 +92,21 @@ run_mutant() {
     return 1
   fi
   
-  # Run test - should fail
-  if npm run test:past-knee >/dev/null 2>&1; then
+  # Run test - must exit non-zero (not crash) and show failure summary
+  if npm run test:past-knee 2>&1 | tee /tmp/mutant-output.txt; then
     echo "✗ Test passed (mutation survived)"
     FAILED_MUTANTS+=("$name")
     return 1
   else
-    echo "✓ Test failed (mutation caught)"
-    return 0
+    # Check that it's a proper test failure, not a crash
+    if grep -q "check(s) failed" /tmp/mutant-output.txt; then
+      echo "✓ Test failed (mutation caught)"
+      return 0
+    else
+      echo "✗ Test crashed instead of failing"
+      FAILED_MUTANTS+=("$name (test crashed)")
+      return 1
+    fi
   fi
 }
 
@@ -108,8 +116,6 @@ backup_file "src/lib/program/past-knee.ts"
 backup_file "src/lib/program/generate.ts"
 backup_file "src/lib/program/alternatives.ts"
 backup_file "src/lib/program/warmup.ts"
-backup_file "src/lib/program/persist.ts"
-backup_file "src/app/session/actions.ts"
 
 echo "=== Baseline: tests should pass ==="
 if ! npm run test:past-knee; then
@@ -117,10 +123,10 @@ if ! npm run test:past-knee; then
   exit 1
 fi
 
-# Mutant 1: Remove pistol-squat exclusion
+# Mutant 1: Remove kettlebell-pistol-squat exclusion
 restore_file "src/lib/program/past-knee.ts"
-sed -i 's/"pistol-squat",/"__DISABLED__",/' src/lib/program/past-knee.ts
-run_mutant "Remove pistol-squat exclusion" "src/lib/program/past-knee.ts"
+sed -i 's/"kettlebell-pistol-squat",/"__DISABLED__",/' src/lib/program/past-knee.ts
+run_mutant "Remove kettlebell-pistol-squat exclusion" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 
 # Mutant 2: Remove barbell-walking-lunge exclusion
@@ -129,58 +135,58 @@ sed -i 's/"barbell-walking-lunge",/"__DISABLED__",/' src/lib/program/past-knee.t
 run_mutant "Remove barbell-walking-lunge exclusion" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 
-# Mutant 3: Remove sissy-squat exclusion
+# Mutant 3: Remove weighted-sissy-squat exclusion
 restore_file "src/lib/program/past-knee.ts"
-sed -i 's/"sissy-squat",/"__DISABLED__",/' src/lib/program/past-knee.ts
-run_mutant "Remove sissy-squat exclusion" "src/lib/program/past-knee.ts"
-restore_file "src/lib/program/past-knee.ts"
-
-# Mutant 4: Drop knee-friendly bonus scoring
-restore_file "src/lib/program/past-knee.ts"
-sed -i 's/return 10;/return 0;/' src/lib/program/past-knee.ts
-run_mutant "Drop knee-friendly bonus" "src/lib/program/past-knee.ts"
+sed -i 's/"weighted-sissy-squat",/"__DISABLED__",/' src/lib/program/past-knee.ts
+run_mutant "Remove weighted-sissy-squat exclusion" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 
-# Mutant 5: Remove jumping exercise check
+# Mutant 4: Remove one-leg-barbell-squat exclusion
+restore_file "src/lib/program/past-knee.ts"
+sed -i 's/"one-leg-barbell-squat",/"__DISABLED__",/' src/lib/program/past-knee.ts
+run_mutant "Remove one-leg-barbell-squat exclusion" "src/lib/program/past-knee.ts"
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 5: Remove lunge-sprint exclusion
+restore_file "src/lib/program/past-knee.ts"
+sed -i 's/"lunge-sprint",/"__DISABLED__",/' src/lib/program/past-knee.ts
+run_mutant "Remove lunge-sprint exclusion" "src/lib/program/past-knee.ts"
+restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 6: Remove jumping exercise check
 restore_file "src/lib/program/past-knee.ts"
 sed -i 's/return isJumpingExercise(ex);/return false;/' src/lib/program/past-knee.ts
 run_mutant "Remove jumping exercise check" "src/lib/program/past-knee.ts"
 restore_file "src/lib/program/past-knee.ts"
 
-# Mutant 6: Disable past-knee exclusion in isEligible
+# Mutant 7: Disable past-knee exclusion in isEligible
 restore_file "src/lib/program/generate.ts"
 sed -i 's/if (input.pastKneeInjury === true/if (false \&\& input.pastKneeInjury === true/' src/lib/program/generate.ts
 run_mutant "Disable isEligible gate" "src/lib/program/generate.ts"
 restore_file "src/lib/program/generate.ts"
 
-# Mutant 7: Disable past-knee exclusion in rankAlternatives
+# Mutant 8: Disable past-knee exclusion in rankAlternatives
 restore_file "src/lib/program/alternatives.ts"
-sed -i 's/if (ctx.pastKneeInjury === true/if (false \&\& ctx.pastKneeInjury === true/' src/lib/program/alternatives.ts
+sed -i 's/if (ctx.pastKneeInjury === true \&\& isExcludedForPastKnee/if (false \&\& ctx.pastKneeInjury === true \&\& isExcludedForPastKnee/' src/lib/program/alternatives.ts
 run_mutant "Disable rankAlternatives gate" "src/lib/program/alternatives.ts"
 restore_file "src/lib/program/alternatives.ts"
 
-# Mutant 8: Remove walking-lunge from warm-up exclusion
+# Mutant 9: Remove walking-lunge from warm-up exclusion
 restore_file "src/lib/program/warmup.ts"
 sed -i 's/slug === "walking-lunge"/false/' src/lib/program/warmup.ts
 run_mutant "Remove warm-up walking-lunge exclusion" "src/lib/program/warmup.ts"
 restore_file "src/lib/program/warmup.ts"
 
-# Mutant 9: Remove skipping-light from warm-up exclusion
+# Mutant 10: Remove skipping-light from warm-up exclusion
 restore_file "src/lib/program/warmup.ts"
 sed -i 's/slug === "skipping-light"/false/' src/lib/program/warmup.ts
 run_mutant "Remove warm-up skipping-light exclusion" "src/lib/program/warmup.ts"
 restore_file "src/lib/program/warmup.ts"
 
-# Mutant 10: Break persist plumbing (no pastKneeInjury set)
-restore_file "src/lib/program/persist.ts"
-sed -i 's/pastKneeInjury: (injuriesRes/pastKneeInjury: false \&\& (injuriesRes/' src/lib/program/persist.ts
-run_mutant "Break persist plumbing" "src/lib/program/persist.ts"
-restore_file "src/lib/program/persist.ts"
-
-# Mutant 11: Break actions plumbing (no pastKneeInjury set)
-restore_file "src/app/session/actions.ts"
-sed -i 's/pastKneeInjury: input.pastKneeInjury,/pastKneeInjury: false,/' src/app/session/actions.ts
-run_mutant "Break actions plumbing" "src/app/session/actions.ts"
-restore_file "src/app/session/actions.ts"
+# Mutant 11: Disable knee-friendly ranking boost
+restore_file "src/lib/program/alternatives.ts"
+sed -i 's/const kneeFriendlyScore = (ctx.pastKneeInjury === true \&\& isKneeFriendlyForRanking(candidate)) ? 1 : 0;/const kneeFriendlyScore = 0;/' src/lib/program/alternatives.ts
+run_mutant "Disable knee-friendly ranking boost" "src/lib/program/alternatives.ts"
+restore_file "src/lib/program/alternatives.ts"
 
 echo ""

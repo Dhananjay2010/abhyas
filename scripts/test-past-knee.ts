@@ -13,15 +13,14 @@
  *   npm run test:past-knee
  */
 import { readFileSync } from "node:fs";
-import type { GeneratorInput, CandidateExercise } from "../src/lib/program/generate";
-import type { AlternativesContext } from "../src/lib/program/alternatives";
+import { generateProgram, isEligible, score, hashString, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import { rankAlternatives, buildPatternList, type AlternativesContext } from "../src/lib/program/alternatives";
 import { getPastKneeExcludedSlugs, getKneeFriendlyPrimaries } from "../src/lib/program/past-knee";
-
-const { generateProgram, isEligible, score, hashString } = await import("../src/lib/program/generate");
-const { rankAlternatives, buildPatternList } = await import("../src/lib/program/alternatives");
+import { selectWarmup, type WarmupRow } from "../src/lib/program/warmup";
 
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf8"));
 const baseline: Record<string, { plans: string[]; swaps: Record<string, string[]> }> = JSON.parse(readFileSync(__dirname + "/fixtures/past-knee-baseline.json", "utf8"));
+const warmupFixture: WarmupRow[] = JSON.parse(readFileSync(__dirname + "/fixtures/warmups.json", "utf8"));
 const byId = new Map(catalogue.map((e) => [e.id, e]));
 const bySlug = new Map(catalogue.map((e) => [e.slug, e]));
 
@@ -101,7 +100,6 @@ console.log("\n2. Grid test: past-knee across dimensions");
   // Explicit wired tests (must fail on b4845303)
   let plansWithKettlebellPistol = 0;
   let swapsWithKettlebellPistol = 0;
-  const warmupsWithWalkingLunge = 0;
   
   const excludedSlugs = Array.from(getPastKneeExcludedSlugs());
   
@@ -222,133 +220,75 @@ console.log("\n2. Grid test: past-knee across dimensions");
   console.log(`    Checked ${totalPlans} plans and ${swapListsChecked} swap lists`);
 }
 
-console.log("\n2b. Warm-up test: walking-lunge never appears for past-knee");
+console.log("\n2b. Warm-up test: walking-lunge, skipping-light, 'full depth' never appear for past-knee");
 {
-  type WarmupRow = {
-    slug: string;
-    type: "cardio" | "mobility" | "prehab";
-    target_regions: string[];
-    contraindicated_regions: null | string[];
-    instructions: string[];
-    equipment_ids: string[];
-    id: string;
-    name: string;
-    duration_seconds: number;
-  };
-  
-  // Test selectWarmup directly with mock warmup data
-  const mockWarmups: WarmupRow[] = [
-    {
-      slug: "walking-lunge",
-      type: "mobility",
-      target_regions: ["hip"],
-      contraindicated_regions: null,
-      instructions: ["Walk forward with controlled lunges"],
-      equipment_ids: [],
-      target_muscles: ["quads", "glutes"],
-      id: "m1",
-      name: "Walking Lunge",
-      duration_seconds: 60,
-    },
-    {
-      slug: "skipping-light",
-      type: "cardio",
-      target_regions: [],
-      contraindicated_regions: null,
-      instructions: ["Light skipping in place"],
-      equipment_ids: [],
-      target_muscles: [],
-      id: "m2",
-      name: "Light Skipping",
-      duration_seconds: 300,
-    },
-    {
-      slug: "march-in-place",
-      type: "cardio",
-      target_regions: [],
-      contraindicated_regions: null,
-      instructions: ["March in place"],
-      equipment_ids: [],
-      target_muscles: [],
-      id: "m3",
-      name: "March in Place",
-      duration_seconds: 300,
-    },
-    {
-      slug: "easy-bike",
-      type: "cardio",
-      target_regions: [],
-      contraindicated_regions: null,
-      instructions: ["Easy stationary bike"],
-      equipment_ids: [],
-      target_muscles: [],
-      id: "m4",
-      name: "Easy Bike",
-      duration_seconds: 300,
-    },
-    {
-      slug: "bodyweight-squat",
-      type: "mobility",
-      target_regions: [],
-      contraindicated_regions: null,
-      instructions: ["Squat to full depth maintaining good form"],
-      equipment_ids: [],
-      target_muscles: ["quads"],
-      id: "m5",
-      name: "Bodyweight Squat",
-      duration_seconds: 60,
-    },
-  ] as WarmupRow[];
-  
   type Track = "weights" | "bodyweight";
+  type Muscle = "quads" | "glutes" | "hamstrings" | "chest" | "lats" | "front_delts";
   
   const tracks: Track[] = ["weights", "bodyweight"];
+  const equipmentSets: Array<{ label: string; hasAll: boolean; ids: string[] }> = [
+    { label: "All", hasAll: true, ids: [] },
+    { label: "Gym", hasAll: false, ids: ["barbell", "dumbbell", "flat_bench", "squat_rack", "pull_up_bar", "cable_machine", "leg_press"] },
+    { label: "DB", hasAll: false, ids: ["dumbbell", "adjustable_bench"] },
+    { label: "KB", hasAll: false, ids: ["kettlebell"] },
+    { label: "BW", hasAll: false, ids: [] },
+  ];
+  const focusMuscles: Array<{ name: string; muscles: Muscle[] }> = [
+    { name: "Lower", muscles: ["quads", "glutes", "hamstrings"] },
+    { name: "Upper", muscles: ["chest", "lats", "front_delts"] },
+    { name: "Full Body", muscles: ["quads", "chest", "lats"] },
+  ];
   
   let warmupsChecked = 0;
+  let warmupsWithWalkingLunge = 0;
   let warmupsWithSkippingLight = 0;
   let warmupsWithFullDepth = 0;
   
-  const { selectWarmup } = await import("../src/lib/program/warmup");
-  
   for (const track of tracks) {
-    warmupsChecked++;
-    
-    // Generate a mock training day's muscles (Lower day)
-    const trainingMuscles = ["quads", "glutes", "hamstrings"] as string[];
-    
-    const warmups = selectWarmup({
-      warmups: mockWarmups,
-      trainingMuscles,
-      injuryRegions: [],
-      prehabRegions: [],
-      track,
-      availableEquipment: new Set(["dumbbell", "kettlebell", "resistance_band"]),
-      hasAllEquipment: false,
-      pastKneeInjury: true,
-    });
-    
-    const slugs = warmups.map((w) => w.slug);
-    if (slugs.includes("skipping-light")) {
-      warmupsWithSkippingLight++;
-    }
-    
-    // Check for "full depth" cue rewriting
-    for (const w of warmups) {
-      for (const instruction of w.instructions) {
-        if (instruction.toLowerCase().includes("full depth")) {
-          warmupsWithFullDepth++;
-          break;
+    for (const equip of equipmentSets) {
+      for (const focus of focusMuscles) {
+        warmupsChecked++;
+        
+        const warmups = selectWarmup({
+          warmups: warmupFixture,
+          trainingMuscles: focus.muscles,
+          injuryRegions: [],
+          prehabRegions: [],
+          track,
+          availableEquipment: equip.hasAll ? null : new Set(equip.ids),
+          hasAllEquipment: equip.hasAll,
+          pastKneeInjury: true,
+        });
+        
+        const slugs = warmups.map(w => w.slug);
+        if (slugs.includes("walking-lunge")) {
+          warmupsWithWalkingLunge++;
+        }
+        if (slugs.includes("skipping-light")) {
+          warmupsWithSkippingLight++;
+        }
+        
+        // Check for "full depth" cue
+        for (const w of warmups) {
+          for (const instruction of w.instructions) {
+            if (instruction.toLowerCase().includes("full depth")) {
+              warmupsWithFullDepth++;
+              break;
+            }
+          }
         }
       }
     }
   }
   
-  // walking-lunge should never appear (always excluded)
-  check(`walking-lunge NEVER in warmups for past-knee`, true);
+  check(`walking-lunge NEVER in warmups for past-knee`, warmupsWithWalkingLunge === 0,
+    warmupsWithWalkingLunge > 0 ? `${warmupsWithWalkingLunge}/${warmupsChecked} had walking-lunge` : "");
   check(`skipping-light NEVER in warmups for past-knee`, warmupsWithSkippingLight === 0,
     warmupsWithSkippingLight > 0 ? `${warmupsWithSkippingLight}/${warmupsChecked} had skipping-light` : "");
   check(`"full depth" cues rewritten for past-knee`, warmupsWithFullDepth === 0,
     warmupsWithFullDepth > 0 ? `${warmupsWithFullDepth} warmups still had "full depth"` : "");
+  
+  console.log(`    Checked ${warmupsChecked} warmup profiles`);
 }
 
 console.log("\n3. Identity test: non-knee profiles produce identical output to main");

@@ -139,6 +139,26 @@ function scoreEquipmentFit(current: ExerciseRow, candidate: ExerciseRow): number
 }
 
 /**
+ * Check if exercise is knee-friendly for past-knee users
+ */
+function isKneeFriendlyForRanking(exercise: ExerciseRow): boolean {
+  const kneeFriendlySlug = new Set([
+    "goblet-squat",
+    "box-squat", 
+    "leg-press",
+    "split-squat-with-dumbbells",
+    "dumbbell-rear-lunge",
+    "barbell-rear-lunge",
+    "barbell-step-ups",
+    "dumbbell-step-ups",
+    "step-up-with-knee-raise",
+    "wall-sit",
+  ]);
+  
+  return kneeFriendlySlug.has(exercise.slug);
+}
+
+/**
  * Rank and filter exercise alternatives.
  * 
  * @param current - The exercise being replaced
@@ -176,6 +196,7 @@ export function rankAlternatives<T extends ExerciseRow>(
   const filtered: Array<{ 
     exercise: T; 
     patternRank: number;
+    kneeFriendlyScore: number;
     equipmentScore: number;
     primaryScore: number; 
     impactPenalty: number;
@@ -230,13 +251,22 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
-    // 10. Equipment check: all-of semantics
+    // 10. Equipment check: OR alternatives for specific exercises, else ALL-of semantics
     if (ctx.availableEquipment !== null && candidate.equipment_ids.length > 0) {
       const equipment = ctx.availableEquipment;
-      const allAvailable = candidate.equipment_ids.every((id) =>
-        equipment.has(id)
-      );
-      if (!allAvailable) continue;
+      
+      // Goblet squat accepts dumbbell OR kettlebell
+      if (candidate.slug === "goblet-squat") {
+        const hasDumbbell = equipment.has("dumbbell");
+        const hasKettlebell = equipment.has("kettlebell");
+        if (!hasDumbbell && !hasKettlebell) continue;
+      } else {
+        // Default: ALL equipment required (AND logic)
+        const allAvailable = candidate.equipment_ids.every((id) =>
+          equipment.has(id)
+        );
+        if (!allAvailable) continue;
+      }
     }
     
     // Scoring
@@ -251,12 +281,31 @@ export function rankAlternatives<T extends ExerciseRow>(
       }
     }
     
+    // Detect obvious muscle target mismatches based on exercise name
+    // Example: "Cable Hip Adduction" claims quads but clearly targets adductors
+    const candidateNameLower = candidate.name.toLowerCase();
+    const candidateSlugLower = candidate.slug.toLowerCase();
+    
+    // If exercise name indicates adductor work but doesn't list adductors in primary/secondary muscles, skip it
+    const candidateSecondaryMuscles: string[] = 'secondary_muscles' in candidate ? (candidate as { secondary_muscles: string[] }).secondary_muscles || [] : [];
+    if ((candidateNameLower.includes('adduction') || candidateNameLower.includes('adductor') || 
+         candidateSlugLower.includes('adduct')) && 
+        !candidate.primary_muscles.includes('adductors') &&
+        !candidateSecondaryMuscles.includes('adductors')) {
+      // This exercise is mislabeled - skip it
+      continue;
+    }
+    
+    // Knee-friendly score for past-knee users (ranks before equipment/primary)
+    const kneeFriendlyScore = (ctx.pastKneeInjury === true && isKneeFriendlyForRanking(candidate)) ? 1 : 0;
+    
     // Penalty for high-impact moves (e.g., Lunge Sprint)
     const impactPenalty = candidate.impact === "high" ? 1 : 0;
     
     filtered.push({ 
       exercise: candidate, 
       patternRank,
+      kneeFriendlyScore,
       equipmentScore,
       primaryScore,
       impactPenalty,
@@ -265,19 +314,21 @@ export function rankAlternatives<T extends ExerciseRow>(
     });
   }
   
-  // Sort: pattern priority, equipment fit, primary muscle, low impact penalty, generator score, hash
+  // Sort: pattern priority, knee-friendly (for past-knee), equipment fit, primary muscle, low impact penalty, generator score, hash
   filtered.sort((a, b) => {
     // 1. Same pattern first
     if (a.patternRank !== b.patternRank) return a.patternRank - b.patternRank;
-    // 2. Equipment fit (higher = better)
+    // 2. Knee-friendly for past-knee users (higher = better)
+    if (b.kneeFriendlyScore !== a.kneeFriendlyScore) return b.kneeFriendlyScore - a.kneeFriendlyScore;
+    // 3. Equipment fit (higher = better)
     if (b.equipmentScore !== a.equipmentScore) return b.equipmentScore - a.equipmentScore;
-    // 3. Primary muscle match
+    // 4. Primary muscle match
     if (b.primaryScore !== a.primaryScore) return b.primaryScore - a.primaryScore;
-    // 4. Avoid high-impact
+    // 5. Avoid high-impact
     if (a.impactPenalty !== b.impactPenalty) return a.impactPenalty - b.impactPenalty;
-    // 5. Generator score
+    // 6. Generator score
     if (b.genScore !== a.genScore) return b.genScore - a.genScore;
-    // 6. Hash tiebreak
+    // 7. Hash tiebreak
     return a.tieBreak - b.tieBreak;
   });
   

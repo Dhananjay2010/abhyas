@@ -1,7 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "./generate";
 
-type BodyRegion = Database["public"]["Enums"]["body_region"];
 type Pattern = Database["public"]["Enums"]["movement_pattern"];
 
 /**
