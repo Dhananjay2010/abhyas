@@ -222,9 +222,7 @@ export default async function HistoryPage({
     const hasPendingExercise = hasPendingExerciseBySession.get(s.id) ?? false;
     const hasNoExercises = exercises.length === 0;
     
-    // A completed strength session counts as ended early when:
-    // 1. At least one exercise is still 'pending' AND logged working sets < planned, OR
-    // 2. It has 0 working sets (no exercises or all pending with 0 sets)
+    // Restore main's original inline logic for History (byte-identical behavior for all statuses)
     const isStrength = !isBreathing && s.actual_type !== "yoga";
     const endedEarly = 
       (hasPendingExercise && 
