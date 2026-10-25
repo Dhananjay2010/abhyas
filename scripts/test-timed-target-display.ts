@@ -83,10 +83,10 @@ for (const id of ALL_EQUIPMENT_IDS) {
   );
 }
 
-// Check that LOADABLE_EQUIPMENT_IDS doesn't contain unknown IDs (but extra phantom IDs are fine)
+// Check that LOADABLE_EQUIPMENT_IDS doesn't contain unknown IDs
 for (const id of LOADABLE_EQUIPMENT_IDS) {
   const existsInCatalogue = ALL_EQUIPMENT_IDS.includes(id);
-  // Phantom IDs like machine_generic are allowed (extra IDs are fine)
+  // All loadable equipment IDs should exist in the catalogue (migration 20260908210100)
   if (!existsInCatalogue) {
     console.log(`  (info) ${id} in LOADABLE_EQUIPMENT_IDS not in catalogue (phantom ID, allowed)`);
   } else {
