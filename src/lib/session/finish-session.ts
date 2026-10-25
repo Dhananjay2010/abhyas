@@ -90,13 +90,13 @@ export async function finishSessionCore(
       restSeconds: lastSetRestSeconds,
     });
 
-    // Check for invalid timestamps in stale finish
-    if (staleFinish.status === "completed" && staleFinish.endedAt === null) {
+    // Check for invalid timestamps in stale finish - return error for any null endedAt
+    if (staleFinish.endedAt === null) {
       return { ok: false, error: "Cannot finish session with invalid timestamps (started_at or last set completed_at missing or invalid)" };
     }
 
     status = staleFinish.status;
-    endedAt = staleFinish.endedAt ?? startedAt;
+    endedAt = staleFinish.endedAt;
     durationSeconds = staleFinish.durationSeconds;
   } else {
     // Normal finish: use now and client-provided duration

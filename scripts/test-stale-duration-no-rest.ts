@@ -48,6 +48,7 @@ console.log("1. Without restSeconds, ends at last set time (no rest added)");
   });
 
   assertEquals(result.status, "completed", "Status is completed");
+  if (!result.endedAt) throw new Error("endedAt is null");
   const endMs = new Date(result.endedAt).getTime();
   const lastSetMs = new Date(lastSetCompletedAt).getTime();
   assertEquals(endMs, lastSetMs, "ended_at equals last set time (no rest added)");
@@ -120,7 +121,7 @@ console.log("\n5. Invalid startedAt handled gracefully");
 
   assertEquals(result.status, "skipped", "Status is skipped");
   assertEquals(result.durationSeconds, 0, "Duration is 0");
-  assertTrue(result.endedAt.length > 0, "ended_at is a valid timestamp");
+  assertTrue(result.endedAt !== null && result.endedAt.length > 0, "ended_at is a valid timestamp");
 }
 
 // Test 6: Invalid lastSetCompletedAt with valid startedAt
@@ -136,7 +137,7 @@ console.log("\n6. Invalid lastSetCompletedAt handled gracefully");
 
   assertEquals(result.status, "completed", "Status is completed");
   assertTrue((result.durationSeconds ?? 0) >= 0, "Duration is non-negative");
-  assertTrue(result.endedAt.length > 0, "ended_at is a valid timestamp");
+  assertTrue(result.endedAt !== null && result.endedAt.length > 0, "ended_at is a valid timestamp");
 }
 
 // Test 7: restSeconds=null uses 300s default
