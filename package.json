@@ -334,7 +334,7 @@
     "test:set-number-with-pending": "tsx scripts/test-set-number-with-pending.tsx",
     "test:seven-day-cutoff": "tsx scripts/test-seven-day-cutoff.ts",
     "test:sign-in-url-safety": "tsx scripts/test-sign-in-url-safety.ts",
-    "test:signout-button-clear": "tsx scripts/test-signout-button-clear.ts",
+    "test:signout-button-clear": "tsx scripts/test-signout-button-clear.tsx",
     "test:storage-validation": "tsx scripts/test-storage-validation.ts"
   },
   "dependencies": {
