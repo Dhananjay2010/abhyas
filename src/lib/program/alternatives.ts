@@ -1,5 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
+import { PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 
 export type ExerciseRow = CandidateExercise;
@@ -9,6 +10,7 @@ export type AlternativesContext = {
   level: Database["public"]["Enums"]["fitness_level"];
   availableEquipment: Set<string> | null;
   injuryRegions: Database["public"]["Enums"]["body_region"][];
+  anyKneeInjury?: boolean;
   limit?: number;
   scoreFn: (exercise: ExerciseRow) => number;
   tieBreakFn: (slug: string) => number;
@@ -35,13 +37,21 @@ const KNEE_SAFE_LOWER_PATTERNS: MovementPattern[] = ["hinge", "core"];
 export function buildPatternList(
   currentPattern: MovementPattern,
   hasKneeInjury: boolean,
+  hasCurrentKnee?: boolean,
 ): MovementPattern[] {
   const patterns: MovementPattern[] = [currentPattern];
   
-  // Add direct fallback (lunge↔squat)
-  const fallback = FALLBACK_PATTERNS[currentPattern];
-  if (fallback && !patterns.includes(fallback)) {
-    patterns.push(fallback);
+  // For CURRENT knee injuries on lunge pattern, DON'T add squat fallback
+  // (would widen to barbell-squat, hack-squat, etc. which aren't on the knee-safe list)
+  // For PAST knee, DO add squat fallback (PAST_KNEE_LUNGE_EXERCISES are squat pattern)
+  const skipFallback = (hasCurrentKnee ?? hasKneeInjury) && currentPattern === "lunge";
+  
+  if (!skipFallback) {
+    // Add direct fallback (lunge↔squat)
+    const fallback = FALLBACK_PATTERNS[currentPattern];
+    if (fallback && !patterns.includes(fallback)) {
+      patterns.push(fallback);
+    }
   }
   
   // For knee injuries on lower-body patterns, add knee-safe alternatives
@@ -152,9 +162,16 @@ export function rankAlternatives<T extends ExerciseRow>(
   const limit = ctx.limit ?? 5;
   const userLevelRank = LEVEL_ORDER[ctx.level];
   const hasKneeInjury = ctx.injuryRegions.includes("knee");
+  const hasPastKnee = (ctx.anyKneeInjury ?? false) && !hasKneeInjury;
   
   // Build priority order: same pattern, then fallback, then knee-safe
-  const patternPriority = buildPatternList(current.movement_pattern, hasKneeInjury);
+  // For past-knee lunge swaps, we need squat pattern (the 4-list are squat pattern)
+  let patternPriority: MovementPattern[];
+  if (hasPastKnee && current.movement_pattern === "lunge") {
+    patternPriority = ["lunge", "squat"]; // Must include squat for the 4-list
+  } else {
+    patternPriority = buildPatternList(current.movement_pattern, ctx.anyKneeInjury ?? false);
+  }
   
   // Is current a dynamic press (reps-based, not iso/plyo)?
   const isDynamicPress = 
@@ -201,12 +218,31 @@ export function rankAlternatives<T extends ExerciseRow>(
     const patternRank = patternPriority.indexOf(candidate.movement_pattern);
     if (patternRank === -1) continue; // Not in our pattern list
     
+    // 4b. Past-knee lunge swaps: ONLY allow the 4-exercise quad list
+    if (hasPastKnee && current.movement_pattern === "lunge") {
+      if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
+        continue;
+      }
+    }
+    
     // 5. Level check: candidate level must be <= user level
     const candidateLevelRank = LEVEL_ORDER[candidate.level_min];
     if (candidateLevelRank > userLevelRank) continue;
     
     // 6. Beginners never get high-impact (plyometric) moves
     if (ctx.level === "beginner" && candidate.impact === "high") continue;
+    
+    // 6b. PR #73: Knee injuries exclude high-impact lower-body moves
+    if ((ctx.anyKneeInjury ?? false) && candidate.impact === "high") {
+      const lowerBodyMuscles = ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"];
+      const isLowerBody = candidate.primary_muscles.some(m => lowerBodyMuscles.includes(m));
+      if (isLowerBody) continue;
+    }
+    
+    // 6c. PR #73: ANY knee injury excludes sissy squats (defense-in-depth with isEligible)
+    if ((ctx.anyKneeInjury ?? false) && candidate.slug.includes("sissy")) {
+      continue;
+    }
     
     // 7. For dynamic press, exclude isometric and plyometric
     if (isDynamicPress) {

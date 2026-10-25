@@ -16,7 +16,7 @@ import {
 import { selectWarmup, selectCooldown, type WarmupRow } from "../src/lib/program/warmup";
 
 const fixture = process.argv[2] ?? "scripts/fixtures/catalogue.json";
-const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
+const catalogue: CandidateExercise[] = JSON.parse(readFileSync(fixture, "utf8"));
 
 const warmupsPath = "scripts/fixtures/warmups.json";
 if (!existsSync(warmupsPath)) {
