@@ -198,6 +198,8 @@
     "test:unrecognized-stash-cleanup": "tsx scripts/test-unrecognized-stash-cleanup.tsx",
     "test:failed-to-fetch-friendly": "tsx scripts/test-failed-to-fetch-friendly.tsx",
     "test:settings-user-stash-isolation": "tsx scripts/test-settings-user-stash-isolation.tsx",
+    "test:pending-changes-stash": "tsx scripts/test-pending-changes-stash.ts",
+    "test:today-signout-clears-stash": "tsx scripts/test-today-signout-clears-stash.tsx",
     "test:h1-injury-session-expired-stash": "tsx scripts/test-h1-injury-session-expired-stash.tsx",
     "test:m1-rebuild-prompt-after-save": "tsx scripts/test-m1-rebuild-prompt-after-save.tsx",
     "test:m2-equipment-stash-accumulate": "tsx scripts/test-m2-equipment-stash-accumulate.tsx",
