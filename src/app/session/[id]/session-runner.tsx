@@ -289,6 +289,7 @@ export function SessionRunner({
   useEffect(() => {
     const currentId = current?.id;
     if (currentId && alternativesForExerciseId && alternativesForExerciseId !== currentId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: clearing stale UI state when the active exercise changes
       setAlternatives(null);
       setAlternativesForExerciseId(null);
       setLoadingAlternatives(false);
