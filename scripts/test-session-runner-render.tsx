@@ -98,12 +98,13 @@ function createDeferred<T>(): Deferred<T> {
 
 // Fake timer for tests - calls callbacks immediately
 const fakeTimer: RunnerTimer = {
-  setTimeout: (callback: () => void) => {
+  setTimeout: (callback: () => void, _ms: number) => {
+    // Call immediately for deterministic tests
     callback();
     return 0;
   },
-  clearTimeout: () => {
-    // no-op
+  clearTimeout: (_id: number | NodeJS.Timeout) => {
+    // No-op
   },
 };
 
@@ -268,7 +269,8 @@ async function test1b1d() {
   }
   
   assert(logSetCalls.length === 1, "logSet called once after click");
-  assert(logSetCalls[0].setNumber === 3, "logSet called with setNumber: 3 (accounting for 2 pending sets)");
+  console.log("  [DEBUG] Logged set number:", logSetCalls[0].setNumber);
+  assert(logSetCalls[0].setNumber === 3, `logSet called with setNumber: 3 (accounting for 2 pending sets), got ${logSetCalls[0].setNumber}`);
   
   fakeStorage.clear();
 }
@@ -604,6 +606,7 @@ async function test8d8e() {
   let listenerCallCount = 0;
   
   const logSetCalls: unknown[] = [];
+  let replayCount = 0;
   
   const mockAddEventListener = (type: string, handler: () => void) => {
     listenerCallCount++;
@@ -1493,13 +1496,15 @@ async function testRetryButton() {
   console.log("\n📋 Test Retry: Click Retry button to replay pending sets");
   
   const logSetCalls: unknown[] = [];
+  let replayCount = 0;
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async (input) => {
       logSetCalls.push(input);
+      replayCount++;
       // First call fails to keep pending set around for Retry button
-      if (logSetCalls.length === 1) {
+      if (replayCount === 1) {
         throw new Error("Network error");
       }
       return { ok: true };
