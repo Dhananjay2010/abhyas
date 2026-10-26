@@ -84,6 +84,21 @@ test_mutant "helper-always-false" \
 test_mutant "remove-squat-slot-exception" \
   "sed -i 's/slotIndex !== 0/slotIndex !== 999/g' $GENERATE_FILE"
 
+# MED-1 Mutant P1: Remove fallback filter in pickForSlot
+# This removes the knee-risk filter from the SAFE_ALTERNATIVES path
+test_mutant "P1-remove-fallback-filter" \
+  "sed -i '/PART A: Knee-risk filter for SAFE_ALTERNATIVES/,/if (altCandidates.length === 0) continue;/d' $GENERATE_FILE"
+
+# MED-1 Mutant K1: Ignore explicit knee tag in isKneeRiskForKneeUser
+# Comment out the check for explicit contraindicated_regions.includes('knee')
+test_mutant "K1-ignore-explicit-knee-tag" \
+  "sed -i '/Check explicit contraindications/,/return true;/s/if (ex.contraindicated_regions.includes(\"knee\")) {/if (false \&\& ex.contraindicated_regions.includes(\"knee\")) {/' $KNEE_SAFETY_FILE"
+
+# MED-1 Mutant K5: Drop derived squat-pattern check
+# Remove the derived contraindication check from isKneeRiskForKneeUser
+test_mutant "K5-drop-derived-squat-check" \
+  "sed -i '/Check derived contraindications/,/return true;/{/return true;/d}' $KNEE_SAFETY_FILE"
+
 echo ""
 echo "=== RESULT: $KILLED/$TOTAL killed ==="
 
