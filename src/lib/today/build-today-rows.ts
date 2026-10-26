@@ -32,6 +32,7 @@ export type TodayRow = {
   restSeconds: number | null;
   skipped: boolean;
   swappedIn: boolean;
+  loggedSets?: string | null;
 };
 
 export function buildTodayRows(params: {

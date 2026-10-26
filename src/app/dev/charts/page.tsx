@@ -30,7 +30,7 @@ export default async function DevChartsPage() {
         <StatTile label="Streak" value="7" sub="sessions in a row" />
         <StatTile label="Best streak" value="11" sub="sessions" />
         <StatTile label="Sessions" value="34" sub="completed" />
-        <StatTile label="Volume lifted" value="62t" sub="all time" />
+        <StatTile label="Volume lifted" value="62,000 kg" sub="all time" />
       </section>
 
       <section className="mt-10">

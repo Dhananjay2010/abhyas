@@ -35,6 +35,9 @@ import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligib
 
 export type { SwapResult };
 
+import { loadSessionSummary } from "@/lib/session/load-session-summary";
+import type { SummaryNote } from "@/lib/session/load-session-summary";
+
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
@@ -366,7 +369,7 @@ export async function deleteSet(
 
 import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 
-export type { ProgressionFeedback };
+export type { ProgressionFeedback, SummaryNote };
 
 /**
  * Complete an exercise and apply progression from what was actually logged.
@@ -585,6 +588,28 @@ export async function abandonSession(
 export async function refreshAfterSession(): Promise<Result> {
   revalidateTrainingData();
   return { ok: true };
+}
+
+/**
+ * Load the "What changed for next time" summary from the database.
+ *
+ * FIX (a): The summary was built from client state (progressNotes), which was
+ * lost when the user navigated away and resumed. This rebuilds it from
+ * session_exercises, session_sets, and exercise_progress.
+ */
+export async function getSessionSummary(sessionId: string): Promise<Result<SummaryNote[]>> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<SummaryNote[]>;
+
+  const { supabase, user } = await requireUser();
+
+  try {
+    const summary = await loadSessionSummary(supabase, sessionId, user.id);
+    return { ok: true, data: summary };
+  } catch (error) {
+    console.error("Failed to load session summary:", error);
+    return { ok: false, error: "Could not load session summary" };
+  }
 }
 
 export type Alternative = {
