@@ -10,7 +10,7 @@
  * 3. All barbell progressions from 20-150 kg land on 2.5 kg multiples
  */
 
-import { evaluateProgression, type ExerciseMeta } from "../src/lib/program/progression";
+import { evaluateProgression, suggestedWeight, type ExerciseMeta } from "../src/lib/program/progression";
 
 const BARBELL_CALF: ExerciseMeta = {
   mechanic: "isolation",
@@ -150,7 +150,34 @@ for (let weight = 20; weight <= 150; weight += 5) {
   }
 }
 
-console.log("  ok   All weights 20-150kg land on 2.5kg grid");
+console.log("  ok   All weights 20-150kg land on 2.5kg grid\n");
+
+console.log("Deload Case: Barbell isolation 102kg → deload (use suggestedWeight directly)\n");
+
+// Test suggestedWeight (the deload calculation) which uses incrementFor with equipmentIds
+// 102 * 0.7 = 71.4
+// With 2.5kg grid (barbell): rounds to 72.5kg
+// With 1.25kg grid (isolation, no equipment): rounds to 71.25kg
+// This distinguishes the mutant from correct code.
+const deloadWeight = suggestedWeight(
+  { currentWorkingWeightKg: 102 },
+  true, // isDeload
+  BARBELL_CALF,
+  ["barbell"],
+);
+
+console.log(`  Deload from 102kg: ${deloadWeight} kg`);
+
+if (deloadWeight === null) {
+  throw new Error("Expected deload weight but got null");
+}
+
+// Deload should be 72.5kg (71.4 rounded to 2.5kg grid)
+// BARBELL mutant would give 71.25kg (71.4 rounded to 1.25kg grid)
+const deloadOnGrid = deloadWeight % 2.5 === 0;
+
+check("Deload 102kg → 72.5kg (2.5kg grid)", deloadWeight === 72.5, `got ${deloadWeight}`);
+check("Deload result on 2.5kg grid", deloadOnGrid, `${deloadWeight} % 2.5 = ${deloadWeight % 2.5}`);
 
 console.log(failures > 0 ? `\n❌ ${failures} failure(s)\n` : "\n✅ All barbell grid tests passed\n");
 process.exit(failures > 0 ? 1 : 0);
