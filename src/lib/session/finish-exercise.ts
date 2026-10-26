@@ -27,6 +27,7 @@ export interface FinishExerciseDeps {
     userId: string,
     sessionExerciseId: string,
     feel: SetFeel | null,
+    units: UnitsPreference,
   ) => Promise<ProgressionFeedback | null>;
 }
 
@@ -84,6 +85,6 @@ export async function finishExerciseCore(
 
   if (input.skipped) return { ok: true, data: null };
 
-  const feedback = await deps.applyProgression(supabase, userId, input.sessionExerciseId, input.feel);
+  const feedback = await deps.applyProgression(supabase, userId, input.sessionExerciseId, input.feel, "metric");
   return { ok: true, data: feedback };
 }
