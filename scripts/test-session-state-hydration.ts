@@ -55,8 +55,10 @@ function testSaveAndLoadCache() {
   const result = loadSessionState(storage as unknown as Storage, "user123", "session456", () => now);
   
   assert(result !== null, "Should load saved state");
-  assert(result.exercises.length === 1, "Should have 1 exercise");
-  assert(result.exercises[0].name === "Squat", "Should preserve exercise name");
+  if (result) {
+    assert(result.exercises.length === 1, "Should have 1 exercise");
+    assert(result.exercises[0].name === "Squat", "Should preserve exercise name");
+  }
   console.log("  ✓ Save and load cache preserves state");
 }
 

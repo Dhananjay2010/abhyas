@@ -29,18 +29,16 @@ class MockEventTarget {
   }
 }
 
-type TimerId = ReturnType<typeof setTimeout>;
-
 class MockScheduler {
-  private timers: Set<TimerId> = new Set();
+  private timers: Set<number | NodeJS.Timeout> = new Set();
   
-  setTimeout = (callback: () => void, delay: number): TimerId => {
+  setTimeout = (callback: () => void, delay: number): number | NodeJS.Timeout => {
     const timer = global.setTimeout(callback, delay);
     this.timers.add(timer);
     return timer;
   }
   
-  clearTimeout = (timer: TimerId): void => {
+  clearTimeout = (timer: number | NodeJS.Timeout): void => {
     global.clearTimeout(timer);
     this.timers.delete(timer);
   }

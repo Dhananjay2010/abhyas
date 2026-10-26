@@ -14,8 +14,8 @@ function testBannerWithPendingSets() {
   
   const state: PendingSetState = {
     pending: [
-      { exerciseId: "ex1", setNumber: 1, reps: 10, weightKg: 100, durationSeconds: null, createdAt: Date.now() },
-      { exerciseId: "ex2", setNumber: 1, reps: 8, weightKg: 80, durationSeconds: null, createdAt: Date.now() }
+      { sessionExerciseId: "ex1", setNumber: 1, reps: 10, weightKg: 100, durationSeconds: null, clientId: "c1" },
+      { sessionExerciseId: "ex2", setNumber: 1, reps: 8, weightKg: 80, durationSeconds: null, clientId: "c2" }
     ],
     replayed: [],
     expired: false,
@@ -87,7 +87,7 @@ function testReplayErrorMode() {
   
   const state: PendingSetState = {
     pending: [
-      { exerciseId: "ex1", setNumber: 1, reps: 10, weightKg: 100, durationSeconds: null, createdAt: Date.now() }
+      { sessionExerciseId: "ex1", setNumber: 1, reps: 10, weightKg: 100, durationSeconds: null, clientId: "c1" }
     ],
     replayed: [],
     expired: false,

@@ -57,7 +57,9 @@ function testWarningTextWithPending() {
   const text = getFinishWarningText(2, false);
   
   assert(text !== null, "Should show warning");
-  assert(text.includes("syncing"), "Should mention syncing");
+  if (text) {
+    assert(text.includes("syncing"), "Should mention syncing");
+  }
   console.log("  ✓ Warning shown with pending>0");
 }
 
