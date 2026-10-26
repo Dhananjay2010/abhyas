@@ -22,6 +22,7 @@ export function DayPlanPrompt({
   days,
   heading,
   intro,
+  showRestOption = true,
   onPlan = planDay,
 }: {
   /** The day being planned, as a local `YYYY-MM-DD`. */
@@ -34,6 +35,8 @@ export function DayPlanPrompt({
   days: PlannableDay[];
   heading: string;
   intro?: string;
+  /** Whether to show the "Rest" option. Set to false when day is already Rest. */
+  showRestOption?: boolean;
   /** Injected so the prompt can be driven without a signed-in session. */
   onPlan?: typeof planDay;
 }) {
@@ -86,16 +89,18 @@ export function DayPlanPrompt({
       </p>
 
       {!choosing ? (
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className={`mt-4 gap-2 ${showRestOption ? "grid grid-cols-3" : "flex"}`}>
           <Choice disabled={pending} onClick={() => choose({ kind: "keep" }, plannedLabel)}>
             Keep it
           </Choice>
           <Choice disabled={pending} onClick={() => setChoosing(true)}>
             Swap the day
           </Choice>
-          <Choice disabled={pending} onClick={() => choose({ kind: "rest" }, "a rest day")}>
-            Rest
-          </Choice>
+          {showRestOption && (
+            <Choice disabled={pending} onClick={() => choose({ kind: "rest" }, "a rest day")}>
+              Rest
+            </Choice>
+          )}
         </div>
       ) : (
         <div className="mt-4 space-y-2">
