@@ -44,21 +44,64 @@ function main() {
     const localToday = "2026-03-06"; // Friday (day_index 5)
     const todayIndex = 5;
 
+    // Sunday (day_index 7) is 2 days from Friday
+    // Session swaps from template day_type
     const sessions = [
       {
         local_date: "2026-03-08", // Sunday after DST (2 days later)
         status: "planned",
         actual_type: "weights" as const,
-        program_day_id: "day-2",
+        program_day_id: "day-2", // Upper
         created_at: "2026-03-06T12:00:00Z",
       },
     ];
 
     const result = buildChosenByDayIndex(sessions, days, localToday, todayIndex);
-    // Sunday is day_index 7. Template has 3 days (1,2,3), so 7 % 7 = 0, maps to day 7
-    // Actually need to understand the mapping better
-    // Let me just verify the function doesn't crash or produce wrong date
-    assert.ok(true, "Date arithmetic completes without error");
+    // Sunday (day_index 7) template is not in days array, but function should handle it
+    // Since days only has indices 1,2,3, Sunday (7) has no template, so no assertion here
+    // Instead test Monday which is in the week window
+    assert.equal(result.size, 0, "No template for Sunday means no swap recorded");
+  });
+
+  test("C9: DST spring forward with template swap", () => {
+    // Test a session that swaps from template on DST transition day
+    const localToday = "2026-03-06"; // Friday (day_index 5)
+    const todayIndex = 5;
+
+    // Monday March 9 is 3 days from Friday, day_index 1
+    const sessions = [
+      {
+        local_date: "2026-03-09", // Monday after DST
+        status: "completed",
+        actual_type: "weights" as const,
+        program_day_id: "day-2", // Upper (swapped from Rest)
+        created_at: "2026-03-06T12:00:00Z",
+      },
+    ];
+
+    const result = buildChosenByDayIndex(sessions, days, localToday, todayIndex);
+    // Template Monday (day_index 1) is Rest, session is Upper (weights) - swap!
+    assert.equal(result.get(1), "Upper", "Monday swap from Rest to Upper across DST");
+  });
+
+  test("C9: DST spring forward with no swap", () => {
+    // Session matches template on DST transition
+    const localToday = "2026-03-06"; // Friday (day_index 5)
+    const todayIndex = 5;
+
+    const sessions = [
+      {
+        local_date: "2026-03-09", // Monday after DST
+        status: "completed",
+        actual_type: "rest" as const,
+        program_day_id: "day-1", // Rest (matches template)
+        created_at: "2026-03-06T12:00:00Z",
+      },
+    ];
+
+    const result = buildChosenByDayIndex(sessions, days, localToday, todayIndex);
+    // Template Monday (day_index 1) is Rest, session is Rest - no swap
+    assert.equal(result.size, 0, "Monday no-swap case: template match not recorded");
   });
 
   test("C9: Date arithmetic around DST fall back (2026-11-01)", () => {
