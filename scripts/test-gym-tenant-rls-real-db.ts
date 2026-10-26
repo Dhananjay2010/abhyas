@@ -786,6 +786,32 @@ async function runTests() {
   }
   console.log();
 
+  // SECURITY TEST: get_owned_gym_name() doesn't leak across users
+  console.log("TEST: get_owned_gym_name() only returns caller's own gym");
+  {
+    // Owner A calls get_owned_gym_name() - should get Gym A
+    const { data: ownerResult, error: ownerError } = await clientA
+      .rpc("get_owned_gym_name");
+    check("Owner A can call get_owned_gym_name()", !ownerError, ownerError?.message);
+    check("Owner A gets their own gym name", ownerResult === "Gym A");
+
+    // Member MC calls get_owned_gym_name() - should get null (MC is not an owner)
+    const { data: memberResult, error: memberError } = await clientMemberC
+      .rpc("get_owned_gym_name");
+    check("Member MC can call get_owned_gym_name()", !memberError, memberError?.message);
+    check("Member MC gets null (not an owner)", memberResult === null, `Expected null, got: ${memberResult}`);
+    
+    // Owner B calls get_owned_gym_name() - should get Gym B
+    const { data: ownerBResult, error: ownerBError } = await clientB
+      .rpc("get_owned_gym_name");
+    check("Owner B can call get_owned_gym_name()", !ownerBError, ownerBError?.message);
+    check("Owner B gets their own gym name", ownerBResult === "Gym B");
+
+    // Member MC should NOT be able to see Gym B's name (function uses auth.uid(), not a parameter)
+    check("Member MC cannot learn Gym B name via RPC", memberResult !== "Gym B");
+  }
+  console.log();
+
   // Clean up test users
   console.log("Cleaning up test users...");
   if (userIdA) await adminClient.auth.admin.deleteUser(userIdA);

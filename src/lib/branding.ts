@@ -72,6 +72,12 @@ export type Brand = {
    */
   timezone?: string;
   /**
+   * Optional support email for the gym/brand.
+   * Used in error messages (e.g., account deletion when user owns a gym).
+   * Falls back to NEXT_PUBLIC_SUPPORT_EMAIL if not set.
+   */
+  supportEmail?: string;
+  /**
    * Logo image URL (relative to /public/ or absolute).
    * Shown in the app header/landing page. If not set, the text name is shown.
    */

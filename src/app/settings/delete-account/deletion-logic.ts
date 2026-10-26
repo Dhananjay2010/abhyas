@@ -6,9 +6,25 @@
  */
 
 import { getSiteInfo } from "@/lib/legal/site-info";
+import { branding } from "@/lib/branding";
 import { isDeleteConfirmed } from "./form-logic";
 
 export type Result = { ok: true } | { ok: false; error: string };
+
+/**
+ * Get support contact text for error messages.
+ * Priority: Brand.supportEmail -> NEXT_PUBLIC_SUPPORT_EMAIL -> fallback text.
+ */
+function getSupportContact(): string {
+  if (branding.supportEmail) {
+    return `contact ${branding.supportEmail}`;
+  }
+  const envEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
+  if (envEmail) {
+    return `contact ${envEmail}`;
+  }
+  return "contact your gym's administrator";
+}
 
 export interface DeletionDeps {
   user: { id: string; email: string | null } | null;
@@ -28,8 +44,11 @@ export function mapDeletionError(error: { code?: string; message?: string }): st
   
   // Gym owner deletion blocked (SQLSTATE OWN01)
   // Message format: "You own <gym_name>. Transfer ownership before deleting your account."
+  // Append support contact from config
   if (error.code === "OWN01" || error.message?.includes("Transfer ownership")) {
-    return error.message || "You own a gym. Transfer ownership before deleting your account.";
+    const baseMessage = error.message || "You own a gym. Transfer ownership before deleting your account.";
+    const supportContact = getSupportContact();
+    return `${baseMessage} For assistance, ${supportContact}.`;
   }
   
   // If there's a permission issue (check first, before function-related checks)

@@ -141,25 +141,75 @@ async function runTests() {
     .single();
 
   if (defaultGym) {
-    await adminClient
+    const { error: deactivateError } = await adminClient
       .from("gym_memberships")
       .update({ status: "removed" })
       .eq("gym_id", defaultGym.id)
       .eq("user_id", userIdOwner);
+    check("L-b: Deactivate default membership succeeded", !deactivateError, deactivateError?.message);
   }
 
-  // TEST: get_owned_gym_name
-  console.log("TEST: get_owned_gym_name returns gym name for owners");
+  // TEST: get_owned_gym_name (no parameters, uses auth.uid())
+  console.log("TEST: get_owned_gym_name uses auth.uid() internally");
   {
-    const { data, error } = await adminClient.rpc("get_owned_gym_name", { user_id_param: userIdOwner });
-    check("Owner sees gym name", !error && data === "Test Gym", data);
+    // Create authenticated client for owner
+    const { data: ownerSession } = await adminClient.auth.signInWithPassword({
+      email: emailOwner,
+      password: passwordOwner,
+    });
+    
+    const ownerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${ownerSession.session?.access_token}` } },
+    });
+    
+    const { data, error } = await ownerClient.rpc("get_owned_gym_name");
+    check("Owner sees their gym name (no param)", !error && data === "Test Gym", data);
+    
+    await adminClient.auth.signOut();
   }
   console.log();
 
   console.log("TEST: get_owned_gym_name returns null for non-owners");
   {
-    const { data, error } = await adminClient.rpc("get_owned_gym_name", { user_id_param: userIdMember });
-    check("Member sees null", !error && data === null);
+    // Create authenticated client for member
+    const { data: memberSession } = await adminClient.auth.signInWithPassword({
+      email: emailMember,
+      password: passwordMember,
+    });
+    
+    const memberClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${memberSession.session?.access_token}` } },
+    });
+    
+    const { data, error } = await memberClient.rpc("get_owned_gym_name");
+    check("Member sees null (no param)", !error && data === null);
+    
+    await adminClient.auth.signOut();
+  }
+  console.log();
+
+  // L-a: DB-level test for OWN01 pre-check
+  console.log("TEST: L-a: OWN01 pre-check at DB level");
+  {
+    // Create authenticated client for owner
+    const { data: ownerSession } = await adminClient.auth.signInWithPassword({
+      email: emailOwner,
+      password: passwordOwner,
+    });
+    
+    const ownerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${ownerSession.session?.access_token}` } },
+    });
+    
+    // Call get_owned_gym_name as owner - should return gym name
+    const { data: gymName } = await ownerClient.rpc("get_owned_gym_name");
+    check("L-a: Owner's get_owned_gym_name returns gym", gymName === "Test Gym");
+    
+    // This simulates the pre-check in delete_own_account
+    // If it returns non-null, deletion would be blocked with OWN01
+    check("L-a: Pre-check would block owner deletion", gymName !== null);
+    
+    await adminClient.auth.signOut();
   }
   console.log();
 
@@ -189,29 +239,95 @@ async function runTests() {
   }
   console.log();
 
-  // TEST: Migration re-run idempotency
-  console.log("TEST: Re-running migrations is idempotent");
+  // TEST: Migration re-run idempotency (L-c)
+  console.log("TEST: L-c: Re-running migrations 34, 35, 36 is idempotent");
   {
 
     // Get current state
     const { data: gymsBefore } = await adminClient.from("gyms").select("*").order("created_at");
     const { data: membershipsBefore } = await adminClient.from("gym_memberships").select("*").order("joined_at");
 
-    // Re-run migrations 20261025000034 and 20261025000035 via psql
+    // Re-run migrations 000034, 000035, and 000036 via psql with ON_ERROR_STOP
     const dbUrl = process.env.SUPABASE_DB_URL || "postgresql://postgres:postgres@localhost:54322/postgres";
     try {
-      await execAsync(`psql "${dbUrl}" -f supabase/migrations/20261025000034_gym_tenant_schema.sql`);
-      await execAsync(`psql "${dbUrl}" -f supabase/migrations/20261025000035_gym_backfill_default.sql`);
+      await execAsync(`psql "${dbUrl}" -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000034_gym_tenant_schema.sql`);
+      await execAsync(`psql "${dbUrl}" -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000035_gym_backfill_default.sql`);
+      await execAsync(`psql "${dbUrl}" -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000036_owner_account_deletion_guard.sql`);
       
       // Get state after re-run
       const { data: gymsAfter } = await adminClient.from("gyms").select("*").order("created_at");
       const { data: membershipsAfter } = await adminClient.from("gym_memberships").select("*").order("joined_at");
 
-      check("Gyms unchanged after re-run", JSON.stringify(gymsBefore) === JSON.stringify(gymsAfter));
-      check("Memberships unchanged after re-run", JSON.stringify(membershipsBefore) === JSON.stringify(membershipsAfter));
+      check("L-c: Gyms unchanged after re-run", JSON.stringify(gymsBefore) === JSON.stringify(gymsAfter));
+      check("L-c: Memberships unchanged after re-run", JSON.stringify(membershipsBefore) === JSON.stringify(membershipsAfter));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      check("Migration re-run succeeded", false, message);
+      check("L-c: Migration re-run with ON_ERROR_STOP succeeded", false, message);
+    }
+  }
+  console.log();
+
+  // L-f: Test staff demotion when user already has active member row
+  console.log("TEST: L-f: Demoting staff to member when user already has member row");
+  {
+    // Create a test gym and staff user
+    const { data: testGymData } = await adminClient
+      .from("gyms")
+      .insert({ slug: `test-gym-lf-${Date.now()}`, name: "Test Gym LF" })
+      .select()
+      .single();
+
+    if (!testGymData) {
+      check("L-f: Failed to create test gym", false);
+    } else {
+      const testGymId = testGymData.id;
+
+      // Create a user who is staff in testGym
+      const { data: staffUser } = await adminClient.auth.admin.createUser({
+        email: `staff-lf-${Date.now()}@example.com`,
+        password: "test-password-lf",
+        email_confirm: true,
+      });
+
+      if (!staffUser.user) {
+        check("L-f: Failed to create staff user", false);
+      } else {
+        const staffUserId = staffUser.user.id;
+
+        // Add as staff to testGym
+        await adminClient.from("gym_memberships").insert({
+          gym_id: testGymId,
+          user_id: staffUserId,
+          role: "staff",
+          status: "active",
+        });
+
+        // User should already have an active member row in default gym (from signup trigger)
+        const { data: defaultMembership } = await adminClient
+          .from("gym_memberships")
+          .select("*")
+          .eq("gym_id", defaultGym?.id)
+          .eq("user_id", staffUserId)
+          .eq("status", "active")
+          .maybeSingle();
+
+        check("L-f: User has active default gym membership", !!defaultMembership);
+
+        // Try to demote staff to member in testGym (should fail with unique violation or clear error)
+        const { error: demoteError } = await adminClient
+          .from("gym_memberships")
+          .update({ role: "member" })
+          .eq("gym_id", testGymId)
+          .eq("user_id", staffUserId);
+
+        check("L-f: Demoting staff to member with existing member row fails", !!demoteError);
+        check("L-f: Error is not a raw unique violation", 
+          demoteError ? !demoteError.message.includes("23505") || demoteError.message.includes("active") : false,
+          demoteError?.message);
+
+        // Cleanup
+        await adminClient.auth.admin.deleteUser(staffUserId);
+      }
     }
   }
   console.log();

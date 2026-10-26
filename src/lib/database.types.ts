@@ -597,21 +597,21 @@ export type Database = {
           id: string
           name: string
           slug: string
-          timezone: string
+          timezone: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
           slug: string
-          timezone?: string
+          timezone?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
           slug?: string
-          timezone?: string
+          timezone?: string | null
         }
         Relationships: []
       }
@@ -1488,6 +1488,22 @@ export type Database = {
           day_count: number
           days_completed: number
         }[]
+      }
+      get_owned_gym_name: {
+        Args: Record<PropertyKey, never>
+        Returns: string | null
+      }
+      is_gym_owner: {
+        Args: {
+          target_gym_id: string
+        }
+        Returns: boolean
+      }
+      is_gym_staff: {
+        Args: {
+          target_gym_id: string
+        }
+        Returns: boolean
       }
       rebuild_block: {
         Args: {

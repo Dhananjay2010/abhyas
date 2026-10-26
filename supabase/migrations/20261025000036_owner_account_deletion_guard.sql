@@ -4,8 +4,8 @@
 -- This migration adds a pre-check that raises a clear error if the caller
 -- owns any gym, preventing the cascade deletion from reaching the trigger.
 
--- Helper function: check if user owns any gym and return gym name
-create or replace function public.get_owned_gym_name(user_id_param uuid)
+-- Helper function: check if caller owns any gym and return gym name
+create or replace function public.get_owned_gym_name()
 returns text
 language sql
 security definer
@@ -14,17 +14,17 @@ stable as $$
   select public.gyms.name
   from public.gym_memberships
   join public.gyms on public.gym_memberships.gym_id = public.gyms.id
-  where public.gym_memberships.user_id = user_id_param
+  where public.gym_memberships.user_id = auth.uid()
     and public.gym_memberships.role = 'owner'
     and public.gym_memberships.status = 'active'
   limit 1;
 $$;
 
--- Revoke public access
+-- Revoke public access (function signature changed, no parameters)
 do $$
 begin
-  revoke execute on function public.get_owned_gym_name(uuid) from public, anon;
-  grant execute on function public.get_owned_gym_name(uuid) to authenticated;
+  revoke execute on function public.get_owned_gym_name() from public, anon;
+  grant execute on function public.get_owned_gym_name() to authenticated;
 exception when undefined_function then
   null;
 end $$;
@@ -48,7 +48,7 @@ begin
   end if;
 
   -- PRE-CHECK: Block if user owns a gym
-  owned_gym_name := public.get_owned_gym_name(caller_id);
+  owned_gym_name := public.get_owned_gym_name();
   if owned_gym_name is not null then
     -- Use SQLSTATE 'OWN01' (custom state) so UI can recognize this error
     raise exception using
@@ -77,8 +77,15 @@ begin
 end;
 $$;
 
--- Grant execute to authenticated users
-grant execute on function public.delete_own_account() to authenticated;
+-- Re-apply original grants after CREATE OR REPLACE
+-- (CREATE OR REPLACE keeps the existing ACL, but we re-apply for clarity)
+do $$
+begin
+  revoke execute on function public.delete_own_account() from public, anon;
+  grant execute on function public.delete_own_account() to authenticated;
+exception when undefined_function then
+  null;
+end $$;
 
 -- Add a comment explaining the function
 comment on function public.delete_own_account() is
