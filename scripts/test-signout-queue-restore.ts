@@ -60,15 +60,14 @@ async function testSignOutQueueClear() {
   
   // Scenario 1: Sign-out succeeds (redirects, never returns)
   // The queue is cleared before signOut, and since signOut redirects, it stays cleared
-  const savedQueue1 = storage.getItem(key);
-  clearAllPendingSetsForUser(storage as any, userId);
+  clearAllPendingSetsForUser(storage as unknown as Storage, userId);
   assert(storage.getItem(key) === null, "Queue cleared after successful sign-out");
   
   // Scenario 2: Sign-out fails (returns error)
   // The queue should be restored
   storage.setItem(key, queueData);
   const savedQueue2 = storage.getItem(key);
-  clearAllPendingSetsForUser(storage as any, userId);
+  clearAllPendingSetsForUser(storage as unknown as Storage, userId);
   assert(storage.getItem(key) === null, "Queue cleared before checking sign-out result");
   
   // Restore on failure

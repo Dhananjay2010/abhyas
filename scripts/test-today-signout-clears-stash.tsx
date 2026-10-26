@@ -38,7 +38,7 @@ function runTest() {
   }
 
   // Render the component
-  const { container } = render(<SignOutForm label="Sign out" />);
+  const { container } = render(<SignOutForm label="Sign out" userId="test-user" />);
   const form = container.querySelector('form');
   
   if (!form) {

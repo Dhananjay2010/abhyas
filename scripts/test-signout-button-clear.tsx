@@ -166,7 +166,7 @@ Object.defineProperty(window, 'localStorage', {
     <SignOutButton
       userId="u3"
       clearSets={clearSetsF8}
-      signOut={signOutFailure as any}
+      signOut={signOutFailure as unknown as typeof signOutAction}
     />
   );
   
