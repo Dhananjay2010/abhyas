@@ -1,13 +1,12 @@
 #!/usr/bin/env tsx
 /**
- * Test N6/N6s/N8: buildRunnerProps and buildSettingsProps extract correct fields
+ * Test N6/N6s: buildRunnerProps extracts correct fields
  * 
  * N6: userId must be user.id
  * N6s: sessionStatus must be session.status
- * N8: settings userId must be user.id
  */
 
-import { buildRunnerProps, buildSettingsProps } from "../src/lib/session/build-runner-props";
+import { buildRunnerProps } from "../src/lib/session/build-runner-props";
 
 let passed = 0;
 
@@ -66,11 +65,6 @@ assert(props.userId === "user-456", "N6: userId is correct value");
 assert(props.sessionStatus === mockSession.status, "N6s: sessionStatus equals session.status");
 assert(props.sessionStatus === "in_progress", "N6s: sessionStatus is correct value");
 
-// Test N8: settings props
-const settingsProps = buildSettingsProps(mockUser);
-assert(settingsProps.userId === mockUser.id, "N8: settings userId equals user.id");
-assert(settingsProps.userId === "user-456", "N8: settings userId is correct value");
-
 console.log(`\n✅ All assertions passed (${passed})`);
-console.log("\nMutations N6/N6s/N8 killed: Changing user.id or session.status breaks assertions");
+console.log("\nMutations N6/N6s killed: Changing user.id or session.status breaks assertions");
 console.log("Break: Using wrong fields (e.g. session.user_id for userId) fails tests");

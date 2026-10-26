@@ -2,29 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { signOutAction } from "@/lib/auth/signout";
-import { clearAllPendingSetsForUser } from "@/lib/session/pending-set-retry";
 import { clearPendingChanges } from "@/lib/auth/pending-changes";
 
-export function SignOutButton({ 
-  userId,
-  signOut = signOutAction,
-  clearSets = clearAllPendingSetsForUser,
-}: { 
-  userId: string;
-  signOut?: typeof signOutAction;
-  clearSets?: typeof clearAllPendingSetsForUser;
-}) {
+export function SignOutButton() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   async function handleSignOut() {
     startTransition(async () => {
       clearPendingChanges();
-      // Clear pending sets before sign-out (signOut redirects on success and never returns)
-      if (typeof window !== "undefined") {
-        clearSets(window.localStorage, userId);
-      }
-      const result = await signOut();
+      const result = await signOutAction();
       // If we reach here, signOut failed (success redirects and never returns)
       if (!result.ok) {
         // Show a friendly error message instead of exposing internal error details

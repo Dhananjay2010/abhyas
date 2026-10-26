@@ -6,7 +6,6 @@ import { getSiteInfo } from "@/lib/legal/site-info";
 import { SignOutButton } from "./signout-button";
 import { buildTimezoneOptions } from "@/lib/timezone-options";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
-import { buildSettingsProps } from "@/lib/session/build-runner-props";
 
 export const dynamic = "force-dynamic";
 
@@ -62,9 +61,6 @@ export default async function SettingsPage() {
 
   const { supportEmail } = getSiteInfo();
 
-  // N8: Extract userId via tested helper
-  const signOutProps = buildSettingsProps(user);
-
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
@@ -106,7 +102,7 @@ export default async function SettingsPage() {
         <section>
           <h2 className="text-lg font-semibold mb-2">Account</h2>
           <div className="space-y-3">
-            <SignOutButton {...signOutProps} />
+            <SignOutButton />
             <a
               href="/settings/delete-account"
               className="block rounded-xl border border-danger/30 bg-danger/10 px-6 py-3 text-sm font-medium text-danger transition-colors hover:bg-danger/20"

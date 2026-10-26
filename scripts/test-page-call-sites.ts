@@ -7,10 +7,9 @@
  * Mutants:
  * - N6_PAGE: buildRunnerProps returns userId="" → breaks pending set isolation
  * - N6S_PAGE: buildRunnerProps returns sessionStatus="in_progress" → breaks completed session handling
- * - N8_PAGE: buildSettingsProps returns userId="" → leaves orphaned pending sets after sign-out
  */
 
-import { buildRunnerProps, buildSettingsProps } from "../src/lib/session/build-runner-props";
+import { buildRunnerProps } from "../src/lib/session/build-runner-props";
 
 let passed = 0;
 
@@ -51,29 +50,8 @@ function testSessionPageCallSite() {
   console.log("MUTANT N6S_PAGE: buildRunnerProps returns sessionStatus=\"in_progress\" → replays on completed session\n");
 }
 
-function testSettingsPageCallSite() {
-  console.log("📋 Test: Settings page buildSettingsProps wiring\n");
-  
-  const mockUser = {
-    id: "user-settings-789",
-  };
-  
-  // The page spreads this into SignOutButton: <SignOutButton {...signOutProps} />
-  const signOutProps = buildSettingsProps(mockUser);
-  
-  assert(signOutProps.userId === "user-settings-789", "N8_PAGE: userId passed to SignOutButton");
-  
-  // Test with different user
-  const mockUser2 = { id: "user-abc" };
-  const signOutProps2 = buildSettingsProps(mockUser2);
-  assert(signOutProps2.userId === "user-abc", "N8_PAGE: userId varies with user");
-  
-  console.log("\nMUTANT N8_PAGE: buildSettingsProps returns userId=\"\" → leaves orphaned pending sets after sign-out\n");
-}
-
 try {
   testSessionPageCallSite();
-  testSettingsPageCallSite();
   console.log(`✅ All page call-site tests passed (${passed} assertions)\n`);
   process.exit(0);
 } catch (error) {
