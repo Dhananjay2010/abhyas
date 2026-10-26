@@ -62,13 +62,18 @@ export function SignOutButton({
 
   return (
     <div>
-      <button
-        onClick={handleSignOut}
-        disabled={pending}
-        className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg text-left disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {pending ? "Signing out..." : "Sign out"}
-      </button>
+      <form method="post" action="/auth/signout" onSubmit={(e) => {
+        e.preventDefault();
+        handleSignOut();
+      }}>
+        <button
+          type="submit"
+          disabled={pending}
+          className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg text-left disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {pending ? "Signing out..." : "Sign out"}
+        </button>
+      </form>
       {error && (
         <p className="mt-2 text-sm text-danger" role="alert">
           {error}
