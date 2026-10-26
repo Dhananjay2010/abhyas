@@ -11,6 +11,7 @@
 import { progressionFeedback } from "../src/lib/session/progression-feedback";
 import { getProfileUnits } from "../src/lib/get-profile-units";
 import type { UnitsPreference } from "../src/lib/units";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -95,7 +96,7 @@ async function runTests() {
 
   console.log("1. Imperial user (never switched)");
   const imperialClient = makeFakeClient("imperial");
-  const imperialUnits = await getProfileUnits(imperialClient, "user-1");
+  const imperialUnits = await getProfileUnits(imperialClient as unknown as SupabaseClient, "user-1");
   check("getProfileUnits returns 'imperial'", imperialUnits === "imperial");
 
   const imperial = progressionFeedback(sessionExercise, successSets, progress, session, "right", imperialUnits);
@@ -108,7 +109,7 @@ async function runTests() {
   const switchingClient = makeFakeClient("metric");
   
   // First check - user is on metric
-  const beforeUnits = await getProfileUnits(switchingClient, "user-2");
+  const beforeUnits = await getProfileUnits(switchingClient as unknown as SupabaseClient, "user-2");
   check("Before switch: getProfileUnits returns 'metric'", beforeUnits === "metric");
   const before = progressionFeedback(sessionExercise, successSets, progress, session, "right", beforeUnits);
   console.log(`  Before: "${before.decision.message}"`);
@@ -119,7 +120,7 @@ async function runTests() {
   switchingClient._testSetUnits("imperial");
   
   // Second check - same client, now imperial
-  const afterUnits = await getProfileUnits(switchingClient, "user-2");
+  const afterUnits = await getProfileUnits(switchingClient as unknown as SupabaseClient, "user-2");
   check("After switch: getProfileUnits returns 'imperial'", afterUnits === "imperial");
   const after = progressionFeedback(sessionExercise, successSets, progress, session, "right", afterUnits);
   console.log(`  After: "${after.decision.message}"`);
@@ -145,7 +146,7 @@ async function runTests() {
 
   console.log("\n4. Metric still works");
   const metricClient = makeFakeClient("metric");
-  const metricUnits = await getProfileUnits(metricClient, "user-3");
+  const metricUnits = await getProfileUnits(metricClient as unknown as SupabaseClient, "user-3");
   const metric = progressionFeedback(sessionExercise, successSets, progress, session, "right", metricUnits);
   console.log(`  Message: "${metric.decision.message}"`);
   check("Metric has 'kg'", metric.decision.message.includes("kg"));
