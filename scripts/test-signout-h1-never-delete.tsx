@@ -69,11 +69,11 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   
   // Test both SignOutButton and SignOutForm
   const components = [
-    { name: "SignOutButton", Component: SignOutButton },
-    { name: "SignOutForm", Component: SignOutForm },
+    { name: "SignOutButton" },
+    { name: "SignOutForm" },
   ];
   
-  for (const { name, Component } of components) {
+  for (const { name } of components) {
     console.log(`\n=== Testing ${name} ===\n`);
     
     // ========================================================================
@@ -94,11 +94,14 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     replaceCalls.length = 0;
     refreshCalls.length = 0;
     
-    const propsA = name === "SignOutButton" 
-      ? { userId: "u1", signOut: signOutSuccess, logSet: logSetSuccess }
-      : { label: "Sign out", userId: "u1", signOut: signOutSuccess, logSet: logSetSuccess };
-    
-    const { unmount: unmountA } = render(<Component {...propsA} />);
+    let unmountA: () => void;
+    if (name === "SignOutButton") {
+      const result = render(<SignOutButton userId="u1" signOut={signOutSuccess} logSet={logSetSuccess} />);
+      unmountA = result.unmount;
+    } else {
+      const result = render(<SignOutForm label="Sign out" userId="u1" signOut={signOutSuccess} logSet={logSetSuccess} />);
+      unmountA = result.unmount;
+    }
     
     await act(async () => {
       const button = screen.getByRole("button");
@@ -133,11 +136,14 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     signOutCalls = 0;
     replaceCalls.length = 0;
     
-    const propsB = name === "SignOutButton"
-      ? { userId: "u2", signOut: signOutSuccess, logSet: logSetSuccess }
-      : { label: "Sign out", userId: "u2", signOut: signOutSuccess, logSet: logSetSuccess };
-    
-    const { unmount: unmountB } = render(<Component {...propsB} />);
+    let unmountB: () => void;
+    if (name === "SignOutButton") {
+      const result = render(<SignOutButton userId="u2" signOut={signOutSuccess} logSet={logSetSuccess} />);
+      unmountB = result.unmount;
+    } else {
+      const result = render(<SignOutForm label="Sign out" userId="u2" signOut={signOutSuccess} logSet={logSetSuccess} />);
+      unmountB = result.unmount;
+    }
     
     await act(async () => {
       const buttons = screen.queryAllByRole("button");
@@ -180,11 +186,14 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     
     const logSetFail = async () => ({ ok: false as const, error: "Network error" });
     
-    const propsC = name === "SignOutButton"
-      ? { userId: "u3", signOut: signOutSuccess, logSet: logSetFail }
-      : { label: "Sign out", userId: "u3", signOut: signOutSuccess, logSet: logSetFail };
-    
-    const { unmount: unmountC } = render(<Component {...propsC} />);
+    let unmountC: () => void;
+    if (name === "SignOutButton") {
+      const result = render(<SignOutButton userId="u3" signOut={signOutSuccess} logSet={logSetFail} />);
+      unmountC = result.unmount;
+    } else {
+      const result = render(<SignOutForm label="Sign out" userId="u3" signOut={signOutSuccess} logSet={logSetFail} />);
+      unmountC = result.unmount;
+    }
     
     await act(async () => {
       const buttons = screen.queryAllByRole("button");
@@ -220,11 +229,14 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
       clientId: "pending-u3b-1"
     }, fakeDeps);
     
-    const propsC2 = name === "SignOutButton"
-      ? { userId: "u3b", signOut: signOutSuccess, logSet: logSetFail }
-      : { label: "Sign out", userId: "u3b", signOut: signOutSuccess, logSet: logSetFail };
-    
-    const { unmount: unmountC2 } = render(<Component {...propsC2} />);
+    let unmountC2: () => void;
+    if (name === "SignOutButton") {
+      const result = render(<SignOutButton userId="u3b" signOut={signOutSuccess} logSet={logSetFail} />);
+      unmountC2 = result.unmount;
+    } else {
+      const result = render(<SignOutForm label="Sign out" userId="u3b" signOut={signOutSuccess} logSet={logSetFail} />);
+      unmountC2 = result.unmount;
+    }
     
     await act(async () => {
       const buttons = screen.queryAllByRole("button");
@@ -265,11 +277,14 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
       return { ok: true as const };
     };
     
-    const propsD = name === "SignOutButton"
-      ? { userId: "u4", signOut: signOutSuccess, logSet: logSetFailOnceThenSucceed }
-      : { label: "Sign out", userId: "u4", signOut: signOutSuccess, logSet: logSetFailOnceThenSucceed };
-    
-    const { unmount: unmountD } = render(<Component {...propsD} />);
+    let unmountD: () => void;
+    if (name === "SignOutButton") {
+      const result = render(<SignOutButton userId="u4" signOut={signOutSuccess} logSet={logSetFailOnceThenSucceed} />);
+      unmountD = result.unmount;
+    } else {
+      const result = render(<SignOutForm label="Sign out" userId="u4" signOut={signOutSuccess} logSet={logSetFailOnceThenSucceed} />);
+      unmountD = result.unmount;
+    }
     
     await act(async () => {
       const buttons = screen.queryAllByRole("button");
@@ -313,11 +328,14 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     
     signOutCalls = 0;
     
-    const propsE = name === "SignOutButton"
-      ? { userId: "u5", signOut: signOutSuccess, logSet: logSetFail }
-      : { label: "Sign out", userId: "u5", signOut: signOutSuccess, logSet: logSetFail };
-    
-    const { unmount: unmountE } = render(<Component {...propsE} />);
+    let unmountE: () => void;
+    if (name === "SignOutButton") {
+      const result = render(<SignOutButton userId="u5" signOut={signOutSuccess} logSet={logSetFail} />);
+      unmountE = result.unmount;
+    } else {
+      const result = render(<SignOutForm label="Sign out" userId="u5" signOut={signOutSuccess} logSet={logSetFail} />);
+      unmountE = result.unmount;
+    }
     
     await act(async () => {
       const buttons = screen.queryAllByRole("button");

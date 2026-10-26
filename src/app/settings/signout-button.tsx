@@ -3,20 +3,20 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signOutAction } from "@/lib/auth/signout";
-import { replayAllPendingSetsForUser, getPendingSetCountForUser } from "@/lib/session/pending-set-retry";
+import { replayAllPendingSetsForUser } from "@/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { clearPendingChanges } from "@/lib/auth/pending-changes";
 import { isSessionExpired } from "@/lib/auth/session-expired";
-import { logSetAction } from "@/app/session/actions";
+import { logSet } from "@/app/session/actions";
 
 export function SignOutButton({ 
   userId,
   signOut = signOutAction,
-  logSet = logSetAction,
+  logSet: logSetProp = logSet,
 }: { 
   userId: string;
   signOut?: typeof signOutAction;
-  logSet?: typeof logSetAction;
+  logSet?: typeof logSet;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +36,7 @@ export function SignOutButton({
           window.localStorage,
           userId,
           deps,
-          logSet
+          logSetProp
         );
         
         // If sets are still pending, show warning
@@ -63,7 +63,7 @@ export function SignOutButton({
           window.localStorage,
           userId,
           deps,
-          logSet
+          logSetProp
         );
         
         // If still pending, update count
