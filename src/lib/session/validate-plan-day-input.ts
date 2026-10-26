@@ -12,14 +12,20 @@ export function validatePlanDayInput(plan: unknown): string | null {
     return "Invalid plan: must be an object.";
   }
   
-  const planObj = plan as Record<string, unknown>;
+  if (plan === null) {
+    return "Invalid plan: must be an object.";
+  }
   
-  if (!("kind" in planObj) || !planObj.kind) {
+  if (!("kind" in plan)) {
+    return "Invalid plan: must have a kind.";
+  }
+  
+  if (typeof plan.kind !== "string" || !plan.kind) {
     return "Invalid plan: must have a kind.";
   }
 
   const validKinds = ["keep", "training", "yoga", "breathing", "rest"];
-  if (!validKinds.includes(String(planObj.kind))) {
+  if (!validKinds.includes(plan.kind)) {
     return "Invalid plan type.";
   }
 

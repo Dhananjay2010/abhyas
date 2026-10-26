@@ -23,7 +23,6 @@ import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-s
 import { buildChosenByDayIndex } from "@/lib/today/chosen-by-day";
 import { shouldLoadPlannableDays } from "@/lib/today/should-load-plannable";
 import { decideRestDayResume } from "@/lib/today/rest-day-resume";
-import { shouldShowSwap } from "@/lib/today/should-show-swap";
 import { decideTodayPrompts } from "@/lib/today/decide-today-prompts";
 
 export const dynamic = "force-dynamic";
@@ -258,7 +257,6 @@ export default async function TodayPage() {
     override !== undefined &&
     (override.actual_type !== (scheduled?.day_type ?? null) ||
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
-  const showSwap = shouldShowSwap(overrideDiffers, scheduled);
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
   const completedStrengthSession = pickLatestCompletedStrength(todaySessions);
@@ -468,7 +466,7 @@ export default async function TodayPage() {
         </p>
       )}
 
-      {overrideDiffers && (
+      {overrideDiffers && scheduled !== undefined && (
         <p className="mt-4 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
           You chose this for today, so it replaces the{" "}
           {labelForDayType(scheduled?.day_type ?? "rest", scheduled?.label ?? null)} your
@@ -476,8 +474,8 @@ export default async function TodayPage() {
         </p>
       )}
 
-      {/* Single day-plan prompt (at most one) */}
-      {promptDecision.prompt && (
+      {/* Missed-yesterday prompt (shows first if applicable) */}
+      {promptDecision.prompt?.type === "missed-yesterday" && (
         <DayPlanPrompt
           localDate={localToday}
           dayLabel="Today"
@@ -534,6 +532,18 @@ export default async function TodayPage() {
                   </Link>
                 </div>
               </div>
+              {/* Rest-day swap prompt (shows only if no missed-yesterday prompt) */}
+              {promptDecision.prompt?.type === "rest-day-swap" && (
+                <DayPlanPrompt
+                  localDate={localToday}
+                  dayLabel="Today"
+                  plannedLabel="Rest"
+                  days={plannable}
+                  heading="Or train today anyway"
+                  intro="Pick what you'd like to do instead."
+                  showRestOption={promptDecision.offerRest}
+                />
+              )}
             </div>
           </>
         );

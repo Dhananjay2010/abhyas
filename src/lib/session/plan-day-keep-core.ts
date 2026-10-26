@@ -17,7 +17,9 @@ type SessionRow = {
  * Returns an empty deletedIds array (nothing was deleted).
  */
 export async function keepPlannedDay(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _supabase: SupabaseClient<Database>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _planned: SessionRow[]
 ): Promise<{ ok: true; deletedIds: string[] } | { ok: false; error: string }> {
   // "Keep it" always keeps: training override, yoga override, breathing override, or Rest override
