@@ -199,18 +199,22 @@ console.log("\n7. Holds track bests during deload");
 
 console.log("\n8. E1RM best tracked during deload");
 {
+  // Test that e1RM improvements are tracked during deload
+  // Prior: 65kg × 10 reps = 65 × (1 + 10/30) = 86.67
+  // New: 65kg × 12 reps = 65 × (1 + 12/30) = 91.00
+  // Weight stays same (no weight PB), but e1RM improves
   const d = evaluateProgression({
-    sets: sets(4, 14, 60),
+    sets: sets(4, 12, 65),
     plannedSets: 4,
     repsMin: 8,
     repsMax: 12,
     feel: "right",
     meta: BENCH,
-    state: fresh({ currentWorkingWeightKg: 60, bestWeightKg: 60, bestE1rm: 84 }),
+    state: fresh({ currentWorkingWeightKg: 60, bestWeightKg: 65, bestReps: 10, bestE1rm: 86.67 }),
     isDeload: true,
   });
   check("outcome is deload_week", d.outcome === "deload_week");
-  check("e1RM improved", (d.bestE1rm ?? 0) > 84, `${d.bestE1rm?.toFixed(1)}`);
+  check("e1RM improved", (d.bestE1rm ?? 0) > 86.67, `${d.bestE1rm?.toFixed(1)}`);
   check("personal best reported", d.personalBest?.kind === "e1rm");
 }
 
