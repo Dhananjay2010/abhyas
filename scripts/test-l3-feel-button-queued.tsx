@@ -28,7 +28,6 @@ const storage = {
 
 Object.defineProperty(window, 'localStorage', { value: storage, writable: true });
 
-const FIXED_TIME = new Date("2026-01-15T10:00:00Z").getTime();
 
 const fakeTimer = {
   setTimeout: () => 0,
