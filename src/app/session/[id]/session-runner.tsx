@@ -16,6 +16,7 @@ import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
+import { displayToKg, formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
@@ -116,6 +117,7 @@ export type RunnerSettings = {
   restVibrate: boolean;
   restOverrideSeconds: number | null;
   cooldownEnabled: boolean;
+  units: "metric" | "imperial";
 };
 
 type Phase = "warmup" | "work" | "cooldown" | "done";
@@ -712,9 +714,10 @@ export function SessionRunner({
   const nextSetNumber = setsDone + 1;
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
+  // For imperial: snap prescription to lb grid so prefill matches working weight line.
   const lastWeight =
     [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ??
-    current.suggestedWeightKg;
+    snapPrescribedWeight(current.suggestedWeightKg, settings.units);
 
   /**
    * What the reps field starts on — and, for the first set, nothing.
@@ -897,10 +900,13 @@ export function SessionRunner({
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
           <p className="mt-2 text-sm text-muted">
-            Working weight {current.workingWeightKg} kg
-            {current.suggestedWeightKg !== null &&
-              current.suggestedWeightKg !== current.workingWeightKg &&
-              ` · today ${current.suggestedWeightKg} kg`}
+            Working weight {formatLoad(
+              snapPrescribedWeight(
+                current.suggestedWeightKg ?? current.workingWeightKg,
+                settings.units
+              ),
+              settings.units
+            )}
           </p>
         )}
         {isDeload && (
@@ -956,7 +962,7 @@ export function SessionRunner({
                     {logged
                       ? settings.perSetLogging
                         ? `${describeSet(logged, isTimed)}${
-                            logged.weightKg ? ` · ${logged.weightKg} kg` : ""
+                            logged.weightKg ? ` · ${formatLoad(logged.weightKg, settings.units)}` : ""
                           }`
                         : "done"
                       : "—"}
@@ -1004,6 +1010,7 @@ export function SessionRunner({
             defaultReps={defaultReps}
             setNumber={nextSetNumber}
             isBodyweight={current.isBodyweight}
+            units={settings.units}
             onLog={(reps, weightKg, durationSeconds) =>
               onLogSet(current.id, reps, weightKg, durationSeconds)
             }
@@ -1231,6 +1238,7 @@ function SetEntry({
   defaultReps,
   setNumber,
   isBodyweight,
+  units,
   onLog,
   onHoldComplete,
   disabled = false,
@@ -1246,6 +1254,7 @@ function SetEntry({
   setNumber: number;
   /** True for bodyweight exercises: changes weight label and default. */
   isBodyweight: boolean;
+  units: "metric" | "imperial";
   onLog: (
     reps: number | null,
     weightKg: number | null,
@@ -1260,10 +1269,8 @@ function SetEntry({
   // Remounted per set via a key at the call site, so the fields reset naturally
   // rather than being reset from an effect.
   const [reps, setReps] = useState(defaultReps !== null ? String(defaultReps) : "");
-  // For bodyweight exercises, only prefill if the last set actually used added weight.
-  const shouldPrefillWeight = !isBodyweight || (defaultWeight !== null && defaultWeight > 0);
-  const [weight, setWeight] = useState(
-    shouldPrefillWeight && defaultWeight !== null ? String(defaultWeight) : "",
+  const [weight, setWeight] = useState(() => 
+    computeRunnerWeightPrefill(defaultWeight, units, isBodyweight)
   );
 
   /**
@@ -1311,14 +1318,15 @@ function SetEntry({
   // round trip rather than after one. An empty field is only meaningful when
   // per-set logging is off, where the runner records that a set happened
   // without asking for numbers; here it means the user has not said yet.
+  const weightKg = weight === "" ? null : displayToKg(Number(weight), units);
   const invalid =
     reps === ""
       ? isTimed
         ? "Hold it, or enter the seconds you held."
         : "Enter the reps you did."
       : isTimed
-        ? validateSet(null, weight === "" ? null : Number(weight), Number(reps))
-        : validateSet(Number(reps), weight === "" ? null : Number(weight));
+        ? validateSet(null, weightKg, Number(reps), units)
+        : validateSet(Number(reps), weightKg, undefined, units);
 
   if (!perSetLogging) {
     return (
@@ -1373,13 +1381,17 @@ function SetEntry({
           />
         </label>
         <label className="block">
-          <span className="text-sm text-muted">{isBodyweight ? "Added weight (kg)" : "Weight (kg)"}</span>
+          <span className="text-sm text-muted">
+            {isBodyweight 
+              ? `Added weight (${units === "metric" ? "kg" : "lb"})` 
+              : `Weight (${units === "metric" ? "kg" : "lb"})`}
+          </span>
           <input
             type="number"
             inputMode="decimal"
             step="0.5"
             min={0}
-            max={999}
+            max={units === "imperial" ? LOAD_IMPERIAL_MAX_LB : LOAD_METRIC_MAX_KG}
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             placeholder="—"
@@ -1398,14 +1410,11 @@ function SetEntry({
       <div className="mt-3">
         <BigButton
           disabled={disabled || invalid !== null || holdEndsAt !== null}
-          onClick={() =>
-            isTimed
-              ? onLog(null, weight === "" ? null : Number(weight), Number(reps))
-              : onLog(
-                  reps === "" ? null : Number(reps),
-                  weight === "" ? null : Number(weight),
-                )
-          }
+          onClick={() => {
+            return isTimed
+              ? onLog(null, weightKg, Number(reps))
+              : onLog(reps === "" ? null : Number(reps), weightKg);
+          }}
         >
           Log set {setNumber}
         </BigButton>
