@@ -50,8 +50,9 @@ const nonKneeInjuries: Array<{ label: string; injuries: Array<{ body_region: Bod
 // Equipment sets
 const equipmentSets: Array<{ label: string; hasAll: boolean; ids: string[] }> = [
   { label: "all", hasAll: true, ids: [] },
-  { label: "barbell-rack-bench", hasAll: false, ids: ["barbell", "squat_rack", "bench"] },
-  { label: "dumbbell-bench", hasAll: false, ids: ["dumbbell", "bench"] },
+  { label: "barbell-rack-bench", hasAll: false, ids: ["barbell", "squat_rack", "flat_bench"] },
+  { label: "dumbbell-bench", hasAll: false, ids: ["dumbbell", "flat_bench"] },
+  { label: "dumbbell", hasAll: false, ids: ["dumbbell"] },
   { label: "kettlebell", hasAll: false, ids: ["kettlebell"] },
   { label: "bodyweight", hasAll: false, ids: [] },
 ];

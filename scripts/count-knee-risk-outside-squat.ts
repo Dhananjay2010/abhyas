@@ -73,10 +73,10 @@ for (const spec of pastKneeProfiles) {
   }
 }
 
-console.log(`\n${countWithKneeRiskOutsideSquat} of ${pastKneeProfiles.length} past-knee profiles have knee-risk lifts outside squat slot`);
+console.log(`\n${countWithKneeRiskOutsideSquat} knee-risk exercise hits outside squat slot (across ${pastKneeProfiles.length} past-knee profiles)`);
 console.log(`${countWithKneeRiskInAnySlot} of ${pastKneeProfiles.length} past-knee profiles have knee-risk lifts in any slot`);
-console.log(`${countWithExplicitKneeContraindication} of ${pastKneeProfiles.length} past-knee profiles have explicitly knee-contraindicated exercises`);
-console.log(`${countWithPastKneeExcludedExercise} of ${pastKneeProfiles.length} past-knee profiles have past-knee excluded exercises (jumps, etc.)`);
+console.log(`${countWithExplicitKneeContraindication} explicitly knee-contraindicated exercise hits (across ${pastKneeProfiles.length} past-knee profiles)`);
+console.log(`${countWithPastKneeExcludedExercise} past-knee excluded exercise hits (across ${pastKneeProfiles.length} past-knee profiles)`);
 
 if (countWithExplicitKneeContraindication > 0) {
   console.error(`✗ FAIL: Expected 0 explicitly knee-contraindicated exercises (K1 mutant killer)`);

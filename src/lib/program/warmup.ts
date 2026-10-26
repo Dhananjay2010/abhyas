@@ -154,7 +154,7 @@ export function selectWarmup(input: {
     const excluded = mobility.filter(w => PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug));
     
     if (excluded.length > 0) {
-      const kneeSafeLowerDrills = ["glute-bridge", "hip-circles", "leg-swing-front", "leg-swing-side"];
+      const kneeSafeLowerDrills = ["glute-bridge", "hip-circles", "leg-swing-front", "leg-swing-side", "ankle-rock"];
       const lowerMuscleGroups = ["quads", "glutes", "hamstrings", "calves", "hip_flexors", "lower_back", "abs", "obliques"];
       const isLowerDay = Array.from(muscles).some(m => lowerMuscleGroups.includes(m));
       
@@ -215,7 +215,7 @@ export function selectWarmup(input: {
     // a knee injury or spinal movement for a lower-back injury.
     // For past-knee users training lower body, prefer knee-safe lower-body drills.
     const fallbackSlugs = isPastKnee 
-      ? ["glute-bridge", "hip-circles", "leg-swing-front", "leg-swing-side", "cat-cow", "arm-circles"]
+      ? ["glute-bridge", "hip-circles", "leg-swing-front", "leg-swing-side", "ankle-rock", "cat-cow", "arm-circles"]
       : ["cat-cow", "arm-circles", "bodyweight-squat", "hip-circles"];
     
     for (const slug of fallbackSlugs) {
