@@ -27,15 +27,34 @@ function mockClock(timestampMs: number) {
   originalDateNow = Date.now;
   originalDateConstructor = Date;
   Date.now = () => timestampMs;
-  const FixedDate = new Proxy(originalDateConstructor, {
-    construct(target, args: any[]) {
+  const RealDate = originalDateConstructor;
+  const FixedDate = new Proxy(RealDate, {
+    construct(target, args: [] | [string | number] | [number, number] | [number, number, number] | [number, number, number, number] | [number, number, number, number, number] | [number, number, number, number, number, number] | [number, number, number, number, number, number, number]) {
       if (args.length === 0) {
         return new target(timestampMs);
       }
-      return new target(...(args as [any?, any?, any?, any?, any?, any?, any?]));
+      if (args.length === 1) {
+        return new target(args[0]);
+      }
+      if (args.length === 2) {
+        return new target(args[0], args[1]);
+      }
+      if (args.length === 3) {
+        return new target(args[0], args[1], args[2]);
+      }
+      if (args.length === 4) {
+        return new target(args[0], args[1], args[2], args[3]);
+      }
+      if (args.length === 5) {
+        return new target(args[0], args[1], args[2], args[3], args[4]);
+      }
+      if (args.length === 6) {
+        return new target(args[0], args[1], args[2], args[3], args[4], args[5]);
+      }
+      return new target(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
     }
   });
-  (globalThis as typeof globalThis & { Date: DateConstructor }).Date = FixedDate as DateConstructor;
+  globalThis.Date = FixedDate;
 }
 
 function restoreClock() {
@@ -43,7 +62,7 @@ function restoreClock() {
     Date.now = originalDateNow;
   }
   if (originalDateConstructor) {
-    (globalThis as typeof globalThis & { Date: DateConstructor }).Date = originalDateConstructor;
+    globalThis.Date = originalDateConstructor;
   }
 }
 
