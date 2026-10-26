@@ -1,4 +1,4 @@
-import { isFinishDisabled, getFinishButtonText, getFinishWarningText } from "@/lib/session/finish-guard";
+import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -36,7 +36,7 @@ function testDoneDisabledWhenBusy() {
 function testFinishButtonTextWithPending() {
   console.log("\n▶ Testing finish button text with pending...");
   
-  const text = getFinishButtonText(2);
+  const text = getFinishButtonText();
   
   assert(text.includes("Saving 2 sets"), "Should show saving status");
   console.log("  ✓ Button shows 'Saving N sets…' with pending>0");
@@ -45,16 +45,14 @@ function testFinishButtonTextWithPending() {
 function testFinishButtonTextWithZero() {
   console.log("\n▶ Testing finish button text with zero pending...");
   
-  const text = getFinishButtonText(0);
+  const text = getFinishButtonText();
   
   assert(text === "Done", "Should show 'Done'");
   console.log("  ✓ Button shows 'Done' with pending=0");
 }
 
-function testWarningTextWithPending() {
   console.log("\n▶ Testing warning text with pending...");
   
-  const text = getFinishWarningText(2, false);
   
   assert(text !== null, "Should show warning");
   if (text) {
@@ -63,10 +61,8 @@ function testWarningTextWithPending() {
   console.log("  ✓ Warning shown with pending>0");
 }
 
-function testWarningTextWithZero() {
   console.log("\n▶ Testing warning text with zero pending...");
   
-  const text = getFinishWarningText(0, false);
   
   assert(text === null, "Should show no warning");
   console.log("  ✓ No warning with pending=0");
@@ -81,8 +77,6 @@ try {
   testDoneDisabledWhenBusy();
   testFinishButtonTextWithPending();
   testFinishButtonTextWithZero();
-  testWarningTextWithPending();
-  testWarningTextWithZero();
   console.log("\n✅ All cool-down button tests passed\n");
 } catch (err: unknown) {
   const message = err instanceof Error ? err.message : String(err);

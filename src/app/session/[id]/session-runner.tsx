@@ -638,33 +638,6 @@ export function SessionRunner({
             </li>
           ))}
         </ul>
-        {(() => {
-          const warningText = getFinishWarningText(
-            pendingSetState.pending.length,
-            pendingSetState.error !== null,
-          );
-          if (warningText) {
-            return (
-              <div className="mt-6 rounded-xl border border-accent/20 bg-accent/5 px-4 py-3 text-sm text-accent">
-                {warningText}
-                {pendingSetState.error && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (controller) {
-                        controller.replay();
-                      }
-                    }}
-                    className="mt-2 font-semibold underline"
-                  >
-                    Retry
-                  </button>
-                )}
-              </div>
-            );
-          }
-          return null;
-        })()}
         <div className="mt-10 space-y-3">
           <BigButton
             disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
@@ -676,7 +649,7 @@ export function SessionRunner({
               setPhase("done");
             }}
           >
-            {getFinishButtonText(pendingSetState.pending.length)}
+            {getFinishButtonText()}
           </BigButton>
           <GhostButton
             disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
