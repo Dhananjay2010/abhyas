@@ -83,7 +83,7 @@ class CountingEventTarget {
   
   constructor() {
     // Use jsdom's EventTarget
-    this.target = new (global as any).window.EventTarget();
+    this.target = new (global as typeof window).window.EventTarget();
   }
   
   addEventListener = (type: string, handler: () => void): void => {
