@@ -145,21 +145,12 @@ type LogSetCall = {
     throw new Error("Imperial weight input not found");
   }
 
-  // Check 3: Prefill is multiple of 5 lb
+  // Check 3: Prefill is 132 lb (60 kg rounded to 0.5 lb)
   const prefillValue = parseFloat(weightInputImperial.value || "0");
-  check(
-    "Prefill is multiple of 5 lb",
-    prefillValue % 5 === 0,
-    `got ${prefillValue} lb`
-  );
-  check(
-    "Prefill is ~130 lb (60 kg)",
-    prefillValue >= 125 && prefillValue <= 135,
-    `got ${prefillValue}`
-  );
+  check("Prefill is 132 lb (60 kg)", prefillValue === 132 || prefillValue === 132.5, `got ${prefillValue} lb`);
 
-  // Check 4: Step is 5
-  check("Weight step is 5", weightInputImperial.step === "5", `got step="${weightInputImperial.step}"`);
+  // Check 4: Weight step is 0.5 for imperial
+  check("Weight step is 0.5", weightInputImperial.step === "0.5", `got step="${weightInputImperial.step}"`);
 
   // Find reps input
   const repsInputImperial = [...rImperial.container.querySelectorAll<HTMLInputElement>("input")].find(
