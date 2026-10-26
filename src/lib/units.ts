@@ -598,6 +598,10 @@ export const HEIGHT_CM_MAX = 250;
 export const WEIGHT_KG_MIN = 25;
 export const WEIGHT_KG_MAX = 300;
 
+// Load input max (for runner and History edit)
+export const LOAD_IMPERIAL_MAX_LB = 999;
+export const LOAD_METRIC_MAX_KG = Math.round(LOAD_IMPERIAL_MAX_LB * LB_TO_KG);
+
 /**
  * Validate height in centimeters.
  * Rejects NaN, Infinity, non-numbers, and out-of-range values.

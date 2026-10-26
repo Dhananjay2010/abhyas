@@ -207,7 +207,7 @@ export default async function ProgressPage() {
     .slice(-14)
     .map((v) => ({ 
       label: shortDate(v.local_date), 
-      value: kgToDisplay(Number(v.volume_kg), units),
+      value: Math.round(kgToDisplay(Number(v.volume_kg), units)),
       isDeload: deloadDates.has(v.local_date)
     }));
   

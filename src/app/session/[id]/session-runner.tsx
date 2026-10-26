@@ -16,7 +16,7 @@ import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { kgToDisplay, displayToKg, formatLoad, roundToPlate, snapPrescribedWeight, type UnitsPreference } from "@/lib/units";
+import { kgToDisplay, displayToKg, formatLoad, roundLbToHalf, snapPrescribedWeight, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG, type UnitsPreference } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
@@ -1221,9 +1221,9 @@ function SetEntry({
       // Metric: show exact kg value, no rounding
       return String(defaultWeight);
     }
-    // Imperial: convert to lb and round to plate steps (5 lb)
+    // Imperial: convert to lb and round to 0.5 lb (matches working weight line)
     const displayValue = kgToDisplay(defaultWeight, units);
-    const rounded = roundToPlate(displayValue, units);
+    const rounded = roundLbToHalf(displayValue);
     return String(rounded);
   });
 
@@ -1342,9 +1342,9 @@ function SetEntry({
           <input
             type="number"
             inputMode="decimal"
-            step={units === "metric" ? "0.5" : "5"}
+            step="0.5"
             min={0}
-            max={999}
+            max={units === "imperial" ? LOAD_IMPERIAL_MAX_LB : LOAD_METRIC_MAX_KG}
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             placeholder="—"
