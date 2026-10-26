@@ -416,7 +416,7 @@ export function rankAlternatives<T extends ExerciseRow>(
   // we get both quad isolation AND hinge fallbacks, then slice to limit after reordering.
   // Otherwise, if the top 5 are all quads, hinges never appear.
   const isPastKneeSquatSwap = hasPastKnee && current.movement_pattern === "squat";
-  const effectiveLimit = limit;
+  const effectiveLimit = isPastKneeSquatSwap ? 20 : limit;
   
   for (const item of filtered) {
     const normalizedName = normalizeName(item.exercise.name);
