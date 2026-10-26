@@ -122,6 +122,7 @@ async function testM9() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+    getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [

@@ -65,7 +65,12 @@ export type SessionActions = {
   swapExercise: typeof swapExercise;
   refreshAfterSession: typeof refreshAfterSession;
   planDay: typeof planDay;
+  getSessionSummary: typeof getSessionSummary;
 };
+
+import { getSessionSummary, type SummaryNote } from "../actions";
+import { formatVolumeLifted } from "@/lib/session/format-volume-lifted";
+import type { UnitsPreference } from "@/lib/units";
 
 const REAL_ACTIONS: SessionActions = {
   markWarmupDone,
@@ -78,6 +83,7 @@ const REAL_ACTIONS: SessionActions = {
   swapExercise,
   refreshAfterSession,
   planDay,
+  getSessionSummary,
 };
 
 type Feel = Database["public"]["Enums"]["set_feel"];
@@ -157,6 +163,7 @@ export function SessionRunner({
   exercises: initialExercises,
   settings,
   tomorrow,
+  units = "metric",
   actions = REAL_ACTIONS,
   onExit,
   addEventListener: addEventListenerProp,
@@ -177,6 +184,8 @@ export function SessionRunner({
   settings: RunnerSettings;
   /** What tomorrow is, so the summary can ask about it. Null with no block. */
   tomorrow?: NextDayPlan | null;
+  /** The user's display units, for the summary's total volume. */
+  units?: UnitsPreference;
   actions?: SessionActions;
   onExit?: () => void;
   addEventListener?: (type: string, handler: () => void) => void;
@@ -229,9 +238,19 @@ export function SessionRunner({
   const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [alternativesForExerciseId, setAlternativesForExerciseId] = useState<string | null>(null);
-  const [progressNotes, setProgressNotes] = useState<
-    { name: string; message: string; personalBest: string | null }[]
-  >([]);
+  // FIX (a): Load summary from DB on phase transition, not client state
+  const [progressNotes, setProgressNotes] = useState<SummaryNote[]>([]);
+  const [summaryError, setSummaryError] = useState(false);
+  const [summaryAttempt, setSummaryAttempt] = useState(0);
+  const [summaryLoaded, setSummaryLoaded] = useState(false);
+  const [bannerFor, setBannerFor] = useState<number | null>(null);
+  const [bannerContent, setBannerContent] = useState<{ name: string; message: string } | null>(null);
+  // "What changed for next time": exactly the banner messages finishExercise
+  // returned during THIS mount, one per exercise in finishing order. Never
+  // rebuilt from the database (M-1): after a remount the section is absent.
+  const [changeNotes, setChangeNotes] = useState<Array<{ id: string; name: string; message: string }>>([]);
+
+  // Pending set controller for retry functionality (PR #113)
   const [pendingSetState, setPendingSetState] = useState<PendingSetState>({
     pending: [],
     expired: false,
@@ -281,16 +300,7 @@ export function SessionRunner({
       () => controller.onFocus()
     );
   }, [controller, addEventListener, removeEventListener]);
-  /*
-    Which exercise screen the "what just changed" banner belongs on.
 
-    It used to render `progressNotes[last]` unconditionally, so the note from
-    exercise one stayed on screen through exercises two, three and four -- by
-    the end of a session the banner was describing a lift two exercises ago.
-    The note is about the exercise just finished, so it belongs on exactly the
-    one screen that follows it.
-  */
-  const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
   /*
@@ -315,6 +325,31 @@ export function SessionRunner({
   const [phase, setPhase] = useState<Phase>(
     nothingPending ? "cooldown" : warmupAlreadyDone || warmup.length === 0 ? "work" : "warmup",
   );
+  
+  // Load summary when phase transitions to done (including on remount)
+  // A failed load (ok:false or a network drop) shows an error with Retry, so
+  // the summary never just stays blank; Retry bumps summaryAttempt.
+  useEffect(() => {
+    if (phase !== "done" || summaryLoaded) return;
+    let cancelled = false;
+    actions
+      .getSessionSummary(sessionId)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.ok) {
+          setProgressNotes(result.data);
+          setSummaryLoaded(true);
+        } else {
+          setSummaryError(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSummaryError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, summaryLoaded, summaryAttempt, sessionId, actions]);
   const [warmupIndex, setWarmupIndex] = useState(0);
   // B1: the exercise the latest logged set belongs to, not simply the first
   // pending one, so a resume lands where the user left off.
@@ -670,6 +705,7 @@ export function SessionRunner({
 
   // ---- summary ----------------------------------------------------------
   if (phase === "done") {
+    const changed = changeNotes;
     const personalBests = progressNotes.filter(
       (n): n is typeof n & { personalBest: string } => n.personalBest !== null,
     );
@@ -691,7 +727,7 @@ export function SessionRunner({
         <div className="space-y-3">
           <Stat label="Time" value={formatClock(elapsed)} />
           <Stat label="Sets logged" value={`${totalSetsDone}`} />
-          {volume > 0 && <Stat label="Total volume" value={`${Math.round(volume)} kg`} />}
+          {volume > 0 && <Stat label="Total volume" value={formatVolumeLifted(volume, units)} />}
           <Stat
             label="Exercises"
             value={`${exercises.filter((e) => e.status === "completed").length} of ${exercises.length}`}
@@ -722,13 +758,32 @@ export function SessionRunner({
           </section>
         )}
 
-        {progressNotes.length > 0 && (
+        {summaryError && (
+          <section
+            role="alert"
+            className="mt-8 flex items-center justify-between gap-4 rounded-xl border border-border bg-surface px-4 py-3 text-sm"
+          >
+            <p className="text-muted">Couldn&apos;t load your summary.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSummaryError(false);
+                setSummaryAttempt((n) => n + 1);
+              }}
+              className="rounded-lg border border-border px-3 py-1.5 font-medium"
+            >
+              Retry
+            </button>
+          </section>
+        )}
+
+        {changed.length > 0 && (
           <section className="mt-8">
             <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
               What changed for next time
             </h2>
             <ul className="space-y-2">
-              {progressNotes.map((n, i) => (
+              {changed.map((n, i) => (
                 <li key={i} className="rounded-xl border border-border bg-surface px-4 py-3 text-sm">
                   <span className="font-semibold">{n.name}</span>
                   <p className="mt-1 text-muted">{n.message}</p>
@@ -969,16 +1024,18 @@ export function SessionRunner({
       return;
     }
     setError(null);
-    if (result.data?.message) {
-      setProgressNotes((prev) => [
-        ...prev,
-        {
-          name: current.name,
-          message: result.data!.message,
-          personalBest: result.data!.personalBest,
-        },
-      ]);
+    setSessionExpired(false);
+    
+    // FIX (a): Store feedback from finishExercise for immediate banner display
+    if (skipped || !result.data?.message) {
+      setBannerContent(null);
+      setChangeNotes((prev) => prev.filter((n) => n.id !== current.id));
+    } else if (result.data) {
+      const note = { id: current.id, name: current.name, message: result.data.message };
+      setBannerContent({ name: note.name, message: note.message });
+      setChangeNotes((prev) => [...prev.filter((n) => n.id !== note.id), note]);
     }
+    
     setExercises((prev) =>
       prev.map((e) =>
         e.id === current.id ? { ...e, status: skipped ? "skipped" : "completed", feel } : e,
@@ -1046,10 +1103,9 @@ export function SessionRunner({
             )}
           </div>
         )}
-        {bannerFor === exerciseIndex && progressNotes.length > 0 && (
+        {bannerFor === exerciseIndex && bannerContent && (
           <p className="mb-5 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-            <span className="font-semibold">{progressNotes[progressNotes.length - 1].name}:</span>{" "}
-            {progressNotes[progressNotes.length - 1].message}
+            <span className="font-semibold">{bannerContent.name}:</span> {bannerContent.message}
           </p>
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>

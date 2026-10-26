@@ -10,6 +10,7 @@ import { buildRunnerExercise } from "@/lib/session/build-runner-exercises";
 import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
 import { buildRunnerProps } from "@/lib/session/build-runner-props";
+import { getUnitsPreference } from "@/lib/units";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export default async function SessionPage({
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
       supabase
         .from("profiles")
-        .select("primary_track, has_all_equipment, timezone")
+        .select("primary_track, has_all_equipment, timezone, units")
         .eq("id", user.id)
         .single(),
       supabase.from("user_injuries").select("body_region, severity"),
@@ -195,6 +196,7 @@ export default async function SessionPage({
       exercises={exercises}
       settings={settings}
       tomorrow={tomorrow}
+      units={getUnitsPreference(profileRes.data?.units)}
     />
   );
 }

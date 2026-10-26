@@ -97,22 +97,34 @@ const settings: RunnerSettings = {
 (async () => {
   console.log("\n📋 Test: Skip with partial replay (1 of 2 sets saves)\n");
   
-  let finishSessionCalled = false;
+  let finishSessionCallCount = 0;
+  let replayCount = 0;
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async (params) => {
-      // First set (setNumber 4) succeeds, second set (setNumber 5) fails
-      if (params.setNumber === 4) {
-        return { ok: true };
+      replayCount++;
+      // First 2 calls (initial mount replay): both sets fail
+      // Calls 3-4 (Skip replay): set 4 succeeds, set 5 fails
+      // Calls 5+ (Retry replay): set 5 succeeds
+      if (replayCount <= 2) {
+        // Initial mount replay: both fail
+        throw new Error("Network error");
       }
-      // Second set always fails
-      throw new Error("Network error");
+      if (replayCount <= 4) {
+        // Skip replay: set 4 succeeds, set 5 still fails
+        if (params.setNumber === 4) {
+          return { ok: true };
+        }
+        throw new Error("Network error");
+      }
+      // Retry replay: set 5 now succeeds
+      return { ok: true };
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => {
-      finishSessionCalled = true;
+      finishSessionCallCount++;
       return { ok: true };
     },
     abandonSession: async () => ({ ok: true }),
@@ -120,6 +132,7 @@ const settings: RunnerSettings = {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const userId = "user-partial";
@@ -173,10 +186,10 @@ const settings: RunnerSettings = {
   // Verify we're in cool-down
   assert(screen.queryByText("Cool-down") !== null, "In cool-down phase");
   
-  // Verify pending set message shows "1 set waiting to save" after initial replay
-  // (one set saved during initial replay, one still pending)
-  const pendingText1Init = screen.queryAllByText(/1 set waiting to save/i);
-  assert(pendingText1Init.length > 0, "Shows '1 set waiting to save' after initial replay");
+  // Verify pending set message shows "2 sets waiting to save" after initial replay failure
+  // (both sets failed during initial replay)
+  const pendingText2Init = screen.queryAllByText(/2 sets waiting to save/i);
+  assert(pendingText2Init.length > 0, "Shows '2 sets waiting to save' after initial replay failure");
   
   // Find Skip cool-down button
   const allButtons = screen.queryAllByRole("button");
@@ -185,7 +198,7 @@ const settings: RunnerSettings = {
   const skipButton = skipButtons[0];
   if (!skipButton) throw new Error("Skip button not found");
   
-  // Click Skip cool-down (second set will still fail = still 1 pending)
+  // Click Skip cool-down (set 4 will succeed, set 5 will fail = partial replay)
   await act(async () => {
     skipButton.click();
   });
@@ -193,19 +206,43 @@ const settings: RunnerSettings = {
   await act(async () => {});
   await act(async () => {});
   
-  // Verify finishSession was NOT called (still 1 set unsaved)
-  assert(finishSessionCalled === false, "finishSession NOT called with unsaved set");
+  // Verify finishSession was NOT called (1 set still unsaved after partial replay)
+  assert(finishSessionCallCount === 0, "finishSession NOT called after partial replay");
   
   // Verify still on cool-down
-  assert(screen.queryByText("Cool-down") !== null, "Still on cool-down after failed replay");
+  assert(screen.queryByText("Cool-down") !== null, "Still on cool-down after partial replay");
   
-  // Verify notice still shows "1 set waiting to save"
+  // Verify notice now shows "1 set waiting to save" (set 4 saved, set 5 still pending)
   const pendingText1 = screen.queryAllByText(/1 set waiting to save/i);
-  assert(pendingText1.length > 0, "Still shows '1 set waiting to save'");
+  assert(pendingText1.length > 0, "Shows '1 set waiting to save' after partial replay");
   
   // Verify Retry button is still shown
   const retryButtons = screen.queryAllByRole("button", { name: /Retry/i });
   assert(retryButtons.length > 0, "Retry button still shown after partial replay");
+  
+  // Now test that a later Retry that saves the last set finishes the session
+  // Click Retry button (this will be the 4th replay attempt, which saves set 5)
+  await act(async () => {
+    retryButtons[0].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // After the last set saves, Skip should finish the session
+  // Manually click Skip again
+  const skipButtons2 = screen.queryAllByRole("button").filter(b => b.textContent?.trim() === "Skip cool-down");
+  assert(skipButtons2.length > 0, "Skip cool-down button still exists");
+  
+  await act(async () => {
+    skipButtons2[0].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Now finishSession should have been called (queue is empty)
+  assert(finishSessionCallCount === 1, "finishSession called after all sets saved");
   
   console.log(`\n✅ Partial replay test passed (${passed} assertions)\n`);
   console.log("MUTANT: Finish after partial replay (remaining.length < pending.length) → finishSession called with unsaved sets\n");
