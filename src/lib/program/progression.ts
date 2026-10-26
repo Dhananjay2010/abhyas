@@ -268,7 +268,7 @@ function roundToGrid(
  */
 export function estimateOneRepMax(weightKg: number, reps: number): number {
   if (reps <= 0) return 0;
-  if (reps === 1) return weightKg;
+  if (reps === 1) return Math.min(weightKg, 9999.99);
   const capped = Math.min(reps, 12);
   // Exact rational arithmetic using integer hundredths to match SQL ROUND(x,2)
   // Equivalent to SQL: ROUND(weight_kg * (30 + least(reps,12)) / 30, 2)

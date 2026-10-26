@@ -103,7 +103,7 @@ echo "Expected: test-e1rm-consistency.ts should fail"
 echo ""
 
 # Remove the reps=1 special case from estimateOneRepMax
-sed -i '/if (reps === 1) return weightKg;/d' "$PROGRESSION_FILE"
+sed -i '/if (reps === 1) return Math.min(weightKg, 9999.99);/d' "$PROGRESSION_FILE"
 
 if ! cmp -s "$BACKUP_PROGRESSION" "$PROGRESSION_FILE"; then
   run_mutant "Mutant 2" "scripts/test-e1rm-consistency.ts" || exit 1
@@ -170,6 +170,48 @@ fi
 
 # Restore for next mutant
 cp "$BACKUP_CALCULATIONS" "$CALCULATIONS_FILE"
+
+# Mutant 6 (QA3 C5a): getExerciseHistory compares the raw heaviest weight
+echo ""
+echo "Mutant 6: getExerciseHistory heaviest weight unrounded"
+echo "Expected: test-exercise-history-pr-detection.ts Case (e) should fail"
+echo ""
+sed -i 's/Math\.max(\.\.\.weightedSetsInSession\.map(s => roundToStoragePrecision(s\.weight_kg ?? 0)))/Math.max(...weightedSetsInSession.map(s => (s.weight_kg ?? 0)))/; s/weightedSetsInSession\.find(s => roundToStoragePrecision(s\.weight_kg ?? 0) === heaviestInSession)/weightedSetsInSession.find(s => (s.weight_kg ?? 0) === heaviestInSession)/' "$QUERIES_FILE"
+if ! cmp -s "$BACKUP_QUERIES" "$QUERIES_FILE"; then
+  run_mutant "Mutant 6" "scripts/test-exercise-history-pr-detection.ts" || exit 1
+else
+  echo "✗ Mutant 6: sed did not change queries.ts"
+  exit 1
+fi
+cp "$BACKUP_QUERIES" "$QUERIES_FILE"
+
+# Mutant 7 (QA3 C5c): detectPersonalRecords compares raw heaviest weights
+echo ""
+echo "Mutant 7: detectPersonalRecords heaviest compare unrounded"
+echo "Expected: test-exercise-history-pr-detection.ts Case (f) should fail"
+echo ""
+sed -i 's/const bestWeight = roundToStoragePrecision(best\.weight_kg ?? 0);/const bestWeight = (best.weight_kg ?? 0);/; s/const currentWeight = roundToStoragePrecision(current\.weight_kg ?? 0);/const currentWeight = (current.weight_kg ?? 0);/' "$CALCULATIONS_FILE"
+if ! cmp -s "$BACKUP_CALCULATIONS" "$CALCULATIONS_FILE"; then
+  run_mutant "Mutant 7" "scripts/test-exercise-history-pr-detection.ts" || exit 1
+else
+  echo "✗ Mutant 7: sed did not change calculations.ts"
+  exit 1
+fi
+cp "$BACKUP_CALCULATIONS" "$CALCULATIONS_FILE"
+
+# Mutant 8 (QA3 LOW-6): reps=1 skips the 9999.99 clamp
+echo ""
+echo "Mutant 8: estimateOneRepMax reps=1 without 9999.99 clamp"
+echo "Expected: test-e1rm-consistency.ts section 12 should fail"
+echo ""
+sed -i 's/if (reps === 1) return Math\.min(weightKg, 9999\.99);/if (reps === 1) return weightKg;/' "$PROGRESSION_FILE"
+if ! cmp -s "$BACKUP_PROGRESSION" "$PROGRESSION_FILE"; then
+  run_mutant "Mutant 8" "scripts/test-e1rm-consistency.ts" || exit 1
+else
+  echo "✗ Mutant 8: sed did not change progression.ts"
+  exit 1
+fi
+cp "$BACKUP_PROGRESSION" "$PROGRESSION_FILE"
 
 echo ""
 echo "All History mutants killed ✓"

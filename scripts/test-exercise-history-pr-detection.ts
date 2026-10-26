@@ -12,6 +12,7 @@
  */
 
 import { getExerciseHistory } from "../src/lib/exercise-history/queries";
+import { detectPersonalRecords } from "../src/lib/exercise-history/calculations";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 
@@ -295,6 +296,39 @@ async function main() {
     // Weight also improved (60.02 > 60.00)
     check("Case (d): Session B HAS heaviest_weight PR", sessionB?.prs.some(pr => pr.type === "heaviest_weight") ?? false,
       `found ${sessionB?.prs.map(pr => pr.type).join(", ") || "none"}`);
+  }
+
+  console.log("\nCase (e): A 40.004×5, then B 40.004×5 → no heaviest_weight PR (sub-cent noise, LOW-5)");
+  {
+    // Both sessions store 40.00 at numeric(6,2). Comparing the raw 40.004
+    // against the rounded prior best (40.00) would fire a fake PR.
+    const historyRows: HistoryRow[] = [
+      { session_exercise_id: "se-1", session_id: "s-1", local_date: "2026-10-01", metric: "reps", completed_at: "2026-10-01T10:00:00Z" },
+      { session_exercise_id: "se-2", session_id: "s-2", local_date: "2026-10-02", metric: "reps", completed_at: "2026-10-02T10:00:00Z" },
+    ];
+    const setRows: SetRow[] = [
+      { session_exercise_id: "se-1", reps: 5, weight_kg: 40.004, duration_seconds: null },
+      { session_exercise_id: "se-2", reps: 5, weight_kg: 40.004, duration_seconds: null },
+    ];
+    const history = await getExerciseHistory(createFakeClient(historyRows, setRows), userId, exerciseId, { limit: 10, offset: 0 });
+    const sessionB = history.sessions.find(s => s.sessionId === "s-2");
+    check("Case (e): Session B exists", !!sessionB);
+    check("Case (e): Session B has NO heaviest_weight PR", !(sessionB?.prs.some(pr => pr.type === "heaviest_weight") ?? true),
+      `found ${sessionB?.prs.map(pr => pr.type).join(", ") || "none"}`);
+  }
+
+  console.log("\nCase (f): detectPersonalRecords heaviest tie at storage precision keeps the first set (LOW-5)");
+  {
+    // 40.001×8 then 40.004×5: both are 40.00 kg at storage precision, so they
+    // tie like two 40×n sets would, and the first set (8 reps) stays the record.
+    const records = detectPersonalRecords([
+      { reps: 8, weight_kg: 40.001, duration_seconds: null },
+      { reps: 5, weight_kg: 40.004, duration_seconds: null },
+    ], "reps");
+    const heaviest = records.find(r => r.type === "heaviest_weight");
+    check("Case (f): heaviest value is 40.00", heaviest?.value === 40, `got ${heaviest?.value}`);
+    check("Case (f): tie keeps first set (8 reps, e1RM 50.67)", heaviest?.set.reps === 8 && heaviest?.e1rm === 50.67,
+      `got reps=${heaviest?.set.reps} e1rm=${heaviest?.e1rm}`);
   }
 
   if (failures === 0) {

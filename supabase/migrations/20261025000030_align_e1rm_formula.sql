@@ -3,7 +3,8 @@
 -- This migration:
 -- 1. Updates exercise_strength_history view to use the 12-rep-capped formula
 --    with clamp to 9999.99 (numeric(6,2) max).
--- 2. Backs up existing best_e1rm values before recompute.
+-- 2. Backs up existing best_e1rm values before recompute. The backup cascades
+--    from auth.users like exercise_progress does, so account deletion removes it.
 -- 3. Recomputes exercise_progress.best_e1rm for all existing rows using the
 --    capped formula, matching nextBest's filters (completed sessions, non-warmup
 --    working sets, weight > 0, reps > 0, excluding timed exercises).
@@ -16,11 +17,17 @@
 -- After this migration, History, Progress aggregates, and session PB tracking all
 -- use the same capped formula, eliminating divergence for high-rep sets (>12 reps).
 --
--- To restore pre-migration values:
+-- To restore pre-migration values (guarded: a row is restored only while it
+-- still holds the value this migration wrote, so a best earned AFTER the
+-- migration is never overwritten; rows created after the migration have no
+-- backup row and are left alone):
 -- UPDATE exercise_progress ep
 -- SET best_e1rm = bak.best_e1rm
 -- FROM exercise_progress_best_e1rm_backup_20261025000030 bak
--- WHERE ep.user_id = bak.user_id AND ep.exercise_id = bak.exercise_id;
+-- WHERE ep.user_id = bak.user_id AND ep.exercise_id = bak.exercise_id
+--   AND bak.migrated_captured
+--   AND ep.best_e1rm IS NOT DISTINCT FROM bak.migrated_best_e1rm
+--   AND ep.best_e1rm IS DISTINCT FROM bak.best_e1rm;
 
 -- 1. Update the exercise_strength_history view with capped formula and clamp
 create or replace view exercise_strength_history with (security_invoker = on) as
@@ -71,6 +78,31 @@ grant select on exercise_strength_history to authenticated;
 create table if not exists exercise_progress_best_e1rm_backup_20261025000030 as
 select user_id, exercise_id, best_e1rm
 from exercise_progress;
+
+-- Columns for the guarded restore (filled once, right after the recompute below)
+alter table exercise_progress_best_e1rm_backup_20261025000030
+  add column if not exists migrated_best_e1rm numeric(6,2),
+  add column if not exists migrated_captured boolean not null default false;
+
+-- Account deletion must remove backup rows too (privacy policy: immediate,
+-- permanent deletion). CTAS copies no constraints, so add the same FK that
+-- exercise_progress.user_id has: auth.users(id) ON DELETE CASCADE (uuid = uuid).
+-- Idempotent: only added if missing.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.exercise_progress_best_e1rm_backup_20261025000030'::regclass
+      and conname = 'exercise_progress_best_e1rm_backup_030_user_id_fkey'
+  ) then
+    alter table public.exercise_progress_best_e1rm_backup_20261025000030
+      add constraint exercise_progress_best_e1rm_backup_030_user_id_fkey
+      foreign key (user_id) references auth.users(id) on delete cascade;
+  end if;
+end$$;
+-- Keeps the cascade delete an index lookup instead of a full scan
+create index if not exists exercise_progress_best_e1rm_backup_030_user_id_idx
+  on exercise_progress_best_e1rm_backup_20261025000030 (user_id);
 
 -- Enable RLS and revoke public access (prevent cross-user reads via PostgREST)
 alter table exercise_progress_best_e1rm_backup_20261025000030 enable row level security;
@@ -123,3 +155,13 @@ from (
 where ep.user_id = s.user_id
   and ep.exercise_id = s.exercise_id
   and ep.best_e1rm is distinct from s.e1rm;
+
+-- 4. Record the value this migration left in each backed-up row, for the
+-- guarded restore above. Runs once: re-runs find every row already captured.
+update exercise_progress_best_e1rm_backup_20261025000030 bak
+set migrated_best_e1rm = ep.best_e1rm,
+    migrated_captured = true
+from exercise_progress ep
+where not bak.migrated_captured
+  and ep.user_id = bak.user_id
+  and ep.exercise_id = bak.exercise_id;

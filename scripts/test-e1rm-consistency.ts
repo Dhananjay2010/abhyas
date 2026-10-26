@@ -350,6 +350,14 @@ console.log("\n11. detectPersonalRecords picks the best e1RM at 0.01 kg resoluti
   check("0.01 resolution: reversed order also 80.03", reversed?.value === 80.03, `history=${reversed?.value}`);
 }
 
+console.log("\n12. 9999.99 clamp applies at reps=1 too, like SQL least(..., 9999.99) (LOW-6)");
+{
+  check("reps=1 above numeric(6,2) max: estimateOneRepMax(10000, 1) = 9999.99", estimateOneRepMax(10000, 1) === 9999.99, `got ${estimateOneRepMax(10000, 1)}`);
+  check("reps=1 above numeric(6,2) max: computeE1rm(12000, 1) = 9999.99", computeE1rm(12000, 1) === 9999.99, `got ${computeE1rm(12000, 1)}`);
+  check("reps=2 clamp unchanged: estimateOneRepMax(10000, 2) = 9999.99", estimateOneRepMax(10000, 2) === 9999.99, `got ${estimateOneRepMax(10000, 2)}`);
+  check("reps=1 below max unchanged: estimateOneRepMax(500, 1) = 500", estimateOneRepMax(500, 1) === 500, `got ${estimateOneRepMax(500, 1)}`);
+}
+
 if (failures === 0) {
   console.log("\n✓ All e1RM consistency tests passed");
   process.exit(0);

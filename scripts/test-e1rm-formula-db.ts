@@ -399,6 +399,17 @@ async function runTests() {
       VALUES ($1, $2, 0, 0), ($1, $3, 0, 0)
     `, [userId, exOriginal, exSwapped]);
 
+    // Account-deletion user (MED-1): has sets and a progress row BEFORE the
+    // migration, so the migration backs up their row; deleting the account
+    // must remove that backup row too.
+    const delUser = await createTestUser();
+    const exDel = await createTestExercise("Exercise Del - account deletion");
+    await logSession(delUser, exDel, "2026-10-20", [{ weight: 60, reps: 15 }]);
+    await testPool!.query(`
+      INSERT INTO exercise_progress (user_id, exercise_id, best_e1rm, total_sessions)
+      VALUES ($1, $2, 90.00, 1)
+    `, [delUser, exDel]);
+
     console.log("✓ Test data seeded\n");
 
     // Read the REAL migration file from disk
@@ -601,6 +612,18 @@ async function runTests() {
       const e1rm = parseFloat(rows[0]?.best_e1rm ?? '0');
       
       check("Recompute excludes weight_kg=0", Math.abs(e1rm - 125) < 0.01, `expected 125 (unchanged), got ${e1rm}`);
+    }
+
+    console.log("TEST 9E: View excludes weight_kg = 0 sets (LOW-4)");
+    {
+      // ex14: completed bodyweight session, one working set 0 kg × 15.
+      // The view's weight_kg > 0 filter must drop it, so no row for that day.
+      const { rows } = await testPool!.query(`
+        SELECT best_e1rm FROM exercise_strength_history
+        WHERE user_id = $1 AND exercise_id = $2 AND local_date = $3
+      `, [userId, ex14, "2026-11-01"]);
+      check("View excludes weight_kg=0 sets (no row)", rows.length === 0,
+        `expected 0 rows, got ${rows.length} (best_e1rm=${rows[0]?.best_e1rm})`);
     }
 
     console.log("TEST 9C: Heavy warm-up set excluded (working 100×5, warm-up 140×5)");
@@ -806,10 +829,12 @@ async function runTests() {
       
     }
 
+    let ex13Id = "";
     console.log("TEST 11A: Migration preserves correct stored values (no false PB)");
     {
       // Seed an exercise with correct stored 54.58 (from 44.25×7)
       const ex13 = await createTestExercise("Exercise 13 - preserve 54.58");
+      ex13Id = ex13;
       await logSession(userId, ex13, "2026-10-30", [{ weight: 44.25, reps: 7 }]);
       await testPool!.query(`
         INSERT INTO exercise_progress (user_id, exercise_id, best_e1rm, total_sessions)
@@ -995,9 +1020,103 @@ async function runTests() {
         `);
         const granted = privs.filter(r => r.has).map(r => `${r.role}:${r.priv}`);
         check("Backup table: no anon/authenticated privileges", granted.length === 0, `granted=${granted.join(",")}`);
+        // MED-1: same FK target as exercise_progress.user_id, with ON DELETE CASCADE
+        const { rows: epFk } = await testPool!.query(`
+          SELECT c.confrelid::regclass::text AS target
+          FROM pg_constraint c
+          JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+          WHERE c.conrelid = 'public.exercise_progress'::regclass AND c.contype = 'f' AND a.attname = 'user_id'
+        `);
+        const { rows: fks } = await testPool!.query(`
+          SELECT c.confrelid::regclass::text AS target, c.confdeltype,
+                 (SELECT array_agg(a.attname::text) FROM pg_attribute a
+                   WHERE a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)) AS cols,
+                 (SELECT array_agg(a.attname::text) FROM pg_attribute a
+                   WHERE a.attrelid = c.confrelid AND a.attnum = ANY (c.confkey)) AS refcols
+          FROM pg_constraint c
+          WHERE c.conrelid = 'public.exercise_progress_best_e1rm_backup_20261025000030'::regclass
+            AND c.contype = 'f'
+        `);
+        const fk = fks.find(r => JSON.stringify(r.cols) === JSON.stringify(["user_id"]));
+        check("Backup FK on user_id exists", !!fk, `fks=${JSON.stringify(fks)}`);
+        check("Backup FK targets the same table as exercise_progress.user_id",
+          !!fk && epFk.length === 1 && fk.target === epFk[0].target && JSON.stringify(fk.refcols) === JSON.stringify(["id"]),
+          `backup=${fk?.target}(${fk?.refcols}) exercise_progress=${epFk[0]?.target}`);
+        check("Backup FK is ON DELETE CASCADE (confdeltype 'c')", fk?.confdeltype === "c", `confdeltype=${fk?.confdeltype}`);
+        const { rows: dupFk } = await testPool!.query(`
+          SELECT count(*)::int AS n FROM pg_constraint
+          WHERE conrelid = 'public.exercise_progress_best_e1rm_backup_20261025000030'::regclass AND contype = 'f'
+        `);
+        check("Backup FK not duplicated by re-runs", dupFk[0].n === 1, `n=${dupFk[0].n}`);
       } else {
         check("Backup table has RLS enabled", false, "table does not exist");
       }
+    }
+
+    const backupExists = async () => (await testPool!.query(
+      `SELECT to_regclass('public.exercise_progress_best_e1rm_backup_20261025000030') IS NOT NULL AS e`)).rows[0].e === true;
+
+    console.log("TEST 15: Account deletion removes the user's backup rows (MED-1)");
+    if (!(await backupExists())) {
+      check("Account deletion: backup table exists", false, "table does not exist");
+    } else {
+      const countFor = async (uid: string) => parseInt((await testPool!.query(
+        `SELECT count(*) AS n FROM exercise_progress_best_e1rm_backup_20261025000030 WHERE user_id = $1`, [uid]
+      )).rows[0].n);
+      const beforeDel = await countFor(delUser);
+      const beforeOther = await countFor(userId);
+      check("Deletion user has backup rows before deletion", beforeDel > 0, `count=${beforeDel}`);
+      // Real path: the app's delete_own_account() as that user
+      const client = await testPool!.connect();
+      let delError = "";
+      try {
+        await client.query("BEGIN");
+        await client.query("SELECT set_config('request.jwt.claim.sub', $1, true)", [delUser]);
+        await client.query("SELECT public.delete_own_account()");
+        await client.query("COMMIT");
+      } catch (e) {
+        await client.query("ROLLBACK");
+        delError = e instanceof Error ? e.message : String(e);
+      } finally {
+        client.release();
+      }
+      // A backup FK without CASCADE would block the deletion outright
+      check("delete_own_account succeeds", delError === "", delError);
+      const authLeft = parseInt((await testPool!.query(`SELECT count(*) AS n FROM auth.users WHERE id = $1`, [delUser])).rows[0].n);
+      check("delete_own_account removed the auth user", authLeft === 0, `auth rows=${authLeft}`);
+      const afterDel = await countFor(delUser);
+      check("Zero backup rows remain for the deleted user", afterDel === 0, `count=${afterDel}`);
+      check("Other users' backup rows untouched", (await countFor(userId)) === beforeOther, `before=${beforeOther}`);
+    }
+
+    console.log("TEST 16: Guarded restore SQL (from the migration comment) keeps bests earned after the migration (LOW-3)");
+    if (!(await backupExists())) {
+      check("Guarded restore: backup table exists", false, "table does not exist");
+    } else {
+      const lines = migrationSQL.split("\n");
+      const start = lines.findIndex(l => /^-- UPDATE exercise_progress ep/.test(l));
+      const end = lines.findIndex((l, i) => i >= start && /;\s*$/.test(l));
+      const restoreSQL = start >= 0 && end >= start ? lines.slice(start, end + 1).map(l => l.replace(/^-- ?/, "")).join("\n") : "";
+      check("Restore SQL found in migration comment", restoreSQL.length > 0);
+      const val = async (ex: string) => (await testPool!.query(
+        `SELECT best_e1rm::text AS v FROM exercise_progress WHERE user_id = $1 AND exercise_id = $2`, [userId, ex])).rows[0]?.v;
+      const client = await testPool!.connect();
+      try {
+        await client.query("BEGIN");
+        // ex2: migrated 103.33 -> 100.00, then the member earns 120.00 after the migration
+        await client.query(`UPDATE exercise_progress SET best_e1rm = 120.00 WHERE user_id = $1 AND exercise_id = $2`, [userId, ex2]);
+        await client.query(restoreSQL);
+        const r = async (ex: string) => (await client.query(
+          `SELECT best_e1rm::text AS v FROM exercise_progress WHERE user_id = $1 AND exercise_id = $2`, [userId, ex])).rows[0]?.v;
+        check("Restore: untouched migrated row goes back to backup (ex1 56.00 -> 60.00)", (await r(ex1)) === "60.00", `got ${await r(ex1)}`);
+        check("Restore: post-migration best kept (ex2 stays 120.00, not 103.33)", (await r(ex2)) === "120.00", `got ${await r(ex2)}`);
+        check("Restore: row created after migration untouched (ex13 54.58)", (await r(ex13Id)) === "54.58", `got ${await r(ex13Id)}`);
+        check("Restore: unchanged row stays (ex4 42.00)", (await r(ex4)) === "42.00", `got ${await r(ex4)}`);
+      } finally {
+        await client.query("ROLLBACK");
+        client.release();
+      }
+      check("Restore test rolled back (ex1 back to 56.00)", (await val(ex1)) === "56.00", `got ${await val(ex1)}`);
     }
 
     console.log(`\n${failures === 0 ? '✅ ALL CHECKS PASSED' : `❌ ${failures} CHECKS FAILED`}\n`);

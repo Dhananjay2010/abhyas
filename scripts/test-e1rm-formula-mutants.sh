@@ -10,6 +10,9 @@
 # M4: Skip recompute UPDATE
 # M5: Drop se.status = 'completed' from recompute
 # M6: Drop ss.is_warmup_set = false from recompute
+# fk_drop / fk_no_cascade / fk_wrong_target: backup FK must cascade from auth.users
+# restore_unguarded / capture_missing: guarded restore keeps post-migration bests
+# view_weight0: view must exclude weight_kg = 0 sets
 #
 # Run: DATABASE_URL=postgresql://ubuntu@localhost:5432/abhyas_test REQUIRE_DB=1 bash scripts/test-e1rm-formula-mutants.sh
 
@@ -228,6 +231,9 @@ cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm
 echo ""
 
 # M6: Drop ss.is_warmup_set = false from recompute
+# fk_drop / fk_no_cascade / fk_wrong_target: backup FK must cascade from auth.users
+# restore_unguarded / capture_missing: guarded restore keeps post-migration bests
+# view_weight0: view must exclude weight_kg = 0 sets
 echo "M6: Remove ss.is_warmup_set = false filter from recompute"
 # Target only the recompute UPDATE
 sed -i '/^update exercise_progress ep$/,/^  and ep\.best_e1rm is distinct from s\.e1rm;$/s/and ss\.is_warmup_set = false//' supabase/migrations/20261025000030_align_e1rm_formula.sql
@@ -298,6 +304,8 @@ echo ""
 echo "M9: Drop backup table creation"
 # Comment out the backup creation AND the RLS/revoke lines that follow
 sed -i '/^create table if not exists exercise_progress_best_e1rm_backup/,/^revoke all on exercise_progress_best_e1rm_backup_20261025000030/s/^/-- MUTANT: /' supabase/migrations/20261025000030_align_e1rm_formula.sql
+# ...and step 4, which only fills the (now missing) backup table
+sed -i '/^update exercise_progress_best_e1rm_backup_20261025000030 bak$/,$s/^/-- MUTANT: /' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ M9: sed did not change migration"
@@ -329,8 +337,9 @@ echo ""
 
 # M9b: Backup taken AFTER the recompute UPDATE
 echo "M9b: Backup taken AFTER the recompute UPDATE"
-# Move CREATE TABLE + ALTER + REVOKE block to after the UPDATE
-perl -0pi -e 's/(-- 2\. Back up existing.*?revoke all on exercise_progress_best_e1rm_backup_20261025000030 from anon, authenticated;\n)(.*)\z/$2$1/s' supabase/migrations/20261025000030_align_e1rm_formula.sql
+# Move CREATE TABLE + ALTER + FK + REVOKE block to after the recompute UPDATE
+# (but before step 4, which needs the table)
+perl -0pi -e 's/(-- 2\. Back up existing.*?revoke all on exercise_progress_best_e1rm_backup_20261025000030 from anon, authenticated;\n)(.*?)(-- 4\. Record the value)/$2$1$3/s' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ M9b: sed did not change migration"
@@ -506,6 +515,66 @@ if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_ali
 fi
 
 run_mutant "M11" || exit 1
+
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+echo ""
+echo "fk_drop: Drop the backup FK to auth.users (deleted accounts leave backup rows)"
+perl -0pi -e 's/do \$\$\nbegin\n  if not exists \(\n    select 1 from pg_constraint.*?end\$\$;\n//s' supabase/migrations/20261025000030_align_e1rm_formula.sql
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ fk_drop: edit did not change migration"
+  exit 1
+fi
+run_mutant "fk_drop" || exit 1
+
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+echo ""
+echo "fk_no_cascade: Backup FK without ON DELETE CASCADE"
+perl -0pi -e 's/(foreign key \(user_id\) references auth\.users\(id\)) on delete cascade;/$1;/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ fk_no_cascade: edit did not change migration"
+  exit 1
+fi
+run_mutant "fk_no_cascade" || exit 1
+
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+echo ""
+echo "fk_wrong_target: Backup FK points at public.profiles instead of auth.users"
+perl -0pi -e 's/(foreign key \(user_id\) references) auth\.users\(id\)/$1 public.profiles(id)/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ fk_wrong_target: edit did not change migration"
+  exit 1
+fi
+run_mutant "fk_wrong_target" || exit 1
+
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+echo ""
+echo "restore_unguarded: Restore SQL comment without the post-migration guard"
+sed -i '/^--   AND bak.migrated_captured$/d; /^--   AND ep.best_e1rm IS NOT DISTINCT FROM bak.migrated_best_e1rm$/d' supabase/migrations/20261025000030_align_e1rm_formula.sql
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ restore_unguarded: edit did not change migration"
+  exit 1
+fi
+run_mutant "restore_unguarded" || exit 1
+
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+echo ""
+echo "capture_missing: Drop step 4 (migrated value never recorded)"
+perl -0pi -e 's/-- 4\. Record the value.*\z//s' supabase/migrations/20261025000030_align_e1rm_formula.sql
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ capture_missing: edit did not change migration"
+  exit 1
+fi
+run_mutant "capture_missing" || exit 1
+
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+echo ""
+echo "view_weight0: View without weight_kg > 0 filter"
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/{/^  and ss.weight_kg is not null and ss.weight_kg > 0$/d}' supabase/migrations/20261025000030_align_e1rm_formula.sql
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ view_weight0: edit did not change migration"
+  exit 1
+fi
+run_mutant "view_weight0" || exit 1
 
 # Restore migration for self-test
 cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
