@@ -2,7 +2,7 @@ import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
-import { isKneeRiskForKneeUser } from "./knee-safety";
+import { isKneeRiskForKneeUser, KNEE_SAFE_QUAD_EXERCISES as KNEE_SAFE_QUAD_EXERCISES_SHARED } from "./knee-safety";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -350,13 +350,10 @@ function shouldExcludeForSafety(
  * QA Pass 10 H6 (restored from PR #53): Exercises safe for knee injuries despite being quad-focused.
  * These use limited ROM, isometric holds, or controlled movements that don't aggravate the knee.
  * Must be REAL prod slugs only. Exported for testing.
+ * 
+ * CONSOLIDATED: This is now the single source of truth (imported from knee-safety.ts).
  */
-export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = new Set([
-  'leg-extensions',           // Partial ROM, pain-free range (machine)
-  'single-leg-leg-extension', // Partial ROM, pain-free range (machine)
-  'wall-sit',                 // Isometric hold, no dynamic stress (bodyweight, seconds metric)
-  'spanish-squat',            // Band-resisted, controlled (resistance_band)
-]);
+export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = KNEE_SAFE_QUAD_EXERCISES_SHARED;
 
 /**
  * KNEE-SAFE LUNGE EXERCISES for CURRENT knee injury (PR #73 scoped policy).
@@ -448,6 +445,9 @@ const SHOULDER_CONTRAINDICATED_SLUGS: ReadonlySet<string> = new Set([
  * - squat, lunge, or jump pattern/name → knee (UNLESS in knee-safe list)
  * 
  * Derived contraindications ADD to explicit tags, don't replace them.
+ * 
+ * NOTE: This duplicates logic in knee-safety.ts's getDerivedContraindications.
+ * Both are kept for now to avoid breaking changes, but they must stay in sync.
  */
 function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
   const derived: BodyRegion[] = [];

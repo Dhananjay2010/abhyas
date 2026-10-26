@@ -4,6 +4,7 @@ import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "@/lib/program/past-knee-lunge-order";
 import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly, shouldExcludeOlympicLift } from "@/lib/program/past-knee";
 import { PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
+import { isKneeRiskForKneeUser } from "@/lib/program/knee-safety";
 
 
 export type ExerciseRow = CandidateExercise;
@@ -172,9 +173,10 @@ export function rankAlternatives<T extends ExerciseRow>(
   
   // Build priority order: same pattern, then fallback, then knee-safe
   // For past-knee lunge swaps, we need squat pattern (the 4-list are squat pattern)
+  // PLUS hinge/core fallbacks for when squat-pattern options are exhausted
   let patternPriority: MovementPattern[];
   if (hasPastKnee && current.movement_pattern === "lunge") {
-    patternPriority = ["lunge", "squat"]; // Must include squat for the 4-list
+    patternPriority = ["lunge", "squat", "hinge", "core"]; // Squat for 4-list, hinge/core for fallback
   } else {
     patternPriority = buildPatternList(current.movement_pattern, ctx.anyKneeInjury ?? false);
   }
@@ -278,6 +280,45 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 6c. PR #73: ANY knee injury excludes sissy squats (defense-in-depth with isEligible)
     if ((ctx.anyKneeInjury ?? false) && candidate.slug.includes("sissy")) {
       continue;
+    }
+    
+    // 6d. QA Bot 1: Remove Turkish Get-Up from squat-pattern swaps
+    // Turkish Get-Up involves complex movement transitions that aren't appropriate squat swaps
+    if (current.movement_pattern === "squat" && 
+        (candidate.slug === "kettlebell-turkish-get-up-lunge-style" || 
+         candidate.slug === "kettlebell-turkish-get-up-squat-style")) {
+      continue;
+    }
+    
+    // 6e. QA Bot 1: Past-knee users filter knee-risk exercises from swaps
+    // Apply the same knee predicate as generation (isKneeRiskForKneeUser)
+    // Exception: squat-pattern candidates in lunge swaps must be from PAST_KNEE_LUNGE_EXERCISES
+    // (already handled above in step 4b, this is additional safety for other swap paths)
+    if (hasPastKnee) {
+      // For squat swaps: filter out knee-risk squats except for the allowed knee-safe ones
+      if (current.movement_pattern === "squat" && candidate.movement_pattern === "squat") {
+        if (isKneeRiskForKneeUser(candidate, true)) {
+          // Allow only the PAST_KNEE_LUNGE_EXERCISES (which includes safe squats like wall-sit, spanish-squat)
+          if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
+            continue;
+          }
+        }
+      }
+      // For lunge swaps: already filtered in step 4b, but double-check squat fallbacks
+      if (current.movement_pattern === "lunge" && candidate.movement_pattern === "squat") {
+        // MED-3: lunge swaps must not offer normal squats (already handled in 4b)
+        // This is defense-in-depth
+        if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
+          continue;
+        }
+      }
+      // For hinge/bridge fallbacks: filter knee-risk exercises
+      if ((current.movement_pattern === "squat" || current.movement_pattern === "lunge") &&
+          (candidate.movement_pattern === "hinge" || candidate.movement_pattern === "core")) {
+        if (isKneeRiskForKneeUser(candidate, true)) {
+          continue;
+        }
+      }
     }
     
     // 7. For dynamic press, exclude isometric and plyometric
