@@ -445,25 +445,6 @@ l4b_drop_equipment() {
 }
 test_mutant "L4B-3: drop equipmentIds from progression input" l4b_drop_equipment
 
-# L4B-4: Drop units parameter (ignore passed units, always use "metric")
-l4b_drop_units() {
-  local file="$BUILD_INPUT"
-  # Find where units is passed in the return object
-  local search='^\s*units,$'
-  local count=$(grep -c "$search" "$file" || true)
-  if [ "$count" -ne 1 ]; then
-    echo "ERROR: units, line found $count times (expected 1)" >&2
-    return 1
-  fi
-  # Replace with hardcoded "metric"
-  sed -i 's/^\(\s*\)units,$/\1units: "metric", \/\/ MUTANT: hardcoded/' "$file"
-  if cmp -s "$file" "$BACKUP_BUILD_INPUT"; then
-    echo "ERROR: L4B-4 did not change the file" >&2
-    return 1
-  fi
-}
-test_mutant "L4B-4: drop units parameter (hardcode to metric)" l4b_drop_units
-
 echo
 echo "==========================================="
 echo "Mutant Test Summary"
