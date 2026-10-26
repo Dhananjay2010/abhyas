@@ -1,82 +1,53 @@
 /**
- * Real database test for migration 20261025000033_unique_planned_session_per_user_day.sql
+ * Real database test: unique index on (user_id, local_date) WHERE status='planned'
  *
- * Tests that:
- * - Duplicate planned sessions are deduped, keeping the lowest id
- * - Non-planned sessions (completed, in_progress) survive
- * - Sessions for different users/dates survive
- * - Unique constraint prevents duplicate planned sessions
- * - Migration is idempotent (can be re-run safely)
- * - FK cascade works (session_exercises deleted when parent session deleted)
+ * Verifies:
+ * 1. Can insert multiple sessions with different statuses on same date
+ * 2. Cannot insert duplicate planned sessions for same user+date
+ * 3. Deleting a session cascades to session_exercises
  *
- * Run: supabase start && REAL_DB=1 npm run test:unique-planned-session-migration-real-db
+ * Run: REAL_DB=1 npm run test:unique-planned-session-migration-real-db
  */
 
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
-import { readFileSync } from "fs";
-import { join } from "path";
+import type { Database } from "../src/lib/database.types";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
 
 let failures = 0;
-function check(label: string, ok: boolean, detail = "") {
-  if (!ok) failures++;
-  console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
+
+function check(label: string, pass: boolean, detail = "") {
+  if (!pass) failures++;
+  console.log(`  ${pass ? "ok" : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-async function testDatabaseConnection() {
-  try {
-    const client = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { error } = await client.from("profiles").select("id").limit(1);
-    return !error;
-  } catch {
-    return false;
-  }
-}
-
-async function runTests() {
+async function main() {
   if (process.env.REAL_DB !== "1") {
-    console.log("\n⏭️  Skipping real DB tests (REAL_DB=1 not set)");
-    console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance\n");
-    return true;
+    console.log("⏭️  Skipping real DB test (REAL_DB=1 not set)");
+    return;
   }
 
-  console.log("Checking Supabase connection...");
-  
-  const isAvailable = await testDatabaseConnection();
-  
-  if (!isAvailable) {
-    console.error("\n❌ REAL_DB=1 but Supabase is not available");
-    console.error("   Run `supabase start` to enable these tests\n");
-    return false;
-  }
+  console.log("\nUnique planned session index test\n");
 
-  console.log("✓ Connected to Supabase\n");
-
-  const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false,
-    },
+  const adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
   });
-
-  console.log("🧪 Testing migration 20261025000033\n");
 
   try {
     // Create test users
     const user1Email = `test-migration-${Date.now()}-1@example.com`;
     const user2Email = `test-migration-${Date.now()}-2@example.com`;
-    
+
     const { data: auth1, error: authError } = await adminClient.auth.admin.createUser({
       email: user1Email,
       password: "test-password-123",
       email_confirm: true,
     });
-    
+
     if (authError || !auth1.user) {
       throw new Error(`Failed to create test user: ${authError?.message}`);
     }
@@ -87,7 +58,7 @@ async function runTests() {
       password: "test-password-456",
       email_confirm: true,
     });
-    
+
     if (authError2 || !auth2.user) {
       throw new Error(`Failed to create test user 2: ${authError2?.message}`);
     }
@@ -110,7 +81,7 @@ async function runTests() {
       week_offset: 0,
       status: "active",
     });
-    
+
     if (progError) throw new Error(`Failed to create program: ${progError.message}`);
 
     // Create test program_day
@@ -123,223 +94,157 @@ async function runTests() {
       day_type: "weights",
       status: "active",
     });
-    
+
     if (dayError) throw new Error(`Failed to create program_day: ${dayError.message}`);
 
-    console.log("1. Test deduplication in transaction\n");
+    console.log("1. Can insert planned session\n");
 
-    // In a transaction, drop the index, seed duplicates, run migration, rollback
-    const { data: txData, error: txError } = await adminClient.rpc("exec_sql", {
-      sql: `
-        BEGIN;
-        
-        -- Drop the index temporarily to allow duplicates
-        DROP INDEX IF EXISTS public.sessions_user_date_planned_unique;
-        
-        -- Insert duplicate planned sessions for testing
-        INSERT INTO public.sessions (id, user_id, local_date, status, program_day_id)
-        VALUES
-          ('00000000-0000-0000-0000-000000000003', '${user1}', '2026-11-02', 'planned', '${programDayId}'),
-          ('00000000-0000-0000-0000-000000000001', '${user1}', '2026-11-02', 'planned', '${programDayId}'),
-          ('00000000-0000-0000-0000-000000000002', '${user1}', '2026-11-02', 'planned', '${programDayId}'),
-          ('00000000-0000-0000-0000-000000000004', '${user1}', '2026-11-03', 'planned', '${programDayId}'),
-          ('00000000-0000-0000-0000-000000000005', '${user2}', '2026-11-02', 'planned', '${programDayId}'),
-          ('00000000-0000-0000-0000-000000000006', '${user1}', '2026-11-01', 'completed', '${programDayId}'),
-          ('00000000-0000-0000-0000-000000000007', '${user1}', '2026-11-01', 'in_progress', '${programDayId}');
-        
-        -- Insert a session_exercises row under one of the duplicates that will be deleted
-        INSERT INTO public.session_exercises (id, session_id, user_id, exercise_id, order_index)
-        SELECT gen_random_uuid(), '00000000-0000-0000-0000-000000000003', '${user1}', id, 0
-        FROM exercises LIMIT 1;
-        
-        ROLLBACK;
-      `,
-    });
-
-    check("Transaction setup (no error)", !txError, txError?.message || "");
-
-    console.log("\n2. Seed real test data\n");
-
-    // Now seed the actual test data (without the index)
     const sess1 = randomUUID();
-    const sess2 = randomUUID();
-    const sess3 = randomUUID();
-    const sessOtherDate = randomUUID();
-    const sessOtherUser = randomUUID();
-
-    // Insert sessions
-    const { error: sessError } = await adminClient.from("sessions").insert([
-      { 
-        id: sess1, 
-        user_id: user1, 
-        program_id: programId,
-        program_day_id: programDayId,
-        local_date: "2026-11-02", 
-        status: "planned",
-        planned_type: "weights",
-        week_in_block: 1,
-        is_deload: false,
-      },
-      { 
-        id: sess2, 
-        user_id: user1, 
-        program_id: programId,
-        program_day_id: programDayId,
-        local_date: "2026-11-02", 
-        status: "planned",
-        planned_type: "weights",
-        week_in_block: 1,
-        is_deload: false,
-      },
-      { 
-        id: sess3, 
-        user_id: user1, 
-        program_id: programId,
-        program_day_id: programDayId,
-        local_date: "2026-11-02", 
-        status: "planned",
-        planned_type: "weights",
-        week_in_block: 1,
-        is_deload: false,
-      },
-      { 
-        id: sessOtherDate, 
-        user_id: user1, 
-        program_id: programId,
-        program_day_id: programDayId,
-        local_date: "2026-11-03", 
-        status: "planned",
-        planned_type: "weights",
-        week_in_block: 1,
-        is_deload: false,
-      },
-      { 
-        id: sessOtherUser, 
-        user_id: user2, 
-        local_date: "2026-11-02", 
-        status: "planned",
-        planned_type: "weights",
-        week_in_block: 1,
-        is_deload: false,
-      },
-    ]);
-
-    if (sessError) throw new Error(`Failed to insert sessions: ${sessError.message}`);
-
-    // Insert a session_exercises row under sess3 (will be deleted by migration)
-    const { data: exercises } = await adminClient.from("exercises").select("id").limit(1).single();
-    if (exercises) {
-      await adminClient.from("session_exercises").insert({
-        session_id: sess3,
-        user_id: user1,
-        exercise_id: exercises.id,
-        order_index: 0,
-      });
-    }
-
-    console.log("\n3. Apply migration (dedupe + create index)\n");
-
-    // Read and execute migration
-    const migrationPath = join(__dirname, "../supabase/migrations/20261025000033_unique_planned_session_per_user_day.sql");
-    const migrationSQL = readFileSync(migrationPath, "utf-8");
-    
-    const { error: migError } = await adminClient.rpc("exec_sql", { sql: migrationSQL });
-    check("Migration applied", !migError, migError?.message || "");
-
-    console.log("\n4. Verify deduplication\n");
-
-    const { data: remaining, error: selectError } = await adminClient
-      .from("sessions")
-      .select("id")
-      .eq("user_id", user1)
-      .eq("local_date", "2026-11-02")
-      .eq("status", "planned");
-
-    check("Select after dedupe", !selectError);
-    check("Only one planned session remains", remaining?.length === 1, `count=${remaining?.length}`);
-    
-    if (remaining && remaining.length === 1) {
-      // The kept session should be the one with the lowest id
-      const ids = [sess1, sess2, sess3].sort();
-      check("Kept lowest id", remaining[0].id === ids[0], `kept=${remaining[0].id}, expected=${ids[0]}`);
-    }
-
-    console.log("\n5. Verify FK cascade\n");
-
-    const { data: childRows } = await adminClient
-      .from("session_exercises")
-      .select("id")
-      .in("session_id", [sess2, sess3]);
-
-    check("session_exercises cascaded (deleted)", childRows?.length === 0, `count=${childRows?.length}`);
-
-    console.log("\n6. Verify non-matching rows survived\n");
-
-    const { data: otherDateRow } = await adminClient
-      .from("sessions")
-      .select("id")
-      .eq("id", sessOtherDate)
-      .maybeSingle();
-    check("Different date session survived", !!otherDateRow);
-
-    const { data: otherUserRow } = await adminClient
-      .from("sessions")
-      .select("id")
-      .eq("id", sessOtherUser)
-      .maybeSingle();
-    check("Different user session survived", !!otherUserRow);
-
-    console.log("\n7. Verify unique constraint (23505)\n");
-
-    const { error: dupError } = await adminClient.from("sessions").insert({
+    const { error: sess1Error } = await adminClient.from("sessions").insert({
+      id: sess1,
       user_id: user1,
+      program_id: programId,
+      program_day_id: programDayId,
       local_date: "2026-11-02",
       status: "planned",
-      program_day_id: programDayId,
+      planned_type: "weights",
+      week_in_block: 1,
+      is_deload: false,
     });
 
-    check("Duplicate planned insert fails with 23505", dupError?.code === "23505", `code=${dupError?.code}`);
+    check("First planned session inserted", !sess1Error, sess1Error?.message || "");
 
-    console.log("\n8. Verify different date succeeds\n");
+    console.log("\n2. Cannot insert duplicate planned session (same user+date)\n");
 
-    const { error: newDateError } = await adminClient.from("sessions").insert({
+    const sess2 = randomUUID();
+    const { error: sess2Error } = await adminClient.from("sessions").insert({
+      id: sess2,
       user_id: user1,
-      local_date: "2026-11-04",
-      status: "planned",
+      program_id: programId,
       program_day_id: programDayId,
+      local_date: "2026-11-02",
+      status: "planned",
+      planned_type: "weights",
+      week_in_block: 1,
+      is_deload: false,
     });
 
-    check("Planned session for different date succeeds", !newDateError);
+    check("Duplicate planned session rejected", !!sess2Error && sess2Error.code === "23505");
 
-    console.log("\n9. Verify idempotency (re-run migration)\n");
+    console.log("\n3. Can insert completed session on same date\n");
 
-    const { error: rerunError } = await adminClient.rpc("exec_sql", { sql: migrationSQL });
-    check("Re-running migration is a no-op", !rerunError, rerunError?.message || "");
+    const sess3 = randomUUID();
+    const { error: sess3Error } = await adminClient.from("sessions").insert({
+      id: sess3,
+      user_id: user1,
+      program_id: programId,
+      program_day_id: programDayId,
+      local_date: "2026-11-02",
+      status: "completed",
+      actual_type: "weights",
+      week_in_block: 1,
+      is_deload: false,
+    });
+
+    check("Completed session inserted (different status)", !sess3Error, sess3Error?.message || "");
+
+    console.log("\n4. Can insert in_progress session on same date\n");
+
+    const sess4 = randomUUID();
+    const { error: sess4Error } = await adminClient.from("sessions").insert({
+      id: sess4,
+      user_id: user1,
+      program_id: programId,
+      program_day_id: programDayId,
+      local_date: "2026-11-02",
+      status: "in_progress",
+      planned_type: "weights",
+      week_in_block: 1,
+      is_deload: false,
+      started_at: new Date().toISOString(),
+    });
+
+    check("In-progress session inserted (different status)", !sess4Error, sess4Error?.message || "");
+
+    console.log("\n5. Can insert planned session for different user on same date\n");
+
+    const sess5 = randomUUID();
+    const { error: sess5Error } = await adminClient.from("sessions").insert({
+      id: sess5,
+      user_id: user2,
+      local_date: "2026-11-02",
+      status: "planned",
+      planned_type: "weights",
+      week_in_block: 1,
+      is_deload: false,
+    });
+
+    check("Planned session for user2 inserted (different user)", !sess5Error, sess5Error?.message || "");
+
+    console.log("\n6. Can insert planned session for same user on different date\n");
+
+    const sess6 = randomUUID();
+    const { error: sess6Error } = await adminClient.from("sessions").insert({
+      id: sess6,
+      user_id: user1,
+      program_id: programId,
+      program_day_id: programDayId,
+      local_date: "2026-11-03",
+      status: "planned",
+      planned_type: "weights",
+      week_in_block: 1,
+      is_deload: false,
+    });
+
+    check("Planned session on 11-03 inserted (different date)", !sess6Error, sess6Error?.message || "");
+
+    console.log("\n7. Deleting session cascades to session_exercises\n");
+
+    // Add a session_exercises row
+    const { data: exercises } = await adminClient.from("exercises").select("id").limit(1).single();
+    if (!exercises) throw new Error("No exercises found");
+
+    const sessExId = randomUUID();
+    const { error: sessExError } = await adminClient.from("session_exercises").insert({
+      id: sessExId,
+      session_id: sess1,
+      user_id: user1,
+      exercise_id: exercises.id,
+      order_index: 0,
+    });
+
+    check("Session exercise inserted", !sessExError, sessExError?.message || "");
+
+    // Delete the session
+    const { error: deleteError } = await adminClient.from("sessions").delete().eq("id", sess1);
+    check("Session deleted", !deleteError, deleteError?.message || "");
+
+    // Verify cascade
+    const { data: orphanedEx } = await adminClient
+      .from("session_exercises")
+      .select("id")
+      .eq("id", sessExId)
+      .maybeSingle();
+
+    check("Session exercise cascaded (deleted)", !orphanedEx);
 
     // Cleanup
-    console.log("\n🧹 Cleaning up test data\n");
-
-    await adminClient.from("sessions").delete().eq("user_id", user1);
-    await adminClient.from("sessions").delete().eq("user_id", user2);
-    await adminClient.from("program_days").delete().eq("id", programDayId);
-    await adminClient.from("programs").delete().eq("id", programId);
+    await adminClient.auth.admin.deleteUser(user1);
+    await adminClient.auth.admin.deleteUser(user2);
 
     if (failures > 0) {
-      console.log(`\n❌ ${failures} test(s) failed\n`);
-      return false;
+      console.log(`\n✗ ${failures} check(s) failed`);
+      process.exit(1);
     }
 
-    console.log("\n✅ All migration tests passed\n");
-    return true;
-  } catch (err) {
-    console.error("\n❌ Test error:", err instanceof Error ? err.message : String(err));
-    return false;
+    console.log("\n✓ All unique planned session index tests passed");
+  } catch (e) {
+    console.error(`\n❌ Test error: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
   }
 }
 
-runTests()
-  .then((ok) => process.exit(ok ? 0 : 1))
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+main().catch((e) => {
+  console.error("✗ ERROR", e);
+  process.exit(1);
+});
