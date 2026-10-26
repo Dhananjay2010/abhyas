@@ -51,6 +51,7 @@ export default async function OnboardingPage() {
       bodyRegion: r.body_region,
       severity: r.severity,
     })),
+    units: (profile.units === "imperial" || profile.units === "metric") ? profile.units : "metric",
   };
 
   return <OnboardingFlow initial={initial} equipment={equipmentRes.data ?? []} />;

@@ -1,15 +1,16 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { BarChart, LineChart, StatTile, type Point } from "@/components/charts";
+import { BarChart, LineChart, StatTile } from "@/components/charts";
 import { buildDayRecords, computeStreaks } from "@/lib/progress/streaks";
 import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-charts";
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
-import { getUnitsPreference } from "@/lib/units";
+import { getUnitsPreference, weightLabel } from "@/lib/units";
 import { formatVolumeLifted } from "@/lib/session/format-volume-lifted";
 import { LogWeight } from "./log-weight";
 import { loadProgramDays } from "@/lib/progress/load-program-days";
+import { buildVolumeChartPoints, buildBodyWeightChartPoints } from "@/lib/progress/chart-points";
 
 export const dynamic = "force-dynamic";
 
@@ -170,10 +171,7 @@ export default async function ProgressPage() {
   // ---- charts ------------------------------------------------------------
   // Reverse data since it was fetched newest-first for h1 fix
   const weights = [...(weightsRes.data ?? [])].reverse();
-  const weightPoints: Point[] = weights.map((w) => ({
-    label: shortDate(w.recorded_on),
-    value: Number(w.weight_kg),
-  }));
+  const weightPoints = buildBodyWeightChartPoints(weights, units, shortDate);
   const latestWeight = weights.length ? Number(weights[weights.length - 1].weight_kg) : null;
 
   // View columns are typed nullable by Supabase's generator, so narrow first.
@@ -204,13 +202,12 @@ export default async function ProgressPage() {
   }
   
   // Volume chart with deload markers (change 7: headline skips deload sessions)
-  const volumePoints: Point[] = volumeRows
-    .slice(-14)
-    .map((v) => ({ 
-      label: shortDate(v.local_date), 
-      value: Number(v.volume_kg),
-      isDeload: deloadDates.has(v.local_date)
-    }));
+  const volumePoints = buildVolumeChartPoints(
+    volumeRows.slice(-14),
+    units,
+    shortDate,
+    deloadDates
+  );
   
   const strengthCharts = buildStrengthChartsFromDescendingRows(
     strengthRes.data ?? [],
@@ -363,9 +360,9 @@ export default async function ProgressPage() {
               : "One entry logged. Add another to see your trend over time."}
           </p>
         ) : (
-          <LineChart points={weightPoints} unit="kg" title="Body weight" />
+          <LineChart points={weightPoints} unit={weightLabel(units)} title="Body weight" />
         )}
-        <LogWeight current={latestWeight} />
+        <LogWeight current={latestWeight} units={units} />
       </section>
 
       {(!isYogaOrBreathing || hasStrengthData) && volumeRows.length > 0 && (
@@ -379,7 +376,7 @@ export default async function ProgressPage() {
               One session logged. Your trend will appear after your next workout.
             </p>
           ) : (
-            <BarChart points={volumePoints} unit="kg" title="Volume per session" />
+            <BarChart points={volumePoints} unit={weightLabel(units)} title="Volume per session" />
           )}
         </section>
       )}
