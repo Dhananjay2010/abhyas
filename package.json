@@ -39,6 +39,7 @@
     "test:migration-versions": "tsx scripts/test-migration-versions.ts",
     "test:planning": "tsx scripts/test-planning-ownership.ts",
     "test:abandon": "tsx scripts/test-abandon-session.ts",
+    "test:abandon-end-early-real-db": "tsx scripts/test-abandon-end-early-real-db.ts",
     "test:public-paths": "tsx scripts/test-public-paths.ts",
     "test:rate-limit": "tsx scripts/test-rate-limit.ts",
     "test:rate-limit-endpoint": "tsx scripts/test-rate-limit-endpoint.ts",

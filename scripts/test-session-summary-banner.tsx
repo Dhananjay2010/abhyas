@@ -115,7 +115,7 @@ function makeActions(messages: Record<string, string>, summaryImpl?: (call: numb
     },
     finishSession: async () => {
       calls.finishSession++;
-      return { ok: true as const };
+      return { ok: true as const, data: { status: "completed" as const, durationSeconds: 600 } };
     },
     getSessionSummary: async () => {
       calls.summary++;
