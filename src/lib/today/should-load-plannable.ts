@@ -20,8 +20,8 @@ export function shouldLoadPlannableDays(params: {
   // Missed yesterday always prompts, even with an open session
   if (askAboutToday) return true;
 
-  // Rest day with an open strength session shows Resume, not swap
-  if (dayType === "rest" && strengthOpen) return false;
+  // OLD BROKEN LOGIC: didn't check strengthOpen
+  // if (dayType === "rest" && strengthOpen) return false;
 
   // Rest day with no open session offers swap
   return dayType === "rest";
