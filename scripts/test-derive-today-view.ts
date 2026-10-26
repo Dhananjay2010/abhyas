@@ -192,7 +192,7 @@ function main() {
       strengthDone: true,
       strengthOpen: undefined,
       todaySessions: [
-        { local_date: "2026-11-02", status: "completed", actual_type: "weights", program_day_id: "day-1" },
+        { status: "completed", actual_type: "weights" },
       ],
       yesterdayDay: undefined,
       localToday: "2026-11-02",
