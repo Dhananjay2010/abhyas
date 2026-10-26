@@ -9,7 +9,6 @@
 
 import { strict as assert } from "node:assert";
 import { planDayCore, type PlanDayClient } from "../src/lib/session/plan-day-core";
-import { decideTodayPrompts } from "../src/lib/today/decide-today-prompts";
 import { deriveTodayView } from "../src/lib/today/derive-today-view";
 import type { Database } from "../src/lib/database.types";
 
