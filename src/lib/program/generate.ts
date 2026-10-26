@@ -528,12 +528,17 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   if (input.anyKneeInjury && UNSAFE_KNEE_LUNGES.has(ex.slug)) {
     return false;
   }
+  
+  // Owner decision (a): Past-knee specific exclusions (explicit slug list)
+  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
+  if (hasPastKnee && isExcludedForPastKnee(ex)) {
+    return false;
+  }
 
   // PR #73 QA scoped policy: Lunge slots use different lists for current vs past knee
   // Current knee: step-ups and split squats (KNEE_SAFE_LUNGE_EXERCISES)
   // Past knee: quad isolation list (PAST_KNEE_LUNGE_EXERCISES)
-  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
-  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
   
   if (ex.movement_pattern === "lunge") {
     if (hasCurrentKnee && !KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
