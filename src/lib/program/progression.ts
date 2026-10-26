@@ -688,7 +688,12 @@ export function evaluateProgression(input: {
     }
 
     // Bodyweight without stored working weight: no kg target in message
+    // MSG2: Pin message for bodyweight with added weight progressing from 0 or null
     if (meta.isBodyweight && (state.currentWorkingWeightKg === null || state.currentWorkingWeightKg === 0)) {
+      const message = next > 0
+        ? `All sets at the top of the range — ready to add ${displayKg(next)}.`
+        : "All sets at the top of the range — ready for the next step.";
+      
       return {
         ...carried,
         outcome: "progressed",
@@ -696,7 +701,7 @@ export function evaluateProgression(input: {
         nextTargetReps: repsMax,
         consecutiveFailures: 0,
         weightAtFailureStartKg: null,
-        message: "All sets at the top of the range — ready for the next step.",
+        message,
       };
     }
 
