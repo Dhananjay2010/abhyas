@@ -220,7 +220,6 @@ export default async function ProgressPage() {
   ).slice(0, 6);
 
   // totalVolume now comes from progress_summary RPC (computed server-side)
-  const hasAnything = weights.length > 0 || volumeRows.length > 0;
 
   // ---- yoga/breathing stats (QA M-4) ------------------------------------
   // For yoga and breathing members, compute stats from completed sessions
@@ -254,24 +253,29 @@ export default async function ProgressPage() {
   // Check if member has any strength data (to decide whether to show volume/strength sections)
   const hasStrengthData = volumeRows.length > 0 || (strengthRes.data ?? []).length > 0;
 
-  // Check if we have any data at all to show on Progress page
-  const hasAnyProgressData = isYogaOrBreathing 
-    ? (yogaStats && yogaStats.sessionsAllTime > 0)
-    : (streaks.totalSessions > 0 || hasAnything);
+  // Check if we have session data to decide empty state (K3)
+  const hasSessionData = isYogaOrBreathing
+    ? (!!yogaStats && yogaStats.sessionsAllTime > 0) || hasStrengthData
+    : streaks.totalSessions > 0 || volumeRows.length > 0 || (strengthRes.data ?? []).length > 0;
+  
+  const anyLoadError = progressQueryFailed || !!setCountsError || yogaStatsError
+    || !!weightsRes.error || !!volumeRes.error || !!strengthRes.error || !!sessionsRes.error;
+  
+  const showSessionsEmpty = !hasSessionData && !anyLoadError;
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <h1 className="text-3xl font-bold tracking-tight">Progress</h1>
 
-      {!hasAnyProgressData && !progressQueryFailed && !setCountsError && !yogaStatsError ? (
+      {showSessionsEmpty ? (
         <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
-          <p className="text-sm font-medium text-foreground">No progress data yet</p>
+          <p className="text-sm font-medium text-fg">No progress data yet</p>
           <p className="mt-2 text-sm text-muted">
             Complete your first session to start tracking your progress and see your stats here.
           </p>
           <Link
             href="/today"
-            className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
+            className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
           >
             Start today&apos;s workout
           </Link>
@@ -371,40 +375,13 @@ export default async function ProgressPage() {
         </p>
       )}
 
-      {!hasAnything && (
-        <p className="mt-8 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-          Your first workout starts your streak. Complete a session or log your weight and the charts will fill in here.
-        </p>
-      )}
-
-      <section className="mt-10">
-        <h2 className="text-sm font-semibold">Body weight</h2>
-        <p className="mb-3 text-xs text-muted">Weigh in weekly, same time of day.</p>
-        {weightPoints.length < 2 ? (
-          <p className="mb-4 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-            {weightPoints.length === 0
-              ? "Log your weight below to start tracking. Two data points will show a trend."
-              : "One entry logged. Add another to see your trend over time."}
-          </p>
-        ) : (
-          <LineChart points={weightPoints} unit="kg" title="Body weight" />
-        )}
-        <LogWeight current={latestWeight} />
-      </section>
-
-      {(!isYogaOrBreathing || hasStrengthData) && volumeRows.length > 0 && (
+      {(!isYogaOrBreathing || hasStrengthData) && volumePoints.length > 0 && (
         <section className="mt-10">
           <h2 className="text-sm font-semibold">Volume per session</h2>
           <p className="mb-3 text-xs text-muted">
             Reps × weight, totalled across the session.
           </p>
-          {volumePoints.length < 2 ? (
-            <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-              One session logged. Your trend will appear after your next workout.
-            </p>
-          ) : (
-            <BarChart points={volumePoints} unit="kg" title="Volume per session" />
-          )}
+          <BarChart points={volumePoints} unit="kg" title="Volume per session" />
         </section>
       )}
 
@@ -416,26 +393,36 @@ export default async function ProgressPage() {
             axis would be unreadable here.
           </p>
           <div className="space-y-8">
-            {strengthCharts.map((e) => {
-              const showChart = e.points.length >= 2;
-              return (
-                <div key={e.name}>
-                  <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
-                  {showChart ? (
-                    <LineChart points={e.points} unit={e.unitLabel} title={`${e.name} (est. 1RM)`} height={110} />
-                  ) : (
-                    <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-                      One session logged. Your strength trend will appear after your next workout.
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+            {strengthCharts.map((e) => (
+              <div key={e.name}>
+                <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
+                <LineChart points={e.points} unit={e.unitLabel} title={`${e.name} (est. 1RM)`} height={110} />
+              </div>
+            ))}
           </div>
         </section>
       )}
         </>
       )}
+
+      <section className="mt-10">
+        <h2 className="text-sm font-semibold">Body weight</h2>
+        <p className="mb-3 text-xs text-muted">Weigh in weekly, same time of day.</p>
+        {weightPoints.length === 0 ? (
+          <p className="mb-4 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
+            Log your weight below to start tracking. Two data points will show a trend.
+          </p>
+        ) : (
+          <LineChart 
+            points={weightPoints} 
+            unit="kg" 
+            title="Body weight"
+            singlePointHint="Log another weigh-in to see a trend"
+          />
+        )}
+        <LogWeight current={latestWeight} />
+      </section>
+
     </main>
   );
 }

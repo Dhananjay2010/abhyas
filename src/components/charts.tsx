@@ -24,6 +24,16 @@ export type Point = {
 
 const PAD = { top: 10, right: 8, bottom: 20, left: 34 };
 
+function SinglePoint({ point, unit, hint }: { point: Point; unit: string; hint: string }) {
+  return (
+    <div data-testid="single-point">
+      <p className="text-2xl font-bold tabular-nums">{formatValueExact(point.value, unit)}</p>
+      <p className="mt-1 text-xs text-muted">{point.label}</p>
+      <p className="mt-2 text-xs text-muted">{hint}</p>
+    </div>
+  );
+}
+
 function niceBounds(values: number[]): [number, number] {
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -79,11 +89,13 @@ export function LineChart({
   unit = "",
   title,
   height = 140,
+  singlePointHint = "Log another session to see a trend",
 }: {
   points: Point[];
   unit?: string;
   title: string;
   height?: number;
+  singlePointHint?: string;
 }) {
   const id = useId();
   const [active, setActive] = useState<number | null>(null);
@@ -93,19 +105,7 @@ export function LineChart({
     return <EmptyChart title={title} />;
   }
   if (points.length === 1) {
-    return (
-      <div>
-        <p className="text-2xl font-bold tabular-nums">
-          {formatValueExact(points[0].value, unit)}
-        </p>
-        <p className="mt-1 text-xs text-muted">
-          {points[0].label}
-        </p>
-        <p className="mt-2 text-xs text-muted">
-          Log more sessions to see a trend.
-        </p>
-      </div>
-    );
+    return <SinglePoint point={points[0]} unit={unit} hint={singlePointHint} />;
   }
 
   const [lo, hi] = niceBounds(points.map((p) => p.value));
@@ -243,16 +243,19 @@ export function BarChart({
   unit = "",
   title,
   height = 140,
+  singlePointHint = "Log another session to see a trend",
 }: {
   points: Point[];
   unit?: string;
   title: string;
   height?: number;
+  singlePointHint?: string;
 }) {
   const [active, setActive] = useState<number | null>(null);
   const width = 320;
 
   if (points.length === 0) return <EmptyChart title={title} />;
+  if (points.length === 1) return <SinglePoint point={points[0]} unit={unit} hint={singlePointHint} />;
 
   const max = Math.max(...points.map((p) => p.value), 1);
   const innerW = width - PAD.left - PAD.right;
@@ -334,12 +337,6 @@ export function BarChart({
         <span className="font-semibold">{formatValueExact(points[shown].value, unit)}</span>{" "}
         <span className="text-muted">· {points[shown].label}{allDeloads ? ' (deload)' : ''}</span>
       </p>
-
-      {points.length === 1 && (
-        <p className="mt-2 text-xs text-muted">
-          Log more sessions to see a trend.
-        </p>
-      )}
 
       <ValueTable points={points} unit={unit} caption={title} />
     </div>

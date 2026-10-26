@@ -9,6 +9,7 @@ import { closeOutSession } from "./actions";
 import { getSessionLabel, type SessionStatus, type ActualType } from "@/lib/history/session-label";
 import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
 import { formatDurationMinutes } from "@/lib/history/compute-duration";
+import { historyEmptyState } from "@/lib/history/empty-state";
 
 // Helper for proper pluralization
 function pluralize(count: number, singular: string, plural?: string): string {
@@ -25,6 +26,7 @@ interface HistoryClientProps {
   timezone: string;
   units: UnitsPreference;
   hasErrors: boolean;
+  countsByFilter: Record<SessionType, number>;
 }
 
 const FILTER_LABELS: Record<SessionType, string> = {
@@ -52,12 +54,15 @@ export function HistoryClient({
   timezone,
   units,
   hasErrors,
+  countsByFilter,
 }: HistoryClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const limit = 20;
   const totalPages = Math.ceil(totalCount / limit);
   const [closingOut, setClosingOut] = useState<string | null>(null);
+  
+  const emptyState = historyEmptyState(items.length, filter, countsByFilter, hasErrors);
 
   const handleFilterChange = (newFilter: SessionType) => {
     const params = new URLSearchParams(searchParams);
@@ -120,41 +125,52 @@ export function HistoryClient({
       </p>
 
       {/* Session list */}
-      {items.length === 0 ? (
-        totalCount === 0 ? (
-          // True empty state: user has no completed sessions at all
-          <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
-            <p className="text-sm font-medium text-foreground">No completed sessions yet</p>
-            <p className="mt-2 text-sm text-muted">
-              Your workout history will appear here once you complete your first session.
-            </p>
-            <Link
-              href="/today"
-              className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
-            >
-              Start today&apos;s workout
-            </Link>
-          </div>
-        ) : (
-          // Filtered empty state: user has sessions, but none match the current filter
-          <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
-            <p className="text-sm font-medium text-foreground">No sessions match these filters</p>
-            <p className="mt-2 text-sm text-muted">
-              Try selecting a different filter to see your other sessions.
-            </p>
-            <button
-              onClick={() => {
-                const params = new URLSearchParams(searchParams);
-                params.delete("filter");
-                params.delete("page");
-                router.push(`/history?${params.toString()}`);
-              }}
-              className="mt-4 inline-block rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-muted/50"
-            >
-              Clear filters
-            </button>
-          </div>
-        )
+      {emptyState === "error" ? (
+        <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+          <p className="text-sm font-medium text-fg">Couldn&apos;t load your sessions</p>
+          <p className="mt-2 text-sm text-muted">Pull to refresh or try again later.</p>
+        </div>
+      ) : emptyState === "true-empty" ? (
+        <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+          <p className="text-sm font-medium text-fg">No completed sessions yet</p>
+          <p className="mt-2 text-sm text-muted">
+            Your workout history will appear here once you complete your first session.
+          </p>
+          <Link
+            href="/today"
+            className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            Start today&apos;s workout
+          </Link>
+        </div>
+      ) : emptyState === "filtered-empty" ? (
+        <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+          <p className="text-sm font-medium text-fg">No sessions match these filters</p>
+          <p className="mt-2 text-sm text-muted">
+            Try selecting a different filter to see your other sessions.
+          </p>
+          <button
+            onClick={() => {
+              const target = (["lifts", "yoga", "breathing"] as const).find(
+                f => f !== filter && countsByFilter[f] > 0
+              ) ?? filter;
+              const params = new URLSearchParams(searchParams);
+              params.set("filter", target);
+              params.delete("page");
+              router.push(`/history?${params.toString()}`);
+            }}
+            className="mt-4 inline-block rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-fg transition-colors hover:border-muted/50"
+          >
+            Clear filters
+          </button>
+          <p className="mt-2 text-xs text-muted">
+            Showing {FILTER_LABELS[(["lifts", "yoga", "breathing"] as const).find(
+              f => f !== filter && countsByFilter[f] > 0
+            ) ?? filter]} ({countsByFilter[(["lifts", "yoga", "breathing"] as const).find(
+              f => f !== filter && countsByFilter[f] > 0
+            ) ?? filter]})
+          </p>
+        </div>
       ) : (
         <>
           <ul className="mt-6 space-y-2">
