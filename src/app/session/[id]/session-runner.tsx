@@ -271,9 +271,6 @@ export function SessionRunner({
       userId,
       onChange: setPendingSetState,
       deps: createPendingSetDeps(now),
-      timer,
-      addEventListener: addEventListenerProp,
-      removeEventListener: removeEventListenerProp,
     });
   });
 
