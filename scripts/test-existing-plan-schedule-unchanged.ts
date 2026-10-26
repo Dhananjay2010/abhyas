@@ -83,7 +83,7 @@ console.log("\n2. Block 2+ uses original [1,2,4,5] for 4-day plans");
   console.log("  ✓ 4-day plan: [1,2,4,5] (Mon, Tue, Thu, Fri)");
 }
 
-console.log("\n3. Block 2+ uses original [1,2,3,4,5] for 5-day plans");
+console.log("\n3. Block 2+ uses original [1,2,3,5,6] for 5-day plans");
 {
   const input: GeneratorInput = {
     userId: "test",
@@ -108,8 +108,8 @@ console.log("\n3. Block 2+ uses original [1,2,3,4,5] for 5-day plans");
     .map(d => d.dayIndex)
     .sort((a, b) => a - b);
 
-  assert.deepEqual(trainingDays, [1, 2, 3, 4, 5], "Block 2+: uses original [1,2,3,4,5] mapping");
-  console.log("  ✓ 5-day plan: [1,2,3,4,5] (Mon-Fri)");
+  assert.deepEqual(trainingDays, [1, 2, 3, 5, 6], "Block 2+: uses original [1,2,3,5,6] mapping");
+  console.log("  ✓ 5-day plan: [1,2,3,5,6] (Mon, Tue, Wed, Fri, Sat)");
 }
 
 console.log("\n4. 28-day cycle: block 2+ preserves deload week");
