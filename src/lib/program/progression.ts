@@ -833,12 +833,33 @@ export function evaluateProgression(input: {
     
     // MED-3: Third+ consecutive miss - if 0.9x back-off doesn't change weight, drop one grid step
     if (failures >= 3 && reduced === currentWeight && equipmentIds) {
-      const gridStep = equipmentGridStep(equipmentIds, 'kg');
-      const oneStepDown = currentWeight - gridStep;
+      const isKettlebell = equipmentIds.includes('kettlebell');
+      let stepped: number;
       
-      // Floor at equipment's smallest load (0 for bodyweight, gridStep for others)
-      const floor = meta.isBodyweight ? 0 : gridStep;
-      const stepped = Math.max(floor, oneStepDown);
+      if (isKettlebell) {
+        // Kettlebell: go to next lower bell
+        const bells = KETTLEBELL_WEIGHTS_KG;
+        const epsilon = 0.001;
+        let nextBell = currentWeight; // Default to hold if at minimum
+        for (let i = bells.length - 1; i >= 0; i--) {
+          if (bells[i] < currentWeight - epsilon) {
+            nextBell = bells[i];
+            break;
+          }
+        }
+        stepped = nextBell;
+      } else {
+        // Standard equipment: drop one grid step
+        const gridStep = equipmentGridStep(equipmentIds, 'kg');
+        const oneStepDown = currentWeight - gridStep;
+        
+        // Floor at 0 for bodyweight equipment (pull-up bar, bands, medicine balls), gridStep for others
+        const isBodyweightEquipment = equipmentIds.some(id => 
+          ['pull_up_bar', 'resistance_band', 'medicine_ball'].includes(id)
+        );
+        const floor = isBodyweightEquipment ? 0 : gridStep;
+        stepped = Math.max(floor, oneStepDown);
+      }
       
       if (stepped < currentWeight) {
         return {
@@ -853,8 +874,8 @@ export function evaluateProgression(input: {
       }
     }
     
-    // If helper returned same weight, it's a hold
-    if (reduced === weightToBackOffFrom) {
+    // If helper returned same weight as current (no actual change), it's a hold
+    if (reduced === currentWeight) {
       const holdMessage = equipmentIds
         ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
         : "Missed twice in a row but already at light weight — holding to build back up.";
@@ -864,8 +885,8 @@ export function evaluateProgression(input: {
         outcome: "hold",
         nextWorkingWeightKg: currentWeight,
         nextTargetReps: repsMax,
-        consecutiveFailures: 0,
-        weightAtFailureStartKg: null, // M1: clear on hold
+        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
+        weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss
         message: holdMessage,
       };
     }
@@ -876,7 +897,7 @@ export function evaluateProgression(input: {
       nextWorkingWeightKg: reduced,
       nextTargetReps: repsMax,
       consecutiveFailures: 0,
-      weightAtFailureStartKg: null, // M1: clear on two-miss back-off
+      weightAtFailureStartKg: null, // M1: clear on successful two-miss back-off
       message: `Missed twice in a row — dropping to ${displayKg(reduced)} to build back.`,
     };
   }

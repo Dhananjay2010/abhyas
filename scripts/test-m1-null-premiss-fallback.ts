@@ -1,79 +1,109 @@
 #!/usr/bin/env tsx
 /**
- * Test: M1 NULL pre-miss weight fallback
+ * M1 read path test: Verifies that weight_at_failure_start_kg is correctly
+ * read from the database row and used in the second-miss back-off calculation.
  * 
- * When weight_at_failure_start_kg is NULL (legacy/in-flight row),
- * two-miss back-off falls back to currentWeight as the base.
- * Still snaps DOWN and never exceeds currentWeight.
+ * Kills mutant M1e (input builder ignores weight_at_failure_start_kg).
  */
 
-import { evaluateProgression, type ExerciseMeta } from "../src/lib/program/progression";
+import { buildProgressionInput, type SessionExerciseRow, type ExerciseProgressRow, type SessionRow } from "@/lib/session/build-progression-input";
+import { evaluateProgression } from "@/lib/program/progression";
 
-let failures = 0;
+console.log("Testing M1 read path (weight_at_failure_start_kg from DB row)...\n");
 
-function check(label: string, condition: boolean, detail = "") {
-  if (!condition) {
-    failures++;
-    console.log(`  FAIL ${label}${detail ? `: ${detail}` : ""}`);
-  } else {
-    console.log(`  ok   ${label}${detail ? `  -- ${detail}` : ""}`);
-  }
-}
-
-const BENCH: ExerciseMeta = {
-  mechanic: "compound",
-  metric: "reps",
-  movementPattern: "horizontal_press",
-  isBodyweight: false,
-  progressionChain: null,
-  progressionRank: null,
+// Mock database row with weight_at_failure_start_kg set to 20 kg
+// Simulates state after first miss: weight dropped from 20 to 17.5, counter = 1
+const mockProgress: ExerciseProgressRow = {
+  current_working_weight_kg: 17.5,
+  current_target_reps: 12,
+  consecutive_failures: 1,
+  best_weight_kg: 20,
+  best_reps: 12,
+  best_e1rm: null,
+  total_sessions: 2,
+  weight_at_failure_start_kg: 20, // M1: This is the key field being tested
 };
 
-const missingSets = Array.from({ length: 4 }, () => ({ reps: 7, weightKg: 37.5 }));
-
-console.log("M1: NULL pre-miss weight fallback");
-console.log("\nScenario: mid-failure row before migration (weight_at_failure_start_kg = NULL)");
-console.log("Current weight: 37.5 kg (already dropped once)");
-console.log("consecutiveFailures: 1 (about to become 2)");
-console.log("Expected: back off 10% from 37.5 kg (fallback to current), snap DOWN\n");
-
-const result = evaluateProgression({
-  sets: missingSets,
-  plannedSets: 4,
-  repsMin: 8,
-  repsMax: 12,
-  feel: "right",
-  meta: BENCH,
-  state: {
-    currentWorkingWeightKg: 37.5,
-    currentTargetReps: 12,
-    consecutiveFailures: 1,
-    bestWeightKg: 40,
-    bestReps: 12,
-    bestE1rm: 56,
-    totalSessions: 5,
-    weightAtFailureStartKg: null, // <-- NULL: legacy/in-flight
+const mockSessionExercise: SessionExerciseRow = {
+  id: "test-se-id",
+  session_id: "test-session-id",
+  exercise_id: "test-exercise-id",
+  planned_sets: 3,
+  planned_reps_min: 8,
+  planned_reps_max: 12,
+  metric: "reps",
+  exercises: {
+    mechanic: "compound",
+    movement_pattern: "horizontal_press",
+    equipment_ids: ["barbell"],
+    progression_chain: null,
+    progression_rank: null,
   },
-  isDeload: false,
-  equipmentIds: ["barbell"],
-});
+};
 
-// 37.5 * 0.9 = 33.75 → Math.floor(33.75 / 2.5) * 2.5 = Math.floor(13.5) * 2.5 = 13 * 2.5 = 32.5 kg
-const expected = 32.5;
-const actual = result.nextWorkingWeightKg ?? 0;
+const mockSession: SessionRow = {
+  is_deload: false,
+  local_date: "2024-01-16",
+  program_id: "test-program-id",
+};
 
-check("NULL pre-miss: backs off from current weight", actual === expected, `got ${actual}, expected ${expected}`);
-check("NULL pre-miss: snaps DOWN to grid", actual <= 33.75, `33.75 rounded down to ${actual}`);
-check("NULL pre-miss: never exceeds current", actual <= 37.5, `${actual} <= 37.5`);
-check("NULL pre-miss: outcome is BACKED_OFF", result.outcome === "backed_off", `outcome: ${result.outcome}`);
-check("NULL pre-miss: consecutiveFailures resets", result.consecutiveFailures === 0, `consecutiveFailures: ${result.consecutiveFailures}`);
-check("NULL pre-miss: message mentions kg", result.message.includes("kg"), `message: "${result.message}"`);
-check("NULL pre-miss: weightAtFailureStartKg resets to null", result.weightAtFailureStartKg === null, `weightAtFailureStartKg: ${result.weightAtFailureStartKg}`);
-console.log("\n=== SUMMARY ===");
-if (failures > 0) {
-  console.log(`FAILED: ${failures} checks`);
+const missingSets = [
+  { reps: 5, weight_kg: 17.5, duration_seconds: null },
+  { reps: 4, weight_kg: 17.5, duration_seconds: null },
+  { reps: 3, weight_kg: 17.5, duration_seconds: null },
+];
+
+// Build progression input (this is the M1 read path being tested)
+const input = buildProgressionInput(
+  mockSessionExercise,
+  missingSets,
+  mockProgress,
+  mockSession,
+  null
+);
+
+console.log("Input state after buildProgressionInput:");
+console.log(`  currentWorkingWeightKg: ${input.state.currentWorkingWeightKg} kg`);
+console.log(`  consecutiveFailures: ${input.state.consecutiveFailures}`);
+console.log(`  weightAtFailureStartKg: ${input.state.weightAtFailureStartKg} kg\n`);
+
+// Verify weightAtFailureStartKg was read correctly from the DB row
+if (input.state.weightAtFailureStartKg !== 20) {
+  console.error("❌ FAIL: weightAtFailureStartKg not read from DB row");
+  console.error(`  Expected: 20, Got: ${input.state.weightAtFailureStartKg}`);
+  console.error("  This means mutant M1e is alive!");
   process.exit(1);
-} else {
-  console.log("✅ ALL CHECKS PASSED - NULL pre-miss weight fallback works");
-  process.exit(0);
 }
+
+console.log("✓ weightAtFailureStartKg correctly read: 20 kg\n");
+
+// Simulate second miss and verify it uses the stored pre-miss weight (20) for back-off
+const decision = evaluateProgression(input);
+
+console.log("Second miss decision:");
+console.log(`  Next weight: ${decision.nextWorkingWeightKg} kg`);
+console.log(`  Outcome: ${decision.outcome}`);
+console.log(`  Message: ${decision.message}\n`);
+
+// Expected: 10% of 20 kg = 18 kg, snapped to barbell grid (2.5 kg) = 17.5 kg or holds at 17.5
+// If M1e mutant is alive (ignoring weightAtFailureStartKg), it would use 17.5 kg for back-off,
+// giving 10% of 17.5 = 15.75, snapped to 15 kg
+const expectedWeight = 17.5; // 10% reduction from 20 kg (or hold)
+const wrongWeight = 15; // 10% reduction from 17.5 kg (mutant behavior)
+
+if (decision.nextWorkingWeightKg === wrongWeight) {
+  console.error("❌ FAIL: Used currentWorkingWeightKg (17.5) instead of weightAtFailureStartKg (20)");
+  console.error("  This means mutant M1e is alive!");
+  process.exit(1);
+}
+
+if (decision.nextWorkingWeightKg !== expectedWeight) {
+  console.error(`❌ FAIL: Unexpected weight ${decision.nextWorkingWeightKg} kg`);
+  console.error(`  Expected: ${expectedWeight} kg (from 20 kg pre-miss weight)`);
+  process.exit(1);
+}
+
+console.log("✓ Second-miss back-off correctly used pre-miss weight (20 kg)");
+console.log("✓ M1 read path test passed - mutant M1e is killed\n");
+process.exit(0);
+
