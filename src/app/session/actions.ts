@@ -7,6 +7,11 @@ import type { Database } from "@/lib/database.types";
 import { getSwapPatterns } from "@/lib/program/swap-patterns";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { CandidateExercise } from "@/lib/program/generate";
+import {
+  describePersonalBest,
+  evaluateProgression,
+} from "@/lib/program/progression";
+import { buildProgressionInput } from "@/lib/session/build-progression-input";
 import { progressionFeedback } from "@/lib/session/progression-feedback";
 import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
@@ -16,6 +21,7 @@ import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
 import { planDayCore, type PlanDayClient } from "@/lib/session/plan-day-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
+import { queryActiveProgramDay } from "@/lib/session/query-active-program-day";
 import { getUnitsPreference } from "@/lib/units";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
@@ -33,7 +39,6 @@ export type { SwapResult };
 
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
-import { queryActiveProgramDay } from "@/lib/session/query-active-program-day";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -486,7 +491,9 @@ async function applyProgression(
   return {
     outcome: decision.outcome,
     message: decision.message,
-    personalBest,
+    personalBest: decision.personalBest
+      ? describePersonalBest(decision.personalBest, units)
+      : null,
   };
 }
 
@@ -837,6 +844,9 @@ export async function planDay(input: {
     async findProgramDay(programId: string, dayIndex: number) {
       return queryActiveProgramDay(supabase, user.id, programId, dayIndex);
     },
+    async rereadDaySessions(localDate: string) {
+      return this.findDaySessions(localDate);
+    },
     async updateSession(id: string, row) {
       const { error} = await supabase
         .from("sessions")
@@ -845,20 +855,12 @@ export async function planDay(input: {
       return { error: error?.message ?? null };
     },
     async deleteSessions(ids: string[]) {
-      const { error } = await supabase.from("sessions").delete().in("id", ids).eq("user_id", user.id);
+      const { error } = await supabase.from("sessions").delete().in("id", ids);
       return { error: error?.message ?? null };
     },
     async insertSession(row) {
       const { error } = await supabase.from("sessions").insert(row);
       return { error: error?.message ?? null };
-    },
-    async rereadDaySessions(localDate: string) {
-      const { data, error } = await supabase
-        .from("sessions")
-        .select("id, status, actual_type, program_day_id")
-        .eq("local_date", localDate)
-        .eq("user_id", user.id);
-      return { rows: data ?? [], error: error?.message ?? null };
     },
   };
 

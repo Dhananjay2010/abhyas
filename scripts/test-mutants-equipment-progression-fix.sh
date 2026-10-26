@@ -29,6 +29,7 @@ COUNT=0
 KILLED=0
 SURVIVED=0
 SKIPPED=0
+crashed=0
 
 restore() {
   cp "$BACKUP_PROG" "$PROG"

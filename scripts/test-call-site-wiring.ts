@@ -28,10 +28,17 @@ function check(label: string, condition: boolean, detail = "") {
 
 console.log("1. Check actions.ts wiring");
 const actionsContent = fs.readFileSync("src/app/session/actions.ts", "utf8");
+const feedbackContent = fs.readFileSync("src/lib/session/progression-feedback.ts", "utf8");
 
 check(
-  "actions.ts imports buildProgressionInput from build-progression-input",
-  actionsContent.includes('import { buildProgressionInput } from "@/lib/session/build-progression-input"')
+  "actions.ts imports progressionFeedback, which imports buildProgressionInput",
+  actionsContent.includes('import { progressionFeedback } from "@/lib/session/progression-feedback"') &&
+  feedbackContent.includes('import { buildProgressionInput } from "./build-progression-input"')
+);
+
+check(
+  "actions.ts derives units from the profile row",
+  actionsContent.includes("const units = getUnitsPreference(profileRes.data?.units);")
 );
 
 check(

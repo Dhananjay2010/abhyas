@@ -91,7 +91,7 @@ test_mutant() {
     return 1
   else
     echo "  ✅ KILLED"
-    echo "$output" | grep -E "FAIL|Message|PB" | head -3
+    echo "$output" | grep "❌ FAIL" | head -2
     [ "$file" = "src/app/session/actions.ts" ] && cp "$BACKUP_ACTIONS" "$file"
     [ "$file" = "src/lib/session/progression-feedback.ts" ] && cp "$BACKUP_FEEDBACK" "$file"
     [ "$file" = "src/lib/session/build-progression-input.ts" ] && cp "$BACKUP_BUILDER" "$file"
