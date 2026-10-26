@@ -78,6 +78,9 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   
   // Jogging (repeated knee loading)
   "jogging-treadmill",
+  
+  // Calf Press on Leg Press: knee-contraindicated (QA Bot 1 finding)
+  "calf-press-on-the-leg-press-machine",
 ]);
 
 /**

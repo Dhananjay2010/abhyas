@@ -224,10 +224,15 @@ if (!pkLower) {
     fail(`pk: Lower day has no PAST_KNEE_LUNGE_EXERCISES exercise outside squat slot`);
   }
   
-  // Check Barbell Squat is in slot 0 (squat slot exception: slot 0 keeps Barbell Squat)
+  // Check slot 0 has a knee-safe squat (Barbell Squat is now knee-contraindicated, so expects Box Squat, Goblet Squat, etc.)
   const slot0 = pkLower.exercises.find(e => e.orderIndex === 0);
-  if (!slot0 || catalogueById.get(slot0.exerciseId)?.slug !== "barbell-squat") {
-    fail(`pk: Expected Barbell Squat in slot 0 but got ${slot0?.name || "nothing"}`);
+  const slot0Ex = slot0 ? catalogueById.get(slot0.exerciseId) : null;
+  if (!slot0Ex || slot0Ex.movement_pattern !== "squat") {
+    fail(`pk: Expected a squat in slot 0 but got ${slot0?.name || "nothing"}`);
+  }
+  // Since Barbell Squat is knee-contraindicated, slot 0 should have a knee-safe squat
+  if (slot0Ex && slot0Ex.contraindicated_regions.includes("knee")) {
+    fail(`pk: Slot 0 squat ${slot0Ex.slug} is knee-contraindicated`);
   }
 }
 

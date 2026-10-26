@@ -333,6 +333,11 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
+    // 8b. Knee-contraindicated exercises excluded for ANY knee injury (past or current)
+    if ((ctx.anyKneeInjury ?? false) && candidate.contraindicated_regions.includes("knee")) {
+      continue;
+    }
+    
     // 9. Equipment check: all-of semantics
     if (ctx.availableEquipment !== null && candidate.equipment_ids.length > 0) {
       const equipment = ctx.availableEquipment;

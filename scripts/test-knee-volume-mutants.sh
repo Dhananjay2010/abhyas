@@ -13,6 +13,7 @@ set -u
 
 GENERATE=src/lib/program/generate.ts
 KNEE_SAFETY=src/lib/program/knee-safety.ts
+ALTERNATIVES=src/lib/program/alternatives.ts
 
 # Create private backup directory with mktemp -d
 BACKUP_DIR=$(mktemp -d)
@@ -39,6 +40,9 @@ cleanup() {
   if [ -s "$BACKUP_DIR/knee-safety.ts" ]; then
     cp "$BACKUP_DIR/knee-safety.ts" "$KNEE_SAFETY"
   fi
+  if [ -s "$BACKUP_DIR/alternatives.ts" ]; then
+    cp "$BACKUP_DIR/alternatives.ts" "$ALTERNATIVES"
+  fi
   rm -rf "$BACKUP_DIR"
 }
 trap cleanup EXIT INT TERM
@@ -50,6 +54,10 @@ if ! cp "$GENERATE" "$BACKUP_DIR/generate.ts"; then
 fi
 if ! cp "$KNEE_SAFETY" "$BACKUP_DIR/knee-safety.ts"; then
   echo "FATAL: failed to backup $KNEE_SAFETY"
+  exit 1
+fi
+if ! cp "$ALTERNATIVES" "$BACKUP_DIR/alternatives.ts"; then
+  echo "FATAL: failed to backup $ALTERNATIVES"
   exit 1
 fi
 
@@ -262,6 +270,20 @@ run_mutant "FB-C-WALL. Remove Wall Sit sort logic for Full Body days" "$GENERATE
         if (bIsWallSit && aIsLower && !aIsWallSit) return -1;
       }' \
   '' test:knee-volume test:knee-volume-identity test:count-knee-risk-outside-squat test:full-body-c-lunge
+
+run_mutant "KNEE-CTR-GEN. Remove knee-contraindicated exclusion from generation (isEligible)" "$GENERATE" \
+  '  // Knee-contraindicated exercises excluded for ANY knee injury (past or current)
+  if (input.anyKneeInjury && ex.contraindicated_regions.includes("knee")) {
+    return false;
+  }' \
+  '' test:knee-contraindicated
+
+run_mutant "KNEE-CTR-ALT. Remove knee-contraindicated exclusion from swaps (alternatives)" "$ALTERNATIVES" \
+  '    // 8b. Knee-contraindicated exercises excluded for ANY knee injury (past or current)
+    if ((ctx.anyKneeInjury ?? false) && candidate.contraindicated_regions.includes("knee")) {
+      continue;
+    }' \
+  '' test:knee-contraindicated
 
 echo ""
 echo "──────────────────────────────────────────────────────────"

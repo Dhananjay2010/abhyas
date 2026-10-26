@@ -484,6 +484,11 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
       return false;
     }
   }
+  
+  // Knee-contraindicated exercises excluded for ANY knee injury (past or current)
+  if (input.anyKneeInjury && ex.contraindicated_regions.includes("knee")) {
+    return false;
+  }
 
   // BMI >= 30 excludes high-impact work
   if (input.bmi !== null && input.bmi >= 30 && ex.impact === "high") return false;
