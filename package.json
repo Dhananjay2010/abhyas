@@ -389,7 +389,10 @@
     "test:undo-consistency": "tsx scripts/test-undo-consistency.ts",
     "test:units-progression-messages": "tsx scripts/test-units-progression-messages.ts",
     "test:working-weight-display": "tsx scripts/test-working-weight-display.ts",
-    "test:working-weight-no-rounding": "tsx scripts/test-working-weight-no-rounding.ts"
+    "test:working-weight-no-rounding": "tsx scripts/test-working-weight-no-rounding.ts",
+    "test:hold-preserves-counter": "tsx scripts/test-hold-preserves-counter.ts",
+    "test:hold-preserves-wafs": "tsx scripts/test-hold-preserves-wafs.ts",
+    "test:imperial-actions-path": "tsx scripts/test-imperial-actions-path.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

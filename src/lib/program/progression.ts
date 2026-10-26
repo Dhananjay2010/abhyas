@@ -437,8 +437,6 @@ export function nextBest(
  * 
  * When omitted, uses simple rounding: success/deload/back-off round to the increment step,
  * first miss holds, no negatives/zeros.
- * 
- * M2: unit parameter removed - all messages in kg until runner supports imperial.
  */
 export function evaluateProgression(input: {
   sets: LoggedSet[];
@@ -856,7 +854,9 @@ export function evaluateProgression(input: {
         nextTargetReps: repsMax,
         consecutiveFailures: 0,
         weightAtFailureStartKg: null, // M1: clear on two-miss back-off
-        message: "Missed twice in a row — back to bodyweight to build up again.",
+        message: failures >= 3
+          ? "Missed the target again — back to bodyweight to build up again."
+          : "Missed twice in a row — back to bodyweight to build up again.",
       };
     }
     
@@ -902,16 +902,22 @@ export function evaluateProgression(input: {
           nextTargetReps: repsMax,
           consecutiveFailures: 0,
           weightAtFailureStartKg: null, // MED-3: clear on third-miss step-down
-          message: `Missed three times in a row — dropping one step to ${displayWeight(stepped)} to break through.`,
+          message: stepped === 0
+            ? "Missed three times in a row — back to just your bodyweight to build up again."
+            : `Missed three times in a row — dropping one step to ${displayWeight(stepped)} to break through.`,
         };
       }
     }
     
     // If helper returned same weight as current (no actual change), it's a hold
     if (reduced === currentWeight) {
-      const holdMessage = equipmentIds
-        ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
-        : "Missed twice in a row but already at light weight — holding to build back up.";
+      const holdMessage = failures >= 3
+        ? equipmentIds
+          ? "Missed the target again but no lighter loadable weight fits within 10% — holding to build back up."
+          : "Missed the target again but already at light weight — holding to build back up."
+        : equipmentIds
+          ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
+          : "Missed twice in a row but already at light weight — holding to build back up.";
       
       return {
         ...carried,
@@ -933,7 +939,9 @@ export function evaluateProgression(input: {
         nextTargetReps: repsMax,
         consecutiveFailures: failures, // Keep counter so third miss triggers step-down
         weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss
-        message: "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up.",
+        message: failures >= 3
+          ? "Missed the target again but no lighter loadable weight fits within 10% — holding to build back up."
+          : "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up.",
       };
     }
     
@@ -944,7 +952,9 @@ export function evaluateProgression(input: {
       nextTargetReps: repsMax,
       consecutiveFailures: 0,
       weightAtFailureStartKg: null, // M1: clear on successful two-miss back-off
-      message: `Missed twice in a row — dropping to ${displayWeight(reduced)} to build back.`,
+      message: failures >= 3
+        ? `Missed the target again — dropping to ${displayWeight(reduced)} to build back.`
+        : `Missed twice in a row — dropping to ${displayWeight(reduced)} to build back.`,
     };
   }
 

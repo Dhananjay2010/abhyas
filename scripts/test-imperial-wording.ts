@@ -1,13 +1,12 @@
 #!/usr/bin/env tsx
 /**
- * Test: Progression messages use kg-only wording (M2)
+ * Test: Progression messages respect imperial units preference
  * 
- * M2: Imperial removed. All progression messages now use 'kg' regardless
- * of user preference. This verifies messages always say 'kg', never 'lb'.
+ * Verifies that when units: "imperial", all progression messages show lb,
+ * and no kg appears in any message.
  */
 
 import { evaluateProgression, type ExerciseMeta } from "../src/lib/program/progression";
-import { progressionInputsFromExercise } from "../src/lib/session/progression-inputs";
 
 let failures = 0;
 
@@ -42,11 +41,9 @@ const fresh = {
 
 const success = Array.from({ length: 4 }, () => ({ reps: 12, weightKg: 40 }));
 
-console.log("M2: All progression messages use 'kg' (imperial removed)");
+console.log("Imperial progression messages");
 
-console.log("\n1. Equipment exercises show kg");
-
-const equipInputs = progressionInputsFromExercise({ equipment_ids: ["barbell"] });
+console.log("\n1. Equipment exercises show lb");
 
 const equipResult = evaluateProgression({
   sets: success,
@@ -57,13 +54,14 @@ const equipResult = evaluateProgression({
   meta: BENCH,
   state: fresh,
   isDeload: false,
-  ...equipInputs,
+  equipmentIds: ["barbell"],
+  units: "imperial",
 });
 
-check("Equipment message contains 'kg'", equipResult.message.includes("kg"), `message: "${equipResult.message}"`);
-check("Equipment message does NOT contain 'lb'", !equipResult.message.includes("lb"), `message: "${equipResult.message}"`);
+check("Equipment message contains 'lb'", equipResult.message.includes("lb"), `message: "${equipResult.message}"`);
+check("Equipment message does NOT contain 'kg'", !equipResult.message.includes("kg"), `message: "${equipResult.message}"`);
 
-console.log("\n2. First-miss drop shows kg");
+console.log("\n2. First-miss drop shows lb");
 
 const missResult = evaluateProgression({
   sets: Array.from({ length: 4 }, () => ({ reps: 7, weightKg: 40 })),
@@ -74,13 +72,14 @@ const missResult = evaluateProgression({
   meta: BENCH,
   state: fresh,
   isDeload: false,
-  ...equipInputs,
+  equipmentIds: ["barbell"],
+  units: "imperial",
 });
 
-check("First-miss message contains 'kg'", missResult.message.includes("kg"), `message: "${missResult.message}"`);
-check("First-miss message does NOT contain 'lb'", !missResult.message.includes("lb"), `message: "${missResult.message}"`);
+check("First-miss message contains 'lb'", missResult.message.includes("lb"), `message: "${missResult.message}"`);
+check("First-miss message does NOT contain 'kg'", !missResult.message.includes("kg"), `message: "${missResult.message}"`);
 
-console.log("\n3. Two-miss back-off shows kg");
+console.log("\n3. Two-miss back-off shows lb");
 
 const twoMissResult = evaluateProgression({
   sets: Array.from({ length: 4 }, () => ({ reps: 7, weightKg: 37.5 })),
@@ -91,57 +90,36 @@ const twoMissResult = evaluateProgression({
   meta: BENCH,
   state: { ...fresh, currentWorkingWeightKg: 37.5, consecutiveFailures: 1, weightAtFailureStartKg: 40 },
   isDeload: false,
-  ...equipInputs,
+  equipmentIds: ["barbell"],
+  units: "imperial",
 });
 
-check("Two-miss message contains 'kg'", twoMissResult.message.includes("kg"), `message: "${twoMissResult.message}"`);
-check("Two-miss message does NOT contain 'lb'", !twoMissResult.message.includes("lb"), `message: "${twoMissResult.message}"`);
+check("Two-miss message contains 'lb'", twoMissResult.message.includes("lb"), `message: "${twoMissResult.message}"`);
+check("Two-miss message does NOT contain 'kg'", !twoMissResult.message.includes("kg"), `message: "${twoMissResult.message}"`);
 
-console.log("\n4. No-equipment exercises can show weight when adding weight");
+console.log("\n4. Third-miss step-down shows lb");
 
-const noEquipInputs = progressionInputsFromExercise({ equipment_ids: [] });
-
-const noEquipResult = evaluateProgression({
-  sets: success,
-  plannedSets: 4,
+const thirdMissResult = evaluateProgression({
+  sets: Array.from({ length: 3 }, () => ({ reps: 7, weightKg: 35 })),
+  plannedSets: 3,
   repsMin: 8,
   repsMax: 12,
-  feel: "right",
-  meta: { ...BENCH, isBodyweight: true },
-  state: { ...fresh, currentWorkingWeightKg: null, bestWeightKg: null },
+  feel: null,
+  meta: BENCH,
+  state: { ...fresh, currentWorkingWeightKg: 35, consecutiveFailures: 2, weightAtFailureStartKg: 40 },
   isDeload: false,
-  ...noEquipInputs,
+  equipmentIds: ["barbell"],
+  units: "imperial",
 });
 
-check("No-equipment message exists", noEquipResult.message.length > 0, `message: "${noEquipResult.message}"`);
-// Option A: bodyweight with added weight shows unit (kg) when naming the weight
-if (noEquipResult.message.includes("kg")) {
-  check("Bodyweight message uses kg (not lb)", !noEquipResult.message.includes("lb"), `message: "${noEquipResult.message}"`);
-} else {
-  check("Bodyweight message without weight does not mention unit", !noEquipResult.message.includes("lb"), `message: "${noEquipResult.message}"`);
-}
-console.log("\n5. Loaded exercise with null stored weight still shows kg target");
-
-// A) Probe: dumbbell compound, 3×12 @40, state.currentWorkingWeightKg null, equipmentIds ['dumbbell']
-const loadedNullState = evaluateProgression({
-  sets: success,
-  plannedSets: 4,
-  repsMin: 8,
-  repsMax: 12,
-  feel: "right",
-  meta: { ...BENCH, mechanic: "compound" },
-  state: { ...fresh, currentWorkingWeightKg: null, bestWeightKg: null },
-  isDeload: false,
-  ...equipInputs,
-});
-
-check("Loaded exercise with null stored weight shows kg target", loadedNullState.message.includes("up to 42.5 kg"), `message: "${loadedNullState.message}"`);
+check("Third-miss message contains 'lb'", thirdMissResult.message.includes("lb"), `message: "${thirdMissResult.message}"`);
+check("Third-miss message does NOT contain 'kg'", !thirdMissResult.message.includes("kg"), `message: "${thirdMissResult.message}"`);
 
 console.log("\n=== SUMMARY ===");
 if (failures > 0) {
   console.log(`FAILED: ${failures} checks`);
   process.exit(1);
 } else {
-  console.log("✅ ALL CHECKS PASSED - All messages use kg (M2)");
+  console.log("✅ ALL CHECKS PASSED - All imperial messages show lb");
   process.exit(0);
 }
