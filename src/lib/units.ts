@@ -140,19 +140,9 @@ export function formatWeight(
     return includeLabel ? `${formatted} lb` : formatted;
   }
 
-  // Metric: round to 2 decimal places to preserve .25/.75 values from 1.25kg grids
-  const rounded = Math.round(kg * 100) / 100;
-  // Format: no decimals for whole numbers, up to 2 decimals otherwise
-  let formatted: string;
-  if (rounded % 1 === 0) {
-    formatted = rounded.toFixed(0);
-  } else if (rounded * 10 % 1 === 0) {
-    // One decimal place (e.g. 22.5)
-    formatted = rounded.toFixed(1);
-  } else {
-    // Two decimal places (e.g. 16.25)
-    formatted = rounded.toFixed(2);
-  }
+  // Metric: round to 1 decimal place
+  const rounded = Math.round(kg * 10) / 10;
+  const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
   return includeLabel ? `${formatted} kg` : formatted;
 }
 

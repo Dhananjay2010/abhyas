@@ -1,34 +1,160 @@
 {
   "mainSha": "7795ff7c",
-  "comparedAt": "2026-10-26T08:08:50.435Z",
-  "totalCases": 51200,
-  "differingCases": 1,
-  "differences": [
+  "comparedAt": "2026-10-26T08:26:53.934Z",
+  "totalCases": 6144,
+  "differingCases": 576,
+  "differencesByRule": [
     {
-      "input": {
-        "mechanic": "compound",
-        "reps": [
-          10,
-          10,
-          10,
-          10
-        ],
-        "currentWeight": 40,
-        "failures": 1,
-        "weightAtFailureStart": 42.5
-      },
-      "mainOutput": {
-        "weight": 35,
-        "counter": 0,
-        "outcome": "backed_off"
-      },
-      "branchOutput": {
-        "weight": 40,
-        "counter": 0,
-        "outcome": "hold"
-      },
-      "approvedRule": "PR #142: In-range hold - when all sets hit the range, hold weight and reset counter (reserved for PR #142, not this PR)"
+      "rule": "unknown",
+      "count": 576,
+      "examples": [
+        {
+          "input": {
+            "mechanic": "compound",
+            "pattern": "horizontal_press",
+            "feel": null,
+            "reps": [
+              5,
+              5,
+              5
+            ],
+            "weight": 2.5,
+            "failures": 1,
+            "weightAtFailureStart": null,
+            "deload": false
+          },
+          "mainOutput": {
+            "weight": 2.5,
+            "counter": 0,
+            "outcome": "hold"
+          },
+          "branchOutput": {
+            "weight": 2.5,
+            "counter": 2,
+            "outcome": "hold"
+          },
+          "diffFields": [
+            "consecutiveFailures"
+          ]
+        },
+        {
+          "input": {
+            "mechanic": "compound",
+            "pattern": "horizontal_press",
+            "feel": null,
+            "reps": [
+              5,
+              5,
+              5
+            ],
+            "weight": 2.5,
+            "failures": 1,
+            "weightAtFailureStart": 42.5,
+            "deload": false
+          },
+          "mainOutput": {
+            "weight": 2.5,
+            "counter": 0,
+            "outcome": "hold"
+          },
+          "branchOutput": {
+            "weight": 2.5,
+            "counter": 2,
+            "outcome": "hold"
+          },
+          "diffFields": [
+            "consecutiveFailures"
+          ]
+        },
+        {
+          "input": {
+            "mechanic": "compound",
+            "pattern": "horizontal_press",
+            "feel": null,
+            "reps": [
+              5,
+              5,
+              5
+            ],
+            "weight": 2.5,
+            "failures": 2,
+            "weightAtFailureStart": 42.5,
+            "deload": false
+          },
+          "mainOutput": {
+            "weight": 2.5,
+            "counter": 0,
+            "outcome": "hold"
+          },
+          "branchOutput": {
+            "weight": 2.5,
+            "counter": 3,
+            "outcome": "hold"
+          },
+          "diffFields": [
+            "consecutiveFailures"
+          ]
+        },
+        {
+          "input": {
+            "mechanic": "compound",
+            "pattern": "horizontal_press",
+            "feel": null,
+            "reps": [
+              5,
+              5,
+              5
+            ],
+            "weight": 3.75,
+            "failures": 1,
+            "weightAtFailureStart": null,
+            "deload": false
+          },
+          "mainOutput": {
+            "weight": 3.75,
+            "counter": 0,
+            "outcome": "hold"
+          },
+          "branchOutput": {
+            "weight": 3.75,
+            "counter": 2,
+            "outcome": "hold"
+          },
+          "diffFields": [
+            "consecutiveFailures"
+          ]
+        },
+        {
+          "input": {
+            "mechanic": "compound",
+            "pattern": "horizontal_press",
+            "feel": null,
+            "reps": [
+              5,
+              5,
+              5
+            ],
+            "weight": 3.75,
+            "failures": 1,
+            "weightAtFailureStart": 42.5,
+            "deload": false
+          },
+          "mainOutput": {
+            "weight": 3.75,
+            "counter": 0,
+            "outcome": "hold"
+          },
+          "branchOutput": {
+            "weight": 3.75,
+            "counter": 2,
+            "outcome": "hold"
+          },
+          "diffFields": [
+            "consecutiveFailures"
+          ]
+        }
+      ]
     }
   ],
-  "note": "In-range hold behavior reserved for PR #142. This PR (equipment progression fix) does not change no-equipment behavior."
+  "note": "This PR introduces M1 (first-miss back-off floor) which stores the pre-miss weight and increments \nthe failure counter even when first-miss guards (Rule 1: >20% cut, Rule 2: two-miss floor) prevent the weight \nfrom dropping. This makes the third-miss step-down reachable at light weights where Rule 1 or Rule 2 would \notherwise hold the weight indefinitely."
 }

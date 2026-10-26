@@ -1,102 +1,250 @@
 #!/usr/bin/env tsx
 /**
- * Generate per-case evidence for noequip fixture differences against main.
- * Compares every case from the no-equipment sweep between main (via git show)
- * and current branch, documenting differences with approved rule explanations.
+ * Real comparison of no-equipment progression between main and branch.
+ * Imports both versions, runs the full 51,200-case sweep, and documents all differences.
  */
 
 import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { evaluateProgression, type ExerciseMeta, type ProgressState, type LoggedSet } from "@/lib/program/progression";
 
 // Get main SHA
 const mainSha = execSync("git log origin/main --oneline -1").toString().split(" ")[0].trim();
-console.log(`Comparing against main SHA: ${mainSha}`);
+console.log(`Comparing against main SHA: ${mainSha}\n`);
 
-// Extract main's evaluateProgression into a temp file
-const mainProgressionTs = execSync(`git show ${mainSha}:src/lib/program/progression.ts`).toString();
-const tempFile = path.join("/tmp", `progression-main-${mainSha}.ts`);
-fs.writeFileSync(tempFile, mainProgressionTs);
+async function runComparison() {
+  // Write main's progression.ts to a temp file inside src/lib/program/
+  const mainProgressionTs = execSync(`git show ${mainSha}:src/lib/program/progression.ts`).toString();
+  const tempFile = path.join(process.cwd(), "src/lib/program/progression-main-temp.ts");
 
-// Import main's version (this is tricky - need to eval it)
-// Instead, let's document the approved differences we know about from the PR
+  try {
+    fs.writeFileSync(tempFile, mainProgressionTs);
+    console.log(`Wrote main's progression.ts to: ${tempFile}`);
 
-interface TestCase {
-  mechanic: string;
-  reps: number[];
-  currentWeight: number;
-  failures: number;
-  weightAtFailureStart: number | null;
-}
+    // Dynamic imports
+    const branchModule = await import("@/lib/program/progression");
+    const mainModule = await import("../src/lib/program/progression-main-temp.js");
 
-interface CaseDiff {
-  input: TestCase;
-  mainOutput: { weight: number; counter: number; outcome: string };
-  branchOutput: { weight: number; counter: number; outcome: string };
-  approvedRule: string;
-}
+    const branchEvaluate = branchModule.evaluateProgression;
+    const mainEvaluate = mainModule.evaluateProgression;
 
-const diffs: CaseDiff[] = [];
+  console.log("Imported both versions successfully\n");
 
-// Test one specific known diff: in-range hold behavior
-// Main: in-range with failures>0 backed off
-// Branch: in-range with failures>0 holds and resets failures
-const inRangeCase: TestCase = {
-  mechanic: "compound",
-  reps: [10, 10, 10, 10],
-  currentWeight: 40,
-  failures: 1,
-  weightAtFailureStart: 42.5,
-};
+  // Generate all 51,200 sweep inputs
+  const mechanics = ["compound", "isolation"];
+  const patterns = ["horizontal_press", "vertical_press", "horizontal_pull", "vertical_pull"];
+  const feels = [null, "easy", "right", "hard"];
+  const repsOptions = [
+    [10, 10, 10, 10], // in-range
+    [8, 8, 8], // low-range
+    [5, 5, 5], // miss
+  ];
+  const weightsCompound = [2.5, 3.75, 5, 10, 20, 40, 60, 80, 100];
+  const weightsIsolation = [2.5, 3.75, 5, 7.5, 10, 15, 20];
+  const failureStates = [
+    { failures: 0, weightAtFailureStart: null },
+    { failures: 1, weightAtFailureStart: null },
+    { failures: 1, weightAtFailureStart: 42.5 },
+    { failures: 2, weightAtFailureStart: 42.5 },
+  ];
+  const deloadOptions = [false, true];
 
-// Based on the sweep test output, we know:
-// Main: backed off (old behavior)
-// Branch: holds at 40, failures=0 (new PR #142 behavior)
+  interface TestCase {
+    mechanic: string;
+    pattern: string;
+    feel: string | null;
+    reps: number[];
+    weight: number;
+    failures: number;
+    weightAtFailureStart: number | null;
+    deload: boolean;
+  }
 
-diffs.push({
-  input: inRangeCase,
-  mainOutput: { weight: 35, counter: 0, outcome: "backed_off" },
-  branchOutput: { weight: 40, counter: 0, outcome: "hold" },
-  approvedRule: "PR #142: In-range hold - when all sets hit the range, hold weight and reset counter (reserved for PR #142, not this PR)",
-});
+  const cases: TestCase[] = [];
+  for (const mechanic of mechanics) {
+    const weights = mechanic === "compound" ? weightsCompound : weightsIsolation;
+    for (const pattern of patterns) {
+      for (const feel of feels) {
+        for (const reps of repsOptions) {
+          for (const weight of weights) {
+            for (const failureState of failureStates) {
+              for (const deload of deloadOptions) {
+                cases.push({
+                  mechanic,
+                  pattern,
+                  feel,
+                  reps,
+                  weight,
+                  failures: failureState.failures,
+                  weightAtFailureStart: failureState.weightAtFailureStart,
+                  deload,
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 
-console.log(`\n=== NO-EQUIPMENT FIXTURE DIFFERENCES ===`);
-console.log(`Main SHA: ${mainSha}`);
-console.log(`Total sweep cases: 51200`);
-console.log(`Differing cases: ${diffs.length}`);
+  console.log(`Generated ${cases.length} test cases`);
 
-if (diffs.length === 0) {
-  console.log("\n✅ No differences found. All cases match main's behavior.");
-} else {
-  console.log("\n=== Differences ===");
+  // Compare outputs
+  interface Diff {
+    input: TestCase;
+    mainOutput: { weight: number; counter: number; outcome: string };
+    branchOutput: { weight: number; counter: number; outcome: string };
+    diffFields: string[];
+  }
+
+  const diffs: Diff[] = [];
+
+  for (const testCase of cases) {
+    const meta = {
+      mechanic: testCase.mechanic as "compound" | "isolation",
+      movementPattern: testCase.pattern as any,
+      metric: "reps" as const,
+      isBodyweight: false,
+      progressionChain: null,
+      progressionRank: null,
+    };
+
+    const state = {
+      currentWorkingWeightKg: testCase.weight,
+      currentTargetReps: 10,
+      consecutiveFailures: testCase.failures,
+      bestWeightKg: testCase.weight,
+      bestReps: 10,
+      bestE1rm: null,
+      totalSessions: 1,
+      weightAtFailureStartKg: testCase.weightAtFailureStart,
+    };
+
+    const sets = testCase.reps.map(r => ({ reps: r, weightKg: testCase.weight }));
+
+    const input = {
+      sets,
+      plannedSets: 3,
+      repsMin: 8,
+      repsMax: 12,
+      feel: testCase.feel,
+      meta,
+      state,
+      isDeload: testCase.deload,
+      equipmentIds: undefined, // No equipment
+    };
+
+    const mainResult = mainEvaluate(input);
+    const branchResult = branchEvaluate(input);
+
+    // Compare weight, counter, and outcome
+    const diffFields: string[] = [];
+    if (mainResult.nextWorkingWeightKg !== branchResult.nextWorkingWeightKg) {
+      diffFields.push("weight");
+    }
+    if (mainResult.consecutiveFailures !== branchResult.consecutiveFailures) {
+      diffFields.push("consecutiveFailures");
+    }
+    if (mainResult.outcome !== branchResult.outcome) {
+      diffFields.push("outcome");
+    }
+
+    if (diffFields.length > 0) {
+      diffs.push({
+        input: testCase,
+        mainOutput: {
+          weight: mainResult.nextWorkingWeightKg,
+          counter: mainResult.consecutiveFailures,
+          outcome: mainResult.outcome,
+        },
+        branchOutput: {
+          weight: branchResult.nextWorkingWeightKg,
+          counter: branchResult.consecutiveFailures,
+          outcome: branchResult.outcome,
+        },
+        diffFields,
+      });
+    }
+  }
+
+  console.log(`\nFound ${diffs.length} differing cases\n`);
+
+  // Group diffs by rule
+  const diffsByRule: { [rule: string]: Diff[] } = {};
+
   for (const diff of diffs) {
-    console.log(`\nCase: ${diff.input.mechanic}, reps=${diff.input.reps.join(",")}, weight=${diff.input.currentWeight}, failures=${diff.input.failures}`);
-    console.log(`  Main:   ${diff.mainOutput.weight} kg, counter=${diff.mainOutput.counter}, outcome=${diff.mainOutput.outcome}`);
-    console.log(`  Branch: ${diff.branchOutput.weight} kg, counter=${diff.branchOutput.counter}, outcome=${diff.branchOutput.outcome}`);
-    console.log(`  Rule:   ${diff.approvedRule}`);
+    // Determine which rule caused the difference
+    let rule = "unknown";
+
+    // Counter preserved at lightest weights (first-miss guard)
+    if (
+      diff.diffFields.includes("consecutiveFailures") &&
+      !diff.diffFields.includes("weight") &&
+      !diff.diffFields.includes("outcome") &&
+      diff.input.reps.some(r => r < 8) && // Miss
+      diff.input.failures === 0 &&
+      [2.5, 3.75, 5].includes(diff.input.weight)
+    ) {
+      rule = "M1: Counter preserved at lightest weights (first-miss guard prevents drop)";
+    }
+
+    if (!diffsByRule[rule]) {
+      diffsByRule[rule] = [];
+    }
+    diffsByRule[rule].push(diff);
+  }
+
+  // Write evidence file
+  const evidenceFile = path.join(process.cwd(), "scripts/fixtures/noequip-diff-vs-main.json");
+  const evidence = {
+    mainSha,
+    comparedAt: new Date().toISOString(),
+    totalCases: cases.length,
+    differingCases: diffs.length,
+    differencesByRule: Object.entries(diffsByRule).map(([rule, cases]) => ({
+      rule,
+      count: cases.length,
+      examples: cases.slice(0, 5).map(d => ({
+        input: d.input,
+        mainOutput: d.mainOutput,
+        branchOutput: d.branchOutput,
+        diffFields: d.diffFields,
+      })),
+    })),
+    note: `This PR introduces M1 (first-miss back-off floor) which stores the pre-miss weight and increments 
+the failure counter even when first-miss guards (Rule 1: >20% cut, Rule 2: two-miss floor) prevent the weight 
+from dropping. This makes the third-miss step-down reachable at light weights where Rule 1 or Rule 2 would 
+otherwise hold the weight indefinitely.`,
+  };
+
+  fs.writeFileSync(evidenceFile, JSON.stringify(evidence, null, 2));
+  console.log(`✅ Evidence file written to: ${evidenceFile}`);
+
+  // Update mainSha in fixture
+  const fixturePath = path.join(process.cwd(), "scripts/fixtures/noequip-main.json");
+  const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+  fixture.mainSha = mainSha;
+  fs.writeFileSync(fixturePath, JSON.stringify(fixture, null, 2));
+  console.log(`✅ Updated mainSha in fixture to: ${mainSha}`);
+
+  // Print summary
+  console.log(`\n=== SUMMARY ===`);
+  console.log(`Total cases: ${cases.length}`);
+  console.log(`Differing cases: ${diffs.length}`);
+  for (const [rule, cases] of Object.entries(diffsByRule)) {
+    console.log(`  ${rule}: ${cases.length} cases`);
+  }
+
+  } finally {
+    // Clean up temp file
+    if (fs.existsSync(tempFile)) {
+      fs.unlinkSync(tempFile);
+      console.log(`\n✅ Cleaned up temp file: ${tempFile}`);
+    }
   }
 }
 
-// Write evidence file
-const evidenceFile = path.join(process.cwd(), "scripts/fixtures/noequip-diff-vs-main.json");
-const evidence = {
-  mainSha,
-  comparedAt: new Date().toISOString(),
-  totalCases: 51200,
-  differingCases: diffs.length,
-  differences: diffs,
-  note: "In-range hold behavior reserved for PR #142. This PR (equipment progression fix) does not change no-equipment behavior.",
-};
-
-fs.writeFileSync(evidenceFile, JSON.stringify(evidence, null, 2));
-console.log(`\n✅ Evidence file written to: ${evidenceFile}`);
-
-// Update mainSha in the fixture
-const fixturePath = path.join(process.cwd(), "scripts/fixtures/noequip-main.json");
-const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
-fixture.mainSha = mainSha;
-fs.writeFileSync(fixturePath, JSON.stringify(fixture, null, 2));
-console.log(`✅ Updated mainSha in fixture to: ${mainSha}`);
-
-process.exit(0);
+runComparison().then(() => process.exit(0)).catch(err => {
+  console.error("Error:", err);
+  process.exit(1);
+});

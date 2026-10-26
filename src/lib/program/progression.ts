@@ -880,6 +880,20 @@ export function evaluateProgression(input: {
           message: `Missed three times in a row — dropping one step to ${displayWeight(stepped)} to break through.`,
         };
       }
+      
+      // MED-3 tried to step down but couldn't (at minimum): cap counter at 3
+      // This prevents infinite growth at the lightest weight
+      return {
+        ...carried,
+        outcome: "hold",
+        nextWorkingWeightKg: currentWeight,
+        nextTargetReps: repsMax,
+        consecutiveFailures: 3, // Cap at 3 when can't step down
+        weightAtFailureStartKg: state.weightAtFailureStartKg, // Preserve
+        message: isKettlebell
+          ? `Missed the target but holding at ${displayWeight(currentWeight)} — it is the smallest available bell.`
+          : `Missed the target but holding at ${displayWeight(currentWeight)} — it is the smallest available step.`,
+      };
     }
     
     // If helper returned same weight as current (no actual change), it's a hold
