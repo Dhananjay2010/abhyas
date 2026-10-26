@@ -48,8 +48,6 @@ import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/
 import { resolveSetConflict, type ConflictResult } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
 import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
-import { PendingSetsBanner } from "@/components/pending-sets-banner";
-import { ReplayConflictNotice } from "@/components/replay-conflict-notice";
 import { RunnerStatusArea } from "@/components/runner-status-area";
 import { selectRunnerStatusProps } from "@/lib/session/runner-status-selector";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
