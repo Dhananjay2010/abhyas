@@ -135,6 +135,57 @@ Object.defineProperty(window, 'localStorage', {
   // Verify u2 pending sets still exist
   assert(fakeStorage.getItem("pending-sets:u2") !== null, "4b: u2 pending sets kept");
   
+  // F8: Test that queue is restored on sign-out failure
+  console.log("\n--- Testing F8: Queue restored on failure ---\n");
+  
+  fakeStorage.clear();
+  const queueData = JSON.stringify({
+    version: 1,
+    timestamp: FIXED_TIME,
+    sets: [{
+      sessionExerciseId: "ex3",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-u3"
+    }]
+  });
+  fakeStorage.setItem("pending-sets:u3", queueData);
+  
+  const clearSetsF8 = (storage: Storage, userId: string) => {
+    clearAllPendingSetsForUser(storage, userId);
+  };
+  
+  type SignOutActionF8 = () => Promise<{ ok: false; error: string }>;
+  const signOutFailure: SignOutActionF8 = async () => {
+    return { ok: false, error: "Sign-out failed" };
+  };
+  
+  render(
+    <SignOutButton
+      userId="u3"
+      clearSets={clearSetsF8}
+      signOut={signOutFailure as any}
+    />
+  );
+  
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // With the bug (no restore), queue is gone
+  // With the fix (restore on failure), queue is back
+  const restoredQueue = fakeStorage.getItem("pending-sets:u3");
+  assert(restoredQueue !== null, "F8: Queue restored after sign-out failure");
+  assert(restoredQueue === queueData, "F8: Restored queue matches original");
+  
+  console.log("\nPLANTED BUG: Without restore logic, queue is lost on failure\n");
+  
   console.log(`\n✅ SignOutButton test passed (${passed}/${passed + failed})\n`);
   process.exit(failed > 0 ? 1 : 0);
 })();

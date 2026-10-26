@@ -608,6 +608,41 @@ export function SessionRunner({
         error={error}
         message={message}
       >
+        {pendingSetState.pending.length > 0 && (
+          <div className="mb-5">
+            {getPendingUiMode(pendingSetState) === "replay-error" ? (
+              <div className="rounded-xl border border-muted/30 bg-muted/10 px-4 py-3 text-sm text-muted">
+                <p className="font-medium">Failed to save sets</p>
+                <p className="mt-1">{getReplayErrorMessage(pendingSetState)}</p>
+              </div>
+            ) : getPendingUiMode(pendingSetState) === "expired" ? (
+              <SessionExpiredPrompt />
+            ) : null}
+            <p className="mt-2 text-sm text-muted">
+              {pendingSetState.pending.length}{" "}
+              {pendingSetState.pending.length === 1 ? "set" : "sets"} waiting to save
+            </p>
+            {controller && (
+              <div className="mt-3">
+                <button
+                  onClick={() => {
+                    controller.replay();
+                  }}
+                  disabled={pendingSetState.retrying}
+                  className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent transition-opacity hover:opacity-90 disabled:opacity-60"
+                >
+                  {pendingSetState.retrying
+                    ? `Saving ${pendingSetState.pending.length} ${
+                        pendingSetState.pending.length === 1 ? "set" : "sets"
+                      }…`
+                    : `Retry saving ${pendingSetState.pending.length} ${
+                        pendingSetState.pending.length === 1 ? "set" : "sets"
+                      }`}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <p className="text-muted">
           Static stretches for what you trained. Hold each for 30 seconds,
           breathing slowly and evenly. Nothing should be sharp.
@@ -637,7 +672,7 @@ export function SessionRunner({
             {getFinishButtonText(pendingSetState.pending.length)}
           </BigButton>
           <GhostButton
-            disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
+            disabled={busy}
             onClick={async () => {
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),

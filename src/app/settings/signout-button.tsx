@@ -20,13 +20,23 @@ export function SignOutButton({
   async function handleSignOut() {
     startTransition(async () => {
       clearPendingChanges();
-      // Clear pending sets before sign-out (signOut redirects on success and never returns)
+      
+      // Save pending sets before attempting sign-out
+      let savedQueue: string | null = null;
       if (typeof window !== "undefined") {
+        const key = `pending-sets:${userId}`;
+        savedQueue = window.localStorage.getItem(key);
         clearSets(window.localStorage, userId);
       }
+      
       const result = await signOut();
       // If we reach here, signOut failed (success redirects and never returns)
       if (!result.ok) {
+        // Restore the queue since sign-out failed
+        if (typeof window !== "undefined" && savedQueue) {
+          const key = `pending-sets:${userId}`;
+          window.localStorage.setItem(key, savedQueue);
+        }
         // Show a friendly error message instead of exposing internal error details
         setError("Unable to sign out. Please try again.");
       }

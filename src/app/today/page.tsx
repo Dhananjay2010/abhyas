@@ -83,7 +83,7 @@ export default async function TodayPage() {
           problem, not yours.
         </p>
         <div className="mt-8">
-          <SignOutForm label="Sign out and try again" />
+          <SignOutForm label="Sign out and try again" userId={user.id} />
         </div>
       </main>
     );
@@ -730,7 +730,7 @@ export default async function TodayPage() {
 
       <div className="mt-10 space-y-3">
         <BuildPlanButton label="Rebuild this block" />
-        <SignOutForm label="Sign out" />
+        <SignOutForm label="Sign out" userId={user.id} />
       </div>
 
     </main>
