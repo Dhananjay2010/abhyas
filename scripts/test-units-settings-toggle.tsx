@@ -40,7 +40,7 @@ import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SettingsForm, type SettingsState, type SettingsActions } from "../src/app/settings/settings-form";
 import { LogWeight } from "../src/app/progress/log-weight";
-import { parseWeight, parseHeight, formatWeight, formatHeight } from "../src/lib/units";
+import { parseWeight, parseHeight } from "../src/lib/units";
 
 let failures = 0;
 

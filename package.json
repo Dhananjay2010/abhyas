@@ -339,7 +339,7 @@
     "test:units-no-pb-on-prefill": "tsx scripts/test-units-no-pb-on-prefill.ts",
     "test:units-lb-half-rounding": "tsx scripts/test-units-lb-half-rounding.ts",
     "test:units-m1-runner-prefill": "tsx scripts/test-units-m1-runner-prefill-real.tsx",
-    "test:units-m1-false-pb": "tsx scripts/test-units-false-pb-prefill.tsx",
+    "test:units-m1-false-pb": "tsx scripts/test-units-no-pb-on-prefill.ts",
     "test:units-m3-history-save": "tsx scripts/test-units-m3-history-save-real-path.tsx"
   },
   "dependencies": {
