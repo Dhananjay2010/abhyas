@@ -17,7 +17,6 @@ import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
-import { keepPlannedDay } from "@/lib/session/plan-day-keep-core";
 import { validatePlanDayInput } from "@/lib/session/validate-plan-day-input";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
@@ -833,8 +832,6 @@ export async function planDay(input: {
   }
 
   if (input.plan.kind === "keep") {
-    const keepResult = await keepPlannedDay();
-    if (!keepResult.ok) return keepResult;
     revalidateTrainingData();
     return { ok: true };
   }
