@@ -1456,7 +1456,12 @@ console.log("\n12. MEDIUM-1: Stale finish summary shows saved duration (medium1-
   const correctDuration = timeValue && (timeValue.includes("9:15") || timeValue.includes("9 min"));
   check("Summary shows stale duration (9:15)", correctDuration === true, `Time value: ${timeValue}`);
   
-  // Header should also show stale duration, not raw elapsed (300:00)
+  // Header should show stale duration (9:15 = 555s), not raw elapsed (300:00)
+  // Check the header area before the Time stat
+  const headerPart = text.split("Time")[0];
+  const headerHas915 = headerPart.includes("9:15") || headerPart.includes("555");
+  check("Header shows saved duration (9:15)", headerHas915, `Header: ${headerPart.substring(0, 200)}`);
+  
   const has300 = text.includes("300:00") || text.includes("300 hours");
   check("Header does NOT show raw elapsed (300:00)", !has300, `Should not contain 300:00`);
 
