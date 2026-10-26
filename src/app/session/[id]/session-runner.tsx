@@ -41,7 +41,7 @@ import {
   type PendingSetState,
 } from "@/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
-import { isFinishDisabled, getFinishButtonText, getFinishWarningText } from "@/lib/session/finish-guard";
+import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
 import { getPendingUiMode } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
 import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
