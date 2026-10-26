@@ -494,6 +494,14 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   if (input.anyKneeInjury && (ex.slug === "landmine-linear-jammer" || ex.slug === "single-arm-linear-jammer")) {
     return false;
   }
+  
+  // Owner decision (a): Past-knee specific NEW exclusions (3 slugs added in this PR)
+  // Calf-press is knee-contraindicated but only excluded for past-knee (not current, see tag check above)
+  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
+  if (hasPastKnee && ex.slug === "calf-press-on-the-leg-press-machine") {
+    return false;
+  }
 
   // BMI >= 30 excludes high-impact work
   if (input.bmi !== null && input.bmi >= 30 && ex.impact === "high") return false;
@@ -529,13 +537,6 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
     return false;
   }
   
-  // Owner decision (a): Past-knee specific exclusions (explicit slug list)
-  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
-  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
-  if (hasPastKnee && isExcludedForPastKnee(ex)) {
-    return false;
-  }
-
   // PR #73 QA scoped policy: Lunge slots use different lists for current vs past knee
   // Current knee: step-ups and split squats (KNEE_SAFE_LUNGE_EXERCISES)
   // Past knee: quad isolation list (PAST_KNEE_LUNGE_EXERCISES)
