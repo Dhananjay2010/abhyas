@@ -6,32 +6,31 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-function testBothButtonsDisabledWithPending() {
-  console.log("\n▶ Testing both buttons disabled with pending sets...");
+function testDoneDisabledWithPending() {
+  console.log("\n▶ Testing Done button disabled with pending sets...");
   
   const disabled = isFinishDisabled(2, false);
   
-  assert(disabled, "Both buttons should be disabled with pending>0");
-  console.log("  ✓ Both buttons (Done and Skip) disabled with pending>0");
+  assert(disabled, "Done button should be disabled with pending sets");
+  console.log("  ✓ Done button disabled with pending>0");
 }
 
-function testBothButtonsEnabledWithZeroPending() {
-  console.log("\n▶ Testing both buttons enabled with zero pending...");
+function testDoneEnabledWithZeroPending() {
+  console.log("\n▶ Testing Done button enabled with zero pending...");
   
   const disabled = isFinishDisabled(0, false);
   
-  assert(!disabled, "Both buttons should be enabled with pending=0");
-  console.log("  ✓ Both buttons enabled with pending=0");
+  assert(!disabled, "Done button should be enabled with zero pending");
+  console.log("  ✓ Done button enabled with pending=0");
 }
 
-function testBothButtonsDisabledWhenBusy() {
-  console.log("\n▶ Testing both buttons disabled when busy...");
+function testDoneDisabledWhenBusy() {
+  console.log("\n▶ Testing Done button disabled when busy...");
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const disabled = isFinishDisabled(0, true);
   
-  assert(disabled, "Both buttons should be disabled when busy");
-  console.log("  ✓ Both buttons disabled when busy");
+  assert(disabled, "Done button should be disabled when busy");
+  console.log("  ✓ Done button disabled when busy");
 }
 
 function testFinishButtonTextWithPending() {
@@ -58,7 +57,7 @@ function testWarningTextWithPending() {
   const text = getFinishWarningText(2, false);
   
   assert(text !== null, "Should show warning");
-  assert(text!.includes("syncing"), "Should mention syncing");
+  assert(text.includes("syncing"), "Should mention syncing");
   console.log("  ✓ Warning shown with pending>0");
 }
 
@@ -71,19 +70,20 @@ function testWarningTextWithZero() {
   console.log("  ✓ No warning with pending=0");
 }
 
-console.log("Testing Cool-down Button State");
-console.log("==============================");
+console.log("Testing Cool-down Button State (Done/Finish only)");
+console.log("=================================================");
 
 try {
-  testBothButtonsDisabledWithPending();
-  testBothButtonsEnabledWithZeroPending();
-  testBothButtonsDisabledWhenBusy();
+  testDoneDisabledWithPending();
+  testDoneEnabledWithZeroPending();
+  testDoneDisabledWhenBusy();
   testFinishButtonTextWithPending();
   testFinishButtonTextWithZero();
   testWarningTextWithPending();
   testWarningTextWithZero();
   console.log("\n✅ All cool-down button tests passed\n");
-} catch (err: any) {
-  console.error(`\n❌ Test error: ${err.message}\n`);
+} catch (err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`\n❌ Test error: ${message}\n`);
   process.exit(1);
 }

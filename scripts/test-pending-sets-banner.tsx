@@ -12,10 +12,11 @@ function assert(condition: boolean, message: string) {
 function testBannerWithPendingSets() {
   console.log("\n▶ Testing banner shows with pending sets...");
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const state: PendingSetState = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pending: [{} as any, {} as any],
+    pending: [
+      { exerciseId: "ex1", setNumber: 1, reps: 10, weightKg: 100, durationSeconds: null, createdAt: Date.now() },
+      { exerciseId: "ex2", setNumber: 1, reps: 8, weightKg: 80, durationSeconds: null, createdAt: Date.now() }
+    ],
     replayed: [],
     expired: false,
     retrying: false,
@@ -84,10 +85,10 @@ function testBannerHiddenAfterReplay() {
 function testReplayErrorMode() {
   console.log("\n▶ Testing replay error mode...");
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const state: PendingSetState = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pending: [{} as any],
+    pending: [
+      { exerciseId: "ex1", setNumber: 1, reps: 10, weightKg: 100, durationSeconds: null, createdAt: Date.now() }
+    ],
     replayed: [],
     expired: false,
     retrying: false,
@@ -115,7 +116,8 @@ try {
   testBannerHiddenAfterReplay();
   testReplayErrorMode();
   console.log("\n✅ All pending sets banner tests passed\n");
-} catch (err: any) {
-  console.error(`\n❌ Test error: ${err.message}\n`);
+} catch (err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`\n❌ Test error: ${message}\n`);
   process.exit(1);
 }

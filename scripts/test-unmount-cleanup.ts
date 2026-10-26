@@ -29,16 +29,19 @@ class MockEventTarget {
   }
 }
 
+type TimerId = ReturnType<typeof setTimeout>;
+
 class MockScheduler {
-  private timers: Set<any> = new Set();
+  private timers: Set<TimerId> = new Set();
   
-  setTimeout = (callback: () => void, delay: number): any => {
-    const timer = { callback, delay };
+  setTimeout = (callback: () => void, delay: number): TimerId => {
+    const timer = global.setTimeout(callback, delay);
     this.timers.add(timer);
     return timer;
   }
   
-  clearTimeout = (timer: any): void => {
+  clearTimeout = (timer: TimerId): void => {
+    global.clearTimeout(timer);
     this.timers.delete(timer);
   }
   
@@ -56,7 +59,6 @@ function testCleanupRemovesOnlineListener() {
   
   const target = new MockEventTarget();
   const scheduler = new MockScheduler();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const retry = createRetryScheduler({
     timer: { setTimeout: scheduler.setTimeout, clearTimeout: scheduler.clearTimeout },
     addEventListener: target.addEventListener,
@@ -76,7 +78,6 @@ function testCleanupClearsTimers() {
   
   const target = new MockEventTarget();
   const scheduler = new MockScheduler();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const retry = createRetryScheduler({
     timer: { setTimeout: scheduler.setTimeout, clearTimeout: scheduler.clearTimeout },
     addEventListener: target.addEventListener,
@@ -100,7 +101,8 @@ try {
   testCleanupRemovesOnlineListener();
   testCleanupClearsTimers();
   console.log("\n✅ All unmount cleanup tests passed\n");
-} catch (err: any) {
-  console.error(`\n❌ Test error: ${err.message}\n`);
+} catch (err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`\n❌ Test error: ${message}\n`);
   process.exit(1);
 }

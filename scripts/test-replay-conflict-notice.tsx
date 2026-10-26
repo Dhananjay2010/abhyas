@@ -11,7 +11,6 @@ function assert(condition: boolean, message: string) {
 function testNoticeWithConflicts() {
   console.log("\n▶ Testing conflict notice shows with conflicts...");
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const html = renderToString(React.createElement(ReplayConflictNotice, { conflicts: 2 }));
   
   assert(html.includes("2 sets"), "Should show conflict count");
@@ -46,7 +45,8 @@ try {
   testNoticeHiddenWithZero();
   testSingleConflict();
   console.log("\n✅ All replay conflict notice tests passed\n");
-} catch (err: any) {
-  console.error(`\n❌ Test error: ${err.message}\n`);
+} catch (err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`\n❌ Test error: ${message}\n`);
   process.exit(1);
 }

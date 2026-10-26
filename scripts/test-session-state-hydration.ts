@@ -30,7 +30,7 @@ function testLoadEmptyCache() {
   console.log("\n▶ Testing load from empty cache...");
   
   const storage = new MockStorage();
-  const result = loadSessionState(storage as any, "user123", "session456", () => Date.now());
+  const result = loadSessionState(storage as unknown as Storage, "user123", "session456", () => Date.now());
   
   assert(result === null, "Should return null for empty cache");
   console.log("  ✓ Empty cache returns null");
@@ -51,14 +51,12 @@ function testSaveAndLoadCache() {
   ];
   
   const now = Date.now();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  saveSessionState(storage as any, "user123", "session456", exercises, () => now);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = loadSessionState(storage as any, "user123", "session456", () => now);
+  saveSessionState(storage as unknown as Storage, "user123", "session456", exercises, () => now);
+  const result = loadSessionState(storage as unknown as Storage, "user123", "session456", () => now);
   
   assert(result !== null, "Should load saved state");
-  assert(result!.exercises.length === 1, "Should have 1 exercise");
-  assert(result!.exercises[0].name === "Squat", "Should preserve exercise name");
+  assert(result.exercises.length === 1, "Should have 1 exercise");
+  assert(result.exercises[0].name === "Squat", "Should preserve exercise name");
   console.log("  ✓ Save and load cache preserves state");
 }
 
@@ -74,9 +72,9 @@ function testStaleCache() {
     }
   ];
   
-  const pastTime = Date.now() - (25 * 60 * 60 * 1000); // 25 hours ago
-  saveSessionState(storage as any, "user123", "session456", exercises, () => pastTime);
-  const result = loadSessionState(storage as any, "user123", "session456", () => Date.now());
+  const pastTime = Date.now() - (25 * 60 * 60 * 1000);
+  saveSessionState(storage as unknown as Storage, "user123", "session456", exercises, () => pastTime);
+  const result = loadSessionState(storage as unknown as Storage, "user123", "session456", () => Date.now());
   
   assert(result === null, "Should return null for stale cache");
   console.log("  ✓ Stale cache removed");
@@ -90,14 +88,14 @@ function testUserIsolation() {
   const exercises2 = [{ id: "ex2", name: "Bench", sets: [] }];
   
   const now = Date.now();
-  saveSessionState(storage as any, "user1", "session1", exercises1, () => now);
-  saveSessionState(storage as any, "user2", "session1", exercises2, () => now);
+  saveSessionState(storage as unknown as Storage, "user1", "session1", exercises1, () => now);
+  saveSessionState(storage as unknown as Storage, "user2", "session1", exercises2, () => now);
   
-  const result1 = loadSessionState(storage as any, "user1", "session1", () => now);
-  const result2 = loadSessionState(storage as any, "user2", "session1", () => now);
+  const result1 = loadSessionState(storage as unknown as Storage, "user1", "session1", () => now);
+  const result2 = loadSessionState(storage as unknown as Storage, "user2", "session1", () => now);
   
-  assert(result1!.exercises[0].name === "Squat", "User1 should get Squat");
-  assert(result2!.exercises[0].name === "Bench", "User2 should get Bench");
+  assert(result1 !== null && result1.exercises[0].name === "Squat", "User1 should get Squat");
+  assert(result2 !== null && result2.exercises[0].name === "Bench", "User2 should get Bench");
   console.log("  ✓ Users have isolated cache");
 }
 
@@ -108,12 +106,9 @@ function testClearCache() {
   const exercises = [{ id: "ex1", name: "Squat", sets: [] }];
   
   const now = Date.now();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  saveSessionState(storage as any, "user123", "session456", exercises, () => now);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  clearSessionState(storage as any, "user123", "session456");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = loadSessionState(storage as any, "user123", "session456", () => now);
+  saveSessionState(storage as unknown as Storage, "user123", "session456", exercises, () => now);
+  clearSessionState(storage as unknown as Storage, "user123", "session456");
+  const result = loadSessionState(storage as unknown as Storage, "user123", "session456", () => now);
   
   assert(result === null, "Should return null after clear");
   console.log("  ✓ Clear removes cache");
@@ -129,7 +124,8 @@ try {
   testUserIsolation();
   testClearCache();
   console.log("\n✅ All session state cache tests passed\n");
-} catch (err: any) {
-  console.error(`\n❌ Test error: ${err.message}\n`);
+} catch (err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`\n❌ Test error: ${message}\n`);
   process.exit(1);
 }
