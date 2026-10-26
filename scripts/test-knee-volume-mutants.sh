@@ -234,6 +234,30 @@ run_mutant "K5. Drop derived squat-pattern check" "$KNEE_SAFETY" \
   }' \
   '' "$V" "$C"
 
+run_mutant "MED-2-TIME. Remove past-knee calf cap in time-fill" "$GENERATE" \
+  '            // MED-2: For lower/full days, cap calf exercises at 4 sets (not 5)
+            if (isLowerOrFullDay && candidate?.movement_pattern === "calf" && ex.targetSets >= 4) return false;' \
+  '            // MED-2: For lower/full days, cap calf exercises at 4 sets (not 5)
+            if (false && isLowerOrFullDay && candidate?.movement_pattern === "calf" && ex.targetSets >= 4) return false;' \
+  test:knee-volume test:knee-volume-identity test:count-knee-risk-outside-squat test:med2-comparison test:full-body-c-lunge
+
+run_mutant "FB-C-WALL. Remove Wall Sit sort logic for Full Body days" "$GENERATE" \
+  '      // For past-knee users on Full Body days: Wall Sit comes after other lower-body exercises
+      const hasPastKnee = input.anyKneeInjury && !hasKneeInjury;
+      const isFullDay = entry.focus === "full_body";
+      if (hasPastKnee && isFullDay) {
+        const aIsWallSit = a.ex.slug === "wall-sit";
+        const bIsWallSit = b.ex.slug === "wall-sit";
+        const lowerBodyPatterns = new Set(["squat", "lunge", "hinge", "calf"]);
+        const aIsLower = lowerBodyPatterns.has(a.ex.movement_pattern);
+        const bIsLower = lowerBodyPatterns.has(b.ex.movement_pattern);
+        
+        // Wall Sit after other lower-body, but before upper-body and core
+        if (aIsWallSit && bIsLower && !bIsWallSit) return 1;
+        if (bIsWallSit && aIsLower && !aIsWallSit) return -1;
+      }' \
+  '' test:knee-volume test:knee-volume-identity test:count-knee-risk-outside-squat test:full-body-c-lunge
+
 echo ""
 echo "──────────────────────────────────────────────────────────"
 echo "Mutants killed:   $KILLED"
