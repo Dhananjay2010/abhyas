@@ -378,16 +378,24 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     `${same.personalBest?.kind}`);
 
   const first = run({
-    sets: sets(4, 12, 60),
+    sets: sets(4, 10, 60),
     state: fresh({ bestWeightKg: null, bestReps: null, bestE1rm: null }),
   });
   check("a first session sets a baseline and claims no record", first.personalBest === null,
     `${first.personalBest?.kind}`);
   check("but does record the bests themselves",
-    first.bestWeightKg === 60 && first.bestReps === 12, `${first.bestWeightKg}/${first.bestReps}`);
+    first.bestWeightKg === 60 && first.bestReps === 10, `${first.bestWeightKg}/${first.bestReps}`);
 
   // The case a weight comparison alone misses: same load, more reps.
-  const moreReps = run({ sets: sets(4, 14, 60) });
+  // Prior: 60×10 = 80.00, New: 60×12 = 84.00 (with 12-rep cap)
+  const moreReps = run({ 
+    sets: sets(4, 12, 60),
+    state: fresh({ 
+      bestWeightKg: first.bestWeightKg, 
+      bestReps: first.bestReps, 
+      bestE1rm: first.bestE1rm 
+    })
+  });
   check("more reps at a weight already lifted is an estimated-1RM best",
     moreReps.personalBest?.kind === "e1rm", `${moreReps.personalBest?.kind}`);
 

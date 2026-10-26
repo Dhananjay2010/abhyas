@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { idsToDeleteOnKeep } from "@/lib/session/ids-to-delete-on-keep";
 
 type SessionRow = {
   id: string;
@@ -20,19 +21,11 @@ export async function keepPlannedDay(
   supabase: SupabaseClient<Database>,
   planned: SessionRow[]
 ): Promise<{ ok: true; deletedIds: string[] } | { ok: false; error: string }> {
-  if (planned.length === 0) {
+  const ids = idsToDeleteOnKeep(planned);
+  if (ids.length === 0) {
     return { ok: true, deletedIds: [] };
   }
 
-  // On a Rest override day, "Keep it" must keep the Rest override, not delete it.
-  // If all planned sessions are Rest, don't delete.
-  const allRest = planned.every((s) => s.actual_type === "rest");
-  if (allRest) {
-    return { ok: true, deletedIds: [] };
-  }
-
-  // Delete all non-Rest overrides to revert to the template
-  const ids = planned.map((s) => s.id);
   const { error } = await supabase.from("sessions").delete().in("id", ids);
   
   if (error) {

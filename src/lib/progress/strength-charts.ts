@@ -1,5 +1,5 @@
 import type { Point } from "@/components/charts";
-import { kgToLb, type UnitsPreference, weightLabel } from "@/lib/units";
+import { type UnitsPreference, weightLabel } from "@/lib/units";
 
 export type StrengthHistoryRow = {
   exercise_id: string | null;
@@ -11,8 +11,10 @@ export type StrengthHistoryRow = {
 
 export type ExerciseChart = {
   name: string;
+  /** Values are kg (as stored); LineChart formats them in `units` via formatWeight */
   points: Point[];
   unitLabel: string;
+  units: UnitsPreference;
 };
 
 /**
@@ -20,7 +22,8 @@ export type ExerciseChart = {
  * the DB (descending order, newest first) and returns chart-ready data with
  * points ordered oldest to newest (chronological).
  *
- * B3/C1: e1RM is a weight - converts to user's units and adds unit label.
+ * B3/C1: e1RM is a weight. Values stay in kg; the chart formats every
+ * readout through the shared formatWeight in the user's units (0.5 lb snap).
  * B1/B2/C2: Includes all sessions (including deloads) but marks deload points.
  *
  * This is the entry point for Progress page and tests. It reverses the
@@ -58,12 +61,12 @@ function buildStrengthCharts(
       name: row.exercise_name ?? "Exercise",
       points: [] as Point[],
       unitLabel: unitLabelText,
+      units,
     };
     
-    // B: PostgREST returns numeric columns as strings, so convert first
-    // C1: Convert e1RM to user's units
-    const e1rmNum = Number(row.best_e1rm);
-    const value = units === "imperial" ? kgToLb(e1rmNum) : e1rmNum;
+    // B: PostgREST returns numeric columns as strings, so convert first.
+    // C1: kept in kg; LineChart converts and rounds via formatWeight.
+    const value = Number(row.best_e1rm);
     
     // C2: Keep all points (including deloads), flag deload points
     const isDeload = deloadDates.has(row.local_date);

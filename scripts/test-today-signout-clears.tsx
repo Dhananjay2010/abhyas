@@ -1,24 +1,17 @@
 #!/usr/bin/env tsx
 /**
- * Test: Today SignOutForm clears queue only after success and navigates
+ * Test: Today SignOutForm with H1 behavior
  * 
- * Tests:
- * - Success: clears that user's queue (other users untouched), then navigates (M11, M14)
- * - Failure: keeps queue, no navigation
- * - Throw: keeps queue, no navigation
- * 
- * Mutants:
- * - M10: Clear before sign-out check
- * - M11: Today form not clearing at all
- * - M12: Clear when signOut throws
- * - M14: No navigation after success
+ * H1: Sign-out never deletes unsynced sets.
+ * Tests that SignOutForm follows H1 requirements.
+ * (See test-signout-h1-never-delete.tsx for comprehensive H1 tests)
  */
 
 import "./helpers/setup-jsdom";
 import { mockNextRouter } from "./helpers/setup-jsdom";
-import { render, act, screen } from "@testing-library/react";
+import { render, act, screen, cleanup } from "@testing-library/react";
 import { SignOutForm } from "../src/app/today/signout-form";
-import { savePendingSet, clearAllPendingSetsForUser, storageKey } from "../src/lib/session/pending-set-retry";
+import { savePendingSet, storageKey } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 import type { Storage } from "../src/lib/session/pending-set-retry";
 
@@ -55,9 +48,8 @@ const FIXED_TIME = new Date('2026-10-26T12:00:00Z').getTime();
 const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
 
 (async () => {
-  console.log("\n📋 Test: Today SignOutForm clears queue only after success\n");
+  console.log("\n📋 Test: SignOutForm H1 compatibility\n");
   
-  // Track router calls
   const replaceCalls: string[] = [];
   const refreshCalls: number[] = [];
   
@@ -69,35 +61,17 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   };
   
   // ========================================================================
-  // Test 1: Success clears that user's queue, others untouched, then navigates (M11, M14)
+  // Test 1: Empty queue signs out immediately
   // ========================================================================
-  console.log("=== Test 1: Success path (M11, M14) ===\n");
+  console.log("=== Test 1: Empty queue signs out ===\n");
   
   fakeStorage.clear();
-  savePendingSet(fakeStorage, "u1", "s1", {
-    sessionExerciseId: "ex1",
-    setNumber: 1,
-    reps: 10,
-    weightKg: 50,
-    durationSeconds: null,
-    clientId: "u1-set"
-  }, fakeDeps);
-  
-  savePendingSet(fakeStorage, "u2", "s2", {
-    sessionExerciseId: "ex2",
-    setNumber: 1,
-    reps: 12,
-    weightKg: 60,
-    durationSeconds: null,
-    clientId: "u2-set"
-  }, fakeDeps);
-  
-  assert(fakeStorage.getItem(storageKey("u1")) !== null, "u1 queue exists");
-  assert(fakeStorage.getItem(storageKey("u2")) !== null, "u2 queue exists");
   
   const signOutSuccess = async () => {
     return { ok: true as const };
   };
+  
+  const logSetSuccess = async () => ({ ok: true as const });
   
   replaceCalls.length = 0;
   refreshCalls.length = 0;
@@ -107,7 +81,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
       label="Sign out"
       userId="u1"
       signOut={signOutSuccess}
-      clearSets={clearAllPendingSetsForUser}
+      logSet={logSetSuccess}
     />
   );
   
@@ -119,20 +93,58 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   await act(async () => {});
   await act(async () => {});
   
-  // M11: u1 queue should be cleared after success
-  assert(fakeStorage.getItem(storageKey("u1")) === null, "M11: u1 queue cleared after success");
-  assert(fakeStorage.getItem(storageKey("u2")) !== null, "u2 queue kept (other user)");
+  assert(replaceCalls.length === 1 && replaceCalls[0] === "/", "Navigates to / on empty queue");
   
-  // M14: Navigation should happen after success
-  assert(replaceCalls.length === 1 && replaceCalls[0] === "/", "M14: router.replace('/') called once");
-  assert(refreshCalls.length === 1, "M14: router.refresh() called once");
-  
-  console.log("✓ Test 1: Success path passed\n");
+  cleanup();
+  console.log("✓ Test 1: Empty queue passed\n");
   
   // ========================================================================
-  // Test 2: Failure keeps queue, no navigation (M10)
+  // Test 2: Replay succeeds → queue removed, signs out
   // ========================================================================
-  console.log("=== Test 2: Failure keeps queue ===\n");
+  console.log("=== Test 2: Replay success ===\n");
+  
+  fakeStorage.clear();
+  savePendingSet(fakeStorage, "u2", "s2", {
+    sessionExerciseId: "ex2",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "u2-set"
+  }, fakeDeps);
+  
+  assert(fakeStorage.getItem(storageKey("u2")) !== null, "u2 queue exists before");
+  
+  replaceCalls.length = 0;
+  
+  render(
+    <SignOutForm
+      label="Sign out"
+      userId="u2"
+      signOut={signOutSuccess}
+      logSet={logSetSuccess}
+    />
+  );
+  
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  await act(async () => {});
+  
+  assert(fakeStorage.getItem(storageKey("u2")) === null, "u2 queue cleared after replay success");
+  assert(replaceCalls.length === 1, "Navigates after replay success");
+  
+  cleanup();
+  console.log("✓ Test 2: Replay success passed\n");
+  
+  // ========================================================================
+  // Test 3: Replay fails → warning, queue kept, no sign-out
+  // ========================================================================
+  console.log("=== Test 3: Replay fails → warning ===\n");
   
   fakeStorage.clear();
   savePendingSet(fakeStorage, "u3", "s3", {
@@ -145,21 +157,16 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   }, fakeDeps);
   
   const queueBefore = fakeStorage.getItem(storageKey("u3"));
-  assert(queueBefore !== null, "u3 queue exists before sign-out");
-  
-  const signOutFailure = async () => {
-    return { ok: false as const, error: "Sign-out failed" };
-  };
+  const logSetFail = async () => ({ ok: false as const, error: "Network error" });
   
   replaceCalls.length = 0;
-  refreshCalls.length = 0;
   
   render(
     <SignOutForm
       label="Sign out"
       userId="u3"
-      signOut={signOutFailure}
-      clearSets={clearAllPendingSetsForUser}
+      signOut={signOutSuccess}
+      logSet={logSetFail}
     />
   );
   
@@ -170,206 +177,15 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   
   await act(async () => {});
   await act(async () => {});
-  
-  const queueAfter = fakeStorage.getItem(storageKey("u3"));
-  assert(queueAfter !== null, "M10: u3 queue kept after failure");
-  assert(queueAfter === queueBefore, "M10: u3 queue unchanged after failure");
-  assert(replaceCalls.length === 0, "router.replace not called on failure");
-  assert(refreshCalls.length === 0, "router.refresh not called on failure");
-  
-  console.log("✓ Test 2: Failure keeps queue\n");
-  
-  // ========================================================================
-  // Test 3: Throw keeps queue, no navigation (M12)
-  // ========================================================================
-  console.log("=== Test 3: Throw keeps queue (M12) ===\n");
-  
-  fakeStorage.clear();
-  savePendingSet(fakeStorage, "u4", "s4", {
-    sessionExerciseId: "ex4",
-    setNumber: 1,
-    reps: 10,
-    weightKg: 50,
-    durationSeconds: null,
-    clientId: "u4-set"
-  }, fakeDeps);
-  
-  const queueBeforeThrow = fakeStorage.getItem(storageKey("u4"));
-  assert(queueBeforeThrow !== null, "u4 queue exists before sign-out");
-  
-  const signOutThrow = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
-    throw new Error("Network error");
-  };
-  
-  replaceCalls.length = 0;
-  refreshCalls.length = 0;
-  
-  render(
-    <SignOutForm
-      label="Sign out"
-      userId="u4"
-      signOut={signOutThrow}
-      clearSets={clearAllPendingSetsForUser}
-    />
-  );
-  
-  await act(async () => {
-    const buttons = screen.getAllByRole("button");
-    buttons[buttons.length - 1].click();
-  });
-  
-  await act(async () => {});
   await act(async () => {});
   
-  const queueAfterThrow = fakeStorage.getItem(storageKey("u4"));
-  assert(queueAfterThrow !== null, "M12: u4 queue kept after throw");
-  assert(queueAfterThrow === queueBeforeThrow, "M12: u4 queue unchanged after throw");
-  assert(replaceCalls.length === 0, "M12: router.replace not called when thrown");
-  assert(refreshCalls.length === 0, "M12: router.refresh not called when thrown");
+  assert(fakeStorage.getItem(storageKey("u3")) === queueBefore, "u3 queue kept after replay fail");
+  assert(replaceCalls.length === 0, "No navigation when replay fails");
+  assert(screen.queryByText(/hasn'?t synced yet/i) !== null, "Shows warning");
   
-  console.log("✓ Test 3: Throw keeps queue\n");
+  cleanup();
+  console.log("✓ Test 3: Replay fails passed\n");
   
-  // ========================================================================
-  // Test 4: Expired session - still signs out locally, keeps queue, navigates (B6)
-  // ========================================================================
-  console.log("=== Test 4: Expired session path (B6) ===\n");
-  
-  fakeStorage.clear();
-  savePendingSet(fakeStorage, "u5", "s5", {
-    sessionExerciseId: "ex5",
-    setNumber: 1,
-    reps: 10,
-    weightKg: 50,
-    durationSeconds: null,
-    clientId: "u5-set"
-  }, fakeDeps);
-  
-  const queueBeforeExpired = fakeStorage.getItem(storageKey("u5"));
-  assert(queueBeforeExpired !== null, "u5 queue exists before sign-out");
-  
-  // Mock fetch for /auth/signout
-  let fetchCalled = false;
-  const originalFetch = global.fetch;
-  global.fetch = async (url: string | URL | Request, init?: RequestInit) => {
-    const urlString = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
-    if (urlString.includes("/auth/signout") && init?.method === "POST") {
-      fetchCalled = true;
-      return new Response("", { status: 200 });
-    }
-    return originalFetch(url, init);
-  };
-  
-  const signOutExpired = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
-    // Simulate expired session - throw error with SESSION_EXPIRED prefix
-    throw new Error("SESSION_EXPIRED: Session has expired");
-  };
-  
-  replaceCalls.length = 0;
-  refreshCalls.length = 0;
-  
-  render(
-    <SignOutForm
-      label="Sign out"
-      userId="u5"
-      signOut={signOutExpired}
-      clearSets={clearAllPendingSetsForUser}
-    />
-  );
-  
-  await act(async () => {
-    const buttons = screen.getAllByRole("button");
-    buttons[buttons.length - 1].click();
-  });
-  
-  await act(async () => {});
-  await act(async () => {});
-  
-  // Restore original fetch
-  global.fetch = originalFetch;
-  
-  const queueAfterExpired = fakeStorage.getItem(storageKey("u5"));
-  assert(queueAfterExpired !== null, "B6: u5 queue kept when session expired");
-  assert(queueAfterExpired === queueBeforeExpired, "B6: u5 queue unchanged when expired");
-  assert(fetchCalled, "B6: POST /auth/signout called for local sign-out");
-  assert(replaceCalls.length === 1 && replaceCalls[0] === "/", "B6: router.replace called when expired");
-  assert(refreshCalls.length === 1, "B6: router.refresh called when expired");
-  
-  console.log("✓ Test 4: Expired session path passed\n");
-  
-  // ========================================================================
-  // Test 5: Expired session with non-ok fetch response - shows error, doesn't navigate
-  // ========================================================================
-  console.log("Test 5: Expired session with non-ok fetch response\n");
-  
-  fakeStorage.clear();
-  savePendingSet(fakeStorage, "u6", "session-u6", {
-    sessionExerciseId: "ex-u6",
-    setNumber: 1,
-    reps: 10,
-    weightKg: 50,
-    durationSeconds: null,
-    clientId: "u6-set"
-  }, fakeDeps);
-  
-  const queueBeforeExpiredFail = fakeStorage.getItem(storageKey("u6"));
-  assert(queueBeforeExpiredFail !== null, "u6 queue exists before sign-out");
-  
-  // Mock fetch to return 500 error
-  let fetchCalledFail = false;
-  global.fetch = async (url: string | URL | Request, init?: RequestInit) => {
-    const urlString = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
-    if (urlString.includes("/auth/signout") && init?.method === "POST") {
-      fetchCalledFail = true;
-      return new Response("Server error", { status: 500 });
-    }
-    return originalFetch(url, init);
-  };
-  
-  const signOutExpiredFail = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
-    throw new Error("SESSION_EXPIRED: Session has expired");
-  };
-  
-  replaceCalls.length = 0;
-  refreshCalls.length = 0;
-  
-  render(
-    <SignOutForm
-      label="Sign out"
-      userId="u6"
-      signOut={signOutExpiredFail}
-      clearSets={clearAllPendingSetsForUser}
-    />
-  );
-  
-  await act(async () => {
-    const buttons = screen.getAllByRole("button");
-    buttons[buttons.length - 1].click();
-  });
-  
-  await act(async () => {});
-  await act(async () => {});
-  
-  // Restore original fetch
-  global.fetch = originalFetch;
-  
-  const queueAfterExpiredFail = fakeStorage.getItem(storageKey("u6"));
-  assert(queueAfterExpiredFail !== null, "u6 queue kept when fetch fails");
-  assert(fetchCalledFail, "POST /auth/signout called");
-  assert(replaceCalls.length === 0, "router.replace NOT called when fetch fails");
-  assert(refreshCalls.length === 0, "router.refresh NOT called when fetch fails");
-  
-  // Check that error message is shown
-  const errorMsg = screen.queryByText(/Failed to sign out/i);
-  assert(errorMsg !== null, "Error message shown when fetch fails");
-  
-  console.log("✓ Test 5: Expired session with non-ok fetch passed\n");
-  
-  console.log(`✅ Today SignOutForm tests passed (${passed} assertions)\n`);
-  console.log("MUTANT M10: Clear before sign-out check → clears even on failure");
-  console.log("MUTANT M11: Today form not clearing → queue never cleared");
-  console.log("MUTANT M12: Clear when signOut throws → kills the queue");
-  console.log("MUTANT M14: No navigation after success → user stays on /today");
-  console.log("MUTANT B6-clear: Clear queue on expired path → loses replay data");
-  console.log("MUTANT B6-skip: Skip local sign-out on expired path → cookies not cleared\n");
+  console.log(`✅ H1 compatibility tests passed (${passed} assertions)\n`);
   process.exit(0);
 })();

@@ -23,9 +23,7 @@ import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
 import { StrengthDoneBanner } from "./strength-done-banner";
 import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
-import { buildChosenByDayIndex } from "@/lib/today/chosen-by-day";
-import { shouldLoadPlannableDays } from "@/lib/today/should-load-plannable";
-import { decideRestDayResume } from "@/lib/today/rest-day-resume";
+import { deriveTodayView } from "@/lib/today/derive-today-view";
 
 export const dynamic = "force-dynamic";
 
@@ -302,8 +300,20 @@ export default async function TodayPage() {
       (s) => s.status === "completed" && isStrength(s.actual_type),
     ),
   });
-  // Only worth asking while today is still open to being changed.
-  const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
+
+  // Decide which single day-plan prompt (if any) to show
+  const viewModel = deriveTodayView({
+    dayType: dayType ?? "rest",
+    missedYesterday,
+    strengthDone,
+    strengthOpen,
+    todaySessions,
+    yesterdayDay,
+    localToday,
+    todayIndex,
+    allSessions,
+    days: days ?? [],
+  });
 
   // ---- wave 3 -------------------------------------------------------------
   // Both of these are conditional, and on most loads neither runs: the prompt
@@ -311,7 +321,7 @@ export default async function TodayPage() {
   // a workout has been started. Run together so the uncommon day that needs
   // both still costs one round trip.
   const [plannable, performedRows, endedEarlySummary, loggedSetsRes] = await Promise.all([
-    shouldLoadPlannableDays({ askAboutToday, dayType, strengthOpen: strengthOpen !== undefined })
+    viewModel.shouldLoadPlannableDays
       ? plannableDays(supabase, program.id)
       : Promise.resolve([]),
     performed
@@ -421,7 +431,7 @@ export default async function TodayPage() {
     strength sessions are included; yoga and breathing are not (they're anytime
     activities that don't own the day).
   */
-  const chosenByDayIndex = buildChosenByDayIndex(allSessions, days ?? [], localToday, todayIndex);
+  const chosenByDayIndex = viewModel.chosenByDayIndex;
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-36">
@@ -470,7 +480,7 @@ export default async function TodayPage() {
         </p>
       )}
 
-      {overrideDiffers && (
+      {overrideDiffers && scheduled !== undefined && (
         <p className="mt-4 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
           You chose this for today, so it replaces the{" "}
           {labelForDayType(scheduled?.day_type ?? "rest", scheduled?.label ?? null)} your
@@ -478,40 +488,35 @@ export default async function TodayPage() {
         </p>
       )}
 
-      {askAboutToday && (
+      {/* Missed-yesterday prompt (shows first if applicable) */}
+      {viewModel.prompt?.type === "missed-yesterday" && (
         <DayPlanPrompt
           localDate={localToday}
           dayLabel="Today"
           plannedLabel={dayLabel}
           days={plannable}
-          heading="You missed yesterday"
-          intro={`${labelForDayType(
-            yesterdayDay?.day_type ?? "rest",
-            yesterdayDay?.label ?? null,
-          )} did not happen.`}
+          heading={viewModel.prompt.heading}
+          intro={viewModel.prompt.intro}
+          showRestOption={viewModel.offerRest}
         />
       )}
 
-      {dayType === "rest" && (() => {
-        const decision = decideRestDayResume({ dayType, strengthOpen, localToday });
-
-        return (
-          <>
-            {/* Rest day with an open strength session shows Resume */}
-            {decision.showResume && decision.resumeButton && (
-              <div className="mt-7">
-                {decision.resumeButton.type === "link" ? (
-                  <Link
-                    href={decision.resumeButton.href}
-                    className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
-                  >
-                    Resume session
-                  </Link>
-                ) : (
-                  <StartSessionButton label={decision.resumeButton.label} />
-                )}
-              </div>
-            )}
+      {dayType === "rest" && (
+        <>
+          {viewModel.showResume && viewModel.resumeButton && (
+            <div className="mt-7">
+              {viewModel.resumeButton.type === "link" ? (
+                <Link
+                  href={viewModel.resumeButton.href}
+                  className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+                >
+                  Resume session
+                </Link>
+              ) : (
+                <StartSessionButton label={viewModel.resumeButton.label} />
+              )}
+            </div>
+          )}
 
             <p className="mt-6 text-muted">
               Rest is part of the training. Your body builds strength while recovering.
@@ -537,8 +542,8 @@ export default async function TodayPage() {
                   </Link>
                 </div>
               </div>
-              {/* Only show swap prompt when no strength session is open */}
-              {decision.showSwap && (
+              {/* Rest-day swap prompt (shows only if no missed-yesterday prompt) */}
+              {viewModel.prompt?.type === "rest-day-swap" && (
                 <DayPlanPrompt
                   localDate={localToday}
                   dayLabel="Today"
@@ -546,12 +551,12 @@ export default async function TodayPage() {
                   days={plannable}
                   heading="Or train today anyway"
                   intro="Pick what you'd like to do instead."
+                  showRestOption={viewModel.offerRest}
                 />
               )}
             </div>
           </>
-        );
-      })()}
+        )}
 
       {dayType === "meditation" && (
         <div className="mt-6">

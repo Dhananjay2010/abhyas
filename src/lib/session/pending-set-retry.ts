@@ -277,6 +277,74 @@ export function clearAllPendingSetsForUser(
 }
 
 /**
+ * Replay all pending sets for a user across all sessions.
+ * Returns the number of sets still pending after replay.
+ */
+export async function replayAllPendingSetsForUser(
+  storage: Storage,
+  userId: string,
+  deps: PendingSetDeps,
+  logSet: (params: {
+    sessionExerciseId: string;
+    setNumber: number;
+    reps: number | null;
+    weightKg: number | null;
+    durationSeconds: number | null;
+  }) => Promise<{ ok: true } | { ok: false; error: string; code?: string } | { ok: false; reason: "set_exists" }>
+): Promise<number> {
+  const all = loadAllPendingSetsWithTimestamp(storage, userId, deps);
+  
+  let remainingCount = 0;
+  
+  for (const sessionId in all) {
+    const { sets } = all[sessionId];
+    
+    for (const set of sets) {
+      try {
+        const result = await logSet({
+          sessionExerciseId: set.sessionExerciseId,
+          setNumber: set.setNumber,
+          reps: set.reps,
+          weightKg: set.weightKg,
+          durationSeconds: set.durationSeconds,
+        });
+        
+        // Success or duplicate - clear the set
+        if (result.ok || ("reason" in result && result.reason === "set_exists")) {
+          clearPendingSet(storage, userId, sessionId, set.clientId, deps);
+        } else {
+          // Failed - keep it pending
+          remainingCount++;
+        }
+      } catch {
+        // Network or other error - keep it pending
+        remainingCount++;
+      }
+    }
+  }
+  
+  return remainingCount;
+}
+
+/**
+ * Get the total count of pending sets for a user across all sessions.
+ */
+export function getPendingSetCountForUser(
+  storage: Storage,
+  userId: string,
+  deps: PendingSetDeps
+): number {
+  const all = loadAllPendingSetsWithTimestamp(storage, userId, deps);
+  
+  let count = 0;
+  for (const sessionId in all) {
+    count += all[sessionId].sets.length;
+  }
+  
+  return count;
+}
+
+/**
  * Check if an error is a unique violation (23505) or server "already saved" result.
  */
 export function isDuplicateError(errOrResponse: unknown): boolean {
