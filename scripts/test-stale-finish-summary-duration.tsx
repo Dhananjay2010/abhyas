@@ -42,7 +42,6 @@ const clock = {
 
 // Test 2: Fresh session - returns elapsed, not saved
 {
-  const startedAtMs = clock.nowMs - 600 * 1000; // 10min ago
   const elapsed = 600;
   const saved = 600; // Same as elapsed for fresh
 
@@ -72,7 +71,6 @@ const clock = {
 
 // Test 4: 6h boundary - returns saved stale duration
 {
-  const startedAtMs = clock.nowMs - 6 * 3600 * 1000; // 6h ago
   const elapsed = 21600;
   const saved = 21600; // max clamp
 

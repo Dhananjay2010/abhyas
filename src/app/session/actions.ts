@@ -14,10 +14,8 @@ import {
 import { buildProgressionInput } from "@/lib/session/build-progression-input";
 import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
-import { validateSet } from "@/lib/session/validation";
 import type { ProgressionFeedback } from "@/lib/session/finish-exercise";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
-import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
 import { planDayCore, type PlanDayClient } from "@/lib/session/plan-day-core";

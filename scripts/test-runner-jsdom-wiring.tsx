@@ -1455,7 +1455,10 @@ console.log("\n12. MEDIUM-1: Stale finish summary shows saved duration (medium1-
   const timeValue = timeMatch ? timeMatch[1] : null;
   const correctDuration = timeValue && (timeValue.includes("9:15") || timeValue.includes("9 min"));
   check("Summary shows stale duration (9:15)", correctDuration === true, `Time value: ${timeValue}`);
-  // Don't check for absence of 300: because it might appear in the clock display elsewhere
+  
+  // Header should also show stale duration, not raw elapsed (300:00)
+  const has300 = text.includes("300:00") || text.includes("300 hours");
+  check("Header does NOT show raw elapsed (300:00)", !has300, `Should not contain 300:00`);
 
   root.unmount();
   document.body.removeChild(container);

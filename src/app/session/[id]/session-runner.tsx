@@ -658,7 +658,7 @@ export function SessionRunner({
       <Shell
         title="Session complete"
         subtitle={null}
-        elapsed={elapsed}
+        elapsed={summaryDuration}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
