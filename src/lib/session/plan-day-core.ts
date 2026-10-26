@@ -97,6 +97,12 @@ export async function planDayCore(
     if (planned.length === 0) {
       return { ok: true };
     }
+    // On a Rest override day, "Keep it" must keep the Rest override, not delete it.
+    // If all planned sessions are Rest, don't delete.
+    const allRest = planned.every((s) => s.actual_type === "rest");
+    if (allRest) {
+      return { ok: true };
+    }
     const deleteResult = await client.deleteSessions(planned.map((s) => s.id));
     if (deleteResult.error) {
       return { ok: false, error: deleteResult.error };

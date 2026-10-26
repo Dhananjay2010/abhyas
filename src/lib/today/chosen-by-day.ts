@@ -6,7 +6,6 @@ type SessionForChosen = {
   status: string;
   actual_type: Database["public"]["Enums"]["day_type"] | null;
   program_day_id: string | null;
-  created_at?: string | null;
 };
 
 type DayForChosen = {
@@ -21,17 +20,6 @@ function isStrength(actualType: string | null): boolean {
 }
 
 /**
-<<<<<<< HEAD
- * Status rank used by the header (and now here) to pick the "owner" of a day.
- * Completed > in_progress > planned > skipped, then newest.
- */
-const OWNER_RANK: Record<string, number> = {
-  completed: 1,
-  in_progress: 2,
-  planned: 3,
-  skipped: 4,
-};
-=======
  * The date a "Your week" row stands for: the next time that weekday comes
  * round, which is today for today (a rolling today..today+6 window). The one
  * rule for both the user's choices and the done tick.
@@ -43,7 +31,6 @@ const OWNER_RANK: Record<string, number> = {
 export function weekRowDate(localToday: string, todayIndex: number, dayIndex: number): string {
   return addDays(localToday, (dayIndex - todayIndex + 7) % 7);
 }
->>>>>>> origin/main
 
 /**
  * Build a map of weekday-index → chosen-day-label for "Your week" display.
@@ -51,9 +38,6 @@ export function weekRowDate(localToday: string, todayIndex: number, dayIndex: nu
  * Only days that DIFFER from the template are recorded. A completed strength
  * session keeps the day's identity, so swaps remain visible after finishing.
  * Yoga and breathing are anytime activities and don't own the day.
- *
- * Uses the same ranking as the header: completed > in_progress > planned > skipped,
- * then newest, to pick which session owns the day when multiple rows exist.
  *
  * @param allSessions - All sessions in the date range
  * @param days - The program's day templates
@@ -72,8 +56,7 @@ export function buildChosenByDayIndex(
   for (const d of days) {
     const date = weekRowDate(localToday, todayIndex, d.day_index);
 
-    // Find all qualifying sessions for this date
-    const candidates = allSessions.filter(
+    const sess = allSessions.find(
       (x) =>
         x.local_date === date &&
         (x.status === "planned" ||
@@ -81,15 +64,6 @@ export function buildChosenByDayIndex(
           (x.status === "completed" && isStrength(x.actual_type))) &&
         x.actual_type !== null,
     );
-
-    if (candidates.length === 0) continue;
-
-    // Use header's ranking: completed > in_progress > planned > skipped, then newest
-    const sess = candidates.sort(
-      (a, b) =>
-        (OWNER_RANK[a.status] ?? 9) - (OWNER_RANK[b.status] ?? 9) ||
-        (b.created_at ?? "").localeCompare(a.created_at ?? "")
-    )[0];
 
     if (!sess?.actual_type) continue;
 

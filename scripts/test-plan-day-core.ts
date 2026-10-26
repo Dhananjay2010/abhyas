@@ -360,3 +360,45 @@ function main() {
 }
 
 main();
+
+  test("Keep with 2 rest rows: deleteSessions NOT called", async () => {
+    const existing: SessionRow[] = [
+      { id: "sess-1", status: "planned", actual_type: "rest" },
+      { id: "sess-2", status: "planned", actual_type: "rest" },
+    ];
+
+    const { client, calls } = makeFakeClient({ existingSessions: existing });
+
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "keep" },
+    });
+
+    assert.equal(result.ok, true, "Should succeed");
+    const deleteCall = calls.find((c) => c.method === "deleteSessions");
+    assert(!deleteCall, "Should NOT delete all-rest rows");
+  });
+
+  test("Keep with 1 yoga row: deleteSessions called", async () => {
+    const existing: SessionRow[] = [
+      { id: "sess-1", status: "planned", actual_type: "yoga" },
+    ];
+
+    const { client, calls } = makeFakeClient({ existingSessions: existing });
+
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "keep" },
+    });
+
+    assert.equal(result.ok, true, "Should succeed");
+    const deleteCall = calls.find((c) => c.method === "deleteSessions");
+    assert(deleteCall, "Should delete yoga row");
+    if (deleteCall.method !== "deleteSessions") throw new Error("Wrong call");
+    assert.deepEqual(deleteCall.ids, ["sess-1"], "Should delete sess-1");
+  });
+
