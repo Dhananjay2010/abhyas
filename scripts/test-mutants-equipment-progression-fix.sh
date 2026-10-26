@@ -36,11 +36,12 @@ restore() {
   cp "$BACKUP_BUILD_INPUT" "$BUILD_INPUT"
   cp "$BACKUP_BUILD_RUNNER" "$BUILD_RUNNER"
   cp "$BACKUP_PROG_INPUTS" "$PROG_INPUTS"
+  cp "$BACKUP_SWAP" "$SWAP_PREFILL"
 }
 
 cleanup() {
   restore
-  rm -f "$BACKUP_PROG" "$BACKUP_ACTIONS" "$BACKUP_BUILD_INPUT" "$BACKUP_BUILD_RUNNER" "$BACKUP_PROG_INPUTS"
+  rm -f "$BACKUP_PROG" "$BACKUP_ACTIONS" "$BACKUP_BUILD_INPUT" "$BACKUP_BUILD_RUNNER" "$BACKUP_PROG_INPUTS" "$BACKUP_SWAP"
 }
 
 trap cleanup EXIT
@@ -64,6 +65,7 @@ TESTS=(
   "npm run test:msg-bodyweight-zero"
   "npm run test:med3-third-miss"
   "npm run test:barbell-grid-snap"
+  "npm run test:swap-mutant-kill"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
@@ -304,7 +306,7 @@ test_mutant "MSG: remove 'currentWeight === 0' check" msg
 
 # SWAP: swap-prefill passes undefined instead of conditional equipmentIds  
 swap_prefill() {
-  local file="src/lib/session/swap-prefill.ts"
+  local file="$SWAP_PREFILL"
   # Current code: isBodyweight ? undefined : equipmentIds
   # Mutant: just undefined
   local count=$(grep -c 'isBodyweight ? undefined : equipmentIds' "$file" || true)
