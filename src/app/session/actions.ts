@@ -8,11 +8,8 @@ import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { getSwapPatterns } from "@/lib/program/swap-patterns";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { CandidateExercise } from "@/lib/program/generate";
-import {
-  describePersonalBest,
-  evaluateProgression,
-} from "@/lib/program/progression";
-import { buildProgressionInput } from "@/lib/session/build-progression-input";
+import { describePersonalBest } from "@/lib/program/progression";
+import { applyProgressionCore } from "@/lib/session/apply-progression-core";
 import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
@@ -22,7 +19,6 @@ import { updateSessionCore } from "@/lib/session/update-session-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
-import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
@@ -430,26 +426,15 @@ async function applyProgression(
       .maybeSingle(),
   ]);
 
-  const prior = progressRes.data;
-  const totalSessions = prior?.total_sessions ?? 0;
-
-  const decision = evaluateProgression(
-    buildProgressionInput(
-      se,
-      setsRes.data ?? [],
-      prior,
-      sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
-      feel
-    )
-  );
-
-  await writeExerciseProgressCore(
+  const decision = await applyProgressionCore(
     supabase,
     userId,
     se.exercise_id,
-    decision,
-    totalSessions,
-    sessionRes.data?.local_date ?? null,
+    se,
+    setsRes.data ?? [],
+    progressRes.data,
+    sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
+    feel
   );
 
   // Outgrew a bodyweight variation: upgrade the plan so next time is harder.

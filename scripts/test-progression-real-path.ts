@@ -158,9 +158,9 @@ async function main() {
 
     check("Miss: outcome hold (first miss)", decision.outcome === "hold", decision.outcome);
     check("Miss: failures=1", decision.consecutiveFailures === 1, `${decision.consecutiveFailures}`);
-    check("Miss: weight holds at 60 (no equipmentIds/unit)", decision.nextWorkingWeightKg === 60, `${decision.nextWorkingWeightKg}`);
-    check("Builder: no equipmentIds", !("equipmentIds" in input), `${JSON.stringify(input).includes("equipmentIds")}`);
-    check("Builder: no unit", !("unit" in input), `${JSON.stringify(input).includes("unit")}`);
+    check("Miss: weight drops to 57.5 (with equipmentIds/unit)", decision.nextWorkingWeightKg === 57.5, `${decision.nextWorkingWeightKg}`);
+    check("Builder: has equipmentIds", "equipmentIds" in input, `${JSON.stringify(input).includes("equipmentIds")}`);
+    check("Builder: has unit", "unit" in input, `${JSON.stringify(input).includes("unit")}`);
   }
 
   console.log("\n3. State weight test: current=50 vs best=60 (would catch best_weight_kg swap)");
