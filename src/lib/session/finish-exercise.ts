@@ -1,5 +1,4 @@
 import type { Database } from "@/lib/database.types";
-import type { UnitsPreference } from "@/lib/units";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 
@@ -27,7 +26,6 @@ export interface FinishExerciseDeps {
     userId: string,
     sessionExerciseId: string,
     feel: SetFeel | null,
-    units: UnitsPreference,
   ) => Promise<ProgressionFeedback | null>;
 }
 

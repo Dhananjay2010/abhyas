@@ -1,76 +1,24 @@
 #!/usr/bin/env bash
+# Mutants for loadSessionSummary, killed by the in-memory PostgREST scenarios.
 set -euo pipefail
-
-TEMP=$(mktemp -d)
-SRC="src/lib/session/build-session-summary.ts"
-BACKUP="$TEMP/build-session-summary.ts.bak"
-
-cleanup() {
-  [ -f "$BACKUP" ] && cp "$BACKUP" "$SRC"
-  rm -rf "$TEMP"
-}
-trap cleanup EXIT INT TERM
-
-[ ! -f "$SRC" ] && echo "✗ Source not found" && exit 1
-cp "$SRC" "$BACKUP"
-
-echo "Mutant tests for buildSessionSummary (FIX a)"
-
-if ! npx tsx scripts/test-session-summary-from-db.ts >/dev/null 2>&1; then
-  echo "✗ Baseline failed"
-  exit 1
-fi
-echo "✓ Baseline passed"
-echo
-
-# M1: Skip exercises with no prior_progress
-echo "M1: Skip exercises with no prior_progress"
-sed -i 's/if (ex.status === "skipped" || ex.sets.length === 0) continue;/if (ex.status === "skipped" || ex.sets.length === 0 || !ex.prior_progress) continue;/' "$SRC"
-cmp -s "$SRC" "$BACKUP" && echo "  ✗ M1: No change" && exit 1
-set +e
-OUT=$(npx tsx scripts/test-session-summary-from-db.ts 2>&1)
-CODE=$?
-set -e
-if [ $CODE -eq 0 ]; then
-  echo "  ✗ M1: Survived"
-  exit 1
-fi
-echo "  ✓ M1: Killed"
-echo "     $(echo "$OUT" | grep "✗" | head -1)"
-cp "$BACKUP" "$SRC"
-
-# M2: Return empty array
-echo "M2: Return empty array"
-sed -i 's/return notes;/return [];/' "$SRC"
-cmp -s "$SRC" "$BACKUP" && echo "  ✗ M2: No change" && exit 1
-set +e
-OUT=$(npx tsx scripts/test-session-summary-from-db.ts 2>&1)
-CODE=$?
-set -e
-if [ $CODE -eq 0 ]; then
-  echo "  ✗ M2: Survived"
-  exit 1
-fi
-echo "  ✓ M2: Killed"
-echo "     $(echo "$OUT" | grep "✗" | head -1)"
-cp "$BACKUP" "$SRC"
-
-# M3: Filter out null feel
-echo "M3: Filter out null feel"
-sed -i '/for (const ex of exercises) {/a\  if (!ex.feel) continue;' "$SRC"
-cmp -s "$SRC" "$BACKUP" && echo "  ✗ M3: No change" && exit 1
-set +e
-OUT=$(npx tsx scripts/test-session-summary-from-db.ts 2>&1)
-CODE=$?
-set -e
-if [ $CODE -eq 0 ]; then
-  echo "  ✗ M3: Survived"
-  exit 1
-fi
-echo "  ✓ M3: Killed"
-echo "     $(echo "$OUT" | grep "✗" | head -1)"
-cp "$BACKUP" "$SRC"
-
-git diff --quiet "$SRC" || { echo "✗ Not restored"; exit 1; }
-echo
-echo "✅ All 3 mutants killed"
+cd "$(dirname "$0")/.."
+source scripts/helpers/file-mutant.sh
+F=src/lib/session/load-session-summary.ts
+T=(npx tsx scripts/test-session-summary-from-db.ts)
+echo "Mutants: loadSessionSummary"
+baseline "${T[@]}"
+run_mutant "history includes this session" "$F" '      .neq("session_exercises.session_id", sessionId)
+' '' "${T[@]}"
+run_mutant "history includes warm-ups" "$F" '      .eq("is_warmup_set", false)
+' '' "${T[@]}"
+run_mutant "history includes skipped exercises" "$F" '      .eq("session_exercises.status", "completed")
+' '' "${T[@]}"
+run_mutant "first page only (no pagination)" "$F" '    if (page.length < HISTORY_PAGE_SIZE) break;' '    break;' "${T[@]}"
+run_mutant "this session's warm-ups count" "$F" 'const workingSets = sets.filter((s) => !s.is_warmup_set);' 'const workingSets = sets;' "${T[@]}"
+run_mutant "first session claims a PB" "$F" '      bestWeightKg: null,
+      bestReps: null,' '      bestWeightKg: 0,
+      bestReps: 0,' "${T[@]}"
+run_mutant "PB always null" "$F" 'personalBest: personalBest ? describePersonalBest(personalBest, units) : null,' 'personalBest: null,' "${T[@]}"
+run_mutant "units ignored" "$F" 'describePersonalBest(personalBest, units)' 'describePersonalBest(personalBest, "metric")' "${T[@]}"
+run_mutant "note direction inverted" "$F" 'nextWeight > thisSessionWeight ? "Weight up next time" : "Weight down next time"' 'nextWeight > thisSessionWeight ? "Weight down next time" : "Weight up next time"' "${T[@]}"
+finish_mutants

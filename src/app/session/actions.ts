@@ -37,7 +37,7 @@ export type { SwapResult };
 
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
-import type { UnitsPreference } from "@/lib/units";
+import { getUnitsPreference } from "@/lib/units";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -382,7 +382,7 @@ export async function finishExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  return finishExerciseCore(input, { applyProgression });
+  return finishExerciseCore(supabase, user.id, input, { applyProgression });
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
@@ -407,7 +407,6 @@ async function applyProgression(
   ]);
 
   const settings = settingsRes.data;
-  const { getUnitsPreference } = await import("@/lib/units");
   const units = getUnitsPreference(profileRes.data?.units);
 
   // Daily-menu mode keeps no working-weight memory. History is preserved, so

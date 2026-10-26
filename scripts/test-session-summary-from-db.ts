@@ -1,236 +1,69 @@
 /**
- * Test buildSessionSummary (FIX a): rebuilds "What changed for next time"
- * from DB instead of client state.
+ * loadSessionSummary (the real loader getSessionSummary calls) against an
+ * in-memory PostgREST, through a real supabase-js client.
  *
- * Must FAIL on main: progressNotes was lost on remount, dropping exercises
- * finished before the user navigated away and tapped Resume.
+ * Same scenarios as scripts/test-session-summary-real-db.ts, which runs them
+ * against local Supabase in the database-seed-test job.
  */
+import { createEmbedFake, type Row, type Relations } from "./helpers/fake-postgrest-embed";
+import { runScenarios, EXERCISE_IDS, EXERCISE_NAMES, type ScenarioSpec, type Env } from "./helpers/session-summary-scenarios";
 
-import { buildSessionSummary, type SummaryNote } from "../src/lib/session/load-session-summary";
-
-console.log("Test buildSessionSummary (FIX a)\n");
-
-// Scenario: User finishes Barbell Squat (felt Hard), navigates to Today,
-// then Resumes and finishes the rest. Summary must include Squat.
-
-const mockExercises = [
-  {
-    id: "se1",
-    exercise_id: "ex1",
-    exercise_name: "Barbell Squat",
-    planned_sets: 4,
-    planned_reps_min: 8,
-    planned_reps_max: 12,
-    metric: "reps" as const,
-    feel: "hard" as const,
-    status: "completed" as const,
-    completed_at: "2026-10-25T10:30:00Z",
-    exercises: {
-      mechanic: "compound" as const,
-      movement_pattern: "squat" as const,
-      equipment_ids: ["barbell"],
-      progression_chain: null,
-      progression_rank: null,
-    },
-    sets: [
-      { reps: 10, weight_kg: 80, duration_seconds: null },
-      { reps: 10, weight_kg: 80, duration_seconds: null },
-      { reps: 9, weight_kg: 80, duration_seconds: null },
-      { reps: 8, weight_kg: 80, duration_seconds: null },
-    ],
-    prior_progress: {
-      current_working_weight_kg: 77.5,
-      current_target_reps: 12,
-      consecutive_failures: 0,
-      best_weight_kg: 77.5,
-      best_reps: 12,
-      best_e1rm: 100,
-      total_sessions: 5,
-    },
+const relations: Relations = {
+  session_exercises: {
+    exercises: { table: "exercises", kind: "one", local: "exercise_id", foreign: "id" },
+    session_sets: { table: "session_sets", kind: "many", local: "id", foreign: "session_exercise_id" },
   },
-  {
-    id: "se2",
-    exercise_id: "ex2",
-    exercise_name: "Deadlift",
-    planned_sets: 3,
-    planned_reps_min: 5,
-    planned_reps_max: 8,
-    metric: "reps" as const,
-    feel: "right" as const,
-    status: "completed" as const,
-    completed_at: "2026-10-25T10:45:00Z",
-    exercises: {
-      mechanic: "compound" as const,
-      movement_pattern: "hinge" as const,
-      equipment_ids: ["barbell"],
-      progression_chain: null,
-      progression_rank: null,
-    },
-    sets: [
-      { reps: 8, weight_kg: 100, duration_seconds: null },
-      { reps: 8, weight_kg: 100, duration_seconds: null },
-      { reps: 7, weight_kg: 100, duration_seconds: null },
-    ],
-    prior_progress: {
-      current_working_weight_kg: 100,
-      current_target_reps: 8,
-      consecutive_failures: 0,
-      best_weight_kg: 100,
-      best_reps: 8,
-      best_e1rm: 120,
-      total_sessions: 3,
-    },
-  },
-  {
-    id: "se3",
-    exercise_id: "ex3",
-    exercise_name: "Leg Press",
-    planned_sets: 3,
-    planned_reps_min: 10,
-    planned_reps_max: 15,
-    metric: "reps" as const,
-    feel: "right" as const,
-    status: "completed" as const,
-    completed_at: "2026-10-25T11:00:00Z",
-    exercises: {
-      mechanic: "compound" as const,
-      movement_pattern: "squat" as const,
-      equipment_ids: ["leg_press"],
-      progression_chain: null,
-      progression_rank: null,
-    },
-    sets: [
-      { reps: 15, weight_kg: 120, duration_seconds: null },
-      { reps: 14, weight_kg: 120, duration_seconds: null },
-      { reps: 13, weight_kg: 120, duration_seconds: null },
-    ],
-    prior_progress: {
-      current_working_weight_kg: 120,
-      current_target_reps: 15,
-      consecutive_failures: 0,
-      best_weight_kg: 120,
-      best_reps: 14,
-      best_e1rm: 150,
-      total_sessions: 2,
-    },
-  },
-  {
-    id: "se4",
-    exercise_id: "ex4",
-    exercise_name: "Calf Raise",
-    planned_sets: 3,
-    planned_reps_min: 15,
-    planned_reps_max: 20,
-    metric: "reps" as const,
-    feel: null, // No feel rating - must still be included
-    status: "completed" as const,
-    completed_at: "2026-10-25T11:15:00Z",
-    exercises: {
-      mechanic: "isolation" as const,
-      movement_pattern: "calf" as const,
-      equipment_ids: [],
-      progression_chain: null,
-      progression_rank: null,
-    },
-    sets: [
-      { reps: 20, weight_kg: null, duration_seconds: null },
-      { reps: 19, weight_kg: null, duration_seconds: null },
-      { reps: 18, weight_kg: null, duration_seconds: null },
-    ],
-    prior_progress: {
-      current_working_weight_kg: null,
-      current_target_reps: 20,
-      consecutive_failures: 0,
-      best_weight_kg: null,
-      best_reps: 18,
-      best_e1rm: null,
-      total_sessions: 1,
-    },
-  },
-];
-
-const mockSession = {
-  is_deload: false,
-  local_date: "2026-10-25",
-};
-
-const deps = {
-  async fetchExercisesWithSets(sessionId: string) {
-    if (sessionId !== "test-session") return [];
-    return mockExercises;
-  },
-  async fetchSession(sessionId: string) {
-    if (sessionId !== "test-session") return null;
-    return mockSession;
+  session_sets: {
+    session_exercises: { table: "session_exercises", kind: "one", local: "session_exercise_id", foreign: "id" },
   },
 };
 
-async function runTest() {
-  const summary = await buildSessionSummary("test-session", deps);
+let seq = 0;
+const id = (p: string) => `${p}-${String(++seq).padStart(8, "0")}`;
 
-  // Must include all 4 exercises (including the one with feel=null)
-  if (summary.length !== 4) {
-    console.error(`✗ Expected 4 exercises in summary, got ${summary.length}`);
+const env: Env = {
+  name: "in-memory PostgREST",
+  seed: async (spec: ScenarioSpec) => {
+    const userId = id("user");
+    const otherUser = id("user");
+    const tables: Record<string, Row[]> = {
+      profiles: [{ id: userId, units: spec.units ?? "metric" }, { id: otherUser, units: "metric" }],
+      exercises: Object.entries(EXERCISE_IDS).map(([k, v]) => ({ id: v, name: EXERCISE_NAMES[k as keyof typeof EXERCISE_IDS], mechanic: "compound", movement_pattern: "horizontal_press" })),
+      session_exercises: [],
+      session_sets: [],
+      exercise_progress: spec.progress.map((p) => ({ user_id: userId, exercise_id: EXERCISE_IDS[p.ex], ...p })),
+    };
+    const addSession = (s: ScenarioSpec["current"], uid: string): string => {
+      const sessionId = id("session");
+      s.exercises.forEach((e, i) => {
+        const seId = id("se");
+        tables.session_exercises.push({
+          id: seId, session_id: sessionId, user_id: uid, exercise_id: EXERCISE_IDS[e.ex], order_index: i,
+          planned_sets: e.sets.length, planned_reps_min: 8, planned_reps_max: e.planned_reps_max ?? 12,
+          metric: "reps", feel: "right", status: e.status,
+        });
+        e.sets.forEach((st, j) => tables.session_sets.push({
+          id: st.last ? "zzzz-last" : id("set"), session_exercise_id: seId, user_id: uid, set_number: j + 1,
+          reps: st.reps, weight_kg: st.w, duration_seconds: null, is_warmup_set: !!st.warm,
+        }));
+      });
+      return sessionId;
+    };
+    for (const h of spec.history) addSession(h, userId);
+    // Another user's heavier lift must never count.
+    addSession({ exercises: [{ ex: "bench", status: "completed", sets: [{ reps: 10, w: 300 }] }] }, otherUser);
+    const sessionId = addSession(spec.current, userId);
+    return { client: createEmbedFake(tables, relations).client, userId, sessionId };
+  },
+};
+
+runScenarios(env).then((failures) => {
+  if (failures > 0) {
+    console.log(`\n✗ ${failures} check(s) failed`);
     process.exit(1);
   }
-
-  // Must include Barbell Squat (the one that would be lost on main)
-  const squat = summary.find((n) => n.name === "Barbell Squat");
-  if (!squat) {
-    console.error("✗ Barbell Squat missing from summary (lost on remount)");
-    process.exit(1);
-  }
-
-  // Must include Calf Raise (the one with feel=null)
-  const calf = summary.find((n) => n.name === "Calf Raise");
-  if (!calf) {
-    console.error("✗ Calf Raise (feel=null) missing from summary");
-    process.exit(1);
-  }
-
-  // Must have a message (progression note)
-  if (!squat.message) {
-    console.error("✗ Barbell Squat has no progression message");
-    process.exit(1);
-  }
-
-  console.log("✓ All 4 exercises present in summary");
-  console.log(`  - Barbell Squat: "${squat.message}"`);
-  console.log(`  - Deadlift: "${summary.find((n) => n.name === "Deadlift")?.message}"`);
-  console.log(`  - Leg Press: "${summary.find((n) => n.name === "Leg Press")?.message}"`);
-  console.log(`  - Calf Raise: "${calf.message}"`);
-
-  // Test with only 4 exercises in client state (simulating lost state)
-  // This scenario MUST FAIL on main where progressNotes is client state
-  console.log("\n✓ Test passed: summary built from DB, not client state");
-  console.log("  On main: would only show exercises in client state");
-  console.log("  With fix: shows all exercises from DB");
-
-  // Also test that exercises without prior_progress are NOT skipped
-  const summaryNoPrior = await buildSessionSummary("test-session-no-prior", {
-    async fetchExercisesWithSets(sessionId: string) {
-      if (sessionId !== "test-session-no-prior") return [];
-      return [
-        {
-          ...mockExercises[0],
-          prior_progress: null, // No prior progress
-        },
-      ];
-    },
-    async fetchSession(sessionId: string) {
-      if (sessionId !== "test-session-no-prior") return null;
-      return mockSession;
-    },
-  });
-
-  if (summaryNoPrior.length === 0) {
-    console.error("✗ Exercise without prior_progress was skipped (should be included)");
-    process.exit(1);
-  }
-  console.log("✓ Exercises without prior_progress are included");
-}
-
-runTest().catch((err) => {
-  console.error("✗ Test failed:", err.message);
+  console.log("\n✓ All loadSessionSummary scenarios passed");
+}).catch((e) => {
+  console.error("✗ ERROR", e);
   process.exit(1);
 });
