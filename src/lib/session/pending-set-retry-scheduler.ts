@@ -83,15 +83,12 @@ export function createRetryScheduler(config: {
   }
 
   function cleanup(): void {
-    console.log('[SCHEDULER] cleanup() called, onlineHandler exists:', !!onlineHandler, 'removeEventListener exists:', !!removeEventListener);
     reset();
     currentCallback = null;
     
     if (onlineHandler && removeEventListener) {
-      console.log('[SCHEDULER] About to call removeEventListener');
       removeEventListener('online', onlineHandler);
       onlineHandler = null;
-      console.log('[SCHEDULER] removeEventListener called');
     }
   }
 
