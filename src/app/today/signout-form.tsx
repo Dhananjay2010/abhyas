@@ -45,7 +45,7 @@ export function SignOutForm({
               setError("Failed to sign out. Please try again.");
               return;
             }
-          } catch (fetchErr) {
+          } catch {
             // If fetch fails, cookies might still be invalid; proceed with navigation
           }
           router.replace("/");

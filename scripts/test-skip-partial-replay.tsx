@@ -97,7 +97,7 @@ const settings: RunnerSettings = {
 (async () => {
   console.log("\n📋 Test: Skip with partial replay (1 of 2 sets saves)\n");
   
-  let finishSessionCalled = false;
+  let finishSessionCallCount = 0;
   let replayCount = 0;
   
   const actions: SessionActions = {
@@ -124,7 +124,7 @@ const settings: RunnerSettings = {
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => {
-      finishSessionCalled = true;
+      finishSessionCallCount++;
       return { ok: true };
     },
     abandonSession: async () => ({ ok: true }),
@@ -207,7 +207,7 @@ const settings: RunnerSettings = {
   await act(async () => {});
   
   // Verify finishSession was NOT called (1 set still unsaved after partial replay)
-  assert(finishSessionCalled === false, "finishSession NOT called after partial replay");
+  assert(finishSessionCallCount === 0, "finishSession NOT called after partial replay");
   
   // Verify still on cool-down
   assert(screen.queryByText("Cool-down") !== null, "Still on cool-down after partial replay");
@@ -242,7 +242,7 @@ const settings: RunnerSettings = {
   await act(async () => {});
   
   // Now finishSession should have been called (queue is empty)
-  assert(finishSessionCalled === true, "finishSession called after all sets saved");
+  assert(finishSessionCallCount === 1, "finishSession called after all sets saved");
   
   console.log(`\n✅ Partial replay test passed (${passed} assertions)\n`);
   console.log("MUTANT: Finish after partial replay (remaining.length < pending.length) → finishSession called with unsaved sets\n");
