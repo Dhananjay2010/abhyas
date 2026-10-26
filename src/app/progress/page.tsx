@@ -11,6 +11,7 @@ import { getUnitsPreference } from "@/lib/units";
 import { formatVolumeLifted } from "@/lib/session/format-volume-lifted";
 import { LogWeight } from "./log-weight";
 import { loadProgramDays } from "@/lib/progress/load-program-days";
+import { computeYogaStats } from "@/lib/progress/yoga-stats";
 
 export const dynamic = "force-dynamic";
 
@@ -232,7 +233,6 @@ export default async function ProgressPage() {
       console.error("Failed to load sessions for yoga stats:", sessionsRes.error);
     } else {
       try {
-        const { computeYogaStats } = await import("@/lib/progress/yoga-stats");
         // Filter to completed yoga or breathing sessions
         const yogaBreathingSessions = (sessionsRes.data ?? [])
           .filter((s) => 
@@ -384,7 +384,7 @@ export default async function ProgressPage() {
           <p className="mb-3 text-xs text-muted">
             Reps × weight, totalled across the session.
           </p>
-          <BarChart points={volumePoints} unit="kg" title="Volume per session" />
+          <BarChart points={volumePoints} unit="kg" volumeUnits={units} title="Volume per session" />
         </section>
       )}
 
@@ -399,7 +399,7 @@ export default async function ProgressPage() {
             {strengthCharts.map((e) => (
               <div key={e.name}>
                 <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
-                <LineChart points={e.points} unit={e.unitLabel} title={`${e.name} (est. 1RM)`} height={110} />
+                <LineChart points={e.points} unit={e.unitLabel} weightUnits={e.units} title={`${e.name} (est. 1RM)`} height={110} />
               </div>
             ))}
           </div>
@@ -423,6 +423,7 @@ export default async function ProgressPage() {
           <LineChart 
             points={weightPoints} 
             unit="kg" 
+            weightUnits={units}
             title="Body weight"
             singlePointHint="Weigh in on another day to see a trend"
           />

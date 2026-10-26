@@ -64,6 +64,9 @@ export default async function HistoryPage({
     ])
   ) as Record<SessionType, number>;
   const countsError = countRes.some(r => r.error);
+  if (countsError) {
+    console.error("Failed to load history tab counts:", countRes.find(r => r.error)?.error);
+  }
 
   // Load history page with pagination (fix: fetch with correct offset)
   const { loadHistoryPage } = await import("@/lib/history/load-history-page");

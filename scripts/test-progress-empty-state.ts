@@ -14,7 +14,8 @@ for (const k of ["window","document","HTMLElement","Node","navigator","MouseEven
 g.IS_REACT_ACT_ENVIRONMENT = true; g.self = dom.window; (dom.window as unknown as Record<string, unknown>).requestIdleCallback ??= (cb: () => void) => setTimeout(cb, 0); g.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
 
 // fake supabase state per scenario
-let fake: { tables: Record<string, unknown[]>; rpc: Record<string, unknown>; profile: Record<string, unknown>; errors?: Record<string, unknown> } = { tables: {}, rpc: {}, profile: {} };
+let fake: { tables: Record<string, unknown[]>; rpc: Record<string, unknown>; profile: Record<string, unknown>; errors?: Record<string, unknown>; rpcErrors?: Record<string, unknown> } = { tables: {}, rpc: {}, profile: {} };
+let yogaStatsThrows = false;
 function chain(table: string) {
   const result = table === "profiles" ? { data: fake.profile, error: null } : fake.errors?.[table] ? { data: null, error: fake.errors[table] } : { data: fake.tables[table] ?? [], error: null };
   const c: Record<string, unknown> = {};
@@ -23,7 +24,7 @@ function chain(table: string) {
   c.then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) => Promise.resolve(result).then(res, rej);
   return c;
 }
-const fakeClient = { from: (t: string) => chain(t), rpc: (n: string) => Promise.resolve({ data: fake.rpc[n] ?? null, error: null }) };
+const fakeClient = { from: (t: string) => chain(t), rpc: (n: string) => Promise.resolve(fake.rpcErrors?.[n] ? { data: null, error: fake.rpcErrors[n] } : { data: fake.rpc[n] ?? null, error: null }) };
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const Module = require("module");
@@ -35,6 +36,11 @@ Module.prototype.require = function (id: string): unknown {
   };
   if (id === "next/cache") return { revalidatePath() {} };
   if (id === "./actions") return { logBodyWeight: async () => ({ ok: true }) };
+  if (id === "@/lib/progress/yoga-stats") {
+    // eslint-disable-next-line prefer-rest-params
+    const real = orig.apply(this, arguments) as { computeYogaStats: (...a: unknown[]) => unknown };
+    return { computeYogaStats: (...a: unknown[]) => { if (yogaStatsThrows) throw new Error("yoga stats boom"); return real.computeYogaStats(...a); } };
+  }
   if (id === "@/lib/supabase/auth") return { getAuthedClient: async () => ({ supabase: fakeClient, user: { id: "u1" } }) };
   // eslint-disable-next-line prefer-rest-params
   return orig.apply(this, arguments);
@@ -74,6 +80,7 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     check("empty state shown (no session data)", html.includes("No progress data yet"));
     check("zero stat tiles NOT shown", !html.includes("Best streak"), "shows zero tiles");
     check("single body-weight value shown (81.4)", html.includes("81.4"), "value not rendered");
+    check("Q12 single point shows its date (20 Oct)", /data-testid="single-point"[\s\S]*?20 Oct/.test(html), "date missing");
     check("weigh-in hint copy (P4: one weigh-in per day)", /Weigh in on another day to see a trend/.test(html), "old 'Log another weigh-in' copy");
     check("old weigh-in hint gone", !/Log another weigh-in/.test(html));
     check("no <svg> in single-point", !html.match(/<p[^>]*81\.4[\s\S]{0,100}<svg/), "svg rendered for 1 point");
@@ -153,6 +160,43 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
   {
     const html = await renderProgress("P8: strength member, only skipped/abandoned sessions");
     check("P3 empty state still shown when nothing was completed", html.includes("No progress data yet"));
+  }
+
+  // QA3 MED-2: every banner source is pinned, including the two RPCs and the yoga stats.
+  const banner = (h: string) => h.includes("Couldn&#x27;t load some stats") || h.includes("Couldn't load some stats");
+  for (const n of ["progress_summary", "get_session_set_counts"]) {
+    fake = { profile: strengthProfile, tables: {}, rpc: emptyRpc, rpcErrors: { [n]: { message: "boom" } } };
+    const html = await renderProgress(`P9: new strength member, ${n} RPC fails`);
+    check(`${n} rpc error: banner shown`, banner(html), "error hidden");
+    check(`${n} rpc error: empty state suppressed`, !html.includes("No progress data yet"));
+  }
+  const yogaSession = { id: "y1", local_date: "2026-10-20", status: "completed", actual_type: "yoga", is_deload: false, duration_seconds: 1800 };
+  fake = { profile: yogaProfile, tables: {}, rpc: emptyRpc, errors: { sessions: { message: "boom" } } };
+  {
+    const html = await renderProgress("P10: yoga member, sessions query fails");
+    check("yoga sessions error: banner shown", banner(html));
+    check("yoga sessions error: empty state suppressed", !html.includes("No progress data yet"));
+  }
+  yogaStatsThrows = true;
+  fake = { profile: yogaProfile, tables: { sessions: [yogaSession] }, rpc: emptyRpc };
+  {
+    const html = await renderProgress("P11: yoga member, yoga stats computation fails (sessions loaded)");
+    check("yoga stats error: banner shown", banner(html), "yogaStatsError not in banner");
+    check("yoga stats error: tiles show a dash", html.includes("—"));
+  }
+  yogaStatsThrows = false;
+  fake = {
+    profile: strengthProfile,
+    tables: {
+      programs: p3Program, program_days: p3Days,
+      sessions: [{ id: "b1", local_date: "2026-10-23", status: "completed", actual_type: "bodyweight", is_deload: false, duration_seconds: 1500 }],
+    },
+    rpc: { progress_summary: { days_trained: 1, local_dates: ["2026-10-23"], total_volume_kg: 0, session_count: 1 }, get_session_set_counts: [{ session_id: "b1", set_count: 9 }] },
+  };
+  {
+    const html = await renderProgress("P12: strength member, bodyweight-only session (no volume rows, no strength history)");
+    check("Q10 bodyweight-only member: empty state NOT shown", !html.includes("No progress data yet"), "only the session count keeps them out of empty");
+    check("Q10 bodyweight-only member: tiles shown", html.includes("Best streak"));
   }
 
   console.log("\n5. Charts with 1 point render SinglePoint");

@@ -85,6 +85,35 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     cleanup();
   }
 
+  console.log("\n2c. Filtered empty, breathing is the only tab with sessions (QA3 Q2)");
+  {
+    currentSearch = new URLSearchParams("filter=lifts");
+    pushes.length = 0;
+    // @ts-expect-error - Units type simplified for testing
+    const r = render(React.createElement(HistoryClient, { ...base, items: [], filter: "lifts", totalCount: 0, countsByFilter: { lifts: 0, yoga: 0, breathing: 5 } }));
+    const btn = Array.from(r.container.querySelectorAll("button")).find(b => (b.textContent ?? "").startsWith("Switch to"));
+    check("Q2 label is 'Switch to Breathing (5)' (skips empty Yoga)", btn?.textContent === "Switch to Breathing (5)", btn?.textContent ?? "none");
+    if (btn) fireEvent.click(btn);
+    check("Q2 click goes to filter=breathing", pushes[0] === "/history?filter=breathing", `pushed=${pushes[0]}`);
+    cleanup();
+  }
+
+  console.log("\n2d. Page past the end on a non-empty tab (QA3 LOW-4)");
+  {
+    currentSearch = new URLSearchParams("filter=lifts&page=3&utm=x");
+    pushes.length = 0;
+    // @ts-expect-error - Units type simplified for testing
+    const r = render(React.createElement(HistoryClient, { ...base, page: 3, items: [], filter: "lifts", totalCount: 25, countsByFilter: { lifts: 25, yoga: 4, breathing: 0 } }));
+    const html = r.container.innerHTML;
+    check("LOW-4 says no sessions on this page", html.includes("No sessions on this page"));
+    check("LOW-4 no tab switch offered", !html.includes("Switch to") && !html.includes("No Lifts sessions yet"));
+    const btn = Array.from(r.container.querySelectorAll("button")).find(b => b.textContent === "Go to page 1");
+    check("LOW-4 'Go to page 1' button", !!btn);
+    if (btn) fireEvent.click(btn);
+    check("LOW-4 click keeps the tab, drops page", pushes[0] === "/history?filter=lifts&utm=x", `pushed=${pushes[0]}`);
+    cleanup();
+  }
+
   console.log("\n3. Error state (hasErrors with zero counts)");
   {
     // @ts-expect-error - Units type simplified for testing
@@ -111,6 +140,23 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     check("session rendered", html.includes("Upper A"));
     check("no empty copy", !html.includes("No completed sessions yet") && !html.includes("sessions yet</p>"));
     check("count line kept above a list ('1 session.')", html.includes("1 session."));
+    cleanup();
+  }
+
+  console.log("\n5. Error with loaded items (QA3 LOW-5 / Q18)");
+  {
+    const items = [{
+      id: "s1", localDate: "2026-10-26", status: "completed" as const, actualType: "weights" as const,
+      durationSeconds: 3600, startedAt: "2026-10-26T10:00:00Z", completedAt: "2026-10-26T11:00:00Z",
+      isDeload: false, endedEarly: false, plannedSets: 12, programDayLabel: "Upper A", setCount: 12,
+      volumeKg: 5000, topSetWeight: 100, hasPR: false, breathing: null,
+    }];
+    // @ts-expect-error - Units type simplified for testing
+    const r = render(React.createElement(HistoryClient, { ...base, items, filter: "lifts", totalCount: 1, countsByFilter: { lifts: 1, yoga: 0, breathing: 0 }, hasErrors: true }));
+    const html = r.container.innerHTML;
+    check("Q18 loaded session still listed when a side query failed", html.includes("Upper A"));
+    check("Q18 banner shown alongside the list", html.includes("Couldn't load some stats"));
+    check("Q18 no full error card", !html.includes("Couldn't load your sessions"));
     cleanup();
   }
 

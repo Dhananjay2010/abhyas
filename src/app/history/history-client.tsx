@@ -141,6 +141,24 @@ export function HistoryClient({
             Start today&apos;s workout
           </Link>
         </div>
+      ) : emptyState === "page-empty" ? (
+        <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+          <p className="text-sm font-medium text-fg">No sessions on this page</p>
+          <p className="mt-2 text-sm text-muted">
+            Your {FILTER_LABELS[filter]} sessions start on page 1.
+          </p>
+          <button
+            onClick={() => {
+              const params = new URLSearchParams(searchParams);
+              params.set("filter", filter);
+              params.delete("page");
+              router.push(`/history?${params.toString()}`);
+            }}
+            className="mt-4 inline-block rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-fg transition-colors hover:border-muted/50"
+          >
+            Go to page 1
+          </button>
+        </div>
       ) : emptyState === "filtered-empty" ? (() => {
           const target = (["lifts", "yoga", "breathing"] as const).find(
             f => f !== filter && countsByFilter[f] > 0

@@ -14,9 +14,11 @@ export function historyEmptyState(
   filter: SessionType,
   counts: Record<SessionType, number>,
   hasErrors: boolean
-): "populated" | "error" | "true-empty" | "filtered-empty" {
+): "populated" | "error" | "true-empty" | "filtered-empty" | "page-empty" {
   if (itemsLen > 0) return "populated";
   if (hasErrors) return "error";
+  // QA3 LOW-4: this tab has sessions, just none on this page (e.g. a stale ?page=).
+  if (counts[filter] > 0) return "page-empty";
   const total = counts.lifts + counts.yoga + counts.breathing;
   return total === 0 ? "true-empty" : "filtered-empty";
 }
