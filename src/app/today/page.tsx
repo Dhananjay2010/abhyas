@@ -303,16 +303,19 @@ export default async function TodayPage() {
   });
 
   // Decide which single day-plan prompt (if any) to show
-  const promptDecision = decideTodayPrompts({
+  const viewModel = deriveTodayView({
+    dayType: dayType ?? "rest",
     missedYesterday,
     strengthDone,
     strengthOpen,
-    dayType: dayType ?? "rest",
     todaySessions,
     yesterdayDay,
+    localToday,
+    todayIndex,
+    allSessions,
+    days: days ?? [],
   });
 
-  // Only worth asking while today is still open to being changed.
   // Legacy: still used for loading plannable days
   const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
 
@@ -322,7 +325,7 @@ export default async function TodayPage() {
   // a workout has been started. Run together so the uncommon day that needs
   // both still costs one round trip.
   const [plannable, performedRows, endedEarlySummary] = await Promise.all([
-    shouldLoadPlannableDays({ askAboutToday, dayType })
+    viewModel.shouldLoadPlannableDays
       ? plannableDays(supabase, program.id)
       : Promise.resolve([]),
     performed
@@ -418,7 +421,7 @@ export default async function TodayPage() {
     strength sessions are included; yoga and breathing are not (they're anytime
     activities that don't own the day).
   */
-  const chosenByDayIndex = buildChosenByDayIndex(allSessions, days ?? [], localToday, todayIndex);
+  const chosenByDayIndex = viewModel.chosenByDayIndex;
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-36">
@@ -476,38 +479,34 @@ export default async function TodayPage() {
       )}
 
       {/* Missed-yesterday prompt (shows first if applicable) */}
-      {promptDecision.prompt?.type === "missed-yesterday" && (
+      {viewModel.prompt?.type === "missed-yesterday" && (
         <DayPlanPrompt
           localDate={localToday}
           dayLabel="Today"
           plannedLabel={dayLabel}
           days={plannable}
-          heading={promptDecision.prompt.heading}
-          intro={promptDecision.prompt.intro}
-          showRestOption={promptDecision.offerRest}
+          heading={viewModel.prompt.heading}
+          intro={viewModel.prompt.intro}
+          showRestOption={viewModel.offerRest}
         />
       )}
 
-      {dayType === "rest" && (() => {
-        const decision = decideRestDayResume({ dayType, strengthOpen, localToday });
-
-        return (
-          <>
-            {/* Rest day with an open strength session shows Resume */}
-            {decision.showResume && decision.resumeButton && (
-              <div className="mt-7">
-                {decision.resumeButton.type === "link" ? (
-                  <Link
-                    href={decision.resumeButton.href}
-                    className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
-                  >
-                    Resume session
-                  </Link>
-                ) : (
-                  <StartSessionButton label={decision.resumeButton.label} />
-                )}
-              </div>
-            )}
+      {dayType === "rest" && (
+        <>
+          {viewModel.showResume && viewModel.resumeButton && (
+            <div className="mt-7">
+              {viewModel.resumeButton.type === "link" ? (
+                <Link
+                  href={viewModel.resumeButton.href}
+                  className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+                >
+                  Resume session
+                </Link>
+              ) : (
+                <StartSessionButton label={viewModel.resumeButton.label} />
+              )}
+            </div>
+          )}
 
             <p className="mt-6 text-muted">
               Rest is part of the training. Your body builds strength while recovering.
@@ -534,7 +533,7 @@ export default async function TodayPage() {
                 </div>
               </div>
               {/* Rest-day swap prompt (shows only if no missed-yesterday prompt) */}
-              {promptDecision.prompt?.type === "rest-day-swap" && (
+              {viewModel.prompt?.type === "rest-day-swap" && (
                 <DayPlanPrompt
                   localDate={localToday}
                   dayLabel="Today"
@@ -542,13 +541,13 @@ export default async function TodayPage() {
                   days={plannable}
                   heading="Or train today anyway"
                   intro="Pick what you'd like to do instead."
-                  showRestOption={promptDecision.offerRest}
+                  showRestOption={viewModel.offerRest}
                 />
               )}
             </div>
           </>
-        );
-      })()}
+        )
+      )}
 
       {dayType === "meditation" && (
         <div className="mt-6">
