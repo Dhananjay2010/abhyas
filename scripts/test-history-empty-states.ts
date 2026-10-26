@@ -59,9 +59,9 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     // @ts-expect-error - Units type simplified for testing
     const r = render(React.createElement(HistoryClient, { ...base, items: [], filter: "lifts", totalCount: 0, countsByFilter: { lifts: 0, yoga: 10, breathing: 0 } }));
     check("filtered copy rendered", r.container.innerHTML.includes("No sessions match these filters"));
-    const btn = Array.from(r.container.querySelectorAll("button")).find(b => b.textContent === "Clear filters")!;
+    const btn = Array.from(r.container.querySelectorAll("button")).find(b => b.textContent === "Clear filters");
     check("Clear filters button exists", !!btn);
-    fireEvent.click(btn);
+    if (btn) fireEvent.click(btn);
     check("pushes filter=yoga with utm kept", pushes[0] === "/history?filter=yoga&utm=x", `pushed=${pushes[0]}`);
     cleanup();
   }

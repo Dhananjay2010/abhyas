@@ -35,8 +35,7 @@ function check(l: string, ok: boolean) { if (!ok) failures++; console.log(`  ${o
 (async () => {
   const { renderToStaticMarkup } = await import("react-dom/server");
   const { default: HistoryPage } = await import("../src/app/history/page");
-  const React = await import("react");
-  const r = async (filter?: string) => renderToStaticMarkup(await HistoryPage({ searchParams: Promise.resolve(filter ? { filter } : {}) }) as React.ReactElement);
+  const r = async (filter?: string) => renderToStaticMarkup(await HistoryPage({ searchParams: Promise.resolve(filter ? { filter } : {}) }) as import("react").ReactElement);
   counts = { lifts: 0, yoga: 10, breathing: 0 };
   let h = await r("lifts");
   check("H1 lifts=0, yoga=10 -> filtered-empty reached at page level", h.includes("No sessions match these filters"));
