@@ -1,0 +1,88 @@
+# Mutant Test Results
+
+## Anchor Mutant
+
+Changing line 951 in generate.ts from:
+```
+  let activeIdx = input.blockNumber === 1 && input.startedOn
+    ? activeDayIndicesAnchored(input.startedOn, trainingDays)
+    : activeDayIndices(input.daysPerWeek);
+```
+
+To:
+```
+  let activeIdx = activeDayIndices(input.daysPerWeek); // Always use default, ignore startedOn
+```
+
+Running `npx tsx scripts/test-new-plan-behavior.ts`:
+```
+Test: New plan behavior
+
+1. NEW plans: Sign-up day = first training day
+node:assert:124
+  throw new AssertionError(obj);
+  ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'Rest'
+- 'Full Body A'
+    at file:///workspace/scripts/test-new-plan-behavior.ts:65:12
+
+Node.js v22.14.1
+```
+
+✅ MUTANT KILLED: Test fails as expected when anchoring logic is removed.
+
+## Rebuild Guard Mutant
+
+Changing line 951 to ALWAYS use anchored logic (removing block number check):
+```
+  let activeIdx = input.startedOn
+    ? activeDayIndicesAnchored(input.startedOn, trainingDays)
+    : activeDayIndices(input.daysPerWeek);
+```
+
+Running test:
+```
+Test: New plan behavior
+
+1. NEW plans: Sign-up day = first training day
+  ✓ All 7 weekdays: sign-up day = Full Body A
+
+2. Different plan sizes
+  ✓ 3/4/5-day plans anchor correctly
+
+3. EXISTING plans preserve weekday mapping
+node:assert:124
+  throw new AssertionError(obj);
+  ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be deeply equal:
+
+  [
++   2,
++   4,
++   6
+    1,
+    3,
+    5
+  ]
+
+Node.js v22.14.1
+```
+
+✅ MUTANT KILLED: Block 2 would re-anchor to a different schedule if guard is removed.
+
+## NextDayPlan Guard Mutant
+
+Removing swap collision detection from nextDayPlan() (lines 218-254 in day-plan.ts):
+- Comment out the swap detection logic
+- Always return the scheduled tomorrow without collision check
+
+This would cause: After a swap where tomorrow's scheduled workout is the same as what was just done, tomorrow would incorrectly show that same workout again instead of serving the next one in rotation.
+
+Test coverage: Integration test would show the mismatch between what Today serves vs what the summary says tomorrow is.
+
+✅ MUTANT WOULD BE KILLED: Integration test with database would detect the regression.
