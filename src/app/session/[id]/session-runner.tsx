@@ -224,6 +224,7 @@ export function SessionRunner({
     );
   }, []);
   const [error, setError] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [alternativesForExerciseId, setAlternativesForExerciseId] = useState<string | null>(null);
@@ -966,10 +967,17 @@ export function SessionRunner({
       setBusy(false);
     }
     if (!result.ok) {
-      setError(result.error);
+      // Check if this is a session expiry error
+      if ('code' in result && result.code === "SESSION_EXPIRED") {
+        setSessionExpired(true);
+        setError(null);
+      } else {
+        setError(result.error);
+      }
       return;
     }
     setError(null);
+    setSessionExpired(false);
     if (result.data?.message) {
       setProgressNotes((prev) => [
         ...prev,
@@ -1191,6 +1199,11 @@ export function SessionRunner({
 
         {allSetsDone && (
           <div className="mt-8">
+            {sessionExpired && (
+              <div className="mb-4">
+                <SessionExpiredPrompt />
+              </div>
+            )}
             <p className="mb-3 text-sm font-medium">How did that feel?</p>
             <div className="grid grid-cols-3 gap-2">
               {FEELS.map((f) => (

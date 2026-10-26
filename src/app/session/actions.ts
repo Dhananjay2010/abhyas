@@ -386,9 +386,17 @@ export async function finishExercise(input: {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit as Result<ProgressionFeedback | null>;
   
-  const { supabase, user } = await requireUser();
-
-  return finishExerciseCore(supabase, user.id, input, { applyProgression });
+  return await resolveAuth(
+    async () => {
+      const { supabase, user } = await getAuthedClient();
+      return { user, supabase };
+    },
+    async ({ user, supabase }) => {
+      if (!user) throw new Error("Not signed in");
+      
+      return finishExerciseCore(supabase, user.id, input, { applyProgression });
+    }
+  );
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
