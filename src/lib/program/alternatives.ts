@@ -219,7 +219,7 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 2b. Past-knee exclusions (pistol squats, jumps, band/chain squats, thrusters, squat-jerk)
     // 2c. Item 16: Olympic lifts excluded for beginners and injured members (same rule as generator)
     const prExcluded =
-      (hasKneeInjury && (false || isExcludedForPastKnee(candidate))) ||
+      (hasKneeInjury && (isExcludedForCurrentKneeOnly(candidate) || isExcludedForPastKnee(candidate))) ||
       (hasPastKnee && isExcludedForPastKnee(candidate)) ||
       shouldExcludeOlympicLift(candidate, { currentInjuryRegions: ctx.injuryRegions, anyKneeInjury: ctx.anyKneeInjury, level: ctx.level });
     // Subset rule: past-knee members get the new past-knee ranking, so their
