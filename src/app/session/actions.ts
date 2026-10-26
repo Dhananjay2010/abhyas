@@ -384,8 +384,13 @@ export async function finishExercise(input: {
   const { supabase, user } = await requireUser();
 
   return finishExerciseCore(supabase, user.id, input, {
-    applyProgression: (supabase, userId, sessionExerciseId, feel, units) =>
-      applyProgression(supabase, userId, sessionExerciseId, feel, units),
+    applyProgression: (
+      supabase: ServerClient,
+      userId: string,
+      sessionExerciseId: string,
+      feel: SetFeel | null,
+      units: UnitsPreference
+    ) => applyProgression(supabase, userId, sessionExerciseId, feel, units),
   });
 }
 
