@@ -15,6 +15,9 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
+import { buildWeekDays } from "@/lib/today/compute-done-days";
+import { getUnitsPreference } from "@/lib/units";
+import { WeekList } from "./week-list";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
@@ -317,7 +320,7 @@ export default async function TodayPage() {
   // only on a day following a missed one, the session's own exercises only once
   // a workout has been started. Run together so the uncommon day that needs
   // both still costs one round trip.
-  const [plannable, performedRows, endedEarlySummary] = await Promise.all([
+  const [plannable, performedRows, endedEarlySummary, loggedSetsRes] = await Promise.all([
     viewModel.shouldLoadPlannableDays
       ? plannableDays(supabase, program.id)
       : Promise.resolve([]),
@@ -334,6 +337,14 @@ export default async function TodayPage() {
     // Load ended-early summary for completed strength session
     completedStrengthSession
       ? loadEndedEarlySummary(supabase, completedStrengthSession.id)
+      : Promise.resolve(null),
+    // FIX (c): Load actual logged sets for completed sessions
+    strengthDone && completedStrengthSession
+      ? supabase
+          .from("session_exercises")
+          .select("order_index, metric, session_sets(reps, weight_kg, duration_seconds, is_warmup_set)")
+          .eq("session_id", completedStrengthSession.id)
+          .order("order_index")
       : Promise.resolve(null),
   ]);
 
@@ -354,6 +365,8 @@ export default async function TodayPage() {
     restSeconds: number | null;
     skipped: boolean;
     swappedIn: boolean;
+    // FIX (c): Add logged sets display for completed sessions
+    loggedSets?: string | null;
   };
 
   const template = (isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
@@ -394,6 +407,10 @@ export default async function TodayPage() {
       deload_week: program.deload_week,
     },
     localToday,
+    // "What you did": the sets actually logged, warm-ups excluded.
+    logged: loggedSetsRes?.data
+      ? { exercises: loggedSetsRes.data, units: getUnitsPreference(profile.units) }
+      : null,
   });
 
   // Recompute week and isDeload for UI display (header, deload banner, etc.)
@@ -632,8 +649,8 @@ export default async function TodayPage() {
                     {row.name}
                   </span>
                   <span className="shrink-0 text-sm tabular-nums text-accent">
-                    {row.sets} × {row.repsMin}–{row.repsMax}
-                    {row.metric === "seconds" ? "s" : ""}
+                    {/* FIX (c): Show actual logged sets for completed sessions */}
+                    {row.loggedSets ?? `${row.sets} × ${row.repsMin}–${row.repsMax}${row.metric === "seconds" ? "s" : ""}`}
                   </span>
                 </div>
                 {(row.swappedIn || row.skipped || (isDeload && isTraining && !row.skipped && !(actual && actual.length > 0))) && (
@@ -683,33 +700,10 @@ export default async function TodayPage() {
         <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
           Your week
         </h2>
-        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface text-sm">
-          {(days ?? []).map((d) => {
-            const chosen = chosenByDayIndex.get(d.day_index);
-            return (
-              <li
-                key={d.day_index}
-                className={`flex justify-between gap-4 px-4 py-3 ${
-                  d.day_index === todayIndex ? "bg-surface-2" : ""
-                }`}
-              >
-                <span className={d.day_index === todayIndex ? "font-semibold" : "text-muted"}>
-                  {DAY_NAMES[d.day_index - 1]}
-                </span>
-                {chosen ? (
-                  <span className="text-right">
-                    <span className="font-medium text-accent">{chosen}</span>
-                    <span className="block text-xs text-muted">your choice</span>
-                  </span>
-                ) : (
-                  <span className={d.day_type === "rest" ? "text-muted" : "font-medium"}>
-                    {d.label}
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <WeekList
+          days={buildWeekDays({ days: days ?? [], sessions: allSessions, localToday, todayIndex })}
+          chosenByDayIndex={chosenByDayIndex}
+        />
       </section>
 
       <section className="mt-10 space-y-3 text-sm">
