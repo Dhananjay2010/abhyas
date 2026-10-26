@@ -41,16 +41,16 @@ const mutants: Mutant[] = [
     tests: ["test:knee-safety-matrix"],
   },
 
-  // 2a. Tag-based knee contraindication (affects both current AND past knee)
+  // 2a. Tag-based knee contraindication (CURRENT knee only, owner decision (a))
   {
     name: "Disable tag-based knee contraindication in generate.ts",
     file: "src/lib/program/generate.ts",
-    pattern: /if \(input\.anyKneeInjury && ex\.contraindicated_regions\.includes\("knee"\)\) \{/,
-    mutate: 'if (!input.anyKneeInjury && ex.contraindicated_regions.includes("knee")) {',
+    pattern: /if \(input\.currentInjuryRegions\.includes\("knee"\) && ex\.contraindicated_regions\.includes\("knee"\)\) \{/,
+    mutate: 'if (!input.currentInjuryRegions.includes("knee") && ex.contraindicated_regions.includes("knee")) {',
     tests: ["test:knee-contraindicated", "test:knee-safety-matrix"],
   },
   
-  // 2b. Past-knee lunge filter (specific defense-in-depth layer)
+  // 2b. Past-knee lunge filter
   {
     name: "Disable past-knee lunge filter",
     file: "src/lib/program/generate.ts",
@@ -77,16 +77,16 @@ const mutants: Mutant[] = [
     tests: ["test:knee-safety-matrix"],
   },
 
-  // 5a1. Tag-based knee contraindication in alternatives.ts
+  // 5a1. Tag-based knee contraindication in alternatives.ts (CURRENT knee only, owner decision (a))
   {
     name: "Disable tag-based knee contraindication in alternatives.ts",
     file: "src/lib/program/alternatives.ts",
-    pattern: /if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.contraindicated_regions\.includes\("knee"\)\) \{/,
-    mutate: 'if (!(ctx.anyKneeInjury ?? false) && candidate.contraindicated_regions.includes("knee")) {',
+    pattern: /if \(ctx\.injuryRegions\.includes\("knee"\) && candidate\.contraindicated_regions\.includes\("knee"\)\) \{/,
+    mutate: 'if (!ctx.injuryRegions.includes("knee") && candidate.contraindicated_regions.includes("knee")) {',
     tests: ["test:knee-contraindicated", "test:swap-mutations"],
   },
   
-  // 5a2. High-impact filter in alternatives (specific defense-in-depth layer)
+  // 5a2. High-impact filter in alternatives
   {
     name: "Drop knee high-impact filter in alternatives (swaps)",
     file: "src/lib/program/alternatives.ts",

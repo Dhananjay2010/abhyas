@@ -485,8 +485,13 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
     }
   }
   
-  // Knee-contraindicated exercises excluded for ANY knee injury (past or current)
-  if (input.anyKneeInjury && ex.contraindicated_regions.includes("knee")) {
+  // Knee-contraindicated exercises excluded for CURRENT knee injury only (owner decision (a))
+  if (input.currentInjuryRegions.includes("knee") && ex.contraindicated_regions.includes("knee")) {
+    return false;
+  }
+  
+  // G-3: Landmine jammers excluded for ANY knee injury (leg-driven presses)
+  if (input.anyKneeInjury && (ex.slug === "landmine-linear-jammer" || ex.slug === "single-arm-linear-jammer")) {
     return false;
   }
 

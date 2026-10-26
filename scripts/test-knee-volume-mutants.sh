@@ -272,15 +272,15 @@ run_mutant "FB-C-WALL. Remove Wall Sit sort logic for Full Body days" "$GENERATE
   '' test:knee-volume test:knee-volume-identity test:count-knee-risk-outside-squat test:full-body-c-lunge
 
 run_mutant "KNEE-CTR-GEN. Remove knee-contraindicated exclusion from generation (isEligible)" "$GENERATE" \
-  '  // Knee-contraindicated exercises excluded for ANY knee injury (past or current)
-  if (input.anyKneeInjury && ex.contraindicated_regions.includes("knee")) {
+  '  // Knee-contraindicated exercises excluded for CURRENT knee injury only (owner decision (a))
+  if (input.currentInjuryRegions.includes("knee") && ex.contraindicated_regions.includes("knee")) {
     return false;
   }' \
   '' test:knee-contraindicated
 
 run_mutant "KNEE-CTR-ALT. Remove knee-contraindicated exclusion from swaps (alternatives)" "$ALTERNATIVES" \
-  '    // 8b. Knee-contraindicated exercises excluded for ANY knee injury (past or current)
-    if ((ctx.anyKneeInjury ?? false) && candidate.contraindicated_regions.includes("knee")) {
+  '    // 8b. Knee-contraindicated exercises excluded for CURRENT knee injury only (owner decision (a))
+    if (ctx.injuryRegions.includes("knee") && candidate.contraindicated_regions.includes("knee")) {
       continue;
     }' \
   '' test:knee-contraindicated
