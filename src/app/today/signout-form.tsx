@@ -4,29 +4,27 @@ import { signOutAction } from "@/lib/auth/signout";
 import { logSet } from "@/app/session/actions";
 import { useSignOut } from "@/lib/auth/use-signout";
 
-export function SignOutForm({ 
-  label,
-  userId,
-  signOut = signOutAction,
-  logSet: logSetProp = logSet,
-  now,
-}: { 
+export type SignOutFormViewProps = {
   label: string;
-  userId: string;
-  signOut?: typeof signOutAction;
-  logSet?: typeof logSet;
-  now?: Date;
-}) {
-  const {
-    pending,
-    error,
-    pendingCount,
-    showWarning,
-    handleSignOut,
-    handleSyncNow,
-    handleSignOutAnyway,
-  } = useSignOut({ userId, signOut, logSet: logSetProp, now });
+  pending: boolean;
+  error: string | null;
+  pendingCount: number;
+  showWarning: boolean;
+  handleSignOut: () => void;
+  handleSyncNow: () => void;
+  handleSignOutAnyway: () => void;
+};
 
+export function SignOutFormView({
+  label,
+  pending,
+  error,
+  pendingCount,
+  showWarning,
+  handleSignOut,
+  handleSyncNow,
+  handleSignOutAnyway,
+}: SignOutFormViewProps) {
   if (showWarning) {
     return (
       <div>
@@ -82,5 +80,42 @@ export function SignOutForm({
         </p>
       )}
     </div>
+  );
+}
+
+export function SignOutForm({ 
+  label,
+  userId,
+  signOut = signOutAction,
+  logSet: logSetProp = logSet,
+  now,
+}: { 
+  label: string;
+  userId: string;
+  signOut?: typeof signOutAction;
+  logSet?: typeof logSet;
+  now?: Date;
+}) {
+  const {
+    pending,
+    error,
+    pendingCount,
+    showWarning,
+    handleSignOut,
+    handleSyncNow,
+    handleSignOutAnyway,
+  } = useSignOut({ userId, signOut, logSet: logSetProp, now });
+
+  return (
+    <SignOutFormView
+      label={label}
+      pending={pending}
+      error={error}
+      pendingCount={pendingCount}
+      showWarning={showWarning}
+      handleSignOut={handleSignOut}
+      handleSyncNow={handleSyncNow}
+      handleSignOutAnyway={handleSignOutAnyway}
+    />
   );
 }

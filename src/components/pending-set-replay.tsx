@@ -20,11 +20,13 @@ export function PendingSetReplay({
   getSessionStatus,
   logSet = defaultLogSet,
   now,
+  storage,
 }: { 
   userId: string;
   getSessionStatus?: (sessionId: string) => Promise<"in_progress" | "ended" | "stale">;
   logSet?: typeof defaultLogSet;
   now?: Date;
+  storage?: Storage;
 }) {
   const [hasReplayed, setHasReplayed] = useState(false);
   const [closedSessions, setClosedSessions] = useState<{ sessionId: string; count: number }[]>([]);
@@ -33,11 +35,11 @@ export function PendingSetReplay({
     if (hasReplayed) return;
 
     async function replay() {
-      if (typeof window === "undefined") return;
+      const actualStorage = storage ?? (typeof window !== "undefined" ? window.localStorage : null);
+      if (!actualStorage) return;
       
       const deps = createPendingSetDeps(now);
-      const storage = window.localStorage;
-      const all = loadAllPendingSetsWithTimestamp(storage, userId, deps);
+      const all = loadAllPendingSetsWithTimestamp(actualStorage, userId, deps);
       
       const closedSessionsFound: { sessionId: string; count: number }[] = [];
       
@@ -74,7 +76,7 @@ export function PendingSetReplay({
             set,
             userId,
             sessionId,
-            storage,
+            storage: actualStorage,
             deps,
             logSet,
             sessionStatus: status,
@@ -97,13 +99,14 @@ export function PendingSetReplay({
     }
 
     replay();
-  }, [userId, hasReplayed, getSessionStatus, logSet, now]);
+  }, [userId, hasReplayed, getSessionStatus, logSet, now, storage]);
 
   function handleDiscard(sessionId: string) {
-    if (typeof window === "undefined") return;
+    const actualStorage = storage ?? (typeof window !== "undefined" ? window.localStorage : null);
+    if (!actualStorage) return;
     
     const deps = createPendingSetDeps(now);
-    clearPendingSets(window.localStorage, userId, sessionId, deps);
+    clearPendingSets(actualStorage, userId, sessionId, deps);
     
     setClosedSessions(prev => prev.filter(s => s.sessionId !== sessionId));
   }
