@@ -14,6 +14,9 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { selectWarmup, type WarmupRow } from "../src/lib/program/warmup";
+import type { Database } from "../src/lib/database.types";
+
+type Muscle = Database["public"]["Enums"]["muscle"];
 
 const warmupsPath = "scripts/fixtures/warmups.json";
 if (!existsSync(warmupsPath)) {
@@ -25,7 +28,7 @@ const warmups = JSON.parse(readFileSync(warmupsPath, "utf8")) as WarmupRow[];
 console.log("Testing past-knee Lower warmup for ankle-rock...\n");
 
 // Try multiple muscle combinations common on Lower days
-const lowerMuscleGroups = [
+const lowerMuscleGroups: Muscle[][] = [
   ["quads", "glutes", "hamstrings", "calves"],
   ["quads", "glutes", "hamstrings"],
   ["quads", "calves"],

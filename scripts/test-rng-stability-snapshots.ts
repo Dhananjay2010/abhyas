@@ -10,8 +10,7 @@
  */
 
 import { readFileSync, existsSync } from "node:fs";
-import { generateProgram, type CandidateExercise } from "../src/lib/program/generate";
-import type { ProgramInput } from "../src/lib/types";
+import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
 const fixturePath = "scripts/fixtures/rng-stability-snapshots.json";
 
@@ -27,7 +26,7 @@ const catalogue = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
 ) as CandidateExercise[];
 
-const pastKneeInput: ProgramInput = {
+const pastKneeInput: GeneratorInput = {
   userId: "test-user-past-knee",
   blockNumber: 1,
   daysPerWeek: 4,
@@ -42,46 +41,36 @@ const pastKneeInput: ProgramInput = {
   age: 36,
   bmi: 22.5,
   currentInjuryRegions: [],
-  injuries: [{
-    category: "knee",
-    side: "both",
-    severity: "recovered_from",
-    specificName: "Patellar Tendinitis",
-    specificUuid: "",
-    notes: "",
-  }],
   anyKneeInjury: true,
-  anyHipInjury: false,
-  anyLowerBackInjury: false,
-  anyShoulderInjury: false,
-  anyElbowInjury: false,
-  anyWristInjury: false,
-  anyNeckInjury: false,
-  anyAnkleInjury: false,
 };
 
-const noInjuryInput: ProgramInput = {
+const noInjuryInput: GeneratorInput = {
   ...pastKneeInput,
   userId: "test-user-no-injury",
-  injuries: [],
   anyKneeInjury: false,
 };
 
 const seeds = [42, 123, 999];
 let failures = 0;
 
-function extractDayExercises(program: ReturnType<typeof generateProgram>) {
+type DaySnapshot = {
+  focus: string | null;
+  dayType: string;
+  exercises: Array<{ slug: string; orderIndex: number }>;
+};
+
+function extractDayExercises(program: ReturnType<typeof generateProgram>): DaySnapshot[] {
   return program.days.map(day => ({
     focus: day.focus,
     dayType: day.dayType,
     exercises: day.dayType === "rest" ? [] : day.exercises.map(ex => ({
-      slug: ex.slug,
+      slug: ex.name,
       orderIndex: ex.orderIndex,
     })),
   }));
 }
 
-function compareSnapshots(label: string, actual: any, expected: any) {
+function compareSnapshots(label: string, actual: DaySnapshot[], expected: DaySnapshot[]) {
   const actualJSON = JSON.stringify(actual, null, 2);
   const expectedJSON = JSON.stringify(expected, null, 2);
   
@@ -112,8 +101,9 @@ console.log("Testing RNG stability with golden snapshots...\n");
 for (const seed of seeds) {
   console.log(`Seed ${seed}:`);
   
-  const pastKneeProgram = generateProgram(pastKneeInput, seed);
-  const noInjuryProgram = generateProgram(noInjuryInput, seed);
+  // Use blockNumber as seed (generateProgram derives RNG from userId:blockNumber)
+  const pastKneeProgram = generateProgram({ ...pastKneeInput, blockNumber: seed });
+  const noInjuryProgram = generateProgram({ ...noInjuryInput, blockNumber: seed });
   
   const pastKneeActual = extractDayExercises(pastKneeProgram);
   const noInjuryActual = extractDayExercises(noInjuryProgram);

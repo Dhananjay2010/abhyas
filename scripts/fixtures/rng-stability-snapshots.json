@@ -5,21 +5,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "Standing Towel Triceps Extension",
           "orderIndex": 4
         },
         {
+          "slug": "Lying High Bench Barbell Curl",
           "orderIndex": 5
         }
       ]
@@ -29,18 +35,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Wall Sit",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Sit-Up",
           "orderIndex": 4
         }
       ]
@@ -55,21 +66,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "One Arm Supinated Dumbbell Triceps Extension",
           "orderIndex": 4
         },
         {
+          "slug": "Cross Body Hammer Curl",
           "orderIndex": 5
         }
       ]
@@ -79,18 +96,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Wall Sit",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Oblique Crunches - On The Floor",
           "orderIndex": 4
         }
       ]
@@ -112,21 +134,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "Standing Bent-Over One-Arm Dumbbell Triceps Extension",
           "orderIndex": 4
         },
         {
+          "slug": "Preacher Hammer Dumbbell Curl",
           "orderIndex": 5
         }
       ]
@@ -136,18 +164,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Barbell Lunge",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Plank",
           "orderIndex": 4
         }
       ]
@@ -162,21 +195,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "Seated Triceps Press",
           "orderIndex": 4
         },
         {
+          "slug": "Wide-Grip Standing Barbell Curl",
           "orderIndex": 5
         }
       ]
@@ -186,18 +225,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Barbell Lunge",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Sit-Up",
           "orderIndex": 4
         }
       ]
@@ -219,21 +263,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "One Arm Pronated Dumbbell Triceps Extension",
           "orderIndex": 4
         },
         {
+          "slug": "Preacher Hammer Dumbbell Curl",
           "orderIndex": 5
         }
       ]
@@ -243,18 +293,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Wall Sit",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Flat Bench Lying Leg Raise",
           "orderIndex": 4
         }
       ]
@@ -269,21 +324,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "Dumbbell One-Arm Triceps Extension",
           "orderIndex": 4
         },
         {
+          "slug": "Dumbbell Bicep Curl",
           "orderIndex": 5
         }
       ]
@@ -293,18 +354,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Wall Sit",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Dumbbell Side Bend",
           "orderIndex": 4
         }
       ]
@@ -326,21 +392,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "Lying Dumbbell Tricep Extension",
           "orderIndex": 4
         },
         {
+          "slug": "Cross Body Hammer Curl",
           "orderIndex": 5
         }
       ]
@@ -350,18 +422,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Barbell Lunge",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Janda Sit-Up",
           "orderIndex": 4
         }
       ]
@@ -376,21 +453,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "Seated Bent-Over Two-Arm Dumbbell Triceps Extension",
           "orderIndex": 4
         },
         {
+          "slug": "Dumbbell Alternate Bicep Curl",
           "orderIndex": 5
         }
       ]
@@ -400,18 +483,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Barbell Lunge",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Plank",
           "orderIndex": 4
         }
       ]
@@ -433,21 +521,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "One Arm Pronated Dumbbell Triceps Extension",
           "orderIndex": 4
         },
         {
+          "slug": "Reverse Barbell Curl",
           "orderIndex": 5
         }
       ]
@@ -457,18 +551,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Wall Sit",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Flutter Kicks",
           "orderIndex": 4
         }
       ]
@@ -483,21 +582,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "One Arm Supinated Dumbbell Triceps Extension",
           "orderIndex": 4
         },
         {
+          "slug": "Dumbbell Alternate Bicep Curl",
           "orderIndex": 5
         }
       ]
@@ -507,18 +612,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Wall Sit",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Seated Barbell Twist",
           "orderIndex": 4
         }
       ]
@@ -540,21 +650,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "Standing Towel Triceps Extension",
           "orderIndex": 4
         },
         {
+          "slug": "Two-Arm Dumbbell Preacher Curl",
           "orderIndex": 5
         }
       ]
@@ -564,18 +680,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Barbell Lunge",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Flat Bench Lying Leg Raise",
           "orderIndex": 4
         }
       ]
@@ -590,21 +711,27 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Bench Press - Medium Grip",
           "orderIndex": 0
         },
         {
+          "slug": "Bent-Arm Barbell Pullover",
           "orderIndex": 1
         },
         {
+          "slug": "Standing Military Press",
           "orderIndex": 2
         },
         {
+          "slug": "Bent Over Barbell Row",
           "orderIndex": 3
         },
         {
+          "slug": "Tate Press",
           "orderIndex": 4
         },
         {
+          "slug": "Dumbbell Alternate Bicep Curl",
           "orderIndex": 5
         }
       ]
@@ -614,18 +741,23 @@
       "dayType": "weights",
       "exercises": [
         {
+          "slug": "Barbell Squat",
           "orderIndex": 0
         },
         {
+          "slug": "Barbell Deadlift",
           "orderIndex": 1
         },
         {
+          "slug": "Barbell Lunge",
           "orderIndex": 2
         },
         {
+          "slug": "Barbell Seated Calf Raise",
           "orderIndex": 3
         },
         {
+          "slug": "Seated Leg Tucks",
           "orderIndex": 4
         }
       ]

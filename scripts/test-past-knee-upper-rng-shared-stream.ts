@@ -15,8 +15,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { generateProgram, type CandidateExercise } from "../src/lib/program/generate";
-import type { ProgramInput } from "../src/lib/types";
+import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
 console.log("Testing shared RNG stream cross-day dependencies...\n");
 
@@ -25,7 +24,7 @@ const catalogue = JSON.parse(
 ) as CandidateExercise[];
 
 // Base input: 4-day program with Upper/Lower split
-const baseInput: ProgramInput = {
+const baseInput: GeneratorInput = {
   userId: "test-user-base",
   blockNumber: 1,
   daysPerWeek: 4,
@@ -40,36 +39,20 @@ const baseInput: ProgramInput = {
   age: 36,
   bmi: 22.5,
   currentInjuryRegions: [],
-  injuries: [],
   anyKneeInjury: false,
-  anyHipInjury: false,
-  anyLowerBackInjury: false,
-  anyShoulderInjury: false,
-  anyElbowInjury: false,
-  anyWristInjury: false,
-  anyNeckInjury: false,
-  anyAnkleInjury: false,
 };
 
 // Generate with past-knee (filters Lower candidates differently)
-const pastKneeInput: ProgramInput = {
+const pastKneeInput: GeneratorInput = {
   ...baseInput,
   userId: "test-user-past-knee",
-  currentInjuryRegions: [],
-  injuries: [{
-    category: "knee",
-    side: "both",
-    severity: "recovered_from",
-    specificName: "Patellar Tendinitis",
-    specificUuid: "",
-    notes: "",
-  }],
   anyKneeInjury: true,
 };
 
+// Use blockNumber as seed (generateProgram derives RNG from userId:blockNumber)
 const seed = 42;
-const programA = generateProgram(baseInput, seed);
-const programB = generateProgram(pastKneeInput, seed);
+const programA = generateProgram({ ...baseInput, blockNumber: seed });
+const programB = generateProgram({ ...pastKneeInput, blockNumber: seed });
 
 console.log("Program A days:", programA.days.map(d => `${d.dayIndex}:${d.focus}`).join(", "));
 console.log("Program B days:", programB.days.map(d => `${d.dayIndex}:${d.focus}`).join(", "));

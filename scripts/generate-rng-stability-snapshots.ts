@@ -9,14 +9,13 @@
  */
 
 import { writeFileSync, readFileSync } from "node:fs";
-import { generateProgram, type CandidateExercise } from "../src/lib/program/generate";
-import type { ProgramInput } from "../src/lib/types";
+import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
 const catalogue = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
 ) as CandidateExercise[];
 
-const pastKneeInput: ProgramInput = {
+const pastKneeInput: GeneratorInput = {
   userId: "test-user-past-knee",
   blockNumber: 1,
   daysPerWeek: 4,
@@ -31,45 +30,37 @@ const pastKneeInput: ProgramInput = {
   age: 36,
   bmi: 22.5,
   currentInjuryRegions: [],
-  injuries: [{
-    category: "knee",
-    side: "both",
-    severity: "recovered_from",
-    specificName: "Patellar Tendinitis",
-    specificUuid: "",
-    notes: "",
-  }],
   anyKneeInjury: true,
-  anyHipInjury: false,
-  anyLowerBackInjury: false,
-  anyShoulderInjury: false,
-  anyElbowInjury: false,
-  anyWristInjury: false,
-  anyNeckInjury: false,
-  anyAnkleInjury: false,
 };
 
-const noInjuryInput: ProgramInput = {
+const noInjuryInput: GeneratorInput = {
   ...pastKneeInput,
   userId: "test-user-no-injury",
-  injuries: [],
   anyKneeInjury: false,
 };
 
 const seeds = [42, 123, 999];
-const snapshots: Record<string, any> = {};
+
+type DaySnapshot = {
+  focus: string | null;
+  dayType: string;
+  exercises: Array<{ slug: string; orderIndex: number }>;
+};
+
+const snapshots: Record<string, DaySnapshot[]> = {};
 
 for (const seed of seeds) {
-  const pastKneeProgram = generateProgram(pastKneeInput, seed);
-  const noInjuryProgram = generateProgram(noInjuryInput, seed);
+  // Use blockNumber as seed (generateProgram derives RNG from userId:blockNumber)
+  const pastKneeProgram = generateProgram({ ...pastKneeInput, blockNumber: seed });
+  const noInjuryProgram = generateProgram({ ...noInjuryInput, blockNumber: seed });
   
   // Extract exercise lists per day (focus + exercise slugs in order)
-  function extractDayExercises(program: typeof pastKneeProgram) {
+  function extractDayExercises(program: typeof pastKneeProgram): DaySnapshot[] {
     return program.days.map(day => ({
       focus: day.focus,
       dayType: day.dayType,
       exercises: day.dayType === "rest" ? [] : day.exercises.map(ex => ({
-        slug: ex.slug,
+        slug: ex.name,
         orderIndex: ex.orderIndex,
       })),
     }));
