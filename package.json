@@ -365,7 +365,8 @@
     "test:replay-conflict-notice": "tsx scripts/test-replay-conflict-notice.tsx",
     "test:session-state-hydration": "tsx scripts/test-session-state-hydration.ts",
     "test:unmount-cleanup": "tsx scripts/test-unmount-cleanup.ts",
-    "test:cooldown-button-state": "tsx scripts/test-cooldown-button-state.ts"
+    "test:cooldown-button-state": "tsx scripts/test-cooldown-button-state.ts",
+    "test:runner-status-area": "tsx scripts/test-runner-status-area.tsx"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

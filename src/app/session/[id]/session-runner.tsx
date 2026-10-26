@@ -50,6 +50,8 @@ import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
 import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
 import { PendingSetsBanner } from "@/components/pending-sets-banner";
 import { ReplayConflictNotice } from "@/components/replay-conflict-notice";
+import { RunnerStatusArea } from "@/components/runner-status-area";
+import { selectRunnerStatusProps } from "@/lib/session/runner-status-selector";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
 import { pickCurrentExerciseIndex } from "@/lib/session/resume-state";
 
@@ -622,11 +624,7 @@ export function SessionRunner({
         error={error}
         message={message}
       >
-        <ReplayConflictNotice conflicts={pendingSetState.conflicts} />
-        <PendingSetsBanner
-          pendingCount={pendingSetState.pending.length}
-          replayState={pendingSetState}
-        />
+        <RunnerStatusArea {...selectRunnerStatusProps(pendingSetState)} />
         <p className="text-muted">
           Static stretches for what you trained. Hold each for 30 seconds,
           breathing slowly and evenly. Nothing should be sharp.
@@ -1048,11 +1046,7 @@ export function SessionRunner({
         message={message}
     >
       <div onPointerDown={onAnyTap}>
-        <ReplayConflictNotice conflicts={pendingSetState.conflicts} />
-        <PendingSetsBanner
-          pendingCount={pendingSetState.pending.length}
-          replayState={pendingSetState}
-        />
+        <RunnerStatusArea {...selectRunnerStatusProps(pendingSetState)} />
         {pendingSetState.pending.length > 0 && (
           <div className="mb-5">
             {getPendingUiMode(pendingSetState) === "expired" && <SessionExpiredPrompt />}

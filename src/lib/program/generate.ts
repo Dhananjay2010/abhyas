@@ -567,10 +567,10 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
     }
   }
 
-  // PR #73 coordinator: ANY knee injury excludes sissy squats (including weighted-sissy-squat)
-  if (input.anyKneeInjury && ex.slug.includes("sissy")) {
-    return false;
-  }
+  // MUTANT: Removed sissy ban from isEligible
+  // if (input.anyKneeInjury && ex.slug.includes("sissy")) {
+  //   return false;
+  // }
 
   // PR #73 coordinator: ANY knee injury (current or past) excludes unsafe lunges
   // (deficit lunges, pistol squats, side split squat)
