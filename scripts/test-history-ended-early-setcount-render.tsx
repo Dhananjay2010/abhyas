@@ -13,7 +13,7 @@ import "./helpers/setup-jsdom";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react-dom/test-utils";
-import type { HistoryListItem } from "../src/lib/history/build-history-list-items";
+import type { SessionListItem } from "../src/app/history/types";
 import { HistoryClient } from "../src/app/history/history-client";
 
 let failures = 0;
@@ -26,11 +26,11 @@ function check(label: string, ok: boolean, detail = "") {
 console.log("\nL-3: History ended-early set count render test (ended-early-setcount-render)");
 
 // Test fixture: ended-early session with sets
-const items: HistoryListItem[] = [
+const items: SessionListItem[] = [
   {
     id: "session1",
     localDate: "2025-01-10",
-    label: "Day A",
+    programDayLabel: "Day A",
     status: "in_progress",
     actualType: "weights",
     isDeload: false,
@@ -39,7 +39,11 @@ const items: HistoryListItem[] = [
     topSetWeight: null,
     volumeKg: 0,
     durationSeconds: 480,
-    hasPB: false,
+    hasPR: false,
+    startedAt: "2025-01-10T08:00:00Z",
+    completedAt: null,
+    plannedSets: 4,
+    breathing: null,
   },
 ];
 
@@ -52,9 +56,13 @@ try {
     root.render(
       React.createElement(HistoryClient, {
         items,
-        totalPages: 1,
-        currentPage: 1,
+        filter: "lifts" as const,
+        page: 1,
+        totalCount: 1,
+        today: "2025-01-11",
+        timezone: "America/New_York",
         units: "metric" as const,
+        hasErrors: false,
       })
     );
   });
