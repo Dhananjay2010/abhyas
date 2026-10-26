@@ -10,34 +10,16 @@ type SessionRow = {
  * Core logic for planDay's "keep" action.
  *
  * When the user chooses "Keep it" on a day plan prompt:
- * - If ALL planned sessions are Rest, keep them (no delete).
- *   The prompt said "Today is Rest" and "Keep it" means keep Rest.
- * - Otherwise, delete all planned sessions to revert to the template.
+ * - Keep whatever planned choice exists (training, yoga, breathing, or rest).
+ * - "Keep it" is a no-op for any override - the user explicitly wants to keep
+ *   what they chose.
  *
- * Returns the IDs that were deleted (empty array means nothing was deleted).
+ * Returns an empty deletedIds array (nothing was deleted).
  */
 export async function keepPlannedDay(
   supabase: SupabaseClient<Database>,
   planned: SessionRow[]
 ): Promise<{ ok: true; deletedIds: string[] } | { ok: false; error: string }> {
-  if (planned.length === 0) {
-    return { ok: true, deletedIds: [] };
-  }
-
-  // On a Rest override day, "Keep it" must keep the Rest override, not delete it.
-  // If all planned sessions are Rest, don't delete.
-  const allRest = planned.every((s) => s.actual_type === "rest");
-  if (allRest) {
-    return { ok: true, deletedIds: [] };
-  }
-
-  // Delete all non-Rest overrides to revert to the template
-  const ids = planned.map((s) => s.id);
-  const { error } = await supabase.from("sessions").delete().in("id", ids);
-  
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-
-  return { ok: true, deletedIds: ids };
+  // "Keep it" always keeps: training override, yoga override, breathing override, or Rest override
+  return { ok: true, deletedIds: [] };
 }

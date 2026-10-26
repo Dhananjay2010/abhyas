@@ -825,6 +825,20 @@ export async function planDay(input: {
 
   const planned = (existing ?? []).filter((s) => s.status === "planned");
 
+  // Validate plan input
+  if (!input.plan) {
+    return { ok: false, error: "No plan was provided." };
+  }
+  
+  if (typeof input.plan !== "object" || !("kind" in input.plan) || !input.plan.kind) {
+    return { ok: false, error: "Invalid plan: must have a kind." };
+  }
+
+  const validKinds = ["keep", "training", "yoga", "breathing", "rest"];
+  if (!validKinds.includes(input.plan.kind)) {
+    return { ok: false, error: "Invalid plan type." };
+  }
+
   if (input.plan.kind === "keep") {
     const keepResult = await keepPlannedDay(supabase, planned);
     if (!keepResult.ok) return keepResult;

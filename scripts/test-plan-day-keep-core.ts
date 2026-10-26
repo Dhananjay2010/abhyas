@@ -79,7 +79,7 @@ async function main() {
     assert.equal(fake.tables.sessions.length, 2, "Both Rest overrides should remain");
   });
 
-  await test("(b) Non-rest override (Lower on template Rest): 'keep' → deleted", async () => {
+  await test("(b) Non-rest override (Lower on template Rest): 'keep' → kept (not deleted)", async () => {
     const fake = createFakeDb({
       tables: {
         sessions: [sessionRow("lower-override-1", "weights")],
@@ -90,15 +90,14 @@ async function main() {
     const result = await keepPlannedDay(fake.client, planned);
 
     assert(result.ok, "keepPlannedDay should succeed");
-    assert.equal(result.deletedIds.length, 1, "One session should be deleted");
-    assert.equal(result.deletedIds[0], "lower-override-1", "Correct session deleted");
+    assert.equal(result.deletedIds.length, 0, "No sessions should be deleted");
     
-    // Verify row was deleted from fake DB
+    // Verify row still exists in fake DB
     const remaining = fake.tables.sessions.filter((s) => s.id === "lower-override-1");
-    assert.equal(remaining.length, 0, "Override row should be deleted");
+    assert.equal(remaining.length, 1, "Training override row should still exist");
   });
 
-  await test("(b.2) Yoga override: 'keep' → deleted", async () => {
+  await test("(b.2) Yoga override: 'keep' → kept (not deleted)", async () => {
     const fake = createFakeDb({
       tables: {
         sessions: [sessionRow("yoga-override-1", "yoga")],
@@ -109,13 +108,26 @@ async function main() {
     const result = await keepPlannedDay(fake.client, planned);
 
     assert(result.ok, "keepPlannedDay should succeed");
-    assert.equal(result.deletedIds.length, 1, "Yoga override should be deleted");
-    assert.equal(fake.tables.sessions.length, 0, "No rows should remain");
+    assert.equal(result.deletedIds.length, 0, "No sessions should be deleted");
+    assert.equal(fake.tables.sessions.length, 1, "Yoga override should remain");
   });
 
-  await test("(c) Mixed planned rows (Rest + Lower): 'keep' → all deleted", async () => {
-    // Mixed case: if ANY planned session is non-Rest, all are deleted
-    // (This is the current behaviour: allRest check is .every())
+  await test("(b.3) Breathing override: 'keep' → kept (not deleted)", async () => {
+    const fake = createFakeDb({
+      tables: {
+        sessions: [sessionRow("breathing-override-1", "meditation")],
+      },
+    });
+
+    const planned = [{ id: "breathing-override-1", actual_type: "meditation" as const }];
+    const result = await keepPlannedDay(fake.client, planned);
+
+    assert(result.ok, "keepPlannedDay should succeed");
+    assert.equal(result.deletedIds.length, 0, "No sessions should be deleted");
+    assert.equal(fake.tables.sessions.length, 1, "Breathing override should remain");
+  });
+
+  await test("(c) Mixed planned rows (Rest + Lower): 'keep' → all kept", async () => {
     const fake = createFakeDb({
       tables: {
         sessions: [
@@ -132,8 +144,8 @@ async function main() {
     const result = await keepPlannedDay(fake.client, planned);
 
     assert(result.ok, "keepPlannedDay should succeed");
-    assert.equal(result.deletedIds.length, 2, "Both sessions should be deleted");
-    assert.equal(fake.tables.sessions.length, 0, "All mixed overrides deleted");
+    assert.equal(result.deletedIds.length, 0, "No sessions should be deleted");
+    assert.equal(fake.tables.sessions.length, 2, "All mixed overrides kept");
   });
 
   await test("No planned sessions: 'keep' → no delete, success", async () => {
