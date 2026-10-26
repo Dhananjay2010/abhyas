@@ -254,7 +254,28 @@ console.log("\n4. All lower-body jumps BANNED for current knee");
   );
 }
 
-console.log("\n5. Real generator: no lower-body jumps in past-knee plans");
+console.log("\n5. Mutant 10 killer: LOW-impact jumps excluded (not caught by high-impact filter)");
+{
+  // Create a synthetic low-impact jump exercise
+  // This is only caught by isJumpingExercise, NOT by isHighImpactLegExercise
+  // When Mutant 10 disables the lower-body check, isJumpingExercise returns false,
+  // so isExcludedForPastKnee would incorrectly return false
+  const lowImpactJump: CandidateExercise = {
+    ...bySlug.get("bench-jump")!,
+    id: "test-low-impact-jump",
+    slug: "test-low-impact-jump",
+    name: "Test Low-Impact Jump",
+    impact: "low", // NOT high, so isHighImpactLegExercise returns false
+    primary_muscles: ["quads"], // Lower-body, so hasLowerBodyPrimary should be true
+  };
+  
+  const { isExcludedForPastKnee } = await import("../src/lib/program/past-knee");
+  
+  const excluded = isExcludedForPastKnee(lowImpactJump);
+  check(`Low-impact jump excluded for past knee`, excluded, excluded ? "" : "isExcludedForPastKnee returned false");
+}
+
+console.log("\n6. Real generator: no lower-body jumps in past-knee plans");
 {
   const input: GeneratorInput = {
     userId: "test-plan-jump",

@@ -54,7 +54,9 @@ function test_mutant {
   # Run tests
   if npm run test:knee-volume 2>&1 | grep -q "✓ All invariants passed" && \
      npm run test:knee-volume-identity 2>&1 | grep -q "✓ Identity test passed" && \
-     npx tsx scripts/count-knee-risk-outside-squat.ts 2>&1 | grep -q "✓ PASS"; then
+     npx tsx scripts/count-knee-risk-outside-squat.ts 2>&1 | grep -q "✓ PASS" && \
+     npx tsx scripts/test-pickforslot-filter.ts 2>&1 | grep -q "✓ pickForSlot filter test passed" && \
+     npx tsx scripts/test-past-knee-excluded.ts 2>&1 | grep -q "✓ isExcludedForPastKnee filter test passed"; then
     echo "SURVIVOR: Tests passed (mutant not killed)"
     cleanup
     exit 1
@@ -66,7 +68,7 @@ function test_mutant {
 
 # Mutant 1: Disable knee-risk filter in pickForSlot (change hasPastKnee to false)
 test_mutant "disable-pickforslot-knee-filter" \
-  "sed -i '771s/input\\.anyKneeInjury/false/' $GENERATE_FILE"
+  "sed -i '772s/input\\.anyKneeInjury/false/' $GENERATE_FILE"
 
 # Mutant 2: Remove entire knee-risk filter block from pickForSlot
 test_mutant "remove-pickforslot-knee-block" \
@@ -87,7 +89,7 @@ test_mutant "remove-squat-slot-exception" \
 # MED-1 Mutant P1: Remove fallback filter in pickForSlot
 # This removes the knee-risk filter from the SAFE_ALTERNATIVES path
 test_mutant "P1-remove-fallback-filter" \
-  "sed -i '/PART A: Knee-risk filter for SAFE_ALTERNATIVES/,/if (altCandidates.length === 0) continue;/d' $GENERATE_FILE"
+  "sed -i '/PART A: Knee-risk filter for SAFE_ALTERNATIVES - past knee only/,/^    }/d' $GENERATE_FILE"
 
 # MED-1 Mutant K1: Ignore explicit knee tag in isKneeRiskForKneeUser
 # Comment out the check for explicit contraindicated_regions.includes('knee')
