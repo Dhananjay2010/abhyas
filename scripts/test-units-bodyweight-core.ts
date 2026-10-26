@@ -5,7 +5,7 @@
  * Tests the complete server path: getProfileUnits → validateBodyWeightKg → insert.
  * Uses fake client with imperial/metric profiles.
  * 
- * Imperial: 56 lb and 661 lb accepted (rows inserted), 55 lb and 662 lb rejected (no insert)
+ * Imperial: 55.5 lb and 661 lb accepted (rows inserted), 55 lb and 661.5 lb rejected (no insert)
  * Metric: 25 kg and 300 kg accepted, 24.9 kg and 300.1 kg rejected
  * DB constraint: 25 ≤ weight_kg ≤ 300, maps to friendly unit-aware message
  */
@@ -60,83 +60,83 @@ function createFakeDbWithConstraint() {
 
 (async () => {
   // ============================================================
-  // Imperial: 55 lb rejected (below DB constraint minimum 25 kg)
+  // Imperial: 55 lb rejected client-side by parseWeight (no insert)
   // ============================================================
   {
     const fake = createFakeDbWithConstraint();
     
     const kg55lb = parseWeight("55", "imperial");
+    check("Imperial 55 lb: rejected by parseWeight", kg55lb === null);
+    
     if (kg55lb !== null) {
-      // parseWeight now rejects 55 lb because validateBodyWeightKg requires >= 25 kg
-      throw new Error("parseWeight should reject 55 lb (< 25 kg DB constraint)");
+      // If parseWeight somehow accepted it, try logging it
+      const result = await logBodyWeightCore(fake.client, "user-1", kg55lb, "America/New_York");
+      check("Imperial 55 lb: should not reach here", false, "parseWeight accepted 55 lb");
     }
-    
-    // Test directly with 24.9 kg (55 lb equivalent)
-    const result = await logBodyWeightCore(fake.client, "user-1", 24.9, "America/New_York");
-    
-    check("Imperial 55 lb (24.9 kg): rejected", result.ok === false);
-    check("Imperial 55 lb: error contains 'lb'", result.ok === false && result.error.includes("lb"));
-    check("Imperial 55 lb: error contains '56'", result.ok === false && result.error.includes("56"));
-    check("Imperial 55 lb: error contains '661'", result.ok === false && result.error.includes("661"));
     
     const rows = fake.tables.body_metrics.filter((r: Record<string, unknown>) => r.user_id === "user-1");
     check("Imperial 55 lb: no row inserted", rows.length === 0, `got ${rows.length} rows`);
   }
 
   // ============================================================
-  // Imperial: 56 lb accepted (minimum boundary, 25.4 kg)
+  // Imperial: 55.5 lb accepted (minimum boundary, stored as 25.2 kg)
   // ============================================================
   {
     const fake = createFakeDbWithConstraint();
     
-    const kg56lb = parseWeight("56", "imperial");
-    if (kg56lb === null) throw new Error("parseWeight rejected 56 lb");
+    const kg55_5lb = parseWeight("55.5", "imperial");
+    check("Imperial 55.5 lb: accepted by parseWeight", kg55_5lb !== null, kg55_5lb ? `got ${kg55_5lb} kg` : "rejected");
     
-    const result = await logBodyWeightCore(fake.client, "user-1", kg56lb, "America/New_York");
+    if (kg55_5lb === null) throw new Error("parseWeight rejected 55.5 lb");
     
-    check("Imperial 56 lb: accepted", result.ok === true, result.ok ? "" : `error: ${result.error}`);
+    const result = await logBodyWeightCore(fake.client, "user-1", kg55_5lb, "America/New_York");
+    check("Imperial 55.5 lb: logBodyWeightCore accepted", result.ok === true, result.ok ? "" : `error: ${result.error}`);
     
     const rows = fake.tables.body_metrics.filter((r: Record<string, unknown>) => r.user_id === "user-1");
-    check("Imperial 56 lb: row inserted", rows.length === 1, `got ${rows.length} rows`);
+    check("Imperial 55.5 lb: row inserted", rows.length === 1, `got ${rows.length} rows`);
+    
+    if (rows.length === 1) {
+      const storedKg = rows[0].weight_kg as number;
+      check("Imperial 55.5 lb: stored kg ≥ 25", storedKg >= 25, `got ${storedKg} kg`);
+      check("Imperial 55.5 lb: stored as ~25.2 kg", Math.abs(storedKg - 25.2) < 0.1, `got ${storedKg} kg`);
+    }
   }
 
   // ============================================================
-  // Imperial: 661 lb accepted (maximum boundary, 299.8 kg)
+  // Imperial: 661 lb accepted (maximum boundary, stored as 299.8 kg)
   // ============================================================
   {
     const fake = createFakeDbWithConstraint();
     
     const kg661lb = parseWeight("661", "imperial");
+    check("Imperial 661 lb: accepted by parseWeight", kg661lb !== null, kg661lb ? `got ${kg661lb} kg` : "rejected");
+    
     if (kg661lb === null) throw new Error("parseWeight rejected 661 lb");
     
     const result = await logBodyWeightCore(fake.client, "user-1", kg661lb, "America/New_York");
-    
-    check("Imperial 661 lb: accepted", result.ok === true, result.ok ? "" : `error: ${result.error}`);
+    check("Imperial 661 lb: logBodyWeightCore accepted", result.ok === true, result.ok ? "" : `error: ${result.error}`);
     
     const rows = fake.tables.body_metrics.filter((r: Record<string, unknown>) => r.user_id === "user-1");
     check("Imperial 661 lb: row inserted", rows.length === 1, `got ${rows.length} rows`);
+    
+    if (rows.length === 1) {
+      const storedKg = rows[0].weight_kg as number;
+      check("Imperial 661 lb: stored kg ≤ 300", storedKg <= 300, `got ${storedKg} kg`);
+      check("Imperial 661 lb: stored as ~299.8 kg", Math.abs(storedKg - 299.8) < 0.1, `got ${storedKg} kg`);
+    }
   }
 
   // ============================================================
-  // Imperial: 662 lb rejected (above maximum)
+  // Imperial: 661.5 lb rejected (above maximum)
   // ============================================================
   {
     const fake = createFakeDbWithConstraint();
     
-    const kg662lb = parseWeight("662", "imperial");
-    if (kg662lb !== null) throw new Error("parseWeight should reject 662 lb");
-    
-    // Use raw conversion for testing rejection
-    const manualKg = 662 * 0.453592;
-    const result = await logBodyWeightCore(fake.client, "user-1", manualKg, "America/New_York");
-    
-    check("Imperial 662 lb: rejected", result.ok === false);
-    check("Imperial 662 lb: error contains 'lb'", result.ok === false && result.error.includes("lb"));
-    check("Imperial 662 lb: error contains '56'", result.ok === false && result.error.includes("56"));
-    check("Imperial 662 lb: error contains '661'", result.ok === false && result.error.includes("661"));
+    const kg661_5lb = parseWeight("661.5", "imperial");
+    check("Imperial 661.5 lb: rejected by parseWeight", kg661_5lb === null);
     
     const rows = fake.tables.body_metrics.filter((r: Record<string, unknown>) => r.user_id === "user-1");
-    check("Imperial 662 lb: no row inserted", rows.length === 0, `got ${rows.length} rows`);
+    check("Imperial 661.5 lb: no row inserted", rows.length === 0, `got ${rows.length} rows`);
   }
 
   // ============================================================
@@ -145,13 +145,15 @@ function createFakeDbWithConstraint() {
   {
     const fake = createFakeDbWithConstraint();
     
-    // Force a value that passes validateBodyWeightKg but would violate DB constraint
+    // Force a value that somehow bypasses validateBodyWeightKg but hits DB constraint
     // (This shouldn't happen in practice, but tests the error mapping)
-    // Actually, validateBodyWeightKg now checks 25-300 kg, so we can't hit this naturally.
-    // Test by directly calling with a value that somehow got through (edge case)
+    // Use 24.9 kg which is below the DB constraint of 25 kg
+    const result = await logBodyWeightCore(fake.client, "user-1", 24.9, "America/New_York");
     
-    // Skip this test as validateBodyWeightKg now enforces the DB constraint
-    check("DB constraint error mapping: covered by validateBodyWeightKg", true);
+    check("DB constraint error: rejected", result.ok === false);
+    check("DB constraint error: contains 'lb'", result.ok === false && result.error.includes("lb"), result.ok ? "" : result.error);
+    check("DB constraint error: contains '55.5'", result.ok === false && result.error.includes("55.5"), result.ok ? "" : result.error);
+    check("DB constraint error: contains '661'", result.ok === false && result.error.includes("661"), result.ok ? "" : result.error);
   }
 
   // ============================================================

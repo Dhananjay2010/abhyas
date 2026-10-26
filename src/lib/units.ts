@@ -616,8 +616,8 @@ export const WEIGHT_KG_MIN = 25;
 export const WEIGHT_KG_MAX = 300;
 
 // Body weight bounds (inclusive in display units)
-// Imperial floor is 56 lb (25.4 kg) to satisfy DB constraint weight_kg >= 25
-export const BODY_WEIGHT_LB_MIN = 56;
+// Imperial floor is 55.5 lb (25.2 kg) to satisfy DB constraint weight_kg >= 25
+export const BODY_WEIGHT_LB_MIN = 55.5;
 export const BODY_WEIGHT_LB_MAX = 661;
 
 // Load input max (for runner and History edit)
@@ -661,7 +661,7 @@ export function isValidWeightKg(kg: unknown): kg is number {
  * Validate body weight in kg with unit-specific bounds.
  * Used by both parseWeight and logBodyWeight for consistent validation.
  * 
- * Imperial: validates 56-661 lb inclusive (checks in display units), also requires 25-300 kg
+ * Imperial: validates 55.5-661 lb inclusive (checks in display units), also requires 25-300 kg
  * Metric: validates 25-300 kg
  * 
  * @param kg - Weight in kilograms
@@ -676,7 +676,7 @@ export function validateBodyWeightKg(kg: number | null, units: UnitsPreference):
   
   if (units === "imperial") {
     // Check in display units with rounding to handle parseWeight's 0.1 kg rounding
-    // 56 lb → 25.401 kg → rounds to 25.4 kg → back to 56.0 lb
+    // 55.5 lb → 25.174 kg → rounds to 25.2 kg → back to 55.6 lb (rounded to 55.5 lb)
     const displayLb = roundLbToHalf(kgToLb(kg));
     return displayLb >= BODY_WEIGHT_LB_MIN && displayLb <= BODY_WEIGHT_LB_MAX;
   }
