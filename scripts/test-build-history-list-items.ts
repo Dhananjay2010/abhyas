@@ -185,7 +185,7 @@ console.log("\n4. In-progress session with 0 sets, no exercises (catches w3)");
   const items = buildHistoryListItems(sessions, exercises, sets, volumeData, setCountsBySession, sessionsWithPRs, pickTopSet);
   const item = items[0];
   
-  check("status = in_progress (w3 kills this)", item.status === "in_progress", `got ${item.status}`);
+  check("status = in_progress", item.status === "in_progress", `got ${item.status}`);
   check("endedEarly = false (no pending, status !== completed)", item.endedEarly === false, `got ${item.endedEarly}`);
   check("setCount = 0", item.setCount === 0, `got ${item.setCount}`);
 }
