@@ -7,11 +7,7 @@ import type { Database } from "@/lib/database.types";
 import { getSwapPatterns } from "@/lib/program/swap-patterns";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { CandidateExercise } from "@/lib/program/generate";
-import {
-  describePersonalBest,
-  evaluateProgression,
-} from "@/lib/program/progression";
-import { buildProgressionInput } from "@/lib/session/build-progression-input";
+import { progressionFeedback } from "@/lib/session/progression-feedback";
 import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
@@ -447,15 +443,13 @@ async function applyProgression(
   const prior = progressRes.data;
   const totalSessions = prior?.total_sessions ?? 0;
 
-  const decision = evaluateProgression(
-    buildProgressionInput(
-      se,
-      setsRes.data ?? [],
-      prior,
-      sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
-      feel,
-      units,
-    )
+  const { decision, personalBest } = progressionFeedback(
+    se,
+    setsRes.data ?? [],
+    prior,
+    sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
+    feel,
+    units,
   );
 
   await writeExerciseProgressCore(
@@ -491,9 +485,7 @@ async function applyProgression(
   return {
     outcome: decision.outcome,
     message: decision.message,
-    personalBest: decision.personalBest
-      ? describePersonalBest(decision.personalBest, units)
-      : null,
+    personalBest,
   };
 }
 

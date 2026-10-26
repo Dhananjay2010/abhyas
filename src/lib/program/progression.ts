@@ -259,7 +259,7 @@ function roundToGrid(
   
   // Standard equipment: always use kg grid (state is stored in kg)
   const gridStep = equipmentGridStep(effectiveEquipmentIds, 'kg');
-  const minimum = effectiveEquipmentIds.includes('medicine_ball') ? 1 : gridStep;
+  const minimum = effectiveEquipmentIds.includes('medicine_ball') ? MEDICINE_BALL_MIN_KG : gridStep;
   
   if (value < minimum) return minimum;
   

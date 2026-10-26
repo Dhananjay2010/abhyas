@@ -19,6 +19,11 @@ BACKUP=$(mktemp)
 cp src/lib/program/progression.ts "$BACKUP"
 trap 'cp "$BACKUP" src/lib/program/progression.ts; rm -f "$BACKUP"' EXIT
 
+killed=0
+survived=0
+skipped=0
+crashed=0
+
 test_mutant() {
   local name="$1"
   local search="$2"
@@ -39,38 +44,60 @@ test_mutant() {
       process.exit(1);
     }
     fs.writeFileSync('src/lib/program/progression.ts', newContent);
-  " "$search" "$replace" || { echo "  ⚠️  SKIPPED: Pattern not found"; cp "$BACKUP" src/lib/program/progression.ts; return 0; }
+  " "$search" "$replace"
+  
+  if [ $? -ne 0 ]; then
+    echo "  ⚠️  SKIPPED: Pattern not found"
+    cp "$BACKUP" src/lib/program/progression.ts
+    ((skipped++))
+    return 1
+  fi
   
   # Check if it compiles
   if ! npx tsc --noEmit > /dev/null 2>&1; then
     echo "  ⚠️  SKIPPED: Does not compile"
     cp "$BACKUP" src/lib/program/progression.ts
-    return 0
+    ((skipped++))
+    return 1
   fi
   
-  # Run test
-  if eval "$test_cmd" > /dev/null 2>&1; then
+  # Run test and capture output
+  local output
+  output=$(eval "$test_cmd" 2>&1)
+  local rc=$?
+  
+  # Check for crashes
+  if echo "$output" | grep -qE 'TypeError|ReferenceError|SyntaxError|Transform failed'; then
+    echo "  💥 CRASHED"
+    cp "$BACKUP" src/lib/program/progression.ts
+    ((crashed++))
+    return 1
+  fi
+  
+  if [ $rc -eq 0 ]; then
     echo "  ❌ SURVIVED"
     cp "$BACKUP" src/lib/program/progression.ts
+    ((survived++))
     return 1
   else
     echo "  ✅ KILLED"
     cp "$BACKUP" src/lib/program/progression.ts
+    ((killed++))
     return 0
   fi
 }
 
 # H5: bar and band floor at 0
 test_mutant "H5 (floor = gridStep)" \
-  "const floor = isBodyweightEquipment ? 0 : gridStep;" \
-  "const floor = gridStep;" \
-  "npm run test:units-progression-messages"
+  "        const floor = isBodyweightEquipment ? 0 : gridStep;" \
+  "        const floor = gridStep;" \
+  "npm run test:units-progression-messages" || true
 
 # Z1: zero-weight message wording
 test_mutant "Z1 (zero message wording)" \
   "dropping to bodyweight to build up again" \
   "back to just your bodyweight to build up again" \
-  "npm run test:units-progression-messages"
+  "npm run test:units-progression-messages" || true
 
 # H2: never-raise hold resets counter
 test_mutant "H2 (never-raise hold resets counter)" \
@@ -96,23 +123,24 @@ test_mutant "H2 (never-raise hold resets counter)" \
           ? \"Missed the target again but no lighter loadable weight fits within 10% — holding to build back up.\"
           : \"Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up.\",
       };" \
-  "npm run test:hold-preserves-counter"
+  "npm run test:hold-preserves-counter" || true
 
 # H6: two-miss hold drops wafs (reduced === current hold)
 test_mutant "H6 (two-miss hold drops wafs)" \
-  "        outcome: \"hold\",
-        nextWorkingWeightKg: currentWeight,
-        nextTargetReps: repsMax,
-        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
+  "        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
         weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss
         message: holdMessage," \
-  "        outcome: \"hold\",
-        nextWorkingWeightKg: currentWeight,
-        nextTargetReps: repsMax,
-        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
+  "        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
         weightAtFailureStartKg: null, // M1: preserve for third miss
         message: holdMessage," \
-  "npm run test:hold-preserves-wafs"
+  "npm run test:hold-preserves-wafs" || true
 
 echo
+echo "Killed: $killed  Survived: $survived  Skipped: $skipped  Crashed: $crashed"
+
+if [ $survived -gt 0 ] || [ $skipped -gt 0 ] || [ $crashed -gt 0 ]; then
+  echo "❌ FAIL: $survived survivor(s), $skipped skip(s), $crashed crash(es)"
+  exit 1
+fi
+
 echo "✅ PASS: All mutants killed"

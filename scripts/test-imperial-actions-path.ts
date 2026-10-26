@@ -1,16 +1,17 @@
 #!/usr/bin/env tsx
 /**
- * Test: Imperial units through testProgressionWithUnits helper
+ * Test: Imperial units through progressionFeedback from actions.ts
  * 
- * MED-2: This helper mimics actions.ts flow: takes units parameter,
- * passes it to buildProgressionInput and describePersonalBest.
- * 
- * Kills UN1, UN2, UN4 by testing the actual parameter flow.
+ * MED-2: Test the REAL extracted function that actions.ts calls,
+ * not a copy. This kills mutants in PRODUCTION code:
+ * - UN1: actions.ts passes "metric" instead of units
+ * - UN2: progressionFeedback calls describePersonalBest without units
+ * - UN4: buildProgressionInput drops units field
  */
 
-import { buildProgressionInput } from "../src/lib/session/build-progression-input";
-import { evaluateProgression, describePersonalBest } from "../src/lib/program/progression";
+import { progressionFeedback } from "../src/lib/session/progression-feedback";
 import type { UnitsPreference } from "../src/lib/units";
+import * as fs from "fs";
 
 let failures = 0;
 
@@ -23,32 +24,7 @@ function check(label: string, condition: boolean, detail = "") {
   }
 }
 
-// This helper mimics the actions.ts pattern:
-// - Takes units from profile
-// - Passes to buildProgressionInput
-// - Passes to describePersonalBest
-function testProgressionWithUnits(
-  units: UnitsPreference,
-  sessionExercise: Parameters<typeof buildProgressionInput>[0],
-  sets: Parameters<typeof buildProgressionInput>[1],
-  progress: Parameters<typeof buildProgressionInput>[2],
-  session: Parameters<typeof buildProgressionInput>[3],
-  feel: Parameters<typeof buildProgressionInput>[4]
-) {
-  // UN1 would change this line to pass "metric" always
-  const input = buildProgressionInput(sessionExercise, sets, progress, session, feel, units);
-  
-  const decision = evaluateProgression(input);
-  
-  // UN2 would remove the units parameter here
-  const pbToast = decision.personalBest 
-    ? describePersonalBest(decision.personalBest, units)
-    : null;
-
-  return { input, decision, pbToast };
-}
-
-console.log("Imperial units wiring test\n");
+console.log("Imperial units through progressionFeedback (real production code)\n");
 
 interface SessionExerciseRow {
   id: string;
@@ -113,37 +89,44 @@ const pbSets = [
   { reps: 12, weight_kg: "43.1", duration_seconds: null },
 ];
 
-console.log("1. Test imperial path");
-const imperial = testProgressionWithUnits("imperial", sessionExercise, successSets, progress, session, "right");
-const imperialPB = testProgressionWithUnits("imperial", sessionExercise, pbSets, progress, session, "right");
+console.log("1. Test imperial path (40 kg → 42.5 kg = 93.5 lb)");
+const imperial = progressionFeedback(sessionExercise, successSets, progress, session, "right", "imperial");
 
-// UN4: Check input has units
-const inputCheck: { units?: string } = imperial.input;
-check("Input includes units", inputCheck.units !== undefined);
-check("Input has 'imperial'", inputCheck.units === "imperial", `got: ${inputCheck.units}`);
+// UN4: Check input has units field
+check("Input has units: 'imperial'", JSON.stringify(imperial.input).includes('"units":"imperial"'), JSON.stringify(imperial.input));
 
-// UN1: Check message uses imperial (40kg → 42.5kg = ~93.5lb)
+// UN1: Check progression message uses imperial (not metric)
 console.log(`  Message: "${imperial.decision.message}"`);
-check("Message has 'lb'", imperial.decision.message.includes("lb"), imperial.decision.message);
-check("Message has NO 'kg'", !imperial.decision.message.includes("kg"), imperial.decision.message);
-check("Message shows ~93-94 lb", /9[34]/.test(imperial.decision.message), imperial.decision.message);
+check("Message contains 'lb'", imperial.decision.message.includes("lb"), imperial.decision.message);
+check("Message does NOT contain 'kg'", !imperial.decision.message.includes("kg"), imperial.decision.message);
+check("Message shows exact 'up to 93.5 lb'", imperial.decision.message.includes("up to 93.5 lb"), imperial.decision.message);
 
-// UN2: Check PB toast uses imperial (43.1kg = 95lb)
-if (imperialPB.pbToast) {
-  console.log(`  PB: "${imperialPB.pbToast}"`);
-  check("PB has 'lb'", imperialPB.pbToast.includes("lb"), imperialPB.pbToast);
-  check("PB has NO 'kg'", !imperialPB.pbToast.includes("kg"), imperialPB.pbToast);
-  check("PB shows '95 lb'", imperialPB.pbToast.includes("95 lb"), imperialPB.pbToast);
+console.log("\n2. Test PB with imperial (43.1 kg = 95 lb)");
+const imperialPB = progressionFeedback(sessionExercise, pbSets, progress, session, "right", "imperial");
+
+// UN2: Check PB toast uses imperial (not metric)
+if (imperialPB.personalBest) {
+  console.log(`  PB: "${imperialPB.personalBest}"`);
+  check("PB contains 'lb'", imperialPB.personalBest.includes("lb"), imperialPB.personalBest);
+  check("PB does NOT contain 'kg'", !imperialPB.personalBest.includes("kg"), imperialPB.personalBest);
+  check("PB shows exact 'Heaviest set yet — 95 lb'", imperialPB.personalBest.includes("Heaviest set yet — 95 lb"), imperialPB.personalBest);
 } else {
   failures++;
   console.log("❌ No PB toast");
 }
 
-console.log("\n2. Sanity: metric still works");
-const metric = testProgressionWithUnits("metric", sessionExercise, successSets, progress, session, "right");
+console.log("\n3. Sanity: metric still works (40 kg → 42.5 kg)");
+const metric = progressionFeedback(sessionExercise, successSets, progress, session, "right", "metric");
 console.log(`  Metric: "${metric.decision.message}"`);
 check("Metric has 'kg'", metric.decision.message.includes("kg"));
 check("Metric has NO 'lb'", !metric.decision.message.includes("lb"));
+check("Metric shows 'up to 42.5 kg'", metric.decision.message.includes("up to 42.5 kg"));
+
+console.log("\n4. Assert actions.ts imports progressionFeedback");
+const actionsSource = fs.readFileSync("src/app/session/actions.ts", "utf8");
+check("actions.ts imports progressionFeedback", actionsSource.includes('import { progressionFeedback } from "@/lib/session/progression-feedback"'));
+const hasCall = actionsSource.includes("progressionFeedback(") && actionsSource.match(/progressionFeedback\([^)]*\bunits\b[^)]*\)/) !== null;
+check("actions.ts calls progressionFeedback with units", hasCall);
 
 console.log("\n=== SUMMARY ===");
 if (failures > 0) {
@@ -151,8 +134,9 @@ if (failures > 0) {
   process.exit(1);
 } else {
   console.log("✅ ALL PASS");
-  console.log("UN1: Passing metric breaks 93.5 lb check");
-  console.log("UN2: Omitting units from describePersonalBest breaks 95 lb check");
-  console.log("UN4: Dropping units field breaks input check");
+  console.log("Kills mutants in PRODUCTION code:");
+  console.log("  - UN1: actions.ts passes 'metric' → no '93.5 lb'");
+  console.log("  - UN2: progressionFeedback omits units in describePersonalBest → no '95 lb'");
+  console.log("  - UN4: buildProgressionInput drops units field → JSON check fails");
   process.exit(0);
 }
