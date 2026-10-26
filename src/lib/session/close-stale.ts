@@ -277,11 +277,12 @@ export async function closeStaleSessionsCore(
       if (!startedAt) return false;
 
       const workingSetCount = workingSetCounts.get(id) ?? 0;
+      const restSecondsValue = lastSetRestSeconds.get(id);
       const finish = resolveStaleFinishExtended({
         startedAt,
         lastSetCompletedAt: lastSetCompletedAt.get(id) ?? null,
         workingSetCount,
-        restSeconds: lastSetRestSeconds.get(id) ?? null,
+        ...(restSecondsValue != null ? { restSeconds: restSecondsValue } : {}),
       });
       
       // If endedAt is null (invalid timestamps), skip this session
@@ -324,11 +325,12 @@ export async function closeStaleSessionsCore(
           return false;
         }
         // Has sets - use first set as start, last set as end
+        const restSecondsValue = lastSetRestSeconds.get(id);
         const finish = resolveStaleFinishExtended({
           startedAt: firstSetTime,
           lastSetCompletedAt: lastSetTime ?? firstSetTime,
           workingSetCount: 0,
-          restSeconds: lastSetRestSeconds.get(id) ?? null,
+          ...(restSecondsValue != null ? { restSeconds: restSecondsValue } : {}),
         });
         if (finish.endedAt) {
           try {
@@ -344,7 +346,6 @@ export async function closeStaleSessionsCore(
         startedAt: session.started_at,
         lastSetCompletedAt: null,
         workingSetCount: 0,
-        restSeconds: null,
       });
       
       if (finish.endedAt) {
