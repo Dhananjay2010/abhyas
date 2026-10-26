@@ -1,14 +1,15 @@
 /**
- * Real behavioral test of startSessionCore with createClient<Database> stub fetch.
+ * Real behavioral test of the exported startSession() server action.
  *
- * Uses createClient<Database> with stub-fetch recorder to drive the REAL
- * startSessionCore function, which is the core session insertion logic called by
- * the exported startSession() server action.
+ * Uses server-action-stubs.ts to stub request-scoped edges (auth, rate-limit,
+ * revalidate) and createClient<Database> with stub fetch to provide a fake
+ * Supabase client. Then imports and calls the REAL startSession() from
+ * src/app/session/actions.ts.
  *
  * Tests:
- * 1. Fresh start: returns new sessionId
- * 2. Insert failure: returns {ok: false, error}
- * 3. Resume path (23505 duplicate): returns existing sessionId after re-read
+ * 1. Fresh start: returns new sessionId from inserted session
+ * 2. Insert failure: returns {ok: false, error} when session insert fails
+ * 3. Resume path: returns existing sessionId on 23505 duplicate
  *
  * Mutant coverage:
  * (a) Core call replaced with empty result -> FAIL assertion on fresh start
@@ -16,16 +17,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-
-type PostgRESTRequest = {
-  method: string;
-  url: string;
-  table: string;
-  filters: Record<string, string>;
-  body: unknown;
-};
-
-const requests: PostgRESTRequest[] = [];
+import { installServerActionStubs, stubState } from "./helpers/server-action-stubs";
 
 function createStubFetch(
   options: {
@@ -33,14 +25,8 @@ function createStubFetch(
     existingSession?: {
       id: string;
       user_id: string;
-      program_id: string;
-      program_day_id: string;
       local_date: string;
-      status: string;
-      planned_type: string;
-      actual_type: string | null;
-      started_at: string | null;
-      completed_at: string | null;
+      created_at: string;
     };
   } = {}
 ): typeof fetch {
@@ -50,21 +36,11 @@ function createStubFetch(
     const bodyText = init?.body && typeof init.body === "string" ? init.body : null;
     const body = bodyText ? JSON.parse(bodyText) : null;
 
-    const urlObj = new URL(url);
-    const table = urlObj.pathname.split("/").pop() ?? "";
-    
-    const filters: Record<string, string> = {};
-    urlObj.searchParams.forEach((value, key) => {
-      filters[key] = value;
-    });
+    const headers = new Headers(init?.headers);
+    const accept = headers.get("accept");
+    const wantsSingle = accept?.includes("application/vnd.pgrst.object+json");
 
-    requests.push({ method, url, table, filters, body });
-
-    if (table === "sessions" && method === "GET") {
-      const headers = new Headers(init?.headers);
-      const accept = headers.get("accept");
-      const wantsSingle = accept?.includes("application/vnd.pgrst.object+json");
-      
+    if (url.includes("/sessions") && method === "GET") {
       if (wantsSingle) {
         const result = options.existingSession || null;
         return new Response(JSON.stringify(result), {
@@ -80,7 +56,7 @@ function createStubFetch(
       }
     }
 
-    if (table === "sessions" && method === "POST") {
+    if (url.includes("/sessions") && method === "POST") {
       if (options.insertFails) {
         return new Response(
           JSON.stringify({ code: "23505", message: "duplicate key", details: null, hint: null }),
@@ -88,18 +64,7 @@ function createStubFetch(
         );
       }
       
-      const headers = new Headers(init?.headers);
-      const accept = headers.get("accept");
-      const wantsSingle = accept?.includes("application/vnd.pgrst.object+json");
-      const selectParam = filters.select;
-      
-      let result;
-      if (wantsSingle) {
-        result = selectParam === "id" ? { id: "sess-new-123" } : { ...body, id: "sess-new-123" };
-      } else {
-        result = selectParam === "id" ? [{ id: "sess-new-123" }] : [{ ...body, id: "sess-new-123" }];
-      }
-      
+      const result = wantsSingle ? { id: "sess-new-123" } : [{ id: "sess-new-123" }];
       return new Response(JSON.stringify(result), {
         status: 201,
         headers: {
@@ -109,34 +74,34 @@ function createStubFetch(
       });
     }
 
-    if (table === "session_exercises" && method === "GET") {
+    if (url.includes("/session_exercises") && method === "GET") {
       return new Response(JSON.stringify([]), {
         status: 200,
         headers: { "Content-Type": "application/json", "Content-Range": "0-0/0" },
       });
     }
 
-    if (table === "session_exercises" && method === "POST") {
+    if (url.includes("/session_exercises") && method === "POST") {
       return new Response(JSON.stringify(body), {
         status: 201,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    if (table === "profiles" && method === "GET") {
+    if (url.includes("/profiles") && method === "GET") {
       return new Response(
         JSON.stringify([{ id: "user-1", timezone: "UTC" }]),
         { status: 200, headers: { "Content-Type": "application/json", "Content-Range": "0-0/1" } }
       );
     }
 
-    if (table === "program_days" && method === "GET") {
+    if (url.includes("/program_days") && method === "GET") {
       return new Response(
         JSON.stringify([{
           id: "day-1",
           program_id: "prog-1",
           day_number: 1,
-          planned_type: "weights" as const,
+          planned_type: "weights",
           exercise_slots: [{
             order: 1,
             exercise_id: "ex-1",
@@ -145,7 +110,7 @@ function createStubFetch(
             target_reps_max: 12,
             target_duration_seconds: null,
             rest_seconds: 90,
-            movement_pattern: "squat" as const,
+            movement_pattern: "squat",
             expected_rating: null,
           }],
         }]),
@@ -153,7 +118,7 @@ function createStubFetch(
       );
     }
 
-    if (table === "program_day_exercises" && method === "GET") {
+    if (url.includes("/program_day_exercises") && method === "GET") {
       return new Response(
         JSON.stringify([{
           exercise_id: "ex-1",
@@ -168,7 +133,7 @@ function createStubFetch(
       );
     }
 
-    if (table === "programs" && method === "GET") {
+    if (url.includes("/programs") && method === "GET") {
       return new Response(
         JSON.stringify([{
           id: "prog-1",
@@ -186,7 +151,7 @@ function createStubFetch(
       );
     }
 
-    if (table === "exercises" && method === "GET") {
+    if (url.includes("/exercises") && method === "GET") {
       const exercises = [
         {
           id: "ex-1",
@@ -241,7 +206,7 @@ function createStubFetch(
       );
     }
 
-    if (table === "current_blocks" && method === "GET") {
+    if (url.includes("/current_blocks") && method === "GET") {
       return new Response(
         JSON.stringify([{
           id: "block-1",
@@ -255,7 +220,7 @@ function createStubFetch(
       );
     }
 
-    if (table === "equipment" && method === "GET") {
+    if (url.includes("/equipment") && method === "GET") {
       return new Response(
         JSON.stringify([
           { id: "barbell", name: "Barbell", category: "free_weight" },
@@ -265,7 +230,7 @@ function createStubFetch(
       );
     }
 
-    if (table === "user_equipment" && method === "GET") {
+    if (url.includes("/user_equipment") && method === "GET") {
       return new Response(
         JSON.stringify([
           { user_id: "user-1", equipment_id: "barbell" },
@@ -275,7 +240,7 @@ function createStubFetch(
       );
     }
 
-    if (table === "injuries" && method === "GET") {
+    if (url.includes("/injuries") && method === "GET") {
       return new Response(
         JSON.stringify([]),
         { status: 200, headers: { "Content-Type": "application/json", "Content-Range": "0-0/0" } }
@@ -290,56 +255,41 @@ function createStubFetch(
 }
 
 async function testFreshStart() {
-  requests.length = 0;
   const stubFetch = createStubFetch();
   const client = createClient<Database>("http://localhost:54321", "test-key", {
     global: { fetch: stubFetch },
   });
 
-  const { startSessionCore } = await import("@/lib/session/start-session-core");
-  const result = await startSessionCore(client, "user-1", {
-    user_id: "user-1",
-    program_id: "prog-1",
-    program_day_id: "day-1",
-    local_date: "2026-10-26",
-    week_in_block: 1,
-    is_deload: false,
-    planned_type: "weights",
-    actual_type: "weights",
-    status: "in_progress",
-    started_at: "2026-10-26T10:00:00Z",
-  });
+  stubState.client = client;
+  stubState.userId = "user-1";
+
+  const { startSession } = await import("@/app/session/actions");
+  const result = await startSession();
 
   if (!result.ok) {
     throw new Error(`Test fresh start failed: expected ok=true, got error: ${result.error}`);
   }
-  if (result.sessionId !== "sess-new-123") {
-    throw new Error(`Test fresh start failed: expected sessionId=sess-new-123, got ${result.sessionId}`);
+  if (!result.data?.sessionId) {
+    throw new Error(`Test fresh start failed: expected sessionId in data`);
+  }
+  if (result.data.sessionId !== "sess-new-123") {
+    throw new Error(`Test fresh start failed: expected sessionId=sess-new-123, got ${result.data.sessionId}`);
   }
 
   console.log("✓ Test fresh start: returns new sessionId");
 }
 
 async function testInsertFailure() {
-  requests.length = 0;
   const stubFetch = createStubFetch({ insertFails: true });
   const client = createClient<Database>("http://localhost:54321", "test-key", {
     global: { fetch: stubFetch },
   });
 
-  const { startSessionCore } = await import("@/lib/session/start-session-core");
-  const result = await startSessionCore(client, "user-1", {
-    user_id: "user-1",
-    program_id: "prog-1",
-    program_day_id: "day-1",
-    local_date: "2026-10-26",
-    week_in_block: 1,
-    is_deload: false,
-    planned_type: "weights",
-    actual_type: "weights",
-    status: "in_progress",
-    started_at: "2026-10-26T10:00:00Z",
-  });
+  stubState.client = client;
+  stubState.userId = "user-1";
+
+  const { startSession } = await import("@/app/session/actions");
+  const result = await startSession();
 
   if (result.ok) {
     throw new Error(`Test insert failure failed: expected ok=false, got ok=true`);
@@ -352,44 +302,38 @@ async function testInsertFailure() {
 }
 
 async function testResumePath() {
-  requests.length = 0;
   const existingSession = {
     id: "sess-existing-456",
     user_id: "user-1",
     local_date: "2026-10-26",
     created_at: "2026-10-26T09:00:00Z",
   };
-  const stubFetch = createStubFetch({ insertFails: true, existingSession: existingSession as typeof existingSession & { program_id: string; program_day_id: string; status: string; planned_type: string; actual_type: string | null; started_at: string | null; completed_at: string | null } });
+  const stubFetch = createStubFetch({ insertFails: true, existingSession });
   const client = createClient<Database>("http://localhost:54321", "test-key", {
     global: { fetch: stubFetch },
   });
 
-  const { startSessionCore } = await import("@/lib/session/start-session-core");
-  
-  const result = await startSessionCore(client, "user-1", {
-    user_id: "user-1",
-    program_id: "prog-1",
-    program_day_id: "day-1",
-    local_date: "2026-10-26",
-    week_in_block: 1,
-    is_deload: false,
-    planned_type: "weights",
-    actual_type: "weights",
-    status: "in_progress",
-    started_at: "2026-10-26T10:00:00Z",
-  });
+  stubState.client = client;
+  stubState.userId = "user-1";
+
+  const { startSession } = await import("@/app/session/actions");
+  const result = await startSession();
 
   if (!result.ok) {
     throw new Error(`Test resume path failed: expected ok=true, got error: ${result.error}`);
   }
-  if (result.sessionId !== "sess-existing-456") {
-    throw new Error(`Test resume path failed: expected sessionId=sess-existing-456, got ${result.sessionId}`);
+  if (!result.data?.sessionId) {
+    throw new Error(`Test resume path failed: expected sessionId in data`);
+  }
+  if (result.data.sessionId !== "sess-existing-456") {
+    throw new Error(`Test resume path failed: expected sessionId=sess-existing-456, got ${result.data.sessionId}`);
   }
 
   console.log("✓ Test resume path: handles 23505 duplicate and returns existing sessionId");
 }
 
 async function main() {
+  installServerActionStubs();
   await testFreshStart();
   await testInsertFailure();
   await testResumePath();

@@ -646,7 +646,7 @@ async function main() {
     eq(ensuredSessionId, "sess-planned", "ensureSessionExercises called with reused sessionId");
   });
 
-  await test("Empty planned exercises handled without error", async () => {
+  await test("Empty planned exercises list handled without error", async () => {
     let insertExercisesWasCalled = false;
     const deps = createBasicDeps({
       fetchPlannedExercises: async () => [],
@@ -658,10 +658,38 @@ async function main() {
 
     const result = await startSessionFullCore(deps);
 
-    eq(result.ok, true, "Succeeds with empty planned exercises");
-    eq(insertExercisesWasCalled, false, "insertExercises not called when exercises array is empty");
+    eq(result.ok, true, "Succeeds with empty planned exercises list");
+    eq(insertExercisesWasCalled, false, "insertExercises not called when planned list is empty");
     if (result.ok) {
       eq(typeof result.sessionId, "string", "Returns valid sessionId");
+    }
+  });
+
+  await test("Planned row with empty exercises array handled", async () => {
+    let insertedExercises: unknown[] = [];
+    const deps = createBasicDeps({
+      fetchPlannedExercises: async () => [{
+        exercise_id: "ex-1",
+        order_index: 0,
+        target_sets: 3,
+        target_reps_min: 8,
+        target_reps_max: 12,
+        rest_seconds: 90,
+        exercises: [],
+      }],
+      insertExercises: async (exercises) => {
+        insertedExercises = exercises;
+        return { ok: true };
+      },
+    });
+
+    const result = await startSessionFullCore(deps);
+
+    eq(result.ok, true, "Succeeds with planned row having empty exercises array");
+    eq(insertedExercises.length, 1, "Inserts one exercise");
+    if (insertedExercises.length > 0) {
+      const ex = insertedExercises[0] as { metric: string };
+      eq(ex.metric, "reps", "Falls back to 'reps' metric when exercises array is empty");
     }
   });
 
