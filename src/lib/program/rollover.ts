@@ -169,6 +169,7 @@ async function callRolloverRPC(
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver,
+    // Rollover: Don't pass startedOn so existing users keep their weekday mapping
   };
 
   const plan = generateProgram(input);

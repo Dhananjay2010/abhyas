@@ -1,6 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
-import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
+import { activeDayIndices, placeYoga, splitFor, templatesFor, activeDayIndicesAnchored } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
 import { 
   isKneeRiskForKneeUser, 
@@ -67,6 +67,13 @@ export type GeneratorInput = {
    * the first two slots of a day consult this.
    */
   carryOver?: Record<string, string>;
+  /**
+   * The plan's start date (YYYY-MM-DD). For NEW plans (block 1), this anchors
+   * the weekly schedule so the first training day falls on this date, regardless
+   * of weekday. For EXISTING plans (block 2+), this is ignored and the original
+   * weekday mapping is preserved.
+   */
+  startedOn?: string;
 };
 
 /** How many slots per day are treated as the main lifts. */
@@ -937,7 +944,12 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
 
   const templates = templatesFor(trainingDays);
   const laidOut = placeYoga(templates, yogaDays);
-  const activeIdx = activeDayIndices(input.daysPerWeek);
+  
+  // NEW plans (block 1) anchor to started_on so the first training day is the sign-up day.
+  // EXISTING plans (block 2+) keep the original weekday mapping for schedule continuity.
+  const activeIdx = input.blockNumber === 1 && input.startedOn
+    ? activeDayIndicesAnchored(input.startedOn, trainingDays)
+    : activeDayIndices(input.daysPerWeek);
 
   // QA Pass 10 H2: Per-day `used` for main slots (0-3), per-block for accessories (4+).
   // This prevents second Upper/Lower day from degrading to push-ups/bodyweight squats

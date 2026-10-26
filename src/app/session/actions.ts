@@ -783,6 +783,8 @@ export type PlannableDay = {
   programDayId: string;
   label: string;
   dayType: Database["public"]["Enums"]["day_type"];
+  /** True when this is the recommended next workout in the rotation */
+  nextUp?: boolean;
 };
 
 /**

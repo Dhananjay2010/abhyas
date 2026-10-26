@@ -36,10 +36,17 @@ export function labelForDayType(dayType: DayType, fallback: string | null): stri
  * upper/lower split has two days called "Upper", and offering both would ask
  * the user a question they cannot answer. Yoga, breathing and rest are added
  * by the prompt itself, since they need no program day.
+ * 
+ * Marks the "next up" workout based on the most recently completed session,
+ * so rest-day swaps can preselect the recommended next workout in the rotation.
  */
 export async function plannableDays(
   supabase: Client,
   programId: string,
+  options?: {
+    /** When provided, marks the next workout in rotation after this date's session */
+    afterDate?: string;
+  }
 ): Promise<PlannableDay[]> {
   const { data } = await supabase
     .from("program_days")
@@ -48,14 +55,50 @@ export async function plannableDays(
     .eq("status", "active")
     .order("day_index");
 
+  const trainingDays = (data ?? []).filter(
+    d => d.day_type === "weights" || d.day_type === "bodyweight"
+  );
+  
+  // Find which workout is "next up" based on the most recently completed session
+  let nextUpId: string | null = null;
+  
+  if (options?.afterDate && trainingDays.length > 0) {
+    const { data: recentSession } = await supabase
+      .from("sessions")
+      .select("program_day_id")
+      .eq("status", "completed")
+      .in("actual_type", ["weights", "bodyweight"])
+      .lte("local_date", options.afterDate)
+      .order("local_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (recentSession?.program_day_id) {
+      const completedIndex = trainingDays.findIndex(d => d.id === recentSession.program_day_id);
+      if (completedIndex >= 0) {
+        // Next workout in rotation (wraps around)
+        const nextDay = trainingDays[(completedIndex + 1) % trainingDays.length];
+        nextUpId = nextDay.id;
+      }
+    } else {
+      // No completed sessions yet: next up is the first day in the rotation
+      nextUpId = trainingDays[0]?.id ?? null;
+    }
+  }
+
   const seen = new Set<string>();
   const out: PlannableDay[] = [];
-  for (const d of data ?? []) {
-    if (d.day_type !== "weights" && d.day_type !== "bodyweight") continue;
+  for (const d of trainingDays) {
     const label = d.label ?? "Training";
     if (seen.has(label)) continue;
     seen.add(label);
-    out.push({ programDayId: d.id, label, dayType: d.day_type });
+    out.push({ 
+      programDayId: d.id, 
+      label, 
+      dayType: d.day_type,
+      nextUp: d.id === nextUpId
+    });
   }
   return out;
 }
@@ -154,6 +197,9 @@ export type NextDayPlan = {
  *
  * Returns null when there is no active block, which is the one case where
  * asking "what about tomorrow?" has no answer to offer.
+ * 
+ * After completing a swapped session: Tomorrow shows the NEXT workout in the
+ * rotation, not the one just completed or what the weekly schedule says.
  */
 export async function nextDayPlan(
   supabase: Client,
@@ -166,15 +212,53 @@ export async function nextDayPlan(
     .maybeSingle();
   if (!program) return null;
 
-  const tomorrow = addDays(localDateString(timezone), 1);
-  const [resolved, days] = await Promise.all([
+  const today = localDateString(timezone);
+  const tomorrow = addDays(today, 1);
+  
+  // Check if today had a completed training session
+  const { data: todaySessions } = await supabase
+    .from("sessions")
+    .select("program_day_id, actual_type, status")
+    .eq("local_date", today)
+    .eq("status", "completed")
+    .in("actual_type", ["weights", "bodyweight"])
+    .order("created_at", { ascending: false })
+    .limit(1);
+  
+  const [resolved, days, programDays] = await Promise.all([
     resolveDay(supabase, program.id, tomorrow),
-    plannableDays(supabase, program.id),
+    plannableDays(supabase, program.id, { afterDate: today }),
+    supabase
+      .from("program_days")
+      .select("id, day_index, day_type, label")
+      .eq("program_id", program.id)
+      .eq("status", "active")
+      .in("day_type", ["weights", "bodyweight"])
+      .order("day_index"),
   ]);
+
+  let plannedLabel = resolved?.label ?? "Rest";
+  
+  // If today had a completed training session, compute what's next in rotation
+  if (todaySessions && todaySessions.length > 0 && programDays.data) {
+    const completedDay = programDays.data.find(d => d.id === todaySessions[0].program_day_id);
+    
+    if (completedDay) {
+      // Find the next day in rotation after the completed one
+      const trainingDays = programDays.data;
+      const currentIndex = trainingDays.findIndex(d => d.id === completedDay.id);
+      
+      if (currentIndex >= 0) {
+        // Next day in rotation (wraps around)
+        const nextDay = trainingDays[(currentIndex + 1) % trainingDays.length];
+        plannedLabel = nextDay.label ?? "Training";
+      }
+    }
+  }
 
   return {
     localDate: tomorrow,
-    plannedLabel: resolved?.label ?? "Rest",
+    plannedLabel,
     days,
   };
 }

@@ -322,7 +322,7 @@ export default async function TodayPage() {
   // both still costs one round trip.
   const [plannable, performedRows, endedEarlySummary, loggedSetsRes] = await Promise.all([
     viewModel.shouldLoadPlannableDays
-      ? plannableDays(supabase, program.id)
+      ? plannableDays(supabase, program.id, { afterDate: localToday })
       : Promise.resolve([]),
     performed
       ? supabase

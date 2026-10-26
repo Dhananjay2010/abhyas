@@ -202,9 +202,13 @@ export async function createBlockForUser(
       ? Number(weightKg) / (Number(profile.height_cm) / 100) ** 2
       : null;
 
+  const timezone = resolveTimezoneWithProfile(profile.timezone);
+  const today = localDateString(timezone);
+  const blockNumber = rebuildOf?.block_number ?? (lastBlockRes.data?.block_number ?? 0) + 1;
+  
   const input: GeneratorInput = {
     userId,
-    blockNumber: rebuildOf?.block_number ?? (lastBlockRes.data?.block_number ?? 0) + 1,
+    blockNumber,
     goal: profile.goal!,
     level: profile.level!,
     primaryTrack: profile.primary_track!,
@@ -220,6 +224,11 @@ export async function createBlockForUser(
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver: options.carryOver,
+    // For NEW plans (block 1), anchor to started_on so first training day = sign-up day.
+    // For rebuilds, pass rebuildOf.started_on to keep the existing anchor.
+    // For rollovers (options.mode === "new" but block > 1), don't pass startedOn
+    // so the original weekday mapping is preserved.
+    startedOn: rebuildOf?.started_on ?? (blockNumber === 1 ? today : undefined),
   };
 
   const plan = generateProgram(input);
@@ -236,9 +245,6 @@ export async function createBlockForUser(
         "No exercises match your equipment, level and injuries. Widen your equipment list in Settings.",
     };
   }
-
-  const timezone = resolveTimezoneWithProfile(profile.timezone);
-  const today = localDateString(timezone);
 
   // For rebuild mode, use the rebuild_block RPC
   if (rebuildOf) {
