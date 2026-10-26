@@ -20,6 +20,7 @@ import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
 import { StrengthDoneBanner } from "./strength-done-banner";
 import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
+import { buildChosenByDayIndex } from "@/lib/today/chosen-by-day";
 import { shouldLoadPlannableDays } from "@/lib/today/should-load-plannable";
 
 export const dynamic = "force-dynamic";
@@ -402,25 +403,7 @@ export default async function TodayPage() {
     strength sessions are included; yoga and breathing are not (they're anytime
     activities that don't own the day).
   */
-  const chosenByDayIndex = new Map<number, string>();
-  for (const d of days ?? []) {
-    // The next time this weekday comes round, which is today for today.
-    const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
-    const sess = allSessions.find(
-      (x) =>
-        x.local_date === date &&
-        (x.status === "planned" ||
-          x.status === "in_progress" ||
-          (x.status === "completed" && isStrength(x.actual_type))) &&
-        x.actual_type !== null,
-    );
-    if (!sess?.actual_type) continue;
-    const chosenDay = sess.program_day_id
-      ? days?.find((pd) => pd.id === sess.program_day_id)
-      : undefined;
-    const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
-    if (label !== d.label) chosenByDayIndex.set(d.day_index, label);
-  }
+  const chosenByDayIndex = buildChosenByDayIndex(allSessions, days ?? [], localToday, todayIndex);
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-36">

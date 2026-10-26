@@ -1,11 +1,8 @@
 /**
  * Test 2: Rest day with open strength session from earlier day shows Resume.
  *
- * When a strength session from an earlier day is open, rest days must show
- * the same Resume affordance that training days show for an open session,
- * and must NOT offer to swap in a new strength day while one is open.
- *
- * This tests that shouldLoadPlannableDays excludes rest days when strengthOpen.
+ * Unit tests shouldLoadPlannableDays which controls swap prompt visibility.
+ * The rest-day Resume button reuses the training-day component/markup.
  *
  *   npx tsx scripts/test-rest-day-resume-button.ts
  */
@@ -44,7 +41,7 @@ console.log("\n2. Rest day WITH open session does NOT load plannable days");
   );
 }
 
-console.log("\n3. Training day always loads regardless of strengthOpen");
+console.log("\n3. Training day never loads plannable regardless of strengthOpen");
 {
   const withOpen = shouldLoadPlannableDays({
     askAboutToday: false,
@@ -74,6 +71,22 @@ console.log("\n4. askAboutToday forces plannable days even with strengthOpen");
     "Missed yesterday overrides strengthOpen check",
     restWithMissed === true,
     "askAboutToday takes precedence"
+  );
+}
+
+console.log("\n5. Rest day with session started earlier TODAY");
+{
+  // Session started earlier today behaves same as session from previous day
+  const shouldLoad = shouldLoadPlannableDays({
+    askAboutToday: false,
+    dayType: "rest",
+    strengthOpen: true,
+  });
+
+  check(
+    "Shows Resume, not swap (same as previous-day session)",
+    shouldLoad === false,
+    "strengthOpen=true covers both cases"
   );
 }
 
