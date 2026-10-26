@@ -17,7 +17,6 @@ import { getProfileUnits } from "@/lib/get-profile-units";
 import { planDayCore, type PlanDayClient } from "@/lib/session/plan-day-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { queryActiveProgramDay } from "@/lib/session/query-active-program-day";
-import { getUnitsPreference } from "@/lib/units";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
