@@ -82,21 +82,22 @@ async function testNetworkFailureQueued() {
   const storage = createFakeStorage();
   const timer = createFakeTimer();
   const now = 1000000;
+  let logSetAttempts = 0;
   
   const logSet: LogSetFunction = async () => {
+    logSetAttempts += 1;
     throw new TypeError("Failed to fetch");
   };
-  
-  const states: Array<{ pending: number; error: string | null }> = [];
-  
+
+  const states: Array<PendingSetState> = [];
   const controller = createPendingSetController({
     storage,
-    logSet,
+    userId: "user-1",
     sessionId: "session-1",
     sessionStatus: "in_progress",
-    userId: "user-1",
+    logSet,
     onChange: (state) => {
-      states.push({ pending: state.pending.length, error: state.error });
+      states.push(state);
     },
     deps: createPendingSetDeps(() => now),
     timer,
@@ -112,9 +113,11 @@ async function testNetworkFailureQueued() {
     clientId: "client-1",
   });
   
-  assert(result.status === "expired", "Should return expired status for network failure");
-  assert(states[states.length - 1].pending === 1, "Should have 1 pending set");
+  assert(result.status === "expired", "Should return expired status (reusing expired flow for offline queue)");
+  assert(states[states.length - 1].pending.length === 1, "Should have 1 pending set");
   assert(states[states.length - 1].error === null, "Should not show error for queued set");
+  // Network failures set expired: false, unlike real SESSION_EXPIRED which sets expired: true
+  assert(states[states.length - 1].expired === false, "Should NOT be marked as session-expired (only pending)");
   
   // Check storage
   const stored = storage.getItem("pending-sets:user-1");

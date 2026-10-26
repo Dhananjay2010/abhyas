@@ -99,6 +99,24 @@ async function runTests(): Promise<TestResult[]> {
     }
   }
 
+  // Test 5: Offline error returns calm message
+  {
+    const offlineError = new TypeError("Failed to fetch");
+    const result = runnerErrorMessage(offlineError);
+    
+    if (result !== "Saved on this phone, syncing when online") {
+      results.push({
+        passed: false,
+        message: `Test 5: FAILED - Expected calm offline message, got: "${result}"`
+      });
+    } else {
+      results.push({
+        passed: true,
+        message: 'Test 5: PASSED - Offline error returns calm message'
+      });
+    }
+  }
+
   return results;
 }
 
