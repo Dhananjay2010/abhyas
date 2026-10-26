@@ -53,8 +53,10 @@ console.log("\nL-4: Legacy duration fallback (legacy-duration)");
     {
       id: "ex1",
       session_id: "session1",
+      exercise_id: "squat",
+      status: "completed",
+      metric: "reps",
       planned_sets: 3,
-      order_index: 0,
     },
   ];
 

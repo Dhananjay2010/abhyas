@@ -1362,8 +1362,6 @@ console.log("\n12. MEDIUM-1: Stale finish summary shows saved duration (medium1-
   const staleDuration = 555; // Backend returns stale-capped duration
 
   const fakeActions: SessionActions = {
-    startSession: async () => ({ ok: true }),
-    resumeSession: async () => ({ ok: true }),
     finishSession: async () => ({
       ok: true,
       data: { status: "completed" as const, durationSeconds: staleDuration },
@@ -1373,9 +1371,10 @@ console.log("\n12. MEDIUM-1: Stale finish summary shows saved duration (medium1-
     logSet: async () => ({ ok: true }),
     deleteSet: async () => ({ ok: true }),
     markWarmupDone: async () => ({ ok: true }),
-    swapExercise: async () => ({ ok: true, data: { newSessionExerciseId: "ex2", plannedSets: 3 } }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
     planDay: async () => ({ ok: true }),
-    suggestAlternatives: async () => ({ ok: true, data: [] }),
     getSessionSummary: async () => ({ ok: true, data: [] }),
   };
 
@@ -1399,18 +1398,20 @@ console.log("\n12. MEDIUM-1: Stale finish summary shows saved duration (medium1-
           exerciseId: "bench",
           name: "Bench Press",
           cue: null,
-          instructions: null,
           metric: "reps",
+          primaryMuscles: ["chest"],
+          plannedSets: 3,
+          plannedRepsMin: 8,
+          plannedRepsMax: 12,
+          repsMin: 8,
+          repsMax: 12,
+          restSeconds: 90,
+          workingWeightKg: 100,
+          suggestedWeightKg: null,
           status: "completed",
+          feel: "right",
           sets: [{ setNumber: 1, reps: 10, weightKg: 100, durationSeconds: null }],
           isBodyweight: false,
-          plannedSets: 3,
-          targetRepsMin: 8,
-          targetRepsMax: 12,
-          targetWeightKg: null,
-          targetDurationSeconds: null,
-          order: 0,
-          setNumber: 1,
         }],
         settings: {
           perSetLogging: true,

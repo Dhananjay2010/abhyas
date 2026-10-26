@@ -64,8 +64,8 @@ console.log("1. Complete session with endedEarly = false, PR flag, volume");
   ];
   
   const sets: SessionSetForTopSet[] = [
-    { session_exercise_id: "ex1", reps: 5, weight_kg: 100, duration_seconds: null, is_warmup_set: false },
-    { session_exercise_id: "ex2", reps: 5, weight_kg: 80, duration_seconds: null, is_warmup_set: false },
+    { session_exercise_id: "ex1", reps: 5, weight_kg: 100, duration_seconds: null, is_warmup_set: false, completed_at: null },
+    { session_exercise_id: "ex2", reps: 5, weight_kg: 80, duration_seconds: null, is_warmup_set: false, completed_at: null },
   ];
   
   const volumeData: VolumeRow[] = [{ session_id: "s1", volume_kg: 1500 }];
@@ -108,7 +108,7 @@ console.log("\n2. Ended early session: 1 of 10, pending exercise (catches w1, w2
   ];
   
   const sets: SessionSetForTopSet[] = [
-    { session_exercise_id: "ex1", reps: 5, weight_kg: 100, duration_seconds: null, is_warmup_set: false },
+    { session_exercise_id: "ex1", reps: 5, weight_kg: 100, duration_seconds: null, is_warmup_set: false, completed_at: null },
   ];
   
   const volumeData: VolumeRow[] = [];
@@ -332,10 +332,10 @@ console.log("\n8. Multiple sessions with different states");
   ];
   
   const sets: SessionSetForTopSet[] = [
-    { session_exercise_id: "ex1", reps: 5, weight_kg: 60, duration_seconds: null, is_warmup_set: false },
-    { session_exercise_id: "ex1", reps: 5, weight_kg: 60, duration_seconds: null, is_warmup_set: false },
-    { session_exercise_id: "ex1", reps: 5, weight_kg: 60, duration_seconds: null, is_warmup_set: false },
-    { session_exercise_id: "ex2", reps: 5, weight_kg: 80, duration_seconds: null, is_warmup_set: false },
+    { session_exercise_id: "ex1", reps: 5, weight_kg: 60, duration_seconds: null, is_warmup_set: false, completed_at: null },
+    { session_exercise_id: "ex1", reps: 5, weight_kg: 60, duration_seconds: null, is_warmup_set: false, completed_at: null },
+    { session_exercise_id: "ex1", reps: 5, weight_kg: 60, duration_seconds: null, is_warmup_set: false, completed_at: null },
+    { session_exercise_id: "ex2", reps: 5, weight_kg: 80, duration_seconds: null, is_warmup_set: false, completed_at: null },
   ];
   
   const volumeData: VolumeRow[] = [

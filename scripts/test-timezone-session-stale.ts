@@ -87,6 +87,7 @@ console.log("\n1. Timezone shift doesn't close active session (10 minutes ago)")
   fake.setSessionExercises("sess1", [
     {
       session_id: "sess1",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: tenMinutesAgo },
       ],
@@ -113,6 +114,7 @@ console.log("\n2. Inactivity beyond threshold closes session");
   fake.setSessionExercises("sess2", [
     {
       session_id: "sess2",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: sevenHoursAgo },
       ],
@@ -175,6 +177,7 @@ console.log("\n5. Session from yesterday with recent activity stays open");
   fake.setSessionExercises("sess3", [
     {
       session_id: "sess3",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: fifteenMinutesAgo },
       ],
@@ -208,10 +211,10 @@ console.log("\n7. Multiple sessions: only stale ones closed");
   fake.setSession("stale", "in_progress");
   
   fake.setSessionExercises("recent", [
-    { session_id: "recent", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: recentActivity }] },
+    { session_id: "recent", rest_seconds: null, session_sets: [{ id: "s1", is_warmup_set: false, completed_at: recentActivity }] },
   ]);
   fake.setSessionExercises("stale", [
-    { session_id: "stale", session_sets: [{ id: "s2", is_warmup_set: false, completed_at: staleActivity }] },
+    { session_id: "stale", rest_seconds: null, session_sets: [{ id: "s2", is_warmup_set: false, completed_at: staleActivity }] },
   ]);
 
   const open: OpenSession[] = [
@@ -254,6 +257,7 @@ console.log("\n9. Midnight crossing: session started 23:43, last set 23:55, load
   fake.setSessionExercises("midnight", [
     {
       session_id: "midnight",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: lastSet },
       ],
@@ -278,6 +282,7 @@ console.log("\n10. Same session loaded 6 hours later is closed with ended_at at 
   fake.setSessionExercises("stale-morning", [
     {
       session_id: "stale-morning",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: lastSet },
       ],
@@ -303,6 +308,7 @@ console.log("\n11. Boundary: exactly 6h (21600s) is stale");
   fake.setSessionExercises("boundary", [
     {
       session_id: "boundary",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: exactly6hAgo },
       ],
@@ -326,6 +332,7 @@ console.log("\n12. Boundary: 21599s (1s under 6h) is still active");
   fake.setSessionExercises("just-under", [
     {
       session_id: "just-under",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: just21599sAgo },
       ],
@@ -350,10 +357,10 @@ console.log("\n13. Newer-session rule: session with newer started_at closes olde
   fake.setSession("newer", "in_progress");
   
   fake.setSessionExercises("older", [
-    { session_id: "older", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: "2026-10-24T14:05:00Z" }] },
+    { session_id: "older", rest_seconds: null, session_sets: [{ id: "s1", is_warmup_set: false, completed_at: "2026-10-24T14:05:00Z" }] },
   ]);
   fake.setSessionExercises("newer", [
-    { session_id: "newer", session_sets: [{ id: "s2", is_warmup_set: false, completed_at: "2026-10-24T14:35:00Z" }] },
+    { session_id: "newer", rest_seconds: null, session_sets: [{ id: "s2", is_warmup_set: false, completed_at: "2026-10-24T14:35:00Z" }] },
   ]);
   
   const open: OpenSession[] = [
@@ -378,10 +385,10 @@ console.log("\n14. Newer-session rule: closes session only minutes old if newer 
   fake.setSession("two-min-old", "in_progress");
   
   fake.setSessionExercises("five-min-old", [
-    { session_id: "five-min-old", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: fiveMinutesAgo }] },
+    { session_id: "five-min-old", rest_seconds: null, session_sets: [{ id: "s1", is_warmup_set: false, completed_at: fiveMinutesAgo }] },
   ]);
   fake.setSessionExercises("two-min-old", [
-    { session_id: "two-min-old", session_sets: [{ id: "s2", is_warmup_set: false, completed_at: twoMinutesAgo }] },
+    { session_id: "two-min-old", rest_seconds: null, session_sets: [{ id: "s2", is_warmup_set: false, completed_at: twoMinutesAgo }] },
   ]);
   
   const open: OpenSession[] = [
@@ -407,6 +414,7 @@ console.log("\n15. Newer Breathe session does NOT close strength session");
   fake.setSessionExercises("strength", [
     {
       session_id: "strength",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: fiveMinutesAgo },
       ],
@@ -415,6 +423,7 @@ console.log("\n15. Newer Breathe session does NOT close strength session");
   fake.setSessionExercises("breathe", [
     {
       session_id: "breathe",
+      rest_seconds: null,
       session_sets: [
         { id: "set2", is_warmup_set: false, completed_at: twoMinutesAgo },
       ],
@@ -475,7 +484,7 @@ console.log("\n19. Race condition: already-completed session not overwritten by 
   // Session is already completed (race: user finished it just before stale close ran)
   fake.setSession("race", "completed");
   fake.setSessionExercises("race", [
-    { session_id: "race", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: sevenHoursAgo }] },
+    { session_id: "race", rest_seconds: null, session_sets: [{ id: "s1", is_warmup_set: false, completed_at: sevenHoursAgo }] },
   ]);
   
   const open: OpenSession[] = [
@@ -500,6 +509,7 @@ console.log("\n20. credited count reaches caller when sessions are closed");
   fake.setSessionExercises("old1", [
     {
       session_id: "old1",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: sevenHoursAgo },
       ],
@@ -508,6 +518,7 @@ console.log("\n20. credited count reaches caller when sessions are closed");
   fake.setSessionExercises("old2", [
     {
       session_id: "old2",
+      rest_seconds: null,
       session_sets: [
         { id: "set2", is_warmup_set: false, completed_at: sevenHoursAgo },
       ],
@@ -536,6 +547,7 @@ console.log("\n21. Null started_at with sets uses first set time as fallback");
   fake.setSessionExercises("no-start", [
     {
       session_id: "no-start",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: eightHoursAgo },
       ],
@@ -563,6 +575,7 @@ console.log("\n22. Duration capped at 6 hours (21600 seconds)");
   fake.setSessionExercises("long", [
     {
       session_id: "long",
+      rest_seconds: null,
       session_sets: [
         // Session started 10 hours ago, last set completed 7 hours ago
         // Duration would be 3 hours (10800s), which is under the cap
@@ -595,6 +608,7 @@ console.log("\n23. Duration capped when it would exceed 6 hours");
   fake.setSessionExercises("verylong", [
     {
       session_id: "verylong",
+      rest_seconds: null,
       session_sets: [
         // Session started 20 hours ago, last set completed 7 hours ago
         // Duration would be 13 hours (46800s), but should be capped at 6h (21600s)
@@ -625,6 +639,7 @@ console.log("\n24. null started_at with sets: uses first set's time");
   fake.setSessionExercises("nostime", [
     {
       session_id: "nostime",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: eightHoursAgo },
         { id: "set2", is_warmup_set: false, completed_at: sevenHoursAgo },
@@ -674,6 +689,7 @@ console.log("\n26. Two-set case with started_at: duration = last set - started_a
   fake.setSessionExercises("twosets", [
     {
       session_id: "twosets",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: firstSet },
         { id: "set2", is_warmup_set: false, completed_at: lastSet },
@@ -705,6 +721,7 @@ console.log("\n27. Active session: first set >6h ago, last set 2 min ago stays o
   fake.setSessionExercises("active", [
     {
       session_id: "active",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: firstSet },
         { id: "set2", is_warmup_set: false, completed_at: recentSet },
@@ -753,6 +770,7 @@ console.log("\n29. H4: null started_at, first set 7h ago, last set 2 min ago sta
   fake.setSessionExercises("recent", [
     {
       session_id: "recent",
+      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: sevenHoursAgo },
         { id: "set2", is_warmup_set: false, completed_at: twoMinutesAgo },

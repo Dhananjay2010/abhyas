@@ -284,6 +284,9 @@ export async function closeStaleSessionsCore(
         restSeconds: lastSetRestSeconds.get(id) ?? null,
       });
       
+      // If endedAt is null (invalid timestamps), skip this session
+      if (!finish.endedAt) return false;
+      
       // Cap duration at 6 hours (21600 seconds) to prevent unrealistic values
       const cappedDuration = finish.durationSeconds === null 
         ? null 
@@ -327,10 +330,12 @@ export async function closeStaleSessionsCore(
           workingSetCount: 0,
           restSeconds: lastSetRestSeconds.get(id) ?? null,
         });
-        try {
-          await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
-        } catch (error) {
-          console.error(`Failed to mark abandoned session ${id} as done:`, error);
+        if (finish.endedAt) {
+          try {
+            await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
+          } catch (error) {
+            console.error(`Failed to mark abandoned session ${id} as done:`, error);
+          }
         }
         return false;
       }
@@ -342,10 +347,12 @@ export async function closeStaleSessionsCore(
         restSeconds: null,
       });
       
-      try {
-        await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
-      } catch (error) {
-        console.error(`Failed to mark abandoned session ${id} as done:`, error);
+      if (finish.endedAt) {
+        try {
+          await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
+        } catch (error) {
+          console.error(`Failed to mark abandoned session ${id} as done:`, error);
+        }
       }
       // Abandoned sessions are never credited (they're skipped)
       return false;

@@ -43,8 +43,10 @@ console.log("\nL-3: In-progress set count with endedEarly (inprogress-setcount)"
     {
       id: "ex1",
       session_id: "session1",
+      exercise_id: "squat",
+      status: "in_progress",
+      metric: "reps",
       planned_sets: 3,
-      order_index: 0,
     },
   ];
 
