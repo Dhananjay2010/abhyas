@@ -181,9 +181,14 @@ async function testR4AndR4s() {
   const retryButtons = screen.queryAllByRole("button", { name: /retry/i });
   assert(retryButtons.length > 0, "R4: Retry button is visible after replay error");
   
-  // R4e: Assert error state is shown (would fail if error state is removed)
+  // R4e: Assert error message is shown (not just the heading)
   const errorTexts = screen.queryAllByText(/failed to save|network error/i);
-  assert(errorTexts.length > 0, "R4e: Error message shown after replay failure");
+  assert(errorTexts.length > 0, "R4e: Error heading shown after replay failure");
+  
+  // R4e detail: Assert the actual error message (not just heading) is present
+  // getReplayErrorMessage returns the replayError.message
+  const errorMessage = screen.queryByText("Replay error test", { exact: false });
+  assert(errorMessage !== null, "R4e detail: Error message content shown (getReplayErrorMessage output)");
   
   const retryButton = retryButtons[retryButtons.length - 1];
   assert(retryButton !== null, "R4: Retry button element exists");

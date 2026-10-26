@@ -827,7 +827,10 @@ export function SessionRunner({
   }
 
   const setsDone = current.sets.length;
-  const allSetsDone = setsDone >= current.plannedSets;
+  const pendingForCurrentExercise = pendingSetState.pending.filter(
+    p => p.sessionExerciseId === current.id
+  ).length;
+  const allSetsDone = (setsDone + pendingForCurrentExercise) >= current.plannedSets;
   const nextSetNumberTarget = nextSetTarget(
     exercises,
     current.id,
@@ -1140,7 +1143,7 @@ export function SessionRunner({
                           }`
                         : "done"
                       : isPending
-                        ? "Saving…"
+                        ? "waiting…"
                         : "—"}
                   </span>
                   {/*
