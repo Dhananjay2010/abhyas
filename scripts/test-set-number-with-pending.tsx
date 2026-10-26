@@ -18,12 +18,17 @@ function assert(condition: boolean, message: string) {
 async function testSetNumbering() {
   console.log("\n📋 Test set numbering with pending sets\n");
   
-  const exercise = {
+  const exercise: {
+    id: string;
+    status: "pending";
+    sets: { setNumber: number; reps: number | null; weightKg: number | null; durationSeconds: number | null }[];
+    plannedSets: number;
+  } = {
     id: "ex-1",
-    status: "pending" as const,
-    sets: [] as { setNumber: number; reps: number | null; weightKg: number | null; durationSeconds: number | null }[],
+    status: "pending",
+    sets: [],
     plannedSets: 3,
-  } as const;
+  };
   
   // Case 1: No confirmed, no pending → set 1
   const target1 = nextSetTarget([exercise], "ex-1", []);

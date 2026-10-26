@@ -16,7 +16,7 @@ import "./helpers/setup-jsdom";
 
 import { render, act, screen, cleanup } from "@testing-library/react";
 import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings, type RunnerTimer } from "../src/app/session/[id]/session-runner";
-import { savePendingSet } from "../src/lib/session/pending-set-retry";
+import { savePendingSet, loadPendingSets } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 let passed = 0;
@@ -1599,6 +1599,150 @@ async function testRetryButton() {
   fakeStorage.clear();
 }
 
+// Test Item 2b: 1 saved set + 3 Log taps submits [2,3,4]
+async function testItem2b() {
+  console.log("\n📋 Test Item 2b: 1 saved set + 3 taps → setNumbers [2,3,4]");
+  
+  const submittedSetNumbers: number[] = [];
+  
+  const actions: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async (input) => {
+      submittedSetNumbers.push(input.setNumber);
+      throw new Error("SESSION_EXPIRED: test");
+    },
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+  };
+  
+  const exercises: RunnerExercise[] = [
+    {
+      id: "ex1",
+      exerciseId: "squat",
+      name: "Squat",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["quads"],
+      plannedSets: 5,
+      plannedRepsMin: 8,
+      repsMin: 8,
+      plannedRepsMax: 12,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
+      status: "pending",
+      feel: null,
+      sets: [
+        { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null }
+      ],
+      isBodyweight: false,
+    },
+  ];
+  
+  const settings: RunnerSettings = {
+    perSetLogging: false,
+    restSound: false,
+    restVibrate: false,
+    restAutostart: false,
+    restOverrideSeconds: null,
+    cooldownEnabled: false,
+  };
+  
+  const userId = "test-user-item2b";
+  const sessionId = "session-item2b";
+  
+  fakeStorage.clear();
+  
+  render(
+    <SessionRunner
+      sessionId={sessionId}
+      sessionStatus="in_progress"
+      userId={userId}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={exercises}
+      settings={settings}
+      actions={actions}
+      timer={fakeTimer}
+    />
+  );
+  
+  await act(async () => {});
+  
+  const repsInputs = screen.queryAllByRole("spinbutton");
+  const repsInput = repsInputs[0];
+  const logButton2 = screen.getByRole("button", { name: /log set 2/i });
+  
+  await act(async () => {
+    if (repsInput && 'value' in repsInput) {
+      repsInput.setAttribute("value", "10");
+      repsInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  
+  await act(async () => {
+    logButton2.click();
+  });
+  
+  await act(async () => {});
+  
+  const logButton3 = screen.getByRole("button", { name: /log set 3/i });
+  await act(async () => {
+    if (repsInput && 'value' in repsInput) {
+      repsInput.setAttribute("value", "10");
+      repsInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  
+  await act(async () => {
+    logButton3.click();
+  });
+  
+  await act(async () => {});
+  
+  const logButton4 = screen.getByRole("button", { name: /log set 4/i });
+  await act(async () => {
+    if (repsInput && 'value' in repsInput) {
+      repsInput.setAttribute("value", "10");
+      repsInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  
+  await act(async () => {
+    logButton4.click();
+  });
+  
+  await act(async () => {});
+  
+  assert(submittedSetNumbers.length === 3, `Item2b: 3 logSet calls (got ${submittedSetNumbers.length})`);
+  assert(submittedSetNumbers[0] === 2, `Item2b: First submit setNumber=2 (got ${submittedSetNumbers[0]})`);
+  assert(submittedSetNumbers[1] === 3, `Item2b: Second submit setNumber=3 (got ${submittedSetNumbers[1]})`);
+  assert(submittedSetNumbers[2] === 4, `Item2b: Third submit setNumber=4 (got ${submittedSetNumbers[2]})`);
+  
+  const stored = loadPendingSets(fakeStorage, userId, sessionId, fakeDeps);
+  const storedSetNumbers = stored.map(s => s.setNumber).sort((a, b) => a - b);
+  assert(storedSetNumbers.length === 3, `Item2b: 3 stored pending sets (got ${storedSetNumbers.length})`);
+  assert(storedSetNumbers[0] === 2, `Item2b: Stored setNumber=2 (got ${storedSetNumbers[0]})`);
+  assert(storedSetNumbers[1] === 3, `Item2b: Stored setNumber=3 (got ${storedSetNumbers[1]})`);
+  assert(storedSetNumbers[2] === 4, `Item2b: Stored setNumber=4 (got ${storedSetNumbers[2]})`);
+  
+  console.log("\nPLANTED BUG at :843: nextSetTarget ignores pending → submits [2,2,2] (data loss)");
+  
+  cleanup();
+  fakeStorage.clear();
+}
+
 // Run all tests
 (async () => {
   console.log("\n🧪 SessionRunner Render Tests (KEY ITEM - Task 2)\n");
@@ -1616,6 +1760,7 @@ async function testRetryButton() {
     await testFailedSubmit();
     await testN7sCompletedSession();
     await testRetryButton();
+    await testItem2b();
     
     console.log(`\n✅ All SessionRunner render tests passed! (${passed}/${passed + failed})\n`);
     process.exit(0);

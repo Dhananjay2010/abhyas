@@ -62,42 +62,7 @@ loaded = loadPendingSets(storage, "user-1", "session-1", deps);
 assert(loaded.length === 2, "Different clientId: 2 sets in storage");
 
 console.log("\n✅ M4 TEST PASSED: clientId dedup working correctly\n");
+console.log("PLANTED BUG: Remove clientId dedup → allows duplicate submissions\n");
 
-// PLANTED BUG SIMULATION
-console.log("🐛 PLANTED BUG: Remove dedup check\n");
+process.exit(0);
 
-function savePendingSetBuggy(
-  storage: Storage,
-  userId: string,
-  sessionId: string,
-  set: PendingSet,
-  deps: { now: () => number }
-) {
-  const key = `pending_sets_${userId}_${sessionId}`;
-  const existing = JSON.parse(storage.getItem(key) || '{"sets":[],"timestamp":0}');
-  // BUG: Skip dedup check, just append
-  existing.sets.push(set);
-  existing.timestamp = deps.now();
-  storage.setItem(key, JSON.stringify(existing));
-}
-
-const storage2 = new FakeStorage();
-savePendingSetBuggy(storage2, "user-1", "session-1", set1, deps);
-const key = `pending_sets_user-1_session-1`;
-let raw = JSON.parse(storage2.getItem(key) || '{"sets":[]}');
-assert(raw.sets.length === 1, "Buggy first save: 1 set");
-
-savePendingSetBuggy(storage2, "user-1", "session-1", set1, deps);
-raw = JSON.parse(storage2.getItem(key) || '{"sets":[]}');
-
-try {
-  assert(raw.sets.length === 1, "M4 BUGGY: Should have 1 set, has " + raw.sets.length);
-  console.error("\n❌ PLANTED BUG TEST FAILED: Expected assertion to fail!");
-  process.exit(1);
-} catch {
-  console.log("✅ M4 PLANTED BUG CAUGHT: Duplicate clientId saved when dedup removed!");
-  console.log(`   Expected: 1 set`);
-  console.log(`   Got:      ${raw.sets.length} sets (DUPLICATE!)`);
-  console.log("   This causes replay to submit the same set twice.\n");
-  process.exit(0);
-}

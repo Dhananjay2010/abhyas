@@ -119,9 +119,9 @@ async function testRetryingStateDuringReplay() {
     clientId: "client-1",
   }, createPendingSetDeps(() => FIXED_TIME));
 
-  let resolveReplay: () => void;
+  const resolveCallbacks: Array<() => void> = [];
   const replayPromise = new Promise<void>((resolve) => {
-    resolveReplay = resolve;
+    resolveCallbacks.push(resolve);
   });
 
   const logSet: LogSetFunction = async () => {
@@ -148,7 +148,8 @@ async function testRetryingStateDuringReplay() {
   assertEqual(duringReplay.retrying, true, "Retrying is true during replay");
 
   // Complete the replay
-  resolveReplay!();
+  const resolveReplay = resolveCallbacks[0];
+  if (resolveReplay) resolveReplay();
   await replayCall;
 
   const afterReplay = states[states.length - 1];
