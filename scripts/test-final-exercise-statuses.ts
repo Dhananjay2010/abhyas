@@ -112,6 +112,14 @@ function makeFakeAbandonSessionDeps(exercisesData: ExerciseRow[]) {
         })),
       })), error: null };
     },
+    // Optional deps that mutant (a) would call
+    async loadExercisesForUpdate() {
+      return { data: exercisesData, error: null };
+    },
+    async updateExerciseStatus(id: string, status: string) {
+      exerciseUpdates.push({ id, status });
+      return { error: null };
+    },
   };
 }
 

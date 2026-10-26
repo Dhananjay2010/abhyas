@@ -36,12 +36,15 @@ function assertTrue(condition: boolean, message: string) {
 }
 
 async function runTests() {
-  console.log("\n1. First abandon: updates session and exercises");
+  console.log("\n1. First abandon: updates session, does NOT update exercise statuses");
   {
     let updateCalled = false;
-    const exerciseUpdateCount = 0;
-
-    const deps: AbandonSessionDeps = {
+    const exerciseUpdates: Array<{ id: string; status: string }> = [];
+    
+    const deps: AbandonSessionDeps & { 
+      loadExercisesForUpdate?: () => Promise<{ data: any[] | null; error: string | null }>;
+      updateExerciseStatus?: (id: string, status: string) => Promise<{ error: string | null }>;
+    } = {
       async loadExercises() {
         return {
           data: [
@@ -70,13 +73,21 @@ async function runTests() {
       async loadExercisesWithSets() {
         return { data: [], error: null };
       },
+      // Optional deps that mutant (a) would call
+      async loadExercisesForUpdate() {
+        return { data: [{ id: "ex1", status: "pending", planned_sets: 3, session_sets: [{ id: "s1", is_warmup_set: false }] }], error: null };
+      },
+      async updateExerciseStatus(id: string, status: string) {
+        exerciseUpdates.push({ id, status });
+        return { error: null };
+      },
     };
 
     const result = await abandonSessionCore(deps, "s1", 1800);
 
     assertTrue(result.ok, "Should succeed on first abandon");
     assertTrue(updateCalled, "Should call updateSession");
-    assertEquals(exerciseUpdateCount, 0, "Should NOT update exercise status (exercises stay pending)");
+    assertEquals(exerciseUpdates.length, 0, "Should NOT update exercise status (exercises stay pending)");
     if (result.ok) {
       assertEquals(result.data.status, "completed", "Status should be completed (has working set)");
     }
@@ -86,9 +97,12 @@ async function runTests() {
   {
     let updateCalled = false;
     let loadStatusCalled = false;
-    const exerciseUpdateCount = 0;
+    const exerciseUpdates: Array<{ id: string; status: string }> = [];
 
-    const deps: AbandonSessionDeps = {
+    const deps: AbandonSessionDeps & {
+      loadExercisesForUpdate?: () => Promise<{ data: any[] | null; error: string | null }>;
+      updateExerciseStatus?: (id: string, status: string) => Promise<{ error: string | null }>;
+    } = {
       async loadExercises() {
         return {
           data: [
@@ -118,6 +132,13 @@ async function runTests() {
       async loadExercisesWithSets() {
         return { data: [], error: null };
       },
+      async loadExercisesForUpdate() {
+        return { data: [{ id: "ex1", status: "pending", planned_sets: 3, session_sets: [{ id: "s1", is_warmup_set: false }] }], error: null };
+      },
+      async updateExerciseStatus(id: string, status: string) {
+        exerciseUpdates.push({ id, status });
+        return { error: null };
+      },
     };
 
     const result = await abandonSessionCore(deps, "s1", 1800);
@@ -125,7 +146,7 @@ async function runTests() {
     assertTrue(result.ok, "Should succeed on retry");
     assertTrue(updateCalled, "Should call updateSession");
     assertTrue(loadStatusCalled, "Should call loadSessionStatus after updatedCount=0");
-    assertEquals(exerciseUpdateCount, 0, "Should NOT update exercise statuses on retry");
+    assertEquals(exerciseUpdates.length, 0, "Should NOT update exercise statuses on retry");
     if (result.ok) {
       assertEquals(result.data.status, "completed", "Status should be the stored value");
     }
