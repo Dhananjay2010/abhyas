@@ -8,11 +8,12 @@
  * Fix: For past-knee squat swaps, run the class filter (quad isolation + hinge
  * fallbacks) over the FULL deduplicated candidate set, then slice to 5.
  * 
- * This test uses a committed golden fixture generated from the correct code
+ * This test uses a compact committed golden fixture (aggregate hash + subset)
  * to enable mutant testing without circular dependencies.
  */
 
 import { readFileSync } from "fs";
+import { createHash } from "crypto";
 import type { CandidateExercise } from "../src/lib/program/generate";
 import { buildEligibleSwapList, buildGeneratorInput } from "../src/lib/session/eligible-swap-list";
 
@@ -20,7 +21,13 @@ const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
 );
 
-const golden: Record<string, { slugs: string[]; length: number; sha256: string }> = JSON.parse(
+type GoldenFixture = {
+  distribution: Record<string, number>;
+  aggregateSha256: string;
+  subset: Record<string, string[]>;
+};
+
+const golden: GoldenFixture = JSON.parse(
   readFileSync("scripts/fixtures/past-knee-squat-swap-golden.json", "utf8")
 );
 
@@ -65,6 +72,7 @@ console.log(`Total cases: ${INJURY_SETS.length * EQUIPMENT_PROFILES.length * LEV
 let failures = 0;
 let totalCases = 0;
 const lengthCounts = new Map<number, number>();
+const allCasesCompact: Record<string, string[]> = {};
 
 for (const injurySet of INJURY_SETS) {
   for (const equipProfile of EQUIPMENT_PROFILES) {
@@ -75,13 +83,6 @@ for (const injurySet of INJURY_SETS) {
             totalCases++;
             
             const key = `${injurySet.name}|${equipProfile.name}|${level}|${track}|${current.slug}|${sessionId}`;
-            const expected = golden[key];
-            
-            if (!expected) {
-              console.log(`✗ FAIL: ${key} - missing from golden fixture`);
-              failures++;
-              continue;
-            }
             
             // Build generator input
             const generatorInput = buildGeneratorInput({
@@ -111,34 +112,33 @@ for (const injurySet of INJURY_SETS) {
             });
             
             const actualSlugs = eligible.map(e => e.slug);
+            allCasesCompact[key] = actualSlugs;
             
             // Track length distribution
             lengthCounts.set(eligible.length, (lengthCounts.get(eligible.length) || 0) + 1);
             
-            // Assertion 1: exact match with golden fixture
-            if (actualSlugs.length !== expected.slugs.length) {
-              console.log(`✗ FAIL: ${key}`);
-              console.log(`  Length mismatch: expected ${expected.slugs.length}, got ${actualSlugs.length}`);
-              console.log(`  Expected: ${expected.slugs.join(", ")}`);
-              console.log(`  Actual: ${actualSlugs.join(", ")}`);
-              failures++;
-              continue;
-            }
-            
-            for (let i = 0; i < actualSlugs.length; i++) {
-              if (actualSlugs[i] !== expected.slugs[i]) {
+            // Assertion 1: subset cases must match golden fixture exactly
+            if (key in golden.subset) {
+              const expectedSlugs = golden.subset[key];
+              
+              if (actualSlugs.length !== expectedSlugs.length) {
                 console.log(`✗ FAIL: ${key}`);
-                console.log(`  Slug mismatch at position ${i}: expected ${expected.slugs[i]}, got ${actualSlugs[i]}`);
-                console.log(`  Expected: ${expected.slugs.join(", ")}`);
+                console.log(`  Length mismatch: expected ${expectedSlugs.length}, got ${actualSlugs.length}`);
+                console.log(`  Expected: ${expectedSlugs.join(", ")}`);
                 console.log(`  Actual: ${actualSlugs.join(", ")}`);
                 failures++;
-                break;
+              } else {
+                for (let i = 0; i < actualSlugs.length; i++) {
+                  if (actualSlugs[i] !== expectedSlugs[i]) {
+                    console.log(`✗ FAIL: ${key}`);
+                    console.log(`  Slug mismatch at position ${i}: expected ${expectedSlugs[i]}, got ${actualSlugs[i]}`);
+                    console.log(`  Expected: ${expectedSlugs.join(", ")}`);
+                    console.log(`  Actual: ${actualSlugs.join(", ")}`);
+                    failures++;
+                    break;
+                  }
+                }
               }
-            }
-            
-            if (failures > 0 && failures <= totalCases - 1) {
-              // Already reported this failure
-              continue;
             }
             
             // Assertion 2: length <= 5
@@ -147,7 +147,6 @@ for (const injurySet of INJURY_SETS) {
               console.log(`  Length ${eligible.length} > 5`);
               console.log(`  List: ${actualSlugs.join(", ")}`);
               failures++;
-              continue;
             }
             
             // Assertion 3: each element is in the allowed class (quad isolation or glute/hamstring hinge)
@@ -179,7 +178,6 @@ for (const injurySet of INJURY_SETS) {
               console.log(`  wall-sit is first but not alone (list has ${eligible.length} items)`);
               console.log(`  List: ${actualSlugs.join(", ")}`);
               failures++;
-              continue;
             }
             
             // Check 4-list order for the quad isolation exercises that aren't wall-sit
@@ -200,10 +198,59 @@ for (const injurySet of INJURY_SETS) {
                 break;
               }
             }
+            
+            // Assertion 5: spanish-squat comes before wall-sit when they are the only quad isolation items
+            const onlySpanishAndWall = quadIsolationInList.length === 2 &&
+              quadIsolationInList.some(e => e.slug === "spanish-squat") &&
+              quadIsolationInList.some(e => e.slug === "wall-sit");
+            
+            if (onlySpanishAndWall) {
+              const spanishIdx = actualSlugs.indexOf("spanish-squat");
+              const wallIdx = actualSlugs.indexOf("wall-sit");
+              
+              if (spanishIdx > wallIdx) {
+                console.log(`✗ FAIL: ${key}`);
+                console.log(`  spanish-squat must come before wall-sit when they are the only quad isolation items`);
+                console.log(`  List: ${actualSlugs.join(", ")}`);
+                failures++;
+              }
+            }
           }
         }
       }
     }
+  }
+}
+
+// Sort keys for deterministic hash
+const sortedKeys = Object.keys(allCasesCompact).sort();
+const sortedAllCases: Record<string, string[]> = {};
+for (const key of sortedKeys) {
+  sortedAllCases[key] = allCasesCompact[key];
+}
+
+// Verify aggregate sha256
+const computedAggregateSha256 = createHash('sha256').update(JSON.stringify(sortedAllCases)).digest('hex');
+
+if (computedAggregateSha256 !== golden.aggregateSha256) {
+  console.log(`\n✗ FAIL: Aggregate SHA-256 mismatch`);
+  console.log(`  Expected: ${golden.aggregateSha256}`);
+  console.log(`  Computed: ${computedAggregateSha256}`);
+  failures++;
+}
+
+// Verify distribution
+const actualDistribution: Record<string, number> = {};
+for (const [len, count] of lengthCounts.entries()) {
+  actualDistribution[len.toString()] = count;
+}
+
+for (const [len, count] of Object.entries(golden.distribution)) {
+  if (actualDistribution[len] !== count) {
+    console.log(`\n✗ FAIL: Distribution mismatch for length ${len}`);
+    console.log(`  Expected: ${count} cases`);
+    console.log(`  Actual: ${actualDistribution[len] || 0} cases`);
+    failures++;
   }
 }
 

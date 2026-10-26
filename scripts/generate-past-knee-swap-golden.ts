@@ -52,13 +52,12 @@ console.log("=== Generating Golden Fixture for Past-Knee Squat Swaps ===\n");
 console.log(`Matrix: ${INJURY_SETS.length} injury sets × ${EQUIPMENT_PROFILES.length} equipment profiles × ${LEVELS.length} levels × ${TRACKS.length} tracks × ${squatExercises.length} squat exercises × ${SESSION_IDS.length} session ids`);
 console.log(`Total cases: ${INJURY_SETS.length * EQUIPMENT_PROFILES.length * LEVELS.length * TRACKS.length * squatExercises.length * SESSION_IDS.length}\n`);
 
-type GoldenEntry = {
+type CaseResult = {
   slugs: string[];
   length: number;
-  sha256: string;
 };
 
-const golden: Record<string, GoldenEntry> = {};
+const allCases: Record<string, CaseResult> = {};
 let totalCases = 0;
 
 for (const injurySet of INJURY_SETS) {
@@ -99,13 +98,9 @@ for (const injurySet of INJURY_SETS) {
             const slugs = eligible.map(e => e.slug);
             const key = `${injurySet.name}|${equipProfile.name}|${level}|${track}|${current.slug}|${sessionId}`;
             
-            // Compute sha256 of the slug list for integrity checking
-            const sha256 = createHash('sha256').update(slugs.join(',')).digest('hex');
-            
-            golden[key] = {
+            allCases[key] = {
               slugs,
               length: slugs.length,
-              sha256,
             };
           }
         }
@@ -114,17 +109,15 @@ for (const injurySet of INJURY_SETS) {
   }
 }
 
-// Sort keys for deterministic output
-const sortedGolden: Record<string, GoldenEntry> = {};
-const sortedKeys = Object.keys(golden).sort();
-for (const key of sortedKeys) {
-  sortedGolden[key] = golden[key];
-}
-
 // Compute distribution
 const lengthCounts = new Map<number, number>();
-for (const entry of Object.values(golden)) {
+for (const entry of Object.values(allCases)) {
   lengthCounts.set(entry.length, (lengthCounts.get(entry.length) || 0) + 1);
+}
+
+const distribution: Record<string, number> = {};
+for (const [len, count] of lengthCounts.entries()) {
+  distribution[len.toString()] = count;
 }
 
 console.log("=== Length Distribution ===");
@@ -134,10 +127,49 @@ for (const [len, count] of sortedLengths) {
   console.log(`Length ${len}: ${count} cases (${pct}%)`);
 }
 
-// Write to file
-const outputPath = "scripts/fixtures/past-knee-squat-swap-golden.json";
-writeFileSync(outputPath, JSON.stringify(sortedGolden, null, 2));
+// Sort keys for deterministic output
+const sortedKeys = Object.keys(allCases).sort();
 
+// Compute aggregate sha256: serialize all cases as compact JSON with sorted keys
+const compactCases: Record<string, string[]> = {};
+for (const key of sortedKeys) {
+  compactCases[key] = allCases[key].slugs;
+}
+const aggregateSha256 = createHash('sha256').update(JSON.stringify(compactCases)).digest('hex');
+
+console.log(`\n=== Aggregate SHA-256 ===`);
+console.log(aggregateSha256);
+
+// Select subset: all length-4 cases + ~200 deterministic cases (every ~167th sorted key)
+const length4Keys = sortedKeys.filter(k => allCases[k].length === 4);
+const subsetInterval = Math.floor(sortedKeys.length / 200);
+const subsetKeys = new Set<string>(length4Keys);
+
+for (let i = 0; i < sortedKeys.length; i += Math.max(1, subsetInterval)) {
+  subsetKeys.add(sortedKeys[i]);
+}
+
+const subset: Record<string, string[]> = {};
+for (const key of Array.from(subsetKeys).sort()) {
+  subset[key] = allCases[key].slugs;
+}
+
+console.log(`\n=== Subset ===`);
+console.log(`Length-4 cases: ${length4Keys.length}`);
+console.log(`Sampled cases: ${Array.from(subsetKeys).length - length4Keys.length}`);
+console.log(`Total subset: ${subsetKeys.size}`);
+
+// Write compact fixture
+const compactFixture = {
+  distribution,
+  aggregateSha256,
+  subset,
+};
+
+const outputPath = "scripts/fixtures/past-knee-squat-swap-golden.json";
+writeFileSync(outputPath, JSON.stringify(compactFixture, null, 2));
+
+const fixtureBytes = JSON.stringify(compactFixture, null, 2).length;
 console.log(`\n✓ Generated ${totalCases} golden entries`);
 console.log(`✓ Written to ${outputPath}`);
-console.log(`✓ File size: ${(JSON.stringify(sortedGolden).length / 1024 / 1024).toFixed(2)} MB`);
+console.log(`✓ File size: ${fixtureBytes.toLocaleString()} bytes (${(fixtureBytes / 1024).toFixed(2)} KB)`);
