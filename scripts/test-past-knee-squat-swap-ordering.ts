@@ -202,10 +202,18 @@ testProfile("Full gym", FULL_GYM_EQUIPMENT, "barbell-squat");
 // Test 2: Dumbbells only with goblet-squat
 testProfile("Dumbbells only", DUMBBELL_EQUIPMENT, "goblet-squat");
 
-// Test 3: Home bodyweight with bodyweight-squat
+// Test 3: Home bodyweight with Spanish Squat
 // Note: bodyweight-squat is itself knee-risk for past-knee users, 
 // but Spanish Squat (current) would work
 testProfile("Home bodyweight", HOME_BODYWEIGHT_EQUIPMENT, "spanish-squat");
+
+// Test 4: Full gym with barbell-full-squat (catches R5: any hinge allowed)
+// Without glute/hamstring filter, this gains stiff-leg-barbell-good-morning
+testProfile("Full gym (barbell-full-squat)", FULL_GYM_EQUIPMENT, "barbell-full-squat");
+
+// Test 5: Home with wall-sit (catches R6: core allowed)
+// With core allowed, this gains oblique-crunches-on-the-floor
+testProfile("Home (wall-sit)", HOME_BODYWEIGHT_EQUIPMENT, "wall-sit");
 
 console.log(`\n${failures === 0 ? "✓" : "✗"} ${passes} passed, ${failures} failed`);
 process.exit(failures === 0 ? 0 : 1);

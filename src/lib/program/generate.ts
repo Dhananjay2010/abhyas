@@ -855,8 +855,7 @@ function pickForSlot(
         }
         return b.rng - a.rng;
       })
-      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug))
-      .filter((item) => !(hasPastKneeAlt && isExcludedForPastKnee(item.e)));
+      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));
     
     if (ranked.length > 0) {
       return ranked[0].e;
