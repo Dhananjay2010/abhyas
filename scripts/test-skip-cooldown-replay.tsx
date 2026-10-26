@@ -172,8 +172,8 @@ const settings: RunnerSettings = {
   // Verify we're in cool-down
   assert(screen.queryByText("Cool-down") !== null, "(a) In cool-down phase");
   
-  // Verify pending set message shows (replay failed due to network error)
-  const pendingText = screen.queryAllByText(/1 set waiting to save/i);
+  // Verify pending set message or error shows (replay failed due to network error)
+  const pendingText = screen.queryAllByText(/Failed to save sets|1 set saved on this phone/i);
   assert(pendingText.length > 0, "(a) Shows pending set message after initial replay failure");
   
   // Find Skip cool-down button
@@ -269,7 +269,7 @@ const settings: RunnerSettings = {
   
   // Verify we're in cool-down with pending notice
   assert(screen.queryByText("Cool-down") !== null, "(b) In cool-down phase");
-  const pendingTextB = screen.queryAllByText(/1 set waiting to save/i);
+  const pendingTextB = screen.queryAllByText(/Failed to save sets|1 set saved on this phone/i);
   assert(pendingTextB.length > 0, "(b) Shows pending set message");
   
   // Find and click Skip
@@ -291,7 +291,7 @@ const settings: RunnerSettings = {
   
   // Verify still on cool-down with pending notice
   assert(screen.queryByText("Cool-down") !== null, "(b) Still on cool-down after failed replay");
-  const pendingAfter = screen.queryAllByText(/1 set waiting to save/i);
+  const pendingAfter = screen.queryAllByText(/Failed to save sets|1 set saved on this phone/i);
   assert(pendingAfter.length > 0, "(b) Pending notice still shown after failed replay");
   
   unmountB();
