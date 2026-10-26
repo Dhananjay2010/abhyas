@@ -33,10 +33,10 @@ console.log("\n=== PB Toast Units (E1RM) ===");
   const e1rmPB: PersonalBest = { kind: "e1rm", value: 100.7 };
   
   const metricToast = describePersonalBest(e1rmPB, "metric");
-  check("Metric E1RM PB: 101 kg (rounded)", metricToast === "Best estimated one-rep max yet — 101 kg", metricToast);
+  check("Metric E1RM PB: 100.7 kg (1 decimal)", metricToast === "Best estimated one-rep max yet — 100.7 kg", metricToast);
   
   const imperialToast = describePersonalBest(e1rmPB, "imperial");
-  check("Imperial E1RM PB: ~222.5 lb", imperialToast === "Best estimated one-rep max yet — 222.5 lb", imperialToast);
+  check("Imperial E1RM PB: ~222 lb", imperialToast === "Best estimated one-rep max yet — 222 lb", imperialToast);
 }
 
 console.log("\n=== PB Toast Units (Hold - no units) ===");
