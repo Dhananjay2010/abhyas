@@ -48,6 +48,7 @@ export type PendingSetState = {
   error: string | null;
   replayed: PendingSet[];
   conflicts: number;
+  retryNow?: () => void;
 };
 
 type SubmitResult =
@@ -105,6 +106,7 @@ export function createPendingSetController(config: {
     error: null,
     replayed: [],
     conflicts: 0,
+    retryNow: undefined,
   };
 
   let replayPromise: Promise<void> | null = null;
@@ -389,6 +391,11 @@ export function createPendingSetController(config: {
       removeEventListener('online', onlineHandlerRegistered);
     }
   }
+
+  // Set retryNow to allow manual replay trigger
+  state.retryNow = () => {
+    replay();
+  };
 
   return {
     submit,
