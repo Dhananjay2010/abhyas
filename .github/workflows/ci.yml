@@ -124,10 +124,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [lint-typecheck-build, test-shard-1, test-shard-2, test-shard-3]
+    if: always()
 
     steps:
-      - name: All checks passed
-        run: echo "✅ All test shards, lint, typecheck, and build passed successfully"
+      - name: Check all required jobs succeeded
+        run: |
+          echo "Checking results of all required jobs..."
+          echo "lint-typecheck-build: ${{ needs.lint-typecheck-build.result }}"
+          echo "test-shard-1: ${{ needs.test-shard-1.result }}"
+          echo "test-shard-2: ${{ needs.test-shard-2.result }}"
+          echo "test-shard-3: ${{ needs.test-shard-3.result }}"
+          
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "❌ At least one job failed"
+            exit 1
+          fi
+          
+          if [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "❌ At least one job was cancelled"
+            exit 1
+          fi
+          
+          if [[ "${{ contains(needs.*.result, 'skipped') }}" == "true" ]]; then
+            echo "❌ At least one job was skipped"
+            exit 1
+          fi
+          
+          echo "✅ All required jobs succeeded"
 
   database-seed-test:
     runs-on: ubuntu-latest
