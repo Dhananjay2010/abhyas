@@ -345,7 +345,7 @@
     "test:yoga-video-suppression": "tsx scripts/test-yoga-video-suppression.ts",
     "test:youtube-embed": "tsx scripts/test-youtube-embed.ts",
     "verify-test-shards": "node scripts/verify-test-shards.js 3",
-    "test:swap-equipmentids": "tsx scripts/test-swap-equipmentids.ts"
+    "test:swap-prefill-equipmentids": "tsx scripts/test-swap-prefill-equipmentids.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
