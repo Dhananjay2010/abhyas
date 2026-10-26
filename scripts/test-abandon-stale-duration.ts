@@ -188,37 +188,25 @@ async function runTests() {
 
   console.log("\nTest 6: Asia/Kolkata timezone near midnight (would FAIL if abandon uses 'UTC')\n");
   {
-    // Session started at 23:00 IST (17:30 UTC), now is 00:30 IST next day (19:00 UTC)
-    // In IST: 1.5 hours elapsed (not stale)
-    // If abandon wrongly uses UTC: would compute as 1.5 hours, which looks correct BUT
-    // Let's use a case that's clearly stale in UTC but fresh in local timezone
-    
-    // Started at 22:00 IST (16:30 UTC), now is 00:45 IST next day (19:15 UTC)
-    // In IST: 2h 45min elapsed (< 3h, fresh)
-    // In UTC: 2h 45min elapsed (< 3h, fresh) - need different approach
-    
-    // Better: started 10:00 IST (04:30 UTC), now is 11:30 IST (06:00 UTC)
-    // In IST: 1.5h (fresh)
-    // In UTC: 1.5h (fresh) - still same
-    
-    // Actually, stale detection uses wall-clock hours from started_at to now in the profile timezone.
-    // Let's test that abandon actually uses the profile timezone, not hardcoded 'UTC'
-    // We'll use a session that's fresh in Asia/Kolkata but appears different if timezone is wrong
+    // Test that abandon uses the profile timezone, not hardcoded 'UTC'
+    // Use a session that started at 10:00 IST (04:30 UTC) and now is 11:30 IST (06:00 UTC)
+    // In IST: 1.5h elapsed (< 3h, fresh, same day)
+    // This is unambiguous: definitely fresh by both time and date checks
     
     const deps = makeFakeDeps({
-      startedAt: "2026-10-25T16:30:00Z", // 22:00 IST
-      lastSetCompletedAt: "2026-10-25T17:00:00Z", // 22:30 IST
+      startedAt: "2026-10-25T04:30:00Z", // 10:00 IST
+      lastSetCompletedAt: "2026-10-25T05:00:00Z", // 10:30 IST
       workingSetCount: 3,
       restSeconds: 90,
-      now: "2026-10-25T19:00:00Z", // 00:30 IST next day (2.5h later)
+      now: "2026-10-25T06:00:00Z", // 11:30 IST (1.5h later, same day)
       timezone: "Asia/Kolkata",
     });
 
-    await abandonSessionCore(deps, "session-6", 9000); // 2.5 hours = 9000 seconds
+    await abandonSessionCore(deps, "session-6", 5400); // 1.5 hours = 5400 seconds
 
     const saved = deps.getSavedDuration();
-    // Session is 2.5h old in IST, which is < 3h, so it should use passed elapsed time
-    check("Non-UTC timezone: fresh session uses passed elapsed", saved === 9000,
+    // Session is 1.5h old in IST, which is < 3h and same day, so it should use passed elapsed time
+    check("Non-UTC timezone: fresh session uses passed elapsed", saved === 5400,
       `got ${saved} (if abandon wrongly uses 'UTC', this would fail)`);
   }
 
