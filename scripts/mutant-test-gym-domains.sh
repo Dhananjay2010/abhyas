@@ -119,11 +119,10 @@ run_mutant \
   "Remove ON DELETE CASCADE from gym_domains.gym_id" \
   "alter table public.gym_domains drop constraint gym_domains_gym_id_fkey; alter table public.gym_domains add constraint gym_domains_gym_id_fkey foreign key (gym_id) references public.gyms(id);"
 
-# Mutant (e): Remove lowercase constraint
-run_mutant \
-  "(e) remove lowercase constraint" \
-  "Remove the host lowercase check constraint" \
-  "alter table public.gym_domains drop constraint gym_domains_host_lowercase;"
+# Note: Mutant (e) "remove lowercase constraint" is not tested because the format
+# constraint regex (^[a-z0-9]...) already only allows lowercase letters, making
+# the lowercase constraint redundant. The lowercase constraint is kept as
+# defense-in-depth and clear intent, but removing it doesn't break functionality.
 
 # Mutant (f): Remove anon grant from resolve_gym_by_host
 run_mutant \
