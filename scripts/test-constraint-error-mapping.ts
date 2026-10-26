@@ -8,7 +8,8 @@
  */
 
 import { strict as assert } from "node:assert";
-import { logBodyWeightCore, type LogBodyWeightDb } from "../src/lib/progress/log-bodyweight-core";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { logBodyWeightCore } from "../src/lib/progress/log-bodyweight-core";
 
 export {}; // Module
 
@@ -27,12 +28,28 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
+type SelectBuilder = {
+  eq(): {
+    single(): Promise<{ data: { units: string } }>;
+  };
+};
+
+type UpsertBuilder = Promise<{ error: { code?: string; message: string } | null }>;
+
+type ProfilesBuilder = {
+  select(): SelectBuilder;
+};
+
+type BodyMetricsBuilder = {
+  upsert(): UpsertBuilder;
+};
+
 function makeFakeDb(config: {
   units: "imperial" | "metric";
   error?: { code?: string; message: string } | null;
-}): LogBodyWeightDb {
+}): SupabaseClient {
   return {
-    from(table: string): any {
+    from(table: string): ProfilesBuilder | BodyMetricsBuilder {
       if (table === "profiles") {
         return {
           select() {
@@ -57,9 +74,9 @@ function makeFakeDb(config: {
         };
       }
       
-      return {};
+      throw new Error(`Unexpected table: ${table}`);
     },
-  };
+  } as unknown as SupabaseClient;
 }
 
 async function main() {

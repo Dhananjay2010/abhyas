@@ -18,12 +18,8 @@ type SessionRow = {
   program_day_id?: string | null;
 };
 
-// Minimal structural interface for Supabase client methods used by this adapter.
-// Real SupabaseClient<Database> satisfies this at call sites via narrowing cast.
-export type PlanDayDb = Pick<SupabaseClient<Database>, "from">;
-
 export function makePlanDayClient(
-  supabase: PlanDayDb,
+  supabase: SupabaseClient<Database>,
   userId: string
 ): PlanDayClient {
   return {
@@ -45,13 +41,13 @@ export function makePlanDayClient(
     },
     async loadProgramDay(programDayId: string) {
       const result = await loadPlanDay(
-        createSupabaseDeps(supabase as SupabaseClient<Database>),
+        createSupabaseDeps(supabase),
         programDayId,
       );
       return result;
     },
     async findProgramDay(programId: string, dayIndex: number) {
-      return queryActiveProgramDay(supabase as SupabaseClient<Database>, userId, programId, dayIndex);
+      return queryActiveProgramDay(supabase, userId, programId, dayIndex);
     },
     async updateSession(id: string, row: SessionInsert) {
       const { error } = await supabase

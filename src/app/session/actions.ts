@@ -810,7 +810,7 @@ export async function planDay(input: {
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const today = localDateString(timezone);
 
-  const client = makePlanDayClient(supabase as Pick<SupabaseClient<Database>, "from">, user.id);
+  const client = makePlanDayClient(supabase, user.id);
 
   const result = await planDayCore(client, {
     userId: user.id,

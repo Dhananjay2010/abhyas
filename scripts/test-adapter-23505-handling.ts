@@ -10,8 +10,10 @@
  */
 
 import { strict as assert } from "node:assert";
-import { makePlanDayClient, type PlanDayDb } from "../src/lib/session/make-plan-day-client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { makePlanDayClient } from "../src/lib/session/make-plan-day-client";
 import { planDayCore } from "../src/lib/session/plan-day-core";
+import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
 
@@ -30,9 +32,34 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-function makeFakeDbWithError(errorCode: string | null): PlanDayDb {
+type SelectBuilder = {
+  eq(): {
+    eq(): Promise<{ data: never[]; error: null }>;
+  };
+};
+
+type InsertBuilder = Promise<{ data: null; error: { code: string; message: string } | null }>;
+
+type UpdateBuilder = {
+  eq(): Promise<{ error: null }>;
+};
+
+type DeleteBuilder = {
+  in(): {
+    eq(): Promise<{ error: null }>;
+  };
+};
+
+type FromBuilder = {
+  select(): SelectBuilder;
+  insert(): InsertBuilder;
+  update(): UpdateBuilder;
+  delete(): DeleteBuilder;
+};
+
+function makeFakeDbWithError(errorCode: string | null): SupabaseClient<Database> {
   return {
-    from(table: string): any {
+    from(table: string): FromBuilder {
       if (table === "sessions") {
         return {
           select() {
@@ -78,9 +105,9 @@ function makeFakeDbWithError(errorCode: string | null): PlanDayDb {
           },
         };
       }
-      return {};
+      throw new Error(`Unexpected table: ${table}`);
     },
-  };
+  } as unknown as SupabaseClient<Database>;
 }
 
 async function main() {
