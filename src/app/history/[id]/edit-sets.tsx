@@ -23,9 +23,10 @@ interface EditSetsProps {
     sets: SetData[];
     metric: string;
   }>;
+  saveSet?: typeof updateSet;
 }
 
-export function EditSets({ sessionId, units, exercises }: EditSetsProps) {
+export function EditSets({ sessionId, units, exercises, saveSet = updateSet }: EditSetsProps) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -174,7 +175,7 @@ export function EditSets({ sessionId, units, exercises }: EditSetsProps) {
 
       for (const [key, set] of editedSets) {
         updates.push(
-          updateSet(
+          saveSet(
             set.session_exercise_id,
             set.set_number,
             set.reps,
