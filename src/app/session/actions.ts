@@ -1,5 +1,6 @@
 "use server";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
@@ -809,7 +810,7 @@ export async function planDay(input: {
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const today = localDateString(timezone);
 
-  const client = makePlanDayClient(supabase, user.id);
+  const client = makePlanDayClient(supabase as Pick<SupabaseClient<Database>, "from">, user.id);
 
   const result = await planDayCore(client, {
     userId: user.id,

@@ -17,8 +17,12 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 export type LogBodyWeightResult = { ok: true } | { ok: false; error: string };
 
+// Minimal structural interface for database methods used by logBodyWeightCore.
+// Real SupabaseClient satisfies this at call sites via narrowing cast.
+export type LogBodyWeightDb = Pick<SupabaseClient, "from">;
+
 export async function logBodyWeightCore(
-  client: SupabaseClient,
+  client: LogBodyWeightDb,
   userId: string,
   weightKg: number,
   timezone?: string
@@ -27,7 +31,7 @@ export async function logBodyWeightCore(
     return { ok: false, error: "Invalid weight value." };
   }
 
-  const units = await getProfileUnits(client, userId);
+  const units = await getProfileUnits(client as SupabaseClient, userId);
   
   if (!validateBodyWeightKg(weightKg, units)) {
     if (units === "imperial") {

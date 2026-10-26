@@ -11,8 +11,19 @@ import type { Database } from "@/lib/database.types";
 
 type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
 
+type SessionRow = {
+  id: string;
+  status: string;
+  actual_type: Database["public"]["Enums"]["day_type"] | null;
+  program_day_id?: string | null;
+};
+
+// Minimal structural interface for Supabase client methods used by this adapter.
+// Real SupabaseClient<Database> satisfies this at call sites via narrowing cast.
+export type PlanDayDb = Pick<SupabaseClient<Database>, "from">;
+
 export function makePlanDayClient(
-  supabase: SupabaseClient<Database>,
+  supabase: PlanDayDb,
   userId: string
 ): PlanDayClient {
   return {
@@ -34,13 +45,13 @@ export function makePlanDayClient(
     },
     async loadProgramDay(programDayId: string) {
       const result = await loadPlanDay(
-        createSupabaseDeps(supabase),
+        createSupabaseDeps(supabase as SupabaseClient<Database>),
         programDayId,
       );
       return result;
     },
     async findProgramDay(programId: string, dayIndex: number) {
-      return queryActiveProgramDay(supabase, userId, programId, dayIndex);
+      return queryActiveProgramDay(supabase as SupabaseClient<Database>, userId, programId, dayIndex);
     },
     async updateSession(id: string, row: SessionInsert) {
       const { error } = await supabase

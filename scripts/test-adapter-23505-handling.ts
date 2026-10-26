@@ -10,10 +10,8 @@
  */
 
 import { strict as assert } from "node:assert";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { makePlanDayClient } from "../src/lib/session/make-plan-day-client";
+import { makePlanDayClient, type PlanDayDb } from "../src/lib/session/make-plan-day-client";
 import { planDayCore } from "../src/lib/session/plan-day-core";
-import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
 
@@ -32,33 +30,55 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-function makeFakeSupabaseWithError(errorCode: string | null) {
+function makeFakeDbWithError(errorCode: string | null): PlanDayDb {
   return {
-    from: (table: string) => {
+    from(table: string): any {
       if (table === "sessions") {
         return {
-          insert: () => {
+          select() {
             return {
-              then: (resolve: (result: { data: null; error: { code: string; message: string } | null }) => void) => {
-                if (errorCode) {
-                  resolve({
-                    data: null,
-                    error: {
-                      code: errorCode,
-                      message: `Simulated error ${errorCode}`,
-                    },
-                  });
-                } else {
-                  resolve({ data: null, error: null });
-                }
+              eq() {
+                return {
+                  eq() {
+                    return Promise.resolve({ data: [], error: null });
+                  },
+                };
+              },
+            };
+          },
+          insert() {
+            if (errorCode) {
+              return Promise.resolve({
+                data: null,
+                error: {
+                  code: errorCode,
+                  message: `Simulated error ${errorCode}`,
+                },
+              });
+            }
+            return Promise.resolve({ data: null, error: null });
+          },
+          update() {
+            return {
+              eq() {
+                return Promise.resolve({ error: null });
+              },
+            };
+          },
+          delete() {
+            return {
+              in() {
+                return {
+                  eq() {
+                    return Promise.resolve({ error: null });
+                  },
+                };
               },
             };
           },
         };
       }
-      return {
-        insert: () => ({ then: () => {} }),
-      };
+      return {};
     },
   };
 }
@@ -67,8 +87,8 @@ async function main() {
   console.log("Testing 23505 handling in adapter\n");
 
   await test("insertSession with 23505 returns {error: null}", async () => {
-    const fakeSupabase = makeFakeSupabaseWithError("23505");
-    const client = makePlanDayClient(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
+    const fakeDb = makeFakeDbWithError("23505");
+    const client = makePlanDayClient(fakeDb, "user-1");
     
     const result = await client.insertSession({
       user_id: "user-1",
@@ -82,8 +102,8 @@ async function main() {
   });
 
   await test("insertSession with 23503 surfaces the error", async () => {
-    const fakeSupabase = makeFakeSupabaseWithError("23503");
-    const client = makePlanDayClient(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
+    const fakeDb = makeFakeDbWithError("23503");
+    const client = makePlanDayClient(fakeDb, "user-1");
     
     const result = await client.insertSession({
       user_id: "user-1",
@@ -98,8 +118,8 @@ async function main() {
   });
 
   await test("insertSession with null error returns {error: null}", async () => {
-    const fakeSupabase = makeFakeSupabaseWithError(null);
-    const client = makePlanDayClient(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
+    const fakeDb = makeFakeDbWithError(null);
+    const client = makePlanDayClient(fakeDb, "user-1");
     
     const result = await client.insertSession({
       user_id: "user-1",

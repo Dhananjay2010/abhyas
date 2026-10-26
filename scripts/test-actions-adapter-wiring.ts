@@ -8,8 +8,7 @@
  */
 
 import { strict as assert } from "node:assert";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { makePlanDayClient } from "../src/lib/session/make-plan-day-client";
+import { makePlanDayClient, type PlanDayDb } from "../src/lib/session/make-plan-day-client";
 import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
@@ -38,70 +37,51 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-function makeFakeSupabase() {
+function makeFakeDb(): { fakeDb: PlanDayDb; calls: Call[] } {
   const calls: Call[] = [];
   
-  const fakeSupabase = {
-    from: (table: string) => {
+  const fakeDb: PlanDayDb = {
+    from(table: string): any {
       calls.push({ method: "from", args: [table] });
       
       if (table === "sessions") {
         return {
-          select: (cols: string) => {
+          select(cols: string) {
             calls.push({ method: "select", args: [cols] });
             return {
-              eq: (col: string, val: unknown) => {
+              eq(col: string, val: string) {
                 calls.push({ method: "eq", args: [col, val] });
                 return {
-                  eq: (col2: string, val2: unknown) => {
+                  eq(col2: string, val2: string) {
                     calls.push({ method: "eq", args: [col2, val2] });
-                    return {
-                      then: (resolve: (result: { data: SessionRow[] | null; error: null }) => void) => {
-                        resolve({ data: [], error: null });
-                      },
-                    };
-                  },
-                  then: (resolve: (result: { data: SessionRow[] | null; error: null }) => void) => {
-                    resolve({ data: [], error: null });
+                    return Promise.resolve({ data: [], error: null });
                   },
                 };
               },
             };
           },
-          insert: (row: unknown) => {
+          insert(row: unknown) {
             calls.push({ method: "insert", args: [row] });
-            return {
-              then: (resolve: (result: { data: null; error: { code?: string; message: string } | null }) => void) => {
-                resolve({ data: null, error: null });
-              },
-            };
+            return Promise.resolve({ data: null, error: null });
           },
-          delete: () => {
-            calls.push({ method: "delete", args: [] });
-            return {
-              in: (col: string, vals: unknown[]) => {
-                calls.push({ method: "in", args: [col, vals] });
-                return {
-                  eq: (col2: string, val2: unknown) => {
-                    calls.push({ method: "eq", args: [col2, val2] });
-                    return {
-                      then: (resolve: (result: { error: null }) => void) => {
-                        resolve({ error: null });
-                      },
-                    };
-                  },
-                };
-              },
-            };
-          },
-          update: (row: unknown) => {
+          update(row: unknown) {
             calls.push({ method: "update", args: [row] });
             return {
-              eq: (col: string, val: unknown) => {
+              eq(col: string, val: string) {
                 calls.push({ method: "eq", args: [col, val] });
+                return Promise.resolve({ error: null });
+              },
+            };
+          },
+          delete() {
+            calls.push({ method: "delete", args: [] });
+            return {
+              in(col: string, vals: string[]) {
+                calls.push({ method: "in", args: [col, vals] });
                 return {
-                  then: (resolve: (result: { error: null }) => void) => {
-                    resolve({ error: null });
+                  eq(col2: string, val2: string) {
+                    calls.push({ method: "eq", args: [col2, val2] });
+                    return Promise.resolve({ error: null });
                   },
                 };
               },
@@ -110,24 +90,19 @@ function makeFakeSupabase() {
         };
       }
       
-      return {
-        select: () => ({ eq: () => ({ then: () => {} }) }),
-        insert: () => ({ then: () => {} }),
-        delete: () => ({ in: () => ({ eq: () => ({ then: () => {} }) }) }),
-        update: () => ({ eq: () => ({ then: () => {} }) }),
-      };
+      return {};
     },
   };
   
-  return { fakeSupabase, calls };
+  return { fakeDb, calls };
 }
 
 async function main() {
   console.log("Testing actions.ts adapter wiring\n");
 
   await test("findDaySessions selects program_day_id (R-1 regression)", async () => {
-    const { fakeSupabase, calls } = makeFakeSupabase();
-    const client = makePlanDayClient(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
+    const { fakeDb, calls } = makeFakeDb();
+    const client = makePlanDayClient(fakeDb, "user-1");
     
     await client.findDaySessions("2026-11-02");
     
@@ -143,8 +118,8 @@ async function main() {
   });
 
   await test("findDaySessions filters by user_id (R-1 regression)", async () => {
-    const { fakeSupabase, calls } = makeFakeSupabase();
-    const client = makePlanDayClient(fakeSupabase as unknown as SupabaseClient<Database>, "user-123");
+    const { fakeDb, calls } = makeFakeDb();
+    const client = makePlanDayClient(fakeDb, "user-123");
     
     await client.findDaySessions("2026-11-02");
     
@@ -155,12 +130,9 @@ async function main() {
     assert.equal(userIdEq.args[1], "user-123", "Should use the provided userId");
   });
 
-  // Note: findProgramDay calls queryActiveProgramDay which has complex multi-eq chains
-  // that are difficult to fake. The weekday calculation (R-2a) is tested in plan-day-core tests.
-
   await test("rereadDaySessions filters by user_id", async () => {
-    const { fakeSupabase, calls } = makeFakeSupabase();
-    const client = makePlanDayClient(fakeSupabase as unknown as SupabaseClient<Database>, "user-456");
+    const { fakeDb, calls } = makeFakeDb();
+    const client = makePlanDayClient(fakeDb, "user-456");
     
     await client.rereadDaySessions("2026-11-02");
     
@@ -170,6 +142,9 @@ async function main() {
     assert(userIdEq, "Should filter by user_id");
     assert.equal(userIdEq.args[1], "user-456", "Should use the provided userId");
   });
+
+  // Note: findProgramDay calls queryActiveProgramDay which has complex multi-eq chains.
+  // The weekday calculation (R-2a) is tested in plan-day-core tests.
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);

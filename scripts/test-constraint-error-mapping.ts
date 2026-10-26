@@ -8,8 +8,7 @@
  */
 
 import { strict as assert } from "node:assert";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { logBodyWeightCore } from "../src/lib/progress/log-bodyweight-core";
+import { logBodyWeightCore, type LogBodyWeightDb } from "../src/lib/progress/log-bodyweight-core";
 
 export {}; // Module
 
@@ -28,33 +27,33 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-function makeFakeClient(config: {
+function makeFakeDb(config: {
   units: "imperial" | "metric";
   error?: { code?: string; message: string } | null;
-}) {
+}): LogBodyWeightDb {
   return {
-    from: (table: string) => {
+    from(table: string): any {
       if (table === "profiles") {
         return {
-          select: () => ({
-            eq: () => ({
-              single: () => ({
-                then: (resolve: (result: { data: { units: string } | null }) => void) => {
-                  resolve({ data: { units: config.units } });
-                },
-              }),
-            }),
-          }),
+          select() {
+            return {
+              eq() {
+                return {
+                  single() {
+                    return Promise.resolve({ data: { units: config.units } });
+                  },
+                };
+              },
+            };
+          },
         };
       }
       
       if (table === "body_metrics") {
         return {
-          upsert: () => ({
-            then: (resolve: (result: { error: typeof config.error }) => void) => {
-              resolve({ error: config.error ?? null });
-            },
-          }),
+          upsert() {
+            return Promise.resolve({ error: config.error ?? null });
+          },
         };
       }
       
@@ -67,12 +66,12 @@ async function main() {
   console.log("Testing constraint error mapping\n");
 
   await test("23514 error with imperial units maps to lb message", async () => {
-    const client = makeFakeClient({
+    const db = makeFakeDb({
       units: "imperial",
       error: { code: "23514", message: "violates check constraint body_metrics_weight_sane" },
     });
     
-    const result = await logBodyWeightCore(client as unknown as SupabaseClient, "user-1", 500);
+    const result = await logBodyWeightCore(db, "user-1", 500);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -83,12 +82,12 @@ async function main() {
   });
 
   await test("23514 error with metric units maps to kg message", async () => {
-    const client = makeFakeClient({
+    const db = makeFakeDb({
       units: "metric",
       error: { code: "23514", message: "violates check constraint body_metrics_weight_sane" },
     });
     
-    const result = await logBodyWeightCore(client as unknown as SupabaseClient, "user-1", 500);
+    const result = await logBodyWeightCore(db, "user-1", 500);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -99,12 +98,12 @@ async function main() {
   });
 
   await test("body_metrics_weight_sane message without code 23514 also maps", async () => {
-    const client = makeFakeClient({
+    const db = makeFakeDb({
       units: "imperial",
       error: { message: "new row violates check constraint body_metrics_weight_sane" },
     });
     
-    const result = await logBodyWeightCore(client as unknown as SupabaseClient, "user-1", 500);
+    const result = await logBodyWeightCore(db, "user-1", 500);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -113,12 +112,12 @@ async function main() {
   });
 
   await test("Unrelated DB error is NOT remapped", async () => {
-    const client = makeFakeClient({
+    const db = makeFakeDb({
       units: "imperial",
       error: { code: "23503", message: "foreign key constraint violated" },
     });
     
-    const result = await logBodyWeightCore(client as unknown as SupabaseClient, "user-1", 75);
+    const result = await logBodyWeightCore(db, "user-1", 75);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -131,12 +130,12 @@ async function main() {
   });
 
   await test("Success case returns ok:true", async () => {
-    const client = makeFakeClient({
+    const db = makeFakeDb({
       units: "imperial",
       error: null,
     });
     
-    const result = await logBodyWeightCore(client as unknown as SupabaseClient, "user-1", 75);
+    const result = await logBodyWeightCore(db, "user-1", 75);
     
     assert.equal(result.ok, true, "Should succeed when no error");
   });
