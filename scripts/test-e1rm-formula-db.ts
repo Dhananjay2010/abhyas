@@ -100,6 +100,10 @@ async function runTests() {
           CREATE ROLE service_role;
         END IF;
       END$$;
+
+      -- Mirror Supabase: new tables in public are granted to anon/authenticated by default.
+      -- Without this, a missing REVOKE in the migration would go unnoticed locally.
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;
     `);
 
     const migrationsDir = join(__dirname, "../supabase/migrations");
@@ -983,6 +987,14 @@ async function runTests() {
           SELECT relrowsecurity FROM pg_class WHERE relname = 'exercise_progress_best_e1rm_backup_20261025000030'
         `);
         check("Backup table has RLS enabled", rows[0]?.relrowsecurity === true, `relrowsecurity=${rows[0]?.relrowsecurity}`);
+        const { rows: privs } = await testPool!.query(`
+          SELECT r.role, p.priv,
+                 has_table_privilege(r.role, 'public.exercise_progress_best_e1rm_backup_20261025000030', p.priv) AS has
+          FROM (VALUES ('anon'), ('authenticated')) r(role)
+          CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) p(priv)
+        `);
+        const granted = privs.filter(r => r.has).map(r => `${r.role}:${r.priv}`);
+        check("Backup table: no anon/authenticated privileges", granted.length === 0, `granted=${granted.join(",")}`);
       } else {
         check("Backup table has RLS enabled", false, "table does not exist");
       }

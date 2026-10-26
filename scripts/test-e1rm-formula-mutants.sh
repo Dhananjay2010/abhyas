@@ -339,6 +339,54 @@ fi
 
 run_mutant "M9b" || exit 1
 
+# Restore for rls_no_revoke
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# rls_no_revoke: Delete the REVOKE line
+echo "rls_no_revoke: Delete REVOKE (anon/authenticated can still access backup)"
+sed -i '/^revoke all on exercise_progress_best_e1rm_backup_20261025000030 from anon, authenticated;$/d' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ rls_no_revoke: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "rls_no_revoke" || exit 1
+
+# Restore for rls_grant_all
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# rls_grant_all: Replace REVOKE with GRANT ALL
+echo "rls_grant_all: Replace REVOKE with GRANT ALL (explicitly grants privileges)"
+sed -i 's/^revoke all on exercise_progress_best_e1rm_backup_20261025000030 from anon, authenticated;$/grant all on exercise_progress_best_e1rm_backup_20261025000030 to anon, authenticated;/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ rls_grant_all: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "rls_grant_all" || exit 1
+
+# Restore for rls_no_enable
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# rls_no_enable: Delete the ALTER TABLE enable RLS line
+echo "rls_no_enable: Delete ALTER TABLE enable RLS (RLS remains disabled)"
+sed -i '/^alter table exercise_progress_best_e1rm_backup_20261025000030 enable row level security;$/d' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ rls_no_enable: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "rls_no_enable" || exit 1
+
 # Restore for view_warmup_only
 cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
 
