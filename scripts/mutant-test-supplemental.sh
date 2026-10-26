@@ -100,10 +100,16 @@ test_mutant "H2 (never-raise hold resets counter)" \
 
 # H6: two-miss hold drops wafs (reduced === current hold)
 test_mutant "H6 (two-miss hold drops wafs)" \
-  "        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
+  "        outcome: \"hold\",
+        nextWorkingWeightKg: currentWeight,
+        nextTargetReps: repsMax,
+        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
         weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss
         message: holdMessage," \
-  "        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
+  "        outcome: \"hold\",
+        nextWorkingWeightKg: currentWeight,
+        nextTargetReps: repsMax,
+        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
         weightAtFailureStartKg: null, // M1: preserve for third miss
         message: holdMessage," \
   "npm run test:hold-preserves-wafs"
