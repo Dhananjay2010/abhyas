@@ -188,8 +188,9 @@ const fakeTimer = {
   shouldLogSetFail = false;
   
   // Click Retry button to clear the queue
-  const retryButton = screen.queryByRole("button", { name: /Retry/i });
-  if (retryButton) {
+  const retryButtons = screen.queryAllByRole("button", { name: /Retry/i });
+  if (retryButtons.length > 0) {
+    const retryButton = retryButtons[retryButtons.length - 1];
     await act(async () => {
       retryButton.click();
     });
