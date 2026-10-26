@@ -291,29 +291,18 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
-    // 6e. QA Bot 1: Past-knee users filter knee-risk exercises from swaps
-    // Apply the same knee predicate as generation (isKneeRiskForKneeUser)
+    // 6e. QA Bot 1: Past-knee users filter specific high-risk patterns from swaps
     // Exception: squat-pattern candidates in lunge swaps must be from PAST_KNEE_LUNGE_EXERCISES
-    // (already handled above in step 4b, this is additional safety for other swap paths)
+    // (handled in step 4b and MED-3 check below)
     if (hasPastKnee) {
-      // For squat swaps: filter out knee-risk squats except for the allowed knee-safe ones
-      if (current.movement_pattern === "squat" && candidate.movement_pattern === "squat") {
-        if (isKneeRiskForKneeUser(candidate, true)) {
-          // Allow only the PAST_KNEE_LUNGE_EXERCISES (which includes safe squats like wall-sit, spanish-squat)
-          if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
-            continue;
-          }
-        }
-      }
-      // For lunge swaps: already filtered in step 4b, but double-check squat fallbacks
+      // For lunge swaps: squat fallbacks must be from the allowed quad-isolation list
+      // MED-3: lunge swaps must not offer normal squats (already handled in 4b)
       if (current.movement_pattern === "lunge" && candidate.movement_pattern === "squat") {
-        // MED-3: lunge swaps must not offer normal squats (already handled in 4b)
-        // This is defense-in-depth
         if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
           continue;
         }
       }
-      // For hinge/bridge fallbacks: filter knee-risk exercises
+      // For hinge/bridge fallbacks in squat/lunge swaps: filter knee-risk exercises
       if ((current.movement_pattern === "squat" || current.movement_pattern === "lunge") &&
           (candidate.movement_pattern === "hinge" || candidate.movement_pattern === "core")) {
         if (isKneeRiskForKneeUser(candidate, true)) {

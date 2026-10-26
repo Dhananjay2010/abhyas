@@ -64,7 +64,7 @@ for (const testCase of testCases) {
     userId: `test-${testCase.id}`,
     blockNumber: 1,
     goal: "muscle_gain" as const,
-    level: testCase.level as "beginner" | "intermediate" | "advanced",
+    level: testCase.level as "beginner" | "intermediate" | "expert",
     primaryTrack: "weights" as const,
     daysPerWeek: 4,
     yogaDaysPerWeek: 0,
@@ -127,11 +127,13 @@ for (const testCase of testCases) {
   const spanishSquat = catalogue.find(e => e.slug === "spanish-squat");
   const splitSquat = catalogue.find(e => e.slug === "split-squat-with-dumbbells");
   
-  for (const [name, ex] of [
-    ["barbell-squat", barbellSquat],
-    ["spanish-squat", spanishSquat],
-    ["split-squat-with-dumbbells", splitSquat],
-  ]) {
+  const exercises: Array<{ name: string; ex: CandidateExercise | undefined }> = [
+    { name: "barbell-squat", ex: barbellSquat },
+    { name: "spanish-squat", ex: spanishSquat },
+    { name: "split-squat-with-dumbbells", ex: splitSquat },
+  ];
+  
+  for (const { name, ex } of exercises) {
     if (!ex) continue;
     
     const patterns = getSwapPatterns(ex.movement_pattern, input);
