@@ -11,6 +11,9 @@
  * Case 2, a Resume with nothing left (cool-down screen): the summary is still
  *   fetched from the server, since the client never saw those finishes.
  *
+ * Case 3, the summary's Total volume is in the user's units: 10 x 50 kg is
+ *   "500 kg" for metric and "1,102 lb" for imperial (QA Bot 1 L-1).
+ *
  * Kills: dropping the getSessionSummary call; labelling the banner with
  * current.name; not clearing the banner on skip.
  */
@@ -114,6 +117,33 @@ async function click(el: Element | undefined, label: string) {
   });
 }
 
+const totalVolume = (c: HTMLElement) =>
+  [...c.querySelectorAll("span")].find((sp) => sp.textContent === "Total volume")?.nextElementSibling?.textContent ?? null;
+
+async function finishedSummary(units?: "metric" | "imperial") {
+  const { actions } = makeActions();
+  const r = render(
+    <SessionRunner
+      sessionId="s3"
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date().toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[makeExercise("row", "Row", true)]}
+      settings={settings}
+      units={units}
+      actions={actions}
+    />,
+  );
+  await click(button(r.container, /^Skip cool-down$/), "Skip cool-down");
+  await waitFor(() => {
+    if (!r.container.textContent?.includes("Session complete")) throw new Error("summary not shown");
+  });
+  return r;
+}
+
 (async () => {
   console.log("Session runner banner + summary\n");
 
@@ -195,6 +225,22 @@ async function click(el: Element | undefined, label: string) {
     check("getSessionSummary called after resume", calls.summary === 1, String(calls.summary));
     check("summary rendered from the server after resume", c.textContent?.includes("Weight up to 52.5 kg next time") ?? false);
     unmount();
+  }
+
+  console.log("\nCase 3: Total volume in the user's units");
+  {
+    const imp = await finishedSummary("imperial");
+    const v1 = totalVolume(imp.container);
+    check("imperial user: Total volume in lb (500 kg = 1,102 lb)", v1 === "1,102 lb", String(v1));
+    imp.unmount();
+    const met = await finishedSummary("metric");
+    const v2 = totalVolume(met.container);
+    check("metric user: Total volume in kg", v2 === "500 kg", String(v2));
+    met.unmount();
+    const dflt = await finishedSummary(undefined);
+    const v3 = totalVolume(dflt.container);
+    check("no units passed: defaults to kg", v3 === "500 kg", String(v3));
+    dflt.unmount();
   }
 
   if (failures > 0) {

@@ -56,6 +56,8 @@ export type SessionActions = {
 };
 
 import { getSessionSummary, type SummaryNote } from "../actions";
+import { formatVolumeLifted } from "@/lib/session/format-volume-lifted";
+import type { UnitsPreference } from "@/lib/units";
 
 const REAL_ACTIONS: SessionActions = {
   markWarmupDone,
@@ -135,6 +137,7 @@ export function SessionRunner({
   exercises: initialExercises,
   settings,
   tomorrow,
+  units = "metric",
   actions = REAL_ACTIONS,
   onExit,
 }: {
@@ -149,6 +152,8 @@ export function SessionRunner({
   settings: RunnerSettings;
   /** What tomorrow is, so the summary can ask about it. Null with no block. */
   tomorrow?: NextDayPlan | null;
+  /** The user's display units, for the summary's total volume. */
+  units?: UnitsPreference;
   actions?: SessionActions;
   onExit?: () => void;
 }) {
@@ -549,7 +554,7 @@ export function SessionRunner({
         <div className="space-y-3">
           <Stat label="Time" value={formatClock(elapsed)} />
           <Stat label="Sets logged" value={`${totalSetsDone}`} />
-          {volume > 0 && <Stat label="Total volume" value={`${Math.round(volume)} kg`} />}
+          {volume > 0 && <Stat label="Total volume" value={formatVolumeLifted(volume, units)} />}
           <Stat
             label="Exercises"
             value={`${exercises.filter((e) => e.status === "completed").length} of ${exercises.length}`}

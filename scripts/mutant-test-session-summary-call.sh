@@ -15,4 +15,7 @@ run_mutant "banner not cleared on skip" "$F" '    if (skipped || !result.data?.m
       setBannerContent(null);
     } else if (result.data) {' '    if (skipped || !result.data?.message) {
     } else if (result.data) {' "${T[@]}"
+run_mutant "total volume hardcoded to kg" "$F" '<Stat label="Total volume" value={formatVolumeLifted(volume, units)} />' '<Stat label="Total volume" value={`${Math.round(volume)} kg`} />' "${T[@]}"
+run_mutant "total volume ignores units" "$F" '<Stat label="Total volume" value={formatVolumeLifted(volume, units)} />' '<Stat label="Total volume" value={formatVolumeLifted(volume, "metric")} />' "${T[@]}"
+run_mutant "units prop default imperial" "$F" '  units = "metric",' '  units = "imperial",' "${T[@]}"
 finish_mutants
