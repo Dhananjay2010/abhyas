@@ -204,12 +204,14 @@ export function createPendingSetController(config: {
     }
 
     if (!canReplayForStatus(sessionStatus)) {
-      clearPendingSets(storage, userId, sessionId, deps);
+      // NEVER delete silently - keep sets for keep-and-surface policy
+      // They'll be surfaced by app-level replay or cleared by user via Discard
+      const loaded = loadPendingSets(storage, userId, sessionId, deps);
       setState({
-        pending: [],
+        pending: loaded,
         expired: false,
         retrying: false,
-        error: "Session is not in progress",
+        error: loaded.length > 0 ? "Session is not in progress" : null,
       });
       return;
     }
@@ -233,36 +235,30 @@ export function createPendingSetController(config: {
       const successfullyReplayed: PendingSet[] = [];
       let authFailed = false;
 
-      for (const set of toReplay) {
-        try {
-          const result = await logSet({
-            sessionExerciseId: set.sessionExerciseId,
-            setNumber: set.setNumber,
-            reps: set.reps,
-            weightKg: set.weightKg,
-            durationSeconds: set.durationSeconds,
-          });
+      const { attemptPendingSet } = await import("./pending-set-outcome");
 
-          if (result.ok || isDuplicateError(result) || ("reason" in result && result.reason === "set_exists")) {
-            clearPendingSet(storage, userId, sessionId, set.clientId, deps);
-            successfullyReplayed.push(set);
-          } else if (isSessionExpired(result)) {
-            if (!firstError) firstError = "Session still expired";
-            authFailed = true;
-          } else {
-            const errorMessage = "error" in result ? result.error ?? "Failed to replay set" : "Failed to replay set";
-            if (!firstError) firstError = errorMessage;
-          }
-        } catch (err) {
-          if (isDuplicateError(err)) {
-            clearPendingSet(storage, userId, sessionId, set.clientId, deps);
-            successfullyReplayed.push(set);
-          } else if (isSessionExpired(err)) {
-            if (!firstError) firstError = "Session still expired";
-            authFailed = true;
-          } else if (!firstError) {
-            firstError = err instanceof Error ? err.message : "Network error";
-          }
+      for (const set of toReplay) {
+        const outcome = await attemptPendingSet({
+          set,
+          userId,
+          sessionId,
+          storage,
+          deps,
+          logSet,
+          sessionStatus,
+        });
+
+        if (outcome.status === "saved") {
+          successfullyReplayed.push(set);
+        } else if (outcome.status === "expired") {
+          if (!firstError) firstError = "Session still expired";
+          authFailed = true;
+        } else if (outcome.status === "closed") {
+          // Closed session - will be surfaced by app-level replay
+          if (!firstError) firstError = "Session is not in progress";
+        } else {
+          // "failed" status
+          if (!firstError) firstError = outcome.error || "Failed to replay set";
         }
       }
 

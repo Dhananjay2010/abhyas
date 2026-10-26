@@ -112,18 +112,7 @@ function isValidTimestampedSets(value: unknown): value is PendingSetsWithTimesta
 }
 
 /**
- * Don't prune stale entries - keep them for keep-and-surface policy.
- * Expired sets (> 7 days) are treated as "closed" by attemptPendingSet.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function pruneStaleEntries(data: PendingSetsWithTimestamp, _now: number): PendingSetsWithTimestamp {
-  // Don't prune - return all entries
-  // The keep-and-surface policy will handle expired sets
-  return data;
-}
-
-/**
- * Load all pending sets from storage with pruning.
+ * Load all pending sets from storage (no pruning - keep for surface policy).
  */
 export function loadAllPendingSetsWithTimestamp(storage: Storage, userId: string, deps: PendingSetDeps): PendingSetsWithTimestamp {
   try {
@@ -132,13 +121,8 @@ export function loadAllPendingSetsWithTimestamp(storage: Storage, userId: string
     const parsed = JSON.parse(raw);
     
     if (isValidTimestampedSets(parsed)) {
-      const pruned = pruneStaleEntries(parsed, deps.now());
-      if (Object.keys(pruned).length === 0) {
-        storage.removeItem(storageKey(userId));
-      } else if (Object.keys(pruned).length < Object.keys(parsed).length) {
-        storage.setItem(storageKey(userId), JSON.stringify(pruned));
-      }
-      return pruned;
+      // No pruning - keep all entries for keep-and-surface policy
+      return parsed;
     }
     
     if (isValidPendingSets(parsed)) {
@@ -277,6 +261,7 @@ export async function replayAllPendingSetsForUser(
     durationSeconds: number | null;
   }) => Promise<{ ok: true } | { ok: false; error: string; code?: string } | { ok: false; reason: "set_exists" }>
 ): Promise<number> {
+  const { attemptPendingSet } = await import("./pending-set-outcome");
   const all = loadAllPendingSetsWithTimestamp(storage, userId, deps);
   
   let remainingCount = 0;
@@ -285,24 +270,18 @@ export async function replayAllPendingSetsForUser(
     const { sets } = all[sessionId];
     
     for (const set of sets) {
-      try {
-        const result = await logSet({
-          sessionExerciseId: set.sessionExerciseId,
-          setNumber: set.setNumber,
-          reps: set.reps,
-          weightKg: set.weightKg,
-          durationSeconds: set.durationSeconds,
-        });
-        
-        // Success or duplicate - clear the set
-        if (result.ok || ("reason" in result && result.reason === "set_exists")) {
-          clearPendingSet(storage, userId, sessionId, set.clientId, deps);
-        } else {
-          // Failed - keep it pending
-          remainingCount++;
-        }
-      } catch {
-        // Network or other error - keep it pending
+      const outcome = await attemptPendingSet({
+        set,
+        userId,
+        sessionId,
+        storage,
+        deps,
+        logSet,
+        sessionStatus: undefined, // unknown at sign-out
+      });
+      
+      // Count sets that weren't saved (expired, closed, or failed)
+      if (outcome.status !== "saved") {
         remainingCount++;
       }
     }

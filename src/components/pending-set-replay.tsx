@@ -102,7 +102,7 @@ export function PendingSetReplay({
   function handleDiscard(sessionId: string) {
     if (typeof window === "undefined") return;
     
-    const deps = createPendingSetDeps();
+    const deps = createPendingSetDeps(now);
     clearPendingSets(window.localStorage, userId, sessionId, deps);
     
     setClosedSessions(prev => prev.filter(s => s.sessionId !== sessionId));

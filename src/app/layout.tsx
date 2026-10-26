@@ -7,6 +7,7 @@ import { NewVersionHint } from "@/components/new-version-hint";
 import { branding, getBrandCssVariables } from "@/lib/branding";
 import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 import { InProgressBar } from "@/components/in-progress-bar";
+import { PendingSetReplayProvider } from "@/components/pending-set-replay-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -70,6 +71,7 @@ export default function RootLayout({
         <OfflineErrorProvider>
           <ServiceWorkerRegistration />
           <NewVersionHint />
+          <PendingSetReplayProvider />
           {children}
           {/*
             L1: Client-side in-progress session indicator that fetches on mount
