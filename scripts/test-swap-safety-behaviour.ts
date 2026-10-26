@@ -114,10 +114,12 @@ async function main() {
   // Updated per Run 4: bodyweight-squat and goblet-squat are knee-risk (isKneeRiskForKneeUser),
   // so past-knee users don't get them in squat swaps. Coordinator rule: swap sheets use same
   // knee filter as plan generation. Only PAST_KNEE_LUNGE_EXERCISES allowed for past-knee squats.
+  // PR #152 follow-up: past-knee squat swaps must offer quad isolation + hinge fallbacks (never empty)
   const SQUAT = ["low-impact-box-jump", "bodyweight-squat"];
   await scenario("Squat — healthy (control): low-impact box jump offered", healthy("intermediate", ["flat_bench", "dumbbell"]), "goblet-squat", SQUAT, SQUAT);
-  await scenario("Squat — PAST knee: lower-body jump and knee-risk squats excluded", knee("past", "intermediate", ["flat_bench", "dumbbell"]), "goblet-squat", SQUAT,
-    []); // Empty: both low-impact-box-jump (jump) and bodyweight-squat (knee-risk) filtered
+  const SQUAT_WITH_FALLBACKS = ["low-impact-box-jump", "bodyweight-squat", "wall-sit", "glute-bridge", "butt-lift-bridge", "stiff-legged-dumbbell-deadlift"];
+  await scenario("Squat — PAST knee: quad isolation first, then hinge fallbacks", knee("past", "intermediate", ["flat_bench", "dumbbell"]), "goblet-squat", SQUAT_WITH_FALLBACKS,
+    ["wall-sit", "stiff-legged-dumbbell-deadlift", "butt-lift-bridge", "glute-bridge"]); // wall-sit from quad isolation, then hinge fallbacks
   const HP = ["plyo-push-up", "clock-push-up", "push-up-wide", "single-arm-push-up"];
   await scenario("Horizontal press (hold) — PAST knee: upper-body plyo-push-up still offered", knee("past", "intermediate", []), "isometric-wipers", HP, HP);
 

@@ -427,14 +427,31 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (slotsTaken >= limit) break;
   }
   
-  // QA Steer (k): Demote wall-sit to the end for past-knee squat swaps
-  // Wall-sit must never be index 0, and when 3+ items exist, it should be index >= 2
-  if (hasPastKnee && current.movement_pattern === "squat" && deduplicated.length >= 3) {
-    const wallSitIndex = deduplicated.findIndex(e => e.slug === "wall-sit");
-    if (wallSitIndex !== -1 && wallSitIndex < 2) {
-      const [wallSit] = deduplicated.splice(wallSitIndex, 1);
-      deduplicated.push(wallSit);
+  // Past-knee squat swaps: specific ordering per PR #152 follow-up
+  // 1. PAST_KNEE_LUNGE_EXERCISES (spanish-squat, wall-sit, leg-extensions, single-leg-leg-extension) 
+  //    in that order, filtered by equipment and excluding current
+  // 2. Then knee-safe hinge/bridge fallbacks
+  if (hasPastKnee && current.movement_pattern === "squat" && deduplicated.length > 0) {
+    const quadIsolationOrder = ["spanish-squat", "wall-sit", "leg-extensions", "single-leg-leg-extension"];
+    const quadIsolation: T[] = [];
+    const hingeFallbacks: T[] = [];
+    
+    for (const ex of deduplicated) {
+      if (PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {
+        quadIsolation.push(ex);
+      } else {
+        hingeFallbacks.push(ex);
+      }
     }
+    
+    // Sort quad isolation by the specified order
+    quadIsolation.sort((a, b) => {
+      const aIndex = quadIsolationOrder.indexOf(a.slug);
+      const bIndex = quadIsolationOrder.indexOf(b.slug);
+      return aIndex - bIndex;
+    });
+    
+    return [...quadIsolation, ...hingeFallbacks];
   }
   
   return deduplicated;
