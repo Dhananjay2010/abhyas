@@ -94,10 +94,10 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-function main() {
+async function main() {
   console.log("Testing planDayCore\n");
 
-  test("(a) Training on bodyweight program day writes bodyweight + all fields", async () => {
+  await test("(a) Training on bodyweight program day writes bodyweight + all fields", async () => {
     const program: Program = {
       id: "prog-1",
       started_on: "2026-11-01",
@@ -143,7 +143,7 @@ function main() {
     assert.equal(insertCall.row.is_deload, false, "Week 3 is not deload week");
   });
 
-  test("(a2) Deload week writes is_deload: true", async () => {
+  await test("(a2) Deload week writes is_deload: true", async () => {
     const program: Program = {
       id: "prog-1",
       started_on: "2026-11-01",
@@ -174,7 +174,7 @@ function main() {
     assert.equal(insertCall.row.is_deload, true, "Week 3 is deload week");
   });
 
-  test("(b) With 2 existing planned rows: updates first, deletes second", async () => {
+  await test("(b) With 2 existing planned rows: updates first, deletes second", async () => {
     const program: Program = {
       id: "prog-1",
       started_on: "2026-11-01",
@@ -220,7 +220,7 @@ function main() {
     assert(!insertCall, "Should NOT insert when updating");
   });
 
-  test("(c) Yoga writes 'yoga' with program week stamped", async () => {
+  await test("(c) Yoga writes 'yoga' with program week stamped", async () => {
     const program: Program = {
       id: "prog-1",
       started_on: "2026-11-01",
@@ -250,7 +250,7 @@ function main() {
     assert.equal(insertCall.row.week_in_block, 3, "Should stamp week");
   });
 
-  test("(d) Breathing writes 'meditation' with program week stamped", async () => {
+  await test("(d) Breathing writes 'meditation' with program week stamped", async () => {
     const program: Program = {
       id: "prog-1",
       started_on: "2026-11-01",
@@ -280,7 +280,7 @@ function main() {
     assert.equal(insertCall.row.week_in_block, 3, "Should stamp week");
   });
 
-  test("(e) Unknown programDayId returns loadPlanDay error", async () => {
+  await test("(e) Unknown programDayId returns loadPlanDay error", async () => {
     const program: Program = {
       id: "prog-1",
       started_on: "2026-11-01",
@@ -308,7 +308,7 @@ function main() {
     assert(!insertCall, "Should NOT insert on error");
   });
 
-  test("Past date returns error", async () => {
+  await test("Past date returns error", async () => {
     const { client } = makeFakeClient({});
 
     const result = await planDayCore(client, {
@@ -322,7 +322,7 @@ function main() {
     assert.equal(result.ok === false && result.error, "That day has already been and gone.");
   });
 
-  test("Completed day returns error", async () => {
+  await test("Completed day returns error", async () => {
     const existing: SessionRow[] = [
       { id: "sess-1", status: "completed", actual_type: "weights" },
     ];
@@ -340,7 +340,7 @@ function main() {
     assert.equal(result.ok === false && result.error, "That day is already done.");
   });
 
-  test("Keep with no planned rows: no-op", async () => {
+  await test("Keep with no planned rows: no-op", async () => {
     const { client, calls } = makeFakeClient({ existingSessions: [] });
 
     const result = await planDayCore(client, {
@@ -355,13 +355,7 @@ function main() {
     assert(!deleteCall, "Should NOT delete when no planned rows");
   });
 
-  console.log(`\n${passed} passed, ${failed} failed`);
-  if (failed > 0) process.exit(1);
-}
-
-main();
-
-  test("Keep with 2 rest rows: deleteSessions NOT called", async () => {
+  await test("Keep with 2 rest rows: deleteSessions NOT called", async () => {
     const existing: SessionRow[] = [
       { id: "sess-1", status: "planned", actual_type: "rest" },
       { id: "sess-2", status: "planned", actual_type: "rest" },
@@ -381,7 +375,7 @@ main();
     assert(!deleteCall, "Should NOT delete all-rest rows");
   });
 
-  test("Keep with 1 yoga row: deleteSessions called", async () => {
+  await test("Keep with 1 yoga row: deleteSessions called", async () => {
     const existing: SessionRow[] = [
       { id: "sess-1", status: "planned", actual_type: "yoga" },
     ];
@@ -401,4 +395,13 @@ main();
     if (deleteCall.method !== "deleteSessions") throw new Error("Wrong call");
     assert.deepEqual(deleteCall.ids, ["sess-1"], "Should delete sess-1");
   });
+
+  console.log(`\n${passed} passed, ${failed} failed`);
+  if (failed > 0) process.exit(1);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
 

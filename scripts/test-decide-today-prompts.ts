@@ -16,9 +16,9 @@ export {}; // Module
 let passed = 0;
 let failed = 0;
 
-function test(name: string, fn: () => void) {
+async function test(name: string, fn: () => void | Promise<void>) {
   try {
-    fn();
+    await fn();
     console.log(`✓ ${name}`);
     passed++;
   } catch (err) {
@@ -28,27 +28,28 @@ function test(name: string, fn: () => void) {
   }
 }
 
-function main() {
+async function main() {
   console.log("Testing decideTodayPrompts\n");
 
   // QA Bot 1 scenario: missed yesterday, user chose Rest, then Keep it
-  test("QA scenario: After user chose Rest for today, no prompt shown", () => {
+  await test("QA scenario: After user chose Rest, show train-anyway (not missed-yesterday)", () => {
     const result = decideTodayPrompts({
       missedYesterday: true,
       strengthDone: false,
       strengthOpen: undefined,
       dayType: "rest",
       todaySessions: [
-        // User chose Rest (planned row exists)
         { status: "planned", actual_type: "rest" },
       ],
       yesterdayDay: { day_type: "weights", label: "Upper" },
     });
 
-    assert.equal(result.prompt, null, "No prompt should be shown after user decided");
+    assert.notEqual(result.prompt, null, "Should show rest-day-swap (way back to training)");
+    assert.equal(result.prompt?.type, "rest-day-swap", "Should be rest-day-swap, not missed-yesterday");
+    assert.equal(result.offerRest, false, "Should NOT offer Rest when day is already Rest");
   });
 
-  test("QA scenario: When day is Rest, do not offer Rest option", () => {
+  await test("QA scenario: When day is Rest, do not offer Rest option", () => {
     const result = decideTodayPrompts({
       missedYesterday: false,
       strengthDone: false,
@@ -62,7 +63,7 @@ function main() {
     assert.equal(result.offerRest, false, "Should not offer Rest when day is already Rest");
   });
 
-  test("QA scenario: At most one prompt shown (missed-yesterday has priority)", () => {
+  await test("QA scenario: At most one prompt shown (missed-yesterday has priority)", () => {
     const result = decideTodayPrompts({
       missedYesterday: true,
       strengthDone: false,
@@ -77,7 +78,7 @@ function main() {
     // Only one prompt can be shown at a time (tested by checking single type)
   });
 
-  test("Missed yesterday prompt shows before user decides", () => {
+  await test("Missed yesterday prompt shows before user decides", () => {
     const result = decideTodayPrompts({
       missedYesterday: true,
       strengthDone: false,
@@ -91,7 +92,7 @@ function main() {
     assert.equal(result.offerRest, true, "Should offer Rest when day is not Rest");
   });
 
-  test("Rest-day swap shows when no strength open and no missed yesterday", () => {
+  await test("Rest-day swap shows when no strength open and no missed yesterday", () => {
     const result = decideTodayPrompts({
       missedYesterday: false,
       strengthDone: false,
@@ -105,7 +106,7 @@ function main() {
     assert.equal(result.offerRest, false, "Should not offer Rest on a rest day");
   });
 
-  test("No prompt when strength is done", () => {
+  await test("No prompt when strength is done", () => {
     const result = decideTodayPrompts({
       missedYesterday: true,
       strengthDone: true, // Completed today
@@ -118,7 +119,7 @@ function main() {
     assert.equal(result.prompt, null, "No prompt when strength is already done");
   });
 
-  test("No prompt when strength is open", () => {
+  await test("No prompt when strength is open", () => {
     const result = decideTodayPrompts({
       missedYesterday: true,
       strengthDone: false,
@@ -131,23 +132,22 @@ function main() {
     assert.equal(result.prompt, null, "No prompt when strength session is open");
   });
 
-  test("User chose training (not Rest), missed-yesterday still suppressed", () => {
+  await test("User chose training (not Rest), missed-yesterday still suppressed", () => {
     const result = decideTodayPrompts({
       missedYesterday: true,
       strengthDone: false,
       strengthOpen: undefined,
       dayType: "weights",
       todaySessions: [
-        // User chose training day
         { status: "planned", actual_type: "weights" },
       ],
       yesterdayDay: { day_type: "weights", label: "Upper" },
     });
 
-    assert.equal(result.prompt, null, "No prompt after user chose training");
+    assert.equal(result.prompt, null, "No prompt after user chose training (not a rest day)");
   });
 
-  test("Multiple sessions on same day, prompt suppressed if any planned", () => {
+  await test("Rest override with missed yesterday: train-anyway, not missed-yesterday", () => {
     const result = decideTodayPrompts({
       missedYesterday: true,
       strengthDone: false,
@@ -155,16 +155,53 @@ function main() {
       dayType: "rest",
       todaySessions: [
         { status: "skipped", actual_type: "rest" },
-        { status: "planned", actual_type: "rest" }, // User chose
+        { status: "planned", actual_type: "rest" },
       ],
       yesterdayDay: { day_type: "weights", label: "Upper" },
     });
 
-    assert.equal(result.prompt, null, "No prompt when user has made a choice (even with other rows)");
+    assert.notEqual(result.prompt, null, "Should show prompt even with multiple rows");
+    assert.equal(result.prompt?.type, "rest-day-swap", "Should be rest-day-swap, not missed-yesterday");
+  });
+
+  await test("M2: Rest override on training day still shows train-anyway", () => {
+    const result = decideTodayPrompts({
+      missedYesterday: false,
+      strengthDone: false,
+      strengthOpen: undefined,
+      dayType: "rest",
+      todaySessions: [
+        { status: "planned", actual_type: "rest" },
+      ],
+      yesterdayDay: undefined,
+    });
+
+    assert.notEqual(result.prompt, null, "Should still show prompt after Rest override");
+    assert.equal(result.prompt?.type, "rest-day-swap", "Should show rest-day-swap prompt");
+    assert.equal(result.prompt?.heading, "Or train today anyway", "Heading should be 'Or train today anyway'");
+    assert.equal(result.offerRest, false, "Should NOT offer Rest when day is already Rest");
+  });
+
+  await test("M2: Never show missed-yesterday after user chose (show rest-day-swap instead)", () => {
+    const result = decideTodayPrompts({
+      missedYesterday: true,
+      strengthDone: false,
+      strengthOpen: undefined,
+      dayType: "rest",
+      todaySessions: [
+        { status: "planned", actual_type: "rest" },
+      ],
+      yesterdayDay: { day_type: "weights", label: "Upper" },
+    });
+
+    assert.equal(result.prompt?.type, "rest-day-swap", "Should show rest-day-swap, not missed-yesterday");
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

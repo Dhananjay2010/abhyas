@@ -34,10 +34,10 @@ type SessionInput = {
   started_at?: string | null;
 };
 
-function main() {
+async function main() {
   console.log("Testing deriveTodayView\n");
 
-  test("Rest day with yesterday's open session gives Resume and no swap", () => {
+  await test("Rest day with yesterday's open session gives Resume and no swap", () => {
     const result = deriveTodayView({
       dayType: "rest",
       missedYesterday: false,
@@ -64,7 +64,7 @@ function main() {
     assert.equal(result.prompt, null, "No prompt when resuming");
   });
 
-  test("Plain rest day gives train-anyway prompt with plannable days", () => {
+  await test("Plain rest day gives train-anyway prompt with plannable days", () => {
     const result = deriveTodayView({
       dayType: "rest",
       missedYesterday: false,
@@ -85,7 +85,7 @@ function main() {
     assert.equal(result.showResume, false, "Should NOT show Resume");
   });
 
-  test("Missed-yesterday then Rest then Keep gives at most 1 prompt and no Rest option", () => {
+  await test("Missed-yesterday then Rest then Keep: show train-anyway, not missed-yesterday", () => {
     const todaySessions: SessionInput[] = [
       { local_date: "2026-11-02", status: "planned", actual_type: "rest", program_day_id: null },
     ];
@@ -103,12 +103,12 @@ function main() {
       days: [],
     });
 
-    // User already chose Rest (planned row exists), so no prompt
-    assert.equal(result.prompt, null, "No prompt when user has already chosen");
+    assert.notEqual(result.prompt, null, "Should show train-anyway (way back to training)");
+    assert.equal(result.prompt?.type, "rest-day-swap", "Should be rest-day-swap, not missed-yesterday");
     assert.equal(result.offerRest, false, "Never offer Rest when day is already Rest");
   });
 
-  test("Missed yesterday without a choice shows missed-yesterday prompt", () => {
+  await test("Missed yesterday without a choice shows missed-yesterday prompt", () => {
     const result = deriveTodayView({
       dayType: "weights",
       missedYesterday: true,
@@ -130,7 +130,7 @@ function main() {
     assert.equal(result.shouldLoadPlannableDays, true, "Should load plannable days");
   });
 
-  test("Completed swapped-in day shows in week map as 'your choice'", () => {
+  await test("Completed swapped-in day shows in week map as 'your choice'", () => {
     // Today is Tuesday Nov 3 (day_index 2).
     // allSessions has a completed STRENGTH session on Nov 4 (Wednesday, day_index 3).
     // Template says Wednesday is Rest, but user did Pull.
@@ -173,7 +173,7 @@ function main() {
     assert.equal(wednesday, "Pull", "Wednesday should show 'Pull' (swapped choice)");
   });
 
-  test("Training day (no missed yesterday, no rest) shows no prompt", () => {
+  await test("Training day (no missed yesterday, no rest) shows no prompt", () => {
     const result = deriveTodayView({
       dayType: "weights",
       missedYesterday: false,
@@ -193,7 +193,7 @@ function main() {
     assert.equal(result.shouldLoadPlannableDays, false, "No plannable days needed");
   });
 
-  test("Strength done today: no prompt, no resume", () => {
+  await test("Strength done today: no prompt, no resume", () => {
     const result = deriveTodayView({
       dayType: "weights",
       missedYesterday: false,
@@ -217,4 +217,7 @@ function main() {
   if (failed > 0) process.exit(1);
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

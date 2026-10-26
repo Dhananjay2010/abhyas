@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import { validatePlanDayInput } from "@/lib/session/validate-plan-day-input";
 import { cycleWeekFor } from "@/lib/program/block-range";
+import { idsToDeleteOnKeep } from "@/lib/session/ids-to-delete-on-keep";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
@@ -97,13 +98,11 @@ export async function planDayCore(
     if (planned.length === 0) {
       return { ok: true };
     }
-    // On a Rest override day, "Keep it" must keep the Rest override, not delete it.
-    // If all planned sessions are Rest, don't delete.
-    const allRest = planned.every((s) => s.actual_type === "rest");
-    if (allRest) {
+    const ids = idsToDeleteOnKeep(planned);
+    if (ids.length === 0) {
       return { ok: true };
     }
-    const deleteResult = await client.deleteSessions(planned.map((s) => s.id));
+    const deleteResult = await client.deleteSessions(ids);
     if (deleteResult.error) {
       return { ok: false, error: deleteResult.error };
     }

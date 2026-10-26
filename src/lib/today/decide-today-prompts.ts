@@ -1,5 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import type { SessionForDetection } from "@/lib/today/session-detection";
+import { labelForDayType } from "@/lib/program/day-plan";
 
 type TodayPromptDecision = {
   /** Which prompt (if any) should be shown. Only one at a time. */
@@ -57,16 +58,14 @@ export function decideTodayPrompts(input: {
   // - Today is a rest day
   // - No strength session is open (handled by decideRestDayResume's showSwap)
   // - Not also showing the missed-yesterday prompt (priority)
-  // - User hasn't already made a choice for today
-  const shouldShowRestDaySwap = dayType === "rest" && !strengthOpen && !shouldAskMissedYesterday && !userHasChosenToday;
+  // Note: We DO show this even after the user has chosen, so they can switch back
+  const shouldShowRestDaySwap = dayType === "rest" && !strengthOpen && !shouldAskMissedYesterday;
 
   // Never offer Rest when the day is already Rest
   const offerRest = dayType !== "rest";
 
   if (shouldAskMissedYesterday) {
-    const yesterdayLabel = yesterdayDay
-      ? `${yesterdayDay.label ?? yesterdayDay.day_type.charAt(0).toUpperCase() + yesterdayDay.day_type.slice(1)}`
-      : "Yesterday";
+    const yesterdayLabel = yesterdayDay ? labelForDayType(yesterdayDay.day_type, yesterdayDay.label) : "Yesterday";
     return {
       prompt: {
         type: "missed-yesterday",
