@@ -1782,7 +1782,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         // Strategy 2: Add a set to main exercises (up to 5 sets max for main lifts)
         // PART B: exclude knee-risk for PAST knee users (Brief knee-volume)
-        const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
         const mainExercises = exercises
           .map((ex, idx) => ({ ex, idx }))
           .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < 5)

@@ -65,9 +65,9 @@ function testProfile(profileName: string, equipmentIds: string[], currentSlug: s
   const generatorInput = buildGeneratorInput({
     userId: "test-user",
     profile: {
-      goal: "muscle",
+      goal: "muscle_gain",
       level: "intermediate",
-      primary_track: "strength",
+      primary_track: "weights",
       days_per_week: 3,
       yoga_days_per_week: 0,
       date_of_birth: "1990-01-01",
