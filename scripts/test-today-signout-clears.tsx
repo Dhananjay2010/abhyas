@@ -65,7 +65,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     if (path) replaceCalls.push(path);
   };
   mockNextRouter.refresh = () => {
-    refreshCalls.push(Date.now());
+    refreshCalls.push(refreshCalls.length);
   };
   
   // ========================================================================
@@ -254,7 +254,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     const urlString = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
     if (urlString.includes("/auth/signout") && init?.method === "POST") {
       fetchCalled = true;
-      return new Response("", { status: 303 });
+      return new Response("", { status: 200 });
     }
     return originalFetch(url, init);
   };
@@ -295,6 +295,74 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   assert(refreshCalls.length === 1, "B6: router.refresh called when expired");
   
   console.log("✓ Test 4: Expired session path passed\n");
+  
+  // ========================================================================
+  // Test 5: Expired session with non-ok fetch response - shows error, doesn't navigate
+  // ========================================================================
+  console.log("Test 5: Expired session with non-ok fetch response\n");
+  
+  fakeStorage.clear();
+  savePendingSet(fakeStorage, "u6", "session-u6", {
+    sessionExerciseId: "ex-u6",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "u6-set"
+  }, fakeDeps);
+  
+  const queueBeforeExpiredFail = fakeStorage.getItem(storageKey("u6"));
+  assert(queueBeforeExpiredFail !== null, "u6 queue exists before sign-out");
+  
+  // Mock fetch to return 500 error
+  let fetchCalledFail = false;
+  global.fetch = async (url: string | URL | Request, init?: RequestInit) => {
+    const urlString = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
+    if (urlString.includes("/auth/signout") && init?.method === "POST") {
+      fetchCalledFail = true;
+      return new Response("Server error", { status: 500 });
+    }
+    return originalFetch(url, init);
+  };
+  
+  const signOutExpiredFail = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
+    throw new Error("SESSION_EXPIRED: Session has expired");
+  };
+  
+  replaceCalls.length = 0;
+  refreshCalls.length = 0;
+  
+  render(
+    <SignOutForm
+      label="Sign out"
+      userId="u6"
+      signOut={signOutExpiredFail}
+      clearSets={clearAllPendingSetsForUser}
+    />
+  );
+  
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Restore original fetch
+  global.fetch = originalFetch;
+  
+  const queueAfterExpiredFail = fakeStorage.getItem(storageKey("u6"));
+  assert(queueAfterExpiredFail !== null, "u6 queue kept when fetch fails");
+  assert(fetchCalledFail, "POST /auth/signout called");
+  assert(replaceCalls.length === 0, "router.replace NOT called when fetch fails");
+  assert(refreshCalls.length === 0, "router.refresh NOT called when fetch fails");
+  
+  // Check that error message is shown
+  const errorMsg = screen.queryByText(/Failed to sign out/i);
+  assert(errorMsg !== null, "Error message shown when fetch fails");
+  
+  console.log("✓ Test 5: Expired session with non-ok fetch passed\n");
   
   console.log(`✅ Today SignOutForm tests passed (${passed} assertions)\n`);
   console.log("MUTANT M10: Clear before sign-out check → clears even on failure");

@@ -53,11 +53,8 @@ Object.defineProperty(window, 'localStorage', {
   configurable: true
 });
 
-// Fixed time for the runner (Oct 26)
-const FIXED_TIME = new Date('2026-10-26T12:00:00Z').getTime();
-
-// Save the original Date.now (this simulates real clock being different)
-const REAL_NOW = Date.now();
+// Fixed time well in the past (2020) so dropping `now` fails TODAY
+const FIXED_TIME = new Date('2020-01-01T10:00:00Z').getTime();
 
 const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
 const fakeTimer = {
@@ -103,8 +100,7 @@ const settings: RunnerSettings = {
   console.log("\n📋 Test: Skip with injected clock (B2)\n");
   
   console.log(`Fixed time: ${new Date(FIXED_TIME).toISOString()}`);
-  console.log(`Real time:  ${new Date(REAL_NOW).toISOString()}`);
-  console.log(`Difference: ${Math.abs(FIXED_TIME - REAL_NOW) / 1000 / 60 / 60 / 24} days\n`);
+  console.log(`Age: ${(Date.now() - FIXED_TIME) / 1000 / 60 / 60 / 24} days old\n`);
   
   let finishSessionCalled = false;
   

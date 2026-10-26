@@ -33,13 +33,17 @@ export function SignOutButton({
           // Session is already expired, sign out locally and navigate
           // KEEP the queue - it's keyed by userId and will replay on next sign-in
           try {
-            await fetch("/auth/signout", {
+            const res = await fetch("/auth/signout", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
             });
-          } catch {
+            if (!res.ok) {
+              setError("Failed to sign out. Please try again.");
+              return;
+            }
+          } catch (fetchErr) {
             // If fetch fails, cookies might still be invalid; proceed with navigation
           }
           router.replace("/");
