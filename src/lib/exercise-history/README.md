@@ -140,16 +140,27 @@ history.sessions.forEach(session => {
 
 ## Pure Functions (for testing/UI logic)
 
-### `calculateEpley1RM(reps, weightKg)`
+### `computeE1rm(weightKg, reps)`
 
-Estimate 1RM using Epley formula: `weight × (1 + reps/30)`
+Canonical e1RM calculation with storage precision and 12-rep cap.
+
+**Formula:** `e1RM = w` if `reps = 1`, else `ROUND(w × (30 + min(reps, 12)) / 30, 2)` (exact rational; JS uses integer hundredths), clamped to 9999.99
 
 Returns `null` for bodyweight (weight ≤ 0) or invalid inputs.
+
+This is used by:
+- History (detectPersonalRecords, getExerciseHistory)
+- Progress aggregates (SQL view exercise_strength_history)
+- Session PB tracking (nextBest)
+
+**The 12-rep cap** ensures reliability: high-rep sets (15+) are endurance work and produce inflated strength estimates. The clamp prevents overflow of `numeric(6,2)` storage (max 9999.99).
+
+**TypeScript and SQL now use the same formula** - no divergence.
 
 ### `findTopSet(sets, metric)`
 
 Find the best set from a list:
-- **Weighted**: Highest estimated 1RM
+- **Weighted**: Highest estimated 1RM (using computeE1rm)
 - **Bodyweight**: Most reps
 - **Time-based**: Longest duration
 
@@ -172,14 +183,14 @@ Returns array of `PRType[]` achieved by that set.
 type PRType = 
   | "heaviest_weight"   // Highest weight lifted (any reps)
   | "most_reps"         // Most reps (see rules below)
-  | "best_e1rm"         // Best estimated 1RM
+  | "best_e1rm"         // Best estimated 1RM (capped at 12 reps)
   | "longest_duration"; // Longest duration (time-based exercises)
 
 interface PersonalRecord {
   type: PRType;
   set: SetData;
   value: number;  // The PR value (kg, reps, or seconds)
-  e1rm?: number;  // Estimated 1RM when applicable
+  e1rm?: number;  // Estimated 1RM when applicable (capped)
 }
 ```
 
@@ -205,19 +216,19 @@ For **bodyweight exercises** (null or 0 weight): plain most-reps comparison.
 - **Bodyweight handling**: Zero or null weight is treated as bodyweight.
 - **Unit consistency**: All weights in kg, all durations in seconds.
 - **PR detection**: Real-time as sets are logged (use `detectSetPRs`) and historical (use `detectPersonalRecords`).
-- **e1RM formula**: Reps are capped at 12 to match exercise_strength_history (Progress view).
+- **e1RM formula**: Uses `computeE1rm` from `progression.ts` with 12-rep cap, 2-dp rounding, and clamp to 9999.99. TypeScript and SQL (exercise_strength_history view) now use identical formulas.
 
 ## Testing
 
 Pure functions are separated from queries for easy unit testing:
 
 ```typescript
-import { calculateEpley1RM, findTopSet } from "@/lib/exercise-history";
+import { computeE1rm, findTopSet } from "@/lib/exercise-history";
 
 // Test pure functions without DB
-const e1rm = calculateEpley1RM(8, 100); // 126.67kg
+const e1rm = computeE1rm(100, 8); // 106.67kg
 const topSet = findTopSet([
-  { reps: 8, weight_kg: 100 },
-  { reps: 10, weight_kg: 90 },
+  { reps: 8, weight_kg: 100, duration_seconds: null },
+  { reps: 10, weight_kg: 90, duration_seconds: null },
 ], "reps");
 ```
