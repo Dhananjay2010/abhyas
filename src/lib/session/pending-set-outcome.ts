@@ -1,6 +1,6 @@
-import type { PendingSet, PendingSetDeps } from "./pending-set-deps";
-import type { Storage } from "./pending-set-retry";
-import { clearPendingSet, savePendingSet, isDuplicateError } from "./pending-set-retry";
+import type { PendingSetDeps } from "./pending-set-deps";
+import type { PendingSet, Storage } from "./pending-set-retry";
+import { clearPendingSet, isDuplicateError } from "./pending-set-retry";
 import { isSessionExpired } from "../auth/session-expired";
 
 /**

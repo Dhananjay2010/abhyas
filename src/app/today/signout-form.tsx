@@ -1,6 +1,5 @@
 "use client";
 
-import { clearPendingChanges } from "@/lib/auth/pending-changes";
 import { signOutAction } from "@/lib/auth/signout";
 import { logSet } from "@/app/session/actions";
 import { useSignOut } from "@/lib/auth/use-signout";

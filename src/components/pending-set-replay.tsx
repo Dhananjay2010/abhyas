@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadAllPendingSetsWithTimestamp, clearPendingSets, storageKey } from "@/lib/session/pending-set-retry";
+import { loadAllPendingSetsWithTimestamp, clearPendingSets, STALE_THRESHOLD_MS } from "@/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { attemptPendingSet } from "@/lib/session/pending-set-outcome";
 import { logSet as defaultLogSet } from "@/app/session/actions";
@@ -40,8 +40,6 @@ export function PendingSetReplay({
       const all = loadAllPendingSetsWithTimestamp(storage, userId, deps);
       
       const closedSessionsFound: { sessionId: string; count: number }[] = [];
-      
-      const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
       
       for (const sessionId in all) {
         const { sets, timestamp } = all[sessionId];

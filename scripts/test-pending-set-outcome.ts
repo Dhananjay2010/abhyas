@@ -5,8 +5,8 @@
  * Tests attemptPendingSet with all outcomes: ok, set_exists, duplicate (23505), closed session, network, expired.
  */
 
-import type { PendingSet, PendingSetDeps } from "../src/lib/session/pending-set-deps";
-import type { Storage } from "../src/lib/session/pending-set-retry";
+import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
+import type { PendingSet, Storage } from "../src/lib/session/pending-set-retry";
 import { attemptPendingSet } from "../src/lib/session/pending-set-outcome";
 import { savePendingSet, storageKey } from "../src/lib/session/pending-set-retry";
 

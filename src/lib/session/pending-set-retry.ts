@@ -30,7 +30,7 @@ export type PendingSetsWithTimestamp = {
   };
 };
 
-const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+export const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export type Storage = {
   getItem(key: string): string | null;
@@ -115,7 +115,8 @@ function isValidTimestampedSets(value: unknown): value is PendingSetsWithTimesta
  * Don't prune stale entries - keep them for keep-and-surface policy.
  * Expired sets (> 7 days) are treated as "closed" by attemptPendingSet.
  */
-function pruneStaleEntries(data: PendingSetsWithTimestamp, now: number): PendingSetsWithTimestamp {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function pruneStaleEntries(data: PendingSetsWithTimestamp, _now: number): PendingSetsWithTimestamp {
   // Don't prune - return all entries
   // The keep-and-surface policy will handle expired sets
   return data;

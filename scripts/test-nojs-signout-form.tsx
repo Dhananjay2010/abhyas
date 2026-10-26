@@ -9,7 +9,7 @@
  */
 
 import "./helpers/setup-jsdom";
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { SignOutButton } from "../src/app/settings/signout-button";
 import { SignOutForm } from "../src/app/today/signout-form";
 
@@ -33,7 +33,7 @@ function assert(condition: boolean, message: string) {
   // ========================================================================
   console.log("=== Test 1: SignOutButton has form with action ===\n");
   
-  const mockSignOut = async () => {};
+  const mockSignOut = async () => ({ ok: true as const });
   const mockLogSet = async () => ({ ok: true as const });
   
   const { container: container1 } = render(

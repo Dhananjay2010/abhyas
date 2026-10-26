@@ -9,7 +9,6 @@ import "./helpers/setup-jsdom";
 import { render, act, screen, cleanup } from "@testing-library/react";
 import { PendingSetReplay } from "../src/components/pending-set-replay";
 import { storageKey } from "../src/lib/session/pending-set-retry";
-import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 import type { Storage } from "../src/lib/session/pending-set-retry";
 
 let passed = 0;
@@ -46,7 +45,6 @@ Object.defineProperty(window, 'localStorage', {
   
   // Current time
   const NOW = new Date('2026-11-05T12:00:00Z').getTime();
-  const deps: PendingSetDeps = { now: () => NOW };
   
   // Time 8 days ago (expired)
   const EIGHT_DAYS_AGO = NOW - (8 * 24 * 60 * 60 * 1000);
