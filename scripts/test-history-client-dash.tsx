@@ -67,7 +67,7 @@ console.log("1. Completed strength with null duration → shows '—'");
         totalCount={1}
         today="2024-01-16"
         timezone="UTC"
-        units="kg"
+        units="metric"
         hasErrors={false}
       />
     );
@@ -117,7 +117,7 @@ console.log("\n2. In-progress strength with null duration → no '—'");
         totalCount={1}
         today="2024-01-16"
         timezone="UTC"
-        units="kg"
+        units="metric"
         hasErrors={false}
       />
     );
@@ -167,7 +167,7 @@ console.log("\n3. Completed yoga with null duration → no '—'");
         totalCount={1}
         today="2024-01-16"
         timezone="UTC"
-        units="kg"
+        units="metric"
         hasErrors={false}
       />
     );
@@ -217,7 +217,7 @@ console.log("\n4. Completed strength with 1800s → shows '30 min'");
         totalCount={1}
         today="2024-01-16"
         timezone="UTC"
-        units="kg"
+        units="metric"
         hasErrors={false}
       />
     );
