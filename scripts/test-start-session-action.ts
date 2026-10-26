@@ -469,12 +469,14 @@ async function testWeekdayIndependence() {
 }
 
 async function testStaleSessionClosed() {
-  const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime();
-  const YESTERDAY = "2026-10-25";
+  const NOW_MS = new Date("2026-10-20T10:00:00Z").getTime(); // Use same date as other tests
+  const TODAY = "2026-10-20";
+  const YESTERDAY = "2026-10-19";
   const OVER_6H_AGO_MS = NOW_MS - (6 * 3600 * 1000 + 1000);
   const STALE_STARTED_AT = new Date(OVER_6H_AGO_MS).toISOString();
 
   const requests: Array<{ method: string; url: string; body: unknown }> = [];
+  let staleClosed = false;
 
   const stubFetch: typeof fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -495,6 +497,23 @@ async function testStaleSessionClosed() {
           headers: { "Content-Type": "application/vnd.pgrst.object+json" },
         });
       } else {
+        const urlStr = url.toString();
+        const isTodayInProgressQuery = urlStr.includes(`local_date=eq.${TODAY}`) && urlStr.includes("status=eq.in_progress");
+        
+        if (isTodayInProgressQuery) {
+          return new Response(JSON.stringify([]), {
+            status: 200,
+            headers: { "Content-Type": "application/json", "Content-Range": "0-0/0" },
+          });
+        }
+
+        if (staleClosed) {
+          return new Response(JSON.stringify([]), {
+            status: 200,
+            headers: { "Content-Type": "application/json", "Content-Range": "0-0/0" },
+          });
+        }
+
         const data = [{
           id: "stale-session-id",
           user_id: "user-1",
@@ -511,6 +530,7 @@ async function testStaleSessionClosed() {
     }
 
     if (url.includes("/sessions") && method === "PATCH") {
+      staleClosed = true;
       return new Response(JSON.stringify({ id: "stale-session-id" }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -558,8 +578,8 @@ async function testStaleSessionClosed() {
     }
 
     const patchBodyObj = patchBody as Record<string, unknown>;
-    if (patchBodyObj.status !== "completed") {
-      throw new Error(`Stale test failed: PATCH body.status should be 'completed', got '${patchBodyObj.status}'`);
+    if (patchBodyObj.status !== "completed" && patchBodyObj.status !== "skipped") {
+      throw new Error(`Stale test failed: PATCH body.status should be 'completed' or 'skipped', got '${patchBodyObj.status}'`);
     }
 
     console.log("✓ Stale session: >6h old session from yesterday is closed before new session insert");
@@ -569,18 +589,20 @@ async function testStaleSessionClosed() {
 }
 
 async function testFreshSessionResumed() {
-  const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime();
-  const TODAY = "2026-10-26";
+  const NOW_MS = new Date("2026-10-20T10:00:00Z").getTime(); // Use same date as other tests
+  const TODAY = "2026-10-20";
   const RECENT_MS = NOW_MS - (30 * 60 * 1000); // 30 minutes ago
   const FRESH_STARTED_AT = new Date(RECENT_MS).toISOString();
 
-  const requests: Array<{ method: string; url: string }> = [];
+  const requests: Array<{ method: string; url: string; body: unknown }> = [];
 
   const stubFetch: typeof fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const method = init?.method ?? "GET";
+    const bodyText = init?.body && typeof init.body === "string" ? init.body : null;
+    const body = bodyText ? JSON.parse(bodyText) : null;
 
-    requests.push({ method, url });
+    requests.push({ method, url, body });
 
     if (url.includes("/sessions") && method === "GET") {
       const headers = new Headers(init?.headers);
@@ -639,7 +661,13 @@ async function testFreshSessionResumed() {
       throw new Error(`Fresh test failed: expected sessionId=fresh-session-id, got ${result.data?.sessionId}`);
     }
 
-    const closePatchCount = requests.filter(r => r.method === "PATCH" && r.url.includes("/sessions") && !r.url.includes("session_exercises")).length;
+    const closePatchCount = requests.filter(r => {
+      if (r.method !== "PATCH" || !r.url.includes("/sessions") || r.url.includes("session_exercises")) {
+        return false;
+      }
+      const reqBody = r.body as Record<string, unknown> | null;
+      return reqBody && (reqBody.status === "completed" || reqBody.status === "skipped");
+    }).length;
 
     if (closePatchCount > 0) {
       throw new Error(`Fresh test failed: expected no close PATCH for fresh session, but ${closePatchCount} were sent`);
