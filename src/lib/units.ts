@@ -277,7 +277,7 @@ export function heightLabel(units: string): string {
  */
 export function parseWeight(
   input: string | number | null | undefined,
-  units: string
+  units: UnitsPreference
 ): number | null {
   if (input == null || input === "") return null;
 
@@ -321,21 +321,21 @@ export function parseWeight(
     }
   }
 
-  // Reject absurd values
-  // For imperial: check in display units (55-661 lb inclusive)
-  // For metric: 25-300 kg
-  if (units === "imperial" || (explicitUnit && (explicitUnit === "lb" || explicitUnit === "lbs"))) {
-    const displayLb = kgToLb(kg);
-    const minLb = 55;
-    const maxLb = 661;
-    if (displayLb < minLb || displayLb > maxLb) return null;
+  // Round to 1 decimal place (done before validation)
+  const roundedKg = Math.round(kg * 10) / 10;
+  
+  // Validate body weight bounds (unit-specific, inclusive in display units)
+  let effectiveUnits: UnitsPreference;
+  if (explicitUnit === "lb" || explicitUnit === "lbs") {
+    effectiveUnits = "imperial";
+  } else if (explicitUnit === "kg") {
+    effectiveUnits = "metric";
   } else {
-    // Metric or explicit kg
-    if (kg < WEIGHT_KG_MIN || kg > WEIGHT_KG_MAX) return null;
+    effectiveUnits = units ?? "metric";
   }
+  if (!validateBodyWeightKg(roundedKg, effectiveUnits)) return null;
 
-  // Round to 1 decimal place
-  return Math.round(kg * 10) / 10;
+  return roundedKg;
 }
 
 /**
@@ -615,9 +615,16 @@ export const HEIGHT_CM_MAX = 250;
 export const WEIGHT_KG_MIN = 25;
 export const WEIGHT_KG_MAX = 300;
 
+// Body weight bounds (inclusive in display units)
+export const BODY_WEIGHT_LB_MIN = 55;
+export const BODY_WEIGHT_LB_MAX = 661;
+
 // Load input max (for runner and History edit)
 export const LOAD_IMPERIAL_MAX_LB = 999;
 export const LOAD_METRIC_MAX_KG = 500;
+
+// Epsilon for imperial load validation (handles rounding: 999 lb → 453.14 kg → 999.0027 lb)
+export const LOAD_LB_EPSILON = 0.01;
 
 /**
  * Validate height in centimeters.
@@ -647,6 +654,31 @@ export function isValidWeightKg(kg: unknown): kg is number {
   if (!Number.isFinite(kg)) return false;
   if (kg < WEIGHT_KG_MIN || kg > WEIGHT_KG_MAX) return false;
   return true;
+}
+
+/**
+ * Validate body weight in kg with unit-specific bounds.
+ * Used by both parseWeight and logBodyWeight for consistent validation.
+ * 
+ * Imperial: validates 55-661 lb inclusive (checks in display units)
+ * Metric: validates 25-300 kg
+ * 
+ * @param kg - Weight in kilograms
+ * @param units - User's units preference
+ * @returns true if valid, false otherwise
+ */
+export function validateBodyWeightKg(kg: number | null, units: UnitsPreference): boolean {
+  if (kg == null || !Number.isFinite(kg)) return false;
+  
+  if (units === "imperial") {
+    // Check in display units with rounding to handle parseWeight's 0.1 kg rounding
+    // 55 lb → 24.948 kg → rounds to 24.9 kg → back to 54.9 lb (rounded to 55 lb)
+    const displayLb = roundLbToHalf(kgToLb(kg));
+    return displayLb >= BODY_WEIGHT_LB_MIN && displayLb <= BODY_WEIGHT_LB_MAX;
+  }
+  
+  // Metric: direct kg bounds
+  return kg >= WEIGHT_KG_MIN && kg <= WEIGHT_KG_MAX;
 }
 
 /**

@@ -8,7 +8,7 @@
 import { localDateString } from "@/lib/dates";
 import { utcToZonedDateTime } from "@/lib/timezone";
 import type { UnitsPreference } from "@/lib/units";
-import { LOAD_METRIC_MAX_KG, LOAD_IMPERIAL_MAX_LB, kgToLb } from "@/lib/units";
+import { LOAD_METRIC_MAX_KG, LOAD_IMPERIAL_MAX_LB, LOAD_LB_EPSILON, kgToLb } from "@/lib/units";
 
 export interface ValidationResult {
   valid: boolean;
@@ -49,13 +49,12 @@ export function validateWeightKg(weightKg: number | null, units: UnitsPreference
   
   // Enforce unit-specific maxima in display units
   // Use small epsilon to handle rounding: 999 lb→453.14 kg→999.0027 lb
-  const EPSILON = 0.01;
   if (units === "imperial") {
     const displayLb = kgToLb(weightKg);
     if (weightKg < 0) {
       return { valid: false, error: `Weight must be between 0 and ${LOAD_IMPERIAL_MAX_LB} lb.` };
     }
-    if (displayLb > LOAD_IMPERIAL_MAX_LB + EPSILON) {
+    if (displayLb > LOAD_IMPERIAL_MAX_LB + LOAD_LB_EPSILON) {
       return { valid: false, error: `Weight must be between 0 and ${LOAD_IMPERIAL_MAX_LB} lb.` };
     }
   } else {

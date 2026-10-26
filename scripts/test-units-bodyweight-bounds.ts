@@ -1,11 +1,15 @@
 /**
  * L-d: Body-weight limits must be inclusive in display units.
  * 
+ * Tests parseWeight end-to-end, which uses validateBodyWeightKg internally.
+ * 
  * Imperial: 55 lb and 661 lb accepted, 54.5 and 661.5 rejected
- * Metric: 25 kg and 300 kg accepted, 24.5 and 300.5 rejected
+ * Metric: 25 kg and 300 kg accepted, 24.9 and 300.1 rejected
+ * 
+ * Critical: 55 lb → 24.948 kg → rounds to 24.9 kg → must still accept (via roundLbToHalf comparison)
  */
 
-import { parseWeight, lbToKg, kgToLb } from "@/lib/units";
+import { parseWeight, lbToKg, kgToLb, validateBodyWeightKg } from "@/lib/units";
 
 console.log("\n🧪 L-d: Body-weight limits inclusive in display units\n");
 
@@ -68,6 +72,12 @@ function check(label: string, pass: boolean, detail = "") {
   check("Metric 24.5 kg rejected", kg === null, kg !== null ? `accepted as ${kg} kg` : "");
 }
 
+// 24.9 kg should be rejected (below minimum, rounds to 24.9 from 55 lb boundary)
+{
+  const kg = parseWeight(24.9, "metric");
+  check("Metric 24.9 kg rejected", kg === null, kg !== null ? `accepted as ${kg} kg` : "");
+}
+
 // 300 kg should be accepted (maximum)
 {
   const kg = parseWeight(300, "metric");
@@ -78,6 +88,50 @@ function check(label: string, pass: boolean, detail = "") {
 {
   const kg = parseWeight(300.5, "metric");
   check("Metric 300.5 kg rejected", kg === null, kg !== null ? `accepted as ${kg} kg` : "");
+}
+
+// 300.1 kg should be rejected (above maximum)
+{
+  const kg = parseWeight(300.1, "metric");
+  check("Metric 300.1 kg rejected", kg === null, kg !== null ? `accepted as ${kg} kg` : "");
+}
+
+// ============================================================
+// 3. Test validateBodyWeightKg directly (used by logBodyWeight)
+// ============================================================
+
+// Imperial: 55 lb edge case (55 lb → 24.948 kg → rounds to 24.9 kg → must accept)
+{
+  const lbValue = 55;
+  const kgFromLb = lbToKg(lbValue);
+  const roundedKg = Math.round(kgFromLb * 10) / 10;
+  const valid = validateBodyWeightKg(roundedKg, "imperial");
+  check("validateBodyWeightKg: 24.9 kg (from 55 lb) accepted for imperial", valid, `kg=${roundedKg}`);
+}
+
+// Imperial: 661 lb edge case
+{
+  const lbValue = 661;
+  const kgFromLb = lbToKg(lbValue);
+  const roundedKg = Math.round(kgFromLb * 10) / 10;
+  const valid = validateBodyWeightKg(roundedKg, "imperial");
+  check("validateBodyWeightKg: 661 lb accepted for imperial", valid, `kg=${roundedKg}`);
+}
+
+// Metric: 25 kg and 300 kg
+{
+  const valid25 = validateBodyWeightKg(25, "metric");
+  const valid300 = validateBodyWeightKg(300, "metric");
+  check("validateBodyWeightKg: 25 kg accepted for metric", valid25);
+  check("validateBodyWeightKg: 300 kg accepted for metric", valid300);
+}
+
+// Metric: 24.9 kg and 300.1 kg rejected
+{
+  const valid24_9 = validateBodyWeightKg(24.9, "metric");
+  const valid300_1 = validateBodyWeightKg(300.1, "metric");
+  check("validateBodyWeightKg: 24.9 kg rejected for metric", !valid24_9, valid24_9 ? "accepted" : "");
+  check("validateBodyWeightKg: 300.1 kg rejected for metric", !valid300_1, valid300_1 ? "accepted" : "");
 }
 
 if (failures === 0) {

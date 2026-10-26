@@ -116,6 +116,38 @@ function check(label: string, pass: boolean, detail = "") {
   check("validateWeightKg: metric 501 kg message in kg", result.error?.includes("kg") ?? false);
 }
 
+// ============================================================
+// 3. LOAD_LB_EPSILON test: 999 lb → 453.14 kg passes, 999.5 lb → 453.37 kg fails
+// ============================================================
+
+// validateSet: 453.14 kg (exactly 999 lb) should pass
+{
+  const kg999lb = lbToKg(999); // 453.14 kg
+  const error = validateSet(8, kg999lb, undefined, "imperial");
+  check("validateSet epsilon: 453.14 kg (999 lb) passes", error === null, `got kg=${kg999lb.toFixed(2)}`);
+}
+
+// validateSet: 453.37 kg (999.5 lb) should fail
+{
+  const kg999_5lb = lbToKg(999.5); // ~453.37 kg
+  const error = validateSet(8, kg999_5lb, undefined, "imperial");
+  check("validateSet epsilon: 453.37 kg (999.5 lb) fails", error !== null, `got kg=${kg999_5lb.toFixed(2)}`);
+}
+
+// validateWeightKg: 453.14 kg (999 lb) should pass
+{
+  const kg999lb = displayToKg(999, "imperial"); // Rounded to 453.14 kg
+  const result = validateWeightKg(kg999lb, "imperial");
+  check("validateWeightKg epsilon: 453.14 kg (999 lb) passes", result.valid === true, `got kg=${kg999lb.toFixed(2)}`);
+}
+
+// validateWeightKg: 453.37 kg (999.5 lb) should fail
+{
+  const kg999_5lb = displayToKg(999.5, "imperial"); // Rounded to 453.37 kg
+  const result = validateWeightKg(kg999_5lb, "imperial");
+  check("validateWeightKg epsilon: 453.37 kg (999.5 lb) fails", result.valid === false, `got kg=${kg999_5lb.toFixed(2)}`);
+}
+
 if (failures === 0) {
   console.log("\n✅ All checks passed\n");
   process.exit(0);

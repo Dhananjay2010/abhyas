@@ -9,7 +9,7 @@
  */
 
 import type { UnitsPreference } from "../units";
-import { LOAD_METRIC_MAX_KG, LOAD_IMPERIAL_MAX_LB, kgToLb } from "../units";
+import { LOAD_METRIC_MAX_KG, LOAD_IMPERIAL_MAX_LB, LOAD_LB_EPSILON, kgToLb } from "../units";
 
 /**
  * Deliberately generous: the point is to reject what cannot be a set, not to
@@ -69,10 +69,9 @@ export function validateSet(
     // Enforce unit-specific maxima: 999 lb for imperial, 500 kg for metric
     // Check in display units to match what the user sees and types
     // Use small epsilon to handle rounding: 999 lb→453.14 kg→999.0027 lb
-    const EPSILON = 0.01;
     if (units === "imperial") {
       const displayLb = kgToLb(weightKg);
-      if (displayLb > LOAD_IMPERIAL_MAX_LB + EPSILON) {
+      if (displayLb > LOAD_IMPERIAL_MAX_LB + LOAD_LB_EPSILON) {
         return `Weight should be ${LOAD_IMPERIAL_MAX_LB} lb or less.`;
       }
     } else {
