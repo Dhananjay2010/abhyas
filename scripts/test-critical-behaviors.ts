@@ -130,9 +130,10 @@ async function testReplayDoesntClearBeforeConfirm() {
   );
 
   let callCount = 0;
+  let resolveLogSet: (() => void) | null = null;
   const logSet: LogSetFunction = async () => {
     callCount++;
-    // Simulate network timeout (no response yet)
+    // Return a promise that never resolves (simulating network timeout)
     return new Promise(() => {});
   };
 
@@ -146,11 +147,13 @@ async function testReplayDoesntClearBeforeConfirm() {
     onChange: () => {},
   });
 
-  // Start replay (doesn't await - it hangs)
-  controller.replay();
-
-  // Give dynamic import time to start
-  await new Promise(resolve => setTimeout(resolve, 10));
+  // Start replay and await the actual promise (without letting it complete)
+  const replayPromise = controller.replay();
+  
+  // Wait for the replay to actually start and call logSet
+  // We use the dynamic import completion as a signal
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
 
   // Check storage immediately - set should still be there
   const remaining = loadPendingSets(storage, "test-user-id", sessionId, createPendingSetDeps(() => FIXED_TIME));
