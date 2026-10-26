@@ -142,10 +142,7 @@ console.log("\n3. In-progress session with 0 sets (catches w3)");
     },
   ];
   
-  const exercises: RawSessionExercise[] = [
-    { id: "ex1", session_id: "s3", exercise_id: "squat", status: "pending", metric: "reps", planned_sets: 5 },
-  ];
-  
+  const exercises: RawSessionExercise[] = [];
   const sets: SessionSetForTopSet[] = [];
   const volumeData: VolumeRow[] = [];
   const setCountsBySession = new Map([["s3", 0]]);
@@ -155,7 +152,7 @@ console.log("\n3. In-progress session with 0 sets (catches w3)");
   const item = items[0];
   
   check("status = in_progress (w3 kills this)", item.status === "in_progress", `got ${item.status}`);
-  check("endedEarly = true", item.endedEarly === true, `got ${item.endedEarly}`);
+  check("endedEarly = false (no pending, status !== completed)", item.endedEarly === false, `got ${item.endedEarly}`);
   check("setCount = 0", item.setCount === 0, `got ${item.setCount}`);
 }
 
@@ -259,6 +256,8 @@ console.log("\n6. Breathing session with logs");
   check("breathing not null", item.breathing !== null, `got ${item.breathing}`);
   check("breathing.breaths = 60", item.breathing?.breaths === 60, `got ${item.breathing?.breaths}`);
   check("breathing.patternName = Wim Hof", item.breathing?.patternName === "Wim Hof", `got ${item.breathing?.patternName}`);
+  check("breathing.pumps = false", item.breathing?.pumps === false, `got ${item.breathing?.pumps}`);
+  check("topSetWeight = null (breathing session)", item.topSetWeight === null, `got ${item.topSetWeight}`);
 }
 
 console.log("\n7. Multiple sessions with different states");
@@ -273,7 +272,7 @@ console.log("\n7. Multiple sessions with different states");
       started_at: "2026-10-26T08:00:00Z",
       completed_at: "2026-10-26T09:00:00Z",
       is_deload: true,
-      program_days: null,
+      program_days: { label: "Day 1" },
       breathing_logs: [],
       breathing_patterns: null,
     },
@@ -323,11 +322,57 @@ console.log("\n7. Multiple sessions with different states");
   check("s7a: isDeload = true", itemA?.isDeload === true, `got ${itemA?.isDeload}`);
   check("s7a: hasPR = true", itemA?.hasPR === true, `got ${itemA?.hasPR}`);
   check("s7a: topSetWeight = 60", itemA?.topSetWeight === 60, `got ${itemA?.topSetWeight}`);
+  check("s7a: programDayLabel = Day 1", itemA?.programDayLabel === "Day 1", `got ${itemA?.programDayLabel}`);
+  check("s7a: localDate = 2026-10-26", itemA?.localDate === "2026-10-26", `got ${itemA?.localDate}`);
+  check("s7a: durationSeconds = 3600", itemA?.durationSeconds === 3600, `got ${itemA?.durationSeconds}`);
+  check("s7a: startedAt correct", itemA?.startedAt === "2026-10-26T08:00:00Z", `got ${itemA?.startedAt}`);
+  check("s7a: completedAt correct", itemA?.completedAt === "2026-10-26T09:00:00Z", `got ${itemA?.completedAt}`);
+  check("s7a: breathing = null (not meditation)", itemA?.breathing === null, `got ${itemA?.breathing}`);
   
   check("s7b: endedEarly = true (1 of 10 with pending)", itemB?.endedEarly === true, `got ${itemB?.endedEarly}`);
   check("s7b: plannedSets = 10", itemB?.plannedSets === 10, `got ${itemB?.plannedSets}`);
   check("s7b: setCount = 1", itemB?.setCount === 1, `got ${itemB?.setCount}`);
   check("s7b: hasPR = false", itemB?.hasPR === false, `got ${itemB?.hasPR}`);
+  check("s7b: programDayLabel = null", itemB?.programDayLabel === null, `got ${itemB?.programDayLabel}`);
+  check("s7b: localDate = 2026-10-25", itemB?.localDate === "2026-10-25", `got ${itemB?.localDate}`);
+}
+
+console.log("\n8. Breathing session with pumps (no routine name)");
+{
+  const sessions: RawSessionForList[] = [
+    {
+      id: "s8",
+      actual_type: "meditation",
+      status: "completed",
+      local_date: "2026-10-26",
+      duration_seconds: 180,
+      started_at: "2026-10-26T10:00:00Z",
+      completed_at: "2026-10-26T10:03:00Z",
+      is_deload: null,
+      program_days: null,
+      breathing_logs: [{ breaths: 20, routine_name: null }],
+      breathing_patterns: {
+        name: "Custom Pattern",
+        phases: [
+          { kind: "pump", duration: 5 },
+          { kind: "hold", duration: 10 },
+        ],
+      },
+    },
+  ];
+  
+  const exercises: RawSessionExercise[] = [];
+  const sets: SessionSetForTopSet[] = [];
+  const volumeData: VolumeRow[] = [];
+  const setCountsBySession = new Map([["s8", 0]]);
+  const sessionsWithPRs = new Set<string>();
+  
+  const items = buildHistoryListItems(sessions, exercises, sets, volumeData, setCountsBySession, sessionsWithPRs, pickTopSet);
+  const item = items[0];
+  
+  check("breathing not null", item.breathing !== null, `got ${item.breathing}`);
+  check("breathing.pumps = true", item.breathing?.pumps === true, `got ${item.breathing?.pumps}`);
+  check("breathing.patternName = Custom Pattern", item.breathing?.patternName === "Custom Pattern", `got ${item.breathing?.patternName}`);
 }
 
 console.log(`\n✅ Passed: ${passed}`);

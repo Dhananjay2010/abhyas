@@ -4,7 +4,6 @@ import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { getUnitsPreference } from "@/lib/units";
 import { HistoryClient } from "./history-client";
-import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { buildHistoryListItems } from "@/lib/history/build-history-list-items";
@@ -99,8 +98,6 @@ export default async function HistoryPage({
   if (volumeError) {
     console.error("Failed to load session volume:", volumeError);
   }
-
-  const volumeById = new Map((volumeData ?? []).map((v) => [v.session_id, v]));
 
   // Get session exercises to find top sets and PRs, and to calculate planned sets (QA Bot 3 M3: handle errors silently)
   const { data: sessionExercises, error: exercisesError } = await supabase

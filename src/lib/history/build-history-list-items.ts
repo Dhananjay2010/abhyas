@@ -18,9 +18,9 @@ export interface RawSessionForList extends RawSession {
   started_at: string | null;
   completed_at: string | null;
   is_deload: boolean | null;
-  program_days: unknown;
-  breathing_logs: unknown;
-  breathing_patterns: unknown;
+  program_days: { label: string | null } | null;
+  breathing_logs: Array<{ breaths: number; routine_name: string | null }> | null;
+  breathing_patterns: { name: string; phases: unknown } | null;
 }
 
 export interface VolumeRow {
@@ -95,14 +95,14 @@ export function buildHistoryListItems(
     const hasPR = sessionsWithPRs.has(s.id);
     
     // Process breathing logs
-    const logs = (s.breathing_logs ?? []) as Array<{ breaths: number; routine_name: string | null }>;
+    const logs = s.breathing_logs ?? [];
     const routineName = logs.find(l => l.routine_name)?.routine_name ?? null;
-    const pattern = s.breathing_patterns as { name: string; phases: unknown } | null;
+    const pattern = s.breathing_patterns;
     const pumps =
       routineName === null &&
       Array.isArray(pattern?.phases) &&
       pattern.phases.some(
-        (p) => typeof p === "object" && p !== null && (p as { kind?: string }).kind === "pump"
+        (p) => typeof p === "object" && p !== null && "kind" in p && p.kind === "pump"
       );
     
     const endedEarly = summary?.endedEarly ?? false;
@@ -119,7 +119,7 @@ export function buildHistoryListItems(
       isDeload: s.is_deload ?? false,
       endedEarly,
       plannedSets,
-      programDayLabel: (s.program_days as { label: string } | null)?.label ?? null,
+      programDayLabel: s.program_days?.label ?? null,
       setCount: workingSetCount,
       volumeKg: Number(vol?.volume_kg ?? 0),
       topSetWeight,
