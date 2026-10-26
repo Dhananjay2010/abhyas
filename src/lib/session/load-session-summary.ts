@@ -88,8 +88,8 @@ export async function loadSessionSummary(
   }>>();
 
   for (const set of historicalSets ?? []) {
-    const ex = (set as any).session_exercises;
-    if (!ex || Array.isArray(ex) && ex.length === 0) continue;
+    const ex = set.session_exercises as unknown as { exercise_id: string };
+    if (!ex || (Array.isArray(ex) && ex.length === 0)) continue;
     const exData = Array.isArray(ex) ? ex[0] : ex;
     const exerciseId = exData.exercise_id;
     
@@ -108,7 +108,7 @@ export async function loadSessionSummary(
   const notes: SummaryNote[] = [];
 
   for (const ex of exercises) {
-    const exerciseName = ((ex.exercises as any)?.name ?? "") as string;
+    const exerciseName = (ex.exercises as unknown as { name?: string } | null)?.name ?? "";
     const sets = (ex.session_sets ?? []) as Array<{
       reps: number | null;
       weight_kg: number | null;
