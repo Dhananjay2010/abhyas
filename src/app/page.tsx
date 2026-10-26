@@ -55,7 +55,7 @@ export default async function LandingPage({
 
         <ul className="mt-10 space-y-4 text-sm text-muted">
           {[
-            "15 minutes of warm-up built around what you are about to train",
+            "Warm-up and cool-down built into every session",
             "Weights, bodyweight, yoga or breathing — your call",
             "Every set recorded, so the weight goes up when you are ready",
           ].map((line) => (
