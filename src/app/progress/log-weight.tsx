@@ -53,7 +53,7 @@ export function LogWeight({
               if (weightKg === null) {
                 setError(
                   units === "imperial"
-                    ? "Weight should be between 55.5 and 661 lb"
+                    ? "Weight should be between 55 and 661 lb"
                     : "Weight should be between 25 and 300 kg"
                 );
                 return;

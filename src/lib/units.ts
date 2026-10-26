@@ -267,12 +267,12 @@ export function formatTopSet(weightKg: number, units: UnitsPreference = "metric"
   if (units === "imperial") {
     weight = roundLbToHalf(kgToLb(weightKg));
   } else {
-    // Metric: round to 1 decimal place
-    weight = Math.round(weightKg * 10) / 10;
+    // Metric: round to 0.25 kg grid to clean up off-grid lb-derived values
+    weight = Math.round(weightKg * 4) / 4;
   }
   
-  // Format: drop trailing .0, otherwise show 1 decimal
-  const numStr = weight % 1 === 0 ? weight.toFixed(0) : weight.toFixed(1);
+  // Format: up to 2 decimals with trailing zeros trimmed
+  const numStr = weight.toFixed(2).replace(/\.?0+$/, "");
   
   // Add thousands separators
   const [intPart, decPart] = numStr.split(".");
@@ -636,10 +636,11 @@ export function formatLoad(kg: number | null | undefined, units: UnitsPreference
     return `${formatted} ${label}`;
   }
   
-  // Metric: round to 1 decimal place for consistent display
-  // This avoids showing off-grid values like 71.44 kg (from lb-derived weights)
-  const rounded = Math.round(kg * 10) / 10;
-  const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+  // Metric: round to 0.25 kg grid to clean up off-grid lb-derived values
+  // (e.g. 71.44 → 71.5, while 16.25, 52.5, 40 stay as-is)
+  const rounded = Math.round(kg * 4) / 4;
+  // Format to 2 decimals with trailing zeros trimmed
+  const formatted = rounded.toFixed(2).replace(/\.?0+$/, "");
   return `${formatted} ${label}`;
 }
 
@@ -903,4 +904,33 @@ export function computeRunnerWeightPrefill(
   const displayValue = kgToDisplay(snappedKg, units);
   const rounded = roundLbToHalf(displayValue);
   return String(rounded);
+}
+
+/**
+ * Compute the kg value to submit when logging a set.
+ * 
+ * L-3 fix: When the weight field is unchanged from the prefill, submit the
+ * original defaultWeight to avoid precision loss from lb->kg conversion.
+ * 
+ * @param weight - The current weight input value (string)
+ * @param initialPrefill - The initial prefill value (string)
+ * @param defaultWeight - The original weight in kg
+ * @param units - The user's units preference
+ * @returns The weight in kg to submit, or null if empty
+ */
+export function weightKgToSubmit(
+  weight: string,
+  initialPrefill: string,
+  defaultWeight: number | null,
+  units: UnitsPreference
+): number | null {
+  if (weight === "") return null;
+  
+  // If the weight field is unchanged from the prefill, submit the original kg
+  if (weight === initialPrefill && defaultWeight !== null) {
+    return defaultWeight;
+  }
+  
+  // Otherwise, convert the edited value
+  return displayToKg(Number(weight), units);
 }

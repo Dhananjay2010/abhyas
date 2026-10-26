@@ -16,7 +16,7 @@ import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { displayToKg, formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
+import { displayToKg, formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, weightKgToSubmit, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
@@ -1320,11 +1320,8 @@ function SetEntry({
   // round trip rather than after one. An empty field is only meaningful when
   // per-set logging is off, where the runner records that a set happened
   // without asking for numbers; here it means the user has not said yet.
-  // L-3 round-trip: if the weight field is unchanged from the prefill, submit
-  // the original defaultWeight to avoid precision loss from lb->kg conversion.
-  const weightKg = weight === "" ? null 
-    : weight === initialPrefill && defaultWeight !== null ? defaultWeight
-    : displayToKg(Number(weight), units);
+  // L-3 round-trip: use weightKgToSubmit to preserve original kg when unchanged.
+  const weightKg = weightKgToSubmit(weight, initialPrefill, defaultWeight, units);
   const invalid =
     reps === ""
       ? isTimed

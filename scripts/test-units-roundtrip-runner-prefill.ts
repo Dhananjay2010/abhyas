@@ -1,25 +1,15 @@
 /**
- * Behavioral test for runner prefill round-trip (L-3).
+ * Behavioral test for L-3: weightKgToSubmit preserves original kg when unchanged.
  * 
- * Tests the specific case from the QA report:
- * - 72.5 kg stored
- * - Runner displays "Working weight 159.5 lb" (floors to 0.5 lb grid)
- * - History displays "160 lb" (rounds to nearest 0.5 lb)
- * - Logging the UNEDITED prefill must store 72.5 kg exactly (not 72.35 kg)
- * 
- * This test verifies that the session runner preserves the original kg
- * when the weight field is unchanged from the prefill.
+ * Tests the extracted weightKgToSubmit function used by SetEntry:
+ * - Unedited prefill returns original kg
+ * - Edited value converts normally
+ * - Edit back to same string still returns original kg
+ * - Empty returns null
+ * - Metric works correctly
  */
 
-import {
-  kgToLb,
-  roundLbToHalf,
-  formatLoad,
-  formatTopSet,
-  snapPrescribedWeight,
-  computeRunnerWeightPrefill,
-  displayToKg,
-} from "../src/lib/units";
+import { weightKgToSubmit, computeRunnerWeightPrefill } from "../src/lib/units";
 
 let passed = 0;
 let failed = 0;
@@ -34,127 +24,86 @@ function check(name: string, condition: boolean, detail?: string): void {
   }
 }
 
-console.log("=== Behavioral Test: Runner Prefill Round-Trip (72.5 kg case) ===\n");
+console.log("=== Test weightKgToSubmit (L-3 fix) ===\n");
 
-const storedKg = 72.5;
-const units: "imperial" = "imperial";
+// Test case 1: Unedited prefill preserves original kg (72.5 kg case)
+const originalKg1 = 72.5;
+const prefill1 = computeRunnerWeightPrefill(originalKg1, "imperial", false);
+const result1 = weightKgToSubmit(prefill1, prefill1, originalKg1, "imperial");
 
-// Step 1: Runner snaps the working weight for display
-const snappedKg = snapPrescribedWeight(storedKg, units);
-check("snapPrescribedWeight returns a value", snappedKg !== null);
+check(
+  "72.5 kg: unedited prefill returns original 72.5 kg",
+  result1 === originalKg1,
+  `prefill="${prefill1}", got ${result1} kg`
+);
 
-if (snappedKg !== null) {
-  // The snapped value should be less than or equal to original (floors)
-  check(
-    "Snapped kg <= original kg (conservative)",
-    snappedKg <= storedKg,
-    `snapped: ${snappedKg}`
-  );
-  
-  // Step 2: Working weight line displays the snapped kg
-  const workingWeightDisplay = formatLoad(snappedKg, units);
-  const workingWeightLb = roundLbToHalf(kgToLb(snappedKg));
-  const expectedWorkingWeight = `${workingWeightLb % 1 === 0 ? workingWeightLb.toFixed(0) : workingWeightLb.toFixed(1)} lb`;
-  
-  check(
-    'Working weight line shows "159.5 lb" (floored)',
-    workingWeightDisplay === expectedWorkingWeight,
-    `got "${workingWeightDisplay}"`
-  );
-  
-  // Step 3: Prefill value
-  const prefill = computeRunnerWeightPrefill(storedKg, units, false);
-  
-  check("Prefill is not empty", prefill !== "");
-  
-  if (prefill !== "") {
-    const prefillLb = Number(prefill);
-    check(
-      "Prefill matches working weight display",
-      prefillLb === workingWeightLb,
-      `prefill: ${prefillLb}, working: ${workingWeightLb}`
-    );
-    
-    // Step 4: History displays the stored kg with nearest 0.5 lb rounding
-    const historyDisplay = formatTopSet(storedKg, units);
-    const historyLb = roundLbToHalf(kgToLb(storedKg));
-    const expectedHistory = `${historyLb % 1 === 0 ? historyLb.toFixed(0) : historyLb.toFixed(1)} lb top`;
-    
-    check(
-      'History shows "160 lb top" (nearest 0.5 lb)',
-      historyDisplay === expectedHistory,
-      `got "${historyDisplay}"`
-    );
-    
-    // Step 5: The runner and history differ by rounding direction
-    check(
-      "Runner floors, History rounds",
-      workingWeightLb < historyLb || Math.abs(workingWeightLb - historyLb) < 0.01,
-      `runner: ${workingWeightLb}, history: ${historyLb}`
-    );
-    
-    // Step 6: CRITICAL - Logging the unedited prefill must store original kg
-    // This is handled in SetEntry by checking weight === initialPrefill
-    // and submitting defaultWeight instead of displayToKg(weight, units)
-    
-    // Simulate what would happen WITHOUT the fix:
-    const convertedKgWithoutFix = displayToKg(prefillLb, units);
-    check(
-      "WITHOUT fix: converting prefill loses precision",
-      Math.abs(convertedKgWithoutFix - storedKg) > 0.01,
-      `would store ${convertedKgWithoutFix} kg instead of ${storedKg} kg`
-    );
-    
-    // Simulate what happens WITH the fix:
-    // If weight === initialPrefill, submit defaultWeight (original kg)
-    const storedKgWithFix = storedKg; // The fix submits defaultWeight unchanged
-    check(
-      "WITH fix: unedited prefill stores original kg exactly",
-      storedKgWithFix === storedKg,
-      `stores ${storedKgWithFix} kg`
-    );
-  }
-}
+// Test case 2: Edited value converts normally
+const result2 = weightKgToSubmit("165", prefill1, originalKg1, "imperial");
+check(
+  "72.5 kg: editing to 165 lb converts normally",
+  result2 !== null && Math.abs(result2 - 74.84) < 0.1,
+  `got ${result2} kg`
+);
 
-console.log("");
+// Test case 3: Edit back to same string returns original (not converted)
+const editedBack = weightKgToSubmit(prefill1, prefill1, originalKg1, "imperial");
+check(
+  "72.5 kg: edit back to same string returns original",
+  editedBack === originalKg1,
+  `got ${editedBack} kg`
+);
 
-// Test a few more cases
-console.log("=== Additional Runner Prefill Cases ===\n");
+// Test case 4: Empty returns null
+const result4 = weightKgToSubmit("", prefill1, originalKg1, "imperial");
+check(
+  "Empty weight returns null",
+  result4 === null,
+  `got ${result4}`
+);
 
-const testCases = [
-  { kg: 80, expectedRunnerLb: 176, expectedHistoryLb: 176.5 },
-  { kg: 85, expectedRunnerLb: 187, expectedHistoryLb: 187.5 },
-  { kg: 90, expectedRunnerLb: 198, expectedHistoryLb: 198.5 },
-];
+// Test case 5: Metric unedited prefill
+const originalKg5 = 80;
+const prefill5 = computeRunnerWeightPrefill(originalKg5, "metric", false);
+const result5 = weightKgToSubmit(prefill5, prefill5, originalKg5, "metric");
 
-for (const tc of testCases) {
-  const snapped = snapPrescribedWeight(tc.kg, units);
-  if (snapped === null) continue;
-  
-  const prefill = computeRunnerWeightPrefill(tc.kg, units, false);
-  if (prefill === "") continue;
-  
-  const runnerLb = Number(prefill);
-  const historyDisplay = formatTopSet(tc.kg, units);
-  const historyLb = roundLbToHalf(kgToLb(tc.kg));
-  
-  check(
-    `${tc.kg} kg: runner shows ${tc.expectedRunnerLb} lb`,
-    Math.abs(runnerLb - tc.expectedRunnerLb) < 0.5,
-    `got ${runnerLb} lb`
-  );
-  
-  check(
-    `${tc.kg} kg: history shows ${tc.expectedHistoryLb} lb`,
-    Math.abs(historyLb - tc.expectedHistoryLb) < 0.1,
-    `got ${historyLb} lb`
-  );
-}
+check(
+  "80 kg metric: unedited prefill returns original",
+  result5 === originalKg5,
+  `prefill="${prefill5}", got ${result5} kg`
+);
+
+// Test case 6: Metric edited value
+const result6 = weightKgToSubmit("85", prefill5, originalKg5, "metric");
+check(
+  "80 kg metric: editing to 85 converts normally",
+  result6 === 85,
+  `got ${result6} kg`
+);
+
+// Test case 7: No defaultWeight (first set)
+const prefill7 = "";
+const result7 = weightKgToSubmit("135", prefill7, null, "imperial");
+check(
+  "No defaultWeight: converts normally",
+  result7 !== null && Math.abs(result7 - 61.23) < 0.1,
+  `got ${result7} kg`
+);
+
+// Test case 8: 85 kg case (rounds vs floors)
+const originalKg8 = 85;
+const prefill8 = computeRunnerWeightPrefill(originalKg8, "imperial", false);
+const result8 = weightKgToSubmit(prefill8, prefill8, originalKg8, "imperial");
+
+check(
+  "85 kg: unedited prefill returns original 85 kg",
+  result8 === originalKg8,
+  `prefill="${prefill8}", got ${result8} kg`
+);
 
 console.log("");
 
 if (failed === 0) {
-  console.log(`✓ All ${passed} behavioral tests passed\n`);
+  console.log(`✓ All ${passed} tests passed\n`);
   process.exit(0);
 } else {
   console.log(`✗ ${failed} of ${passed + failed} tests failed\n`);
