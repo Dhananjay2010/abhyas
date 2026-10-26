@@ -41,19 +41,21 @@ if (!ok) fail("A1: the existing-session branch must await Promise.all([... deps.
 console.log("  ✓ A1: existing-session branch awaits Promise.all with deps.ensureSessionExercises(existing.id)");
 
 // Check O11: deps wire ensureSessionExercises
-const buildFn = depsSf.statements.find(
+const buildFnO11 = depsSf.statements.find(
   (s): s is ts.FunctionDeclaration => ts.isFunctionDeclaration(s) && s.name?.text === "buildStartSessionFullDeps",
 );
-if (!buildFn?.body) fail("buildStartSessionFullDeps not found");
-
-let foundEnsure = false;
-const visitDeps = (n: ts.Node): void => {
-  if ((ts.isMethodDeclaration(n) || ts.isPropertyAssignment(n)) && 
-      ts.isIdentifier(n.name) && n.name.text === "ensureSessionExercises") {
-    foundEnsure = true;
-  }
-  ts.forEachChild(n, visitDeps);
-};
-if (buildFn.body) visitDeps(buildFn.body);
-if (!foundEnsure) fail("O11: deps.ensureSessionExercises must be wired");
-console.log("  ✓ O11: deps.ensureSessionExercises is wired");
+if (buildFnO11 && buildFnO11.body) {
+  let foundEnsure = false;
+  const visitDeps = (n: ts.Node): void => {
+    if ((ts.isMethodDeclaration(n) || ts.isPropertyAssignment(n)) && 
+        ts.isIdentifier(n.name) && n.name.text === "ensureSessionExercises") {
+      foundEnsure = true;
+    }
+    ts.forEachChild(n, visitDeps);
+  };
+  visitDeps(buildFnO11.body);
+  if (!foundEnsure) fail("O11: deps.ensureSessionExercises must be wired");
+  console.log("  ✓ O11: deps.ensureSessionExercises is wired");
+} else {
+  fail("buildStartSessionFullDeps not found");
+}
