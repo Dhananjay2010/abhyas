@@ -15,7 +15,7 @@ describe("7-day cutoff - no logSet call", () => {
     const mockNow = () => Date.parse("2026-01-15T12:00:00Z");
     let logSetCalled = false;
 
-    const mockStorage = {
+    const mockStorage: Storage = {
       data: new Map<string, string>(),
       getItem(key: string) { return this.data.get(key) ?? null; },
       setItem(key: string, value: string) { this.data.set(key, value); },
@@ -23,7 +23,7 @@ describe("7-day cutoff - no logSet call", () => {
       clear() { this.data.clear(); },
       get length() { return this.data.size; },
       key(index: number) { return Array.from(this.data.keys())[index] ?? null; },
-    } as Storage;
+    };
 
     const userId = "user1";
     const sessionId = "session1";
@@ -62,7 +62,7 @@ describe("7-day cutoff - no logSet call", () => {
       storage: mockStorage,
       deps: createPendingSetDeps(mockNow),
       logSet: mockLogSet,
-      sessionStatus: "in-progress",
+      sessionStatus: "in_progress",
     });
 
     // Verify logSet was NOT called
@@ -80,7 +80,7 @@ describe("7-day cutoff - no logSet call", () => {
     const mockNow = () => Date.parse("2026-01-15T12:00:00Z");
     let logSetCalled = false;
 
-    const mockStorage = {
+    const mockStorage: Storage = {
       data: new Map<string, string>(),
       getItem(key: string) { return this.data.get(key) ?? null; },
       setItem(key: string, value: string) { this.data.set(key, value); },
@@ -88,7 +88,7 @@ describe("7-day cutoff - no logSet call", () => {
       clear() { this.data.clear(); },
       get length() { return this.data.size; },
       key(index: number) { return Array.from(this.data.keys())[index] ?? null; },
-    } as Storage;
+    };
 
     const userId = "user1";
     const sessionId = "session1";
@@ -126,7 +126,7 @@ describe("7-day cutoff - no logSet call", () => {
       storage: mockStorage,
       deps: createPendingSetDeps(mockNow),
       logSet: mockLogSet,
-      sessionStatus: "in-progress",
+      sessionStatus: "in_progress",
     });
 
     // Verify logSet WAS called
@@ -136,10 +136,3 @@ describe("7-day cutoff - no logSet call", () => {
     assert.strictEqual(outcome.status, "saved", "Outcome should be 'saved' for recent sets");
   });
 });
-
-// Run the test
-if (import.meta.url === `file://${process.argv[1]}`) {
-  describe("test suite", async () => {
-    await import("node:test").then((t) => t.run());
-  });
-}

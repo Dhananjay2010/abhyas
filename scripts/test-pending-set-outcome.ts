@@ -66,7 +66,7 @@ class FakeStorage implements Storage {
     storage,
     deps,
     logSet: logSetOk,
-    sessionStatus: "in-progress"
+    sessionStatus: "in_progress"
   });
   
   assert(outcome1.status === "saved", "Outcome is saved");
@@ -90,7 +90,7 @@ class FakeStorage implements Storage {
     storage,
     deps,
     logSet: logSetExists,
-    sessionStatus: "in-progress"
+    sessionStatus: "in_progress"
   });
   
   assert(outcome2.status === "saved", "Outcome is saved (duplicate)");
@@ -114,7 +114,7 @@ class FakeStorage implements Storage {
     storage,
     deps,
     logSet: logSetDuplicate,
-    sessionStatus: "in-progress"
+    sessionStatus: "in_progress"
   });
   
   assert(outcome3.status === "saved", "Outcome is saved (23505 duplicate)");
@@ -164,7 +164,7 @@ class FakeStorage implements Storage {
     storage,
     deps,
     logSet: logSetFail,
-    sessionStatus: "in-progress"
+    sessionStatus: "in_progress"
   });
   
   assert(outcome5.status === "failed", "Outcome is failed");
@@ -192,7 +192,7 @@ class FakeStorage implements Storage {
     storage,
     deps,
     logSet: logSetExpiredThrow,
-    sessionStatus: "in-progress"
+    sessionStatus: "in_progress"
   });
   
   assert(outcome6.status === "expired", "Outcome is expired");
@@ -217,7 +217,7 @@ class FakeStorage implements Storage {
     storage,
     deps,
     logSet: logSetExpiredResult,
-    sessionStatus: "in-progress"
+    sessionStatus: "in_progress"
   });
   
   assert(outcome7.status === "expired", "Outcome is expired (result)");

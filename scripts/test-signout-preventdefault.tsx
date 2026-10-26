@@ -1,86 +1,84 @@
 /**
  * test-signout-preventdefault.tsx
  * Verify that hydrated JS calls preventDefault() on form submit.
+ * Tests the REAL SignOutForm and SignOutButton components.
+ * 
+ * Mutant: removing e.preventDefault() from either component must fail this test.
  */
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { render } from "@testing-library/react";
-import { userEvent } from "@testing-library/user-event";
 import React from "react";
-
-// Minimal test components that simulate the sign-out forms
-function TestSignOutForm({ onSubmit }: { onSubmit: (e: React.FormEvent) => void }) {
-  return (
-    <form
-      method="post"
-      action="/auth/signout"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(e);
-      }}
-    >
-      <button type="submit">Sign out</button>
-    </form>
-  );
-}
-
-function TestSignOutButton({ onClick }: { onClick: (e: React.MouseEvent) => void }) {
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onClick(e as unknown as React.MouseEvent);
-  };
-
-  return (
-    <form method="post" action="/auth/signout" onSubmit={handleSubmit}>
-      <button type="submit">Sign out</button>
-    </form>
-  );
-}
+import { SignOutForm } from "../src/app/today/signout-form";
+import { SignOutButton } from "../src/app/settings/signout-button";
 
 describe("Sign-out form preventDefault", () => {
-  it("SignOutForm calls preventDefault on submit", async () => {
+  it("SignOutForm prevents default form submission", async () => {
+    const mockSignOut = async () => {};
+    const mockLogSet = async () => ({ ok: true } as const);
+    
+    const { container } = render(
+      <SignOutForm 
+        label="Sign out" 
+        userId="test-user"
+        signOut={mockSignOut}
+        logSet={mockLogSet}
+      />
+    );
+
+    const form = container.querySelector("form");
+    assert.ok(form, "Form should exist");
+    
     let defaultPrevented = false;
-    let submitCalled = false;
-
-    const handleSubmit = (e: React.FormEvent) => {
-      submitCalled = true;
-      defaultPrevented = e.defaultPrevented;
+    const submitEvent = new Event("submit", { bubbles: true, cancelable: true });
+    
+    // Override preventDefault to track if it was called
+    const originalPreventDefault = submitEvent.preventDefault.bind(submitEvent);
+    submitEvent.preventDefault = () => {
+      defaultPrevented = true;
+      originalPreventDefault();
     };
+    
+    form.dispatchEvent(submitEvent);
 
-    const { findByRole } = render(<TestSignOutForm onSubmit={handleSubmit} />);
-
-    const button = await findByRole("button", { name: /sign out/i });
-    const user = userEvent.setup();
-    await user.click(button);
-
-    assert.strictEqual(submitCalled, true, "Submit handler should be called");
-    assert.strictEqual(defaultPrevented, true, "preventDefault should be called");
+    assert.strictEqual(
+      defaultPrevented, 
+      true, 
+      "SignOutForm must call preventDefault (mutant: removing e.preventDefault() must fail this)"
+    );
   });
 
-  it("SignOutButton calls preventDefault on submit", async () => {
+  it("SignOutButton prevents default form submission", async () => {
+    const mockSignOut = async () => {};
+    const mockLogSet = async () => ({ ok: true } as const);
+
+    const { container } = render(
+      <SignOutButton 
+        userId="test-user"
+        signOut={mockSignOut}
+        logSet={mockLogSet}
+      />
+    );
+
+    const form = container.querySelector("form");
+    assert.ok(form, "Form should exist");
+    
     let defaultPrevented = false;
-    let clickCalled = false;
-
-    const handleClick = (e: React.MouseEvent) => {
-      clickCalled = true;
-      defaultPrevented = (e as unknown as React.FormEvent).defaultPrevented;
+    const submitEvent = new Event("submit", { bubbles: true, cancelable: true });
+    
+    const originalPreventDefault = submitEvent.preventDefault.bind(submitEvent);
+    submitEvent.preventDefault = () => {
+      defaultPrevented = true;
+      originalPreventDefault();
     };
+    
+    form.dispatchEvent(submitEvent);
 
-    const { findByRole } = render(<TestSignOutButton onClick={handleClick} />);
-
-    const button = await findByRole("button", { name: /sign out/i });
-    const user = userEvent.setup();
-    await user.click(button);
-
-    assert.strictEqual(clickCalled, true, "Click handler should be called");
-    assert.strictEqual(defaultPrevented, true, "preventDefault should be called");
+    assert.strictEqual(
+      defaultPrevented, 
+      true, 
+      "SignOutButton must call preventDefault (mutant: removing e.preventDefault() must fail this)"
+    );
   });
 });
-
-// Run the test
-if (import.meta.url === `file://${process.argv[1]}`) {
-  describe("test suite", async () => {
-    await import("node:test").then((t) => t.run());
-  });
-}

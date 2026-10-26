@@ -42,7 +42,7 @@ export async function attemptPendingSet({
     weightKg: number | null;
     durationSeconds: number | null;
   }) => Promise<{ ok: true } | { ok: false; error: string; code?: string } | { ok: false; reason: "set_exists" }>;
-  sessionStatus?: "in-progress" | "ended" | "stale";
+  sessionStatus?: "in_progress" | "ended" | "stale";
 }): Promise<PendingSetOutcome> {
   // Check for stale sets (>7 days old)
   const all = loadAllPendingSetsWithTimestamp(storage, userId, deps);
@@ -56,7 +56,7 @@ export async function attemptPendingSet({
   }
 
   // Check if session is no longer in progress (closed)
-  if (sessionStatus && sessionStatus !== "in-progress") {
+  if (sessionStatus && sessionStatus !== "in_progress") {
     // Don't clear - caller will surface with "workout ended" message
     return { status: "closed" };
   }

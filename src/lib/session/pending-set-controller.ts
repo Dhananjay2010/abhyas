@@ -66,7 +66,7 @@ export function createPendingSetController(config: {
   storage: Storage;
   logSet: LogSetFunction;
   sessionId: string;
-  sessionStatus: "in-progress" | "ended" | "stale" | string;
+  sessionStatus: "in_progress" | "ended" | "stale" | string;
   userId: string;
   onChange: (state: PendingSetState) => void;
   deps: PendingSetDeps;
@@ -243,7 +243,9 @@ export function createPendingSetController(config: {
           storage,
           deps,
           logSet,
-          sessionStatus: sessionStatus as "in-progress" | "ended" | "stale" | undefined,
+          sessionStatus: sessionStatus === "in_progress" || sessionStatus === "ended" || sessionStatus === "stale" 
+            ? sessionStatus 
+            : undefined,
         });
 
         if (outcome.status === "saved") {

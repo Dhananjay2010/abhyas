@@ -12,7 +12,7 @@ import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 describe("Controller keep-and-surface", () => {
   it("load() keeps sets when session is not in progress", async () => {
-    const mockStorage = {
+    const mockStorage: Storage = {
       data: new Map<string, string>(),
       getItem(key: string) { return this.data.get(key) ?? null; },
       setItem(key: string, value: string) { this.data.set(key, value); },
@@ -20,7 +20,7 @@ describe("Controller keep-and-surface", () => {
       clear() { this.data.clear(); },
       get length() { return this.data.size; },
       key(index: number) { return Array.from(this.data.keys())[index] ?? null; },
-    } as Storage;
+    };
     
     const mockNow = () => Date.parse("2026-01-15T12:00:00Z");
     const userId = "user1";
@@ -72,7 +72,7 @@ describe("Controller keep-and-surface", () => {
   });
 
   it("replay() keeps sets when session is not in progress", async () => {
-    const mockStorage = {
+    const mockStorage: Storage = {
       data: new Map<string, string>(),
       getItem(key: string) { return this.data.get(key) ?? null; },
       setItem(key: string, value: string) { this.data.set(key, value); },
@@ -80,7 +80,7 @@ describe("Controller keep-and-surface", () => {
       clear() { this.data.clear(); },
       get length() { return this.data.size; },
       key(index: number) { return Array.from(this.data.keys())[index] ?? null; },
-    } as Storage;
+    };
     
     const mockNow = () => Date.parse("2026-01-15T12:00:00Z");
     const userId = "user1";
@@ -129,10 +129,3 @@ describe("Controller keep-and-surface", () => {
     assert.ok(state.error, "State should show error for non-in-progress session");
   });
 });
-
-// Run the test
-if (import.meta.url === `file://${process.argv[1]}`) {
-  describe("test suite", async () => {
-    await import("node:test").then((t) => t.run());
-  });
-}

@@ -85,7 +85,7 @@ Object.defineProperty(window, 'localStorage', {
   };
   
   // Render replay component (simulates new sign-in)
-  const getSessionStatus = async () => "in-progress" as const;
+  const getSessionStatus = async () => "in_progress" as const;
   
   render(
     <PendingSetReplay
