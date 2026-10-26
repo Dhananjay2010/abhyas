@@ -138,7 +138,7 @@ const availableSlugs = CATALOGUE
     // Check high-impact lower-body (applies to ANY knee injury)
     if (input.anyKneeInjury && ex.impact === "high") {
       const lowerBodyMuscles = ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"];
-      const isLowerBody = ex.primary_muscles.some(m => lowerBodyMuscles.includes(m));
+      const isLowerBody = ex.primary_muscles.some((m: string) => lowerBodyMuscles.includes(m));
       if (isLowerBody) return false;
     }
     
