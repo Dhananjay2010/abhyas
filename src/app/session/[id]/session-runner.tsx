@@ -16,7 +16,7 @@ import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { displayToKg, formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill } from "@/lib/units";
+import { displayToKg, formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
@@ -847,10 +847,7 @@ export function SessionRunner({
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
           <p className="mt-2 text-sm text-muted">
-            Working weight {formatLoad(current.workingWeightKg, settings.units)}
-            {current.suggestedWeightKg !== null &&
-              snapPrescribedWeight(current.suggestedWeightKg, settings.units) !== current.workingWeightKg &&
-              ` · today ${formatLoad(snapPrescribedWeight(current.suggestedWeightKg, settings.units), settings.units)}`}
+            Working weight {formatLoad(snapPrescribedWeight(current.workingWeightKg, settings.units), settings.units)}
           </p>
         )}
         {isDeload && (
@@ -1334,7 +1331,7 @@ function SetEntry({
             inputMode="decimal"
             step="0.5"
             min={0}
-            max={999}
+            max={units === "imperial" ? LOAD_IMPERIAL_MAX_LB : LOAD_METRIC_MAX_KG}
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             placeholder="—"

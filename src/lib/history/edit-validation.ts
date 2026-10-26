@@ -7,6 +7,8 @@
 
 import { localDateString } from "@/lib/dates";
 import { utcToZonedDateTime } from "@/lib/timezone";
+import type { UnitsPreference } from "@/lib/units";
+import { formatLoad } from "@/lib/units";
 
 export interface ValidationResult {
   valid: boolean;
@@ -34,19 +36,22 @@ export function validateReps(reps: number | null): ValidationResult {
 
 /**
  * Validate set weight: must be a finite number from 0 to 500 kg with at most 2 decimals.
+ * @param units - User's units preference for formatting error messages
  */
-export function validateWeightKg(weightKg: number | null): ValidationResult {
+export function validateWeightKg(weightKg: number | null, units: UnitsPreference = "metric"): ValidationResult {
   if (weightKg === null) {
     return { valid: true };
   }
   if (!Number.isFinite(weightKg)) {
     return { valid: false, error: "Weight must be a valid number." };
   }
+  const maxWeightKg = 500;
+  const maxFormatted = formatLoad(maxWeightKg, units);
   if (weightKg < 0) {
-    return { valid: false, error: "Weight must be between 0 and 500 kg." };
+    return { valid: false, error: `Weight must be between 0 and ${maxFormatted}.` };
   }
-  if (weightKg > 500) {
-    return { valid: false, error: "Weight must be between 0 and 500 kg." };
+  if (weightKg > maxWeightKg) {
+    return { valid: false, error: `Weight must be between 0 and ${maxFormatted}.` };
   }
   // Check at most 2 decimals
   const decimals = (weightKg.toString().split(".")[1] || "").length;

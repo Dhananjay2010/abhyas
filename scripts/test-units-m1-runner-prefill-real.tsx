@@ -69,26 +69,144 @@ if (bwWithWeight === "") {
 
 console.log("   ✓ PASS: Bodyweight only prefills with added weight");
 
-// Part 4: Verify prefill matches working weight line
-console.log("\n4. Verifying prefill matches working weight line:");
-// The working weight line uses formatLoad which applies roundLbToHalf to the snapped weight
-const workingWeightDisplay = roundLbToHalf(kgToDisplay(snappedKg!, units));
+// Part 4: Assert line equals box by rendering SessionRunner
+console.log("\n4. Verifying working weight line equals box value:");
 
-console.log(`   Working weight line shows: ${workingWeightDisplay} lb`);
-console.log(`   Input prefills: ${prefillValue} lb`);
+// Import the real SessionRunner to test the wiring
+import { render, waitFor } from "@testing-library/react";
+import {
+  SessionRunner,
+  type RunnerExercise,
+  type SessionActions,
+} from "../src/app/session/[id]/session-runner";
+import "./helpers/setup-jsdom";
 
-if (parseFloat(prefillValue) !== workingWeightDisplay) {
-  console.error(`   ❌ FAIL: Prefill doesn't match working weight line!`);
+const mockActions: SessionActions = {
+  markWarmupDone: async () => ({ ok: true }),
+  logSet: async () => ({ ok: true }),
+  deleteSet: async () => ({ ok: true }),
+  finishExercise: async () =>
+    ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+  finishSession: async () => ({ ok: true }),
+  abandonSession: async () => ({ ok: true }),
+  planDay: async () => ({ ok: true }),
+  refreshAfterSession: async () => ({ ok: true }),
+  swapExercise: async () => ({
+    ok: true,
+    data: {
+      workoutSessionExerciseId: "",
+      exerciseId: "",
+      metric: "reps" as const,
+      repsMin: null,
+      repsMax: null,
+      equipmentIds: [],
+      weightPrefill: null,
+      workingWeightKg: null,
+      currentTargetReps: null,
+      isBodyweight: false,
+    }
+  }),
+  findAlternatives: async () => ({ ok: true as const, data: [] }),
+};
+
+const testExercise: RunnerExercise = {
+  id: "ex1",
+  exerciseId: "bench-press",
+  name: "Bench Press",
+  cue: null,
+  metric: "reps",
+  primaryMuscles: ["chest"],
+  plannedSets: 3,
+  plannedRepsMin: 6,
+  plannedRepsMax: 8,
+  repsMin: 6,
+  repsMax: 8,
+  restSeconds: 180,
+  workingWeightKg: prescribedKg,
+  suggestedWeightKg: prescribedKg,
+  status: "pending",
+  feel: null,
+  sets: [],
+  isBodyweight: false,
+};
+
+const settings = {
+  perSetLogging: true,
+  restAutostart: false,
+  restSound: false,
+  restVibrate: false,
+  restOverrideSeconds: null,
+  cooldownEnabled: false,
+  units: "imperial" as const,
+};
+
+const rendered = render(
+  <SessionRunner
+    sessionId="test"
+    isDeload={false}
+    week={1}
+    warmupAlreadyDone={true}
+    startedAt={new Date().toISOString()}
+    warmup={[]}
+    cooldown={[]}
+    exercises={[testExercise]}
+    settings={settings}
+    actions={mockActions}
+  />,
+);
+
+await waitFor(() => {
+  if (!rendered.container.textContent?.includes("Bench Press"))
+    throw new Error("Exercise not loaded");
+});
+
+const containerText = rendered.container.textContent || "";
+
+// Find the working weight line
+const lineMatch = containerText.match(/Working weight ([\d.]+) lb/);
+if (!lineMatch) {
+  console.error("   ❌ FAIL: Working weight line not found");
+  process.exit(1);
+}
+const lineValue = lineMatch[1];
+
+// Find the weight input box value
+const weightInput = [...rendered.container.querySelectorAll<HTMLInputElement>("input")].find(
+  (i) => {
+    const label = i.closest("label")?.textContent ?? "";
+    return label.match(/Weight \(lb\)|Weight \(kg\)|Added weight/);
+  }
+);
+
+if (!weightInput) {
+  console.error("   ❌ FAIL: Weight input not found");
   process.exit(1);
 }
 
-console.log("   ✓ PASS: Prefill matches working weight line");
+const boxValue = weightInput.value;
 
-// Part 5: Prove the function is wired in session-runner.tsx
-console.log("\n5. Proving function is wired:");
-console.log("   session-runner.tsx line 1217 calls:");
-console.log("   computeRunnerWeightPrefill(defaultWeight, units, isBodyweight)");
-console.log("   ✓ PASS: Function is imported and used");
+console.log(`   Working weight line: ${lineValue} lb`);
+console.log(`   Input box value: ${boxValue} lb`);
+
+if (lineValue !== boxValue) {
+  console.error(`   ❌ FAIL: Line doesn't match box!`);
+  process.exit(1);
+}
+
+console.log("   ✓ PASS: Line equals box value");
+
+rendered.unmount();
+
+// Part 5: Render real SessionRunner and check box value
+console.log("\n5. Real SessionRunner renders correct box value:");
+console.log(`   Box value is "${boxValue}" lb`);
+
+if (boxValue !== "137.5") {
+  console.error(`   ❌ FAIL: Expected box to show "137.5", got "${boxValue}"`);
+  process.exit(1);
+}
+
+console.log("   ✓ PASS: Box shows 137.5 lb");
 
 console.log("\n✅ M1 PASS: Runner prefills 137.5 lb for 62.5 kg in imperial\n");
 console.log("Note: This test verifies:");

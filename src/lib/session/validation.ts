@@ -8,6 +8,9 @@
  * on the server, which is the copy that actually protects the database.
  */
 
+import type { UnitsPreference } from "../units";
+import { formatLoad } from "../units";
+
 /**
  * Deliberately generous: the point is to reject what cannot be a set, not to
  * police anyone's training. 500 kg is above the heaviest lift ever recorded and
@@ -38,11 +41,14 @@ export const MAX_HOLD_SECONDS = 3600;
  * real harm: `evaluateProgression` counts only sets with reps > 0, so a stray
  * zero made a completed exercise look like a missed one, and two of those in a
  * row drop the working weight by ten percent.
+ *
+ * @param units - User's units preference for formatting error messages
  */
 export function validateSet(
   reps: number | null,
   weightKg: number | null,
   durationSeconds: number | null = null,
+  units: UnitsPreference = "metric",
 ): string | null {
   if (durationSeconds !== null) {
     if (!Number.isInteger(durationSeconds)) return "Seconds must be a whole number.";
@@ -59,7 +65,10 @@ export function validateSet(
   if (weightKg !== null) {
     if (!Number.isFinite(weightKg)) return "That weight does not look right.";
     if (weightKg < 0) return "Weight cannot be negative.";
-    if (weightKg > MAX_WEIGHT_KG) return `Weight should be ${MAX_WEIGHT_KG} kg or less.`;
+    if (weightKg > MAX_WEIGHT_KG) {
+      const maxFormatted = formatLoad(MAX_WEIGHT_KG, units);
+      return `Weight should be ${maxFormatted} or less.`;
+    }
   }
   return null;
 }

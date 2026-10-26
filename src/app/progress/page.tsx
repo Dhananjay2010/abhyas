@@ -6,7 +6,7 @@ import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-c
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
-import { getUnitsPreference, kgToDisplay, weightLabel, formatVolume } from "@/lib/units";
+import { getUnitsPreference, kgToDisplay, weightLabel, formatVolume, roundLbToHalf } from "@/lib/units";
 import { LogWeight } from "./log-weight";
 import { loadProgramDays } from "@/lib/progress/load-program-days";
 
@@ -169,10 +169,17 @@ export default async function ProgressPage() {
   // ---- charts ------------------------------------------------------------
   // Reverse data since it was fetched newest-first for h1 fix
   const weights = [...(weightsRes.data ?? [])].reverse();
-  const weightPoints: Point[] = weights.map((w) => ({
-    label: shortDate(w.recorded_on),
-    value: kgToDisplay(Number(w.weight_kg), units),
-  }));
+  const weightPoints: Point[] = weights.map((w) => {
+    const kg = Number(w.weight_kg);
+    const displayValue = kgToDisplay(kg, units);
+    // For body weight chart: round imperial to 0.5 lb to match user input
+    // (typed 172 lb should show as 172 lb, not 171.96 lb)
+    const value = units === "imperial" ? roundLbToHalf(displayValue) : displayValue;
+    return {
+      label: shortDate(w.recorded_on),
+      value,
+    };
+  });
   const latestWeight = weights.length ? Number(weights[weights.length - 1].weight_kg) : null;
 
   // View columns are typed nullable by Supabase's generator, so narrow first.

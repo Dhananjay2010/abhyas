@@ -304,11 +304,21 @@ export async function logSet(input: {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
   
-  const durationSeconds = input.durationSeconds ?? null;
-  const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
-  if (invalid) return { ok: false, error: invalid };
-
   const { supabase, user } = await requireUser();
+  
+  // Fetch user's units preference for error messages
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("units")
+    .eq("id", user.id)
+    .single();
+  const units = (profile?.units === "imperial" || profile?.units === "metric") 
+    ? profile.units 
+    : "metric";
+  
+  const durationSeconds = input.durationSeconds ?? null;
+  const invalid = validateSet(input.reps, input.weightKg, durationSeconds, units);
+  if (invalid) return { ok: false, error: invalid };
 
   // Reject writes to sessions that are no longer in_progress or don't exist
   // For ended sessions, allow idempotent retry if the exact set already exists

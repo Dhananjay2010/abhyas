@@ -560,6 +560,14 @@ export function roundToPlate(value: number | null | undefined, units: UnitsPrefe
 }
 
 /**
+ * Tolerance for rounding lb values to the 0.5 lb grid.
+ * Handles floating-point imprecision from kg→lb→storage(0.01 kg)→lb round-trip.
+ * Without this, 135 lb (61.23 kg) reads back as 134.989 lb and floors to 134.5.
+ * The value 0.05 safely handles the worst-case round-trip error (~0.02 lb).
+ */
+const SNAP_LB_EPSILON = 0.05;
+
+/**
  * Convert prescribed kg to the display unit and snap to the appropriate grid.
  * 
  * For imperial: converts kg to lb and snaps DOWN to 0.5 lb increments to avoid
@@ -579,8 +587,8 @@ export function snapPrescribedWeight(prescribedKg: number | null | undefined, un
   if (units === "imperial") {
     // Convert to lb, snap DOWN to 0.5 lb grid (conservative), convert back to kg
     const lb = kgToLb(prescribedKg);
-    // Floor to nearest 0.5 lb to avoid false PBs
-    const snappedLb = Math.floor(lb * 2) / 2;
+    // Floor to nearest 0.5 lb with tolerance to handle round-trip imprecision
+    const snappedLb = Math.floor(lb * 2 + SNAP_LB_EPSILON) / 2;
     return Math.round(lbToKg(snappedLb) * 100) / 100;
   }
   

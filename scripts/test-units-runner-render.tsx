@@ -145,9 +145,9 @@ type LogSetCall = {
     throw new Error("Imperial weight input not found");
   }
 
-  // Check 3: Prefill is 132 lb (60 kg rounded to 0.5 lb)
+  // Check 3: Prefill is exactly 132 lb (60 kg snapped: 60 kg = 132.28 lb → floor to 132.0 lb)
   const prefillValue = parseFloat(weightInputImperial.value || "0");
-  check("Prefill is 132 lb (60 kg)", prefillValue === 132 || prefillValue === 132.5, `got ${prefillValue} lb`);
+  check("Prefill is exactly 132 lb (60 kg)", prefillValue === 132, `got ${prefillValue} lb`);
 
   // Check 4: Weight step is 0.5 for imperial
   check("Weight step is 0.5", weightInputImperial.step === "0.5", `got step="${weightInputImperial.step}"`);
@@ -211,6 +211,212 @@ type LogSetCall = {
   );
 
   rImperial.unmount();
+
+  // Test 1b: 62.5 kg gives box '137.5' and line '137.5 lb'
+  console.log("\nImperial mode (62.5 kg working weight):");
+
+  const logSetCalls625: LogSetCall[] = [];
+
+  const actions625: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async (args) => {
+      logSetCalls625.push({
+        sessionExerciseId: args.sessionExerciseId,
+        setNumber: args.setNumber,
+        weightKg: args.weightKg,
+        reps: args.reps,
+        durationSeconds: args.durationSeconds ?? null,
+      });
+      return { ok: true };
+    },
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () =>
+      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true }),
+    refreshAfterSession: async () => ({ ok: true }),
+    swapExercise: async () => ({
+      ok: true,
+      data: {
+        workoutSessionExerciseId: "",
+        exerciseId: "",
+        metric: "reps" as const,
+        repsMin: null,
+        repsMax: null,
+        equipmentIds: [],
+        weightPrefill: null,
+        workingWeightKg: null,
+        currentTargetReps: null,
+        isBodyweight: false,
+      }
+    }),
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+  };
+
+  const exercise625: RunnerExercise = {
+    id: "ex625",
+    exerciseId: "squat",
+    name: "Squat",
+    cue: null,
+    metric: "reps",
+    primaryMuscles: ["quads"],
+    plannedSets: 3,
+    plannedRepsMin: 6,
+    plannedRepsMax: 8,
+    repsMin: 6,
+    repsMax: 8,
+    restSeconds: 180,
+    workingWeightKg: 62.5,
+    suggestedWeightKg: 62.5,
+    status: "pending",
+    feel: null,
+    sets: [],
+    isBodyweight: false,
+  };
+
+  const r625 = render(
+    <SessionRunner
+      sessionId="s625"
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date().toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[exercise625]}
+      settings={imperialSettings}
+      actions={actions625}
+    />,
+  );
+
+  await waitFor(() => {
+    if (!r625.container.textContent?.includes("Squat"))
+      throw new Error("62.5 kg exercise not loaded");
+  });
+
+  const text625 = r625.container.textContent || "";
+  const hasLine625 = text625.includes("Working weight 137.5 lb");
+  check("62.5 kg: line shows '137.5 lb'", hasLine625, text625.includes("Working weight") ? "found 'Working weight'" : "not found");
+
+  const weightInput625 = [...r625.container.querySelectorAll<HTMLInputElement>("input")].find(
+    (i) => {
+      const label = i.closest("label")?.textContent ?? "";
+      return label.match(/Weight \(lb\)|Weight \(kg\)|Added weight/);
+    }
+  );
+
+  if (!weightInput625) {
+    throw new Error("62.5 kg weight input not found");
+  }
+
+  const prefill625 = weightInput625.value;
+  check("62.5 kg: box shows '137.5'", prefill625 === "137.5", `got "${prefill625}"`);
+
+  r625.unmount();
+
+  // Test 1c: 61.23 kg (135 lb stored) gives box '135' and line '135 lb'
+  console.log("\nImperial mode (61.23 kg working weight = 135 lb stored):");
+
+  const logSetCalls6123: LogSetCall[] = [];
+
+  const actions6123: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async (args) => {
+      logSetCalls6123.push({
+        sessionExerciseId: args.sessionExerciseId,
+        setNumber: args.setNumber,
+        weightKg: args.weightKg,
+        reps: args.reps,
+        durationSeconds: args.durationSeconds ?? null,
+      });
+      return { ok: true };
+    },
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () =>
+      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true }),
+    refreshAfterSession: async () => ({ ok: true }),
+    swapExercise: async () => ({
+      ok: true,
+      data: {
+        workoutSessionExerciseId: "",
+        exerciseId: "",
+        metric: "reps" as const,
+        repsMin: null,
+        repsMax: null,
+        equipmentIds: [],
+        weightPrefill: null,
+        workingWeightKg: null,
+        currentTargetReps: null,
+        isBodyweight: false,
+      }
+    }),
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+  };
+
+  const exercise6123: RunnerExercise = {
+    id: "ex6123",
+    exerciseId: "deadlift",
+    name: "Deadlift",
+    cue: null,
+    metric: "reps",
+    primaryMuscles: ["hamstrings"],
+    plannedSets: 3,
+    plannedRepsMin: 6,
+    plannedRepsMax: 8,
+    repsMin: 6,
+    repsMax: 8,
+    restSeconds: 180,
+    workingWeightKg: 61.23,
+    suggestedWeightKg: 61.23,
+    status: "pending",
+    feel: null,
+    sets: [],
+    isBodyweight: false,
+  };
+
+  const r6123 = render(
+    <SessionRunner
+      sessionId="s6123"
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date().toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[exercise6123]}
+      settings={imperialSettings}
+      actions={actions6123}
+    />,
+  );
+
+  await waitFor(() => {
+    if (!r6123.container.textContent?.includes("Deadlift"))
+      throw new Error("61.23 kg exercise not loaded");
+  });
+
+  const text6123 = r6123.container.textContent || "";
+  const hasLine6123 = text6123.includes("Working weight 135 lb");
+  check("61.23 kg: line shows '135 lb'", hasLine6123, text6123.includes("Working weight") ? "found 'Working weight'" : "not found");
+
+  const weightInput6123 = [...r6123.container.querySelectorAll<HTMLInputElement>("input")].find(
+    (i) => {
+      const label = i.closest("label")?.textContent ?? "";
+      return label.match(/Weight \(lb\)|Weight \(kg\)|Added weight/);
+    }
+  );
+
+  if (!weightInput6123) {
+    throw new Error("61.23 kg weight input not found");
+  }
+
+  const prefill6123 = weightInput6123.value;
+  check("61.23 kg: box shows '135'", prefill6123 === "135", `got "${prefill6123}"`);
+
+  r6123.unmount();
 
   // Test 2: Metric mode (verify same behavior as main)
   console.log("\nMetric mode (60 kg working weight):");

@@ -150,7 +150,8 @@ export async function updateSetCore(
   setNumber: number,
   reps: number | null,
   weightKg: number | null,
-  durationSeconds: number | null
+  durationSeconds: number | null,
+  units: "metric" | "imperial" = "metric"
 ): Promise<UpdateSetResult> {
   // Import validation functions
   const {
@@ -166,7 +167,7 @@ export async function updateSetCore(
   }
 
   // Validate weight
-  const weightValidation = validateWeightKg(weightKg);
+  const weightValidation = validateWeightKg(weightKg, units);
   if (!weightValidation.valid) {
     return { success: false, error: weightValidation.error };
   }

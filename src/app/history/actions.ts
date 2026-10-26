@@ -148,6 +148,16 @@ export async function updateSet(
     return { success: false, error: "Not authenticated" };
   }
 
+  // Fetch user's units preference for error messages
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("units")
+    .eq("id", user.id)
+    .single();
+  const units = (profile?.units === "imperial" || profile?.units === "metric") 
+    ? profile.units 
+    : "metric";
+
   // Get session_id for revalidation
   const { data: sessionExercise } = await supabase
     .from("session_exercises")
@@ -164,7 +174,8 @@ export async function updateSet(
     setNumber,
     reps,
     weightKg,
-    durationSeconds
+    durationSeconds,
+    units
   );
 
   if (!result.success) {
