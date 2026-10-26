@@ -71,8 +71,8 @@ async function testSignedInRendersReplay() {
   fakeStorage.clear();
 
   const fakeGetUser = async () => ({ id: "user1" });
-  const authCallbacks: ((event: string, session: any) => void)[] = [];
-  const fakeOnAuthStateChange = (callback: (event: string, session: any) => void): AuthSubscription => {
+  const authCallbacks: ((event: string, session: unknown) => void)[] = [];
+  const fakeOnAuthStateChange = (callback: (event: string, session: unknown) => void): AuthSubscription => {
     authCallbacks.push(callback);
     return {
       unsubscribe: () => {
@@ -112,8 +112,8 @@ async function testSignedOutRendersNothing() {
   fakeStorage.clear();
 
   const fakeGetUser = async () => null;
-  const authCallbacks: ((event: string, session: any) => void)[] = [];
-  const fakeOnAuthStateChange = (callback: (event: string, session: any) => void): AuthSubscription => {
+  const authCallbacks: ((event: string, session: unknown) => void)[] = [];
+  const fakeOnAuthStateChange = (callback: (event: string, session: unknown) => void): AuthSubscription => {
     authCallbacks.push(callback);
     return {
       unsubscribe: () => {
@@ -156,8 +156,8 @@ async function testAuthStateChangeSignOut() {
   let currentUser: { id: string } | null = { id: "user1" };
   const fakeGetUser = async () => currentUser;
   
-  const authCallbacks: ((event: string, session: any) => void)[] = [];
-  const fakeOnAuthStateChange = (callback: (event: string, session: any) => void): AuthSubscription => {
+  const authCallbacks: ((event: string, session: unknown) => void)[] = [];
+  const fakeOnAuthStateChange = (callback: (event: string, session: unknown) => void): AuthSubscription => {
     authCallbacks.push(callback);
     return {
       unsubscribe: () => {
@@ -210,8 +210,8 @@ async function testAuthStateChangeSwitchUser() {
   let currentUser: { id: string } | null = { id: "user1" };
   const fakeGetUser = async () => currentUser;
   
-  const authCallbacks: ((event: string, session: any) => void)[] = [];
-  const fakeOnAuthStateChange = (callback: (event: string, session: any) => void): AuthSubscription => {
+  const authCallbacks: ((event: string, session: unknown) => void)[] = [];
+  const fakeOnAuthStateChange = (callback: (event: string, session: unknown) => void): AuthSubscription => {
     authCallbacks.push(callback);
     return {
       unsubscribe: () => {
@@ -273,8 +273,8 @@ async function testGetSessionStatusForEndedSession() {
   }, fakeDeps);
 
   const fakeGetUser = async () => ({ id: userId });
-  const authCallbacks: ((event: string, session: any) => void)[] = [];
-  const fakeOnAuthStateChange = (callback: (event: string, session: any) => void): AuthSubscription => {
+  const authCallbacks: ((event: string, session: unknown) => void)[] = [];
+  const fakeOnAuthStateChange = (callback: (event: string, session: unknown) => void): AuthSubscription => {
     authCallbacks.push(callback);
     return {
       unsubscribe: () => {
