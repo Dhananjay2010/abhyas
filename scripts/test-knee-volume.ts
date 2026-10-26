@@ -10,8 +10,10 @@ import {
   PAST_KNEE_LUNGE_EXERCISES,
 } from "../src/lib/program/generate";
 import { isKneeRiskForKneeUser } from "../src/lib/program/knee-safety";
+import { isExcludedForPastKnee } from "../src/lib/program/past-knee";
 import { prescribe } from "../src/lib/program/prescription";
 import { KNEE_PROFILES, makeGeneratorInput } from "./knee-volume-grid";
+import { templatesFor, placeYoga, activeDayIndices } from "../src/lib/program/splits";
 
 const catalogue = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
@@ -67,13 +69,13 @@ for (const spec of KNEE_PROFILES) {
     const exercises = day.exercises.map(ex => {
       const exData = catalogueById.get(ex.exerciseId);
       return { ...ex, exData };
-    }).filter(e => e.exData !== undefined);
+    }).filter((e): e is typeof e & { exData: CandidateExercise } => e.exData !== undefined);
     
     // Invariant 1: Past-knee: no Lower/Legs/Full day contains two squat-pattern knee-risk exercises
     if (hasPastKnee) {
       const kneeRiskSquats = exercises.filter(e => 
-        e.exData!.movement_pattern === "squat" && 
-        isKneeRiskForKneeUser(e.exData!, input.anyKneeInjury)
+        e.exData.movement_pattern === "squat" && 
+        isKneeRiskForKneeUser(e.exData, input.anyKneeInjury)
       );
       
       if (kneeRiskSquats.length >= 2) {
@@ -84,28 +86,61 @@ for (const spec of KNEE_PROFILES) {
       const lungeSlotExercises = exercises.filter(e => {
         // Lunge slot is typically at index 2 for Lower, but check by template
         // For simplicity, check if any lunge-pattern slot has a knee-risk exercise
-        return e.exData!.movement_pattern === "lunge" || 
+        return e.exData.movement_pattern === "lunge" || 
                (e.orderIndex === 2 && isLowerOrFullDay);
       });
       
       for (const ex of lungeSlotExercises) {
-        if (isKneeRiskForKneeUser(ex.exData!, input.anyKneeInjury) && 
-            ex.exData!.movement_pattern === "squat") {
+        if (isKneeRiskForKneeUser(ex.exData, input.anyKneeInjury) && 
+            ex.exData.movement_pattern === "squat") {
           fail(`${spec.id} day ${day.dayIndex}: knee-risk squat ${ex.name} in lunge slot`);
+        }
+      }
+      
+      // Mutant 10 killer: No past-knee excluded exercises (jumps, thrusters, etc.)
+      for (const ex of exercises) {
+        if (isExcludedForPastKnee(ex.exData)) {
+          fail(`${spec.id} day ${day.dayIndex}: past-knee excluded exercise ${ex.name}`);
         }
       }
     }
     
     // Invariant 2: Past-knee with needed equipment: lunge slot filled from PAST_KNEE_LUNGE_EXERCISES
+    // MED-1: Classify by slot type, not orderIndex (Full Body C lunge slot is orderIndex 0)
     if (hasPastKnee && input.hasAllEquipment) {
-      // Find lunge slot (index 2 for Lower template)
-      const lungeSlotEx = exercises.find(e => e.orderIndex === 2);
-      if (lungeSlotEx && lungeSlotEx.exData) {
-        const inList = PAST_KNEE_LUNGE_EXERCISES.has(lungeSlotEx.exData.slug);
-        if (!inList && lungeSlotEx.exData.movement_pattern !== "lunge") {
-          // It's OK if it's an actual lunge-pattern exercise, but if it's a squat fallback, it must be from the list
-          if (lungeSlotEx.exData.movement_pattern === "squat") {
-            fail(`${spec.id} day ${day.dayIndex}: lunge slot has ${lungeSlotEx.name} (not in PAST_KNEE_LUNGE_EXERCISES)`);
+      // Find the template for this day to identify which slot is the lunge slot
+      const yogaDays = 0; // ProfileSpec doesn't have yogaDaysPerWeek
+      const trainingDays = Math.max(1, spec.daysPerWeek - Math.min(yogaDays, spec.daysPerWeek - 1));
+      const templates = templatesFor(trainingDays);
+      const laidOut = placeYoga(templates, yogaDays);
+      const activeIdx = activeDayIndices(spec.daysPerWeek);
+      const slotPos = activeIdx.indexOf(day.dayIndex);
+      
+      if (slotPos >= 0 && slotPos < laidOut.length) {
+        const entry = laidOut[slotPos];
+        if (entry && typeof entry !== "string" && entry.label !== "Yoga") {
+          const lungeSlotIndex = entry.slots.indexOf("lunge");
+          if (lungeSlotIndex >= 0) {
+            // This day has a lunge slot - check the exercise at that slot
+            const lungeSlotEx = exercises.find(e => {
+              // Match by orderIndex, but account for exercises potentially being reordered
+              // The lunge slot should be filled by the exercise that was assigned to that template slot
+              // For simplicity, check if the orderIndex matches the template slot position
+              // OR if the movement pattern is lunge/squat and it's the right position
+              return e.orderIndex === lungeSlotIndex || 
+                     (e.orderIndex === lungeSlotIndex && 
+                      (e.exData?.movement_pattern === "lunge" || e.exData?.movement_pattern === "squat"));
+            });
+            
+            if (lungeSlotEx && lungeSlotEx.exData) {
+              const inList = PAST_KNEE_LUNGE_EXERCISES.has(lungeSlotEx.exData.slug);
+              if (!inList && lungeSlotEx.exData.movement_pattern !== "lunge") {
+                // It's OK if it's an actual lunge-pattern exercise, but if it's a squat fallback, it must be from the list
+                if (lungeSlotEx.exData.movement_pattern === "squat") {
+                  fail(`${spec.id} day ${day.dayIndex} (${entry.label}): lunge slot (template slot ${lungeSlotIndex}) has ${lungeSlotEx.name} at orderIndex ${lungeSlotEx.orderIndex} (not in PAST_KNEE_LUNGE_EXERCISES)`);
+                }
+              }
+            }
           }
         }
       }

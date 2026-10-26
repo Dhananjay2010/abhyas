@@ -135,7 +135,7 @@ run_mutant "9. Chest push with run release: allow for past knee" "$PAST_KNEE" \
 
 run_mutant "10. Jump guard: lower-body check disabled" "$PAST_KNEE" \
   'const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m));' \
-  'const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m)) && false;' "$B"
+  'const hasLowerBodyPrimary = ex.primary_muscles.some(m => lowerBodyMuscles.has(m)) && false;' test:past-knee-jump-guard "$B"
 
 run_mutant "11. Current knee only: skip exclusions in swap ranking" "$ALT" \
   '(hasKneeInjury && (isExcludedForCurrentKneeOnly(candidate) || isExcludedForPastKnee(candidate)))' \
