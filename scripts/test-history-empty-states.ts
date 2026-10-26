@@ -47,8 +47,10 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     check("true-empty copy rendered", html.includes("No completed sessions yet"));
     const a = r.container.querySelector('a[href="/today"]');
     check("CTA link to /today", !!a && /Start today/.test(a.textContent ?? ""), a?.outerHTML.slice(0, 80));
-    check("no filtered-empty copy", !html.includes("No sessions match these filters"));
+    check("no filtered-empty copy", !html.includes("No Lifts sessions yet") && !html.includes("Switch to"));
     check("no error copy", !html.includes("Couldn't load your sessions"));
+    check("P1 old 'Nothing here yet.' line gone on true-empty", !html.includes("Nothing here yet"));
+    check("P1 no session-count line on true-empty", !/\d+ sessions?\./.test(html));
     cleanup();
   }
 
@@ -58,11 +60,28 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     pushes.length = 0;
     // @ts-expect-error - Units type simplified for testing
     const r = render(React.createElement(HistoryClient, { ...base, items: [], filter: "lifts", totalCount: 0, countsByFilter: { lifts: 0, yoga: 10, breathing: 0 } }));
-    check("filtered copy rendered", r.container.innerHTML.includes("No sessions match these filters"));
-    const btn = Array.from(r.container.querySelectorAll("button")).find(b => b.textContent === "Clear filters");
-    check("Clear filters button exists", !!btn);
+    const html2 = r.container.innerHTML;
+    check("filtered copy names the current tab", html2.includes("No Lifts sessions yet"));
+    check("P1 old 'Nothing here yet.' line gone on filtered-empty", !html2.includes("Nothing here yet"));
+    check("P2 no 'Clear filters' / 'Showing' copy", !html2.includes("Clear filters") && !html2.includes("Showing "));
+    const btn = Array.from(r.container.querySelectorAll("button")).find(b => b.textContent === "Switch to Yoga (10)");
+    check("P2 button labelled 'Switch to Yoga (10)'", !!btn, Array.from(r.container.querySelectorAll("button")).map(b => b.textContent).join(" | "));
     if (btn) fireEvent.click(btn);
     check("pushes filter=yoga with utm kept", pushes[0] === "/history?filter=yoga&utm=x", `pushed=${pushes[0]}`);
+    cleanup();
+  }
+
+  console.log("\n2b. Filtered empty (Breathing tab, lifts=3, yoga=10): label and action agree");
+  {
+    currentSearch = new URLSearchParams("filter=breathing&page=2");
+    pushes.length = 0;
+    // @ts-expect-error - Units type simplified for testing
+    const r = render(React.createElement(HistoryClient, { ...base, items: [], filter: "breathing", totalCount: 0, countsByFilter: { lifts: 3, yoga: 10, breathing: 0 } }));
+    check("filtered copy names Breathing", r.container.innerHTML.includes("No Breathing sessions yet"));
+    const btn = Array.from(r.container.querySelectorAll("button")).find(b => (b.textContent ?? "").startsWith("Switch to"));
+    check("P2 label is 'Switch to Lifts (3)'", btn?.textContent === "Switch to Lifts (3)", btn?.textContent ?? "none");
+    if (btn) fireEvent.click(btn);
+    check("P2 click goes to the tab the label names (lifts), page dropped", pushes[0] === "/history?filter=lifts", `pushed=${pushes[0]}`);
     cleanup();
   }
 
@@ -74,6 +93,7 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     check("error copy rendered", html.includes("Couldn't load your sessions"));
     check("no CTA", !html.includes('href="/today"'));
     check("banner shown", html.includes("Couldn't load some stats"));
+    check("P1 old 'Nothing here yet.' line gone on error", !html.includes("Nothing here yet"));
     cleanup();
   }
 
@@ -89,7 +109,8 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     const r = render(React.createElement(HistoryClient, { ...base, items, filter: "lifts", totalCount: 1, countsByFilter: { lifts: 1, yoga: 0, breathing: 0 } }));
     const html = r.container.innerHTML;
     check("session rendered", html.includes("Upper A"));
-    check("no empty copy", !html.includes("No completed sessions yet") && !html.includes("No sessions match"));
+    check("no empty copy", !html.includes("No completed sessions yet") && !html.includes("sessions yet</p>"));
+    check("count line kept above a list ('1 session.')", html.includes("1 session."));
     cleanup();
   }
 

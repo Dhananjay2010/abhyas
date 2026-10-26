@@ -115,14 +115,12 @@ export function HistoryClient({
         </p>
       )}
 
-      {/* Session count */}
-      <p className="mt-4 text-sm text-muted">
-        {totalCount === 0
-          ? "Nothing here yet."
-          : totalCount === 1
-            ? "1 session."
-            : `${totalCount} sessions.`}
-      </p>
+      {/* Session count (only above a list; the empty-state cards carry their own copy) */}
+      {emptyState === "populated" && (
+        <p className="mt-4 text-sm text-muted">
+          {totalCount === 1 ? "1 session." : `${totalCount} sessions.`}
+        </p>
+      )}
 
       {/* Session list */}
       {emptyState === "error" ? (
@@ -149,9 +147,9 @@ export function HistoryClient({
           ) ?? filter;
           return (
             <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
-              <p className="text-sm font-medium text-fg">No sessions match these filters</p>
+              <p className="text-sm font-medium text-fg">No {FILTER_LABELS[filter]} sessions yet</p>
               <p className="mt-2 text-sm text-muted">
-                Try selecting a different filter to see your other sessions.
+                Your completed sessions are under another tab.
               </p>
               <button
                 onClick={() => {
@@ -162,11 +160,8 @@ export function HistoryClient({
                 }}
                 className="mt-4 inline-block rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-fg transition-colors hover:border-muted/50"
               >
-                Clear filters
+                Switch to {FILTER_LABELS[target]} ({countsByFilter[target]})
               </button>
-              <p className="mt-2 text-xs text-muted">
-                Showing {FILTER_LABELS[target]} ({countsByFilter[target]})
-              </p>
             </div>
           );
         })() : (

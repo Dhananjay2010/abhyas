@@ -65,6 +65,7 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     check("CTA /today", html.includes('href="/today"'));
     check("no stat tiles", !html.includes("Best streak"));
     check("Log weight control available", html.includes("Body weight"), "LogWeight hidden");
+    check("zero weigh-ins copy (P4)", html.includes("Weigh-ins on two different days will show a trend"), "old 'Two data points' copy");
   }
 
   fake = { profile: strengthProfile, tables: { body_metrics: [{ recorded_on: "2026-10-20", weight_kg: 81.4 }] }, rpc: emptyRpc };
@@ -73,7 +74,8 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     check("empty state shown (no session data)", html.includes("No progress data yet"));
     check("zero stat tiles NOT shown", !html.includes("Best streak"), "shows zero tiles");
     check("single body-weight value shown (81.4)", html.includes("81.4"), "value not rendered");
-    check("weigh-in hint copy", /Log another weigh-in to see a trend/.test(html));
+    check("weigh-in hint copy (P4: one weigh-in per day)", /Weigh in on another day to see a trend/.test(html), "old 'Log another weigh-in' copy");
+    check("old weigh-in hint gone", !/Log another weigh-in/.test(html));
     check("no <svg> in single-point", !html.match(/<p[^>]*81\.4[\s\S]{0,100}<svg/), "svg rendered for 1 point");
   }
 
@@ -114,6 +116,43 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     const html = await renderProgress(`P6: new strength member, ${t} query fails`);
     check(`${t} error: empty state suppressed`, !html.includes("No progress data yet"));
     check(`${t} error: banner shown`, html.includes("Couldn&#x27;t load") || html.includes("Couldn't load"), "error hidden");
+  }
+
+  // QA1 P3: a strength member whose completed yoga sessions predate the current
+  // (non-superseded) block. History lists them, so Progress must not say "No progress data yet".
+  const p3Program = [{ id: "p1", started_on: "2026-10-22", ends_on: "2026-11-18", ended_on: null, created_at: "2026-10-22T00:00:00Z" }];
+  const p3Days = [1, 2, 3, 4, 5, 6, 7].map((d) => ({ program_id: "p1", day_index: d, day_type: d % 2 ? "weights" : "rest" }));
+  fake = {
+    profile: strengthProfile,
+    tables: {
+      programs: p3Program, program_days: p3Days,
+      sessions: [
+        { id: "y2", local_date: "2026-10-12", status: "completed", actual_type: "yoga", is_deload: false, duration_seconds: 1800 },
+        { id: "y1", local_date: "2026-10-10", status: "completed", actual_type: "yoga", is_deload: false, duration_seconds: 1800 },
+      ],
+    },
+    rpc: { progress_summary: { days_trained: 0, local_dates: [], total_volume_kg: 0, session_count: 0 }, get_session_set_counts: [] },
+  };
+  {
+    const html = await renderProgress("P7: strength member, 2 completed yoga sessions before the current block");
+    check("P3 empty state NOT shown (History lists these sessions)", !html.includes("No progress data yet"), "block-scoped empty check");
+    check("P3 stat tiles shown", html.includes("Best streak"));
+  }
+
+  fake = {
+    profile: strengthProfile,
+    tables: {
+      programs: p3Program, program_days: p3Days,
+      sessions: [
+        { id: "k1", local_date: "2026-10-23", status: "skipped", actual_type: "weights", is_deload: false, duration_seconds: null },
+        { id: "a1", local_date: "2026-10-24", status: "abandoned", actual_type: "yoga", is_deload: false, duration_seconds: null },
+      ],
+    },
+    rpc: emptyRpc,
+  };
+  {
+    const html = await renderProgress("P8: strength member, only skipped/abandoned sessions");
+    check("P3 empty state still shown when nothing was completed", html.includes("No progress data yet"));
   }
 
   console.log("\n5. Charts with 1 point render SinglePoint");

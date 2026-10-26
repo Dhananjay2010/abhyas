@@ -254,10 +254,16 @@ export default async function ProgressPage() {
   // Check if member has any strength data (to decide whether to show volume/strength sections)
   const hasStrengthData = volumeRows.length > 0 || (strengthRes.data ?? []).length > 0;
 
-  // Check if we have session data to decide empty state (K3)
-  const hasSessionData = isYogaOrBreathing
-    ? (!!yogaStats && yogaStats.sessionsAllTime > 0) || hasStrengthData
-    : streaks.totalSessions > 0 || volumeRows.length > 0 || (strengthRes.data ?? []).length > 0;
+  // Empty state (K3, QA1 P3): same scope as History. Any completed session of a
+  // type History lists counts, whether or not it falls inside a current
+  // (non-superseded) program block. streaks.totalSessions is block-scoped, so a
+  // strength member whose yoga sessions predate the current plan used to see
+  // "No progress data yet" while History listed those sessions.
+  const HISTORY_TYPES = new Set(["weights", "bodyweight", "yoga", "meditation"]);
+  const hasAnyCompletedSession = (sessionsRes.data ?? []).some(
+    (s) => s.status === "completed" && HISTORY_TYPES.has(s.actual_type || "weights"),
+  );
+  const hasSessionData = hasAnyCompletedSession || hasStrengthData;
   
   const anyLoadError = progressQueryFailed || !!setCountsError || yogaStatsError
     || !!weightsRes.error || !!volumeRes.error || !!strengthRes.error || !!sessionsRes.error;
@@ -411,14 +417,14 @@ export default async function ProgressPage() {
           </p>
         ) : weightPoints.length === 0 ? (
           <p className="mb-4 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-            Log your weight below to start tracking. Two data points will show a trend.
+            Log your weight below to start tracking. Weigh-ins on two different days will show a trend.
           </p>
         ) : (
           <LineChart 
             points={weightPoints} 
             unit="kg" 
             title="Body weight"
-            singlePointHint="Log another weigh-in to see a trend"
+            singlePointHint="Weigh in on another day to see a trend"
           />
         )}
         <LogWeight current={latestWeight} />

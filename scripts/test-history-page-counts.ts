@@ -38,7 +38,9 @@ function check(l: string, ok: boolean) { if (!ok) failures++; console.log(`  ${o
   const r = async (filter?: string) => renderToStaticMarkup(await HistoryPage({ searchParams: Promise.resolve(filter ? { filter } : {}) }) as import("react").ReactElement);
   counts = { lifts: 0, yoga: 10, breathing: 0 };
   let h = await r("lifts");
-  check("H1 lifts=0, yoga=10 -> filtered-empty reached at page level", h.includes("No sessions match these filters"));
+  check("H1 lifts=0, yoga=10 -> filtered-empty reached at page level", h.includes("No Lifts sessions yet"));
+  check("H1 switch button uses the per-tab count", h.includes("Switch to Yoga (10)"));
+  check("H1 no 'Nothing here yet.' above the card", !h.includes("Nothing here yet"));
   check("H1 not true-empty", !h.includes("No completed sessions yet"));
   counts = {}; h = await r();
   check("H2 all zero -> true-empty with /today CTA", h.includes("No completed sessions yet") && h.includes('href="/today"'));

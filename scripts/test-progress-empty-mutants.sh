@@ -32,5 +32,21 @@ test_mutant 17 "BarChart single point -> if (false)" literal "$C" \
 test_mutant 18 "LineChart singlePointHint default changed" regex "$C" \
   '(export function LineChart[\s\S]*?singlePointHint = )"Log another session to see a trend"' '\1"Different text"'
 
+# QA1 P3: empty check uses the same scope as History (any completed session)
+test_mutant_pinned 19 "P3: empty check back to block-scoped streaks.totalSessions" literal "$P" \
+  'const hasSessionData = hasAnyCompletedSession || hasStrengthData;' \
+  'const hasSessionData = streaks.totalSessions > 0 || hasStrengthData;' "P3 empty state NOT shown"
+test_mutant_pinned 20 "P3: hasAnyCompletedSession ignores status" literal "$P" \
+  '(s) => s.status === "completed" && HISTORY_TYPES' '(s) => HISTORY_TYPES' "P3 empty state still shown"
+test_mutant_pinned 21 "P3: hasAnyCompletedSession forced false" literal "$P" \
+  'const hasSessionData = hasAnyCompletedSession || hasStrengthData;' \
+  'const hasSessionData = false || hasStrengthData;' "P3 empty state NOT shown"
+# QA1 P4: copy for one weigh-in per day
+test_mutant_pinned 22 "P4: old one-point weigh-in hint" literal "$P" \
+  'singlePointHint="Weigh in on another day to see a trend"' 'singlePointHint="Log another weigh-in to see a trend"' "weigh-in hint copy"
+test_mutant_pinned 23 "P4: old zero-weigh-in copy" literal "$P" \
+  'Weigh-ins on two different days will show a trend.' 'Two data points will show a trend.' "zero weigh-ins copy"
+
+pin_self_test "$P" 'singlePointHint="Weigh in on another day to see a trend"' 'singlePointHint="x"'
 crash_self_test "$P" 'const showSessionsEmpty = !hasSessionData && !anyLoadError;'
 mutant_summary

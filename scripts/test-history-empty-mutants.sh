@@ -25,5 +25,18 @@ test_mutant 7 'page.tsx countsError forced to false' literal "$P" \
 test_mutant 8 'page.tsx count parse forced to 0' literal "$P" \
   'Number((countRes[i].data as { total_count: number }[] | null)?.[0]?.total_count ?? 0)' '0'
 
+# QA1 P1/P2 (copy and labels), each pinned to the assertion written for it
+test_mutant_pinned 9 "P1: count line shown on empty states again" literal "$C" \
+  '{emptyState === "populated" && (' '{true && (' 'P1 no session-count line'
+test_mutant_pinned 10 "P2: button names the current tab instead of the target" literal "$C" \
+  'Switch to {FILTER_LABELS[target]}' 'Switch to {FILTER_LABELS[filter]}' "P2 button labelled|P2 label is"
+test_mutant_pinned 11 "P2: button count from the current tab" literal "$C" \
+  '({countsByFilter[target]})' '({countsByFilter[filter]})' "P2 button labelled|P2 label is|H1 switch button"
+test_mutant_pinned 12 "P2: heading names the target tab" literal "$C" \
+  'No {FILTER_LABELS[filter]} sessions yet' 'No {FILTER_LABELS[target]} sessions yet' "filtered copy names"
+test_mutant_pinned 13 "P2: old 'Clear filters' label restored" literal "$C" \
+  'Switch to {FILTER_LABELS[target]} ({countsByFilter[target]})' 'Clear filters' "P2 "
+
+pin_self_test "$C" 'Switch to {FILTER_LABELS[target]}' 'Switch to {FILTER_LABELS[filter]}'
 crash_self_test "$E" 'if (hasErrors) return "error";'
 mutant_summary

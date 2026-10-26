@@ -8,13 +8,16 @@
 #   EXIT/INT/TERM, so an interrupted run never leaves a mutated source behind.
 # - Only files this run backed up are restored.
 # - Classification: exit 0 = SURVIVED; exit 1 with FAIL lines and no crash = KILLED; anything else
-#   (crash, non-1 exit, no FAIL line) = ERROR. SURVIVED and ERROR both make the script exit non-zero.
+#   (crash, non-1 exit, no FAIL line) = ERROR. A pinned mutant (test_mutant_pinned) killed only by
+#   FAIL lines that don't match its pin = WRONG-ASSERTION. Anything but the expected verdict makes the
+#   script exit non-zero.
 
 MUTANT_WORK=$(mktemp -d)
 MUTANT_FILES=()
 MUTANT_TESTS=()
 MUTANT_BAD=0
 MUTANT_KILLED=0
+MUTANT_PIN=""
 
 mutant_restore() {
   local i
@@ -49,13 +52,19 @@ mutant_run_tests() {
   done
 }
 
-# Prints SURVIVED, KILLED or ERROR for the last run.
+# Prints SURVIVED, KILLED, WRONG-ASSERTION or ERROR for the last run.
+# When MUTANT_PIN is set (see test_mutant_pinned), a KILLED run must also have a FAIL line
+# matching that extended regex; otherwise it is WRONG-ASSERTION (killed for the wrong reason).
 mutant_classify() {
   local log=$1
   if [ "$MUTANT_RC" -eq 0 ]; then echo SURVIVED
   elif [ "$MUTANT_RC" -eq 1 ] && grep -qE '^[[:space:]]*FAIL[[:space:]]' "$log" \
        && ! grep -qE '(Test error:|TransformError|SyntaxError|ReferenceError|TypeError|Cannot find module)' "$log"; then
-    echo KILLED
+    if [ -n "$MUTANT_PIN" ] && ! grep -E '^[[:space:]]*FAIL[[:space:]]' "$log" | grep -qE -- "$MUTANT_PIN"; then
+      echo WRONG-ASSERTION
+    else
+      echo KILLED
+    fi
   else echo ERROR
   fi
 }
@@ -108,11 +117,28 @@ test_mutant() {
   fi
 }
 
+# test_mutant_pinned <id> <desc> <mode> <file> <find> <replace> <fail-regex>
+# Like test_mutant, but the kill only counts if a FAIL line matches <fail-regex> (ERE),
+# so the mutant is caught by the assertion written for it, not by an unrelated one.
+test_mutant_pinned() {
+  MUTANT_PIN=$7
+  test_mutant "$1" "$2" "$3" "$4" "$5" "$6"
+  MUTANT_PIN=""
+}
+
 # Self-tests: a syntax error and a silent non-1 exit must both be classified ERROR, never KILLED.
 crash_self_test() {
   local file=$1 anchor=$2
   test_mutant crash-syntax "self-test: syntax error is ERROR" literal "$file" "$anchor" "const = ; $anchor" ERROR
   test_mutant crash-exit "self-test: silent process.exit(3) is ERROR" literal "$file" "$anchor" "process.exit(3); $anchor" ERROR
+}
+
+# Self-test for pinning: a real kill whose FAIL lines don't match the pin must not count.
+pin_self_test() {
+  local file=$1 find=$2 replace=$3
+  MUTANT_PIN='this assertion name does not exist'
+  test_mutant pin-wrong "self-test: kill by an unpinned assertion is WRONG-ASSERTION" literal "$file" "$find" "$replace" WRONG-ASSERTION
+  MUTANT_PIN=""
 }
 
 mutant_summary() {
