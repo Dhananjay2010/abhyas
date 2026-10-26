@@ -711,6 +711,19 @@ async function runTests() {
   }
 
   console.log("\n✅ All tests passed\n");
+
+  // Cleanup: Delete test users
+  console.log("Cleaning up test users...");
+  try {
+    await adminClient.auth.admin.deleteUser(userIdA);
+    await adminClient.auth.admin.deleteUser(userIdB);
+    await adminClient.auth.admin.deleteUser(userIdMemberC);
+    await adminClient.auth.admin.deleteUser(userIdStaffD);
+    console.log("✓ Test users deleted\n");
+  } catch (err) {
+    console.error("⚠️  Failed to delete test users:", err);
+  }
+
   return true;
 }
 
