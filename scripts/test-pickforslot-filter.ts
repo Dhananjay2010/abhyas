@@ -1,101 +1,132 @@
 #!/usr/bin/env npx tsx
 /**
- * Mutant 1 killer: Direct test of pickForSlot knee-risk filter.
- * Tests that past-knee users cannot pick knee-risk exercises in non-squat slots,
- * while non-knee users can pick them normally.
+ * Mutant 1 killer: Test that pickForSlot knee-risk filter works.
+ * Generate real programs with thrusters/jumps in the pool and verify:
+ * - Past-knee users never get knee-risk exercises outside slot 0
+ * - Non-knee users CAN get them (proves the pool exercises the filter)
  */
 
 import { readFileSync } from "fs";
-import type { CandidateExercise } from "../src/lib/program/generate";
+import {
+  generateProgram,
+  type CandidateExercise,
+  type GeneratorInput,
+} from "../src/lib/program/generate";
 import { isKneeRiskForKneeUser } from "../src/lib/program/knee-safety";
 
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
 );
 
-// Find a knee-risk exercise (e.g., bodyweight-squat, goblet-squat)
-const kneeRiskExercise = catalogue.find(ex => 
-  ex.slug === "bodyweight-squat" && 
-  ex.movement_pattern === "squat"
-);
+const byId = new Map(catalogue.map(ex => [ex.id, ex]));
 
-if (!kneeRiskExercise) {
-  console.error("✗ FAIL: Could not find bodyweight-squat in catalogue");
+// Verify pool contains knee-risk exercises
+const bodyweightSquat = catalogue.find(ex => ex.slug === "bodyweight-squat");
+if (!bodyweightSquat || !isKneeRiskForKneeUser(bodyweightSquat, true)) {
+  console.error("✗ FAIL: bodyweight-squat not found or not knee-risk");
   process.exit(1);
 }
 
-// Verify it's actually knee-risk for past-knee users
-if (!isKneeRiskForKneeUser(kneeRiskExercise, true)) {
-  console.error("✗ FAIL: bodyweight-squat should be knee-risk for past-knee users");
-  process.exit(1);
+let failures = 0;
+
+// Test past-knee profiles: intermediate, beginner, varying equipment
+const pastKneeProfiles: Array<{
+  id: string;
+  level: "beginner" | "intermediate" | "expert";
+  days: number;
+  minutes: number;
+  equipment: string[];
+}> = [
+  { id: "pk-int-4d-60m-full", level: "intermediate", days: 4, minutes: 60, equipment: [] },
+  { id: "pk-beg-3d-45m-bw", level: "beginner", days: 3, minutes: 45, equipment: [] },
+  { id: "pk-int-5d-75m-bar", level: "intermediate", days: 5, minutes: 75, equipment: ["barbell"] },
+];
+
+for (const profile of pastKneeProfiles) {
+  const input: GeneratorInput = {
+    userId: `test-${profile.id}`,
+    blockNumber: 1,
+    goal: "muscle_gain",
+    level: profile.level,
+    primaryTrack: profile.equipment.length === 0 ? "bodyweight" : "weights",
+    daysPerWeek: profile.days,
+    yogaDaysPerWeek: 0,
+    age: 30,
+    bmi: 22,
+    hasAllEquipment: profile.equipment.length === 0,
+    equipmentIds: profile.equipment,
+    anyKneeInjury: true,
+    currentInjuryRegions: [],
+    catalogue,
+  };
+
+  const program = generateProgram(input);
+  let kneeRiskOutsideSlot0 = 0;
+
+  for (const day of program.days) {
+    if (day.dayType === "rest") continue;
+    
+    for (const ex of day.exercises) {
+      const exercise = byId.get(ex.exerciseId);
+      if (!exercise) continue;
+      
+      if (ex.orderIndex !== 0 && isKneeRiskForKneeUser(exercise, true)) {
+        console.error(`✗ ${profile.id} day ${day.dayIndex} slot ${ex.orderIndex}: ${ex.name} (knee-risk outside slot 0)`);
+        kneeRiskOutsideSlot0++;
+        failures++;
+      }
+    }
+  }
+
+  if (kneeRiskOutsideSlot0 === 0) {
+    console.log(`✓ ${profile.id}: No knee-risk exercises outside slot 0`);
+  }
 }
 
-// Test 1: Past-knee user in non-squat slot (e.g., accessory slot 4)
-// This exercises the pickForSlot filter at line 771-780
-// When Mutant 1 changes hasPastKnee to false, this filter is disabled
-const pastKneeInput: {
-  anyKneeInjury: boolean;
-  currentInjuryRegions: string[];
-  level: "intermediate";
-  primaryTrack: "full_gym";
-  hasAllEquipment: boolean;
-  equipmentIds: string[];
-} = {
-  anyKneeInjury: true,
-  currentInjuryRegions: [],
+// Control: non-knee user CAN get knee-risk exercises (proves pool is tested)
+const nonKneeInput: GeneratorInput = {
+  userId: "test-non-knee-control",
+  blockNumber: 1,
+  goal: "muscle_gain",
   level: "intermediate",
-  primaryTrack: "full_gym",
-  hasAllEquipment: true,
+  primaryTrack: "bodyweight",
+  daysPerWeek: 4,
+  yogaDaysPerWeek: 0,
+  age: 30,
+  bmi: 22,
+  hasAllEquipment: false,
   equipmentIds: [],
-};
-
-const nonKneeInput: {
-  anyKneeInjury: boolean;
-  currentInjuryRegions: string[];
-  level: "intermediate";
-  primaryTrack: "full_gym";
-  hasAllEquipment: boolean;
-  equipmentIds: string[];
-} = {
   anyKneeInjury: false,
   currentInjuryRegions: [],
-  level: "intermediate",
-  primaryTrack: "full_gym",
-  hasAllEquipment: true,
-  equipmentIds: [],
+  catalogue,
 };
 
-// Simulate the pickForSlot logic for a non-squat slot (slot 4, accessory)
-const slotIndex: number = 4;
-const isFallback: boolean = false;
+const nonKneeProgram = generateProgram(nonKneeInput);
+let foundKneeRiskInNonKnee = false;
 
-// For past-knee users, the filter at line 772-775 should exclude knee-risk exercises
-const hasPastKnee = pastKneeInput.anyKneeInjury && !pastKneeInput.currentInjuryRegions.includes("knee");
-
-if (hasPastKnee && (isFallback || slotIndex !== 0)) {
-  // This is the exact logic from pickForSlot
-  const shouldBeFiltered = isKneeRiskForKneeUser(kneeRiskExercise, true);
-  
-  if (!shouldBeFiltered) {
-    console.error("✗ FAIL: Past-knee filter should exclude bodyweight-squat in non-squat slot");
-    process.exit(1);
+for (const day of nonKneeProgram.days) {
+  if (day.dayType === "rest") continue;
+  for (const ex of day.exercises) {
+    const exercise = byId.get(ex.exerciseId);
+    if (exercise && isKneeRiskForKneeUser(exercise, true)) {
+      foundKneeRiskInNonKnee = true;
+      break;
+    }
   }
-  
-  console.log("✓ Past-knee user: bodyweight-squat excluded in slot 4 (accessory)");
+  if (foundKneeRiskInNonKnee) break;
+}
+
+if (foundKneeRiskInNonKnee) {
+  console.log("✓ Non-knee user: knee-risk exercises present (pool is tested)");
 } else {
-  console.error("✗ FAIL: Test setup error - hasPastKnee should be true");
+  console.error("✗ Non-knee control: no knee-risk exercises found (pool may not exercise filter)");
+  failures++;
+}
+
+if (failures > 0) {
+  console.error(`\n✗ ${failures} assertion(s) failed`);
   process.exit(1);
 }
 
-// Test 2: Non-knee user can pick it normally (no filter applied)
-const hasNonKnee = !nonKneeInput.anyKneeInjury;
-if (hasNonKnee) {
-  // For non-knee users, no filter is applied, so the exercise is allowed
-  console.log("✓ Non-knee user: bodyweight-squat allowed in slot 4");
-} else {
-  console.error("✗ FAIL: Test setup error - hasNonKnee should be true");
-  process.exit(1);
-}
-
-console.log("✓ pickForSlot filter test passed (Mutant 1 killer)");
+console.log("\n✓ pickForSlot filter test passed (Mutant 1 killer)");
 process.exit(0);
