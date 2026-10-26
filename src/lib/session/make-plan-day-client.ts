@@ -27,6 +27,7 @@ export function createPlanDayDbOps(
       const { data, error } = await supabase
         .from("programs")
         .select("id, started_on, deload_week, week_offset")
+        .eq("status", "active")
         .maybeSingle();
       return { program: data, error: error?.message ?? null };
     },
