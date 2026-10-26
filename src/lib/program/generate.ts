@@ -1859,9 +1859,20 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         // Strategy 3: Add another accessory exercise
         // PART B: exclude knee-risk for PAST knee users (Brief knee-volume)
+        // MED-2: For past-knee users on lower-body days, prioritize hip-dominant work
         const accessoryPatterns = entry.slots.slice(-2); // Last 2 patterns
         if (accessoryPatterns.length > 0) {
-          const pattern = accessoryPatterns[exercises.length % accessoryPatterns.length];
+          const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
+          let pattern = accessoryPatterns[exercises.length % accessoryPatterns.length];
+          
+          // MED-2: For past-knee lower/full days, prioritize hinge pattern (hip-dominant work)
+          if (hasPastKneeM3 && isLowerOrFullDay && pattern !== "hinge") {
+            // Try hinge first if available
+            if (entry.slots.includes("hinge") || accessoryPatterns.includes("hinge")) {
+              pattern = "hinge";
+            }
+          }
+          
           let candidates = pool
             .filter((e) => 
               e.movement_pattern === pattern &&
@@ -1872,6 +1883,27 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           
           if (hasPastKneeM3) {
             candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+            
+            // MED-2: Further prioritize specific hip-dominant exercises
+            // (hip thrust, glute bridge, RDL variants, hamstring curl)
+            const hipDominantSlugs = [
+              'barbell-hip-thrust',
+              'hip-thrust',
+              'glute-bridge',
+              'barbell-glute-bridge',
+              'single-leg-glute-bridge',
+              'romanian-deadlift',
+              'dumbbell-romanian-deadlift',
+              'single-leg-romanian-deadlift',
+              'lying-leg-curls',
+              'seated-leg-curl',
+              'standing-leg-curls',
+              'ball-leg-curl',
+            ];
+            const hipDominantCandidates = candidates.filter(e => hipDominantSlugs.includes(e.slug));
+            if (hipDominantCandidates.length > 0) {
+              candidates = hipDominantCandidates;
+            }
           }
           
           candidates = candidates.sort((a, b) => 
