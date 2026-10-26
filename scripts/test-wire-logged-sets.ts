@@ -78,7 +78,7 @@ const loggedSetsData = [
 ];
 
 // Wire logged sets using REAL wireLoggedSets
-wireLoggedSets(rows as any, loggedSetsData, "metric");
+wireLoggedSets(rows as unknown as Parameters<typeof wireLoggedSets>[0], loggedSetsData, "metric");
 
 // Verify wiring
 if (!rows[0].loggedSets) {
