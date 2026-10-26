@@ -24,6 +24,7 @@ const BLANK: InitialState = {
   hasAllEquipment: false,
   equipmentIds: [],
   injuries: [],
+  units: "metric",
 };
 
 const ok = async () => ({ ok: true }) as const;

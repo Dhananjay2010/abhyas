@@ -152,6 +152,10 @@ export async function updateSetCore(
   weightKg: number | null,
   durationSeconds: number | null
 ): Promise<UpdateSetResult> {
+  // Fetch user's units preference
+  const { getProfileUnits } = await import("@/lib/get-profile-units");
+  const units = await getProfileUnits(supabase, userId);
+  
   // Import validation functions
   const {
     validateReps,
@@ -166,7 +170,7 @@ export async function updateSetCore(
   }
 
   // Validate weight
-  const weightValidation = validateWeightKg(weightKg);
+  const weightValidation = validateWeightKg(weightKg, units);
   if (!weightValidation.valid) {
     return { success: false, error: weightValidation.error };
   }

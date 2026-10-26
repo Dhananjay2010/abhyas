@@ -73,6 +73,7 @@ async function main() {
     bodyweightPrompt: BodyweightPrompt;
     timezone: string | null;
     dateOfBirth: string | null;
+    units: "metric" | "imperial";
   }
 
   const q = (name: string) => 
@@ -119,6 +120,7 @@ async function main() {
       bodyweightPrompt: "never",
       timezone: "America/New_York",
       dateOfBirth: "1985-11-03",
+      units: "metric",
     };
 
     const equipment: { id: string; name: string; category: string }[] = [];
@@ -204,6 +206,7 @@ async function main() {
       bodyweightPrompt: "never",
       timezone: "America/New_York",
       dateOfBirth: "1985-11-03",
+      units: "metric",
     };
 
     const equipment: { id: string; name: string; category: string }[] = [];
@@ -276,6 +279,7 @@ async function main() {
       bodyweightPrompt: "never",
       timezone: "America/New_York",
       dateOfBirth: "1985-11-03",
+      units: "metric",
     };
 
     const equipment: { id: string; name: string; category: string }[] = [];
