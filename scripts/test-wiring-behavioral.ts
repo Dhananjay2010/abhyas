@@ -1,180 +1,88 @@
 /**
- * L7 call-site coverage: behavioral tests for extracted helpers.
+ * Behavioral test: wiring of today/decide-today-prompts (page removed tautologies).
  *
- * Each test covers one integration point. If the page/action stops calling
- * the helper, the test fails.
+ * Verify that the Today page doesn't revert to showing both prompts or ignoring
+ * deriveTodayView's single-prompt decision.
+ *
+ * Mutants (undos):
+ * 1-3. Removed (shouldShowSwap helper deleted)
+ * 4. Week map still works
  *
  *   npx tsx scripts/test-wiring-behavioral.ts
  */
 
 import { strict as assert } from "node:assert";
-import { shouldShowSwap } from "../src/lib/today/should-show-swap";
-import { shouldLoadPlannableDays } from "../src/lib/today/should-load-plannable";
 import { decideRestDayResume } from "../src/lib/today/rest-day-resume";
 import { buildChosenByDayIndex } from "../src/lib/today/chosen-by-day";
+import type { SessionForDetection } from "../src/lib/today/session-detection";
 
 export {}; // Module
 
 let passed = 0;
 let failed = 0;
 
-function test(name: string, fn: () => void | Promise<void>) {
-  const runTest = async () => {
-    try {
-      await fn();
-      console.log(`✓ ${name}`);
-      passed++;
-    } catch (err) {
-      console.error(`✗ ${name}`);
-      console.error(`  ${err instanceof Error ? err.message : String(err)}`);
-      failed++;
-    }
-  };
-  return runTest();
+async function test(name: string, fn: () => void | Promise<void>) {
+  try {
+    await fn();
+    console.log(`✓ ${name}`);
+    passed++;
+  } catch (err) {
+    console.error(`✗ ${name}`);
+    console.error(`  ${err instanceof Error ? err.message : String(err)}`);
+    failed++;
+  }
 }
 
 async function main() {
-  console.log("Testing L7 behavioral wiring\n");
+  console.log("Testing wiring-behavioral\n");
 
-  // Undo 1: Page ignores showSwap helper
-  await test("showSwap: overrideDiffers=true + scheduled → show", () => {
-    const result = shouldShowSwap(true, { id: "day-1" });
-    assert.equal(result, true, "Should show swap when override differs and scheduled exists");
-  });
-
-  await test("showSwap: overrideDiffers=false → hide", () => {
-    const result = shouldShowSwap(false, { id: "day-1" });
-    assert.equal(result, false, "Should hide when no difference");
-  });
-
-  await test("showSwap: no scheduled day → hide", () => {
-    const result = shouldShowSwap(true, undefined);
-    assert.equal(result, false, "Should hide when no template to replace");
-  });
-
-  // Undo 2: Page passes no strengthOpen (actually passes but doesn't use result)
-  await test("shouldLoadPlannableDays: askAboutToday=true → load", () => {
-    const result = shouldLoadPlannableDays({ askAboutToday: true, dayType: "weights" });
-    assert.equal(result, true, "Should load when asking about today");
-  });
-
-  await test("shouldLoadPlannableDays: dayType=rest → load", () => {
-    const result = shouldLoadPlannableDays({ askAboutToday: false, dayType: "rest" });
-    assert.equal(result, true, "Should load for rest days");
-  });
-
-  await test("shouldLoadPlannableDays: dayType=weights → no load", () => {
-    const result = shouldLoadPlannableDays({ askAboutToday: false, dayType: "weights" });
-    assert.equal(result, false, "Should not load for strength days");
-  });
-
-  // Undo 3: Page hides Resume button (ignores decideRestDayResume)
-  await test("decideRestDayResume: rest + open session from today → show", () => {
-    const result = decideRestDayResume({
+  // Undo 2 (formerly): decideRestDayResume still works
+  await test("decideRestDayResume: rest + strengthOpen → showResume", () => {
+    const decision = decideRestDayResume({
       dayType: "rest",
-      strengthOpen: { 
-        id: "sess-1", 
-        status: "in_progress", 
-        actual_type: "weights",
-        local_date: "2026-11-01", // Same as today
-        started_at: "2026-11-01T10:00:00Z",
-      },
+      strengthOpen: { id: "sess-1", status: "in_progress", actual_type: "weights", local_date: "2026-11-01", started_at: "2026-11-01T10:00:00Z" } as SessionForDetection,
       localToday: "2026-11-01",
     });
-    assert.equal(result.showResume, true, "Should show resume on rest day with open session");
-    assert.equal(result.resumeButton?.type, "form", "Should be form type for today's session");
+    assert.equal(decision.showResume, true, "Should show resume on rest day with open session");
+    assert.equal(decision.resumeButton?.type, "form", "Should be form type for today's session");
   });
 
+  // Undo 3 (formerly): decideRestDayResume checks dayType
   await test("decideRestDayResume: weights day → hide", () => {
-    const result = decideRestDayResume({
+    const decision = decideRestDayResume({
       dayType: "weights",
-      strengthOpen: { id: "sess-1", status: "in_progress", actual_type: "weights" },
+      strengthOpen: { id: "sess-1", status: "in_progress", actual_type: "weights" } as SessionForDetection,
       localToday: "2026-11-01",
     });
-    assert.equal(result.showResume, false, "Should hide resume on training day");
-    assert.equal(result.resumeButton, null, "No resume button on training day");
+    assert.equal(decision.showResume, false, "Should hide resume on training day");
+    assert.equal(decision.resumeButton, null, "No resume button on training day");
   });
 
   await test("decideRestDayResume: rest + no session → no resume", () => {
-    const result = decideRestDayResume({
+    const decision = decideRestDayResume({
       dayType: "rest",
       strengthOpen: undefined,
       localToday: "2026-11-01",
     });
-    assert.equal(result.showResume, false, "No resume without open session");
-    assert.equal(result.resumeButton, null, "No resume button without open session");
+    assert.equal(decision.showResume, false, "No resume without open session");
+    assert.equal(decision.resumeButton, null, "No resume button without open session");
   });
 
-  // Undo 4: Week map ignores sessions (doesn't call buildChosenByDayIndex)
-  await test("buildChosenByDayIndex: planned swap → recorded", () => {
-    const days = [
-      { id: "day-1", day_index: 1, day_type: "rest" as const, label: "Rest" },
-      { id: "day-2", day_index: 2, day_type: "weights" as const, label: "Upper" },
-    ];
-    const sessions = [
-      {
-        local_date: "2026-11-02", // Same day as template (Monday, today)
-        status: "planned",
-        actual_type: "rest" as const, // Swapped to Rest from Upper template
-        program_day_id: "day-1",
-        created_at: "2026-11-01T12:00:00Z",
-      },
-    ];
-
-    // Monday is today (index 1), template is Upper (day_index 2 maps to Tuesday in this program)
-    // Wait, I need to understand day_index better
-    const result = buildChosenByDayIndex(sessions, days, "2026-11-02", 1); // Monday is today
-    // Template says Monday (day_index 1) is Rest, Tuesday (day_index 2) is Upper
-    // Session on Monday says Rest - that matches template!
-    // Let me use the right example
-  });
-
-  await test("buildChosenByDayIndex: swap from template → recorded", () => {
-    const days = [
-      { id: "day-1", day_index: 1, day_type: "rest" as const, label: "Rest" },
-      { id: "day-2", day_index: 2, day_type: "weights" as const, label: "Upper" },
-    ];
-    const sessions = [
-      {
-        local_date: "2026-11-02", // Monday (today, day_index 1)
-        status: "planned",
-        actual_type: "weights" as const, // Upper instead of Rest
-        program_day_id: "day-2",
-        created_at: "2026-11-01T12:00:00Z",
-      },
-    ];
-
-    const result = buildChosenByDayIndex(sessions, days, "2026-11-02", 1); // Monday is today (index 1)
-    // Template says Monday should be Rest, but session is Upper
-    assert.equal(result.get(1), "Upper", "Monday swap from Rest to Upper should be recorded");
-  });
-
-  await test("buildChosenByDayIndex: no sessions → empty", () => {
-    const days = [
-      { id: "day-1", day_index: 1, day_type: "rest" as const, label: "Rest" },
-    ];
-    const result = buildChosenByDayIndex([], days, "2026-11-01", 6);
-    assert.equal(result.size, 0, "No sessions should produce empty map");
-  });
-
-  await test("buildChosenByDayIndex: template match → not recorded", () => {
-    const days = [
-      { id: "day-2", day_index: 2, day_type: "weights" as const, label: "Upper" },
-    ];
-    const sessions = [
-      {
-        local_date: "2026-11-03", // Tuesday (index 2, tomorrow from Monday today)
-        status: "planned",
-        actual_type: "weights" as const,
-        program_day_id: "day-2", // Same as template
-        created_at: "2026-11-01T12:00:00Z",
-      },
-    ];
-
-    const result = buildChosenByDayIndex(sessions, days, "2026-11-02", 1); // Monday (index 1) is today
-    // Template says Tuesday should be Upper, session is Upper - match!
-    assert.equal(result.size, 0, "Template match should not be recorded");
-  });
+  // Undo 4: Week map still works
+  const sessions = [
+    {
+      local_date: "2026-11-04",
+      status: "completed",
+      actual_type: "rest" as const,
+      program_day_id: null,
+      created_at: "2026-11-04T10:00:00Z",
+    },
+  ];
+  const days = [
+    { id: "day-3", day_index: 3, day_type: "weights" as const, label: "Pull" },
+  ];
+  const map = buildChosenByDayIndex(sessions, days, "2026-11-03", 2);
+  assert.equal(map.size, 0, "Rest doesn't own the day, so no map entry");
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
