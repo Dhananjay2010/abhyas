@@ -283,9 +283,9 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
-    // 6d. QA Bot 1: Remove Turkish Get-Up from squat-pattern swaps
+    // 6d. QA Bot 1: For past-knee users, remove Turkish Get-Up from squat-pattern swaps
     // Turkish Get-Up involves complex movement transitions that aren't appropriate squat swaps
-    if (current.movement_pattern === "squat" && 
+    if (hasPastKnee && current.movement_pattern === "squat" && 
         (candidate.slug === "kettlebell-turkish-get-up-lunge-style" || 
          candidate.slug === "kettlebell-turkish-get-up-squat-style")) {
       continue;
@@ -430,7 +430,7 @@ export function rankAlternatives<T extends ExerciseRow>(
   // Past-knee squat swaps: specific ordering per PR #152 follow-up
   // 1. PAST_KNEE_LUNGE_EXERCISES (spanish-squat, wall-sit, leg-extensions, single-leg-leg-extension) 
   //    in that order, filtered by equipment and excluding current
-  // 2. Then knee-safe hinge/bridge fallbacks
+  // 2. Then knee-safe hinge/bridge fallbacks (glute/hamstring primary muscles only)
   if (hasPastKnee && current.movement_pattern === "squat" && deduplicated.length > 0) {
     const quadIsolationOrder = ["spanish-squat", "wall-sit", "leg-extensions", "single-leg-leg-extension"];
     const quadIsolation: T[] = [];
@@ -439,8 +439,12 @@ export function rankAlternatives<T extends ExerciseRow>(
     for (const ex of deduplicated) {
       if (PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {
         quadIsolation.push(ex);
-      } else {
-        hingeFallbacks.push(ex);
+      } else if (ex.movement_pattern === "hinge" || ex.movement_pattern === "core") {
+        // Only include genuine hip-dominant hinges/bridges (glutes or hamstrings primary)
+        const hasHipDominantMuscle = ex.primary_muscles.some(m => m === "glutes" || m === "hamstrings");
+        if (hasHipDominantMuscle) {
+          hingeFallbacks.push(ex);
+        }
       }
     }
     

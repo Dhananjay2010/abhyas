@@ -824,6 +824,8 @@ function pickForSlot(
     
     // PART A: Knee-risk filter for SAFE_ALTERNATIVES - past knee only (Brief knee-volume)
     const hasCurrentKneeAlt = input.currentInjuryRegions.includes("knee");
+    
+    
     const hasPastKneeAlt = input.anyKneeInjury && !hasCurrentKneeAlt;
     if (hasPastKneeAlt) {
       altCandidates = altCandidates.filter((e) => !isKneeRiskForKneeUser(e, true));
@@ -1782,6 +1784,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         // Strategy 2: Add a set to main exercises (up to 5 sets max for main lifts)
         // PART B: exclude knee-risk for PAST knee users (Brief knee-volume)
+        // MED-2: For past-knee lower/full days, cap calf at 4 sets (prioritize hip-dominant work)
+        const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
         const mainExercises = exercises
           .map((ex, idx) => ({ ex, idx }))
           .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < 5)
@@ -1790,6 +1794,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             const candidate = pool.find(c => c.id === ex.exerciseId);
             // Filter out knee-risk exercises
             if (candidate && isKneeRiskForKneeUser(candidate, true)) return false;
+            // MED-2: For lower/full days, cap calf exercises at 4 sets (not 5)
+            if (isLowerOrFullDay && candidate?.movement_pattern === "calf" && ex.targetSets >= 4) return false;
             return true;
           });
         
@@ -1801,17 +1807,22 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         // Strategy 3: Add another accessory exercise
         // PART B: exclude knee-risk for PAST knee users (Brief knee-volume)
-        // MED-2: For past-knee users on lower-body days, prioritize hip-dominant work
         const accessoryPatterns = entry.slots.slice(-2); // Last 2 patterns
         if (accessoryPatterns.length > 0) {
-          const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
-          let pattern = accessoryPatterns[exercises.length % accessoryPatterns.length];
+          const pattern = accessoryPatterns[exercises.length % accessoryPatterns.length];
           
-          // MED-2: For past-knee lower/full days, prioritize hinge pattern (hip-dominant work)
-          if (hasPastKneeM3 && isLowerOrFullDay && pattern !== "hinge") {
-            // Try hinge first if available
-            if (entry.slots.includes("hinge") || accessoryPatterns.includes("hinge")) {
-              pattern = "hinge";
+          // MED-2: For past-knee lower/full days with calf capped at 4, don't add a second calf
+          // (prevents duplicate calf exercises when main calf is capped below 5)
+          const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
+          if (hasPastKneeM3 && isLowerOrFullDay && pattern === "calf") {
+            // Check if we already have a calf exercise
+            const hasCalfAlready = exercises.some(ex => {
+              const exData = pool.find(e => e.id === ex.exerciseId);
+              return exData?.movement_pattern === "calf";
+            });
+            if (hasCalfAlready) {
+              // Skip adding a second calf exercise
+              break;
             }
           }
           
@@ -1825,21 +1836,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           
           if (hasPastKneeM3) {
             candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
-            
-            // MED-2: Further prioritize hip-dominant exercises by attributes
-            // (glute/hamstring primary muscles, hinge pattern, knee-safe)
-            const hipDominantCandidates = candidates.filter(e => {
-              // Must be hinge pattern
-              if (e.movement_pattern !== "hinge") return false;
-              // Must have glutes or hamstrings as primary muscle
-              const hasHipDominantMuscle = e.primary_muscles.some(m => 
-                m === "glutes" || m === "hamstrings"
-              );
-              return hasHipDominantMuscle;
-            });
-            if (hipDominantCandidates.length > 0) {
-              candidates = hipDominantCandidates;
-            }
           }
           
           candidates = candidates.sort((a, b) => 
