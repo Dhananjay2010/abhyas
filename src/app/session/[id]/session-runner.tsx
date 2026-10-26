@@ -230,15 +230,6 @@ export function SessionRunner({
   const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
   const endingRef = useRef(false);
   const [ending, setEnding] = useState(false);
-  /*
-    Which exercise screen the "what just changed" banner belongs on.
-
-    It used to render `progressNotes[last]` unconditionally, so the note from
-    exercise one stayed on screen through exercises two, three and four -- by
-    the end of a session the banner was describing a lift two exercises ago.
-    The note is about the exercise just finished, so it belongs on exactly the
-    one screen that follows it.
-  */
   const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [bannerContent, setBannerContent] = useState<{ name: string; message: string } | null>(null);
   // "What changed for next time": exactly the banner messages finishExercise

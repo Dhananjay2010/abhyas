@@ -124,7 +124,7 @@ console.log("\n2. Ended early session: 1 of 10, pending exercise (catches w1, w2
   check("hasPR = false", item.hasPR === false, `got ${item.hasPR}`);
 }
 
-console.log("\n3. In-progress session with 0 sets (catches w3)");
+console.log("\n3. In-progress session with 0 sets and pending exercise");
 {
   const sessions: RawSessionForList[] = [
     {
@@ -142,7 +142,9 @@ console.log("\n3. In-progress session with 0 sets (catches w3)");
     },
   ];
   
-  const exercises: RawSessionExercise[] = [];
+  const exercises: RawSessionExercise[] = [
+    { id: "ex1", session_id: "s3", exercise_id: "squat", status: "pending", metric: "reps", planned_sets: 5 },
+  ];
   const sets: SessionSetForTopSet[] = [];
   const volumeData: VolumeRow[] = [];
   const setCountsBySession = new Map([["s3", 0]]);
@@ -151,8 +153,8 @@ console.log("\n3. In-progress session with 0 sets (catches w3)");
   const items = buildHistoryListItems(sessions, exercises, sets, volumeData, setCountsBySession, sessionsWithPRs, pickTopSet);
   const item = items[0];
   
-  check("status = in_progress (w3 kills this)", item.status === "in_progress", `got ${item.status}`);
-  check("endedEarly = false (no pending, status !== completed)", item.endedEarly === false, `got ${item.endedEarly}`);
+  check("status = in_progress", item.status === "in_progress", `got ${item.status}`);
+  check("endedEarly = true (pending exercise)", item.endedEarly === true, `got ${item.endedEarly}`);
   check("setCount = 0", item.setCount === 0, `got ${item.setCount}`);
 }
 
