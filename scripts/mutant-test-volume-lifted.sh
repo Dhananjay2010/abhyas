@@ -23,10 +23,9 @@ fi
 echo "✓ Baseline passed"
 echo
 
-# M1: Abbreviate with t
+# M1: Abbreviate with t - insert line after "Metric: round to nearest kg" comment
 echo "M1: Abbreviate with t"
-# Insert the abbreviation line after the comment
-sed -i '/Metric: round to nearest kg/{n;a\    if (rounded >= 10000) return `${Math.round(rounded / 1000)}t`;' -e '}' "$SRC"
+awk '/\/\/ Metric: round to nearest kg/{print; print "  if (rounded >= 10000) return \`\${Math.round(rounded / 1000)}t\`;"; next}1' "$SRC" > "$TEMP/m1.ts" && mv "$TEMP/m1.ts" "$SRC"
 cmp -s "$SRC" "$BACKUP" && echo "  ✗ M1: No change" && exit 1
 OUT=$(npx tsx scripts/test-format-volume-lifted.ts 2>&1) || true
 echo "$OUT" | grep -q "✗" || { echo "  ✗ M1: Survived"; exit 1; }
