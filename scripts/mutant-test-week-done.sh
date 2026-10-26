@@ -9,87 +9,62 @@
 set -euo pipefail
 
 TEMP=$(mktemp -d)
-trap 'CODE=$?; cp "$BACKUP" "$SRC" 2>/dev/null || true; rm -rf "$TEMP"; exit $CODE' EXIT
-trap 'cp "$BACKUP" "$SRC" 2>/dev/null || true; rm -rf "$TEMP"; exit 130' INT TERM
+trap 'CODE=$?; [ -f "$BACKUP" ] && cp "$BACKUP" "$SRC"; rm -rf "$TEMP"; exit $CODE' EXIT
+trap '[ -f "$BACKUP" ] && cp "$BACKUP" "$SRC"; rm -rf "$TEMP"; exit 130' INT TERM
 
 SRC="src/lib/today/completed-days.ts"
 BACKUP="$TEMP/completed-days.ts.bak"
 
-if [ ! -f "$SRC" ]; then
-  echo "✗ Source file $SRC not found"
-  exit 1
-fi
+[ ! -f "$SRC" ] && echo "✗ Source not found" && exit 1
 
 cp "$SRC" "$BACKUP"
 
 echo "Mutant tests for computeCompletedDays (FIX b)"
+
+# Baseline
+npx tsx scripts/test-week-done.ts >/dev/null 2>&1 || { echo "✗ Baseline failed"; exit 1; }
+echo "✓ Baseline passed"
 echo
 
-# M1: Don't mark yoga/breathing as done (only strength)
-echo "M1: Only mark strength sessions as done"
+# M1
+echo "M1: Only mark strength sessions"
 sed -i 's/if (s.status === "completed") {/if (s.status === "completed" \&\& (s.actual_type === "weights" || s.actual_type === "bodyweight")) {/' "$SRC"
-
-# Verify mutation
-if ! cmp -s "$SRC" "$BACKUP"; then
-  # Run test - must fail
-  if npx tsx scripts/test-week-done.ts >/dev/null 2>&1; then
-    echo "  ✗ M1: Test passed but should have failed (mutant survived)"
-    cp "$BACKUP" "$SRC"
-    exit 1
-  else
-    echo "  ✓ M1: Test failed as expected (mutant killed)"
-  fi
+cmp -s "$SRC" "$BACKUP" && echo "  ✗ M1: No change" && exit 1
+OUT=$(npx tsx scripts/test-week-done.ts 2>&1 || true)
+if echo "$OUT" | grep -q "✗"; then
+  echo "  ✓ M1: Killed"
+  echo "     $(echo "$OUT" | grep "✗" | head -1)"
 else
-  echo "  ✗ M1: Mutation failed to apply"
-  exit 1
+  echo "  ✗ M1: Survived" && cp "$BACKUP" "$SRC" && exit 1
 fi
-
-# Restore
 cp "$BACKUP" "$SRC"
 
-# M2: Mark in_progress as done (missing status check)
-echo "M2: Don't check status (marks in_progress as done)"
+# M2
+echo "M2: Mark in_progress"
 sed -i 's/if (s.status === "completed") {/if (true) {/' "$SRC"
-
-if ! cmp -s "$SRC" "$BACKUP"; then
-  if npx tsx scripts/test-week-done.ts >/dev/null 2>&1; then
-    echo "  ✗ M2: Test passed but should have failed (mutant survived)"
-    cp "$BACKUP" "$SRC"
-    exit 1
-  else
-    echo "  ✓ M2: Test failed as expected (mutant killed)"
-  fi
+cmp -s "$SRC" "$BACKUP" && echo "  ✗ M2: No change" && exit 1
+OUT=$(npx tsx scripts/test-week-done.ts 2>&1 || true)
+if echo "$OUT" | grep -q "✗"; then
+  echo "  ✓ M2: Killed"
+  echo "     $(echo "$OUT" | grep "✗" | head -1)"
 else
-  echo "  ✗ M2: Mutation failed to apply"
-  exit 1
+  echo "  ✗ M2: Survived" && cp "$BACKUP" "$SRC" && exit 1
 fi
-
 cp "$BACKUP" "$SRC"
 
-# M3: Return empty set (no done marking)
-echo "M3: Return empty set (no done marking)"
+# M3
+echo "M3: Return empty"
 sed -i 's/completed.add(s.local_date);/\/\/ completed.add(s.local_date);/' "$SRC"
-
-if ! cmp -s "$SRC" "$BACKUP"; then
-  if npx tsx scripts/test-week-done.ts >/dev/null 2>&1; then
-    echo "  ✗ M3: Test passed but should have failed (mutant survived)"
-    cp "$BACKUP" "$SRC"
-    exit 1
-  else
-    echo "  ✓ M3: Test failed as expected (mutant killed)"
-  fi
+cmp -s "$SRC" "$BACKUP" && echo "  ✗ M3: No change" && exit 1
+OUT=$(npx tsx scripts/test-week-done.ts 2>&1 || true)
+if echo "$OUT" | grep -q "✗"; then
+  echo "  ✓ M3: Killed"
+  echo "     $(echo "$OUT" | grep "✗" | head -1)"
 else
-  echo "  ✗ M3: Mutation failed to apply"
-  exit 1
+  echo "  ✗ M3: Survived" && cp "$BACKUP" "$SRC" && exit 1
 fi
-
 cp "$BACKUP" "$SRC"
 
-# Final check: source must be unmodified
-if ! git diff --quiet "$SRC"; then
-  echo "  ✗ Source file was not properly restored"
-  exit 1
-fi
-
+git diff --quiet "$SRC" || { echo "✗ Not restored"; exit 1; }
 echo
-echo "✅ All 3 mutants killed, source restored"
+echo "✅ All 3 mutants killed"
