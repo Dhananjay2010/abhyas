@@ -392,6 +392,7 @@ async function applyProgression(
   userId: string,
   sessionExerciseId: string,
   feel: SetFeel | null,
+  units: UnitsPreference,
 ): Promise<ProgressionFeedback | null> {
   const { data: settings } = await supabase
     .from("user_settings")
