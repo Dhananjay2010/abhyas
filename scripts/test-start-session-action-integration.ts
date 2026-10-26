@@ -84,7 +84,6 @@ async function main() {
     const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime();
     const OVER_6H_AGO = NOW_MS - (6 * 3600 * 1000 + 1000);
     const STALE_SESSION_STARTED_AT = new Date(OVER_6H_AGO).toISOString();
-    const TODAY = "2026-10-26";
     const YESTERDAY = "2026-10-25";
 
     let staleClosed = false;
@@ -210,7 +209,7 @@ async function main() {
 
   await test("buildStartSessionFullDeps wires Supabase queries correctly", async () => {
     // This is a smoke test that buildStartSessionFullDeps returns the right shape
-    const mockSupabase: any = {
+    const mockSupabase = {
       from: () => ({
         select: () => ({ 
           eq: () => ({ 
