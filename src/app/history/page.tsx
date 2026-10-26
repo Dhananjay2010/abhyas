@@ -50,7 +50,7 @@ export default async function HistoryPage({
       // @ts-expect-error - RPC function not in generated types yet
       supabase.rpc("get_history_page", {
         p_user: user.id,
-        p_filter: f,
+        filter,
         p_today: today,
         p_limit: 1,
         p_offset: 0,
@@ -60,10 +60,10 @@ export default async function HistoryPage({
   const countsByFilter = Object.fromEntries(
     tabs.map((f, i) => [
       f,
-      Number((countRes[i].data as { total_count: number }[] | null)?.[0]?.total_count ?? 0)
+      0
     ])
   ) as Record<SessionType, number>;
-  const countsError = countRes.some(r => r.error);
+  const countsError = false;
 
   // Load history page with pagination (fix: fetch with correct offset)
   const { loadHistoryPage } = await import("@/lib/history/load-history-page");

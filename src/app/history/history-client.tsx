@@ -143,35 +143,33 @@ export function HistoryClient({
             Start today&apos;s workout
           </Link>
         </div>
-      ) : emptyState === "filtered-empty" ? (
-        <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
-          <p className="text-sm font-medium text-fg">No sessions match these filters</p>
-          <p className="mt-2 text-sm text-muted">
-            Try selecting a different filter to see your other sessions.
-          </p>
-          <button
-            onClick={() => {
-              const target = (["lifts", "yoga", "breathing"] as const).find(
-                f => f !== filter && countsByFilter[f] > 0
-              ) ?? filter;
-              const params = new URLSearchParams(searchParams);
-              params.set("filter", target);
-              params.delete("page");
-              router.push(`/history?${params.toString()}`);
-            }}
-            className="mt-4 inline-block rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-fg transition-colors hover:border-muted/50"
-          >
-            Clear filters
-          </button>
-          <p className="mt-2 text-xs text-muted">
-            Showing {FILTER_LABELS[(["lifts", "yoga", "breathing"] as const).find(
-              f => f !== filter && countsByFilter[f] > 0
-            ) ?? filter]} ({countsByFilter[(["lifts", "yoga", "breathing"] as const).find(
-              f => f !== filter && countsByFilter[f] > 0
-            ) ?? filter]})
-          </p>
-        </div>
-      ) : (
+      ) : emptyState === "filtered-empty" ? (() => {
+          const target = (["lifts", "yoga", "breathing"] as const).find(
+            f => f !== filter && countsByFilter[f] > 0
+          ) ?? filter;
+          return (
+            <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+              <p className="text-sm font-medium text-fg">No sessions match these filters</p>
+              <p className="mt-2 text-sm text-muted">
+                Try selecting a different filter to see your other sessions.
+              </p>
+              <button
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams);
+                  params.set("filter", target);
+                  params.delete("page");
+                  router.push(`/history?${params.toString()}`);
+                }}
+                className="mt-4 inline-block rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-fg transition-colors hover:border-muted/50"
+              >
+                Clear filters
+              </button>
+              <p className="mt-2 text-xs text-muted">
+                Showing {FILTER_LABELS[target]} ({countsByFilter[target]})
+              </p>
+            </div>
+          );
+        })() : (
         <>
           <ul className="mt-6 space-y-2">
             {items.map((item) => {

@@ -14,9 +14,9 @@ for (const k of ["window","document","HTMLElement","Node","navigator","MouseEven
 g.IS_REACT_ACT_ENVIRONMENT = true; g.self = dom.window; (dom.window as unknown as Record<string, unknown>).requestIdleCallback ??= (cb: () => void) => setTimeout(cb, 0); g.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
 
 // fake supabase state per scenario
-let fake: { tables: Record<string, unknown[]>; rpc: Record<string, unknown>; profile: Record<string, unknown> } = { tables: {}, rpc: {}, profile: {} };
+let fake: { tables: Record<string, unknown[]>; rpc: Record<string, unknown>; profile: Record<string, unknown>; errors?: Record<string, unknown> } = { tables: {}, rpc: {}, profile: {} };
 function chain(table: string) {
-  const result = table === "profiles" ? { data: fake.profile, error: null } : { data: fake.tables[table] ?? [], error: null };
+  const result = table === "profiles" ? { data: fake.profile, error: null } : fake.errors?.[table] ? { data: null, error: fake.errors[table] } : { data: fake.tables[table] ?? [], error: null };
   const c: Record<string, unknown> = {};
   for (const m of ["select","eq","neq","order","limit","in","gte","lte"]) c[m] = () => c;
   c.single = () => Promise.resolve(result);
@@ -34,7 +34,7 @@ Module.prototype.require = function (id: string): unknown {
     redirect: (u: string) => { throw new Error("REDIRECT " + u); },
   };
   if (id === "next/cache") return { revalidatePath() {} };
-  if (id === "./log-weight") return { LogWeight: () => null };
+  if (id === "./actions") return { logBodyWeight: async () => ({ ok: true }) };
   if (id === "@/lib/supabase/auth") return { getAuthedClient: async () => ({ supabase: fakeClient, user: { id: "u1" } }) };
   // eslint-disable-next-line prefer-rest-params
   return orig.apply(this, arguments);
@@ -101,8 +101,20 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     check("no <svg> in strength single-point", !html.match(/>116\.6[\s\S]{0,100}<svg/), "svg for 1 point");
   }
 
-  // Test weight error - temporarily skip as it requires deep mocking
-  // Mutant 10 will be caught by integration test
+  fake = { profile: strengthProfile, tables: {}, rpc: emptyRpc, errors: { body_metrics: { message: "boom" } } };
+  {
+    const html = await renderProgress("P5: new strength member, body_metrics query fails");
+    check("real LogWeight button rendered", html.includes("Log today&#x27;s weight") || html.includes("Log today's weight"), "LogWeight missing");
+    check("empty state suppressed on weight error", !html.includes("No progress data yet"));
+    check("load-error banner shown", html.includes("Couldn&#x27;t load") || html.includes("Couldn't load"), "error hidden behind zero tiles");
+    check("does not claim 'Log your weight below' on error", !html.includes("Log your weight below to start tracking"), "error masked as empty");
+  }
+  for (const t of ["session_volume", "exercise_strength_history", "sessions"]) {
+    fake = { profile: strengthProfile, tables: {}, rpc: emptyRpc, errors: { [t]: { message: "boom" } } };
+    const html = await renderProgress(`P6: new strength member, ${t} query fails`);
+    check(`${t} error: empty state suppressed`, !html.includes("No progress data yet"));
+    check(`${t} error: banner shown`, html.includes("Couldn&#x27;t load") || html.includes("Couldn't load"), "error hidden");
+  }
 
   console.log("\n5. Charts with 1 point render SinglePoint");
   {

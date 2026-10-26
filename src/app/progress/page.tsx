@@ -363,7 +363,7 @@ export default async function ProgressPage() {
         )}
       </section>
       
-      {(progressQueryFailed || setCountsError || yogaStatsError) && (
+      {anyLoadError && (
         <p className="mt-3 rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-4 py-2 text-sm text-[var(--color-danger)]">
           Couldn&apos;t load some stats
         </p>
@@ -408,7 +408,11 @@ export default async function ProgressPage() {
       <section className="mt-10">
         <h2 className="text-sm font-semibold">Body weight</h2>
         <p className="mb-3 text-xs text-muted">Weigh in weekly, same time of day.</p>
-        {weightPoints.length === 0 ? (
+        {weightsRes.error ? (
+          <p className="mb-4 rounded-xl border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-5 py-6 text-center text-sm text-[var(--color-danger)]">
+            Couldn&apos;t load your weight history. You can still log today&apos;s weight.
+          </p>
+        ) : weightPoints.length === 0 ? (
           <p className="mb-4 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
             Log your weight below to start tracking. Two data points will show a trend.
           </p>

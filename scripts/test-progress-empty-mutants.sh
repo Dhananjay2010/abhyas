@@ -3,27 +3,30 @@ set -e
 
 echo "=== Progress empty state mutant testing ==="
 
-# Trap to restore files on exit
-cleanup() {
-  if [ -f /tmp/progress-page.tsx.bak ]; then
-    cp /tmp/progress-page.tsx.bak src/app/progress/page.tsx
-  fi
-  if [ -f /tmp/charts.tsx.bak ]; then
-    cp /tmp/charts.tsx.bak src/components/charts.tsx
-  fi
+# Create temporary workspace
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT INT TERM
+
+# Backup files
+cp src/app/progress/page.tsx "$work/progress-page.tsx.bak"
+cp src/components/charts.tsx "$work/charts.tsx.bak"
+
+# Restore function
+restore() {
+  [ -f "$work/progress-page.tsx.bak" ] && cp "$work/progress-page.tsx.bak" src/app/progress/page.tsx
+  [ -f "$work/charts.tsx.bak" ] && cp "$work/charts.tsx.bak" src/components/charts.tsx
 }
-trap cleanup EXIT INT TERM
 
 # Baseline: tests must pass
 echo "Running baseline check..."
-if ! npm run test:progress-empty-state > /tmp/baseline.log 2>&1; then
+if ! npm run test:progress-empty-state > "$work/baseline.log" 2>&1; then
   echo "ERROR: Baseline tests failed"
-  cat /tmp/baseline.log
+  cat "$work/baseline.log"
   exit 1
 fi
 echo "✓ Baseline passed"
 
-# Helper to run mutant test
+# Helper to run mutant test with literal string replacement
 test_mutant() {
   local num=$1
   local desc=$2
@@ -33,67 +36,95 @@ test_mutant() {
   
   echo ""
   echo "Mutant $num: $desc"
-  cp "$file" /tmp/mutant-backup
-  sed -i "s|$find|$replace|" "$file"
   
-  # Verify mutation happened
-  if ! cmp -s "$file" /tmp/mutant-backup; then
-    if npm run test:progress-empty-state > /tmp/mutant.log 2>&1; then
-      echo "✗ SURVIVED: Mutant $num was not killed"
-      cp /tmp/mutant-backup "$file"
-      rm /tmp/mutant-backup
-      return 1
-    else
-      # Check if it's a crash (ERROR) or killed (FAIL)
-      if grep -q "FAIL" /tmp/mutant.log; then
-        echo "✓ KILLED: Mutant $num was killed"
-      elif grep -qE "(Test error:|TransformError|SyntaxError)" /tmp/mutant.log; then
-        echo "ERROR: Mutant $num caused a crash"
-        cat /tmp/mutant.log
-        cp /tmp/mutant-backup "$file"
-        rm /tmp/mutant-backup
-        return 1
-      else
-        echo "✓ KILLED: Mutant $num was killed"
-      fi
-    fi
-  else
-    echo "ERROR: Mutation did not change the file"
-    cp /tmp/mutant-backup "$file"
-    rm /tmp/mutant-backup
+  # Use Python for literal string replacement
+  python3 - "$file" "$find" "$replace" <<'PYEOF'
+import sys
+path, find, replace = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path, 'r') as f:
+    content = f.read()
+if find not in content:
+    sys.exit(2)
+with open(path, 'w') as f:
+    f.write(content.replace(find, replace, 1))
+PYEOF
+  
+  local py_exit=$?
+  if [ $py_exit -eq 2 ]; then
+    echo "ERROR: Pattern not found in file"
+    restore
+    return 1
+  elif [ $py_exit -ne 0 ]; then
+    echo "ERROR: Python replacement failed"
+    restore
     return 1
   fi
   
-  cp /tmp/mutant-backup "$file"
-  rm /tmp/mutant-backup
+  # Run tests
+  if npm run test:progress-empty-state > "$work/mutant.log" 2>&1; then
+    echo "✗ SURVIVED: Mutant $num was not killed"
+    restore
+    return 1
+  else
+    # Check if it's a crash (ERROR) or killed (FAIL)
+    if grep -q "FAIL" "$work/mutant.log"; then
+      echo "✓ KILLED: Mutant $num was killed"
+    elif grep -qE "(Test error:|TransformError|SyntaxError|Cannot find|Error:)" "$work/mutant.log"; then
+      echo "ERROR: Mutant $num caused a crash"
+      cat "$work/mutant.log"
+      restore
+      return 1
+    else
+      echo "✓ KILLED: Mutant $num was killed"
+    fi
+  fi
+  
+  restore
   return 0
 }
 
 # Mutant 6: Force showSessionsEmpty = false
-cp src/app/progress/page.tsx /tmp/progress-page.tsx.bak
 test_mutant 6 "Force showSessionsEmpty = false" \
   "src/app/progress/page.tsx" \
   'const showSessionsEmpty = !hasSessionData && !anyLoadError;' \
   'const showSessionsEmpty = false;'
 
-# Mutant 7: Invert !hasSessionData
-cp src/app/progress/page.tsx /tmp/mutant7-backup
+# Mutant 7: Invert !hasSessionData → hasSessionData
 echo ""
 echo "Mutant 7: Invert !hasSessionData → hasSessionData"
-perl -i -pe 's/const showSessionsEmpty = !hasSessionData/const showSessionsEmpty = hasSessionData/' src/app/progress/page.tsx
-if npm run test:progress-empty-state > /tmp/mutant.log 2>&1; then
+python3 - "src/app/progress/page.tsx" 'const showSessionsEmpty = !hasSessionData' 'const showSessionsEmpty = hasSessionData' <<'PYEOF'
+import sys
+path, find, replace = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path, 'r') as f:
+    content = f.read()
+if find not in content:
+    print("ERROR: Pattern not found")
+    sys.exit(2)
+with open(path, 'w') as f:
+    f.write(content.replace(find, replace, 1))
+PYEOF
+if [ $? -ne 0 ]; then
+  echo "ERROR: Mutation failed"
+  restore
+  exit 1
+fi
+if npm run test:progress-empty-state > "$work/mutant.log" 2>&1; then
   echo "✗ SURVIVED: Mutant 7 was not killed"
-  cp /tmp/mutant7-backup src/app/progress/page.tsx
+  restore
   exit 1
 else
-  if grep -q "FAIL" /tmp/mutant.log; then
+  if grep -q "FAIL" "$work/mutant.log"; then
     echo "✓ KILLED: Mutant 7 was killed"
+  elif grep -qE "(Test error:|TransformError|SyntaxError|Cannot find|Error:)" "$work/mutant.log"; then
+    echo "ERROR: Mutant 7 caused a crash"
+    cat "$work/mutant.log"
+    restore
+    exit 1
   else
-    echo "✓ KILLED: Mutant 7 was killed (different error)"
+    echo "✓ KILLED: Mutant 7 was killed"
   fi
 fi
-cp /tmp/mutant7-backup src/app/progress/page.tsx
-rm /tmp/mutant7-backup
+restore
 
 # Mutant 8: Drop CTA href
 test_mutant 8 'Drop CTA href: href="/today" → href="/"' \
@@ -101,51 +132,95 @@ test_mutant 8 'Drop CTA href: href="/today" → href="/"' \
   'href="/today"' \
   'href="/"'
 
-# Mutant 9: Body weight section back inside hidden branch
-cp src/app/progress/page.tsx /tmp/mutant9-backup
+# Mutant 9: Body weight moved inside conditional (hidden when no sessions)
 echo ""
 echo "Mutant 9: Body weight moved inside conditional (hidden when no sessions)"
-# Move the body weight section inside the conditional by wrapping it in {false &&
-perl -i -0777 -pe 's/(\s+<\/>\s+\)\}\s+)(      <section className="mt-10">[\s\S]*?<\/section>)/$1      {false && $2}/s' src/app/progress/page.tsx
-if ! cmp -s src/app/progress/page.tsx /tmp/mutant9-backup; then
-  if npm run test:progress-empty-state > /tmp/mutant.log 2>&1; then
-    echo "✗ SURVIVED: Mutant 9 was not killed"
-    cp /tmp/mutant9-backup src/app/progress/page.tsx
-    exit 1
-  else
-    if grep -q "FAIL" /tmp/mutant.log; then
-      echo "✓ KILLED: Mutant 9 was killed"
-    else
-      echo "✓ KILLED: Mutant 9 was killed (different error)"
-    fi
-  fi
-else
-  echo "ERROR: Mutation did not change the file"
-  cp /tmp/mutant9-backup src/app/progress/page.tsx
+python3 - "src/app/progress/page.tsx" <<'PYEOF'
+import sys, re
+with open(sys.argv[1], 'r') as f:
+    content = f.read()
+# Wrap body weight section in {false &&
+pattern = r'(      <\/>\s+\)\})\s+(      <section className="mt-10">\s+<h2 className="text-sm font-semibold">Body weight<\/h2>[\s\S]*?<\/section>)'
+if not re.search(pattern, content):
+    print("ERROR: Pattern not found")
+    sys.exit(2)
+content = re.sub(pattern, r'\1\n      {false && \2}', content, count=1)
+with open(sys.argv[1], 'w') as f:
+    f.write(content)
+PYEOF
+if [ $? -ne 0 ]; then
+  echo "ERROR: Mutation failed"
+  restore
   exit 1
 fi
-cp /tmp/mutant9-backup src/app/progress/page.tsx
-rm /tmp/mutant9-backup
+if npm run test:progress-empty-state > "$work/mutant.log" 2>&1; then
+  echo "✗ SURVIVED: Mutant 9 was not killed"
+  restore
+  exit 1
+else
+  if grep -q "FAIL" "$work/mutant.log"; then
+    echo "✓ KILLED: Mutant 9 was killed"
+  elif grep -qE "(Test error:|TransformError|SyntaxError|Cannot find|Error:)" "$work/mutant.log"; then
+    echo "ERROR: Mutant 9 caused a crash"
+    cat "$work/mutant.log"
+    restore
+    exit 1
+  else
+    echo "✓ KILLED: Mutant 9 was killed"
+  fi
+fi
+restore
 
-# Mutant 10: Remove weightsRes.error from anyLoadError (SKIPPED - requires deep mocking, caught by integration)
-echo ""
-echo "Mutant 10: SKIPPED (requires deep mocking, caught by real-world usage)"
+# Mutant 10: Remove !!weightsRes.error from anyLoadError (NOW KILLABLE)
+test_mutant 10 "Remove !!weightsRes.error from anyLoadError" \
+  "src/app/progress/page.tsx" \
+  '|| !!weightsRes.error' \
+  ''
 
-# Mutant 11: LineChart single-point check
-cp src/components/charts.tsx /tmp/charts.tsx.bak
-test_mutant 11 "LineChart: if (points.length === 1) → if (false)" \
-  "src/components/charts.tsx" \
-  'if (points.length === 1)' \
-  'if (false)'
+# Mutant 11: Remove LogWeight component
+test_mutant 11 "Remove LogWeight component" \
+  "src/app/progress/page.tsx" \
+  '<LogWeight current={latestWeight} />' \
+  '{ /* LogWeight removed */ }'
 
-# Mutant 12: BarChart single-point check
-test_mutant 12 "BarChart: if (points.length === 1) → if (false)" \
+# Mutant 12: Banner condition reverted
+test_mutant 12 "Banner condition reverted to old condition" \
+  "src/app/progress/page.tsx" \
+  '{anyLoadError && (' \
+  '{(progressQueryFailed || setCountsError || yogaStatsError) && ('
+
+# Mutant 13: Remove volumeRes.error
+test_mutant 13 "Remove !!volumeRes.error from anyLoadError" \
+  "src/app/progress/page.tsx" \
+  '|| !!volumeRes.error' \
+  ''
+
+# Mutant 14: Remove strengthRes.error
+test_mutant 14 "Remove !!strengthRes.error from anyLoadError" \
+  "src/app/progress/page.tsx" \
+  '|| !!strengthRes.error' \
+  ''
+
+# Mutant 15: Weight error branch forced to false
+test_mutant 15 "Weight error branch: weightsRes.error ? → false ?" \
+  "src/app/progress/page.tsx" \
+  '{weightsRes.error ? (' \
+  '{false ? ('
+
+# Mutant 16: LineChart single-point check
+test_mutant 16 "LineChart: if (points.length === 1) → if (false)" \
   "src/components/charts.tsx" \
   'if (points.length === 1) return <SinglePoint' \
   'if (false) return <SinglePoint'
 
-# Mutant 13: Hint string changed
-test_mutant 13 "singlePointHint default changed" \
+# Mutant 17: BarChart single-point check
+test_mutant 17 "BarChart: if (points.length === 1) → if (false)" \
+  "src/components/charts.tsx" \
+  'if (points.length === 1) return <SinglePoint' \
+  'if (false) return <SinglePoint'
+
+# Mutant 18: singlePointHint default changed
+test_mutant 18 "singlePointHint default changed" \
   "src/components/charts.tsx" \
   'singlePointHint = "Log another session to see a trend"' \
   'singlePointHint = "Different text"'
@@ -153,21 +228,21 @@ test_mutant 13 "singlePointHint default changed" \
 # Crash self-test
 echo ""
 echo "Crash self-test: inject syntax error"
-cp src/app/progress/page.tsx /tmp/progress-page.tsx.bak
+cp src/app/progress/page.tsx "$work/crash-test.bak"
 echo "const = ;" >> src/app/progress/page.tsx
-if npm run test:progress-empty-state > /tmp/crash-test.log 2>&1; then
+if npm run test:progress-empty-state > "$work/crash-test.log" 2>&1; then
   echo "ERROR: Crash test did not fail"
-  cp /tmp/progress-page.tsx.bak src/app/progress/page.tsx
+  cp "$work/crash-test.bak" src/app/progress/page.tsx
   exit 1
-elif grep -qE "(Test error:|TransformError|SyntaxError)" /tmp/crash-test.log && ! grep -q "FAIL" /tmp/crash-test.log; then
+elif grep -qE "(Test error:|TransformError|SyntaxError)" "$work/crash-test.log" && ! grep -q "FAIL" "$work/crash-test.log"; then
   echo "✓ Crash self-test passed (reported as ERROR, not FAIL)"
 else
   echo "ERROR: Crash test produced unexpected output"
-  cat /tmp/crash-test.log
-  cp /tmp/progress-page.tsx.bak src/app/progress/page.tsx
+  cat "$work/crash-test.log"
+  cp "$work/crash-test.bak" src/app/progress/page.tsx
   exit 1
 fi
-cp /tmp/progress-page.tsx.bak src/app/progress/page.tsx
+cp "$work/crash-test.bak" src/app/progress/page.tsx
 
 echo ""
-echo "=== All mutants killed ==="
+echo "=== All progress mutants killed ==="
