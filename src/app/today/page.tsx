@@ -22,6 +22,7 @@ import { StrengthDoneBanner } from "./strength-done-banner";
 import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
 import { buildChosenByDayIndex } from "@/lib/today/chosen-by-day";
 import { shouldLoadPlannableDays } from "@/lib/today/should-load-plannable";
+import { decideRestDayResume } from "@/lib/today/rest-day-resume";
 
 export const dynamic = "force-dynamic";
 
