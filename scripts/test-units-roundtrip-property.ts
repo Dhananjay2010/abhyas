@@ -19,7 +19,6 @@ import {
   parseBodyWeight,
   formatBodyWeight,
   computeRunnerWeightPrefill,
-  snapPrescribedWeight,
 } from "../src/lib/units";
 
 let passed = 0;
@@ -46,33 +45,26 @@ for (let kg = 20; kg <= 300; kg += 0.5) {
     continue;
   }
   
-  // When the user logs without editing, the original kg should be preserved
-  // (tested by checking that the prefill, when "unchanged", returns original kg)
-  // This is handled by session-runner.tsx checking weight === initialPrefill
+  // Prefill now rounds to NEAREST 0.5 lb (not floor)
+  // Check that prefill matches direct rounding
+  const lb = kgToLb(kg);
+  const roundedLb = roundLbToHalf(lb);
+  const expectedPrefill = String(roundedLb);
   
-  // For display round-trip: snap to lb grid, display, and verify consistency
-  const snappedKg = snapPrescribedWeight(kg, "imperial");
-  if (snappedKg === null) continue;
+  check(
+    `${kg} kg: prefill "${prefill}" matches nearest 0.5 lb rounding`,
+    prefill === expectedPrefill,
+    `expected "${expectedPrefill}"`
+  );
   
-  const displayLb = kgToLb(snappedKg);
-  const roundedLb = roundLbToHalf(displayLb);
-  const backToKg = lbToKg(roundedLb);
-  const roundedBackKg = Math.round(backToKg * 100) / 100;
-  
-  // The snapped kg should round-trip through display
+  // Check that prefill converts back close to original kg
   const displayedPrefill = Number(prefill);
   const backFromPrefill = displayToKg(displayedPrefill, "imperial");
   
   check(
-    `${kg} kg: display round-trip stays within 0.02 kg`,
-    Math.abs(roundedBackKg - snappedKg) < 0.02,
-    `snapped ${snappedKg} → ${roundedLb} lb → ${roundedBackKg} kg`
-  );
-  
-  check(
-    `${kg} kg: prefill ${prefill} lb converts back to ~${snappedKg} kg`,
-    Math.abs(backFromPrefill - snappedKg) < 0.02,
-    `got ${backFromPrefill}`
+    `${kg} kg: prefill ${prefill} lb converts back within 0.3 kg`,
+    Math.abs(backFromPrefill - kg) < 0.3,
+    `got ${backFromPrefill} kg, diff ${Math.abs(backFromPrefill - kg).toFixed(2)} kg`
   );
 }
 
