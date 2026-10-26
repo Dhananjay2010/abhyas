@@ -676,6 +676,51 @@ async function main() {
     assert.deepEqual(deleteCall.ids, ["sess-3"], "Should delete sess-3");
   });
 
+  await test("Keep with concurrent insert: dedupes and keeps lowest id", async () => {
+    const program: Program = {
+      id: "prog-1",
+      started_on: "2026-11-01",
+      deload_week: 4,
+      week_offset: 0,
+    };
+    const programDay: ProgramDay = {
+      id: "day-upper",
+      day_type: "weights",
+    };
+
+    const { client, calls, state } = makeFakeClient({
+      existingSessions: [],
+      program,
+      programDaysByProgramAndIndex: { "prog-1": { 7: programDay } },
+    });
+
+    const originalReread = client.rereadDaySessions.bind(client);
+    client.rereadDaySessions = async (localDate: string) => {
+      state.sessions.push({
+        id: "sess-race",
+        status: "planned",
+        actual_type: "weights",
+        program_day_id: "day-upper",
+        local_date: localDate,
+      } as SessionRow & { local_date: string });
+      return originalReread(localDate);
+    };
+
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "keep" },
+    });
+
+    assert.equal(result.ok, true, "Should succeed");
+    const remaining = state.sessions.filter((s) => s.status === "planned");
+    assert.equal(remaining.length, 1, "Should dedupe to 1 planned row");
+
+    const dedupeDeletes = calls.filter((c) => c.method === "deleteSessions" && calls.indexOf(c) > calls.findIndex((c2) => c2.method === "insertSession"));
+    assert.equal(dedupeDeletes.length, 1, "Should have one dedupe delete after insert");
+  });
+
   await test("Keep with swapped override row: deletes it and inserts template row", async () => {
     const program: Program = {
       id: "prog-1",
@@ -696,7 +741,7 @@ async function main() {
       { id: "sess-1", status: "planned", actual_type: "weights", program_day_id: "day-lower" },
     ];
 
-    const { client, calls, state } = makeFakeClient({
+    const { client, calls } = makeFakeClient({
       existingSessions: existing.map((s) => ({ ...s, local_date: "2026-11-15" } as SessionRow & { local_date: string })),
       program,
       programDaysByProgramAndIndex: { "prog-1": { 7: upperDay, 6: lowerDay } },
