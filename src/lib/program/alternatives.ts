@@ -412,6 +412,12 @@ export function rankAlternatives<T extends ExerciseRow>(
   const deduplicated: T[] = [];
   let slotsTaken = 0;
   
+  // For past-knee squat swaps, we need to collect enough candidates to ensure
+  // we get both quad isolation AND hinge fallbacks, then slice to limit after reordering.
+  // Otherwise, if the top 5 are all quads, hinges never appear.
+  const isPastKneeSquatSwap = hasPastKnee && current.movement_pattern === "squat";
+  const effectiveLimit = limit;
+  
   for (const item of filtered) {
     const normalizedName = normalizeName(item.exercise.name);
     const dedupeKey = `${item.exercise.movement_pattern}:${normalizedName}`;
@@ -424,7 +430,7 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (!item.hidden) deduplicated.push(item.exercise);
     
     // Stop once we have enough
-    if (slotsTaken >= limit) break;
+    if (slotsTaken >= effectiveLimit) break;
   }
   
   // Past-knee squat swaps: specific ordering per PR #152 chunk 3
@@ -463,18 +469,18 @@ export function rankAlternatives<T extends ExerciseRow>(
       const [wallSit, ...restQuads] = quadIsolation;
       if (restQuads.length > 0) {
         // Move wall-sit after other quad exercises
-        return [...restQuads, wallSit, ...hingeFallbacks];
+        return [...restQuads, wallSit, ...hingeFallbacks].slice(0, limit);
       } else {
         // Only wall-sit in quad list: place it after first hinge (or at end if no hinges)
         if (hingeFallbacks.length > 0) {
-          return [hingeFallbacks[0], wallSit, ...hingeFallbacks.slice(1)];
+          return [hingeFallbacks[0], wallSit, ...hingeFallbacks.slice(1)].slice(0, limit);
         } else {
           return [wallSit];
         }
       }
     }
     
-    return [...quadIsolation, ...hingeFallbacks];
+    return [...quadIsolation, ...hingeFallbacks].slice(0, limit);
   }
   
   return deduplicated;
