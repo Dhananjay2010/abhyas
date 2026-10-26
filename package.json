@@ -21,6 +21,7 @@
     "test:progression-in-range-hold": "tsx scripts/test-progression-in-range-hold.ts",
     "test:progression-persistence": "tsx scripts/test-progression-persistence.ts",
     "test:progression-real-path": "tsx scripts/test-progression-real-path.ts",
+    "test:progression-real-path-mutants": "bash scripts/test-progression-real-path-mutants.sh",
     "test:progression-grid": "tsx scripts/test-progression-grid.ts",
     "test:input-step": "tsx scripts/test-input-step.ts",
     "test:stepper-input": "tsx scripts/test-stepper-input.ts",
