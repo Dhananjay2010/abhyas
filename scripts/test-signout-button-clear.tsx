@@ -183,7 +183,7 @@ Object.defineProperty(window, 'localStorage', {
   
   assert(fakeStorage.getItem(storageKey("u3")) === queueBefore, "u3 queue kept after fail");
   assert(replaceCalls.length === 0, "No navigation when replay fails");
-  assert(screen.queryByText(/haven't synced yet/i) !== null, "Shows warning");
+  assert(screen.queryByText(/hasn'?t synced yet/i) !== null, "Shows warning");
   
   cleanup();
   console.log("✓ Test 3 passed\n");

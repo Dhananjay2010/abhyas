@@ -181,7 +181,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   
   assert(fakeStorage.getItem(storageKey("u3")) === queueBefore, "u3 queue kept after replay fail");
   assert(replaceCalls.length === 0, "No navigation when replay fails");
-  assert(screen.queryByText(/haven't synced yet/i) !== null, "Shows warning");
+  assert(screen.queryByText(/hasn'?t synced yet/i) !== null, "Shows warning");
   
   cleanup();
   console.log("✓ Test 3: Replay fails passed\n");
