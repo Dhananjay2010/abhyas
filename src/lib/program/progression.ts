@@ -74,7 +74,7 @@ export function describePersonalBest(pb: PersonalBest, units: UnitsPreference = 
     case "reps":
       return `Most reps yet — ${pb.value}`;
     case "e1rm":
-      return `Best estimated one-rep max yet — ${formatWeight(Math.round(pb.value), units)}`;
+      return `Best estimated one-rep max yet — ${formatWeight(pb.value, units)}`;
   }
 }
 
