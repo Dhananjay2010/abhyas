@@ -1,0 +1,1503 @@
+{
+  "no-injury-intermediate": {
+    "program": {
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Body-Up",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "EZ-Bar Curl",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Barbell Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Deadlift",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Crunch - Hands Overhead",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Band Skull Crusher",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Incline Dumbbell Curl",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Barbell Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Deadlift",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Advanced Kettlebell Windmill",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        }
+      ]
+    },
+    "swaps": {
+      "barbell-squat": [
+        "box-squat",
+        "squat-with-plate-movers",
+        "wide-stance-barbell-squat",
+        "front-squat-clean-grip",
+        "squat-with-bands",
+        "barbell-hack-squat",
+        "barbell-full-squat",
+        "speed-box-squat",
+        "squat-with-chains",
+        "reverse-band-box-squat"
+      ],
+      "spanish-squat": [
+        "squats-with-bands",
+        "box-squat",
+        "squat-with-plate-movers",
+        "smith-machine-leg-press",
+        "wide-stance-barbell-squat",
+        "smith-machine-squat",
+        "front-squat-clean-grip",
+        "narrow-stance-hack-squats",
+        "squat-with-bands",
+        "front-squats-with-two-kettlebells"
+      ],
+      "split-squat-with-dumbbells": [
+        "dumbbell-rear-lunge",
+        "dumbbell-step-ups",
+        "dumbbell-lunges",
+        "barbell-walking-lunge",
+        "smith-single-leg-split-squat",
+        "barbell-side-split-squat",
+        "elevated-back-lunge",
+        "smith-machine-pistol-squat",
+        "barbell-lunge",
+        "barbell-step-ups"
+      ]
+    }
+  },
+  "no-injury-beginner": {
+    "program": {
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "One Arm Supinated Dumbbell Triceps Extension",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Reverse Barbell Curl",
+              "orderIndex": 5,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Barbell Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Glute Bridge",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Side Split Squat",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 2,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Crunch - Hands Overhead",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Dumbbell Triceps Extension",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Cross Body Hammer Curl",
+              "orderIndex": 5,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Barbell Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Glute Bridge",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Side Split Squat",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 2,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Smith Machine Hip Raise",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        }
+      ]
+    },
+    "swaps": {
+      "barbell-squat": [
+        "smith-machine-squat",
+        "squats-with-bands",
+        "dumbbell-squat",
+        "chair-squat",
+        "leg-press",
+        "hack-squat",
+        "goblet-squat",
+        "spanish-squat",
+        "plie-dumbbell-squat",
+        "single-leg-leg-extension"
+      ],
+      "spanish-squat": [
+        "squats-with-bands",
+        "smith-machine-squat",
+        "barbell-squat",
+        "dumbbell-squat",
+        "chair-squat",
+        "leg-press",
+        "hack-squat",
+        "goblet-squat",
+        "plie-dumbbell-squat",
+        "single-leg-leg-extension"
+      ],
+      "split-squat-with-dumbbells": [
+        "dumbbell-lunges",
+        "barbell-walking-lunge",
+        "smith-single-leg-split-squat",
+        "barbell-side-split-squat",
+        "step-up-with-knee-raise",
+        "dumbbell-squat",
+        "plie-dumbbell-squat",
+        "smith-machine-squat",
+        "squats-with-bands",
+        "barbell-squat"
+      ]
+    }
+  },
+  "current-knee-intermediate": {
+    "program": {
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Band Skull Crusher",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Incline Inner Biceps Curl",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Spanish Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Glute Bridge",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Leg Extensions",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Crunches",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Bent-Over Two-Arm Dumbbell Triceps Extension",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Preacher Hammer Dumbbell Curl",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Spanish Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Glute Bridge",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Leg Extensions",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Sit-Up",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        }
+      ]
+    },
+    "swaps": {
+      "barbell-squat": [
+        "spanish-squat",
+        "single-leg-leg-extension",
+        "leg-extensions",
+        "wall-sit",
+        "stiff-leg-barbell-good-morning",
+        "good-morning-off-pins",
+        "hanging-bar-good-morning",
+        "good-morning",
+        "rack-pull-with-bands",
+        "seated-good-mornings"
+      ],
+      "spanish-squat": [
+        "single-leg-leg-extension",
+        "leg-extensions",
+        "wall-sit",
+        "band-good-morning",
+        "hip-extension-with-bands",
+        "hip-lift-with-band",
+        "physioball-hip-bridge",
+        "stiff-leg-barbell-good-morning"
+      ],
+      "split-squat-with-dumbbells": [
+        "physioball-hip-bridge",
+        "stiff-leg-barbell-good-morning",
+        "good-morning-off-pins",
+        "pull-through",
+        "hanging-bar-good-morning",
+        "band-good-morning",
+        "weighted-ball-hyperextension"
+      ]
+    }
+  },
+  "current-knee-beginner": {
+    "program": {
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Cable One Arm Tricep Extension",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Close-Grip EZ-Bar Curl with Band",
+              "orderIndex": 5,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Spanish Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Glute Bridge",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Leg Extensions",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 2,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Crunch - Hands Overhead",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Dumbbell Triceps Extension",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Cross Body Hammer Curl",
+              "orderIndex": 5,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Spanish Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Glute Bridge",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Leg Extensions",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 2,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bosu Ball Cable Crunch With Side Bends",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        }
+      ]
+    },
+    "swaps": {
+      "barbell-squat": [
+        "spanish-squat",
+        "single-leg-leg-extension",
+        "leg-extensions",
+        "wall-sit",
+        "stiff-leg-barbell-good-morning",
+        "physioball-hip-bridge",
+        "pull-through",
+        "band-good-morning",
+        "hip-extension-with-bands",
+        "hip-lift-with-band"
+      ],
+      "spanish-squat": [
+        "single-leg-leg-extension",
+        "leg-extensions",
+        "wall-sit",
+        "band-good-morning",
+        "hip-extension-with-bands",
+        "hip-lift-with-band",
+        "physioball-hip-bridge",
+        "stiff-leg-barbell-good-morning",
+        "pull-through",
+        "seated-leg-curl"
+      ],
+      "split-squat-with-dumbbells": [
+        "physioball-hip-bridge",
+        "stiff-leg-barbell-good-morning",
+        "pull-through",
+        "band-good-morning",
+        "hip-extension-with-bands",
+        "hip-lift-with-band",
+        "seated-leg-curl",
+        "lying-leg-curls",
+        "standing-leg-curl",
+        "ball-leg-curl"
+      ]
+    }
+  },
+  "shoulder-past": {
+    "program": {
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Towel Triceps Extension",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Cable Preacher Curl",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Barbell Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Deadlift",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Pallof Press",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Triceps Pushdown",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Zottman Preacher Curl",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Barbell Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Deadlift",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Cable Crunch",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        }
+      ]
+    },
+    "swaps": {
+      "barbell-squat": [
+        "box-squat",
+        "squat-with-plate-movers",
+        "wide-stance-barbell-squat",
+        "front-squat-clean-grip",
+        "squat-with-bands",
+        "barbell-hack-squat",
+        "barbell-full-squat",
+        "speed-box-squat",
+        "squat-with-chains",
+        "reverse-band-box-squat"
+      ],
+      "spanish-squat": [
+        "squats-with-bands",
+        "box-squat",
+        "squat-with-plate-movers",
+        "smith-machine-leg-press",
+        "wide-stance-barbell-squat",
+        "smith-machine-squat",
+        "front-squat-clean-grip",
+        "narrow-stance-hack-squats",
+        "squat-with-bands",
+        "front-squats-with-two-kettlebells"
+      ],
+      "split-squat-with-dumbbells": [
+        "dumbbell-rear-lunge",
+        "dumbbell-step-ups",
+        "dumbbell-lunges",
+        "barbell-walking-lunge",
+        "smith-single-leg-split-squat",
+        "barbell-side-split-squat",
+        "elevated-back-lunge",
+        "smith-machine-pistol-squat",
+        "barbell-lunge",
+        "barbell-step-ups"
+      ]
+    }
+  },
+  "lower-back-past": {
+    "program": {
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Tricep Dumbbell Kickback",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Dumbbell Prone Incline Curl",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Barbell Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Deadlift",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Smith Machine Hip Raise",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "weights",
+          "focus": "upper",
+          "label": "Upper",
+          "exercises": [
+            {
+              "name": "Barbell Bench Press - Medium Grip",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Wide-Grip Lat Pulldown",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Standing Military Press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Bent Over Barbell Row",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Kettlebell Overhead Triceps Extension",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Dumbbell Alternate Bicep Curl",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "weights",
+          "focus": "lower",
+          "label": "Lower",
+          "exercises": [
+            {
+              "name": "Barbell Squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Deadlift",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Barbell Seated Calf Raise",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "name": "Seated Leg Tucks",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "focus": null,
+          "label": "Rest",
+          "exercises": []
+        }
+      ]
+    },
+    "swaps": {
+      "barbell-squat": [
+        "box-squat",
+        "squat-with-plate-movers",
+        "wide-stance-barbell-squat",
+        "front-squat-clean-grip",
+        "squat-with-bands",
+        "barbell-hack-squat",
+        "barbell-full-squat",
+        "speed-box-squat",
+        "squat-with-chains",
+        "reverse-band-box-squat"
+      ],
+      "spanish-squat": [
+        "squats-with-bands",
+        "box-squat",
+        "squat-with-plate-movers",
+        "smith-machine-leg-press",
+        "wide-stance-barbell-squat",
+        "smith-machine-squat",
+        "front-squat-clean-grip",
+        "narrow-stance-hack-squats",
+        "squat-with-bands",
+        "front-squats-with-two-kettlebells"
+      ],
+      "split-squat-with-dumbbells": [
+        "dumbbell-rear-lunge",
+        "dumbbell-step-ups",
+        "dumbbell-lunges",
+        "barbell-walking-lunge",
+        "smith-single-leg-split-squat",
+        "barbell-side-split-squat",
+        "elevated-back-lunge",
+        "smith-machine-pistol-squat",
+        "barbell-lunge",
+        "barbell-step-ups"
+      ]
+    }
+  }
+}
