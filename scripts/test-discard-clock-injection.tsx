@@ -163,7 +163,7 @@ async function testDiscardWithEndedSession() {
   let logSetCalled = false;
   const mockLogSet = async () => {
     logSetCalled = true;
-    return { ok: false, error: "Session closed" };
+    return { ok: false, error: "Session closed" } as const;
   };
 
   const mockGetSessionStatus = async () => "ended" as const;

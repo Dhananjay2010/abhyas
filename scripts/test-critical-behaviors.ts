@@ -130,7 +130,6 @@ async function testReplayDoesntClearBeforeConfirm() {
   );
 
   let callCount = 0;
-  let resolveLogSet: (() => void) | null = null;
   const logSet: LogSetFunction = async () => {
     callCount++;
     // Return a promise that never resolves (simulating network timeout)
