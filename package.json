@@ -396,7 +396,9 @@
     "test:units-action-validation": "tsx scripts/test-units-action-validation.ts",
     "test:units-bodyweight-core": "tsx scripts/test-units-bodyweight-core.ts",
     "test:landing-copy": "tsx scripts/test-landing-copy.tsx",
-    "test:demo-path-new-plan-behavior": "tsx scripts/test-new-plan-behavior.ts"
+    "test:demo-path-anchoring": "tsx scripts/test-anchored-indices.ts",
+    "test:demo-path-new-plan-behavior": "tsx scripts/test-new-plan-behavior.ts",
+    "test:start-tomorrow-action": "tsx scripts/test-start-tomorrow-action.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

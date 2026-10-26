@@ -170,9 +170,11 @@ async function testIdempotent() {
   console.log("  ✓ Idempotent: detects already-shifted state");
 }
 
-await testDateShift();
-await testAuthentication();
-await testRateLimit();
-await testIdempotent();
+(async () => {
+  await testDateShift();
+  await testAuthentication();
+  await testRateLimit();
+  await testIdempotent();
 
-console.log("\n✅ All startTomorrow tests passed");
+  console.log("\n✅ All startTomorrow tests passed");
+})();
