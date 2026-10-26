@@ -1,58 +1,166 @@
 {
   "past-knee-seed-42": [
     {
-      "focus": "upper",
+      "focus": "push",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
+          "name": "Barbell Bench Press - Medium Grip",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
+          "name": "Standing Military Press",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
+          "name": "Dumbbell Bench Press",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
+          "name": "Dumbbell Lying One-Arm Rear Lateral Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Standing Towel Triceps Extension",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Lying High Bench Barbell Curl",
-          "orderIndex": 5
+          "name": "Seated Bent-Over One-Arm Dumbbell Triceps Extension",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
     {
-      "focus": "lower",
+      "focus": "pull",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
+          "name": "Bent-Arm Barbell Pullover",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
+          "name": "Bent Over Barbell Row",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Wall Sit",
-          "orderIndex": 2
+          "name": "One-Arm Dumbbell Row",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
+          "name": "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Sit-Up",
-          "orderIndex": 4
+          "name": "Cross Body Hammer Curl",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        }
+      ]
+    },
+    {
+      "focus": "legs",
+      "dayType": "weights",
+      "exercises": [
+        {
+          "name": "Barbell Squat",
+          "orderIndex": 0,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Barbell Deadlift",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Wall Sit",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 20,
+          "targetRepsMax": 40
+        },
+        {
+          "name": "Barbell Seated Calf Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Dumbbell Side Bend",
+          "orderIndex": 4,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        }
+      ]
+    },
+    {
+      "focus": "push",
+      "dayType": "weights",
+      "exercises": [
+        {
+          "name": "Barbell Bench Press - Medium Grip",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Standing Military Press",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Dumbbell Bench Press",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Dumbbell Lying One-Arm Rear Lateral Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Dumbbell One-Arm Triceps Extension",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
@@ -62,126 +170,250 @@
       "exercises": []
     },
     {
-      "focus": "upper",
+      "focus": "pull",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
+          "name": "Bent-Arm Barbell Pullover",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
+          "name": "Bent Over Barbell Row",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
+          "name": "One-Arm Dumbbell Row",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
+          "name": "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "One Arm Supinated Dumbbell Triceps Extension",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Cross Body Hammer Curl",
-          "orderIndex": 5
+          "name": "Standing Concentration Curl",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
     {
-      "focus": "lower",
+      "focus": "legs",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
+          "name": "Barbell Squat",
+          "orderIndex": 0,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
+          "name": "Barbell Deadlift",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Wall Sit",
-          "orderIndex": 2
+          "name": "Wall Sit",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 20,
+          "targetRepsMax": 40
         },
         {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
+          "name": "Barbell Seated Calf Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Oblique Crunches - On The Floor",
-          "orderIndex": 4
+          "name": "Flutter Kicks",
+          "orderIndex": 4,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
     }
   ],
   "no-injury-seed-42": [
     {
-      "focus": "upper",
+      "focus": "push",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
+          "name": "Barbell Bench Press - Medium Grip",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
+          "name": "Standing Military Press",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
+          "name": "Dumbbell Bench Press",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
+          "name": "Dumbbell Lying One-Arm Rear Lateral Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Standing Bent-Over One-Arm Dumbbell Triceps Extension",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Preacher Hammer Dumbbell Curl",
-          "orderIndex": 5
+          "name": "Standing Bent-Over Two-Arm Dumbbell Triceps Extension",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
     {
-      "focus": "lower",
+      "focus": "pull",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
+          "name": "Bent-Arm Barbell Pullover",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
+          "name": "Bent Over Barbell Row",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Lunge",
-          "orderIndex": 2
+          "name": "One-Arm Dumbbell Row",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
+          "name": "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Plank",
-          "orderIndex": 4
+          "name": "Cross Body Hammer Curl",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        }
+      ]
+    },
+    {
+      "focus": "legs",
+      "dayType": "weights",
+      "exercises": [
+        {
+          "name": "Barbell Squat",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Barbell Deadlift",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Barbell Lunge",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Barbell Seated Calf Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Crunches",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        }
+      ]
+    },
+    {
+      "focus": "push",
+      "dayType": "weights",
+      "exercises": [
+        {
+          "name": "Barbell Bench Press - Medium Grip",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Standing Military Press",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Dumbbell Bench Press",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Dumbbell Lying One-Arm Rear Lateral Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Standing Dumbbell Triceps Extension",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
@@ -191,126 +423,250 @@
       "exercises": []
     },
     {
-      "focus": "upper",
+      "focus": "pull",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
+          "name": "Bent-Arm Barbell Pullover",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
+          "name": "Bent Over Barbell Row",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
+          "name": "One-Arm Dumbbell Row",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
+          "name": "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Seated Triceps Press",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Wide-Grip Standing Barbell Curl",
-          "orderIndex": 5
+          "name": "Concentration Curls",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
     {
-      "focus": "lower",
+      "focus": "legs",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
+          "name": "Barbell Squat",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
+          "name": "Barbell Deadlift",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Lunge",
-          "orderIndex": 2
+          "name": "Barbell Lunge",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
+          "name": "Barbell Seated Calf Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Sit-Up",
-          "orderIndex": 4
+          "name": "Oblique Crunches - On The Floor",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
     }
   ],
   "past-knee-seed-123": [
     {
-      "focus": "upper",
+      "focus": "push",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
+          "name": "Barbell Bench Press - Medium Grip",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
+          "name": "Standing Military Press",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
+          "name": "Dumbbell Bench Press",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
+          "name": "Dumbbell Lying One-Arm Rear Lateral Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "One Arm Pronated Dumbbell Triceps Extension",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Preacher Hammer Dumbbell Curl",
-          "orderIndex": 5
+          "name": "Standing Bent-Over Two-Arm Dumbbell Triceps Extension",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
     {
-      "focus": "lower",
+      "focus": "pull",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
+          "name": "Bent-Arm Barbell Pullover",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
+          "name": "Bent Over Barbell Row",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Wall Sit",
-          "orderIndex": 2
+          "name": "One-Arm Dumbbell Row",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
+          "name": "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Flat Bench Lying Leg Raise",
-          "orderIndex": 4
+          "name": "Seated Dumbbell Curl",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        }
+      ]
+    },
+    {
+      "focus": "legs",
+      "dayType": "weights",
+      "exercises": [
+        {
+          "name": "Barbell Squat",
+          "orderIndex": 0,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Barbell Deadlift",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Wall Sit",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 20,
+          "targetRepsMax": 40
+        },
+        {
+          "name": "Barbell Seated Calf Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Crunches",
+          "orderIndex": 4,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        }
+      ]
+    },
+    {
+      "focus": "push",
+      "dayType": "weights",
+      "exercises": [
+        {
+          "name": "Barbell Bench Press - Medium Grip",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Standing Military Press",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Dumbbell Bench Press",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Dumbbell Lying One-Arm Rear Lateral Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
+        },
+        {
+          "name": "Body Tricep Press",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
@@ -320,255 +676,250 @@
       "exercises": []
     },
     {
-      "focus": "upper",
+      "focus": "pull",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
+          "name": "Bent-Arm Barbell Pullover",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
+          "name": "Bent Over Barbell Row",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
+          "name": "One-Arm Dumbbell Row",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
+          "name": "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Dumbbell One-Arm Triceps Extension",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Dumbbell Bicep Curl",
-          "orderIndex": 5
+          "name": "Zottman Curl",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
     {
-      "focus": "lower",
+      "focus": "legs",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
+          "name": "Barbell Squat",
+          "orderIndex": 0,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
+          "name": "Barbell Deadlift",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Wall Sit",
-          "orderIndex": 2
+          "name": "Wall Sit",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 20,
+          "targetRepsMax": 40
         },
         {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
+          "name": "Barbell Seated Calf Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Dumbbell Side Bend",
-          "orderIndex": 4
+          "name": "Oblique Crunches - On The Floor",
+          "orderIndex": 4,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
     }
   ],
   "no-injury-seed-123": [
     {
-      "focus": "upper",
+      "focus": "push",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
+          "name": "Barbell Bench Press - Medium Grip",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
+          "name": "Standing Military Press",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
+          "name": "Dumbbell Bench Press",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
+          "name": "Dumbbell Lying One-Arm Rear Lateral Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Lying Dumbbell Tricep Extension",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Cross Body Hammer Curl",
-          "orderIndex": 5
+          "name": "Lying Dumbbell Tricep Extension",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
     {
-      "focus": "lower",
+      "focus": "pull",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
+          "name": "Bent-Arm Barbell Pullover",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
+          "name": "Bent Over Barbell Row",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Lunge",
-          "orderIndex": 2
+          "name": "One-Arm Dumbbell Row",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
+          "name": "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Janda Sit-Up",
-          "orderIndex": 4
+          "name": "Lying Supine Dumbbell Curl",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
     {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
-    },
-    {
-      "focus": "upper",
+      "focus": "legs",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
+          "name": "Barbell Squat",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
+          "name": "Barbell Deadlift",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
+          "name": "Barbell Lunge",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
+          "name": "Barbell Seated Calf Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Seated Bent-Over Two-Arm Dumbbell Triceps Extension",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Dumbbell Alternate Bicep Curl",
-          "orderIndex": 5
+          "name": "Seated Leg Tucks",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
     {
-      "focus": "lower",
+      "focus": "push",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
+          "name": "Barbell Bench Press - Medium Grip",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
+          "name": "Standing Military Press",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Lunge",
-          "orderIndex": 2
+          "name": "Dumbbell Bench Press",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
+          "name": "Dumbbell Lying One-Arm Rear Lateral Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Plank",
-          "orderIndex": 4
-        }
-      ]
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
-    }
-  ],
-  "past-knee-seed-999": [
-    {
-      "focus": "upper",
-      "dayType": "weights",
-      "exercises": [
-        {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
-        },
-        {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
-        },
-        {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
-        },
-        {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
-        },
-        {
-          "slug": "One Arm Pronated Dumbbell Triceps Extension",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Reverse Barbell Curl",
-          "orderIndex": 5
-        }
-      ]
-    },
-    {
-      "focus": "lower",
-      "dayType": "weights",
-      "exercises": [
-        {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
-        },
-        {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
-        },
-        {
-          "slug": "Wall Sit",
-          "orderIndex": 2
-        },
-        {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
-        },
-        {
-          "slug": "Flutter Kicks",
-          "orderIndex": 4
+          "name": "Body Tricep Press",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
@@ -578,199 +929,86 @@
       "exercises": []
     },
     {
-      "focus": "upper",
+      "focus": "pull",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
+          "name": "Bent-Arm Barbell Pullover",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
+          "name": "Bent Over Barbell Row",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
+          "name": "One-Arm Dumbbell Row",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
+          "name": "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "One Arm Supinated Dumbbell Triceps Extension",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Dumbbell Alternate Bicep Curl",
-          "orderIndex": 5
+          "name": "Preacher Hammer Dumbbell Curl",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
     },
     {
-      "focus": "lower",
+      "focus": "legs",
       "dayType": "weights",
       "exercises": [
         {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
+          "name": "Barbell Squat",
+          "orderIndex": 0,
+          "targetSets": 5,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
+          "name": "Barbell Deadlift",
+          "orderIndex": 1,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Wall Sit",
-          "orderIndex": 2
+          "name": "Barbell Lunge",
+          "orderIndex": 2,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
+          "name": "Barbell Seated Calf Raise",
+          "orderIndex": 3,
+          "targetSets": 3,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         },
         {
-          "slug": "Seated Barbell Twist",
-          "orderIndex": 4
+          "name": "Dumbbell Side Bend",
+          "orderIndex": 4,
+          "targetSets": 4,
+          "targetRepsMin": 8,
+          "targetRepsMax": 12
         }
       ]
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
-    }
-  ],
-  "no-injury-seed-999": [
-    {
-      "focus": "upper",
-      "dayType": "weights",
-      "exercises": [
-        {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
-        },
-        {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
-        },
-        {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
-        },
-        {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
-        },
-        {
-          "slug": "Standing Towel Triceps Extension",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Two-Arm Dumbbell Preacher Curl",
-          "orderIndex": 5
-        }
-      ]
-    },
-    {
-      "focus": "lower",
-      "dayType": "weights",
-      "exercises": [
-        {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
-        },
-        {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
-        },
-        {
-          "slug": "Barbell Lunge",
-          "orderIndex": 2
-        },
-        {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
-        },
-        {
-          "slug": "Flat Bench Lying Leg Raise",
-          "orderIndex": 4
-        }
-      ]
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
-    },
-    {
-      "focus": "upper",
-      "dayType": "weights",
-      "exercises": [
-        {
-          "slug": "Barbell Bench Press - Medium Grip",
-          "orderIndex": 0
-        },
-        {
-          "slug": "Bent-Arm Barbell Pullover",
-          "orderIndex": 1
-        },
-        {
-          "slug": "Standing Military Press",
-          "orderIndex": 2
-        },
-        {
-          "slug": "Bent Over Barbell Row",
-          "orderIndex": 3
-        },
-        {
-          "slug": "Tate Press",
-          "orderIndex": 4
-        },
-        {
-          "slug": "Dumbbell Alternate Bicep Curl",
-          "orderIndex": 5
-        }
-      ]
-    },
-    {
-      "focus": "lower",
-      "dayType": "weights",
-      "exercises": [
-        {
-          "slug": "Barbell Squat",
-          "orderIndex": 0
-        },
-        {
-          "slug": "Barbell Deadlift",
-          "orderIndex": 1
-        },
-        {
-          "slug": "Barbell Lunge",
-          "orderIndex": 2
-        },
-        {
-          "slug": "Barbell Seated Calf Raise",
-          "orderIndex": 3
-        },
-        {
-          "slug": "Seated Leg Tucks",
-          "orderIndex": 4
-        }
-      ]
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
-    },
-    {
-      "focus": null,
-      "dayType": "rest",
-      "exercises": []
     }
   ]
 }

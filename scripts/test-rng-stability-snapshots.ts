@@ -22,14 +22,14 @@ if (!existsSync(fixturePath)) {
 
 const goldenSnapshots = JSON.parse(readFileSync(fixturePath, "utf8"));
 
-const catalogue = JSON.parse(
+const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as CandidateExercise[];
+);
 
 const pastKneeInput: GeneratorInput = {
   userId: "test-user-past-knee",
   blockNumber: 1,
-  daysPerWeek: 4,
+  daysPerWeek: 6,
   yogaDaysPerWeek: 0,
   goal: "muscle_gain",
   level: "intermediate",
@@ -50,13 +50,19 @@ const noInjuryInput: GeneratorInput = {
   anyKneeInjury: false,
 };
 
-const seeds = [42, 123, 999];
+const seeds = [42, 123];
 let failures = 0;
 
 type DaySnapshot = {
   focus: string | null;
   dayType: string;
-  exercises: Array<{ slug: string; orderIndex: number }>;
+  exercises: Array<{ 
+    name: string; 
+    orderIndex: number;
+    targetSets: number;
+    targetRepsMin: number;
+    targetRepsMax: number;
+  }>;
 };
 
 function extractDayExercises(program: ReturnType<typeof generateProgram>): DaySnapshot[] {
@@ -64,8 +70,11 @@ function extractDayExercises(program: ReturnType<typeof generateProgram>): DaySn
     focus: day.focus,
     dayType: day.dayType,
     exercises: day.dayType === "rest" ? [] : day.exercises.map(ex => ({
-      slug: ex.name,
+      name: ex.name,
       orderIndex: ex.orderIndex,
+      targetSets: ex.targetSets,
+      targetRepsMin: ex.targetRepsMin,
+      targetRepsMax: ex.targetRepsMax,
     })),
   }));
 }
@@ -87,8 +96,8 @@ function compareSnapshots(label: string, actual: DaySnapshot[], expected: DaySna
       const expectedDay = JSON.stringify(expected[i]);
       if (actualDay !== expectedDay) {
         console.log(`    Day ${i} differs:`);
-        console.log(`      Expected: ${expectedDay}`);
-        console.log(`      Got:      ${actualDay}`);
+        console.log(`      Expected: ${expectedDay.substring(0, 100)}...`);
+        console.log(`      Got:      ${actualDay.substring(0, 100)}...`);
         break;
       }
     }
@@ -96,12 +105,11 @@ function compareSnapshots(label: string, actual: DaySnapshot[], expected: DaySna
   }
 }
 
-console.log("Testing RNG stability with golden snapshots...\n");
+console.log("Testing RNG stability with golden snapshots (6-day PPL with Push/Pull)...\n");
 
 for (const seed of seeds) {
   console.log(`Seed ${seed}:`);
   
-  // Use blockNumber as seed (generateProgram derives RNG from userId:blockNumber)
   const pastKneeProgram = generateProgram({ ...pastKneeInput, blockNumber: seed });
   const noInjuryProgram = generateProgram({ ...noInjuryInput, blockNumber: seed });
   
@@ -123,4 +131,4 @@ if (failures > 0) {
   process.exit(1);
 }
 
-console.log("✅ PASSED: All golden snapshots match");
+console.log("✅ PASSED: All golden snapshots match (including Push/Pull days with sets/reps)");

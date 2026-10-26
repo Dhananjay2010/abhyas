@@ -210,14 +210,22 @@ const pinnedPastKneeProfile = selectWarmup({
 
 const pinnedMobility = pinnedPastKneeProfile.filter(w => w.phase === "mobility");
 const pinnedMobilitySeconds = pinnedMobility.reduce((sum, w) => sum + (w.duration_seconds ?? 0), 0);
+const pinnedMobilitySlugs = pinnedMobility.map(w => w.slug);
 
 console.log("  Past-knee Lower day mobility:");
 pinnedMobility.forEach(drill => {
   console.log(`    - ${drill.slug}: ${drill.duration_seconds}s`);
 });
 
-check("Past-knee Lower mobility seconds pinned", pinnedMobilitySeconds > 0,
-  `total: ${pinnedMobilitySeconds}s from ${pinnedMobility.length} drills`
+const expectedSlugs = ["hip-circles", "glute-bridge", "leg-swing-front", "ankle-rock"];
+const slugsMatch = JSON.stringify(pinnedMobilitySlugs) === JSON.stringify(expectedSlugs);
+
+check("Past-knee Lower mobility seconds exactly 195", pinnedMobilitySeconds === 195,
+  `got ${pinnedMobilitySeconds}s`
+);
+check("Past-knee Lower mobility slugs exactly [hip-circles, glute-bridge, leg-swing-front, ankle-rock]", 
+  slugsMatch,
+  `got [${pinnedMobilitySlugs.join(", ")}]`
 );
 
 console.log(`\n${failures === 0 ? "✓ All tests passed!" : `✗ ${failures} test(s) failed`}`);

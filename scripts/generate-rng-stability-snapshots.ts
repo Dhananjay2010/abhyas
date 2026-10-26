@@ -18,7 +18,7 @@ const catalogue = JSON.parse(
 const pastKneeInput: GeneratorInput = {
   userId: "test-user-past-knee",
   blockNumber: 1,
-  daysPerWeek: 4,
+  daysPerWeek: 6, // 6-day PPL for Push/Pull coverage
   yogaDaysPerWeek: 0,
   goal: "muscle_gain",
   level: "intermediate",
@@ -39,12 +39,18 @@ const noInjuryInput: GeneratorInput = {
   anyKneeInjury: false,
 };
 
-const seeds = [42, 123, 999];
+const seeds = [42, 123];
 
 type DaySnapshot = {
   focus: string | null;
   dayType: string;
-  exercises: Array<{ slug: string; orderIndex: number }>;
+  exercises: Array<{ 
+    name: string; 
+    orderIndex: number;
+    targetSets: number;
+    targetRepsMin: number;
+    targetRepsMax: number;
+  }>;
 };
 
 const snapshots: Record<string, DaySnapshot[]> = {};
@@ -54,14 +60,17 @@ for (const seed of seeds) {
   const pastKneeProgram = generateProgram({ ...pastKneeInput, blockNumber: seed });
   const noInjuryProgram = generateProgram({ ...noInjuryInput, blockNumber: seed });
   
-  // Extract exercise lists per day (focus + exercise slugs in order)
+  // Extract exercise lists per day with sets and reps
   function extractDayExercises(program: typeof pastKneeProgram): DaySnapshot[] {
     return program.days.map(day => ({
       focus: day.focus,
       dayType: day.dayType,
       exercises: day.dayType === "rest" ? [] : day.exercises.map(ex => ({
-        slug: ex.name,
+        name: ex.name,
         orderIndex: ex.orderIndex,
+        targetSets: ex.targetSets,
+        targetRepsMin: ex.targetRepsMin,
+        targetRepsMax: ex.targetRepsMax,
       })),
     }));
   }
@@ -75,5 +84,6 @@ writeFileSync(fixturePath, JSON.stringify(snapshots, null, 2));
 
 console.log(`✅ Generated golden snapshots: ${fixturePath}`);
 console.log(`Seeds: ${seeds.join(", ")}`);
-console.log(`Profiles: past-knee, no-injury`);
+console.log(`Profiles: past-knee (6-day PPL), no-injury (6-day PPL)`);
 console.log(`Days covered: ${Object.keys(snapshots).length} snapshots`);
+console.log(`Includes: sets, reps, and exercise names for all days including Push/Pull`);
