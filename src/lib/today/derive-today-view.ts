@@ -88,8 +88,8 @@ export function deriveTodayView(input: TodayViewInput): TodayViewResult {
   return {
     prompt: promptDecision.prompt,
     offerRest: promptDecision.offerRest,
-    showResume: false,
-    showSwap: true,
+    showResume: resumeDecision.showResume,
+    showSwap: resumeDecision.showSwap,
     resumeButton: resumeDecision.resumeButton,
     shouldLoadPlannableDays: needPlannableDays,
     chosenByDayIndex,
