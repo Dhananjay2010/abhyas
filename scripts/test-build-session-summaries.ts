@@ -214,6 +214,85 @@ console.log("\n9. Session missing from setCountsBySession → 0 working sets");
   check("0 of 5, in_progress → ended early (first rule)", s.endedEarly === true, `got ${s.endedEarly}`);
 }
 
+console.log("\n10. Mutant (a) boundary: workingSetCount === plannedSets with pending → NOT ended early");
+{
+  const sessions: RawSession[] = [
+    { id: "s10", actual_type: "weights", status: "completed" },
+  ];
+  
+  const exercises: RawSessionExercise[] = [
+    { id: "ex1", session_id: "s10", exercise_id: "squat", status: "completed", metric: "reps", planned_sets: 5 },
+    { id: "ex2", session_id: "s10", exercise_id: "bench", status: "pending", metric: "reps", planned_sets: 5 },
+  ];
+  
+  const setCountsBySession = new Map([["s10", 10]]);
+  
+  const summaries = buildHistorySessionSummaries(sessions, exercises, setCountsBySession);
+  const s = summaries[0];
+  
+  check("10 of 10 with pending → not ended early (rule is <, not <=)", s.endedEarly === false, `got ${s.endedEarly}`);
+  check("plannedSets = 10", s.plannedSets === 10, `got ${s.plannedSets}`);
+}
+
+console.log("\n11. Boundary: workingSetCount === plannedSets - 1 with pending → ended early");
+{
+  const sessions: RawSession[] = [
+    { id: "s11", actual_type: "weights", status: "completed" },
+  ];
+  
+  const exercises: RawSessionExercise[] = [
+    { id: "ex1", session_id: "s11", exercise_id: "squat", status: "completed", metric: "reps", planned_sets: 5 },
+    { id: "ex2", session_id: "s11", exercise_id: "bench", status: "pending", metric: "reps", planned_sets: 5 },
+  ];
+  
+  const setCountsBySession = new Map([["s11", 9]]);
+  
+  const summaries = buildHistorySessionSummaries(sessions, exercises, setCountsBySession);
+  const s = summaries[0];
+  
+  check("9 of 10 with pending → ended early", s.endedEarly === true, `got ${s.endedEarly}`);
+}
+
+console.log("\n12. Boundary: workingSetCount === plannedSets + 1 with pending → NOT ended early");
+{
+  const sessions: RawSession[] = [
+    { id: "s12", actual_type: "weights", status: "completed" },
+  ];
+  
+  const exercises: RawSessionExercise[] = [
+    { id: "ex1", session_id: "s12", exercise_id: "squat", status: "completed", metric: "reps", planned_sets: 5 },
+    { id: "ex2", session_id: "s12", exercise_id: "bench", status: "pending", metric: "reps", planned_sets: 5 },
+  ];
+  
+  const setCountsBySession = new Map([["s12", 11]]);
+  
+  const summaries = buildHistorySessionSummaries(sessions, exercises, setCountsBySession);
+  const s = summaries[0];
+  
+  check("11 of 10 with pending → not ended early", s.endedEarly === false, `got ${s.endedEarly}`);
+}
+
+console.log("\n13. swapped_out exercise excluded from planned sets and exercises");
+{
+  const sessions: RawSession[] = [
+    { id: "s13", actual_type: "weights", status: "completed" },
+  ];
+  
+  const exercises: RawSessionExercise[] = [
+    { id: "ex1", session_id: "s13", exercise_id: "squat", status: "completed", metric: "reps", planned_sets: 5 },
+    { id: "ex2", session_id: "s13", exercise_id: "bench", status: "swapped_out", metric: "reps", planned_sets: 5 },
+  ];
+  
+  const setCountsBySession = new Map([["s13", 5]]);
+  
+  const summaries = buildHistorySessionSummaries(sessions, exercises, setCountsBySession);
+  const s = summaries[0];
+  
+  check("plannedSets = 5 (swapped_out excluded)", s.plannedSets === 5, `got ${s.plannedSets}`);
+  check("1 completed exercise (swapped_out not in list)", s.completedExercises.length === 1, `got ${s.completedExercises.length}`);
+  check("5 of 5 → not ended early", s.endedEarly === false, `got ${s.endedEarly}`);
+}
+
 console.log(`\n✅ Passed: ${passed}`);
 if (failed > 0) {
   console.log(`❌ Failed: ${failed}`);

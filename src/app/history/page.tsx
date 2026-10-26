@@ -7,7 +7,7 @@ import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { buildHistorySessionSummaries } from "@/lib/history/build-session-summaries";
+import { buildHistoryListItems } from "@/lib/history/build-history-list-items";
 
 export const dynamic = "force-dynamic";
 
@@ -123,14 +123,6 @@ export default async function HistoryPage({
     oldestCompletedAt
   );
 
-  // Build session summaries (exercises, planned sets, pending, endedEarly)
-  const sessionSummaries = buildHistorySessionSummaries(
-    (orderedSessions ?? []).map(s => ({ id: s.id, actual_type: s.actual_type, status: s.status })),
-    sessionExercises ?? [],
-    setCountsBySession
-  );
-  const summariesById = new Map(sessionSummaries.map(s => [s.sessionId, s]));
-
   // Get all sets for these session_exercises to calculate top sets only
   // (set counts already computed by detectSessionPRs above)
   // QA Bot 3 M3: handle errors silently
@@ -153,83 +145,19 @@ export default async function HistoryPage({
     if (data) allSets.push(...data);
   }
 
-  const setsByExercise = new Map<string, Array<{ reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null }>>();
-  for (const set of allSets) {
-    const list = setsByExercise.get(set.session_exercise_id) ?? [];
-    list.push(set);
-    setsByExercise.set(set.session_exercise_id, list);
-  }
-
-  // Get exercise history helpers
-  const { findTopSet } = await import("@/lib/exercise-history/calculations");
+  // Get pickTopSet helper
   const { pickTopSet } = await import("@/lib/history/pick-top-set");
 
-  const items: SessionListItem[] = (orderedSessions ?? [])
-    .map((s) => {
-      const vol = volumeById.get(s.id);
-      const isBreathing = s.actual_type === "meditation";
-      const summary = summariesById.get(s.id);
-      const exercises = summary?.completedExercises ?? [];
-
-      // Get working set count from summary
-      const workingSetCount = summary?.workingSetCount ?? 0;
-
-      // Calculate top set weight for strength sessions
-    // Use pickTopSet to find the heaviest working set across all exercises
-    let topSetWeight: number | null = null;
-
-    if (!isBreathing && exercises.length > 0) {
-      // Collect all working sets from all exercises in this session
-      const allSets = exercises.flatMap((ex) => setsByExercise.get(ex.id) ?? []);
-      topSetWeight = pickTopSet(allSets);
-    }
-
-    // Check if this session had any PRs at the time
-    const hasPR = sessionsWithPRs.has(s.id);
-
-    const logs = (s.breathing_logs ?? []) as Array<{
-      breaths: number;
-      routine_name: string | null;
-    }>;
-    const routineName = logs.find((l) => l.routine_name)?.routine_name ?? null;
-    const pattern = s.breathing_patterns as unknown as
-      | { name: string; phases: unknown }
-      | null;
-    const pumps =
-      routineName === null &&
-      Array.isArray(pattern?.phases) &&
-      pattern.phases.some(
-        (p) => typeof p === "object" && p !== null && (p as { kind?: string }).kind === "pump"
-      );
-
-    const endedEarly = summary?.endedEarly ?? false;
-    const plannedSets = summary?.plannedSets ?? null;
-
-    return {
-      id: s.id,
-      localDate: s.local_date,
-      status: s.status,
-      actualType: s.actual_type,
-      durationSeconds: s.duration_seconds,
-      startedAt: s.started_at,
-      completedAt: s.completed_at,
-      isDeload: s.is_deload,
-      endedEarly,
-      plannedSets: plannedSets ?? null,
-      programDayLabel: (s.program_days as unknown as { label: string } | null)?.label ?? null,
-      setCount: workingSetCount,
-      volumeKg: Number(vol?.volume_kg ?? 0),
-      topSetWeight,
-      hasPR,
-      breathing: isBreathing
-        ? {
-            breaths: logs.length ? logs.reduce((n, l) => n + l.breaths, 0) : null,
-            pumps,
-            patternName: routineName ?? pattern?.name ?? null,
-          }
-        : null,
-    };
-  });
+  // Build complete SessionListItem rows using the lib function
+  const items = buildHistoryListItems(
+    orderedSessions ?? [],
+    sessionExercises ?? [],
+    allSets,
+    volumeData ?? [],
+    setCountsBySession,
+    sessionsWithPRs,
+    pickTopSet
+  );
   // For lifts, filtering already happened at SQL level via session_volume join
   // For yoga/breathing, no filtering needed (they don't have zero-set issues)
 
