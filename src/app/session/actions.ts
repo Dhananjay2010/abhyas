@@ -36,6 +36,7 @@ export type { SwapResult };
 
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/build-session-summary";
+import type { UnitsPreference } from "@/lib/units";
 
 export type { SummaryNote };
 
@@ -382,7 +383,10 @@ export async function finishExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  return finishExerciseCore(supabase, user.id, input, { applyProgression });
+  return finishExerciseCore(supabase, user.id, input, {
+    applyProgression: (supabase, userId, sessionExerciseId, feel, units) =>
+      applyProgression(supabase, userId, sessionExerciseId, feel, units),
+  });
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
