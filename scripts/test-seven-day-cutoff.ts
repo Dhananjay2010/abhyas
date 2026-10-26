@@ -2,8 +2,8 @@
 /**
  * Test: 7-day cutoff for stale pending sets
  * 
- * Verifies that pending sets older than 7 days are pruned,
- * while recent sets are kept.
+ * Verifies that pending sets older than 7 days are KEPT (not pruned).
+ * Per Issue #6: expired sets are kept and surfaced with Discard UI.
  */
 
 import { loadPendingSets, savePendingSet, type Storage } from "../src/lib/session/pending-set-retry";
@@ -62,7 +62,8 @@ const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
   check("Set saved at T0, loaded at T0+7d-1ms is kept (just before cutoff)", loaded.length === 1);
 }
 
-// Test 2: Set saved at T0, loaded at T0 + 7d (exactly at cutoff) should be pruned
+// Test 2: Set saved at T0, loaded at T0 + 7d (exactly at cutoff) should be kept (not pruned)
+// Per Issue #6: expired sets are kept and surfaced, not deleted
 {
   storage.removeItem(`pending-sets:${userId}`);
   
@@ -79,7 +80,7 @@ const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
   const depsAtCutoff = { now: () => T0 + sevenDaysMs };
   const loaded = loadPendingSets(storage, userId, sessionId, depsAtCutoff);
   
-  check("Set saved at T0, loaded at T0+7d is pruned (at cutoff)", loaded.length === 0);
+  check("Set saved at T0, loaded at T0+7d is kept (expired sets not pruned)", loaded.length === 1);
 }
 
 // Test 3: Recent set (1 hour old) should always be kept
