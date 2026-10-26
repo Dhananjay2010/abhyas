@@ -36,7 +36,7 @@ import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligib
 export type { SwapResult };
 
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
-import type { SummaryNote } from "@/lib/session/build-session-summary";
+import type { SummaryNote } from "@/lib/session/load-session-summary";
 import type { UnitsPreference } from "@/lib/units";
 
 export type { SummaryNote };
@@ -362,7 +362,7 @@ export async function deleteSet(
 
 import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 
-export type { ProgressionFeedback };
+export type { ProgressionFeedback, SummaryNote };
 
 /**
  * Complete an exercise and apply progression from what was actually logged.
@@ -384,15 +384,7 @@ export async function finishExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  return finishExerciseCore(supabase, user.id, input, {
-    applyProgression: (
-      supabase: ServerClient,
-      userId: string,
-      sessionExerciseId: string,
-      feel: SetFeel | null,
-      units: UnitsPreference
-    ) => applyProgression(supabase, userId, sessionExerciseId, feel, units),
-  });
+  return finishExerciseCore(input, { applyProgression });
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
@@ -402,13 +394,23 @@ async function applyProgression(
   userId: string,
   sessionExerciseId: string,
   feel: SetFeel | null,
-  units: UnitsPreference,
 ): Promise<ProgressionFeedback | null> {
-  const { data: settings } = await supabase
-    .from("user_settings")
-    .select("planning_mode, per_set_logging")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const [settingsRes, profileRes] = await Promise.all([
+    supabase
+      .from("user_settings")
+      .select("planning_mode, per_set_logging")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("units")
+      .eq("id", userId)
+      .single(),
+  ]);
+
+  const settings = settingsRes.data;
+  const { getUnitsPreference } = await import("@/lib/units");
+  const units = getUnitsPreference(profileRes.data?.units);
 
   // Daily-menu mode keeps no working-weight memory. History is preserved, so
   // switching back to progression resumes from where it left off.

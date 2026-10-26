@@ -85,14 +85,6 @@ export async function finishExerciseCore(
 
   if (input.skipped) return { ok: true, data: null };
 
-  // FIX (6): Pass real units from user profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("units")
-    .eq("id", userId)
-    .single();
-  
-  const units = profile?.units === "imperial" ? "imperial" : "metric";
-  const feedback = await deps.applyProgression(supabase, userId, input.sessionExerciseId, input.feel, units);
+  const feedback = await deps.applyProgression(supabase, userId, input.sessionExerciseId, input.feel);
   return { ok: true, data: feedback };
 }

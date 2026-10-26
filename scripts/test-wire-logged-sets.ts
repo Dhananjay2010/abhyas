@@ -3,10 +3,25 @@
  *
  * FIX (c): Real keys are s<N>, not "actual-N". Test uses actual buildTodayRows
  * and wireLoggedSets to verify end-to-end wiring.
+ *
+ * Also includes source assertion that page.tsx imports and calls wireLoggedSets.
  */
 
 import { buildTodayRows } from "@/lib/today/build-today-rows";
 import { wireLoggedSets } from "@/lib/today/wire-logged-sets";
+import { readFileSync } from "fs";
+
+// Source assertion: page.tsx must import and call wireLoggedSets
+const pageSource = readFileSync("src/app/today/page.tsx", "utf-8");
+if (!pageSource.includes("wireLoggedSets")) {
+  console.error("✗ page.tsx must call wireLoggedSets");
+  process.exit(1);
+}
+if (!pageSource.includes('await import("@/lib/today/wire-logged-sets")')) {
+  console.error("✗ page.tsx must import wire-logged-sets module");
+  process.exit(1);
+}
+console.log("✓ Source assertion: page.tsx imports and calls wireLoggedSets");
 
 const actual = [
   {

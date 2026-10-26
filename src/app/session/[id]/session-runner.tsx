@@ -180,7 +180,7 @@ export function SessionRunner({
   const [progressNotes, setProgressNotes] = useState<SummaryNote[]>([]);
   const [summaryLoaded, setSummaryLoaded] = useState(false);
   const [bannerFor, setBannerFor] = useState<number | null>(null);
-  const [bannerNote, setBannerNote] = useState<string | null>(null);
+  const [bannerContent, setBannerContent] = useState<{ name: string; message: string } | null>(null);
 
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
@@ -798,8 +798,10 @@ export function SessionRunner({
     setError(null);
     
     // FIX (a): Store feedback from finishExercise for immediate banner display
-    if (result.data) {
-      setBannerNote(result.data.message);
+    if (skipped || !result.data?.message) {
+      setBannerContent(null);
+    } else if (result.data) {
+      setBannerContent({ name: current.name, message: result.data.message });
     }
     
     setExercises((prev) =>
@@ -836,9 +838,9 @@ export function SessionRunner({
         message={message}
     >
       <div onPointerDown={onAnyTap}>
-        {bannerFor === exerciseIndex && bannerNote && (
+        {bannerFor === exerciseIndex && bannerContent && (
           <p className="mb-5 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-            <span className="font-semibold">{current.name}:</span> {bannerNote}
+            <span className="font-semibold">{bannerContent.name}:</span> {bannerContent.message}
           </p>
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>

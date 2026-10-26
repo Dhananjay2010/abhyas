@@ -8,9 +8,14 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import type { SummaryNote } from "./build-session-summary";
 import { describePersonalBest, type PersonalBest } from "@/lib/program/progression";
 import { calculateEpley1RM } from "@/lib/exercise-history/calculations";
+
+export type SummaryNote = {
+  name: string;
+  message: string;
+  personalBest: string | null;
+};
 import type { UnitsPreference } from "@/lib/units";
 
 /**
@@ -34,7 +39,8 @@ export async function loadSessionSummary(
     .eq("id", userId)
     .single();
 
-  const units: UnitsPreference = profile?.units === "imperial" ? "imperial" : "metric";
+  const { getUnitsPreference } = await import("@/lib/units");
+  const units = getUnitsPreference(profile?.units);
 
   // Fetch this session's completed exercises with sets
   const { data: exercises } = await supabase
@@ -65,19 +71,29 @@ export async function loadSessionSummary(
   );
 
   // Fetch historical best from OTHER sessions (for PB comparison)
-  const { data: historicalSets } = await supabase
-    .from("session_sets")
-    .select(
-      `reps, weight_kg, duration_seconds, is_warmup_set,
-       session_exercises!inner(exercise_id, session_id, status, metric)`
-    )
-    .eq("user_id", userId)
-    .in(
-      "session_exercises.exercise_id",
-      exerciseIds
-    )
-    .neq("session_exercises.session_id", sessionId)
-    .eq("session_exercises.status", "completed");
+  // Page the query to avoid the 1000-row cap
+  let historicalSets: typeof historicalQuery extends { data: infer D } ? D : never = [];
+  let offset = 0;
+  const pageSize = 1000;
+  
+  while (true) {
+    const historicalQuery = await supabase
+      .from("session_sets")
+      .select(
+        `reps, weight_kg, duration_seconds, is_warmup_set,
+         session_exercises!inner(exercise_id, session_id, status, metric)`
+      )
+      .eq("user_id", userId)
+      .in("session_exercises.exercise_id", exerciseIds)
+      .neq("session_exercises.session_id", sessionId)
+      .eq("session_exercises.status", "completed")
+      .range(offset, offset + pageSize - 1);
+    
+    if (!historicalQuery.data || historicalQuery.data.length === 0) break;
+    historicalSets = [...historicalSets, ...historicalQuery.data];
+    if (historicalQuery.data.length < pageSize) break;
+    offset += pageSize;
+  }
 
   // Group historical sets by exercise_id
   const historicalByExercise = new Map<string, Array<{
