@@ -121,6 +121,7 @@ class MockDB {
       updateSession: (id: string, row: SessionInsert) => this.updateSession(id, row),
       deleteSessions: (ids: string[]) => this.deleteSessions(ids),
       insertSession: (row: SessionInsert) => this.insertSession(row),
+      rereadDaySessions: (localDate: string) => this.findDaySessions(localDate),
     };
   }
 

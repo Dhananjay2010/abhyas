@@ -36,6 +36,7 @@ export type { SwapResult };
 
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
+import { queryActiveProgramDay } from "@/lib/session/query-active-program-day";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -830,15 +831,7 @@ export async function planDay(input: {
       return result;
     },
     async findProgramDay(programId: string, dayIndex: number) {
-      const { data, error } = await supabase
-        .from("program_days")
-        .select("id, day_type")
-        .eq("user_id", user.id)
-        .eq("program_id", programId)
-        .eq("status", "active")
-        .eq("day_index", dayIndex)
-        .maybeSingle();
-      return { day: data, error: error?.message ?? null };
+      return queryActiveProgramDay(supabase, user.id, programId, dayIndex);
     },
     async updateSession(id: string, row) {
       const { error} = await supabase
@@ -854,6 +847,13 @@ export async function planDay(input: {
     async insertSession(row) {
       const { error } = await supabase.from("sessions").insert(row);
       return { error: error?.message ?? null };
+    },
+    async rereadDaySessions(localDate: string) {
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("id, status, actual_type, program_day_id")
+        .eq("local_date", localDate);
+      return { rows: data ?? [], error: error?.message ?? null };
     },
   };
 

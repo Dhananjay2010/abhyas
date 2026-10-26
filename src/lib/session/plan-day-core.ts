@@ -6,7 +6,12 @@ import { isoWeekday } from "@/lib/dates";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
-type SessionRow = { id: string; status: string; actual_type: DayType | null };
+type SessionRow = {
+  id: string;
+  status: string;
+  actual_type: DayType | null;
+  program_day_id?: string | null;
+};
 
 const OVERRIDE_TYPE: Record<string, DayType> = {
   rest: "rest",
@@ -41,6 +46,7 @@ export interface PlanDayClient {
   updateSession(id: string, row: SessionInsert): Promise<{ error: string | null }>;
   deleteSessions(ids: string[]): Promise<{ error: string | null }>;
   insertSession(row: SessionInsert): Promise<{ error: string | null }>;
+  rereadDaySessions(localDate: string): Promise<{ rows: SessionRow[]; error: string | null }>;
 }
 
 type PlanDayInput = {
@@ -97,56 +103,89 @@ export async function planDayCore(
   const planned = existing.filter((s) => s.status === "planned");
 
   if (input.plan.kind === "keep") {
-    if (planned.length === 0) {
-      const programResult = await client.findActiveProgram();
-      if (programResult.error) {
-        return { ok: false, error: programResult.error };
-      }
-      const program = programResult.program;
-      if (!program) {
-        return { ok: false, error: "No active program." };
-      }
-
-      const dayIndex = isoWeekday(input.localDate);
-      const programDayResult = await client.findProgramDay(program.id, dayIndex);
-      if (programDayResult.error) {
-        return { ok: false, error: programDayResult.error };
-      }
-      if (!programDayResult.day) {
-        return { ok: false, error: "Could not find program day." };
-      }
-
-      const week = cycleWeekFor(
-        { started_on: program.started_on, week_offset: program.week_offset },
-        input.localDate,
-      );
-
-      const row: SessionInsert = {
-        user_id: input.userId,
-        program_id: program.id,
-        program_day_id: programDayResult.day.id,
-        local_date: input.localDate,
-        week_in_block: week,
-        is_deload: week === program.deload_week,
-        planned_type: programDayResult.day.day_type,
-        actual_type: programDayResult.day.day_type,
-        status: "planned",
-      };
-
-      const insertResult = await client.insertSession(row);
-      if (insertResult.error) {
-        return { ok: false, error: insertResult.error };
-      }
-      return { ok: true };
-    }
     const ids = idsToDeleteOnKeep(planned);
-    if (ids.length === 0) {
+    if (ids.length === 0 && planned.length > 0) {
       return { ok: true };
     }
+
+    const programResult = await client.findActiveProgram();
+    if (programResult.error) {
+      return { ok: false, error: programResult.error };
+    }
+    const program = programResult.program;
+    if (!program) {
+      return { ok: false, error: "No active program." };
+    }
+
+    const dayIndex = isoWeekday(input.localDate);
+    const programDayResult = await client.findProgramDay(program.id, dayIndex);
+    if (programDayResult.error) {
+      return { ok: false, error: programDayResult.error };
+    }
+    if (!programDayResult.day) {
+      return { ok: false, error: "Could not find program day." };
+    }
+
+    const day = programDayResult.day;
+    const matchingRows = planned.filter((s) => s.actual_type === day.day_type && s.program_day_id === day.id);
+
+    if (matchingRows.length > 0) {
+      matchingRows.sort((a, b) => a.id.localeCompare(b.id));
+      const toKeep = matchingRows[0];
+      const toDelete = planned.filter((s) => s.id !== toKeep.id).map((s) => s.id);
+      if (toDelete.length > 0) {
+        const deleteResult = await client.deleteSessions(toDelete);
+        if (deleteResult.error) {
+          return { ok: false, error: deleteResult.error };
+        }
+      }
+      return { ok: true };
+    }
+
     const deleteResult = await client.deleteSessions(ids);
     if (deleteResult.error) {
       return { ok: false, error: deleteResult.error };
     }
+
+    const week = cycleWeekFor(
+      { started_on: program.started_on, week_offset: program.week_offset },
+      input.localDate,
+    );
+
+    const row: SessionInsert = {
+      user_id: input.userId,
+      program_id: program.id,
+      program_day_id: day.id,
+      local_date: input.localDate,
+      week_in_block: week,
+      is_deload: week === program.deload_week,
+      planned_type: day.day_type,
+      actual_type: day.day_type,
+      status: "planned",
+    };
+
+    const insertResult = await client.insertSession(row);
+    if (insertResult.error) {
+      return { ok: false, error: insertResult.error };
+    }
+
+    const rereadResult = await client.rereadDaySessions(input.localDate);
+    if (rereadResult.error) {
+      return { ok: false, error: rereadResult.error };
+    }
+
+    const newPlanned = rereadResult.rows.filter((s) => s.status === "planned");
+    const matchingDuplicates = newPlanned.filter((s) => s.actual_type === day.day_type && s.program_day_id === day.id);
+
+    if (matchingDuplicates.length > 1) {
+      matchingDuplicates.sort((a, b) => a.id.localeCompare(b.id));
+      const toDelete = matchingDuplicates.slice(1).map((s) => s.id);
+      const dedupeResult = await client.deleteSessions(toDelete);
+      if (dedupeResult.error) {
+        return { ok: false, error: dedupeResult.error };
+      }
+    }
+
     return { ok: true };
   }
 
