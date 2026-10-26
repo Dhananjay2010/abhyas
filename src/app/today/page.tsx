@@ -546,8 +546,7 @@ export default async function TodayPage() {
               )}
             </div>
           </>
-        )
-      )}
+        )}
 
       {dayType === "meditation" && (
         <div className="mt-6">

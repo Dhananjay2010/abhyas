@@ -325,6 +325,7 @@
     "test:null-actual-type": "tsx scripts/test-null-actual-type.ts",
     "test:dst-boundary": "tsx scripts/test-dst-boundary.ts",
     "test:decide-today-prompts": "tsx scripts/test-decide-today-prompts.ts",
+    "test:derive-today-view": "tsx scripts/test-derive-today-view.ts",
     "test:plan-day-core": "tsx scripts/test-plan-day-core.ts",
     "test:shard1": "node scripts/run-test-shard.js 1 3",
     "test:shard2": "node scripts/run-test-shard.js 2 3",
