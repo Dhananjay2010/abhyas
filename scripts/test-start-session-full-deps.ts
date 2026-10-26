@@ -338,7 +338,12 @@ async function test(name: string, fn: () => Promise<void>) {
 
   await test("BUG CATCH: ensureSessionExercises is wired", async () => {
     const fakeClient = createFakeSupabase({
-      "session_exercises:query": { data: [], error: null },
+      "sessions:query": { data: [{ 
+        program_day_id: "day-1", 
+        actual_type: "weights", 
+        is_deload: false,
+        session_exercises: []
+      }], error: null },
       "program_day_exercises:query": { data: [], error: null },
       "session_exercises:upsert": { data: [], error: null },
     });
@@ -347,9 +352,9 @@ async function test(name: string, fn: () => Promise<void>) {
     resetCalls();
     await deps.ensureSessionExercises("sess-1");
     
-    const sessionExercisesCall = calls.find(c => c.table === "session_exercises" && c.method === "GET");
+    const sessionsCall = calls.find(c => c.table === "sessions" && c.method === "GET");
     const programDayExercisesCall = calls.find(c => c.table === "program_day_exercises" && c.method === "GET");
-    eq(sessionExercisesCall !== undefined, true, "queries session_exercises");
+    eq(sessionsCall !== undefined, true, "queries sessions with session_exercises embed");
     eq(programDayExercisesCall !== undefined, true, "queries program_day_exercises");
   });
 
