@@ -25,8 +25,17 @@ const kneeContraindicatedExercises = catalogue.filter(ex =>
   ex.contraindicated_regions.includes("knee")
 );
 
+// G-3: Landmine jammers should be excluded (leg-driven presses)
+const jammers = catalogue.filter(ex => 
+  ex.slug === "landmine-linear-jammer" || ex.slug === "single-arm-linear-jammer"
+);
+
 console.log(`Found ${kneeContraindicatedExercises.length} knee-contraindicated exercises in catalogue`);
 console.log("Sample:", kneeContraindicatedExercises.slice(0, 3).map(ex => ex.name).join(", "));
+console.log(`Found ${jammers.length} landmine jammer exercises (G-3 - leg-driven presses)`);
+if (jammers.length > 0) {
+  console.log("Jammers:", jammers.map(ex => ex.name).join(", "));
+}
 
 let totalViolations = 0;
 
@@ -192,11 +201,90 @@ for (const pattern of testMovementPatterns) {
 console.log("\n" + "=".repeat(60));
 console.log(`Total violations: ${totalViolations}`);
 console.log(`Knee-contraindicated exercises in catalogue: ${kneeContraindicatedExercises.length}`);
+console.log(`Landmine jammer exercises (G-3): ${jammers.length}`);
+
+// G-3: Verify landmine jammers specifically are excluded
+console.log("\n=== G-3: Verifying landmine jammer exclusion ===");
+let jammerViolations = 0;
+const jammerSlugs = new Set(jammers.map(ex => ex.slug));
+
+// Re-test with explicit jammer name checks
+for (const config of pastKneeConfigs) {
+  for (let seed = 0; seed < 5; seed++) {
+    const input: GeneratorInput = {
+      userId: `past-knee-g3-${seed}`,
+      blockNumber: seed,
+      daysPerWeek: config.days,
+      yogaDaysPerWeek: 0,
+      goal: "muscle_gain",
+      level: config.level,
+      preferredSessionMinutes: config.minutes,
+      equipmentIds: ["barbell", "squat_rack", "flat_bench", "dumbbell", "ez_bar", "pull_up_bar", "landmine"],
+      catalogue,
+      hasAllEquipment: false,
+      primaryTrack: "weights",
+      age: 36,
+      bmi: 22.5,
+      currentInjuryRegions: [],
+      anyKneeInjury: true,
+    };
+
+    const program = generateProgram(input);
+
+    for (const day of program.days) {
+      if (day.dayType === "rest") continue;
+
+      for (const ex of day.exercises) {
+        const exData = catalogueById.get(ex.exerciseId);
+        if (!exData) continue;
+
+        if (jammerSlugs.has(exData.slug)) {
+          jammerViolations++;
+          console.error(
+            `❌ G-3 VIOLATION: Past-knee ${day.focus} day: ${ex.name} (leg-driven press) should be excluded`
+          );
+        }
+      }
+    }
+  }
+}
+
+// Check swaps for jammers
+for (const pattern of testMovementPatterns) {
+  const exercisesInPattern = catalogue.filter(ex => ex.movement_pattern === pattern);
+  if (exercisesInPattern.length === 0) continue;
+
+  const currentExercise = exercisesInPattern[0];
+
+  const ctx: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: new Set(["barbell", "squat_rack", "flat_bench", "dumbbell", "ez_bar", "pull_up_bar", "landmine"]),
+    injuryRegions: [],
+    anyKneeInjury: true,
+    limit: 10,
+    scoreFn: () => 50,
+    tieBreakFn: () => 0,
+  };
+
+  const alternatives = rankAlternatives(currentExercise, catalogue, ctx);
+
+  for (const alt of alternatives) {
+    if (jammerSlugs.has(alt.slug)) {
+      jammerViolations++;
+      console.error(
+        `❌ G-3 VIOLATION: Past-knee swap for ${currentExercise.name}: ${alt.name} (leg-driven press) should be excluded`
+      );
+    }
+  }
+}
+
+console.log(`G-3 jammer violations: ${jammerViolations}`);
+totalViolations += jammerViolations;
 
 if (totalViolations > 0) {
-  console.error("\n❌ FAILED: Knee-contraindicated exercises found in programs or swaps");
-  console.error("All exercises with knee in contraindicated_regions must be excluded for ANY knee injury");
+  console.error("\n❌ FAILED: Knee-contraindicated exercises or G-3 jammers found in programs or swaps");
+  console.error("All exercises with knee in contraindicated_regions AND landmine jammers must be excluded for ANY knee injury");
   process.exit(1);
 }
 
-console.log("\n✅ PASSED: No knee-contraindicated exercises in any past-knee or current-knee programs or swaps");
+console.log("\n✅ PASSED: No knee-contraindicated exercises or G-3 jammers in any past-knee or current-knee programs or swaps");
