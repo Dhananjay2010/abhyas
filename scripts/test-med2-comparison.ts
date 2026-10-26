@@ -13,9 +13,9 @@ import {
   type GeneratorInput,
 } from "../src/lib/program/generate";
 
-const catalogue = JSON.parse(
+const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as CandidateExercise[];
+);
 
 const catalogueById = new Map(catalogue.map(ex => [ex.id, ex]));
 

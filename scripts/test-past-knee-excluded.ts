@@ -24,7 +24,6 @@ const bySlug = new Map(catalogue.map(ex => [ex.slug, ex]));
 
 const thruster = bySlug.get("kettlebell-thruster");
 const benchJump = bySlug.get("bench-jump");
-const boxJump = bySlug.get("box-jump");
 
 if (!thruster || !isExcludedForPastKnee(thruster)) {
   console.error("✗ FAIL: kettlebell-thruster not found or not excluded for past-knee");
@@ -42,14 +41,15 @@ const pastKneeProfiles: Array<{
   id: string;
   level: "beginner" | "intermediate" | "expert";
   days: number;
-  minutes: number;
+  preferredSessionMinutes: number;
   equipment: string[];
   goal: "muscle_gain" | "fat_loss";
+  primaryTrack: "weights" | "bodyweight";
 }> = [
-  { id: "pk-exp-5d-90m-kb", level: "expert", days: 5, minutes: 90, equipment: ["kettlebell"], goal: "muscle_gain" },
-  { id: "pk-exp-6d-90m-full", level: "expert", days: 6, minutes: 90, equipment: [], goal: "muscle_gain" },
-  { id: "pk-int-5d-90m-kb", level: "intermediate", days: 5, minutes: 90, equipment: ["kettlebell"], goal: "muscle_gain" },
-  { id: "pk-exp-5d-90m-full-fl", level: "expert", days: 5, minutes: 90, equipment: [], goal: "fat_loss" },
+  { id: "pk-int-3d-90m-kb-wt-fl", level: "intermediate", days: 3, preferredSessionMinutes: 90, equipment: ["kettlebell"], goal: "fat_loss", primaryTrack: "weights" },
+  { id: "pk-exp-6d-90m-kb-bw-fl", level: "expert", days: 6, preferredSessionMinutes: 90, equipment: ["kettlebell"], goal: "fat_loss", primaryTrack: "bodyweight" },
+  { id: "pk-exp-5d-90m-kb-wt-mg", level: "expert", days: 5, preferredSessionMinutes: 90, equipment: ["kettlebell"], goal: "muscle_gain", primaryTrack: "weights" },
+  { id: "pk-int-5d-90m-kb-wt-mg", level: "intermediate", days: 5, preferredSessionMinutes: 90, equipment: ["kettlebell"], goal: "muscle_gain", primaryTrack: "weights" },
 ];
 
 for (const profile of pastKneeProfiles) {
@@ -58,15 +58,16 @@ for (const profile of pastKneeProfiles) {
     blockNumber: 1,
     goal: profile.goal,
     level: profile.level,
-    primaryTrack: "weights",
+    primaryTrack: profile.primaryTrack,
     daysPerWeek: profile.days,
     yogaDaysPerWeek: 0,
-    age: 25,
+    age: 30,
     bmi: 22,
     hasAllEquipment: profile.equipment.length === 0,
     equipmentIds: profile.equipment,
     anyKneeInjury: true,
     currentInjuryRegions: [],
+    preferredSessionMinutes: profile.preferredSessionMinutes,
     catalogue,
   };
 
@@ -97,13 +98,13 @@ const nonKneeProfiles: Array<{
   id: string;
   level: "beginner" | "intermediate" | "expert";
   days: number;
-  minutes: number;
+  preferredSessionMinutes: number;
   equipment: string[];
   goal: "muscle_gain" | "fat_loss";
+  primaryTrack: "weights" | "bodyweight";
 }> = [
-  { id: "nk-exp-6d-90m-kb", level: "expert", days: 6, minutes: 90, equipment: ["kettlebell"], goal: "muscle_gain" },
-  { id: "nk-exp-5d-90m-full-fl", level: "expert", days: 5, minutes: 90, equipment: [], goal: "fat_loss" },
-  { id: "nk-exp-6d-90m-full", level: "expert", days: 6, minutes: 90, equipment: [], goal: "muscle_gain" },
+  { id: "nk-exp-6d-90m-kb-wt-mg", level: "expert", days: 6, preferredSessionMinutes: 90, equipment: ["kettlebell"], goal: "muscle_gain", primaryTrack: "weights" },
+  { id: "nk-exp-5d-90m-full-bw-fl", level: "expert", days: 5, preferredSessionMinutes: 90, equipment: [], goal: "fat_loss", primaryTrack: "bodyweight" },
 ];
 
 let foundExcludedInNonKnee = false;
@@ -113,15 +114,16 @@ for (const profile of nonKneeProfiles) {
     blockNumber: 1,
     goal: profile.goal,
     level: profile.level,
-    primaryTrack: "weights",
+    primaryTrack: profile.primaryTrack,
     daysPerWeek: profile.days,
     yogaDaysPerWeek: 0,
-    age: 25,
+    age: 30,
     bmi: 22,
     hasAllEquipment: profile.equipment.length === 0,
     equipmentIds: profile.equipment,
     anyKneeInjury: false,
     currentInjuryRegions: [],
+    preferredSessionMinutes: profile.preferredSessionMinutes,
     catalogue,
   };
 

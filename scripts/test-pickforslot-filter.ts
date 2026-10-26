@@ -22,7 +22,6 @@ const byId = new Map(catalogue.map(ex => [ex.id, ex]));
 const bySlug = new Map(catalogue.map(ex => [ex.slug, ex]));
 
 const bodyweightSquat = bySlug.get("bodyweight-squat");
-const barbellSquat = bySlug.get("barbell-squat");
 
 if (!bodyweightSquat || !isKneeRiskForKneeUser(bodyweightSquat, true)) {
   console.error("✗ FAIL: bodyweight-squat not found or not knee-risk");

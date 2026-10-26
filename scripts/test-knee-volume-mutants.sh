@@ -7,25 +7,50 @@
 # A mutant that does not type-check is also SKIPPED: it must be killed by a
 # behavioural test, not by tsc. The original file is always restored (trap).
 #
-# Exit 1 on any skip or survivor.
+# Exit 1 on any skip, survivor or crash.
 
 set -u
 
-KILLED=0
-SURVIVED=0
-SKIPPED=0
+GENERATE=src/lib/program/generate.ts
+KNEE_SAFETY=src/lib/program/knee-safety.ts
+
+# Create private backups with mktemp
+BACKUP_GENERATE=$(mktemp "${TMPDIR:-/tmp}/generate-backup.XXXXXX")
+BACKUP_KNEE_SAFETY=$(mktemp "${TMPDIR:-/tmp}/knee-safety-backup.XXXXXX")
+
 CURRENT_FILE=""
 BACKUP=""
 
 restore() {
-  if [ -n "$CURRENT_FILE" ] && [ -n "$BACKUP" ] && [ -f "$BACKUP" ]; then
+  if [ -n "$CURRENT_FILE" ] && [ -n "$BACKUP" ] && [ -s "$BACKUP" ]; then
     cp "$BACKUP" "$CURRENT_FILE"
-    rm -f "$BACKUP"
   fi
   CURRENT_FILE=""
   BACKUP=""
 }
-trap restore EXIT INT TERM
+
+cleanup() {
+  restore
+  if [ -s "$BACKUP_GENERATE" ]; then
+    cp "$BACKUP_GENERATE" "$GENERATE"
+  fi
+  rm -f "$BACKUP_GENERATE"
+  if [ -s "$BACKUP_KNEE_SAFETY" ]; then
+    cp "$BACKUP_KNEE_SAFETY" "$KNEE_SAFETY"
+  fi
+  rm -f "$BACKUP_KNEE_SAFETY"
+}
+trap cleanup EXIT INT TERM
+
+# Backup originals - check cp succeeded before counting as backed up
+if ! cp "$GENERATE" "$BACKUP_GENERATE"; then
+  echo "FATAL: failed to backup $GENERATE"
+  exit 1
+fi
+if ! cp "$KNEE_SAFETY" "$BACKUP_KNEE_SAFETY"; then
+  echo "FATAL: failed to backup $KNEE_SAFETY"
+  exit 1
+fi
 
 # replace_once FILE OLD NEW -> 0 if OLD occurred exactly once and was replaced
 replace_once() {
@@ -46,8 +71,13 @@ run_mutant() {
   echo ""
   echo "$name"
   CURRENT_FILE="$file"
-  BACKUP="$(mktemp)"
-  cp "$file" "$BACKUP"
+  BACKUP=$(mktemp)
+  if ! cp "$file" "$BACKUP"; then
+    echo "  ⊘ SKIP: backup failed"
+    SKIPPED=$((SKIPPED + 1))
+    BACKUP=""
+    return
+  fi
 
   if ! replace_once "$file" "$old" "$new"; then
     echo "  ⊘ SKIP: pattern not found exactly once"
@@ -61,13 +91,35 @@ run_mutant() {
     restore
     return
   fi
+  
   local killer=""
   for t in "$@"; do
-    if ! npm run -s "$t" >/dev/null 2>&1; then
-      killer="$t"
-      break
+    local output=$(npm run -s "$t" 2>&1)
+    local exit_code=$?
+    
+    if [ $exit_code -ne 0 ]; then
+      # Check for crashes: uncaught errors with stack traces
+      if echo "$output" | grep -qE "(SyntaxError|TypeError|ReferenceError|RangeError|Error:.*\n.*at )"; then
+        echo "  ✗ CRASH in $t (uncaught error, not an assertion failure)"
+        CRASHED=$((CRASHED + 1))
+        restore
+        return
+      fi
+      
+      # Check for assertion failures
+      if echo "$output" | grep -qE "(✗|FAIL|assertion.*failed)"; then
+        killer="$t"
+        break
+      fi
+      
+      # Non-zero exit without assertion or crash signature
+      echo "  ✗ CRASH in $t (exit $exit_code, no assertion message)"
+      CRASHED=$((CRASHED + 1))
+      restore
+      return
     fi
   done
+  
   if [ -n "$killer" ]; then
     echo "  ✓ KILLED by $killer"
     KILLED=$((KILLED + 1))
@@ -78,8 +130,11 @@ run_mutant() {
   restore
 }
 
-GENERATE=src/lib/program/generate.ts
-KNEE_SAFETY=src/lib/program/knee-safety.ts
+KILLED=0
+SURVIVED=0
+SKIPPED=0
+CRASHED=0
+
 V=test:knee-volume
 I=test:knee-volume-identity
 C=test:count-knee-risk-outside-squat
@@ -89,7 +144,20 @@ X=test:past-knee-excluded
 echo "Knee Volume Mutation Testing"
 echo "──────────────────────────────────────────────────────────"
 
-npm run -s "$V" >/dev/null 2>&1 || { echo "FATAL: baseline $V fails"; exit 1; }
+# Baseline: all five tests must pass on unmutated code
+echo "Running baseline tests..."
+BASELINE_FAILED=0
+for t in "$V" "$I" "$C" "$F" "$X"; do
+  if ! npm run -s "$t" >/dev/null 2>&1; then
+    echo "FATAL: baseline test $t fails"
+    BASELINE_FAILED=1
+  fi
+done
+if [ $BASELINE_FAILED -ne 0 ]; then
+  exit 1
+fi
+echo "✓ All baseline tests passed"
+echo ""
 
 run_mutant "1. Disable knee-risk filter in pickForSlot (change hasPastKnee gate)" "$GENERATE" \
   '    // Also exclude jumps, thrusters, etc. (Mutant 10 killer)
@@ -156,10 +224,11 @@ echo "────────────────────────�
 echo "Mutants killed:   $KILLED"
 echo "Mutants survived: $SURVIVED"
 echo "Mutants skipped:  $SKIPPED"
+echo "Mutants crashed:  $CRASHED"
 echo ""
 
-if [ $SURVIVED -gt 0 ] || [ $SKIPPED -gt 0 ]; then
-  echo "❌ FAILED: $SURVIVED survived, $SKIPPED skipped"
+if [ $SURVIVED -gt 0 ] || [ $SKIPPED -gt 0 ] || [ $CRASHED -gt 0 ]; then
+  echo "❌ FAILED: $SURVIVED survived, $SKIPPED skipped, $CRASHED crashed"
   exit 1
 fi
 echo "✅ PASSED: All mutants killed"

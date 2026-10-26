@@ -11,9 +11,9 @@ import {
 } from "../src/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "../src/lib/program/exclusions";
 
-const catalogue = JSON.parse(
+const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as CandidateExercise[];
+);
 
 const catalogueSlugs = new Set(catalogue.map(ex => ex.slug));
 

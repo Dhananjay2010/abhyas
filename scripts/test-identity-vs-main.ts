@@ -14,9 +14,9 @@ import { rankAlternatives } from "../src/lib/program/alternatives";
 import { getSwapPatterns } from "../src/lib/program/swap-patterns";
 import { hashString, score, isEligible } from "../src/lib/program/generate";
 
-const catalogue = JSON.parse(
+const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as CandidateExercise[];
+);
 
 const baseline = JSON.parse(
   readFileSync("scripts/fixtures/identity-baseline-main.json", "utf-8")
@@ -63,9 +63,9 @@ for (const testCase of testCases) {
   const input: GeneratorInput = {
     userId: `test-${testCase.id}`,
     blockNumber: 1,
-    goal: "muscle_gain" as const,
+    goal: "muscle_gain",
     level: testCase.level as "beginner" | "intermediate" | "expert",
-    primaryTrack: "weights" as const,
+    primaryTrack: "weights",
     daysPerWeek: 4,
     yogaDaysPerWeek: 0,
     age: 30,

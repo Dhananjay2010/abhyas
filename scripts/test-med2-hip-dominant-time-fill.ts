@@ -13,9 +13,9 @@ import {
 import { prescribe } from "../src/lib/program/prescription";
 import { isKneeRiskForKneeUser } from "../src/lib/program/knee-safety";
 
-const catalogue = JSON.parse(
+const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as CandidateExercise[];
+);
 
 const catalogueById = new Map(catalogue.map(ex => [ex.id, ex]));
 
