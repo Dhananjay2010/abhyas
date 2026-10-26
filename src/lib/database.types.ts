@@ -559,6 +559,62 @@ export type Database = {
         }
         Relationships: []
       }
+      gym_memberships: {
+        Row: {
+          gym_id: string
+          joined_at: string
+          role: Database["public"]["Enums"]["gym_role"]
+          status: string
+          user_id: string
+        }
+        Insert: {
+          gym_id: string
+          joined_at?: string
+          role: Database["public"]["Enums"]["gym_role"]
+          status?: string
+          user_id: string
+        }
+        Update: {
+          gym_id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["gym_role"]
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_memberships_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gyms: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          timezone: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          timezone?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          timezone?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1509,6 +1565,7 @@ export type Database = {
         | "flexibility_stress"
       fitness_level: "beginner" | "intermediate" | "expert"
       force_type: "push" | "pull" | "static"
+      gym_role: "member" | "owner" | "staff"
       impact_level: "low" | "medium" | "high"
       injury_severity: "current" | "past"
       mechanic_type: "compound" | "isolation"
@@ -1746,6 +1803,7 @@ export const Constants = {
       ],
       fitness_level: ["beginner", "intermediate", "expert"],
       force_type: ["push", "pull", "static"],
+      gym_role: ["member", "owner", "staff"],
       impact_level: ["low", "medium", "high"],
       injury_severity: ["current", "past"],
       mechanic_type: ["compound", "isolation"],

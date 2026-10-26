@@ -380,6 +380,8 @@ jobs:
           npx tsx scripts/test-delete-set.ts
           npx tsx scripts/test-skipped-session-shapes.ts
           REAL_DB=1 npm run test:history-edit-validation-db
+          npm run test:gym-tenant-rls-real-db
+          npm run test:mutant-gym-rls-policies
         env:
           REAL_DB: "1"
 
