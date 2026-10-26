@@ -131,24 +131,32 @@ function main() {
   });
 
   test("Completed swapped-in day shows in week map as 'your choice'", () => {
+    // Today is Tuesday Nov 3 (day_index 2).
+    // allSessions has a completed STRENGTH session on Nov 4 (Wednesday, day_index 3).
+    // Template says Wednesday is Rest, but user did Pull.
     const allSessions: SessionInput[] = [
       {
-        local_date: "2026-11-04", // Wednesday (day_index 3)
+        local_date: "2026-11-04", // Wednesday (1 day after today)
         status: "completed",
-        actual_type: "rest",
-        program_day_id: null,
+        actual_type: "weights", // Must be strength to count in map
+        program_day_id: "day-pull",
         created_at: "2026-11-04T10:00:00Z",
       },
     ];
 
     const days = [
       { id: "day-1", day_index: 1, day_type: "weights" as const, label: "Push" },
-      { id: "day-2", day_index: 2, day_type: "rest" as const, label: "Rest" },
-      { id: "day-3", day_index: 3, day_type: "weights" as const, label: "Pull" },
+      { id: "day-2", day_index: 2, day_type: "weights" as const, label: "Pull" },
+      { id: "day-3", day_index: 3, day_type: "rest" as const, label: "Rest" },
+      { id: "day-4", day_index: 4, day_type: "weights" as const, label: "Legs" },
+      { id: "day-5", day_index: 5, day_type: "weights" as const, label: "Upper" },
+      { id: "day-6", day_index: 6, day_type: "rest" as const, label: "Rest" },
+      { id: "day-7", day_index: 7, day_type: "weights" as const, label: "Lower" },
+      { id: "day-pull", day_index: 99, day_type: "weights" as const, label: "Pull" },
     ];
 
     const result = deriveTodayView({
-      dayType: "weights",
+      dayType: "rest",
       missedYesterday: false,
       strengthDone: false,
       strengthOpen: undefined,
@@ -160,9 +168,9 @@ function main() {
       days,
     });
 
-    // Wednesday was Pull but user did Rest: should show in map
+    // Wednesday (day_index 3) was Rest but user did Pull: should show in map
     const wednesday = result.chosenByDayIndex.get(3);
-    assert.equal(wednesday, "Rest", "Wednesday should show 'Rest' (swapped choice)");
+    assert.equal(wednesday, "Pull", "Wednesday should show 'Pull' (swapped choice)");
   });
 
   test("Training day (no missed yesterday, no rest) shows no prompt", () => {
