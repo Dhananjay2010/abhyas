@@ -962,7 +962,7 @@ export function SessionRunner({
           actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
         );
         if (result && result.ok) {
-          setSavedDurationSeconds(result.data.durationSeconds);
+          setSavedDurationSeconds(result.data?.durationSeconds ?? null);
           setPhase("done");
         } else {
           resumeElapsed();
