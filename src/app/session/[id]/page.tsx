@@ -9,6 +9,7 @@ import { isUuid } from "@/lib/ids";
 import { buildRunnerExercise } from "@/lib/session/build-runner-exercises";
 import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
+import { getUnitsPreference } from "@/lib/units";
 
 export const dynamic = "force-dynamic";
 
@@ -191,6 +192,7 @@ export default async function SessionPage({
       exercises={exercises}
       settings={settings}
       tomorrow={tomorrow}
+      units={getUnitsPreference(profileRes.data?.units)}
     />
   );
 }
