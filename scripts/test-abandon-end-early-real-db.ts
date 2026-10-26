@@ -16,7 +16,6 @@ import { randomUUID } from "crypto";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
 import { makeAbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 import { summarizeEndedEarly } from "../src/lib/session/load-ended-early-summary";
-import { computeHistoryEndedEarly } from "../src/lib/history/compute-ended-early";
 import { computeHistoryEndedEarlyForRow } from "../src/lib/history/compute-ended-early-for-row";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";

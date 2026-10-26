@@ -17,7 +17,6 @@ import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import type { ProgressionFeedback } from "@/lib/session/finish-exercise";
-import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { keepPlannedDay } from "@/lib/session/plan-day-keep-core";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";

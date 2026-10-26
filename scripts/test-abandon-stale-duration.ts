@@ -40,7 +40,7 @@ function makeFakeDeps(config: {
   now?: string;
   timezone?: string;
 }): AbandonSessionDeps & { getSavedDuration: () => number | null } {
-  const state = { savedDuration: null as number | null };
+  const state: { savedDuration: number | null } = { savedDuration: null };
   const nowValue = config.now;
 
   return {
