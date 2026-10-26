@@ -392,7 +392,8 @@
     "test:working-weight-no-rounding": "tsx scripts/test-working-weight-no-rounding.ts",
     "test:hold-preserves-counter": "tsx scripts/test-hold-preserves-counter.ts",
     "test:hold-preserves-wafs": "tsx scripts/test-hold-preserves-wafs.ts",
-    "test:imperial-actions-path": "tsx scripts/test-imperial-actions-path.ts"
+    "test:imperial-actions-path": "tsx scripts/test-imperial-actions-path.ts",
+    "test:zero-weight-real-path": "tsx scripts/test-zero-weight-real-path.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

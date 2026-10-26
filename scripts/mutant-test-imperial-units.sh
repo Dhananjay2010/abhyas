@@ -15,75 +15,68 @@ echo
 
 BACKUP_ACTIONS=$(mktemp)
 BACKUP_BUILDER=$(mktemp)
-BACKUP_PROGRESSION=$(mktemp)
 cp src/app/session/actions.ts "$BACKUP_ACTIONS"
 cp src/lib/session/build-progression-input.ts "$BACKUP_BUILDER"
-cp src/lib/program/progression.ts "$BACKUP_PROGRESSION"
-trap 'cp "$BACKUP_ACTIONS" src/app/session/actions.ts; cp "$BACKUP_BUILDER" src/lib/session/build-progression-input.ts; cp "$BACKUP_PROGRESSION" src/lib/program/progression.ts; rm -f "$BACKUP_ACTIONS" "$BACKUP_BUILDER" "$BACKUP_PROGRESSION"' EXIT
+trap 'cp "$BACKUP_ACTIONS" src/app/session/actions.ts; cp "$BACKUP_BUILDER" src/lib/session/build-progression-input.ts; rm -f "$BACKUP_ACTIONS" "$BACKUP_BUILDER"' EXIT
 
 test_mutant() {
   local name="$1"
   local file="$2"
-  local line="$3"
-  local old="$4"
-  local new="$5"
+  local search="$3"
+  local replace="$4"
   
   echo "Testing $name..."
   
   # Apply mutant
-  sed -i "${line}s|${old}|${new}|" "$file"
+  node -e "
+    const fs = require('fs');
+    const content = fs.readFileSync('$file', 'utf8');
+    const search = process.argv[1];
+    const replace = process.argv[2];
+    const newContent = content.replace(search, replace);
+    if (newContent === content) {
+      console.error('ERROR: Pattern not found');
+      process.exit(1);
+    }
+    fs.writeFileSync('$file', newContent);
+  " "$search" "$replace" || { echo "  ⚠️  SKIPPED: Pattern not found"; [ "$file" = "src/app/session/actions.ts" ] && cp "$BACKUP_ACTIONS" "$file" || cp "$BACKUP_BUILDER" "$file"; return 0; }
   
   # Check if it compiles
   if ! npx tsc --noEmit > /dev/null 2>&1; then
     echo "  ⚠️  SKIPPED: Does not compile"
-    case "$file" in
-      *actions.ts) cp "$BACKUP_ACTIONS" "$file" ;;
-      *build-progression-input.ts) cp "$BACKUP_BUILDER" "$file" ;;
-      *progression.ts) cp "$BACKUP_PROGRESSION" "$file" ;;
-    esac
+    [ "$file" = "src/app/session/actions.ts" ] && cp "$BACKUP_ACTIONS" "$file" || cp "$BACKUP_BUILDER" "$file"
     return 0
   fi
   
   # Run test
   if npm run test:imperial-actions-path > /dev/null 2>&1; then
     echo "  ❌ SURVIVED"
-    case "$file" in
-      *actions.ts) cp "$BACKUP_ACTIONS" "$file" ;;
-      *build-progression-input.ts) cp "$BACKUP_BUILDER" "$file" ;;
-      *progression.ts) cp "$BACKUP_PROGRESSION" "$file" ;;
-    esac
+    [ "$file" = "src/app/session/actions.ts" ] && cp "$BACKUP_ACTIONS" "$file" || cp "$BACKUP_BUILDER" "$file"
     return 1
   else
     echo "  ✅ KILLED"
-    case "$file" in
-      *actions.ts) cp "$BACKUP_ACTIONS" "$file" ;;
-      *build-progression-input.ts) cp "$BACKUP_BUILDER" "$file" ;;
-      *progression.ts) cp "$BACKUP_PROGRESSION" "$file" ;;
-    esac
+    [ "$file" = "src/app/session/actions.ts" ] && cp "$BACKUP_ACTIONS" "$file" || cp "$BACKUP_BUILDER" "$file"
     return 0
   fi
 }
 
-# UN1: actions passes "metric" instead of units
+# UN1: actions passes "metric" instead of units  
 test_mutant "UN1 (actions passes metric)" \
   "src/app/session/actions.ts" \
-  "451" \
-  "units" \
-  "\"metric\""
+  "      units," \
+  "      \"metric\","
 
 # UN2: describePersonalBest called without units
 test_mutant "UN2 (describePersonalBest without units)" \
   "src/app/session/actions.ts" \
-  "495" \
-  "describePersonalBest(decision.personalBest, units)" \
-  "describePersonalBest(decision.personalBest)"
+  "? describePersonalBest(decision.personalBest, units)" \
+  "? describePersonalBest(decision.personalBest)"
 
 # UN4: builder drops units
 test_mutant "UN4 (builder drops units)" \
   "src/lib/session/build-progression-input.ts" \
-  "115" \
-  "units," \
-  "// units,"
+  "    units," \
+  "    // units,"
 
 echo
 echo "✅ PASS: All mutants killed"

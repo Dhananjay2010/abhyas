@@ -886,15 +886,56 @@ export function evaluateProgression(input: {
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
         const oneStepDown = currentWeight - gridStep;
         
-        // Floor at 0 for bodyweight equipment (pull-up bar, bands, medicine balls), gridStep for others
+        // Floor logic by equipment type:
+        // - Medicine ball: floor at lightest ball (3 kg), hold if already there
+        // - Bar/band: floor at 0
+        // - Other: floor at gridStep
+        const isMedicineBall = equipmentIds.includes('medicine_ball');
         const isBodyweightEquipment = equipmentIds.some(id => 
-          ['pull_up_bar', 'resistance_band', 'medicine_ball'].includes(id)
+          ['pull_up_bar', 'resistance_band'].includes(id)
         );
-        const floor = isBodyweightEquipment ? 0 : gridStep;
-        stepped = Math.max(floor, oneStepDown);
+        
+        if (isMedicineBall) {
+          const LIGHTEST_MEDICINE_BALL = 3; // kg
+          if (currentWeight <= LIGHTEST_MEDICINE_BALL) {
+            // Already at lightest ball: hold with "aim for clean reps" message
+            return {
+              ...carried,
+              outcome: "hold",
+              nextWorkingWeightKg: currentWeight,
+              nextTargetReps: repsMax,
+              consecutiveFailures: failures,
+              weightAtFailureStartKg: state.weightAtFailureStartKg,
+              message: `Staying at ${displayWeight(currentWeight)} — aim for clean reps.`,
+            };
+          }
+          stepped = Math.max(LIGHTEST_MEDICINE_BALL, oneStepDown);
+        } else {
+          const floor = isBodyweightEquipment ? 0 : gridStep;
+          stepped = Math.max(floor, oneStepDown);
+        }
       }
       
       if (stepped < currentWeight) {
+        // Determine message based on equipment and target weight
+        let message: string;
+        if (stepped === 0) {
+          if (equipmentIds.includes('resistance_band')) {
+            message = failures >= 3
+              ? "Missed three times in a row — dropping to no band to build up again."
+              : "Missed twice in a row — dropping to no band to build up again.";
+          } else {
+            // Pull-up bar or other bodyweight equipment
+            message = failures >= 3
+              ? "Missed three times in a row — dropping to bodyweight to build up again."
+              : "Missed twice in a row — dropping to bodyweight to build up again.";
+          }
+        } else {
+          message = failures >= 3
+            ? `Missed three times in a row — dropping one step to ${displayWeight(stepped)} to break through.`
+            : `Missed twice in a row — dropping to ${displayWeight(stepped)} to build back.`;
+        }
+        
         return {
           ...carried,
           outcome: "backed_off",
@@ -902,9 +943,7 @@ export function evaluateProgression(input: {
           nextTargetReps: repsMax,
           consecutiveFailures: 0,
           weightAtFailureStartKg: null, // MED-3: clear on third-miss step-down
-          message: stepped === 0
-            ? "Missed three times in a row — back to just your bodyweight to build up again."
-            : `Missed three times in a row — dropping one step to ${displayWeight(stepped)} to break through.`,
+          message,
         };
       }
     }
