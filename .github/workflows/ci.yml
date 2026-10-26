@@ -380,6 +380,7 @@ jobs:
           npx tsx scripts/test-delete-set.ts
           npx tsx scripts/test-skipped-session-shapes.ts
           REAL_DB=1 npm run test:history-edit-validation-db
+          npm run test:unique-planned-session-migration-real-db
         env:
           REAL_DB: "1"
 
