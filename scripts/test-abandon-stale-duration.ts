@@ -210,6 +210,32 @@ async function runTests() {
       `got ${saved} (if abandon wrongly uses 'UTC', this would fail)`);
   }
 
+  console.log("\nTest 7: Timezone midnight crossing (kills mutant (d): hardcoded UTC)\n");
+  {
+    // Session that crosses midnight in UTC but not in IST
+    // startedAt: 23:00 UTC (04:30 IST next day) on Oct 25
+    // now: 00:30 UTC next day (06:00 IST) on Oct 26
+    // In UTC: crosses midnight (past day, stale)
+    // In IST: same day Oct 26, 1.5h (fresh)
+    
+    const deps = makeFakeDeps({
+      startedAt: "2026-10-25T23:00:00Z", // Oct 25 23:00 UTC = Oct 26 04:30 IST
+      lastSetCompletedAt: "2026-10-25T23:30:00Z", // Oct 25 23:30 UTC = Oct 26 05:00 IST
+      workingSetCount: 3,
+      restSeconds: 90,
+      now: "2026-10-26T00:30:00Z", // Oct 26 00:30 UTC = Oct 26 06:00 IST (1.5h later)
+      timezone: "Asia/Kolkata",
+    });
+
+    await abandonSessionCore(deps, "session-7", 5400); // 1.5 hours = 5400 seconds
+
+    const saved = deps.getSavedDuration();
+    // In IST: same day, 1.5h (fresh) → should use passed elapsed time (5400)
+    // If abandon uses hardcoded UTC: past day (stale) → would compute stale duration (~1890)
+    check("IST same-day fresh, UTC past-day: uses passed elapsed", saved === 5400,
+      `got ${saved} (mutant (d) hardcoded UTC would give ~1890)`);
+  }
+
   return failures === 0;
 }
 
