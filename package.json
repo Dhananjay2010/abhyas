@@ -366,7 +366,8 @@
     "test:session-state-hydration": "tsx scripts/test-session-state-hydration.ts",
     "test:unmount-cleanup": "tsx scripts/test-unmount-cleanup.ts",
     "test:cooldown-button-state": "tsx scripts/test-cooldown-button-state.ts",
-    "test:runner-status-area": "tsx scripts/test-runner-status-area.tsx"
+    "test:runner-status-area": "tsx scripts/test-runner-status-area.tsx",
+    "test:cleanup-real": "tsx scripts/test-cleanup-real.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
