@@ -257,6 +257,7 @@ const CURRENT_KNEE_ONLY_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   
   // Kettlebell push presses: leg-driven explosive press (current knee only)
   "double-kettlebell-push-press",
+  "one-arm-kettlebell-push-press",
 ]);
 
 /**
