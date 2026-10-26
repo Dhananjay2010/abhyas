@@ -26,7 +26,7 @@ interface EditSetsProps {
   saveSet?: typeof updateSet;
 }
 
-export function EditSets({ sessionId, units, exercises, saveSet = updateSet }: EditSetsProps) {
+export function EditSets({ sessionId: _sessionId, units, exercises, saveSet = updateSet }: EditSetsProps) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
