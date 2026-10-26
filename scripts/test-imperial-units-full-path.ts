@@ -10,44 +10,13 @@
 
 import { progressionFeedback } from "../src/lib/session/progression-feedback";
 import { getProfileUnits } from "../src/lib/get-profile-units";
+import { createFakeDb } from "./helpers/fake-postgrest";
 import type { UnitsPreference } from "../src/lib/units";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
-}
-
-// Fake Supabase client for testing with mutable units preference
-type FakeSupabaseClient = {
-  from: (table: string) => {
-    select: (columns: string) => {
-      eq: (column: string, value: string) => {
-        single: () => Promise<{ data: { units: UnitsPreference }; error: null }>;
-      };
-    };
-  };
-  _testSetUnits: (newUnits: UnitsPreference) => void;
-};
-
-function makeFakeClient(initialUnits: UnitsPreference): FakeSupabaseClient {
-  let currentUnits = initialUnits;
-  return {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({
-            data: { units: currentUnits },
-            error: null,
-          }),
-        }),
-      }),
-    }),
-    _testSetUnits: (newUnits: UnitsPreference) => {
-      currentUnits = newUnits;
-    },
-  };
 }
 
 async function runTests() {
@@ -95,8 +64,10 @@ async function runTests() {
   ];
 
   console.log("1. Imperial user (never switched)");
-  const imperialClient = makeFakeClient("imperial");
-  const imperialUnits = await getProfileUnits(imperialClient as unknown as SupabaseClient, "user-1");
+  const imperialFake = createFakeDb({
+    tables: { profiles: [{ id: "user-1", units: "imperial" }] },
+  });
+  const imperialUnits = await getProfileUnits(imperialFake.client, "user-1");
   check("getProfileUnits returns 'imperial'", imperialUnits === "imperial");
 
   const imperial = progressionFeedback(sessionExercise, successSets, progress, session, "right", imperialUnits);
@@ -106,21 +77,23 @@ async function runTests() {
   check("Message shows '93.5 lb' (40 kg → 42.5 kg = 93.5 lb)", imperial.decision.message.includes("93.5 lb"), imperial.decision.message);
 
   console.log("\n2. User who switched from kg to lb (REAL dynamic switch)");
-  const switchingClient = makeFakeClient("metric");
+  const switchingFake = createFakeDb({
+    tables: { profiles: [{ id: "user-2", units: "metric" }] },
+  });
   
   // First check - user is on metric
-  const beforeUnits = await getProfileUnits(switchingClient as unknown as SupabaseClient, "user-2");
+  const beforeUnits = await getProfileUnits(switchingFake.client, "user-2");
   check("Before switch: getProfileUnits returns 'metric'", beforeUnits === "metric");
   const before = progressionFeedback(sessionExercise, successSets, progress, session, "right", beforeUnits);
   console.log(`  Before: "${before.decision.message}"`);
   check("Before switch: message has 'kg'", before.decision.message.includes("kg"), before.decision.message);
   check("Before switch: message has NO 'lb'", !before.decision.message.includes("lb"), before.decision.message);
   
-  // User switches to imperial
-  switchingClient._testSetUnits("imperial");
+  // User switches to imperial (mutate the fake DB)
+  switchingFake.tables.profiles[0].units = "imperial";
   
   // Second check - same client, now imperial
-  const afterUnits = await getProfileUnits(switchingClient as unknown as SupabaseClient, "user-2");
+  const afterUnits = await getProfileUnits(switchingFake.client, "user-2");
   check("After switch: getProfileUnits returns 'imperial'", afterUnits === "imperial");
   const after = progressionFeedback(sessionExercise, successSets, progress, session, "right", afterUnits);
   console.log(`  After: "${after.decision.message}"`);
@@ -145,8 +118,10 @@ async function runTests() {
   check("PB does NOT contain 'kg'", !(imperialPB.personalBest?.includes("kg") ?? true), imperialPB.personalBest ?? "null");
 
   console.log("\n4. Metric still works");
-  const metricClient = makeFakeClient("metric");
-  const metricUnits = await getProfileUnits(metricClient as unknown as SupabaseClient, "user-3");
+  const metricFake = createFakeDb({
+    tables: { profiles: [{ id: "user-3", units: "metric" }] },
+  });
+  const metricUnits = await getProfileUnits(metricFake.client, "user-3");
   const metric = progressionFeedback(sessionExercise, successSets, progress, session, "right", metricUnits);
   console.log(`  Message: "${metric.decision.message}"`);
   check("Metric has 'kg'", metric.decision.message.includes("kg"));

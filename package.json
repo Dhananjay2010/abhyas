@@ -360,6 +360,8 @@
     "test:med2-comparison": "tsx scripts/test-med2-comparison.ts",
     "test:full-body-c-lunge": "tsx scripts/test-full-body-c-lunge-ordering.ts",
     "test:past-knee-squat-swap-edge-cases": "tsx scripts/test-past-knee-squat-swap-edge-cases.ts",
+    "test:past-knee-squat-swap-lengths": "tsx scripts/test-past-knee-squat-swap-lengths.ts",
+    "test:past-knee-squat-swap-slice-mutants": "bash scripts/test-past-knee-squat-swap-slice-mutants.sh",
     "test:plan-day-keep-persist": "tsx scripts/test-plan-day-keep-persist.ts",
     "test:query-active-program-day": "tsx scripts/test-query-active-program-day.ts",
     "test:plan-day-validation": "tsx scripts/test-plan-day-validation.ts",
