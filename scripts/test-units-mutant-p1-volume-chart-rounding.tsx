@@ -23,7 +23,7 @@ function check(label: string, pass: boolean, detail = "") {
 }
 
 // Test 1: Volume chart uses Math.round for large imperial values
-const volumeKg = 4945; // ~10,900 lb
+const volumeKg = 4944; // ~10,900 lb (4944 kg × 2.20462 ≈ 10899.6 → rounds to 10900)
 const rawLb = kgToDisplay(volumeKg, "imperial");
 const roundedLb = Math.round(rawLb);
 
@@ -42,7 +42,7 @@ check(
 
 const formatted = roundedLb.toLocaleString("en-US");
 check(
-  "Formatted value is '10,900' (not '10,900.5')",
+  "Formatted value is '10,900' (not '10,899.6')",
   formatted === "10,900",
   `got "${formatted}"`
 );
