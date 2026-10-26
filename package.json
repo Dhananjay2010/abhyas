@@ -315,6 +315,10 @@
     "test:past-knee-warmup-identity:baseline": "tsx scripts/test-past-knee-warmup-identity.ts --baseline",
     "test:past-knee-warmup-mutants": "bash scripts/test-past-knee-warmup-mutants.sh",
     "test:past-knee-real-day": "tsx scripts/test-past-knee-real-day.ts",
+    "test:shard1": "node scripts/run-test-shard.js 1 3",
+    "test:shard2": "node scripts/run-test-shard.js 2 3",
+    "test:shard3": "node scripts/run-test-shard.js 3 3",
+    "verify-test-shards": "node scripts/verify-test-shards.js 3",
     "test:0-set-sessions": "tsx scripts/test-0-set-sessions.ts",
     "test:0-working-set-rule": "tsx scripts/test-0-working-set-rule.ts",
     "test:abandon-end-early-real-db": "tsx scripts/test-abandon-end-early-real-db.ts",
@@ -346,11 +350,7 @@
     "test:stale-rest-used": "tsx scripts/test-stale-rest-used.ts",
     "test:stale-runner-clock-guard": "tsx scripts/test-stale-runner-clock-guard.ts",
     "test:warmup-exclusion": "tsx scripts/test-warmup-exclusion.ts",
-    "test:duration-dash-scope": "tsx scripts/test-duration-dash-scope.ts",
-    "test:shard1": "node scripts/run-test-shard.js 1 3",
-    "test:shard2": "node scripts/run-test-shard.js 2 3",
-    "test:shard3": "node scripts/run-test-shard.js 3 3",
-    "verify-test-shards": "node scripts/verify-test-shards.js 3"
+    "test:duration-dash-scope": "tsx scripts/test-duration-dash-scope.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
