@@ -123,10 +123,10 @@ check("Metric shows 'up to 42.5 kg'", metric.decision.message.includes("up to 42
 
 console.log("\n4. Assert actions.ts imports progressionFeedback");
 const actionsSource = fs.readFileSync("src/app/session/actions.ts", "utf8");
-check("actions.ts imports progressionFeedback", actionsSource.includes('progressionFeedback') && (actionsSource.includes('from "@/lib/session/progression-feedback"') || actionsSource.includes("from '@/lib/session/progression-feedback'")));
-// Check that progressionFeedback is called with units as an argument (multiline call)
-const hasCall = actionsSource.includes("progressionFeedback(") && actionsSource.includes("units,");
+check("actions.ts imports progressionFeedback", actionsSource.includes('import { progressionFeedback } from "@/lib/session/progression-feedback"'));
+const hasCall = actionsSource.includes("progressionFeedback(") && actionsSource.match(/progressionFeedback\([^)]*\bunits\b[^)]*\)/) !== null;
 check("actions.ts calls progressionFeedback with units", hasCall);
+check("actions.ts does NOT call describePersonalBest directly", !actionsSource.includes("describePersonalBest("));
 
 console.log("\n=== SUMMARY ===");
 if (failures > 0) {

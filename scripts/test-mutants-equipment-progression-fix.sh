@@ -107,11 +107,19 @@ test_mutant() {
     return
   fi
   
-  # Run tests
+  # Run tests and capture output
   local fail=0
+  local test_output=""
   for t in "${TESTS[@]}"; do
-    if ! $t > /dev/null 2>&1; then
-      fail=1
+    test_output=$($t 2>&1) || fail=1
+    if [ "$fail" -eq 1 ]; then
+      # Check for crash patterns
+      if echo "$test_output" | grep -qE 'TypeError|ReferenceError|SyntaxError|Transform failed'; then
+        echo "💥 CRASHED"
+        restore
+        crashed=$((crashed + 1))
+        return
+      fi
       break
     fi
   done
@@ -356,11 +364,12 @@ echo "Total mutants:                   $COUNT"
 echo "Killed:                          $KILLED"
 echo "Survived:                        $SURVIVED"
 echo "Skipped:                         $SKIPPED"
+echo "Crashed:                         $crashed"
 echo "==========================================="
 echo
 
-if [ "$SURVIVED" -gt 0 ] || [ "$SKIPPED" -gt 0 ]; then
-  echo "❌ FAIL: $SURVIVED survivor(s), $SKIPPED skip(s)"
+if [ "$SURVIVED" -gt 0 ] || [ "$SKIPPED" -gt 0 ] || [ "$crashed" -gt 0 ]; then
+  echo "❌ FAIL: $SURVIVED survivor(s), $SKIPPED skip(s), $crashed crash(es)"
   exit 1
 else
   echo "✅ PASS: All mutants killed"
