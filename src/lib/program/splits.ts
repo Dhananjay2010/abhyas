@@ -115,9 +115,8 @@ export function activeDayIndices(activeDays: number): number[] {
 export function activeDayIndicesAnchored(started_on: string, activeDays: number): number[] {
   const startWeekday = isoWeekday(started_on); // 1-7, where 1=Monday
   
-  // Get the spacing pattern for this plan size
+  // Get the base pattern to determine spacing
   const basePattern = activeDayIndices(activeDays);
-  const spacing = basePattern.length > 1 ? basePattern[1] - basePattern[0] : 1;
   
   // Compute which weekdays get training, starting from started_on
   const result: number[] = [];
