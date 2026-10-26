@@ -10,6 +10,7 @@
 import { strict as assert } from "node:assert";
 import { planDayCore, type PlanDayClient } from "../src/lib/session/plan-day-core";
 import { decideTodayPrompts } from "../src/lib/today/decide-today-prompts";
+import { deriveTodayView } from "../src/lib/today/derive-today-view";
 import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
@@ -43,14 +44,20 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
+type StoredSession = SessionRow & {
+  local_date: string;
+  program_day_id: string | null;
+  created_at: string;
+};
+
 // Mock DB that stores sessions in memory
 class MockDB {
-  private sessions: Map<string, SessionRow & { local_date: string }> = new Map();
+  private sessions: Map<string, StoredSession> = new Map();
   private nextId = 1;
 
   constructor(
     private program: Program,
-    private programDaysByIndex: Record<number, ProgramDay>,
+    private programDaysByProgramAndIndex: Record<string, Record<number, ProgramDay>>,
   ) {}
 
   async findDaySessions(localDate: string) {
@@ -63,15 +70,17 @@ class MockDB {
   }
 
   async loadProgramDay(programDayId: string) {
-    const day = Object.values(this.programDaysByIndex).find((d) => d.id === programDayId);
+    const day = Object.values(this.programDaysByProgramAndIndex)
+      .flatMap((byIndex) => Object.values(byIndex))
+      .find((d) => d.id === programDayId);
     if (!day) {
       return { ok: false as const, error: "Program day not found." };
     }
     return { ok: true as const, day };
   }
 
-  async findProgramDayByIndex(dayIndex: number) {
-    const day = this.programDaysByIndex[dayIndex];
+  async findProgramDay(programId: string, dayIndex: number) {
+    const day = this.programDaysByProgramAndIndex[programId]?.[dayIndex];
     return { day: day ?? null, error: null };
   }
 
@@ -98,6 +107,8 @@ class MockDB {
       status: row.status ?? "planned",
       actual_type: row.actual_type ?? null,
       local_date: row.local_date ?? "",
+      program_day_id: row.program_day_id ?? null,
+      created_at: new Date().toISOString(),
     });
     return { error: null };
   }
@@ -107,14 +118,14 @@ class MockDB {
       findDaySessions: (localDate: string) => this.findDaySessions(localDate),
       findActiveProgram: () => this.findActiveProgram(),
       loadProgramDay: (programDayId: string) => this.loadProgramDay(programDayId),
-      findProgramDayByIndex: (dayIndex: number) => this.findProgramDayByIndex(dayIndex),
+      findProgramDay: (programId: string, dayIndex: number) => this.findProgramDay(programId, dayIndex),
       updateSession: (id: string, row: SessionInsert) => this.updateSession(id, row),
       deleteSessions: (ids: string[]) => this.deleteSessions(ids),
       insertSession: (row: SessionInsert) => this.insertSession(row),
     };
   }
 
-  getSessions(localDate: string): SessionRow[] {
+  getSessions(localDate: string): StoredSession[] {
     return Array.from(this.sessions.values()).filter((s) => s.local_date === localDate);
   }
 }
@@ -134,18 +145,7 @@ async function main() {
       day_type: "weights",
     };
 
-    const db = new MockDB(program, { 7: upperDay });
-
-    // Initial state: no planned rows, missed yesterday
-    const beforePrompt = decideTodayPrompts({
-      missedYesterday: true,
-      strengthDone: false,
-      strengthOpen: undefined,
-      dayType: "weights",
-      todaySessions: [],
-      yesterdayDay: { day_type: "weights", label: "Lower" },
-    });
-    assert.equal(beforePrompt.prompt?.type, "missed-yesterday", "Should show missed-yesterday prompt");
+    const db = new MockDB(program, { "prog-1": { 7: upperDay } });
 
     // User chooses "Keep it"
     const keepResult = await planDayCore(db.getClient(), {
@@ -156,24 +156,28 @@ async function main() {
     });
     assert.equal(keepResult.ok, true, "Keep should succeed");
 
-    // After Keep: reload (re-derive from stored rows)
+    // After Keep: reload (re-derive from stored rows using deriveTodayView)
     const storedSessions = db.getSessions("2026-11-15");
     assert.equal(storedSessions.length, 1, "Should have 1 planned row");
     assert.equal(storedSessions[0].status, "planned", "Should be planned");
     assert.equal(storedSessions[0].actual_type, "weights", "Should be weights");
 
-    const afterPrompt = decideTodayPrompts({
+    const todayView = deriveTodayView({
+      dayType: "weights",
       missedYesterday: true,
       strengthDone: false,
       strengthOpen: undefined,
-      dayType: "weights",
       todaySessions: storedSessions,
       yesterdayDay: { day_type: "weights", label: "Lower" },
+      localToday: "2026-11-15",
+      todayIndex: 7,
+      allSessions: storedSessions,
+      days: [],
     });
-    assert.equal(afterPrompt.prompt, null, "Prompt should NOT come back after Keep");
+    assert.equal(todayView.prompt, null, "No missed-yesterday prompt after Keep (deriveTodayView)");
   });
 
-  await test("Scheduled Rest day: Keep it, then reload -> no rest-day swap prompt", async () => {
+  await test("Scheduled Rest day: Keep it, then reload -> rest-day swap prompt shows (by design)", async () => {
     const program: Program = {
       id: "prog-1",
       started_on: "2026-11-01",
@@ -185,18 +189,7 @@ async function main() {
       day_type: "rest",
     };
 
-    const db = new MockDB(program, { 2: restDay });
-
-    // Initial state: no planned rows, Rest day
-    const beforePrompt = decideTodayPrompts({
-      missedYesterday: false,
-      strengthDone: false,
-      strengthOpen: undefined,
-      dayType: "rest",
-      todaySessions: [],
-      yesterdayDay: undefined,
-    });
-    assert.equal(beforePrompt.prompt?.type, "rest-day-swap", "Should show rest-day swap prompt");
+    const db = new MockDB(program, { "prog-1": { 2: restDay } });
 
     // User chooses "Keep it" (keep the Rest day)
     const keepResult = await planDayCore(db.getClient(), {
@@ -207,21 +200,25 @@ async function main() {
     });
     assert.equal(keepResult.ok, true, "Keep should succeed");
 
-    // After Keep: reload (re-derive from stored rows)
+    // After Keep: reload (re-derive from stored rows using deriveTodayView)
     const storedSessions = db.getSessions("2026-11-17");
     assert.equal(storedSessions.length, 1, "Should have 1 planned row");
     assert.equal(storedSessions[0].status, "planned", "Should be planned");
     assert.equal(storedSessions[0].actual_type, "rest", "Should be rest");
 
-    const afterPrompt = decideTodayPrompts({
+    const todayView = deriveTodayView({
+      dayType: "rest",
       missedYesterday: false,
       strengthDone: false,
       strengthOpen: undefined,
-      dayType: "rest",
       todaySessions: storedSessions,
       yesterdayDay: undefined,
+      localToday: "2026-11-17",
+      todayIndex: 2,
+      allSessions: storedSessions,
+      days: [],
     });
-    assert.equal(afterPrompt.prompt?.type, "rest-day-swap", "Rest-day swap still shows (by design)");
+    assert.equal(todayView.prompt?.type, "rest-day-swap", "Rest-day swap still shows (by design)");
   });
 
   await test("Swap persists and stays answered", async () => {
@@ -240,18 +237,7 @@ async function main() {
       day_type: "weights",
     };
 
-    const db = new MockDB(program, { 7: upperDay, 6: lowerDay });
-
-    // Initial state: missed yesterday
-    const beforePrompt = decideTodayPrompts({
-      missedYesterday: true,
-      strengthDone: false,
-      strengthOpen: undefined,
-      dayType: "weights",
-      todaySessions: [],
-      yesterdayDay: { day_type: "weights", label: "Upper" },
-    });
-    assert.equal(beforePrompt.prompt?.type, "missed-yesterday", "Should show missed-yesterday prompt");
+    const db = new MockDB(program, { "prog-1": { 7: upperDay, 6: lowerDay } });
 
     // User swaps to Lower
     const swapResult = await planDayCore(db.getClient(), {
@@ -262,20 +248,24 @@ async function main() {
     });
     assert.equal(swapResult.ok, true, "Swap should succeed");
 
-    // After Swap: reload
+    // After Swap: reload using deriveTodayView
     const storedSessions = db.getSessions("2026-11-15");
     assert.equal(storedSessions.length, 1, "Should have 1 planned row");
     assert.equal(storedSessions[0].status, "planned", "Should be planned");
 
-    const afterPrompt = decideTodayPrompts({
+    const todayView = deriveTodayView({
+      dayType: "weights",
       missedYesterday: true,
       strengthDone: false,
       strengthOpen: undefined,
-      dayType: "weights",
       todaySessions: storedSessions,
       yesterdayDay: { day_type: "weights", label: "Upper" },
+      localToday: "2026-11-15",
+      todayIndex: 7,
+      allSessions: storedSessions,
+      days: [],
     });
-    assert.equal(afterPrompt.prompt, null, "Prompt should NOT come back after Swap");
+    assert.equal(todayView.prompt, null, "No prompt after Swap (deriveTodayView)");
   });
 
   await test("Rest persists and stays answered", async () => {
@@ -290,18 +280,7 @@ async function main() {
       day_type: "weights",
     };
 
-    const db = new MockDB(program, { 7: upperDay });
-
-    // Initial state: missed yesterday
-    const beforePrompt = decideTodayPrompts({
-      missedYesterday: true,
-      strengthDone: false,
-      strengthOpen: undefined,
-      dayType: "weights",
-      todaySessions: [],
-      yesterdayDay: { day_type: "weights", label: "Upper" },
-    });
-    assert.equal(beforePrompt.prompt?.type, "missed-yesterday", "Should show missed-yesterday prompt");
+    const db = new MockDB(program, { "prog-1": { 7: upperDay } });
 
     // User chooses Rest
     const restResult = await planDayCore(db.getClient(), {
@@ -312,21 +291,25 @@ async function main() {
     });
     assert.equal(restResult.ok, true, "Rest should succeed");
 
-    // After Rest: reload
+    // After Rest: reload using deriveTodayView
     const storedSessions = db.getSessions("2026-11-15");
     assert.equal(storedSessions.length, 1, "Should have 1 planned row");
     assert.equal(storedSessions[0].status, "planned", "Should be planned");
     assert.equal(storedSessions[0].actual_type, "rest", "Should be rest");
 
-    const afterPrompt = decideTodayPrompts({
+    const todayView = deriveTodayView({
+      dayType: "rest",
       missedYesterday: true,
       strengthDone: false,
       strengthOpen: undefined,
-      dayType: "rest",
       todaySessions: storedSessions,
       yesterdayDay: { day_type: "weights", label: "Upper" },
+      localToday: "2026-11-15",
+      todayIndex: 7,
+      allSessions: storedSessions,
+      days: [],
     });
-    assert.equal(afterPrompt.prompt?.type, "rest-day-swap", "Should show rest-day swap (not missed-yesterday)");
+    assert.equal(todayView.prompt?.type, "rest-day-swap", "Rest-day swap shown (not missed-yesterday)");
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

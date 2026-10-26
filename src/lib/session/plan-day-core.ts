@@ -2,6 +2,7 @@ import type { Database } from "@/lib/database.types";
 import { validatePlanDayInput } from "@/lib/session/validate-plan-day-input";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { idsToDeleteOnKeep } from "@/lib/session/ids-to-delete-on-keep";
+import { isoWeekday } from "@/lib/dates";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
@@ -36,7 +37,7 @@ export interface PlanDayClient {
   findDaySessions(localDate: string): Promise<{ rows: SessionRow[]; error: string | null }>;
   findActiveProgram(): Promise<{ program: Program | null; error: string | null }>;
   loadProgramDay(programDayId: string): Promise<{ ok: true; day: ProgramDay } | { ok: false; error: string }>;
-  findProgramDayByIndex(dayIndex: number): Promise<{ day: ProgramDay | null; error: string | null }>;
+  findProgramDay(programId: string, dayIndex: number): Promise<{ day: ProgramDay | null; error: string | null }>;
   updateSession(id: string, row: SessionInsert): Promise<{ error: string | null }>;
   deleteSessions(ids: string[]): Promise<{ error: string | null }>;
   insertSession(row: SessionInsert): Promise<{ error: string | null }>;
@@ -106,10 +107,8 @@ export async function planDayCore(
         return { ok: false, error: "No active program." };
       }
 
-      const dayIndex = new Date(input.localDate + "T12:00:00Z").getUTCDay();
-      const adjustedIndex = dayIndex === 0 ? 7 : dayIndex;
-
-      const programDayResult = await client.findProgramDayByIndex(adjustedIndex);
+      const dayIndex = isoWeekday(input.localDate);
+      const programDayResult = await client.findProgramDay(program.id, dayIndex);
       if (programDayResult.error) {
         return { ok: false, error: programDayResult.error };
       }
@@ -117,12 +116,10 @@ export async function planDayCore(
         return { ok: false, error: "Could not find program day." };
       }
 
-      const week = program
-        ? cycleWeekFor(
-            { started_on: program.started_on, week_offset: program.week_offset },
-            input.localDate,
-          )
-        : null;
+      const week = cycleWeekFor(
+        { started_on: program.started_on, week_offset: program.week_offset },
+        input.localDate,
+      );
 
       const row: SessionInsert = {
         user_id: input.userId,
@@ -130,7 +127,7 @@ export async function planDayCore(
         program_day_id: programDayResult.day.id,
         local_date: input.localDate,
         week_in_block: week,
-        is_deload: week !== null && week === program.deload_week,
+        is_deload: week === program.deload_week,
         planned_type: programDayResult.day.day_type,
         actual_type: programDayResult.day.day_type,
         status: "planned",

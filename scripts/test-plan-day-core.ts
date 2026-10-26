@@ -28,6 +28,7 @@ type Call =
   | { method: "findDaySessions"; localDate: string }
   | { method: "findActiveProgram" }
   | { method: "loadProgramDay"; programDayId: string }
+  | { method: "findProgramDay"; programId: string; dayIndex: number }
   | { method: "updateSession"; id: string; row: SessionInsert }
   | { method: "deleteSessions"; ids: string[] }
   | { method: "insertSession"; row: SessionInsert };
@@ -36,7 +37,7 @@ function makeFakeClient(config: {
   existingSessions?: SessionRow[];
   program?: Program | null;
   programDays?: Record<string, ProgramDay>;
-  programDaysByIndex?: Record<number, ProgramDay>;
+  programDaysByProgramAndIndex?: Record<string, Record<number, ProgramDay>>;
 }): { client: PlanDayClient; calls: Call[] } {
   const calls: Call[] = [];
 
@@ -63,8 +64,9 @@ function makeFakeClient(config: {
       }
       return { ok: true, day };
     },
-    async findProgramDayByIndex(dayIndex: number) {
-      const day = config.programDaysByIndex?.[dayIndex];
+    async findProgramDay(programId: string, dayIndex: number) {
+      calls.push({ method: "findProgramDay", programId, dayIndex });
+      const day = config.programDaysByProgramAndIndex?.[programId]?.[dayIndex];
       return { day: day ?? null, error: null };
     },
     async updateSession(id: string, row: SessionInsert) {
@@ -360,7 +362,7 @@ async function main() {
     const { client, calls } = makeFakeClient({
       existingSessions: [],
       program,
-      programDaysByIndex: { 7: programDay },
+      programDaysByProgramAndIndex: { "prog-1": { 7: programDay } },
     });
 
     const result = await planDayCore(client, {
@@ -371,6 +373,13 @@ async function main() {
     });
 
     assert.equal(result.ok, true, "Should succeed");
+    
+    const findProgramDayCall = calls.find((c) => c.method === "findProgramDay");
+    assert(findProgramDayCall, "Should call findProgramDay");
+    if (findProgramDayCall.method !== "findProgramDay") throw new Error("Wrong call");
+    assert.equal(findProgramDayCall.programId, "prog-1", "Should pass active program id");
+    assert.equal(findProgramDayCall.dayIndex, 7, "2026-11-15 is Sunday, isoWeekday = 7");
+
     const insertCall = calls.find((c) => c.method === "insertSession");
     assert(insertCall, "Should insert a session");
     if (insertCall.method !== "insertSession") throw new Error("Wrong call");
@@ -424,7 +433,7 @@ async function main() {
     assert.deepEqual(deleteCall.ids, ["sess-1"], "Should delete sess-1");
   });
 
-  await test("Keep on a Rest day: writes Rest planned row", async () => {
+  await test("Keep on a Rest day (Monday): writes Rest planned row", async () => {
     const program: Program = {
       id: "prog-1",
       started_on: "2026-11-01",
@@ -439,7 +448,7 @@ async function main() {
     const { client, calls } = makeFakeClient({
       existingSessions: [],
       program,
-      programDaysByIndex: { 2: programDay },
+      programDaysByProgramAndIndex: { "prog-1": { 2: programDay } },
     });
 
     const result = await planDayCore(client, {
@@ -450,6 +459,13 @@ async function main() {
     });
 
     assert.equal(result.ok, true, "Should succeed");
+
+    const findProgramDayCall = calls.find((c) => c.method === "findProgramDay");
+    assert(findProgramDayCall, "Should call findProgramDay");
+    if (findProgramDayCall.method !== "findProgramDay") throw new Error("Wrong call");
+    assert.equal(findProgramDayCall.programId, "prog-1", "Should pass active program id");
+    assert.equal(findProgramDayCall.dayIndex, 2, "2026-11-17 is Tuesday, isoWeekday = 2");
+
     const insertCall = calls.find((c) => c.method === "insertSession");
     assert(insertCall, "Should insert a session");
     if (insertCall.method !== "insertSession") throw new Error("Wrong call");
@@ -457,6 +473,59 @@ async function main() {
     assert.equal(insertCall.row.actual_type, "rest", "Should be rest");
     assert.equal(insertCall.row.planned_type, "rest", "planned_type should be rest");
     assert.equal(insertCall.row.status, "planned", "Should be planned");
+  });
+
+  await test("Keep when findProgramDay returns null: returns error and inserts nothing", async () => {
+    const program: Program = {
+      id: "prog-1",
+      started_on: "2026-11-01",
+      deload_week: 4,
+      week_offset: 0,
+    };
+
+    const { client, calls } = makeFakeClient({
+      existingSessions: [],
+      program,
+      programDaysByProgramAndIndex: { "prog-1": {} },
+    });
+
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "keep" },
+    });
+
+    assert.equal(result.ok, false, "Should fail");
+    assert.equal(result.ok === false && result.error, "Could not find program day.");
+
+    const insertCall = calls.find((c) => c.method === "insertSession");
+    assert(!insertCall, "Should NOT insert when program day not found");
+  });
+
+  await test("Keep when planned row already exists: follows old path, inserts nothing", async () => {
+    const existing: SessionRow[] = [
+      { id: "sess-1", status: "planned", actual_type: "weights" },
+    ];
+
+    const { client, calls } = makeFakeClient({ existingSessions: existing });
+
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "keep" },
+    });
+
+    assert.equal(result.ok, true, "Should succeed");
+
+    const deleteCall = calls.find((c) => c.method === "deleteSessions");
+    assert(deleteCall, "Should call deleteSessions (old path)");
+    if (deleteCall.method !== "deleteSessions") throw new Error("Wrong call");
+    assert.deepEqual(deleteCall.ids, ["sess-1"], "Should delete the existing planned row");
+
+    const insertCall = calls.find((c) => c.method === "insertSession");
+    assert(!insertCall, "Should NOT insert when planned row already exists");
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
