@@ -383,6 +383,9 @@ jobs:
           REAL_DB=1 npm run test:gym-tenant-rls-real-db
           REAL_DB=1 npm run test:gym-owner-guards-sql
           REAL_DB=1 bash scripts/mutant-test-gym-rls-policies.sh
+          REAL_DB=1 npm run test:gym-domains-real-db
+          npm run test:gym-brand-unit
+          REAL_DB=1 bash scripts/mutant-test-gym-domains.sh
         env:
           REAL_DB: "1"
 
