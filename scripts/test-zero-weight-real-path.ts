@@ -23,11 +23,24 @@ function check(label: string, condition: boolean, detail = "") {
 console.log("Sequential real-path zero-weight progression tests\n");
 
 // Helper to create DB rows
-const mechanicValue: "compound" = "compound";
-const movementValue: "vertical_pull" = "vertical_pull";
-const metricValue: "reps" = "reps";
+interface SessionExerciseRow {
+  id: string;
+  session_id: string;
+  exercise_id: string;
+  planned_sets: number;
+  planned_reps_min: number;
+  planned_reps_max: number;
+  metric: "reps";
+  exercises: {
+    mechanic: "compound";
+    movement_pattern: "vertical_pull";
+    equipment_ids: string[];
+    progression_chain: null;
+    progression_rank: null;
+  };
+}
 
-function makeSessionExercise(equipmentIds: string[]) {
+function makeSessionExercise(equipmentIds: string[]): SessionExerciseRow {
   return {
     id: "se1",
     session_id: "s1",
@@ -35,10 +48,10 @@ function makeSessionExercise(equipmentIds: string[]) {
     planned_sets: 3,
     planned_reps_min: 8,
     planned_reps_max: 12,
-    metric: metricValue,
+    metric: "reps",
     exercises: {
-      mechanic: mechanicValue,
-      movement_pattern: movementValue,
+      mechanic: "compound",
+      movement_pattern: "vertical_pull",
       equipment_ids: equipmentIds,
       progression_chain: null,
       progression_rank: null,

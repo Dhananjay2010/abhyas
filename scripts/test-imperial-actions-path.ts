@@ -50,21 +50,34 @@ function testProgressionWithUnits(
 
 console.log("Imperial units wiring test\n");
 
-const metricValue: "reps" = "reps";
-const mechanicValue: "compound" = "compound";
-const movementValue: "horizontal_press" = "horizontal_press";
+interface SessionExerciseRow {
+  id: string;
+  session_id: string;
+  exercise_id: string;
+  planned_sets: number;
+  planned_reps_min: number;
+  planned_reps_max: number;
+  metric: "reps";
+  exercises: {
+    mechanic: "compound";
+    movement_pattern: "horizontal_press";
+    equipment_ids: string[];
+    progression_chain: null;
+    progression_rank: null;
+  };
+}
 
-const sessionExercise = {
+const sessionExercise: SessionExerciseRow = {
   id: "se1",
   session_id: "s1",
   exercise_id: "e1",
   planned_sets: 3,
   planned_reps_min: 8,
   planned_reps_max: 12,
-  metric: metricValue,
+  metric: "reps",
   exercises: {
-    mechanic: mechanicValue,
-    movement_pattern: movementValue,
+    mechanic: "compound",
+    movement_pattern: "horizontal_press",
     equipment_ids: ["barbell"],
     progression_chain: null,
     progression_rank: null,
