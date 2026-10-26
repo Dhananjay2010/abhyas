@@ -2,7 +2,12 @@ import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
-import { isKneeRiskForKneeUser } from "./knee-safety";
+import { 
+  isKneeRiskForKneeUser, 
+  KNEE_SAFE_QUAD_EXERCISES,
+  getDerivedContraindications
+} from "./knee-safety";
+import { isExcludedForPastKnee } from "./past-knee";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -346,17 +351,8 @@ function shouldExcludeForSafety(
   return false;
 }
 
-/**
- * QA Pass 10 H6 (restored from PR #53): Exercises safe for knee injuries despite being quad-focused.
- * These use limited ROM, isometric holds, or controlled movements that don't aggravate the knee.
- * Must be REAL prod slugs only. Exported for testing.
- */
-export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = new Set([
-  'leg-extensions',           // Partial ROM, pain-free range (machine)
-  'single-leg-leg-extension', // Partial ROM, pain-free range (machine)
-  'wall-sit',                 // Isometric hold, no dynamic stress (bodyweight, seconds metric)
-  'spanish-squat',            // Band-resisted, controlled (resistance_band)
-]);
+// KNEE_SAFE_QUAD_EXERCISES is re-exported from knee-safety.ts (single source of truth)
+export { KNEE_SAFE_QUAD_EXERCISES } from "./knee-safety";
 
 /**
  * KNEE-SAFE LUNGE EXERCISES for CURRENT knee injury (PR #73 scoped policy).
@@ -433,62 +429,7 @@ export const FLOOR_PULL_DEADLIFTS: ReadonlySet<string> = new Set([
   'smith-machine-stiff-legged-deadlift', // Smith machine stiff-leg variant
 ]);
 
-/**
- * Exercises with slug-specific shoulder contraindications.
- * Around The Worlds: arms pass overhead in a wide arc, loading shoulders.
- */
-const SHOULDER_CONTRAINDICATED_SLUGS: ReadonlySet<string> = new Set([
-  "around-the-worlds",
-]);
-
-/**
- * QA Pass 10 C2: Derive contraindications from exercise properties.
- * - vertical_press or "overhead" in name → shoulder
- * - spinal_load high or moderate → lower_back
- * - squat, lunge, or jump pattern/name → knee (UNLESS in knee-safe list)
- * 
- * Derived contraindications ADD to explicit tags, don't replace them.
- */
-function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
-  const derived: BodyRegion[] = [];
-  const nameLower = ex.name.toLowerCase();
-  const slugLower = ex.slug.toLowerCase();
-  
-  // Slug-specific shoulder contraindications
-  if (SHOULDER_CONTRAINDICATED_SLUGS.has(ex.slug)) {
-    derived.push("shoulder");
-  }
-  
-  // Vertical press or overhead movements load shoulders
-  if (ex.movement_pattern === "vertical_press" ||
-      nameLower.includes("overhead") ||
-      slugLower.includes("overhead") ||
-      nameLower.includes("shoulder press") ||
-      nameLower.includes("military press")) {
-    derived.push("shoulder");
-  }
-  
-  // High spinal load affects lower back (moderate is manageable for most)
-  if (ex.spinal_load === "high") {
-    derived.push("lower_back");
-  }
-  
-  // H6: Squat, lunge, or jump movements load knees UNLESS they're in the knee-safe list
-  if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
-    if (ex.movement_pattern === "squat" ||
-        ex.movement_pattern === "lunge" ||
-        nameLower.includes("squat") ||
-        nameLower.includes("lunge") ||
-        nameLower.includes("jump") ||
-        slugLower.includes("squat") ||
-        slugLower.includes("lunge") ||
-        slugLower.includes("jump")) {
-      derived.push("knee");
-    }
-  }
-  
-  return derived;
-}
+// getDerivedContraindications is now imported from knee-safety.ts (single source of truth)
 
 // M1 equipment alternatives: Exercises where ANY of the listed equipment works
 // Each inner array is one valid alternative set
@@ -720,10 +661,11 @@ export function wouldViolateConstraints(
   pickedSoFar: Array<{ ex: CandidateExercise; slotIndex: number }>,
   input: GeneratorInput,
 ): boolean {
-  const hasKneeInjury = input.currentInjuryRegions.includes("knee");
+  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+  const hasAnyKnee = hasCurrentKnee || (input.anyKneeInjury ?? false);
   
   // For knee-injured users only: timed holds should not end up in main slots after sorting
-  if (hasKneeInjury && candidate.metric === "seconds") {
+  if (hasCurrentKnee && candidate.metric === "seconds") {
     // Simulate sorting with this candidate
     const withCandidate = [...pickedSoFar, { ex: candidate, slotIndex }];
     const sorted = withCandidate.sort((a, b) => {
@@ -748,11 +690,11 @@ export function wouldViolateConstraints(
     }
   }
   
-  // For knee-injured users, check adjacent hinges in FINAL sorted order
+  // For knee-injured users (current or past), check adjacent hinges in FINAL sorted order
   // Only apply constraint to LOADED hinges (spinal_load !== "none")
   // This allows stacking unloaded bridges (glute-bridge, butt-lift-bridge, etc.)
   // and allows a second hinge when a non-hinge exercise separates them
-  if (hasKneeInjury && candidate.movement_pattern === "hinge" && candidate.spinal_load !== "none") {
+  if (hasAnyKnee && candidate.movement_pattern === "hinge" && candidate.spinal_load !== "none") {
     // Simulate the sorted order with this candidate added
     const withCandidate = [...pickedSoFar, { ex: candidate, slotIndex }];
     const sorted = withCandidate.sort((a, b) => {
@@ -825,11 +767,15 @@ function pickForSlot(
     // For past knee: filter fallback patterns, and also filter normal patterns for non-squat slots
     // Squat slot (slot 0) keeps Barbell Squat even though it's knee-risk
     // For current knee: let shouldExcludeForSafety handle it (PR #124 logic)
+    // Also exclude jumps, thrusters, etc. (Mutant 10 killer)
     const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
     const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
-    if (hasPastKnee && (isFallback || slotIndex !== 0)) {
-      candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
-      if (candidates.length === 0) continue;
+    if (hasPastKnee) {
+      // Filter knee-risk exercises (derived contraindications) except slot 0
+      if (isFallback || slotIndex !== 0) {
+        candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+        if (candidates.length === 0) continue;
+      }
     }
     
     // Apply shared constraint checker (timed holds in mains, adjacent hinges for knee injury)
@@ -861,7 +807,8 @@ function pickForSlot(
         // 3. RNG breaks ties (provides variety for accessories across blocks)
         return b.rng - a.rng;
       })
-      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));
+      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug))
+      .filter((item) => !(hasPastKnee && isExcludedForPastKnee(item.e)));
 
     if (ranked.length > 0) {
       return ranked[0].e;
@@ -1553,6 +1500,21 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       if (aCore && !bCore) return 1;  // Core goes last
       if (!aCore && bCore) return -1;
       
+      // For past-knee users on Full Body days: Wall Sit comes after other lower-body exercises
+      const hasPastKnee = input.anyKneeInjury && !hasKneeInjury;
+      const isFullDay = entry.focus === "full_body";
+      if (hasPastKnee && isFullDay) {
+        const aIsWallSit = a.ex.slug === "wall-sit";
+        const bIsWallSit = b.ex.slug === "wall-sit";
+        const lowerBodyPatterns = new Set(["squat", "lunge", "hinge", "calf"]);
+        const aIsLower = lowerBodyPatterns.has(a.ex.movement_pattern);
+        const bIsLower = lowerBodyPatterns.has(b.ex.movement_pattern);
+        
+        // Wall Sit after other lower-body, but before upper-body and core
+        if (aIsWallSit && bIsLower && !bIsWallSit) return 1;
+        if (bIsWallSit && aIsLower && !aIsWallSit) return -1;
+      }
+      
       const aCompound = a.ex.mechanic === "compound";
       const bCompound = b.ex.mechanic === "compound";
       if (aCompound && !bCompound) return -1;  // Compounds before isolation
@@ -1842,13 +1804,19 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         // Strategy 2: Add a set to main exercises (up to 5 sets max for main lifts)
         // PART B: exclude knee-risk for PAST knee users (Brief knee-volume)
+        // MED-2: For past-knee lower/full days, cap calf at 4 sets (prioritize hip-dominant work)
+        const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
         const mainExercises = exercises
           .map((ex, idx) => ({ ex, idx }))
           .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < 5)
           .filter(({ ex }) => {
             if (!hasPastKneeM3) return true;
             const candidate = pool.find(c => c.id === ex.exerciseId);
-            return !candidate || !isKneeRiskForKneeUser(candidate, true);
+            // Filter out knee-risk exercises
+            if (candidate && isKneeRiskForKneeUser(candidate, true)) return false;
+            // MED-2: For lower/full days, cap calf exercises at 4 sets (not 5)
+            if (isLowerOrFullDay && candidate?.movement_pattern === "calf" && ex.targetSets >= 4) return false;
+            return true;
           });
         
         if (mainExercises.length > 0) {
@@ -1861,7 +1829,23 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         // PART B: exclude knee-risk for PAST knee users (Brief knee-volume)
         const accessoryPatterns = entry.slots.slice(-2); // Last 2 patterns
         if (accessoryPatterns.length > 0) {
+          const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
           const pattern = accessoryPatterns[exercises.length % accessoryPatterns.length];
+          
+          // MED-2: For past-knee lower/full days with calf capped at 4, don't add a second calf
+          // (prevents duplicate calf exercises when main calf is capped below 5)
+          if (hasPastKneeM3 && isLowerOrFullDay && pattern === "calf") {
+            // Check if we already have a calf exercise
+            const hasCalfAlready = exercises.some(ex => {
+              const exData = pool.find(e => e.id === ex.exerciseId);
+              return exData?.movement_pattern === "calf";
+            });
+            if (hasCalfAlready) {
+              // Skip adding a second calf exercise
+              break;
+            }
+          }
+          
           let candidates = pool
             .filter((e) => 
               e.movement_pattern === pattern &&
@@ -1872,6 +1856,29 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           
           if (hasPastKneeM3) {
             candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+            
+            // MED-2: For lower/full days and hinge pattern, prioritize hip-dominant exercises
+            // (glute/hamstring primary muscles, avoid adjacent loaded hinges)
+            if (isLowerOrFullDay && pattern === "hinge" && candidates.length > 1) {
+              // Transform exercises to the format wouldViolateConstraints expects
+              const pickedSoFar = exercises.map((ex, idx) => {
+                const exData = pool.find(e => e.id === ex.exerciseId);
+                return exData ? { ex: exData, slotIndex: idx } : null;
+              }).filter((item): item is { ex: CandidateExercise; slotIndex: number } => item !== null);
+              
+              const hipDominantCandidates = candidates.filter(e => {
+                // Must have glutes or hamstrings as primary muscle
+                const hasHipDominantMuscle = e.primary_muscles.some(m => 
+                  m === "glutes" || m === "hamstrings"
+                );
+                // Must not violate adjacency constraints (no adjacent loaded hinges)
+                if (!hasHipDominantMuscle) return false;
+                return !wouldViolateConstraints(e, exercises.length, pickedSoFar, input);
+              });
+              if (hipDominantCandidates.length > 0) {
+                candidates = hipDominantCandidates;
+              }
+            }
           }
           
           candidates = candidates.sort((a, b) => 

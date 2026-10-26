@@ -8,6 +8,9 @@
  * on the server, which is the copy that actually protects the database.
  */
 
+import type { UnitsPreference } from "../units";
+import { LOAD_METRIC_MAX_KG, LOAD_IMPERIAL_MAX_LB, LOAD_LB_EPSILON, kgToLb } from "../units";
+
 /**
  * Deliberately generous: the point is to reject what cannot be a set, not to
  * police anyone's training. 500 kg is above the heaviest lift ever recorded and
@@ -15,7 +18,7 @@
  * negative weight, a zero-rep "set", and a fat-fingered rep count.
  */
 export const MAX_REPS = 100;
-export const MAX_WEIGHT_KG = 500;
+export const MAX_WEIGHT_KG = LOAD_METRIC_MAX_KG;
 
 /**
  * A hold is measured in seconds, and the generous bound is an hour.
@@ -38,11 +41,14 @@ export const MAX_HOLD_SECONDS = 3600;
  * real harm: `evaluateProgression` counts only sets with reps > 0, so a stray
  * zero made a completed exercise look like a missed one, and two of those in a
  * row drop the working weight by ten percent.
+ *
+ * @param units - User's units preference for formatting error messages
  */
 export function validateSet(
   reps: number | null,
   weightKg: number | null,
   durationSeconds: number | null = null,
+  units: UnitsPreference = "metric",
 ): string | null {
   if (durationSeconds !== null) {
     if (!Number.isInteger(durationSeconds)) return "Seconds must be a whole number.";
@@ -59,7 +65,20 @@ export function validateSet(
   if (weightKg !== null) {
     if (!Number.isFinite(weightKg)) return "That weight does not look right.";
     if (weightKg < 0) return "Weight cannot be negative.";
-    if (weightKg > MAX_WEIGHT_KG) return `Weight should be ${MAX_WEIGHT_KG} kg or less.`;
+    
+    // Enforce unit-specific maxima: 999 lb for imperial, 500 kg for metric
+    // Check in display units to match what the user sees and types
+    // Use small epsilon to handle rounding: 999 lb→453.14 kg→999.0027 lb
+    if (units === "imperial") {
+      const displayLb = kgToLb(weightKg);
+      if (displayLb > LOAD_IMPERIAL_MAX_LB + LOAD_LB_EPSILON) {
+        return `Weight should be ${LOAD_IMPERIAL_MAX_LB} lb or less.`;
+      }
+    } else {
+      if (weightKg > MAX_WEIGHT_KG) {
+        return `Weight should be ${MAX_WEIGHT_KG} kg or less.`;
+      }
+    }
   }
   return null;
 }

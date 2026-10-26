@@ -2,7 +2,7 @@
 
 **Abhyas** (अभ्यास) — *practice; repetition*. A mobile-first web app that tells you exactly what to do for your workout every single day, guides you through it with timers, and records what you did so it can make next week harder than this week.
 
-One hour a day. No guesswork.
+Workouts built around your time. No guesswork.
 
 ---
 

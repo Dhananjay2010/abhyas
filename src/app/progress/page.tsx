@@ -428,7 +428,7 @@ export default async function ProgressPage() {
             singlePointHint="Weigh in on another day to see a trend"
           />
         )}
-        <LogWeight current={latestWeight} />
+        <LogWeight current={latestWeight} units={units} />
       </section>
 
     </main>
