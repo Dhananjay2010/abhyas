@@ -397,7 +397,8 @@
     "test:units-error-messages": "tsx scripts/test-units-error-messages.ts",
     "test:units-profile-units": "tsx scripts/test-units-profile-units.ts",
     "test:units-action-validation": "tsx scripts/test-units-action-validation.ts",
-    "test:units-bodyweight-core": "tsx scripts/test-units-bodyweight-core.ts"
+    "test:units-bodyweight-core": "tsx scripts/test-units-bodyweight-core.ts",
+    "test:med2-time-fill-cap": "tsx scripts/test-med2-time-fill-cap.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

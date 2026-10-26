@@ -106,24 +106,29 @@ run_mutant() {
     exit_code=$?
     
     if [ $exit_code -ne 0 ]; then
-      # Check for crashes: uncaught errors with stack traces
-      if echo "$output" | grep -qE "(SyntaxError|TypeError|ReferenceError|RangeError)"; then
-        echo "  ✗ CRASH in $t (uncaught error, not an assertion failure)"
-        CRASHED=$((CRASHED + 1))
-        restore
-        return
+      # Check for crashes: uncaught errors with stack traces (lines starting with "at ")
+      if echo "$output" | grep -qE '^\s+at '; then
+        # Stack trace found - this is a crash
+        # But if it also contains FAIL or ✗, count it as killed (test printed assertion before crash)
+        if echo "$output" | grep -qE '(✗|FAIL)'; then
+          killer="$t"
+          break
+        else
+          echo "  ✗ CRASH in $t (uncaught exception)"
+          CRASHED=$((CRASHED + 1))
+          restore
+          return
+        fi
       fi
       
-      # Check for assertion failures
-      if echo "$output" | grep -qE "(✗|FAIL|assertion.*failed)"; then
+      # Check for assertion failures (no stack trace)
+      if echo "$output" | grep -qE '(✗|FAIL)'; then
         killer="$t"
         break
       fi
       
-      # Non-zero exit without assertion or crash signature
+      # Non-zero exit without assertion or stack trace
       echo "  ✗ CRASH in $t (exit $exit_code, no assertion message)"
-      echo "  First 5 lines of output:"
-      echo "$output" | head -5 | sed 's/^/    /'
       CRASHED=$((CRASHED + 1))
       restore
       return
@@ -239,7 +244,7 @@ run_mutant "MED-2-TIME. Remove past-knee calf cap in time-fill" "$GENERATE" \
             if (isLowerOrFullDay && candidate?.movement_pattern === "calf" && ex.targetSets >= 4) return false;' \
   '            // MED-2: For lower/full days, cap calf exercises at 4 sets (not 5)
             if (false && isLowerOrFullDay && candidate?.movement_pattern === "calf" && ex.targetSets >= 4) return false;' \
-  test:knee-volume test:knee-volume-identity test:count-knee-risk-outside-squat test:med2-comparison test:full-body-c-lunge
+  test:med2-time-fill-cap
 
 run_mutant "FB-C-WALL. Remove Wall Sit sort logic for Full Body days" "$GENERATE" \
   '      // For past-knee users on Full Body days: Wall Sit comes after other lower-body exercises
