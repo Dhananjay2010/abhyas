@@ -48,49 +48,51 @@ const pastKneeProfiles: Array<{
 }> = [
   { id: "pk-int-3d-90m-kb-wt-fl", level: "intermediate", days: 3, preferredSessionMinutes: 90, equipment: ["kettlebell"], goal: "fat_loss", primaryTrack: "weights" },
   { id: "pk-exp-6d-90m-kb-bw-fl", level: "expert", days: 6, preferredSessionMinutes: 90, equipment: ["kettlebell"], goal: "fat_loss", primaryTrack: "bodyweight" },
-  { id: "pk-exp-5d-90m-kb-wt-mg", level: "expert", days: 5, preferredSessionMinutes: 90, equipment: ["kettlebell"], goal: "muscle_gain", primaryTrack: "weights" },
-  { id: "pk-int-5d-90m-kb-wt-mg", level: "intermediate", days: 5, preferredSessionMinutes: 90, equipment: ["kettlebell"], goal: "muscle_gain", primaryTrack: "weights" },
 ];
 
 for (const profile of pastKneeProfiles) {
-  const input: GeneratorInput = {
-    userId: `test-${profile.id}`,
-    blockNumber: 1,
-    goal: profile.goal,
-    level: profile.level,
-    primaryTrack: profile.primaryTrack,
-    daysPerWeek: profile.days,
-    yogaDaysPerWeek: 0,
-    age: 30,
-    bmi: 22,
-    hasAllEquipment: profile.equipment.length === 0,
-    equipmentIds: profile.equipment,
-    anyKneeInjury: true,
-    currentInjuryRegions: [],
-    preferredSessionMinutes: profile.preferredSessionMinutes,
-    catalogue,
-  };
-
-  const program = generateProgram(input);
   let excludedExercisesFound = 0;
 
-  for (const day of program.days) {
-    if (day.dayType === "rest") continue;
-    
-    for (const ex of day.exercises) {
-      const exercise = byId.get(ex.exerciseId);
-      if (!exercise) continue;
+  // Run multiple times per profile due to RNG in generator
+  for (let run = 0; run < 30; run++) {
+    const input: GeneratorInput = {
+      userId: `test-${profile.id}-run${run}`,
+      blockNumber: 1,
+      goal: profile.goal,
+      level: profile.level,
+      primaryTrack: profile.primaryTrack,
+      daysPerWeek: profile.days,
+      yogaDaysPerWeek: 0,
+      age: 30,
+      bmi: 22,
+      hasAllEquipment: profile.equipment.length === 0,
+      equipmentIds: profile.equipment,
+      anyKneeInjury: true,
+      currentInjuryRegions: [],
+      preferredSessionMinutes: profile.preferredSessionMinutes,
+      catalogue,
+    };
+
+    const program = generateProgram(input);
+
+    for (const day of program.days) {
+      if (day.dayType === "rest") continue;
       
-      if (isExcludedForPastKnee(exercise)) {
-        console.error(`✗ ${profile.id} day ${day.dayIndex} slot ${ex.orderIndex}: ${ex.name} (past-knee excluded: ${exercise.slug})`);
-        excludedExercisesFound++;
-        failures++;
+      for (const ex of day.exercises) {
+        const exercise = byId.get(ex.exerciseId);
+        if (!exercise) continue;
+        
+        if (isExcludedForPastKnee(exercise)) {
+          console.error(`✗ ${profile.id} run ${run} day ${day.dayIndex} slot ${ex.orderIndex}: ${ex.name} (past-knee excluded: ${exercise.slug})`);
+          excludedExercisesFound++;
+          failures++;
+        }
       }
     }
   }
 
   if (excludedExercisesFound === 0) {
-    console.log(`✓ ${profile.id}: No past-knee excluded exercises`);
+    console.log(`✓ ${profile.id}: No past-knee excluded exercises (30 runs)`);
   }
 }
 

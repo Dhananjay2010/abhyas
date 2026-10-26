@@ -349,7 +349,13 @@
     "test:week-list": "tsx scripts/test-week-list.tsx",
     "test:session-summary-real-db": "tsx scripts/test-session-summary-real-db.ts",
     "test:page-units-wiring": "tsx scripts/test-page-units-wiring.ts",
-    "test:mutant-page-units": "bash scripts/mutant-test-page-units.sh"
+    "test:mutant-page-units": "bash scripts/mutant-test-page-units.sh",
+    "test:past-knee-excluded": "tsx scripts/test-past-knee-excluded.ts",
+    "test:pickforslot-filter": "tsx scripts/test-pickforslot-filter.ts",
+    "test:past-knee-squat-swap-ordering": "tsx scripts/test-past-knee-squat-swap-ordering.ts",
+    "test:med2-hip-dominant": "tsx scripts/test-med2-hip-dominant-time-fill.ts",
+    "test:identity-vs-main": "tsx scripts/test-identity-vs-main.ts",
+    "test:catalogue-slug-coverage": "tsx scripts/test-catalogue-slug-coverage.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
