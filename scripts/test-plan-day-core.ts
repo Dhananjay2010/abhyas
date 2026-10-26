@@ -14,6 +14,7 @@ type SessionRow = Pick<
   Database["public"]["Tables"]["sessions"]["Row"],
   "id" | "actual_type" | "status"
 >;
+type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
 
 let passed = 0;
 let failed = 0;
@@ -30,7 +31,10 @@ async function test(name: string, fn: () => Promise<void>) {
   }
 }
 
-type Call = { method: string; args: unknown[] };
+type Call =
+  | { method: "findDaySessions"; args: [string] }
+  | { method: "deleteSessions"; args: [string[]] }
+  | { method: "insertSession"; args: [SessionInsert] };
 
 function createFakeClient(existingSessions: SessionRow[] = []): {
   client: PlanDayClient;
@@ -97,7 +101,7 @@ async function main() {
     }, "2026-11-01");
 
     assert.equal(result.ok, true);
-    const writes = calls.filter(c => c.method === "delete" || c.method === "insert");
+    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
     assert.equal(writes.length, 0, "Keep on breathing must make ZERO writes");
   });
 
@@ -111,7 +115,7 @@ async function main() {
     }, "2026-11-01");
 
     assert.equal(result.ok, true);
-    const writes = calls.filter(c => c.method === "delete" || c.method === "insert");
+    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
     assert.equal(writes.length, 0, "Keep on rest must make ZERO writes");
   });
 
@@ -125,7 +129,7 @@ async function main() {
 
     assert.equal(result.ok, false, "null plan should fail");
     assert(result.ok === false && result.error.includes("No plan"), "Error mentions no plan");
-    const writes = calls.filter(c => c.method === "delete" || c.method === "insert");
+    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
     assert.equal(writes.length, 0, "Failed validation must make ZERO writes");
   });
 
@@ -138,7 +142,7 @@ async function main() {
     }, "2026-11-01");
 
     assert.equal(result.ok, false);
-    const writes = calls.filter(c => c.method === "delete" || c.method === "insert");
+    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
     assert.equal(writes.length, 0, "Missing plan must make ZERO writes");
   });
 
@@ -152,7 +156,7 @@ async function main() {
 
     assert.equal(result.ok, false);
     assert(result.ok === false && result.error.includes("kind"), "Error mentions kind");
-    const writes = calls.filter(c => c.method === "delete" || c.method === "insert");
+    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
     assert.equal(writes.length, 0, "Empty plan must make ZERO writes");
   });
 
@@ -188,8 +192,12 @@ async function main() {
     assert.equal(inserts.length, 1, "Should insert rest");
 
     const insertCall = inserts[0];
-    const row = insertCall.args[0] as { actual_type: string };
-    assert.equal(row.actual_type, "rest", "Inserted row should be rest");
+    if (insertCall.method === "insertSession") {
+      const inserted = insertCall.args[0];
+      assert.equal(inserted.actual_type, "rest", "Inserted row should be rest");
+    } else {
+      assert.fail("Expected insertSession call");
+    }
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
