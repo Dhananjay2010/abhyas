@@ -104,7 +104,7 @@ for (const spec of KNEE_PROFILES) {
       const yogaDays = 0; // ProfileSpec doesn't have yogaDaysPerWeek
       const trainingDays = Math.max(1, spec.daysPerWeek - Math.min(yogaDays, spec.daysPerWeek - 1));
       const templates = templatesFor(trainingDays);
-      const laidOut = placeYoga(templates, spec.yogaDaysPerWeek || 0);
+      const laidOut = placeYoga(templates, yogaDays);
       const activeIdx = activeDayIndices(spec.daysPerWeek);
       const slotPos = activeIdx.indexOf(day.dayIndex);
       
