@@ -96,7 +96,8 @@ function createFakeDbWithConstraint() {
     check("Imperial 55.5 lb: row inserted", rows.length === 1, `got ${rows.length} rows`);
     
     if (rows.length === 1) {
-      const storedKg = rows[0].weight_kg as number;
+      const storedKg = rows[0].weight_kg;
+      if (typeof storedKg !== "number") throw new Error(`Expected weight_kg to be number, got ${typeof storedKg}`);
       check("Imperial 55.5 lb: stored kg ≥ 25", storedKg >= 25, `got ${storedKg} kg`);
       check("Imperial 55.5 lb: stored as ~25.2 kg", Math.abs(storedKg - 25.2) < 0.1, `got ${storedKg} kg`);
     }
@@ -120,7 +121,8 @@ function createFakeDbWithConstraint() {
     check("Imperial 661 lb: row inserted", rows.length === 1, `got ${rows.length} rows`);
     
     if (rows.length === 1) {
-      const storedKg = rows[0].weight_kg as number;
+      const storedKg = rows[0].weight_kg;
+      if (typeof storedKg !== "number") throw new Error(`Expected weight_kg to be number, got ${typeof storedKg}`);
       check("Imperial 661 lb: stored kg ≤ 300", storedKg <= 300, `got ${storedKg} kg`);
       check("Imperial 661 lb: stored as ~299.8 kg", Math.abs(storedKg - 299.8) < 0.1, `got ${storedKg} kg`);
     }
