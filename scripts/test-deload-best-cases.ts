@@ -131,18 +131,21 @@ console.log("\n4. Deload hold with new best returns updated best_reps");
 
 console.log("\n5. Deload e1RM improvement returns updated best_e1rm");
 {
+  // With 12-rep cap, test e1RM improvement during deload
+  // Prior: 60kg × 10 reps = 60 × (1 + 10/30) = 80.00
+  // New: 60kg × 12 reps = 60 × (1 + 12/30) = 84.00
   const d = evaluateProgression({
-    sets: sets(4, 14, 60),
+    sets: sets(4, 12, 60),
     plannedSets: 4,
     repsMin: 8,
     repsMax: 12,
     feel: "right",
     meta: BENCH,
-    state: fresh({ currentWorkingWeightKg: 60, bestWeightKg: 60, bestE1rm: 84 }),
+    state: fresh({ currentWorkingWeightKg: 60, bestWeightKg: 60, bestE1rm: 80 }),
     isDeload: true,
   });
   check("outcome is deload_week", d.outcome === "deload_week");
-  check("bestE1rm improved", (d.bestE1rm ?? 0) > 84, `${d.bestE1rm?.toFixed(1)}`);
+  check("bestE1rm improved", (d.bestE1rm ?? 0) > 80, `${d.bestE1rm?.toFixed(1)}`);
   check("personal best reported", d.personalBest?.kind === "e1rm");
   check("bestWeightKg unchanged", d.bestWeightKg === 60);
 }

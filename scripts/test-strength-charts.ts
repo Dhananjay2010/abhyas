@@ -1,6 +1,6 @@
 /**
  * Test buildStrengthChartsFromDescendingRows:
- * - Imperial converts e1RM and sets unit label
+ * - Imperial keeps kg values, sets unit label and units (formatted by the chart)
  * - Metric preserves values and sets unit label
  * - Deload rows stay as points with isDeload flag
  * - Points are chronologically ordered (oldest to newest)
@@ -8,6 +8,7 @@
  */
 
 import { buildStrengthChartsFromDescendingRows, type StrengthHistoryRow } from "../src/lib/progress/strength-charts";
+import { formatWeight } from "../src/lib/units";
 
 let failures = 0;
 
@@ -32,11 +33,12 @@ console.log("\nbuildStrengthChartsFromDescendingRows tests");
   check("Imperial: unitLabel is 'lb'", charts[0].unitLabel === "lb");
   check("Imperial: has 3 points", charts[0].points.length === 3);
   
-  // 100 kg → 220.46 lb
+  // Values stay in kg; the chart formats them via formatWeight in the
+  // member's units (QA3 MED-2), so 100 kg reads "220.5 lb".
   const val = charts[0].points[2].value;
-  check("Imperial: 100 kg converts to ~220.5 lb",
-    val >= 220.4 && val <= 220.5,
-    `got ${val.toFixed(2)}`);
+  check("Imperial: value kept in kg (100)", val === 100, `got ${val}`);
+  check("Imperial: chart carries units 'imperial'", charts[0].units === "imperial", `got ${charts[0].units}`);
+  check("Imperial: formatWeight shows 220.5 lb", formatWeight(val, charts[0].units) === "220.5 lb", formatWeight(val, charts[0].units));
 }
 
 // Test 2: Metric unchanged
