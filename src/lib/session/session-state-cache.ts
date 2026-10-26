@@ -101,28 +101,22 @@ export function clearSessionState(
  */
 function isValidSessionState(value: unknown): value is CachedSessionState {
   if (!value || typeof value !== 'object') return false;
-  const obj = value as Record<string, unknown>;
+  if (!('sessionId' in value) || typeof value.sessionId !== 'string') return false;
+  if (!('timestamp' in value) || typeof value.timestamp !== 'number') return false;
+  if (!('exercises' in value) || !Array.isArray(value.exercises)) return false;
   
-  if (typeof obj.sessionId !== 'string') return false;
-  if (typeof obj.timestamp !== 'number') return false;
-  if (!Array.isArray(obj.exercises)) return false;
-  
-  for (const exercise of obj.exercises) {
+  for (const exercise of value.exercises) {
     if (!exercise || typeof exercise !== 'object') return false;
-    const ex = exercise as Record<string, unknown>;
+    if (!('id' in exercise) || typeof exercise.id !== 'string') return false;
+    if (!('name' in exercise) || typeof exercise.name !== 'string') return false;
+    if (!('sets' in exercise) || !Array.isArray(exercise.sets)) return false;
     
-    if (typeof ex.id !== 'string') return false;
-    if (typeof ex.name !== 'string') return false;
-    if (!Array.isArray(ex.sets)) return false;
-    
-    for (const set of ex.sets) {
+    for (const set of exercise.sets) {
       if (!set || typeof set !== 'object') return false;
-      const s = set as Record<string, unknown>;
-      
-      if (typeof s.setNumber !== 'number') return false;
-      if (s.reps !== null && typeof s.reps !== 'number') return false;
-      if (s.weightKg !== null && typeof s.weightKg !== 'number') return false;
-      if (s.durationSeconds !== null && typeof s.durationSeconds !== 'number') return false;
+      if (!('setNumber' in set) || typeof set.setNumber !== 'number') return false;
+      if ('reps' in set && set.reps !== null && typeof set.reps !== 'number') return false;
+      if ('weightKg' in set && set.weightKg !== null && typeof set.weightKg !== 'number') return false;
+      if ('durationSeconds' in set && set.durationSeconds !== null && typeof set.durationSeconds !== 'number') return false;
     }
   }
   

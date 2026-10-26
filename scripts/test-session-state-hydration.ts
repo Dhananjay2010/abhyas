@@ -6,7 +6,7 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-class MockStorage {
+class MockStorage implements Storage {
   private store: Record<string, string> = {};
 
   getItem(key: string): string | null {
@@ -24,13 +24,22 @@ class MockStorage {
   clear(): void {
     this.store = {};
   }
+
+  get length(): number {
+    return Object.keys(this.store).length;
+  }
+
+  key(index: number): string | null {
+    const keys = Object.keys(this.store);
+    return keys[index] ?? null;
+  }
 }
 
 function testLoadEmptyCache() {
   console.log("\n▶ Testing load from empty cache...");
   
   const storage = new MockStorage();
-  const result = loadSessionState(storage as unknown as Storage, "user123", "session456", () => Date.now());
+  const result = loadSessionState(storage, "user123", "session456", () => Date.now());
   
   assert(result === null, "Should return null for empty cache");
   console.log("  ✓ Empty cache returns null");
@@ -51,8 +60,8 @@ function testSaveAndLoadCache() {
   ];
   
   const now = Date.now();
-  saveSessionState(storage as unknown as Storage, "user123", "session456", exercises, () => now);
-  const result = loadSessionState(storage as unknown as Storage, "user123", "session456", () => now);
+  saveSessionState(storage, "user123", "session456", exercises, () => now);
+  const result = loadSessionState(storage, "user123", "session456", () => now);
   
   assert(result !== null, "Should load saved state");
   if (result) {
@@ -75,8 +84,8 @@ function testStaleCache() {
   ];
   
   const pastTime = Date.now() - (25 * 60 * 60 * 1000);
-  saveSessionState(storage as unknown as Storage, "user123", "session456", exercises, () => pastTime);
-  const result = loadSessionState(storage as unknown as Storage, "user123", "session456", () => Date.now());
+  saveSessionState(storage, "user123", "session456", exercises, () => pastTime);
+  const result = loadSessionState(storage, "user123", "session456", () => Date.now());
   
   assert(result === null, "Should return null for stale cache");
   console.log("  ✓ Stale cache removed");
@@ -90,11 +99,11 @@ function testUserIsolation() {
   const exercises2 = [{ id: "ex2", name: "Bench", sets: [] }];
   
   const now = Date.now();
-  saveSessionState(storage as unknown as Storage, "user1", "session1", exercises1, () => now);
-  saveSessionState(storage as unknown as Storage, "user2", "session1", exercises2, () => now);
+  saveSessionState(storage, "user1", "session1", exercises1, () => now);
+  saveSessionState(storage, "user2", "session1", exercises2, () => now);
   
-  const result1 = loadSessionState(storage as unknown as Storage, "user1", "session1", () => now);
-  const result2 = loadSessionState(storage as unknown as Storage, "user2", "session1", () => now);
+  const result1 = loadSessionState(storage, "user1", "session1", () => now);
+  const result2 = loadSessionState(storage, "user2", "session1", () => now);
   
   assert(result1 !== null && result1.exercises[0].name === "Squat", "User1 should get Squat");
   assert(result2 !== null && result2.exercises[0].name === "Bench", "User2 should get Bench");
@@ -108,9 +117,9 @@ function testClearCache() {
   const exercises = [{ id: "ex1", name: "Squat", sets: [] }];
   
   const now = Date.now();
-  saveSessionState(storage as unknown as Storage, "user123", "session456", exercises, () => now);
-  clearSessionState(storage as unknown as Storage, "user123", "session456");
-  const result = loadSessionState(storage as unknown as Storage, "user123", "session456", () => now);
+  saveSessionState(storage, "user123", "session456", exercises, () => now);
+  clearSessionState(storage, "user123", "session456");
+  const result = loadSessionState(storage, "user123", "session456", () => now);
   
   assert(result === null, "Should return null after clear");
   console.log("  ✓ Clear removes cache");
