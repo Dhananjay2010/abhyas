@@ -1782,7 +1782,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         // Strategy 2: Add a set to main exercises (up to 5 sets max for main lifts)
         // PART B: exclude knee-risk for PAST knee users (Brief knee-volume)
-        // MED-2: For past-knee lower/full days, cap calf at 4 sets (prioritize hip-dominant work)
         const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
         const mainExercises = exercises
           .map((ex, idx) => ({ ex, idx }))
@@ -1792,8 +1791,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             const candidate = pool.find(c => c.id === ex.exerciseId);
             // Filter out knee-risk exercises
             if (candidate && isKneeRiskForKneeUser(candidate, true)) return false;
-            // MED-2: For lower/full days, cap calf exercises at 4 sets (not 5)
-            if (isLowerOrFullDay && candidate?.movement_pattern === "calf" && ex.targetSets >= 4) return false;
             return true;
           });
         

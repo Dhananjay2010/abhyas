@@ -54,12 +54,31 @@ console.log("─".repeat(80));
 
 const lowerBodyPatterns = new Set(["squat", "lunge", "hinge", "calf"]);
 
-// Expected values from main (PR #144 behavior)
-// These are baseline values that this PR should stay close to
-const expectedDays = [
-  { dayIndex: 2, label: "Lower", lowerSets: 21, totalSets: 25, estMinutes: 70 },
-  { dayIndex: 5, label: "Lower", lowerSets: 21, totalSets: 25, estMinutes: 72 },
-];
+// Load baseline from origin/main
+type BaselineDay = {
+  dayIndex: number;
+  label: string;
+  focus: string;
+  lowerBodySets: number;
+  totalSets: number;
+  estMinutes: number;
+  exercises: Array<{
+    name: string;
+    slug?: string;
+    targetSets: number;
+    movementPattern?: string;
+  }>;
+};
+
+const baseline: BaselineDay[] = JSON.parse(
+  readFileSync("scripts/fixtures/med2-baseline-main.json", "utf-8")
+);
+
+console.log("Baseline from origin/main:");
+baseline.forEach(day => {
+  console.log(`  Day ${day.dayIndex} (${day.label}): ${day.lowerBodySets} lower sets, ${day.estMinutes} min`);
+});
+console.log("");
 
 let failures = 0;
 
@@ -93,24 +112,24 @@ for (const day of lowerDays) {
   console.log(`     ${exList}`);
   console.log("");
   
-  // Check against expected values
-  const expected = expectedDays.find(e => e.dayIndex === day.dayIndex);
-  if (expected) {
-    const setDiff = Math.abs(lowerBodySets - expected.lowerSets);
-    const minuteDiff = Math.abs(estMinutes - expected.estMinutes);
+  // Check against baseline
+  const baselineDay = baseline.find(b => b.dayIndex === day.dayIndex);
+  if (baselineDay) {
+    const setDiff = Math.abs(lowerBodySets - baselineDay.lowerBodySets);
+    const minuteDiff = Math.abs(estMinutes - baselineDay.estMinutes);
     
     if (setDiff > 1) {
-      console.log(`  ✗ Lower-body sets differ by ${setDiff} (expected ${expected.lowerSets}, got ${lowerBodySets})`);
+      console.log(`  ✗ Lower-body sets differ by ${setDiff} (baseline: ${baselineDay.lowerBodySets}, got: ${lowerBodySets})`);
       failures++;
     } else {
-      console.log(`  ✓ Lower-body sets within 1 of expected (${lowerBodySets} vs ${expected.lowerSets})`);
+      console.log(`  ✓ Lower-body sets within ±1 of baseline (${lowerBodySets} vs ${baselineDay.lowerBodySets})`);
     }
     
     if (minuteDiff > 2) {
-      console.log(`  ✗ Estimated minutes differ by ${minuteDiff} (expected ${expected.estMinutes}, got ${estMinutes})`);
+      console.log(`  ✗ Estimated minutes differ by ${minuteDiff} (baseline: ${baselineDay.estMinutes}, got: ${estMinutes})`);
       failures++;
     } else {
-      console.log(`  ✓ Estimated minutes within 2 of expected (${estMinutes} vs ${expected.estMinutes})`);
+      console.log(`  ✓ Estimated minutes within ±2 of baseline (${estMinutes} vs ${baselineDay.estMinutes})`);
     }
     console.log("");
   }
