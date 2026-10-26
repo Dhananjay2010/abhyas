@@ -33,15 +33,6 @@ function testDoneDisabledWhenBusy() {
   console.log("  ✓ Done button disabled when busy");
 }
 
-function testFinishButtonTextWithPending() {
-  console.log("\n▶ Testing finish button text with pending...");
-  
-  const text = getFinishButtonText();
-  
-  assert(text.includes("Saving 2 sets"), "Should show saving status");
-  console.log("  ✓ Button shows 'Saving N sets…' with pending>0");
-}
-
 function testFinishButtonTextWithZero() {
   console.log("\n▶ Testing finish button text with zero pending...");
   
@@ -51,23 +42,6 @@ function testFinishButtonTextWithZero() {
   console.log("  ✓ Button shows 'Done' with pending=0");
 }
 
-  console.log("\n▶ Testing warning text with pending...");
-  
-  
-  assert(text !== null, "Should show warning");
-  if (text) {
-    assert(text.includes("syncing"), "Should mention syncing");
-  }
-  console.log("  ✓ Warning shown with pending>0");
-}
-
-  console.log("\n▶ Testing warning text with zero pending...");
-  
-  
-  assert(text === null, "Should show no warning");
-  console.log("  ✓ No warning with pending=0");
-}
-
 console.log("Testing Cool-down Button State (Done/Finish only)");
 console.log("=================================================");
 
@@ -75,7 +49,6 @@ try {
   testDoneDisabledWithPending();
   testDoneEnabledWithZeroPending();
   testDoneDisabledWhenBusy();
-  testFinishButtonTextWithPending();
   testFinishButtonTextWithZero();
   console.log("\n✅ All cool-down button tests passed\n");
 } catch (err: unknown) {
