@@ -18,7 +18,28 @@ const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
 );
 
-const baseline = JSON.parse(
+interface BaselineEntry {
+  id: string;
+  program: {
+    userId: string;
+    days: Array<{
+      dayType: string;
+      focus?: string;
+      exercises: Array<{
+        exerciseId: string;
+        name?: string;
+        targetSets?: number;
+      }>;
+    }>;
+  };
+  swaps?: Record<string, string[]>;
+}
+
+interface BaselineData {
+  [id: string]: BaselineEntry;
+}
+
+const baseline: BaselineData = JSON.parse(
   readFileSync("scripts/fixtures/identity-baseline-main.json", "utf-8")
 );
 
@@ -159,7 +180,7 @@ for (const testCase of testCases) {
     );
     
     const current = ranked.map(e => e.slug);
-    const expected = baseline[testCase.id].swaps[name] || [];
+    const expected = baseline[testCase.id].swaps?.[name] || [];
     
     // Check if lists are identical or only differ by Turkish Get-Up removal
     const currentSet = new Set(current);

@@ -22,8 +22,11 @@ CURRENT_FILE=""
 BACKUP=""
 
 restore() {
-  if [ -n "$CURRENT_FILE" ] && [ -n "$BACKUP" ] && [ -s "$BACKUP" ]; then
-    cp "$BACKUP" "$CURRENT_FILE"
+  if [ -n "$CURRENT_FILE" ] && [ -n "$BACKUP" ]; then
+    if [ -s "$BACKUP" ]; then
+      cp "$BACKUP" "$CURRENT_FILE"
+    fi
+    rm -f "$BACKUP"
   fi
   CURRENT_FILE=""
   BACKUP=""
@@ -71,7 +74,7 @@ run_mutant() {
   echo ""
   echo "$name"
   CURRENT_FILE="$file"
-  BACKUP=$(mktemp)
+  BACKUP=$(mktemp "${TMPDIR:-/tmp}/kv-mutant.XXXXXX")
   if ! cp "$file" "$BACKUP"; then
     echo "  ⊘ SKIP: backup failed"
     SKIPPED=$((SKIPPED + 1))
@@ -174,7 +177,7 @@ run_mutant "1. Disable knee-risk filter in pickForSlot (change hasPastKnee gate)
     if (hasPastKnee) {' \
   '    const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
     const hasPastKnee = false && input.anyKneeInjury && !hasCurrentKnee;
-    if (hasPastKnee) {' "$V" "$I" "$C" "$F"
+    if (hasPastKnee) {' "$V" "$I" "$C" "$F" "$X"
 
 run_mutant "2. Remove entire knee-risk filter block from pickForSlot" "$GENERATE" \
   '      // Filter knee-risk exercises (derived contraindications) except slot 0
@@ -189,7 +192,7 @@ run_mutant "3. Remove knee-risk filter from SAFE_ALTERNATIVES" "$GENERATE" \
       altCandidates = altCandidates.filter((e) => !isKneeRiskForKneeUser(e, true));
       if (altCandidates.length === 0) continue;
     }' \
-  '' "$V" "$I" "$C" "$F"
+  '' "$V" "$I" "$C" "$F" "$X"
 
 run_mutant "4. Make helper always return false" "$KNEE_SAFETY" \
   '  // Non-knee users: never knee-risk

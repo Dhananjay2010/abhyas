@@ -53,7 +53,10 @@ const pastKneeProfiles: Array<{
 for (const profile of pastKneeProfiles) {
   let excludedExercisesFound = 0;
 
-  // Run multiple times per profile due to RNG in generator
+  // Run with multiple userId seeds to ensure the test catches M-a reliably.
+  // generateProgram is deterministic (seeded by userId:blockNumber), so this
+  // is a fixed sweep of 30 inputs. Only run4 and run10 pick kettlebell-thruster
+  // under M-a; the others never do.
   for (let run = 0; run < 30; run++) {
     const input: GeneratorInput = {
       userId: `test-${profile.id}-run${run}`,
@@ -106,10 +109,9 @@ const nonKneeProfiles: Array<{
   primaryTrack: "weights" | "bodyweight";
 }> = [
   { id: "nk-exp-6d-90m-kb-wt-mg", level: "expert", days: 6, preferredSessionMinutes: 90, equipment: ["kettlebell"], goal: "muscle_gain", primaryTrack: "weights" },
-  { id: "nk-exp-5d-90m-full-bw-fl", level: "expert", days: 5, preferredSessionMinutes: 90, equipment: [], goal: "fat_loss", primaryTrack: "bodyweight" },
 ];
 
-let foundExcludedInNonKnee = false;
+// Non-knee control: verify the pool still includes excluded exercises
 for (const profile of nonKneeProfiles) {
   const input: GeneratorInput = {
     userId: `test-${profile.id}`,
@@ -130,25 +132,79 @@ for (const profile of nonKneeProfiles) {
   };
 
   const program = generateProgram(input);
-  
+  let foundExcluded = false;
+
+  for (const day of program.days) {
+    if (day.dayType === "rest") continue;
+    
+    for (const ex of day.exercises) {
+      const exercise = byId.get(ex.exerciseId);
+      if (!exercise) continue;
+      
+      if (isExcludedForPastKnee(exercise)) {
+        console.log(`✓ ${profile.id}: Found ${exercise.slug} at day ${day.dayIndex} slot ${ex.orderIndex} (proves pool is tested)`);
+        foundExcluded = true;
+        break;
+      }
+    }
+    if (foundExcluded) break;
+  }
+
+  if (!foundExcluded) {
+    console.error(`✗ FATAL: ${profile.id} no longer picks any past-knee excluded exercise`);
+    console.error(`  This means the test can no longer detect M-a and would become vacuous.`);
+    failures++;
+  }
+}
+
+// Guard: kettlebell-thruster must be pickable by the specific userIds that catch M-a
+const thrusterGuardProfiles = [
+  { id: "pk-int-3d-90m-kb-wt-fl", run: 4 },
+  { id: "pk-exp-6d-90m-kb-bw-fl", run: 10 },
+];
+
+for (const guard of thrusterGuardProfiles) {
+  const profile = pastKneeProfiles.find(p => p.id === guard.id);
+  if (!profile) continue;
+
+  const input: GeneratorInput = {
+    userId: `test-${profile.id}-run${guard.run}`,
+    blockNumber: 1,
+    goal: profile.goal,
+    level: profile.level,
+    primaryTrack: profile.primaryTrack,
+    daysPerWeek: profile.days,
+    yogaDaysPerWeek: 0,
+    age: 30,
+    bmi: 22,
+    hasAllEquipment: false,
+    equipmentIds: ["kettlebell"],
+    anyKneeInjury: true,
+    currentInjuryRegions: [],
+    preferredSessionMinutes: profile.preferredSessionMinutes,
+    catalogue,
+  };
+
+  const program = generateProgram(input);
+  let foundThruster = false;
+
   for (const day of program.days) {
     if (day.dayType === "rest") continue;
     for (const ex of day.exercises) {
       const exercise = byId.get(ex.exerciseId);
-      if (exercise && isExcludedForPastKnee(exercise)) {
-        console.log(`✓ ${profile.id}: Found ${exercise.slug} at day ${day.dayIndex} slot ${ex.orderIndex} (proves pool is tested)`);
-        foundExcludedInNonKnee = true;
+      if (exercise?.slug === "kettlebell-thruster") {
+        foundThruster = true;
         break;
       }
     }
-    if (foundExcludedInNonKnee) break;
+    if (foundThruster) break;
   }
-  if (foundExcludedInNonKnee) break;
-}
 
-if (!foundExcludedInNonKnee) {
-  console.error("✗ Non-knee control: no excluded exercises found in generated programs (pool may not exercise filter)");
-  failures++;
+  if (foundThruster) {
+    console.error(`✗ FATAL: ${guard.id} run${guard.run} (past-knee) picks kettlebell-thruster without M-a`);
+    console.error(`  This userId would make the test vacuous (false positive).`);
+    failures++;
+  }
 }
 
 if (failures > 0) {
