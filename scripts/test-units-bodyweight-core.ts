@@ -68,10 +68,9 @@ function createFakeDbWithConstraint() {
     const kg55lb = parseWeight("55", "imperial");
     check("Imperial 55 lb: rejected by parseWeight", kg55lb === null);
     
+    // parseWeight should reject 55 lb, so no need to call logBodyWeightCore
     if (kg55lb !== null) {
-      // If parseWeight somehow accepted it, try logging it
-      const result = await logBodyWeightCore(fake.client, "user-1", kg55lb, "America/New_York");
-      check("Imperial 55 lb: should not reach here", false, "parseWeight accepted 55 lb");
+      throw new Error("parseWeight incorrectly accepted 55 lb");
     }
     
     const rows = fake.tables.body_metrics.filter((r: Record<string, unknown>) => r.user_id === "user-1");
