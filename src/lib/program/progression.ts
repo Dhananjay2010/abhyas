@@ -682,17 +682,14 @@ export function evaluateProgression(input: {
         }
         next = found;
       } else {
-        // Standard equipment: snap from to nearest grid point (handles off-grid stored weights),
-        // then add one grid step.
+        // Standard equipment: snap DOWN to largest loadable value <= from, then add one step.
+        // This ensures the jump never exceeds one grid step.
+        // Snap DOWN (floor) to the grid
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
-        const epsilon = 0.001;
+        const snappedFrom = Math.floor(from / gridStep) * gridStep;
         
-        // Snap from to nearest grid point
-        const snappedFrom = Math.round(from / gridStep) * gridStep;
-        
-        // Then find the next grid point (one step up)
-        const nextGrid = Math.ceil((snappedFrom + epsilon) / gridStep) * gridStep;
-        next = nextGrid;
+        // Add exactly one step
+        next = snappedFrom + gridStep;
       }
     } else {
       // No equipment info: use standard increment, doubled when easy (preserve old behavior)
