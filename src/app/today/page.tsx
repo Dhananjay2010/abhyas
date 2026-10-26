@@ -306,7 +306,7 @@ export default async function TodayPage() {
   // a workout has been started. Run together so the uncommon day that needs
   // both still costs one round trip.
   const [plannable, performedRows, endedEarlySummary] = await Promise.all([
-    shouldLoadPlannableDays({ askAboutToday, dayType })
+    shouldLoadPlannableDays({ askAboutToday, dayType, strengthOpen: strengthOpen !== undefined })
       ? plannableDays(supabase, program.id)
       : Promise.resolve([]),
     performed
@@ -396,6 +396,11 @@ export default async function TodayPage() {
     Rest for tomorrow and the week still said Push. Only a difference is
     recorded -- "keep the plan" writes no row, and a swap that happens to match
     the template is not news.
+
+    A swapped day keeps its identity after the session finishes: the header says
+    "You chose this for today" throughout, so "Your week" must too. Completed
+    strength sessions are included; yoga and breathing are not (they're anytime
+    activities that don't own the day).
   */
   const chosenByDayIndex = new Map<number, string>();
   for (const d of days ?? []) {
@@ -404,7 +409,9 @@ export default async function TodayPage() {
     const sess = allSessions.find(
       (x) =>
         x.local_date === date &&
-        (x.status === "planned" || x.status === "in_progress") &&
+        (x.status === "planned" ||
+          x.status === "in_progress" ||
+          (x.status === "completed" && isStrength(x.actual_type))) &&
         x.actual_type !== null,
     );
     if (!sess?.actual_type) continue;
@@ -486,6 +493,27 @@ export default async function TodayPage() {
 
       {dayType === "rest" && (
         <>
+          {/* Rest day with an open strength session from an earlier day shows Resume */}
+          {strengthOpen && (() => {
+            const resumeHref = previousDayResumeHref(strengthOpen, localToday);
+            return (
+              <div className="mt-7">
+                {resumeHref ? (
+                  <Link
+                    href={resumeHref}
+                    className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+                  >
+                    Resume session
+                  </Link>
+                ) : (
+                  <StartSessionButton
+                    label={strengthOpen.started_at ? "Resume session" : "Start session"}
+                  />
+                )}
+              </div>
+            );
+          })()}
+
           <p className="mt-6 text-muted">
             Rest is part of the training. Your body builds strength while recovering.
           </p>
@@ -510,14 +538,17 @@ export default async function TodayPage() {
                 </Link>
               </div>
             </div>
-            <DayPlanPrompt
-              localDate={localToday}
-              dayLabel="Today"
-              plannedLabel="Rest"
-              days={plannable}
-              heading="Or train today anyway"
-              intro="Pick what you'd like to do instead."
-            />
+            {/* Only show swap prompt when no strength session is open */}
+            {!strengthOpen && (
+              <DayPlanPrompt
+                localDate={localToday}
+                dayLabel="Today"
+                plannedLabel="Rest"
+                days={plannable}
+                heading="Or train today anyway"
+                intro="Pick what you'd like to do instead."
+              />
+            )}
           </div>
         </>
       )}

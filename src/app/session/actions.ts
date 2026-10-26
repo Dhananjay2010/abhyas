@@ -826,14 +826,22 @@ export async function planDay(input: {
 
   if (input.plan.kind === "keep") {
     if (planned.length > 0) {
-      const { error } = await supabase
-        .from("sessions")
-        .delete()
-        .in(
-          "id",
-          planned.map((s) => s.id),
-        );
-      if (error) return { ok: false, error: error.message };
+      // On a Rest override day, "Keep it" must keep the Rest override, not delete it.
+      // Only delete overrides that differ from what the prompt says "Keep it" will keep.
+      // If all planned sessions are Rest, the prompt said "Today is Rest" and "Keep it"
+      // means keep Rest, so don't delete. For any other type, delete the override to
+      // revert to the template.
+      const allRest = planned.every((s) => s.actual_type === "rest");
+      if (!allRest) {
+        const { error } = await supabase
+          .from("sessions")
+          .delete()
+          .in(
+            "id",
+            planned.map((s) => s.id),
+          );
+        if (error) return { ok: false, error: error.message };
+      }
     }
     revalidateTrainingData();
     return { ok: true };
