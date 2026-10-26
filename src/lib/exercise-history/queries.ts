@@ -12,9 +12,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { computeE1rm, roundToStoragePrecision } from "@/lib/program/progression";
 import {
-  calculateEpley1RM,
-  roundE1RM,
   calculateSetVolume,
   findTopSet,
   detectPersonalRecords,
@@ -106,7 +105,7 @@ export async function getLastPerformance(
   const topSet = findTopSet(sets, metric);
   const volumeKg = sets.reduce((sum, set) => sum + calculateSetVolume(set), 0);
   const estimatedOneRepMax = topSet
-    ? calculateEpley1RM(topSet.reps, topSet.weight_kg)
+    ? computeE1rm(topSet.weight_kg, topSet.reps)
     : null;
 
   return {
@@ -446,7 +445,7 @@ export async function getExerciseHistory(
     const topSet = findTopSet(sets, metric);
     const volumeKg = sets.reduce((sum, set) => sum + calculateSetVolume(set), 0);
     const estimatedOneRepMax = topSet
-      ? calculateEpley1RM(topSet.reps, topSet.weight_kg)
+      ? computeE1rm(topSet.weight_kg, topSet.reps)
       : null;
 
     // For PR detection: find all sets from strictly earlier sessions
@@ -492,14 +491,14 @@ export async function getExerciseHistory(
       if (hasWeight) {
         // Weighted exercise PRs
 
-        // 1. Heaviest weight
-        const heaviestInSession = Math.max(...weightedSetsInSession.map(s => s.weight_kg ?? 0));
+        // 1. Heaviest weight (round before comparison)
+        const heaviestInSession = Math.max(...weightedSetsInSession.map(s => roundToStoragePrecision(s.weight_kg ?? 0)));
         const prevHeaviest = prsBefore.find(pr => pr.type === "heaviest_weight");
         const prevHeaviestValue = prevHeaviest?.value ?? 0;
 
         if (heaviestInSession > prevHeaviestValue) {
-          const prSet = weightedSetsInSession.find(s => (s.weight_kg ?? 0) === heaviestInSession) ?? weightedSetsInSession[0];
-          const e1rm = calculateEpley1RM(prSet.reps, prSet.weight_kg);
+          const prSet = weightedSetsInSession.find(s => roundToStoragePrecision(s.weight_kg ?? 0) === heaviestInSession) ?? weightedSetsInSession[0];
+          const e1rm = computeE1rm(prSet.weight_kg, prSet.reps);
           sessionPRs.push({
             type: "heaviest_weight",
             set: prSet,
@@ -508,14 +507,14 @@ export async function getExerciseHistory(
           });
         }
 
-        // 2. Best e1RM (rounded to 0.1 kg for comparison to avoid float noise)
-        const bestE1rmInSession = Math.max(...weightedSetsInSession.map(s => roundE1RM(calculateEpley1RM(s.reps, s.weight_kg))));
+        // 2. Best e1RM (rounded to 2 dp for comparison)
+        const bestE1rmInSession = Math.max(...weightedSetsInSession.map(s => computeE1rm(s.weight_kg, s.reps) ?? 0));
         const prevBestE1rm = prsBefore.find(pr => pr.type === "best_e1rm");
-        const prevE1rmValue = roundE1RM(prevBestE1rm?.value ?? null);
+        const prevE1rmValue = prevBestE1rm?.value ?? 0;
 
         if (bestE1rmInSession > prevE1rmValue) {
-          const prSet = weightedSetsInSession.find(s => roundE1RM(calculateEpley1RM(s.reps, s.weight_kg)) === bestE1rmInSession) ?? weightedSetsInSession[0];
-          const actualE1rm = calculateEpley1RM(prSet.reps, prSet.weight_kg) ?? 0;
+          const prSet = weightedSetsInSession.find(s => (computeE1rm(s.weight_kg, s.reps) ?? 0) === bestE1rmInSession) ?? weightedSetsInSession[0];
+          const actualE1rm = computeE1rm(prSet.weight_kg, prSet.reps) ?? 0;
           sessionPRs.push({
             type: "best_e1rm",
             set: prSet,
@@ -543,7 +542,7 @@ export async function getExerciseHistory(
         }
 
         if (hasRepPR && repPRSet) {
-          const e1rm = calculateEpley1RM(repPRSet.reps, repPRSet.weight_kg) ?? undefined;
+          const e1rm = computeE1rm(repPRSet.weight_kg, repPRSet.reps) ?? undefined;
           sessionPRs.push({
             type: "most_reps",
             set: repPRSet,
