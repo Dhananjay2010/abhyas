@@ -535,7 +535,7 @@ check("Lower_back+hip Lower: ≥2 lower-body stretches", lowerBodyStretches.leng
 check("Lower_back+hip Lower: no upper-only stretches", upperOnlyStretches.length === 0,
   upperOnlyStretches.length > 0 ? upperOnlyStretches.map(s => s.name).join(", ") : "");
 
-console.log("\n(d) Past knee injury: gets prehab but doesn't exclude squat/lunge drills");
+console.log("\n(d) Past knee injury: gets prehab and excludes knee-loading drills");
 const pastKneeWarmup = selectWarmup({
   warmups,
   trainingMuscles: ["quads", "hamstrings"],
@@ -546,13 +546,13 @@ const pastKneeWarmup = selectWarmup({
   availableEquipment: null,
 });
 const kneePrehab = pastKneeWarmup.filter(w => w.phase === "prehab" && w.target_regions.includes("knee"));
-const squatLungeDrills = pastKneeWarmup.filter(w => 
-  w.phase === "mobility" && (w.slug.includes("squat") || w.slug.includes("lunge"))
+const excludedDrills = pastKneeWarmup.filter(w => 
+  w.phase === "mobility" && ["bodyweight-squat", "walking-lunge", "worlds-greatest"].includes(w.slug)
 );
 check("Past knee injury: gets knee prehab", kneePrehab.length > 0,
   kneePrehab.length > 0 ? kneePrehab.map(p => p.name).join(", ") : "none");
-check("Past knee injury: allows squat/lunge drills", squatLungeDrills.length > 0 || pastKneeWarmup.some(w => w.slug === "bodyweight-squat"),
-  "no squat/lunge drills excluded by past injury");
+check("Past knee injury: excludes knee-loading drills", excludedDrills.length === 0,
+  excludedDrills.length > 0 ? `Found: ${excludedDrills.map(d => d.slug).join(", ")}` : "");
 
 // Summary
 console.log(`\n${failures === 0 ? "✓ All tests passed!" : `✗ ${failures} test(s) failed`}`);
