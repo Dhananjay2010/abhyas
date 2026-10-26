@@ -402,7 +402,7 @@ export default async function TodayPage() {
     const { getUnitsPreference } = await import("@/lib/units");
     const units = getUnitsPreference(profile.units);
     
-    wireLoggedSets(todayExercises as any, loggedSetsRes.data, units);
+    wireLoggedSets(todayExercises as unknown as Parameters<typeof wireLoggedSets>[0], loggedSetsRes.data, units);
   }
 
   // Recompute week and isDeload for UI display (header, deload banner, etc.)

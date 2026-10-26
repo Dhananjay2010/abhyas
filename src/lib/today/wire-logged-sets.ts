@@ -5,7 +5,7 @@
  * excluding warm-ups, formatted via formatLoggedSets.
  */
 
-import { formatLoggedSets, type LoggedSet } from "@/lib/session/format-logged-sets";
+import { formatLoggedSets } from "@/lib/session/format-logged-sets";
 import type { UnitsPreference } from "@/lib/units";
 import type { Database } from "@/lib/database.types";
 
