@@ -8,8 +8,8 @@
  */
 
 import { strict as assert } from "node:assert";
-import { logBodyWeightCore } from "../src/lib/progress/log-bodyweight-core";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logBodyWeightCore } from "../src/lib/progress/log-bodyweight-core";
 
 export {}; // Module
 
@@ -32,7 +32,7 @@ function makeFakeClient(config: {
   units: "imperial" | "metric";
   error?: { code?: string; message: string } | null;
 }) {
-  const client = {
+  return {
     from: (table: string) => {
       if (table === "profiles") {
         return {
@@ -61,8 +61,6 @@ function makeFakeClient(config: {
       return {};
     },
   };
-  
-  return client as never as SupabaseClient;
 }
 
 async function main() {
@@ -74,7 +72,7 @@ async function main() {
       error: { code: "23514", message: "violates check constraint body_metrics_weight_sane" },
     });
     
-    const result = await logBodyWeightCore(client, "user-1", 500);
+    const result = await logBodyWeightCore(client as unknown as SupabaseClient, "user-1", 500);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -90,7 +88,7 @@ async function main() {
       error: { code: "23514", message: "violates check constraint body_metrics_weight_sane" },
     });
     
-    const result = await logBodyWeightCore(client, "user-1", 500);
+    const result = await logBodyWeightCore(client as unknown as SupabaseClient, "user-1", 500);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -106,7 +104,7 @@ async function main() {
       error: { message: "new row violates check constraint body_metrics_weight_sane" },
     });
     
-    const result = await logBodyWeightCore(client, "user-1", 500);
+    const result = await logBodyWeightCore(client as unknown as SupabaseClient, "user-1", 500);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -120,7 +118,7 @@ async function main() {
       error: { code: "23503", message: "foreign key constraint violated" },
     });
     
-    const result = await logBodyWeightCore(client, "user-1", 75);
+    const result = await logBodyWeightCore(client as unknown as SupabaseClient, "user-1", 75);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -138,7 +136,7 @@ async function main() {
       error: null,
     });
     
-    const result = await logBodyWeightCore(client, "user-1", 75);
+    const result = await logBodyWeightCore(client as unknown as SupabaseClient, "user-1", 75);
     
     assert.equal(result.ok, true, "Should succeed when no error");
   });

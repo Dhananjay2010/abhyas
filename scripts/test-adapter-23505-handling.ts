@@ -10,8 +10,10 @@
  */
 
 import { strict as assert } from "node:assert";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { makePlanDayClient } from "../src/lib/session/make-plan-day-client";
 import { planDayCore } from "../src/lib/session/plan-day-core";
+import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
 
@@ -30,9 +32,8 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-// Fake Supabase that returns specific error codes
 function makeFakeSupabaseWithError(errorCode: string | null) {
-  const fakeSupabase = {
+  return {
     from: (table: string) => {
       if (table === "sessions") {
         return {
@@ -55,11 +56,11 @@ function makeFakeSupabaseWithError(errorCode: string | null) {
           },
         };
       }
-      return {};
+      return {
+        insert: () => ({ then: () => {} }),
+      };
     },
   };
-  
-  return fakeSupabase;
 }
 
 async function main() {
@@ -67,7 +68,7 @@ async function main() {
 
   await test("insertSession with 23505 returns {error: null}", async () => {
     const fakeSupabase = makeFakeSupabaseWithError("23505");
-    const client = makePlanDayClient(fakeSupabase as never, "user-1");
+    const client = makePlanDayClient(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
     
     const result = await client.insertSession({
       user_id: "user-1",
@@ -82,7 +83,7 @@ async function main() {
 
   await test("insertSession with 23503 surfaces the error", async () => {
     const fakeSupabase = makeFakeSupabaseWithError("23503");
-    const client = makePlanDayClient(fakeSupabase as never, "user-1");
+    const client = makePlanDayClient(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
     
     const result = await client.insertSession({
       user_id: "user-1",
@@ -98,7 +99,7 @@ async function main() {
 
   await test("insertSession with null error returns {error: null}", async () => {
     const fakeSupabase = makeFakeSupabaseWithError(null);
-    const client = makePlanDayClient(fakeSupabase as never, "user-1");
+    const client = makePlanDayClient(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
     
     const result = await client.insertSession({
       user_id: "user-1",
@@ -112,11 +113,6 @@ async function main() {
   });
 
   await test("planDayCore with 23505: one planned row and ok:true", async () => {
-    // Mock client that simulates:
-    // 1. findDaySessions returns existing planned session
-    // 2. findProgram returns active program
-    // 3. findProgramDay returns day matching the existing row
-    // The keep logic will find a matching row and return ok:true without inserting
     const existingRow = {
       id: "session-existing",
       status: "planned" as const,
@@ -164,7 +160,6 @@ async function main() {
         return { error: null };
       },
       async insertSession() {
-        // Should not be called in this scenario
         throw new Error("insertSession should not be called when matching row exists");
       },
       async rereadDaySessions() {
