@@ -337,7 +337,6 @@ async function test(name: string, fn: () => Promise<void>) {
   });
 
   await test("BUG CATCH: ensureSessionExercises is wired", async () => {
-    let ensureCalled = false;
     const fakeClient = createFakeSupabase({
       "session_exercises:query": { data: [], error: null },
       "program_day_exercises:query": { data: [], error: null },
@@ -345,10 +344,13 @@ async function test(name: string, fn: () => Promise<void>) {
     });
     const deps = buildStartSessionFullDeps(fakeClient, USER_ID, NOW_MS);
     
+    resetCalls();
     await deps.ensureSessionExercises("sess-1");
-    ensureCalled = true;
     
-    eq(ensureCalled, true, "ensureSessionExercises was called");
+    const sessionExercisesCall = calls.find(c => c.table === "session_exercises" && c.method === "GET");
+    const programDayExercisesCall = calls.find(c => c.table === "program_day_exercises" && c.method === "GET");
+    eq(sessionExercisesCall !== undefined, true, "queries session_exercises");
+    eq(programDayExercisesCall !== undefined, true, "queries program_day_exercises");
   });
 
   await test("BUG CATCH: started_at passthrough in updateSession", async () => {
