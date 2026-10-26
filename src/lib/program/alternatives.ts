@@ -4,6 +4,7 @@ import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "@/lib/program/past-knee-lunge-order";
 import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly, shouldExcludeOlympicLift } from "@/lib/program/past-knee";
 import { PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
+import { isKneeRiskForKneeUser } from "@/lib/program/knee-safety";
 
 
 export type ExerciseRow = CandidateExercise;
@@ -172,9 +173,11 @@ export function rankAlternatives<T extends ExerciseRow>(
   
   // Build priority order: same pattern, then fallback, then knee-safe
   // For past-knee lunge swaps, we need squat pattern (the 4-list are squat pattern)
+  // PLUS hinge fallbacks for when squat-pattern options are exhausted
+  // NO core pattern (QA LOW: no ab moves in lower-body fallbacks)
   let patternPriority: MovementPattern[];
   if (hasPastKnee && current.movement_pattern === "lunge") {
-    patternPriority = ["lunge", "squat"]; // Must include squat for the 4-list
+    patternPriority = ["lunge", "squat", "hinge"]; // Squat for 4-list, hinge for bridge/thrust fallback
   } else {
     patternPriority = buildPatternList(current.movement_pattern, ctx.anyKneeInjury ?? false);
   }
@@ -278,6 +281,41 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 6c. PR #73: ANY knee injury excludes sissy squats (defense-in-depth with isEligible)
     if ((ctx.anyKneeInjury ?? false) && candidate.slug.includes("sissy")) {
       continue;
+    }
+    
+    // 6d. QA Bot 1: For past-knee users, remove Turkish Get-Up from squat-pattern swaps
+    // Turkish Get-Up involves complex movement transitions that aren't appropriate squat swaps
+    if (hasPastKnee && current.movement_pattern === "squat" && 
+        (candidate.slug === "kettlebell-turkish-get-up-lunge-style" || 
+         candidate.slug === "kettlebell-turkish-get-up-squat-style")) {
+      continue;
+    }
+    
+    // 6e. QA Bot 1: Past-knee users filter knee-risk exercises from swaps
+    // Apply the same knee predicate as generation (isKneeRiskForKneeUser)
+    if (hasPastKnee) {
+      // For squat→squat swaps: filter out knee-risk squats, allow only PAST_KNEE_LUNGE_EXERCISES
+      if (current.movement_pattern === "squat" && candidate.movement_pattern === "squat") {
+        if (isKneeRiskForKneeUser(candidate, true)) {
+          if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
+            continue;
+          }
+        }
+      }
+      // For lunge swaps: squat fallbacks must be from the allowed quad-isolation list
+      // MED-3: lunge swaps must not offer normal squats
+      if (current.movement_pattern === "lunge" && candidate.movement_pattern === "squat") {
+        if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
+          continue;
+        }
+      }
+      // For hinge/bridge fallbacks in squat/lunge swaps: filter knee-risk exercises
+      if ((current.movement_pattern === "squat" || current.movement_pattern === "lunge") &&
+          (candidate.movement_pattern === "hinge" || candidate.movement_pattern === "core")) {
+        if (isKneeRiskForKneeUser(candidate, true)) {
+          continue;
+        }
+      }
     }
     
     // 7. For dynamic press, exclude isometric and plyometric
@@ -389,14 +427,54 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (slotsTaken >= limit) break;
   }
   
-  // QA Steer (k): Demote wall-sit to the end for past-knee squat swaps
-  // Wall-sit must never be index 0, and when 3+ items exist, it should be index >= 2
-  if (hasPastKnee && current.movement_pattern === "squat" && deduplicated.length >= 3) {
-    const wallSitIndex = deduplicated.findIndex(e => e.slug === "wall-sit");
-    if (wallSitIndex !== -1 && wallSitIndex < 2) {
-      const [wallSit] = deduplicated.splice(wallSitIndex, 1);
-      deduplicated.push(wallSit);
+  // Past-knee squat swaps: specific ordering per PR #152 chunk 3
+  // 1. PAST_KNEE_LUNGE_EXERCISES in this exact order: leg-extensions, single-leg-leg-extension, wall-sit, spanish-squat
+  //    filtered by equipment and excluding current
+  //    wall-sit is never first
+  // 2. Then knee-safe hinge fallbacks (glute/hamstring primary muscles only, hinge pattern)
+  // Note: Other squat-pattern exercises (goblet-squat, bodyweight-squat, etc.) are excluded
+  // to minimize knee load and prioritize quad isolation + hip-dominant work
+  if (hasPastKnee && current.movement_pattern === "squat" && deduplicated.length > 0) {
+    const quadIsolationOrder = ["leg-extensions", "single-leg-leg-extension", "wall-sit", "spanish-squat"];
+    const quadIsolation: T[] = [];
+    const hingeFallbacks: T[] = [];
+    
+    for (const ex of deduplicated) {
+      if (PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {
+        quadIsolation.push(ex);
+      } else if (ex.movement_pattern === "hinge") {
+        // Only include genuine hip-dominant hinges/bridges (glutes or hamstrings primary)
+        const hasHipDominantMuscle = ex.primary_muscles.some(m => m === "glutes" || m === "hamstrings");
+        if (hasHipDominantMuscle) {
+          hingeFallbacks.push(ex);
+        }
+      }
     }
+    
+    // Sort quad isolation by the specified order
+    quadIsolation.sort((a, b) => {
+      const aIndex = quadIsolationOrder.indexOf(a.slug);
+      const bIndex = quadIsolationOrder.indexOf(b.slug);
+      return aIndex - bIndex;
+    });
+    
+    // Wall-sit is never first. If it would be first, move it after other quads or after first hinge.
+    if (quadIsolation.length > 0 && quadIsolation[0].slug === "wall-sit") {
+      const [wallSit, ...restQuads] = quadIsolation;
+      if (restQuads.length > 0) {
+        // Move wall-sit after other quad exercises
+        return [...restQuads, wallSit, ...hingeFallbacks];
+      } else {
+        // Only wall-sit in quad list: place it after first hinge (or at end if no hinges)
+        if (hingeFallbacks.length > 0) {
+          return [hingeFallbacks[0], wallSit, ...hingeFallbacks.slice(1)];
+        } else {
+          return [wallSit];
+        }
+      }
+    }
+    
+    return [...quadIsolation, ...hingeFallbacks];
   }
   
   return deduplicated;

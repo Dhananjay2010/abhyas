@@ -1,0 +1,94 @@
+[
+  {
+    "dayIndex": 2,
+    "label": "Lower",
+    "focus": "lower",
+    "lowerBodySets": 23,
+    "totalSets": 27,
+    "estMinutes": 70,
+    "exercises": [
+      {
+        "name": "Barbell Squat",
+        "slug": "barbell-squat",
+        "targetSets": 4,
+        "movementPattern": "squat"
+      },
+      {
+        "name": "Barbell Deadlift",
+        "slug": "barbell-deadlift",
+        "targetSets": 5,
+        "movementPattern": "hinge"
+      },
+      {
+        "name": "Spanish Squat",
+        "slug": "spanish-squat",
+        "targetSets": 5,
+        "movementPattern": "squat"
+      },
+      {
+        "name": "Barbell Seated Calf Raise",
+        "slug": "barbell-seated-calf-raise",
+        "targetSets": 5,
+        "movementPattern": "calf"
+      },
+      {
+        "name": "Leg Extensions",
+        "slug": "leg-extensions",
+        "targetSets": 4,
+        "movementPattern": "squat"
+      },
+      {
+        "name": "Standing Rope Crunch",
+        "slug": "standing-rope-crunch",
+        "targetSets": 4,
+        "movementPattern": "core"
+      }
+    ]
+  },
+  {
+    "dayIndex": 5,
+    "label": "Lower",
+    "focus": "lower",
+    "lowerBodySets": 21,
+    "totalSets": 25,
+    "estMinutes": 72,
+    "exercises": [
+      {
+        "name": "Barbell Squat",
+        "slug": "barbell-squat",
+        "targetSets": 4,
+        "movementPattern": "squat"
+      },
+      {
+        "name": "Barbell Deadlift",
+        "slug": "barbell-deadlift",
+        "targetSets": 5,
+        "movementPattern": "hinge"
+      },
+      {
+        "name": "Spanish Squat",
+        "slug": "spanish-squat",
+        "targetSets": 5,
+        "movementPattern": "squat"
+      },
+      {
+        "name": "Barbell Seated Calf Raise",
+        "slug": "barbell-seated-calf-raise",
+        "targetSets": 3,
+        "movementPattern": "calf"
+      },
+      {
+        "name": "Wall Sit",
+        "slug": "wall-sit",
+        "targetSets": 4,
+        "movementPattern": "squat"
+      },
+      {
+        "name": "Cable Crunch",
+        "slug": "cable-crunch",
+        "targetSets": 4,
+        "movementPattern": "core"
+      }
+    ]
+  }
+]
