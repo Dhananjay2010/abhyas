@@ -113,7 +113,14 @@ export function DayPlanPrompt({
                 choose({ kind: "training", programDayId: d.programDayId }, d.label)
               }
             >
-              {d.label}
+              <div className="flex items-center justify-between">
+                <span>{d.label}</span>
+                {d.nextUp && (
+                  <span className="rounded bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent">
+                    Next up
+                  </span>
+                )}
+              </div>
             </Choice>
           ))}
           <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
