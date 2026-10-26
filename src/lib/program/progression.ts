@@ -682,11 +682,16 @@ export function evaluateProgression(input: {
         }
         next = found;
       } else {
-        // Standard equipment: smallest loadable grid value strictly > from
-        // If on-grid: +1 step. If off-grid: snap to next grid.
+        // Standard equipment: snap from to nearest grid point (handles off-grid stored weights),
+        // then add one grid step.
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
         const epsilon = 0.001;
-        const nextGrid = Math.ceil((from + epsilon) / gridStep) * gridStep;
+        
+        // Snap from to nearest grid point
+        const snappedFrom = Math.round(from / gridStep) * gridStep;
+        
+        // Then find the next grid point (one step up)
+        const nextGrid = Math.ceil((snappedFrom + epsilon) / gridStep) * gridStep;
         next = nextGrid;
       }
     } else {
