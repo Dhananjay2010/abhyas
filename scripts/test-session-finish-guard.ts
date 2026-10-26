@@ -6,7 +6,7 @@
  * whether the session can be finished based on pending set count.
  * 
  * The session-runner uses these to disable the Finish button
- * and show "Saving N sets..." while sets are pending.
+ * and show "N sets waiting to sync" while sets are pending.
  */
 
 import {
@@ -37,9 +37,9 @@ assertEqual(isFinishDisabled(2, true), true, "Button disabled when busy and pend
 
 // getFinishButtonText tests
 assertEqual(getFinishButtonText(0), "Done", "Shows 'Done' when no pending");
-assertEqual(getFinishButtonText(1), "Saving 1 set…", "Shows 'Saving 1 set…' for 1 pending");
-assertEqual(getFinishButtonText(2), "Saving 2 sets…", "Shows 'Saving 2 sets…' for 2 pending");
-assertEqual(getFinishButtonText(5), "Saving 5 sets…", "Shows 'Saving 5 sets…' for 5 pending");
+assertEqual(getFinishButtonText(1), "1 set waiting to sync", "Shows '1 set waiting to sync' for 1 pending");
+assertEqual(getFinishButtonText(2), "2 sets waiting to sync", "Shows '2 sets waiting to sync' for 2 pending");
+assertEqual(getFinishButtonText(5), "5 sets waiting to sync", "Shows '5 sets waiting to sync' for 5 pending");
 
 console.log(exitCode === 0 ? "\n✅ All finish guard tests passed" : "\n❌ Some tests failed");
 process.exit(exitCode);
