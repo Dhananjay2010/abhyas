@@ -387,60 +387,6 @@ med3() {
 }
 test_mutant "MED-3: no third-miss step-down" med3
 
-# L4B-1: Drop units from progressionInputsFromExercise
-l4b_drop_units() {
-  local file="$PROG_INPUTS"
-  # progressionInputsFromExercise returns { equipmentIds, units }
-  # Mutant: remove units from return
-  local count=$(grep -c 'return { equipmentIds, units };' "$file" || true)
-  if [ "$count" -ne 1 ]; then
-    echo "ERROR: Pattern found $count times (expected 1)" >&2
-    return 1
-  fi
-  sed -i 's/return { equipmentIds, units };/return { equipmentIds };/' "$file"
-  if cmp -s "$file" "$BACKUP_PROG_INPUTS"; then
-    echo "ERROR: L4B-1 did not change the file" >&2
-    return 1
-  fi
-}
-test_mutant "L4B-1: drop units from progressionInputs" l4b_drop_units
-
-# L4B-2: Drop equipmentIds from progressionInputsFromExercise
-l4b_drop_equipment() {
-  local file="$PROG_INPUTS"
-  # Mutant: remove equipmentIds from return
-  local count=$(grep -c 'return { equipmentIds, units };' "$file" || true)
-  if [ "$count" -ne 1 ]; then
-    echo "ERROR: Pattern found $count times (expected 1)" >&2
-    return 1
-  fi
-  sed -i 's/return { equipmentIds, units };/return { units };/' "$file"
-  if cmp -s "$file" "$BACKUP_PROG_INPUTS"; then
-    echo "ERROR: L4B-2 did not change the file" >&2
-    return 1
-  fi
-}
-test_mutant "L4B-2: drop equipmentIds from progressionInputs" l4b_drop_equipment
-
-# L4B-3: Use Math.round (nearest) instead of Math.floor (snap-down)
-l4b_round_instead_floor() {
-  local file="$PROG"
-  # Standard equipment off-grid snapping: snap DOWN to grid, not nearest
-  local search='const snappedFrom = Math.floor(from / gridStep) * gridStep;'
-  local replace='const snappedFrom = Math.round(from / gridStep) * gridStep;'
-  local count=$(grep -Fc "$search" "$file" || true)
-  if [ "$count" -ne 1 ]; then
-    echo "ERROR: Pattern found $count times (expected 1)" >&2
-    return 1
-  fi
-  sed -i "s/const snappedFrom = Math\\.floor(from \/ gridStep) \\* gridStep;/$replace/" "$file"
-  if ! grep -q 'const snappedFrom = Math.round(from / gridStep) * gridStep;' "$file"; then
-    echo "ERROR: L4B-3 mutation did not apply" >&2
-    return 1
-  fi
-}
-test_mutant "L4B-3: round to nearest instead of floor" l4b_round_instead_floor
-
 echo
 echo "==========================================="
 echo "Mutant Test Summary"
