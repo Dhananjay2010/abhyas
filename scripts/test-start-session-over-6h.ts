@@ -1,16 +1,21 @@
 #!/usr/bin/env tsx
 /**
  * Test: Session open >6 hours is CLOSED, not resumed.
- * Also test that a fresh in-progress session from another date/type is still resumed.
+ * Uses REAL stale-close logic with faked I/O.
  * 
- * Mutant: Set 6-hour threshold to huge value so it never triggers.
+ * Tests sessions at:
+ * - 6h + 1ms (over threshold, should close)
+ * - exactly 6h (at threshold, should close)
+ * - 5h 59m (under threshold, should resume)
+ * 
+ * Mutants that must kill this:
+ * - Resume checked before close in stale-core
+ * - Stale deps never close
+ * - Threshold changed
  */
-import { startSessionFullCore, type StartSessionFullDeps, type OpenSession } from "../src/lib/session/start-session-full-core";
-import { STALE_INACTIVITY_THRESHOLD_SECONDS } from "../src/lib/session/close-stale";
+import { closeStaleSessionsCore, STALE_INACTIVITY_THRESHOLD_SECONDS, type CloseStaleDeps } from "../src/lib/session/close-stale";
 
 export {};
-
-const USER_ID = "user-test";
 
 let passed = 0;
 let failed = 0;
@@ -34,218 +39,146 @@ function eq<T>(actual: T, expected: T, message: string) {
 }
 
 async function main() {
-  console.log("Over-6-hours: Stale session closing behavior\n");
+  console.log("Over-6-hours: Stale session closing behavior (real stale-close logic)\n");
 
-  await test("Session open >6 hours is closed, new session is started", async () => {
-  const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime(); // 8pm today
-  const OLD_START = "2026-10-25T10:00:00Z"; // 10am yesterday, >30 hours old
-  
-  const elapsedSeconds = (NOW_MS - new Date(OLD_START).getTime()) / 1000;
-  const shouldBeStale = elapsedSeconds >= STALE_INACTIVITY_THRESHOLD_SECONDS;
-  
-  let closeWasCalled = false;
-  let insertWasCalled = false;
-  let checkRemainingCalled = false;
-
-  const deps: StartSessionFullDeps = {
-    userId: USER_ID,
-    nowMs: NOW_MS,
+  await test("Session >6h inactive is closed", async () => {
+    const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime();
+    const OVER_6H_MS = NOW_MS - (STALE_INACTIVITY_THRESHOLD_SECONDS * 1000 + 1);
+    const STARTED_AT = new Date(OVER_6H_MS).toISOString();
     
-    fetchProfile: async () => ({ timezone: "America/New_York" }),
-    fetchOpenSessions: async () => [
+    let wasClosed = false;
+    const deps: CloseStaleDeps = {
+      fetchSessionExercises: async () => [],
+      markSessionDone: async () => {
+        wasClosed = true;
+        return true;
+      },
+      markPlannedSkipped: async () => {
+        wasClosed = true;
+      },
+    };
+
+    const openSessions = [
       {
         id: "sess-stale",
-        status: "in_progress",
+        status: "in_progress" as const,
         local_date: "2026-10-25",
-        actual_type: "weights",
-        started_at: OLD_START,
+        actual_type: "weights" as const,
+        started_at: STARTED_AT,
       },
-    ],
-    fetchResumeEnabled: async () => true,
-    
-    updateSession: async (sessionId) => ({ ok: true, sessionId }),
-    ensureSessionExercises: async () => {},
-    
-    ensureCurrentBlock: async () => ({ status: "current", programId: "prog-1" }),
-    
-    loadProgram: async (programId, dayIndex) => ({
-      ok: true,
-      program: { id: programId, started_on: "2026-10-01", deload_week: 4, week_offset: 0 },
-      dayId: `day-${dayIndex}`,
-      dayType: "weights",
-    }),
-    
-    findInProgressToday: async () => [],
-    
-    buildStaleDeps: (openSessions: OpenSession[], today: string, nowMs: number) => {
-      void nowMs;
-      return {
-        today,
-        readOpenSessions: async () => openSessions,
-        closeStaleSessions: async (inProgressSessions) => {
-          closeWasCalled = true;
-          eq(inProgressSessions.length, 1, "Should pass 1 in_progress session to close");
-          return shouldBeStale ? 1 : 0;
-        },
-        checkRemainingInProgress: async () => {
-          checkRemainingCalled = true;
-          return { ok: true, sessionId: shouldBeStale ? null : "sess-stale" };
-        },
-      };
-    },
-    
-    insertSession: async () => {
-      insertWasCalled = true;
-      return { ok: true, sessionId: "sess-new" };
-    },
-    
-    fetchPlannedExercises: async () => [],
-    insertExercises: async () => ({ ok: true }),
-  };
+    ];
 
-  const result = await startSessionFullCore(deps);
-  
-  eq(result.ok, true, "Result should be ok");
-  eq(closeWasCalled, true, "closeStaleSessions should be called");
-  eq(checkRemainingCalled, true, "checkRemainingInProgress should be called");
-  eq(shouldBeStale, true, "Session should be stale (>6h threshold check)");
-  eq(insertWasCalled, true, "New session should be inserted after closing stale one");
-  if (result.ok) {
-    eq(result.sessionId, "sess-new", "Should return new session ID, not old stale one");
-  }
-});
-
-await test("Fresh in-progress session from another date is resumed, not closed", async () => {
-  const NOW_MS = new Date("2026-10-26T12:00:00Z").getTime(); // noon today
-  const RECENT_START = "2026-10-26T10:30:00Z"; // 1.5 hours ago, still fresh
-  
-  const elapsedSeconds = (NOW_MS - new Date(RECENT_START).getTime()) / 1000;
-  const shouldBeStale = elapsedSeconds >= STALE_INACTIVITY_THRESHOLD_SECONDS;
-  
-  let closeWasCalled = false;
-  let insertWasCalled = false;
-
-  const deps: StartSessionFullDeps = {
-    userId: USER_ID,
-    nowMs: NOW_MS,
+    await closeStaleSessionsCore(deps, openSessions, NOW_MS, "2026-10-26");
     
-    fetchProfile: async () => ({ timezone: "America/New_York" }),
-    fetchOpenSessions: async () => [
+    eq(wasClosed, true, "Session >6h should be closed (markSessionDone or markPlannedSkipped called)");
+  });
+
+  await test("Session exactly 6h inactive is closed", async () => {
+    const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime();
+    const EXACTLY_6H_MS = NOW_MS - (STALE_INACTIVITY_THRESHOLD_SECONDS * 1000);
+    const STARTED_AT = new Date(EXACTLY_6H_MS).toISOString();
+
+    let wasClosed = false;
+    const deps: CloseStaleDeps = {
+      fetchSessionExercises: async () => [],
+      markSessionDone: async () => {
+        wasClosed = true;
+        return true;
+      },
+      markPlannedSkipped: async () => {
+        wasClosed = true;
+      },
+    };
+
+    const openSessions = [
       {
-        id: "sess-fresh-other-date",
-        status: "in_progress",
+        id: "sess-exact",
+        status: "in_progress" as const,
         local_date: "2026-10-25",
-        actual_type: "weights",
-        started_at: RECENT_START,
+        actual_type: "weights" as const,
+        started_at: STARTED_AT,
       },
-    ],
-    fetchResumeEnabled: async () => true,
-    
-    updateSession: async (sessionId) => ({ ok: true, sessionId }),
-    ensureSessionExercises: async () => {},
-    
-    ensureCurrentBlock: async () => ({ status: "current", programId: "prog-1" }),
-    
-    loadProgram: async (programId, dayIndex) => ({
-      ok: true,
-      program: { id: programId, started_on: "2026-10-01", deload_week: 4, week_offset: 0 },
-      dayId: `day-${dayIndex}`,
-      dayType: "weights",
-    }),
-    
-    findInProgressToday: async () => [],
-    
-    buildStaleDeps: (openSessions: OpenSession[], today: string, nowMs: number) => {
-      void nowMs;
-      return {
-        today,
-        readOpenSessions: async () => openSessions,
-        closeStaleSessions: async () => {
-          closeWasCalled = true;
-          return shouldBeStale ? 1 : 0;
-        },
-        checkRemainingInProgress: async () => {
-          return { ok: true, sessionId: shouldBeStale ? null : "sess-fresh-other-date" };
-        },
-      };
-    },
-    
-    insertSession: async () => {
-      insertWasCalled = true;
-      return { ok: true, sessionId: "sess-new" };
-    },
-    
-    fetchPlannedExercises: async () => [],
-    insertExercises: async () => ({ ok: true }),
-  };
+    ];
 
-  const result = await startSessionFullCore(deps);
-  
-  eq(result.ok, true, "Result should be ok");
-  eq(closeWasCalled, true, "closeStaleSessions should be called");
-  eq(shouldBeStale, false, "Session should NOT be stale (<6h threshold check)");
-  eq(insertWasCalled, false, "Should NOT insert new session, should resume fresh one");
-  if (result.ok) {
-    eq(result.sessionId, "sess-fresh-other-date", "Should resume fresh session from other date");
-  }
-});
-
-await test("Fresh in-progress session from today (same date) is resumed immediately", async () => {
-  const NOW_MS = new Date("2026-10-26T12:00:00Z").getTime();
-  const RECENT_START = "2026-10-26T10:30:00Z";
-  
-  let buildStaleDepsCalled = false;
-
-  const deps: StartSessionFullDeps = {
-    userId: USER_ID,
-    nowMs: NOW_MS,
+    await closeStaleSessionsCore(deps, openSessions, NOW_MS, "2026-10-26");
     
-    fetchProfile: async () => ({ timezone: "America/New_York" }),
-    fetchOpenSessions: async () => [
+    eq(wasClosed, true, "Session at exactly 6h threshold should be closed");
+  });
+
+  await test("Session <6h inactive is NOT closed", async () => {
+    const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime();
+    const UNDER_6H_MS = NOW_MS - ((STALE_INACTIVITY_THRESHOLD_SECONDS - 60) * 1000);
+    const STARTED_AT = new Date(UNDER_6H_MS).toISOString();
+
+    let wasClosed = false;
+    const deps: CloseStaleDeps = {
+      fetchSessionExercises: async () => [],
+      markSessionDone: async () => {
+        wasClosed = true;
+        return true;
+      },
+      markPlannedSkipped: async () => {
+        wasClosed = true;
+      },
+    };
+
+    const openSessions = [
       {
-        id: "sess-today-inprog",
-        status: "in_progress",
-        local_date: "2026-10-26",
-        actual_type: "weights",
-        started_at: RECENT_START,
+        id: "sess-fresh",
+        status: "in_progress" as const,
+        local_date: "2026-10-25",
+        actual_type: "weights" as const,
+        started_at: STARTED_AT,
       },
-    ],
-    fetchResumeEnabled: async () => true,
-    
-    updateSession: async (sessionId) => ({ ok: true, sessionId }),
-    ensureSessionExercises: async () => {},
-    
-    ensureCurrentBlock: async () => {
-      throw new Error("ensureCurrentBlock should not be called when resuming same-day session");
-    },
-    
-    loadProgram: async () => {
-      throw new Error("loadProgram should not be called when resuming same-day session");
-    },
-    
-    findInProgressToday: async () => [],
-    
-    buildStaleDeps: () => {
-      buildStaleDepsCalled = true;
-      throw new Error("buildStaleDeps should not be called when resuming same-day session");
-    },
-    
-    insertSession: async () => {
-      throw new Error("insertSession should not be called when resuming same-day session");
-    },
-    
-    fetchPlannedExercises: async () => [],
-    insertExercises: async () => ({ ok: true }),
-  };
+    ];
 
-  const result = await startSessionFullCore(deps);
-  
-  eq(result.ok, true, "Result should be ok");
-  eq(buildStaleDepsCalled, false, "Stale-close logic should not run for same-day session");
-  if (result.ok) {
-    eq(result.sessionId, "sess-today-inprog", "Should resume today's in_progress session");
-  }
-});
+    await closeStaleSessionsCore(deps, openSessions, NOW_MS, "2026-10-26");
+    
+    eq(wasClosed, false, "Should NOT close session under 6h threshold");
+  });
+
+  await test("Session with recent set activity is NOT closed even if started_at is old", async () => {
+    const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime();
+    const OLD_STARTED_AT = new Date("2026-10-25T08:00:00Z").toISOString();
+    const RECENT_SET_AT = new Date(NOW_MS - 3600000).toISOString(); // 1 hour ago
+
+    let wasClosed = false;
+    const deps: CloseStaleDeps = {
+      fetchSessionExercises: async () => [
+        {
+          session_id: "sess-active",
+          session_sets: [
+            {
+              id: "set-1",
+              completed_at: RECENT_SET_AT,
+              is_warmup_set: false,
+            },
+          ],
+        },
+      ],
+      markSessionDone: async () => {
+        wasClosed = true;
+        return true;
+      },
+      markPlannedSkipped: async () => {
+        wasClosed = true;
+      },
+    };
+
+    const openSessions = [
+      {
+        id: "sess-active",
+        status: "in_progress" as const,
+        local_date: "2026-10-25",
+        actual_type: "weights" as const,
+        started_at: OLD_STARTED_AT,
+      },
+    ];
+
+    await closeStaleSessionsCore(deps, openSessions, NOW_MS, "2026-10-26");
+    
+    eq(wasClosed, false, "Should NOT close session with recent set activity");
+  });
 
   console.log(`\n${passed + failed} tests, ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

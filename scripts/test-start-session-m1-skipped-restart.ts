@@ -38,17 +38,11 @@ function eq<T>(actual: T, expected: T, message: string) {
 
 type UpdatePayload = { status: string; started_at?: string };
 
-function assertUpdatePayload(payload: UpdatePayload | null): asserts payload is UpdatePayload {
-  if (!payload) {
-    throw new Error("Update payload should be captured");
-  }
-}
-
 async function main() {
   console.log("M1: Skipped session restart resets started_at\n");
 
   await test("Restarting a skipped session resets started_at to now", async () => {
-    let capturedUpdatePayload: UpdatePayload | null = null;
+    const captured: { payload: UpdatePayload | null } = { payload: null };
 
     const deps: StartSessionFullDeps = {
       userId: USER_ID,
@@ -67,7 +61,7 @@ async function main() {
       fetchResumeEnabled: async () => true,
       
       updateSession: async (sessionId, today, payload) => {
-        capturedUpdatePayload = payload;
+        captured.payload = payload;
         return { ok: true, sessionId };
       },
       ensureSessionExercises: async () => {},
@@ -97,14 +91,15 @@ async function main() {
     const result = await startSessionFullCore(deps);
     
     eq(result.ok, true, "Result should be ok");
-    assertUpdatePayload(capturedUpdatePayload);
-    eq(capturedUpdatePayload.status, "in_progress", "Status should be in_progress");
-    eq("started_at" in capturedUpdatePayload, true, "started_at must be in payload (to reset from OLD to NEW)");
-    eq(capturedUpdatePayload.started_at, NEW_TIMESTAMP, "started_at should be NEW_TIMESTAMP");
+    eq(captured.payload !== null, true, "Update payload should be captured");
+    if (!captured.payload) throw new Error("Update payload should be captured");
+    eq(captured.payload.status, "in_progress", "Status should be in_progress");
+    eq("started_at" in captured.payload, true, "started_at must be in payload (to reset from OLD to NEW)");
+    eq(captured.payload.started_at, NEW_TIMESTAMP, "started_at should be NEW_TIMESTAMP");
   });
 
   await test("Restarting a planned session with null started_at sets it to now", async () => {
-    let capturedUpdatePayload: UpdatePayload | null = null;
+    const captured: { payload: UpdatePayload | null } = { payload: null };
 
     const deps: StartSessionFullDeps = {
       userId: USER_ID,
@@ -123,7 +118,7 @@ async function main() {
       fetchResumeEnabled: async () => true,
       
       updateSession: async (sessionId, today, payload) => {
-        capturedUpdatePayload = payload;
+        captured.payload = payload;
         return { ok: true, sessionId };
       },
       ensureSessionExercises: async () => {},
@@ -153,12 +148,13 @@ async function main() {
     const result = await startSessionFullCore(deps);
     
     eq(result.ok, true, "Result should be ok");
-    assertUpdatePayload(capturedUpdatePayload);
-    eq(capturedUpdatePayload.started_at, NEW_TIMESTAMP, "started_at should be set to NEW_TIMESTAMP");
+    eq(captured.payload !== null, true, "Update payload should be captured");
+    if (!captured.payload) throw new Error("Update payload should be captured");
+    eq(captured.payload.started_at, NEW_TIMESTAMP, "started_at should be set to NEW_TIMESTAMP");
   });
 
   await test("Resuming an in_progress session keeps existing started_at", async () => {
-    let capturedUpdatePayload: UpdatePayload | null = null;
+    const captured: { payload: UpdatePayload | null } = { payload: null };
 
     const deps: StartSessionFullDeps = {
       userId: USER_ID,
@@ -177,7 +173,7 @@ async function main() {
       fetchResumeEnabled: async () => true,
       
       updateSession: async (sessionId, today, payload) => {
-        capturedUpdatePayload = payload;
+        captured.payload = payload;
         return { ok: true, sessionId };
       },
       ensureSessionExercises: async () => {},
@@ -207,8 +203,9 @@ async function main() {
     const result = await startSessionFullCore(deps);
     
     eq(result.ok, true, "Result should be ok");
-    assertUpdatePayload(capturedUpdatePayload);
-    eq(capturedUpdatePayload.started_at, undefined, "started_at should not be in payload (keeps existing)");
+    eq(captured.payload !== null, true, "Update payload should be captured");
+    if (!captured.payload) throw new Error("Update payload should be captured");
+    eq(captured.payload.started_at, undefined, "started_at should not be in payload (keeps existing)");
   });
 
   console.log(`\n${passed + failed} tests, ${passed} passed, ${failed} failed`);

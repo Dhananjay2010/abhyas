@@ -419,9 +419,24 @@ async function testWeekdayIndependence() {
 
   for (const { name, date } of weekdays) {
     const timestampMs = new Date(date).getTime();
-    const stubFetch = createStubFetch();
+    
+    let capturedInsert: unknown = null;
+    const stubFetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const method = init?.method ?? "GET";
+      
+      if (url.includes("/sessions") && method === "POST") {
+        const bodyText = init?.body && typeof init.body === "string" ? init.body : null;
+        if (bodyText) {
+          capturedInsert = JSON.parse(bodyText);
+        }
+      }
+      
+      return createStubFetch()(input, init);
+    };
+    
     const client = createClient<Database>("http://localhost:54321", "test-key", {
-      global: { fetch: stubFetch },
+      global: { fetch: stubFetch as typeof fetch },
     });
 
     stubState.client = client;
@@ -436,7 +451,19 @@ async function testWeekdayIndependence() {
       if (!result.ok || !result.data?.sessionId) {
         throw new Error(`Weekday test failed for ${name}: ${JSON.stringify(result)}`);
       }
-      console.log(`  ✓ ${name}: ${date} → sessionId=${result.data.sessionId}`);
+      
+      const dateObj = new Date(timestampMs);
+      const dayOfWeek = dateObj.getUTCDay();
+      const expectedDayIndex = dayOfWeek === 0 ? 7 : dayOfWeek;
+      
+      if (capturedInsert && typeof capturedInsert === "object" && "program_day_id" in capturedInsert) {
+        const dayId = capturedInsert.program_day_id;
+        if (typeof dayId === "string" && !dayId.includes(`-${expectedDayIndex}`)) {
+          throw new Error(`${name}: expected day ${expectedDayIndex} in program_day_id, got ${dayId}`);
+        }
+      }
+      
+      console.log(`  ✓ ${name}: ${date} → sessionId=${result.data.sessionId}, day=${expectedDayIndex}`);
     } finally {
       restoreClock();
     }
