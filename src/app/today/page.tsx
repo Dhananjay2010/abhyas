@@ -24,6 +24,7 @@ import { buildChosenByDayIndex } from "@/lib/today/chosen-by-day";
 import { shouldLoadPlannableDays } from "@/lib/today/should-load-plannable";
 import { decideRestDayResume } from "@/lib/today/rest-day-resume";
 import { decideTodayPrompts } from "@/lib/today/decide-today-prompts";
+import { deriveTodayView } from "@/lib/today/derive-today-view";
 
 export const dynamic = "force-dynamic";
 
