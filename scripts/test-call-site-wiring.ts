@@ -37,16 +37,14 @@ check(
 );
 
 check(
-  "actions.ts derives units from the profile row",
-  actionsContent.includes("const units = getUnitsPreference(profileRes.data?.units);")
+  "actions.ts uses getProfileUnits",
+  actionsContent.includes("getProfileUnits")
 );
 
 check(
-  "actions.ts queries units from profiles (Option A: unit formatting)",
-  actionsContent.includes('supabase') &&
-  actionsContent.includes('.from("profiles")') &&
-  actionsContent.includes('.select("units")'),
-  "units queried for progression messages per Option A"
+  "actions.ts calls getProfileUnits for progression messages",
+  actionsContent.includes('getProfileUnits(supabase, userId)'),
+  "units queried via getProfileUnits per Option A"
 );
 
 check(
