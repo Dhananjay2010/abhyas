@@ -38,7 +38,8 @@ const EQUIPMENT_PROFILES: Array<{ name: string; ids: string[] }> = [
 ];
 
 // Injury combinations
-const INJURY_SETS: Array<{ name: string; regions: Array<{ body_region: any; severity: "current" | "past" }> }> = [
+type BodyRegion = "knee" | "lower_back" | "shoulder";
+const INJURY_SETS: Array<{ name: string; regions: Array<{ body_region: BodyRegion; severity: "current" | "past" }> }> = [
   { name: "pk", regions: [{ body_region: "knee", severity: "past" }] },
   { name: "pk_lbc", regions: [{ body_region: "knee", severity: "past" }, { body_region: "lower_back", severity: "current" }] },
   { name: "pk_shc", regions: [{ body_region: "knee", severity: "past" }, { body_region: "shoulder", severity: "current" }] },
