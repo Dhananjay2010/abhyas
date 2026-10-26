@@ -28,6 +28,10 @@ function check(label: string, condition: boolean, detail = "") {
 
 console.log("Imperial units path through actions.ts → buildProgressionInput → evaluateProgression");
 
+const metricReps: "reps" = "reps";
+const mechanicCompound: "compound" = "compound";
+const movementHorizontalPress: "horizontal_press" = "horizontal_press";
+
 // Simulate DB rows for a barbell bench press exercise
 const sessionExercise = {
   id: "se1",
@@ -36,10 +40,10 @@ const sessionExercise = {
   planned_sets: 3,
   planned_reps_min: 8,
   planned_reps_max: 12,
-  metric: "reps" as const,
+  metric: metricReps,
   exercises: {
-    mechanic: "compound" as const,
-    movement_pattern: "horizontal_press" as const,
+    mechanic: mechanicCompound,
+    movement_pattern: movementHorizontalPress,
     equipment_ids: ["barbell"],
     progression_chain: null,
     progression_rank: null,
@@ -81,8 +85,8 @@ const input = buildProgressionInput(
   "imperial"  // UN1 would change this to "metric"
 );
 
-check("Builder returns units: 'imperial'", input.units === "imperial", `got: ${input.units}`);
-check("Builder returns equipmentIds", input.equipmentIds?.includes("barbell") ?? false);
+check("Builder returns units: 'imperial'", (input as { units?: string }).units === "imperial", `got: ${(input as { units?: string }).units}`);
+check("Builder returns equipmentIds", JSON.stringify(input.equipmentIds) === JSON.stringify(["barbell"]), `got: ${JSON.stringify(input.equipmentIds)}`);
 
 console.log("\n2. evaluateProgression produces imperial messages");
 

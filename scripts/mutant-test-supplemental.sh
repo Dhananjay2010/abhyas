@@ -68,8 +68,8 @@ test_mutant "H5 (floor = gridStep)" \
 
 # Z1: zero-weight message wording
 test_mutant "Z1 (zero message wording)" \
-  "Missed three times in a row — back to just your bodyweight to build up again." \
-  "Missed three times in a row — back to bodyweight." \
+  "dropping to bodyweight to build up again" \
+  "back to just your bodyweight to build up again" \
   "npm run test:units-progression-messages"
 
 # H2: never-raise hold resets counter

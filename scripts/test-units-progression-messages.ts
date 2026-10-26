@@ -270,7 +270,7 @@ console.log("Pull-up bar (metric) third miss to 0:");
 console.log(`  Message: "${barMetric.message}"`);
 console.log(`  Next weight: ${barMetric.nextWorkingWeightKg} kg`);
 check("Bar metric reaches 0", barMetric.nextWorkingWeightKg === 0, `got: ${barMetric.nextWorkingWeightKg}`);
-check("Bar metric message is bodyweight message", barMetric.message.includes("back to just your bodyweight"), barMetric.message);
+check("Bar metric message is bodyweight message", barMetric.message.includes("dropping to bodyweight"), barMetric.message);
 check("Bar metric message has no '0 kg'", !barMetric.message.includes("0 kg"), barMetric.message);
 check("Bar metric message has no '0 lb'", !barMetric.message.includes("0 lb"), barMetric.message);
 

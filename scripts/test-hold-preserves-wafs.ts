@@ -130,6 +130,41 @@ check("Increments consecutiveFailures to 2", result.consecutiveFailures === 2, `
 check("Preserves weightAtFailureStartKg at 5", result.weightAtFailureStartKg === 5, `got: ${result.weightAtFailureStartKg}`);
 check("Message says 'no lighter loadable weight'", result.message.includes("no lighter loadable weight"), result.message);
 
+console.log("\nScenario 2: resistance band at 2.5 kg, second miss, wafs = 2.5");
+console.log("This specifically triggers the reduced === currentWeight hold with holdMessage (H6 killer).");
+
+const result2 = evaluateProgression({
+  sets: [{ reps: 7, weightKg: 2.5 }, { reps: 7, weightKg: 2.5 }],
+  plannedSets: 3,
+  repsMin: 8,
+  repsMax: 12,
+  feel: null,
+  meta,
+  state: {
+    currentWorkingWeightKg: 2.5,
+    currentTargetReps: 12,
+    consecutiveFailures: 1,
+    bestWeightKg: 5,
+    bestReps: 12,
+    bestE1rm: null,
+    totalSessions: 3,
+    weightAtFailureStartKg: 2.5,
+  },
+  isDeload: false,
+  equipmentIds: ["resistance_band"],
+  units: "metric",
+});
+
+console.log(`  Message: "${result2.message}"`);
+console.log(`  Next weight: ${result2.nextWorkingWeightKg} kg`);
+console.log(`  Consecutive failures: ${result2.consecutiveFailures}`);
+console.log(`  Weight at failure start: ${result2.weightAtFailureStartKg} kg`);
+
+check("Scenario 2: Holds at 2.5", result2.nextWorkingWeightKg === 2.5, `got: ${result2.nextWorkingWeightKg}`);
+check("Scenario 2: cf=2", result2.consecutiveFailures === 2, `got: ${result2.consecutiveFailures}`);
+check("Scenario 2: Preserves wafs at 2.5", result2.weightAtFailureStartKg === 2.5, `got: ${result2.weightAtFailureStartKg}`);
+check("Scenario 2: outcome is hold", result2.outcome === "hold", `got: ${result2.outcome}`);
+
 console.log("\n=== SUMMARY ===");
 if (failures > 0) {
   console.log(`FAILED: ${failures} checks`);

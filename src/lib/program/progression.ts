@@ -1,5 +1,5 @@
 import type { Database } from "@/lib/database.types";
-import { KETTLEBELL_WEIGHTS_KG, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, type WeightUnit } from "@/lib/session/equipment-grid";
+import { KETTLEBELL_WEIGHTS_KG, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, MEDICINE_BALL_MIN_KG, type WeightUnit } from "@/lib/session/equipment-grid";
 import { formatWeight, type UnitsPreference } from "@/lib/units";
 import { resolveTarget } from "../session/display-target";
 
@@ -896,8 +896,7 @@ export function evaluateProgression(input: {
         );
         
         if (isMedicineBall) {
-          const LIGHTEST_MEDICINE_BALL = 3; // kg
-          if (currentWeight <= LIGHTEST_MEDICINE_BALL) {
+          if (currentWeight <= MEDICINE_BALL_MIN_KG) {
             // Already at lightest ball: hold with "aim for clean reps" message
             return {
               ...carried,
@@ -909,7 +908,7 @@ export function evaluateProgression(input: {
               message: `Staying at ${displayWeight(currentWeight)} — aim for clean reps.`,
             };
           }
-          stepped = Math.max(LIGHTEST_MEDICINE_BALL, oneStepDown);
+          stepped = Math.max(MEDICINE_BALL_MIN_KG, oneStepDown);
         } else {
           const floor = isBodyweightEquipment ? 0 : gridStep;
           stepped = Math.max(floor, oneStepDown);
