@@ -370,6 +370,7 @@ async function runTests() {
     metric: "reps",
     equipment_ids: ["barbell"],
     primary_muscles: ["biceps"],
+    tracks: ["weights"],
   }).select("id, equipment_ids, movement_pattern, mechanic").single();
 
   if (barbellCurl.error) {

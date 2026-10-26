@@ -1031,7 +1031,8 @@ console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric")
     state: fresh({ currentWorkingWeightKg: 42.5, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
   });
-  check("42.5 kg back-off shows 82.5 lb (app formatter)", backOff425.message.includes("82.5 lb"), backOff425.message);
+  // M2: kg-only messages (82.5 lb = 37.5 kg)
+  check("42.5 kg back-off shows 37.5 kg (M2: kg-only)", backOff425.message.includes("dropping to 37.5 kg"), backOff425.message);
   
   // 57.5 kg * 0.9 = 51.75, round to 2.5 grid = 50 kg. Display in lb: 50 kg = 110.231 lb -> 110 lb (no .0)
   const backOff575 = run({
@@ -1040,7 +1041,8 @@ console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric")
     state: fresh({ currentWorkingWeightKg: 57.5, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
   });
-  check("57.5 kg back-off shows 110 lb (app formatter, no .0)", backOff575.message.includes("110 lb") && !backOff575.message.includes("110.0"), backOff575.message);
+  // M2: kg-only messages (110 lb = 50 kg)
+  check("57.5 kg back-off shows 50 kg (M2: kg-only)", backOff575.message.includes("dropping to 50 kg"), backOff575.message);
   
   // kg messages: plain kg value (no formatWeight rounding, matches main)
   // 15 kg progress -> 17.5 kg. Display in kg: "17.5 kg" (not "17.5" or "17.50")

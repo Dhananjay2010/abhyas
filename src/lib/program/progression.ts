@@ -688,7 +688,7 @@ export function evaluateProgression(input: {
     }
 
     // Bodyweight without stored working weight: no kg target in message
-    if (state.currentWorkingWeightKg === null || state.currentWorkingWeightKg === 0) {
+    if (meta.isBodyweight && (state.currentWorkingWeightKg === null || state.currentWorkingWeightKg === 0)) {
       return {
         ...carried,
         outcome: "progressed",

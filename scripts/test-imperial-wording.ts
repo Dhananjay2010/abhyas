@@ -116,6 +116,23 @@ const noEquipResult = evaluateProgression({
 check("No-equipment message exists", noEquipResult.message.length > 0, `message: "${noEquipResult.message}"`);
 check("No-equipment message does not mention weight unit", !noEquipResult.message.includes("kg") && !noEquipResult.message.includes("lb"), `message: "${noEquipResult.message}"`);
 
+console.log("\n5. Loaded exercise with null stored weight still shows kg target");
+
+// A) Probe: dumbbell compound, 3×12 @40, state.currentWorkingWeightKg null, equipmentIds ['dumbbell']
+const loadedNullState = evaluateProgression({
+  sets: success,
+  plannedSets: 4,
+  repsMin: 8,
+  repsMax: 12,
+  feel: "right",
+  meta: { ...BENCH, mechanic: "compound" },
+  state: { ...fresh, currentWorkingWeightKg: null, bestWeightKg: null },
+  isDeload: false,
+  ...equipInputs,
+});
+
+check("Loaded exercise with null stored weight shows kg target", loadedNullState.message.includes("up to 42.5 kg"), `message: "${loadedNullState.message}"`);
+
 console.log("\n=== SUMMARY ===");
 if (failures > 0) {
   console.log(`FAILED: ${failures} checks`);

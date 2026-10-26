@@ -232,7 +232,8 @@ async function main() {
     });
 
     check("Second miss: outcome backed_off", decision2.outcome === "backed_off", decision2.outcome);
-    check("Second miss: deloads to 50 kg", decision2.nextWorkingWeightKg === 50, `${decision2.nextWorkingWeightKg}`);
+    // M1: Back off from pre-miss weight 60 kg: 90% = 54, floored to 52.5 (smallest loadable >= 54)
+    check("Second miss: deloads to 52.5 kg (M1: from pre-miss 60kg)", decision2.nextWorkingWeightKg === 52.5, `${decision2.nextWorkingWeightKg}`);
     check("Second miss: failures reset to 0", decision2.consecutiveFailures === 0, `${decision2.consecutiveFailures}`);
 
     // Persist second miss
@@ -248,7 +249,7 @@ async function main() {
 
     const written2 = fake2.getWritten();
     check("Second miss persisted: consecutive_failures=0", written2?.consecutive_failures === 0, `${written2?.consecutive_failures}`);
-    check("Second miss persisted: weight=50", written2?.current_working_weight_kg === 50, `${written2?.current_working_weight_kg}`);
+    check("Second miss persisted: weight=52.5", written2?.current_working_weight_kg === 52.5, `${written2?.current_working_weight_kg}`);
   }
 
   console.log("\n3. One miss then in-range resets failures and doesn't deload");
