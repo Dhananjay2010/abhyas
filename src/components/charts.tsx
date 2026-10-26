@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { formatValueExact } from "@/lib/progress/format-chart-value";
+import { formatWeight, type UnitsPreference } from "@/lib/units";
 
 /**
  * Small inline-SVG charts.
@@ -35,11 +36,11 @@ function niceBounds(values: number[]): [number, number] {
 /** Toggleable table so the numbers are never available only as pixels. */
 function ValueTable({
   points,
-  unit,
+  fmt,
   caption,
 }: {
   points: Point[];
-  unit: string;
+  fmt: (v: number) => string;
   caption: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -60,7 +61,7 @@ function ValueTable({
               <tr key={i} className="border-t border-border">
                 <td className="py-1.5 text-muted">{p.label}</td>
                 <td className="py-1.5 text-right tabular-nums">
-                  {formatValueExact(p.value, unit)}
+                  {fmt(p.value)}
                   {p.isDeload && (
                     <span className="ml-2 text-muted opacity-70">Deload</span>
                   )}
@@ -79,12 +80,22 @@ export function LineChart({
   unit = "",
   title,
   height = 140,
+  weightUnits,
 }: {
   points: Point[];
   unit?: string;
   title: string;
   height?: number;
+  /**
+   * Set when the values are weights in kg: every readout (headline, tooltip,
+   * table, axis) then goes through the shared formatWeight in these units,
+   * e.g. 120.5 lb / 54.6 kg, and `unit` is ignored.
+   */
+  weightUnits?: UnitsPreference;
 }) {
+  const fmt = (v: number) => (weightUnits ? formatWeight(v, weightUnits) : formatValueExact(v, unit));
+  const fmtAxis = (v: number) =>
+    weightUnits ? formatWeight(v, weightUnits, false, "0") : Math.round(v).toLocaleString("en-US");
   const id = useId();
   const [active, setActive] = useState<number | null>(null);
   const width = 320;
@@ -96,7 +107,7 @@ export function LineChart({
     return (
       <div>
         <p className="text-2xl font-bold tabular-nums">
-          {formatValueExact(points[0].value, unit)}
+          {fmt(points[0].value)}
         </p>
         <p className="mt-1 text-xs text-muted">
           {points[0].label}
@@ -137,7 +148,7 @@ export function LineChart({
         viewBox={`0 0 ${width} ${height}`}
         className="w-full touch-none"
         role="img"
-        aria-label={`${title}. ${points.length} entries from ${first.label} to ${last.label}, latest value ${formatValueExact(lastNonDeload.value, unit)} on ${lastNonDeload.label}${allDeloads ? ' (deload)' : ''}${deloadCount > 0 ? `. ${deloadCount} deload ${deloadCount === 1 ? 'session' : 'sessions'} marked` : ''}.`}
+        aria-label={`${title}. ${points.length} entries from ${first.label} to ${last.label}, latest value ${fmt(lastNonDeload.value)} on ${lastNonDeload.label}${allDeloads ? ' (deload)' : ''}${deloadCount > 0 ? `. ${deloadCount} deload ${deloadCount === 1 ? 'session' : 'sessions'} marked` : ''}.`}
         onPointerDown={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           const px = ((e.clientX - rect.left) / rect.width) * width;
@@ -159,10 +170,10 @@ export function LineChart({
           />
         ))}
         <text x="2" y={PAD.top + 4} fontSize="9" fill="var(--color-muted)">
-          {Math.round(hi).toLocaleString("en-US")}
+          {fmtAxis(hi)}
         </text>
         <text x="2" y={PAD.top + innerH + 4} fontSize="9" fill="var(--color-muted)">
-          {Math.round(lo).toLocaleString("en-US")}
+          {fmtAxis(lo)}
         </text>
 
         <path
@@ -229,11 +240,11 @@ export function LineChart({
       </svg>
 
       <p className="mt-1 text-sm tabular-nums">
-        <span className="font-semibold">{formatValueExact(points[shown].value, unit)}</span>{" "}
+        <span className="font-semibold">{fmt(points[shown].value)}</span>{" "}
         <span className="text-muted">· {points[shown].label}{allDeloads ? ' (deload)' : ''}</span>
       </p>
 
-      <ValueTable points={points} unit={unit} caption={title} />
+      <ValueTable points={points} fmt={fmt} caption={title} />
     </div>
   );
 }
@@ -341,7 +352,7 @@ export function BarChart({
         </p>
       )}
 
-      <ValueTable points={points} unit={unit} caption={title} />
+      <ValueTable points={points} fmt={(v) => formatValueExact(v, unit)} caption={title} />
     </div>
   );
 }

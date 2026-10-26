@@ -398,7 +398,7 @@ export default async function ProgressPage() {
                 <div key={e.name}>
                   <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
                   {showChart ? (
-                    <LineChart points={e.points} unit={e.unitLabel} title={`${e.name} (est. 1RM)`} height={110} />
+                    <LineChart points={e.points} unit={e.unitLabel} weightUnits={e.units} title={`${e.name} (est. 1RM)`} height={110} />
                   ) : (
                     <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
                       One session logged. Your strength trend will appear after your next workout.

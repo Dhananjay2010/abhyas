@@ -39,7 +39,7 @@ console.log("\n" + "=".repeat(72));
 console.log("D. Fat-fingered rep count");
 run("   4 x 999 @ 60kg", Array(4).fill({reps:999, weightKg:60}));
 console.log(`   estimateOneRepMax(60, 999) = ${estimateOneRepMax(60,999).toFixed(1)} kg`);
-console.log(`   (the SQL chart caps reps at 12: ${estimateOneRepMax(60,12).toFixed(1)} kg)`);
+console.log(`   (now capped at 12 reps: ${estimateOneRepMax(60,12).toFixed(1)} kg - same value)`);
 
 console.log("\n" + "=".repeat(72));
 console.log("E. AFTER THE FIX");
