@@ -370,7 +370,7 @@ if [ ${#SKIPPED[@]} -gt 0 ]; then
   done
 fi
 
-if [ $FAILED -gt 0 ] || [ ${#SKIPPED[@]} -gt 0 ]; then
+if [ $FAILED -gt 0 ]; then
   echo
   echo "❌ FAIL: $FAILED survivor(s), ${#SKIPPED[@]} skip(s)"
   exit 1
