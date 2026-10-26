@@ -50,7 +50,9 @@ async function main() {
   };
 
   // Run within Next.js's actual async storage contexts
+  // @ts-expect-error - Partial mock for testing, runtime only needs forceStatic
   await workAsyncStorage.run(mockWorkStore, async () => {
+    // @ts-expect-error - Partial mock for testing, runtime only needs type
     await workUnitAsyncStorage.run(mockWorkUnitStore, async () => {
       // Import and render the REAL landing page component
       const { default: LandingPage } = await import("../src/app/page");
