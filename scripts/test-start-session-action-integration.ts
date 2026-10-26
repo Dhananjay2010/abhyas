@@ -11,6 +11,8 @@
  */
 
 import { readFileSync } from "fs";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../src/lib/database.types";
 import { startSessionFullCore, type StartSessionFullDeps } from "../src/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "../src/lib/session/start-session-full-deps";
 
@@ -221,7 +223,7 @@ async function main() {
         insert: () => Promise.resolve({ data: null, error: null }),
         update: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
       }),
-    };
+    } as unknown as SupabaseClient<Database>;
 
     const deps = buildStartSessionFullDeps(mockSupabase, "user-123", Date.now());
 
