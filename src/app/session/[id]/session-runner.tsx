@@ -16,7 +16,7 @@ import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { kgToDisplay, displayToKg, formatLoad, roundLbToHalf, snapPrescribedWeight, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
+import { kgToDisplay, displayToKg, formatLoad, roundLbToHalf, snapPrescribedWeight, computeRunnerWeightPrefill } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
@@ -1213,19 +1213,9 @@ function SetEntry({
   // Remounted per set via a key at the call site, so the fields reset naturally
   // rather than being reset from an effect.
   const [reps, setReps] = useState(defaultReps !== null ? String(defaultReps) : "");
-  // For bodyweight exercises, only prefill if the last set actually used added weight.
-  const shouldPrefillWeight = !isBodyweight || (defaultWeight !== null && defaultWeight > 0);
-  const [weight, setWeight] = useState(() => {
-    if (!shouldPrefillWeight || defaultWeight === null) return "";
-    if (units === "metric") {
-      // Metric: show exact kg value, no rounding
-      return String(defaultWeight);
-    }
-    // Imperial: convert to lb and round to 0.5 lb (matches working weight line)
-    const displayValue = kgToDisplay(defaultWeight, units);
-    const rounded = roundLbToHalf(displayValue);
-    return String(rounded);
-  });
+  const [weight, setWeight] = useState(() => 
+    computeRunnerWeightPrefill(defaultWeight, units, isBodyweight)
+  );
 
   /**
    * The hold timer.

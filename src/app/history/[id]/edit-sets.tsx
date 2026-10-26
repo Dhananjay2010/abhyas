@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateSet, deleteSet } from "../actions";
-import { kgToDisplay, displayToKg, weightLabel, roundLbToHalf, type UnitsPreference } from "@/lib/units";
+import { kgToDisplay, displayToKg, weightLabel, roundLbToHalf, convertWeightInputToKg, type UnitsPreference } from "@/lib/units";
 
 interface SetData {
   session_exercise_id: string;
@@ -64,8 +64,7 @@ export function EditSets({ sessionId, units, exercises }: EditSetsProps) {
     
     // Convert display units to kg for weight field
     if (field === "weight_kg" && numValue !== null) {
-      const kgValue = displayToKg(numValue, units);
-      numValue = kgValue;
+      numValue = convertWeightInputToKg(numValue, units);
     }
     
     // Validation

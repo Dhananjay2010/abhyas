@@ -685,3 +685,53 @@ export function getUnitsPreference(
   if (units === "imperial" || units === "metric") return units;
   return fallback;
 }
+
+/**
+ * Convert a user-entered weight value to kg for storage.
+ * Used by History edit and any form that accepts weight input in display units.
+ * 
+ * @param displayValue - The numeric value entered by the user
+ * @param units - The user's units preference
+ * @returns The value in kg, suitable for storage
+ */
+export function convertWeightInputToKg(
+  displayValue: number,
+  units: UnitsPreference
+): number {
+  if (units === "metric") {
+    return displayValue;
+  }
+  // Imperial: convert lb to kg
+  return displayToKg(displayValue, units);
+}
+
+/**
+ * Compute the initial value for the weight input in the session runner.
+ * For bodyweight exercises, only prefills if there's actual added weight.
+ * For imperial units, snaps the prescribed weight to the lb grid before converting.
+ * 
+ * @param defaultWeightKg - The prescribed weight in kg (or last logged weight)
+ * @param units - The user's units preference
+ * @param isBodyweight - Whether this is a bodyweight exercise
+ * @returns The string value for the weight input, or empty string if no prefill
+ */
+export function computeRunnerWeightPrefill(
+  defaultWeightKg: number | null,
+  units: UnitsPreference,
+  isBodyweight: boolean
+): string {
+  // For bodyweight exercises, only prefill if the last set actually used added weight.
+  const shouldPrefillWeight = !isBodyweight || (defaultWeightKg !== null && defaultWeightKg > 0);
+  
+  if (!shouldPrefillWeight || defaultWeightKg === null) return "";
+  
+  if (units === "metric") {
+    // Metric: show exact kg value, no rounding
+    return String(defaultWeightKg);
+  }
+  
+  // Imperial: convert to lb and round to 0.5 lb (matches working weight line)
+  const displayValue = kgToDisplay(defaultWeightKg, units);
+  const rounded = roundLbToHalf(displayValue);
+  return String(rounded);
+}
