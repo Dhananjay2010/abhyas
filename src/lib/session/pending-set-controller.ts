@@ -95,9 +95,21 @@ export function createPendingSetController(config: {
     onChange, 
     deps,
     timer,
-    addEventListener,
-    removeEventListener,
+    addEventListener: addEventListenerProp,
+    removeEventListener: removeEventListenerProp,
   } = config;
+  
+  // Default to window listeners if not provided (guarded for SSR)
+  const addEventListener = addEventListenerProp || (
+    typeof window !== "undefined"
+      ? (type: string, handler: () => void) => window.addEventListener(type, handler)
+      : undefined
+  );
+  const removeEventListener = removeEventListenerProp || (
+    typeof window !== "undefined"
+      ? (type: string, handler: () => void) => window.removeEventListener(type, handler)
+      : undefined
+  );
 
   let state: PendingSetState = {
     pending: [],
@@ -124,6 +136,10 @@ export function createPendingSetController(config: {
   let onlineHandlerRegistered: (() => void) | null = null;
   if (addEventListener && removeEventListener) {
     onlineHandlerRegistered = () => {
+      // Reset backoff and replay immediately when coming back online
+      if (scheduler) {
+        scheduler.reset();
+      }
       onFocus();
     };
     addEventListener('online', onlineHandlerRegistered);
