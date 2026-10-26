@@ -20,3 +20,18 @@ export function getFinishButtonText(pendingCount: number): string {
   }
   return "Done";
 }
+
+/**
+ * Get inline warning text when finish is blocked by pending sets.
+ */
+export function getFinishWarningText(pendingCount: number, hasFailed: boolean): string | null {
+  if (pendingCount === 0) {
+    return null;
+  }
+  
+  if (hasFailed) {
+    return `${pendingCount} ${pendingCount === 1 ? "set" : "sets"} still syncing. Connect to finish.`;
+  }
+  
+  return `${pendingCount} ${pendingCount === 1 ? "set is" : "sets are"} syncing…`;
+}

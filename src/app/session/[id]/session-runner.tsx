@@ -41,7 +41,7 @@ import {
   type PendingSetState,
 } from "@/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
-import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
+import { isFinishDisabled, getFinishButtonText, getFinishWarningText } from "@/lib/session/finish-guard";
 import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
 import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
@@ -236,6 +236,7 @@ export function SessionRunner({
     retrying: false,
     error: null,
     replayed: [],
+    conflicts: 0,
   });
 
   const [controller] = useState(() => {
@@ -248,6 +249,9 @@ export function SessionRunner({
       userId,
       onChange: setPendingSetState,
       deps: createPendingSetDeps(now),
+      timer,
+      addEventListener: addEventListenerProp,
+      removeEventListener: removeEventListenerProp,
     });
   });
 
@@ -255,6 +259,14 @@ export function SessionRunner({
     if (controller) {
       controller.load();
     }
+  }, [controller]);
+  
+  useEffect(() => {
+    return () => {
+      if (controller) {
+        controller.cleanup();
+      }
+    };
   }, [controller]);
 
   // Auto-retry on mount, focus, and visibility change
@@ -623,6 +635,33 @@ export function SessionRunner({
             </li>
           ))}
         </ul>
+        {(() => {
+          const warningText = getFinishWarningText(
+            pendingSetState.pending.length,
+            pendingSetState.error !== null,
+          );
+          if (warningText) {
+            return (
+              <div className="mt-6 rounded-xl border border-accent/20 bg-accent/5 px-4 py-3 text-sm text-accent">
+                {warningText}
+                {pendingSetState.error && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (controller) {
+                        controller.replay();
+                      }
+                    }}
+                    className="mt-2 font-semibold underline"
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            );
+          }
+          return null;
+        })()}
         <div className="mt-10 space-y-3">
           <BigButton
             disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
@@ -983,6 +1022,20 @@ export function SessionRunner({
         message={message}
     >
       <div onPointerDown={onAnyTap}>
+        {pendingSetState.conflicts > 0 && (
+          <div className="mb-5 rounded-xl border border-muted/30 bg-muted/10 px-4 py-3 text-sm text-muted">
+            <p className="font-medium">
+              {pendingSetState.conflicts === 1
+                ? "One set couldn't be saved"
+                : `${pendingSetState.conflicts} sets couldn't be saved`}
+            </p>
+            <p className="mt-1">
+              {pendingSetState.conflicts === 1
+                ? "That set was already recorded differently."
+                : "Those sets were already recorded differently."}
+            </p>
+          </div>
+        )}
         {pendingSetState.pending.length > 0 && (
           <div className="mb-5">
             {getPendingUiMode(pendingSetState) === "replay-error" ? (

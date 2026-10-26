@@ -8,6 +8,7 @@
 
 import type { Result } from "@/app/session/actions";
 import { isSessionExpired } from "@/lib/auth/session-expired";
+import { isOfflineError } from "@/lib/offline-error";
 import {
   isDuplicateError,
   loadPendingSets,
@@ -18,6 +19,11 @@ import {
   type Storage,
 } from "./pending-set-retry";
 import type { PendingSetDeps } from "./pending-set-deps";
+import {
+  createRetryScheduler,
+  type RetryTimer,
+  type RetryScheduler,
+} from "./pending-set-retry-scheduler";
 
 export type LogSetFunction = (input: {
   sessionExerciseId: string;
@@ -41,6 +47,7 @@ export type PendingSetState = {
   retrying: boolean;
   error: string | null;
   replayed: PendingSet[];
+  conflicts: number;
 };
 
 type SubmitResult =
@@ -62,6 +69,7 @@ type PendingSetController = {
   replay(): Promise<void>;
   onFocus(): void;
   getState(): PendingSetState;
+  cleanup(): void;
 };
 
 export function createPendingSetController(config: {
@@ -72,8 +80,22 @@ export function createPendingSetController(config: {
   userId: string;
   onChange: (state: PendingSetState) => void;
   deps: PendingSetDeps;
+  timer?: RetryTimer;
+  addEventListener?: (type: string, handler: () => void) => void;
+  removeEventListener?: (type: string, handler: () => void) => void;
 }): PendingSetController {
-  const { storage, logSet, sessionId, sessionStatus, userId, onChange, deps } = config;
+  const { 
+    storage, 
+    logSet, 
+    sessionId, 
+    sessionStatus, 
+    userId, 
+    onChange, 
+    deps,
+    timer,
+    addEventListener,
+    removeEventListener,
+  } = config;
 
   let state: PendingSetState = {
     pending: [],
@@ -81,10 +103,28 @@ export function createPendingSetController(config: {
     retrying: false,
     error: null,
     replayed: [],
+    conflicts: 0,
   };
 
   let replayPromise: Promise<void> | null = null;
   let replayAttempted = false;
+  
+  const scheduler: RetryScheduler | null = timer
+    ? createRetryScheduler({
+        timer,
+        // Don't pass addEventListener/removeEventListener to scheduler
+        // The controller handles online events directly
+      })
+    : null;
+
+  // Register online event handler in the controller
+  let onlineHandlerRegistered: (() => void) | null = null;
+  if (addEventListener && removeEventListener) {
+    onlineHandlerRegistered = () => {
+      onFocus();
+    };
+    addEventListener('online', onlineHandlerRegistered);
+  }
 
   function setState(partial: Partial<PendingSetState>) {
     state = { ...state, ...partial };
@@ -186,6 +226,27 @@ export function createPendingSetController(config: {
         return { status: "expired" };
       }
 
+      if (isOfflineError(err)) {
+        const pending: PendingSet = {
+          sessionExerciseId: set.sessionExerciseId,
+          setNumber: set.setNumber,
+          reps: set.reps,
+          weightKg: set.weightKg,
+          durationSeconds: set.durationSeconds ?? null,
+          clientId: set.clientId,
+        };
+        savePendingSet(storage, userId, sessionId, pending, deps);
+
+        const loaded = loadPendingSets(storage, userId, sessionId, deps);
+        setState({
+          pending: loaded,
+          expired: false,
+          error: null,
+        });
+
+        return { status: "expired" };
+      }
+
       const message = err instanceof Error ? err.message : "Network error";
       setState({ error: message });
       return { status: "failed", error: message };
@@ -202,6 +263,9 @@ export function createPendingSetController(config: {
     }
 
     if (!canReplayForStatus(sessionStatus)) {
+      if (scheduler) {
+        scheduler.reset();
+      }
       clearPendingSets(storage, userId, sessionId, deps);
       setState({
         pending: [],
@@ -217,6 +281,9 @@ export function createPendingSetController(config: {
 
       const toReplay = loadPendingSets(storage, userId, sessionId, deps);
       if (toReplay.length === 0) {
+        if (scheduler) {
+          scheduler.reset();
+        }
         setState({
           pending: [],
           expired: false,
@@ -229,6 +296,7 @@ export function createPendingSetController(config: {
 
       let firstError: string | null = null;
       const successfullyReplayed: PendingSet[] = [];
+      let conflictCount = 0;
       let authFailed = false;
 
       for (const set of toReplay) {
@@ -241,9 +309,13 @@ export function createPendingSetController(config: {
             durationSeconds: set.durationSeconds,
           });
 
-          if (result.ok || isDuplicateError(result) || ("reason" in result && result.reason === "set_exists")) {
+          if (result.ok || isDuplicateError(result)) {
             clearPendingSet(storage, userId, sessionId, set.clientId, deps);
             successfullyReplayed.push(set);
+          } else if ("reason" in result && result.reason === "set_exists") {
+            // Conflict: set number already recorded with different values
+            clearPendingSet(storage, userId, sessionId, set.clientId, deps);
+            conflictCount += 1;
           } else if (isSessionExpired(result)) {
             if (!firstError) firstError = "Session still expired";
             authFailed = true;
@@ -258,6 +330,8 @@ export function createPendingSetController(config: {
           } else if (isSessionExpired(err)) {
             if (!firstError) firstError = "Session still expired";
             authFailed = true;
+          } else if (isOfflineError(err)) {
+            if (!firstError) firstError = "Still offline";
           } else if (!firstError) {
             firstError = err instanceof Error ? err.message : "Network error";
           }
@@ -272,7 +346,17 @@ export function createPendingSetController(config: {
         retrying: false,
         error: firstError,
         replayed: successfullyReplayed,
+        conflicts: conflictCount,
       });
+      
+      if (remaining.length > 0 && scheduler) {
+        scheduler.scheduleRetry(() => {
+          replayPromise = null;
+          replay();
+        });
+      } else if (scheduler) {
+        scheduler.reset();
+      }
     })();
 
     await replayPromise;
@@ -285,6 +369,9 @@ export function createPendingSetController(config: {
       setState({
         pending: loaded,
       });
+      if (scheduler) {
+        scheduler.reset();
+      }
       replay();
     }
   }
@@ -293,11 +380,21 @@ export function createPendingSetController(config: {
     return state;
   }
 
+  function cleanup(): void {
+    if (scheduler) {
+      scheduler.cleanup();
+    }
+    if (onlineHandlerRegistered && removeEventListener) {
+      removeEventListener('online', onlineHandlerRegistered);
+    }
+  }
+
   return {
     submit,
     load,
     replay,
     onFocus,
     getState,
+    cleanup,
   };
 }

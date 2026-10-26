@@ -23,10 +23,10 @@
  */
 export function isOfflineError(
   error: Error | unknown,
-  online: boolean = typeof navigator !== "undefined" ? navigator.onLine : true
+  online: boolean = typeof navigator !== "undefined" && typeof navigator.onLine === "boolean" ? navigator.onLine : true
 ): boolean {
   // If the browser reports offline, it's offline
-  if (!online) {
+  if (online === false) {
     return true;
   }
 
@@ -49,7 +49,7 @@ export function isOfflineError(
   }
 
   // Generic network errors
-  if (name === "networkerror" || message.includes("network error")) {
+  if (name === "networkerror" || message.includes("network error") || message.includes("networkerror")) {
     return true;
   }
 

@@ -163,6 +163,33 @@ function shouldCacheStatic(request) {
 }
 
 /**
+ * Check if a request is for a session route that should be cached.
+ * 
+ * Session routes (/session/[id]) are cached so they can be accessed offline
+ * after being visited online. This enables offline reload of an in-progress session.
+ */
+function isSessionRoute(request) {
+  if (request.method !== "GET") {
+    return false;
+  }
+  
+  const url = new URL(request.url);
+  
+  // Only cache same-origin requests
+  if (url.origin !== self.location.origin) {
+    return false;
+  }
+  
+  // Cache /session/[id] routes (but not RSC requests)
+  const isRSC = request.headers.get("RSC") === "1" || url.searchParams.has("_rsc");
+  if (url.pathname.startsWith("/session/") && !isRSC && request.mode === "navigate") {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Check if a request should be intercepted for offline fallback.
  *
  * CRITICAL: Only GET requests for full-page navigation are intercepted.
@@ -282,6 +309,41 @@ self.addEventListener("fetch", (event) => {
         } catch {
           // Network failed and not in cache
           return Response.error();
+        }
+      })()
+    );
+    return;
+  }
+  
+  // Cache session routes (/session/[id]) network-first with cache fallback
+  if (isSessionRoute(event.request)) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        try {
+          const networkResponse = await fetch(event.request);
+          if (networkResponse.ok) {
+            // Cache the successful response for offline access
+            cache.put(event.request, networkResponse.clone());
+          }
+          return networkResponse;
+        } catch {
+          // Network failed, try cache
+          const cachedResponse = await cache.match(event.request);
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          // Both failed, fall through to offline page
+          const offlineCache = await caches.open(CACHE_NAME);
+          const offlinePage = await offlineCache.match(OFFLINE_URL);
+          if (offlinePage) {
+            return new Response(offlinePage.body, {
+              status: offlinePage.status,
+              statusText: offlinePage.statusText,
+              headers: offlinePage.headers,
+            });
+          }
+          return new Response("Offline", { status: 503 });
         }
       })()
     );
