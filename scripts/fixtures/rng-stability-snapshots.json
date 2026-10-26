@@ -33,7 +33,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Seated Bent-Over One-Arm Dumbbell Triceps Extension",
+          "name": "Seated Triceps Press",
           "orderIndex": 4,
           "targetSets": 4,
           "targetRepsMin": 8,
@@ -74,7 +74,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Cross Body Hammer Curl",
+          "name": "Dumbbell Alternate Bicep Curl",
           "orderIndex": 4,
           "targetSets": 4,
           "targetRepsMin": 8,
@@ -115,7 +115,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Dumbbell Side Bend",
+          "name": "Crunches",
           "orderIndex": 4,
           "targetSets": 3,
           "targetRepsMin": 8,
@@ -156,7 +156,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Dumbbell One-Arm Triceps Extension",
+          "name": "Standing Overhead Barbell Triceps Extension",
           "orderIndex": 4,
           "targetSets": 4,
           "targetRepsMin": 8,
@@ -202,7 +202,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Standing Concentration Curl",
+          "name": "Lying High Bench Barbell Curl",
           "orderIndex": 4,
           "targetSets": 4,
           "targetRepsMin": 8,
@@ -243,7 +243,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Flutter Kicks",
+          "name": "Janda Sit-Up",
           "orderIndex": 4,
           "targetSets": 3,
           "targetRepsMin": 8,
@@ -539,7 +539,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Standing Bent-Over Two-Arm Dumbbell Triceps Extension",
+          "name": "Standing One-Arm Dumbbell Triceps Extension",
           "orderIndex": 4,
           "targetSets": 4,
           "targetRepsMin": 8,
@@ -580,7 +580,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Seated Dumbbell Curl",
+          "name": "Standing Concentration Curl",
           "orderIndex": 4,
           "targetSets": 4,
           "targetRepsMin": 8,
@@ -621,7 +621,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Crunches",
+          "name": "Tuck Crunch",
           "orderIndex": 4,
           "targetSets": 3,
           "targetRepsMin": 8,
@@ -662,7 +662,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Body Tricep Press",
+          "name": "Body-Up",
           "orderIndex": 4,
           "targetSets": 4,
           "targetRepsMin": 8,
@@ -708,7 +708,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Zottman Curl",
+          "name": "Standing Dumbbell Reverse Curl",
           "orderIndex": 4,
           "targetSets": 4,
           "targetRepsMin": 8,
@@ -749,7 +749,7 @@
           "targetRepsMax": 12
         },
         {
-          "name": "Oblique Crunches - On The Floor",
+          "name": "Seated Leg Tucks",
           "orderIndex": 4,
           "targetSets": 3,
           "targetRepsMin": 8,
