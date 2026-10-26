@@ -180,14 +180,18 @@ test_mutant "resolveTarget min → plan min" a1
 # A2: Remove equipment/unit spread (provide wrong defaults)
 a2() {
   local file="$BUILD_INPUT"
-  local search='...progressionInputsFromExercise(ex),'
+  local search='\.\.\.progressionInputsFromExercise(ex),'
   local replace='equipmentIds: undefined,'
-  local count=$(grep -Fc "$search" "$file" || true)
+  local count=$(grep -c "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
   sed -i "s/$search/$replace/" "$file"
+  if cmp -s "$file" "$BACKUP_BUILD_INPUT"; then
+    echo "ERROR: A2 did not change the file" >&2
+    return 1
+  fi
 }
 test_mutant "Remove ...progressionInputsFromExercise" a2
 
@@ -235,19 +239,23 @@ m1c() {
 }
 test_mutant "M1c: no hold when back-off unchanged" m1c
 
-# C1: One-step cap removed (allow multi-step)
+# C1: One-step cap removed (remove the snap-down step addition)
 c1() {
   local file="$PROG"
-  local search='const nextGrid = Math.ceil((from + epsilon) / gridStep) * gridStep;'
-  local replace='const nextGrid = from + 2 * gridStep;'
+  local search='next = snappedFrom + gridStep;'
+  local replace='next = from;'
   local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "s/const nextGrid = Math\\.ceil((from + epsilon) \\/ gridStep) \\* gridStep;/$replace/" "$file"
+  sed -i "s/next = snappedFrom + gridStep;/next = from;/" "$file"
+  if cmp -s "$file" "$BACKUP_PROG"; then
+    echo "ERROR: C1 did not change the file" >&2
+    return 1
+  fi
 }
-test_mutant "One-step cap removed" c1
+test_mutant "One-step cap removed (no snap step)" c1
 
 # C2: Success check ignores stored target (mutates the successTarget resolveTarget call only)
 c2() {
@@ -386,6 +394,77 @@ med3() {
   fi
 }
 test_mutant "MED-3: no third-miss step-down" med3
+
+# L4B-1: Use Math.round (nearest) instead of Math.floor (snap-down)
+l4b_round_instead_floor() {
+  local file="$PROG"
+  local search='const snappedFrom = Math.floor(from / gridStep) * gridStep;'
+  local count=$(grep -Fc "$search" "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: Pattern found $count times (expected 1)" >&2
+    return 1
+  fi
+  # Use | as delimiter
+  sed -i 's|const snappedFrom = Math\.floor(from / gridStep) \* gridStep;|const snappedFrom = Math.round(from / gridStep) * gridStep;|' "$file"
+  # Use grep -F for fixed string matching
+  if ! grep -qF 'const snappedFrom = Math.round(from / gridStep) * gridStep;' "$file"; then
+    echo "ERROR: L4B-1 mutation did not apply" >&2
+    return 1
+  fi
+}
+test_mutant "L4B-1: round to nearest instead of floor" l4b_round_instead_floor
+
+# L4B-2: Remove the snap step (step from raw stored weight)
+l4b_no_snap_step() {
+  local file="$PROG"
+  local count=$(grep -c 'const snappedFrom = Math\.floor(from / gridStep) \* gridStep;' "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: Pattern found $count times (expected 1)" >&2
+    return 1
+  fi
+  # Comment out the snap line, use from directly
+  sed -i 's|const snappedFrom = Math\.floor(from / gridStep) \* gridStep;|// const snappedFrom = Math.floor(from / gridStep) * gridStep; // MUTANT|' "$file"
+  sed -i 's|next = snappedFrom + gridStep;|next = from + gridStep;|' "$file"
+  if cmp -s "$file" "$BACKUP_PROG"; then
+    echo "ERROR: L4B-2 did not change the file" >&2
+    return 1
+  fi
+}
+test_mutant "L4B-2: no snap, step from raw stored weight" l4b_no_snap_step
+
+# L4B-3: Drop equipmentIds from buildProgressionInput
+l4b_drop_equipment() {
+  local file="$BUILD_INPUT"
+  # Remove the spread that includes equipmentIds
+  local count=$(grep -c '\.\.\.progressionInputsFromExercise(ex),' "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: Pattern found $count times (expected 1)" >&2
+    return 1
+  fi
+  sed -i 's|\.\.\.progressionInputsFromExercise(ex),|// MUTANT: equipmentIds dropped|' "$file"
+  if cmp -s "$file" "$BACKUP_BUILD_INPUT"; then
+    echo "ERROR: L4B-3 did not change the file" >&2
+    return 1
+  fi
+}
+test_mutant "L4B-3: drop equipmentIds from progression input" l4b_drop_equipment
+
+# L4B-4: Drop units from buildProgressionInput
+l4b_drop_units() {
+  local file="$BUILD_INPUT"
+  # Remove the units line
+  local count=$(grep -c '^\s*units,$' "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: units line found $count times (expected 1)" >&2
+    return 1
+  fi
+  sed -i '/^\s*units,$/d' "$file"
+  if cmp -s "$file" "$BACKUP_BUILD_INPUT"; then
+    echo "ERROR: L4B-4 did not change the file" >&2
+    return 1
+  fi
+}
+test_mutant "L4B-4: drop units from progression input" l4b_drop_units
 
 echo
 echo "==========================================="
