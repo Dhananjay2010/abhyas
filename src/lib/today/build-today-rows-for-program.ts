@@ -9,6 +9,8 @@
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { buildTodayRows, type TodayRow } from "./build-today-rows";
 import type { Database } from "@/lib/database.types";
+import type { UnitsPreference } from "@/lib/units";
+import { wireLoggedSets, type LoggedSetsData } from "./wire-logged-sets";
 
 type ActualRow = {
   order_index: number;
@@ -47,6 +49,11 @@ export type BuildTodayRowsForProgramInput = {
     deload_week: number | null;
   };
   localToday: string;
+  /**
+   * The sets actually logged in today's completed session. When given, each
+   * performed row shows them ("80 kg × 10, 10, 9") instead of the prescription.
+   */
+  logged?: { exercises: LoggedSetsData[]; units: UnitsPreference } | null;
 };
 
 /**
@@ -60,7 +67,7 @@ export type BuildTodayRowsForProgramInput = {
  * that calls this function.
  */
 export function buildTodayRowsForProgram(input: BuildTodayRowsForProgramInput): TodayRow[] {
-  const { actual, template, program, localToday } = input;
+  const { actual, template, program, localToday, logged } = input;
 
   // Compute isDeload: week === deload_week (null deload_week means never deload)
   const week = cycleWeekFor(
@@ -70,5 +77,7 @@ export function buildTodayRowsForProgram(input: BuildTodayRowsForProgramInput): 
   const isDeload = week === program.deload_week;
 
   // Build rows with the deload flag
-  return buildTodayRows({ actual, template, isDeload });
+  const rows = buildTodayRows({ actual, template, isDeload });
+  if (logged) wireLoggedSets(rows, logged.exercises, logged.units);
+  return rows;
 }
