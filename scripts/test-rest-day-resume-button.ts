@@ -42,10 +42,10 @@ function main() {
 
     assert.equal(result.showResume, false, "showResume should be false");
     assert.equal(result.showSwap, true, "showSwap should be true");
-    assert.equal(result.resumeHref, null, "resumeHref should be null");
+    assert.equal(result.resumeButton, null, "resumeButton should be null");
   });
 
-  test("Rest day with open session from earlier today: showResume=true, href=null", () => {
+  test("Rest day with open session (started) from earlier today: form button 'Resume session'", () => {
     const session: SessionForDetection = {
       id: "session-today",
       status: "in_progress",
@@ -62,10 +62,38 @@ function main() {
 
     assert.equal(result.showResume, true, "showResume should be true");
     assert.equal(result.showSwap, false, "showSwap should be false");
-    assert.equal(result.resumeHref, null, "href null → uses Start Session button");
+    assert.deepEqual(
+      result.resumeButton,
+      { type: "form", label: "Resume session" },
+      "resumeButton should be form with 'Resume session'"
+    );
   });
 
-  test("Rest day with open session from previous day: showResume=true, href=/session/<id>", () => {
+  test("Rest day with open session (planned, not started) from today: form button 'Start session'", () => {
+    const session: SessionForDetection = {
+      id: "session-today-planned",
+      status: "planned",
+      actual_type: "weights",
+      local_date: "2026-10-27", // Today
+      started_at: null,
+    };
+
+    const result = decideRestDayResume({
+      dayType: "rest",
+      strengthOpen: session,
+      localToday,
+    });
+
+    assert.equal(result.showResume, true, "showResume should be true");
+    assert.equal(result.showSwap, false, "showSwap should be false");
+    assert.deepEqual(
+      result.resumeButton,
+      { type: "form", label: "Start session" },
+      "resumeButton should be form with 'Start session'"
+    );
+  });
+
+  test("Rest day with open session from previous day: link button /session/<id>", () => {
     const session: SessionForDetection = {
       id: "session-prev",
       status: "in_progress",
@@ -82,7 +110,11 @@ function main() {
 
     assert.equal(result.showResume, true, "showResume should be true");
     assert.equal(result.showSwap, false, "showSwap should be false");
-    assert.equal(result.resumeHref, "/session/session-prev", "href should point to session");
+    assert.deepEqual(
+      result.resumeButton,
+      { type: "link", href: "/session/session-prev" },
+      "resumeButton should be link with href"
+    );
   });
 
   test("Training day with open session: showSwap=true (not a rest day)", () => {
@@ -102,7 +134,7 @@ function main() {
 
     assert.equal(result.showResume, false, "showResume should be false (not rest)");
     assert.equal(result.showSwap, true, "showSwap should be true");
-    assert.equal(result.resumeHref, null, "resumeHref should be null");
+    assert.equal(result.resumeButton, null, "resumeButton should be null");
   });
 
   test("Yoga day with open session: showSwap=true", () => {
@@ -124,7 +156,7 @@ function main() {
     assert.equal(result.showSwap, true, "showSwap should be true");
   });
 
-  test("MUTANT: decideRestDayResume always returns showSwap=true (breaks rest day hiding)", () => {
+  test("MUTANT: showSwap always true breaks rest-day hiding", () => {
     const session: SessionForDetection = {
       id: "session-prev",
       status: "in_progress",

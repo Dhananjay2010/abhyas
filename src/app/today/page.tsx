@@ -15,7 +15,6 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
-import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
 import { StrengthDoneBanner } from "./strength-done-banner";
@@ -475,67 +474,66 @@ export default async function TodayPage() {
         />
       )}
 
-      {dayType === "rest" && (
-        <>
-          {/* Rest day with an open strength session from an earlier day shows Resume */}
-          {strengthOpen && (() => {
-            const resumeHref = previousDayResumeHref(strengthOpen, localToday);
-            return (
+      {dayType === "rest" && (() => {
+        const decision = decideRestDayResume({ dayType, strengthOpen, localToday });
+
+        return (
+          <>
+            {/* Rest day with an open strength session shows Resume */}
+            {decision.showResume && decision.resumeButton && (
               <div className="mt-7">
-                {resumeHref ? (
+                {decision.resumeButton.type === "link" ? (
                   <Link
-                    href={resumeHref}
+                    href={decision.resumeButton.href}
                     className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
                   >
                     Resume session
                   </Link>
                 ) : (
-                  <StartSessionButton
-                    label={strengthOpen.started_at ? "Resume session" : "Start session"}
-                  />
+                  <StartSessionButton label={decision.resumeButton.label} />
                 )}
               </div>
-            );
-          })()}
-
-          <p className="mt-6 text-muted">
-            Rest is part of the training. Your body builds strength while recovering.
-          </p>
-          <div className="mt-6 space-y-3">
-            <div className="rounded-xl border border-border bg-surface-2 p-5">
-              <h3 className="font-semibold">Active recovery</h3>
-              <p className="mt-1 text-sm text-muted">
-                Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
-              </p>
-              <div className="mt-4 flex gap-3">
-                <Link
-                  href="/yoga"
-                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
-                >
-                  Yoga
-                </Link>
-                <Link
-                  href="/breathe"
-                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
-                >
-                  Breathe
-                </Link>
-              </div>
-            </div>
-            {/* Only show swap prompt when no strength session is open */}
-            {!strengthOpen && (
-              <DayPlanPrompt
-                localDate={localToday}
-                dayLabel="Today"
-                plannedLabel="Rest"
-                days={plannable}
-                heading="Or train today anyway"
-                intro="Pick what you'd like to do instead."
-              />
             )}
-          </div>
-        </>
-      )}
+
+            <p className="mt-6 text-muted">
+              Rest is part of the training. Your body builds strength while recovering.
+            </p>
+            <div className="mt-6 space-y-3">
+              <div className="rounded-xl border border-border bg-surface-2 p-5">
+                <h3 className="font-semibold">Active recovery</h3>
+                <p className="mt-1 text-sm text-muted">
+                  Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
+                </p>
+                <div className="mt-4 flex gap-3">
+                  <Link
+                    href="/yoga"
+                    className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                  >
+                    Yoga
+                  </Link>
+                  <Link
+                    href="/breathe"
+                    className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                  >
+                    Breathe
+                  </Link>
+                </div>
+              </div>
+              {/* Only show swap prompt when no strength session is open */}
+              {decision.showSwap && (
+                <DayPlanPrompt
+                  localDate={localToday}
+                  dayLabel="Today"
+                  plannedLabel="Rest"
+                  days={plannable}
+                  heading="Or train today anyway"
+                  intro="Pick what you'd like to do instead."
+                />
+              )}
+            </div>
+          </>
+        );
+      })()}
 
       {dayType === "meditation" && (
         <div className="mt-6">
@@ -578,10 +576,10 @@ export default async function TodayPage() {
               plannedSets={endedEarlySummary?.plannedSets ?? 0}
             />
           ) : (() => {
-            const resumeHref = previousDayResumeHref(strengthOpen, localToday);
-            return resumeHref ? (
+            const decision = decideRestDayResume({ dayType, strengthOpen, localToday });
+            return decision.resumeButton?.type === "link" ? (
               <Link
-                href={resumeHref}
+                href={decision.resumeButton.href}
                 className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
               >
                 Resume session
@@ -594,7 +592,7 @@ export default async function TodayPage() {
                 a workout half-done when they had not.
               */
               <StartSessionButton
-                label={strengthOpen?.started_at ? "Resume session" : "Start session"}
+                label={decision.resumeButton?.label ?? (strengthOpen?.started_at ? "Resume session" : "Start session")}
               />
             );
           })()}
