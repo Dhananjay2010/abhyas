@@ -64,17 +64,17 @@ function test_mutant {
   fi
 }
 
-# Mutant 1: Disable knee-risk filter in pickForSlot
+# Mutant 1: Disable knee-risk filter in pickForSlot (change hasPastKnee to false)
 test_mutant "disable-pickforslot-knee-filter" \
-  "sed -i '827s/input\\.anyKneeInjury/false/' $GENERATE_FILE"
+  "sed -i '829s/input\\.anyKneeInjury/false/' $GENERATE_FILE"
 
 # Mutant 2: Remove entire knee-risk filter block from pickForSlot
 test_mutant "remove-pickforslot-knee-block" \
-  "sed -i '/PART A: Knee-risk filter for knee users (Brief knee-volume)/,/^    }/d' $GENERATE_FILE"
+  "sed -i '/PART A: Knee-risk filter for PAST knee users/,/^    }/d' $GENERATE_FILE"
 
 # Mutant 3: Remove knee-risk filter from SAFE_ALTERNATIVES
 test_mutant "remove-alternatives-knee-block" \
-  "sed -i '/PART A: Knee-risk filter for SAFE_ALTERNATIVES/,/^    }/d' $GENERATE_FILE"
+  "sed -i '/PART A: Knee-risk filter for SAFE_ALTERNATIVES - past knee only/,/^    }/d' $GENERATE_FILE"
 
 # Mutant 4: Make helper always return false
 test_mutant "helper-always-false" \
