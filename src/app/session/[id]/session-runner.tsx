@@ -1260,7 +1260,25 @@ export function SessionRunner({
                 <button
                   key={f.value}
                   disabled={busy}
-                  onClick={() => onFinishExercise(f.value)}
+                  onClick={async () => {
+                    // L3: If sets are queued, show message and replay first
+                    if (pendingSetState.pending.length > 0 && controller) {
+                      setMessage("Saving your sets first…");
+                      await controller.onFocus();
+                      // After replay, check if queue is now empty
+                      const remaining = pendingSetState.pending.length;
+                      if (remaining === 0) {
+                        // Queue is empty, proceed with finish
+                        setMessage(null);
+                        await onFinishExercise(f.value);
+                      } else {
+                        // Still queued (offline/error), keep message
+                        setMessage("Can't finish until your sets are saved");
+                      }
+                    } else {
+                      await onFinishExercise(f.value);
+                    }
+                  }}
                   className="rounded-xl border border-border bg-surface px-3 py-4 text-sm font-medium transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
                 >
                   {f.label}
