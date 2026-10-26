@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * MED-2 Comparison: Show per-day lower-body set totals and estimated minutes
+ * MED-2 Comparison: Assert per-day lower-body set totals and estimated minutes
  * for past-knee users on main vs this PR for Lower and Full Body days.
  * Must stay close to main (within one set, two minutes).
  */
@@ -54,6 +54,15 @@ console.log("─".repeat(80));
 
 const lowerBodyPatterns = new Set(["squat", "lunge", "hinge", "calf"]);
 
+// Expected values from main (PR #144 behavior)
+// These are baseline values that this PR should stay close to
+const expectedDays = [
+  { dayIndex: 2, label: "Lower", lowerSets: 21, totalSets: 25, estMinutes: 70 },
+  { dayIndex: 5, label: "Lower", lowerSets: 21, totalSets: 25, estMinutes: 72 },
+];
+
+let failures = 0;
+
 for (const day of lowerDays) {
   if (day.dayType === "rest") continue;
   
@@ -83,14 +92,45 @@ for (const day of lowerDays) {
   
   console.log(`     ${exList}`);
   console.log("");
+  
+  // Check against expected values
+  const expected = expectedDays.find(e => e.dayIndex === day.dayIndex);
+  if (expected) {
+    const setDiff = Math.abs(lowerBodySets - expected.lowerSets);
+    const minuteDiff = Math.abs(estMinutes - expected.estMinutes);
+    
+    if (setDiff > 1) {
+      console.log(`  ✗ Lower-body sets differ by ${setDiff} (expected ${expected.lowerSets}, got ${lowerBodySets})`);
+      failures++;
+    } else {
+      console.log(`  ✓ Lower-body sets within 1 of expected (${lowerBodySets} vs ${expected.lowerSets})`);
+    }
+    
+    if (minuteDiff > 2) {
+      console.log(`  ✗ Estimated minutes differ by ${minuteDiff} (expected ${expected.estMinutes}, got ${estMinutes})`);
+      failures++;
+    } else {
+      console.log(`  ✓ Estimated minutes within 2 of expected (${estMinutes} vs ${expected.estMinutes})`);
+    }
+    console.log("");
+  }
 }
 
 console.log("─".repeat(80));
-console.log("\nExpected (from main PR #144 behavior):");
-console.log("  - Lower-body set totals should be close to main (within 1-2 sets)");
-console.log("  - Session times should be close to main (within 2 minutes)");
+console.log("\nRequirements:");
+console.log("  - Lower-body set totals must be within 1 set of main");
+console.log("  - Session times must be within 2 minutes of main");
 console.log("  - Hip-dominant exercises (hinge) should have more sets than knee-risk squats");
 console.log("\nStrategy 3 hinge switch:");
 console.log("  ✓ Respects user's equipment (filtered by isEligible)");
 console.log("  ✓ Never duplicates exercises (checked by usedInBlock)");
 console.log("  ✓ Prioritizes glute/hamstring primary muscles for hip-dominant work");
+
+console.log("\n" + "─".repeat(80));
+if (failures === 0) {
+  console.log("✓ MED-2 comparison passed - all metrics within tolerance");
+  process.exit(0);
+} else {
+  console.log(`✗ MED-2 comparison failed - ${failures} metrics out of tolerance`);
+  process.exit(1);
+}

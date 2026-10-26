@@ -5,7 +5,7 @@ import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
 import { 
   isKneeRiskForKneeUser, 
   KNEE_SAFE_QUAD_EXERCISES,
-  getDerivedContraindications as getKneeDerivedContraindications 
+  getDerivedContraindications
 } from "./knee-safety";
 
 type Enums = Database["public"]["Enums"];
@@ -428,65 +428,7 @@ export const FLOOR_PULL_DEADLIFTS: ReadonlySet<string> = new Set([
   'smith-machine-stiff-legged-deadlift', // Smith machine stiff-leg variant
 ]);
 
-/**
- * Exercises with slug-specific shoulder contraindications.
- * Around The Worlds: arms pass overhead in a wide arc, loading shoulders.
- */
-const SHOULDER_CONTRAINDICATED_SLUGS: ReadonlySet<string> = new Set([
-  "around-the-worlds",
-]);
-
-/**
- * QA Pass 10 C2: Derive contraindications from exercise properties.
- * - vertical_press or "overhead" in name → shoulder
- * - spinal_load high → lower_back
- * - squat, lunge, or jump pattern/name → knee (via knee-safety.ts)
- * 
- * Derived contraindications ADD to explicit tags, don't replace them.
- */
-function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
-  const derived: BodyRegion[] = [];
-  const nameLower = ex.name.toLowerCase();
-  const slugLower = ex.slug.toLowerCase();
-  
-  // Slug-specific shoulder contraindications
-  if (SHOULDER_CONTRAINDICATED_SLUGS.has(ex.slug)) {
-    derived.push("shoulder");
-  }
-  
-  // Vertical press or overhead movements load shoulders
-  if (ex.movement_pattern === "vertical_press" ||
-      nameLower.includes("overhead") ||
-      slugLower.includes("overhead") ||
-      nameLower.includes("shoulder press") ||
-      nameLower.includes("military press")) {
-    derived.push("shoulder");
-  }
-  
-  // High spinal load affects lower back (moderate is manageable for most)
-  if (ex.spinal_load === "high") {
-    derived.push("lower_back");
-  }
-  
-  // Knee: kept in sync with knee-safety.ts (both check same conditions)
-  // This duplication is intentional for performance (avoid circular imports)
-  if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
-    if (ex.movement_pattern === "squat" ||
-        ex.movement_pattern === "lunge" ||
-        nameLower.includes("squat") ||
-        nameLower.includes("lunge") ||
-        nameLower.includes("jump") ||
-        slugLower.includes("squat") ||
-        slugLower.includes("lunge") ||
-        slugLower.includes("jump") ||
-        nameLower.includes("box step") ||
-        slugLower.includes("box-step")) {
-      derived.push("knee");
-    }
-  }
-  
-  return derived;
-}
+// getDerivedContraindications is now imported from knee-safety.ts (single source of truth)
 
 // M1 equipment alternatives: Exercises where ANY of the listed equipment works
 // Each inner array is one valid alternative set
