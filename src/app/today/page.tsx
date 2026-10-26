@@ -396,40 +396,13 @@ export default async function TodayPage() {
     localToday,
   });
 
-  // FIX (c): Wire in logged sets for completed sessions
+  // FIX (c): Wire in logged sets for completed sessions using real key format
   if (loggedSetsRes?.data) {
-    const { formatLoggedSets } = await import("@/lib/session/format-logged-sets");
+    const { wireLoggedSets } = await import("@/lib/today/wire-logged-sets");
     const { getUnitsPreference } = await import("@/lib/units");
     const units = getUnitsPreference(profile.units);
     
-    const loggedByOrder = new Map(
-      loggedSetsRes.data.map((ex) => [
-        ex.order_index,
-        {
-          metric: ex.metric,
-          sets: ex.session_sets ?? [],
-        },
-      ])
-    );
-
-    for (const row of todayExercises) {
-      const logged = loggedByOrder.get(parseInt(row.key.replace("actual-", ""), 10));
-      if (logged && logged.sets.length > 0 && row.metric) {
-        const formatted = formatLoggedSets(
-          logged.sets.map((s) => ({
-            reps: s.reps,
-            weightKg: s.weight_kg,
-            durationSeconds: s.duration_seconds,
-            isWarmupSet: s.is_warmup_set,
-          })),
-          row.metric,
-          units,
-        );
-        if (formatted) {
-          row.loggedSets = formatted;
-        }
-      }
-    }
+    wireLoggedSets(todayExercises as any, loggedSetsRes.data, units);
   }
 
   // Recompute week and isDeload for UI display (header, deload banner, etc.)
@@ -438,8 +411,8 @@ export default async function TodayPage() {
   const isDeload = week === program.deload_week;
 
   // FIX (b): Mark days done in the week view after session completes
-  const { computeCompletedDays } = await import("@/lib/today/completed-days");
-  const completedDays = computeCompletedDays(allSessions);
+  const { computeDoneDays } = await import("@/lib/today/compute-done-days");
+  const completedDays = computeDoneDays(allSessions);
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show

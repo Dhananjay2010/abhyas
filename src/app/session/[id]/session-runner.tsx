@@ -179,16 +179,9 @@ export function SessionRunner({
   // FIX (a): Load summary from DB on phase transition, not client state
   const [progressNotes, setProgressNotes] = useState<SummaryNote[]>([]);
   const [summaryLoaded, setSummaryLoaded] = useState(false);
-  /*
-    Which exercise screen the "what just changed" banner belongs on.
-
-    It used to render `progressNotes[last]` unconditionally, so the note from
-    exercise one stayed on screen through exercises two, three and four -- by
-    the end of a session the banner was describing a lift two exercises ago.
-    The note is about the exercise just finished, so it belongs on exactly the
-    one screen that follows it.
-  */
   const [bannerFor, setBannerFor] = useState<number | null>(null);
+  const [bannerNote, setBannerNote] = useState<string | null>(null);
+
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
   /*
@@ -213,6 +206,18 @@ export function SessionRunner({
   const [phase, setPhase] = useState<Phase>(
     nothingPending ? "cooldown" : warmupAlreadyDone || warmup.length === 0 ? "work" : "warmup",
   );
+  
+  // Load summary when phase transitions to done (including on remount)
+  useEffect(() => {
+    if (phase === "done" && !summaryLoaded) {
+      actions.getSessionSummary(sessionId).then((result) => {
+        if (result.ok) {
+          setProgressNotes(result.data);
+          setSummaryLoaded(true);
+        }
+      });
+    }
+  }, [phase, summaryLoaded, sessionId, actions]);
   const [warmupIndex, setWarmupIndex] = useState(0);
   // B1: the exercise the latest logged set belongs to, not simply the first
   // pending one, so a resume lands where the user left off.
@@ -791,7 +796,12 @@ export function SessionRunner({
       return;
     }
     setError(null);
-    // FIX (a): progressNotes is loaded from DB on done phase, not client state
+    
+    // FIX (a): Store feedback from finishExercise for immediate banner display
+    if (result.data) {
+      setBannerNote(result.data.message);
+    }
+    
     setExercises((prev) =>
       prev.map((e) =>
         e.id === current.id ? { ...e, status: skipped ? "skipped" : "completed", feel } : e,
@@ -826,10 +836,9 @@ export function SessionRunner({
         message={message}
     >
       <div onPointerDown={onAnyTap}>
-        {bannerFor === exerciseIndex && progressNotes.length > 0 && (
+        {bannerFor === exerciseIndex && bannerNote && (
           <p className="mb-5 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-            <span className="font-semibold">{progressNotes[progressNotes.length - 1].name}:</span>{" "}
-            {progressNotes[progressNotes.length - 1].message}
+            <span className="font-semibold">{current.name}:</span> {bannerNote}
           </p>
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>
