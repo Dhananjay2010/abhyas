@@ -196,5 +196,24 @@ check("No-injury Lower includes knee-loading drills", hasKneeLoading,
   `mobility: ${noInjuryLower.filter(w => w.phase === "mobility").map(w => w.slug).join(", ")}`
 );
 
+// Test case 4: Pin exact mobility seconds for a specific profile (6a)
+console.log("\n\nPin exact mobility seconds (item 6a):");
+const pinnedProfile = selectWarmup({
+  warmups,
+  trainingMuscles: ["quads", "glutes", "hamstrings", "calves"],
+  injuryRegions: [],
+  prehabRegions: [],
+  track: "weights",
+  hasAllEquipment: true,
+  availableEquipment: null,
+});
+
+const pinnedMobility = pinnedProfile.filter(w => w.phase === "mobility");
+const pinnedMobilitySeconds = pinnedMobility.reduce((sum, w) => sum + (w.duration_seconds ?? 0), 0);
+
+check("Pinned mobility seconds for full-equipment Lower day", pinnedMobilitySeconds === 225,
+  `expected exactly 225s, got ${pinnedMobilitySeconds}s (${pinnedMobility.map(w => `${w.slug}:${w.duration_seconds}s`).join(", ")})`
+);
+
 console.log(`\n${failures === 0 ? "✓ All tests passed!" : `✗ ${failures} test(s) failed`}`);
 process.exit(failures > 0 ? 1 : 0);

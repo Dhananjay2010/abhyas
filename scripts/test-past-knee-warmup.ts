@@ -336,5 +336,24 @@ check("Current knee Upper warmup has no knee-loading drills",
 // any change in output. The identity matrix test covers this for non-past-knee scenarios.
 
 // Summary
+console.log("\n8. Drill slugs uniqueness (item 6b)");
+const allDrillSlugs = warmups.map(w => w.slug);
+const uniqueDrillSlugs = new Set(allDrillSlugs);
+const hasDuplicates = allDrillSlugs.length !== uniqueDrillSlugs.size;
+
+if (hasDuplicates) {
+  const slugCounts = new Map<string, number>();
+  for (const slug of allDrillSlugs) {
+    slugCounts.set(slug, (slugCounts.get(slug) ?? 0) + 1);
+  }
+  const duplicates = Array.from(slugCounts.entries())
+    .filter(([_, count]) => count > 1)
+    .map(([slug, count]) => `${slug} (${count}x)`);
+  
+  check("All drill slugs are unique", false, `Duplicates found: ${duplicates.join(", ")}`);
+} else {
+  check("All drill slugs are unique", true, `${uniqueDrillSlugs.size} unique slugs`);
+}
+
 console.log(`\n${failures === 0 ? "✓ All tests passed!" : `✗ ${failures} test(s) failed`}`);
 process.exit(failures > 0 ? 1 : 0);

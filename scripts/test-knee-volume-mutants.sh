@@ -14,9 +14,8 @@ set -u
 GENERATE=src/lib/program/generate.ts
 KNEE_SAFETY=src/lib/program/knee-safety.ts
 
-# Create private backups with mktemp
-BACKUP_GENERATE=$(mktemp "${TMPDIR:-/tmp}/generate-backup.XXXXXX")
-BACKUP_KNEE_SAFETY=$(mktemp "${TMPDIR:-/tmp}/knee-safety-backup.XXXXXX")
+# Create private backup directory with mktemp -d
+BACKUP_DIR=$(mktemp -d)
 
 CURRENT_FILE=""
 BACKUP=""
@@ -34,23 +33,22 @@ restore() {
 
 cleanup() {
   restore
-  if [ -s "$BACKUP_GENERATE" ]; then
-    cp "$BACKUP_GENERATE" "$GENERATE"
+  if [ -s "$BACKUP_DIR/generate.ts" ]; then
+    cp "$BACKUP_DIR/generate.ts" "$GENERATE"
   fi
-  rm -f "$BACKUP_GENERATE"
-  if [ -s "$BACKUP_KNEE_SAFETY" ]; then
-    cp "$BACKUP_KNEE_SAFETY" "$KNEE_SAFETY"
+  if [ -s "$BACKUP_DIR/knee-safety.ts" ]; then
+    cp "$BACKUP_DIR/knee-safety.ts" "$KNEE_SAFETY"
   fi
-  rm -f "$BACKUP_KNEE_SAFETY"
+  rm -rf "$BACKUP_DIR"
 }
 trap cleanup EXIT INT TERM
 
 # Backup originals - check cp succeeded before counting as backed up
-if ! cp "$GENERATE" "$BACKUP_GENERATE"; then
+if ! cp "$GENERATE" "$BACKUP_DIR/generate.ts"; then
   echo "FATAL: failed to backup $GENERATE"
   exit 1
 fi
-if ! cp "$KNEE_SAFETY" "$BACKUP_KNEE_SAFETY"; then
+if ! cp "$KNEE_SAFETY" "$BACKUP_DIR/knee-safety.ts"; then
   echo "FATAL: failed to backup $KNEE_SAFETY"
   exit 1
 fi
@@ -74,7 +72,7 @@ run_mutant() {
   echo ""
   echo "$name"
   CURRENT_FILE="$file"
-  BACKUP=$(mktemp "${TMPDIR:-/tmp}/kv-mutant.XXXXXX")
+  BACKUP="$BACKUP_DIR/mutant-$(basename "$file")"
   if ! cp "$file" "$BACKUP"; then
     echo "  ⊘ SKIP: backup failed"
     SKIPPED=$((SKIPPED + 1))

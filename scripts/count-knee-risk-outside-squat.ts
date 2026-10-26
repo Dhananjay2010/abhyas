@@ -29,10 +29,7 @@ for (const spec of pastKneeProfiles) {
   const input = makeGeneratorInput(spec, catalogue);
   const result = generateProgram(input);
   
-  let foundKneeRiskOutsideSquat = false;
   let foundKneeRiskInAnySlot = false;
-  let foundExplicitKneeContraindication = false;
-  let foundPastKneeExcludedExercise = false;
   
   for (const day of result.days) {
     if (day.dayType === "rest") continue;
@@ -44,20 +41,14 @@ for (const spec of pastKneeProfiles) {
       // K1 mutant killer: Check for explicitly knee-contraindicated exercises outside slot 0
       // (slot 0 squat is allowed to have knee contraindication)
       if (ex.orderIndex !== 0 && exData.contraindicated_regions.includes("knee")) {
-        if (!foundExplicitKneeContraindication) {
-          countWithExplicitKneeContraindication++;
-          console.log(`${spec.id} day ${day.dayIndex}: slot ${ex.orderIndex} has ${ex.name} [EXPLICIT KNEE CONTRAINDICATION]`);
-          foundExplicitKneeContraindication = true;
-        }
+        countWithExplicitKneeContraindication++;
+        console.log(`${spec.id} day ${day.dayIndex}: slot ${ex.orderIndex} has ${ex.name} [EXPLICIT KNEE CONTRAINDICATION]`);
       }
       
       // Mutant 10 killer: Check for past-knee excluded exercises (jumps, etc. - NEVER allowed for past-knee)
       if (isExcludedForPastKnee(exData)) {
-        if (!foundPastKneeExcludedExercise) {
-          countWithPastKneeExcludedExercise++;
-          console.log(`${spec.id} day ${day.dayIndex}: slot ${ex.orderIndex} has ${ex.name} [PAST-KNEE EXCLUDED]`);
-          foundPastKneeExcludedExercise = true;
-        }
+        countWithPastKneeExcludedExercise++;
+        console.log(`${spec.id} day ${day.dayIndex}: slot ${ex.orderIndex} has ${ex.name} [PAST-KNEE EXCLUDED]`);
       }
       
       // Check if it's a knee-risk lift in ANY slot (including squat slot)
@@ -65,11 +56,8 @@ for (const spec of pastKneeProfiles) {
         // Exception: squat slot (orderIndex 0) is allowed to have knee-risk exercises
         // (e.g., Barbell Squat in slot 0 is OK for past-knee users)
         if (ex.orderIndex !== 0) {
-          if (!foundKneeRiskOutsideSquat) {
-            countWithKneeRiskOutsideSquat++;
-            console.log(`${spec.id} day ${day.dayIndex}: slot ${ex.orderIndex} has ${ex.name} [KNEE-RISK outside squat slot]`);
-            foundKneeRiskOutsideSquat = true;
-          }
+          countWithKneeRiskOutsideSquat++;
+          console.log(`${spec.id} day ${day.dayIndex}: slot ${ex.orderIndex} has ${ex.name} [KNEE-RISK outside squat slot]`);
         }
         
         // Also count ANY knee-risk (even in slot 0) for comprehensive check

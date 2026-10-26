@@ -31,12 +31,12 @@ const BASE_INPUT_TEMPLATE: Omit<GeneratorInput, "injuries" | "currentInjuryRegio
   bmi: 22,
   hasAllEquipment: true,
   equipmentIds: [
-    "00000000-0000-4000-8000-000000000001", // barbell
-    "00000000-0000-4000-8000-000000000002", // dumbbell
-    "00000000-0000-4000-8000-000000000003", // flat_bench
-    "00000000-0000-4000-8000-000000000004", // squat_rack
-    "00000000-0000-4000-8000-000000000005", // pull_up_bar
-    "00000000-0000-4000-8000-000000000006", // cable_machine
+    "barbell",
+    "dumbbell",
+    "flat_bench",
+    "squat_rack",
+    "pull_up_bar",
+    "cable_machine",
   ],
   catalogue,
   preferredSessionMinutes: 75,
@@ -50,44 +50,44 @@ const testConfigs = [
     name: "6-day PPL, full gym",
     daysPerWeek: 6,
     equipmentIds: [
-      "00000000-0000-4000-8000-000000000001", // barbell
-      "00000000-0000-4000-8000-000000000002", // dumbbell
-      "00000000-0000-4000-8000-000000000003", // flat_bench
-      "00000000-0000-4000-8000-000000000004", // squat_rack
-      "00000000-0000-4000-8000-000000000005", // pull_up_bar
-      "00000000-0000-4000-8000-000000000006", // cable_machine
+      "barbell",
+      "dumbbell",
+      "flat_bench",
+      "squat_rack",
+      "pull_up_bar",
+      "cable_machine",
     ],
   },
   {
     name: "4-day Upper/Lower, full gym",
     daysPerWeek: 4,
     equipmentIds: [
-      "00000000-0000-4000-8000-000000000001", // barbell
-      "00000000-0000-4000-8000-000000000002", // dumbbell
-      "00000000-0000-4000-8000-000000000003", // flat_bench
-      "00000000-0000-4000-8000-000000000004", // squat_rack
-      "00000000-0000-4000-8000-000000000005", // pull_up_bar
-      "00000000-0000-4000-8000-000000000006", // cable_machine
+      "barbell",
+      "dumbbell",
+      "flat_bench",
+      "squat_rack",
+      "pull_up_bar",
+      "cable_machine",
     ],
   },
   {
     name: "3-day Full Body, dumbbells only",
     daysPerWeek: 3,
     equipmentIds: [
-      "00000000-0000-4000-8000-000000000002", // dumbbell
-      "00000000-0000-4000-8000-000000000003", // flat_bench
+      "dumbbell",
+      "flat_bench",
     ],
   },
   {
     name: "5-day split, full gym",
     daysPerWeek: 5,
     equipmentIds: [
-      "00000000-0000-4000-8000-000000000001", // barbell
-      "00000000-0000-4000-8000-000000000002", // dumbbell
-      "00000000-0000-4000-8000-000000000003", // flat_bench
-      "00000000-0000-4000-8000-000000000004", // squat_rack
-      "00000000-0000-4000-8000-000000000005", // pull_up_bar
-      "00000000-0000-4000-8000-000000000006", // cable_machine
+      "barbell",
+      "dumbbell",
+      "flat_bench",
+      "squat_rack",
+      "pull_up_bar",
+      "cable_machine",
     ],
   },
 ];
