@@ -17,8 +17,8 @@ type SessionRow = {
  * Returns an empty deletedIds array (nothing was deleted).
  */
 export async function keepPlannedDay(
-  supabase: SupabaseClient<Database>,
-  planned: SessionRow[]
+  _supabase: SupabaseClient<Database>,
+  _planned: SessionRow[]
 ): Promise<{ ok: true; deletedIds: string[] } | { ok: false; error: string }> {
   // "Keep it" always keeps: training override, yoga override, breathing override, or Rest override
   return { ok: true, deletedIds: [] };

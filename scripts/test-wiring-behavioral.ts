@@ -179,9 +179,9 @@ async function main() {
 
   // Undo 5: planDay keep bypasses keepPlannedDay helper
   await test("keepPlannedDay: empty array → ok with empty deletedIds", async () => {
-    // Simple mock client - keepPlannedDay only returns success for empty or any array
-    const mockClient = {} as any;
-    const result = await keepPlannedDay(mockClient, []);
+    type MockClient = Record<string, never>;
+    const mockClient: MockClient = {};
+    const result = await keepPlannedDay(mockClient as never, []);
     assert.equal(result.ok, true, "Should succeed");
     if (result.ok) {
       assert.equal(result.deletedIds.length, 0, "Should have no deleted IDs");
@@ -189,11 +189,12 @@ async function main() {
   });
 
   await test("keepPlannedDay: training row → kept (not deleted)", async () => {
-    const mockClient = {} as any;
+    type MockClient = Record<string, never>;
+    const mockClient: MockClient = {};
     const rows = [
       { id: "sess-1", status: "planned", actual_type: "weights", local_date: "2026-11-01" },
     ];
-    const result = await keepPlannedDay(mockClient, rows as any);
+    const result = await keepPlannedDay(mockClient as never, rows as never);
     assert.equal(result.ok, true, "Should succeed");
     if (result.ok) {
       assert.equal(result.deletedIds.length, 0, "Training row should be kept");
@@ -201,11 +202,12 @@ async function main() {
   });
 
   await test("keepPlannedDay: rest row → kept (L1 fix)", async () => {
-    const mockClient = {} as any;
+    type MockClient = Record<string, never>;
+    const mockClient: MockClient = {};
     const rows = [
       { id: "sess-2", status: "planned", actual_type: "rest", local_date: "2026-11-01" },
     ];
-    const result = await keepPlannedDay(mockClient, rows as any);
+    const result = await keepPlannedDay(mockClient as never, rows as never);
     assert.equal(result.ok, true, "Should succeed");
     if (result.ok) {
       assert.equal(result.deletedIds.length, 0, "Rest row should be kept (L1)");
@@ -213,11 +215,12 @@ async function main() {
   });
 
   await test("keepPlannedDay: yoga row → kept", async () => {
-    const mockClient = {} as any;
+    type MockClient = Record<string, never>;
+    const mockClient: MockClient = {};
     const rows = [
       { id: "sess-3", status: "planned", actual_type: "yoga", local_date: "2026-11-01" },
     ];
-    const result = await keepPlannedDay(mockClient, rows as any);
+    const result = await keepPlannedDay(mockClient as never, rows as never);
     assert.equal(result.ok, true, "Should succeed");
     if (result.ok) {
       assert.equal(result.deletedIds.length, 0, "Yoga row should be kept");
