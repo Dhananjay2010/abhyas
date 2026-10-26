@@ -91,13 +91,12 @@ const exercises = [
   },
 ];
 
-const { container, getByText } = render(
-  React.createElement(EditSets, {
-    sessionId: "sess1",
-    units: "imperial" as const,
-    exercises,
-  })
-);
+  const { container, getByText } = render(
+    React.createElement(EditSets, {
+      units: "imperial" as const,
+      exercises,
+    })
+  );
 
 // Check 1: Initial state shows "Edit sets" button
 check("Edit sets button exists", !!getByText("Edit sets"));

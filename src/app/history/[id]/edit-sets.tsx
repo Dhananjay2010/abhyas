@@ -15,7 +15,6 @@ interface SetData {
 }
 
 interface EditSetsProps {
-  sessionId: string;
   units: UnitsPreference;
   exercises: Array<{
     id: string;
@@ -26,7 +25,7 @@ interface EditSetsProps {
   saveSet?: typeof updateSet;
 }
 
-export function EditSets({ sessionId: _sessionId, units, exercises, saveSet = updateSet }: EditSetsProps) {
+export function EditSets({ units, exercises, saveSet = updateSet }: EditSetsProps) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();

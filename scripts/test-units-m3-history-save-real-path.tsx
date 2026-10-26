@@ -79,7 +79,6 @@ async function runTest() {
 
   const { getByText, container } = render(
     React.createElement(EditSets, {
-      sessionId: "sess1",
       units: "imperial" as const,
       exercises,
       saveSet: saveSetSpy,

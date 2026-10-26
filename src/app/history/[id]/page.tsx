@@ -228,7 +228,6 @@ export default async function SessionDetailPage({
       </ol>
 
       <EditSets
-        sessionId={session.id}
         units={units}
         exercises={(exercises ?? []).map((e) => ({
           id: e.id,
