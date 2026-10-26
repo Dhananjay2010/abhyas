@@ -355,6 +355,7 @@ async function test(name: string, fn: () => Promise<void>) {
     const sessionsCall = calls.find(c => c.table === "sessions" && c.method === "GET");
     const programDayExercisesCall = calls.find(c => c.table === "program_day_exercises" && c.method === "GET");
     eq(sessionsCall !== undefined, true, "queries sessions with session_exercises embed");
+    eq(sessionsCall && sessionsCall.params["id"], "eq.sess-1", "filters sessions on id=eq.sess-1");
     eq(programDayExercisesCall !== undefined, true, "queries program_day_exercises");
   });
 

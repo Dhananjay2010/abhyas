@@ -646,6 +646,25 @@ async function main() {
     eq(ensuredSessionId, "sess-planned", "ensureSessionExercises called with reused sessionId");
   });
 
+  await test("Empty planned exercises handled without error", async () => {
+    let insertExercisesWasCalled = false;
+    const deps = createBasicDeps({
+      fetchPlannedExercises: async () => [],
+      insertExercises: async () => {
+        insertExercisesWasCalled = true;
+        return { ok: false, error: "Should not be called with empty array" };
+      },
+    });
+
+    const result = await startSessionFullCore(deps);
+
+    eq(result.ok, true, "Succeeds with empty planned exercises");
+    eq(insertExercisesWasCalled, false, "insertExercises not called when exercises array is empty");
+    if (result.ok) {
+      eq(typeof result.sessionId, "string", "Returns valid sessionId");
+    }
+  });
+
   console.log(`\n${passed + failed} tests, ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
 }
