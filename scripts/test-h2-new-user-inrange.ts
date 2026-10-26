@@ -56,7 +56,7 @@ console.log("\n1. Unit: state null + 4×10@40 → holds at 40, failures 0");
   check("Outcome: hold", decision.outcome === "hold", decision.outcome);
   check("Weight: stored as 40 (not null)", decision.nextWorkingWeightKg === 40, `${decision.nextWorkingWeightKg}`);
   check("Failures: reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
-  check("Message: 'this weight' (not 'here')", decision.message.includes("this weight"), decision.message);
+  check("Message: shows weight value", decision.message === "Staying at 40 kg until every set reaches the top of the range.", decision.message);
 }
 
 console.log("\n2. Mixed weights: state null + 4×10 at 40/42.5/40/40 → stores heaviest (42.5)");
@@ -131,7 +131,7 @@ console.log("\n3. Bodyweight (no logged weights): stays null");
   check("Bodyweight message: 'here' (not 'this weight')", decision.message.includes("Staying here"), decision.message);
 }
 
-console.log("\n4. Stored weight takes precedence over logged weight");
+console.log("\n4. NEW RULE: All sets >= stored, stores lowest used (42.5)");
 {
   const decision = evaluateProgression({
     sets: [
@@ -153,7 +153,7 @@ console.log("\n4. Stored weight takes precedence over logged weight");
       progressionRank: null,
     },
     state: {
-      currentWorkingWeightKg: 40, // Stored weight (prescribed)
+      currentWorkingWeightKg: 40, // Stored weight
       currentTargetReps: 12,
       consecutiveFailures: 0,
       bestWeightKg: 40,
@@ -164,7 +164,7 @@ console.log("\n4. Stored weight takes precedence over logged weight");
     isDeload: false,
   });
 
-  check("Stored weight used: 40 (not logged 42.5)", decision.nextWorkingWeightKg === 40, `${decision.nextWorkingWeightKg}`);
+  check("All sets >= stored: stores lowest used (42.5)", decision.nextWorkingWeightKg === 42.5, `${decision.nextWorkingWeightKg}`);
 }
 
 if (failures > 0) {

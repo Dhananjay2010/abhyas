@@ -105,7 +105,7 @@ export function buildProgressionInput(
     meta,
     state,
     isDeload: session.is_deload ?? false,
-    // equipmentIds and unit intentionally omitted to match main's behavior
-    // (first-miss equipment drops are wired in #120, not this PR)
+    equipmentIds: ex.equipment_ids,
+    unit: 'kg' as const,
   };
 }

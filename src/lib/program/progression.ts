@@ -272,6 +272,35 @@ export function roundToStoragePrecision(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/**
+ * Compute the effective base weight for progression decisions.
+ * 
+ * When stored weight exists and all working sets are at or above it, the base
+ * is the lowest working-set weight (rounded to storage precision). Otherwise
+ * the stored weight is kept. Handles pure bodyweight (stored=0 with no added
+ * load) by preserving 0 rather than returning null. When stored is null,
+ * returns the heaviest working-set weight (matching main's behavior).
+ */
+export function effectiveBaseWeight(
+  stored: number | null,
+  working: LoggedSet[],
+): number | null {
+  if (stored === null) {
+    const heaviest = Math.max(...working.map((s) => s.weightKg ?? 0));
+    return heaviest > 0 ? heaviest : null;
+  }
+  if (stored === 0) {
+    const anyLoad = working.some((s) => (s.weightKg ?? 0) > 0);
+    return anyLoad ? roundToStoragePrecision(Math.min(...working.map((s) => s.weightKg ?? 0))) : 0;
+  }
+  const allHeavierOrEqual = working.every((s) => (s.weightKg ?? 0) >= stored);
+  if (allHeavierOrEqual) {
+    const lowest = Math.min(...working.map((s) => s.weightKg ?? 0));
+    return lowest > 0 ? roundToStoragePrecision(lowest) : stored;
+  }
+  return stored;
+}
+
 export type BestState = {
   bestWeightKg: number | null;
   bestReps: number | null;
@@ -455,7 +484,7 @@ export function evaluateProgression(input: {
 
   if (succeeded) {
     // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+    const currentWeight = effectiveBaseWeight(state.currentWorkingWeightKg, working) ?? (heaviest > 0 ? heaviest : null);
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
       // Hold at current weight (don't snap down)
       return {
@@ -518,7 +547,7 @@ export function evaluateProgression(input: {
     // Bodyweight with added weight: smaller steps, never doubled.
     // Loaded exercises: standard increment, doubled when easy.
     const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
-    const from = state.currentWorkingWeightKg ?? heaviest;
+    const from = effectiveBaseWeight(state.currentWorkingWeightKg, working) ?? heaviest;
     
     // For kettlebells, we let roundToGrid handle moving to the next bell
     // For other equipment, we add the increment then round to grid
@@ -572,9 +601,8 @@ export function evaluateProgression(input: {
   // all at top) sessions hold the weight and reset consecutiveFailures to 0.
   // "Hard" feel never causes a deload or counts as a miss on its own (SPEC: '"hard" holds it').
   if (inRange) {
-    // HOLD: Use stored weight if available; otherwise fall back to heaviest logged working-set weight.
-    // For true bodyweight (no weights logged), keep null.
-    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+    const currentWeight = effectiveBaseWeight(state.currentWorkingWeightKg, working);
+    
     return {
       ...carried,
       outcome: "hold",
@@ -585,7 +613,9 @@ export function evaluateProgression(input: {
         ? "Staying at this hold length until every set reaches the top of the range."
         : currentWeight === null
           ? "Staying here until every set reaches the top of the range."
-          : "Staying at this weight until every set reaches the top of the range.",
+          : currentWeight === 0
+            ? "Staying at this weight until every set reaches the top of the range."
+            : `Staying at ${displayWeight(currentWeight, unit)} until every set reaches the top of the range.`,
     };
   }
 
