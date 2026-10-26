@@ -12,9 +12,6 @@ import { render, fireEvent } from '@testing-library/react';
 import { SignOutForm } from '../src/app/today/signout-form';
 import { stashPendingChanges, getPendingChanges, PendingChange } from '../src/lib/auth/pending-changes';
 
-// Mock form submission to prevent actual navigation
-let formSubmitPrevented = false;
-
 function runTest() {
   console.log('\nToday SignOutForm clears pending changes');
 
@@ -39,38 +36,27 @@ function runTest() {
 
   // Render the component
   const { container } = render(<SignOutForm label="Sign out" userId="test-user" />);
-  const form = container.querySelector('form');
+  const button = container.querySelector('button');
   
-  if (!form) {
-    console.log('  FAIL Could not find form element');
+  if (!button) {
+    console.log('  FAIL Could not find button element');
     process.exit(1);
   }
 
-  // Prevent actual form submission
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    formSubmitPrevented = true;
-  });
+  // Click the sign-out button (this triggers the async sign-out flow)
+  fireEvent.click(button);
 
-  // Simulate form submission
-  fireEvent.submit(form);
-
-  // Verify stash was cleared
+  // Verify stash was cleared (clearPendingChanges is called at the start of handleSignOut)
   pending = getPendingChanges();
   
   if (pending !== null) {
-    console.log('  FAIL Stash was not cleared on sign-out form submit');
+    console.log('  FAIL Stash was not cleared on sign-out button click');
     console.log(`  Found: ${JSON.stringify(pending)}`);
     process.exit(1);
   }
 
-  if (!formSubmitPrevented) {
-    console.log('  FAIL Form submit was not intercepted by test');
-    process.exit(1);
-  }
-
-  console.log('  ok   SignOutForm calls clearPendingChanges() on submit');
-  console.log('  ok   Stash is cleared before form submission');
+  console.log('  ok   SignOutForm calls clearPendingChanges() on button click');
+  console.log('  ok   Stash is cleared before sign-out attempt');
   console.log('\nALL CHECKS PASSED\n');
   process.exit(0);
 }
