@@ -535,16 +535,7 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
       ...getDerivedContraindications(ex),
     ];
     if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
-      const KNEE_SAFE_LUNGE_EXERCISES = new Set([
-        "step-up-with-knee-raise",
-        "barbell-step-ups",
-        "dumbbell-step-ups",
-        "split-squat-with-dumbbells",
-        "smith-single-leg-split-squat",
-      ]);
-      if (!(input.currentInjuryRegions.includes("knee") && KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug))) {
-        return false;
-      }
+      return false;
     }
     
     // Floor-pull deadlifts with deep knee flexion are completely excluded for knee injuries

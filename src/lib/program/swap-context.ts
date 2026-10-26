@@ -15,7 +15,7 @@ export function buildSwapContext(
     level: input.level,
     availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
     injuryRegions: input.currentInjuryRegions,
-    anyKneeInjury: input.anyKneeInjury,
+    anyKneeInjury: false,
     limit: 5,
     scoreFn,
     tieBreakFn,
