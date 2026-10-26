@@ -106,7 +106,7 @@ function testProfile(profileName: string, equipmentIds: string[], currentSlug: s
   check("contains no knee-risk exercises", kneeRisk.length === 0, 
     kneeRisk.length > 0 ? `found: ${kneeRisk.map(e => e.slug).join(", ")}` : "");
   
-  // 3. Verify ordering: PAST_KNEE_LUNGE_EXERCISES first, then others
+  // 3. Verify ordering: PAST_KNEE_LUNGE_EXERCISES first (except wall-sit may be after first hinge), then others
   const quadIsolationSlugs = Array.from(PAST_KNEE_LUNGE_EXERCISES);
   const quadIsolationInList = ranked.filter(ex => quadIsolationSlugs.includes(ex.slug));
   const otherExercises = ranked.filter(ex => !quadIsolationSlugs.includes(ex.slug));
@@ -129,19 +129,30 @@ function testProfile(profileName: string, equipmentIds: string[], currentSlug: s
       }
     }
     
-    if (firstOtherIndex !== -1) {
-      check("quad isolation exercises come before hinge fallbacks", 
-        lastQuadIndex < firstOtherIndex,
-        `last quad at ${lastQuadIndex}, first other at ${firstOtherIndex}`);
+    // Only check ordering if wall-sit is not the only quad (wall-sit exception allows it after first hinge)
+    if (firstOtherIndex !== -1 && (quadIsolationInList.length > 1 || ranked[0].slug !== "wall-sit")) {
+      const expectQuadFirst = quadIsolationInList.length > 1 || !quadIsolationInList.some(e => e.slug === "wall-sit");
+      if (expectQuadFirst) {
+        check("quad isolation exercises come before hinge fallbacks (except wall-sit exception)", 
+          lastQuadIndex < firstOtherIndex || (quadIsolationInList.length === 1 && quadIsolationInList[0].slug === "wall-sit"),
+          `last quad at ${lastQuadIndex}, first other at ${firstOtherIndex}`);
+      }
     }
     
-    // 4. Verify quad isolation order (spanish-squat, wall-sit, leg-extensions, single-leg-leg-extension)
-    const expectedOrder = ["spanish-squat", "wall-sit", "leg-extensions", "single-leg-leg-extension"];
+    // 4. Verify quad isolation order (leg-extensions, single-leg-leg-extension, wall-sit, spanish-squat)
+    //    and wall-sit is never first in the overall list
+    const expectedOrder = ["leg-extensions", "single-leg-leg-extension", "wall-sit", "spanish-squat"];
     const actualQuadOrder = quadIsolationInList.map(ex => ex.slug);
     const expectedQuadOrder = expectedOrder.filter(slug => actualQuadOrder.includes(slug));
     const orderCorrect = actualQuadOrder.every((slug, i) => slug === expectedQuadOrder[i]);
     check("quad isolation in correct order", orderCorrect,
       `expected [${expectedQuadOrder.join(", ")}], got [${actualQuadOrder.join(", ")}]`);
+    
+    if (ranked[0].slug === "wall-sit") {
+      check("wall-sit is never first in overall list", false, "wall-sit is at position 0");
+    } else if (actualQuadOrder.includes("wall-sit")) {
+      check("wall-sit is never first in overall list", true);
+    }
   }
   
   // 5. Verify hinge fallbacks are knee-safe

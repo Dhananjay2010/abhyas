@@ -427,14 +427,15 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (slotsTaken >= limit) break;
   }
   
-  // Past-knee squat swaps: specific ordering per PR #152 follow-up
-  // 1. PAST_KNEE_LUNGE_EXERCISES (spanish-squat, wall-sit, leg-extensions, single-leg-leg-extension) 
-  //    in that order, filtered by equipment and excluding current
-  // 2. Then knee-safe hinge/bridge fallbacks (glute/hamstring primary muscles only, hinge pattern)
+  // Past-knee squat swaps: specific ordering per PR #152 chunk 3
+  // 1. PAST_KNEE_LUNGE_EXERCISES in this exact order: leg-extensions, single-leg-leg-extension, wall-sit, spanish-squat
+  //    filtered by equipment and excluding current
+  //    wall-sit is never first
+  // 2. Then knee-safe hinge fallbacks (glute/hamstring primary muscles only, hinge pattern)
   // Note: Other squat-pattern exercises (goblet-squat, bodyweight-squat, etc.) are excluded
   // to minimize knee load and prioritize quad isolation + hip-dominant work
   if (hasPastKnee && current.movement_pattern === "squat" && deduplicated.length > 0) {
-    const quadIsolationOrder = ["spanish-squat", "wall-sit", "leg-extensions", "single-leg-leg-extension"];
+    const quadIsolationOrder = ["leg-extensions", "single-leg-leg-extension", "wall-sit", "spanish-squat"];
     const quadIsolation: T[] = [];
     const hingeFallbacks: T[] = [];
     
@@ -443,7 +444,6 @@ export function rankAlternatives<T extends ExerciseRow>(
         quadIsolation.push(ex);
       } else if (ex.movement_pattern === "hinge") {
         // Only include genuine hip-dominant hinges/bridges (glutes or hamstrings primary)
-        // Hinge pattern only - if a bridge is tagged core, include by explicit slug list
         const hasHipDominantMuscle = ex.primary_muscles.some(m => m === "glutes" || m === "hamstrings");
         if (hasHipDominantMuscle) {
           hingeFallbacks.push(ex);
@@ -457,6 +457,23 @@ export function rankAlternatives<T extends ExerciseRow>(
       const bIndex = quadIsolationOrder.indexOf(b.slug);
       return aIndex - bIndex;
     });
+    
+    // Wall-sit is never first. If it would be first, move it after other quads or after first hinge.
+    if (quadIsolation.length > 0 && quadIsolation[0].slug === "wall-sit") {
+      const wallSit = quadIsolation.shift()!;
+      if (quadIsolation.length > 0) {
+        // Move wall-sit after other quad exercises
+        quadIsolation.push(wallSit);
+        return [...quadIsolation, ...hingeFallbacks];
+      } else {
+        // Only wall-sit in quad list: place it after first hinge (or at end if no hinges)
+        if (hingeFallbacks.length > 0) {
+          return [hingeFallbacks[0], wallSit, ...hingeFallbacks.slice(1)];
+        } else {
+          return [wallSit];
+        }
+      }
+    }
     
     return [...quadIsolation, ...hingeFallbacks];
   }
