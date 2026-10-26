@@ -91,6 +91,7 @@ console.log("Test swap-after-logging bug fix:\n");
     finishExercise: async () =>
       ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
     finishSession: ok,
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
     abandonSession: ok,
     planDay: ok,
     refreshAfterSession: async () => ({ ok: true as const }),

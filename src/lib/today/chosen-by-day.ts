@@ -20,6 +20,19 @@ function isStrength(actualType: string | null): boolean {
 }
 
 /**
+ * The date a "Your week" row stands for: the next time that weekday comes
+ * round, which is today for today (a rolling today..today+6 window). The one
+ * rule for both the user's choices and the done tick.
+ *
+ * @param localToday - Today's local date (YYYY-MM-DD)
+ * @param todayIndex - Today's ISO weekday (1-7, Monday = 1)
+ * @param dayIndex - The row's ISO weekday (1-7, Monday = 1)
+ */
+export function weekRowDate(localToday: string, todayIndex: number, dayIndex: number): string {
+  return addDays(localToday, (dayIndex - todayIndex + 7) % 7);
+}
+
+/**
  * Build a map of weekday-index → chosen-day-label for "Your week" display.
  *
  * Only days that DIFFER from the template are recorded. A completed strength
@@ -41,9 +54,7 @@ export function buildChosenByDayIndex(
   const chosenByDayIndex = new Map<number, string>();
 
   for (const d of days) {
-    // The next time this weekday comes round, which is today for today.
-    const daysSinceToday = (d.day_index - todayIndex + 7) % 7;
-    const date = addDays(localToday, daysSinceToday);
+    const date = weekRowDate(localToday, todayIndex, d.day_index);
 
     const sess = allSessions.find(
       (x) =>
