@@ -30,13 +30,22 @@ function check(name: string, ok: boolean, detail = ""): void {
   }
 }
 
+function bySlug(slug: string): CandidateExercise {
+  const e = catalogue.find(x => x.slug === slug);
+  if (!e) {
+    console.error(`✗ FAIL: ${slug} not in catalogue`);
+    process.exit(1);
+  }
+  return e;
+}
+
 console.log("=== Past-knee squat swap edge cases ===\n");
 
 // Create minimal inputs
-const wallSit = catalogue.find(e => e.slug === "wall-sit")!;
-const spanishSquat = catalogue.find(e => e.slug === "spanish-squat")!;
-const gluteBridge = catalogue.find(e => e.slug === "glute-bridge")!;
-const legExtensions = catalogue.find(e => e.slug === "leg-extensions")!;
+const wallSit = bySlug("wall-sit");
+const spanishSquat = bySlug("spanish-squat");
+const gluteBridge = bySlug("glute-bridge");
+const legExtensions = bySlug("leg-extensions");
 
 // Edge case (a): Only wall-sit and spanish-squat available (plus hinges)
 console.log("Edge case (a): Only wall-sit and spanish-squat available\n");

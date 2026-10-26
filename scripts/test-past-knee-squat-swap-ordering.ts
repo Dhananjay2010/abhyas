@@ -215,5 +215,9 @@ testProfile("Full gym (barbell-full-squat)", FULL_GYM_EQUIPMENT, "barbell-full-s
 // With core allowed, this gains oblique-crunches-on-the-floor
 testProfile("Home (wall-sit)", HOME_BODYWEIGHT_EQUIPMENT, "wall-sit");
 
+// Test 6: Full gym with chair-squat (catches R5: any hinge allowed)
+// Without glute/hamstring filter, this gains leverage-deadlift (quad-primary hinge)
+testProfile("Full gym (chair-squat)", FULL_GYM_EQUIPMENT, "chair-squat");
+
 console.log(`\n${failures === 0 ? "✓" : "✗"} ${passes} passed, ${failures} failed`);
 process.exit(failures === 0 ? 0 : 1);
