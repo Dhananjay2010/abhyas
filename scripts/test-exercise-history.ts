@@ -3,8 +3,8 @@
  *
  *   npx tsx scripts/test-exercise-history.ts
  */
+import { computeE1rm } from "../src/lib/program/progression";
 import {
-  calculateEpley1RM,
   calculateSetVolume,
   findTopSet,
   detectPersonalRecords,
@@ -25,25 +25,28 @@ const set = (reps: number | null, weight: number | null, duration?: number | nul
   duration_seconds: duration ?? null,
 });
 
-console.log("\n1. Epley 1RM calculation");
+console.log("\n1. Session e1RM calculation (2-dp rounding, no rep cap)");
 {
-  check("100kg × 1 rep = 100kg", calculateEpley1RM(1, 100) === 100);
+  check("100kg × 1 rep = 100kg (reps=1 special case)", 
+    computeE1rm(100, 1) === 100,
+    `got ${computeE1rm(100, 1)}`
+  );
   check("100kg × 8 reps ≈ 126.67kg", 
-    Math.abs((calculateEpley1RM(8, 100) ?? 0) - 126.67) < 0.01,
-    `got ${calculateEpley1RM(8, 100)}`
+    computeE1rm(100, 8) === 126.67,
+    `got ${computeE1rm(100, 8)}`
   );
   check("60kg × 12 reps = 84kg",
-    calculateEpley1RM(12, 60) === 84,
-    `got ${calculateEpley1RM(12, 60)}`
+    computeE1rm(60, 12) === 84,
+    `got ${computeE1rm(60, 12)}`
   );
-  check("40kg × 20 reps = 56kg (reps capped at 12)",
-    calculateEpley1RM(20, 40) === 56,
-    `got ${calculateEpley1RM(20, 40)}`
+  check("40kg × 20 reps (capped at 12) = 56.00kg",
+    computeE1rm(40, 20) === 56.00,
+    `got ${computeE1rm(40, 20)}`
   );
-  check("bodyweight (0kg) returns null", calculateEpley1RM(10, 0) === null);
-  check("null weight returns null", calculateEpley1RM(10, null) === null);
-  check("null reps returns null", calculateEpley1RM(null, 100) === null);
-  check("0 reps returns null", calculateEpley1RM(0, 100) === null);
+  check("bodyweight (0kg) returns null", computeE1rm(0, 10) === null);
+  check("null weight returns null", computeE1rm(null, 10) === null);
+  check("null reps returns null", computeE1rm(100, null) === null);
+  check("0 reps returns null", computeE1rm(100, 0) === null);
 }
 
 console.log("\n2. Set volume calculation");
@@ -195,8 +198,8 @@ console.log("\n9. PR detection - time-based exercise");
 
 console.log("\n10. Edge cases and invalid inputs");
 {
-  check("negative reps: null 1RM", calculateEpley1RM(-5, 100) === null);
-  check("negative weight: null 1RM", calculateEpley1RM(10, -50) === null);
+  check("negative reps: null 1RM", computeE1rm(-50, -5) === null);
+  check("negative weight: null 1RM", computeE1rm(-50, 10) === null);
 }
 
 console.log("\n11. Mixed weight scenario (transitioning from bodyweight to weighted)");
@@ -284,27 +287,27 @@ console.log("\n14. Realistic plank hold progression");
   check("longest: 60s", prs[0]?.value === 60);
 }
 
-console.log("\n15. Epley formula validation with known values");
+console.log("\n15. Session e1RM formula validation with known values");
 {
   // Known 1RM = 100kg
   // Expected reps at different weights (approximate)
   
   // 95% of 1RM should be around 2 reps
-  const at95pct = calculateEpley1RM(2, 95);
+  const at95pct = computeE1rm(95, 2);
   check("95kg × 2 reps ≈ 101.33kg",
     !!(at95pct && at95pct > 100 && at95pct < 102),
     `got ${at95pct}`
   );
   
   // 85% of 1RM should be around 5-6 reps
-  const at85pct = calculateEpley1RM(5, 85);
+  const at85pct = computeE1rm(85, 5);
   check("85kg × 5 reps ≈ 99.17kg",
     !!(at85pct && at85pct > 98 && at85pct < 100),
     `got ${at85pct}`
   );
   
   // 70% of 1RM should be around 10-12 reps
-  const at70pct = calculateEpley1RM(12, 70);
+  const at70pct = computeE1rm(70, 12);
   check("70kg × 12 reps ≈ 98kg",
     !!(at70pct && at70pct > 97 && at70pct < 99),
     `got ${at70pct}`
