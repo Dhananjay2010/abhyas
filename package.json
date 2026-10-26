@@ -361,7 +361,7 @@
     "test:units-m3-history-save": "tsx scripts/test-units-m3-history-save-real-path.tsx",
     "test:units-snap-lb-tolerance": "tsx scripts/test-units-snap-lb-tolerance.ts",
     "test:units-mutant-u4-format-load": "tsx scripts/test-units-mutant-u4-format-load-half-rounding.ts",
-    "test:units-mutant-e4-history-max": "tsx scripts/test-units-mutant-e4-history-edit-max.ts",
+    "test:units-mutant-e4-history-max": "tsx scripts/test-units-mutant-e4-history-edit-max.tsx",
     "test:units-mutant-p1-volume-rounding": "tsx scripts/test-units-mutant-p1-volume-chart-rounding.tsx",
     "test:units-runner-paths-imperial": "tsx scripts/test-units-runner-paths-imperial.tsx",
     "test:units-runner-qa-roundtrip": "tsx scripts/test-units-runner-qa-roundtrip.tsx"

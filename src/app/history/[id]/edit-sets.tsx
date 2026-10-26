@@ -310,7 +310,7 @@ export function EditSets({ units, exercises, saveSet = updateSet }: EditSetsProp
                             }
                             placeholder={weightLabel(units)}
                             min="0"
-                            max={units === "imperial" ? 1100 : LOAD_METRIC_MAX_KG}
+                            max={units === "imperial" ? LOAD_IMPERIAL_MAX_LB : LOAD_METRIC_MAX_KG}
                             step="0.5"
                             className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
                           />
