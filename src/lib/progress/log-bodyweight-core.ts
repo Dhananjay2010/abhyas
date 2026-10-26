@@ -20,7 +20,7 @@ export type LogBodyWeightResult = { ok: true } | { ok: false; error: string };
 export type BodyWeightDbOps = {
   getUnits(): Promise<"metric" | "imperial">;
   getTimezone(): Promise<string | null>;
-  upsertBodyMetric(userId: string, recordedOn: string, weightKg: number): Promise<{ error: { code?: string; message: string } | null }>;
+  upsertBodyMetric(recordedOn: string, weightKg: number): Promise<{ error: { code?: string; message: string } | null }>;
 };
 
 export function createBodyWeightDbOps(client: SupabaseClient, userId: string): BodyWeightDbOps {
@@ -36,7 +36,7 @@ export function createBodyWeightDbOps(client: SupabaseClient, userId: string): B
         .single();
       return profile?.timezone ?? null;
     },
-    async upsertBodyMetric(userId: string, recordedOn: string, weightKg: number) {
+    async upsertBodyMetric(recordedOn: string, weightKg: number) {
       const { error } = await client.from("body_metrics").upsert(
         {
           user_id: userId,
@@ -75,7 +75,7 @@ export async function logBodyWeightCore(
   }
 
   const localDate = localDateString(tz);
-  const { error } = await db.upsertBodyMetric("unused-user-id", localDate, weightKg);
+  const { error } = await db.upsertBodyMetric(localDate, weightKg);
 
   if (error) {
     if (error.code === "23514" || error.message?.includes("body_metrics_weight_sane")) {
