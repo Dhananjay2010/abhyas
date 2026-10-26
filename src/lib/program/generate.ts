@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor, activeDayIndicesAnchored } from "./splits";
+import { isoWeekday } from "@/lib/dates";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
 import { 
   isKneeRiskForKneeUser, 
@@ -947,9 +948,24 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
   
   // NEW plans (block 1) anchor to started_on so the first training day is the sign-up day.
   // EXISTING plans (block 2+) keep the original weekday mapping for schedule continuity.
-  const activeIdx = input.blockNumber === 1 && input.startedOn
+  let activeIdx = input.blockNumber === 1 && input.startedOn
     ? activeDayIndicesAnchored(input.startedOn, trainingDays)
     : activeDayIndices(input.daysPerWeek);
+  
+  // For anchored plans, reorder activeIdx in chronological order from start weekday
+  // so the first template aligns with the sign-up day
+  if (input.blockNumber === 1 && input.startedOn && trainingDays > 0) {
+    const startWeekday = isoWeekday(input.startedOn);
+    const startIdx = activeIdx.indexOf(startWeekday);
+    if (startIdx > 0) {
+      // Reorder so startWeekday is first
+      const reordered = [
+        ...activeIdx.slice(startIdx),
+        ...activeIdx.slice(0, startIdx)
+      ];
+      activeIdx = reordered;
+    }
+  }
 
   // QA Pass 10 H2: Per-day `used` for main slots (0-3), per-block for accessories (4+).
   // This prevents second Upper/Lower day from degrading to push-ups/bodyweight squats
