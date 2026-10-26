@@ -1,6 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import { KETTLEBELL_WEIGHTS_KG, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, type WeightUnit } from "@/lib/session/equipment-grid";
-import { formatWeight } from "@/lib/units";
+import { formatWeight, type UnitsPreference } from "@/lib/units";
 import { resolveTarget } from "../session/display-target";
 
 type Enums = Database["public"]["Enums"];
