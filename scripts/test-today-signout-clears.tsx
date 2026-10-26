@@ -9,7 +9,7 @@
 
 import "./helpers/setup-jsdom";
 import { mockNextRouter } from "./helpers/setup-jsdom";
-import { render, act, screen } from "@testing-library/react";
+import { render, act, screen, cleanup } from "@testing-library/react";
 import { SignOutForm } from "../src/app/today/signout-form";
 import { savePendingSet, storageKey } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
@@ -95,6 +95,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   
   assert(replaceCalls.length === 1 && replaceCalls[0] === "/", "Navigates to / on empty queue");
   
+  cleanup();
   console.log("✓ Test 1: Empty queue passed\n");
   
   // ========================================================================
@@ -137,6 +138,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   assert(fakeStorage.getItem(storageKey("u2")) === null, "u2 queue cleared after replay success");
   assert(replaceCalls.length === 1, "Navigates after replay success");
   
+  cleanup();
   console.log("✓ Test 2: Replay success passed\n");
   
   // ========================================================================
@@ -180,6 +182,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   assert(replaceCalls.length === 0, "No navigation when replay fails");
   assert(screen.queryByText(/haven't synced yet/i) !== null, "Shows warning");
   
+  cleanup();
   console.log("✓ Test 3: Replay fails passed\n");
   
   console.log(`✅ H1 compatibility tests passed (${passed} assertions)\n`);

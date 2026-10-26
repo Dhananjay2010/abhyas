@@ -10,7 +10,7 @@
 import "./helpers/setup-jsdom";
 import { mockNextRouter } from "./helpers/setup-jsdom";
 
-import { render, act, screen } from "@testing-library/react";
+import { render, act, screen, cleanup } from "@testing-library/react";
 import { SignOutButton } from "../src/app/settings/signout-button";
 import { savePendingSet, storageKey } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
@@ -99,6 +99,7 @@ Object.defineProperty(window, 'localStorage', {
   assert(replaceCalls.length === 1 && replaceCalls[0] === "/", "Navigates to / on empty queue");
   assert(refreshCalls.length === 1, "router.refresh called");
   
+  cleanup();
   console.log("✓ Test 1 passed\n");
   
   // ========================================================================
@@ -140,6 +141,7 @@ Object.defineProperty(window, 'localStorage', {
   assert(fakeStorage.getItem(storageKey("u2")) === null, "u2 queue cleared after replay");
   assert(replaceCalls.length === 1, "Navigates after replay success");
   
+  cleanup();
   console.log("✓ Test 2 passed\n");
   
   // ========================================================================
@@ -182,6 +184,7 @@ Object.defineProperty(window, 'localStorage', {
   assert(replaceCalls.length === 0, "No navigation when replay fails");
   assert(screen.queryByText(/haven't synced yet/i) !== null, "Shows warning");
   
+  cleanup();
   console.log("✓ Test 3 passed\n");
   
   console.log(`✅ SignOutButton H1 tests passed (${passed} assertions)\n`);
