@@ -158,7 +158,39 @@ console.log("\n3. In-progress session with 0 sets and pending exercise");
   check("setCount = 0", item.setCount === 0, `got ${item.setCount}`);
 }
 
-console.log("\n4. Session with no exercises (catches w4)");
+console.log("\n4. In-progress session with 0 sets, no exercises (catches w3)");
+{
+  const sessions: RawSessionForList[] = [
+    {
+      id: "s4a",
+      actual_type: "weights",
+      status: "in_progress",
+      local_date: "2026-10-26",
+      duration_seconds: null,
+      started_at: "2026-10-26T10:00:00Z",
+      completed_at: null,
+      is_deload: null,
+      program_days: null,
+      breathing_logs: [],
+      breathing_patterns: null,
+    },
+  ];
+  
+  const exercises: RawSessionExercise[] = [];
+  const sets: SessionSetForTopSet[] = [];
+  const volumeData: VolumeRow[] = [];
+  const setCountsBySession = new Map([["s4a", 0]]);
+  const sessionsWithPRs = new Set<string>();
+  
+  const items = buildHistoryListItems(sessions, exercises, sets, volumeData, setCountsBySession, sessionsWithPRs, pickTopSet);
+  const item = items[0];
+  
+  check("status = in_progress (w3 kills this)", item.status === "in_progress", `got ${item.status}`);
+  check("endedEarly = false (no pending, status !== completed)", item.endedEarly === false, `got ${item.endedEarly}`);
+  check("setCount = 0", item.setCount === 0, `got ${item.setCount}`);
+}
+
+console.log("\n5. Session with no exercises (catches w4)");
 {
   const sessions: RawSessionForList[] = [
     {
@@ -191,7 +223,7 @@ console.log("\n4. Session with no exercises (catches w4)");
   check("topSetWeight = null", item.topSetWeight === null, `got ${item.topSetWeight}`);
 }
 
-console.log("\n5. Yoga session with 0 sets → NOT ended early");
+console.log("\n6. Yoga session with 0 sets → NOT ended early");
 {
   const sessions: RawSessionForList[] = [
     {
@@ -225,7 +257,7 @@ console.log("\n5. Yoga session with 0 sets → NOT ended early");
   check("actualType = yoga", item.actualType === "yoga", `got ${item.actualType}`);
 }
 
-console.log("\n6. Breathing session with logs");
+console.log("\n7. Breathing session with logs");
 {
   const sessions: RawSessionForList[] = [
     {
@@ -262,7 +294,7 @@ console.log("\n6. Breathing session with logs");
   check("topSetWeight = null (breathing session)", item.topSetWeight === null, `got ${item.topSetWeight}`);
 }
 
-console.log("\n7. Multiple sessions with different states");
+console.log("\n8. Multiple sessions with different states");
 {
   const sessions: RawSessionForList[] = [
     {
@@ -339,7 +371,7 @@ console.log("\n7. Multiple sessions with different states");
   check("s7b: localDate = 2026-10-25", itemB?.localDate === "2026-10-25", `got ${itemB?.localDate}`);
 }
 
-console.log("\n8. Breathing session with pumps (no routine name)");
+console.log("\n9. Breathing session with pumps (no routine name)");
 {
   const sessions: RawSessionForList[] = [
     {
