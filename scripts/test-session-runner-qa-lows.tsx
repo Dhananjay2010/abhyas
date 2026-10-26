@@ -116,6 +116,7 @@ const defaultActions: SessionActions = {
   swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
   refreshAfterSession: async () => ({ ok: true }),
   planDay: async () => ({ ok: true }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
 };
 
 console.log("\nTesting SessionRunner QA LOWs\n");
