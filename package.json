@@ -45,6 +45,7 @@
     "test:signout": "tsx scripts/test-signout.ts",
     "test:finish-exercise-idempotency": "tsx scripts/test-finish-exercise-idempotency.ts",
     "test:first-miss-pinned": "tsx scripts/test-first-miss-pinned.ts",
+    "test:first-miss-two-miss-invariant": "tsx scripts/test-first-miss-two-miss-invariant.ts",
     "test:first-miss-noequip-sweep": "tsx scripts/test-first-miss-noequip-sweep.ts",
     "test:first-miss-equipment-sweep": "tsx scripts/test-first-miss-equipment-sweep.ts",
     "test:first-miss-mutants": "bash scripts/mutant-test-first-miss.sh",
