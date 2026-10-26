@@ -135,8 +135,8 @@ Object.defineProperty(window, 'localStorage', {
   // Verify u2 pending sets still exist
   assert(fakeStorage.getItem("pending-sets:u2") !== null, "4b: u2 pending sets kept");
   
-  // F8: Test that queue is restored on sign-out failure
-  console.log("\n--- Testing F8: Queue restored on failure ---\n");
+  // F8: Test that queue is NOT cleared when sign-out fails
+  console.log("\n--- Testing F8: Queue stays on failure ---\n");
   
   fakeStorage.clear();
   const queueData = JSON.stringify({
@@ -157,16 +157,15 @@ Object.defineProperty(window, 'localStorage', {
     clearAllPendingSetsForUser(storage, userId);
   };
   
-  type SignOutActionF8 = () => Promise<{ ok: false; error: string }>;
-  const signOutFailure: SignOutActionF8 = async () => {
-    return { ok: false, error: "Sign-out failed" };
+  const signOutFailure = async () => {
+    return { ok: false as const, error: "Sign-out failed" };
   };
   
   render(
     <SignOutButton
       userId="u3"
       clearSets={clearSetsF8}
-      signOut={signOutFailure as unknown as typeof signOutAction}
+      signOut={signOutFailure}
     />
   );
   
@@ -178,13 +177,12 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
-  // With the bug (no restore), queue is gone
-  // With the fix (restore on failure), queue is back
-  const restoredQueue = fakeStorage.getItem("pending-sets:u3");
-  assert(restoredQueue !== null, "F8: Queue restored after sign-out failure");
-  assert(restoredQueue === queueData, "F8: Restored queue matches original");
+  // Queue should NOT be cleared when sign-out fails
+  const remainingQueue = fakeStorage.getItem("pending-sets:u3");
+  assert(remainingQueue !== null, "F8: Queue stays when sign-out fails");
+  assert(remainingQueue === queueData, "F8: Queue unchanged on failure");
   
-  console.log("\nPLANTED BUG: Without restore logic, queue is lost on failure\n");
+  console.log("\nPLANTED BUG: Clearing queue before checking sign-out result → data loss\n");
   
   console.log(`\n✅ SignOutButton test passed (${passed}/${passed + failed})\n`);
   process.exit(failed > 0 ? 1 : 0);

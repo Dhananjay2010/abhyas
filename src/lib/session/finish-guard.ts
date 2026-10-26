@@ -16,7 +16,7 @@ export function isFinishDisabled(pendingCount: number, busy: boolean): boolean {
  */
 export function getFinishButtonText(pendingCount: number): string {
   if (pendingCount > 0) {
-    return `${pendingCount} ${pendingCount === 1 ? "set" : "sets"} waiting to sync`;
+    return `${pendingCount} ${pendingCount === 1 ? "set" : "sets"} waiting to save`;
   }
   return "Done";
 }

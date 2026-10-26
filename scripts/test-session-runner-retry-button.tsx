@@ -186,8 +186,8 @@ async function testR4AndR4s() {
   assert(errorTexts.length > 0, "R4e: Error heading shown after replay failure");
   
   // R4e detail: Assert the actual error message (not just heading) is present
-  // getReplayErrorMessage returns the replayError.message
-  const errorMessage = screen.queryByText("Replay error test", { exact: false });
+  // getReplayErrorMessage returns the replayError, which is "Network error" from the mock
+  const errorMessage = screen.queryByText("Network error", { exact: false });
   assert(errorMessage !== null, "R4e detail: Error message content shown (getReplayErrorMessage output)");
   
   const retryButton = retryButtons[retryButtons.length - 1];

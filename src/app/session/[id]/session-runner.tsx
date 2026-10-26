@@ -675,6 +675,12 @@ export function SessionRunner({
           <GhostButton
             disabled={busy}
             onClick={async () => {
+              // If there are pending sets, try to replay them first
+              if (pendingSetState.pending.length > 0 && controller) {
+                controller.replay();
+                return;
+              }
+              // Only finish session once queue is empty
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
               );
@@ -965,6 +971,23 @@ export function SessionRunner({
         feel,
         skipped,
       });
+    } catch (err) {
+      // Handle rejected promise (e.g. 401 proxy rejection on expiry)
+      if (err instanceof Error) {
+        if (err.message.includes("SESSION_EXPIRED") || err.message.includes("Not signed in") || err.message.includes("401")) {
+          setSessionExpired(true);
+          setError(null);
+        } else {
+          setError(err.message || "An error occurred");
+          setSessionExpired(false);
+        }
+      } else {
+        setError("An error occurred");
+        setSessionExpired(false);
+      }
+      busyRef.current = false;
+      setBusy(false);
+      return;
     } finally {
       busyRef.current = false;
       setBusy(false);
