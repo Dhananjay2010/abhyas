@@ -43,7 +43,16 @@ function check(desc: string, ok: boolean, detail?: string) {
 
 const byId = new Map(catalogue.map((e) => [e.id, e]));
 
-// Build comprehensive banned list
+// Literal expected list of knee-banned exercises from main (spec, not logic copy)
+const EXPECTED_KNEE_BANS = [
+  "weighted-sissy-squat",
+  "elevated-back-lunge",
+  "barbell-side-split-squat",
+  "kettlebell-pistol-squat",
+  "smith-machine-pistol-squat",
+];
+
+// Build comprehensive banned list from imports
 const bannedSlugs: string[] = [];
 
 // 1. Sissy squats (line 571 of generate.ts)
@@ -53,7 +62,8 @@ if (sissy) {
 }
 
 // 2. UNSAFE_KNEE_LUNGES from generate.ts
-for (const slug of Array.from(UNSAFE_KNEE_LUNGES)) {
+const importedLunges = Array.from(UNSAFE_KNEE_LUNGES);
+for (const slug of importedLunges) {
   bannedSlugs.push(slug);
 }
 
@@ -61,6 +71,19 @@ console.log(`Monitoring ${bannedSlugs.length} banned exercises:`);
 for (const slug of bannedSlugs) {
   console.log(`  - ${slug}`);
 }
+console.log("");
+
+// Assert imported set matches expected spec
+console.log("Verifying imported UNSAFE_KNEE_LUNGES matches spec...");
+const sortedImported = importedLunges.sort();
+const sortedExpected = EXPECTED_KNEE_BANS.filter(s => s !== "weighted-sissy-squat").sort();
+check(
+  `UNSAFE_KNEE_LUNGES contains all ${sortedExpected.length} expected lunges`,
+  sortedImported.length === sortedExpected.length && sortedImported.every((s, i) => s === sortedExpected[i]),
+  sortedImported.length !== sortedExpected.length
+    ? `Expected ${sortedExpected.length} but got ${sortedImported.length}: missing ${sortedExpected.filter(e => !sortedImported.includes(e)).join(", ")}`
+    : `Mismatch: expected [${sortedExpected.join(", ")}] but got [${sortedImported.join(", ")}]`
+);
 console.log("");
 
 // Test profile: past knee injury
