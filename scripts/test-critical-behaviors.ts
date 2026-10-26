@@ -130,10 +130,14 @@ async function testReplayDoesntClearBeforeConfirm() {
   );
 
   let callCount = 0;
+  let resolveLogSet: () => void;
+  const logSetPromise = new Promise<{ ok: boolean; error?: string; code?: string }>((resolve) => {
+    resolveLogSet = () => resolve({ ok: true });
+  });
+
   const logSet: LogSetFunction = async () => {
     callCount++;
-    // Return a promise that never resolves (simulating network timeout)
-    return new Promise(() => {});
+    return logSetPromise;
   };
 
   const controller = createPendingSetController({
@@ -146,18 +150,20 @@ async function testReplayDoesntClearBeforeConfirm() {
     onChange: () => {},
   });
 
-  // Start replay and await the actual promise (without letting it complete)
+  // Start replay (promise will not resolve until we call resolveLogSet)
   const replayPromise = controller.replay();
   
-  // Wait for the replay to actually start and call logSet
-  // We use the dynamic import completion as a signal
-  await new Promise(resolve => setImmediate(resolve));
+  // Wait for logSet to be called
   await new Promise(resolve => setImmediate(resolve));
 
   // Check storage immediately - set should still be there
   const remaining = loadPendingSets(storage, "test-user-id", sessionId, createPendingSetDeps(() => FIXED_TIME));
   assertEqual(remaining.length, 1, "Set still in storage while request pending");
   assertEqual(callCount, 1, "Server was called once");
+  
+  // Clean up by resolving the promise
+  resolveLogSet!();
+  await replayPromise;
 }
 
 async function testReplayKeepsStillExpiredSetPending() {
