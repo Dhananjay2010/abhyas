@@ -609,15 +609,23 @@ export default async function TodayPage() {
                 Resume session
               </Link>
             ) : (
-              /*
-                "Resume" only once something has actually been started. A day
-                planned through "what about tomorrow?" is a session row that was
-                never begun, and calling that a resume told the user they had left
-                a workout half-done when they had not.
-              */
-              <StartSessionButton
-                label={strengthOpen?.started_at ? "Resume session" : "Start session"}
-              />
+              <>
+                {/*
+                  "Resume" only once something has actually been started. A day
+                  planned through "what about tomorrow?" is a session row that was
+                  never begun, and calling that a resume told the user they had left
+                  a workout half-done when they had not.
+                */}
+                <StartSessionButton
+                  label={strengthOpen?.started_at ? "Resume session" : "Start session"}
+                />
+                {/* "Or start tomorrow" link for brand-new plans */}
+                {program.block_number === 1 &&
+                  !strengthOpen &&
+                  todaySessions.filter(s => s.status === "in_progress" || s.status === "completed").length === 0 && (
+                    <StartTomorrowLink />
+                  )}
+              </>
             );
           })()}
         </div>
