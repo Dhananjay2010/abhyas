@@ -3,9 +3,10 @@
  * Test: Session open >6 hours is CLOSED, not resumed.
  * Also test that a fresh in-progress session from another date/type is still resumed.
  * 
- * Mutant: Run resume before stale-close (wrong order).
+ * Mutant: Set 6-hour threshold to huge value so it never triggers.
  */
 import { startSessionFullCore, type StartSessionFullDeps, type OpenSession } from "../src/lib/session/start-session-full-core";
+import { STALE_INACTIVITY_THRESHOLD_SECONDS } from "../src/lib/session/close-stale";
 
 export {};
 
@@ -39,8 +40,12 @@ async function main() {
   const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime(); // 8pm today
   const OLD_START = "2026-10-25T10:00:00Z"; // 10am yesterday, >30 hours old
   
+  const elapsedSeconds = (NOW_MS - new Date(OLD_START).getTime()) / 1000;
+  const shouldBeStale = elapsedSeconds >= STALE_INACTIVITY_THRESHOLD_SECONDS;
+  
   let closeWasCalled = false;
   let insertWasCalled = false;
+  let checkRemainingCalled = false;
 
   const deps: StartSessionFullDeps = {
     userId: USER_ID,
@@ -80,15 +85,16 @@ async function main() {
         closeStaleSessions: async (inProgressSessions) => {
           closeWasCalled = true;
           eq(inProgressSessions.length, 1, "Should pass 1 in_progress session to close");
-          return 1;
+          return shouldBeStale ? 1 : 0;
         },
         checkRemainingInProgress: async () => {
-          return { ok: true, sessionId: null };
+          checkRemainingCalled = true;
+          return { ok: true, sessionId: shouldBeStale ? null : "sess-stale" };
         },
       };
     },
     
-    insertSession: async (payload) => {
+    insertSession: async () => {
       insertWasCalled = true;
       return { ok: true, sessionId: "sess-new" };
     },
@@ -101,6 +107,8 @@ async function main() {
   
   eq(result.ok, true, "Result should be ok");
   eq(closeWasCalled, true, "closeStaleSessions should be called");
+  eq(checkRemainingCalled, true, "checkRemainingInProgress should be called");
+  eq(shouldBeStale, true, "Session should be stale (>6h threshold check)");
   eq(insertWasCalled, true, "New session should be inserted after closing stale one");
   if (result.ok) {
     eq(result.sessionId, "sess-new", "Should return new session ID, not old stale one");
@@ -110,6 +118,9 @@ async function main() {
 await test("Fresh in-progress session from another date is resumed, not closed", async () => {
   const NOW_MS = new Date("2026-10-26T12:00:00Z").getTime(); // noon today
   const RECENT_START = "2026-10-26T10:30:00Z"; // 1.5 hours ago, still fresh
+  
+  const elapsedSeconds = (NOW_MS - new Date(RECENT_START).getTime()) / 1000;
+  const shouldBeStale = elapsedSeconds >= STALE_INACTIVITY_THRESHOLD_SECONDS;
   
   let closeWasCalled = false;
   let insertWasCalled = false;
@@ -149,17 +160,17 @@ await test("Fresh in-progress session from another date is resumed, not closed",
       return {
         today,
         readOpenSessions: async () => openSessions,
-        closeStaleSessions: async (inProgressSessions) => {
+        closeStaleSessions: async () => {
           closeWasCalled = true;
-          return 0;
+          return shouldBeStale ? 1 : 0;
         },
         checkRemainingInProgress: async () => {
-          return { ok: true, sessionId: "sess-fresh-other-date" };
+          return { ok: true, sessionId: shouldBeStale ? null : "sess-fresh-other-date" };
         },
       };
     },
     
-    insertSession: async (payload) => {
+    insertSession: async () => {
       insertWasCalled = true;
       return { ok: true, sessionId: "sess-new" };
     },
@@ -172,6 +183,7 @@ await test("Fresh in-progress session from another date is resumed, not closed",
   
   eq(result.ok, true, "Result should be ok");
   eq(closeWasCalled, true, "closeStaleSessions should be called");
+  eq(shouldBeStale, false, "Session should NOT be stale (<6h threshold check)");
   eq(insertWasCalled, false, "Should NOT insert new session, should resume fresh one");
   if (result.ok) {
     eq(result.sessionId, "sess-fresh-other-date", "Should resume fresh session from other date");
@@ -213,7 +225,7 @@ await test("Fresh in-progress session from today (same date) is resumed immediat
     
     findInProgressToday: async () => [],
     
-    buildStaleDeps: (openSessions: OpenSession[], today: string, nowMs: number) => {
+    buildStaleDeps: () => {
       buildStaleDepsCalled = true;
       throw new Error("buildStaleDeps should not be called when resuming same-day session");
     },

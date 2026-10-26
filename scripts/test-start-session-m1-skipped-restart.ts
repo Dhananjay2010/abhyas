@@ -99,7 +99,8 @@ async function main() {
     eq(result.ok, true, "Result should be ok");
     assertUpdatePayload(capturedUpdatePayload);
     eq(capturedUpdatePayload.status, "in_progress", "Status should be in_progress");
-    eq(capturedUpdatePayload.started_at, NEW_TIMESTAMP, "started_at should be reset to NEW_TIMESTAMP, not OLD_TIMESTAMP");
+    eq("started_at" in capturedUpdatePayload, true, "started_at must be in payload (to reset from OLD to NEW)");
+    eq(capturedUpdatePayload.started_at, NEW_TIMESTAMP, "started_at should be NEW_TIMESTAMP");
   });
 
   await test("Restarting a planned session with null started_at sets it to now", async () => {
