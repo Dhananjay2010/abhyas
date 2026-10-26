@@ -63,6 +63,7 @@ export function buildProgressionInput(
   progress: ExerciseProgressRow,
   session: SessionRow,
   feel: "easy" | "right" | "hard" | null,
+  units: "metric" | "imperial" = "metric",
 ) {
   const ex = sessionExercise.exercises;
   if (!ex) {
@@ -125,6 +126,7 @@ export function buildProgressionInput(
     meta,
     state,
     isDeload: session.is_deload ?? false,
+    units,
     ...progressionInputsFromExercise(ex),
   };
 }

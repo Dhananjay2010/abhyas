@@ -426,8 +426,9 @@ export function evaluateProgression(input: {
   state: ProgressState;
   isDeload: boolean;
   equipmentIds?: string[];
+  units?: "metric" | "imperial";
 }): Decision {
-  const { sets, plannedSets, repsMin, repsMax, feel, meta, state, isDeload, equipmentIds } = input;
+  const { sets, plannedSets, repsMin, repsMax, feel, meta, state, isDeload, equipmentIds, units = "metric" } = input;
 
   const isTimed = meta.metric === "seconds";
   /** What this set is measured in: seconds held for a hold, reps otherwise. */
@@ -439,8 +440,11 @@ export function evaluateProgression(input: {
 
   const bests = nextBest(sets, state, meta);
 
-  // M2: Helper to display weight in kg format (imperial removed)
-  const displayKg = (weight: number) => `${weight} kg`;
+  /**
+   * Format weight for display in progression messages.
+   * Uses the user's unit preference (metric or imperial).
+   */
+  const displayWeight = (kg: number) => formatWeight(kg, units, true, "0 kg");
 
   // Get resolved target (what the display shows) for write-back
   const resolvedTargetForBase = resolveTarget({
@@ -691,7 +695,7 @@ export function evaluateProgression(input: {
     // MSG2: Pin message for bodyweight with added weight progressing from 0 or null
     if (meta.isBodyweight && (state.currentWorkingWeightKg === null || state.currentWorkingWeightKg === 0)) {
       const message = next > 0
-        ? `All sets at the top of the range — ready to add ${displayKg(next)}.`
+        ? `All sets at the top of the range — ready to add ${displayWeight(next)}.`
         : "All sets at the top of the range — ready for the next step.";
       
       return {
@@ -714,8 +718,8 @@ export function evaluateProgression(input: {
       weightAtFailureStartKg: null, // M1: clear on success
       message:
         feel === "easy" && !isBodyweightWithAddedWeight
-          ? `All sets at the top and it felt easy — up to ${displayKg(next)}.`
-          : `All sets at the top of the range — up to ${displayKg(next)}.`,
+          ? `All sets at the top and it felt easy — up to ${displayWeight(next)}.`
+          : `All sets at the top of the range — up to ${displayWeight(next)}.`,
     };
   }
 
@@ -873,7 +877,7 @@ export function evaluateProgression(input: {
           nextTargetReps: repsMax,
           consecutiveFailures: 0,
           weightAtFailureStartKg: null, // MED-3: clear on third-miss step-down
-          message: `Missed three times in a row — dropping one step to ${displayKg(stepped)} to break through.`,
+          message: `Missed three times in a row — dropping one step to ${displayWeight(stepped)} to break through.`,
         };
       }
     }
@@ -915,7 +919,7 @@ export function evaluateProgression(input: {
       nextTargetReps: repsMax,
       consecutiveFailures: 0,
       weightAtFailureStartKg: null, // M1: clear on successful two-miss back-off
-      message: `Missed twice in a row — dropping to ${displayKg(reduced)} to build back.`,
+      message: `Missed twice in a row — dropping to ${displayWeight(reduced)} to build back.`,
     };
   }
 
@@ -986,16 +990,16 @@ export function evaluateProgression(input: {
     : currentWeight === null
       ? "Staying here until every set reaches the top of the range."
       : nextWeight !== null && nextWeight !== currentWeight
-        ? `Missed the target — dropping to ${displayKg(nextWeight)}.`
+        ? `Missed the target — dropping to ${displayWeight(nextWeight)}.`
         : holdReason === 'smallest'
-          ? `Missed the target but holding at ${displayKg(currentWeight)} — it is the smallest available step.`
+          ? `Missed the target but holding at ${displayWeight(currentWeight)} — it is the smallest available step.`
           : holdReason === 'cut20'
-            ? `Missed the target but holding at ${displayKg(currentWeight)} — one step down would cut more than 20%.`
+            ? `Missed the target but holding at ${displayWeight(currentWeight)} — one step down would cut more than 20%.`
             : holdReason === 'twomiss'
-              ? `Missed the target but holding at ${displayKg(currentWeight)} — one step down would exceed the two-miss limit.`
+              ? `Missed the target but holding at ${displayWeight(currentWeight)} — one step down would exceed the two-miss limit.`
               : currentWeight === 0 || meta.isBodyweight
                 ? "Staying at this weight until every set reaches the top of the range."
-                : `Staying at ${displayKg(currentWeight)} until every set reaches the top of the range.`;
+                : `Staying at ${displayWeight(currentWeight)} until every set reaches the top of the range.`;
   
   return {
     ...carried,

@@ -389,11 +389,21 @@ async function applyProgression(
   sessionExerciseId: string,
   feel: SetFeel | null,
 ): Promise<ProgressionFeedback | null> {
-  const { data: settings } = await supabase
-    .from("user_settings")
-    .select("planning_mode, per_set_logging")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const [settingsRes, profileRes] = await Promise.all([
+    supabase
+      .from("user_settings")
+      .select("planning_mode, per_set_logging")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("units")
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+
+  const settings = settingsRes.data;
+  const units = profileRes.data?.units ?? "metric";
 
   // Daily-menu mode keeps no working-weight memory. History is preserved, so
   // switching back to progression resumes from where it left off.
@@ -441,6 +451,7 @@ async function applyProgression(
       prior,
       sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
       feel,
+      units,
     )
   );
 
