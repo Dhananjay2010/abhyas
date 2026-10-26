@@ -1,9 +1,11 @@
 /**
- * Load the end-of-session summary ("Personal bests" and "What changed for
- * next time") from the database, so it survives a remount or a Resume.
+ * Load the end-of-session summary's personal bests from the database, so they
+ * survive a remount or a Resume.
  *
- * NOTE: the diff between what this session prescribed and the post-update
- * exercise_progress row (what is prescribed next time).
+ * "What changed for next time" is NOT rebuilt here (APP decision, M-1): the
+ * engine's decision can't be derived from stored data (no prescribed weight,
+ * no pre-session progress state). The runner shows only the progression
+ * messages it collected from finishExercise during this mount.
  *
  * PB: decided by the same nextBest the progression engine uses at finish time,
  * so the summary and the post-exercise banner never disagree. The prior bests
@@ -26,7 +28,6 @@ import { getUnitsPreference } from "@/lib/units";
 
 export type SummaryNote = {
   name: string;
-  message: string;
   personalBest: string | null;
 };
 
@@ -104,15 +105,6 @@ export async function loadSessionSummary(
 
   const exerciseIds = exercises.map((e) => e.exercise_id).filter(Boolean);
 
-  // Post-update exercise_progress: what is prescribed next time.
-  const { data: progressRows } = await supabase
-    .from("exercise_progress")
-    .select("exercise_id, current_working_weight_kg, current_target_reps")
-    .eq("user_id", userId)
-    .in("exercise_id", exerciseIds);
-
-  const progressMap = new Map((progressRows ?? []).map((p) => [p.exercise_id, p]));
-
   // Working sets from the user's other completed exercises, paged in a stable
   // order so no row is skipped or read twice across pages.
   const history: HistoryRow[] = [];
@@ -156,24 +148,6 @@ export async function loadSessionSummary(
     const workingSets = sets.filter((s) => !s.is_warmup_set);
     if (workingSets.length === 0) continue;
 
-    const progress = progressMap.get(ex.exercise_id);
-    if (!progress) continue;
-
-    // NOTE: this session's prescription vs post-update progress.
-    const thisSessionWeight = workingSets[0]?.weight_kg ?? null;
-    const nextWeight = progress.current_working_weight_kg;
-    const thisSessionReps = ex.planned_reps_max ?? 12;
-    const nextReps = progress.current_target_reps ?? 12;
-
-    let message: string;
-    if (nextWeight !== null && thisSessionWeight !== null && Math.abs(nextWeight - thisSessionWeight) >= 0.01) {
-      message = nextWeight > thisSessionWeight ? "Weight up next time" : "Weight down next time";
-    } else if (nextReps !== thisSessionReps) {
-      message = nextReps > thisSessionReps ? "Reps target up next time" : "Reps target down next time";
-    } else {
-      message = "Held";
-    }
-
     // PB: the engine's own rule against bests rebuilt from earlier sessions.
     const meta = { metric: ex.metric };
     const prior = nextBest(historyByKey.get(`${ex.exercise_id}:${ex.metric}`) ?? [], {
@@ -185,7 +159,6 @@ export async function loadSessionSummary(
 
     notes.push({
       name: exerciseName,
-      message,
       personalBest: personalBest ? describePersonalBest(personalBest, units) : null,
     });
   }

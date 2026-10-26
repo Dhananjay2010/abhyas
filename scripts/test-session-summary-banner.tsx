@@ -2,25 +2,29 @@
 /**
  * The REAL SessionRunner: post-exercise banner and the end-of-session summary.
  *
- * Case 1, a live session:
- *   - finishing Bench shows "Bench Press: <its note>" on the NEXT screen (Curl),
- *     not "Curl: ...";
- *   - skipping Curl clears it, so Row's screen shows no stale Bench note;
- *   - finishing Row (last, cool-down off) loads the summary through
- *     actions.getSessionSummary and renders the PB card and the note.
- * Case 2, a Resume with nothing left (cool-down screen): the summary is still
- *   fetched from the server, since the client never saw those finishes.
+ * "What changed for next time" (APP decision on M-1) shows ONLY the progression
+ * messages finishExercise returned during this mount -- the exact strings the
+ * banner showed, one per exercise in order. After a remount there is nothing
+ * collected, so the section is absent; it is never rebuilt from the database.
+ * Personal bests still come from getSessionSummary (the DB loader).
  *
- * Case 3, the summary's Total volume is in the user's units: 10 x 50 kg is
- *   "500 kg" for metric and "1,102 lb" for imperial (QA Bot 1 L-1).
+ * The finishExercise stub returns messages made by the REAL progression engine
+ * (evaluateProgression) for the logged sets, so the strings are the engine's.
  *
- * Case 4, the summary fetch rejects (network drop), then Retry succeeds.
- * Case 5, the summary fetch returns ok:false, then Retry succeeds.
- *   Both show "Couldn't load your summary." with a Retry button and no notes,
- *   and the notes appear after Retry (QA3 MED-2; kills QA3's R1).
- *
- * Kills: dropping the getSessionSummary call; labelling the banner with
- * current.name; not clearing the banner on skip.
+ * Case 1, a live session: Bench is QA Bot 1's repro (prescribed 40 kg, lifted
+ *   62.5 kg -> "Staying ..."); Curl is skipped; Row progresses.
+ *   - the banner on the next screen names the finished exercise;
+ *   - the summary lists exactly [Bench: <banner text>, Row: <banner text>];
+ *   - the skipped Curl contributes no note.
+ * Case 1b, two exercises back to back: each note is its own exercise's message.
+ * Case 2, a deload week: both notes are the engine's deload message, equal to
+ *   what the banner showed.
+ * Case 3, a remount with nothing pending (cool-down screen): no collected
+ *   messages, so no "What changed" section even though the server answer
+ *   carries an old-style message; the PB card still shows.
+ * Case 4, Total volume in the user's units.
+ * Cases 5 and 6, the summary fetch rejects / returns ok:false: an error with
+ *   Retry, and Retry renders the PB card (QA3 MED-2).
  */
 import "./helpers/setup-jsdom";
 import { render, waitFor, act, fireEvent } from "@testing-library/react";
@@ -30,6 +34,7 @@ import {
   type SessionActions,
   type RunnerSettings,
 } from "../src/app/session/[id]/session-runner";
+import { evaluateProgression, type ProgressState } from "../src/lib/program/progression";
 
 let failures = 0;
 function check(label: string, pass: boolean, detail?: string) {
@@ -39,7 +44,9 @@ function check(label: string, pass: boolean, detail?: string) {
 
 const ok = async () => ({ ok: true }) as const;
 
-function makeExercise(id: string, name: string, done: boolean): RunnerExercise {
+type Logged = { reps: number; weightKg: number };
+
+function makeExercise(id: string, name: string, done: boolean, set: Logged = { reps: 10, weightKg: 50 }): RunnerExercise {
   return {
     id,
     exerciseId: `${id}-ex`,
@@ -53,14 +60,28 @@ function makeExercise(id: string, name: string, done: boolean): RunnerExercise {
     plannedRepsMin: 8,
     plannedRepsMax: 12,
     restSeconds: 60,
-    workingWeightKg: 50,
-    suggestedWeightKg: 50,
+    workingWeightKg: 40,
+    suggestedWeightKg: 40,
     // One set already logged: the screen opens on "How did that feel?".
     status: done ? "completed" : "pending",
     feel: done ? "right" : null,
-    sets: [{ setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null }],
+    sets: [{ setNumber: 1, reps: set.reps, weightKg: set.weightKg, durationSeconds: null }],
     isBodyweight: false,
   };
+}
+
+/** The engine's message for one logged set against a 40 kg prescription. */
+function engineMessage(set: Logged, isDeload: boolean): string {
+  const state: ProgressState = {
+    currentWorkingWeightKg: 40, currentTargetReps: 12, consecutiveFailures: 0,
+    bestWeightKg: 40, bestReps: 10, bestE1rm: 50, totalSessions: 3,
+  };
+  return evaluateProgression({
+    sets: [{ reps: set.reps, weightKg: set.weightKg }],
+    plannedSets: 1, repsMin: 8, repsMax: 12, feel: "right",
+    meta: { mechanic: "compound", movementPattern: "horizontal_press", metric: "reps", isBodyweight: false, progressionChain: null, progressionRank: null },
+    state, isDeload,
+  }).message;
 }
 
 const settings: RunnerSettings = {
@@ -72,26 +93,24 @@ const settings: RunnerSettings = {
   cooldownEnabled: false,
 };
 
+// What getSessionSummary returns: PBs. The extra old-style `message` is what a
+// DB-derived note would be; it must never be shown.
 const SUMMARY = [
-  { name: "Row", message: "Weight up to 52.5 kg next time", personalBest: "Heaviest set yet — 50 kg" },
+  { name: "Row", personalBest: "Heaviest set yet — 50 kg", message: "Weight down next time" },
 ];
 
 type SummaryResult = { ok: true; data: typeof SUMMARY } | { ok: false; error: string };
 
-function makeActions(summaryImpl?: (call: number) => Promise<SummaryResult>) {
+function makeActions(messages: Record<string, string>, summaryImpl?: (call: number) => Promise<SummaryResult>) {
   const calls = { summary: 0, finishSession: 0 };
-  const notes: Record<string, string> = {
-    bench: "All sets at the top of the range, 52.5 kg next time",
-    row: "52.5 kg next time",
-  };
   const actions = {
     markWarmupDone: ok,
     logSet: async () => ({ ok: true as const }),
     deleteSet: ok,
     finishExercise: async (input: { sessionExerciseId: string; skipped?: boolean }) => {
-      if (input.skipped) return { ok: true as const, data: null };
-      const message = notes[input.sessionExerciseId] ?? "";
-      return { ok: true as const, data: { outcome: "progress", message, personalBest: null } };
+      // Even if the server sent a message for a skip, the runner must not show it.
+      const message = messages[input.sessionExerciseId] ?? "";
+      return { ok: true as const, data: { outcome: "hold", message, personalBest: null } };
     },
     finishSession: async () => {
       calls.finishSession++;
@@ -117,6 +136,18 @@ const button = (c: HTMLElement, re: RegExp) =>
 const bannerText = (c: HTMLElement) =>
   [...c.querySelectorAll("p")].find((p) => p.className.includes("bg-success/10"))?.textContent ?? null;
 
+/** The "What changed for next time" rows as "Name: message", or null if absent. */
+function changedRows(c: HTMLElement): string[] | null {
+  const h2 = [...c.querySelectorAll("h2")].find((h) => h.textContent?.trim() === "What changed for next time");
+  if (!h2) return null;
+  return [...(h2.parentElement?.querySelectorAll("li") ?? [])].map(
+    (li) => `${li.querySelector("span")?.textContent ?? ""}: ${li.querySelector("p")?.textContent ?? ""}`,
+  );
+}
+
+const totalVolume = (c: HTMLElement) =>
+  [...c.querySelectorAll("span")].find((sp) => sp.textContent === "Total volume")?.nextElementSibling?.textContent ?? null;
+
 async function click(el: Element | undefined, label: string) {
   if (!el) throw new Error(`button not found: ${label}`);
   await act(async () => {
@@ -125,14 +156,16 @@ async function click(el: Element | undefined, label: string) {
   });
 }
 
-const totalVolume = (c: HTMLElement) =>
-  [...c.querySelectorAll("span")].find((sp) => sp.textContent === "Total volume")?.nextElementSibling?.textContent ?? null;
+async function waitText(c: HTMLElement, text: string, timeout = 2000) {
+  await waitFor(() => {
+    if (!c.textContent?.includes(text)) throw new Error(`not shown: ${text}`);
+  }, { timeout }).catch(() => {});
+}
 
-async function finishedSummary(units?: "metric" | "imperial") {
-  const { actions } = makeActions();
+async function resumedSummary(actions: SessionActions, units?: "metric" | "imperial") {
   const r = render(
     <SessionRunner
-      sessionId="s3"
+      sessionId="s-resume"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -155,9 +188,19 @@ async function finishedSummary(units?: "metric" | "imperial") {
 (async () => {
   console.log("Session runner banner + summary\n");
 
-  console.log("Case 1: live session (finish, skip, finish last)");
+  const BENCH_SET = { reps: 10, weightKg: 62.5 }; // QA Bot 1 repro: prescribed 40, lifted 62.5
+  const ROW_SET = { reps: 12, weightKg: 40 };     // top of the range at 40: progresses
+  const benchMsg = engineMessage(BENCH_SET, false);
+  const rowMsg = engineMessage(ROW_SET, false);
+  const deloadMsg = engineMessage(BENCH_SET, true);
+  console.log("Engine messages");
+  check("QA1 repro: the engine says 'Staying'", benchMsg.startsWith("Staying"), benchMsg);
+  check("Row: a different message", rowMsg !== benchMsg && rowMsg.length > 0, rowMsg);
+  check("deload: the engine's deload message", deloadMsg.startsWith("Deload week"), deloadMsg);
+
+  console.log("\nCase 1: live session (finish Bench, skip Curl, finish Row)");
   {
-    const { actions, calls } = makeActions();
+    const { actions, calls } = makeActions({ bench: benchMsg, curl: "CURL MESSAGE", row: rowMsg });
     const { container: c, unmount } = render(
       <SessionRunner
         sessionId="s1"
@@ -167,22 +210,22 @@ async function finishedSummary(units?: "metric" | "imperial") {
         startedAt={new Date().toISOString()}
         warmup={[]}
         cooldown={[]}
-        exercises={[makeExercise("bench", "Bench Press", false), makeExercise("curl", "Curl", false), makeExercise("row", "Row", false)]}
+        exercises={[
+          makeExercise("bench", "Bench Press", false, BENCH_SET),
+          makeExercise("curl", "Curl", false),
+          makeExercise("row", "Row", false, ROW_SET),
+        ]}
         settings={settings}
         actions={actions}
       />,
     );
-    await waitFor(() => {
-      if (!c.textContent?.includes("How did that feel?")) throw new Error("feel prompt not shown");
-    });
+    await waitText(c, "How did that feel?");
     await click(button(c, /^Just right$/), "Just right (Bench)");
     await waitFor(() => {
       if (!c.querySelector("h2")?.textContent?.includes("Curl")) throw new Error("Curl not shown");
     });
     const b1 = bannerText(c);
-    check("banner on Curl's screen names Bench Press", b1?.startsWith("Bench Press:") ?? false, String(b1));
-    check("banner does not name Curl", !(b1 ?? "").startsWith("Curl:"), String(b1));
-    check("banner carries Bench's note", (b1 ?? "").includes("52.5 kg next time"), String(b1));
+    check("banner on Curl's screen is 'Bench Press: <engine message>'", b1 === `Bench Press: ${benchMsg}`, String(b1));
 
     await click(button(c, /^Skip this exercise$/), "Skip this exercise");
     await click(button(c, /^Skip it$/), "Skip it");
@@ -192,86 +235,116 @@ async function finishedSummary(units?: "metric" | "imperial") {
     check("after skipping Curl, no stale banner on Row", bannerText(c) === null, String(bannerText(c)));
 
     await click(button(c, /^Just right$/), "Just right (Row)");
-    await waitFor(() => {
-      if (!c.textContent?.includes("Session complete")) throw new Error("summary not shown");
-    });
-    await waitFor(() => {
-      if (!c.textContent?.includes("What changed for next time")) throw new Error("notes not rendered");
-    }, { timeout: 2000 }).catch(() => {});
+    await waitText(c, "Session complete");
+    await waitText(c, "Personal best");
     check("finishSession called once", calls.finishSession === 1, String(calls.finishSession));
     check("getSessionSummary called on reaching done", calls.summary === 1, String(calls.summary));
-    check("'What changed for next time' rendered", c.textContent?.includes("What changed for next time") ?? false);
-    check("note from the server rendered", c.textContent?.includes("Weight up to 52.5 kg next time") ?? false);
-    check("PB card rendered", (c.textContent?.includes("Personal best") ?? false) && (c.textContent?.includes("Heaviest set yet — 50 kg") ?? false));
+    const rows = changedRows(c);
+    check("'What changed' is exactly the banner messages, in order",
+      JSON.stringify(rows) === JSON.stringify([`Bench Press: ${benchMsg}`, `Row: ${rowMsg}`]), JSON.stringify(rows));
+    check("QA1 repro: summary says 'Staying', same as the banner", (rows ?? [])[0] === b1, `${(rows ?? [])[0]} vs ${b1}`);
+    check("skipped Curl contributes no note", !(rows ?? []).some((r) => r.startsWith("Curl")) && !c.textContent?.includes("CURL MESSAGE"));
+    check("no DB-derived note shown", !c.textContent?.includes("Weight down next time"));
+    check("PB card from the server rendered", c.textContent?.includes("Heaviest set yet — 50 kg") ?? false);
     unmount();
   }
 
-  console.log("\nCase 2: Resume with nothing pending (cool-down screen), then finish");
+  console.log("\nCase 1b: back-to-back finishes keep each exercise's own message");
   {
-    const { actions, calls } = makeActions();
+    const { actions } = makeActions({ bench: benchMsg, row: rowMsg });
     const { container: c, unmount } = render(
       <SessionRunner
-        sessionId="s2"
+        sessionId="s1b"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
         startedAt={new Date().toISOString()}
         warmup={[]}
         cooldown={[]}
-        exercises={[makeExercise("row", "Row", true)]}
+        exercises={[makeExercise("bench", "Bench Press", false, BENCH_SET), makeExercise("row", "Row", false, ROW_SET)]}
         settings={settings}
         actions={actions}
       />,
     );
-    await click(button(c, /^Skip cool-down$/), "Skip cool-down");
+    await waitText(c, "How did that feel?");
+    await click(button(c, /^Just right$/), "Just right (Bench)");
     await waitFor(() => {
-      if (!c.textContent?.includes("Session complete")) throw new Error("summary not shown");
+      if (!c.querySelector("h2")?.textContent?.includes("Row")) throw new Error("Row not shown");
     });
-    await waitFor(() => {
-      if (!c.textContent?.includes("What changed for next time")) throw new Error("notes not rendered");
-    }, { timeout: 2000 }).catch(() => {});
-    check("getSessionSummary called after resume", calls.summary === 1, String(calls.summary));
-    check("summary rendered from the server after resume", c.textContent?.includes("Weight up to 52.5 kg next time") ?? false);
+    await click(button(c, /^Just right$/), "Just right (Row)");
+    await waitText(c, "What changed for next time");
+    const rows = changedRows(c);
+    check("rows are [Bench: its message, Row: its message]",
+      JSON.stringify(rows) === JSON.stringify([`Bench Press: ${benchMsg}`, `Row: ${rowMsg}`]), JSON.stringify(rows));
     unmount();
   }
 
-  console.log("\nCase 3: Total volume in the user's units");
+  console.log("\nCase 2: deload week, notes equal the banner's deload message");
   {
-    const imp = await finishedSummary("imperial");
-    const v1 = totalVolume(imp.container);
-    check("imperial user: Total volume in lb (500 kg = 1,102 lb)", v1 === "1,102 lb", String(v1));
+    const { actions } = makeActions({ bench: deloadMsg, row: deloadMsg });
+    const { container: c, unmount } = render(
+      <SessionRunner
+        sessionId="s2"
+        isDeload={true}
+        week={4}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[makeExercise("bench", "Bench Press", false, BENCH_SET), makeExercise("row", "Row", false, ROW_SET)]}
+        settings={settings}
+        actions={actions}
+      />,
+    );
+    await waitText(c, "How did that feel?");
+    await click(button(c, /^Just right$/), "Just right (Bench)");
+    await waitFor(() => {
+      if (!c.querySelector("h2")?.textContent?.includes("Row")) throw new Error("Row not shown");
+    });
+    const b = bannerText(c);
+    check("banner shows the deload message", b === `Bench Press: ${deloadMsg}`, String(b));
+    await click(button(c, /^Just right$/), "Just right (Row)");
+    await waitText(c, "Session complete");
+    await waitText(c, "What changed for next time");
+    const rows = changedRows(c);
+    check("summary rows are the deload messages, not 'Weight up'",
+      JSON.stringify(rows) === JSON.stringify([`Bench Press: ${deloadMsg}`, `Row: ${deloadMsg}`]), JSON.stringify(rows));
+    check("first summary row equals the banner text", (rows ?? [])[0] === b);
+    unmount();
+  }
+
+  console.log("\nCase 3: remount with nothing pending (cool-down screen): no 'What changed', PB still shown");
+  {
+    const { actions, calls } = makeActions({});
+    const { container: c, unmount } = await resumedSummary(actions);
+    await waitText(c, "Personal best");
+    check("getSessionSummary called after resume", calls.summary === 1, String(calls.summary));
+    check("'What changed for next time' section absent", changedRows(c) === null, JSON.stringify(changedRows(c)));
+    check("no DB-derived note shown", !c.textContent?.includes("Weight down next time"));
+    check("PB card still shown", c.textContent?.includes("Heaviest set yet — 50 kg") ?? false);
+    unmount();
+  }
+
+  console.log("\nCase 4: Total volume in the user's units");
+  {
+    const imp = await resumedSummary(makeActions({}).actions, "imperial");
+    check("imperial user: Total volume in lb (500 kg = 1,102 lb)", totalVolume(imp.container) === "1,102 lb", String(totalVolume(imp.container)));
     imp.unmount();
-    const met = await finishedSummary("metric");
-    const v2 = totalVolume(met.container);
-    check("metric user: Total volume in kg", v2 === "500 kg", String(v2));
+    const met = await resumedSummary(makeActions({}).actions, "metric");
+    check("metric user: Total volume in kg", totalVolume(met.container) === "500 kg", String(totalVolume(met.container)));
     met.unmount();
-    const dflt = await finishedSummary(undefined);
-    const v3 = totalVolume(dflt.container);
-    check("no units passed: defaults to kg", v3 === "500 kg", String(v3));
+    const dflt = await resumedSummary(makeActions({}).actions, undefined);
+    check("no units passed: defaults to kg", totalVolume(dflt.container) === "500 kg", String(totalVolume(dflt.container)));
     dflt.unmount();
   }
 
   for (const [label, firstFailure] of [
-    ["Case 4: summary fetch rejects (network drop), Retry succeeds", () => Promise.reject(new TypeError("Failed to fetch"))],
-    ["Case 5: summary fetch returns ok:false, Retry succeeds", async () => ({ ok: false as const, error: "Could not load session summary" })],
+    ["Case 5: summary fetch rejects (network drop), Retry succeeds", () => Promise.reject(new TypeError("Failed to fetch"))],
+    ["Case 6: summary fetch returns ok:false, Retry succeeds", async () => ({ ok: false as const, error: "Could not load session summary" })],
   ] as Array<[string, () => Promise<SummaryResult>]>) {
     console.log(`\n${label}`);
-    const { actions, calls } = makeActions((n) => (n === 1 ? firstFailure() : Promise.resolve({ ok: true as const, data: SUMMARY })));
-    const { container: c, unmount } = render(
-      <SessionRunner
-        sessionId="s4"
-        isDeload={false}
-        week={1}
-        warmupAlreadyDone={true}
-        startedAt={new Date().toISOString()}
-        warmup={[]}
-        cooldown={[]}
-        exercises={[makeExercise("row", "Row", true)]}
-        settings={settings}
-        actions={actions}
-      />,
-    );
-    await click(button(c, /^Skip cool-down$/), "Skip cool-down");
+    const { actions, calls } = makeActions({}, (n) => (n === 1 ? firstFailure() : Promise.resolve({ ok: true as const, data: SUMMARY })));
+    const { container: c, unmount } = await resumedSummary(actions);
     let alertText: string | null = null;
     await waitFor(() => {
       alertText = c.querySelector('[role="alert"]')?.textContent ?? null;
@@ -280,13 +353,10 @@ async function finishedSummary(units?: "metric" | "imperial") {
     check("error message shown", (alertText ?? "").includes("Couldn't load your summary"), String(alertText));
     const retry = button(c, /^Retry$/);
     check("Retry button shown", !!retry);
-    check("no notes while failed", !(c.textContent?.includes("What changed for next time") ?? false));
+    check("no PB card while failed", !(c.textContent?.includes("Personal best") ?? false));
     if (retry) await click(retry, "Retry");
-    await waitFor(() => {
-      if (!c.textContent?.includes("What changed for next time")) throw new Error("notes not rendered");
-    }, { timeout: 2000 }).catch(() => {});
+    await waitText(c, "Personal best");
     check("Retry calls getSessionSummary again", calls.summary === 2, String(calls.summary));
-    check("after Retry the notes render", c.textContent?.includes("Weight up to 52.5 kg next time") ?? false);
     check("after Retry the PB card renders", c.textContent?.includes("Heaviest set yet — 50 kg") ?? false);
     check("after Retry the error is gone", !c.querySelector('[role="alert"]')?.textContent?.includes("Couldn't load"));
     unmount();

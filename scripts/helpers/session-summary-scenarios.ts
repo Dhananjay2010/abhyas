@@ -77,7 +77,7 @@ export async function runScenarios(env: Env): Promise<number> {
     });
     const n = find(notes, "bench");
     check("bench note present", !!n, JSON.stringify(notes));
-    check("note says weight up", n?.message === "Weight up next time", n?.message);
+    check("no DB-derived 'what changed' message (M-1: the runner owns those)", !!n && !("message" in n), JSON.stringify(n));
     check("PB is the heaviest set, 85 kg", n?.personalBest === "Heaviest set yet — 85 kg", String(n?.personalBest));
   }
 

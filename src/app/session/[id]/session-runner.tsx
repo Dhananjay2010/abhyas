@@ -188,6 +188,10 @@ export function SessionRunner({
   const [summaryLoaded, setSummaryLoaded] = useState(false);
   const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [bannerContent, setBannerContent] = useState<{ name: string; message: string } | null>(null);
+  // "What changed for next time": exactly the banner messages finishExercise
+  // returned during THIS mount, one per exercise in finishing order. Never
+  // rebuilt from the database (M-1): after a remount the section is absent.
+  const [changeNotes, setChangeNotes] = useState<Array<{ id: string; name: string; message: string }>>([]);
 
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
@@ -548,6 +552,7 @@ export function SessionRunner({
 
   // ---- summary ----------------------------------------------------------
   if (phase === "done") {
+    const changed = changeNotes;
     const personalBests = progressNotes.filter(
       (n): n is typeof n & { personalBest: string } => n.personalBest !== null,
     );
@@ -619,13 +624,13 @@ export function SessionRunner({
           </section>
         )}
 
-        {progressNotes.length > 0 && (
+        {changed.length > 0 && (
           <section className="mt-8">
             <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
               What changed for next time
             </h2>
             <ul className="space-y-2">
-              {progressNotes.map((n, i) => (
+              {changed.map((n, i) => (
                 <li key={i} className="rounded-xl border border-border bg-surface px-4 py-3 text-sm">
                   <span className="font-semibold">{n.name}</span>
                   <p className="mt-1 text-muted">{n.message}</p>
@@ -839,8 +844,11 @@ export function SessionRunner({
     // FIX (a): Store feedback from finishExercise for immediate banner display
     if (skipped || !result.data?.message) {
       setBannerContent(null);
+      setChangeNotes((prev) => prev.filter((n) => n.id !== current.id));
     } else if (result.data) {
-      setBannerContent({ name: current.name, message: result.data.message });
+      const note = { id: current.id, name: current.name, message: result.data.message };
+      setBannerContent({ name: note.name, message: note.message });
+      setChangeNotes((prev) => [...prev.filter((n) => n.id !== note.id), note]);
     }
     
     setExercises((prev) =>

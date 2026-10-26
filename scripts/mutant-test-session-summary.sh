@@ -22,7 +22,10 @@ run_mutant "first session claims a PB" "$F" '      bestWeightKg: null,
       bestReps: 0,' "${T[@]}"
 run_mutant "PB always null" "$F" 'personalBest: personalBest ? describePersonalBest(personalBest, units) : null,' 'personalBest: null,' "${T[@]}"
 run_mutant "units ignored" "$F" 'describePersonalBest(personalBest, units)' 'describePersonalBest(personalBest, "metric")' "${T[@]}"
-run_mutant "note direction inverted" "$F" 'nextWeight > thisSessionWeight ? "Weight up next time" : "Weight down next time"' 'nextWeight > thisSessionWeight ? "Weight down next time" : "Weight up next time"' "${T[@]}"
+run_mutant "loader derives a note again" "$F" '      name: exerciseName,
+      personalBest' '      name: exerciseName,
+      message: "Weight down next time",
+      personalBest' "${T[@]}"
 run_mutant "no stable paging order (QA3 L6)" "$F" '      .order("id")
 ' '' "${T[@]}"
 run_mutant "daily_menu not skipped (QA3 MED-1)" "$F" '  if (settings?.planning_mode === "daily_menu") return [];' '' "${T[@]}"
