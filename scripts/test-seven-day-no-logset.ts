@@ -15,7 +15,16 @@ describe("7-day cutoff - no logSet call", () => {
     const mockNow = () => Date.parse("2026-01-15T12:00:00Z");
     let logSetCalled = false;
 
-    const mockStorage = new Map<string, string>();
+    const mockStorage = {
+      data: new Map<string, string>(),
+      getItem(key: string) { return this.data.get(key) ?? null; },
+      setItem(key: string, value: string) { this.data.set(key, value); },
+      removeItem(key: string) { this.data.delete(key); },
+      clear() { this.data.clear(); },
+      get length() { return this.data.size; },
+      key(index: number) { return Array.from(this.data.keys())[index] ?? null; },
+    } as Storage;
+
     const userId = "user1";
     const sessionId = "session1";
 
@@ -31,7 +40,7 @@ describe("7-day cutoff - no logSet call", () => {
     const timestamp = mockNow() - 8 * 24 * 60 * 60 * 1000; // 8 days ago
 
     // Plant the old set
-    mockStorage.set(
+    mockStorage.setItem(
       `pending-sets:${userId}`,
       JSON.stringify({
         [sessionId]: {
@@ -50,7 +59,7 @@ describe("7-day cutoff - no logSet call", () => {
       set,
       userId,
       sessionId,
-      storage: mockStorage as unknown as Storage,
+      storage: mockStorage,
       deps: createPendingSetDeps(mockNow),
       logSet: mockLogSet,
       sessionStatus: "in-progress",
@@ -63,7 +72,7 @@ describe("7-day cutoff - no logSet call", () => {
     assert.strictEqual(outcome.status, "closed", "Outcome should be 'closed' for old sets");
 
     // Verify set is still in storage (kept for surfacing)
-    const stored = mockStorage.get(`pending-sets:${userId}`);
+    const stored = mockStorage.getItem(`pending-sets:${userId}`);
     assert.ok(stored, "Set should remain in storage");
   });
 
@@ -71,7 +80,16 @@ describe("7-day cutoff - no logSet call", () => {
     const mockNow = () => Date.parse("2026-01-15T12:00:00Z");
     let logSetCalled = false;
 
-    const mockStorage = new Map<string, string>();
+    const mockStorage = {
+      data: new Map<string, string>(),
+      getItem(key: string) { return this.data.get(key) ?? null; },
+      setItem(key: string, value: string) { this.data.set(key, value); },
+      removeItem(key: string) { this.data.delete(key); },
+      clear() { this.data.clear(); },
+      get length() { return this.data.size; },
+      key(index: number) { return Array.from(this.data.keys())[index] ?? null; },
+    } as Storage;
+
     const userId = "user1";
     const sessionId = "session1";
 
@@ -86,7 +104,7 @@ describe("7-day cutoff - no logSet call", () => {
 
     const timestamp = mockNow() - 5 * 24 * 60 * 60 * 1000; // 5 days ago
 
-    mockStorage.set(
+    mockStorage.setItem(
       `pending-sets:${userId}`,
       JSON.stringify({
         [sessionId]: {
@@ -105,7 +123,7 @@ describe("7-day cutoff - no logSet call", () => {
       set,
       userId,
       sessionId,
-      storage: mockStorage as unknown as Storage,
+      storage: mockStorage,
       deps: createPendingSetDeps(mockNow),
       logSet: mockLogSet,
       sessionStatus: "in-progress",

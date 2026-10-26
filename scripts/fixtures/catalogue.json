@@ -2258,8 +2258,7 @@
       "weights"
     ],
     "default_rest_seconds": 120,
-    "category": "strength",
-    "cue": "Use a box at parallel or higher - do not go below parallel"
+    "category": "strength"
   },
   {
     "id": "a5bcc56f-33b7-4d09-8d6d-39f709367d01",
@@ -4467,7 +4466,7 @@
     "category": "strength"
   },
   {
-    "id": "7e6e45a7-a096-43ae-a313-c8c1bc95f6f7",
+    "id": "fca2f58a-8c60-43f5-bfc0-2f82b1d5c223",
     "slug": "doorway-row",
     "name": "Doorway Row",
     "movement_pattern": "horizontal_pull",
@@ -4549,8 +4548,8 @@
     ],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "shoulder",
-      "wrist"
+      "wrist",
+      "shoulder"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -6599,7 +6598,7 @@
     "category": "strength"
   },
   {
-    "id": "eb87e64a-e162-463e-8b0f-58054ebc97c4",
+    "id": "9bf27e18-3e85-46ee-ae23-bb269c90f8ae",
     "slug": "glute-bridge",
     "name": "Glute Bridge",
     "movement_pattern": "hinge",
@@ -8825,8 +8824,7 @@
       "weights"
     ],
     "default_rest_seconds": 75,
-    "category": "strength",
-    "cue": "Use a pain-free partial range of motion"
+    "category": "strength"
   },
   {
     "id": "b8ace929-a5dd-4b2a-8664-c6f4162b4291",
@@ -10484,8 +10482,8 @@
     ],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "shoulder",
-      "wrist"
+      "wrist",
+      "shoulder"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -10673,8 +10671,8 @@
     ],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "shoulder",
-      "wrist"
+      "wrist",
+      "shoulder"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -13850,8 +13848,7 @@
       "weights"
     ],
     "default_rest_seconds": 75,
-    "category": "strength",
-    "cue": "Use a pain-free partial range of motion"
+    "category": "strength"
   },
   {
     "id": "51b63a9a-c3f6-4d0a-925b-a80f0819b696",
@@ -14469,6 +14466,33 @@
       "weights"
     ],
     "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "8a711dc6-9d75-455b-8fa3-c370ff280ede",
+    "slug": "spanish-squat",
+    "name": "Spanish Squat",
+    "movement_pattern": "squat",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment_ids": [
+      "resistance_band"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 90,
     "category": "strength"
   },
   {
@@ -16738,8 +16762,8 @@
     ],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "shoulder",
-      "wrist"
+      "wrist",
+      "shoulder"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -17048,6 +17072,31 @@
     ],
     "default_rest_seconds": 75,
     "category": "cardio"
+  },
+  {
+    "id": "b5d5fb78-13b8-486f-91a9-9fd603116163",
+    "slug": "wall-sit",
+    "name": "Wall Sit",
+    "movement_pattern": "squat",
+    "mechanic": "isolation",
+    "metric": "seconds",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 60,
+    "category": "strength"
   },
   {
     "id": "b00cc6d9-734c-4409-96b0-313c48037e54",
@@ -17581,59 +17630,5 @@
     ],
     "default_rest_seconds": 75,
     "category": "strength"
-  },
-  {
-    "id": "f0000000-0000-0000-0000-000000000001",
-    "slug": "wall-sit",
-    "name": "Wall Sit",
-    "movement_pattern": "squat",
-    "mechanic": "isolation",
-    "metric": "seconds",
-    "primary_muscles": [
-      "quads"
-    ],
-    "secondary_muscles": [
-      "glutes"
-    ],
-    "equipment_ids": [],
-    "level_min": "beginner",
-    "contraindicated_regions": [],
-    "impact": "low",
-    "spinal_load": "none",
-    "tracks": [
-      "weights",
-      "bodyweight"
-    ],
-    "default_rest_seconds": 60,
-    "category": "strength",
-    "cue": "Hold an isometric squat position with back against wall, thighs parallel to ground"
-  },
-  {
-    "id": "f0000000-0000-0000-0000-000000000002",
-    "slug": "spanish-squat",
-    "name": "Spanish Squat",
-    "movement_pattern": "squat",
-    "mechanic": "compound",
-    "metric": "reps",
-    "primary_muscles": [
-      "quads"
-    ],
-    "secondary_muscles": [
-      "glutes"
-    ],
-    "equipment_ids": [
-      "resistance_band"
-    ],
-    "level_min": "beginner",
-    "contraindicated_regions": [],
-    "impact": "low",
-    "spinal_load": "none",
-    "tracks": [
-      "weights",
-      "bodyweight"
-    ],
-    "default_rest_seconds": 90,
-    "category": "strength",
-    "cue": "Band behind knees creates forward resistance - controlled squat motion"
   }
 ]

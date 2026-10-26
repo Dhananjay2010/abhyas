@@ -1,6 +1,6 @@
 import type { PendingSetDeps } from "./pending-set-deps";
 import type { PendingSet, Storage } from "./pending-set-retry";
-import { clearPendingSet, isDuplicateError } from "./pending-set-retry";
+import { clearPendingSet, isDuplicateError, STALE_THRESHOLD_MS, loadAllPendingSetsWithTimestamp } from "./pending-set-retry";
 import { isSessionExpired } from "../auth/session-expired";
 
 /**
@@ -44,6 +44,17 @@ export async function attemptPendingSet({
   }) => Promise<{ ok: true } | { ok: false; error: string; code?: string } | { ok: false; reason: "set_exists" }>;
   sessionStatus?: "in-progress" | "ended" | "stale";
 }): Promise<PendingSetOutcome> {
+  // Check for stale sets (>7 days old)
+  const all = loadAllPendingSetsWithTimestamp(storage, userId, deps);
+  const sessionData = all[sessionId];
+  if (sessionData) {
+    const isStale = deps.now() - sessionData.timestamp > STALE_THRESHOLD_MS;
+    if (isStale) {
+      // Don't call logSet - treat as closed and surface for discard
+      return { status: "closed" };
+    }
+  }
+
   // Check if session is no longer in progress (closed)
   if (sessionStatus && sessionStatus !== "in-progress") {
     // Don't clear - caller will surface with "workout ended" message

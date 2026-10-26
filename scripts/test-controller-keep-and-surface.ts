@@ -12,7 +12,16 @@ import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 describe("Controller keep-and-surface", () => {
   it("load() keeps sets when session is not in progress", async () => {
-    const mockStorage = new Map<string, string>();
+    const mockStorage = {
+      data: new Map<string, string>(),
+      getItem(key: string) { return this.data.get(key) ?? null; },
+      setItem(key: string, value: string) { this.data.set(key, value); },
+      removeItem(key: string) { this.data.delete(key); },
+      clear() { this.data.clear(); },
+      get length() { return this.data.size; },
+      key(index: number) { return Array.from(this.data.keys())[index] ?? null; },
+    } as Storage;
+    
     const mockNow = () => Date.parse("2026-01-15T12:00:00Z");
     const userId = "user1";
     const sessionId = "session1";
@@ -27,7 +36,7 @@ describe("Controller keep-and-surface", () => {
     };
 
     // Plant a pending set
-    mockStorage.set(
+    mockStorage.setItem(
       `pending-sets:${userId}`,
       JSON.stringify({
         [sessionId]: {
@@ -43,7 +52,7 @@ describe("Controller keep-and-surface", () => {
     const controller = createPendingSetController({
       userId,
       sessionId,
-      storage: mockStorage as unknown as Storage,
+      storage: mockStorage,
       logSet: mockLogSet,
       sessionStatus: mockSessionStatus,
       deps: createPendingSetDeps(mockNow),
@@ -55,7 +64,7 @@ describe("Controller keep-and-surface", () => {
     const state = controller.getState();
 
     // Verify sets are still in storage (not deleted)
-    const stored = mockStorage.get(`pending-sets:${userId}`);
+    const stored = mockStorage.getItem(`pending-sets:${userId}`);
     assert.ok(stored, "Sets should remain in storage");
 
     // Verify state shows pending sets
@@ -63,7 +72,16 @@ describe("Controller keep-and-surface", () => {
   });
 
   it("replay() keeps sets when session is not in progress", async () => {
-    const mockStorage = new Map<string, string>();
+    const mockStorage = {
+      data: new Map<string, string>(),
+      getItem(key: string) { return this.data.get(key) ?? null; },
+      setItem(key: string, value: string) { this.data.set(key, value); },
+      removeItem(key: string) { this.data.delete(key); },
+      clear() { this.data.clear(); },
+      get length() { return this.data.size; },
+      key(index: number) { return Array.from(this.data.keys())[index] ?? null; },
+    } as Storage;
+    
     const mockNow = () => Date.parse("2026-01-15T12:00:00Z");
     const userId = "user1";
     const sessionId = "session1";
@@ -77,7 +95,7 @@ describe("Controller keep-and-surface", () => {
       durationSeconds: null,
     };
 
-    mockStorage.set(
+    mockStorage.setItem(
       `pending-sets:${userId}`,
       JSON.stringify({
         [sessionId]: {
@@ -93,7 +111,7 @@ describe("Controller keep-and-surface", () => {
     const controller = createPendingSetController({
       userId,
       sessionId,
-      storage: mockStorage as unknown as Storage,
+      storage: mockStorage,
       logSet: mockLogSet,
       sessionStatus: mockSessionStatus,
       deps: createPendingSetDeps(mockNow),
@@ -103,7 +121,7 @@ describe("Controller keep-and-surface", () => {
     await controller.replay();
 
     // Verify sets are still in storage (not deleted)
-    const stored = mockStorage.get(`pending-sets:${userId}`);
+    const stored = mockStorage.getItem(`pending-sets:${userId}`);
     assert.ok(stored, "Sets should remain in storage after replay");
 
     const state = controller.getState();
