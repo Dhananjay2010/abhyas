@@ -128,9 +128,17 @@ if ! REAL_DB=1 npm run test:gym-tenant-rls-real-db > /dev/null 2>&1; then
 fi
 echo "✓ Baseline tests pass"
 
-# Wait for database connections to close before starting mutants
-echo "Waiting for database to settle..."
-sleep 3
+# Restart Supabase to ensure clean state for mutants
+echo "Restarting Supabase for mutant tests..."
+if ! supabase stop > /dev/null 2>&1; then
+  echo "⚠️  Warning: supabase stop failed" >&2
+fi
+sleep 2
+if ! supabase start > /dev/null 2>&1; then
+  echo "❌ Failed to restart Supabase" >&2
+  exit 1
+fi
+echo "✓ Supabase restarted"
 echo
 
 run_mutant() {
