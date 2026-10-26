@@ -232,6 +232,32 @@ check("No-injury minimal has at least 2 mobility drills (including bodyweight-sq
   `got ${noInjuryMobility.length} drills: ${noInjuryMobility.map(w => w.slug).join(", ")}`
 );
 
+// Test 5c2: Fallback skip mutant test (continue vs break)
+console.log("\n5c2. Fallback skip: continue vs break (kills mutant)");
+// Create a seed where glute-bridge is missing, and past-knee fallback has
+// glute-bridge first. The fallback loop will try glute-bridge (missing), 
+// skip with continue to hip-circles, etc.
+// If mutated to break, it stops at the first missing/duplicate and gives fewer drills.
+const noGluteBridgeWarmups: WarmupRow[] = warmups.filter(w =>
+  ["easy-bike", "cat-cow", "hip-circles", "leg-swing-front", "clamshell"].includes(w.slug)
+);
+
+const pastKneeFallbackSkip = selectWarmup({
+  warmups: noGluteBridgeWarmups,
+  trainingMuscles: ["abs"], // No overlap with available mobility
+  injuryRegions: [],
+  prehabRegions: ["knee"],
+  track: "weights",
+  hasAllEquipment: true,
+  availableEquipment: null,
+});
+
+const skipMobility = pastKneeFallbackSkip.filter(w => w.phase === "mobility");
+check("Fallback skip test: gets at least 3 mobility drills with continue",
+  skipMobility.length >= 3,
+  `got ${skipMobility.length}: ${skipMobility.map(w => w.slug).join(", ")} (break would stop at first missing/dup)`
+);
+
 // Test 5d: Replacement logic (not just final output)
 console.log("\n5d. Replacement logic kills mutants (past-knee replaces excluded drills)");
 // Use a scenario where excluded drills WOULD be selected by overlap ranking

@@ -39,7 +39,7 @@ function test_mutant() {
   echo "==================================="
   
   if [[ "$is_equivalent" == "true" ]]; then
-    echo "✓ EQUIVALENT (current knee already excludes these via target_regions)"
+    echo "✓ EQUIVALENT ($name)"
     EQUIVALENT=$((EQUIVALENT + 1))
     return
   fi
@@ -47,17 +47,25 @@ function test_mutant() {
   # Restore original
   cp "$BACKUP" "$WARMUP_FILE"
   
-  # Apply mutation
+  # Apply mutation and verify it changed the file
+  local before_hash=$(md5sum "$WARMUP_FILE" | cut -d' ' -f1)
   if ! eval "$mutation"; then
     echo "✗ SKIP: Mutation command failed"
     SKIPPED=$((SKIPPED + 1))
     return
   fi
   
+  local after_hash=$(md5sum "$WARMUP_FILE" | cut -d' ' -f1)
+  if [[ "$before_hash" == "$after_hash" ]]; then
+    echo "✗ SKIP: File unchanged (pattern not found or substitution had no effect)"
+    SKIPPED=$((SKIPPED + 1))
+    return
+  fi
+  
   # Check if it compiles
-  if ! npx tsc --noEmit 2>&1; then
-    echo "✓ KILLED by TypeScript (does not compile)"
-    KILLED=$((KILLED + 1))
+  if ! npx tsc --noEmit > /dev/null 2>&1; then
+    echo "✗ SKIP: Does not compile (not a valid mutation)"
+    SKIPPED=$((SKIPPED + 1))
     return
   fi
   
@@ -74,37 +82,35 @@ function test_mutant() {
   fi
 }
 
-# Mutant (a): Remove the entire replacement logic block
-test_mutant "Remove replacement logic" \
-  "sed -i.bak '/Past-knee exclusion: replace excluded drills/,/^    }$/{ /^    }$/b; d; }' \"$WARMUP_FILE\" && sed -i.bak '/^    }$/d' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
+# Mutant (a): Disable replacement logic (excluded.length > 99, never true)
+test_mutant "Disable replacement logic" \
+  "sed -i 's/if (excluded.length > 0) {$/if (excluded.length > 99) {/' \"$WARMUP_FILE\""
 
 # Mutant (b): Add bodyweight-squat to past-knee fallback list
 test_mutant "Add knee-loading drill to past-knee fallback" \
-  "sed -i.bak 's/\\[\"glute-bridge\",/[\"bodyweight-squat\", \"glute-bridge\",/' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
+  "sed -i 's/\\[\"glute-bridge\",/[\"bodyweight-squat\", \"glute-bridge\",/' \"$WARMUP_FILE\""
 
 # Mutant (c): Remove isPastKnee condition from replacement block
 test_mutant "Apply replacement to all users" \
-  "sed -i.bak '/Past-knee exclusion: replace/,/if (isPastKnee)/s/if (isPastKnee) {/if (true) {/' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
+  "sed -i '/Past-knee exclusion: replace/,/if (isPastKnee)/s/if (isPastKnee) {/if (true) {/' \"$WARMUP_FILE\""
 
 # Mutant (d): Treat current knee as past knee (change the condition)
 # EQUIVALENT: current knee already excludes these through target_regions
 test_mutant "Treat current knee as past knee" \
-  "sed -i.bak 's/function isPastKneeUser/function isPastKneeUser_mutated/' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\"" \
+  "sed -i 's/function isPastKneeUser/function isPastKneeUser_mutated/' \"$WARMUP_FILE\"" \
   "true"
 
 # Mutant (e): Drop worlds-greatest from the excluded set
 test_mutant "Drop worlds-greatest from excluded set" \
-  "sed -i.bak '/\"worlds-greatest\",/d' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
+  "sed -i '/\"worlds-greatest\",/d' \"$WARMUP_FILE\""
 
 # Mutant (f): Remove 3-drill limit in fallback
 test_mutant "Remove 3-drill limit in fallback" \
-  "sed -i.bak 's/if (mobility.length >= 3) break;/\\/\\/ if (mobility.length >= 3) break;/' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
+  "sed -i 's/if (mobility.length >= 3) break;$/\\/\\/ if (mobility.length >= 3) break;/' \"$WARMUP_FILE\""
 
-# Mutant (g): Change break to continue in fallback (effectively equivalent)
-# Equivalent because both stop adding after 3 drills
-test_mutant "Change break to continue in fallback" \
-  "sed -i.bak 's/if (mobility.length >= 3) break;/if (mobility.length >= 3) continue;/' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\"" \
-  "true"
+# Mutant (g): Change continue to break in fallback skip (QA Bot 3 request)
+test_mutant "Change continue to break in fallback skip" \
+  "sed -i 's/if (!w || mobility.some((m) => m.id === w.id)) continue;/if (!w \\|\\| mobility.some((m) => m.id === w.id)) break;/' \"$WARMUP_FILE\""
 
 # Restore original
 cp "$BACKUP" "$WARMUP_FILE"
