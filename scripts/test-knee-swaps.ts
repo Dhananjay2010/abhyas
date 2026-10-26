@@ -260,6 +260,138 @@ if (testExercise) {
     kneeHasSquat ? "Squat pattern found in knee lunge patterns!" : undefined);
 }
 
+// Test 4: QA Bot 1 - Past-knee Barbell Squat swaps must not include Goblet Squat or Turkish Get-Up
+console.log("\n4. QA Bot 1: Past-knee Barbell Squat swaps (no Goblet Squat, no Turkish Get-Up)");
+{
+  const barbellSquat = catalogue.find(e => e.slug === "barbell-squat");
+  const pastKneeInjuries: InjuryRow[] = [{ region: "knee", severity: "past" }];
+  
+  if (barbellSquat) {
+    const swaps = simulateSwapPath(barbellSquat, pastKneeInjuries, true);
+    
+    check("Barbell Squat swaps for past-knee: non-empty", swaps.length > 0);
+    
+    const hasGobletSquat = swaps.some(ex => ex.slug === "goblet-squat");
+    check("Barbell Squat swaps: no Goblet Squat", !hasGobletSquat,
+      hasGobletSquat ? "Goblet Squat found in past-knee barbell squat swaps!" : undefined);
+    
+    const hasTurkishGetUp = swaps.some(ex => 
+      ex.slug === "kettlebell-turkish-get-up-lunge-style" || 
+      ex.slug === "kettlebell-turkish-get-up-squat-style"
+    );
+    check("Barbell Squat swaps: no Turkish Get-Up", !hasTurkishGetUp,
+      hasTurkishGetUp ? "Turkish Get-Up found in squat swaps!" : undefined);
+    
+    // Log the swap list for inspection
+    if (process.env.DEBUG_SWAPS) {
+      console.log("  Past-knee Barbell Squat swaps:", swaps.map(e => e.slug).slice(0, 10));
+    }
+  }
+}
+
+// Test 5: QA Bot 1 - Past-knee Spanish Squat swaps
+console.log("\n5. QA Bot 1: Past-knee Spanish Squat swaps");
+{
+  const spanishSquat = catalogue.find(e => e.slug === "spanish-squat");
+  const pastKneeInjuries: InjuryRow[] = [{ region: "knee", severity: "past" }];
+  
+  if (spanishSquat) {
+    const swaps = simulateSwapPath(spanishSquat, pastKneeInjuries, true);
+    
+    check("Spanish Squat swaps for past-knee: non-empty", swaps.length > 0);
+    
+    const hasGobletSquat = swaps.some(ex => ex.slug === "goblet-squat");
+    check("Spanish Squat swaps: no Goblet Squat", !hasGobletSquat,
+      hasGobletSquat ? "Goblet Squat found in past-knee spanish squat swaps!" : undefined);
+    
+    // Log the swap list for inspection
+    if (process.env.DEBUG_SWAPS) {
+      console.log("  Past-knee Spanish Squat swaps:", swaps.map(e => e.slug).slice(0, 10));
+    }
+  }
+}
+
+// Test 6: QA Bot 1 - Past-knee lunge slot swaps with extended list check
+console.log("\n6. QA Bot 1: Past-knee lunge swaps (extended list for fallback check)");
+{
+  const splitSquat = catalogue.find(e => e.slug === "split-squat-with-dumbbells");
+  const pastKneeInjuries: InjuryRow[] = [{ region: "knee", severity: "past" }];
+  
+  if (splitSquat) {
+    // Get top 5 swaps
+    const swaps = simulateSwapPath(splitSquat, pastKneeInjuries, true);
+    check("Lunge swaps for past-knee: non-empty", swaps.length > 0);
+    
+    // MED-3: Verify no normal squats (only PAST_KNEE_LUNGE_EXERCISES allowed)
+    const squatExercises = swaps.filter(ex => ex.movement_pattern === "squat");
+    const unsafeSquats: string[] = [];
+    for (const ex of squatExercises) {
+      if (!EXPECTED_PAST_KNEE_SAFE_LUNGES.includes(ex.slug)) {
+        // Check if it's in the allowed quad-isolation list
+        const allowedQuadIsolation = ["leg-extensions", "single-leg-leg-extension", "wall-sit", "spanish-squat"];
+        if (!allowedQuadIsolation.includes(ex.slug)) {
+          unsafeSquats.push(ex.slug);
+        }
+      }
+    }
+    
+    check("Lunge swaps: no unsafe squat-pattern exercises (MED-3)", unsafeSquats.length === 0,
+      unsafeSquats.length > 0 ? `Unsafe squats: ${unsafeSquats.join(", ")}` : undefined);
+    
+    // Get extended swap list (limit 20) to check for hinge/bridge fallbacks
+    const input: GeneratorInput = {
+      userId: "test-user",
+      blockNumber: 1,
+      goal: "muscle_gain",
+      level: "intermediate",
+      primaryTrack: "weights",
+      daysPerWeek: 4,
+      yogaDaysPerWeek: 0,
+      age: 30,
+      bmi: 23,
+      hasAllEquipment: true,
+      equipmentIds: [],
+      currentInjuryRegions: [],
+      anyKneeInjury: true,
+      catalogue,
+    };
+    const patterns = getSwapPatterns(splitSquat.movement_pattern, input);
+    const pool = catalogue.filter(ex => patterns.includes(ex.movement_pattern));
+    const eligible = pool.filter(ex => isEligible(ex, input));
+    const wantCompound = splitSquat.mechanic !== "isolation";
+    const tieBreak = (slug: string) => hashString(`test:${slug}`);
+    const scoreFn = (e: CandidateExercise) => score(e, wantCompound, input.level, input.primaryTrack);
+    const extendedSwaps = rankAlternatives(
+      splitSquat,
+      eligible,
+      {
+        level: input.level,
+        availableEquipment: null,
+        injuryRegions: input.currentInjuryRegions,
+        anyKneeInjury: input.anyKneeInjury,
+        limit: 20,
+        scoreFn,
+        tieBreakFn: tieBreak,
+      }
+    );
+    
+    // Check for safe hinge/bridge exercises in extended list
+    const hasSafeHingeOrBridge = extendedSwaps.some(ex => 
+      ex.movement_pattern === "hinge" || 
+      (ex.movement_pattern === "core" && (ex.slug.includes("bridge") || ex.slug.includes("thrust")))
+    );
+    
+    check("Lunge swaps (extended): includes safe hinge/bridge fallbacks", hasSafeHingeOrBridge,
+      !hasSafeHingeOrBridge ? "No safe hinge/bridge fallbacks found in top 20!" : undefined);
+    
+    // Log the swap lists for inspection
+    if (process.env.DEBUG_SWAPS) {
+      console.log("  Past-knee lunge swaps (top 5):", swaps.map(e => `${e.slug} [${e.movement_pattern}]`).slice(0, 5));
+      console.log("  Past-knee lunge swaps (extended top 20):", extendedSwaps.map(e => `${e.slug} [${e.movement_pattern}]`).slice(0, 20));
+    }
+  }
+}
+
 // Count empty swap lists for all current-knee lunge exercises
 console.log("\n4. Count empty swap lists for current-knee lunges (comprehensive)");
 const currentKneeInjuries: InjuryRow[] = [{ region: "knee", severity: "current" }];
