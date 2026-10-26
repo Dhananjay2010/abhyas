@@ -104,9 +104,11 @@ Object.defineProperty(window, 'localStorage', {
   };
   
   // Success case: signOut returns success (in real code it would redirect)
-  const signOutSuccess = async () => {
+  const signOutSuccess = async (): Promise<{ ok: false; error: string }> => {
     callOrder.push("signOut");
-    return { ok: true as const };
+    // In reality, success would redirect and never return
+    // For test purposes, we'll simulate what happens before redirect
+    return new Promise(() => {}) as Promise<{ ok: false; error: string }>;
   };
   
   render(
