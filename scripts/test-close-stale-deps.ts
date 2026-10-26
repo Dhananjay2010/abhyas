@@ -121,7 +121,6 @@ console.log("\n4. fetchSessionExercises calls correct table and columns");
   fake.setSessionExercises("sess1", [
     {
       session_id: "sess1",
-      rest_seconds: null,
       session_sets: [
         { id: "set1", is_warmup_set: false, completed_at: "2026-10-24T10:00:00Z" }
       ]
