@@ -1,14 +1,13 @@
 /**
  * Test keepPlannedDay core logic (Fix 1: 'Keep it' on Rest override).
  *
- * Behavioural test using the REAL exported function against a fake DB.
+ * Behavioural test using the REAL exported function.
  * 
  *   npx tsx scripts/test-plan-day-keep-core.ts
  */
 
 import { strict as assert } from "node:assert";
 import { keepPlannedDay } from "../src/lib/session/plan-day-keep-core";
-import { createFakeDb, type Row } from "./helpers/fake-postgrest";
 
 export {}; // Module
 
@@ -25,16 +24,6 @@ async function test(name: string, fn: () => Promise<void>) {
     console.error(`  ${err instanceof Error ? err.message : String(err)}`);
     failed++;
   }
-}
-
-function sessionRow(id: string, actualType: string | null): Row {
-  return {
-    id,
-    user_id: "user-1",
-    local_date: "2026-10-26",
-    status: "planned",
-    actual_type: actualType,
-  };
 }
 
 async function main() {
