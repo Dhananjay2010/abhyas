@@ -271,19 +271,31 @@ run_mutant \
   "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {" \
   "if (cutFraction < FIRST_MISS_HOLD_THRESHOLD) {"
 
-# Mutant (e): consecutiveFailures not incremented
+# Mutant (e): consecutiveFailures not incremented (first-miss case only)
 run_mutant \
   "(e) failure counter not incremented" \
   "Don't increment consecutiveFailures on first miss" \
-  "    consecutiveFailures: failures," \
-  "    consecutiveFailures: 0,"
+  "  return {
+    ...carried,
+    outcome: \"hold\",
+    nextWorkingWeightKg: nextWeight,
+    consecutiveFailures: failures," \
+  "  return {
+    ...carried,
+    outcome: \"hold\",
+    nextWorkingWeightKg: nextWeight,
+    consecutiveFailures: 0,"
 
-# Mutant (f): kettlebell strictly-below
+# Mutant (f): kettlebell strictly-below (first-miss path only)
 run_mutant \
   "(f) kettlebell strictly-below" \
   "Allow kettlebell to equal or be below current (not strictly below)" \
-  "        if (bells[i] < currentWeight - epsilon) {" \
-  "        if (bells[i] <= currentWeight) {"
+  "      let found = currentWeight;  // Default to hold
+      for (let i = bells.length - 1; i >= 0; i--) {
+        if (bells[i] < currentWeight - epsilon) {" \
+  "      let found = currentWeight;  // Default to hold
+      for (let i = bells.length - 1; i >= 0; i--) {
+        if (bells[i] <= currentWeight) {"
 
 # Mutant (g): first-miss >= two-miss guard
 run_mutant \
@@ -291,7 +303,7 @@ run_mutant \
   "Don't hold when candidate < two-miss" \
   "    // Rule 2: if candidate < two-miss result, hold instead
     if (candidateWeight !== currentWeight) {
-      const twoMissFloor = computeTwoMissResult(currentWeight, false); // Rule 2: snap UP (original behavior)
+      const twoMissFloor = computeTwoMissResult(currentWeight);
       if (candidateWeight < twoMissFloor) {
         candidateWeight = currentWeight;
         holdReason = 'twomiss';
@@ -299,7 +311,7 @@ run_mutant \
     }" \
   "    // Rule 2: if candidate < two-miss result, hold instead
     if (candidateWeight !== currentWeight) {
-      const twoMissFloor = computeTwoMissResult(currentWeight, false); // Rule 2: snap UP (original behavior)
+      const twoMissFloor = computeTwoMissResult(currentWeight);
       if (candidateWeight < twoMissFloor) {
         candidateWeight = candidateWeight;
       }

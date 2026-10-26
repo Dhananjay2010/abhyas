@@ -84,60 +84,87 @@ function testEquipment(
   }
 }
 
-// Test dumbbell stuck at 12.5 kg
-testEquipment("Dumbbell (isolation, 1.25 kg steps)", ["dumbbell"], 12.5, [
-  { weight: 11.25, counter: 1, outcome: "hold" }, // First miss: drop one step to 11.25, counter=1
-  { weight: 11.25, counter: 2, outcome: "hold" }, // Second miss: 10% of 12.5 = 11.25, snaps to 11.25 (hold), counter=2
-  { weight: 10, counter: 0, outcome: "backed_off" }, // Third miss: drop one step to 10, counter resets
-]);
-
-// Test kettlebell stuck at 14 kg
-testEquipment("Kettlebell 14 kg", ["kettlebell"], 14, [
-  { weight: 12, counter: 1, outcome: "hold" }, // First miss: previous bell is 12, counter=1
-  { weight: 12, counter: 2, outcome: "hold" }, // Second miss: 10% of 14 = 12.6, snap to 12 (hold), counter=2
-  { weight: 10, counter: 0, outcome: "backed_off" }, // Third miss: next lower bell is 10 (not 11.5), counter resets
-]);
-
-// Test kettlebell stuck at 6 kg
-testEquipment("Kettlebell 6 kg", ["kettlebell"], 6, [
-  { weight: 4, counter: 1, outcome: "hold" }, // First miss: previous bell is 4, counter=1
-  { weight: 4, counter: 2, outcome: "hold" }, // Second miss: 10% of 6 = 5.4, snap to 4 (hold), counter=2
-  { weight: 4, counter: 2, outcome: "hold" }, // Third miss: 4 kg is minimum, must hold (not 3.5 or 2.5), counter stays at 2
-]);
-
-// Test kettlebell at 4 kg (minimum)
-testEquipment("Kettlebell 4 kg (minimum)", ["kettlebell"], 4, [
-  { weight: 4, counter: 1, outcome: "hold" }, // First miss: already at minimum, counter=1
-  { weight: 4, counter: 2, outcome: "hold" }, // Second miss: 10% can't reduce below 4, counter=2
-  { weight: 4, counter: 2, outcome: "hold" }, // Third miss: must hold at 4 (not 2.5), counter stays at 2
-]);
-
-// Test machine/cable at 12.5 kg
-testEquipment("Machine (2.5 kg plates)", ["machine_generic"], 12.5, [
+// Test dumbbell at 12.5 kg
+// Dumbbell grid is 2.5 kg, not 1.25 kg
+// First miss: one step down from 12.5 = 10 kg (not 11.25)
+// Two-miss floor: 90% of 12.5 = 11.25, snaps to 10 kg (compound rounding)
+// Rule 2: candidate (10) is NOT < floor (10), so drops to 10
+testEquipment("Dumbbell (compound, 2.5 kg steps)", ["dumbbell"], 12.5, [
   { weight: 10, counter: 1, outcome: "hold" }, // First miss: drop one step to 10, counter=1
   { weight: 10, counter: 2, outcome: "hold" }, // Second miss: 10% of 12.5 = 11.25, snaps to 10 (hold), counter=2
   { weight: 7.5, counter: 0, outcome: "backed_off" }, // Third miss: drop one step to 7.5, counter resets
 ]);
 
-// Test medicine ball at 5 kg
+// Test kettlebell at 14 kg
+// KB bells: 4, 6, 8, 10, 12, 14, 16, 18, 20...
+// First miss: tries to go to 12, but Rule 2 (two-miss floor at 12) prevents it, holds at 14
+// Second miss: same, holds at 14
+// Third miss: MED-3 triggers, drops to next lower bell (12)
+testEquipment("Kettlebell 14 kg", ["kettlebell"], 14, [
+  { weight: 14, counter: 1, outcome: "hold" }, // First miss: Rule 2 prevents drop to 12, counter=1
+  { weight: 14, counter: 2, outcome: "hold" }, // Second miss: still holds, counter=2
+  { weight: 12, counter: 0, outcome: "backed_off" }, // Third miss: MED-3 drops to 12, counter resets
+]);
+
+// Test kettlebell at 6 kg
+// First miss: tries to go to 4, but Rule 1 (>20% cut: 33%) prevents it, holds at 6
+// Second miss: same, holds at 6
+// Third miss: MED-3 triggers, drops to next lower bell (4)
+testEquipment("Kettlebell 6 kg", ["kettlebell"], 6, [
+  { weight: 6, counter: 1, outcome: "hold" }, // First miss: Rule 1 (33% cut) prevents drop to 4, counter=1
+  { weight: 6, counter: 2, outcome: "hold" }, // Second miss: still holds, counter=2
+  { weight: 4, counter: 0, outcome: "backed_off" }, // Third miss: MED-3 drops to 4, counter resets
+]);
+
+// Test kettlebell at 4 kg (minimum bell)
+// First miss: no lower bell, holds at 4
+// Second miss: still holds at 4
+// Third miss: MED-3 tries to drop but no lower bell exists, holds at 4, counter increments to 3
+testEquipment("Kettlebell 4 kg (minimum)", ["kettlebell"], 4, [
+  { weight: 4, counter: 1, outcome: "hold" }, // First miss: smallest bell, counter=1
+  { weight: 4, counter: 2, outcome: "hold" }, // Second miss: still smallest, counter=2
+  { weight: 4, counter: 3, outcome: "hold" }, // Third miss: MED-3 can't drop (no lower bell), counter=3
+]);
+
+// Test pin-stack machine at 12.5 kg
+// Machine_generic is pin-stack with 5 kg grid step
+// First miss: one step down would be 7.5, but Rule 2 (two-miss floor at 10) prevents it, goes to 10
+// Second miss: holds at 10
+// Third miss: MED-3 triggers, drops one step (5 kg) to 5 kg
+testEquipment("Machine (5 kg steps)", ["machine_generic"], 12.5, [
+  { weight: 10, counter: 1, outcome: "hold" }, // First miss: drops to 10 (Rule 2 floor), counter=1
+  { weight: 10, counter: 2, outcome: "hold" }, // Second miss: holds at 10, counter=2
+  { weight: 5, counter: 0, outcome: "backed_off" }, // Third miss: MED-3 drops one step (5kg) to 5, counter resets
+]);
+
+// Test medicine ball at 5 kg (1 kg grid)
+// First miss: tries to drop to 4, but Rule 2 (two-miss floor at 4) prevents it, holds at 5
+// Second miss: holds at 5
+// Third miss: MED-3 triggers, drops one step (1 kg) to 4 kg (floor at 0)
 testEquipment("Medicine ball 5 kg", ["medicine_ball"], 5, [
-  { weight: 2.5, counter: 1, outcome: "hold" }, // First miss: drop one step to 2.5, counter=1
-  { weight: 2.5, counter: 2, outcome: "hold" }, // Second miss: 10% of 5 = 4.5, snaps to 2.5 (hold), counter=2
-  { weight: 0, counter: 0, outcome: "backed_off" }, // Third miss: drop one step to 0 (floor), counter resets
+  { weight: 5, counter: 1, outcome: "hold" }, // First miss: Rule 2 prevents drop to 4, counter=1
+  { weight: 5, counter: 2, outcome: "hold" }, // Second miss: still holds, counter=2
+  { weight: 4, counter: 0, outcome: "backed_off" }, // Third miss: MED-3 drops one step to 4 (floor 0), counter resets
 ]);
 
-// Test resistance band at 5 kg
+// Test resistance band at 5 kg (2.5 kg grid, bodyweight equipment with floor at 0)
+// First miss: tries to drop to 2.5, but Rule 2 (two-miss floor at 4) prevents it, holds at 5
+// Second miss: holds at 5
+// Third miss: MED-3 triggers, drops one step (2.5 kg) to 2.5 kg (floor at 0)
 testEquipment("Resistance band 5 kg", ["resistance_band"], 5, [
-  { weight: 2.5, counter: 1, outcome: "hold" }, // First miss: drop one step to 2.5, counter=1
-  { weight: 2.5, counter: 2, outcome: "hold" }, // Second miss: 10% of 5 = 4.5, snaps to 2.5 (hold), counter=2
-  { weight: 0, counter: 0, outcome: "backed_off" }, // Third miss: drop one step to 0 (floor), counter resets
+  { weight: 5, counter: 1, outcome: "hold" }, // First miss: Rule 2 prevents drop to 2.5, counter=1
+  { weight: 5, counter: 2, outcome: "hold" }, // Second miss: still holds, counter=2
+  { weight: 2.5, counter: 0, outcome: "backed_off" }, // Third miss: MED-3 drops one step to 2.5 (floor 0), counter resets
 ]);
 
-// Test pull-up bar (bodyweight equipment)
+// Test pull-up bar (bodyweight equipment, 2.5 kg grid, floor at 0)
+// First miss: tries to drop to 2.5, but Rule 2 (two-miss floor at 4) prevents it, holds at 5
+// Second miss: holds at 5
+// Third miss: MED-3 triggers, drops one step (2.5 kg) to 2.5 kg (floor at 0)
 testEquipment("Pull-up bar", ["pull_up_bar"], 5, [
-  { weight: 2.5, counter: 1, outcome: "hold" }, // First miss: drop one step to 2.5, counter=1
-  { weight: 2.5, counter: 2, outcome: "hold" }, // Second miss: 10% of 5 = 4.5, snaps to 2.5 (hold), counter=2
-  { weight: 0, counter: 0, outcome: "backed_off" }, // Third miss: drop one step to 0 (floor), counter resets
+  { weight: 5, counter: 1, outcome: "hold" }, // First miss: Rule 2 prevents drop to 2.5, counter=1
+  { weight: 5, counter: 2, outcome: "hold" }, // Second miss: still holds, counter=2
+  { weight: 2.5, counter: 0, outcome: "backed_off" }, // Third miss: MED-3 drops one step to 2.5 (floor 0), counter resets
 ]);
 
 // Test barbell at 20 kg
