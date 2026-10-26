@@ -179,6 +179,7 @@ Object.defineProperty(window, 'localStorage', {
   
   await act(async () => {});
   await act(async () => {});
+  await act(async () => {});
   
   assert(fakeStorage.getItem(storageKey("u3")) === queueBefore, "u3 queue kept after fail");
   assert(replaceCalls.length === 0, "No navigation when replay fails");
