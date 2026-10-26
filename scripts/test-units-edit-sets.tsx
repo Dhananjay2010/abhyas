@@ -130,7 +130,7 @@ if (weightInput) {
   );
 
   // Check 5: Step is 5 for imperial
-  check("Weight step is 5 for imperial", weightInput.step === "5", `got step="${weightInput.step}"`);
+  check("Weight step is 0.5 for imperial", weightInput.step === "0.5", `got step="${weightInput.step}"`);
 
   // Check 6: Placeholder is lb
   check("Weight placeholder is lb", weightInput.placeholder === "lb", `got "${weightInput.placeholder}"`);
