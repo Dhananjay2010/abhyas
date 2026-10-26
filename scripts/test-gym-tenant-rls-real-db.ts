@@ -405,15 +405,18 @@ async function runTests() {
   // RLS TEST: Staff D can't promote member C to staff
   console.log("TEST: Staff D can't promote member C to staff");
   {
-    const { error } = await clientStaffD
+    const { data, error, status } = await clientStaffD
       .from("gym_memberships")
       .update({ role: "staff" })
       .eq("gym_id", gymIdA)
-      .eq("user_id", userIdMemberC);
+      .eq("user_id", userIdMemberC)
+      .select();
+    // RLS blocks by filtering rows, so we expect 0 rows updated (data is empty or null)
+    const blocked = !error && (!data || data.length === 0);
     check(
       "Staff D can't update role",
-      !!error && error.code === "42501",
-      error ? `${error.code}: ${error.message}` : "no error (operation succeeded)"
+      blocked,
+      blocked ? undefined : `${data?.length || 0} rows updated (expected 0)`
     );
   }
   console.log();
@@ -421,24 +424,36 @@ async function runTests() {
   // RLS TEST: Staff D can't remove member C
   console.log("TEST: Staff D can't remove member C");
   {
-    const { error } = await clientStaffD
+    const { data, error } = await clientStaffD
       .from("gym_memberships")
       .update({ status: "removed" })
       .eq("gym_id", gymIdA)
-      .eq("user_id", userIdMemberC);
-    check("Staff D can't update status", !!error && error.code === "42501");
+      .eq("user_id", userIdMemberC)
+      .select();
+    const blocked = !error && (!data || data.length === 0);
+    check(
+      "Staff D can't update status",
+      blocked,
+      blocked ? undefined : `${data?.length || 0} rows updated (expected 0)`
+    );
   }
   console.log();
 
   // RLS TEST: Staff D can't delete member C
   console.log("TEST: Staff D can't delete member C");
   {
-    const { error } = await clientStaffD
+    const { data, error } = await clientStaffD
       .from("gym_memberships")
       .delete()
       .eq("gym_id", gymIdA)
-      .eq("user_id", userIdMemberC);
-    check("Staff D can't delete membership", !!error && error.code === "42501");
+      .eq("user_id", userIdMemberC)
+      .select();
+    const blocked = !error && (!data || data.length === 0);
+    check(
+      "Staff D can't delete membership",
+      blocked,
+      blocked ? undefined : `${data?.length || 0} rows deleted (expected 0)`
+    );
   }
   console.log();
 
@@ -471,11 +486,17 @@ async function runTests() {
   // RLS TEST: Member C can't update gym A
   console.log("TEST: Member C can't update gym A");
   {
-    const { error } = await clientMemberC
+    const { data, error } = await clientMemberC
       .from("gyms")
       .update({ name: "Gym A Hacked" })
-      .eq("id", gymIdA);
-    check("Member C can't update gym A", !!error && error.code === "42501");
+      .eq("id", gymIdA)
+      .select();
+    const blocked = !error && (!data || data.length === 0);
+    check(
+      "Member C can't update gym A",
+      blocked,
+      blocked ? undefined : `${data?.length || 0} rows updated (expected 0)`
+    );
   }
   console.log();
 
