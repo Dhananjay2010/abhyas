@@ -255,7 +255,7 @@ function roundToGrid(
 /**
  * Estimated one-rep max (Epley formula, capped at 12 reps).
  * 
- * Returns: w if reps = 1, else w × (1 + min(reps, 12) / 30), clamped to 9999.99
+ * Returns: w if reps = 1, else w × (30 + min(reps, 12)) / 30, clamped to 9999.99
  * 
  * The 12-rep cap ensures reliability: high-rep sets (15+) are endurance work
  * and produce inflated strength estimates. The clamp prevents overflow of

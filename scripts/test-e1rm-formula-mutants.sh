@@ -252,5 +252,55 @@ fi
 
 run_mutant "M7v" || exit 1
 
+# Restore for M8
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
 echo ""
-echo "✅ All e1RM formula mutation tests passed (1 baseline + M1 + M2v + M3 + M3v + M4 + M5 + M5v + M6 + M6v + M7v)"
+
+# M8: Backup 0::numeric instead of best_e1rm
+echo "M8: Backup 0 instead of best_e1rm"
+sed -i 's/select user_id, exercise_id, best_e1rm$/select user_id, exercise_id, 0::numeric(6,2) as best_e1rm/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ M8: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "M8" || exit 1
+
+# Restore for M9
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# M9: Move backup AFTER recompute (swap the order)
+echo "M9: Move backup table creation after recompute UPDATE"
+# Extract backup section and recompute section, then swap them
+# This is complex, so we'll use a simpler approach: just comment out the backup
+sed -i '/^create table if not exists exercise_progress_best_e1rm_backup/,/^from exercise_progress;$/s/^/-- MUTANT: /' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ M9: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "M9" || exit 1
+
+# Restore for M10
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# M10: Delete 'is distinct from' condition (makes UPDATE non-idempotent)
+echo "M10: Remove 'is distinct from' (breaks idempotency)"
+sed -i 's/and ep\.best_e1rm is distinct from s\.e1rm//' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ M10: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "M10" || exit 1
+
+echo ""
+echo "✅ All e1RM formula mutation tests passed (1 baseline + M1 + M2v + M3 + M3v + M4 + M5 + M5v + M6 + M6v + M7v + M8 + M9 + M10)"

@@ -151,6 +151,23 @@ fi
 # Restore for next mutant
 cp "$BACKUP_QUERIES" "$QUERIES_FILE"
 
+# Mutant 5: 0.1 kg rounding in detectPersonalRecords bestE1rm comparison
+echo ""
+echo "Mutant 5: detectPersonalRecords uses 0.1 kg rounding for e1RM instead of 2 dp"
+echo "Expected: test-e1rm-consistency.ts should fail"
+echo ""
+
+# Mutate bestE1rm and currentE1rm to round to 0.1 kg in calculations.ts
+sed -i 's/const bestE1rm = computeE1rm(best\.weight_kg, best\.reps) ?? 0;/const bestE1rm = Math.round((computeE1rm(best.weight_kg, best.reps) ?? 0) * 10) \/ 10;/' "$CALCULATIONS_FILE"
+sed -i 's/const currentE1rm = computeE1rm(current\.weight_kg, current\.reps) ?? 0;/const currentE1rm = Math.round((computeE1rm(current.weight_kg, current.reps) ?? 0) * 10) \/ 10;/' "$CALCULATIONS_FILE"
+
+if ! cmp -s "$BACKUP_CALCULATIONS" "$CALCULATIONS_FILE"; then
+  run_mutant "Mutant 5" "scripts/test-e1rm-consistency.ts" || exit 1
+else
+  echo "✗ Mutant 5: sed did not change calculations.ts"
+  exit 1
+fi
+
 echo ""
 echo "All History mutants killed ✓"
 

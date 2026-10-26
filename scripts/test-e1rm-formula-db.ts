@@ -341,6 +341,60 @@ async function runTests() {
       VALUES ($1, $2, 125.00, 1)
     `, [userId, ex14]);
 
+    // Exercise 15: Heavy warm-up set HEAVIER than working sets (MED-2: warm-up filter test)
+    // Working set: 100×5 (e1RM = 116.67), Warm-up: 140×5 (e1RM = 163.33 if included)
+    // View must report only the working e1RM (116.67), not the warm-up
+    const ex15 = await createTestExercise("Exercise 15 - heavy warmup");
+    const sessionId15 = randomUUID();
+    const sessionExId15 = randomUUID();
+    await testPool!.query(`
+      INSERT INTO sessions (id, user_id, local_date, week_in_block, is_deload, planned_type, actual_type, status, started_at, completed_at)
+      VALUES ($1, $2, $3, 1, false, 'weights', 'weights', 'completed', now(), now())
+    `, [sessionId15, userId, "2026-11-02"]);
+    await testPool!.query(`
+      INSERT INTO session_exercises (id, session_id, user_id, exercise_id, order_index, status, completed_at)
+      VALUES ($1, $2, $3, $4, 0, 'completed', now())
+    `, [sessionExId15, sessionId15, userId, ex15]);
+    // Warm-up set (heavier): 140×5
+    await testPool!.query(`
+      INSERT INTO session_sets (id, session_exercise_id, user_id, set_number, reps, weight_kg, is_warmup_set)
+      VALUES ($1, $2, $3, 1, 5, 140.0, true)
+    `, [randomUUID(), sessionExId15, userId]);
+    // Working set: 100×5
+    await testPool!.query(`
+      INSERT INTO session_sets (id, session_exercise_id, user_id, set_number, reps, weight_kg, is_warmup_set)
+      VALUES ($1, $2, $3, 2, 5, 100.0, false)
+    `, [randomUUID(), sessionExId15, userId]);
+    // Seed incorrect best_e1rm (as if warm-up was included)
+    await testPool!.query(`
+      INSERT INTO exercise_progress (user_id, exercise_id, best_e1rm, total_sessions)
+      VALUES ($1, $2, 163.33, 1)
+    `, [userId, ex15]);
+
+    // Exercise 16: Swapped exercise (sets must use se.exercise_id, not swapped_from_exercise_id)
+    const exOriginal = await createTestExercise("Exercise 16 Original");
+    const exSwapped = await createTestExercise("Exercise 16 Swapped To");
+    const sessionId16 = randomUUID();
+    const sessionExId16 = randomUUID();
+    await testPool!.query(`
+      INSERT INTO sessions (id, user_id, local_date, week_in_block, is_deload, planned_type, actual_type, status, started_at, completed_at)
+      VALUES ($1, $2, $3, 1, false, 'weights', 'weights', 'completed', now(), now())
+    `, [sessionId16, userId, "2026-11-03"]);
+    await testPool!.query(`
+      INSERT INTO session_exercises (id, session_id, user_id, exercise_id, swapped_from_exercise_id, order_index, status, completed_at)
+      VALUES ($1, $2, $3, $4, $5, 0, 'completed', now())
+    `, [sessionExId16, sessionId16, userId, exSwapped, exOriginal]);
+    // Sets with weight 120×6 (e1RM = 144.00)
+    await testPool!.query(`
+      INSERT INTO session_sets (id, session_exercise_id, user_id, set_number, reps, weight_kg, is_warmup_set)
+      VALUES ($1, $2, $3, 1, 6, 120.0, false)
+    `, [randomUUID(), sessionExId16, userId]);
+    // Seed progress for BOTH exercises (sets should only affect exSwapped)
+    await testPool!.query(`
+      INSERT INTO exercise_progress (user_id, exercise_id, best_e1rm, total_sessions)
+      VALUES ($1, $2, 0, 0), ($1, $3, 0, 0)
+    `, [userId, exOriginal, exSwapped]);
+
     console.log("✓ Test data seeded\n");
 
     // Read the REAL migration file from disk
@@ -560,6 +614,71 @@ async function runTests() {
       console.log("  PASS: Test 9B\n");
     }
 
+    console.log("TEST 9C: Heavy warm-up set excluded (working 100×5, warm-up 140×5)");
+    {
+      // ex15 has warm-up 140×5 (e1RM would be 163.33) and working 100×5 (e1RM = 116.67)
+      // View and recompute must report only 116.67 (working set)
+      const { rows: progressRows } = await testPool!.query(`
+        SELECT best_e1rm FROM exercise_progress WHERE user_id = $1 AND exercise_id = $2
+      `, [userId, ex15]);
+      const progressE1rm = parseFloat(progressRows[0]?.best_e1rm ?? '0');
+      
+      // 100 * 35 / 30 = 116.666... → 116.67
+      check("Recompute: heavy warm-up excluded (116.67, not 163.33)", 
+        Math.abs(progressE1rm - 116.67) < 0.01, `expected 116.67, got ${progressE1rm}`);
+      
+      const { rows: viewRows } = await testPool!.query(`
+        SELECT best_e1rm FROM exercise_strength_history 
+        WHERE user_id = $1 AND exercise_id = $2 AND local_date = $3
+      `, [userId, ex15, "2026-11-02"]);
+      const viewE1rm = parseFloat(viewRows[0]?.best_e1rm ?? '0');
+      
+      check("View: heavy warm-up excluded (116.67, not 163.33)", 
+        Math.abs(viewE1rm - 116.67) < 0.01, `expected 116.67, got ${viewE1rm}`);
+      console.log("  PASS: Test 9C\n");
+    }
+
+    console.log("TEST 9D: Swapped exercise - sets stay under exercise actually performed");
+    {
+      // ex16: session_exercise has exercise_id=exSwapped, swapped_from=exOriginal
+      // Sets (120×6 = 144.00) should affect exSwapped, NOT exOriginal
+      const { rows: swappedRows } = await testPool!.query(`
+        SELECT best_e1rm FROM exercise_progress WHERE user_id = $1 AND exercise_id = $2
+      `, [userId, exSwapped]);
+      const swappedE1rm = parseFloat(swappedRows[0]?.best_e1rm ?? '0');
+      
+      // 120 * 36 / 30 = 144.00
+      check("Recompute: swapped exercise gets e1RM (144.00)", 
+        Math.abs(swappedE1rm - 144.00) < 0.01, `expected 144.00, got ${swappedE1rm}`);
+      
+      const { rows: originalRows } = await testPool!.query(`
+        SELECT best_e1rm FROM exercise_progress WHERE user_id = $1 AND exercise_id = $2
+      `, [userId, exOriginal]);
+      const originalE1rm = parseFloat(originalRows[0]?.best_e1rm ?? '0');
+      
+      check("Recompute: original exercise unchanged (0.00)", 
+        Math.abs(originalE1rm - 0.00) < 0.01, `expected 0.00, got ${originalE1rm}`);
+      
+      // View should also show only exSwapped
+      const { rows: viewRows } = await testPool!.query(`
+        SELECT best_e1rm FROM exercise_strength_history 
+        WHERE user_id = $1 AND exercise_id = $2 AND local_date = $3
+      `, [userId, exSwapped, "2026-11-03"]);
+      const viewE1rm = parseFloat(viewRows[0]?.best_e1rm ?? '0');
+      
+      check("View: swapped exercise shows e1RM (144.00)", 
+        Math.abs(viewE1rm - 144.00) < 0.01, `expected 144.00, got ${viewE1rm}`);
+      
+      const { rows: viewOrigRows } = await testPool!.query(`
+        SELECT best_e1rm FROM exercise_strength_history 
+        WHERE user_id = $1 AND exercise_id = $2 AND local_date = $3
+      `, [userId, exOriginal, "2026-11-03"]);
+      
+      check("View: original exercise has no row", viewOrigRows.length === 0, 
+        `expected 0 rows, got ${viewOrigRows.length}`);
+      console.log("  PASS: Test 9D\n");
+    }
+
     console.log("TEST 10: Exact rational arithmetic - JS matches SQL (44.25×7, 21.75×7, 494.65×9)");
     {
       // HIGH-1: Exact rational: weight * (30 + min(reps,12)) / 30, then ROUND(x,2)
@@ -663,6 +782,47 @@ async function runTests() {
       check("11.25×7: View = 13.88", Math.abs(viewE1rm - 13.88) < 0.01, `got ${viewE1rm}`);
       
       console.log("  PASS: Test 10A\n");
+    }
+
+    console.log("TEST 10B: JS-vs-SQL sweep (0.25..500 × 1..15, 0 differences)");
+    {
+      // Comprehensive sweep: weights 0.25 to 500 in 0.25 steps, reps 1 to 15
+      // Compare SQL formula against JS computeE1rm, expect 0 differences
+      const { computeE1rm } = await import("../src/lib/program/progression");
+      
+      const { rows } = await testPool!.query(`
+        SELECT 
+          w as weight_kg,
+          r as reps,
+          case 
+            when r = 1 then w
+            else least(round(w * (30 + least(r, 12)) / 30, 2), 9999.99)
+          end::numeric(6,2) as sql_e1rm
+        FROM generate_series(0.25, 500, 0.25) as w
+        CROSS JOIN generate_series(1, 15) as r
+      `);
+      
+      let differences = 0;
+      let firstDiff: {weight: number, reps: number, sql: number, js: number} | null = null;
+      
+      for (const row of rows) {
+        const weight = parseFloat(row.weight_kg);
+        const reps = parseInt(row.reps);
+        const sqlE1rm = parseFloat(row.sql_e1rm);
+        const jsE1rm = computeE1rm(weight, reps) ?? 0;
+        
+        if (Math.abs(sqlE1rm - jsE1rm) > 0.001) {
+          differences++;
+          if (!firstDiff) {
+            firstDiff = { weight, reps, sql: sqlE1rm, js: jsE1rm };
+          }
+        }
+      }
+      
+      check(`JS-vs-SQL sweep: 0 differences across ${rows.length} cases`, differences === 0,
+        firstDiff ? `found ${differences} diffs, first: ${firstDiff.weight}×${firstDiff.reps} SQL=${firstDiff.sql} JS=${firstDiff.js}` : undefined);
+      
+      console.log("  PASS: Test 10B\n");
     }
 
     console.log("TEST 11: Migration re-run updates 0 rows and updated_at unchanged");
