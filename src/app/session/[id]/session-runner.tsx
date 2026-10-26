@@ -235,6 +235,7 @@ export function SessionRunner({
     );
   }, []);
   const [error, setError] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [alternativesForExerciseId, setAlternativesForExerciseId] = useState<string | null>(null);
@@ -1240,6 +1241,11 @@ export function SessionRunner({
 
         {allSetsDone && (
           <div className="mt-8">
+            {sessionExpired && (
+              <div className="mb-4">
+                <SessionExpiredPrompt />
+              </div>
+            )}
             <p className="mb-3 text-sm font-medium">How did that feel?</p>
             <div className="grid grid-cols-3 gap-2">
               {FEELS.map((f) => (

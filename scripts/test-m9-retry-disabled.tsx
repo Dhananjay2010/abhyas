@@ -69,7 +69,7 @@ const fakeDeps: PendingSetDeps = {
 };
 
 const fakeTimer = {
-  setTimeout: (callback: () => void) => {
+  setTimeout: () => {
     // Don't call callback immediately - store it for manual control
     return 0;
   },
