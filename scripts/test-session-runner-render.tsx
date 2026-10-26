@@ -133,6 +133,7 @@ async function test1b1d() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -252,6 +253,7 @@ async function testN7() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -395,6 +397,7 @@ async function test7b7c() {
       swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
       refreshAfterSession: async () => ({ ok: true }),
       planDay: async () => ({ ok: true, data: null }),
+    getSessionSummary: async () => ({ ok: true, data: [] }),
     };
     
     const exercises: RunnerExercise[] = [
@@ -488,6 +491,7 @@ async function test7b7c() {
       swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
       refreshAfterSession: async () => ({ ok: true }),
       planDay: async () => ({ ok: true, data: null }),
+    getSessionSummary: async () => ({ ok: true, data: [] }),
     };
     
     const exercises: RunnerExercise[] = [
@@ -609,6 +613,7 @@ async function test8d8e() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -762,6 +767,7 @@ async function test9b() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   // Exercise already completed to reach cooldown phase
@@ -881,6 +887,7 @@ async function testN11() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   // Exercise with last set completed, needs feel prompt
@@ -990,6 +997,7 @@ async function testN12() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -1087,6 +1095,7 @@ async function testConflict() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -1209,6 +1218,7 @@ async function testDoubleTap() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -1308,6 +1318,7 @@ async function testFailedSubmit() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -1408,6 +1419,7 @@ async function testN7sCompletedSession() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -1521,6 +1533,7 @@ async function testRetryButton() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -1635,6 +1648,7 @@ async function testItem2b() {
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
     refreshAfterSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true, data: null }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [
