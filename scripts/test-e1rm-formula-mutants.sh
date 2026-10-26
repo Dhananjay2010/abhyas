@@ -67,19 +67,23 @@ run_mutant() {
   fi
   
   # Check if it was a genuine test failure (KILLED) or a crash (ERROR)
-  if grep -q "✗\|FAIL" "$logfile"; then
-    # Killed by a test assertion
-    echo "✓ ${name}: KILLED"
-    echo "   First failure:"
-    grep -m 1 "✗\|FAIL" "$logfile" | sed 's/^/   /'
-    return 0
-  else
-    # Crashed or errored without a clear test failure
-    echo "✗ ${name}: ERROR (crashed without test failure)"
-    echo "   Error output:"
+  # Only match actual assertion lines (starting with whitespace + FAIL), not crash summaries
+  if grep -q "^Test error:" "$logfile"; then
+    echo "✗ ${name}: ERROR (crashed: $(grep -m1 '^Test error:' "$logfile"))"
     tail -10 "$logfile" | sed 's/^/   /'
     return 1
   fi
+  
+  if grep -qE '^\s+FAIL ' "$logfile"; then
+    echo "✓ ${name}: KILLED"
+    echo "   First failure:"
+    grep -m 1 -E '^\s+FAIL ' "$logfile" | sed 's/^/   /'
+    return 0
+  fi
+  
+  echo "✗ ${name}: ERROR (non-zero exit, no assertion failed)"
+  tail -10 "$logfile" | sed 's/^/   /'
+  return 1
 }
 
 # M1: Remove cap in TS
@@ -91,12 +95,29 @@ if cmp -s "${TEMP_DIR}/progression.ts.bak" src/lib/program/progression.ts; then
   exit 1
 fi
 
-if npx tsx scripts/test-e1rm-consistency.ts > "${TEMP_DIR}/M1.log" 2>&1; then
+# M1 tests against test-e1rm-consistency.ts, not the DB test
+logfile="${TEMP_DIR}/M1.log"
+if npx tsx scripts/test-e1rm-consistency.ts > "$logfile" 2>&1; then
   echo "✗ M1: SURVIVED (test passed without cap in TS)"
   exit 1
 fi
 
-echo "✓ M1: KILLED (test-e1rm-consistency.ts caught uncapped TS)"
+# Check for genuine test failure vs crash
+if grep -q "^SyntaxError\|^Error:\|^TransformError" "$logfile" && ! grep -qE '^\s+FAIL ' "$logfile"; then
+  echo "✗ M1: ERROR (crashed without test failure)"
+  tail -10 "$logfile" | sed 's/^/   /'
+  exit 1
+fi
+
+if grep -qE '^\s+FAIL ' "$logfile"; then
+  echo "✓ M1: KILLED (test-e1rm-consistency.ts caught uncapped TS)"
+  echo "   First failure:"
+  grep -m 1 -E '^\s+FAIL ' "$logfile" | sed 's/^/   /'
+else
+  echo "✗ M1: ERROR (non-zero exit, no assertion failed)"
+  tail -10 "$logfile" | sed 's/^/   /'
+  exit 1
+fi
 
 # Restore for M2v
 cp "${TEMP_DIR}/progression.ts.bak" src/lib/program/progression.ts
@@ -273,10 +294,9 @@ cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm
 
 echo ""
 
-# M9: Move backup AFTER recompute (swap the order)
-echo "M9: Move backup table creation after recompute UPDATE"
-# Extract backup section and recompute section, then swap them
-# This is complex, so we'll use a simpler approach: just comment out the backup
+# M9: Drop backup table creation
+echo "M9: Drop backup table creation"
+# Comment out the backup (Test 12 will fail: backup table doesn't exist)
 sed -i '/^create table if not exists exercise_progress_best_e1rm_backup/,/^from exercise_progress;$/s/^/-- MUTANT: /' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
@@ -302,5 +322,149 @@ fi
 
 run_mutant "M10" || exit 1
 
+# Restore for M9b
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
 echo ""
-echo "✅ All e1RM formula mutation tests passed (1 baseline + M1 + M2v + M3 + M3v + M4 + M5 + M5v + M6 + M6v + M7v + M8 + M9 + M10)"
+
+# M9b: Backup taken AFTER the recompute UPDATE
+echo "M9b: Backup taken AFTER the recompute UPDATE"
+perl -0pi -e 's/(create table if not exists exercise_progress_best_e1rm_backup_20261025000030 as\nselect user_id, exercise_id, best_e1rm\nfrom exercise_progress;\n)(.*)\z/$2\n$1/s' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ M9b: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "M9b" || exit 1
+
+# Restore for view_warmup_only
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# view_warmup_only: Drop first is_warmup_set filter from view
+echo "view_warmup_only: Remove ss.is_warmup_set = false from view WHERE"
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/where ss\.is_warmup_set = false/where true/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ view_warmup_only: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "view_warmup_only" || exit 1
+
+# Restore for cap15_view
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# cap15_view: Change least(reps,12) to least(reps,15) in view only
+echo "cap15_view: Cap at 15 reps instead of 12 in view"
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/least(ss\.reps, 12)/least(ss.reps, 15)/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ cap15_view: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "cap15_view" || exit 1
+
+# Restore for cap15_rec
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# cap15_rec: Change least(reps,12) to least(reps,15) in recompute only
+echo "cap15_rec: Cap at 15 reps instead of 12 in recompute"
+sed -i '/^update exercise_progress ep$/,/^  and ep\.best_e1rm is distinct from s\.e1rm;$/s/least(ss\.reps, 12)/least(ss.reps, 15)/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ cap15_rec: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "cap15_rec" || exit 1
+
+# Restore for swap_view
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# swap_view: Use swapped_from_exercise_id in view
+echo "swap_view: se.exercise_id → coalesce(swapped_from, exercise_id) in view"
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/se\.exercise_id/coalesce(se.swapped_from_exercise_id, se.exercise_id)/g' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ swap_view: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "swap_view" || exit 1
+
+# Restore for swap_rec
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# swap_rec: Use swapped_from_exercise_id in recompute
+echo "swap_rec: se.exercise_id → coalesce(swapped_from, exercise_id) in recompute"
+sed -i '/^update exercise_progress ep$/,/^  and ep\.best_e1rm is distinct from s\.e1rm;$/s/se\.exercise_id/coalesce(se.swapped_from_exercise_id, se.exercise_id)/g' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ swap_rec: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "swap_rec" || exit 1
+
+# Restore for view_reps1
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# view_reps1: Remove reps=1 special case from view
+echo "view_reps1: View uses w*1.0333 at reps=1 (removes when ss.reps = 1)"
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/when ss\.reps = 1 then ss\.weight_kg/when false then ss.weight_kg/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ view_reps1: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "view_reps1" || exit 1
+
+# Restore for M11
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# M11: round → trunc in view (killed by sweep Test 10B)
+echo "M11: View round → trunc"
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/round(ss\.weight_kg \* (30 + least(ss\.reps, 12)) \/ 30, 2)/trunc(ss.weight_kg * (30 + least(ss.reps, 12)) \/ 30, 2)/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ M11: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "M11" || exit 1
+
+# Restore migration for self-test
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+echo "Self-test: Verify crash handling (inject syntax error)"
+sed -i 's/^update exercise_progress ep$/updat exercise_progress ep/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if run_mutant "crash_test"; then
+  echo "✗ SELF-TEST FAILED: crash reported as KILLED"
+  cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+  exit 1
+fi
+
+echo "✓ Self-test passed: crash correctly reported as ERROR"
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+echo "✅ All e1RM formula mutation tests passed"

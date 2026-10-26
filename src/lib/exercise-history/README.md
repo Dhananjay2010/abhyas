@@ -144,7 +144,7 @@ history.sessions.forEach(session => {
 
 Canonical e1RM calculation with storage precision and 12-rep cap.
 
-**Formula:** `e1RM = w` if `reps = 1`, else `w × (1 + min(reps, 12) / 30)`, rounded to 2 dp, clamped to 9999.99
+**Formula:** `e1RM = w` if `reps = 1`, else `ROUND(w × (30 + min(reps, 12)) / 30, 2)` (exact rational; JS uses integer hundredths), clamped to 9999.99
 
 Returns `null` for bodyweight (weight ≤ 0) or invalid inputs.
 

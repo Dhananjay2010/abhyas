@@ -72,6 +72,10 @@ create table if not exists exercise_progress_best_e1rm_backup_20261025000030 as
 select user_id, exercise_id, best_e1rm
 from exercise_progress;
 
+-- Enable RLS and revoke public access (prevent cross-user reads via PostgREST)
+alter table exercise_progress_best_e1rm_backup_20261025000030 enable row level security;
+revoke all on exercise_progress_best_e1rm_backup_20261025000030 from anon, authenticated;
+
 
 -- 3. Recompute exercise_progress.best_e1rm for all existing rows
 --
@@ -86,10 +90,10 @@ from exercise_progress;
 -- Performance: Set-based UPDATE with `is distinct from` to only touch changed rows
 -- Idempotent: running twice changes nothing (0 rows updated, updated_at unchanged)
 
--- Add index for efficient recompute if not exists
-create index if not exists idx_session_exercises_exercise_status 
-  on session_exercises(exercise_id, status) 
-  where status = 'completed';
+-- Note: Unused index removed (EXPLAIN shows Seq Scan + Hash Join, index never used)
+-- create index if not exists idx_session_exercises_exercise_status 
+--   on session_exercises(exercise_id, status) 
+--   where status = 'completed';
 
 update exercise_progress ep
 set best_e1rm = s.e1rm

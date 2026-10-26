@@ -418,7 +418,6 @@ async function runTests() {
       
       check("reps=1 returns weight itself", Math.abs(e1rm - 100) < 0.01, `expected 100, got ${e1rm}`);
       check("reps=1 does NOT give buggy 1.0333×weight", Math.abs(e1rm - 103.33) > 0.01, `should not be 103.33`);
-      console.log("  PASS: Test 1\n");
     }
 
     console.log("TEST 2: High reps capped at 12 (40 kg × 15 = 56.00 kg, not 60.00 kg)");
@@ -431,7 +430,6 @@ async function runTests() {
       
       check("15 reps gives capped e1RM (56.00)", Math.abs(e1rm - expectedCapped) < 0.01, `expected ${expectedCapped}, got ${e1rm}`);
       check("15 reps does NOT give uncapped value (60.00)", Math.abs(e1rm - 60) > 0.01, `should not be 60`);
-      console.log("  PASS: Test 2\n");
     }
 
     console.log("TEST 3: Recompute matches TS for mixed sets (52.5×8, 37.5×11)");
@@ -448,7 +446,6 @@ async function runTests() {
       
       check("hardcoded expected matches TS function", Math.abs(66.5 - tsE1rm) < 0.01, `hardcoded 66.5 vs TS ${tsE1rm}`);
       check("SQL e1RM matches TS function", Math.abs(dbE1rm - tsE1rm) < 0.01, `expected ${tsE1rm}, got ${dbE1rm}`);
-      console.log("  PASS: Test 3\n");
     }
 
     console.log("TEST 4: In-progress session with completed exercise keeps PB");
@@ -461,7 +458,6 @@ async function runTests() {
       const dbE1rm = parseFloat(rows[0]?.best_e1rm ?? '0');
       
       check("In-progress session with completed exercise keeps PB", Math.abs(dbE1rm - expectedE1rm) < 0.01, `expected ${expectedE1rm}, got ${dbE1rm}`);
-      console.log("  PASS: Test 4\n");
     }
 
     console.log("TEST 5: No-sets row unchanged");
@@ -472,7 +468,6 @@ async function runTests() {
       const e1rm = parseFloat(rows[0]?.best_e1rm ?? '0');
       
       check("No-sets row unchanged", Math.abs(e1rm - 42) < 0.01, `expected 42, got ${e1rm}`);
-      console.log("  PASS: Test 5\n");
     }
 
     console.log("TEST 6: Timed exercises excluded from recompute");
@@ -483,7 +478,6 @@ async function runTests() {
       const e1rm = parseFloat(rows[0]?.best_e1rm ?? '0');
       
       check("Timed exercise unchanged", Math.abs(e1rm - 100) < 0.01, `expected 100, got ${e1rm}`);
-      console.log("  PASS: Test 6\n");
     }
 
     console.log("TEST 7: View uses capped formula (40kg × 15 reps)");
@@ -498,7 +492,6 @@ async function runTests() {
       const expectedCapped = 56.00;
 
       check("View returns capped value (56.00)", Math.abs(viewE1rm - expectedCapped) < 0.01, `expected ${expectedCapped}, got ${viewE1rm}`);
-      console.log("  PASS: Test 7\n");
     }
 
     console.log("TEST 7A: View reps=1 gives weight itself (100×1 → 100.00)");
@@ -513,7 +506,6 @@ async function runTests() {
       
       check("View reps=1 returns weight itself", Math.abs(viewE1rm - 100) < 0.01, `expected 100, got ${viewE1rm}`);
       check("View reps=1 does NOT give buggy 1.0333×weight", Math.abs(viewE1rm - 103.33) > 0.01, `should not be 103.33`);
-      console.log("  PASS: Test 7A\n");
     }
 
     console.log("TEST 7B: View excludes warmup sets");
@@ -529,7 +521,6 @@ async function runTests() {
       const hasNonWarmup = rows.length > 0 && rows[0].best_e1rm !== null;
       
       check("View excludes warmup-only sets", !hasNonWarmup, `expected no non-warmup e1RM, got ${rows.length} rows with ${rows[0]?.best_e1rm ?? 'NULL'}`);
-      console.log("  PASS: Test 7B\n");
     }
 
     console.log("TEST 7C: View excludes skipped session_exercises (MED-2/Coordinator)");
@@ -546,7 +537,6 @@ async function runTests() {
       const hasRow = rows.length > 0 && rows[0].best_e1rm !== null;
       
       check("View excludes skipped session_exercise", !hasRow, `expected no e1RM, got ${rows.length} rows with ${rows[0]?.best_e1rm ?? 'NULL'}`);
-      console.log("  PASS: Test 7C\n");
     }
 
     console.log("TEST 7D: View excludes timed exercises (MED-2/Coordinator)");
@@ -563,7 +553,6 @@ async function runTests() {
       const timedE1rm = rows.length > 0 && rows[0].best_e1rm !== null;
       
       check("View excludes timed exercises", !timedE1rm, `expected no e1RM for timed exercise, got ${rows.length} rows`);
-      console.log("  PASS: Test 7D\n");
     }
 
     console.log("TEST 8: SKIPPED session_exercise sets excluded from recompute");
@@ -574,7 +563,6 @@ async function runTests() {
       const e1rm = parseFloat(rows[0]?.best_e1rm ?? '0');
       
       check("Skipped exercise unchanged", Math.abs(e1rm - 75) < 0.01, `expected 75, got ${e1rm}`);
-      console.log("  PASS: Test 8\n");
     }
 
     console.log("TEST 9: Warmup-only exercise excluded from recompute");
@@ -585,7 +573,6 @@ async function runTests() {
       const e1rm = parseFloat(rows[0]?.best_e1rm ?? '0');
       
       check("Warmup-only exercise unchanged", Math.abs(e1rm - 88) < 0.01, `expected 88, got ${e1rm}`);
-      console.log("  PASS: Test 9\n");
     }
 
     console.log("TEST 9A: View excludes non-completed sessions (MED-2)");
@@ -599,7 +586,6 @@ async function runTests() {
       
       const hasRow = rows.length > 0 && rows[0].best_e1rm !== null;
       check("View excludes skipped session", !hasRow, `expected no row, got ${rows.length} rows`);
-      console.log("  PASS: Test 9A\n");
     }
 
     console.log("TEST 9B: Recompute excludes weight_kg = 0 (MED-2)");
@@ -611,7 +597,6 @@ async function runTests() {
       const e1rm = parseFloat(rows[0]?.best_e1rm ?? '0');
       
       check("Recompute excludes weight_kg=0", Math.abs(e1rm - 125) < 0.01, `expected 125 (unchanged), got ${e1rm}`);
-      console.log("  PASS: Test 9B\n");
     }
 
     console.log("TEST 9C: Heavy warm-up set excluded (working 100×5, warm-up 140×5)");
@@ -635,7 +620,6 @@ async function runTests() {
       
       check("View: heavy warm-up excluded (116.67, not 163.33)", 
         Math.abs(viewE1rm - 116.67) < 0.01, `expected 116.67, got ${viewE1rm}`);
-      console.log("  PASS: Test 9C\n");
     }
 
     console.log("TEST 9D: Swapped exercise - sets stay under exercise actually performed");
@@ -676,7 +660,6 @@ async function runTests() {
       
       check("View: original exercise has no row", viewOrigRows.length === 0, 
         `expected 0 rows, got ${viewOrigRows.length}`);
-      console.log("  PASS: Test 9D\n");
     }
 
     console.log("TEST 10: Exact rational arithmetic - JS matches SQL (44.25×7, 21.75×7, 494.65×9)");
@@ -741,7 +724,6 @@ async function runTests() {
       const view3 = parseFloat(viewRows3[0]?.best_e1rm ?? '0');
       check("494.65×9: View = 643.05", Math.abs(view3 - 643.05) < 0.01, `got ${view3}`);
       
-      console.log("  PASS: Test 10\n");
     }
 
     console.log("TEST 10A: Rounding up (.5 → next higher): 1.15×3, 17.15×3, 33.05×3, 11.25×7");
@@ -781,48 +763,6 @@ async function runTests() {
       `, [userId, ex10a, "2026-11-02"])).rows[0]?.best_e1rm ?? '0');
       check("11.25×7: View = 13.88", Math.abs(viewE1rm - 13.88) < 0.01, `got ${viewE1rm}`);
       
-      console.log("  PASS: Test 10A\n");
-    }
-
-    console.log("TEST 10B: JS-vs-SQL sweep (0.25..500 × 1..15, 0 differences)");
-    {
-      // Comprehensive sweep: weights 0.25 to 500 in 0.25 steps, reps 1 to 15
-      // Compare SQL formula against JS computeE1rm, expect 0 differences
-      const { computeE1rm } = await import("../src/lib/program/progression");
-      
-      const { rows } = await testPool!.query(`
-        SELECT 
-          w as weight_kg,
-          r as reps,
-          case 
-            when r = 1 then w
-            else least(round(w * (30 + least(r, 12)) / 30, 2), 9999.99)
-          end::numeric(6,2) as sql_e1rm
-        FROM generate_series(0.25, 500, 0.25) as w
-        CROSS JOIN generate_series(1, 15) as r
-      `);
-      
-      let differences = 0;
-      let firstDiff: {weight: number, reps: number, sql: number, js: number} | null = null;
-      
-      for (const row of rows) {
-        const weight = parseFloat(row.weight_kg);
-        const reps = parseInt(row.reps);
-        const sqlE1rm = parseFloat(row.sql_e1rm);
-        const jsE1rm = computeE1rm(weight, reps) ?? 0;
-        
-        if (Math.abs(sqlE1rm - jsE1rm) > 0.001) {
-          differences++;
-          if (!firstDiff) {
-            firstDiff = { weight, reps, sql: sqlE1rm, js: jsE1rm };
-          }
-        }
-      }
-      
-      check(`JS-vs-SQL sweep: 0 differences across ${rows.length} cases`, differences === 0,
-        firstDiff ? `found ${differences} diffs, first: ${firstDiff.weight}×${firstDiff.reps} SQL=${firstDiff.sql} JS=${firstDiff.js}` : undefined);
-      
-      console.log("  PASS: Test 10B\n");
     }
 
     console.log("TEST 11: Migration re-run updates 0 rows and updated_at unchanged");
@@ -860,7 +800,6 @@ async function runTests() {
       check("Re-run real migration updates 0 rows (idempotent)", allUnchanged, `${changedCount} of ${beforeRerun.length} updated_at changed`);
       check("Re-run: updated_at unchanged for all rows", allUnchanged, `${changedCount} of ${beforeRerun.length} updated_at changed`);
       
-      console.log("  PASS: Test 11\n");
     }
 
     console.log("TEST 11A: Migration preserves correct stored values (no false PB)");
@@ -895,7 +834,6 @@ async function runTests() {
         result.personalBest ? `got ${result.personalBest.kind}` : undefined);
       check("nextBest: bestE1rm stays 54.58", result.bestE1rm === 54.58, `got ${result.bestE1rm}`);
       
-      console.log("  PASS: Test 11A\n");
     }
 
     console.log("TEST 12: Backup table exists and preserves pre-migration values");
@@ -955,7 +893,6 @@ async function runTests() {
           ), `backup rows changed`);
       }
       
-      console.log("  PASS: Test 12\n");
     }
 
     console.log("TEST 13: Migration is idempotent (running twice changes nothing)");
@@ -982,7 +919,62 @@ async function runTests() {
       }
       
       check("Migration is idempotent", allUnchanged, `all ${beforeRows.length} rows unchanged after re-run`);
-      console.log("  PASS: Test 13\n");
+    }
+
+    console.log("TEST 10B: JS-vs-SQL sweep through real view & recompute (0.25..500 × 1..15)");
+    {
+      // Seed a grid of 2000 weights × 15 reps = 30,000 cases through real rows
+      // Re-run the migration to test both the view AND the recompute UPDATE
+      const { computeE1rm } = await import("../src/lib/program/progression");
+      
+      await testPool!.query(`
+        create temp table sweep_users as select i as wi, gen_random_uuid() as user_id, gen_random_uuid() as session_id from generate_series(1,2000) i;
+        insert into auth.users (id, email) select user_id, 'sweep-'||wi||'@t.test' from sweep_users;
+        create temp table sweep_ex as select r, (select id from exercises where metric='reps' order by id offset r-1 limit 1) as exercise_id from generate_series(1,15) r;
+        insert into sessions (id, user_id, local_date, week_in_block, is_deload, planned_type, actual_type, status, started_at, completed_at)
+          select session_id, user_id, date '2030-01-01', 1, false, 'weights', 'weights', 'completed', now(), now() from sweep_users;
+        create temp table sweep_se as select u.wi, x.r, u.user_id, u.session_id, x.exercise_id, gen_random_uuid() as se_id from sweep_users u cross join sweep_ex x;
+        insert into session_exercises (id, session_id, user_id, exercise_id, order_index, status, completed_at)
+          select se_id, session_id, user_id, exercise_id, r, 'completed', now() from sweep_se;
+        insert into session_sets (id, session_exercise_id, user_id, set_number, reps, weight_kg, is_warmup_set)
+          select gen_random_uuid(), se_id, user_id, 1, r, (wi * 0.25)::numeric(6,2), false from sweep_se;
+        insert into exercise_progress (user_id, exercise_id, best_e1rm, total_sessions)
+          select user_id, exercise_id, 0, 1 from sweep_se;
+      `);
+      
+      // Re-run the REAL migration file to recompute and populate the view
+      await testPool!.query(migrationSQL);
+      
+      const { rows } = await testPool!.query(`
+        select s.wi, s.r, v.best_e1rm::text as view_e1rm, ep.best_e1rm::text as ep_e1rm
+        from sweep_se s
+        left join exercise_strength_history v on v.user_id = s.user_id and v.exercise_id = s.exercise_id and v.local_date = date '2030-01-01'
+        left join exercise_progress ep on ep.user_id = s.user_id and ep.exercise_id = s.exercise_id
+      `);
+      
+      let vd = 0, pd = 0, first = "";
+      for (const row of rows) {
+        const js = computeE1rm(row.wi * 0.25, row.r);
+        if (row.view_e1rm === null || parseFloat(row.view_e1rm) !== js) { 
+          vd++; 
+          first ||= `view ${row.wi*0.25}×${row.r} sql=${row.view_e1rm} js=${js}`; 
+        }
+        if (row.ep_e1rm === null || parseFloat(row.ep_e1rm) !== js) { 
+          pd++; 
+          first ||= `recompute ${row.wi*0.25}×${row.r} sql=${row.ep_e1rm} js=${js}`; 
+        }
+      }
+      
+      check(`Sweep: view === computeE1rm across ${rows.length} cases`, rows.length === 30000 && vd === 0, first);
+      check(`Sweep: recompute === computeE1rm across ${rows.length} cases`, rows.length === 30000 && pd === 0, first);
+    }
+
+    console.log("TEST 14: Backup table has RLS enabled");
+    {
+      const { rows } = await testPool!.query(`
+        SELECT relrowsecurity FROM pg_class WHERE relname = 'exercise_progress_best_e1rm_backup_20261025000030'
+      `);
+      check("Backup table has RLS enabled", rows[0]?.relrowsecurity === true, `relrowsecurity=${rows[0]?.relrowsecurity}`);
     }
 
     console.log(`\n${failures === 0 ? '✅ ALL CHECKS PASSED' : `❌ ${failures} CHECKS FAILED`}\n`);

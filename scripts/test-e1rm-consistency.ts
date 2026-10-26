@@ -262,7 +262,7 @@ console.log("\n8. Weight rounding edge case: 40.006×10 → 40.01 is PB vs 40.00
 console.log("\n9. 12-rep cap: high-rep sets (15, 20, 30 reps) capped at 12");
 {
   // Test that reps > 12 are capped at 12 in the formula
-  // 40kg × 15 reps = 40 × (1 + min(15,12)/30) = 40 × 1.4 = 56.00 (capped)
+  // 40kg × 15 reps = 40 × (30 + min(15,12)) / 30 = 40 × 42 / 30 = 56.00 (capped)
   const historySets15 = [historySet(15, 40)];
   const sessionSets15 = [sessionSet(15, 40)];
   
@@ -276,7 +276,7 @@ console.log("\n9. 12-rep cap: high-rep sets (15, 20, 30 reps) capped at 12");
   check("15 reps: Session e1RM = 56.00 (capped at 12)", sessionE1rm15 === 56.00, `session=${sessionE1rm15}`);
   check("15 reps: History === Session", historyE1rm15 === sessionE1rm15);
   
-  // 30kg × 20 reps = 30 × (1 + min(20,12)/30) = 30 × 1.4 = 42.00 (capped)
+  // 30kg × 20 reps = 30 × (30 + min(20,12)) / 30 = 30 × 42 / 30 = 42.00 (capped)
   const historySets20 = [historySet(20, 30)];
   const sessionSets20 = [sessionSet(20, 30)];
   
@@ -290,7 +290,7 @@ console.log("\n9. 12-rep cap: high-rep sets (15, 20, 30 reps) capped at 12");
   check("20 reps: Session e1RM = 42.00 (capped at 12)", sessionE1rm20 === 42.00, `session=${sessionE1rm20}`);
   check("20 reps: History === Session", historyE1rm20 === sessionE1rm20);
   
-  // 20kg × 30 reps = 20 × (1 + min(30,12)/30) = 20 × 1.4 = 28.00 (capped)
+  // 20kg × 30 reps = 20 × (30 + min(30,12)) / 30 = 20 × 42 / 30 = 28.00 (capped)
   const historySets30 = [historySet(30, 20)];
   const sessionSets30 = [sessionSet(30, 20)];
   
@@ -327,6 +327,27 @@ console.log("\n10. computeE1rm helper matches nextBest calculation");
       helperResult === nextBestResult.bestE1rm, 
       `helper=${helperResult}, nextBest=${nextBestResult.bestE1rm}`);
   }
+}
+
+console.log("\n11. detectPersonalRecords picks the best e1RM at 0.01 kg resolution (QA MED-1)");
+{
+  // 60×10 = 80.00 and 60.02×10 = 80.0266… → 80.03. These differ by 0.03 kg, so they
+  // are EQUAL at 0.1 kg (80.0 vs 80.0) but distinct at 2 dp. The heavier-e1RM set is
+  // logged SECOND so a 0.1 kg comparison (strict >) would keep the first set (80.00).
+  const historySets = [historySet(10, 60), historySet(10, 60.02)];
+  const sessionSets = [sessionSet(10, 60), sessionSet(10, 60.02)];
+
+  const bestRecord = detectPersonalRecords(historySets, "reps").find(pr => pr.type === "best_e1rm");
+  const nextBestResult = nextBest(sessionSets, { bestWeightKg: null, bestReps: null, bestE1rm: null }, meta);
+
+  check("0.01 resolution: History best e1RM = 80.03 (hardcoded)", bestRecord?.value === 80.03, `history=${bestRecord?.value}`);
+  check("0.01 resolution: History best e1RM set is 60.02×10", bestRecord?.set.weight_kg === 60.02, `set=${bestRecord?.set.weight_kg}×${bestRecord?.set.reps}`);
+  check("0.01 resolution: Session e1RM = 80.03 (hardcoded)", nextBestResult.bestE1rm === 80.03, `session=${nextBestResult.bestE1rm}`);
+  check("0.01 resolution: History === Session", bestRecord?.value === nextBestResult.bestE1rm, `history=${bestRecord?.value}, session=${nextBestResult.bestE1rm}`);
+
+  // Reverse order must give the same answer (selection is by value, not position)
+  const reversed = detectPersonalRecords([historySet(10, 60.02), historySet(10, 60)], "reps").find(pr => pr.type === "best_e1rm");
+  check("0.01 resolution: reversed order also 80.03", reversed?.value === 80.03, `history=${reversed?.value}`);
 }
 
 if (failures === 0) {
