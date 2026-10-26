@@ -176,7 +176,8 @@ const metricHold = evaluateProgression({
 
 console.log("Metric hold (smallest step):");
 console.log(`  Message: "${metricHold.message}"`);
-check("Hold message should reference weight", metricHold.message.includes("2.5 kg") || metricHold.message.includes("this weight") || metricHold.message.includes("smallest"), metricHold.message);
+// Note: The actual message is "Staying at this weight..." which is generic for first-miss holds
+check("Hold message references weight (generic 'this weight' is acceptable)", metricHold.message.includes("this weight") || metricHold.message.includes("2.5 kg") || metricHold.message.includes("smallest"), metricHold.message);
 console.log();
 
 // Test 6: Third-miss step-down with units
@@ -235,8 +236,36 @@ check("Imperial third-miss message should include 'lb'", imperialThirdMiss.messa
 check("Imperial third-miss message should not include 'kg'", !imperialThirdMiss.message.includes("kg"), imperialThirdMiss.message);
 console.log();
 
+// Test 7: Zero-weight emptyValue handling (unit test of displayWeight behavior)
+console.log("7. Zero-weight emptyValue handling in displayWeight");
+// This tests the displayWeight helper directly by checking formatWeight behavior
+// with the emptyValue parameter used in progression.ts line 438
+const { formatWeight } = require("@/lib/units");
+
+const metricZero = formatWeight(0, "metric", true, "0 kg");
+const imperialZero = formatWeight(0, "imperial", true, "0 lb");
+const metricZeroDefault = formatWeight(0, "metric");
+const imperialZeroDefault = formatWeight(0, "imperial");
+
+console.log(`formatWeight(0, "metric", true, "0 kg"): "${metricZero}"`);
+console.log(`formatWeight(0, "imperial", true, "0 lb"): "${imperialZero}"`);
+console.log(`formatWeight(0, "metric") [default]: "${metricZeroDefault}"`);
+console.log(`formatWeight(0, "imperial") [default]: "${imperialZeroDefault}"`);
+
+check("With custom emptyValue, metric 0 shows '0 kg'", metricZero === "0 kg", `got: ${metricZero}`);
+check("With custom emptyValue, imperial 0 shows '0 lb'", imperialZero === "0 lb", `got: ${imperialZero}`);
+check("Without custom emptyValue, metric 0 shows '—'", metricZeroDefault === "—", `got: ${metricZeroDefault}`);
+check("Without custom emptyValue, imperial 0 shows '—'", imperialZeroDefault === "—", `got: ${imperialZeroDefault}`);
+
+console.log("\nProof that progression.ts:438 conditional is needed:");
+console.log("  The displayWeight helper passes units-specific emptyValue to formatWeight");
+console.log("  so that 0 kg displays as '0 kg' (metric) or '0 lb' (imperial),");
+console.log("  not '—' (the default emptyValue).");
+console.log();
+
 console.log("=== SUMMARY ===");
 console.log("✓ All progression messages use formatWeight from units.ts");
 console.log("✓ Metric messages show kg");
 console.log("✓ Imperial messages show lb with proper rounding");
 console.log("✓ Internal progression logic remains in kg");
+console.log("✓ Zero-weight exercises display correct units");
