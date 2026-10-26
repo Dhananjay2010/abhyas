@@ -14,11 +14,13 @@ export function SignOutForm({
   userId,
   signOut = signOutAction,
   logSet: logSetProp = logSet,
+  now,
 }: { 
   label: string;
   userId: string;
   signOut?: typeof signOutAction;
   logSet?: typeof logSet;
+  now?: Date;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export function SignOutForm({
       
       // First, try to replay all pending sets
       if (typeof window !== "undefined") {
-        const deps = createPendingSetDeps();
+        const deps = createPendingSetDeps(now);
         const remaining = await replayAllPendingSetsForUser(
           window.localStorage,
           userId,
@@ -60,7 +62,7 @@ export function SignOutForm({
       
       // Try replay again
       if (typeof window !== "undefined") {
-        const deps = createPendingSetDeps();
+        const deps = createPendingSetDeps(now);
         const remaining = await replayAllPendingSetsForUser(
           window.localStorage,
           userId,

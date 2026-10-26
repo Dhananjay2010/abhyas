@@ -82,6 +82,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
       userId="u1"
       signOut={signOutSuccess}
       logSet={logSetSuccess}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -123,6 +124,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
       userId="u2"
       signOut={signOutSuccess}
       logSet={logSetSuccess}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -167,6 +169,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
       userId="u3"
       signOut={signOutSuccess}
       logSet={logSetFail}
+      now={new Date(FIXED_TIME)}
     />
   );
   

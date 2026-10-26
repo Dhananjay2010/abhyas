@@ -96,10 +96,10 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     
     let unmountA: () => void;
     if (name === "SignOutButton") {
-      const result = render(<SignOutButton userId="u1" signOut={signOutSuccess} logSet={logSetSuccess} />);
+      const result = render(<SignOutButton userId="u1" signOut={signOutSuccess} logSet={logSetSuccess} now={new Date(FIXED_TIME)} />);
       unmountA = result.unmount;
     } else {
-      const result = render(<SignOutForm label="Sign out" userId="u1" signOut={signOutSuccess} logSet={logSetSuccess} />);
+      const result = render(<SignOutForm label="Sign out" userId="u1" signOut={signOutSuccess} logSet={logSetSuccess} now={new Date(FIXED_TIME)} />);
       unmountA = result.unmount;
     }
     
@@ -138,10 +138,10 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     
     let unmountB: () => void;
     if (name === "SignOutButton") {
-      const result = render(<SignOutButton userId="u2" signOut={signOutSuccess} logSet={logSetSuccess} />);
+      const result = render(<SignOutButton userId="u2" signOut={signOutSuccess} logSet={logSetSuccess} now={new Date(FIXED_TIME)} />);
       unmountB = result.unmount;
     } else {
-      const result = render(<SignOutForm label="Sign out" userId="u2" signOut={signOutSuccess} logSet={logSetSuccess} />);
+      const result = render(<SignOutForm label="Sign out" userId="u2" signOut={signOutSuccess} logSet={logSetSuccess} now={new Date(FIXED_TIME)} />);
       unmountB = result.unmount;
     }
     
@@ -188,10 +188,10 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     
     let unmountC: () => void;
     if (name === "SignOutButton") {
-      const result = render(<SignOutButton userId="u3" signOut={signOutSuccess} logSet={logSetFail} />);
+      const result = render(<SignOutButton userId="u3" signOut={signOutSuccess} logSet={logSetFail} now={new Date(FIXED_TIME)} />);
       unmountC = result.unmount;
     } else {
-      const result = render(<SignOutForm label="Sign out" userId="u3" signOut={signOutSuccess} logSet={logSetFail} />);
+      const result = render(<SignOutForm label="Sign out" userId="u3" signOut={signOutSuccess} logSet={logSetFail} now={new Date(FIXED_TIME)} />);
       unmountC = result.unmount;
     }
     
@@ -231,10 +231,10 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     
     let unmountC2: () => void;
     if (name === "SignOutButton") {
-      const result = render(<SignOutButton userId="u3b" signOut={signOutSuccess} logSet={logSetFail} />);
+      const result = render(<SignOutButton userId="u3b" signOut={signOutSuccess} logSet={logSetFail} now={new Date(FIXED_TIME)} />);
       unmountC2 = result.unmount;
     } else {
-      const result = render(<SignOutForm label="Sign out" userId="u3b" signOut={signOutSuccess} logSet={logSetFail} />);
+      const result = render(<SignOutForm label="Sign out" userId="u3b" signOut={signOutSuccess} logSet={logSetFail} now={new Date(FIXED_TIME)} />);
       unmountC2 = result.unmount;
     }
     
@@ -279,10 +279,10 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     
     let unmountD: () => void;
     if (name === "SignOutButton") {
-      const result = render(<SignOutButton userId="u4" signOut={signOutSuccess} logSet={logSetFailOnceThenSucceed} />);
+      const result = render(<SignOutButton userId="u4" signOut={signOutSuccess} logSet={logSetFailOnceThenSucceed} now={new Date(FIXED_TIME)} />);
       unmountD = result.unmount;
     } else {
-      const result = render(<SignOutForm label="Sign out" userId="u4" signOut={signOutSuccess} logSet={logSetFailOnceThenSucceed} />);
+      const result = render(<SignOutForm label="Sign out" userId="u4" signOut={signOutSuccess} logSet={logSetFailOnceThenSucceed} now={new Date(FIXED_TIME)} />);
       unmountD = result.unmount;
     }
     
@@ -330,10 +330,10 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     
     let unmountE: () => void;
     if (name === "SignOutButton") {
-      const result = render(<SignOutButton userId="u5" signOut={signOutSuccess} logSet={logSetFail} />);
+      const result = render(<SignOutButton userId="u5" signOut={signOutSuccess} logSet={logSetFail} now={new Date(FIXED_TIME)} />);
       unmountE = result.unmount;
     } else {
-      const result = render(<SignOutForm label="Sign out" userId="u5" signOut={signOutSuccess} logSet={logSetFail} />);
+      const result = render(<SignOutForm label="Sign out" userId="u5" signOut={signOutSuccess} logSet={logSetFail} now={new Date(FIXED_TIME)} />);
       unmountE = result.unmount;
     }
     

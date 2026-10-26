@@ -85,6 +85,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u1"
       signOut={signOutSuccess}
       logSet={logSetSuccess}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -126,6 +127,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u2"
       signOut={signOutSuccess}
       logSet={logSetSuccess}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -169,6 +171,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u3"
       signOut={signOutSuccess}
       logSet={logSetFail}
+      now={new Date(FIXED_TIME)}
     />
   );
   
