@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { BarChart, LineChart, StatTile, type Point } from "@/components/charts";
 import { buildDayRecords, computeStreaks } from "@/lib/progress/streaks";
@@ -253,11 +254,31 @@ export default async function ProgressPage() {
   // Check if member has any strength data (to decide whether to show volume/strength sections)
   const hasStrengthData = volumeRows.length > 0 || (strengthRes.data ?? []).length > 0;
 
+  // Check if we have any data at all to show on Progress page
+  const hasAnyProgressData = isYogaOrBreathing 
+    ? (yogaStats && yogaStats.sessionsAllTime > 0)
+    : (streaks.totalSessions > 0 || hasAnything);
+
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <h1 className="text-3xl font-bold tracking-tight">Progress</h1>
 
-      <section className="mt-6 grid grid-cols-2 gap-3">
+      {!hasAnyProgressData && !progressQueryFailed && !setCountsError && !yogaStatsError ? (
+        <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+          <p className="text-sm font-medium text-foreground">No progress data yet</p>
+          <p className="mt-2 text-sm text-muted">
+            Complete your first session to start tracking your progress and see your stats here.
+          </p>
+          <Link
+            href="/today"
+            className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
+          >
+            Start today&apos;s workout
+          </Link>
+        </div>
+      ) : (
+        <>
+          <section className="mt-6 grid grid-cols-2 gap-3">
         {isYogaOrBreathing && yogaStats ? (
           <>
             <StatTile
@@ -413,7 +434,8 @@ export default async function ProgressPage() {
           </div>
         </section>
       )}
-
+        </>
+      )}
     </main>
   );
 }

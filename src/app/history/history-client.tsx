@@ -33,21 +33,6 @@ const FILTER_LABELS: Record<SessionType, string> = {
   breathing: "Breathing",
 };
 
-const EMPTY_MESSAGES: Record<SessionType, { title: string; message: string }> = {
-  lifts: {
-    title: "No strength sessions yet",
-    message: "Your strength workouts will appear here once you complete them.",
-  },
-  yoga: {
-    title: "No yoga sessions yet",
-    message: "Your yoga sessions will appear here once you complete them.",
-  },
-  breathing: {
-    title: "No breathing practices yet",
-    message: "Your breathing practices will appear here once you complete them.",
-  },
-};
-
 function longDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   return new Intl.DateTimeFormat("en-GB", {
@@ -136,10 +121,40 @@ export function HistoryClient({
 
       {/* Session list */}
       {items.length === 0 ? (
-        <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
-          <p className="text-sm font-medium text-muted">{EMPTY_MESSAGES[filter].title}</p>
-          <p className="mt-1 text-sm text-muted">{EMPTY_MESSAGES[filter].message}</p>
-        </div>
+        totalCount === 0 ? (
+          // True empty state: user has no completed sessions at all
+          <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+            <p className="text-sm font-medium text-foreground">No completed sessions yet</p>
+            <p className="mt-2 text-sm text-muted">
+              Your workout history will appear here once you complete your first session.
+            </p>
+            <Link
+              href="/today"
+              className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
+            >
+              Start today&apos;s workout
+            </Link>
+          </div>
+        ) : (
+          // Filtered empty state: user has sessions, but none match the current filter
+          <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+            <p className="text-sm font-medium text-foreground">No sessions match these filters</p>
+            <p className="mt-2 text-sm text-muted">
+              Try selecting a different filter to see your other sessions.
+            </p>
+            <button
+              onClick={() => {
+                const params = new URLSearchParams(searchParams);
+                params.delete("filter");
+                params.delete("page");
+                router.push(`/history?${params.toString()}`);
+              }}
+              className="mt-4 inline-block rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-muted/50"
+            >
+              Clear filters
+            </button>
+          </div>
+        )
       ) : (
         <>
           <ul className="mt-6 space-y-2">
