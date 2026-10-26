@@ -3,10 +3,10 @@
  * 
  * Tests parseWeight end-to-end, which uses validateBodyWeightKg internally.
  * 
- * Imperial: 55 lb and 661 lb accepted, 54.5 and 661.5 rejected
+ * Imperial: 56 lb and 661 lb accepted, 55.5 and 661.5 rejected
  * Metric: 25 kg and 300 kg accepted, 24.9 and 300.1 rejected
  * 
- * Critical: 55 lb → 24.948 kg → rounds to 24.9 kg → must still accept (via roundLbToHalf comparison)
+ * Note: Imperial floor is 56 lb (25.4 kg) to satisfy DB constraint weight_kg >= 25
  */
 
 import { parseWeight, lbToKg, kgToLb, validateBodyWeightKg } from "@/lib/units";
@@ -24,20 +24,20 @@ function check(label: string, pass: boolean, detail = "") {
 // 1. Imperial bounds
 // ============================================================
 
-// 55 lb should be accepted (minimum)
+// 56 lb should be accepted (minimum)
 {
-  const kg = parseWeight(55, "imperial");
-  check("Imperial 55 lb accepted", kg !== null, kg === null ? "rejected" : `got ${kg} kg`);
+  const kg = parseWeight(56, "imperial");
+  check("Imperial 56 lb accepted", kg !== null, kg === null ? "rejected" : `got ${kg} kg`);
   if (kg !== null) {
     const display = kgToLb(kg);
-    check("Imperial 55 lb round-trips correctly", display >= 54.5 && display <= 55.5);
+    check("Imperial 56 lb round-trips correctly", display >= 55.5 && display <= 56.5);
   }
 }
 
-// 54.5 lb should be rejected (below minimum)
+// 55.5 lb should be rejected (below minimum)
 {
-  const kg = parseWeight(54.5, "imperial");
-  check("Imperial 54.5 lb rejected", kg === null, kg !== null ? `accepted as ${kg} kg` : "");
+  const kg = parseWeight(55.5, "imperial");
+  check("Imperial 55.5 lb rejected", kg === null, kg !== null ? `accepted as ${kg} kg` : "");
 }
 
 // 661 lb should be accepted (maximum)
@@ -100,13 +100,13 @@ function check(label: string, pass: boolean, detail = "") {
 // 3. Test validateBodyWeightKg directly (used by logBodyWeight)
 // ============================================================
 
-// Imperial: 55 lb edge case (55 lb → 24.948 kg → rounds to 24.9 kg → must accept)
+// Imperial: 56 lb edge case (56 lb → 25.401 kg → rounds to 25.4 kg → must accept)
 {
-  const lbValue = 55;
+  const lbValue = 56;
   const kgFromLb = lbToKg(lbValue);
   const roundedKg = Math.round(kgFromLb * 10) / 10;
   const valid = validateBodyWeightKg(roundedKg, "imperial");
-  check("validateBodyWeightKg: 24.9 kg (from 55 lb) accepted for imperial", valid, `kg=${roundedKg}`);
+  check("validateBodyWeightKg: 25.4 kg (from 56 lb) accepted for imperial", valid, `kg=${roundedKg}`);
 }
 
 // Imperial: 661 lb edge case
