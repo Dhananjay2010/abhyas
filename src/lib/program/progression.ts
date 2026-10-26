@@ -751,9 +751,8 @@ export function evaluateProgression(input: {
    * If no such value exists, returns current (hold).
    * 
    * @param weight - Weight to compute from
-   * @param forRuleTwo - true for Rule 2 floor check (accepts smaller cuts), false for two-miss back-off
    */
-  function computeTwoMissResult(weight: number, forRuleTwo: boolean = false): number {
+  function computeTwoMissResult(weight: number): number {
     const liftIncrement = incrementFor(meta);
     
     // Hold at light weight
@@ -962,7 +961,7 @@ export function evaluateProgression(input: {
     
     // Rule 2: if candidate < two-miss result, hold instead
     if (candidateWeight !== currentWeight) {
-      const twoMissFloor = computeTwoMissResult(currentWeight, false); // Rule 2: snap UP (original behavior)
+      const twoMissFloor = computeTwoMissResult(currentWeight);
       if (candidateWeight < twoMissFloor) {
         candidateWeight = currentWeight;
         holdReason = 'twomiss';

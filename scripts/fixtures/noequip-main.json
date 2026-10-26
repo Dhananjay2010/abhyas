@@ -1,5 +1,5 @@
 {
-  "mainSha": "4a7ba6d5425ceb3f43810c881aef84fe00885bb1",
+  "mainSha": "pending",
   "totalCases": 51200,
   "buckets": [
     {
@@ -7,23 +7,23 @@
       "count": 800
     },
     {
-      "hash": "864dcecec6a3f48a937c38f1d5f2fbc4579a718b64be779ba6e1cf4003953fbb",
+      "hash": "688fcc3f39d45fdfb3ff0a42bbe67cfb97310a76e7fabe09222df537bde1cb2b",
       "count": 800
     },
     {
-      "hash": "1d02dd4b9c9a3ce829f6a91bb9ea9404d1921cfc6965766b22ce34b7325b6ee2",
+      "hash": "1892bdcd90620ac64d313e5afff33ef717603eaad4b0930529a524776ee204af",
       "count": 800
     },
     {
-      "hash": "9ef46358a65dbc30845808016428953985174a05a2991392a52d8b267a8c9cd9",
+      "hash": "230e535902e7dea45a6ed54bc8b77af91e767cd82af3a886a806126127dca6e1",
       "count": 800
     },
     {
-      "hash": "519283d2fb4e4224489ef940e73da38c8711309aaef3004abc50bbe37817d9f6",
+      "hash": "1f707b0d9594aec7943c8928878f1dac0b79efdec50b2926be51e64526fdccd7",
       "count": 800
     },
     {
-      "hash": "ac30e433a65aa1502b14caa58d2ee5175351cfd851682e0205924d5018332936",
+      "hash": "6359e53ab4b0c64e8a7e7f47db4ef546ca4504fd505cc82293d3af32b68c2f13",
       "count": 800
     },
     {
@@ -258,5 +258,10 @@
       "hash": "9aa4bdd67edd185bf80503cb59691694b3989f80e1c7ab770f15e7f61e8a7ce7",
       "count": 800
     }
+  ],
+  "changesFrom4a7ba6d": [
+    "Never-raise fix (c0729845): second miss at weight < pre-miss now holds instead of incorrectly raising",
+    "Hold-preserve-counter (c0729845): second miss where 10% back-off = current preserves failures counter for third-miss",
+    "Third-miss reachable (2866409e): counter preservation enables third-miss step-down as intended"
   ]
 }

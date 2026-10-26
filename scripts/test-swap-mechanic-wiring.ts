@@ -27,7 +27,7 @@ const mockDeps: SwapExerciseDeps = {
     };
   },
   
-  async validateSwapTarget({ newExerciseId, sessionExerciseId }) {
+  async validateSwapTarget({ newExerciseId }) {
     // Always approve the swap
     return true;
   },

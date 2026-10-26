@@ -184,19 +184,12 @@ m1b() {
 }
 test_mutant "M1b: snap UP instead of DOWN" m1b
 
-# M1c: Remove hold when reduced === weightToBackOffFrom (allow back-off to exceed current)
+# M1c: Remove hold when reduced === currentWeight
 m1c() {
   local file="$PROG"
-  local count
-  count=$(grep -Fc 'if (reduced === weightToBackOffFrom) {' "$file" || true)
-  if [ "$count" -ne 1 ]; then
-    echo "ERROR: hold pattern found $count times (expected 1)" >&2
-    return 1
-  fi
-  # Replace the entire if block that holds when reduced === weightToBackOffFrom
-  perl -0pi -e 's/\/\/ If helper returned same weight.*?if \(reduced === weightToBackOffFrom\) \{.*?return \{[^}]+outcome: "hold",[^}]+\};\s*\}/\/\/ MUTANT: hold removed/s' "$file"
-  if cmp -s "$file" "$BACKUP_PROG"; then
-    echo "ERROR: M1c did not change the file" >&2
+  sed -i 's/if (reduced === currentWeight) {/if (false \&\& reduced === currentWeight) {/' "$file"
+  if ! grep -q 'if (false && reduced === currentWeight)' "$file"; then
+    echo "ERROR: M1c mutation did not apply" >&2
     return 1
   fi
 }
@@ -342,21 +335,13 @@ barbell_grid() {
 }
 test_mutant "BARBELL: incrementFor ignores equipment grid" barbell_grid
 
-# MED-3: No third-miss step-down
+# MED-3: No third-miss step-down (third miss holds instead of stepping down)
 med3() {
   local file="$PROG"
-  # Look for the MED-3 block starting line
-  local start_line=$(grep -n '// MED-3: Third+ consecutive miss' "$file" | cut -d: -f1)
-  if [ -z "$start_line" ]; then
-    echo "ERROR: MED-3 comment not found" >&2
-    return 1
-  fi
-  # Remove lines 834-854 (the entire MED-3 block)
-  sed -i '834,854d' "$file"
-  # Add a comment at line 834
-  sed -i '833a\    // MUTANT: MED-3 removed' "$file"
-  if cmp -s "$file" "$BACKUP_PROG"; then
-    echo "ERROR: MED-3 did not change the file" >&2
+  # Change the third-miss condition to never trigger
+  sed -i 's/if (failures >= 3 && reduced === currentWeight && equipmentIds) {/if (false \&\& failures >= 3 \&\& reduced === currentWeight \&\& equipmentIds) {/' "$file"
+  if ! grep -q 'if (false && failures >= 3' "$file"; then
+    echo "ERROR: MED-3 mutation did not apply" >&2
     return 1
   fi
 }
