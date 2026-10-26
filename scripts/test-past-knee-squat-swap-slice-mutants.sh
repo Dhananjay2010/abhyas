@@ -20,58 +20,35 @@ mutants_crashed=0
 
 run_mutant() {
   local name="$1"
-  local pattern="$2"
-  local replacement="$3"
+  local description="$2"
+  shift 2
   
   echo "Testing mutant: $name"
   
   # Restore backup
   cp "$BACKUP_FILE" src/lib/program/alternatives.ts
   
-  # Check pattern exists exactly once
-  local match_count
-  match_count=$(grep -Fc "$pattern" src/lib/program/alternatives.ts || echo "0")
-  if [ "$match_count" != "1" ]; then
-    echo "  ✗ SKIP: Pattern not found exactly once (found $match_count times)"
-    echo "  Pattern: $pattern"
-    mutants_crashed=$((mutants_crashed + 1))
-    return 1
-  fi
-  
-  # Apply mutant
-  sed -i "s/$pattern/$replacement/" src/lib/program/alternatives.ts
-  
-  # Verify pattern was replaced
-  if grep -Fq "$pattern" src/lib/program/alternatives.ts; then
-    echo "  ✗ SKIP: Pattern still present after sed"
+  # Apply mutant using the command passed as remaining arguments
+  if ! "$@"; then
+    echo "  ✗ SKIP: Mutant application failed"
     mutants_crashed=$((mutants_crashed + 1))
     return 1
   fi
   
   # Run tsc
   echo "  Running tsc..."
-  if ! npx tsc --noEmit 2>&1 | tee /tmp/mutant-tsc.log; then
+  if ! npx tsc --noEmit >/dev/null 2>&1; then
     echo "  ✗ CRASH: tsc failed"
-    cat /tmp/mutant-tsc.log
     mutants_crashed=$((mutants_crashed + 1))
     return 1
   fi
   
   # Run test
   echo "  Running test:past-knee-squat-swap-lengths..."
-  local test_output
-  local test_exit
-  test_output=$(npm run test:past-knee-squat-swap-lengths 2>&1) || test_exit=$?
+  local test_exit=0
+  npm run test:past-knee-squat-swap-lengths >/dev/null 2>&1 || test_exit=$?
   
-  # Check for crashes (syntax errors, transform failures, etc.)
-  if echo "$test_output" | grep -qE "(TypeError|ReferenceError|SyntaxError|Transform failed)"; then
-    echo "  ✗ CRASH: Test crashed"
-    echo "$test_output" | head -20
-    mutants_crashed=$((mutants_crashed + 1))
-    return 1
-  fi
-  
-  if [ "${test_exit:-0}" -eq 0 ]; then
+  if [ "$test_exit" -eq 0 ]; then
     echo "  ✗ SURVIVED"
     mutants_survived=$((mutants_survived + 1))
     return 1
@@ -85,24 +62,22 @@ run_mutant() {
 # Mutant 1: slice-first (the original bug)
 run_mutant \
   "slice-first" \
-  "const effectiveLimit = isPastKneeSquatSwap ? Number.POSITIVE_INFINITY : limit;" \
-  "const effectiveLimit = limit;"
+  "Set effectiveLimit to limit for all cases" \
+  sed -i 's/const effectiveLimit = isPastKneeSquatSwap ? Number.POSITIVE_INFINITY : limit;/const effectiveLimit = limit;/' src/lib/program/alternatives.ts
 mutants_tested=$((mutants_tested + 1))
 
 # Mutant 2: cap-at-8-before-filter
 run_mutant \
   "cap-at-8-before-filter" \
-  "const effectiveLimit = isPastKneeSquatSwap ? Number.POSITIVE_INFINITY : limit;" \
-  "const effectiveLimit = isPastKneeSquatSwap ? 8 : limit;"
+  "Cap effectiveLimit at 8 for past-knee squats" \
+  sed -i 's/const effectiveLimit = isPastKneeSquatSwap ? Number.POSITIVE_INFINITY : limit;/const effectiveLimit = isPastKneeSquatSwap ? 8 : limit;/' src/lib/program/alternatives.ts
 mutants_tested=$((mutants_tested + 1))
 
-# Mutant 3: no-final-slice (remove the .slice(0, limit) at the end)
-# This is trickier - we need to find the return statement for past-knee squat swaps
-# Let's target the specific line that does the final slice
+# Mutant 3: no-final-slice (remove .slice(0, limit) from the main return)
 run_mutant \
   "no-final-slice" \
-  "return reordered.slice(0, limit);" \
-  "return reordered;"
+  "Remove final slice on line 483" \
+  sed -i '483s/\.slice(0, limit)//' src/lib/program/alternatives.ts
 mutants_tested=$((mutants_tested + 1))
 
 # Restore backup

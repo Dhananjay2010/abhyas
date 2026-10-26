@@ -7,19 +7,21 @@
  * 
  * Fix: For past-knee squat swaps, run the class filter (quad isolation + hinge
  * fallbacks) over the FULL deduplicated candidate set, then slice to 5.
+ * 
+ * This test uses a committed golden fixture generated from the correct code
+ * to enable mutant testing without circular dependencies.
  */
 
 import { readFileSync } from "fs";
 import type { CandidateExercise } from "../src/lib/program/generate";
 import { buildEligibleSwapList, buildGeneratorInput } from "../src/lib/session/eligible-swap-list";
-import { rankAlternatives } from "../src/lib/program/alternatives";
-import { buildSwapContext } from "../src/lib/program/swap-context";
-import { hashString, score, isEligible } from "../src/lib/program/generate";
-import { getSwapPatterns } from "../src/lib/program/swap-patterns";
-import type { GeneratorInput } from "../src/lib/program/generate";
 
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
+);
+
+const golden: Record<string, { slugs: string[]; length: number; sha256: string }> = JSON.parse(
+  readFileSync("scripts/fixtures/past-knee-squat-swap-golden.json", "utf8")
 );
 
 // Equipment profiles using real slugs
@@ -52,55 +54,17 @@ const SESSION_IDS = ["a", "b", "c"];
 // Get all squat exercises
 const squatExercises = catalogue.filter(e => e.movement_pattern === "squat");
 
-console.log("=== Past-Knee Squat Swap List Lengths ===\n");
-console.log(`Testing ${INJURY_SETS.length} injury sets × ${EQUIPMENT_PROFILES.length} equipment profiles × ${LEVELS.length} levels × ${TRACKS.length} tracks × ${squatExercises.length} squat exercises × ${SESSION_IDS.length} session ids`);
-console.log(`Total cases: ${INJURY_SETS.length * EQUIPMENT_PROFILES.length * LEVELS.length * TRACKS.length * squatExercises.length * SESSION_IDS.length}\n`);
-
 // Allowed exercise types for past-knee squat swaps
 const QUAD_ISOLATION = new Set(["leg-extensions", "single-leg-leg-extension", "wall-sit", "spanish-squat"]);
 const QUAD_ISOLATION_ORDER = ["leg-extensions", "single-leg-leg-extension", "wall-sit", "spanish-squat"];
 
+console.log("=== Past-Knee Squat Swap List Lengths ===\n");
+console.log(`Testing ${INJURY_SETS.length} injury sets × ${EQUIPMENT_PROFILES.length} equipment profiles × ${LEVELS.length} levels × ${TRACKS.length} tracks × ${squatExercises.length} squat exercises × ${SESSION_IDS.length} session ids`);
+console.log(`Total cases: ${INJURY_SETS.length * EQUIPMENT_PROFILES.length * LEVELS.length * TRACKS.length * squatExercises.length * SESSION_IDS.length}\n`);
+
 let failures = 0;
 let totalCases = 0;
 const lengthCounts = new Map<number, number>();
-
-// Helper: compute the eligible count by mimicking buildEligibleSwapList's logic
-function computeEligibleCount(
-  current: CandidateExercise,
-  pool: CandidateExercise[],
-  generatorInput: GeneratorInput,
-  sessionId: string,
-  alreadyInSession: Set<string>
-): number {
-  // Apply the same filtering as buildEligibleSwapList
-  const patterns = getSwapPatterns(current.movement_pattern, generatorInput);
-  const patternMatches = pool.filter(e => patterns.includes(e.movement_pattern));
-  
-  const eligible = patternMatches
-    .filter(e => !alreadyInSession.has(e.id))
-    .filter(e => isEligible(e, generatorInput));
-  
-  // Rank alternatives with a large limit
-  const wantCompound = current.mechanic !== "isolation";
-  const scoreFn = (e: CandidateExercise) => 
-    score(e, wantCompound, generatorInput.level, generatorInput.primaryTrack);
-  const tieBreakFn = (slug: string) => hashString(`${sessionId}:${slug}`);
-  const swapContext = buildSwapContext(generatorInput, scoreFn, tieBreakFn);
-  
-  const allCandidates = rankAlternatives(current, eligible, { ...swapContext, limit: 10000 });
-  
-  // Apply the past-knee squat swap class filter
-  const filtered = allCandidates.filter(e => {
-    if (QUAD_ISOLATION.has(e.slug)) return true;
-    if (e.movement_pattern === "hinge") {
-      const primaryMuscles = Array.isArray(e.primary_muscles) ? e.primary_muscles : [e.primary_muscles];
-      return primaryMuscles.includes("glutes") || primaryMuscles.includes("hamstrings");
-    }
-    return false;
-  });
-  
-  return filtered.length;
-}
 
 for (const injurySet of INJURY_SETS) {
   for (const equipProfile of EQUIPMENT_PROFILES) {
@@ -109,6 +73,15 @@ for (const injurySet of INJURY_SETS) {
         for (const current of squatExercises) {
           for (const sessionId of SESSION_IDS) {
             totalCases++;
+            
+            const key = `${injurySet.name}|${equipProfile.name}|${level}|${track}|${current.slug}|${sessionId}`;
+            const expected = golden[key];
+            
+            if (!expected) {
+              console.log(`✗ FAIL: ${key} - missing from golden fixture`);
+              failures++;
+              continue;
+            }
             
             // Build generator input
             const generatorInput = buildGeneratorInput({
@@ -137,14 +110,42 @@ for (const injurySet of INJURY_SETS) {
               alreadyInSession: new Set([current.id]),
             });
             
+            const actualSlugs = eligible.map(e => e.slug);
+            
             // Track length distribution
             lengthCounts.set(eligible.length, (lengthCounts.get(eligible.length) || 0) + 1);
             
-            // Assertion 1: length <= 5
+            // Assertion 1: exact match with golden fixture
+            if (actualSlugs.length !== expected.slugs.length) {
+              console.log(`✗ FAIL: ${key}`);
+              console.log(`  Length mismatch: expected ${expected.slugs.length}, got ${actualSlugs.length}`);
+              console.log(`  Expected: ${expected.slugs.join(", ")}`);
+              console.log(`  Actual: ${actualSlugs.join(", ")}`);
+              failures++;
+              continue;
+            }
+            
+            for (let i = 0; i < actualSlugs.length; i++) {
+              if (actualSlugs[i] !== expected.slugs[i]) {
+                console.log(`✗ FAIL: ${key}`);
+                console.log(`  Slug mismatch at position ${i}: expected ${expected.slugs[i]}, got ${actualSlugs[i]}`);
+                console.log(`  Expected: ${expected.slugs.join(", ")}`);
+                console.log(`  Actual: ${actualSlugs.join(", ")}`);
+                failures++;
+                break;
+              }
+            }
+            
+            if (failures > 0 && failures <= totalCases - 1) {
+              // Already reported this failure
+              continue;
+            }
+            
+            // Assertion 2: length <= 5
             if (eligible.length > 5) {
-              console.log(`✗ FAIL: ${injurySet.name} ${equipProfile.name} ${level} ${track} ${current.slug} ${sessionId}`);
+              console.log(`✗ FAIL: ${key}`);
               console.log(`  Length ${eligible.length} > 5`);
-              console.log(`  List: ${eligible.map(e => e.slug).join(", ")}`);
+              console.log(`  List: ${actualSlugs.join(", ")}`);
               failures++;
               continue;
             }
@@ -158,15 +159,15 @@ for (const injurySet of INJURY_SETS) {
               })();
               
               if (!isQuadIsolation && !isGluteHamstringHinge) {
-                console.log(`✗ FAIL: ${injurySet.name} ${equipProfile.name} ${level} ${track} ${current.slug} ${sessionId}`);
+                console.log(`✗ FAIL: ${key}`);
                 console.log(`  Invalid exercise type: ${ex.slug} (${ex.movement_pattern}, primary: ${ex.primary_muscles})`);
-                console.log(`  List: ${eligible.map(e => e.slug).join(", ")}`);
+                console.log(`  List: ${actualSlugs.join(", ")}`);
                 failures++;
                 break;
               }
             }
             
-            // Assertion 3: each element is in the allowed class (quad isolation or glute/hamstring hinge)
+            // Assertion 4: quad isolation follows the 4-list order, EXCEPT wall-sit can be moved to avoid being first
             const quadIsolationInList = eligible.filter(e => QUAD_ISOLATION.has(e.slug));
             
             // Check wall-sit is never first (unless alone)
@@ -174,9 +175,9 @@ for (const injurySet of INJURY_SETS) {
             const wallSitIsAlone = eligible.length === 1 && eligible[0].slug === "wall-sit";
             
             if (wallSitIsFirst && !wallSitIsAlone) {
-              console.log(`✗ FAIL: ${injurySet.name} ${equipProfile.name} ${level} ${track} ${current.slug} ${sessionId}`);
+              console.log(`✗ FAIL: ${key}`);
               console.log(`  wall-sit is first but not alone (list has ${eligible.length} items)`);
-              console.log(`  List: ${eligible.map(e => e.slug).join(", ")}`);
+              console.log(`  List: ${actualSlugs.join(", ")}`);
               failures++;
               continue;
             }
@@ -191,10 +192,10 @@ for (const injurySet of INJURY_SETS) {
               const nextIdx = QUAD_ISOLATION_ORDER.indexOf(nextSlug);
               
               if (currentIdx > nextIdx) {
-                console.log(`✗ FAIL: ${injurySet.name} ${equipProfile.name} ${level} ${track} ${current.slug} ${sessionId}`);
+                console.log(`✗ FAIL: ${key}`);
                 console.log(`  Quad isolation order violated (excluding wall-sit): ${currentSlug} (pos ${currentIdx}) before ${nextSlug} (pos ${nextIdx})`);
                 console.log(`  Non-wall-sit quads: ${nonWallSitQuads.map(e => e.slug).join(", ")}`);
-                console.log(`  Full list: ${eligible.map(e => e.slug).join(", ")}`);
+                console.log(`  Full list: ${actualSlugs.join(", ")}`);
                 failures++;
                 break;
               }
