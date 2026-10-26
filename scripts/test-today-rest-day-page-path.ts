@@ -1,9 +1,9 @@
 /**
- * Test 4: Page wiring test - verify Today page correctly wires shouldLoadPlannableDays.
+ * Test 4: Page wiring test - verify Today page correctly wires deriveTodayView.
  *
  * Verifies that src/app/today/page.tsx:
- * 1. Calls shouldLoadPlannableDays with askAboutToday and dayType
- * 2. Passes the result to plannableDays when true
+ * 1. Calls deriveTodayView with required inputs including dayType, missedYesterday
+ * 2. Uses viewModel.shouldLoadPlannableDays to conditionally load plannableDays
  * 3. Passes plannable to the rest-day DayPlanPrompt
  *
  * This is a static source analysis test, not a render test, following the
@@ -21,24 +21,26 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ` -- ${detail}` : ""}`);
 }
 
-console.log("\n1. Page wiring: shouldLoadPlannableDays call");
+console.log("\n1. Page wiring: deriveTodayView call");
 {
   const pagePath = path.join(__dirname, "../src/app/today/page.tsx");
   const pageContent = fs.readFileSync(pagePath, "utf-8");
 
   check(
-    "Imports shouldLoadPlannableDays",
-    pageContent.includes("import") && pageContent.includes("shouldLoadPlannableDays")
+    "Imports deriveTodayView",
+    pageContent.includes("import") && pageContent.includes("deriveTodayView")
   );
 
   check(
-    "Calls shouldLoadPlannableDays with askAboutToday and dayType",
-    pageContent.includes("shouldLoadPlannableDays({ askAboutToday, dayType })")
+    "Calls deriveTodayView with dayType and missedYesterday",
+    pageContent.includes("deriveTodayView({") &&
+    pageContent.includes("dayType:") &&
+    pageContent.includes("missedYesterday")
   );
 
   check(
-    "Conditionally loads plannableDays based on result",
-    pageContent.includes("shouldLoadPlannableDays({ askAboutToday, dayType })") &&
+    "Conditionally loads plannableDays based on viewModel.shouldLoadPlannableDays",
+    pageContent.includes("viewModel.shouldLoadPlannableDays") &&
     pageContent.includes("? plannableDays(")
   );
 }
@@ -65,11 +67,11 @@ console.log("\n2. Page wiring: rest-day DayPlanPrompt receives plannable");
   );
 }
 
-console.log("\n3. Mutant would break: askAboutToday only");
+console.log("\n3. Mutant would break: deriveTodayView consolidates all logic");
 {
-  // This documents that reverting to `askAboutToday` only would break the fix
-  console.log("  -- If shouldLoadPlannableDays call used only askAboutToday,");
-  console.log("  -- rest days would get empty plannable array");
+  // deriveTodayView now consolidates prompt decisions, resume logic, and plannable days
+  console.log("  -- deriveTodayView wraps decideTodayPrompts, decideRestDayResume, shouldLoadPlannableDays");
+  console.log("  -- page.tsx uses viewModel result, not direct helper calls");
   check("Documentation check", true);
 }
 
@@ -79,4 +81,3 @@ if (failures) {
 } else {
   console.log("\n✅ All page wiring tests passed\n");
 }
-
