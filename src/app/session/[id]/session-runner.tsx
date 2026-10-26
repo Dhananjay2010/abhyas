@@ -847,7 +847,13 @@ export function SessionRunner({
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
           <p className="mt-2 text-sm text-muted">
-            Working weight {formatLoad(snapPrescribedWeight(current.workingWeightKg, settings.units), settings.units)}
+            Working weight {formatLoad(
+              snapPrescribedWeight(
+                current.suggestedWeightKg ?? current.workingWeightKg,
+                settings.units
+              ),
+              settings.units
+            )}
           </p>
         )}
         {isDeload && (
