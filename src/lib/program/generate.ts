@@ -822,15 +822,15 @@ function pickForSlot(
     altCandidates = altCandidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
     if (altCandidates.length === 0) continue;
     
-    // PART A: Knee-risk filter for SAFE_ALTERNATIVES - past knee only (Brief knee-volume)
+    // PART A: Knee-risk filter for SAFE_ALTERNATIVES
     const hasCurrentKneeAlt = input.currentInjuryRegions.includes("knee");
     
     
     const hasPastKneeAlt = input.anyKneeInjury && !hasCurrentKneeAlt;
     if (hasPastKneeAlt) {
       altCandidates = altCandidates.filter((e) => !isKneeRiskForKneeUser(e, true));
-      if (altCandidates.length === 0) continue;
     }
+    if (altCandidates.length === 0) continue;
     
     // Apply shared constraint checker
     const finalCandidates = altCandidates.filter((e) => !wouldViolateConstraints(e, slotIndex, pickedSoFar, input));
