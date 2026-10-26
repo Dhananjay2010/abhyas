@@ -75,6 +75,7 @@ type LogSetCall = {
       } 
     }),
     findAlternatives: async () => ({ ok: true as const, data: [] }),
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
   };
 
   const imperialExercise: RunnerExercise = {
@@ -252,6 +253,7 @@ type LogSetCall = {
       }
     }),
     findAlternatives: async () => ({ ok: true as const, data: [] }),
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
   };
 
   const exercise625: RunnerExercise = {
@@ -355,6 +357,7 @@ type LogSetCall = {
       }
     }),
     findAlternatives: async () => ({ ok: true as const, data: [] }),
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
   };
 
   const exercise6123: RunnerExercise = {
@@ -458,6 +461,7 @@ type LogSetCall = {
       } 
     }),
     findAlternatives: async () => ({ ok: true as const, data: [] }),
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
   };
 
   const metricExercise: RunnerExercise = {

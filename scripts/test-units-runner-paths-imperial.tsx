@@ -54,6 +54,7 @@ const mockActions: SessionActions = {
     }
   }),
   findAlternatives: async () => ({ ok: true as const, data: [] }),
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
 };
 
 const imperialSettings = {
