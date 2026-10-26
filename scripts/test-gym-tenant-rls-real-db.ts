@@ -554,6 +554,54 @@ async function runTests() {
   }
   console.log();
 
+  // SELF-DEMOTION TEST: Owner can't demote themselves
+  console.log("TEST: Owner A can't demote themselves to staff");
+  {
+    const { error } = await clientA
+      .from("gym_memberships")
+      .update({ role: "staff" })
+      .eq("gym_id", gymIdA)
+      .eq("user_id", userIdA);
+    check("Owner A can't change own role to staff", !!error);
+  }
+  console.log();
+
+  // SELF-DEMOTION TEST: Owner can't demote themselves to member
+  console.log("TEST: Owner A can't demote themselves to member");
+  {
+    const { error } = await clientA
+      .from("gym_memberships")
+      .update({ role: "member" })
+      .eq("gym_id", gymIdA)
+      .eq("user_id", userIdA);
+    check("Owner A can't change own role to member", !!error);
+  }
+  console.log();
+
+  // SELF-REMOVAL TEST: Owner can't mark themselves as removed
+  console.log("TEST: Owner A can't mark themselves as removed");
+  {
+    const { error } = await clientA
+      .from("gym_memberships")
+      .update({ status: "removed" })
+      .eq("gym_id", gymIdA)
+      .eq("user_id", userIdA);
+    check("Owner A can't change own status to removed", !!error);
+  }
+  console.log();
+
+  // SELF-DELETION TEST: Owner can't delete their own owner row
+  console.log("TEST: Owner A can't delete their own owner membership");
+  {
+    const { error } = await clientA
+      .from("gym_memberships")
+      .delete()
+      .eq("gym_id", gymIdA)
+      .eq("user_id", userIdA);
+    check("Owner A can't delete own membership", !!error);
+  }
+  console.log();
+
   // CASCADE TEST: Deleting a user cascades their memberships
   console.log("TEST: Deleting a user cascades their memberships");
   const testUserId = randomUUID();

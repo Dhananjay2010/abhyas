@@ -287,11 +287,27 @@ run_mutant \
   "create trigger add_new_user_to_default_gym_trigger" \
   "-- MUTANT: create trigger add_new_user_to_default_gym_trigger"
 
+# Mutant (n): Remove owner self-demotion trigger
+run_mutant \
+  "(n) remove owner self-demotion trigger" \
+  "Allow owner to demote themselves" \
+  "$SCHEMA_FILE" \
+  "create trigger prevent_owner_self_demotion" \
+  "-- MUTANT: create trigger prevent_owner_self_demotion"
+
+# Mutant (o): Remove owner self-deletion trigger
+run_mutant \
+  "(o) remove owner self-deletion trigger" \
+  "Allow owner to delete their own membership" \
+  "$SCHEMA_FILE" \
+  "create trigger prevent_owner_self_deletion" \
+  "-- MUTANT: create trigger prevent_owner_self_deletion"
+
 echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-TOTAL=13
+TOTAL=15
 KILLED=$((TOTAL - FAILED - ${#SKIPPED[@]}))
 echo "Total mutants:                   $TOTAL"
 echo "Killed:                          $KILLED"

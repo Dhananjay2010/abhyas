@@ -62,6 +62,15 @@ stable as $$
   );
 $$;
 
+-- Revoke public access and grant only to authenticated users
+do $$
+begin
+  revoke execute on function public.is_gym_staff(uuid) from public, anon;
+  grant execute on function public.is_gym_staff(uuid) to authenticated;
+exception when undefined_function then
+  null;
+end $$;
+
 -- Check if the current user is the owner of a gym
 create or replace function public.is_gym_owner(check_gym_id uuid)
 returns boolean language sql security definer
@@ -76,6 +85,79 @@ stable as $$
       and status = 'active'
   );
 $$;
+
+-- Revoke public access and grant only to authenticated users
+do $$
+begin
+  revoke execute on function public.is_gym_owner(uuid) from public, anon;
+  grant execute on function public.is_gym_owner(uuid) to authenticated;
+exception when undefined_function then
+  null;
+end $$;
+
+-- Prevent owner from demoting or removing themselves
+create or replace function public.prevent_owner_self_demotion()
+returns trigger language plpgsql security definer
+set search_path = public as $$
+begin
+  -- Block if trying to change own owner role
+  if (old.role = 'owner' and old.status = 'active' and old.user_id = auth.uid()) then
+    -- Changing role away from owner
+    if (new.role != 'owner') then
+      raise exception 'An owner cannot demote themselves. Transfer ownership to another user first.';
+    end if;
+    -- Changing status from active
+    if (new.status != 'active') then
+      raise exception 'An owner cannot deactivate themselves. Transfer ownership to another user first.';
+    end if;
+  end if;
+  
+  return new;
+end;
+$$;
+
+-- Revoke all access (internal trigger function)
+do $$
+begin
+  revoke execute on function public.prevent_owner_self_demotion() from public, anon, authenticated;
+exception when undefined_function then
+  null;
+end $$;
+
+-- Block owner from deleting their own owner row
+create or replace function public.prevent_owner_self_deletion()
+returns trigger language plpgsql security definer
+set search_path = public as $$
+begin
+  if (old.role = 'owner' and old.status = 'active' and old.user_id = auth.uid()) then
+    raise exception 'An owner cannot delete their own owner membership. Transfer ownership to another user first.';
+  end if;
+  
+  return old;
+end;
+$$;
+
+-- Revoke all access (internal trigger function)
+do $$
+begin
+  revoke execute on function public.prevent_owner_self_deletion() from public, anon, authenticated;
+exception when undefined_function then
+  null;
+end $$;
+
+-- Apply triggers to gym_memberships
+do $$
+begin
+  drop trigger if exists prevent_owner_self_demotion on gym_memberships;
+  create trigger prevent_owner_self_demotion
+    before update on gym_memberships
+    for each row execute function public.prevent_owner_self_demotion();
+  
+  drop trigger if exists prevent_owner_self_deletion on gym_memberships;
+  create trigger prevent_owner_self_deletion
+    before delete on gym_memberships
+    for each row execute function public.prevent_owner_self_deletion();
+end $$;
 
 -- ============================================================
 -- RLS POLICIES

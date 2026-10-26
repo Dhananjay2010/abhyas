@@ -5,7 +5,11 @@
 -- CREATE DEFAULT GYM
 -- ============================================================
 
--- Create the default gym (matching NEXT_PUBLIC_BRAND's default brand)
+-- Create the default gym matching NEXT_PUBLIC_BRAND's default brand.
+-- Mapping: src/lib/branding.ts defines the default brand with:
+--   - id: "default" → maps to gyms.slug = 'default'
+--   - name: "Abhyas" → maps to gyms.name = 'Abhyas'
+--   - timezone: falls back to browser → use 'Asia/Kolkata' as database default
 -- Leave owner unset; never hardcode any user id or email
 insert into gyms (slug, name, timezone)
 values ('default', 'Abhyas', 'Asia/Kolkata')
@@ -54,7 +58,7 @@ returns trigger language plpgsql security definer set search_path = public as $f
 declare
   default_gym_id uuid;
 begin
-  -- Find the default gym
+  -- Find the default gym (matches NEXT_PUBLIC_BRAND default brand: id='default', name='Abhyas')
   select id into default_gym_id from gyms where slug = 'default';
   
   if default_gym_id is null then
@@ -76,6 +80,14 @@ begin
   return new;
 end;
 $fn$;
+
+-- Revoke all access (internal trigger function)
+do $$
+begin
+  revoke execute on function public.add_new_user_to_default_gym() from public, anon, authenticated;
+exception when undefined_function then
+  null;
+end $$;
 
 -- Create the trigger if it doesn't exist
 do $$
