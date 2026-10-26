@@ -44,12 +44,12 @@ class FakeSupabase {
   from(table: string) {
     if (table === "programs") {
       return {
-        select: (cols: string) => ({
-          eq: (col: string, val: string) => ({
-            eq: (col2: string, val2: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
               maybeSingle: async () => {
                 const program = Array.from(this.programs.values())
-                  .find(p => true); // simplified: return first
+                  .find(() => true); // simplified: return first
                 return { data: program || null, error: null };
               },
             }),
@@ -60,7 +60,7 @@ class FakeSupabase {
           },
         }),
         update: (data: Partial<Program>) => ({
-          eq: (col: string, val: string) => ({
+          eq: (_col: string, val: string) => ({
             select: async () => {
               const program = this.programs.get(val);
               if (program) {
@@ -76,10 +76,10 @@ class FakeSupabase {
     
     if (table === "sessions") {
       return {
-        select: (cols: string) => ({
-          eq: (col: string, val: string) => ({
-            in: (col2: string, vals: string[]) => ({
-              limit: (n: number) => ({
+        select: () => ({
+          eq: () => ({
+            in: (_col: string, vals: string[]) => ({
+              limit: () => ({
                 maybeSingle: async () => {
                   const session = this.sessions.find(s => 
                     vals.includes(s.status)
@@ -95,8 +95,8 @@ class FakeSupabase {
     
     if (table === "profiles") {
       return {
-        select: (cols: string) => ({
-          eq: (col: string, val: string) => ({
+        select: () => ({
+          eq: () => ({
             single: async () => ({
               data: { id: this.userId, timezone: "America/New_York" },
               error: null,
