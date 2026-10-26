@@ -394,7 +394,11 @@ echo ""
 
 # swap_view: Use swapped_from_exercise_id in view
 echo "swap_view: se.exercise_id → coalesce(swapped_from, exercise_id) in view"
-sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/se\.exercise_id/coalesce(se.swapped_from_exercise_id, se.exercise_id)/g' supabase/migrations/20261025000030_align_e1rm_formula.sql
+# Replace in SELECT list with alias, and in GROUP BY
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/{
+  s/^\s*se\.exercise_id,$/  coalesce(se.swapped_from_exercise_id, se.exercise_id) as exercise_id,/
+  s/group by ss\.user_id, se\.exercise_id,/group by ss.user_id, coalesce(se.swapped_from_exercise_id, se.exercise_id),/
+}' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ swap_view: sed did not change migration"
@@ -410,7 +414,11 @@ echo ""
 
 # swap_rec: Use swapped_from_exercise_id in recompute
 echo "swap_rec: se.exercise_id → coalesce(swapped_from, exercise_id) in recompute"
-sed -i '/^update exercise_progress ep$/,/^  and ep\.best_e1rm is distinct from s\.e1rm;$/s/se\.exercise_id/coalesce(se.swapped_from_exercise_id, se.exercise_id)/g' supabase/migrations/20261025000030_align_e1rm_formula.sql
+# Replace in SELECT list (which becomes the column in the subquery) and GROUP BY
+sed -i '/^update exercise_progress ep$/,/^  and ep\.best_e1rm is distinct from s\.e1rm;$/{
+  s/\s*se\.exercise_id,$/    coalesce(se.swapped_from_exercise_id, se.exercise_id) as exercise_id,/
+  s/group by ss\.user_id, se\.exercise_id$/  group by ss.user_id, coalesce(se.swapped_from_exercise_id, se.exercise_id)/
+}' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ swap_rec: sed did not change migration"
