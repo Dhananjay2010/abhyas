@@ -10,7 +10,6 @@ import "./helpers/setup-jsdom";
 
 import { render, screen, act } from "@testing-library/react";
 import { SessionRunner, type RunnerExercise, type RunnerSettings, type SessionActions } from "@/app/session/[id]/session-runner";
-import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 
 const fakeStorage = new Map<string, string>();
 const storage = {
@@ -24,7 +23,6 @@ const storage = {
 
 Object.defineProperty(window, 'localStorage', { value: storage, writable: true });
 
-const fakeDeps = createPendingSetDeps(() => Date.now());
 const FIXED_TIME = new Date("2026-01-15T10:00:00Z").getTime();
 
 const fakeTimer = {
@@ -42,7 +40,6 @@ async function testL6DoubleTapGuard() {
   console.log("\n📋 Test L6: Double-tap guard with busyRef\n");
   
   let finishExerciseCallCount = 0;
-  let finishInProgress = false;
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
@@ -50,10 +47,8 @@ async function testL6DoubleTapGuard() {
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => {
       finishExerciseCallCount++;
-      finishInProgress = true;
       // Simulate slow operation
       await new Promise(resolve => setTimeout(resolve, 100));
-      finishInProgress = false;
       return { ok: true, data: null };
     },
     finishSession: async () => ({ ok: true }),

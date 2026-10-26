@@ -14,6 +14,8 @@ import { SessionRunner, type RunnerExercise, type RunnerSettings, type SessionAc
 import { savePendingSet } from "@/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 
+const FIXED_TIME = new Date("2026-01-15T10:00:00Z").getTime();
+
 const fakeStorage = new Map<string, string>();
 const storage = {
   getItem: (key: string) => fakeStorage.get(key) ?? null,
@@ -26,7 +28,6 @@ const storage = {
 
 Object.defineProperty(window, 'localStorage', { value: storage, writable: true });
 
-const fakeDeps = createPendingSetDeps(() => Date.now());
 const FIXED_TIME = new Date("2026-01-15T10:00:00Z").getTime();
 
 const fakeTimer = {
@@ -109,6 +110,7 @@ async function testL3FeelButtonQueued() {
   fakeStorage.clear();
   
   // Seed 1 pending set
+  const deps = createPendingSetDeps(() => FIXED_TIME);
   savePendingSet(storage, userId, sessionId, {
     sessionExerciseId: "ex1",
     setNumber: 1,
@@ -116,7 +118,7 @@ async function testL3FeelButtonQueued() {
     weightKg: 50,
     durationSeconds: null,
     clientId: "pending-l3"
-  }, fakeDeps);
+  }, deps);
   
   render(
     <SessionRunner

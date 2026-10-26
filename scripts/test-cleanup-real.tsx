@@ -75,10 +75,23 @@ const fakeDeps: PendingSetDeps = {
 };
 
 // Type for jsdom global with window
-interface JsdomGlobal {
+interface GlobalWithWindow {
   window: {
-    EventTarget: new () => EventTarget;
+    EventTarget: {
+      new (): EventTarget;
+    };
   };
+}
+
+function isGlobalWithWindow(value: unknown): value is GlobalWithWindow {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  if (!('window' in value)) {
+    return false;
+  }
+  // Access via bracket notation to avoid cast
+  return typeof value['window'] === 'object';
 }
 
 class CountingEventTarget {
@@ -89,9 +102,11 @@ class CountingEventTarget {
   removeCount = 0;
   
   constructor() {
-    // Use jsdom's EventTarget
-    const jsdomGlobal = global as unknown as JsdomGlobal;
-    this.target = new jsdomGlobal.window.EventTarget();
+    // Use jsdom's EventTarget with type guard
+    if (!isGlobalWithWindow(global)) {
+      throw new Error("jsdom global.window not available");
+    }
+    this.target = new global.window.EventTarget();
   }
   
   addEventListener = (type: string, handler: () => void): void => {
