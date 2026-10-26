@@ -19,10 +19,15 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { installServerActionStubs, stubState } from "./helpers/server-action-stubs";
 
-const FIXED_DATE_MS = new Date("2026-10-20T10:00:00Z").getTime(); // Monday Oct 20, 2026
+const FIXED_DATE_MS = new Date("2026-10-20T10:00:00Z").getTime(); // Tuesday Oct 20, 2026
 let originalDateNow: () => number;
 let originalDateConstructor: DateConstructor;
 
+/**
+ * Mock Date.now() and new Date() (constructor) to return a fixed timestamp.
+ * Note: Date() called as a function (returning a string) is not mocked because
+ * the code under test never calls it. All date operations use new Date() or Date.now().
+ */
 function mockClock(timestampMs: number) {
   originalDateNow = Date.now;
   originalDateConstructor = Date;
