@@ -195,7 +195,7 @@ async function runTests() {
     // Check DB: read actual session status
     const { data: sessionData, error: sessionStatusError } = await userClient
       .from("sessions")
-      .select("status")
+      .select("status, actual_type")
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -249,16 +249,24 @@ async function runTests() {
     check("Today banner shows 1 of 22 sets", summary.endedEarly && summary.workingSets === 1 && summary.plannedSets === 22, 
       summary.endedEarly ? `${summary.workingSets} of ${summary.plannedSets}` : "not ended early");
 
-    // Check History label: use REAL History helper
+    // Check History label: use REAL History helper, derive values from DB rows
     const pendingCount = exercisesAfter.filter(ex => ex.status === "pending").length;
     const hasPendingExercise = pendingCount > 0;
     check("History detects pending exercises", hasPendingExercise === true, `${pendingCount} pending`);
 
+    // Derive values from DB rows
+    const totalPlannedSets = summaryData.session_exercises.reduce((sum, ex) => sum + (ex.planned_sets || 0), 0);
+    const totalWorkingSets = summaryData.session_exercises.reduce((sum, ex) => {
+      const sets = ex.session_sets || [];
+      return sum + sets.filter(s => !s.is_warmup_set).length;
+    }, 0);
+    const isStrength = sessionData.actual_type !== "yoga" && sessionData.actual_type !== "breathing";
+
     const endedEarly = computeHistoryEndedEarly({
       hasPendingExercise,
-      plannedSets: 22,
-      workingSetCount: 1,
-      isStrength: true,
+      plannedSets: totalPlannedSets,
+      workingSetCount: totalWorkingSets,
+      isStrength,
       status: sessionData.status,
       hasNoExercises: false,
     });
