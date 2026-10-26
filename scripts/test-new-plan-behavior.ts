@@ -11,7 +11,6 @@
 
 import { strict as assert } from "assert";
 import { generateProgram, type GeneratorInput, type CandidateExercise } from "../src/lib/program/generate";
-import { isoWeekday } from "../src/lib/dates";
 
 // Minimal valid catalogue
 const CATALOGUE: CandidateExercise[] = [
