@@ -113,13 +113,16 @@ test_mutant() {
   for t in "${TESTS[@]}"; do
     test_output=$($t 2>&1) || fail=1
     if [ "$fail" -eq 1 ]; then
-      # Check for crash patterns
-      if echo "$test_output" | grep -qE 'TypeError|ReferenceError|SyntaxError|Transform failed'; then
+      # A crash shows a stack trace; an assertion failure shows FAIL lines without a stack
+      # Check for Node.js/tsx stack trace pattern: "    at ..." lines
+      if echo "$test_output" | grep -q '^\s*at '; then
+        # Has stack trace = uncaught exception = crash
         echo "💥 CRASHED"
         restore
         crashed=$((crashed + 1))
         return
       fi
+      # Otherwise it's a test assertion failure = killed
       break
     fi
   done

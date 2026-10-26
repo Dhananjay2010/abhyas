@@ -7,11 +7,6 @@ import type { Database } from "@/lib/database.types";
 import { getSwapPatterns } from "@/lib/program/swap-patterns";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { CandidateExercise } from "@/lib/program/generate";
-import {
-  describePersonalBest,
-  evaluateProgression,
-} from "@/lib/program/progression";
-import { buildProgressionInput } from "@/lib/session/build-progression-input";
 import { progressionFeedback } from "@/lib/session/progression-feedback";
 import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
