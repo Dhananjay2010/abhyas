@@ -38,9 +38,16 @@ async function main() {
 
   // Undo 2 (formerly): decideRestDayResume still works
   await test("decideRestDayResume: rest + strengthOpen → showResume", () => {
+    const strengthOpen: SessionForDetection = {
+      id: "sess-1",
+      status: "in_progress",
+      actual_type: "weights",
+      local_date: "2026-11-01",
+      started_at: "2026-11-01T10:00:00Z",
+    };
     const decision = decideRestDayResume({
       dayType: "rest",
-      strengthOpen: { id: "sess-1", status: "in_progress", actual_type: "weights", local_date: "2026-11-01", started_at: "2026-11-01T10:00:00Z" } as SessionForDetection,
+      strengthOpen,
       localToday: "2026-11-01",
     });
     assert.equal(decision.showResume, true, "Should show resume on rest day with open session");
@@ -49,9 +56,16 @@ async function main() {
 
   // Undo 3 (formerly): decideRestDayResume checks dayType
   await test("decideRestDayResume: weights day → hide", () => {
+    const strengthOpen: SessionForDetection = {
+      id: "sess-1",
+      status: "in_progress",
+      actual_type: "weights",
+      local_date: "2026-11-01",
+      started_at: "2026-11-01T10:00:00Z",
+    };
     const decision = decideRestDayResume({
       dayType: "weights",
-      strengthOpen: { id: "sess-1", status: "in_progress", actual_type: "weights" } as SessionForDetection,
+      strengthOpen,
       localToday: "2026-11-01",
     });
     assert.equal(decision.showResume, false, "Should hide resume on training day");

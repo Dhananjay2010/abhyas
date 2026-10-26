@@ -1,16 +1,17 @@
 import type { Database } from "@/lib/database.types";
 
-type SessionRow = Database["public"]["Tables"]["sessions"]["Row"];
+type SessionRow = Pick<
+  Database["public"]["Tables"]["sessions"]["Row"],
+  "id" | "actual_type" | "status"
+>;
 type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
 
 export interface PlanDayClient {
-  from(table: "sessions"): {
-    select(columns: string): {
-      eq(column: string, value: string): Promise<{ data: SessionRow[] | null; error: Error | null }>;
-    };
-  };
-  deleteFrom(rows: SessionRow[]): Promise<{ error: Error | null }>;
-  insert(table: "sessions", row: SessionInsert): Promise<{ error: Error | null }>;
+  findDaySessions(
+    localDate: string
+  ): Promise<{ rows: SessionRow[]; error: string | null }>;
+  deleteSessions(ids: string[]): Promise<{ error: string | null }>;
+  insertSession(row: SessionInsert): Promise<{ error: string | null }>;
 }
 
 type PlanDayInput = {
@@ -41,16 +42,11 @@ export async function planDayCore(
   }
 
   // Fetch existing sessions for this date
-  const { data: existing, error: fetchError } = await client
-    .from("sessions")
-    .select("*")
-    .eq("local_date", localDate);
+  const { rows: existingSessions, error: fetchError } = await client.findDaySessions(localDate);
 
   if (fetchError) {
     return { ok: false, error: "Failed to fetch planned sessions." };
   }
-
-  const existingSessions = existing ?? [];
 
   // Check for settled (completed or in-progress) workout sessions
   const settled = existingSessions.find(
@@ -101,7 +97,8 @@ export async function planDayCore(
 
   // Delete existing planned sessions
   if (plannedSessions.length > 0) {
-    const { error: deleteError } = await client.deleteFrom(plannedSessions);
+    const ids = plannedSessions.map((s) => s.id);
+    const { error: deleteError } = await client.deleteSessions(ids);
     if (deleteError) {
       return { ok: false, error: "Failed to delete old sessions." };
     }
@@ -116,7 +113,7 @@ export async function planDayCore(
       actual_type: "rest",
     };
 
-    const { error: insertError } = await client.insert("sessions", restSession);
+    const { error: insertError } = await client.insertSession(restSession);
     if (insertError) {
       return { ok: false, error: "Failed to insert rest session." };
     }
@@ -143,7 +140,7 @@ export async function planDayCore(
     actual_type: actualType,
   };
 
-  const { error: insertError } = await client.insert("sessions", newSession);
+  const { error: insertError } = await client.insertSession(newSession);
   if (insertError) {
     return { ok: false, error: "Failed to insert session." };
   }

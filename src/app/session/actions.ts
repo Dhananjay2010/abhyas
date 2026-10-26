@@ -791,32 +791,20 @@ export async function planDay(input: {
 
   // Create client adapter
   const client: PlanDayClient = {
-    from(table: "sessions") {
-      return {
-        select(columns: string) {
-          return {
-            async eq(column: string, value: string) {
-              const { data, error } = await supabase
-                .from(table)
-                .select(columns)
-                .eq(column, value);
-              return {
-                data: data as unknown as Database["public"]["Tables"]["sessions"]["Row"][] | null,
-                error: error ? (error as unknown as Error) : null,
-              };
-            },
-          };
-        },
-      };
+    async findDaySessions(localDate: string) {
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("*")
+        .eq("local_date", localDate);
+      return { rows: data ?? [], error: error?.message ?? null };
     },
-    async deleteFrom(rows) {
-      const ids = rows.map((r) => r.id);
+    async deleteSessions(ids: string[]) {
       const { error } = await supabase.from("sessions").delete().in("id", ids);
-      return { error: error ? (error as unknown as Error) : null };
+      return { error: error?.message ?? null };
     },
-    async insert(table, row) {
-      const { error } = await supabase.from(table).insert(row);
-      return { error: error ? (error as unknown as Error) : null };
+    async insertSession(row) {
+      const { error } = await supabase.from("sessions").insert(row);
+      return { error: error?.message ?? null };
     },
   };
 
