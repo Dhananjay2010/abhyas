@@ -6,7 +6,7 @@ set -euo pipefail
 # restores from backup on ANY exit, targeted tests only.
 
 PROG_FILE="src/lib/program/progression.ts"
-BACKUP_FILE="/tmp/progression-backup-$$.ts"
+BACKUP_FILE=$(mktemp "${TMPDIR:-/tmp}/progression-backup.XXXXXX")
 MUTANT_COUNT=0
 SURVIVED_COUNT=0
 
