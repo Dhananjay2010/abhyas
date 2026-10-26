@@ -111,10 +111,13 @@ async function main() {
     ["air-bike", "recumbent-bike", "walking-treadmill"]);
 
   // 4. Jump guard: lower-body jump banned for past knee; upper-body plyo kept.
+  // Updated per Run 4: bodyweight-squat and goblet-squat are knee-risk (isKneeRiskForKneeUser),
+  // so past-knee users don't get them in squat swaps. Coordinator rule: swap sheets use same
+  // knee filter as plan generation. Only PAST_KNEE_LUNGE_EXERCISES allowed for past-knee squats.
   const SQUAT = ["low-impact-box-jump", "bodyweight-squat"];
   await scenario("Squat — healthy (control): low-impact box jump offered", healthy("intermediate", ["flat_bench", "dumbbell"]), "goblet-squat", SQUAT, SQUAT);
-  await scenario("Squat — PAST knee: lower-body jump excluded", knee("past", "intermediate", ["flat_bench", "dumbbell"]), "goblet-squat", SQUAT,
-    ["bodyweight-squat"]);
+  await scenario("Squat — PAST knee: lower-body jump and knee-risk squats excluded", knee("past", "intermediate", ["flat_bench", "dumbbell"]), "goblet-squat", SQUAT,
+    []); // Empty: both low-impact-box-jump (jump) and bodyweight-squat (knee-risk) filtered
   const HP = ["plyo-push-up", "clock-push-up", "push-up-wide", "single-arm-push-up"];
   await scenario("Horizontal press (hold) — PAST knee: upper-body plyo-push-up still offered", knee("past", "intermediate", []), "isometric-wipers", HP, HP);
 

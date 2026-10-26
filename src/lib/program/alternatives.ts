@@ -291,12 +291,19 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
-    // 6e. QA Bot 1: Past-knee users filter specific high-risk patterns from swaps
-    // Exception: squat-pattern candidates in lunge swaps must be from PAST_KNEE_LUNGE_EXERCISES
-    // (handled in step 4b and MED-3 check below)
+    // 6e. QA Bot 1: Past-knee users filter knee-risk exercises from swaps
+    // Apply the same knee predicate as generation (isKneeRiskForKneeUser)
     if (hasPastKnee) {
+      // For squat→squat swaps: filter out knee-risk squats, allow only PAST_KNEE_LUNGE_EXERCISES
+      if (current.movement_pattern === "squat" && candidate.movement_pattern === "squat") {
+        if (isKneeRiskForKneeUser(candidate, true)) {
+          if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
+            continue;
+          }
+        }
+      }
       // For lunge swaps: squat fallbacks must be from the allowed quad-isolation list
-      // MED-3: lunge swaps must not offer normal squats (already handled in 4b)
+      // MED-3: lunge swaps must not offer normal squats
       if (current.movement_pattern === "lunge" && candidate.movement_pattern === "squat") {
         if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
           continue;

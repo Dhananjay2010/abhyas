@@ -170,7 +170,7 @@ for (const testCase of testCases) {
     
     const turkishGetUpSlugs = ["kettlebell-turkish-get-up-lunge-style", "kettlebell-turkish-get-up-squat-style"];
     const isTurkishGetUpChange = 
-      onlyInExpected.every(s => turkishGetUpSlugs.includes(s)) &&
+      onlyInExpected.every((s: string) => turkishGetUpSlugs.includes(s)) &&
       onlyInCurrent.length === 0;
     
     if (current.length === expected.length && current.every((s, i) => s === expected[i])) {
