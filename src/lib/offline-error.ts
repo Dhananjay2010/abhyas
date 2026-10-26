@@ -48,8 +48,8 @@ export function isOfflineError(
     return true;
   }
 
-  // Generic network errors (must be exactly "network error" or "NetworkError")
-  if (name === "networkerror" || message === "network error" || message === "networkerror") {
+  // Generic network errors (must contain "network error" as a phrase)
+  if (name === "networkerror" || message.includes("network error") || message.includes("networkerror")) {
     return true;
   }
 
