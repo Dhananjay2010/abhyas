@@ -21,17 +21,46 @@ export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Exercises with slug-specific shoulder contraindications.
+ * Around The Worlds: arms pass overhead in a wide arc, loading shoulders.
+ */
+const SHOULDER_CONTRAINDICATED_SLUGS: ReadonlySet<string> = new Set([
+  "around-the-worlds",
+]);
+
+/**
  * Get derived contraindications from exercise properties.
- * This is extracted from generate.ts to be reusable.
+ * Single source of truth for all contraindication derivation logic.
  * 
- * - squat, lunge, or jump pattern/name → knee (UNLESS in knee-safe list)
  * - vertical_press or "overhead" in name → shoulder
- * - spinal_load high or moderate → lower_back
+ * - spinal_load high → lower_back
+ * - squat, lunge, or jump pattern/name → knee (UNLESS in knee-safe list)
+ * 
+ * Derived contraindications ADD to explicit tags, don't replace them.
  */
 export function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
   const derived: BodyRegion[] = [];
   const nameLower = ex.name.toLowerCase();
   const slugLower = ex.slug.toLowerCase();
+  
+  // Slug-specific shoulder contraindications
+  if (SHOULDER_CONTRAINDICATED_SLUGS.has(ex.slug)) {
+    derived.push("shoulder");
+  }
+  
+  // Vertical press or overhead movements load shoulders
+  if (ex.movement_pattern === "vertical_press" ||
+      nameLower.includes("overhead") ||
+      slugLower.includes("overhead") ||
+      nameLower.includes("shoulder press") ||
+      nameLower.includes("military press")) {
+    derived.push("shoulder");
+  }
+  
+  // High spinal load affects lower back (moderate is manageable for most)
+  if (ex.spinal_load === "high") {
+    derived.push("lower_back");
+  }
   
   // Knee contraindication for squat/lunge/jump patterns (unless knee-safe)
   const isKneeLoad = 
