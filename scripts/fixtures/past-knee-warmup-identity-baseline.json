@@ -1,0 +1,866 @@
+[
+  {
+    "label": "no-injury-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "no-injury-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-shoulder-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"face-pull-light\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-shoulder-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-external-rotation\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-lower-back-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"leg-swing-front\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"leg-swing-front\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"leg-swing-front\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-lower-back-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"bird-dog\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"dead-bug\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-hip-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-hip-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-ankle-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-ankle-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"calf-raise-slow\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "past-wrist-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-wrist-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"bodyweight-squat\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"walking-lunge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Upper-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Upper-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Upper-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Lower-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"leg-swing-front\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Lower-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"leg-swing-front\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Lower-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"ankle-rock\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"leg-swing-front\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Push-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Push-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Push-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"wall-slide\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Pull-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Pull-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"cat-cow\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Pull-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"arm-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"band-pull-apart\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"shoulder-dislocate\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Legs-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"leg-swing-front\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Legs-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"leg-swing-front\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Legs-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"leg-swing-front\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Full-all-equipment",
+    "output": "[\n  {\n    \"slug\": \"easy-bike\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Full-bodyweight-only",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  },
+  {
+    "label": "current-knee-Full-partial",
+    "output": "[\n  {\n    \"slug\": \"brisk-walk\",\n    \"phase\": \"cardio\"\n  },\n  {\n    \"slug\": \"glute-bridge\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"hip-circles\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"scapular-pushup\",\n    \"phase\": \"mobility\"\n  },\n  {\n    \"slug\": \"clamshell\",\n    \"phase\": \"prehab\"\n  },\n  {\n    \"slug\": \"terminal-knee-ext\",\n    \"phase\": \"prehab\"\n  }\n]"
+  }
+]
