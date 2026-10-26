@@ -8,6 +8,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
 const path = require('path');
+const { calculateShardBoundaries, validateTestEntries } = require('./shard-boundaries');
 
 const totalShards = parseInt(process.argv[2], 10);
 
@@ -35,33 +36,38 @@ const fullChain = testScript
 
 console.log(`Full test chain: ${fullChain.length} entries`);
 
-// Calculate what each shard would contain
-const testsPerShard = Math.ceil(fullChain.length / totalShards);
-const shardContents = [];
-const shardUnion = [];
+// Validate test entries format
+try {
+  validateTestEntries(fullChain);
+} catch (error) {
+  console.error(`❌ ${error.message}`);
+  process.exit(1);
+}
 
-for (let shardIdx = 1; shardIdx <= totalShards; shardIdx++) {
-  const startIdx = (shardIdx - 1) * testsPerShard;
-  const endIdx = Math.min(shardIdx * testsPerShard, fullChain.length);
-  const shardTests = fullChain.slice(startIdx, endIdx);
-  
-  shardContents.push({
-    shard: shardIdx,
-    start: startIdx + 1,
-    end: endIdx,
-    count: shardTests.length,
-    tests: shardTests
-  });
-  
-  shardUnion.push(...shardTests);
+// Calculate time-balanced shard boundaries
+const { shardAssignments } = calculateShardBoundaries(fullChain, totalShards);
+
+// Check for empty shards
+for (let i = 0; i < shardAssignments.length; i++) {
+  if (shardAssignments[i].tests.length === 0) {
+    console.error(`❌ FAIL: Shard ${i + 1} is empty!`);
+    process.exit(1);
+  }
 }
 
 // Print shard boundaries
-console.log('\nShard boundaries:');
-for (const shard of shardContents) {
-  console.log(`  Shard ${shard.shard}/${totalShards}: tests ${shard.start}-${shard.end} (${shard.count} tests)`);
+console.log('\nShard boundaries (time-balanced):');
+for (const shard of shardAssignments) {
+  const shardIdx = shardAssignments.indexOf(shard) + 1;
+  console.log(`  Shard ${shardIdx}/${totalShards}: tests ${shard.start}-${shard.end} (${shard.tests.length} tests, ~${shard.estimatedTime.toFixed(0)}s)`);
   console.log(`    First: ${shard.tests[0]}`);
   console.log(`    Last: ${shard.tests[shard.tests.length - 1]}`);
+}
+
+// Build union
+const shardUnion = [];
+for (const shard of shardAssignments) {
+  shardUnion.push(...shard.tests);
 }
 
 // Verify union equals full chain
@@ -97,5 +103,7 @@ console.log('✅ PASS: Shard union exactly equals the full test chain');
 console.log(`  - All ${fullChain.length} tests present`);
 console.log(`  - No duplicates`);
 console.log(`  - Correct order maintained`);
+console.log(`  - No empty shards`);
+console.log(`  - All entries match "npm run test:<name>" format`);
 
 process.exit(0);

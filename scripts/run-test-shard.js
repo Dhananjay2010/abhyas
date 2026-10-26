@@ -8,6 +8,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { calculateShardBoundaries, validateTestEntries } = require('./shard-boundaries');
 
 const shardIndex = parseInt(process.argv[2], 10);
 const totalShards = parseInt(process.argv[3], 10);
@@ -36,22 +37,33 @@ const testEntries = testScript
 
 console.log(`Total test entries: ${testEntries.length}`);
 
-// Calculate shard boundaries
-const testsPerShard = Math.ceil(testEntries.length / totalShards);
-const startIdx = (shardIndex - 1) * testsPerShard;
-const endIdx = Math.min(shardIndex * testsPerShard, testEntries.length);
+// Validate test entries
+try {
+  validateTestEntries(testEntries);
+} catch (error) {
+  console.error(`❌ Validation failed: ${error.message}`);
+  process.exit(1);
+}
 
-const shardTests = testEntries.slice(startIdx, endIdx);
+// Calculate time-balanced shard boundaries
+const { shardAssignments } = calculateShardBoundaries(testEntries, totalShards);
+const shard = shardAssignments[shardIndex - 1];
+
+if (!shard || shard.tests.length === 0) {
+  console.error(`❌ Shard ${shardIndex} is empty!`);
+  process.exit(1);
+}
 
 console.log(`Running shard ${shardIndex}/${totalShards}`);
-console.log(`Tests ${startIdx + 1} to ${endIdx} (${shardTests.length} tests)`);
+console.log(`Tests ${shard.start} to ${shard.end} (${shard.tests.length} tests)`);
+console.log(`Estimated time: ${shard.estimatedTime.toFixed(2)}s (${(shard.estimatedTime / 60).toFixed(2)}m)`);
 console.log('---');
 
 // Run each test in the shard
 let failed = false;
-for (let i = 0; i < shardTests.length; i++) {
-  const testName = shardTests[i];
-  const testNum = startIdx + i + 1;
+for (let i = 0; i < shard.tests.length; i++) {
+  const testName = shard.tests[i];
+  const testNum = shard.start + i;
   console.log(`[${testNum}/${testEntries.length}] Running ${testName}...`);
   
   try {
