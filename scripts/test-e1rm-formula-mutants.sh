@@ -172,9 +172,10 @@ cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm
 
 echo ""
 
-# M5: Drop se.status = 'completed' from recompute (both occurrences)
-echo "M5: Remove se.status = 'completed' filter from recompute"
-sed -i 's/and se\.status = .completed.//g' supabase/migrations/20261025000030_align_e1rm_formula.sql
+# M5: Drop se.status = 'completed' from recompute (not view)
+echo "M5: Remove se.status = 'completed' filter from recompute UPDATE"
+# Target only the recompute's WHERE clause (line with "where se.status"), not the view's AND
+sed -i '/^update exercise_progress ep$/,/^  and ep\.best_e1rm is distinct from s\.e1rm;$/s/where se\.status = .completed./where true/' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ M5: sed did not change migration"
@@ -183,14 +184,32 @@ fi
 
 run_mutant "M5" || exit 1
 
+# Restore for M5v
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# M5v: Drop se.status = 'completed' from view (not recompute)
+echo "M5v: Remove se.status = 'completed' filter from view"
+# Target only the view's AND clause
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/and se\.status = .completed.//' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ M5v: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "M5v" || exit 1
+
 # Restore for M6
 cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 echo ""
 
-# M6: Drop ss.is_warmup_set = false from recompute (both occurrences)
+# M6: Drop ss.is_warmup_set = false from recompute
 echo "M6: Remove ss.is_warmup_set = false filter from recompute"
-sed -i 's/and ss\.is_warmup_set = false//g' supabase/migrations/20261025000030_align_e1rm_formula.sql
+# Target only the recompute UPDATE
+sed -i '/^update exercise_progress ep$/,/^  and ep\.best_e1rm is distinct from s\.e1rm;$/s/and ss\.is_warmup_set = false//' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ M6: sed did not change migration"
@@ -199,5 +218,38 @@ fi
 
 run_mutant "M6" || exit 1
 
+# Restore for M6v
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
 echo ""
-echo "✅ All 7 e1RM formula mutation tests passed (1 baseline + M1 + M2v + M3 + M3v + M4 + M5 + M6)"
+
+# M6v: Drop ss.is_warmup_set = false from view
+echo "M6v: Remove ss.is_warmup_set = false filter from view"
+# Target only the view
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/and ss\.is_warmup_set = false//' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ M6v: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "M6v" || exit 1
+
+# Restore for M7v
+cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+echo ""
+
+# M7v: Drop s.status = 'completed' from view (session status filter)
+echo "M7v: Remove s.status = 'completed' filter from view"
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/and s\.status = .completed.//' supabase/migrations/20261025000030_align_e1rm_formula.sql
+
+if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
+  echo "✗ M7v: sed did not change migration"
+  exit 1
+fi
+
+run_mutant "M7v" || exit 1
+
+echo ""
+echo "✅ All e1RM formula mutation tests passed (1 baseline + M1 + M2v + M3 + M3v + M4 + M5 + M5v + M6 + M6v + M7v)"

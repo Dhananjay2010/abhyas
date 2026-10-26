@@ -667,7 +667,7 @@ async function runTests() {
 
     console.log("TEST 11: Migration re-run updates 0 rows and updated_at unchanged");
     {
-      // Record updated_at before re-running UPDATE
+      // Record updated_at before re-running migration
       // At this point, the migration has been run once during seed data
       const { rows: beforeRerun } = await testPool!.query(`
         SELECT user_id, exercise_id, best_e1rm, updated_at::text 
@@ -676,37 +676,9 @@ async function runTests() {
         ORDER BY exercise_id
       `, [userId]);
       
-      // Re-run just the UPDATE part (should update 0 rows due to IS DISTINCT FROM)
-      const { rowCount } = await testPool!.query(`
-        UPDATE exercise_progress ep
-        SET best_e1rm = s.e1rm
-        FROM (
-          SELECT 
-            ss.user_id,
-            se.exercise_id,
-            least(
-              max(
-                case 
-                  when ss.reps = 1 then ss.weight_kg 
-                  else round(ss.weight_kg * (30 + least(ss.reps, 12)) / 30, 2)
-                end
-              ),
-              9999.99
-            )::numeric(6,2) as e1rm
-          FROM session_sets ss
-          JOIN session_exercises se ON se.id = ss.session_exercise_id
-          JOIN exercises e ON e.id = se.exercise_id
-          WHERE se.status = 'completed'
-            AND ss.is_warmup_set = false
-            AND ss.reps IS NOT NULL AND ss.reps > 0
-            AND ss.weight_kg IS NOT NULL AND ss.weight_kg > 0
-            AND e.metric != 'seconds'
-          GROUP BY ss.user_id, se.exercise_id
-        ) s
-        WHERE ep.user_id = s.user_id
-          AND ep.exercise_id = s.exercise_id
-          AND ep.best_e1rm IS DISTINCT FROM s.e1rm
-      `);
+      // Re-run the REAL migration file (should update 0 rows due to IS DISTINCT FROM)
+      // Migration is idempotent: view/backup already exist, UPDATE touches 0 rows
+      await testPool!.query(migrationSQL);
       
       // Check updated_at unchanged
       const { rows: afterRerun } = await testPool!.query(`
@@ -725,7 +697,7 @@ async function runTests() {
         }
       }
       
-      check("Re-run updates 0 rows", rowCount === 0, `expected 0, got ${rowCount}`);
+      check("Re-run real migration updates 0 rows (idempotent)", allUnchanged, `${changedCount} of ${beforeRerun.length} updated_at changed`);
       check("Re-run: updated_at unchanged for all rows", allUnchanged, `${changedCount} of ${beforeRerun.length} updated_at changed`);
       
       console.log("  PASS: Test 11\n");
@@ -751,49 +723,17 @@ async function runTests() {
       
       check("Correct 54.58 unchanged by migration", Math.abs(afterE1rm - 54.58) < 0.01, `got ${afterE1rm}`);
       
-      // Now log the same 44.25×7 set again and verify no PB (values match exactly)
-      await logSession(userId, ex13, "2026-10-31", [{ weight: 44.25, reps: 7 }]);
+      // Test nextBest/PB detection with prior 54.58 and new 44.25×7 set (should be no PB)
+      const { nextBest } = await import("../src/lib/program/progression");
+      const result = nextBest(
+        [{ reps: 7, weightKg: 44.25 }],
+        { bestWeightKg: 44.25, bestReps: 7, bestE1rm: 54.58 },
+        { metric: "reps" }
+      );
       
-      // Recompute with the new set-based migration logic
-      await testPool!.query(`
-        UPDATE exercise_progress ep
-        SET best_e1rm = s.e1rm
-        FROM (
-          SELECT 
-            ss.user_id,
-            se.exercise_id,
-            least(
-              max(
-                case 
-                  when ss.reps = 1 then ss.weight_kg 
-                  else round(ss.weight_kg * (30 + least(ss.reps, 12)) / 30, 2)
-                end
-              ),
-              9999.99
-            )::numeric(6,2) as e1rm
-          FROM session_sets ss
-          JOIN session_exercises se ON se.id = ss.session_exercise_id
-          JOIN exercises e ON e.id = se.exercise_id
-          WHERE se.status = 'completed'
-            AND ss.is_warmup_set = false
-            AND ss.reps IS NOT NULL AND ss.reps > 0
-            AND ss.weight_kg IS NOT NULL AND ss.weight_kg > 0
-            AND e.metric != 'seconds'
-          GROUP BY ss.user_id, se.exercise_id
-        ) s
-        WHERE ep.user_id = s.user_id
-          AND ep.exercise_id = s.exercise_id
-          AND ep.user_id = $1 
-          AND ep.exercise_id = $2
-          AND ep.best_e1rm IS DISTINCT FROM s.e1rm
-      `, [userId, ex13]);
-      
-      const { rows: afterRepeat } = await testPool!.query(`
-        SELECT best_e1rm FROM exercise_progress WHERE user_id = $1 AND exercise_id = $2
-      `, [userId, ex13]);
-      const repeatE1rm = parseFloat(afterRepeat[0]?.best_e1rm ?? '0');
-      
-      check("Repeating 44.25×7 shows no PB (54.58 = 54.58)", Math.abs(repeatE1rm - 54.58) < 0.01, `got ${repeatE1rm}`);
+      check("nextBest: repeating 44.25×7 with prior 54.58 → no PB", result.personalBest === null,
+        result.personalBest ? `got ${result.personalBest.kind}` : undefined);
+      check("nextBest: bestE1rm stays 54.58", result.bestE1rm === 54.58, `got ${result.bestE1rm}`);
       
       console.log("  PASS: Test 11A\n");
     }
@@ -810,13 +750,26 @@ async function runTests() {
       check("Backup table exists", tableExists[0].exists, "table not found");
       
       if (tableExists[0].exists) {
-        // Backup should have the original pre-migration values
+        // Assert backup holds the seeded PRE-migration values
+        const { rows: backupEx1 } = await testPool!.query(`
+          SELECT best_e1rm FROM exercise_progress_best_e1rm_backup_20261025000030
+          WHERE user_id = $1 AND exercise_id = $2
+        `, [userId, ex1]);
+        const backupEx1Value = parseFloat(backupEx1[0]?.best_e1rm ?? '0');
+        check("Backup: ex1 = 60.00 (uncapped pre-migration)", Math.abs(backupEx1Value - 60.00) < 0.01, `got ${backupEx1Value}`);
+        
+        const { rows: backupEx2 } = await testPool!.query(`
+          SELECT best_e1rm FROM exercise_progress_best_e1rm_backup_20261025000030
+          WHERE user_id = $1 AND exercise_id = $2
+        `, [userId, ex2]);
+        const backupEx2Value = parseFloat(backupEx2[0]?.best_e1rm ?? '0');
+        check("Backup: ex2 = 103.33 (buggy 1.0333x pre-migration)", Math.abs(backupEx2Value - 103.33) < 0.01, `got ${backupEx2Value}`);
+        
+        // Backup should have entries (at least from our test data)
         const { rows: backupRows } = await testPool!.query(`
           SELECT COUNT(*) as count FROM exercise_progress_best_e1rm_backup_20261025000030
         `);
         const backupCount = parseInt(backupRows[0].count);
-        
-        // Should have entries (at least from our test data)
         check("Backup table has rows", backupCount > 0, `count=${backupCount}`);
         
         // Re-run migration and verify backup is unchanged

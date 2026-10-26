@@ -1,7 +1,7 @@
 #!/bin/bash
 # Mutant tests for History e1RM calculations
 
-set -e
+set -euo pipefail
 
 CALCULATIONS_FILE="src/lib/exercise-history/calculations.ts"
 PROGRESSION_FILE="src/lib/program/progression.ts"
@@ -30,6 +30,53 @@ cleanup() {
 trap 'cleanup; exit 130' INT TERM
 trap cleanup EXIT
 
+# Baseline: unmutated tests must pass
+echo "Baseline: Running unmutated tests (must pass)"
+if ! npx tsx scripts/test-exercise-history-pr-detection.ts > "$TMP/baseline.log" 2>&1; then
+  echo "✗ BASELINE FAILED: unmutated test did not pass"
+  echo "First failure:"
+  grep -m 1 "FAIL\|✗" "$TMP/baseline.log" || tail -10 "$TMP/baseline.log"
+  exit 1
+fi
+if ! npx tsx scripts/test-e1rm-consistency.ts > "$TMP/baseline2.log" 2>&1; then
+  echo "✗ BASELINE FAILED: test-e1rm-consistency.ts did not pass"
+  echo "First failure:"
+  grep -m 1 "FAIL\|✗" "$TMP/baseline2.log" || tail -10 "$TMP/baseline2.log"
+  exit 1
+fi
+echo "✓ Baseline passed"
+echo ""
+
+# Helper to run mutant and check exit code
+run_mutant() {
+  local name="$1"
+  local test_script="$2"
+  local logfile="$TMP/${name}.log"
+  
+  set +e
+  npx tsx "$test_script" > "$logfile" 2>&1
+  local exit_code=$?
+  set -e
+  
+  if [ $exit_code -eq 0 ]; then
+    echo "✗ FAIL: ${name} survived (test passed)"
+    return 1
+  else
+    # Check if it was a genuine test failure (KILLED) or a crash (ERROR)
+    if grep -q "FAIL\|✗" "$logfile"; then
+      echo "✓ ${name} killed"
+      echo "   First failure:"
+      grep -m 1 "FAIL\|✗" "$logfile" | sed 's/^/   /'
+      return 0
+    else
+      echo "✗ ERROR: ${name} crashed without test failure (exit ${exit_code})"
+      echo "   Error output:"
+      tail -10 "$logfile" | sed 's/^/   /'
+      return 1
+    fi
+  fi
+}
+
 # Mutant 1: History back to 0.1 kg rounding for e1RM comparison (in getExerciseHistory)
 echo "Mutant 1: History uses 0.1 kg rounding for e1RM instead of 2 dp"
 echo "Expected: test-exercise-history-pr-detection.ts should fail (Case d)"
@@ -39,15 +86,15 @@ echo ""
 # Mutate bestE1rmInSession to round to 0.1 kg
 sed -i 's/const bestE1rmInSession = Math\.max(\.\.\.weightedSetsInSession\.map(s => computeE1rm(s\.weight_kg, s\.reps) ?? 0));/const bestE1rmInSession = Math.round(Math.max(...weightedSetsInSession.map(s => computeE1rm(s.weight_kg, s.reps) ?? 0)) * 10) \/ 10;/' "$QUERIES_FILE"
 
-if npx tsx scripts/test-exercise-history-pr-detection.ts > /dev/null 2>&1; then
-  echo "✗ FAIL: Mutant 1 survived (test still passes with 0.1 kg rounding for e1RM)"
-  exit 1
+if ! cmp -s "$BACKUP_QUERIES" "$QUERIES_FILE"; then
+  run_mutant "Mutant 1" "scripts/test-exercise-history-pr-detection.ts" || exit 1
 else
-  echo "✓ Mutant 1 killed (test fails with 0.1 kg rounding for e1RM)"
+  echo "✗ Mutant 1: sed did not change queries.ts"
+  exit 1
 fi
 
 # Restore for next mutant
-cp "$BACKUP_CALCULATIONS" "$CALCULATIONS_FILE"
+cp "$BACKUP_QUERIES" "$QUERIES_FILE"
 
 # Mutant 2: History computes w×(1+1/30) at reps=1 (removes special case)
 echo ""
@@ -58,11 +105,11 @@ echo ""
 # Remove the reps=1 special case from estimateOneRepMax
 sed -i '/if (reps === 1) return weightKg;/d' "$PROGRESSION_FILE"
 
-if npx tsx scripts/test-e1rm-consistency.ts > /dev/null 2>&1; then
-  echo "✗ FAIL: Mutant 2 survived (test still passes without reps=1 special case)"
-  exit 1
+if ! cmp -s "$BACKUP_PROGRESSION" "$PROGRESSION_FILE"; then
+  run_mutant "Mutant 2" "scripts/test-e1rm-consistency.ts" || exit 1
 else
-  echo "✓ Mutant 2 killed (test fails without reps=1 special case)"
+  echo "✗ Mutant 2: sed did not change progression.ts"
+  exit 1
 fi
 
 # Restore for next mutant
@@ -76,11 +123,11 @@ echo ""
 
 sed -i 's/if (bestE1rmInSession > prevE1rmValue) {/if (bestE1rmInSession >= prevE1rmValue) {/' "$QUERIES_FILE"
 
-if npx tsx scripts/test-exercise-history-pr-detection.ts > /dev/null 2>&1; then
-  echo "✗ FAIL: Mutant 3 survived (test still passes with >= for e1RM)"
-  exit 1
+if ! cmp -s "$BACKUP_QUERIES" "$QUERIES_FILE"; then
+  run_mutant "Mutant 3" "scripts/test-exercise-history-pr-detection.ts" || exit 1
 else
-  echo "✓ Mutant 3 killed (test fails with >= for e1RM)"
+  echo "✗ Mutant 3: sed did not change queries.ts"
+  exit 1
 fi
 
 # Restore for next mutant
@@ -94,12 +141,15 @@ echo ""
 
 sed -i 's/if (heaviestInSession > prevHeaviestValue) {/if (heaviestInSession >= prevHeaviestValue) {/' "$QUERIES_FILE"
 
-if npx tsx scripts/test-exercise-history-pr-detection.ts > /dev/null 2>&1; then
-  echo "✗ FAIL: Mutant 4 survived (test still passes with >= for heaviest weight)"
-  exit 1
+if ! cmp -s "$BACKUP_QUERIES" "$QUERIES_FILE"; then
+  run_mutant "Mutant 4" "scripts/test-exercise-history-pr-detection.ts" || exit 1
 else
-  echo "✓ Mutant 4 killed (test fails with >= for heaviest weight)"
+  echo "✗ Mutant 4: sed did not change queries.ts"
+  exit 1
 fi
+
+# Restore for next mutant
+cp "$BACKUP_QUERIES" "$QUERIES_FILE"
 
 echo ""
 echo "All History mutants killed ✓"
