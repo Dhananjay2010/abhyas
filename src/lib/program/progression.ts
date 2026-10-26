@@ -65,16 +65,16 @@ export type PersonalBest =
   | { kind: "e1rm"; value: number };
 
 /** One line, for the session summary. */
-export function describePersonalBest(pb: PersonalBest): string {
+export function describePersonalBest(pb: PersonalBest, units: WeightUnit): string {
   switch (pb.kind) {
     case "weight":
-      return `Heaviest set yet — ${pb.value} kg`;
+      return `Heaviest set yet — ${formatWeight(pb.value, units)}`;
     case "hold":
       return `Longest hold yet — ${pb.value}s`;
     case "reps":
       return `Most reps yet — ${pb.value}`;
     case "e1rm":
-      return `Best estimated one-rep max yet — ${Math.round(pb.value)} kg`;
+      return `Best estimated one-rep max yet — ${formatWeight(Math.round(pb.value), units)}`;
   }
 }
 

@@ -203,9 +203,9 @@ for (let i = 0; i < 64; i++) {
 
 if (bucketMismatches > 0) {
   console.error(
-    `\n❌ ${bucketMismatches} bucket(s) differ from main. Behavior has changed without equipment.`
+    `\n❌ ${bucketMismatches} bucket(s) differ from the committed fixture (differences vs main are listed in scripts/fixtures/noequip-diff-vs-main.json).`
   );
   process.exit(1);
 }
 
-console.log(`\n✅ All ${bucketMatches} buckets match main. Behavior unchanged without equipment.`);
+console.log(`\n✅ All ${bucketMatches} buckets match the committed fixture (differences vs main are listed in scripts/fixtures/noequip-diff-vs-main.json).`);

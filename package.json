@@ -352,6 +352,7 @@
     "test:progression-real-path-mutants": "bash scripts/test-progression-real-path-mutants.sh",
     "test:third-miss-step-down": "tsx scripts/test-third-miss-step-down.ts",
     "test:counter-cap": "tsx scripts/test-counter-cap.ts",
+    "test:pb-toast-units": "tsx scripts/test-pb-toast-units.ts",
     "test:m1-null-premiss-fallback": "tsx scripts/test-m1-null-premiss-fallback.ts",
     "test:swap-mechanic-wiring": "tsx scripts/test-swap-mechanic-wiring.ts",
     "test:multi-miss-feedback": "tsx scripts/test-multi-miss-feedback.ts",

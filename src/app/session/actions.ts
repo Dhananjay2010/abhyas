@@ -20,6 +20,7 @@ import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { keepPlannedDay } from "@/lib/session/plan-day-keep-core";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
+import type { WeightUnit } from "@/lib/session/equipment-grid";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
@@ -489,7 +490,7 @@ async function applyProgression(
     outcome: decision.outcome,
     message: decision.message,
     personalBest: decision.personalBest
-      ? describePersonalBest(decision.personalBest)
+      ? describePersonalBest(decision.personalBest, units as WeightUnit)
       : null,
   };
 }
