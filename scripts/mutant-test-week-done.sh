@@ -23,32 +23,41 @@ fi
 echo "✓ Baseline passed"
 echo
 
-# M1: Only mark strength
+# M1
 echo "M1: Only mark strength sessions"
 sed -i 's/if (s.status === "completed") {/if (s.status === "completed" \&\& (s.actual_type === "weights" || s.actual_type === "bodyweight")) {/' "$SRC"
 cmp -s "$SRC" "$BACKUP" && echo "  ✗ M1: No change" && exit 1
-OUT=$(npx tsx scripts/test-week-done.ts 2>&1) || true
-echo "$OUT" | grep -q "✗" || { echo "  ✗ M1: Survived"; exit 1; }
+set +e
+OUT=$(npx tsx scripts/test-week-done.ts 2>&1)
+CODE=$?
+set -e
+[ $CODE -eq 0 ] && echo "  ✗ M1: Survived" && exit 1
 echo "  ✓ M1: Killed"
 echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"
 
-# M2: Mark in_progress
+# M2
 echo "M2: Mark in_progress"
 sed -i 's/if (s.status === "completed") {/if (true) {/' "$SRC"
 cmp -s "$SRC" "$BACKUP" && echo "  ✗ M2: No change" && exit 1
-OUT=$(npx tsx scripts/test-week-done.ts 2>&1) || true
-echo "$OUT" | grep -q "✗" || { echo "  ✗ M2: Survived"; exit 1; }
+set +e
+OUT=$(npx tsx scripts/test-week-done.ts 2>&1)
+CODE=$?
+set -e
+[ $CODE -eq 0 ] && echo "  ✗ M2: Survived" && exit 1
 echo "  ✓ M2: Killed"
 echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"
 
-# M3: Return empty
+# M3
 echo "M3: Return empty"
 sed -i 's/completed.add(s.local_date);/\/\/ completed.add(s.local_date);/' "$SRC"
 cmp -s "$SRC" "$BACKUP" && echo "  ✗ M3: No change" && exit 1
-OUT=$(npx tsx scripts/test-week-done.ts 2>&1) || true
-echo "$OUT" | grep -q "✗" || { echo "  ✗ M3: Survived"; exit 1; }
+set +e
+OUT=$(npx tsx scripts/test-week-done.ts 2>&1)
+CODE=$?
+set -e
+[ $CODE -eq 0 ] && echo "  ✗ M3: Survived" && exit 1
 echo "  ✓ M3: Killed"
 echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"

@@ -23,32 +23,41 @@ fi
 echo "✓ Baseline passed"
 echo
 
-# M1: Always per-set
+# M1
 echo "M1: Always per-set"
 sed -i 's/if (allSameWeight) {/if (false) {/' "$SRC"
 cmp -s "$SRC" "$BACKUP" && echo "  ✗ M1: No change" && exit 1
-OUT=$(npx tsx scripts/test-format-logged-sets.ts 2>&1) || true
-echo "$OUT" | grep -q "✗" || { echo "  ✗ M1: Survived"; exit 1; }
+set +e
+OUT=$(npx tsx scripts/test-format-logged-sets.ts 2>&1)
+CODE=$?
+set -e
+[ $CODE -eq 0 ] && echo "  ✗ M1: Survived" && exit 1
 echo "  ✓ M1: Killed"
 echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"
 
-# M2: Include warmup
+# M2
 echo "M2: Include warmup"
 sed -i 's/const working = sets.filter((s) => !s.isWarmupSet);/const working = sets;/' "$SRC"
 cmp -s "$SRC" "$BACKUP" && echo "  ✗ M2: No change" && exit 1
-OUT=$(npx tsx scripts/test-format-logged-sets.ts 2>&1) || true
-echo "$OUT" | grep -q "✗" || { echo "  ✗ M2: Survived"; exit 1; }
+set +e
+OUT=$(npx tsx scripts/test-format-logged-sets.ts 2>&1)
+CODE=$?
+set -e
+[ $CODE -eq 0 ] && echo "  ✗ M2: Survived" && exit 1
 echo "  ✓ M2: Killed"
 echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"
 
-# M3: No weight check
+# M3
 echo "M3: No weight check"
 cat "$SRC" | sed 's/const hasWeight = working.some/const hasWeight = false; \/\/ working.some/' > "$SRC.tmp" && mv "$SRC.tmp" "$SRC"
 cmp -s "$SRC" "$BACKUP" && echo "  ✗ M3: No change" && exit 1
-OUT=$(npx tsx scripts/test-format-logged-sets.ts 2>&1) || true
-echo "$OUT" | grep -q "✗" || { echo "  ✗ M3: Survived"; exit 1; }
+set +e
+OUT=$(npx tsx scripts/test-format-logged-sets.ts 2>&1)
+CODE=$?
+set -e
+[ $CODE -eq 0 ] && echo "  ✗ M3: Survived" && exit 1
 echo "  ✓ M3: Killed"
 echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"

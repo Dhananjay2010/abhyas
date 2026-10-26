@@ -27,8 +27,14 @@ echo
 echo "M1: Skip exercises with no prior_progress"
 sed -i 's/if (ex.status === "skipped" || ex.sets.length === 0) continue;/if (ex.status === "skipped" || ex.sets.length === 0 || !ex.prior_progress) continue;/' "$SRC"
 cmp -s "$SRC" "$BACKUP" && echo "  ✗ M1: No change" && exit 1
-OUT=$(npx tsx scripts/test-session-summary-from-db.ts 2>&1) || true
-echo "$OUT" | grep -q "✗" || { echo "  ✗ M1: Survived"; exit 1; }
+set +e
+OUT=$(npx tsx scripts/test-session-summary-from-db.ts 2>&1)
+CODE=$?
+set -e
+if [ $CODE -eq 0 ]; then
+  echo "  ✗ M1: Survived"
+  exit 1
+fi
 echo "  ✓ M1: Killed"
 echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"
@@ -37,8 +43,14 @@ cp "$BACKUP" "$SRC"
 echo "M2: Return empty array"
 sed -i 's/return notes;/return [];/' "$SRC"
 cmp -s "$SRC" "$BACKUP" && echo "  ✗ M2: No change" && exit 1
-OUT=$(npx tsx scripts/test-session-summary-from-db.ts 2>&1) || true
-echo "$OUT" | grep -q "✗" || { echo "  ✗ M2: Survived"; exit 1; }
+set +e
+OUT=$(npx tsx scripts/test-session-summary-from-db.ts 2>&1)
+CODE=$?
+set -e
+if [ $CODE -eq 0 ]; then
+  echo "  ✗ M2: Survived"
+  exit 1
+fi
 echo "  ✓ M2: Killed"
 echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"
@@ -47,8 +59,14 @@ cp "$BACKUP" "$SRC"
 echo "M3: Filter out null feel"
 sed -i '/for (const ex of exercises) {/a\  if (!ex.feel) continue;' "$SRC"
 cmp -s "$SRC" "$BACKUP" && echo "  ✗ M3: No change" && exit 1
-OUT=$(npx tsx scripts/test-session-summary-from-db.ts 2>&1) || true
-echo "$OUT" | grep -q "✗" || { echo "  ✗ M3: Survived"; exit 1; }
+set +e
+OUT=$(npx tsx scripts/test-session-summary-from-db.ts 2>&1)
+CODE=$?
+set -e
+if [ $CODE -eq 0 ]; then
+  echo "  ✗ M3: Survived"
+  exit 1
+fi
 echo "  ✓ M3: Killed"
 echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"
