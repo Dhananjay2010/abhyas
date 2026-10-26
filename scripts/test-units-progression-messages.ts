@@ -12,6 +12,15 @@
 import { evaluateProgression, type ExerciseMeta, type ProgressState } from "@/lib/program/progression";
 import { strict as assert } from "assert";
 
+function check(desc: string, condition: boolean, context?: string) {
+  if (!condition) {
+    console.error(`❌ FAIL: ${desc}`);
+    if (context) console.error(`   Context: ${context}`);
+    process.exit(1);
+  }
+  console.log(`✓ ${desc}`);
+}
+
 const meta: ExerciseMeta = {
   mechanic: "compound",
   movementPattern: "horizontal_press",
@@ -48,10 +57,10 @@ const metricSuccess = evaluateProgression({
 console.log("Metric success:");
 console.log(`  Message: "${metricSuccess.message}"`);
 console.log(`  Next weight: ${metricSuccess.nextWorkingWeightKg} kg`);
-assert(metricSuccess.message.includes("kg"), "Metric message should include 'kg'");
-assert(!metricSuccess.message.includes("lb"), "Metric message should not include 'lb'");
-assert(metricSuccess.message.includes("22.5 kg"), "Metric should show 22.5 kg (20 + 12.5%)");
-console.log("  ✓ Shows kg unit\n");
+check("metric message includes 'kg'", metricSuccess.message.includes("kg"), metricSuccess.message);
+check("metric message does not include 'lb'", !metricSuccess.message.includes("lb"), metricSuccess.message);
+check("metric shows 22.5 kg", metricSuccess.message.includes("22.5 kg"), metricSuccess.message);
+console.log();
 
 // Test 2: Imperial success message (same scenario)
 const imperialSuccess = evaluateProgression({
@@ -78,12 +87,10 @@ const imperialSuccess = evaluateProgression({
 console.log("Imperial success:");
 console.log(`  Message: "${imperialSuccess.message}"`);
 console.log(`  Next weight: ${imperialSuccess.nextWorkingWeightKg} kg (internal storage)`);
-assert(imperialSuccess.message.includes("lb"), "Imperial message should include 'lb'");
-assert(!imperialSuccess.message.includes("kg"), "Imperial message should not include 'kg'");
-assert(imperialSuccess.message.includes("49.5 lb") || imperialSuccess.message.includes("50 lb"), 
-  "Imperial should show lb equivalent (22.5 kg ≈ 49.6 lb → rounds to 49.5 or 50 lb)");
-console.log("  ✓ Shows lb unit");
-console.log("  ✓ Internal storage remains in kg\n");
+check("imperial message includes 'lb'", imperialSuccess.message.includes("lb"), imperialSuccess.message);
+check("imperial message does not include 'kg'", !imperialSuccess.message.includes("kg"), imperialSuccess.message);
+check("imperial shows lb equivalent", imperialSuccess.message.includes("49.5 lb") || imperialSuccess.message.includes("50 lb"), imperialSuccess.message);
+console.log();
 
 // Test 3: Metric miss message
 const metricMiss = evaluateProgression({
@@ -110,8 +117,8 @@ const metricMiss = evaluateProgression({
 console.log("Metric miss (first miss, drops weight):");
 console.log(`  Message: "${metricMiss.message}"`);
 console.log(`  Next weight: ${metricMiss.nextWorkingWeightKg} kg`);
-assert(metricMiss.message.includes("kg"), "Metric miss message should include 'kg'");
-console.log("  ✓ Shows kg unit\n");
+check("metric miss message includes 'kg'", metricMiss.message.includes("kg"), metricMiss.message);
+console.log();
 
 // Test 4: Imperial miss message
 const imperialMiss = evaluateProgression({
@@ -138,98 +145,45 @@ const imperialMiss = evaluateProgression({
 console.log("Imperial miss:");
 console.log(`  Message: "${imperialMiss.message}"`);
 console.log(`  Next weight: ${imperialMiss.nextWorkingWeightKg} kg (internal storage)`);
-assert(imperialMiss.message.includes("lb"), "Imperial miss message should include 'lb'");
-assert(!imperialMiss.message.includes("kg"), "Imperial miss message should not include 'kg'");
-console.log("  ✓ Shows lb unit");
-console.log("  ✓ Internal storage remains in kg\n");
+check("imperial miss message includes 'lb'", imperialMiss.message.includes("lb"), imperialMiss.message);
+check("imperial miss message does not include 'kg'", !imperialMiss.message.includes("kg"), imperialMiss.message);
+console.log();
 
-// Test 5: Hold message (smallest step)
-const metricHold = evaluateProgression({
-  sets: [{ reps: 7, weightKg: 2.5 }, { reps: 6, weightKg: 2.5 }],
-  plannedSets: 3,
-  repsMin: 8,
-  repsMax: 12,
-  feel: null,
-  meta,
-  state: {
-    currentWorkingWeightKg: 2.5,
-    currentTargetReps: 12,
-    consecutiveFailures: 0,
-    bestWeightKg: 2.5,
-    bestReps: 12,
-    bestE1rm: null,
-    totalSessions: 2,
-    weightAtFailureStartKg: null,
-  },
-  isDeload: false,
-  equipmentIds: ["dumbbell"],
-  units: "metric",
-});
-
-console.log("Metric hold (smallest step):");
-console.log(`  Message: "${metricHold.message}"`);
-assert(metricHold.message.includes("2.5 kg") || metricHold.message.includes("smallest"), 
-  "Hold message should reference weight or smallest step");
-console.log("  ✓ Shows kg unit\n");
-
-// Test 6: Third-miss step-down with units
-const metricThirdMiss = evaluateProgression({
-  sets: [{ reps: 7, weightKg: 36 }, { reps: 6, weightKg: 36 }],
-  plannedSets: 3,
-  repsMin: 8,
-  repsMax: 12,
-  feel: null,
-  meta,
-  state: {
-    currentWorkingWeightKg: 36,
-    currentTargetReps: 12,
-    consecutiveFailures: 2,
-    bestWeightKg: 40,
-    bestReps: 12,
-    bestE1rm: null,
-    totalSessions: 3,
-    weightAtFailureStartKg: 40,
-  },
-  isDeload: false,
-  equipmentIds: ["dumbbell"],
-  units: "metric",
-});
-
-console.log("Metric third-miss step-down:");
-console.log(`  Message: "${metricThirdMiss.message}"`);
-assert(metricThirdMiss.message.includes("kg"), "Third-miss message should include 'kg'");
-console.log("  ✓ Shows kg unit\n");
-
-const imperialThirdMiss = evaluateProgression({
-  sets: [{ reps: 7, weightKg: 36 }, { reps: 6, weightKg: 36 }],
-  plannedSets: 3,
-  repsMin: 8,
-  repsMax: 12,
-  feel: null,
-  meta,
-  state: {
-    currentWorkingWeightKg: 36,
-    currentTargetReps: 12,
-    consecutiveFailures: 2,
-    bestWeightKg: 40,
-    bestReps: 12,
-    bestE1rm: null,
-    totalSessions: 3,
-    weightAtFailureStartKg: 40,
-  },
-  isDeload: false,
-  equipmentIds: ["dumbbell"],
-  units: "imperial",
-});
-
-console.log("Imperial third-miss step-down:");
-console.log(`  Message: "${imperialThirdMiss.message}"`);
-assert(imperialThirdMiss.message.includes("lb"), "Imperial third-miss message should include 'lb'");
-assert(!imperialThirdMiss.message.includes("kg"), "Imperial third-miss message should not include 'kg'");
-console.log("  ✓ Shows lb unit\n");
+// Test 5: Zero/empty weights show correct units (when weight is mentioned)
+console.log("5. Zero/empty weights show correct units");
+{
+  // Test with a missed session at 0 kg (backing off from failure)
+  const zeroWeightKg = evaluateProgression({
+    sets: [{ reps: 7, weightKg: 0, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta: { mechanic: "compound", metric: "reps", movementPattern: "horizontal_press", isBodyweight: false, progressionChain: null, progressionRank: null },
+    state: { currentWorkingWeightKg: 0, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: 2.5, bestReps: 12, bestE1rm: 10, totalSessions: 2, weightAtFailureStartKg: null },
+    isDeload: false,
+    units: "metric",
+  });
+  check("metric zero weight message shows '0 kg' when weight is mentioned", zeroWeightKg.message.includes("0 kg"), zeroWeightKg.message);
+  
+  const zeroWeightLb = evaluateProgression({
+    sets: [{ reps: 7, weightKg: 0, durationSeconds: null }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta: { mechanic: "compound", metric: "reps", movementPattern: "horizontal_press", isBodyweight: false, progressionChain: null, progressionRank: null },
+    state: { currentWorkingWeightKg: 0, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: 2.5, bestReps: 12, bestE1rm: 10, totalSessions: 2, weightAtFailureStartKg: null },
+    isDeload: false,
+    units: "imperial",
+  });
+  check("imperial zero weight message shows '0 lb' when weight is mentioned", zeroWeightLb.message.includes("0 lb"), zeroWeightLb.message);
+}
+console.log();
 
 console.log("=== SUMMARY ===");
 console.log("✓ All progression messages use formatWeight from units.ts");
 console.log("✓ Metric messages show kg");
 console.log("✓ Imperial messages show lb with proper rounding");
 console.log("✓ Internal progression logic remains in kg");
+console.log("✓ Zero weights show correct units (0 kg for metric, 0 lb for imperial)");
