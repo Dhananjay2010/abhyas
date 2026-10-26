@@ -6,8 +6,8 @@ set -e
 
 GENERATE_FILE="src/lib/program/generate.ts"
 KNEE_SAFETY_FILE="src/lib/program/knee-safety.ts"
-BACKUP_GENERATE="/tmp/generate-backup-mutants.ts"
-BACKUP_KNEE_SAFETY="/tmp/knee-safety-backup-mutants.ts"
+BACKUP_GENERATE=$(mktemp "${TMPDIR:-/tmp}/generate-backup.XXXXXX")
+BACKUP_KNEE_SAFETY=$(mktemp "${TMPDIR:-/tmp}/knee-safety-backup.XXXXXX")
 
 # Trap to restore files
 function cleanup {
