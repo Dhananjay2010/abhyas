@@ -16,9 +16,10 @@ import { buildProgressionInput } from "@/lib/session/build-progression-input";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
+import { keepPlannedDay } from "@/lib/session/plan-day-keep-core";
 import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
-import { localDateString } from "@/lib/dates";
+import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
@@ -630,16 +631,8 @@ export async function planDay(input: {
   const planned = (existing ?? []).filter((s) => s.status === "planned");
 
   if (input.plan.kind === "keep") {
-    if (planned.length > 0) {
-      const { error } = await supabase
-        .from("sessions")
-        .delete()
-        .in(
-          "id",
-          planned.map((s) => s.id),
-        );
-      if (error) return { ok: false, error: error.message };
-    }
+    const keepResult = await keepPlannedDay(supabase, planned);
+    if (!keepResult.ok) return keepResult;
     revalidateTrainingData();
     return { ok: true };
   }
