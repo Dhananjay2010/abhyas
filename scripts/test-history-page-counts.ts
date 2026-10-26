@@ -14,7 +14,8 @@ function chain(table: string) {
 }
 const fakeClient = { from: (t: string) => chain(t), rpc: (n: string, a: Record<string, unknown>) => {
   if (n !== "get_history_page") return Promise.resolve({ data: [], error: null });
-  const f = String(a.p_filter); if (rpcError[f] && a.p_limit === 1) return Promise.resolve({ data: null, error: rpcError[f] });
+  const f = String(a.p_filter); 
+  if (rpcError[f] && a.p_limit === 1) return Promise.resolve({ data: null, error: rpcError[f] });
   const total = counts[f] ?? 0; const off = Number(a.p_offset ?? 0); const lim = Number(a.p_limit);
   const rows = Array.from({ length: Math.max(0, Math.min(lim, total - off)) }, (_, i) => ({ session_id: `${f}-${off + i}`, total_count: total }));
   return Promise.resolve({ data: rows, error: null });
