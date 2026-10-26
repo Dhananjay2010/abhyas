@@ -50,9 +50,9 @@ function testProgressionWithUnits(
 
 console.log("Imperial units wiring test\n");
 
-const metricReps = "reps" as const;
-const mechanicCompound = "compound" as const;
-const movementHorizontalPress = "horizontal_press" as const;
+const metricValue: "reps" = "reps";
+const mechanicValue: "compound" = "compound";
+const movementValue: "horizontal_press" = "horizontal_press";
 
 const sessionExercise = {
   id: "se1",
@@ -61,10 +61,10 @@ const sessionExercise = {
   planned_sets: 3,
   planned_reps_min: 8,
   planned_reps_max: 12,
-  metric: metricReps,
+  metric: metricValue,
   exercises: {
-    mechanic: mechanicCompound,
-    movement_pattern: movementHorizontalPress,
+    mechanic: mechanicValue,
+    movement_pattern: movementValue,
     equipment_ids: ["barbell"],
     progression_chain: null,
     progression_rank: null,
