@@ -7,7 +7,7 @@
  */
 
 import './helpers/setup-jsdom';
-import { render, waitFor, act } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings } from '../src/app/session/[id]/session-runner';
 

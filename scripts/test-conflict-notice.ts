@@ -202,7 +202,7 @@ async function testDuplicateVsConflict() {
   const now = 1000000;
   let attemptCount = 0;
 
-  const logSet: LogSetFunction = async (input) => {
+  const logSet: LogSetFunction = async () => {
     attemptCount += 1;
     if (attemptCount === 1) {
       throw new TypeError("Failed to fetch");

@@ -35,6 +35,7 @@ const noPending: PendingSetState = {
   retrying: false,
   error: null,
   replayed: [],
+  conflicts: 0,
 };
 assertEqual(getPendingUiMode(noPending), "none", "No pending sets -> none mode");
 assertEqual(getReplayErrorMessage(noPending), null, "No error message when no pending");
@@ -46,6 +47,7 @@ const withError: PendingSetState = {
   retrying: false,
   error: "Network timeout",
   replayed: [],
+  conflicts: 0,
 };
 assertEqual(getPendingUiMode(withError), "expired", "Pending + expired + error -> expired mode (keeps sign-in visible)");
 assertEqual(getReplayErrorMessage(withError), null, "No error message shown in expired mode");
@@ -57,6 +59,7 @@ const errorNotExpired: PendingSetState = {
   retrying: false,
   error: "Network error",
   replayed: [],
+  conflicts: 0,
 };
 assertEqual(getPendingUiMode(errorNotExpired), "replay-error", "Pending + error but not expired -> replay-error mode");
 assertEqual(getReplayErrorMessage(errorNotExpired), "Network error", "Error message extracted when not expired");
@@ -68,6 +71,7 @@ const withoutError: PendingSetState = {
   retrying: false,
   error: null,
   replayed: [],
+  conflicts: 0,
 };
 assertEqual(getPendingUiMode(withoutError), "expired", "Pending without error -> expired mode");
 assertEqual(getReplayErrorMessage(withoutError), null, "No error message in expired mode");
@@ -79,6 +83,7 @@ const retrying: PendingSetState = {
   retrying: true,
   error: null,
   replayed: [],
+  conflicts: 0,
 };
 assertEqual(getPendingUiMode(retrying), "expired", "Retrying without error -> expired mode");
 
@@ -92,6 +97,7 @@ const multipleWithError: PendingSetState = {
   retrying: false,
   error: "Server error",
   replayed: [],
+  conflicts: 0,
 };
 assertEqual(getPendingUiMode(multipleWithError), "expired", "Multiple pending + expired + error -> expired mode");
 assertEqual(getReplayErrorMessage(multipleWithError), null, "No error message shown when expired");
