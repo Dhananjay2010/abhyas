@@ -7,7 +7,7 @@
 
 import { validateSet } from "@/lib/session/validation";
 import { validateWeightKg } from "@/lib/history/edit-validation";
-import { displayToKg, lbToKg, type UnitsPreference } from "@/lib/units";
+import { displayToKg, lbToKg } from "@/lib/units";
 
 console.log("\n🧪 Server-side validation: unit-specific maxima\n");
 

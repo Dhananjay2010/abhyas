@@ -54,7 +54,7 @@ export async function logBodyWeightCore(
       recorded_on: localDate,
       weight_kg: weightKg,
     },
-    { onConflict: "user_id, recorded_on" }
+    { onConflict: "user_id,recorded_on" }
   );
 
   return error ? { ok: false, error: error.message } : { ok: true };
