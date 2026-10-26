@@ -10,9 +10,8 @@
  */
 
 import { strict as assert } from "node:assert";
-import { makePlanDayClient } from "../src/lib/session/make-plan-day-client";
+import { createPlanDayDbOps } from "../src/lib/session/make-plan-day-client";
 import { planDayCore, type PlanDayClient } from "../src/lib/session/plan-day-core";
-import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
 
@@ -30,8 +29,6 @@ async function test(name: string, fn: () => void | Promise<void>) {
     failed++;
   }
 }
-
-type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
 
 function makeFakeDbWithError(errorCode: string | null): PlanDayClient {
   return {
@@ -71,13 +68,12 @@ async function main() {
   await test("insertSession with 23505 returns {error: null}", async () => {
     const fakeDb: PlanDayClient = {
       ...makeFakeDbWithError(null),
-      async insertSession(row: SessionInsert) {
+      async insertSession() {
         return { error: null };
       },
     };
-    const client = makePlanDayClient(fakeDb);
     
-    const result = await client.insertSession({
+    const result = await fakeDb.insertSession({
       user_id: "user-1",
       local_date: "2026-11-02",
       status: "planned",
@@ -91,13 +87,12 @@ async function main() {
   await test("insertSession with 23503 surfaces the error", async () => {
     const fakeDb: PlanDayClient = {
       ...makeFakeDbWithError(null),
-      async insertSession(row: SessionInsert) {
+      async insertSession() {
         return { error: "Simulated error 23503" };
       },
     };
-    const client = makePlanDayClient(fakeDb);
     
-    const result = await client.insertSession({
+    const result = await fakeDb.insertSession({
       user_id: "user-1",
       local_date: "2026-11-02",
       status: "planned",
@@ -111,9 +106,8 @@ async function main() {
 
   await test("insertSession with null error returns {error: null}", async () => {
     const fakeDb = makeFakeDbWithError(null);
-    const client = makePlanDayClient(fakeDb);
     
-    const result = await client.insertSession({
+    const result = await fakeDb.insertSession({
       user_id: "user-1",
       local_date: "2026-11-02",
       status: "planned",

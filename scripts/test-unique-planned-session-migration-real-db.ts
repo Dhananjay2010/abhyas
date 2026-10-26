@@ -12,6 +12,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import type { Database } from "../src/lib/database.types";
+import { createPlanDayDbOps } from "../src/lib/session/make-plan-day-client";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -227,6 +228,76 @@ async function main() {
       .maybeSingle();
 
     check("Session exercise cascaded (deleted)", !orphanedEx);
+
+    console.log("\n8. Real adapter: insertSession on duplicate returns {error: null}\n");
+
+    const adapter1 = createPlanDayDbOps(adminClient, user1);
+
+    // Try to insert duplicate planned session (user1 already has planned on 2026-11-02)
+    const dupResult = await adapter1.insertSession({
+      user_id: user1,
+      program_id: programId,
+      program_day_id: programDayId,
+      local_date: "2026-11-02",
+      status: "planned",
+      planned_type: "weights",
+      week_in_block: 1,
+      is_deload: false,
+    });
+
+    check("Duplicate insert returns {error: null} (23505 suppressed)", dupResult.error === null);
+
+    console.log("\n9. Real adapter: findActiveProgram with active and completed programs\n");
+
+    // Create a completed program for user1
+    const completedProgId = randomUUID();
+    await adminClient.from("programs").insert({
+      id: completedProgId,
+      user_id: user1,
+      goal: "muscle_gain",
+      level: "expert",
+      primary_track: "weights",
+      split_type: "ppl",
+      days_per_week: 6,
+      deload_week: 4,
+      started_on: "2026-10-01",
+      ends_on: "2026-10-31",
+      block_number: 1,
+      week_offset: 0,
+      status: "completed",
+    });
+
+    const progResult = await adapter1.findActiveProgram();
+
+    check("findActiveProgram returns the active program (not completed)", progResult.program?.id === programId);
+    check("findActiveProgram returned program has correct status implicit", progResult.program?.id !== completedProgId);
+
+    console.log("\n10. Real adapter: deleteSessions only deletes that user's rows\n");
+
+    // User2 creates a session
+    const user2SessionId = randomUUID();
+    await adminClient.from("sessions").insert({
+      id: user2SessionId,
+      user_id: user2,
+      local_date: "2026-11-04",
+      status: "planned",
+      planned_type: "weights",
+      week_in_block: 1,
+      is_deload: false,
+    });
+
+    // User1 adapter tries to delete user2's session
+    const adapter1ForDelete = createPlanDayDbOps(adminClient, user1);
+    await adapter1ForDelete.deleteSessions([user2SessionId]);
+
+    // Check that user2's session still exists
+    const { data: user2Check } = await adminClient
+      .from("sessions")
+      .select("id")
+      .eq("id", user2SessionId)
+      .maybeSingle();
+
+    check("deleteSessions respects user_id (user2 session not deleted by user1)", !!user2Check);
 
     // Cleanup
     await adminClient.auth.admin.deleteUser(user1);

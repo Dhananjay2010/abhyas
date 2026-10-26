@@ -38,7 +38,7 @@ function makeFakeDb(config: {
     async getTimezone() {
       return "America/New_York";
     },
-    async upsertBodyMetric(recordedOn: string, weightKg: number) {
+    async upsertBodyMetric() {
       return { error: config.error ?? null };
     },
   };

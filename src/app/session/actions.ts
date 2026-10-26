@@ -19,7 +19,7 @@ import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
 import { planDayCore } from "@/lib/session/plan-day-core";
-import { makePlanDayClient, createPlanDayDbOps } from "@/lib/session/make-plan-day-client";
+import { createPlanDayDbOps } from "@/lib/session/make-plan-day-client";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
@@ -810,8 +810,7 @@ export async function planDay(input: {
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const today = localDateString(timezone);
 
-  const dbOps = createPlanDayDbOps(supabase, user.id);
-  const client = makePlanDayClient(dbOps);
+  const client = createPlanDayDbOps(supabase, user.id);
 
   const result = await planDayCore(client, {
     userId: user.id,

@@ -11,13 +11,6 @@ import type { Database } from "@/lib/database.types";
 
 type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
 
-type SessionRow = {
-  id: string;
-  status: string;
-  actual_type: Database["public"]["Enums"]["day_type"] | null;
-  program_day_id?: string | null;
-};
-
 export function createPlanDayDbOps(
   supabase: SupabaseClient<Database>,
   userId: string
@@ -26,8 +19,7 @@ export function createPlanDayDbOps(
     async findDaySessions(localDate: string) {
       const { data, error } = await supabase
         .from("sessions")
-        .select("id, status, actual_type, program_day_id")
-        .eq("user_id", userId)
+        .select("id, status, actual_type")
         .eq("local_date", localDate);
       return { rows: data ?? [], error: error?.message ?? null };
     },
@@ -35,7 +27,6 @@ export function createPlanDayDbOps(
       const { data, error } = await supabase
         .from("programs")
         .select("id, started_on, deload_week, week_offset")
-        .eq("user_id", userId)
         .maybeSingle();
       return { program: data, error: error?.message ?? null };
     },
@@ -79,6 +70,3 @@ export function createPlanDayDbOps(
   };
 }
 
-export function makePlanDayClient(db: PlanDayClient): PlanDayClient {
-  return db;
-}

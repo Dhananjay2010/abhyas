@@ -8,20 +8,10 @@
  */
 
 import { strict as assert } from "node:assert";
-import { makePlanDayClient } from "../src/lib/session/make-plan-day-client";
 import type { PlanDayClient } from "../src/lib/session/plan-day-core";
 import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
-
-type SessionRow = {
-  id: string;
-  status: string;
-  actual_type: Database["public"]["Enums"]["day_type"] | null;
-  program_day_id?: string | null;
-};
-
-type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
 
 type Call = { method: string; args: unknown[] };
 
@@ -60,7 +50,7 @@ function makeFakeDb(): { fakeDb: PlanDayClient; calls: Call[] } {
       calls.push({ method: "findProgramDay", args: [programId, dayIndex] });
       return { day: null, error: null };
     },
-    async updateSession(id: string, row: SessionInsert) {
+    async updateSession(id: string, row: unknown) {
       calls.push({ method: "updateSession", args: [id, row] });
       return { error: null };
     },
@@ -68,7 +58,7 @@ function makeFakeDb(): { fakeDb: PlanDayClient; calls: Call[] } {
       calls.push({ method: "deleteSessions", args: [ids] });
       return { error: null };
     },
-    async insertSession(row: SessionInsert) {
+    async insertSession(row: unknown) {
       calls.push({ method: "insertSession", args: [row] });
       return { error: null };
     },
@@ -86,9 +76,8 @@ async function main() {
 
   await test("findDaySessions is called with localDate", async () => {
     const { fakeDb, calls } = makeFakeDb();
-    const client = makePlanDayClient(fakeDb);
     
-    await client.findDaySessions("2026-11-02");
+    await fakeDb.findDaySessions("2026-11-02");
     
     const call = calls.find((c) => c.method === "findDaySessions");
     assert(call, "Should call findDaySessions");
@@ -97,9 +86,8 @@ async function main() {
 
   await test("rereadDaySessions is called with localDate", async () => {
     const { fakeDb, calls } = makeFakeDb();
-    const client = makePlanDayClient(fakeDb);
     
-    await client.rereadDaySessions("2026-11-02");
+    await fakeDb.rereadDaySessions("2026-11-02");
     
     const call = calls.find((c) => c.method === "rereadDaySessions");
     assert(call, "Should call rereadDaySessions");
@@ -108,15 +96,14 @@ async function main() {
 
   await test("insertSession is called with row", async () => {
     const { fakeDb, calls } = makeFakeDb();
-    const client = makePlanDayClient(fakeDb);
     
-    const row: SessionInsert = {
+    const row = {
       user_id: "user-1",
       local_date: "2026-11-02",
-      status: "planned",
+      status: "planned" as const,
     };
     
-    await client.insertSession(row);
+    await fakeDb.insertSession(row);
     
     const call = calls.find((c) => c.method === "insertSession");
     assert(call, "Should call insertSession");
@@ -125,9 +112,8 @@ async function main() {
 
   await test("deleteSessions is called with ids", async () => {
     const { fakeDb, calls } = makeFakeDb();
-    const client = makePlanDayClient(fakeDb);
     
-    await client.deleteSessions(["id1", "id2"]);
+    await fakeDb.deleteSessions(["id1", "id2"]);
     
     const call = calls.find((c) => c.method === "deleteSessions");
     assert(call, "Should call deleteSessions");
