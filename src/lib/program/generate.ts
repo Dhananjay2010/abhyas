@@ -2,6 +2,7 @@ import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
+import { isKneeRiskForKneeUser } from "./knee-safety";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -811,6 +812,7 @@ function pickForSlot(
   
   for (const p of [pattern, PATTERN_FALLBACK[pattern]]) {
     if (!p) continue;
+    const isFallback = p !== pattern;
     let candidates = pool.filter((e) => e.movement_pattern === p && !used.has(e.id));
     if (candidates.length === 0) continue;
 
@@ -818,6 +820,17 @@ function pickForSlot(
     // for main slots (all goals) and all slots (beginners, injured, age 50+)
     candidates = candidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
     if (candidates.length === 0) continue; // Try fallback pattern if filtered out
+    
+    // PART A: Knee-risk filter for PAST knee users in lunge slot (Brief knee-volume)
+    // For past knee: filter fallback patterns, and also filter normal patterns for non-squat slots
+    // Squat slot (slot 0) keeps Barbell Squat even though it's knee-risk
+    // For current knee: let shouldExcludeForSafety handle it (PR #124 logic)
+    const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+    const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
+    if (hasPastKnee && (isFallback || slotIndex !== 0)) {
+      candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+      if (candidates.length === 0) continue;
+    }
     
     // Apply shared constraint checker (timed holds in mains, adjacent hinges for knee injury)
     candidates = candidates.filter((e) => !wouldViolateConstraints(e, slotIndex, pickedSoFar, input));
@@ -860,18 +873,25 @@ function pickForSlot(
   // out all primary options (e.g., knee injury rules out squats/lunges).
   const alternatives = SAFE_ALTERNATIVES[pattern] ?? [];
   for (const altPattern of alternatives) {
-    const altCandidates = pool.filter(
+    let altCandidates = pool.filter(
       (e) => e.movement_pattern === altPattern && !used.has(e.id)
     );
     if (altCandidates.length === 0) continue;
     
     // Apply safety filter to alternative candidates too
-    const filtered = altCandidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
+    altCandidates = altCandidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
+    if (altCandidates.length === 0) continue;
     
-    if (filtered.length === 0) continue;
+    // PART A: Knee-risk filter for SAFE_ALTERNATIVES - past knee only (Brief knee-volume)
+    const hasCurrentKneeAlt = input.currentInjuryRegions.includes("knee");
+    const hasPastKneeAlt = input.anyKneeInjury && !hasCurrentKneeAlt;
+    if (hasPastKneeAlt) {
+      altCandidates = altCandidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+      if (altCandidates.length === 0) continue;
+    }
     
     // Apply shared constraint checker
-    const finalCandidates = filtered.filter((e) => !wouldViolateConstraints(e, slotIndex, pickedSoFar, input));
+    const finalCandidates = altCandidates.filter((e) => !wouldViolateConstraints(e, slotIndex, pickedSoFar, input));
     if (finalCandidates.length === 0) continue;
     
     const ranked = finalCandidates
@@ -1801,9 +1821,17 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         iterations++;
         
         // Strategy 1: Add a set to accessories (slots 4+, up to 4 sets max)
+        // PART B: exclude knee-risk for PAST knee users (Brief knee-volume)
+        const hasCurrentKneeM3 = input.currentInjuryRegions.includes("knee");
+        const hasPastKneeM3 = input.anyKneeInjury && !hasCurrentKneeM3;
         const accessories = exercises
           .map((ex, idx) => ({ ex, idx }))
-          .filter(({ idx }) => idx >= 4 && exercises[idx].targetSets < 4);
+          .filter(({ idx }) => idx >= 4 && exercises[idx].targetSets < 4)
+          .filter(({ ex }) => {
+            if (!hasPastKneeM3) return true;
+            const candidate = pool.find(c => c.id === ex.exerciseId);
+            return !candidate || !isKneeRiskForKneeUser(candidate, true);
+          });
         
         if (accessories.length > 0) {
           // Deterministic: pick first accessory that can take another set
@@ -1813,9 +1841,15 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         }
         
         // Strategy 2: Add a set to main exercises (up to 5 sets max for main lifts)
+        // PART B: exclude knee-risk for PAST knee users (Brief knee-volume)
         const mainExercises = exercises
           .map((ex, idx) => ({ ex, idx }))
-          .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < 5);
+          .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < 5)
+          .filter(({ ex }) => {
+            if (!hasPastKneeM3) return true;
+            const candidate = pool.find(c => c.id === ex.exerciseId);
+            return !candidate || !isKneeRiskForKneeUser(candidate, true);
+          });
         
         if (mainExercises.length > 0) {
           mainExercises[0].ex.targetSets++;
@@ -1824,17 +1858,23 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         }
         
         // Strategy 3: Add another accessory exercise
+        // PART B: exclude knee-risk for PAST knee users (Brief knee-volume)
         const accessoryPatterns = entry.slots.slice(-2); // Last 2 patterns
         if (accessoryPatterns.length > 0) {
           const pattern = accessoryPatterns[exercises.length % accessoryPatterns.length];
-          const candidates = pool
+          let candidates = pool
             .filter((e) => 
               e.movement_pattern === pattern &&
               !usedInBlock.has(e.id) &&
               isEligible(e, input) &&
               !EXCLUDED_EXERCISE_SLUGS.has(e.slug)
-            )
-            .sort((a, b) => 
+            );
+          
+          if (hasPastKneeM3) {
+            candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+          }
+          
+          candidates = candidates.sort((a, b) => 
               score(b, true, input.level, input.primaryTrack) -
               score(a, true, input.level, input.primaryTrack) ||
               a.slug.localeCompare(b.slug)
