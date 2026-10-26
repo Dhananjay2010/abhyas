@@ -173,10 +173,11 @@ export function rankAlternatives<T extends ExerciseRow>(
   
   // Build priority order: same pattern, then fallback, then knee-safe
   // For past-knee lunge swaps, we need squat pattern (the 4-list are squat pattern)
-  // PLUS hinge/core fallbacks for when squat-pattern options are exhausted
+  // PLUS hinge fallbacks for when squat-pattern options are exhausted
+  // NO core pattern (QA LOW: no ab moves in lower-body fallbacks)
   let patternPriority: MovementPattern[];
   if (hasPastKnee && current.movement_pattern === "lunge") {
-    patternPriority = ["lunge", "squat", "hinge", "core"]; // Squat for 4-list, hinge/core for fallback
+    patternPriority = ["lunge", "squat", "hinge"]; // Squat for 4-list, hinge for bridge/thrust fallback
   } else {
     patternPriority = buildPatternList(current.movement_pattern, ctx.anyKneeInjury ?? false);
   }

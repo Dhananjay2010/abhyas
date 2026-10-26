@@ -2,7 +2,11 @@ import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
-import { isKneeRiskForKneeUser, KNEE_SAFE_QUAD_EXERCISES as KNEE_SAFE_QUAD_EXERCISES_SHARED } from "./knee-safety";
+import { 
+  isKneeRiskForKneeUser, 
+  KNEE_SAFE_QUAD_EXERCISES,
+  getDerivedContraindications as getKneeDerivedContraindications 
+} from "./knee-safety";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -346,14 +350,8 @@ function shouldExcludeForSafety(
   return false;
 }
 
-/**
- * QA Pass 10 H6 (restored from PR #53): Exercises safe for knee injuries despite being quad-focused.
- * These use limited ROM, isometric holds, or controlled movements that don't aggravate the knee.
- * Must be REAL prod slugs only. Exported for testing.
- * 
- * CONSOLIDATED: This is now the single source of truth (imported from knee-safety.ts).
- */
-export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = KNEE_SAFE_QUAD_EXERCISES_SHARED;
+// KNEE_SAFE_QUAD_EXERCISES is re-exported from knee-safety.ts (single source of truth)
+export { KNEE_SAFE_QUAD_EXERCISES } from "./knee-safety";
 
 /**
  * KNEE-SAFE LUNGE EXERCISES for CURRENT knee injury (PR #73 scoped policy).
@@ -441,13 +439,10 @@ const SHOULDER_CONTRAINDICATED_SLUGS: ReadonlySet<string> = new Set([
 /**
  * QA Pass 10 C2: Derive contraindications from exercise properties.
  * - vertical_press or "overhead" in name → shoulder
- * - spinal_load high or moderate → lower_back
- * - squat, lunge, or jump pattern/name → knee (UNLESS in knee-safe list)
+ * - spinal_load high → lower_back
+ * - squat, lunge, or jump pattern/name → knee (via knee-safety.ts)
  * 
  * Derived contraindications ADD to explicit tags, don't replace them.
- * 
- * NOTE: This duplicates logic in knee-safety.ts's getDerivedContraindications.
- * Both are kept for now to avoid breaking changes, but they must stay in sync.
  */
 function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
   const derived: BodyRegion[] = [];
@@ -473,7 +468,8 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
     derived.push("lower_back");
   }
   
-  // H6: Squat, lunge, or jump movements load knees UNLESS they're in the knee-safe list
+  // Knee: kept in sync with knee-safety.ts (both check same conditions)
+  // This duplication is intentional for performance (avoid circular imports)
   if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
     if (ex.movement_pattern === "squat" ||
         ex.movement_pattern === "lunge" ||
@@ -482,7 +478,9 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
         nameLower.includes("jump") ||
         slugLower.includes("squat") ||
         slugLower.includes("lunge") ||
-        slugLower.includes("jump")) {
+        slugLower.includes("jump") ||
+        nameLower.includes("box step") ||
+        slugLower.includes("box-step")) {
       derived.push("knee");
     }
   }
@@ -1884,23 +1882,17 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           if (hasPastKneeM3) {
             candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
             
-            // MED-2: Further prioritize specific hip-dominant exercises
-            // (hip thrust, glute bridge, RDL variants, hamstring curl)
-            const hipDominantSlugs = [
-              'barbell-hip-thrust',
-              'hip-thrust',
-              'glute-bridge',
-              'barbell-glute-bridge',
-              'single-leg-glute-bridge',
-              'romanian-deadlift',
-              'dumbbell-romanian-deadlift',
-              'single-leg-romanian-deadlift',
-              'lying-leg-curls',
-              'seated-leg-curl',
-              'standing-leg-curls',
-              'ball-leg-curl',
-            ];
-            const hipDominantCandidates = candidates.filter(e => hipDominantSlugs.includes(e.slug));
+            // MED-2: Further prioritize hip-dominant exercises by attributes
+            // (glute/hamstring primary muscles, hinge pattern, knee-safe)
+            const hipDominantCandidates = candidates.filter(e => {
+              // Must be hinge pattern
+              if (e.movement_pattern !== "hinge") return false;
+              // Must have glutes or hamstrings as primary muscle
+              const hasHipDominantMuscle = e.primary_muscles.some(m => 
+                m === "glutes" || m === "hamstrings"
+              );
+              return hasHipDominantMuscle;
+            });
             if (hipDominantCandidates.length > 0) {
               candidates = hipDominantCandidates;
             }
