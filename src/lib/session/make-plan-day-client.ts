@@ -20,6 +20,7 @@ export function createPlanDayDbOps(
       const { data, error } = await supabase
         .from("sessions")
         .select("id, status, actual_type")
+        .eq("user_id", userId)
         .eq("local_date", localDate);
       return { rows: data ?? [], error: error?.message ?? null };
     },
@@ -27,6 +28,7 @@ export function createPlanDayDbOps(
       const { data, error } = await supabase
         .from("programs")
         .select("id, started_on, deload_week, week_offset")
+        .eq("user_id", userId)
         .eq("status", "active")
         .maybeSingle();
       return { program: data, error: error?.message ?? null };
