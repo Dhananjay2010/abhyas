@@ -435,7 +435,8 @@
     "test:mutants-supplemental": "bash scripts/mutant-test-supplemental.sh",
     "test:barbell-grid-snap": "tsx scripts/test-barbell-grid-snap.ts",
     "test:bodyweight-zero-kg-message": "tsx scripts/test-bodyweight-zero-kg-message.ts",
-    "test:imperial-units-full-path": "tsx scripts/test-imperial-units-full-path.ts"
+    "test:imperial-units-full-path": "tsx scripts/test-imperial-units-full-path.ts",
+    "test:offgrid-weight-snap": "tsx scripts/test-offgrid-weight-snap.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
