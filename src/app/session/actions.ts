@@ -14,7 +14,6 @@ import {
 import { buildProgressionInput } from "@/lib/session/build-progression-input";
 import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
-import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
@@ -308,23 +307,18 @@ export async function logSet(input: {
   
   const { supabase, user } = await requireUser();
   
-  // Fetch user's units preference for error messages
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("units")
-    .eq("id", user.id)
-    .single();
-  const units = (profile?.units === "imperial" || profile?.units === "metric") 
-    ? profile.units 
-    : "metric";
-  
-  const durationSeconds = input.durationSeconds ?? null;
-  const invalid = validateSet(input.reps, input.weightKg, durationSeconds, units);
+  const { checkLogSetInput } = await import("@/lib/session/check-log-set-input");
+  const invalid = await checkLogSetInput(supabase, user.id, {
+    reps: input.reps,
+    weightKg: input.weightKg,
+    durationSeconds: input.durationSeconds,
+  });
   if (invalid) return { ok: false, error: invalid };
 
   // Reject writes to sessions that are no longer in_progress or don't exist
   // For ended sessions, allow idempotent retry if the exact set already exists
   const validationDeps = buildLogSetValidationDeps(supabase);
+  const durationSeconds = input.durationSeconds ?? null;
   const validationResult = await validateSessionForLogSet(
     validationDeps, 
     input.sessionExerciseId,
