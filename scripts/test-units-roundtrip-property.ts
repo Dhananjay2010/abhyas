@@ -20,7 +20,6 @@ import {
   formatBodyWeight,
   computeRunnerWeightPrefill,
   snapPrescribedWeight,
-  type UnitsPreference,
 } from "../src/lib/units";
 
 let passed = 0;
@@ -63,6 +62,12 @@ for (let kg = 20; kg <= 300; kg += 0.5) {
   // The snapped kg should round-trip through display
   const displayedPrefill = Number(prefill);
   const backFromPrefill = displayToKg(displayedPrefill, "imperial");
+  
+  check(
+    `${kg} kg: display round-trip stays within 0.02 kg`,
+    Math.abs(roundedBackKg - snappedKg) < 0.02,
+    `snapped ${snappedKg} → ${roundedLb} lb → ${roundedBackKg} kg`
+  );
   
   check(
     `${kg} kg: prefill ${prefill} lb converts back to ~${snappedKg} kg`,

@@ -16,7 +16,7 @@ import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { displayToKg, formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, weightKgToSubmit, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
+import { formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, weightKgToSubmit, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
