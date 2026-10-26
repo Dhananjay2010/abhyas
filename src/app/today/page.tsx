@@ -24,6 +24,7 @@ import { buildChosenByDayIndex } from "@/lib/today/chosen-by-day";
 import { shouldLoadPlannableDays } from "@/lib/today/should-load-plannable";
 import { decideRestDayResume } from "@/lib/today/rest-day-resume";
 import { shouldShowSwap } from "@/lib/today/should-show-swap";
+import { decideTodayPrompts } from "@/lib/today/decide-today-prompts";
 
 export const dynamic = "force-dynamic";
 
@@ -301,7 +302,19 @@ export default async function TodayPage() {
       (s) => s.status === "completed" && isStrength(s.actual_type),
     ),
   });
+
+  // Decide which single day-plan prompt (if any) to show
+  const promptDecision = decideTodayPrompts({
+    missedYesterday,
+    strengthDone,
+    strengthOpen,
+    dayType: dayType ?? "rest",
+    todaySessions,
+    yesterdayDay,
+  });
+
   // Only worth asking while today is still open to being changed.
+  // Legacy: still used for loading plannable days
   const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
 
   // ---- wave 3 -------------------------------------------------------------
@@ -463,17 +476,16 @@ export default async function TodayPage() {
         </p>
       )}
 
-      {askAboutToday && (
+      {/* Single day-plan prompt (at most one) */}
+      {promptDecision.prompt && (
         <DayPlanPrompt
           localDate={localToday}
           dayLabel="Today"
           plannedLabel={dayLabel}
           days={plannable}
-          heading="You missed yesterday"
-          intro={`${labelForDayType(
-            yesterdayDay?.day_type ?? "rest",
-            yesterdayDay?.label ?? null,
-          )} did not happen.`}
+          heading={promptDecision.prompt.heading}
+          intro={promptDecision.prompt.intro}
+          showRestOption={promptDecision.offerRest}
         />
       )}
 
@@ -522,17 +534,6 @@ export default async function TodayPage() {
                   </Link>
                 </div>
               </div>
-              {/* Only show swap prompt when no strength session is open */}
-              {decision.showSwap && (
-                <DayPlanPrompt
-                  localDate={localToday}
-                  dayLabel="Today"
-                  plannedLabel="Rest"
-                  days={plannable}
-                  heading="Or train today anyway"
-                  intro="Pick what you'd like to do instead."
-                />
-              )}
             </div>
           </>
         );
