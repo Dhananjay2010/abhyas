@@ -70,7 +70,7 @@ try {
   const text = container.textContent || "";
   
   check("Component rendered", text.includes("Day A"));
-  check("Ended early text present", text.includes("Ended early"));
+  check("Status shown", text.includes("Unfinished"));
   check("Set count displayed", text.includes("3 sets"), `full text: ${text.substring(0, 200)}`);
   
   // The set count should be visible even though endedEarly is true
