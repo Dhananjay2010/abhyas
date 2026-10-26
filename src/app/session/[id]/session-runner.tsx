@@ -42,12 +42,14 @@ import {
 } from "@/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { isFinishDisabled, getFinishButtonText, getFinishWarningText } from "@/lib/session/finish-guard";
-import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
+import { getPendingUiMode } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
 import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
 import { resolveSetConflict, type ConflictResult } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
 import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
+import { PendingSetsBanner } from "@/components/pending-sets-banner";
+import { ReplayConflictNotice } from "@/components/replay-conflict-notice";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
 import { pickCurrentExerciseIndex } from "@/lib/session/resume-state";
 
@@ -620,6 +622,11 @@ export function SessionRunner({
         error={error}
         message={message}
       >
+        <ReplayConflictNotice conflicts={pendingSetState.conflicts} />
+        <PendingSetsBanner
+          pendingCount={pendingSetState.pending.length}
+          replayState={pendingSetState}
+        />
         <p className="text-muted">
           Static stretches for what you trained. Hold each for 30 seconds,
           breathing slowly and evenly. Nothing should be sharp.
@@ -1041,30 +1048,14 @@ export function SessionRunner({
         message={message}
     >
       <div onPointerDown={onAnyTap}>
-        {pendingSetState.conflicts > 0 && (
-          <div className="mb-5 rounded-xl border border-muted/30 bg-muted/10 px-4 py-3 text-sm text-muted">
-            <p className="font-medium">
-              {pendingSetState.conflicts === 1
-                ? "One set couldn't be saved"
-                : `${pendingSetState.conflicts} sets couldn't be saved`}
-            </p>
-            <p className="mt-1">
-              {pendingSetState.conflicts === 1
-                ? "That set was already recorded differently."
-                : "Those sets were already recorded differently."}
-            </p>
-          </div>
-        )}
+        <ReplayConflictNotice conflicts={pendingSetState.conflicts} />
+        <PendingSetsBanner
+          pendingCount={pendingSetState.pending.length}
+          replayState={pendingSetState}
+        />
         {pendingSetState.pending.length > 0 && (
           <div className="mb-5">
-            {getPendingUiMode(pendingSetState) === "replay-error" ? (
-              <div className="rounded-xl border border-muted/30 bg-muted/10 px-4 py-3 text-sm text-muted">
-                <p className="font-medium">Failed to save sets</p>
-                <p className="mt-1">{getReplayErrorMessage(pendingSetState)}</p>
-              </div>
-            ) : getPendingUiMode(pendingSetState) === "expired" ? (
-              <SessionExpiredPrompt />
-            ) : null}
+            {getPendingUiMode(pendingSetState) === "expired" && <SessionExpiredPrompt />}
             <p className="mt-2 text-sm text-muted">
               {pendingSetState.pending.length}{" "}
               {pendingSetState.pending.length === 1 ? "set" : "sets"} waiting to save
