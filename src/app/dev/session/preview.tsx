@@ -42,6 +42,7 @@ const STUB: SessionActions = {
   abandonSession: ok,
   refreshAfterSession: ok,
   planDay: ok,
+  getSessionSummary: async () => ({ ok: true as const, data: [] }),
   /*
     Mirrors the server: a swap into a hold changes the unit AND the range, so
     the harness hands back the goal's hold range rather than the rep range the
