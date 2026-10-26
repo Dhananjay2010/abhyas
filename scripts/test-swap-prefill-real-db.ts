@@ -371,6 +371,7 @@ async function runTests() {
     equipment_ids: ["barbell"],
     primary_muscles: ["biceps"],
     tracks: ["weights"],
+    category: "accessory",
   }).select("id, equipment_ids, movement_pattern, mechanic").single();
 
   if (barbellCurl.error) {
