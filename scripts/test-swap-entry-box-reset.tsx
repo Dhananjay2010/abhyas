@@ -154,7 +154,7 @@ async function testSwapScenario(
   if (expectedHeaderMatch === null) {
     check("No 'Working weight' line present", !text.includes("Working weight"));
   } else {
-    const headerMatch = text.match(/Working weight[^·]*?kg( · today [0-9.]+ kg)?/)?.[0];
+    const headerMatch = text.match(/Working weight [0-9.]+ kg/)?.[0];
     check(
       `Header matches "${expectedHeaderMatch}"`,
       headerMatch === expectedHeaderMatch,
@@ -486,11 +486,11 @@ console.log("Test swap entry box reset (HIGH-1):\n");
   check(`Input value is "32.5"`, actualInput === "32.5");
 
   const text = r.container.textContent ?? "";
-  const headerMatch = text.match(/Working weight 47\.5 kg · today 32\.5 kg/)?.[0];
+  const headerMatch = text.match(/Working weight 32\.5 kg/)?.[0];
   check(
-    'Header shows "Working weight 47.5 kg · today 32.5 kg"',
+    'Header shows "Working weight 32.5 kg" (snapped today value)',
     headerMatch !== undefined,
-    headerMatch ? `got: "${headerMatch}"` : "not found",
+    headerMatch ? `found: "${headerMatch}"` : "not found",
   );
 
   r.unmount();
@@ -606,7 +606,7 @@ console.log("Test swap entry box reset (HIGH-1):\n");
   );
 
   const text6 = r6.container.textContent ?? "";
-  const header6Match = text6.match(/Working weight 50 kg · today 24\.5 kg/)?.[0];
+  const header6Match = text6.match(/Working weight 24\.5 kg/)?.[0];
   check(
     'Header shows new exercise working weight',
     header6Match !== undefined,
