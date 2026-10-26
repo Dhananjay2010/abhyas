@@ -1302,10 +1302,13 @@ export function SessionRunner({
                   key={f.value}
                   disabled={busy}
                   onClick={() => {
-                    // L3: Trigger replay if sets are queued, but don't finish while offline
-                    if (pendingSetState.pending.length > 0 && controller) {
+                    // L3: Trigger replay if sets within planned range are queued, but don't finish while offline
+                    const pendingWithinRange = pendingSetState.pending.filter(
+                      p => p.sessionExerciseId === current.id && p.setNumber <= current.plannedSets
+                    ).length;
+                    if (pendingWithinRange > 0 && controller) {
                       controller.onFocus();
-                      // Don't call onFinishExercise while sets are queued
+                      // Don't call onFinishExercise while this exercise's planned sets are queued
                     } else {
                       void onFinishExercise(f.value);
                     }

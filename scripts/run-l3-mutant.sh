@@ -12,11 +12,9 @@ echo ""
 # Backup
 cp "$FILE" "$BACKUP"
 
-# Apply mutant: replace the onClick handler to always call onFinishExercise
-# Find the feel button onClick and remove the pending sets check
-# The current code checks `if (pendingSetState.pending.length > 0 && controller)` 
-# Change it to always proceed with onFinishExercise
-perl -i -0777 -pe 's/onClick=\{\(\) => \{\s+\/\/ L3:.*?\n\s+if \(pendingSetState\.pending\.length > 0 && controller\) \{.*?\} else \{\s+void onFinishExercise\(f\.value\);\s+\}\s+\}\}/onClick={() => void onFinishExercise(f.value)}/gs' "$FILE"
+# Apply mutant: replace the entire onClick handler to always call onFinishExercise
+# This removes the pendingWithinRange check completely
+perl -i -0777 -pe 's/onClick=\{\(\) => \{[^}]*const pendingWithinRange = pendingSetState\.pending\.filter\([^)]*\)\.length;[^}]*if \(pendingWithinRange > 0 && controller\) \{[^}]*controller\.onFocus\(\);[^}]*\} else \{[^}]*void onFinishExercise\(f\.value\);[^}]*\}\s*\}\}/onClick={() => void onFinishExercise(f.value)}/gs' "$FILE"
 
 echo "Applied mutant: removed pending sets check in feel button onClick"
 echo "Running test..."
