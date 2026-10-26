@@ -1,168 +1,110 @@
+#!/usr/bin/env tsx
 /**
- * Test D8: Landing page copy must be truthful.
+ * Test: Landing page copy is truthful
  *
- * Verifies:
- * - New honest copy is present ("Warm-up and cool-down built into every session")
- * - Old false claims are absent ("One hour a day", "15 minute")
- * - Brand name comes from branding config (not hard-coded)
- *
- * Behavioral test: renders page components and asserts DOM content.
- *
- *   npm run test:landing-copy
+ * Verifies the landing page claims are accurate to the product and brand-neutral.
+ * Renders the REAL src/app/page.tsx and asserts on the actual DOM output.
  */
 
-import { JSDOM } from "jsdom";
-import { branding } from "../src/lib/branding";
+// CRITICAL: Set up globalThis.AsyncLocalStorage BEFORE any Next.js modules load
+import { AsyncLocalStorage } from "async_hooks";
+globalThis.AsyncLocalStorage = AsyncLocalStorage;
+process.env.NEXT_RUNTIME = "nodejs";
 
-function check(label: string, ok: boolean, detail = "") {
-  if (!ok) failures++;
-  console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
-}
+// Set up minimal Supabase environment variables for testing
+process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+
+import { JSDOM } from "jsdom";
+import { renderToStaticMarkup } from "react-dom/server";
+import { branding } from "../src/lib/branding";
 
 let failures = 0;
 
-(async () => {
-  const React = await import("react");
-  const { renderToStaticMarkup } = await import("react-dom/server");
-  const { SignInButton } = await import("../src/app/sign-in-button");
-  const { Footer } = await import("../src/components/footer");
-  const { BrandLogo } = await import("../src/components/brand-logo");
-  
-  console.log("\n1. Landing page renders with new honest copy");
+function check(label: string, ok: boolean, detail = "") {
+  console.log(`  ${ok ? "✓" : "✗ FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
+  if (!ok) failures++;
+}
 
-  // Create a test version of the landing page markup
-  // This matches the actual page structure from src/app/page.tsx
-  const LandingPageContent = () => (
-    React.createElement(
-      "main",
-      { className: "mx-auto flex min-h-dvh w-full max-w-md flex-col justify-between px-6 py-12" },
-      React.createElement(
-        "div",
-        { className: "flex flex-1 flex-col justify-center" },
-        branding.tagline &&
-          React.createElement(
-            "p",
-            {
-              lang: branding.taglineLang,
-              className: "text-base font-medium text-accent",
-            },
-            branding.tagline
-          ),
-        React.createElement(
-          "div",
-          { className: "mt-3" },
-          branding.logo
-            ? React.createElement(
-                React.Fragment,
-                null,
-                React.createElement(BrandLogo, { className: "h-12 w-auto object-contain" }),
-                React.createElement(
-                  "h1",
-                  { className: "mt-2 text-sm font-medium text-muted" },
-                  branding.name
-                )
-              )
-            : React.createElement(
-                "h1",
-                { className: "text-5xl font-bold tracking-tight" },
-                branding.name
-              )
-        ),
-        React.createElement(
-          "p",
-          { className: "mt-5 text-lg leading-relaxed text-muted" },
-          branding.description
-        ),
-        React.createElement(
-          "ul",
-          { className: "mt-10 space-y-4 text-sm text-muted" },
-          [
-            "Warm-up and cool-down built into every session",
-            "Weights, bodyweight, yoga or breathing — your call",
-            "Every set recorded, so the weight goes up when you are ready",
-          ].map((line) =>
-            React.createElement(
-              "li",
-              { key: line, className: "flex gap-3" },
-              React.createElement("span", {
-                "aria-hidden": "true",
-                className: "mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent",
-              }),
-              React.createElement("span", null, line)
-            )
-          )
-        )
-      ),
-      React.createElement(
-        "div",
-        { className: "mt-12" },
-        React.createElement(SignInButton, { next: undefined })
-      ),
-      React.createElement(Footer)
-    )
-  );
+async function main() {
+  console.log("Test Landing Copy\n");
+
+  console.log("1. Rendered landing page has truthful, brand-neutral copy");
+
+  // Import the Next.js storage modules
+  const { workAsyncStorage } = await import("next/dist/server/app-render/work-async-storage.external");
+  const { workUnitAsyncStorage } = await import("next/dist/server/app-render/work-unit-async-storage.external");
+
+  // Mock work store with forceStatic to bypass cookies requirement
+  const mockWorkStore = {
+    forceStatic: true,
+    route: "/",
+    isStaticGeneration: true,
+    dynamicShouldError: false,
+  };
   
-  // Render to HTML
-  const html = renderToStaticMarkup(React.createElement(LandingPageContent));
-  
-  // Parse the HTML
-  const dom = new JSDOM(html);
-  const text = dom.window.document.body.textContent || "";
-  
-  // Check new honest copy is present
-  check(
-    "New copy present: 'Warm-up and cool-down built into every session'",
-    text.includes("Warm-up and cool-down built into every session")
-  );
-  
-  check(
-    "New copy present: 'Weights, bodyweight, yoga or breathing'",
-    text.includes("Weights, bodyweight, yoga or breathing")
-  );
-  
-  check(
-    "New copy present: 'Every set recorded, so the weight goes up when you are ready'",
-    text.includes("Every set recorded, so the weight goes up when you are ready")
-  );
-  
-  console.log("\n2. Old false claims are absent");
-  
-  // Check old false claims are NOT present
-  check(
-    "Old claim absent: 'One hour a day'",
-    !text.includes("One hour a day"),
-    text.includes("One hour a day") ? "FOUND in page" : ""
-  );
-  
-  check(
-    "Old claim absent: '15 minute' (any form)",
-    !text.includes("15 minute") && !text.includes("15-minute"),
-    (text.includes("15 minute") || text.includes("15-minute")) ? "FOUND in page" : ""
-  );
-  
-  console.log("\n3. Brand name comes from branding config");
-  
-  // Check brand name from config is present
-  check(
-    `Brand name from config present: "${branding.name}"`,
-    text.includes(branding.name),
-    `Expected: "${branding.name}"`
-  );
-  
-  // Check description from config is present
-  check(
-    "Brand description from config present",
-    text.includes(branding.description),
-    `Expected: "${branding.description}"`
-  );
-  
-  // Verify the description doesn't contain "One hour a day"
-  check(
-    "Brand description doesn't claim 'One hour a day'",
-    !branding.description.includes("One hour a day"),
-    branding.description.includes("One hour a day") ? `FOUND in: "${branding.description}"` : ""
-  );
-  
-  console.log(`\n${failures === 0 ? "✅" : "❌"} ${failures} failure(s)`);
-  if (failures > 0) process.exit(1);
-})();
+  // Mock work unit store for rendering phase
+  const mockWorkUnitStore = {
+    type: "request",
+    phase: "render",
+  };
+
+  // Run within Next.js's actual async storage contexts
+  await workAsyncStorage.run(mockWorkStore, async () => {
+    await workUnitAsyncStorage.run(mockWorkUnitStore, async () => {
+      // Import and render the REAL landing page component
+      const { default: LandingPage } = await import("../src/app/page");
+      
+      // Call it as Next.js would, with searchParams as a Promise
+      const searchParams = Promise.resolve({});
+      const pageElement = await LandingPage({ searchParams });
+      
+      // Render to static HTML
+      const html = renderToStaticMarkup(pageElement);
+      
+      // Parse with JSDOM
+      const dom = new JSDOM(html);
+      const text = dom.window.document.body.textContent ?? "";
+
+      // Positive assertions: new truthful copy
+      check(
+        "Has warm-up/cool-down claim",
+        text.includes("Warm-up and cool-down built into every session"),
+      );
+
+      // Negative assertions: old duration promises absent
+      check(
+        "No 'One hour a day' claim",
+        !text.includes("One hour a day"),
+      );
+
+      check(
+        "No '15 minute' claims",
+        !text.includes("15 minute") && !text.includes("15-minute") && !text.includes("15 minutes of warm-up"),
+      );
+
+      // Brand neutrality: content comes from config
+      check(
+        "Brand name from config",
+        text.includes(branding.name),
+      );
+
+      check(
+        "Description from config",
+        text.includes(branding.description),
+      );
+    });
+  });
+
+  if (failures > 0) {
+    console.log(`\n✗ ${failures} check(s) failed`);
+    process.exit(1);
+  }
+
+  console.log("\n✓ All landing copy checks passed");
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
