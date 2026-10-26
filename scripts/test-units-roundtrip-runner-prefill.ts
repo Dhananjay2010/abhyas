@@ -169,7 +169,13 @@ for (const { kg, expectedLb } of storedWeights) {
   const historyDisplay = formatTopSet(kg, "imperial");
   
   check(
-    `${kg} kg: runner prefill "${runnerPrefill}" equals History display`,
+    `${kg} kg: runner prefill "${runnerPrefill}" matches expected ${expectedLb} lb`,
+    runnerPrefill === expectedLb,
+    `expected "${expectedLb}", got "${runnerPrefill}"`
+  );
+  
+  check(
+    `${kg} kg: runner prefill equals History display`,
     historyDisplay.includes(runnerPrefill),
     `runner="${runnerPrefill}", history="${historyDisplay}"`
   );
