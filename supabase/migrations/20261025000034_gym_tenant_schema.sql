@@ -20,7 +20,9 @@ create table if not exists gyms (
   id            uuid primary key default gen_random_uuid(),
   slug          text unique not null check (slug ~ '^[a-z0-9_-]+$'),
   name          text not null,
-  timezone      text not null default 'Asia/Kolkata',
+  -- timezone is nullable with no default; falls back to brand default (Asia/Kolkata for Abhyas)
+  -- via resolveTimezoneWithProfile, same as the default brand does
+  timezone      text,
   created_at    timestamptz not null default now()
 );
 
@@ -50,11 +52,11 @@ create unique index if not exists gym_memberships_one_active_member_per_user
 -- Check if the current user is staff or owner of a gym
 create or replace function public.is_gym_staff(check_gym_id uuid)
 returns boolean language sql security definer
-set search_path = public
+set search_path = ''
 stable as $$
   select exists (
     select 1 
-    from gym_memberships 
+    from public.gym_memberships 
     where gym_id = check_gym_id
       and user_id = auth.uid()
       and role in ('owner', 'staff')
@@ -74,11 +76,11 @@ end $$;
 -- Check if the current user is the owner of a gym
 create or replace function public.is_gym_owner(check_gym_id uuid)
 returns boolean language sql security definer
-set search_path = public
+set search_path = ''
 stable as $$
   select exists (
     select 1 
-    from gym_memberships 
+    from public.gym_memberships 
     where gym_id = check_gym_id
       and user_id = auth.uid()
       and role = 'owner'
@@ -98,7 +100,7 @@ end $$;
 -- Prevent owner from demoting or removing themselves
 create or replace function public.prevent_owner_self_demotion()
 returns trigger language plpgsql security definer
-set search_path = public as $$
+set search_path = '' as $$
 begin
   -- Block if trying to change own owner role
   if (old.role = 'owner' and old.status = 'active' and old.user_id = auth.uid()) then
@@ -127,7 +129,7 @@ end $$;
 -- Block owner from deleting their own owner row
 create or replace function public.prevent_owner_self_deletion()
 returns trigger language plpgsql security definer
-set search_path = public as $$
+set search_path = '' as $$
 begin
   if (old.role = 'owner' and old.status = 'active' and old.user_id = auth.uid()) then
     raise exception 'An owner cannot delete their own owner membership. Transfer ownership to another user first.';
@@ -145,9 +147,37 @@ exception when undefined_function then
   null;
 end $$;
 
+-- Prevent gym_id and user_id from being changed on any membership row
+create or replace function public.prevent_membership_id_change()
+returns trigger language plpgsql security definer
+set search_path = '' as $$
+begin
+  if (new.gym_id != old.gym_id) then
+    raise exception 'gym_id cannot be changed';
+  end if;
+  if (new.user_id != old.user_id) then
+    raise exception 'user_id cannot be changed';
+  end if;
+  return new;
+end;
+$$;
+
+-- Revoke all access (internal trigger function)
+do $$
+begin
+  revoke execute on function public.prevent_membership_id_change() from public, anon, authenticated;
+exception when undefined_function then
+  null;
+end $$;
+
 -- Apply triggers to gym_memberships
 do $$
 begin
+  drop trigger if exists prevent_membership_id_change on gym_memberships;
+  create trigger prevent_membership_id_change
+    before update on gym_memberships
+    for each row execute function public.prevent_membership_id_change();
+  
   drop trigger if exists prevent_owner_self_demotion on gym_memberships;
   create trigger prevent_owner_self_demotion
     before update on gym_memberships

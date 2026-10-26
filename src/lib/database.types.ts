@@ -1869,5 +1869,25 @@ export const Constants = {
       track_type: ["weights", "bodyweight", "yoga", "meditation"],
       warmup_type: ["cardio", "mobility", "prehab", "stretch"],
     },
+    Functions: {
+      get_owned_gym_name: {
+        Args: {
+          user_id_param: string
+        }
+        Returns: string | null
+      }
+      is_gym_owner: {
+        Args: {
+          check_gym_id: string
+        }
+        Returns: boolean
+      }
+      is_gym_staff: {
+        Args: {
+          check_gym_id: string
+        }
+        Returns: boolean
+      }
+    }
   },
 } as const

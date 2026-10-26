@@ -9,10 +9,11 @@
 -- Mapping: src/lib/branding.ts defines the default brand with:
 --   - id: "default" → maps to gyms.slug = 'default'
 --   - name: "Abhyas" → maps to gyms.name = 'Abhyas'
---   - timezone: falls back to browser → use 'Asia/Kolkata' as database default
--- Leave owner unset; never hardcode any user id or email
+--   - timezone: falls back to browser → gyms.timezone = NULL (no explicit timezone)
+-- The default gym has no owner by design. The coordinator will assign an owner
+-- on production after the migration is applied.
 insert into gyms (slug, name, timezone)
-values ('default', 'Abhyas', 'Asia/Kolkata')
+values ('default', 'Abhyas', NULL)
 on conflict (slug) do nothing;
 
 -- ============================================================
@@ -54,12 +55,12 @@ end $$;
 -- This trigger adds new signups to the default gym automatically.
 -- It catches and logs its own errors so signup never fails if this fails.
 create or replace function public.add_new_user_to_default_gym()
-returns trigger language plpgsql security definer set search_path = public as $fn$
+returns trigger language plpgsql security definer set search_path = '' as $fn$
 declare
   default_gym_id uuid;
 begin
   -- Find the default gym (matches NEXT_PUBLIC_BRAND default brand: id='default', name='Abhyas')
-  select id into default_gym_id from gyms where slug = 'default';
+  select id into default_gym_id from public.gyms where slug = 'default';
   
   if default_gym_id is null then
     -- Log error but don't fail signup
@@ -69,7 +70,7 @@ begin
   
   -- Add the user to the default gym
   begin
-    insert into gym_memberships (gym_id, user_id, role, status, joined_at)
+    insert into public.gym_memberships (gym_id, user_id, role, status, joined_at)
     values (default_gym_id, new.id, 'member', 'active', now())
     on conflict (gym_id, user_id) do nothing;
   exception when others then
