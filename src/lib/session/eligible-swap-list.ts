@@ -57,7 +57,7 @@ export function buildEligibleSwapList(input: EligibleSwapListInput): CandidateEx
   // Filter by isEligible (generator safety rules: age, BMI, spinal load, etc.)
   // and exclude exercises already in the session
   const eligible = patternMatches
-    .filter(e => e.id !== "")
+    .filter(e => !alreadyInSession.has(e.id))
     .filter(e => isEligible(e, generatorInput));
 
   // Rank alternatives (applies further filters like Olympic lifts, past-knee exclusions)
