@@ -1182,7 +1182,7 @@ export function SessionRunner({
                           }`
                         : "done"
                       : isPending
-                        ? "Saving…"
+                        ? "waiting…"
                         : "—"}
                   </span>
                   {/*
