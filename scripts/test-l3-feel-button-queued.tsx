@@ -47,7 +47,7 @@ async function testL3FeelButtonQueued() {
   
   let replayCallCount = 0;
   let finishExerciseCallCount = 0;
-  let shouldSucceed = false;
+  const shouldSucceed = false;
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
