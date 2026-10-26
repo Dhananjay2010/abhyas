@@ -26,6 +26,16 @@ export type LoggedSet = {
 /**
  * Format the working sets for one exercise.
  *
+ * Each set's value is its reps (or "45s" for a timed set). A set's weight is
+ * shown only when it has one (> 0):
+ * - no set weighted: '12, 11, 10' / '45s, 42s'
+ * - every set at the same weight: '10, 10, 9 × 80 kg' / '45s, 40s × 10 kg'
+ * - otherwise per set, an unweighted set showing its value alone:
+ *   '10 × 80 kg, 9 × 77.5 kg' / '10 × 80 kg, 10 × 80 kg, 8'
+ * A 0 or blank weight is never folded into a weighted set's figure, and timed
+ * sets keep their weight (QA3 LOW-6). Weights go through the shared
+ * formatWeight in the user's units.
+ *
  * Returns null if there are no working sets (skipped or warm-up only).
  */
 export function formatLoggedSets(
@@ -36,44 +46,29 @@ export function formatLoggedSets(
   const working = sets.filter((s) => !s.isWarmupSet);
   if (working.length === 0) return null;
 
-  // Timed exercises: show seconds only
-  if (metric === "seconds") {
-    const seconds = working
-      .map((s) => (s.durationSeconds !== null ? `${s.durationSeconds}s` : "—"))
-      .join(", ");
-    return seconds;
+  const valueOf = (s: LoggedSet): string =>
+    metric === "seconds"
+      ? s.durationSeconds !== null ? `${s.durationSeconds}s` : "—"
+      : s.reps !== null ? String(s.reps) : "—";
+  const isWeighted = (s: LoggedSet): s is LoggedSet & { weightKg: number } =>
+    s.weightKg !== null && s.weightKg > 0;
+  const weight = (kg: number) => formatWeight(kg, units === "imperial" ? "imperial" : "metric");
+
+  // Bodyweight or plain timed: values only
+  if (!working.some(isWeighted)) {
+    return working.map(valueOf).join(", ");
   }
 
-  // Bodyweight: show reps only
-  const hasWeight = working.some((s) => s.weightKg !== null && s.weightKg > 0);
-  if (!hasWeight) {
-    const reps = working.map((s) => (s.reps !== null ? String(s.reps) : "—")).join(", ");
-    return reps;
-  }
-
-  // Weighted: check if all sets used the same weight
-  const weights = working
-    .map((s) => s.weightKg)
-    .filter((w): w is number => w !== null && w > 0);
-  const allSameWeight = weights.length > 0 && weights.every((w) => w === weights[0]);
+  // Every set weighted, all at the same weight: '10, 10, 9 × 80 kg'
+  const allSameWeight =
+    working.every(isWeighted) && working.every((s) => s.weightKg === working[0].weightKg);
 
   if (allSameWeight) {
-    // '10, 10, 9, 8, 8 × 80 kg'
-    const reps = working.map((s) => (s.reps !== null ? String(s.reps) : "—")).join(", ");
-    const weight = formatWeight(weights[0], units === "imperial" ? "imperial" : "metric");
-    return `${reps} × ${weight}`;
+    return `${working.map(valueOf).join(", ")} × ${weight(working[0].weightKg as number)}`;
   } else {
-    // '10 × 80 kg, 10 × 80 kg, 9 × 77.5 kg'
-    const formatted = working
-      .map((s) => {
-        const reps = s.reps !== null ? String(s.reps) : "—";
-        const weight =
-          s.weightKg !== null
-            ? formatWeight(s.weightKg, units === "imperial" ? "imperial" : "metric")
-            : "—";
-        return `${reps} × ${weight}`;
-      })
+    // '10 × 80 kg, 9 × 77.5 kg', with an unweighted set as its value alone
+    return working
+      .map((s) => (isWeighted(s) ? `${valueOf(s)} × ${weight(s.weightKg)}` : valueOf(s)))
       .join(", ");
-    return formatted;
   }
 }

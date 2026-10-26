@@ -21,7 +21,7 @@ const setsA: LoggedSet[] = [
 const resultA = formatLoggedSets(setsA, "reps", "metric");
 const expectedA = "10, 10, 9, 8, 8 × 80 kg";
 if (resultA !== expectedA) {
-  console.error(`✗ Same weight: expected "${expectedA}", got "${resultA}"`);
+  console.error(`✗ FAIL Same weight: expected "${expectedA}", got "${resultA}"`);
   process.exit(1);
 }
 console.log(`✓ Same weight: "${resultA}"`);
@@ -36,7 +36,7 @@ const setsB: LoggedSet[] = [
 const resultB = formatLoggedSets(setsB, "reps", "metric");
 const expectedB = "10 × 80 kg, 10 × 80 kg, 9 × 77.5 kg";
 if (resultB !== expectedB) {
-  console.error(`✗ Varying weight: expected "${expectedB}", got "${resultB}"`);
+  console.error(`✗ FAIL Varying weight: expected "${expectedB}", got "${resultB}"`);
   process.exit(1);
 }
 console.log(`✓ Varying weight: "${resultB}"`);
@@ -52,7 +52,7 @@ const setsC: LoggedSet[] = [
 const resultC = formatLoggedSets(setsC, "reps", "metric");
 const expectedC = "12, 11, 10, 10";
 if (resultC !== expectedC) {
-  console.error(`✗ Bodyweight: expected "${expectedC}", got "${resultC}"`);
+  console.error(`✗ FAIL Bodyweight: expected "${expectedC}", got "${resultC}"`);
   process.exit(1);
 }
 console.log(`✓ Bodyweight: "${resultC}"`);
@@ -67,7 +67,7 @@ const setsD: LoggedSet[] = [
 const resultD = formatLoggedSets(setsD, "seconds", "metric");
 const expectedD = "45s, 42s, 40s";
 if (resultD !== expectedD) {
-  console.error(`✗ Timed: expected "${expectedD}", got "${resultD}"`);
+  console.error(`✗ FAIL Timed: expected "${expectedD}", got "${resultD}"`);
   process.exit(1);
 }
 console.log(`✓ Timed: "${resultD}"`);
@@ -84,7 +84,7 @@ const setsE: LoggedSet[] = [
 const resultE = formatLoggedSets(setsE, "reps", "metric");
 const expectedE = "10, 10, 9 × 80 kg";
 if (resultE !== expectedE) {
-  console.error(`✗ Skip warmup: expected "${expectedE}", got "${resultE}"`);
+  console.error(`✗ FAIL Skip warmup: expected "${expectedE}", got "${resultE}"`);
   process.exit(1);
 }
 console.log(`✓ Skip warmup: "${resultE}"`);
@@ -99,10 +99,54 @@ const setsF: LoggedSet[] = [
 const resultF = formatLoggedSets(setsF, "reps", "imperial");
 // 80kg = ~176.37 lb, rounded to 176 lb
 if (!resultF || !resultF.includes("lb")) {
-  console.error(`✗ Imperial: expected lb units, got "${resultF}"`);
+  console.error(`✗ FAIL Imperial: expected lb units, got "${resultF}"`);
   process.exit(1);
 }
 console.log(`✓ Imperial: "${resultF}"`);
+
+// Tests 7-11: QA3 LOW-6 -- 0 / blank weights never mixed in, timed sets keep weight
+for (const [label, sets, metric, expected] of [
+  ["0 kg set among 80 kg sets", [
+    { reps: 10, weightKg: 80, durationSeconds: null, isWarmupSet: false },
+    { reps: 10, weightKg: 80, durationSeconds: null, isWarmupSet: false },
+    { reps: 8, weightKg: 0, durationSeconds: null, isWarmupSet: false },
+  ], "reps", "10 × 80 kg, 10 × 80 kg, 8"],
+  ["blank-weight set among 80 kg sets", [
+    { reps: 10, weightKg: 80, durationSeconds: null, isWarmupSet: false },
+    { reps: 8, weightKg: null, durationSeconds: null, isWarmupSet: false },
+  ], "reps", "10 × 80 kg, 8"],
+  ["timed sets at one weight", [
+    { reps: null, weightKg: 10, durationSeconds: 45, isWarmupSet: false },
+    { reps: null, weightKg: 10, durationSeconds: 40, isWarmupSet: false },
+  ], "seconds", "45s, 40s × 10 kg"],
+  ["timed sets at varying weight", [
+    { reps: null, weightKg: 10, durationSeconds: 45, isWarmupSet: false },
+    { reps: null, weightKg: 12.5, durationSeconds: 40, isWarmupSet: false },
+  ], "seconds", "45s × 10 kg, 40s × 12.5 kg"],
+  ["timed sets, one unweighted", [
+    { reps: null, weightKg: 10, durationSeconds: 45, isWarmupSet: false },
+    { reps: null, weightKg: null, durationSeconds: 40, isWarmupSet: false },
+  ], "seconds", "45s × 10 kg, 40s"],
+] as Array<[string, LoggedSet[], "reps" | "seconds", string]>) {
+  const got = formatLoggedSets(sets, metric, "metric");
+  if (got !== expected) {
+    console.error(`✗ FAIL ${label}: expected "${expected}", got "${got}"`);
+    process.exit(1);
+  }
+  console.log(`✓ ${label}: "${got}"`);
+}
+
+// Test 12: timed weight in the user's units
+{
+  const got = formatLoggedSets([
+    { reps: null, weightKg: 20, durationSeconds: 30, isWarmupSet: false },
+  ], "seconds", "imperial");
+  if (got !== "30s × 44 lb") {
+    console.error(`✗ FAIL timed imperial: expected "30s × 44 lb", got "${got}"`);
+    process.exit(1);
+  }
+  console.log(`✓ timed imperial: "${got}"`);
+}
 
 console.log("\n✅ All formatLoggedSets tests passed");
 console.log("  On main: would show '5 × 8–12' (targets)");
