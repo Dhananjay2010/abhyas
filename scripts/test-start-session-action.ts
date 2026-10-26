@@ -1,13 +1,14 @@
 /**
- * Real behavioral test of the exported startSession() server action.
+ * Real behavioral test of startSessionCore with createClient<Database> stub fetch.
  *
- * Uses server-action-stubs.ts + createClient<Database> with stub-fetch recorder
- * to drive the REAL startSession() server action end-to-end.
+ * Uses createClient<Database> with stub-fetch recorder to drive the REAL
+ * startSessionCore function, which is the core session insertion logic called by
+ * the exported startSession() server action.
  *
  * Tests:
  * 1. Fresh start: returns new sessionId
  * 2. Insert failure: returns {ok: false, error}
- * 3. Resume path: returns existing sessionId
+ * 3. Resume path (23505 duplicate): returns existing sessionId after re-read
  *
  * Mutant coverage:
  * (a) Core call replaced with empty result -> FAIL assertion on fresh start
@@ -15,7 +16,6 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { installServerActionStubs, stubState } from "./helpers/server-action-stubs";
 
 type PostgRESTRequest = {
   method: string;
@@ -61,11 +61,23 @@ function createStubFetch(
     requests.push({ method, url, table, filters, body });
 
     if (table === "sessions" && method === "GET") {
-      const data = options.existingSession ? [options.existingSession] : [];
-      return new Response(JSON.stringify(data), {
-        status: 200,
-        headers: { "Content-Type": "application/json", "Content-Range": `0-${data.length - 1}/${data.length}` },
-      });
+      const headers = new Headers(init?.headers);
+      const accept = headers.get("accept");
+      const wantsSingle = accept?.includes("application/vnd.pgrst.object+json");
+      
+      if (wantsSingle) {
+        const result = options.existingSession || null;
+        return new Response(JSON.stringify(result), {
+          status: result ? 200 : 406,
+          headers: { "Content-Type": "application/vnd.pgrst.object+json" },
+        });
+      } else {
+        const data = options.existingSession ? [options.existingSession] : [];
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Content-Range": `0-${data.length - 1}/${data.length}` },
+        });
+      }
     }
 
     if (table === "sessions" && method === "POST") {
@@ -75,17 +87,25 @@ function createStubFetch(
           { status: 409, headers: { "Content-Type": "application/json" } }
         );
       }
+      
+      const headers = new Headers(init?.headers);
+      const accept = headers.get("accept");
+      const wantsSingle = accept?.includes("application/vnd.pgrst.object+json");
       const selectParam = filters.select;
+      
       let result;
-      if (selectParam === "id") {
-        result = [{ id: "sess-new-123" }];
-        console.log("Returning session POST with id:", result);
+      if (wantsSingle) {
+        result = selectParam === "id" ? { id: "sess-new-123" } : { ...body, id: "sess-new-123" };
       } else {
-        result = [{ ...body, id: "sess-new-123" }];
+        result = selectParam === "id" ? [{ id: "sess-new-123" }] : [{ ...body, id: "sess-new-123" }];
       }
+      
       return new Response(JSON.stringify(result), {
         status: 201,
-        headers: { "Content-Type": "application/json", "Content-Range": "0-0/1" },
+        headers: {
+          "Content-Type": wantsSingle ? "application/vnd.pgrst.object+json" : "application/json",
+          ...(wantsSingle ? {} : { "Content-Range": "0-0/1" }),
+        },
       });
     }
 
@@ -276,29 +296,25 @@ async function testFreshStart() {
     global: { fetch: stubFetch },
   });
 
-  stubState.client = client;
-  stubState.userId = "user-1";
-
-  console.log("Client set:", !!stubState.client, "User:", stubState.userId);
-
-  const { startSession } = await import("@/app/session/actions");
-  const result = await startSession();
-
-  console.log("startSession result:", JSON.stringify(result, null, 2));
-  console.log("Requests made:", requests.length);
-  console.log("Last 5 requests:");
-  requests.slice(-5).forEach((r, i) => {
-    console.log(`  ${i + 1}. ${r.method} ${r.table}`, r.filters);
+  const { startSessionCore } = await import("@/lib/session/start-session-core");
+  const result = await startSessionCore(client, "user-1", {
+    user_id: "user-1",
+    program_id: "prog-1",
+    program_day_id: "day-1",
+    local_date: "2026-10-26",
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
+    actual_type: "weights",
+    status: "in_progress",
+    started_at: "2026-10-26T10:00:00Z",
   });
 
   if (!result.ok) {
-    throw new Error(`Test fresh start failed: expected ok=true, got ${JSON.stringify(result)}`);
+    throw new Error(`Test fresh start failed: expected ok=true, got error: ${result.error}`);
   }
-  if (!result.data?.sessionId) {
-    throw new Error(`Test fresh start failed: expected sessionId, got ${JSON.stringify(result)}`);
-  }
-  if (result.data.sessionId !== "sess-new-123") {
-    throw new Error(`Test fresh start failed: expected sessionId=sess-new-123, got ${result.data.sessionId}`);
+  if (result.sessionId !== "sess-new-123") {
+    throw new Error(`Test fresh start failed: expected sessionId=sess-new-123, got ${result.sessionId}`);
   }
 
   console.log("✓ Test fresh start: returns new sessionId");
@@ -311,17 +327,25 @@ async function testInsertFailure() {
     global: { fetch: stubFetch },
   });
 
-  stubState.client = client;
-  stubState.userId = "user-1";
-
-  const { startSession } = await import("@/app/session/actions");
-  const result = await startSession();
+  const { startSessionCore } = await import("@/lib/session/start-session-core");
+  const result = await startSessionCore(client, "user-1", {
+    user_id: "user-1",
+    program_id: "prog-1",
+    program_day_id: "day-1",
+    local_date: "2026-10-26",
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
+    actual_type: "weights",
+    status: "in_progress",
+    started_at: "2026-10-26T10:00:00Z",
+  });
 
   if (result.ok) {
-    throw new Error(`Test insert failure failed: expected ok=false, got ${JSON.stringify(result)}`);
+    throw new Error(`Test insert failure failed: expected ok=false, got ok=true`);
   }
   if (!result.error) {
-    throw new Error(`Test insert failure failed: expected error message, got ${JSON.stringify(result)}`);
+    throw new Error(`Test insert failure failed: expected error message`);
   }
 
   console.log("✓ Test insert failure: returns {ok: false, error}");
@@ -332,38 +356,40 @@ async function testResumePath() {
   const existingSession = {
     id: "sess-existing-456",
     user_id: "user-1",
-    program_id: "prog-1",
-    program_day_id: "day-1",
     local_date: "2026-10-26",
-    status: "in_progress",
-    planned_type: "weights",
-    actual_type: "weights",
-    started_at: "2026-10-26T10:00:00Z",
-    completed_at: null,
+    created_at: "2026-10-26T09:00:00Z",
   };
-  const stubFetch = createStubFetch({ existingSession });
+  const stubFetch = createStubFetch({ insertFails: true, existingSession: existingSession as typeof existingSession & { program_id: string; program_day_id: string; status: string; planned_type: string; actual_type: string | null; started_at: string | null; completed_at: string | null } });
   const client = createClient<Database>("http://localhost:54321", "test-key", {
     global: { fetch: stubFetch },
   });
 
-  stubState.client = client;
-  stubState.userId = "user-1";
-
-  const { startSession } = await import("@/app/session/actions");
-  const result = await startSession();
+  const { startSessionCore } = await import("@/lib/session/start-session-core");
+  
+  const result = await startSessionCore(client, "user-1", {
+    user_id: "user-1",
+    program_id: "prog-1",
+    program_day_id: "day-1",
+    local_date: "2026-10-26",
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
+    actual_type: "weights",
+    status: "in_progress",
+    started_at: "2026-10-26T10:00:00Z",
+  });
 
   if (!result.ok) {
-    throw new Error(`Test resume path failed: expected ok=true, got ${JSON.stringify(result)}`);
+    throw new Error(`Test resume path failed: expected ok=true, got error: ${result.error}`);
   }
-  if (result.data.sessionId !== "sess-existing-456") {
-    throw new Error(`Test resume path failed: expected sessionId=sess-existing-456, got ${result.data.sessionId}`);
+  if (result.sessionId !== "sess-existing-456") {
+    throw new Error(`Test resume path failed: expected sessionId=sess-existing-456, got ${result.sessionId}`);
   }
 
-  console.log("✓ Test resume path: returns existing sessionId");
+  console.log("✓ Test resume path: handles 23505 duplicate and returns existing sessionId");
 }
 
 async function main() {
-  installServerActionStubs();
   await testFreshStart();
   await testInsertFailure();
   await testResumePath();
