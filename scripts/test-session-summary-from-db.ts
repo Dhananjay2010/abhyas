@@ -6,7 +6,7 @@
  * finished before the user navigated away and tapped Resume.
  */
 
-import { buildSessionSummary, type SummaryNote } from "../src/lib/session/build-session-summary";
+import { buildSessionSummary, type SummaryNote } from "../src/lib/session/load-session-summary";
 
 console.log("Test buildSessionSummary (FIX a)\n");
 

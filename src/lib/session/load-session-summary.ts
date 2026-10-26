@@ -72,12 +72,18 @@ export async function loadSessionSummary(
 
   // Fetch historical best from OTHER sessions (for PB comparison)
   // Page the query to avoid the 1000-row cap
-  let historicalSets: typeof historicalQuery extends { data: infer D } ? D : never = [];
+  const allHistoricalSets: Array<{
+    reps: number | null;
+    weight_kg: number | null;
+    duration_seconds: number | null;
+    is_warmup_set: boolean;
+    session_exercises: unknown;
+  }> = [];
   let offset = 0;
   const pageSize = 1000;
   
   while (true) {
-    const historicalQuery = await supabase
+    const { data: historicalSets } = await supabase
       .from("session_sets")
       .select(
         `reps, weight_kg, duration_seconds, is_warmup_set,
@@ -89,9 +95,9 @@ export async function loadSessionSummary(
       .eq("session_exercises.status", "completed")
       .range(offset, offset + pageSize - 1);
     
-    if (!historicalQuery.data || historicalQuery.data.length === 0) break;
-    historicalSets = [...historicalSets, ...historicalQuery.data];
-    if (historicalQuery.data.length < pageSize) break;
+    if (!historicalSets || historicalSets.length === 0) break;
+    allHistoricalSets.push(...historicalSets);
+    if (historicalSets.length < pageSize) break;
     offset += pageSize;
   }
 
@@ -103,7 +109,7 @@ export async function loadSessionSummary(
     metric: string;
   }>>();
 
-  for (const set of historicalSets ?? []) {
+  for (const set of allHistoricalSets) {
     const ex = set.session_exercises as unknown as { exercise_id: string };
     if (!ex || (Array.isArray(ex) && ex.length === 0)) continue;
     const exData = Array.isArray(ex) ? ex[0] : ex;

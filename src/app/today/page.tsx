@@ -705,9 +705,8 @@ export default async function TodayPage() {
           {(days ?? []).map((d) => {
             const chosen = chosenByDayIndex.get(d.day_index);
             // FIX (b): Check if this day is completed (timezone-resolved) using helper
-            const { isDayDone } = require("@/lib/today/compute-done-days");
             const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
-            const isDone = isDayDone(completedDays, localToday, todayIndex, d.day_index);
+            const isDone = d.isDone;
             return (
               <li
                 key={d.day_index}

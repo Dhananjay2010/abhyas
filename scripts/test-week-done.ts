@@ -4,7 +4,7 @@
  * Must FAIL on main: week view didn't show today as done after session completed.
  */
 
-import { computeCompletedDays } from "../src/lib/today/completed-days";
+import { computeCompletedDays } from "../src/lib/today/compute-done-days";
 
 console.log("Test computeCompletedDays (FIX b)\n");
 
