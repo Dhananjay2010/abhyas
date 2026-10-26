@@ -10,6 +10,10 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://localhost:54321";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
@@ -188,9 +192,6 @@ async function runTests() {
   // TEST: Migration re-run idempotency
   console.log("TEST: Re-running migrations is idempotent");
   {
-    const { exec } = require("child_process");
-    const { promisify } = require("util");
-    const execAsync = promisify(exec);
 
     // Get current state
     const { data: gymsBefore } = await adminClient.from("gyms").select("*").order("created_at");
@@ -208,8 +209,9 @@ async function runTests() {
 
       check("Gyms unchanged after re-run", JSON.stringify(gymsBefore) === JSON.stringify(gymsAfter));
       check("Memberships unchanged after re-run", JSON.stringify(membershipsBefore) === JSON.stringify(membershipsAfter));
-    } catch (err: any) {
-      check("Migration re-run succeeded", false, err.message);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      check("Migration re-run succeeded", false, message);
     }
   }
   console.log();
