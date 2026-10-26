@@ -621,7 +621,7 @@ export function evaluateProgression(input: {
 
   // MISS: sets incomplete, or any set's reps below repsMin. Increment consecutiveFailures.
   const failures = state.consecutiveFailures + 1;
-  const currentWeight = effectiveBaseWeight(state.currentWorkingWeightKg, working) ?? (heaviest > 0 ? heaviest : null);
+  const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
 
   /**
    * Shared helper: compute what the two-miss back-off would return.
