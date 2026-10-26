@@ -39,8 +39,6 @@ import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
 import type { UnitsPreference } from "@/lib/units";
 
-export type { SummaryNote };
-
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 

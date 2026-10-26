@@ -1,30 +1,45 @@
 #!/bin/bash
-# Mutant test: Set row.loggedSets = undefined and verify test fails.
+# Mutant test: Drop wireLoggedSets call in page.tsx
 
 set -e
 
-MUTANT_FILE="src/lib/today/wire-logged-sets.ts"
+MUTANT_FILE="src/app/today/page.tsx"
 BACKUP="$MUTANT_FILE.mutant-backup"
 TEST="scripts/test-wire-logged-sets.ts"
 
-echo "Mutant test: row.loggedSets = undefined"
+echo "Mutant test: Drop wireLoggedSets call"
 
 # Backup original
 cp "$MUTANT_FILE" "$BACKUP"
 trap "mv '$BACKUP' '$MUTANT_FILE'" EXIT
 
-# Kill the wiring: comment out the assignment
-sed -i 's/row\.loggedSets = formatted;/\/\/ row.loggedSets = formatted; \/\/ MUTANT KILLED/' "$MUTANT_FILE"
+# Baseline: test must pass
+echo "Running baseline test..."
+if ! npm run test:wire-logged-sets > /dev/null 2>&1; then
+  echo "❌ Baseline test failed"
+  exit 1
+fi
+echo "✓ Baseline passed"
+
+# Kill the call: comment out the wireLoggedSets invocation
+sed -i 's/wireLoggedSets(todayExercises as unknown as Parameters<typeof wireLoggedSets>\[0\], loggedSetsRes.data, units);/\/\/ MUTANT: wireLoggedSets dropped/g' "$MUTANT_FILE"
+
+# Verify mutation applied
+if grep -q "wireLoggedSets(todayExercises" "$MUTANT_FILE"; then
+  echo "❌ Mutation did not apply - wireLoggedSets call still present"
+  exit 1
+fi
+echo "✓ Mutation applied"
 
 # Run test - should FAIL
 echo "Running test against mutant..."
-if npx tsx "$TEST" > /dev/null 2>&1; then
-  echo "❌ MUTANT SURVIVED: Test passed when row.loggedSets assignment was removed"
+if npm run test:wire-logged-sets > /dev/null 2>&1; then
+  echo "❌ MUTANT SURVIVED: Test passed when wireLoggedSets call was dropped"
   exit 1
 fi
 
 # Get first FAIL line
-npx tsx "$TEST" 2>&1 | grep "✗" | head -1
+npm run test:wire-logged-sets 2>&1 | grep -E "✗|FAIL|Error" | head -1
 
-echo "✓ MUTANT KILLED by exit code"
+echo "✓ MUTANT KILLED by test failure"
 exit 0
