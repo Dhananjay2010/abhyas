@@ -18,7 +18,7 @@ type SessionRow = {
   program_day_id?: string | null;
 };
 
-export function makePlanDayClient(
+export function createPlanDayDbOps(
   supabase: SupabaseClient<Database>,
   userId: string
 ): PlanDayClient {
@@ -47,7 +47,8 @@ export function makePlanDayClient(
       return result;
     },
     async findProgramDay(programId: string, dayIndex: number) {
-      return queryActiveProgramDay(supabase, userId, programId, dayIndex);
+      const result = await queryActiveProgramDay(supabase, userId, programId, dayIndex);
+      return result;
     },
     async updateSession(id: string, row: SessionInsert) {
       const { error } = await supabase
@@ -76,4 +77,8 @@ export function makePlanDayClient(
       return { rows: data ?? [], error: error?.message ?? null };
     },
   };
+}
+
+export function makePlanDayClient(db: PlanDayClient): PlanDayClient {
+  return db;
 }

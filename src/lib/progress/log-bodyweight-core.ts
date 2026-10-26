@@ -17,9 +17,41 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 export type LogBodyWeightResult = { ok: true } | { ok: false; error: string };
 
+export type BodyWeightDbOps = {
+  getUnits(): Promise<"metric" | "imperial">;
+  getTimezone(): Promise<string | null>;
+  upsertBodyMetric(userId: string, recordedOn: string, weightKg: number): Promise<{ error: { code?: string; message: string } | null }>;
+};
+
+export function createBodyWeightDbOps(client: SupabaseClient, userId: string): BodyWeightDbOps {
+  return {
+    async getUnits() {
+      return getProfileUnits(client, userId);
+    },
+    async getTimezone() {
+      const { data: profile } = await client
+        .from("profiles")
+        .select("timezone")
+        .eq("id", userId)
+        .single();
+      return profile?.timezone ?? null;
+    },
+    async upsertBodyMetric(userId: string, recordedOn: string, weightKg: number) {
+      const { error } = await client.from("body_metrics").upsert(
+        {
+          user_id: userId,
+          recorded_on: recordedOn,
+          weight_kg: weightKg,
+        },
+        { onConflict: "user_id,recorded_on" }
+      );
+      return { error };
+    },
+  };
+}
+
 export async function logBodyWeightCore(
-  client: SupabaseClient,
-  userId: string,
+  db: BodyWeightDbOps,
   weightKg: number,
   timezone?: string
 ): Promise<LogBodyWeightResult> {
@@ -27,7 +59,7 @@ export async function logBodyWeightCore(
     return { ok: false, error: "Invalid weight value." };
   }
 
-  const units = await getProfileUnits(client, userId);
+  const units = await db.getUnits();
   
   if (!validateBodyWeightKg(weightKg, units)) {
     if (units === "imperial") {
@@ -36,29 +68,16 @@ export async function logBodyWeightCore(
     return { ok: false, error: `Weight should be between ${WEIGHT_KG_MIN} and ${WEIGHT_KG_MAX} kg.` };
   }
 
-  // Fetch timezone if not provided
   let tz = timezone;
   if (!tz) {
-    const { data: profile } = await client
-      .from("profiles")
-      .select("timezone")
-      .eq("id", userId)
-      .single();
-    tz = resolveTimezoneWithProfile(profile?.timezone);
+    const profileTz = await db.getTimezone();
+    tz = resolveTimezoneWithProfile(profileTz);
   }
 
   const localDate = localDateString(tz);
-  const { error } = await client.from("body_metrics").upsert(
-    {
-      user_id: userId,
-      recorded_on: localDate,
-      weight_kg: weightKg,
-    },
-    { onConflict: "user_id,recorded_on" }
-  );
+  const { error } = await db.upsertBodyMetric("unused-user-id", localDate, weightKg);
 
   if (error) {
-    // Map check constraint error to friendly unit-aware message
     if (error.code === "23514" || error.message?.includes("body_metrics_weight_sane")) {
       if (units === "imperial") {
         return { ok: false, error: `Weight should be between ${BODY_WEIGHT_LB_MIN} and ${BODY_WEIGHT_LB_MAX} lb.` };

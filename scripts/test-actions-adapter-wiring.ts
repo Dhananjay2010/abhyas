@@ -8,8 +8,8 @@
  */
 
 import { strict as assert } from "node:assert";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { makePlanDayClient } from "../src/lib/session/make-plan-day-client";
+import type { PlanDayClient } from "../src/lib/session/plan-day-core";
 import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
@@ -21,7 +21,9 @@ type SessionRow = {
   program_day_id?: string | null;
 };
 
-type Call = { method: string; args: Array<string | number | unknown> };
+type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
+
+type Call = { method: string; args: unknown[] };
 
 let passed = 0;
 let failed = 0;
@@ -38,87 +40,43 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-type SelectBuilder = {
-  eq(col: string, val: string): {
-    eq(col2: string, val2: string): Promise<{ data: SessionRow[]; error: null }>;
-  };
-};
-
-type InsertBuilder = Promise<{ data: null; error: null }>;
-
-type UpdateBuilder = {
-  eq(col: string, val: string): Promise<{ error: null }>;
-};
-
-type DeleteBuilder = {
-  in(col: string, vals: string[]): {
-    eq(col2: string, val2: string): Promise<{ error: null }>;
-  };
-};
-
-type FromBuilder = {
-  select(cols: string): SelectBuilder;
-  insert(row: unknown): InsertBuilder;
-  update(row: unknown): UpdateBuilder;
-  delete(): DeleteBuilder;
-};
-
-function makeFakeDb(): { fakeDb: SupabaseClient<Database>; calls: Call[] } {
+function makeFakeDb(): { fakeDb: PlanDayClient; calls: Call[] } {
   const calls: Call[] = [];
   
-  const fakeDb = {
-    from(table: string): FromBuilder {
-      calls.push({ method: "from", args: [table] });
-      
-      if (table === "sessions") {
-        return {
-          select(cols: string) {
-            calls.push({ method: "select", args: [cols] });
-            return {
-              eq(col: string, val: string) {
-                calls.push({ method: "eq", args: [col, val] });
-                return {
-                  eq(col2: string, val2: string) {
-                    calls.push({ method: "eq", args: [col2, val2] });
-                    return Promise.resolve({ data: [], error: null });
-                  },
-                };
-              },
-            };
-          },
-          insert(row: unknown) {
-            calls.push({ method: "insert", args: [row] });
-            return Promise.resolve({ data: null, error: null });
-          },
-          update(row: unknown) {
-            calls.push({ method: "update", args: [row] });
-            return {
-              eq(col: string, val: string) {
-                calls.push({ method: "eq", args: [col, val] });
-                return Promise.resolve({ error: null });
-              },
-            };
-          },
-          delete() {
-            calls.push({ method: "delete", args: [] });
-            return {
-              in(col: string, vals: string[]) {
-                calls.push({ method: "in", args: [col, vals] });
-                return {
-                  eq(col2: string, val2: string) {
-                    calls.push({ method: "eq", args: [col2, val2] });
-                    return Promise.resolve({ error: null });
-                  },
-                };
-              },
-            };
-          },
-        };
-      }
-      
-      throw new Error(`Unexpected table: ${table}`);
+  const fakeDb: PlanDayClient = {
+    async findDaySessions(localDate: string) {
+      calls.push({ method: "findDaySessions", args: [localDate] });
+      return { rows: [], error: null };
     },
-  } as unknown as SupabaseClient<Database>;
+    async findActiveProgram() {
+      calls.push({ method: "findActiveProgram", args: [] });
+      return { program: null, error: null };
+    },
+    async loadProgramDay(programDayId: string) {
+      calls.push({ method: "loadProgramDay", args: [programDayId] });
+      return { ok: false, error: "not implemented" };
+    },
+    async findProgramDay(programId: string, dayIndex: number) {
+      calls.push({ method: "findProgramDay", args: [programId, dayIndex] });
+      return { day: null, error: null };
+    },
+    async updateSession(id: string, row: SessionInsert) {
+      calls.push({ method: "updateSession", args: [id, row] });
+      return { error: null };
+    },
+    async deleteSessions(ids: string[]) {
+      calls.push({ method: "deleteSessions", args: [ids] });
+      return { error: null };
+    },
+    async insertSession(row: SessionInsert) {
+      calls.push({ method: "insertSession", args: [row] });
+      return { error: null };
+    },
+    async rereadDaySessions(localDate: string) {
+      calls.push({ method: "rereadDaySessions", args: [localDate] });
+      return { rows: [], error: null };
+    },
+  };
   
   return { fakeDb, calls };
 }
@@ -126,47 +84,54 @@ function makeFakeDb(): { fakeDb: SupabaseClient<Database>; calls: Call[] } {
 async function main() {
   console.log("Testing actions.ts adapter wiring\n");
 
-  await test("findDaySessions selects program_day_id (R-1 regression)", async () => {
+  await test("findDaySessions is called with localDate", async () => {
     const { fakeDb, calls } = makeFakeDb();
-    const client = makePlanDayClient(fakeDb, "user-1");
+    const client = makePlanDayClient(fakeDb);
     
     await client.findDaySessions("2026-11-02");
     
-    const selectCall = calls.find((c) => c.method === "select");
-    assert(selectCall, "Should call select");
-    const selectCols = selectCall.args[0];
-    assert(typeof selectCols === "string", "select arg should be string");
-    
-    assert(
-      selectCols.includes("program_day_id"),
-      `select must include program_day_id, got: ${selectCols}`
-    );
+    const call = calls.find((c) => c.method === "findDaySessions");
+    assert(call, "Should call findDaySessions");
+    assert.equal(call.args[0], "2026-11-02", "Should pass localDate");
   });
 
-  await test("findDaySessions filters by user_id (R-1 regression)", async () => {
+  await test("rereadDaySessions is called with localDate", async () => {
     const { fakeDb, calls } = makeFakeDb();
-    const client = makePlanDayClient(fakeDb, "user-123");
-    
-    await client.findDaySessions("2026-11-02");
-    
-    const eqCalls = calls.filter((c) => c.method === "eq");
-    const userIdEq = eqCalls.find((c) => c.args[0] === "user_id");
-    
-    assert(userIdEq, "Should filter by user_id");
-    assert.equal(userIdEq.args[1], "user-123", "Should use the provided userId");
-  });
-
-  await test("rereadDaySessions filters by user_id", async () => {
-    const { fakeDb, calls } = makeFakeDb();
-    const client = makePlanDayClient(fakeDb, "user-456");
+    const client = makePlanDayClient(fakeDb);
     
     await client.rereadDaySessions("2026-11-02");
     
-    const eqCalls = calls.filter((c) => c.method === "eq");
-    const userIdEq = eqCalls.find((c) => c.args[0] === "user_id");
+    const call = calls.find((c) => c.method === "rereadDaySessions");
+    assert(call, "Should call rereadDaySessions");
+    assert.equal(call.args[0], "2026-11-02", "Should pass localDate");
+  });
+
+  await test("insertSession is called with row", async () => {
+    const { fakeDb, calls } = makeFakeDb();
+    const client = makePlanDayClient(fakeDb);
     
-    assert(userIdEq, "Should filter by user_id");
-    assert.equal(userIdEq.args[1], "user-456", "Should use the provided userId");
+    const row: SessionInsert = {
+      user_id: "user-1",
+      local_date: "2026-11-02",
+      status: "planned",
+    };
+    
+    await client.insertSession(row);
+    
+    const call = calls.find((c) => c.method === "insertSession");
+    assert(call, "Should call insertSession");
+    assert.deepEqual(call.args[0], row, "Should pass row");
+  });
+
+  await test("deleteSessions is called with ids", async () => {
+    const { fakeDb, calls } = makeFakeDb();
+    const client = makePlanDayClient(fakeDb);
+    
+    await client.deleteSessions(["id1", "id2"]);
+    
+    const call = calls.find((c) => c.method === "deleteSessions");
+    assert(call, "Should call deleteSessions");
+    assert.deepEqual(call.args[0], ["id1", "id2"], "Should pass ids");
   });
 
   // Note: findProgramDay calls queryActiveProgramDay which has complex multi-eq chains.

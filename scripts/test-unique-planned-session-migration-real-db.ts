@@ -68,39 +68,47 @@ async function runTests() {
 
   try {
     // Create test users
-    const user1 = randomUUID();
-    const user2 = randomUUID();
+    const user1Email = `test-migration-${Date.now()}-1@example.com`;
+    const user2Email = `test-migration-${Date.now()}-2@example.com`;
     
-    const { error: authError } = await adminClient.auth.admin.createUser({
-      email: `test-${user1}@example.com`,
+    const { data: auth1, error: authError } = await adminClient.auth.admin.createUser({
+      email: user1Email,
       password: "test-password-123",
-      user_metadata: {},
       email_confirm: true,
     });
     
-    if (authError && !authError.message.includes("already exists")) {
-      throw new Error(`Failed to create test user: ${authError.message}`);
+    if (authError || !auth1.user) {
+      throw new Error(`Failed to create test user: ${authError?.message}`);
     }
+    const user1 = auth1.user.id;
 
-    const { error: authError2 } = await adminClient.auth.admin.createUser({
-      email: `test-${user2}@example.com`,
+    const { data: auth2, error: authError2 } = await adminClient.auth.admin.createUser({
+      email: user2Email,
       password: "test-password-456",
-      user_metadata: {},
       email_confirm: true,
     });
     
-    if (authError2 && !authError2.message.includes("already exists")) {
-      throw new Error(`Failed to create test user 2: ${authError2.message}`);
+    if (authError2 || !auth2.user) {
+      throw new Error(`Failed to create test user 2: ${authError2?.message}`);
     }
+    const user2 = auth2.user.id;
 
     // Create test program
     const programId = randomUUID();
     const { error: progError } = await adminClient.from("programs").insert({
       id: programId,
       user_id: user1,
-      name: "Test Program",
-      status: "active",
+      goal: "strength",
+      level: "intermediate",
+      primary_track: "weights",
+      split_type: "upper_lower",
+      days_per_week: 3,
+      deload_week: 4,
       started_on: "2026-11-01",
+      ends_on: "2026-12-19",
+      block_number: 1,
+      week_offset: 0,
+      status: "active",
     });
     
     if (progError) throw new Error(`Failed to create program: ${progError.message}`);
@@ -110,8 +118,10 @@ async function runTests() {
     const { error: dayError } = await adminClient.from("program_days").insert({
       id: programDayId,
       program_id: programId,
+      user_id: user1,
       day_index: 1,
       day_type: "weights",
+      status: "active",
     });
     
     if (dayError) throw new Error(`Failed to create program_day: ${dayError.message}`);
@@ -159,11 +169,59 @@ async function runTests() {
 
     // Insert sessions
     const { error: sessError } = await adminClient.from("sessions").insert([
-      { id: sess1, user_id: user1, local_date: "2026-11-02", status: "planned", program_day_id: programDayId },
-      { id: sess2, user_id: user1, local_date: "2026-11-02", status: "planned", program_day_id: programDayId },
-      { id: sess3, user_id: user1, local_date: "2026-11-02", status: "planned", program_day_id: programDayId },
-      { id: sessOtherDate, user_id: user1, local_date: "2026-11-03", status: "planned", program_day_id: programDayId },
-      { id: sessOtherUser, user_id: user2, local_date: "2026-11-02", status: "planned", program_day_id: programDayId },
+      { 
+        id: sess1, 
+        user_id: user1, 
+        program_id: programId,
+        program_day_id: programDayId,
+        local_date: "2026-11-02", 
+        status: "planned",
+        planned_type: "weights",
+        week_in_block: 1,
+        is_deload: false,
+      },
+      { 
+        id: sess2, 
+        user_id: user1, 
+        program_id: programId,
+        program_day_id: programDayId,
+        local_date: "2026-11-02", 
+        status: "planned",
+        planned_type: "weights",
+        week_in_block: 1,
+        is_deload: false,
+      },
+      { 
+        id: sess3, 
+        user_id: user1, 
+        program_id: programId,
+        program_day_id: programDayId,
+        local_date: "2026-11-02", 
+        status: "planned",
+        planned_type: "weights",
+        week_in_block: 1,
+        is_deload: false,
+      },
+      { 
+        id: sessOtherDate, 
+        user_id: user1, 
+        program_id: programId,
+        program_day_id: programDayId,
+        local_date: "2026-11-03", 
+        status: "planned",
+        planned_type: "weights",
+        week_in_block: 1,
+        is_deload: false,
+      },
+      { 
+        id: sessOtherUser, 
+        user_id: user2, 
+        local_date: "2026-11-02", 
+        status: "planned",
+        planned_type: "weights",
+        week_in_block: 1,
+        is_deload: false,
+      },
     ]);
 
     if (sessError) throw new Error(`Failed to insert sessions: ${sessError.message}`);

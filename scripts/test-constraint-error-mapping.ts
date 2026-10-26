@@ -8,8 +8,7 @@
  */
 
 import { strict as assert } from "node:assert";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { logBodyWeightCore } from "../src/lib/progress/log-bodyweight-core";
+import { logBodyWeightCore, type BodyWeightDbOps } from "../src/lib/progress/log-bodyweight-core";
 
 export {}; // Module
 
@@ -28,55 +27,21 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-type SelectBuilder = {
-  eq(): {
-    single(): Promise<{ data: { units: string } }>;
-  };
-};
-
-type UpsertBuilder = Promise<{ error: { code?: string; message: string } | null }>;
-
-type ProfilesBuilder = {
-  select(): SelectBuilder;
-};
-
-type BodyMetricsBuilder = {
-  upsert(): UpsertBuilder;
-};
-
 function makeFakeDb(config: {
   units: "imperial" | "metric";
   error?: { code?: string; message: string } | null;
-}): SupabaseClient {
+}): BodyWeightDbOps {
   return {
-    from(table: string): ProfilesBuilder | BodyMetricsBuilder {
-      if (table === "profiles") {
-        return {
-          select() {
-            return {
-              eq() {
-                return {
-                  single() {
-                    return Promise.resolve({ data: { units: config.units } });
-                  },
-                };
-              },
-            };
-          },
-        };
-      }
-      
-      if (table === "body_metrics") {
-        return {
-          upsert() {
-            return Promise.resolve({ error: config.error ?? null });
-          },
-        };
-      }
-      
-      throw new Error(`Unexpected table: ${table}`);
+    async getUnits() {
+      return config.units;
     },
-  } as unknown as SupabaseClient;
+    async getTimezone() {
+      return "America/New_York";
+    },
+    async upsertBodyMetric() {
+      return { error: config.error ?? null };
+    },
+  };
 }
 
 async function main() {
@@ -88,7 +53,7 @@ async function main() {
       error: { code: "23514", message: "violates check constraint body_metrics_weight_sane" },
     });
     
-    const result = await logBodyWeightCore(db, "user-1", 500);
+    const result = await logBodyWeightCore(db, 500);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -104,7 +69,7 @@ async function main() {
       error: { code: "23514", message: "violates check constraint body_metrics_weight_sane" },
     });
     
-    const result = await logBodyWeightCore(db, "user-1", 500);
+    const result = await logBodyWeightCore(db, 500);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -120,7 +85,7 @@ async function main() {
       error: { message: "new row violates check constraint body_metrics_weight_sane" },
     });
     
-    const result = await logBodyWeightCore(db, "user-1", 500);
+    const result = await logBodyWeightCore(db, 500);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -134,7 +99,7 @@ async function main() {
       error: { code: "23503", message: "foreign key constraint violated" },
     });
     
-    const result = await logBodyWeightCore(db, "user-1", 75);
+    const result = await logBodyWeightCore(db, 75);
     
     assert.equal(result.ok, false);
     if (!result.ok) {
@@ -152,7 +117,7 @@ async function main() {
       error: null,
     });
     
-    const result = await logBodyWeightCore(db, "user-1", 75);
+    const result = await logBodyWeightCore(db, 75);
     
     assert.equal(result.ok, true, "Should succeed when no error");
   });
