@@ -107,8 +107,8 @@ function createFakeSupabase(responses: Record<string, unknown>) {
     
     // Handle errors
     if (typeof responseObj === "object" && responseObj !== null && "error" in responseObj && responseObj.error) {
-      const err = responseObj.error as { code?: string; message?: string; details?: string };
-      if (err.code === "23505") {
+      const err = responseObj.error;
+      if (typeof err === "object" && err !== null && "code" in err && err.code === "23505") {
         return new Response(JSON.stringify(err), {
           status: 409,
           headers: { "content-type": "application/json" },
@@ -367,7 +367,10 @@ async function test(name: string, fn: () => Promise<void>) {
     
     const updateCall = calls.find(c => c.method === "PATCH" && c.update);
     if (!updateCall?.update) throw new Error("No update call");
-    const payload = updateCall.update as Record<string, unknown>;
+    const payload = updateCall.update;
+    if (typeof payload !== "object" || payload === null || !("started_at" in payload)) {
+      throw new Error("update payload missing started_at");
+    }
     eq(payload.started_at, "2026-10-26T14:00:00Z", "started_at passed through");
   });
 
