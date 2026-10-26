@@ -74,6 +74,13 @@ const fakeDeps: PendingSetDeps = {
   now: () => FIXED_TIME,
 };
 
+// Type for jsdom global with window
+interface JsdomGlobal {
+  window: {
+    EventTarget: new () => EventTarget;
+  };
+}
+
 class CountingEventTarget {
   private target: EventTarget;
   private handlers = new Map<string, Set<() => void>>();
@@ -83,7 +90,8 @@ class CountingEventTarget {
   
   constructor() {
     // Use jsdom's EventTarget
-    this.target = new (global as typeof window).window.EventTarget();
+    const jsdomGlobal = global as unknown as JsdomGlobal;
+    this.target = new jsdomGlobal.window.EventTarget();
   }
   
   addEventListener = (type: string, handler: () => void): void => {
