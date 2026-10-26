@@ -573,13 +573,12 @@ async function testStaleSessionClosed() {
     }
 
     const patchBody = requests[patchIndex].body;
-    if (!patchBody || typeof patchBody !== "object") {
+    if (!patchBody || typeof patchBody !== "object" || !("status" in patchBody)) {
       throw new Error("Stale test failed: PATCH body is missing or invalid");
     }
 
-    const patchBodyObj = patchBody as Record<string, unknown>;
-    if (patchBodyObj.status !== "completed" && patchBodyObj.status !== "skipped") {
-      throw new Error(`Stale test failed: PATCH body.status should be 'completed' or 'skipped', got '${patchBodyObj.status}'`);
+    if (patchBody.status !== "completed" && patchBody.status !== "skipped") {
+      throw new Error(`Stale test failed: PATCH body.status should be 'completed' or 'skipped', got '${patchBody.status}'`);
     }
 
     console.log("✓ Stale session: >6h old session from yesterday is closed before new session insert");
@@ -589,9 +588,10 @@ async function testStaleSessionClosed() {
 }
 
 async function testFreshSessionResumed() {
-  const NOW_MS = new Date("2026-10-20T10:00:00Z").getTime(); // Use same date as other tests
+  const NOW_MS = new Date("2026-10-20T00:15:00Z").getTime(); // 15 minutes after midnight
   const TODAY = "2026-10-20";
-  const RECENT_MS = NOW_MS - (30 * 60 * 1000); // 30 minutes ago
+  const YESTERDAY = "2026-10-19";
+  const RECENT_MS = NOW_MS - (30 * 60 * 1000); // 30 minutes ago, crossing midnight (23:45 yesterday)
   const FRESH_STARTED_AT = new Date(RECENT_MS).toISOString();
 
   const requests: Array<{ method: string; url: string; body: unknown }> = [];
@@ -619,7 +619,7 @@ async function testFreshSessionResumed() {
           id: "fresh-session-id",
           user_id: "user-1",
           status: "in_progress",
-          local_date: TODAY,
+          local_date: YESTERDAY,
           actual_type: "weights",
           started_at: FRESH_STARTED_AT,
         }];
@@ -661,19 +661,20 @@ async function testFreshSessionResumed() {
       throw new Error(`Fresh test failed: expected sessionId=fresh-session-id, got ${result.data?.sessionId}`);
     }
 
-    const closePatchCount = requests.filter(r => {
+    const closePatchRequests = requests.filter(r => {
       if (r.method !== "PATCH" || !r.url.includes("/sessions") || r.url.includes("session_exercises")) {
         return false;
       }
-      const reqBody = r.body as Record<string, unknown> | null;
-      return reqBody && (reqBody.status === "completed" || reqBody.status === "skipped");
-    }).length;
+      const reqBody = r.body;
+      return reqBody !== null && typeof reqBody === "object" && "status" in reqBody && 
+             (reqBody.status === "completed" || reqBody.status === "skipped");
+    });
 
-    if (closePatchCount > 0) {
-      throw new Error(`Fresh test failed: expected no close PATCH for fresh session, but ${closePatchCount} were sent`);
+    if (closePatchRequests.length > 0) {
+      throw new Error(`Fresh test failed: expected no close PATCH for fresh cross-midnight session, but ${closePatchRequests.length} were sent`);
     }
 
-    console.log("✓ Fresh session: <6h old session is resumed without closing");
+    console.log("✓ Fresh session: <6h old cross-midnight session is resumed without closing");
   } finally {
     restoreClock();
   }
