@@ -180,14 +180,13 @@ test_mutant "resolveTarget min → plan min" a1
 # A2: Remove equipment/unit spread (provide wrong defaults)
 a2() {
   local file="$BUILD_INPUT"
-  local search='\.\.\.progressionInputsFromExercise(ex),'
-  local replace='equipmentIds: undefined,'
-  local count=$(grep -c "$search" "$file" || true)
+  local count=$(grep -c '\.\.\.progressionInputsFromExercise(ex),' "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "s/$search/$replace/" "$file"
+  # Replace spread with nothing (equipmentIds will be undefined)
+  sed -i 's|\.\.\.progressionInputsFromExercise(ex),|// MUTANT: spread removed|' "$file"
   if cmp -s "$file" "$BACKUP_BUILD_INPUT"; then
     echo "ERROR: A2 did not change the file" >&2
     return 1
@@ -441,7 +440,8 @@ l4b_drop_equipment() {
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i 's|\.\.\.progressionInputsFromExercise(ex),|// MUTANT: equipmentIds dropped|' "$file"
+  # Replace spread with just empty object spread (no equipmentIds)
+  sed -i 's|\.\.\.progressionInputsFromExercise(ex),|// MUTANT: equipmentIds dropped (empty spread)|' "$file"
   if cmp -s "$file" "$BACKUP_BUILD_INPUT"; then
     echo "ERROR: L4B-3 did not change the file" >&2
     return 1
@@ -458,7 +458,8 @@ l4b_drop_units() {
     echo "ERROR: units line found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i '/^\s*units,$/d' "$file"
+  # Comment it out instead of removing to keep structure valid
+  sed -i 's|^\(\s*\)units,$|\1// units, // MUTANT: units dropped|' "$file"
   if cmp -s "$file" "$BACKUP_BUILD_INPUT"; then
     echo "ERROR: L4B-4 did not change the file" >&2
     return 1
