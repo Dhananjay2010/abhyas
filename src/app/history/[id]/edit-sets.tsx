@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateSet, deleteSet } from "../actions";
-import { kgToDisplay, displayToKg, weightLabel, roundLbToHalf, convertWeightInputToKg, type UnitsPreference } from "@/lib/units";
+import { kgToDisplay, weightLabel, roundLbToHalf, convertWeightInputToKg, type UnitsPreference } from "@/lib/units";
 
 interface SetData {
   session_exercise_id: string;
@@ -173,7 +173,7 @@ export function EditSets({ sessionId, units, exercises, saveSet = updateSet }: E
     startTransition(async () => {
       const updates: Promise<{ success?: boolean; error?: string }>[] = [];
 
-      for (const [key, set] of editedSets) {
+      for (const [, set] of editedSets) {
         updates.push(
           saveSet(
             set.session_exercise_id,
