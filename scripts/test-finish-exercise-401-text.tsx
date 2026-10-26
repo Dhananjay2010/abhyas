@@ -53,7 +53,7 @@ const exercises: RunnerExercise[] = [{
   restSeconds: 90,
   workingWeightKg: null,
   suggestedWeightKg: null,
-  status: "in_progress",
+  status: "completed",
   feel: null,
   sets: [
     { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null },

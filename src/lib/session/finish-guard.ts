@@ -16,6 +16,6 @@ export function isFinishDisabled(pendingCount: number, busy: boolean): boolean {
  * 
  * Always returns "Done" - the pending count is shown in the notice above.
  */
-export function getFinishButtonText(pendingCount: number): string {
+export function getFinishButtonText(): string {
   return "Done";
 }

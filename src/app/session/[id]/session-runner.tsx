@@ -672,7 +672,7 @@ export function SessionRunner({
               setPhase("done");
             }}
           >
-            {getFinishButtonText(pendingSetState.pending.length)}
+            {getFinishButtonText()}
           </BigButton>
           <GhostButton
             disabled={busy}

@@ -98,12 +98,10 @@ const settings: RunnerSettings = {
   console.log("\n📋 Test: Skip with partial replay (1 of 2 sets saves)\n");
   
   let finishSessionCalled = false;
-  let logSetCallCount = 0;
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async (params) => {
-      logSetCallCount++;
       // First set (setNumber 4) succeeds, second set (setNumber 5) fails
       if (params.setNumber === 4) {
         return { ok: true };
