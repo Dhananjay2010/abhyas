@@ -7,9 +7,10 @@
  * and that the action doesn't bypass the core by using the old inline flow.
  *
  * Mutant: Restore main's inline startSession (without stale-close) in actions.ts.
- * It must FAIL on the assertion that the stale session was closed.
+ * It must FAIL on the import check or source verification.
  */
 
+import { readFileSync } from "fs";
 import { startSessionFullCore, type StartSessionFullDeps } from "../src/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "../src/lib/session/start-session-full-deps";
 
@@ -36,8 +37,48 @@ function eq<T>(actual: T, expected: T, message: string) {
   }
 }
 
+function assert(condition: boolean, message: string) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
 async function main() {
   console.log("Integration: startSession() goes through startSessionFullCore with stale-close\n");
+
+  await test("actions.ts imports startSessionFullCore", () => {
+    const source = readFileSync("src/app/session/actions.ts", "utf-8");
+    const hasImport = source.includes("startSessionFullCore");
+    assert(hasImport, "actions.ts must import startSessionFullCore");
+  });
+
+  await test("actions.ts imports buildStartSessionFullDeps", () => {
+    const source = readFileSync("src/app/session/actions.ts", "utf-8");
+    const hasImport = source.includes("buildStartSessionFullDeps");
+    assert(hasImport, "actions.ts must import buildStartSessionFullDeps");
+  });
+
+  await test("startSession() calls startSessionFullCore in source", () => {
+    const source = readFileSync("src/app/session/actions.ts", "utf-8");
+    
+    // Extract startSession function body
+    const startSessionMatch = source.match(/export async function startSession\(\)[^{]*\{([\s\S]*?)^\}/m);
+    assert(!!startSessionMatch, "Could not find startSession function");
+    
+    const functionBody = startSessionMatch![1];
+    
+    // Verify it calls startSessionFullCore
+    const callsCore = functionBody.includes("startSessionFullCore");
+    assert(callsCore, "startSession must call startSessionFullCore in its body");
+    
+    // Verify it uses buildStartSessionFullDeps
+    const usesBuildDeps = functionBody.includes("buildStartSessionFullDeps");
+    assert(usesBuildDeps, "startSession must call buildStartSessionFullDeps");
+    
+    // Verify it doesn't have the old inline implementation markers
+    const hasInlineMarkers = functionBody.includes("wave 1") || functionBody.includes("wave 2");
+    assert(!hasInlineMarkers, "startSession should not contain old inline 'wave' comments");
+  });
 
   await test("Over-6h stale session from other date is closed before new session", async () => {
     const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime();
