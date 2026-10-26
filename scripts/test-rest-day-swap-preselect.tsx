@@ -18,18 +18,21 @@ async function main() {
   const { render, cleanup } = await import("@testing-library/react");
   const { DayPlanPrompt } = await import("@/components/day-plan-prompt");
 
+  type DayType = "weights" | "bodyweight" | "rest" | "yoga" | "meditation" | "active_recovery";
+  
   type PlannableDay = {
     programDayId: string;
     label: string;
+    dayType: DayType;
     nextUp?: boolean;
   };
 
   console.log("1. Next-in-rotation day is listed first and labeled 'Next up'");
   {
     const days: PlannableDay[] = [
-      { programDayId: "day-b", label: "Full Body B", nextUp: false },
-      { programDayId: "day-c", label: "Full Body C", nextUp: false },
-      { programDayId: "day-a", label: "Full Body A", nextUp: true },
+      { programDayId: "day-b", label: "Full Body B", dayType: "weights" as const, nextUp: false },
+      { programDayId: "day-c", label: "Full Body C", dayType: "weights" as const, nextUp: false },
+      { programDayId: "day-a", label: "Full Body A", dayType: "weights" as const, nextUp: true },
     ];
 
     const mockPlanDay = async () => ({ ok: true as const });
@@ -57,8 +60,8 @@ async function main() {
   console.log("\n2. Swap picker shows day choices when opened");
   {
     const days: PlannableDay[] = [
-      { programDayId: "day-a", label: "Full Body A", nextUp: true },
-      { programDayId: "day-b", label: "Full Body B", nextUp: false },
+      { programDayId: "day-a", label: "Full Body A", dayType: "weights" as const, nextUp: true },
+      { programDayId: "day-b", label: "Full Body B", dayType: "weights" as const, nextUp: false },
     ];
 
     const mockPlanDay = async () => ({ ok: true as const });
@@ -86,9 +89,9 @@ async function main() {
   console.log("\n3. Days array is sorted with nextUp first");
   {
     const days: PlannableDay[] = [
-      { programDayId: "day-c", label: "Full Body C", nextUp: false },
-      { programDayId: "day-a", label: "Full Body A", nextUp: true },
-      { programDayId: "day-b", label: "Full Body B", nextUp: false },
+      { programDayId: "day-c", label: "Full Body C", dayType: "weights" as const, nextUp: false },
+      { programDayId: "day-a", label: "Full Body A", dayType: "weights" as const, nextUp: true },
+      { programDayId: "day-b", label: "Full Body B", dayType: "weights" as const, nextUp: false },
     ];
 
     const sorted = [...days].sort((a, b) => {

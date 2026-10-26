@@ -111,7 +111,7 @@ class FakeSupabase {
                   limit: () => ({
                     maybeSingle: async () => {
                       const match = filtered.find((s) => {
-                        if (col2 === "local_date") return s.local_date === val2;
+                        if (col2 === "local_date") return s.local_date === String(val2);
                         if (col2 === "status") return s.status === val2;
                         return true;
                       });
@@ -153,7 +153,7 @@ class FakeSupabase {
                     maybeSingle: async () => {
                       const filtered = this.sessions.filter((s) => {
                         const typeMatch = col === "actual_type" && vals.includes(s.actual_type);
-                        const dateMatch = col2 === "local_date" && s.local_date <= val2;
+                        const dateMatch = col2 === "local_date" && s.local_date <= String(val2);
                         return typeMatch && dateMatch;
                       });
                       const sorted = [...filtered].sort(
