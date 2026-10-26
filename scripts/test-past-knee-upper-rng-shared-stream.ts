@@ -71,25 +71,33 @@ const seed = 42;
 const programA = generateProgram(baseInput, seed);
 const programB = generateProgram(pastKneeInput, seed);
 
+console.log("Program A days:", programA.days.map(d => `${d.dayIndex}:${d.focus}`).join(", "));
+console.log("Program B days:", programB.days.map(d => `${d.dayIndex}:${d.focus}`).join(", "));
+console.log("");
+
 // Find Upper/Push/Pull days in each program
-function getAccessorySlots(program: typeof programA, dayFocus: "upper_body" | "push" | "pull") {
+function getAccessorySlots(program: typeof programA, dayFocus: "upper" | "lower" | "push" | "pull") {
   const day = program.days.find(d => d.focus === dayFocus);
   if (!day || day.dayType === "rest") return [];
   
   // Accessory slots are typically 3-6 (after compound lifts in slots 0-2)
   return day.exercises
     .filter(ex => ex.orderIndex >= 3)
-    .map(ex => ({ slug: ex.slug, orderIndex: ex.orderIndex }));
+    .map(ex => ({ name: ex.name, orderIndex: ex.orderIndex }));
 }
 
-const upperA = getAccessorySlots(programA, "upper_body");
-const upperB = getAccessorySlots(programB, "upper_body");
-const pushA = getAccessorySlots(programA, "push");
-const pushB = getAccessorySlots(programB, "push");
-const pullA = getAccessorySlots(programA, "pull");
-const pullB = getAccessorySlots(programB, "pull");
+const upperA = getAccessorySlots(programA, "upper");
+const upperB = getAccessorySlots(programB, "upper");
+const lowerA = getAccessorySlots(programA, "lower");
+const lowerB = getAccessorySlots(programB, "lower");
 
-// Check if any Upper/Push/Pull accessories differ
+console.log("Upper A:", upperA.map(s => s.name).join(", "));
+console.log("Upper B:", upperB.map(s => s.name).join(", "));
+console.log("Lower A:", lowerA.map(s => s.name).join(", "));
+console.log("Lower B:", lowerB.map(s => s.name).join(", "));
+console.log("");
+
+// Check if any Upper accessories differ
 let foundDifference = false;
 const diffs: string[] = [];
 
@@ -101,25 +109,23 @@ function compareDays(dayName: string, slotsA: typeof upperA, slotsB: typeof uppe
   }
   
   for (let i = 0; i < slotsA.length; i++) {
-    if (slotsA[i].slug !== slotsB[i].slug) {
+    if (slotsA[i].name !== slotsB[i].name) {
       foundDifference = true;
-      diffs.push(`${dayName} slot ${slotsA[i].orderIndex}: ${slotsA[i].slug} → ${slotsB[i].slug}`);
+      diffs.push(`${dayName} slot ${slotsA[i].orderIndex}: ${slotsA[i].name} → ${slotsB[i].name}`);
     }
   }
 }
 
 compareDays("Upper", upperA, upperB);
-compareDays("Push", pushA, pushB);
-compareDays("Pull", pullA, pullB);
 
 if (!foundDifference) {
-  console.error("❌ FAILED: No Upper/Push/Pull differences found despite different Lower filtering");
+  console.error("❌ FAILED: No Upper day differences found despite different Lower filtering");
   console.error("This suggests the RNG stream is NOT shared across days.");
   process.exit(1);
 }
 
 console.log("✅ Shared RNG stream verified:");
-console.log("Lower day filtering (past-knee) affects Upper/Push/Pull accessory picks\n");
+console.log("Lower day filtering (past-knee) affects Upper day accessory picks\n");
 console.log("Differences found:");
 diffs.forEach(d => console.log(`  - ${d}`));
 
