@@ -243,12 +243,115 @@ async function testR4AndR4s() {
   fakeStorage.clear();
 }
 
+async function testR4NetworkError() {
+  console.log("\n📋 Test R4-network: 'Network error' shows Retry button (not blocked as offline)\n");
+  
+  let replayCallCount = 0;
+  
+  const actions: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async () => {
+      replayCallCount++;
+      // Throw "Network error" which isOfflineError detects
+      throw new Error("Network error");
+    },
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+    getSessionSummary: async () => ({ ok: true, data: [] }),
+  };
+  
+  const exercises: RunnerExercise[] = [
+    {
+      id: "ex1",
+      exerciseId: "squat",
+      name: "Squat",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["quads"],
+      plannedSets: 3,
+      plannedRepsMin: 8,
+      repsMin: 8,
+      plannedRepsMax: 12,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false,
+    },
+  ];
+  
+  const settings: RunnerSettings = {
+    perSetLogging: false,
+    restSound: false,
+    restVibrate: false,
+    restAutostart: false,
+    restOverrideSeconds: null,
+    cooldownEnabled: false,
+  };
+  
+  const userId = "test-user-r4-network";
+  const sessionId = "session-r4-network";
+  
+  fakeStorage.clear();
+  
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-r4-network"
+  }, fakeDeps);
+  
+  render(
+    <SessionRunner
+      sessionId={sessionId}
+      sessionStatus="in_progress"
+      userId={userId}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={exercises}
+      settings={settings}
+      actions={actions}
+      timer={fakeTimer}
+      now={() => FIXED_TIME}
+    />
+  );
+  
+  await act(async () => {});
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Should show "Still offline" error but still show Retry button
+  const offlineText = screen.queryAllByText(/still offline/i);
+  assert(offlineText.length > 0, "R4-network: 'Still offline' error message shown");
+  
+  const retryButtons = screen.queryAllByRole("button", { name: /retry/i });
+  assert(retryButtons.length > 0, "R4-network: Retry button visible even for offline error");
+  
+  console.log("✅ R4-network: Network error shows Retry button correctly\n");
+}
+
 (async () => {
   try {
     await testR4AndR4s();
+    await testR4NetworkError();
     process.exit(0);
   } catch (error) {
-    console.error(`\n❌ Tests R4/R4s failed:`, error);
+    console.error(`\n❌ Tests failed:`, error);
     process.exit(1);
   }
 })();
