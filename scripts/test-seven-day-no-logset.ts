@@ -7,7 +7,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { attemptPendingSet } from "../src/lib/session/pending-set-outcome";
-import type { PendingSet } from "../src/lib/session/pending-set-storage";
+import type { PendingSet } from "../src/lib/session/pending-set-retry";
+import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 describe("7-day cutoff - no logSet call", () => {
   it("sets >7 days old are NOT sent to logSet", async () => {
@@ -50,14 +51,9 @@ describe("7-day cutoff - no logSet call", () => {
       userId,
       sessionId,
       storage: mockStorage as unknown as Storage,
-      deps: {
-        now: mockNow,
-        savePendingSet: () => {},
-        clearPendingSet: () => {},
-        loadPendingSets: () => [],
-      },
+      deps: createPendingSetDeps(mockNow),
       logSet: mockLogSet,
-      sessionStatus: "in_progress",
+      sessionStatus: "in-progress",
     });
 
     // Verify logSet was NOT called
@@ -110,14 +106,9 @@ describe("7-day cutoff - no logSet call", () => {
       userId,
       sessionId,
       storage: mockStorage as unknown as Storage,
-      deps: {
-        now: mockNow,
-        savePendingSet: () => {},
-        clearPendingSet: () => {},
-        loadPendingSets: () => [],
-      },
+      deps: createPendingSetDeps(mockNow),
       logSet: mockLogSet,
-      sessionStatus: "in_progress",
+      sessionStatus: "in-progress",
     });
 
     // Verify logSet WAS called

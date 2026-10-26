@@ -7,7 +7,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { createPendingSetController } from "../src/lib/session/pending-set-controller";
-import type { PendingSet } from "../src/lib/session/pending-set-storage";
+import type { PendingSet } from "../src/lib/session/pending-set-retry";
+import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 describe("Controller keep-and-surface", () => {
   it("load() keeps sets when session is not in progress", async () => {
@@ -45,7 +46,8 @@ describe("Controller keep-and-surface", () => {
       storage: mockStorage as unknown as Storage,
       logSet: mockLogSet,
       sessionStatus: mockSessionStatus,
-      now: mockNow,
+      deps: createPendingSetDeps(mockNow),
+      onChange: () => {},
     });
 
     controller.load();
@@ -94,7 +96,8 @@ describe("Controller keep-and-surface", () => {
       storage: mockStorage as unknown as Storage,
       logSet: mockLogSet,
       sessionStatus: mockSessionStatus,
-      now: mockNow,
+      deps: createPendingSetDeps(mockNow),
+      onChange: () => {},
     });
 
     await controller.replay();
