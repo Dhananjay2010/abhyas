@@ -1351,6 +1351,115 @@ console.log("\n11. Clock stops, resumes, and freezes when stale (stale-lifecycle
   document.body.removeChild(container);
 }
 
+// MEDIUM-1: Stale finish summary shows saved duration, not raw elapsed
+console.log("\n12. MEDIUM-1: Stale finish summary shows saved duration (medium1-summary)");
+{
+  const clock = {
+    startMs: Date.parse("2025-01-10T08:00:00Z"),
+    nowMs: Date.parse("2025-01-10T13:00:00Z"), // 5h later
+  };
+
+  const staleDuration = 555; // Backend returns stale-capped duration
+
+  const fakeActions: SessionActions = {
+    startSession: async () => ({ ok: true }),
+    resumeSession: async () => ({ ok: true }),
+    finishSession: async () => ({
+      ok: true,
+      data: { status: "completed" as const, durationSeconds: staleDuration },
+    }),
+    abandonSession: async () => ({ ok: true, data: { status: "completed" as const } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    logSet: async () => ({ ok: true }),
+    deleteSet: async () => ({ ok: true }),
+    markWarmupDone: async () => ({ ok: true }),
+    swapExercise: async () => ({ ok: true, data: { newSessionExerciseId: "ex2", plannedSets: 3 } }),
+    planDay: async () => ({ ok: true }),
+    suggestAlternatives: async () => ({ ok: true, data: [] }),
+    getSessionSummary: async () => ({ ok: true, data: [] }),
+  };
+
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  await act(async () => {
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "session-stale-summary",
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt: new Date(clock.startMs).toISOString(),
+        isStale: true,
+        warmup: [],
+        cooldown: [],
+        exercises: [{
+          id: "ex1",
+          exerciseId: "bench",
+          name: "Bench Press",
+          cue: null,
+          instructions: null,
+          metric: "reps",
+          status: "completed",
+          sets: [{ setNumber: 1, reps: 10, weightKg: 100, durationSeconds: null }],
+          isBodyweight: false,
+          plannedSets: 3,
+          targetRepsMin: 8,
+          targetRepsMax: 12,
+          targetWeightKg: null,
+          targetDurationSeconds: null,
+          order: 0,
+          setNumber: 1,
+        }],
+        settings: {
+          perSetLogging: true,
+          restAutostart: true,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+        },
+        actions: fakeActions,
+        nowFn: () => clock.nowMs,
+        onExit: () => {},
+      })
+    );
+  });
+
+  await act(async () => {});
+
+  // Click "Skip cool-down" button to finish
+  await act(async () => {
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const skipButton = buttons.find(b => {
+      const text = b.textContent;
+      return text !== null && text.includes("Skip cool-down");
+    });
+    if (skipButton) {
+      skipButton.click();
+    }
+  });
+
+  await act(async () => {});
+
+  // Should transition to done phase and show summary
+  const text = container.textContent || "";
+  const hasCompleted = text.includes("Session complete");
+  check("Summary screen shown", hasCompleted);
+
+  // Summary should show stale-capped duration (9:15), not raw elapsed (300:00)
+  // Look for "Time" followed by the duration
+  const timeMatch = text.match(/Time\s*(\d+:\d+|\d+\s*min)/);
+  const timeValue = timeMatch ? timeMatch[1] : null;
+  const correctDuration = timeValue && (timeValue.includes("9:15") || timeValue.includes("9 min"));
+  check("Summary shows stale duration (9:15)", correctDuration === true, `Time value: ${timeValue}`);
+  // Don't check for absence of 300: because it might appear in the clock display elsewhere
+
+  root.unmount();
+  document.body.removeChild(container);
+}
+
 console.log("");
 if (failures > 0) {
   console.log(`❌ FAIL: ${failures} checks failed`);

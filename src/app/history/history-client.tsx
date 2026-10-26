@@ -204,8 +204,10 @@ export function HistoryClient({
                 if (durationLabel) details.push(durationLabel);
                 
                 // Show set count unless it's zero-set or already shown in "Ended early"
+                // L-3: in-progress rows always show set count even if endedEarly is true
                 const isZeroSetStrength = (item.actualType === "weights" || item.actualType === "bodyweight" || item.actualType === null) && item.setCount === 0;
-                if (!item.endedEarly && !isZeroSetStrength && item.setCount > 0) {
+                const showSetCount = (item.status === "in_progress" || !item.endedEarly) && !isZeroSetStrength && item.setCount > 0;
+                if (showSetCount) {
                   details.push(pluralize(item.setCount, "set"));
                 }
                 if (item.topSetWeight) {

@@ -124,7 +124,7 @@ export default async function HistoryPage({
   // (set counts already computed by detectSessionPRs above)
   // QA Bot 3 M3: handle errors silently
   const sessionExerciseIds = (sessionExercises ?? []).map((se) => se.id);
-  const allSets: Array<{ session_exercise_id: string; reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null }> = [];
+  const allSets: Array<{ session_exercise_id: string; reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null; completed_at: string | null }> = [];
   const chunkSize = 100;
   let setsError = null;
   
@@ -132,7 +132,7 @@ export default async function HistoryPage({
     const chunk = sessionExerciseIds.slice(i, i + chunkSize);
     const { data, error } = await supabase
       .from("session_sets")
-      .select("session_exercise_id, reps, weight_kg, duration_seconds, is_warmup_set")
+      .select("session_exercise_id, reps, weight_kg, duration_seconds, is_warmup_set, completed_at")
       .in("session_exercise_id", chunk)
       .eq("is_warmup_set", false);  // Only need working sets for top set calculation
     if (error) {

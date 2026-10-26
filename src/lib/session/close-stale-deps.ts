@@ -5,6 +5,7 @@ type SessionsUpdate = Database["public"]["Tables"]["sessions"]["Update"];
 
 export type SessionExerciseRow = {
   session_id: string;
+  rest_seconds: number | null;
   session_sets: Array<{
     id: string;
     is_warmup_set: boolean;
@@ -32,7 +33,7 @@ export function supabaseCloseStaleQueries(supabase: SupabaseClient<Database>): C
     selectSessionSets: (ids) =>
       supabase
         .from("session_exercises")
-        .select("session_id, session_sets(id, is_warmup_set, completed_at)")
+        .select("session_id, rest_seconds, session_sets(id, is_warmup_set, completed_at)")
         .in("session_id", ids),
     updateSessionIfStatus: (id, guardStatus, values) =>
       supabase.from("sessions").update(values, { count: "exact" }).eq("id", id).eq("status", guardStatus),

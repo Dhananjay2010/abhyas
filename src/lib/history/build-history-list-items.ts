@@ -11,6 +11,7 @@
 import type { SessionListItem } from "@/app/history/types";
 import { buildHistorySessionSummaries } from "./build-session-summaries";
 import type { RawSession, RawSessionExercise } from "./build-session-summaries";
+import { computeSessionDuration } from "./compute-duration";
 
 export interface RawSessionForList extends RawSession {
   local_date: string;
@@ -34,6 +35,7 @@ export interface SessionSetForTopSet {
   weight_kg: number | null;
   duration_seconds: number | null;
   is_warmup_set: boolean | null;
+  completed_at: string | null;
 }
 
 /**
@@ -76,6 +78,18 @@ export function buildHistoryListItems(
     setsByExercise.set(set.session_exercise_id, list);
   }
   
+  // Index sets by session_id for last completed_at lookup (L-4)
+  const setsBySession = new Map<string, typeof sessionSets>();
+  for (const set of sessionSets) {
+    // Find the session_id via exercises
+    const exercise = sessionExercises.find(ex => ex.id === set.session_exercise_id);
+    if (exercise) {
+      const list = setsBySession.get(exercise.session_id) ?? [];
+      list.push(set);
+      setsBySession.set(exercise.session_id, list);
+    }
+  }
+  
   // Map each session to a SessionListItem
   return sessions.map(s => {
     const vol = volumeById.get(s.id);
@@ -108,12 +122,26 @@ export function buildHistoryListItems(
     const endedEarly = summary?.endedEarly ?? false;
     const plannedSets = summary?.plannedSets ?? null;
     
+    // L-4: Compute duration from timestamps when duration_seconds is null (legacy rows)
+    const sessionSetList = setsBySession.get(s.id) ?? [];
+    const lastSetCompletedAt = sessionSetList.length > 0
+      ? sessionSetList
+          .filter(set => set.completed_at !== null)
+          .sort((a, b) => (a.completed_at ?? "").localeCompare(b.completed_at ?? ""))
+          .pop()?.completed_at ?? null
+      : null;
+    const durationSeconds = computeSessionDuration(
+      s.duration_seconds,
+      s.started_at,
+      lastSetCompletedAt
+    );
+    
     return {
       id: s.id,
       localDate: s.local_date,
       status: s.status,
       actualType: s.actual_type,
-      durationSeconds: s.duration_seconds,
+      durationSeconds,
       startedAt: s.started_at,
       completedAt: s.completed_at,
       isDeload: s.is_deload ?? false,
