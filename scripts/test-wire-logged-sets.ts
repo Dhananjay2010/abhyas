@@ -39,10 +39,10 @@ const actual = [
   },
 ];
 
-const template: any[] = [];
+const template: never[] = [];
 
 // Build rows using REAL buildTodayRows (produces s<N> keys)
-const rows = buildTodayRows({ actual, template, isDeload: false });
+const rows = buildTodayRows({ actual: actual as unknown as Parameters<typeof buildTodayRows>[0]["actual"], template, isDeload: false });
 
 if (rows.length !== 2) {
   console.error(`✗ Expected 2 rows, got ${rows.length}`);
