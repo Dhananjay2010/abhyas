@@ -189,6 +189,268 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   cleanup();
   console.log("✓ Test 3: Replay fails passed\n");
   
+  // ========================================================================
+  // Test 4: Expired session on "Sign out anyway" → keeps queue, calls /auth/signout POST, navigates
+  // ========================================================================
+  console.log("=== Test 4: Expired session path (Sign out anyway) ===\n");
+  
+  fakeStorage.clear();
+  savePendingSet(fakeStorage, "u4", "session-4", {
+    sessionExerciseId: "ex4",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-u4"
+  }, fakeDeps);
+  
+  const queueBeforeExpired = fakeStorage.getItem(storageKey("u4"));
+  
+  const signOutExpired = async () => {
+    throw new Error("SESSION_EXPIRED:abc123");
+  };
+  
+  let fetchCalled = false;
+  let fetchPath = "";
+  let fetchMethod = "";
+  
+  const originalFetch = global.fetch;
+  global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    fetchCalled = true;
+    fetchPath = typeof input === 'string' ? input : input.toString();
+    fetchMethod = init?.method || "GET";
+    return new Response(JSON.stringify({}), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+  
+  replaceCalls.length = 0;
+  refreshCalls.length = 0;
+  
+  render(
+    <SignOutForm
+      label="Sign out"
+      userId="u4"
+      signOut={signOutExpired}
+      logSet={logSetFail}
+      now={new Date(FIXED_TIME)}
+    />
+  );
+  
+  // First click - triggers replay which fails, shows warning
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Now click "Sign out anyway" which triggers expired session path
+  await act(async () => {
+    const anywayButton = screen.getByText(/Sign out anyway/i);
+    anywayButton.click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  await act(async () => {});
+  
+  assert(fakeStorage.getItem(storageKey("u4")) === queueBeforeExpired, "u4 queue kept on expired session");
+  assert(fetchCalled, "/auth/signout POST was made");
+  assert(fetchPath === "/auth/signout", "POST to /auth/signout");
+  assert(fetchMethod === "POST", "Method is POST");
+  assert(replaceCalls.length === 1 && replaceCalls[0] === "/", "Navigates after expired session");
+  assert(refreshCalls.length === 1, "router.refresh called after expired");
+  
+  global.fetch = originalFetch;
+  cleanup();
+  console.log("✓ Test 4 passed\n");
+  
+  // ========================================================================
+  // Test 5: Non-expired throw on "Sign out anyway" → keeps queue, shows error, no navigation
+  // ========================================================================
+  console.log("=== Test 5: Non-expired throw (Sign out anyway) ===\n");
+  
+  fakeStorage.clear();
+  savePendingSet(fakeStorage, "u5", "session-5", {
+    sessionExerciseId: "ex5",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-u5"
+  }, fakeDeps);
+  
+  const queueBeforeThrow = fakeStorage.getItem(storageKey("u5"));
+  
+  const signOutThrow = async () => {
+    throw new Error("Network timeout");
+  };
+  
+  replaceCalls.length = 0;
+  
+  render(
+    <SignOutForm
+      label="Sign out"
+      userId="u5"
+      signOut={signOutThrow}
+      logSet={logSetFail}
+      now={new Date(FIXED_TIME)}
+    />
+  );
+  
+  // First click - triggers replay which fails, shows warning
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Now click "Sign out anyway" which triggers throw
+  await act(async () => {
+    const anywayButton = screen.getByText(/Sign out anyway/i);
+    anywayButton.click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  assert(fakeStorage.getItem(storageKey("u5")) === queueBeforeThrow, "u5 queue kept on throw");
+  assert(replaceCalls.length === 0, "No navigation on non-expired throw");
+  assert(screen.queryByText(/Unable to sign out/i) !== null, "Shows error message");
+  
+  cleanup();
+  console.log("✓ Test 5 passed\n");
+  
+  // ========================================================================
+  // Test 6: {ok:false} result on "Sign out anyway" → keeps queue, shows error, no navigation
+  // ========================================================================
+  console.log("=== Test 6: {ok:false} result (Sign out anyway) ===\n");
+  
+  fakeStorage.clear();
+  savePendingSet(fakeStorage, "u6", "session-6", {
+    sessionExerciseId: "ex6",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-u6"
+  }, fakeDeps);
+  
+  const queueBeforeOkFalse = fakeStorage.getItem(storageKey("u6"));
+  
+  const signOutOkFalse = async () => {
+    return { ok: false as const, error: "Invalid session" };
+  };
+  
+  replaceCalls.length = 0;
+  
+  render(
+    <SignOutForm
+      label="Sign out"
+      userId="u6"
+      signOut={signOutOkFalse}
+      logSet={logSetFail}
+      now={new Date(FIXED_TIME)}
+    />
+  );
+  
+  // First click - triggers replay which fails, shows warning
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Now click "Sign out anyway" which triggers ok:false
+  await act(async () => {
+    const anywayButton = screen.getByText(/Sign out anyway/i);
+    anywayButton.click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  assert(fakeStorage.getItem(storageKey("u6")) === queueBeforeOkFalse, "u6 queue kept on ok:false");
+  assert(replaceCalls.length === 0, "No navigation on ok:false");
+  assert(screen.queryByText(/Unable to sign out/i) !== null, "Shows error on ok:false");
+  
+  cleanup();
+  console.log("✓ Test 6 passed\n");
+  
+  // ========================================================================
+  // Test 7: Non-ok /auth/signout on expired session → shows error, no navigation, queue kept
+  // ========================================================================
+  console.log("=== Test 7: Non-ok /auth/signout POST (Sign out anyway) ===\n");
+  
+  fakeStorage.clear();
+  savePendingSet(fakeStorage, "u7", "session-7", {
+    sessionExerciseId: "ex7",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-u7"
+  }, fakeDeps);
+  
+  const queueBeforeNonOk = fakeStorage.getItem(storageKey("u7"));
+  
+  const signOutExpired2 = async () => {
+    throw new Error("SESSION_EXPIRED:xyz789");
+  };
+  
+  global.fetch = async () => {
+    return new Response(JSON.stringify({ error: "Server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  };
+  
+  replaceCalls.length = 0;
+  
+  render(
+    <SignOutForm
+      label="Sign out"
+      userId="u7"
+      signOut={signOutExpired2}
+      logSet={logSetFail}
+      now={new Date(FIXED_TIME)}
+    />
+  );
+  
+  // First click - triggers replay which fails, shows warning
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Now click "Sign out anyway" which triggers expired session path with non-ok POST
+  await act(async () => {
+    const anywayButton = screen.getByText(/Sign out anyway/i);
+    anywayButton.click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  await act(async () => {});
+  
+  assert(fakeStorage.getItem(storageKey("u7")) === queueBeforeNonOk, "u7 queue kept on non-ok POST");
+  assert(replaceCalls.length === 0, "No navigation on non-ok POST");
+  assert(screen.queryByText(/Failed to sign out/i) !== null, "Shows error on non-ok POST");
+  
+  global.fetch = originalFetch;
+  cleanup();
+  console.log("✓ Test 7 passed\n");
+  
   console.log(`✅ H1 compatibility tests passed (${passed} assertions)\n`);
   process.exit(0);
 })();
