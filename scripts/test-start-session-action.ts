@@ -589,6 +589,7 @@ async function testStaleSessionClosed() {
 
 async function testFreshSessionResumed() {
   const NOW_MS = new Date("2026-10-20T00:15:00Z").getTime(); // 15 minutes after midnight
+  const TODAY = "2026-10-20";
   const YESTERDAY = "2026-10-19";
   const RECENT_MS = NOW_MS - (30 * 60 * 1000); // 30 minutes ago, crossing midnight (23:45 yesterday)
   const FRESH_STARTED_AT = new Date(RECENT_MS).toISOString();
@@ -614,6 +615,16 @@ async function testFreshSessionResumed() {
           headers: { "Content-Type": "application/vnd.pgrst.object+json" },
         });
       } else {
+        const urlStr = url.toString();
+        const isTodayInProgressQuery = urlStr.includes(`local_date=eq.${TODAY}`) && urlStr.includes("status=eq.in_progress");
+        
+        if (isTodayInProgressQuery) {
+          return new Response(JSON.stringify([]), {
+            status: 200,
+            headers: { "Content-Type": "application/json", "Content-Range": "0-0/0" },
+          });
+        }
+
         const data = [{
           id: "fresh-session-id",
           user_id: "user-1",
@@ -658,6 +669,17 @@ async function testFreshSessionResumed() {
 
     if (result.data?.sessionId !== "fresh-session-id") {
       throw new Error(`Fresh test failed: expected sessionId=fresh-session-id, got ${result.data?.sessionId}`);
+    }
+
+    const openSessionsQuery = requests.find(r => 
+      r.method === "GET" && 
+      r.url.includes("/sessions") && 
+      r.url.includes("status=in.") &&
+      r.url.includes("planned")
+    );
+
+    if (!openSessionsQuery) {
+      throw new Error(`Fresh test failed: expected open-sessions query (status=in.(planned,...)) to be made during stale-close step`);
     }
 
     const closePatchRequests = requests.filter(r => {
