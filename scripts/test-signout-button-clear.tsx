@@ -239,8 +239,80 @@ Object.defineProperty(window, 'localStorage', {
   assert(replaceCalls.length === 0, "M9: router.replace not called when thrown");
   assert(refreshCalls.length === 0, "M9: router.refresh not called when thrown");
   
+  // ========================================================================
+  // Test 4: Expired session - still signs out locally, keeps queue, navigates
+  // ========================================================================
+  console.log("\n=== Test 4: Expired session path (B6) ===\n");
+  
+  fakeStorage.clear();
+  const queueDataExpired = JSON.stringify({
+    version: 1,
+    timestamp: FIXED_TIME,
+    sets: [{
+      sessionExerciseId: "ex5",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-u5"
+    }]
+  });
+  fakeStorage.setItem("pending-sets:u5", queueDataExpired);
+  
+  // Mock fetch for /auth/signout
+  let fetchCalled = false;
+  const originalFetch = global.fetch;
+  global.fetch = async (url: string | URL | Request, init?: RequestInit) => {
+    const urlString = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
+    if (urlString.includes("/auth/signout") && init?.method === "POST") {
+      fetchCalled = true;
+      return new Response("", { status: 303 });
+    }
+    return originalFetch(url, init);
+  };
+  
+  const clearSetsExpired = (storage: Storage, userId: string) => {
+    clearAllPendingSetsForUser(storage, userId);
+  };
+  
+  const signOutExpired = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
+    // Simulate expired session - throw error with SESSION_EXPIRED prefix
+    throw new Error("SESSION_EXPIRED: Session has expired");
+  };
+  
+  replaceCalls.length = 0;
+  refreshCalls.length = 0;
+  
+  render(
+    <SignOutButton
+      userId="u5"
+      clearSets={clearSetsExpired}
+      signOut={signOutExpired}
+    />
+  );
+  
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Restore original fetch
+  global.fetch = originalFetch;
+  
+  const remainingQueueExpired = fakeStorage.getItem("pending-sets:u5");
+  assert(remainingQueueExpired !== null, "B6: Queue kept when session expired");
+  assert(remainingQueueExpired === queueDataExpired, "B6: Queue unchanged when expired");
+  assert(fetchCalled, "B6: POST /auth/signout called for local sign-out");
+  assert(replaceCalls.length === 1 && replaceCalls[0] === "/", "B6: router.replace called when expired");
+  assert(refreshCalls.length === 1, "B6: router.refresh called when expired");
+  
   console.log("\nPLANTED BUG: Clearing queue before checking sign-out result → data loss");
-  console.log("MUTANT M9: Clear on throw → kills the queue even when signOut throws\n");
+  console.log("MUTANT M9: Clear on throw → kills the queue even when signOut throws");
+  console.log("MUTANT B6-clear: Clear queue on expired path → loses replay data");
+  console.log("MUTANT B6-skip: Skip local sign-out on expired path → cookies not cleared\n");
   
   console.log(`\n✅ SignOutButton test passed (${passed} assertions)\n`);
   process.exit(0);

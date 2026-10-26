@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { clearPendingChanges } from "@/lib/auth/pending-changes";
 import { signOutAction } from "@/lib/auth/signout";
 import { clearAllPendingSetsForUser } from "@/lib/session/pending-set-retry";
+import { isSessionExpired } from "@/lib/auth/session-expired";
 
 export function SignOutForm({ 
   label,
@@ -28,7 +29,26 @@ export function SignOutForm({
       let result;
       try {
         result = await signOut();
-      } catch {
+      } catch (err) {
+        // Check if this is an expired session error
+        if (isSessionExpired(err)) {
+          // Session is already expired, sign out locally and navigate
+          // KEEP the queue - it's keyed by userId and will replay on next sign-in
+          try {
+            await fetch("/auth/signout", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
+          } catch {
+            // If fetch fails, cookies might still be invalid; proceed with navigation
+          }
+          router.replace("/");
+          router.refresh();
+          return;
+        }
+        
         setError("Unable to sign out. Please try again.");
         return;
       }

@@ -36,6 +36,7 @@ import {
   type SwapResult,
 } from "../actions";
 import { SessionExpiredPrompt } from "@/components/session-expired-prompt";
+import { isSessionExpired } from "@/lib/auth/session-expired";
 import {
   createPendingSetController,
   type PendingSetState,
@@ -680,7 +681,7 @@ export function SessionRunner({
               if (pendingSetState.pending.length > 0 && controller) {
                 await controller.replay();
                 // After replay, check if queue is now empty
-                const deps = createPendingSetDeps();
+                const deps = createPendingSetDeps(now);
                 const remaining = loadPendingSets(window.localStorage, userId, sessionId, deps);
                 if (remaining.length === 0) {
                   // Queue is empty, finish session in the same tap
@@ -986,14 +987,12 @@ export function SessionRunner({
       });
     } catch (err) {
       // Handle rejected promise (e.g. 401 proxy rejection on expiry)
-      if (err instanceof Error) {
-        if (err.message.includes("SESSION_EXPIRED") || err.message.includes("Not signed in") || err.message.includes("401")) {
-          setSessionExpired(true);
-          setError(null);
-        } else {
-          setError(err.message || "An error occurred");
-          setSessionExpired(false);
-        }
+      if (isSessionExpired(err)) {
+        setSessionExpired(true);
+        setError(null);
+      } else if (err instanceof Error) {
+        setError(err.message || "An error occurred");
+        setSessionExpired(false);
       } else {
         setError("An error occurred");
         setSessionExpired(false);

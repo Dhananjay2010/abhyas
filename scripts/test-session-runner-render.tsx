@@ -213,6 +213,7 @@ async function test1b1d() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -324,6 +325,7 @@ async function testN7() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -361,6 +363,7 @@ async function testN7() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -454,7 +457,8 @@ async function test7b7c() {
         settings={settings}
         actions={actions}
       timer={fakeTimer}
-      />
+      now={() => FIXED_TIME}
+    />
     );
     
     await act(async () => {});
@@ -545,7 +549,8 @@ async function test7b7c() {
         exercises={exercises}
         settings={settings}
         actions={errorActions}
-      />
+      now={() => FIXED_TIME}
+    />
     );
     
     await act(async () => {});
@@ -679,6 +684,7 @@ async function test8d8e() {
       timer={fakeTimer}
       addEventListener={mockAddEventListener}
       removeEventListener={mockRemoveEventListener}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -821,6 +827,7 @@ async function test9b() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -935,6 +942,7 @@ async function testN11() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1041,6 +1049,7 @@ async function testN12() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1129,6 +1138,7 @@ async function testConflict() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1250,6 +1260,7 @@ async function testDoubleTap() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1348,6 +1359,7 @@ async function testFailedSubmit() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1461,6 +1473,7 @@ async function testN7sCompletedSession() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1569,6 +1582,7 @@ async function testRetryButton() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   

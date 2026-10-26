@@ -229,10 +229,79 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   
   console.log("✓ Test 3: Throw keeps queue\n");
   
+  // ========================================================================
+  // Test 4: Expired session - still signs out locally, keeps queue, navigates (B6)
+  // ========================================================================
+  console.log("=== Test 4: Expired session path (B6) ===\n");
+  
+  fakeStorage.clear();
+  savePendingSet(fakeStorage, "u5", "s5", {
+    sessionExerciseId: "ex5",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "u5-set"
+  }, fakeDeps);
+  
+  const queueBeforeExpired = fakeStorage.getItem(storageKey("u5"));
+  assert(queueBeforeExpired !== null, "u5 queue exists before sign-out");
+  
+  // Mock fetch for /auth/signout
+  let fetchCalled = false;
+  const originalFetch = global.fetch;
+  global.fetch = async (url: string | URL | Request, init?: RequestInit) => {
+    const urlString = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
+    if (urlString.includes("/auth/signout") && init?.method === "POST") {
+      fetchCalled = true;
+      return new Response("", { status: 303 });
+    }
+    return originalFetch(url, init);
+  };
+  
+  const signOutExpired = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
+    // Simulate expired session - throw error with SESSION_EXPIRED prefix
+    throw new Error("SESSION_EXPIRED: Session has expired");
+  };
+  
+  replaceCalls.length = 0;
+  refreshCalls.length = 0;
+  
+  render(
+    <SignOutForm
+      label="Sign out"
+      userId="u5"
+      signOut={signOutExpired}
+      clearSets={clearAllPendingSetsForUser}
+    />
+  );
+  
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Restore original fetch
+  global.fetch = originalFetch;
+  
+  const queueAfterExpired = fakeStorage.getItem(storageKey("u5"));
+  assert(queueAfterExpired !== null, "B6: u5 queue kept when session expired");
+  assert(queueAfterExpired === queueBeforeExpired, "B6: u5 queue unchanged when expired");
+  assert(fetchCalled, "B6: POST /auth/signout called for local sign-out");
+  assert(replaceCalls.length === 1 && replaceCalls[0] === "/", "B6: router.replace called when expired");
+  assert(refreshCalls.length === 1, "B6: router.refresh called when expired");
+  
+  console.log("✓ Test 4: Expired session path passed\n");
+  
   console.log(`✅ Today SignOutForm tests passed (${passed} assertions)\n`);
   console.log("MUTANT M10: Clear before sign-out check → clears even on failure");
   console.log("MUTANT M11: Today form not clearing → queue never cleared");
   console.log("MUTANT M12: Clear when signOut throws → kills the queue");
-  console.log("MUTANT M14: No navigation after success → user stays on /today\n");
+  console.log("MUTANT M14: No navigation after success → user stays on /today");
+  console.log("MUTANT B6-clear: Clear queue on expired path → loses replay data");
+  console.log("MUTANT B6-skip: Skip local sign-out on expired path → cookies not cleared\n");
   process.exit(0);
 })();

@@ -165,6 +165,7 @@ async function testM9() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+      now={() => FIXED_TIME}
     />
   );
   

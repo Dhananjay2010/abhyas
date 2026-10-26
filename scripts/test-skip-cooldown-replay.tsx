@@ -159,6 +159,7 @@ const settings: RunnerSettings = {
       settings={settings}
       actions={actionsA}
       timer={fakeTimer}
+      now={() => FIXED_TIME}
     />
   );
   
@@ -255,6 +256,7 @@ const settings: RunnerSettings = {
       settings={settings}
       actions={actionsB}
       timer={fakeTimer}
+      now={() => FIXED_TIME}
     />
   );
   

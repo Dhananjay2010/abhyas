@@ -37,9 +37,9 @@ assertEqual(isFinishDisabled(2, true), true, "Button disabled when busy and pend
 
 // getFinishButtonText tests
 assertEqual(getFinishButtonText(0), "Done", "Shows 'Done' when no pending");
-assertEqual(getFinishButtonText(1), "1 set waiting to save", "Shows '1 set waiting to save' for 1 pending");
-assertEqual(getFinishButtonText(2), "2 sets waiting to save", "Shows '2 sets waiting to save' for 2 pending");
-assertEqual(getFinishButtonText(5), "5 sets waiting to save", "Shows '5 sets waiting to save' for 5 pending");
+assertEqual(getFinishButtonText(1), "Done", "Shows 'Done' when 1 pending (count is in notice)");
+assertEqual(getFinishButtonText(2), "Done", "Shows 'Done' when 2 pending (count is in notice)");
+assertEqual(getFinishButtonText(5), "Done", "Shows 'Done' when 5 pending (count is in notice)");
 
 console.log(exitCode === 0 ? "\n✅ All finish guard tests passed" : "\n❌ Some tests failed");
 process.exit(exitCode);

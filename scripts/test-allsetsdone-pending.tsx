@@ -137,6 +137,7 @@ const fakeTimer = {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+      now={() => FIXED_TIME}
     />
   );
   

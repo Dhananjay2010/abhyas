@@ -167,6 +167,7 @@ async function testR4AndR4s() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+      now={() => FIXED_TIME}
     />
   );
   
