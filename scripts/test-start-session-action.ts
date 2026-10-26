@@ -589,7 +589,6 @@ async function testStaleSessionClosed() {
 
 async function testFreshSessionResumed() {
   const NOW_MS = new Date("2026-10-20T00:15:00Z").getTime(); // 15 minutes after midnight
-  const TODAY = "2026-10-20";
   const YESTERDAY = "2026-10-19";
   const RECENT_MS = NOW_MS - (30 * 60 * 1000); // 30 minutes ago, crossing midnight (23:45 yesterday)
   const FRESH_STARTED_AT = new Date(RECENT_MS).toISOString();
