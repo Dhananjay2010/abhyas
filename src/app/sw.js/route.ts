@@ -182,7 +182,7 @@ function isSessionRoute(request) {
   
   // Cache /session/[id] routes (but not RSC requests)
   const isRSC = request.headers.get("RSC") === "1" || url.searchParams.has("_rsc");
-  if (url.pathname.startsWith("/session/") && !isRSC && request.mode === "navigate") {
+  if (url.pathname.startsWith("/session/") && url.pathname.length > 9 && !isRSC && request.mode === "navigate") {
     return true;
   }
   
