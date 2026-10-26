@@ -178,5 +178,5 @@ export async function loadSessionSummary(
           }
         : null;
     },
-  });
+  }, units);
 }
