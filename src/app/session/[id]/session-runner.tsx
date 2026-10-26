@@ -183,6 +183,8 @@ export function SessionRunner({
   const [alternativesForExerciseId, setAlternativesForExerciseId] = useState<string | null>(null);
   // FIX (a): Load summary from DB on phase transition, not client state
   const [progressNotes, setProgressNotes] = useState<SummaryNote[]>([]);
+  const [summaryError, setSummaryError] = useState(false);
+  const [summaryAttempt, setSummaryAttempt] = useState(0);
   const [summaryLoaded, setSummaryLoaded] = useState(false);
   const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [bannerContent, setBannerContent] = useState<{ name: string; message: string } | null>(null);
@@ -213,16 +215,29 @@ export function SessionRunner({
   );
   
   // Load summary when phase transitions to done (including on remount)
+  // A failed load (ok:false or a network drop) shows an error with Retry, so
+  // the summary never just stays blank; Retry bumps summaryAttempt.
   useEffect(() => {
-    if (phase === "done" && !summaryLoaded) {
-      actions.getSessionSummary(sessionId).then((result) => {
+    if (phase !== "done" || summaryLoaded) return;
+    let cancelled = false;
+    actions
+      .getSessionSummary(sessionId)
+      .then((result) => {
+        if (cancelled) return;
         if (result.ok) {
           setProgressNotes(result.data);
           setSummaryLoaded(true);
+        } else {
+          setSummaryError(true);
         }
+      })
+      .catch(() => {
+        if (!cancelled) setSummaryError(true);
       });
-    }
-  }, [phase, summaryLoaded, sessionId, actions]);
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, summaryLoaded, summaryAttempt, sessionId, actions]);
   const [warmupIndex, setWarmupIndex] = useState(0);
   // B1: the exercise the latest logged set belongs to, not simply the first
   // pending one, so a resume lands where the user left off.
@@ -582,6 +597,25 @@ export function SessionRunner({
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {summaryError && (
+          <section
+            role="alert"
+            className="mt-8 flex items-center justify-between gap-4 rounded-xl border border-border bg-surface px-4 py-3 text-sm"
+          >
+            <p className="text-muted">Couldn&apos;t load your summary.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSummaryError(false);
+                setSummaryAttempt((n) => n + 1);
+              }}
+              className="rounded-lg border border-border px-3 py-1.5 font-medium"
+            >
+              Retry
+            </button>
           </section>
         )}
 

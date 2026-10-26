@@ -14,6 +14,11 @@
  * Case 3, the summary's Total volume is in the user's units: 10 x 50 kg is
  *   "500 kg" for metric and "1,102 lb" for imperial (QA Bot 1 L-1).
  *
+ * Case 4, the summary fetch rejects (network drop), then Retry succeeds.
+ * Case 5, the summary fetch returns ok:false, then Retry succeeds.
+ *   Both show "Couldn't load your summary." with a Retry button and no notes,
+ *   and the notes appear after Retry (QA3 MED-2; kills QA3's R1).
+ *
  * Kills: dropping the getSessionSummary call; labelling the banner with
  * current.name; not clearing the banner on skip.
  */
@@ -71,7 +76,9 @@ const SUMMARY = [
   { name: "Row", message: "Weight up to 52.5 kg next time", personalBest: "Heaviest set yet — 50 kg" },
 ];
 
-function makeActions() {
+type SummaryResult = { ok: true; data: typeof SUMMARY } | { ok: false; error: string };
+
+function makeActions(summaryImpl?: (call: number) => Promise<SummaryResult>) {
   const calls = { summary: 0, finishSession: 0 };
   const notes: Record<string, string> = {
     bench: "All sets at the top of the range, 52.5 kg next time",
@@ -92,6 +99,7 @@ function makeActions() {
     },
     getSessionSummary: async () => {
       calls.summary++;
+      if (summaryImpl) return summaryImpl(calls.summary);
       return { ok: true as const, data: SUMMARY };
     },
     abandonSession: ok,
@@ -241,6 +249,47 @@ async function finishedSummary(units?: "metric" | "imperial") {
     const v3 = totalVolume(dflt.container);
     check("no units passed: defaults to kg", v3 === "500 kg", String(v3));
     dflt.unmount();
+  }
+
+  for (const [label, firstFailure] of [
+    ["Case 4: summary fetch rejects (network drop), Retry succeeds", () => Promise.reject(new TypeError("Failed to fetch"))],
+    ["Case 5: summary fetch returns ok:false, Retry succeeds", async () => ({ ok: false as const, error: "Could not load session summary" })],
+  ] as Array<[string, () => Promise<SummaryResult>]>) {
+    console.log(`\n${label}`);
+    const { actions, calls } = makeActions((n) => (n === 1 ? firstFailure() : Promise.resolve({ ok: true as const, data: SUMMARY })));
+    const { container: c, unmount } = render(
+      <SessionRunner
+        sessionId="s4"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[makeExercise("row", "Row", true)]}
+        settings={settings}
+        actions={actions}
+      />,
+    );
+    await click(button(c, /^Skip cool-down$/), "Skip cool-down");
+    let alertText: string | null = null;
+    await waitFor(() => {
+      alertText = c.querySelector('[role="alert"]')?.textContent ?? null;
+      if (!alertText?.includes("Couldn't load your summary")) throw new Error("no error shown");
+    }, { timeout: 2000 }).catch(() => {});
+    check("error message shown", (alertText ?? "").includes("Couldn't load your summary"), String(alertText));
+    const retry = button(c, /^Retry$/);
+    check("Retry button shown", !!retry);
+    check("no notes while failed", !(c.textContent?.includes("What changed for next time") ?? false));
+    if (retry) await click(retry, "Retry");
+    await waitFor(() => {
+      if (!c.textContent?.includes("What changed for next time")) throw new Error("notes not rendered");
+    }, { timeout: 2000 }).catch(() => {});
+    check("Retry calls getSessionSummary again", calls.summary === 2, String(calls.summary));
+    check("after Retry the notes render", c.textContent?.includes("Weight up to 52.5 kg next time") ?? false);
+    check("after Retry the PB card renders", c.textContent?.includes("Heaviest set yet — 50 kg") ?? false);
+    check("after Retry the error is gone", !c.querySelector('[role="alert"]')?.textContent?.includes("Couldn't load"));
+    unmount();
   }
 
   if (failures > 0) {
