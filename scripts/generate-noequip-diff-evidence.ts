@@ -23,7 +23,7 @@ async function runComparison() {
 
     // Dynamic imports
     const branchModule = await import("@/lib/program/progression");
-    // @ts-ignore - temp file created dynamically
+    //  - temp file created dynamically
     const mainModule = await import("../src/lib/program/progression-main-temp.js");
 
     const branchEvaluate = branchModule.evaluateProgression;
@@ -99,7 +99,7 @@ async function runComparison() {
   for (const testCase of cases) {
     const meta = {
       mechanic: testCase.mechanic,
-      movementPattern: testCase.pattern as any,
+      movementPattern: testCase.pattern,
       metric: "reps" as const,
       isBodyweight: false,
       progressionChain: null,

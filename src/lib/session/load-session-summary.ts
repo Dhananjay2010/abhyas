@@ -159,7 +159,7 @@ export async function loadSessionSummary(
 
     notes.push({
       name: exerciseName,
-      personalBest: personalBest ? describePersonalBest(personalBest, units as "kg" | "lb") : null,
+      personalBest: personalBest ? describePersonalBest(personalBest, units) : null,
     });
   }
 

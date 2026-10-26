@@ -12,7 +12,6 @@ import {
   type ProgressState,
 } from "../src/lib/program/progression";
 import { prescribe } from "../src/lib/program/prescription";
-import type { WeightUnit } from "@/lib/session/equipment-grid";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -372,8 +371,8 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     `${heavier.personalBest?.kind}`);
   check("and reads as one",
     heavier.personalBest !== null &&
-      describePersonalBest(heavier.personalBest, "kg" as WeightUnit) === "Heaviest set yet — 65 kg",
-    heavier.personalBest ? describePersonalBest(heavier.personalBest, "kg" as WeightUnit) : "none");
+      describePersonalBest(heavier.personalBest, "kg") === "Heaviest set yet — 65 kg",
+    heavier.personalBest ? describePersonalBest(heavier.personalBest, "kg") : "none");
 
   const same = run({ sets: sets(4, 12, 60) });
   check("repeating your best is not a best", same.personalBest === null,
@@ -417,8 +416,8 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     longer.personalBest?.kind === "hold", `${longer.personalBest?.kind}`);
   check("and reads in seconds",
     longer.personalBest !== null &&
-      describePersonalBest(longer.personalBest, "kg" as WeightUnit) === "Longest hold yet — 50s",
-    longer.personalBest ? describePersonalBest(longer.personalBest, "kg" as WeightUnit) : "none");
+      describePersonalBest(longer.personalBest, "kg") === "Longest hold yet — 50s",
+    longer.personalBest ? describePersonalBest(longer.personalBest, "kg") : "none");
 
   const deload = run({ sets: sets(4, 12, 65), isDeload: true });
   check("deload week tracks bests", deload.personalBest?.kind === "weight",

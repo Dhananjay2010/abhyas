@@ -65,7 +65,7 @@ export type PersonalBest =
   | { kind: "e1rm"; value: number };
 
 /** One line, for the session summary. */
-export function describePersonalBest(pb: PersonalBest, units: WeightUnit): string {
+export function describePersonalBest(pb: PersonalBest, units: UnitsPreference = "metric"): string {
   switch (pb.kind) {
     case "weight":
       return `Heaviest set yet — ${formatWeight(pb.value, units)}`;
@@ -175,15 +175,6 @@ export function addedWeightStep(meta: ExerciseMeta, equipmentIds?: string[]): nu
  * For lb: uses app's formatWeight (kgToLb -> roundLbToHalf -> format, no .0 for whole numbers).
  * For kg: returns plain kg value (matches main's exact kg wording, no rounding).
  */
-function displayWeight(kgValue: number, unit: WeightUnit | undefined): string {
-  if (unit === 'lb') {
-    // Use app's actual UI formatter for lb
-    return formatWeight(kgValue, 'imperial', true);
-  }
-  // For kg: plain value (no formatWeight rounding)
-  return `${kgValue} kg`;
-}
-
 function roundTo(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
