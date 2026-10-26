@@ -412,11 +412,11 @@ export function rankAlternatives<T extends ExerciseRow>(
   const deduplicated: T[] = [];
   let slotsTaken = 0;
   
-  // For past-knee squat swaps, we need to collect enough candidates to ensure
-  // we get both quad isolation AND hinge fallbacks, then slice to limit after reordering.
-  // Otherwise, if the top 5 are all quads, hinges never appear.
+  // For past-knee squat swaps, run the class filter (quad isolation + hinge fallbacks)
+  // over the FULL deduplicated candidate set, then slice to limit after reordering.
+  // This ensures we get both quad isolation AND hinge fallbacks when available.
   const isPastKneeSquatSwap = hasPastKnee && current.movement_pattern === "squat";
-  const effectiveLimit = isPastKneeSquatSwap ? 20 : limit;
+  const effectiveLimit = isPastKneeSquatSwap ? Number.POSITIVE_INFINITY : limit;
   
   for (const item of filtered) {
     const normalizedName = normalizeName(item.exercise.name);
