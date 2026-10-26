@@ -150,9 +150,12 @@ export async function updateSetCore(
   setNumber: number,
   reps: number | null,
   weightKg: number | null,
-  durationSeconds: number | null,
-  units: "metric" | "imperial" = "metric"
+  durationSeconds: number | null
 ): Promise<UpdateSetResult> {
+  // Fetch user's units preference
+  const { getProfileUnits } = await import("@/lib/get-profile-units");
+  const units = await getProfileUnits(supabase, userId);
+  
   // Import validation functions
   const {
     validateReps,

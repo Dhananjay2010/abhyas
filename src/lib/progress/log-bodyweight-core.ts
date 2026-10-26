@@ -57,5 +57,16 @@ export async function logBodyWeightCore(
     { onConflict: "user_id,recorded_on" }
   );
 
-  return error ? { ok: false, error: error.message } : { ok: true };
+  if (error) {
+    // Map check constraint error to friendly unit-aware message
+    if (error.code === "23514" || error.message?.includes("body_metrics_weight_sane")) {
+      if (units === "imperial") {
+        return { ok: false, error: `Weight should be between ${BODY_WEIGHT_LB_MIN} and ${BODY_WEIGHT_LB_MAX} lb.` };
+      }
+      return { ok: false, error: `Weight should be between ${WEIGHT_KG_MIN} and ${WEIGHT_KG_MAX} kg.` };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
 }

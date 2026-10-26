@@ -51,6 +51,10 @@ import {
   parseHeight,
   weightLabel,
   heightLabel,
+  BODY_WEIGHT_LB_MIN,
+  BODY_WEIGHT_LB_MAX,
+  WEIGHT_KG_MIN,
+  WEIGHT_KG_MAX,
   type UnitsPreference,
 } from "@/lib/units";
 
@@ -310,8 +314,8 @@ export function OnboardingFlow({
       : null;
     const weightError = weightTouched && weightKg !== "" && weightKgValue === null
       ? units === "imperial"
-        ? "Weight should be between 55 and 661 lb"
-        : "Weight should be between 25 and 300 kg"
+        ? `Weight should be between ${BODY_WEIGHT_LB_MIN} and ${BODY_WEIGHT_LB_MAX} lb`
+        : `Weight should be between ${WEIGHT_KG_MIN} and ${WEIGHT_KG_MAX} kg`
       : null;
     
     const dobValid = dateOfBirth !== null && dobValidationError === null;

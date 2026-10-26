@@ -148,9 +148,6 @@ export async function updateSet(
     return { success: false, error: "Not authenticated" };
   }
 
-  const { getProfileUnits } = await import("@/lib/get-profile-units");
-  const units = await getProfileUnits(supabase, user.id);
-
   // Get session_id for revalidation
   const { data: sessionExercise } = await supabase
     .from("session_exercises")
@@ -167,8 +164,7 @@ export async function updateSet(
     setNumber,
     reps,
     weightKg,
-    durationSeconds,
-    units
+    durationSeconds
   );
 
   if (!result.success) {

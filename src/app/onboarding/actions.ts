@@ -8,6 +8,13 @@ import { MIN_AGE_YEARS, ageOn } from "@/lib/onboarding/options";
 import { localDateString } from "@/lib/dates";
 import { createBlockForUser } from "@/lib/program/persist";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import { 
+  validateBodyWeightKg, 
+  BODY_WEIGHT_LB_MIN, 
+  BODY_WEIGHT_LB_MAX, 
+  WEIGHT_KG_MIN, 
+  WEIGHT_KG_MAX 
+} from "@/lib/units";
 import { branding } from "@/lib/branding";
 import { persistSessionLength } from "@/lib/onboarding/session-length";
 
@@ -53,8 +60,15 @@ export async function saveAboutYou(input: {
   if (age > 100) return { ok: false, error: "Please check your date of birth." };
   if (input.heightCm < 100 || input.heightCm > 250)
     return { ok: false, error: "Height should be between 100 and 250 cm." };
-  if (input.weightKg < 25 || input.weightKg > 300)
-    return { ok: false, error: "Weight should be between 25 and 300 kg." };
+  
+  // Validate body weight with unit-specific bounds
+  const units = input.units ?? "metric";
+  if (!validateBodyWeightKg(input.weightKg, units)) {
+    if (units === "imperial") {
+      return { ok: false, error: `Weight should be between ${BODY_WEIGHT_LB_MIN} and ${BODY_WEIGHT_LB_MAX} lb.` };
+    }
+    return { ok: false, error: `Weight should be between ${WEIGHT_KG_MIN} and ${WEIGHT_KG_MAX} kg.` };
+  }
 
   const { supabase, user } = await requireUser();
 

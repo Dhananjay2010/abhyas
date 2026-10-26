@@ -124,8 +124,7 @@ function check(label: string, pass: boolean, detail = "") {
       1,
       8,
       kg1000lb,
-      null,
-      "imperial"
+      null
     );
     
     check("V7/V8: Imperial 1000 lb rejected", result.success === false);
@@ -151,8 +150,7 @@ function check(label: string, pass: boolean, detail = "") {
       1,
       8,
       501,
-      null,
-      "metric"
+      null
     );
     
     check("V7/V8: Metric 501 kg rejected", result.success === false);
