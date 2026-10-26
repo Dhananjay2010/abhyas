@@ -103,12 +103,10 @@ Object.defineProperty(window, 'localStorage', {
     clearAllPendingSetsForUser(storage, userId);
   };
   
-  // Success case: signOut returns success (in real code it would redirect)
-  const signOutSuccess = async (): Promise<{ ok: false; error: string }> => {
+  // Success case: signOut returns success (in real code it would redirect on client)
+  const signOutSuccess = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
     callOrder.push("signOut");
-    // In reality, success would redirect and never return
-    // For test purposes, we'll simulate what happens before redirect
-    return new Promise(() => {}) as Promise<{ ok: false; error: string }>;
+    return { ok: true };
   };
   
   render(

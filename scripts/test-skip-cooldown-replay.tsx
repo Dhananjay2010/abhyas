@@ -163,12 +163,14 @@ const fakeTimer = {
   assert(screen.queryByText("Cool-down") !== null, "In cool-down phase");
   
   // Verify pending set message shows (replay failed due to network error)
-  assert(screen.queryByText(/1 set waiting to save/i) !== null, "Shows pending set message after replay failure");
+  const pendingText = screen.queryAllByText(/1 set waiting to save/i);
+  assert(pendingText.length > 0, "Shows pending set message after replay failure");
   
-  // Find Skip cool-down button (get all buttons, find the one with "Skip")
+  // Find Skip cool-down button - look for button with exact text
   const allButtons = screen.queryAllByRole("button");
-  const skipButton = allButtons.find(b => b.textContent?.includes("Skip cool-down"));
-  assert(skipButton !== undefined, "Skip cool-down button exists");
+  const skipButtons = allButtons.filter(b => b.textContent?.trim() === "Skip cool-down");
+  assert(skipButtons.length > 0, "Skip cool-down button exists");
+  const skipButton = skipButtons[0];
   
   // Click Skip cool-down with pending sets (logSet will still fail)
   const initialLogSetCount = logSetCallCount;
@@ -207,7 +209,8 @@ const fakeTimer = {
   // Track the state before clicking
   const callsBeforeSecondSkip = finishSessionCalled ? 1 : 0;
   const allButtons2 = screen.queryAllByRole("button");
-  const skipButton2 = allButtons2.find(b => b.textContent?.includes("Skip cool-down"));
+  const skipButtons2 = allButtons2.filter(b => b.textContent?.trim() === "Skip cool-down");
+  const skipButton2 = skipButtons2[0];
   
   await act(async () => {
     skipButton2!.click();

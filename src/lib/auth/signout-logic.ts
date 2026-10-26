@@ -10,6 +10,7 @@
 export async function performSignOut(deps: {
   signOut: () => Promise<{ error: Error | null }>;
   redirect: (url: string) => never;
+  beforeRedirect?: () => void;
 }): Promise<{ ok: false; error: string }> {
   const { error } = await deps.signOut();
   if (error) {
@@ -17,6 +18,8 @@ export async function performSignOut(deps: {
     console.error("Sign-out failed:", error.message);
     return { ok: false, error: "Sign-out failed" };
   }
+  // Call cleanup hook before redirect (e.g. clearing pending queues)
+  deps.beforeRedirect?.();
   // If signOut succeeds, redirect immediately. The redirect throws, so the
   // return type Promise<never | { ok: false }> is correct but TS needs help.
   deps.redirect("/");

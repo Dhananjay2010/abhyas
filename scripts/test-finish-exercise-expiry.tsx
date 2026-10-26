@@ -107,8 +107,9 @@ const fakeTimer = {
     await act(async () => {});
     
     // Find and click a feel button
-    const feelButton = screen.queryByRole("button", { name: /Just right/i });
-    assert(feelButton !== null, "Feel button exists");
+    const feelButtons = screen.queryAllByRole("button", { name: /Just right/i });
+    assert(feelButtons.length > 0, "Feel button exists");
+    const feelButton = feelButtons[0];
     
     await act(async () => {
       feelButton!.click();
@@ -194,7 +195,8 @@ const fakeTimer = {
     
     await act(async () => {});
     
-    const feelButton = screen.queryByRole("button", { name: /Just right/i });
+    const feelButtons = screen.queryAllByRole("button", { name: /Just right/i });
+    const feelButton = feelButtons.length > 0 ? feelButtons[0] : null;
     
     await act(async () => {
       feelButton!.click();

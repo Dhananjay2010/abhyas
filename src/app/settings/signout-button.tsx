@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { signOutAction } from "@/lib/auth/signout";
 import { clearAllPendingSetsForUser } from "@/lib/session/pending-set-retry";
 import { clearPendingChanges } from "@/lib/auth/pending-changes";
@@ -16,6 +17,7 @@ export function SignOutButton({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   async function handleSignOut() {
     startTransition(async () => {
@@ -25,23 +27,22 @@ export function SignOutButton({
       try {
         result = await signOut();
       } catch {
-        // signOut threw - queue stays untouched
         setError("Unable to sign out. Please try again.");
         return;
       }
       
-      // If we reach here, signOut did not throw
-      // If it returns an error, queue stays untouched
       if (!result.ok) {
         setError("Unable to sign out. Please try again.");
         return;
       }
       
       // Success - clear the queue before redirect
-      // (redirect will happen and this component will unmount, but clear happens first)
       if (typeof window !== "undefined") {
         clearSets(window.localStorage, userId);
       }
+      
+      // Redirect to home
+      router.push("/");
     });
   }
 
