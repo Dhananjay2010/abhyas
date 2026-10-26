@@ -8,22 +8,11 @@
 import { formatLoggedSets } from "@/lib/session/format-logged-sets";
 import type { UnitsPreference } from "@/lib/units";
 import type { Database } from "@/lib/database.types";
+import type { TodayRow } from "./build-today-rows";
 
-export type TodayRowWithLoggedSets = {
-  key: string;
-  name: string;
-  cue: string | null;
-  metric: Database["public"]["Enums"]["exercise_metric"] | null;
-  sets: number | null;
-  repsMin: number | null;
-  repsMax: number | null;
-  restSeconds: number | null;
-  skipped: boolean;
-  swappedIn: boolean;
-  loggedSets?: string | null;
-};
+export type TodayRowWithLoggedSets = TodayRow;
 
-type LoggedSetsData = {
+export type LoggedSetsData = {
   order_index: number;
   metric: Database["public"]["Enums"]["exercise_metric"];
   session_sets: Array<{

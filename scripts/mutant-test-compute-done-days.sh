@@ -1,45 +1,20 @@
-#!/bin/bash
-# Mutant test: Set isDone = false in page.tsx
-
-set -e
-
-MUTANT_FILE="src/app/today/page.tsx"
-BACKUP="$MUTANT_FILE.mutant-backup"
-TEST="scripts/test-wire-logged-sets.ts"
-
-echo "Mutant test: Force isDone = false"
-
-# Backup original
-cp "$MUTANT_FILE" "$BACKUP"
-trap "mv '$BACKUP' '$MUTANT_FILE'" EXIT
-
-# Baseline: test must pass
-echo "Running baseline test..."
-if ! npm run test:wire-logged-sets > /dev/null 2>&1; then
-  echo "❌ Baseline test failed"
-  exit 1
-fi
-echo "✓ Baseline passed"
-
-# Kill: replace the whole isDayDone call with false
-sed -i 's/isDone: isDayDone(completedDays, localToday, todayIndex, dayIndex),/isDone: false,/g' "$MUTANT_FILE"
-
-# Verify mutation applied
-if grep -q "isDayDone(completedDays, localToday, todayIndex, dayIndex)" "$MUTANT_FILE"; then
-  echo "❌ Mutation did not apply - isDayDone call still present"
-  exit 1
-fi
-echo "✓ Mutation applied"
-
-# Run test - should FAIL
-echo "Running test against mutant..."
-if npm run test:wire-logged-sets > /dev/null 2>&1; then
-  echo "❌ MUTANT SURVIVED: Test passed when isDone was forced to false"
-  exit 1
-fi
-
-# Get first FAIL line
-npm run test:wire-logged-sets 2>&1 | grep -E "✗|FAIL|Error" | head -1
-
-echo "✓ MUTANT KILLED by test failure"
-exit 0
+#!/usr/bin/env bash
+# Mutants for the "Your week" done tick, killed by test-compute-done-days.ts
+# (real helpers) and test-week-list.tsx (real WeekList render).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+source scripts/helpers/file-mutant.sh
+T=(bash -c 'npx tsx scripts/test-compute-done-days.ts && npx tsx scripts/test-week-list.tsx')
+echo "Mutants: week done tick"
+baseline "${T[@]}"
+run_mutant "const isDone = false" src/lib/today/compute-done-days.ts \
+  'const isDone = done.has(date);' 'const isDone = false;' "${T[@]}"
+run_mutant "in-progress counts as done" src/lib/today/compute-done-days.ts \
+  'if (s.status === "completed" && s.actual_type) {' 'if (s.actual_type) {' "${T[@]}"
+run_mutant "wrong date for the row" src/lib/today/compute-done-days.ts \
+  '(d.day_index - todayIndex + 7) % 7' '(d.day_index - todayIndex + 6) % 7' "${T[@]}"
+run_mutant "tick never rendered" src/app/today/week-list.tsx \
+  '{d.isDone && (' '{false && (' "${T[@]}"
+run_mutant "page.tsx renders an empty week" src/app/today/page.tsx \
+  'days={buildWeekDays({ days: days ?? [], sessions: allSessions, localToday, todayIndex })}' 'days={buildWeekDays({ days: days ?? [], sessions: [], localToday, todayIndex })}' "${T[@]}"
+finish_mutants

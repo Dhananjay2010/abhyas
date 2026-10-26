@@ -15,6 +15,9 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
+import { buildWeekDays } from "@/lib/today/compute-done-days";
+import { getUnitsPreference } from "@/lib/units";
+import { WeekList } from "./week-list";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
@@ -394,25 +397,16 @@ export default async function TodayPage() {
       deload_week: program.deload_week,
     },
     localToday,
+    // "What you did": the sets actually logged, warm-ups excluded.
+    logged: loggedSetsRes?.data
+      ? { exercises: loggedSetsRes.data, units: getUnitsPreference(profile.units) }
+      : null,
   });
-
-  // FIX (c): Wire in logged sets for completed sessions using real key format
-  if (loggedSetsRes?.data) {
-    const { wireLoggedSets } = await import("@/lib/today/wire-logged-sets");
-    const { getUnitsPreference } = await import("@/lib/units");
-    const units = getUnitsPreference(profile.units);
-    
-    wireLoggedSets(todayExercises as unknown as Parameters<typeof wireLoggedSets>[0], loggedSetsRes.data, units);
-  }
 
   // Recompute week and isDeload for UI display (header, deload banner, etc.)
   const { cycleWeekFor } = await import("@/lib/program/block-range");
   const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
   const isDeload = week === program.deload_week;
-
-  // FIX (b): Mark days done in the week view after session completes
-  const { computeDoneDays } = await import("@/lib/today/compute-done-days");
-  const completedDays = computeDoneDays(allSessions);
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show
@@ -701,42 +695,10 @@ export default async function TodayPage() {
         <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
           Your week
         </h2>
-        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface text-sm">
-          {(days ?? []).map((d) => {
-            const chosen = chosenByDayIndex.get(d.day_index);
-            // FIX (b): Check if this day is completed (timezone-resolved) using helper
-            const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
-            const isDone = d.isDone;
-            return (
-              <li
-                key={d.day_index}
-                className={`flex justify-between gap-4 px-4 py-3 ${
-                  d.day_index === todayIndex ? "bg-surface-2" : ""
-                }`}
-              >
-                <span className={`flex items-center gap-2 ${d.day_index === todayIndex ? "font-semibold" : "text-muted"}`}>
-                  {DAY_NAMES[d.day_index - 1]}
-                  {/* FIX (b): Show tick for completed days */}
-                  {isDone && (
-                    <svg className="h-4 w-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </span>
-                {chosen ? (
-                  <span className="text-right">
-                    <span className="font-medium text-accent">{chosen}</span>
-                    <span className="block text-xs text-muted">your choice</span>
-                  </span>
-                ) : (
-                  <span className={d.day_type === "rest" ? "text-muted" : "font-medium"}>
-                    {d.label}
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <WeekList
+          days={buildWeekDays({ days: days ?? [], sessions: allSessions, localToday, todayIndex })}
+          chosenByDayIndex={chosenByDayIndex}
+        />
       </section>
 
       <section className="mt-10 space-y-3 text-sm">
