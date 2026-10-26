@@ -7,7 +7,7 @@
  */
 
 import { execSync } from "child_process";
-import { writeFileSync, readFileSync, unlinkSync } from "fs";
+import { writeFileSync, unlinkSync } from "fs";
 
 console.log("=".repeat(80));
 console.log("CRASH CLASSIFICATION PROBES");
@@ -26,10 +26,11 @@ function runProbe(name: string, code: string): { exitCode: number; hasStackTrace
       stdio: ["pipe", "pipe", "pipe"]
     });
     return { exitCode: 0, hasStackTrace: false, output };
-  } catch (error: any) {
-    const output = (error.stdout || "") + (error.stderr || "");
+  } catch (error: unknown) {
+    const err = error as { stdout?: string; stderr?: string; status?: number };
+    const output = (err.stdout || "") + (err.stderr || "");
     const hasStackTrace = output.includes("    at ") || /^\s+at\s+/m.test(output);
-    return { exitCode: error.status || 1, hasStackTrace, output };
+    return { exitCode: err.status || 1, hasStackTrace, output };
   } finally {
     try {
       unlinkSync(probeFile);

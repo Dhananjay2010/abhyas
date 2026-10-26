@@ -3,7 +3,7 @@
  * Compare eligible sets: main vs branch
  */
 
-import { readFileSync, cpSync, rmSync, existsSync } from "fs";
+import { readFileSync, cpSync, rmSync } from "fs";
 import { execSync } from "child_process";
 import { isEligible, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
@@ -42,7 +42,7 @@ for (const profile of profiles) {
     bmi: null,
     hasAllEquipment: false,
     equipmentIds: ["barbell", "squat_rack", "flat_bench", "dumbbell", "landmine", "leg_press"],
-    currentInjuryRegions: profile.current as any,
+    currentInjuryRegions: profile.current,
     anyKneeInjury: profile.anyKnee,
     preferredSessionMinutes: 60,
     catalogue,
