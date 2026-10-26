@@ -12,7 +12,7 @@ BEGIN
     SELECT
       id,
       ROW_NUMBER() OVER (PARTITION BY user_id, local_date ORDER BY id) AS rn
-    FROM sessions
+    FROM public.sessions
     WHERE status = 'planned'
   ),
   to_delete AS (
@@ -20,7 +20,7 @@ BEGIN
     FROM ranked
     WHERE rn > 1
   )
-  DELETE FROM sessions
+  DELETE FROM public.sessions
   WHERE id IN (SELECT id FROM to_delete);
   
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
@@ -31,6 +31,7 @@ BEGIN
 END $$;
 
 -- Create the partial unique index (idempotent)
+-- session_exercises and session_sets cascade via ON DELETE CASCADE.
 CREATE UNIQUE INDEX IF NOT EXISTS sessions_user_date_planned_unique
-  ON sessions (user_id, local_date)
+  ON public.sessions (user_id, local_date)
   WHERE status = 'planned';

@@ -17,7 +17,8 @@ import { cycleWeekFor } from "@/lib/program/block-range";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
-import { planDayCore, type PlanDayClient } from "@/lib/session/plan-day-core";
+import { planDayCore } from "@/lib/session/plan-day-core";
+import { makePlanDayClient } from "@/lib/session/make-plan-day-client";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
@@ -25,7 +26,6 @@ import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
-import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
@@ -35,7 +35,6 @@ export type { SwapResult };
 
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
-import { queryActiveProgramDay } from "@/lib/session/query-active-program-day";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -810,61 +809,7 @@ export async function planDay(input: {
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const today = localDateString(timezone);
 
-  // Create client adapter
-  const client: PlanDayClient = {
-    async findDaySessions(localDate: string) {
-      const { data, error } = await supabase
-        .from("sessions")
-        .select("id, status, actual_type, program_day_id")
-        .eq("user_id", user.id)
-        .eq("local_date", localDate);
-      return { rows: data ?? [], error: error?.message ?? null };
-    },
-    async findActiveProgram() {
-      const { data, error } = await supabase
-        .from("programs")
-        .select("id, started_on, deload_week, week_offset")
-        .eq("status", "active")
-        .maybeSingle();
-      return { program: data, error: error?.message ?? null };
-    },
-    async loadProgramDay(programDayId: string) {
-      const result = await loadPlanDay(
-        createLoadPlanDayDeps(supabase),
-        programDayId,
-      );
-      return result;
-    },
-    async findProgramDay(programId: string, dayIndex: number) {
-      return queryActiveProgramDay(supabase, user.id, programId, dayIndex);
-    },
-    async updateSession(id: string, row) {
-      const { error} = await supabase
-        .from("sessions")
-        .update(row)
-        .eq("id", id);
-      return { error: error?.message ?? null };
-    },
-    async deleteSessions(ids: string[]) {
-      const { error } = await supabase.from("sessions").delete().in("id", ids).eq("user_id", user.id);
-      return { error: error?.message ?? null };
-    },
-    async insertSession(row) {
-      const { error } = await supabase.from("sessions").insert(row);
-      if (error?.code === "23505") {
-        return { error: null };
-      }
-      return { error: error?.message ?? null };
-    },
-    async rereadDaySessions(localDate: string) {
-      const { data, error } = await supabase
-        .from("sessions")
-        .select("id, status, actual_type, program_day_id")
-        .eq("local_date", localDate)
-        .eq("user_id", user.id);
-      return { rows: data ?? [], error: error?.message ?? null };
-    },
-  };
+  const client = makePlanDayClient(supabase, user.id);
 
   const result = await planDayCore(client, {
     userId: user.id,

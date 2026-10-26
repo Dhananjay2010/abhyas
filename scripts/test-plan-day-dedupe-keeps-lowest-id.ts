@@ -17,6 +17,8 @@ type SessionRow = {
   status: string;
   actual_type: DayType | null;
   program_day_id?: string | null;
+  user_id?: string;
+  local_date?: string;
 };
 
 let passed = 0;
@@ -38,12 +40,17 @@ function makeFakeClient(config: {
   sessions: SessionRow[];
   program: { id: string; started_on: string; deload_week: number; week_offset: number };
   programDaysByProgramAndIndex: Record<string, Record<number, { id: string; day_type: DayType }>>;
+  userId: string;
 }): { client: PlanDayClient; state: { sessions: SessionRow[] } } {
   const state = { sessions: [...config.sessions] };
 
   const client: PlanDayClient = {
     async findDaySessions(localDate: string) {
-      return { rows: state.sessions, error: null };
+      // Filter by localDate and userId
+      const filtered = state.sessions.filter(
+        (s) => s.local_date === localDate && s.user_id === config.userId
+      );
+      return { rows: filtered, error: null };
     },
     async findActiveProgram() {
       return { program: config.program, error: null };
@@ -77,11 +84,17 @@ function makeFakeClient(config: {
         status: row.status ?? "planned",
         actual_type: row.actual_type ?? null,
         program_day_id: row.program_day_id ?? null,
+        user_id: row.user_id,
+        local_date: row.local_date,
       });
       return { error: null };
     },
     async rereadDaySessions(localDate: string) {
-      return { rows: state.sessions, error: null };
+      // Filter by localDate and userId
+      const filtered = state.sessions.filter(
+        (s) => s.local_date === localDate && s.user_id === config.userId
+      );
+      return { rows: filtered, error: null };
     },
   };
 
@@ -91,7 +104,7 @@ function makeFakeClient(config: {
 async function main() {
   console.log("Testing dedupe keeps lowest id\n");
 
-  await test("Dedupe keeps lowest id when reread finds multiple matching rows", async () => {
+  await test("Dedupe keeps lowest id (explicit assertion)", async () => {
     const day = { id: "day-upper", day_type: "weights" as const };
     const program = {
       id: "prog-1",
@@ -100,32 +113,42 @@ async function main() {
       week_offset: 0,
     };
 
-    // Start with no planned sessions (normal case after deletion)
-    const sessions: SessionRow[] = [];
+    // Start with duplicates already present
+    const sessions: SessionRow[] = [
+      {
+        id: "sess-zzz-high",
+        status: "planned",
+        actual_type: "weights",
+        program_day_id: "day-upper",
+        user_id: "user-1",
+        local_date: "2026-11-02",
+      },
+      {
+        id: "sess-aaa-low",
+        status: "planned",
+        actual_type: "weights",
+        program_day_id: "day-upper",
+        user_id: "user-1",
+        local_date: "2026-11-02",
+      },
+      {
+        id: "sess-mmm-mid",
+        status: "planned",
+        actual_type: "weights",
+        program_day_id: "day-upper",
+        user_id: "user-1",
+        local_date: "2026-11-02",
+      },
+    ];
 
     const { client, state } = makeFakeClient({
       sessions,
       program,
       programDaysByProgramAndIndex: { "prog-1": { 1: day } },
-    });
-
-    // First call to planDayCore will insert a new session (2026-11-02 is Monday, day 1)
-    await planDayCore(client, {
       userId: "user-1",
-      localDate: "2026-11-02",
-      today: "2026-11-02",
-      plan: { kind: "keep" },
     });
 
-    // Simulate a race: another session was inserted concurrently
-    // Insert two more sessions to simulate duplicates from a race
-    state.sessions.push(
-      { id: "sess-low-1", status: "planned", actual_type: "weights", program_day_id: "day-upper" },
-      { id: "sess-mid-2", status: "planned", actual_type: "weights", program_day_id: "day-upper" }
-    );
-
-    // Now we have multiple duplicate planned sessions
-    // Call planDayCore again, which should trigger the dedupe
+    // Call planDayCore with keep plan (2026-11-02 is Monday, day 1)
     const result = await planDayCore(client, {
       userId: "user-1",
       localDate: "2026-11-02",
@@ -139,13 +162,11 @@ async function main() {
     const remaining = state.sessions.filter((s) => s.status === "planned");
     assert.equal(remaining.length, 1, "Should keep only one planned session");
 
-    // The kept session should have the LOWEST id (lexicographically)
-    // It should keep the first one alphabetically
-    const ids = state.sessions.map(s => s.id).sort();
-    assert.equal(remaining[0].id, ids[0], "Should keep the session with the lowest id");
+    // The kept session should be sess-aaa-low (lowest id explicitly)
+    assert.equal(remaining[0].id, "sess-aaa-low", "Should keep sess-aaa-low (lowest id)");
   });
 
-  await test("Dedupe keeps lowest id comparing lexicographically", async () => {
+  await test("Dedupe leaves non-matching rows untouched (different date, user, status, program_day)", async () => {
     const day = { id: "day-upper", day_type: "weights" as const };
     const program = {
       id: "prog-1",
@@ -154,41 +175,81 @@ async function main() {
       week_offset: 0,
     };
 
-    const sessions: SessionRow[] = [];
+    // Mix of duplicate planned sessions and non-matching rows
+    const sessions: SessionRow[] = [
+      // Duplicates for user-1, 2026-11-02, planned, day-upper
+      {
+        id: "sess-zzz-high",
+        status: "planned",
+        actual_type: "weights",
+        program_day_id: "day-upper",
+        user_id: "user-1",
+        local_date: "2026-11-02",
+      },
+      {
+        id: "sess-aaa-low",
+        status: "planned",
+        actual_type: "weights",
+        program_day_id: "day-upper",
+        user_id: "user-1",
+        local_date: "2026-11-02",
+      },
+      // Different date
+      {
+        id: "sess-other-date",
+        status: "planned",
+        actual_type: "weights",
+        program_day_id: "day-upper",
+        user_id: "user-1",
+        local_date: "2026-11-03",
+      },
+      // Different user
+      {
+        id: "sess-other-user",
+        status: "planned",
+        actual_type: "weights",
+        program_day_id: "day-upper",
+        user_id: "user-2",
+        local_date: "2026-11-02",
+      },
+      // Different status (completed) - different date to avoid "already done" error
+      {
+        id: "sess-completed",
+        status: "completed",
+        actual_type: "weights",
+        program_day_id: "day-upper",
+        user_id: "user-1",
+        local_date: "2026-11-01",
+      },
+      // Different status (in_progress) - different date
+      {
+        id: "sess-in-progress",
+        status: "in_progress",
+        actual_type: "weights",
+        program_day_id: "day-upper",
+        user_id: "user-1",
+        local_date: "2026-11-01",
+      },
+      // Different program_day_id (this will be DELETED by keep logic as it doesn't match)
+      // We'll test that NON-planned sessions with different program_day are preserved
+      {
+        id: "sess-other-day-completed",
+        status: "completed",
+        actual_type: "rest",
+        program_day_id: "day-lower",
+        user_id: "user-1",
+        local_date: "2026-11-03",
+      },
+    ];
 
     const { client, state } = makeFakeClient({
       sessions,
       program,
       programDaysByProgramAndIndex: { "prog-1": { 1: day } },
-    });
-
-    // First Keep creates a session (2026-11-02 is Monday, day 1)
-    await planDayCore(client, {
       userId: "user-1",
-      localDate: "2026-11-02",
-      today: "2026-11-02",
-      plan: { kind: "keep" },
     });
 
-    const firstId = state.sessions[0].id;
-
-    // Simulate a race: manually insert more sessions with different ids
-    state.sessions.push(
-      {
-        id: "zzz-last",
-        status: "planned",
-        actual_type: "weights",
-        program_day_id: "day-upper",
-      },
-      {
-        id: "aaa-first",
-        status: "planned",
-        actual_type: "weights",
-        program_day_id: "day-upper",
-      }
-    );
-
-    // Second Keep triggers dedupe
+    // Call planDayCore with keep plan
     const result = await planDayCore(client, {
       userId: "user-1",
       localDate: "2026-11-02",
@@ -196,13 +257,43 @@ async function main() {
       plan: { kind: "keep" },
     });
 
+    if (!result.ok) {
+      console.error("Error:", result.error);
+    }
     assert.equal(result.ok, true, "Should succeed");
 
-    const remaining = state.sessions.filter((s) => s.status === "planned");
-    assert.equal(remaining.length, 1, "Should keep only one planned session after dedupe");
+    // After dedupe, check all non-matching rows are still present
+    assert(
+      state.sessions.some((s) => s.id === "sess-other-date"),
+      "sess-other-date (different date) should remain"
+    );
+    assert(
+      state.sessions.some((s) => s.id === "sess-other-user"),
+      "sess-other-user (different user) should remain"
+    );
+    assert(
+      state.sessions.some((s) => s.id === "sess-completed"),
+      "sess-completed (completed status) should remain"
+    );
+    assert(
+      state.sessions.some((s) => s.id === "sess-in-progress"),
+      "sess-in-progress (in_progress status) should remain"
+    );
+    assert(
+      state.sessions.some((s) => s.id === "sess-other-day-completed"),
+      "sess-other-day-completed (different program_day_id, completed) should remain"
+    );
 
-    // The kept session should be aaa-first (lowest id lexicographically)
-    assert.equal(remaining[0].id, "aaa-first", "Should keep the session with the lowest id");
+    // Only one planned session for user-1, 2026-11-02 should remain
+    const matchingPlanned = state.sessions.filter(
+      (s) =>
+        s.user_id === "user-1" &&
+        s.local_date === "2026-11-02" &&
+        s.status === "planned" &&
+        s.program_day_id === "day-upper"
+    );
+    assert.equal(matchingPlanned.length, 1, "Should keep only one matching planned session");
+    assert.equal(matchingPlanned[0].id, "sess-aaa-low", "Should keep sess-aaa-low (lowest id)");
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
