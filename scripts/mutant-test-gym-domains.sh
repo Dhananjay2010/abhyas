@@ -141,7 +141,7 @@ run_mutant \
 run_mutant \
   "(h) leak private field" \
   "Add id column to get_gym_brand return" \
-  "create or replace function public.get_gym_brand(p_gym_id uuid) returns table (name text, slug text, timezone text, id uuid) language sql security definer set search_path = '' stable as \$\$ select g.name, g.slug, g.timezone, g.id from public.gyms g where g.id = p_gym_id limit 1; \$\$;"
+  "drop function if exists public.get_gym_brand(uuid); create function public.get_gym_brand(p_gym_id uuid) returns table (name text, slug text, timezone text, id uuid) language sql security definer set search_path = '' stable as \$\$ select g.name, g.slug, g.timezone, g.id from public.gyms g where g.id = p_gym_id limit 1; \$\$; grant execute on function public.get_gym_brand(uuid) to anon, authenticated;"
 
 echo
 echo "========================================="

@@ -448,7 +448,17 @@ async function runTests() {
   // TEST: Host format validation
   console.log("TEST: Host format validation");
   {
-    // Valid hosts
+    // Test lowercase constraint: uppercase host should be rejected
+    {
+      const { error } = await adminClient.from("gym_domains").insert({
+        host: "Example.Com", // uppercase - should be rejected
+        gym_id: gymId,
+        verified: false,
+      });
+      check("Uppercase host rejected by lowercase constraint", !!error);
+    }
+
+    // Valid hosts (lowercase)
     const validHosts = [
       "example.com",
       "sub.example.com",
@@ -472,7 +482,6 @@ async function runTests() {
 
     // Invalid hosts (should be rejected by CHECK constraint)
     const invalidHosts = [
-      "Example.Com", // uppercase (not lowercase)
       "example .com", // space
       "example..com", // double dot
       "-example.com", // starts with hyphen
@@ -481,12 +490,10 @@ async function runTests() {
 
     for (const host of invalidHosts) {
       const { error } = await adminClient.from("gym_domains").insert({
-        host: host.toLowerCase(), // We lowercase it, but constraint checks format
+        host,
         gym_id: gymId,
         verified: false,
       });
-      // If it's the uppercase test, the lowercase check will pass, so skip that one
-      if (host === "Example.Com") continue;
       check(`Invalid host rejected: ${host}`, !!error);
     }
   }
