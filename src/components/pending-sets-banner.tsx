@@ -19,6 +19,24 @@ export function PendingSetsBanner({ pendingCount, replayState }: PendingSetsBann
         <div className="rounded-xl border border-muted/30 bg-muted/10 px-4 py-3 text-sm text-muted">
           <p className="font-medium">Failed to save sets</p>
           <p className="mt-1">{getReplayErrorMessage(replayState)}</p>
+          {replayState.retrying && (
+            <button
+              type="button"
+              disabled={true}
+              className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg opacity-50"
+            >
+              Saving set...
+            </button>
+          )}
+          {!replayState.retrying && (
+            <button
+              type="button"
+              onClick={() => replayState.retryNow?.()}
+              className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-fg"
+            >
+              Retry
+            </button>
+          )}
         </div>
       </div>
     );
