@@ -18,20 +18,35 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-// Fake Supabase client for testing
-function makeFakeClient(units: UnitsPreference) {
+// Fake Supabase client for testing with mutable units preference
+type FakeSupabaseClient = {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        single: () => Promise<{ data: { units: UnitsPreference }; error: null }>;
+      };
+    };
+  };
+  _testSetUnits: (newUnits: UnitsPreference) => void;
+};
+
+function makeFakeClient(initialUnits: UnitsPreference): FakeSupabaseClient {
+  let currentUnits = initialUnits;
   return {
     from: () => ({
       select: () => ({
         eq: () => ({
           single: async () => ({
-            data: { units },
+            data: { units: currentUnits },
             error: null,
           }),
         }),
       }),
     }),
-  } as any;
+    _testSetUnits: (newUnits: UnitsPreference) => {
+      currentUnits = newUnits;
+    },
+  };
 }
 
 async function runTests() {
@@ -89,16 +104,28 @@ async function runTests() {
   check("Message does NOT contain 'kg'", !imperial.decision.message.includes("kg"), imperial.decision.message);
   check("Message shows '93.5 lb' (40 kg → 42.5 kg = 93.5 lb)", imperial.decision.message.includes("93.5 lb"), imperial.decision.message);
 
-  console.log("\n2. User who switched from kg to lb");
-  const switchedClient = makeFakeClient("imperial"); // Now imperial after switching
-  const switchedUnits = await getProfileUnits(switchedClient, "user-2");
-  check("getProfileUnits returns 'imperial' after switch", switchedUnits === "imperial");
-
-  const switched = progressionFeedback(sessionExercise, successSets, progress, session, "right", switchedUnits);
-  console.log(`  Message: "${switched.decision.message}"`);
-  check("Switched user sees 'lb'", switched.decision.message.includes("lb"), switched.decision.message);
-  check("Switched user does NOT see 'kg'", !switched.decision.message.includes("kg"), switched.decision.message);
-  check("Switched user sees '93.5 lb'", switched.decision.message.includes("93.5 lb"), switched.decision.message);
+  console.log("\n2. User who switched from kg to lb (REAL dynamic switch)");
+  const switchingClient = makeFakeClient("metric");
+  
+  // First check - user is on metric
+  const beforeUnits = await getProfileUnits(switchingClient, "user-2");
+  check("Before switch: getProfileUnits returns 'metric'", beforeUnits === "metric");
+  const before = progressionFeedback(sessionExercise, successSets, progress, session, "right", beforeUnits);
+  console.log(`  Before: "${before.decision.message}"`);
+  check("Before switch: message has 'kg'", before.decision.message.includes("kg"), before.decision.message);
+  check("Before switch: message has NO 'lb'", !before.decision.message.includes("lb"), before.decision.message);
+  
+  // User switches to imperial
+  switchingClient._testSetUnits("imperial");
+  
+  // Second check - same client, now imperial
+  const afterUnits = await getProfileUnits(switchingClient, "user-2");
+  check("After switch: getProfileUnits returns 'imperial'", afterUnits === "imperial");
+  const after = progressionFeedback(sessionExercise, successSets, progress, session, "right", afterUnits);
+  console.log(`  After: "${after.decision.message}"`);
+  check("After switch: message has 'lb'", after.decision.message.includes("lb"), after.decision.message);
+  check("After switch: message has NO 'kg'", !after.decision.message.includes("kg"), after.decision.message);
+  check("After switch: message shows '93.5 lb'", after.decision.message.includes("93.5 lb"), after.decision.message);
 
   console.log("\n3. PB toast respects units");
   const pbProgress = {

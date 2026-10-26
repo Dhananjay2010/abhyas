@@ -114,17 +114,42 @@ test_mutant() {
   for t in "${TESTS[@]}"; do
     test_output=$($t 2>&1) || fail=1
     if [ "$fail" -eq 1 ]; then
-      # A crash shows a stack trace; an assertion failure shows FAIL lines without a stack
-      # Check for Node.js/tsx stack trace pattern: "    at ..." lines
-      if echo "$test_output" | grep -q '^\s*at '; then
-        # Has stack trace = uncaught exception = crash
+      # Distinguish crash (uncaught exception) from assertion kill
+      # KILLED = test printed assertion failure marker AND no uncaught exception stack
+      # CRASHED = anything else (uncaught exception, process.exit, throw "string", etc.)
+      
+      # Check for assertion failure markers: "  FAIL ", "FAILED:", or "AssertionError"
+      local has_assertion_fail=0
+      if echo "$test_output" | grep -qE '(  FAIL |FAILED:|AssertionError)'; then
+        has_assertion_fail=1
+      fi
+      
+      # Check for uncaught exception indicators:
+      # - Stack trace lines: "    at ..."
+      # - Node.js crash patterns: "triggerUncaughtException", "node:internal"
+      # - Empty output (process.exit with no output)
+      local has_crash_indicator=0
+      if echo "$test_output" | grep -qE '(^\s+at |triggerUncaughtException|node:internal)'; then
+        has_crash_indicator=1
+      elif [ -z "$test_output" ]; then
+        # Empty output = silent crash (process.exit or similar)
+        has_crash_indicator=1
+      fi
+      
+      # KILLED only if: has assertion marker AND no crash indicators
+      if [ "$has_assertion_fail" -eq 1 ] && [ "$has_crash_indicator" -eq 0 ]; then
+        # Clean assertion failure = killed
+        echo "✅ KILLED"
+        restore
+        KILLED=$((KILLED + 1))
+        return
+      else
+        # Uncaught exception, silent exit, or no assertion marker = crashed
         echo "💥 CRASHED"
         restore
         crashed=$((crashed + 1))
         return
       fi
-      # Otherwise it's a test assertion failure = killed
-      break
     fi
   done
   
@@ -133,9 +158,6 @@ test_mutant() {
   if [ "$fail" -eq 0 ]; then
     echo "❌ SURVIVED"
     SURVIVED=$((SURVIVED + 1))
-  else
-    echo "✅ KILLED"
-    KILLED=$((KILLED + 1))
   fi
 }
 
