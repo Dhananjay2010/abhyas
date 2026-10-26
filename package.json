@@ -397,7 +397,7 @@
     "test:landing-copy": "tsx scripts/test-landing-copy.tsx",
     "test:gym-tenant-rls-real-db": "tsx scripts/test-gym-tenant-rls-real-db.ts",
     "test:gym-owner-guards-sql": "tsx scripts/test-gym-owner-guards-sql.ts",
-    "test:mutant-gym-rls-policies": "tsx scripts/mutant-test-gym-rls-policies.sh"
+    "test:mutant-gym-rls-policies": "bash scripts/mutant-test-gym-rls-policies.sh"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

@@ -793,7 +793,7 @@ async function runTests() {
     const { data: ownerResult, error: ownerError } = await clientA
       .rpc("get_owned_gym_name");
     check("Owner A can call get_owned_gym_name()", !ownerError, ownerError?.message);
-    check("Owner A gets their own gym name", ownerResult === "Gym A");
+    check("Owner A gets their own gym name", ownerResult === "Gym A", `Expected 'Gym A', got: '${ownerResult}'`);
 
     // Member MC calls get_owned_gym_name() - should get null (MC is not an owner)
     const { data: memberResult, error: memberError } = await clientMemberC
