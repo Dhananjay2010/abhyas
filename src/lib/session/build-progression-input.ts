@@ -126,7 +126,7 @@ export function buildProgressionInput(
     meta,
     state,
     isDeload: session.is_deload ?? false,
-    units,
+    units: "metric" as const,
     ...progressionInputsFromExercise(ex),
   };
 }

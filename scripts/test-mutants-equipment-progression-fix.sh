@@ -177,17 +177,19 @@ a1() {
 }
 test_mutant "resolveTarget min → plan min" a1
 
-# A2: Remove equipment/unit spread (provide wrong defaults)
+# A2: Remove equipment spread (make progressionInputsFromExercise always return empty)
 a2() {
-  local file="$BUILD_INPUT"
-  local count=$(grep -c '\.\.\.progressionInputsFromExercise(ex),' "$file" || true)
-  if [ "$count" -ne 1 ]; then
-    echo "ERROR: Pattern found $count times (expected 1)" >&2
+  local file="$PROG_INPUTS"
+  # Make the function always return empty object
+  local search='return {'
+  local count=$(grep -c "$search" "$file" || true)
+  if [ "$count" -lt 1 ]; then
+    echo "ERROR: Pattern found $count times (expected >= 1)" >&2
     return 1
   fi
-  # Replace spread with nothing (equipmentIds will be undefined)
-  sed -i 's|\.\.\.progressionInputsFromExercise(ex),|// MUTANT: spread removed|' "$file"
-  if cmp -s "$file" "$BACKUP_BUILD_INPUT"; then
+  # Replace all return statements to return empty object
+  sed -i 's|return {|return { /* MUTANT: always empty */ } as any; return {|' "$file"
+  if cmp -s "$file" "$BACKUP_PROG_INPUTS"; then
     echo "ERROR: A2 did not change the file" >&2
     return 1
   fi
@@ -431,41 +433,36 @@ l4b_no_snap_step() {
 }
 test_mutant "L4B-2: no snap, step from raw stored weight" l4b_no_snap_step
 
-# L4B-3: Drop equipmentIds from buildProgressionInput
+# L4B-3: Drop equipmentIds (make progressionInputsFromExercise return empty)
 l4b_drop_equipment() {
-  local file="$BUILD_INPUT"
-  # Remove the spread that includes equipmentIds
-  local count=$(grep -c '\.\.\.progressionInputsFromExercise(ex),' "$file" || true)
-  if [ "$count" -ne 1 ]; then
-    echo "ERROR: Pattern found $count times (expected 1)" >&2
-    return 1
-  fi
-  # Replace spread with just empty object spread (no equipmentIds)
-  sed -i 's|\.\.\.progressionInputsFromExercise(ex),|// MUTANT: equipmentIds dropped (empty spread)|' "$file"
-  if cmp -s "$file" "$BACKUP_BUILD_INPUT"; then
+  local file="$PROG_INPUTS"
+  # Make the function always return empty object (no equipmentIds)
+  sed -i 's|equipmentIds: \[\.\.\.exercise\.equipment_ids\],|// MUTANT: equipmentIds dropped|' "$file"
+  if cmp -s "$file" "$BACKUP_PROG_INPUTS"; then
     echo "ERROR: L4B-3 did not change the file" >&2
     return 1
   fi
 }
 test_mutant "L4B-3: drop equipmentIds from progression input" l4b_drop_equipment
 
-# L4B-4: Drop units from buildProgressionInput
+# L4B-4: Drop units parameter (ignore passed units, always use "metric")
 l4b_drop_units() {
   local file="$BUILD_INPUT"
-  # Remove the units line
-  local count=$(grep -c '^\s*units,$' "$file" || true)
+  # Find where units is passed in the return object
+  local search='^\s*units,$'
+  local count=$(grep -c "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
-    echo "ERROR: units line found $count times (expected 1)" >&2
+    echo "ERROR: units, line found $count times (expected 1)" >&2
     return 1
   fi
-  # Comment it out instead of removing to keep structure valid
-  sed -i 's|^\(\s*\)units,$|\1// units, // MUTANT: units dropped|' "$file"
+  # Replace with hardcoded "metric"
+  sed -i 's/^\(\s*\)units,$/\1units: "metric", \/\/ MUTANT: hardcoded/' "$file"
   if cmp -s "$file" "$BACKUP_BUILD_INPUT"; then
     echo "ERROR: L4B-4 did not change the file" >&2
     return 1
   fi
 }
-test_mutant "L4B-4: drop units from progression input" l4b_drop_units
+test_mutant "L4B-4: drop units parameter (hardcode to metric)" l4b_drop_units
 
 echo
 echo "==========================================="
