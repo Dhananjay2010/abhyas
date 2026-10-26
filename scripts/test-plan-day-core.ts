@@ -18,6 +18,7 @@ type SessionRow = {
   actual_type: DayType | null;
   program_day_id?: string | null;
 };
+type FakeSessionRow = SessionRow & { local_date?: string };
 type Program = {
   id: string;
   started_on: string;
@@ -40,12 +41,12 @@ type Call =
   | { method: "rereadDaySessions"; localDate: string };
 
 function makeFakeClient(config: {
-  existingSessions?: SessionRow[];
+  existingSessions?: FakeSessionRow[];
   program?: Program | null;
   programDays?: Record<string, ProgramDay>;
   programDaysByProgramAndIndex?: Record<string, Record<number, ProgramDay>>;
-  insertedSessions?: SessionRow[];
-}): { client: PlanDayClient; calls: Call[]; state: { sessions: SessionRow[] } } {
+  insertedSessions?: FakeSessionRow[];
+}): { client: PlanDayClient; calls: Call[]; state: { sessions: FakeSessionRow[] } } {
   const calls: Call[] = [];
   const state = { sessions: [...(config.existingSessions ?? [])] };
 
@@ -53,10 +54,7 @@ function makeFakeClient(config: {
     async findDaySessions(localDate: string) {
       calls.push({ method: "findDaySessions", localDate });
       return {
-        rows: state.sessions.filter((s) => {
-          const ld = (s as { local_date?: string }).local_date;
-          return ld === undefined || ld === localDate;
-        }),
+        rows: state.sessions.filter((s) => s.local_date === undefined || s.local_date === localDate),
         error: null,
       };
     },
@@ -96,19 +94,20 @@ function makeFakeClient(config: {
     async insertSession(row: SessionInsert) {
       calls.push({ method: "insertSession", row });
       const id = `sess-${state.sessions.length + 1}`;
-      state.sessions.push({
+      const newRow: FakeSessionRow = {
         id,
         status: row.status ?? "planned",
         actual_type: row.actual_type ?? null,
         program_day_id: row.program_day_id ?? null,
         local_date: row.local_date,
-      } as SessionRow & { local_date: string });
+      };
+      state.sessions.push(newRow);
       return { error: null };
     },
     async rereadDaySessions(localDate: string) {
       calls.push({ method: "rereadDaySessions", localDate });
       return {
-        rows: state.sessions.filter((s) => (s as { local_date?: string }).local_date === localDate),
+        rows: state.sessions.filter((s) => s.local_date === localDate),
         error: null,
       };
     },
@@ -224,7 +223,7 @@ async function main() {
       day_type: "weights",
     };
 
-    const existing: SessionRow[] = [
+    const existing: FakeSessionRow[] = [
       { id: "sess-1", status: "planned", actual_type: "rest" },
       { id: "sess-2", status: "planned", actual_type: "weights" },
     ];
@@ -361,7 +360,7 @@ async function main() {
   });
 
   await test("Completed day returns error", async () => {
-    const existing: SessionRow[] = [
+    const existing: FakeSessionRow[] = [
       { id: "sess-1", status: "completed", actual_type: "weights" },
     ];
 
@@ -427,7 +426,7 @@ async function main() {
   });
 
   await test("Keep with 2 rest rows: deleteSessions NOT called", async () => {
-    const existing: SessionRow[] = [
+    const existing: FakeSessionRow[] = [
       { id: "sess-1", status: "planned", actual_type: "rest" },
       { id: "sess-2", status: "planned", actual_type: "rest" },
     ];
@@ -458,7 +457,7 @@ async function main() {
       day_type: "weights",
     };
 
-    const existing: SessionRow[] = [{ id: "sess-1", status: "planned", actual_type: "yoga", program_day_id: null }];
+    const existing: FakeSessionRow[] = [{ id: "sess-1", status: "planned", actual_type: "yoga", program_day_id: null }];
 
     const { client, calls } = makeFakeClient({
       existingSessions: existing,
@@ -533,7 +532,7 @@ async function main() {
       week_offset: 0,
     };
 
-    const existing: SessionRow[] = [{ id: "sess-1", status: "planned", actual_type: "weights", program_day_id: null }];
+    const existing: FakeSessionRow[] = [{ id: "sess-1", status: "planned", actual_type: "weights", program_day_id: null }];
 
     const { client, calls } = makeFakeClient({
       existingSessions: existing,
@@ -567,7 +566,7 @@ async function main() {
       day_type: "weights",
     };
 
-    const existing: SessionRow[] = [
+    const existing: FakeSessionRow[] = [
       { id: "sess-1", status: "planned", actual_type: "weights", program_day_id: "day-weights" },
     ];
 
@@ -614,8 +613,6 @@ async function main() {
       programDaysByProgramAndIndex: { "prog-1": { 7: programDay } },
     });
 
-    state.sessions = state.sessions.map((s) => ({ ...s, local_date: "2026-11-15" } as SessionRow & { local_date: string }));
-
     const result1 = await planDayCore(client, {
       userId: "user-1",
       localDate: "2026-11-15",
@@ -650,13 +647,13 @@ async function main() {
       day_type: "weights",
     };
 
-    const existing: SessionRow[] = [
-      { id: "sess-3", status: "planned", actual_type: "weights", program_day_id: "day-upper" },
-      { id: "sess-1", status: "planned", actual_type: "weights", program_day_id: "day-upper" },
+    const existing: FakeSessionRow[] = [
+      { id: "sess-3", status: "planned", actual_type: "weights", program_day_id: "day-upper", local_date: "2026-11-15" },
+      { id: "sess-1", status: "planned", actual_type: "weights", program_day_id: "day-upper", local_date: "2026-11-15" },
     ];
 
     const { client, calls, state } = makeFakeClient({
-      existingSessions: existing.map((s) => ({ ...s, local_date: "2026-11-15" } as SessionRow & { local_date: string })),
+      existingSessions: existing,
       program,
       programDaysByProgramAndIndex: { "prog-1": { 7: programDay } },
     });
@@ -699,13 +696,14 @@ async function main() {
 
     const originalReread = client.rereadDaySessions.bind(client);
     client.rereadDaySessions = async (localDate: string) => {
-      state.sessions.push({
+      const raceRow: FakeSessionRow = {
         id: "sess-race",
         status: "planned",
         actual_type: "weights",
         program_day_id: "day-upper",
         local_date: localDate,
-      } as SessionRow & { local_date: string });
+      };
+      state.sessions.push(raceRow);
       return originalReread(localDate);
     };
 
@@ -740,12 +738,12 @@ async function main() {
       day_type: "weights",
     };
 
-    const existing: SessionRow[] = [
-      { id: "sess-1", status: "planned", actual_type: "weights", program_day_id: "day-lower" },
+    const existing: FakeSessionRow[] = [
+      { id: "sess-1", status: "planned", actual_type: "weights", program_day_id: "day-lower", local_date: "2026-11-15" },
     ];
 
     const { client, calls } = makeFakeClient({
-      existingSessions: existing.map((s) => ({ ...s, local_date: "2026-11-15" } as SessionRow & { local_date: string })),
+      existingSessions: existing,
       program,
       programDaysByProgramAndIndex: { "prog-1": { 7: upperDay, 6: lowerDay } },
     });
