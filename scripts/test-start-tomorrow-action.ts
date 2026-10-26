@@ -106,7 +106,24 @@ class FakeSupabase {
       };
     }
     
-    return {} as never;
+    return {
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: null, error: null }),
+          single: async () => ({ data: null, error: null }),
+          in: () => ({
+            limit: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        }),
+        update: () => ({
+          eq: () => ({
+            select: async () => ({ data: null, error: null }),
+          }),
+        }),
+      }),
+    };
   }
   
   get auth() {
