@@ -833,15 +833,18 @@ async function test9b() {
   
   await act(async () => {});
   
-  // Assert cooldown Done and Skip buttons show "Saving 1 set..." and are disabled
+  // Assert cooldown Done and Skip buttons
+  // Done button now always says "Done" (the pending count is shown in the notice)
   const buttons = screen.getAllByRole("button");
-  // In cooldown phase, the buttons are "N sets waiting to save" (Done) and "Skip cool-down"
-  const doneButton = buttons.find(b => b.textContent?.includes("waiting to save"));
+  const doneButton = buttons.find(b => b.textContent?.trim() === "Done");
   const skipCooldownButton = buttons.find(b => b.textContent?.includes("Skip cool-down"));
   
   assert(!!doneButton, "9b: Done button exists");
-  assert(!!(doneButton?.textContent?.includes("1 set waiting to save")), "9b: Button shows '1 set waiting to save' text");
   assert(doneButton !== undefined && 'disabled' in doneButton && Boolean(doneButton.disabled), "9b: Done button is disabled while sets are pending");
+  
+  // Verify the notice shows the pending count
+  const pendingNotice = screen.queryByText(/1 set waiting to save/i);
+  assert(pendingNotice !== null, "9b: Notice shows '1 set waiting to save'");
   
   assert(skipCooldownButton !== null, "9c: Skip cool-down button exists");
   if (skipCooldownButton && 'disabled' in skipCooldownButton) {
