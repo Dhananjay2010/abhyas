@@ -41,7 +41,7 @@ export type FinishSessionDeps = {
       cooldown_completed?: boolean;
     }
   ): Promise<{ error: string | null; updatedCount: number }>;
-  loadSessionStatus(id: string): Promise<{ data: { status: "completed" | "skipped" | "in_progress" } | null; error: string | null }>;
+  loadSessionStatus(id: string): Promise<{ data: { status: "completed" | "skipped" | "in_progress"; duration_seconds: number | null } | null; error: string | null }>;
   loadExercisesForUpdate(sessionId: string): Promise<{ data: ExerciseForUpdate[] | null; error: string | null }>;
   updateExerciseStatus(id: string, status: Database["public"]["Enums"]["exercise_status"]): Promise<{ error: string | null }>;
   /** Injectable clock for deterministic testing. Defaults to () => new Date().toISOString() */
@@ -119,7 +119,7 @@ export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {
     async loadSessionStatus(id) {
       const { data, error } = await supabase
         .from("sessions")
-        .select("status")
+        .select("status, duration_seconds")
         .eq("id", id)
         .maybeSingle();
 
@@ -131,7 +131,7 @@ export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {
         return { data: null, error: `Unexpected status: ${status}` };
       }
 
-      return { data: { status }, error: null };
+      return { data: { status, duration_seconds: data.duration_seconds }, error: null };
     },
 
     async loadExercisesForUpdate(sessionId) {

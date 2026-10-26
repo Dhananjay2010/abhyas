@@ -80,7 +80,7 @@ function makeStaleFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionD
       return { error: null, updatedCount: 1 };
     },
     async loadSessionStatus() {
-      return { data: { status: "completed" as const }, error: null };
+      return { data: { status: "completed" as const, duration_seconds: null }, error: null };
     },
     async loadExercisesForUpdate() {
       return { data: exercisesForUpdate, error: null };

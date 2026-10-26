@@ -57,7 +57,7 @@ async function runTests() {
         };
       },
       async loadSessionStatus() {
-        return { data: { status: "in_progress" }, error: null };
+        return { data: { status: "in_progress", duration_seconds: null }, error: null };
       },
       async loadExercisesForUpdate() {
         return { data: [], error: null };
@@ -104,7 +104,7 @@ async function runTests() {
       },
       async loadSessionStatus() {
         // Return in_progress even after updateSession returned 0 (invalid state)
-        return { data: { status: "in_progress" }, error: null };
+        return { data: { status: "in_progress", duration_seconds: null }, error: null };
       },
       async loadExercisesForUpdate() {
         return { data: [{ id: "ex-1", planned_sets: 3, status: "pending", session_sets: [] }], error: null };
@@ -138,7 +138,7 @@ async function runTests() {
         };
       },
       async loadSessionStatus() {
-        return { data: { status: "in_progress" }, error: null };
+        return { data: { status: "in_progress", duration_seconds: null }, error: null };
       },
       async updateSession() {
         return { error: null, updatedCount: 1 };

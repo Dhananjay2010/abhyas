@@ -125,7 +125,7 @@ function makeFakeDeps(startedAt: string | null, workingSets: number): FinishSess
       return { error: null, updatedCount: 1 };
     },
     async loadSessionStatus() {
-      return { data: { status: "in_progress" as const }, error: null };
+      return { data: { status: "in_progress" as const, duration_seconds: null }, error: null };
     },
     async loadExercisesForUpdate() {
       return { data: [], error: null };

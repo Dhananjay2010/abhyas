@@ -62,7 +62,7 @@ async function runTests() {
         return { error: null, updatedCount: 1 };
       },
       async loadSessionStatus() {
-        return { data: { status: "completed" as const }, error: null };
+        return { data: { status: "completed" as const, duration_seconds: null }, error: null };
       },
       async loadSessionMetadata() {
         return { data: { started_at: "2026-10-25T11:30:00Z", user_id: "user1" }, error: null };
@@ -121,7 +121,7 @@ async function runTests() {
       },
       async loadSessionStatus() {
         loadStatusCalled = true;
-        return { data: { status: "completed" as const }, error: null };
+        return { data: { status: "completed" as const, duration_seconds: null }, error: null };
       },
       async loadSessionMetadata() {
         return { data: { started_at: "2026-10-25T11:30:00Z", user_id: "user1" }, error: null };
@@ -169,7 +169,7 @@ async function runTests() {
         return { error: null, updatedCount: 0 }; // Already finished
       },
       async loadSessionStatus() {
-        return { data: { status: "skipped" as const }, error: null };
+        return { data: { status: "skipped" as const, duration_seconds: null }, error: null };
       },
       async loadSessionMetadata() {
         return { data: { started_at: "2026-10-25T11:30:00Z", user_id: "user1" }, error: null };
@@ -231,7 +231,7 @@ async function runTests() {
         return { error: null, updatedCount: 0 };
       },
       async loadSessionStatus() {
-        return { data: { status: "in_progress" as const }, error: null };
+        return { data: { status: "in_progress" as const, duration_seconds: null }, error: null };
       },
       async loadSessionMetadata() {
         return { data: { started_at: "2026-10-25T11:30:00Z", user_id: "user1" }, error: null };

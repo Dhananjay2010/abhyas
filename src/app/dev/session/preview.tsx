@@ -9,7 +9,7 @@ import {
 } from "@/app/session/[id]/session-runner";
 
 const ok = async () => ({ ok: true }) as const;
-const finishOk = async () => ({ ok: true as const, data: { status: "completed" as const } });
+const finishOk = async () => ({ ok: true as const, data: { status: "completed" as const, durationSeconds: 300 } });
 
 const STUB: SessionActions = {
   markWarmupDone: ok,

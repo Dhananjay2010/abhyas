@@ -31,7 +31,7 @@ export async function finishSessionCore(
     durationSeconds: number;
     cooldownCompleted: boolean;
   },
-): Promise<Result<{ status: "completed" | "skipped" }>> {
+): Promise<Result<{ status: "completed" | "skipped"; durationSeconds: number | null }>> {
   // Query session metadata for stale detection
   const { data: session, error: sessionError } = await deps.loadSession(params.sessionId);
 
@@ -122,7 +122,7 @@ export async function finishSessionCore(
       return { ok: false, error: "Session still in_progress after retry" };
     }
 
-    return { ok: true, data: { status: statusData.status } };
+    return { ok: true, data: { status: statusData.status, durationSeconds: statusData.duration_seconds } };
   }
 
   // Update exercise statuses based on logged vs planned sets
@@ -149,5 +149,5 @@ export async function finishSessionCore(
     }
   }
 
-  return { ok: true, data: { status } };
+  return { ok: true, data: { status, durationSeconds: clampedDuration } };
 }

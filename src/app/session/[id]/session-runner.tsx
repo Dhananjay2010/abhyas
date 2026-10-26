@@ -13,6 +13,7 @@ import {
 } from "@/lib/session/device";
 import { useElapsedWithClock } from "@/lib/session/use-elapsed-with-clock";
 import { displayElapsed } from "@/lib/session/display-elapsed";
+import { summaryDurationSeconds } from "@/lib/session/summary-duration";
 import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
@@ -226,6 +227,7 @@ export function SessionRunner({
   const [summaryError, setSummaryError] = useState(false);
   const [summaryAttempt, setSummaryAttempt] = useState(0);
   const [summaryLoaded, setSummaryLoaded] = useState(false);
+  const [savedDurationSeconds, setSavedDurationSeconds] = useState<number | null>(null);
   const endEarlyTriggerRef = useRef<HTMLButtonElement>(null);
   const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
   const endingRef = useRef(false);
@@ -453,8 +455,8 @@ export function SessionRunner({
 
   async function run<T extends { ok: boolean; error?: string }>(
     fn: () => Promise<T>
-  ): Promise<boolean> {
-    if (busyRef.current) return false;
+  ): Promise<T | null> {
+    if (busyRef.current) return null;
     busyRef.current = true;
     setBusy(true);
     try {
@@ -464,10 +466,10 @@ export function SessionRunner({
       } else {
         setError(null);
       }
-      return r.ok;
+      return r.ok ? r : null;
     } catch (err) {
       setError(runnerErrorMessage(err));
-      return false;
+      return null;
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -574,16 +576,17 @@ export function SessionRunner({
             onClick={async () => {
               const frozen = stopElapsed();
               setLastCooldownCompleted(true);
-              const succeeded = await run(() =>
+              const result = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
               );
               restPersistence.clear();
-              if (succeeded) {
+              if (result && result.ok) {
+                setSavedDurationSeconds(result.data.durationSeconds);
                 setPhase("done");
               } else {
                 resumeElapsed();
               }
-              setNeedsFinishRetry(shouldShowFinishRetry(succeeded, true));
+              setNeedsFinishRetry(shouldShowFinishRetry(!!result, true));
             }}
           >
             Done
@@ -593,15 +596,16 @@ export function SessionRunner({
               disabled={busy}
               onClick={async () => {
                 const frozen = stopElapsed();
-                const succeeded = await run(() =>
+                const result = await run(() =>
                   actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: lastCooldownCompleted })
                 );
-                if (succeeded) {
+                if (result && result.ok) {
+                  setSavedDurationSeconds(result.data.durationSeconds);
                   setPhase("done");
                 } else {
                   resumeElapsed();
                 }
-                setNeedsFinishRetry(shouldShowFinishRetry(succeeded, lastCooldownCompleted));
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result, lastCooldownCompleted));
               }}
             >
               Try again
@@ -612,16 +616,17 @@ export function SessionRunner({
             onClick={async () => {
               const frozen = stopElapsed();
               setLastCooldownCompleted(false);
-              const succeeded = await run(() =>
+              const result = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
               );
               restPersistence.clear();
-              if (succeeded) {
+              if (result && result.ok) {
+                setSavedDurationSeconds(result.data.durationSeconds);
                 setPhase("done");
               } else {
                 resumeElapsed();
               }
-              setNeedsFinishRetry(shouldShowFinishRetry(succeeded, false));
+              setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
             }}
           >
             Skip cool-down
@@ -641,6 +646,12 @@ export function SessionRunner({
       (n, e) => n + e.sets.reduce((m, s) => m + (s.reps ?? 0) * (s.weightKg ?? 0), 0),
       0,
     );
+    const summaryDuration = summaryDurationSeconds({
+      savedDurationSeconds,
+      elapsedSeconds: elapsed,
+      isStale,
+      nowMs: (nowFn ?? Date.now)(),
+    });
     return (
       <Shell
         title="Session complete"
@@ -653,7 +664,7 @@ export function SessionRunner({
         confirmExit={false}
       >
         <div className="space-y-3">
-          <Stat label="Time" value={formatClock(elapsed)} />
+          <Stat label="Time" value={formatClock(summaryDuration)} />
           <Stat label="Sets logged" value={`${totalSetsDone}`} />
           {volume > 0 && <Stat label="Total volume" value={formatVolumeLifted(volume, units)} />}
           <Stat
@@ -947,15 +958,16 @@ export function SessionRunner({
       else {
         const frozen = stopElapsed();
         setLastCooldownCompleted(false);
-        const succeeded = await run(() =>
+        const result = await run(() =>
           actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
         );
-        if (succeeded) {
+        if (result && result.ok) {
+          setSavedDurationSeconds(result.data.durationSeconds);
           setPhase("done");
         } else {
           resumeElapsed();
         }
-        setNeedsFinishRetry(shouldShowFinishRetry(succeeded, false));
+        setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
       }
     } else {
       setExerciseIndex(next);
@@ -1310,15 +1322,16 @@ export function SessionRunner({
               onClick={async () => {
                 const frozen = stopElapsed();
                 setLastCooldownCompleted(false);
-                const succeeded = await run(() =>
+                const result = await run(() =>
                   actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
                 );
-                if (succeeded) {
+                if (result && result.ok) {
+                  setSavedDurationSeconds(result.data.durationSeconds);
                   setPhase("done");
                 } else {
                   resumeElapsed();
                 }
-                setNeedsFinishRetry(shouldShowFinishRetry(succeeded, false));
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
               }}
             >
               Try again

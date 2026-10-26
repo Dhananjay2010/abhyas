@@ -89,6 +89,7 @@ export async function abandonSessionCore(
   });
 
   let durationSeconds: number | null;
+  let completedAt: string;
 
   if (stale) {
     // Load exercises with sets for stale calculation
@@ -106,9 +107,11 @@ export async function abandonSessionCore(
     });
 
     durationSeconds = staleFinish.durationSeconds;
+    completedAt = staleFinish.endedAt ?? now;
   } else {
-    // Non-stale: use passed elapsed time
+    // Non-stale: use passed elapsed time and now
     durationSeconds = elapsedSeconds;
+    completedAt = now;
   }
 
   // Clamp duration to sane range: 0 to 6 hours, or keep null for invalid timestamps
@@ -119,7 +122,7 @@ export async function abandonSessionCore(
   // Safety: Only update if status is 'in_progress' to prevent double-accumulation on retry.
   const { error, updatedCount } = await deps.updateSession(sessionId, {
     status,
-    completed_at: status === "completed" ? now : null,
+    completed_at: status === "completed" ? completedAt : null,
     duration_seconds: clampedDuration,
   });
 

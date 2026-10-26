@@ -76,7 +76,7 @@ function makeFakeFinishSessionDeps(
     },
     async loadSessionStatus(id) {
       calls.push({ method: "loadSessionStatus", table: "sessions", filters: { id } });
-      return { data: { status: "completed" }, error: null };
+      return { data: { status: "completed", duration_seconds: null }, error: null };
     },
     async loadExercisesForUpdate(sessionId) {
       calls.push({ method: "loadExercisesForUpdate", table: "session_exercises", filters: { sessionId } });

@@ -66,7 +66,7 @@ function makeFakeFinishSessionDeps(
     },
     async loadSessionStatus() {
       if (readError) return { data: null, error: readError };
-      return { data: { status: "in_progress" as const }, error: null };
+      return { data: { status: "in_progress" as const, duration_seconds: null }, error: null };
     },
     async loadExercisesForUpdate() {
       if (readError) return { data: null, error: readError };
@@ -99,7 +99,7 @@ function makeFakeAbandonSessionDeps(
       return { error: null, updatedCount: 1 };
     },
     async loadSessionStatus() {
-      return { data: { status: "completed" as const }, error: null };
+      return { data: { status: "completed" as const, duration_seconds: null }, error: null };
     },
     async loadSessionMetadata() {
       return { data: { started_at: THIRTY_MIN_AGO, user_id: "user-123" }, error: null };

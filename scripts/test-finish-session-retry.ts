@@ -64,7 +64,7 @@ function makeFakeDeps(config: {
     },
     async loadSessionStatus() {
       return {
-        data: config.storedStatus ? { status: config.storedStatus } : null,
+        data: config.storedStatus ? { status: config.storedStatus, duration_seconds: null } : null,
         error: null,
       };
     },

@@ -29,7 +29,7 @@ export async function finishSessionAction(
     durationSeconds: number;
     cooldownCompleted: boolean;
   }
-): Promise<Result<{ status: "completed" | "skipped" }>> {
+): Promise<Result<{ status: "completed" | "skipped"; durationSeconds: number | null }>> {
   return await finishSessionCore(makeFinishSessionDeps(supabase), input);
 }
 

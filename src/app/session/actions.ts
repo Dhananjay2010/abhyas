@@ -532,8 +532,8 @@ export async function finishSession(input: {
   sessionId: string;
   durationSeconds: number;
   cooldownCompleted: boolean;
-}): Promise<Result<{ status: "completed" | "skipped" }>> {
-  const rateLimit = await checkActionRateLimit<{ status: "completed" | "skipped" }>("session");
+}): Promise<Result<{ status: "completed" | "skipped"; durationSeconds: number | null }>> {
+  const rateLimit = await checkActionRateLimit<{ status: "completed" | "skipped"; durationSeconds: number | null }>("session");
   if (rateLimit) return rateLimit;
   
   const { supabase } = await requireUser();

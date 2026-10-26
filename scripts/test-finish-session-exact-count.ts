@@ -67,7 +67,7 @@ function makeFakeDeps(alreadyCompleted: boolean) {
     },
     async loadSessionStatus() {
       return {
-        data: { status: "completed" as const },
+        data: { status: "completed" as const, duration_seconds: null },
         error: null,
       };
     },
@@ -151,7 +151,7 @@ async function runTests() {
       },
       async loadSessionStatus() {
         return {
-          data: { status: "completed" as const },
+          data: { status: "completed" as const, duration_seconds: null },
           error: null,
         };
       },
