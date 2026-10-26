@@ -100,6 +100,59 @@ check(
   `prefill="${prefill8}", got ${result8} kg`
 );
 
+console.log("\n=== Test L-4a: Metric prefill matches formatLoad display ===\n");
+
+// Test case 9: Off-grid metric weight prefills rounded value but submits original
+const originalKg9 = 35.15;
+const prefill9 = computeRunnerWeightPrefill(originalKg9, "metric", false);
+const result9 = weightKgToSubmit(prefill9, prefill9, originalKg9, "metric");
+
+check(
+  "35.15 kg: prefills as 35.25 (0.25 kg grid)",
+  prefill9 === "35.25",
+  `got "${prefill9}"`
+);
+
+check(
+  "35.15 kg: unedited prefill returns original 35.15 kg",
+  result9 === originalKg9,
+  `got ${result9} kg`
+);
+
+// Test case 10: On-grid 2-decimal metric weight stays as-is
+const originalKg10 = 16.25;
+const prefill10 = computeRunnerWeightPrefill(originalKg10, "metric", false);
+const result10 = weightKgToSubmit(prefill10, prefill10, originalKg10, "metric");
+
+check(
+  "16.25 kg: prefills as 16.25 (on-grid, 2 decimals)",
+  prefill10 === "16.25",
+  `got "${prefill10}"`
+);
+
+check(
+  "16.25 kg: unedited prefill returns original",
+  result10 === originalKg10,
+  `got ${result10} kg`
+);
+
+// Test case 11: On-grid 1-decimal metric weight (trailing zero trimmed)
+const originalKg11 = 72.5;
+const prefill11 = computeRunnerWeightPrefill(originalKg11, "metric", false);
+const result11 = weightKgToSubmit(prefill11, prefill11, originalKg11, "metric");
+
+check(
+  "72.5 kg: prefills as 72.5 (on-grid, trailing zero trimmed)",
+  prefill11 === "72.5",
+  `got "${prefill11}"`
+);
+
+check(
+  "72.5 kg: unedited prefill returns original",
+  result11 === originalKg11,
+  `got ${result11} kg`
+);
+
 console.log("");
 
 if (failed === 0) {

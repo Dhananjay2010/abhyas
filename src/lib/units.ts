@@ -894,8 +894,11 @@ export function computeRunnerWeightPrefill(
   if (!shouldPrefillWeight || defaultWeightKg === null) return "";
   
   if (units === "metric") {
-    // Metric: show exact kg value, no rounding
-    return String(defaultWeightKg);
+    // Metric: round to 0.25 kg grid to match formatLoad display
+    // (so prefill agrees with the working-weight line above it)
+    const rounded = Math.round(defaultWeightKg * 4) / 4;
+    // Format to 2 decimals with trailing zeros trimmed
+    return rounded.toFixed(2).replace(/\.?0+$/, "");
   }
   
   // Imperial: snap to 0.5 lb grid first (same as working weight line)
