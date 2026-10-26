@@ -303,8 +303,24 @@ async function runTests() {
     check("User B is owner of gym B", !error, error?.message);
   }
 
-  // Add member C to gym A
+  // Add member C to gym A (first deactivate their default gym membership)
   {
+    // Deactivate default gym membership
+    const { data: defaultGym } = await adminClient
+      .from("gyms")
+      .select("id")
+      .eq("slug", "default")
+      .single();
+    
+    if (defaultGym) {
+      await adminClient
+        .from("gym_memberships")
+        .update({ status: "removed" })
+        .eq("gym_id", defaultGym.id)
+        .eq("user_id", userIdMemberC);
+    }
+    
+    // Now add to gym A
     const { error } = await adminClient.from("gym_memberships").insert({
       gym_id: gymIdA,
       user_id: userIdMemberC,
