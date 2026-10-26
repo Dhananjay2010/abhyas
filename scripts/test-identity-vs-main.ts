@@ -56,16 +56,16 @@ for (const testCase of testCases) {
   
   const currentInjuryRegions = testCase.injuries
     .filter(i => i.severity === "current")
-    .map(i => i.region as any);
+    .map(i => i.region as "knee" | "lower_back" | "shoulder");
   
   const anyKneeInjury = testCase.injuries.some(i => i.region === "knee");
   
   const input: GeneratorInput = {
     userId: `test-${testCase.id}`,
     blockNumber: 1,
-    goal: "muscle_gain" as any,
-    level: testCase.level as any,
-    primaryTrack: "weights" as any,
+    goal: "muscle_gain" as const,
+    level: testCase.level as "beginner" | "intermediate" | "advanced",
+    primaryTrack: "weights" as const,
     daysPerWeek: 4,
     yogaDaysPerWeek: 0,
     age: 30,
