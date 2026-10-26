@@ -223,10 +223,11 @@ cp "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm
 
 echo ""
 
-# M6v: Drop ss.is_warmup_set = false from view
-echo "M6v: Remove ss.is_warmup_set = false filter from view"
-# Target only the view
-sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/and ss\.is_warmup_set = false//' supabase/migrations/20261025000030_align_e1rm_formula.sql
+# M6v: Drop is_warmup_set filters from view (both ss and ss2)
+echo "M6v: Remove ss.is_warmup_set filters from view"
+# Target only the view, remove both WHERE and AND occurrences
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/where ss\.is_warmup_set = false/where true/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+sed -i '/^create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/and ss2\.is_warmup_set = false//' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ M6v: sed did not change migration"
