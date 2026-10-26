@@ -32,11 +32,26 @@ async function main() {
 
   // Positive assertions: new truthful copy
   check(
-    "Has warm-up/cool-down claim",
-    text.includes("Warm-up and cool-down built into every session"),
+    "Has warm-up/cool-down claim (workout not session)",
+    text.includes("Warm-up and cool-down built into every workout"),
   );
 
-  // Negative assertions: old duration promises absent
+  check(
+    "Description ends with adds weight when ready",
+    text.includes("adds weight when you're ready"),
+  );
+
+  // Negative assertions: old inaccurate copy absent
+  check(
+    "No 'every session' claim",
+    !text.includes("built into every session"),
+  );
+
+  check(
+    "No 'makes next week harder' oversell",
+    !text.includes("makes next week harder"),
+  );
+
   check(
     "No 'One hour a day' claim",
     !text.includes("One hour a day"),

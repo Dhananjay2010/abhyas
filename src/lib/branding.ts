@@ -134,7 +134,7 @@ const abhyas: Brand = {
   name: "Abhyas",
   shortName: "Abhyas",
   description:
-    "Workouts built around your time. Abhyas tells you exactly what to train, guides you through it, and makes next week harder than this one.",
+    "Workouts built around your time. Abhyas tells you exactly what to train, guides you through it, and adds weight when you're ready.",
   siteUrl: "https://abhyas-indol.vercel.app",
   // No timezone set — falls back to browser detection
   // No logo set — shows text name
