@@ -584,7 +584,7 @@ async function testReplayedSetsReported() {
 }
 
 async function testReplayIntoEndedSessionRefused() {
-  console.log("\n--- Replay into ended session refused/dropped ---");
+  console.log("\n--- Replay into ended session kept for surfacing ---");
 
   const storage = createStorage();
   const sessionId = "session-ended";
@@ -626,12 +626,14 @@ async function testReplayIntoEndedSessionRefused() {
 
   assert(!logSetCalled, "logSet not called for ended session");
   const finalState = states[states.length - 1];
-  assertEqual(finalState.pending.length, 0, "Pending sets cleared when session ended");
+  assertEqual(finalState.pending.length, 1, "Pending sets kept for surfacing (decision A)");
   assert(!finalState.expired, "Not marked expired when session ended");
+  assert(finalState.error === "Session is not in progress", "Error message set for ended session");
 
   const remaining = storage.getItem(storageKey("test-user-id"));
   const parsed = remaining ? JSON.parse(remaining) : {};
-  assert(!parsed[sessionId] || parsed[sessionId].length === 0, "Storage cleared for ended session");
+  const sessionData = parsed[sessionId];
+  assert(sessionData && sessionData.sets && sessionData.sets.length === 1, "Storage keeps sets for ended session");
 }
 
 function testCanReplayForStatusHelper() {
