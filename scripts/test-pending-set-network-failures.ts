@@ -82,10 +82,8 @@ async function testNetworkFailureQueued() {
   const storage = createFakeStorage();
   const timer = createFakeTimer();
   const now = 1000000;
-  let logSetAttempts = 0;
   
   const logSet: LogSetFunction = async () => {
-    logSetAttempts += 1;
     throw new TypeError("Failed to fetch");
   };
 
