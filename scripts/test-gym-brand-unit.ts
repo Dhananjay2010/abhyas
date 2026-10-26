@@ -4,6 +4,7 @@
  */
 
 import { gymBrandTag } from "../src/lib/gym-brand";
+import { validateTimezone } from "../src/lib/branding";
 
 let failures = 0;
 
@@ -62,9 +63,6 @@ function runTests() {
     // - Valid IANA timezone should be included
     // - Invalid timezone should be omitted (canonical = null)
     // - No timezone should result in no timezone field
-
-    // Import validateTimezone to test the contract
-    const { validateTimezone } = require("../src/lib/branding");
 
     check(
       "Valid timezone is canonical",
