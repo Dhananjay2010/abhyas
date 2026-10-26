@@ -135,12 +135,12 @@ for (const config of testConfigs) {
     const pastKneeDay = pastKneePlan.days[dayIndex];
     
     if (!noInjuryDay || !pastKneeDay) continue;
-    if (!upperFocusList.includes(noInjuryDay.focus)) continue;
+    if (!noInjuryDay.focus || !upperFocusList.includes(noInjuryDay.focus)) continue;
     
     configUpperDays++;
     
-    const noInjuryExercises = noInjuryDay.exercises.map(e => e.slug);
-    const pastKneeExercises = pastKneeDay.exercises.map(e => e.slug);
+    const noInjuryExercises = noInjuryDay.exercises.map(e => e.exerciseId);
+    const pastKneeExercises = pastKneeDay.exercises.map(e => e.exerciseId);
     
     // Check if any exercises differ
     let hasDiff = false;
