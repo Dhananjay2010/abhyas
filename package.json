@@ -373,7 +373,7 @@
     "test:start-session-m9-weekday-and-timezone": "tsx scripts/test-start-session-m9-weekday-and-timezone.ts",
     "test:start-session-m10-no-block": "tsx scripts/test-start-session-m10-no-block.ts",
     "test:start-session-m11-stale-error": "tsx scripts/test-start-session-m11-stale-error.ts",
-    "test:start-session-over-6h": "tsx scripts/test-start-session-over-6h.ts"
+    "test:start-session-over-6h": "tsx scripts/test-start-session-over-6h.ts",
     "test:plan-day-validation": "tsx scripts/test-plan-day-validation.ts",
     "test:wiring-behavioral": "tsx scripts/test-wiring-behavioral.ts",
     "test:null-actual-type": "tsx scripts/test-null-actual-type.ts",
