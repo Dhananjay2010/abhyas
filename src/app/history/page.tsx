@@ -7,7 +7,7 @@ import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { computeSessionEndedEarly } from "@/lib/history/compute-session-ended-early";
+import { buildHistorySessionSummaries } from "@/lib/history/build-session-summaries";
 
 export const dynamic = "force-dynamic";
 
@@ -112,32 +112,6 @@ export default async function HistoryPage({
     console.error("Failed to load session exercises:", exercisesError);
   }
 
-  const exercisesBySession = new Map<string, Array<{ id: string; exercise_id: string; metric: string }>>();
-  const plannedSetsBySession = new Map<string, number>();
-  const hasPendingExerciseBySession = new Map<string, boolean>();
-  
-  for (const ex of sessionExercises ?? []) {
-    // Only add completed exercises for top set calculation
-    if (ex.status === "completed") {
-      const list = exercisesBySession.get(ex.session_id) ?? [];
-      list.push({ id: ex.id, exercise_id: ex.exercise_id, metric: ex.metric ?? "reps" });
-      exercisesBySession.set(ex.session_id, list);
-    }
-    
-    // Sum planned_sets only over 'pending' or 'completed' exercises (exclude 'skipped' and 'swapped_out')
-    if ((ex.status === "pending" || ex.status === "completed") && ex.planned_sets && ex.planned_sets > 0) {
-      plannedSetsBySession.set(
-        ex.session_id,
-        (plannedSetsBySession.get(ex.session_id) ?? 0) + ex.planned_sets
-      );
-    }
-    
-    // Track if any exercise is still pending
-    if (ex.status === "pending") {
-      hasPendingExerciseBySession.set(ex.session_id, true);
-    }
-  }
-
   // Detect which sessions had PRs at the time AND get set counts
   // This fetches all historical data needed for PR detection and reuses it for counting
   // Pass the OLDEST session's completed_at so we fetch full prior history
@@ -148,6 +122,14 @@ export default async function HistoryPage({
     sessionIds,
     oldestCompletedAt
   );
+
+  // Build session summaries (exercises, planned sets, pending, endedEarly)
+  const sessionSummaries = buildHistorySessionSummaries(
+    (orderedSessions ?? []).map(s => ({ id: s.id, actual_type: s.actual_type, status: s.status })),
+    sessionExercises ?? [],
+    setCountsBySession
+  );
+  const summariesById = new Map(sessionSummaries.map(s => [s.sessionId, s]));
 
   // Get all sets for these session_exercises to calculate top sets only
   // (set counts already computed by detectSessionPRs above)
@@ -186,10 +168,11 @@ export default async function HistoryPage({
     .map((s) => {
       const vol = volumeById.get(s.id);
       const isBreathing = s.actual_type === "meditation";
-      const exercises = exercisesBySession.get(s.id) ?? [];
+      const summary = summariesById.get(s.id);
+      const exercises = summary?.completedExercises ?? [];
 
-      // Get working set count from detectSessionPRs (already computed)
-      const workingSetCount = setCountsBySession.get(s.id) ?? 0;
+      // Get working set count from summary
+      const workingSetCount = summary?.workingSetCount ?? 0;
 
       // Calculate top set weight for strength sessions
     // Use pickTopSet to find the heaviest working set across all exercises
@@ -219,15 +202,8 @@ export default async function HistoryPage({
         (p) => typeof p === "object" && p !== null && (p as { kind?: string }).kind === "pump"
       );
 
-    const plannedSets = plannedSetsBySession.get(s.id);
-    const hasPendingExercise = hasPendingExerciseBySession.get(s.id) ?? false;
-    
-    const endedEarly = computeSessionEndedEarly(s, {
-      exercisesBySession,
-      setCountsBySession,
-      plannedSetsBySession,
-      hasPendingExerciseBySession,
-    });
+    const endedEarly = summary?.endedEarly ?? false;
+    const plannedSets = summary?.plannedSets ?? null;
 
     return {
       id: s.id,
