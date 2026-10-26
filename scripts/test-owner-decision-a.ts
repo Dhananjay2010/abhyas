@@ -56,8 +56,8 @@ const pastKneeInput: Partial<GeneratorInput> = {
   yogaDaysPerWeek: 0,
   age: null,
   bmi: null,
-  hasAllEquipment: true,
-  equipmentIds: [],
+  hasAllEquipment: false,
+  equipmentIds: ["barbell", "squat_rack", "flat_bench", "dumbbell", "landmine", "leg_press"],
   currentInjuryRegions: [],
   anyKneeInjury: true,
   preferredSessionMinutes: 60,
@@ -78,8 +78,15 @@ for (const slug of THREE_EXCLUDED_SLUGS) {
   }
 }
 
+// Verify landmine jammers are explicitly excluded even though equipment is available
+if (pastKneeSlugs.has("landmine-linear-jammer") || pastKneeSlugs.has("single-arm-linear-jammer")) {
+  console.log(`  ✗ FAIL: Landmine jammers eligible for past-knee with landmine equipment`);
+  violations++;
+}
+
 if (violations === 0) {
   console.log(`  ✓ PASS: All 3 excluded slugs are not eligible for past-knee`);
+  console.log(`  ✓ PASS: Landmine jammers excluded even with landmine equipment`);
 }
 
 console.log("");
@@ -119,7 +126,7 @@ if (violations === 0) {
 
 console.log("");
 
-// Test 3: Past-knee swap alternatives
+// Test 3: Past-knee swap alternatives (including landmine equipment)
 console.log("=== Test 3: Past-knee swap alternatives ===");
 
 const testExercises = ["barbell-squat", "leg-press", "dumbbell-squat"];
@@ -137,10 +144,11 @@ for (const exerciseSlug of testExercises) {
       "ez_bar",
       "pull_up_bar",
       "leg_press",
+      "landmine",
     ]),
     injuryRegions: [],
     anyKneeInjury: true,
-    limit: 10,
+    limit: 20,
     scoreFn: () => 50,
     tieBreakFn: () => 0,
   };
@@ -150,6 +158,35 @@ for (const exerciseSlug of testExercises) {
   for (const slug of THREE_EXCLUDED_SLUGS) {
     if (alternatives.some((alt) => alt.slug === slug)) {
       console.log(`  ✗ FAIL: ${slug} appears in swaps for ${exerciseSlug}`);
+      violations++;
+    }
+  }
+}
+
+// Test 3b: Check alternatives for overhead press to catch jammers
+const overheadPress = catalogue.find((ex) => ex.slug === "barbell-military-press");
+if (overheadPress) {
+  const ctx: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: new Set([
+      "barbell",
+      "squat_rack",
+      "flat_bench",
+      "dumbbell",
+      "landmine",
+    ]),
+    injuryRegions: [],
+    anyKneeInjury: true,
+    limit: 20,
+    scoreFn: () => 50,
+    tieBreakFn: () => 0,
+  };
+
+  const alternatives = rankAlternatives(overheadPress, catalogue, ctx);
+
+  for (const slug of TWO_JAMMER_SLUGS) {
+    if (alternatives.some((alt) => alt.slug === slug)) {
+      console.log(`  ✗ FAIL: ${slug} appears in overhead press swaps for past-knee`);
       violations++;
     }
   }
