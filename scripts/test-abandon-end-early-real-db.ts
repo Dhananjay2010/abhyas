@@ -17,6 +17,7 @@ import { abandonSessionCore } from "../src/lib/session/abandon-session";
 import { makeAbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 import { summarizeEndedEarly } from "../src/lib/session/load-ended-early-summary";
 import { computeHistoryEndedEarly } from "../src/lib/history/compute-ended-early";
+import { computeHistoryEndedEarlyForRow } from "../src/lib/history/compute-ended-early-for-row";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
@@ -254,21 +255,19 @@ async function runTests() {
     const hasPendingExercise = pendingCount > 0;
     check("History detects pending exercises", hasPendingExercise === true, `${pendingCount} pending`);
 
-    // Derive values from DB rows
+    // Compute ended early using the same pure function page.tsx uses
     const totalPlannedSets = summaryData.session_exercises.reduce((sum, ex) => sum + (ex.planned_sets || 0), 0);
     const totalWorkingSets = summaryData.session_exercises.reduce((sum, ex) => {
       const sets = ex.session_sets || [];
       return sum + sets.filter(s => !s.is_warmup_set).length;
     }, 0);
-    const isStrength = sessionData.actual_type !== "yoga" && sessionData.actual_type !== "breathing";
 
-    const endedEarly = computeHistoryEndedEarly({
-      hasPendingExercise,
-      plannedSets: totalPlannedSets,
+    const endedEarly = computeHistoryEndedEarlyForRow({
+      session: { actual_type: sessionData.actual_type, status: sessionData.status },
+      exercises: summaryData.session_exercises.map(ex => ({ id: ex.id })),
       workingSetCount: totalWorkingSets,
-      isStrength,
-      status: sessionData.status,
-      hasNoExercises: false,
+      plannedSets: totalPlannedSets,
+      hasPendingExercise,
     });
 
     check("History computes ended early = true", endedEarly === true);
