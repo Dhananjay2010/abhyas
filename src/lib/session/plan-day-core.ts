@@ -1,60 +1,86 @@
 import type { Database } from "@/lib/database.types";
+import { validatePlanDayInput } from "@/lib/session/validate-plan-day-input";
+import { cycleWeekFor } from "@/lib/program/block-range";
 
-type SessionRow = Pick<
-  Database["public"]["Tables"]["sessions"]["Row"],
-  "id" | "actual_type" | "status"
->;
+type DayType = Database["public"]["Enums"]["day_type"];
 type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
+type SessionRow = { id: string; status: string; actual_type: DayType | null };
+
+const OVERRIDE_TYPE: Record<string, DayType> = {
+  rest: "rest",
+  yoga: "yoga",
+  breathing: "meditation",
+};
+
+export type DayPlan =
+  | { kind: "keep" }
+  | { kind: "training"; programDayId: string }
+  | { kind: "yoga" }
+  | { kind: "breathing" }
+  | { kind: "rest" };
+
+type Program = {
+  id: string;
+  started_on: string;
+  deload_week: number;
+  week_offset: number;
+};
+
+type ProgramDay = {
+  id: string;
+  day_type: DayType;
+};
 
 export interface PlanDayClient {
-  findDaySessions(
-    localDate: string
-  ): Promise<{ rows: SessionRow[]; error: string | null }>;
+  findDaySessions(localDate: string): Promise<{ rows: SessionRow[]; error: string | null }>;
+  findActiveProgram(): Promise<{ program: Program | null; error: string | null }>;
+  loadProgramDay(programDayId: string): Promise<{ ok: true; day: ProgramDay } | { ok: false; error: string }>;
+  updateSession(id: string, row: SessionInsert): Promise<{ error: string | null }>;
   deleteSessions(ids: string[]): Promise<{ error: string | null }>;
   insertSession(row: SessionInsert): Promise<{ error: string | null }>;
 }
 
 type PlanDayInput = {
+  userId: string;
   localDate: string;
-  plan: unknown;
+  today: string;
+  plan: DayPlan;
 };
 
-function ownsPlannedWorkout(sessionType: string | null): boolean {
-  return sessionType === "weights" || sessionType === "bodyweight";
+type Result = { ok: true } | { ok: false; error: string };
+
+function ownsPlannedWorkout(actualType: DayType | null): boolean {
+  return actualType === "weights" || actualType === "bodyweight";
 }
 
 export async function planDayCore(
   client: PlanDayClient,
-  userId: string,
   input: PlanDayInput,
-  today: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { localDate, plan } = input;
-
-  // Date format validation
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) {
-    return { ok: false, error: "That is not a date." };
+): Promise<Result> {
+  const validationError = validatePlanDayInput(input.plan);
+  if (validationError) {
+    return { ok: false, error: validationError };
   }
 
-  // Past date check
-  if (localDate < today) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
+    return { ok: false, error: "That is not a date." };
+  }
+  if (input.localDate < input.today) {
     return { ok: false, error: "That day has already been and gone." };
   }
 
-  // Fetch existing sessions for this date
-  const { rows: existingSessions, error: fetchError } = await client.findDaySessions(localDate);
-
-  if (fetchError) {
-    return { ok: false, error: "Failed to fetch planned sessions." };
+  const sessionsResult = await client.findDaySessions(input.localDate);
+  if (sessionsResult.error) {
+    return { ok: false, error: sessionsResult.error };
   }
 
-  // Check for settled (completed or in-progress) workout sessions
-  const settled = existingSessions.find(
+  const existing = sessionsResult.rows;
+
+  const settled = existing.find(
     (s) =>
       ownsPlannedWorkout(s.actual_type) &&
-      (s.status === "completed" || s.status === "in_progress")
+      (s.status === "completed" || s.status === "in_progress"),
   );
-
   if (settled) {
     return {
       ok: false,
@@ -65,84 +91,75 @@ export async function planDayCore(
     };
   }
 
-  // Validation
-  if (!plan) {
-    return { ok: false, error: "No plan was provided." };
-  }
+  const planned = existing.filter((s) => s.status === "planned");
 
-  if (typeof plan !== "object" || plan === null) {
-    return { ok: false, error: "Invalid plan: must be an object." };
-  }
-
-  if (!("kind" in plan)) {
-    return { ok: false, error: "Invalid plan: must have a kind." };
-  }
-
-  if (typeof plan.kind !== "string" || !plan.kind) {
-    return { ok: false, error: "Invalid plan: must have a kind." };
-  }
-
-  const validKinds = ["keep", "training", "yoga", "breathing", "rest"];
-  if (!validKinds.includes(plan.kind)) {
-    return { ok: false, error: "Invalid plan type." };
-  }
-
-  // Fetch existing planned sessions for this date
-  const plannedSessions = existingSessions.filter((s) => s.status === "planned");
-
-  // Handle "keep" - no-op
-  if (plan.kind === "keep") {
+  if (input.plan.kind === "keep") {
+    if (planned.length === 0) {
+      return { ok: true };
+    }
+    const deleteResult = await client.deleteSessions(planned.map((s) => s.id));
+    if (deleteResult.error) {
+      return { ok: false, error: deleteResult.error };
+    }
     return { ok: true };
   }
 
-  // Delete existing planned sessions
-  if (plannedSessions.length > 0) {
-    const ids = plannedSessions.map((s) => s.id);
-    const { error: deleteError } = await client.deleteSessions(ids);
-    if (deleteError) {
-      return { ok: false, error: "Failed to delete old sessions." };
+  const programResult = await client.findActiveProgram();
+  if (programResult.error) {
+    return { ok: false, error: programResult.error };
+  }
+  const program = programResult.program;
+
+  let actualType: DayType;
+  let programDayId: string | null = null;
+
+  if (input.plan.kind === "training") {
+    const dayResult = await client.loadProgramDay(input.plan.programDayId);
+    if (!dayResult.ok) {
+      return { ok: false, error: dayResult.error };
     }
+    actualType = dayResult.day.day_type;
+    programDayId = dayResult.day.id;
+  } else {
+    actualType = OVERRIDE_TYPE[input.plan.kind];
   }
 
-  // Handle rest
-  if (plan.kind === "rest") {
-    const restSession: SessionInsert = {
-      user_id: userId,
-      local_date: localDate,
-      status: "planned",
-      actual_type: "rest",
-    };
+  const week = program
+    ? cycleWeekFor(
+        { started_on: program.started_on, week_offset: program.week_offset },
+        input.localDate,
+      )
+    : null;
 
-    const { error: insertError } = await client.insertSession(restSession);
-    if (insertError) {
-      return { ok: false, error: "Failed to insert rest session." };
-    }
-
-    return { ok: true };
-  }
-
-  // Handle training/yoga/breathing
-  const dayTypeMap: Record<string, Database["public"]["Enums"]["day_type"]> = {
-    training: "weights",
-    yoga: "yoga",
-    breathing: "meditation",
-  };
-
-  const actualType = dayTypeMap[plan.kind];
-  if (!actualType) {
-    return { ok: false, error: "Invalid plan type." };
-  }
-
-  const newSession: SessionInsert = {
-    user_id: userId,
-    local_date: localDate,
-    status: "planned",
+  const row: SessionInsert = {
+    user_id: input.userId,
+    program_id: program?.id ?? null,
+    program_day_id: programDayId,
+    local_date: input.localDate,
+    week_in_block: week,
+    is_deload: week !== null && week === program?.deload_week,
+    planned_type: actualType,
     actual_type: actualType,
+    status: "planned",
   };
 
-  const { error: insertError } = await client.insertSession(newSession);
-  if (insertError) {
-    return { ok: false, error: "Failed to insert session." };
+  if (planned.length > 0) {
+    const [first, ...rest] = planned;
+    if (rest.length > 0) {
+      const deleteResult = await client.deleteSessions(rest.map((s) => s.id));
+      if (deleteResult.error) {
+        return { ok: false, error: deleteResult.error };
+      }
+    }
+    const updateResult = await client.updateSession(first.id, row);
+    if (updateResult.error) {
+      return { ok: false, error: updateResult.error };
+    }
+  } else {
+    const insertResult = await client.insertSession(row);
+    if (insertResult.error) {
+      return { ok: false, error: insertResult.error };
+    }
   }
 
   return { ok: true };

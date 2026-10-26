@@ -755,15 +755,6 @@ export type PlannableDay = {
   dayType: Database["public"]["Enums"]["day_type"];
 };
 
-const OVERRIDE_TYPE: Record<
-  Exclude<DayPlan["kind"], "keep" | "training">,
-  Database["public"]["Enums"]["day_type"]
-> = {
-  rest: "rest",
-  yoga: "yoga",
-  breathing: "meditation",
-};
-
 /**
  * Plan one day.
  *
@@ -794,9 +785,31 @@ export async function planDay(input: {
     async findDaySessions(localDate: string) {
       const { data, error } = await supabase
         .from("sessions")
-        .select("*")
+        .select("id, status, actual_type")
         .eq("local_date", localDate);
       return { rows: data ?? [], error: error?.message ?? null };
+    },
+    async findActiveProgram() {
+      const { data, error } = await supabase
+        .from("programs")
+        .select("id, started_on, deload_week, week_offset")
+        .eq("status", "active")
+        .maybeSingle();
+      return { program: data, error: error?.message ?? null };
+    },
+    async loadProgramDay(programDayId: string) {
+      const result = await loadPlanDay(
+        createLoadPlanDayDeps(supabase),
+        programDayId,
+      );
+      return result;
+    },
+    async updateSession(id: string, row) {
+      const { error} = await supabase
+        .from("sessions")
+        .update(row)
+        .eq("id", id);
+      return { error: error?.message ?? null };
     },
     async deleteSessions(ids: string[]) {
       const { error } = await supabase.from("sessions").delete().in("id", ids);
@@ -808,7 +821,12 @@ export async function planDay(input: {
     },
   };
 
-  const result = await planDayCore(client, user.id, input, today);
+  const result = await planDayCore(client, {
+    userId: user.id,
+    localDate: input.localDate,
+    today,
+    plan: input.plan,
+  });
 
   if (result.ok) {
     revalidateTrainingData();

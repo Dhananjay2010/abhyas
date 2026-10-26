@@ -1,5 +1,5 @@
 /**
- * Test planDayCore with fake client recording all DB calls (L7 behavioral).
+ * Test planDayCore pure logic with typed recording fake.
  *
  *   npx tsx scripts/test-plan-day-core.ts
  */
@@ -10,16 +10,79 @@ import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
 
-type SessionRow = Pick<
-  Database["public"]["Tables"]["sessions"]["Row"],
-  "id" | "actual_type" | "status"
->;
+type DayType = Database["public"]["Enums"]["day_type"];
 type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
+type SessionRow = { id: string; status: string; actual_type: DayType | null };
+type Program = {
+  id: string;
+  started_on: string;
+  deload_week: number;
+  week_offset: number;
+};
+type ProgramDay = {
+  id: string;
+  day_type: DayType;
+};
+
+type Call =
+  | { method: "findDaySessions"; localDate: string }
+  | { method: "findActiveProgram" }
+  | { method: "loadProgramDay"; programDayId: string }
+  | { method: "updateSession"; id: string; row: SessionInsert }
+  | { method: "deleteSessions"; ids: string[] }
+  | { method: "insertSession"; row: SessionInsert };
+
+function makeFakeClient(config: {
+  existingSessions?: SessionRow[];
+  program?: Program | null;
+  programDays?: Record<string, ProgramDay>;
+}): { client: PlanDayClient; calls: Call[] } {
+  const calls: Call[] = [];
+
+  const client: PlanDayClient = {
+    async findDaySessions(localDate: string) {
+      calls.push({ method: "findDaySessions", localDate });
+      return {
+        rows: config.existingSessions ?? [],
+        error: null,
+      };
+    },
+    async findActiveProgram() {
+      calls.push({ method: "findActiveProgram" });
+      return {
+        program: config.program ?? null,
+        error: null,
+      };
+    },
+    async loadProgramDay(programDayId: string) {
+      calls.push({ method: "loadProgramDay", programDayId });
+      const day = config.programDays?.[programDayId];
+      if (!day) {
+        return { ok: false, error: "Program day not found." };
+      }
+      return { ok: true, day };
+    },
+    async updateSession(id: string, row: SessionInsert) {
+      calls.push({ method: "updateSession", id, row });
+      return { error: null };
+    },
+    async deleteSessions(ids: string[]) {
+      calls.push({ method: "deleteSessions", ids });
+      return { error: null };
+    },
+    async insertSession(row: SessionInsert) {
+      calls.push({ method: "insertSession", row });
+      return { error: null };
+    },
+  };
+
+  return { client, calls };
+}
 
 let passed = 0;
 let failed = 0;
 
-async function test(name: string, fn: () => Promise<void>) {
+async function test(name: string, fn: () => void | Promise<void>) {
   try {
     await fn();
     console.log(`✓ ${name}`);
@@ -31,173 +94,265 @@ async function test(name: string, fn: () => Promise<void>) {
   }
 }
 
-type Call =
-  | { method: "findDaySessions"; args: [string] }
-  | { method: "deleteSessions"; args: [string[]] }
-  | { method: "insertSession"; args: [SessionInsert] };
-
-function createFakeClient(existingSessions: SessionRow[] = []): {
-  client: PlanDayClient;
-  calls: Call[];
-} {
-  const calls: Call[] = [];
-
-  const client: PlanDayClient = {
-    async findDaySessions(localDate: string) {
-      calls.push({ method: "findDaySessions", args: [localDate] });
-      return { rows: existingSessions, error: null };
-    },
-    async deleteSessions(ids: string[]) {
-      calls.push({ method: "deleteSessions", args: [ids] });
-      return { error: null };
-    },
-    async insertSession(row) {
-      calls.push({ method: "insertSession", args: [row] });
-      return { error: null };
-    },
-  };
-
-  return { client, calls };
-}
-
-async function main() {
+function main() {
   console.log("Testing planDayCore\n");
 
-  await test("(a) Keep on existing training override: ZERO writes", async () => {
-    const existing: SessionRow[] = [{ id: "sess-1", actual_type: "weights", status: "planned" }];
-    const { client, calls } = createFakeClient(existing);
+  test("(a) Training on bodyweight program day writes bodyweight + all fields", async () => {
+    const program: Program = {
+      id: "prog-1",
+      started_on: "2026-11-01",
+      deload_week: 4,
+      week_offset: 0,
+    };
+    const programDay: ProgramDay = {
+      id: "day-bw",
+      day_type: "bodyweight",
+    };
 
-    const result = await planDayCore(client, "user-1", {
-      localDate: "2026-11-01",
-      plan: { kind: "keep" },
-    }, "2026-11-01");
+    const { client, calls } = makeFakeClient({
+      existingSessions: [],
+      program,
+      programDays: { "day-bw": programDay },
+    });
+
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "training", programDayId: "day-bw" },
+    });
 
     assert.equal(result.ok, true, "Should succeed");
-    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
-    assert.equal(writes.length, 0, "Keep must make ZERO delete/insert calls");
+    assert.equal(calls.length, 4, "Should make 4 calls");
+    assert.equal(calls[0].method, "findDaySessions");
+    assert.equal(calls[1].method, "findActiveProgram");
+    assert.equal(calls[2].method, "loadProgramDay");
+    if (calls[2].method !== "loadProgramDay") throw new Error("Wrong call");
+    assert.equal(calls[2].programDayId, "day-bw");
+    assert.equal(calls[3].method, "insertSession");
+
+    const insertCall = calls.find((c) => c.method === "insertSession");
+    assert(insertCall, "Should insert a session");
+    if (insertCall.method !== "insertSession") throw new Error("Wrong call");
+
+    assert.equal(insertCall.row.actual_type, "bodyweight", "Should be bodyweight");
+    assert.equal(insertCall.row.planned_type, "bodyweight", "planned_type should be bodyweight");
+    assert.equal(insertCall.row.program_day_id, "day-bw", "Should have program_day_id");
+    assert.equal(insertCall.row.program_id, "prog-1", "Should have program_id");
+    assert.equal(insertCall.row.week_in_block, 3, "Week 3 for 2026-11-15 from 2026-11-01");
+    assert.equal(insertCall.row.is_deload, false, "Week 3 is not deload week");
   });
 
-  await test("(a) Keep on existing yoga override: ZERO writes", async () => {
-    const existing: SessionRow[] = [{ id: "sess-2", actual_type: "yoga", status: "planned" }];
-    const { client, calls } = createFakeClient(existing);
+  test("(a2) Deload week writes is_deload: true", async () => {
+    const program: Program = {
+      id: "prog-1",
+      started_on: "2026-11-01",
+      deload_week: 3,
+      week_offset: 0,
+    };
+    const programDay: ProgramDay = {
+      id: "day-weights",
+      day_type: "weights",
+    };
 
-    const result = await planDayCore(client, "user-1", {
-      localDate: "2026-11-01",
-      plan: { kind: "keep" },
-    }, "2026-11-01");
+    const { client, calls } = makeFakeClient({
+      existingSessions: [],
+      program,
+      programDays: { "day-weights": programDay },
+    });
 
-    assert.equal(result.ok, true);
-    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
-    assert.equal(writes.length, 0, "Keep on yoga must make ZERO writes");
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "training", programDayId: "day-weights" },
+    });
+
+    assert.equal(result.ok, true, "Should succeed");
+    const insertCall = calls.find((c) => c.method === "insertSession");
+    if (insertCall?.method !== "insertSession") throw new Error("Wrong call");
+    assert.equal(insertCall.row.is_deload, true, "Week 3 is deload week");
   });
 
-  await test("(a) Keep on existing breathing override: ZERO writes", async () => {
-    const existing: SessionRow[] = [{ id: "sess-3", actual_type: "meditation", status: "planned" }];
-    const { client, calls } = createFakeClient(existing);
+  test("(b) With 2 existing planned rows: updates first, deletes second", async () => {
+    const program: Program = {
+      id: "prog-1",
+      started_on: "2026-11-01",
+      deload_week: 4,
+      week_offset: 0,
+    };
+    const programDay: ProgramDay = {
+      id: "day-push",
+      day_type: "weights",
+    };
 
-    const result = await planDayCore(client, "user-1", {
-      localDate: "2026-11-01",
-      plan: { kind: "keep" },
-    }, "2026-11-01");
+    const existing: SessionRow[] = [
+      { id: "sess-1", status: "planned", actual_type: "rest" },
+      { id: "sess-2", status: "planned", actual_type: "weights" },
+    ];
 
-    assert.equal(result.ok, true);
-    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
-    assert.equal(writes.length, 0, "Keep on breathing must make ZERO writes");
+    const { client, calls } = makeFakeClient({
+      existingSessions: existing,
+      program,
+      programDays: { "day-push": programDay },
+    });
+
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "training", programDayId: "day-push" },
+    });
+
+    assert.equal(result.ok, true, "Should succeed");
+
+    const deleteCall = calls.find((c) => c.method === "deleteSessions");
+    assert(deleteCall, "Should delete second row");
+    if (deleteCall.method !== "deleteSessions") throw new Error("Wrong call");
+    assert.deepEqual(deleteCall.ids, ["sess-2"], "Should delete sess-2");
+
+    const updateCall = calls.find((c) => c.method === "updateSession");
+    assert(updateCall, "Should update first row");
+    if (updateCall.method !== "updateSession") throw new Error("Wrong call");
+    assert.equal(updateCall.id, "sess-1", "Should update sess-1");
+
+    const insertCall = calls.find((c) => c.method === "insertSession");
+    assert(!insertCall, "Should NOT insert when updating");
   });
 
-  await test("(a) Keep on existing rest override: ZERO writes", async () => {
-    const existing: SessionRow[] = [{ id: "sess-4", actual_type: "rest", status: "planned" }];
-    const { client, calls } = createFakeClient(existing);
+  test("(c) Yoga writes 'yoga' with program week stamped", async () => {
+    const program: Program = {
+      id: "prog-1",
+      started_on: "2026-11-01",
+      deload_week: 4,
+      week_offset: 0,
+    };
 
-    const result = await planDayCore(client, "user-1", {
-      localDate: "2026-11-01",
-      plan: { kind: "keep" },
-    }, "2026-11-01");
+    const { client, calls } = makeFakeClient({
+      existingSessions: [],
+      program,
+    });
 
-    assert.equal(result.ok, true);
-    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
-    assert.equal(writes.length, 0, "Keep on rest must make ZERO writes");
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "yoga" },
+    });
+
+    assert.equal(result.ok, true, "Should succeed");
+    const insertCall = calls.find((c) => c.method === "insertSession");
+    if (insertCall?.method !== "insertSession") throw new Error("Wrong call");
+
+    assert.equal(insertCall.row.actual_type, "yoga", "Should be yoga");
+    assert.equal(insertCall.row.planned_type, "yoga", "planned_type should be yoga");
+    assert.equal(insertCall.row.program_id, "prog-1", "Should have program_id");
+    assert.equal(insertCall.row.week_in_block, 3, "Should stamp week");
   });
 
-  await test("(b) null plan: ok:false with zero writes", async () => {
-    const { client, calls } = createFakeClient();
+  test("(d) Breathing writes 'meditation' with program week stamped", async () => {
+    const program: Program = {
+      id: "prog-1",
+      started_on: "2026-11-01",
+      deload_week: 4,
+      week_offset: 0,
+    };
 
-    const result = await planDayCore(client, "user-1", {
-      localDate: "2026-11-01",
-      plan: null,
-    }, "2026-11-01");
+    const { client, calls } = makeFakeClient({
+      existingSessions: [],
+      program,
+    });
 
-    assert.equal(result.ok, false, "null plan should fail");
-    assert(result.ok === false && result.error.includes("No plan"), "Error mentions no plan");
-    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
-    assert.equal(writes.length, 0, "Failed validation must make ZERO writes");
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "breathing" },
+    });
+
+    assert.equal(result.ok, true, "Should succeed");
+    const insertCall = calls.find((c) => c.method === "insertSession");
+    if (insertCall?.method !== "insertSession") throw new Error("Wrong call");
+
+    assert.equal(insertCall.row.actual_type, "meditation", "Should be meditation");
+    assert.equal(insertCall.row.planned_type, "meditation", "planned_type should be meditation");
+    assert.equal(insertCall.row.program_id, "prog-1", "Should have program_id");
+    assert.equal(insertCall.row.week_in_block, 3, "Should stamp week");
   });
 
-  await test("(b) missing plan: ok:false with zero writes", async () => {
-    const { client, calls } = createFakeClient();
+  test("(e) Unknown programDayId returns loadPlanDay error", async () => {
+    const program: Program = {
+      id: "prog-1",
+      started_on: "2026-11-01",
+      deload_week: 4,
+      week_offset: 0,
+    };
 
-    const result = await planDayCore(client, "user-1", {
-      localDate: "2026-11-01",
-      plan: undefined,
-    }, "2026-11-01");
+    const { client, calls } = makeFakeClient({
+      existingSessions: [],
+      program,
+      programDays: {}, // No program days available
+    });
 
-    assert.equal(result.ok, false);
-    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
-    assert.equal(writes.length, 0, "Missing plan must make ZERO writes");
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "training", programDayId: "day-unknown" },
+    });
+
+    assert.equal(result.ok, false, "Should fail");
+    assert.equal(result.ok === false && result.error, "Program day not found.");
+
+    const insertCall = calls.find((c) => c.method === "insertSession");
+    assert(!insertCall, "Should NOT insert on error");
   });
 
-  await test("(b) empty object plan: ok:false with zero writes", async () => {
-    const { client, calls } = createFakeClient();
+  test("Past date returns error", async () => {
+    const { client } = makeFakeClient({});
 
-    const result = await planDayCore(client, "user-1", {
-      localDate: "2026-11-01",
-      plan: {},
-    }, "2026-11-01");
-
-    assert.equal(result.ok, false);
-    assert(result.ok === false && result.error.includes("kind"), "Error mentions kind");
-    const writes = calls.filter(c => c.method === "deleteSessions" || c.method === "insertSession");
-    assert.equal(writes.length, 0, "Empty plan must make ZERO writes");
-  });
-
-  await test("(c) Normal swap (training): deletes old, inserts new", async () => {
-    const existing: SessionRow[] = [{ id: "old-1", actual_type: "rest", status: "planned" }];
-    const { client, calls } = createFakeClient(existing);
-
-    const result = await planDayCore(client, "user-1", {
-      localDate: "2026-11-01",
-      plan: { kind: "training" },
-    }, "2026-11-01");
-
-    assert.equal(result.ok, true, "Swap should succeed");
-    const deletes = calls.filter(c => c.method === "deleteSessions");
-    const inserts = calls.filter(c => c.method === "insertSession");
-    assert.equal(deletes.length, 1, "Should delete old session");
-    assert.equal(inserts.length, 1, "Should insert new session");
-  });
-
-  await test("(c) Swap to rest: deletes old, inserts rest", async () => {
-    const existing: SessionRow[] = [{ id: "old-2", actual_type: "weights", status: "planned" }];
-    const { client, calls } = createFakeClient(existing);
-
-    const result = await planDayCore(client, "user-1", {
-      localDate: "2026-11-01",
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-10",
+      today: "2026-11-14",
       plan: { kind: "rest" },
-    }, "2026-11-01");
+    });
 
-    assert.equal(result.ok, true);
-    const deletes = calls.filter(c => c.method === "deleteSessions");
-    const inserts = calls.filter(c => c.method === "insertSession");
-    assert.equal(deletes.length, 1, "Should delete old training");
-    assert.equal(inserts.length, 1, "Should insert rest");
+    assert.equal(result.ok, false, "Should fail");
+    assert.equal(result.ok === false && result.error, "That day has already been and gone.");
+  });
 
-    const insertCall = inserts[0];
-    if (insertCall.method === "insertSession") {
-      const inserted = insertCall.args[0];
-      assert.equal(inserted.actual_type, "rest", "Inserted row should be rest");
-    } else {
-      assert.fail("Expected insertSession call");
-    }
+  test("Completed day returns error", async () => {
+    const existing: SessionRow[] = [
+      { id: "sess-1", status: "completed", actual_type: "weights" },
+    ];
+
+    const { client } = makeFakeClient({ existingSessions: existing });
+
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "rest" },
+    });
+
+    assert.equal(result.ok, false, "Should fail");
+    assert.equal(result.ok === false && result.error, "That day is already done.");
+  });
+
+  test("Keep with no planned rows: no-op", async () => {
+    const { client, calls } = makeFakeClient({ existingSessions: [] });
+
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-15",
+      today: "2026-11-14",
+      plan: { kind: "keep" },
+    });
+
+    assert.equal(result.ok, true, "Should succeed");
+    const deleteCall = calls.find((c) => c.method === "deleteSessions");
+    assert(!deleteCall, "Should NOT delete when no planned rows");
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
