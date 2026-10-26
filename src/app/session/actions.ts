@@ -18,6 +18,7 @@ import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { keepPlannedDay } from "@/lib/session/plan-day-keep-core";
+import { validatePlanDayInput } from "@/lib/session/validate-plan-day-input";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
@@ -826,17 +827,9 @@ export async function planDay(input: {
   const planned = (existing ?? []).filter((s) => s.status === "planned");
 
   // Validate plan input
-  if (!input.plan) {
-    return { ok: false, error: "No plan was provided." };
-  }
-  
-  if (typeof input.plan !== "object" || !("kind" in input.plan) || !input.plan.kind) {
-    return { ok: false, error: "Invalid plan: must have a kind." };
-  }
-
-  const validKinds = ["keep", "training", "yoga", "breathing", "rest"];
-  if (!validKinds.includes(input.plan.kind)) {
-    return { ok: false, error: "Invalid plan type." };
+  const validationError = validatePlanDayInput(input.plan);
+  if (validationError) {
+    return { ok: false, error: validationError };
   }
 
   if (input.plan.kind === "keep") {
