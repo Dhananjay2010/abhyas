@@ -34,6 +34,7 @@ const initialState: SettingsState = {
   bodyweightPrompt: 'weekly',
   timezone: null,
   dateOfBirth: null,
+  units: 'metric',
 };
 
 const equipment = [{ id: 'dumbbells', name: 'Dumbbells', category: 'free_weight' }];

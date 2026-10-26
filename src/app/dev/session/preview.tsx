@@ -211,6 +211,7 @@ export function SessionPreview() {
           restVibrate: true,
           restOverrideSeconds: null,
           cooldownEnabled,
+          units: "metric",
         }}
         actions={STUB}
         onExit={() => setExited(true)}
