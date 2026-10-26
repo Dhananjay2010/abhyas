@@ -21,6 +21,9 @@ function runTests(): TestResult[] {
   const pagePath = join(process.cwd(), 'src/app/page.tsx');
   const pageContent = readFileSync(pagePath, 'utf-8');
   
+  const landingContentPath = join(process.cwd(), 'src/app/landing-content.tsx');
+  const landingContentContent = readFileSync(landingContentPath, 'utf-8');
+  
   const signInButtonPath = join(process.cwd(), 'src/app/sign-in-button.tsx');
   const signInButtonContent = readFileSync(signInButtonPath, 'utf-8');
 
@@ -46,14 +49,15 @@ function runTests(): TestResult[] {
     });
   }
 
-  // Test 3: Landing page passes next to SignInButton
+  // Test 3: Landing page passes next to LandingContent, which passes it to SignInButton
   {
-    const passesNext = /<SignInButton\s+next=\{next\}\s*\/>/i.test(pageContent);
+    const pagePassesNext = /<LandingContent[\s\S]*?next=\{next\}[\s\S]*?\/>/i.test(pageContent);
+    const contentPassesNext = /<SignInButton[\s\S]*?next=\{next\}[\s\S]*?\/>/i.test(landingContentContent);
     results.push({
-      passed: passesNext,
-      message: passesNext
-        ? 'Landing page passes next to SignInButton'
-        : 'Landing page does not pass next to SignInButton'
+      passed: pagePassesNext && contentPassesNext,
+      message: (pagePassesNext && contentPassesNext)
+        ? 'Landing page passes next to LandingContent, which passes it to SignInButton'
+        : 'Landing page does not pass next through LandingContent to SignInButton'
     });
   }
 
