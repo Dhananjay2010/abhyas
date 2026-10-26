@@ -11,8 +11,10 @@ run_mutant "const isDone = false" src/lib/today/compute-done-days.ts \
   'const isDone = done.has(date);' 'const isDone = false;' "${T[@]}"
 run_mutant "in-progress counts as done" src/lib/today/compute-done-days.ts \
   'if (s.status === "completed" && s.actual_type) {' 'if (s.actual_type) {' "${T[@]}"
-run_mutant "wrong date for the row" src/lib/today/compute-done-days.ts \
-  '(d.day_index - todayIndex + 7) % 7' '(d.day_index - todayIndex + 6) % 7' "${T[@]}"
+run_mutant "row date off the chosen-by-day window" src/lib/today/compute-done-days.ts \
+  'const date = weekRowDate(localToday, todayIndex, d.day_index);' 'const date = weekRowDate(localToday, todayIndex, d.day_index + 6);' "${T[@]}"
+run_mutant "shared window rule shifted" src/lib/today/chosen-by-day.ts \
+  'return addDays(localToday, (dayIndex - todayIndex + 7) % 7);' 'return addDays(localToday, (dayIndex - todayIndex + 6) % 7);' "${T[@]}"
 run_mutant "tick never rendered" src/app/today/week-list.tsx \
   '{d.isDone && (' '{false && (' "${T[@]}"
 run_mutant "page.tsx renders an empty week" src/app/today/page.tsx \

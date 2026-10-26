@@ -6,7 +6,7 @@
  * the plan day it came from, so a day swap marks the day it was actually done.
  */
 
-import { addDays } from "@/lib/dates";
+import { weekRowDate } from "@/lib/today/chosen-by-day";
 
 export type SessionForDone = {
   local_date: string;
@@ -30,8 +30,10 @@ export function computeDoneDays(sessions: SessionForDone[]): Set<string> {
 /**
  * The "Your week" rows with the date each row stands for and whether it is done.
  *
- * The list is rolling: each weekday is the next time it comes round, which is
- * today for today (the same rule buildChosenByDayIndex uses).
+ * Each row's date comes from weekRowDate, the same window and rule as
+ * buildChosenByDayIndex, and a row is ticked when that date has a completed
+ * session. The rolling window means yesterday's weekday row stands for next
+ * week's date, so yesterday is not a row date and is never ticked.
  */
 export function buildWeekDays<D extends { day_index: number }>(params: {
   days: D[];
@@ -43,7 +45,7 @@ export function buildWeekDays<D extends { day_index: number }>(params: {
   const done = computeDoneDays(sessions);
 
   return days.map((d) => {
-    const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
+    const date = weekRowDate(localToday, todayIndex, d.day_index);
     const isDone = done.has(date);
     return { ...d, date, isToday: d.day_index === todayIndex, isDone };
   });

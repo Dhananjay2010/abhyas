@@ -2,10 +2,12 @@
  * computeDoneDays and buildWeekDays: which "Your week" rows get a done tick.
  *
  * Real helpers, real dates. Kills `const isDone = false` in
- * src/lib/today/compute-done-days.ts (cases 2 and 3).
+ * src/lib/today/compute-done-days.ts (cases 2 and 3), and a row date that
+ * drifts from #149's chosen-by-day window (cases 5 and 6).
  */
 
 import { buildWeekDays, computeDoneDays } from "@/lib/today/compute-done-days";
+import { buildChosenByDayIndex, weekRowDate } from "@/lib/today/chosen-by-day";
 
 let failures = 0;
 function check(label: string, pass: boolean, detail?: string) {
@@ -70,6 +72,42 @@ const week3 = buildWeekDays({
   todayIndex: 1,
 });
 check("no rows done", week3.every((d) => !d.isDone));
+
+console.log("\n5. Same window as chosen-by-day: every shown row is ticked on its own date");
+{
+  const localToday = "2026-10-28"; // Wednesday
+  const todayIndex = 3;
+  const rows = buildWeekDays({
+    days,
+    sessions: [
+      { local_date: "2026-10-27", status: "completed", actual_type: "weights" }, // yesterday
+      { local_date: "2026-10-28", status: "completed", actual_type: "yoga" },    // today
+      { local_date: "2026-10-30", status: "completed", actual_type: "breathing" }, // Friday in the window
+    ],
+    localToday,
+    todayIndex,
+  });
+  check("every row date is weekRowDate (the chosen-by-day rule)",
+    rows.every((r) => r.date === weekRowDate(localToday, todayIndex, r.day_index)),
+    rows.map((r) => r.date).join(","));
+  check("today's row ticked", rows[2].isToday && rows[2].isDone);
+  check("Friday row (2026-10-30, in the window) ticked", rows[4].date === "2026-10-30" && rows[4].isDone, `${rows[4].date} ${rows[4].isDone}`);
+  check("yesterday's weekday row stands for next Tuesday (2026-11-03), so not ticked",
+    rows[1].date === "2026-11-03" && !rows[1].isDone, `${rows[1].date} ${rows[1].isDone}`);
+  check("exactly two ticks", rows.filter((r) => r.isDone).length === 2, String(rows.filter((r) => r.isDone).length));
+}
+
+console.log("\n6. A row's tick and its 'your choice' label read the same date");
+{
+  // Monday 26 Oct: a strength choice planned for Wednesday 28 shows on Wednesday's row
+  // in buildChosenByDayIndex; a completed session on that date ticks the same row.
+  const tdays = [1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: `d${i}`, day_index: i, day_type: "rest" as const, label: "Rest" }));
+  const sessions = [{ local_date: "2026-10-28", status: "completed", actual_type: "weights" as const, program_day_id: null }];
+  const chosen = buildChosenByDayIndex(sessions, tdays, "2026-10-26", 1);
+  const rows = buildWeekDays({ days: tdays, sessions, localToday: "2026-10-26", todayIndex: 1 });
+  check("chosen-by-day puts the session on Wednesday's row", chosen.has(3) && chosen.size === 1, JSON.stringify([...chosen]));
+  check("the done tick is on Wednesday's row too", rows[2].isDone && rows.filter((r) => r.isDone).length === 1);
+}
 
 if (failures > 0) {
   console.log(`\n✗ ${failures} check(s) failed`);
