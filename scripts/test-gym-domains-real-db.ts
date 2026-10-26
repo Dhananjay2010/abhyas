@@ -446,25 +446,46 @@ async function runTests() {
   console.log();
 
   // TEST: Host format validation
-  console.log("TEST: Host format validation");
+  console.log("TEST: Host format validation (bare hostname only)");
   {
     // Test lowercase constraint: uppercase host should be rejected
     {
       const { error } = await adminClient.from("gym_domains").insert({
-        host: "Example.Com", // uppercase - should be rejected
+        host: "Gym.com", // uppercase - should be rejected by lowercase constraint
         gym_id: gymId,
         verified: false,
       });
-      check("Uppercase host rejected by lowercase constraint", !!error);
+      check("'Gym.com' rejected (not lowercase)", !!error);
     }
 
-    // Valid hosts (lowercase)
+    // Test bare hostname constraint: no port, no scheme, no path, no trailing dot
+    const invalidHosts = [
+      "gym.com:3000",           // port
+      "https://gym.com",        // scheme
+      "gym.com/",              // path
+      "gym.com.",              // trailing dot
+      "example .com",          // space
+      "example..com",          // double dot
+      "-example.com",          // starts with hyphen
+      "example-.com",          // ends with hyphen before dot
+    ];
+
+    for (const host of invalidHosts) {
+      const { error } = await adminClient.from("gym_domains").insert({
+        host,
+        gym_id: gymId,
+        verified: false,
+      });
+      check(`'${host}' rejected by format constraint`, !!error);
+    }
+
+    // Valid bare hostnames
     const validHosts = [
+      "gym.example.com",
       "example.com",
       "sub.example.com",
-      "localhost:3000",
-      "192.168.1.1:8080",
       "my-app.example.com",
+      "multi.level.sub.example.com",
     ];
 
     for (const host of validHosts) {
@@ -477,24 +498,7 @@ async function runTests() {
       if (!error) {
         await adminClient.from("gym_domains").delete().eq("host", host);
       }
-      check(`Valid host accepted: ${host}`, !error, error?.message);
-    }
-
-    // Invalid hosts (should be rejected by CHECK constraint)
-    const invalidHosts = [
-      "example .com", // space
-      "example..com", // double dot
-      "-example.com", // starts with hyphen
-      "example-.com", // ends with hyphen before dot
-    ];
-
-    for (const host of invalidHosts) {
-      const { error } = await adminClient.from("gym_domains").insert({
-        host,
-        gym_id: gymId,
-        verified: false,
-      });
-      check(`Invalid host rejected: ${host}`, !!error);
+      check(`'${host}' accepted`, !error, error?.message);
     }
   }
   console.log();
@@ -526,21 +530,24 @@ async function runTests() {
   }
   console.log();
 
-  // TEST: get_gym_brand returns only public fields (no private data)
-  console.log("TEST: get_gym_brand returns only public fields");
+  // TEST: get_gym_brand returns only public fields (exact column set)
+  console.log("TEST: get_gym_brand returns exact public column set");
   {
     const { data, error } = await anonClient.rpc("get_gym_brand", {
       p_gym_id: gymId,
     });
+    check("Anon can call get_gym_brand", !error, error?.message);
     if (data && data.length === 1) {
       const row = data[0];
-      // Should have name, slug, timezone
-      check("Has name field", "name" in row);
-      check("Has slug field", "slug" in row);
-      check("Has timezone field", "timezone" in row);
-      // Should not have id or created_at (private)
-      // (In the current implementation, we only return name, slug, timezone)
-      check("Only 3 fields returned", Object.keys(row).length === 3);
+      const keys = Object.keys(row).sort();
+      const expectedKeys = ["name", "slug", "timezone"].sort();
+      // Assert exact column set: name, slug, timezone (no private fields like id or created_at)
+      check(
+        "Exact column set: name, slug, timezone",
+        keys.length === expectedKeys.length &&
+        keys.every((k, i) => k === expectedKeys[i]),
+        `got: [${keys.join(", ")}]`,
+      );
     }
   }
   console.log();

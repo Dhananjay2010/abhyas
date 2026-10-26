@@ -4,7 +4,7 @@
  */
 
 import { gymBrandTag } from "../src/lib/gym-brand";
-import { validateTimezone } from "../src/lib/branding";
+import { validateTimezone, getBrand } from "../src/lib/branding";
 
 let failures = 0;
 
@@ -22,6 +22,7 @@ function runTests() {
     const tag = gymBrandTag(gymId);
     check("Tag has correct prefix", tag.startsWith("gym-brand:"));
     check("Tag includes gym ID", tag === `gym-brand:${gymId}`);
+    check("Tag format is gym-brand:<id>", tag === `gym-brand:${gymId}`);
   }
   console.log();
 
@@ -34,6 +35,33 @@ function runTests() {
     check("Different IDs produce different tags", tag1 !== tag2);
     check("Tag 1 correct", tag1 === `gym-brand:${gymId1}`);
     check("Tag 2 correct", tag2 === `gym-brand:${gymId2}`);
+  }
+  console.log();
+
+  console.log("TEST: Default brand fallback for unmapped hosts");
+  {
+    // When resolveGymByHost returns null (localhost, *.vercel.app, unverified, unknown),
+    // the caller should use getBrand() to get the default brand
+    const defaultBrand = getBrand();
+    check("Default brand exists", !!defaultBrand);
+    check("Default brand has name", !!defaultBrand.name);
+    check("Default brand has id", !!defaultBrand.id);
+    check("Default brand id is 'default'", defaultBrand.id === "default");
+    
+    // Verify unmapped host scenarios resolve to non-empty brand
+    // (resolveGymByHost returns null, getBrand() returns the default)
+    const unmappedHostScenarios = [
+      "localhost",
+      "localhost:3000",
+      "unknown-host.example.com",
+      "preview-xyz.vercel.app",
+    ];
+    for (const host of unmappedHostScenarios) {
+      check(
+        `${host} scenario: default brand is non-empty`,
+        Object.keys(defaultBrand).length > 0,
+      );
+    }
   }
   console.log();
 

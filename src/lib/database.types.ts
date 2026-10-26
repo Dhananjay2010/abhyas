@@ -591,6 +591,35 @@ export type Database = {
           },
         ]
       }
+      gym_domains: {
+        Row: {
+          created_at: string
+          gym_id: string
+          host: string
+          verified: boolean
+        }
+        Insert: {
+          created_at?: string
+          gym_id: string
+          host: string
+          verified?: boolean
+        }
+        Update: {
+          created_at?: string
+          gym_id?: string
+          host?: string
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_domains_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gyms: {
         Row: {
           created_at: string

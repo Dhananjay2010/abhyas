@@ -15,11 +15,11 @@ create table if not exists public.gym_domains (
   -- Host must be lowercase (case-insensitive DNS)
   constraint gym_domains_host_lowercase check (host = lower(host)),
   
-  -- Basic hostname format validation (domain or IP:port)
-  -- Allows: example.com, sub.example.com, localhost:3000, 192.168.1.1:8080
-  -- Blocks: trailing dots, spaces, invalid chars
+  -- Host must be a bare hostname: no scheme, no port, no path, no trailing dot
+  -- Allows: example.com, sub.example.com, multi.level.sub.example.com
+  -- Blocks: https://example.com, example.com:3000, example.com/, example.com.
   constraint gym_domains_host_format check (
-    host ~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:[0-9]{1,5})?$'
+    host ~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'
   )
 );
 
@@ -48,6 +48,7 @@ returns table (
 set search_path = ''
 stable as $$
   -- Normalize: lowercase, strip trailing dot, strip :port
+  -- The stored host is already bare (no port/scheme/path), so we normalize the input
   with normalized as (
     select lower(
       regexp_replace(

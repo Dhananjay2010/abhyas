@@ -4,6 +4,7 @@ set -euo pipefail
 # Mutant test script for gym_domains and resolve_gym_by_host
 # Tests that removing key constraints or permissions causes test failures
 # Uses SQL commands applied after db reset (not sed on migration files)
+# CI-only: runs as explicit step in database-seed-test job, not in npm test chain
 
 echo "=== Mutant Testing: Gym Domains & Brand Resolution ==="
 echo
@@ -28,7 +29,8 @@ if ! supabase status &>/dev/null; then
   exit 1
 fi
 
-FAILED=0
+TOTAL_MUTANTS=0
+KILLED=0
 SURVIVORS=()
 SKIPPED=()
 
@@ -43,24 +45,14 @@ if ! REAL_DB=1 npm run test:gym-domains-real-db > /dev/null 2>&1; then
   exit 1
 fi
 echo "✓ Baseline tests pass"
-
-# Restart Supabase to ensure clean state for mutants
-echo "Restarting Supabase for mutant tests..."
-if ! supabase stop > /dev/null 2>&1; then
-  echo "⚠️  Warning: supabase stop failed" >&2
-fi
-sleep 2
-if ! supabase start > /dev/null 2>&1; then
-  echo "❌ Failed to restart Supabase" >&2
-  exit 1
-fi
-echo "✓ Supabase restarted"
 echo
 
 run_mutant() {
   local name="$1"
   local description="$2"
   local sql_mutation="$3"
+  
+  TOTAL_MUTANTS=$((TOTAL_MUTANTS + 1))
   
   echo "Testing mutant: $name"
   echo "  $description"
@@ -69,7 +61,6 @@ run_mutant() {
   if ! supabase db reset > /dev/null 2>&1; then
     echo "  ❌ SKIPPED: db reset failed"
     SKIPPED+=("$name: db reset failed")
-    sleep 2
     return 0
   fi
   
@@ -78,48 +69,71 @@ run_mutant() {
     -c "$sql_mutation" > /dev/null 2>&1; then
     echo "  ❌ SKIPPED: mutation SQL failed"
     SKIPPED+=("$name: mutation failed")
-    sleep 2
     return 0
   fi
   
-  # Run tests
-  if REAL_DB=1 npm run test:gym-domains-real-db > /dev/null 2>&1; then
+  # Run tests and capture output
+  local test_output
+  if test_output=$(REAL_DB=1 npm run test:gym-domains-real-db 2>&1); then
     echo "  ❌ SURVIVED"
     SURVIVORS+=("$name")
-    FAILED=$((FAILED + 1))
+    # Print first failing check from test output
+    echo "  Failed check output:"
+    echo "$test_output" | grep -E "FAIL|ERROR" | head -5 | sed 's/^/    /'
   else
     echo "  ✅ KILLED"
+    KILLED=$((KILLED + 1))
   fi
   
-  sleep 2
   return 0
 }
 
 # Mutant (a): Drop verified filter in resolve_gym_by_host
+# Fixed SQL escaping: use $$ delimiters and properly escape single quotes
 run_mutant \
   "(a) drop verified filter" \
   "Remove the 'where verified = true' filter from resolve_gym_by_host" \
-  "create or replace function public.resolve_gym_by_host(p_host text) returns table (gym_id uuid, gym_slug text, gym_name text) language sql security definer set search_path = '' stable as \$\$ with normalized as (select lower(regexp_replace(regexp_replace(trim(p_host), '\\\.\$', ''), ':[0-9]+\$', '')) as clean_host) select g.id as gym_id, g.slug as gym_slug, g.name as gym_name from normalized n join public.gym_domains d on d.host = n.clean_host join public.gyms g on g.id = d.gym_id limit 1; \$\$;"
+  "CREATE OR REPLACE FUNCTION public.resolve_gym_by_host(p_host text) 
+   RETURNS TABLE (gym_id uuid, gym_slug text, gym_name text) 
+   LANGUAGE sql SECURITY DEFINER 
+   SET search_path = ''
+   STABLE AS \$\$
+     WITH normalized AS (
+       SELECT lower(
+         regexp_replace(
+           regexp_replace(trim(p_host), '\\.\$', ''),
+           ':[0-9]+\$', ''
+         )
+       ) AS clean_host
+     )
+     SELECT g.id AS gym_id, g.slug AS gym_slug, g.name AS gym_name
+     FROM normalized n
+     JOIN public.gym_domains d ON d.host = n.clean_host
+     JOIN public.gyms g ON g.id = d.gym_id
+     LIMIT 1;
+   \$\$;"
 
 # Mutant (b): Grant INSERT to authenticated
 run_mutant \
   "(b) grant INSERT to authenticated" \
   "Allow authenticated users to insert gym_domains" \
-  "create policy gym_domains_insert_authenticated on public.gym_domains for insert to authenticated with check (true);"
+  "CREATE POLICY gym_domains_insert_authenticated ON public.gym_domains FOR INSERT TO authenticated WITH CHECK (true);"
 
 # Mutant (c): Drop RLS on gym_domains
 run_mutant \
   "(c) drop RLS" \
   "Disable RLS on gym_domains table" \
-  "alter table public.gym_domains disable row level security;"
+  "ALTER TABLE public.gym_domains DISABLE ROW LEVEL SECURITY;"
 
 # Mutant (d): Remove CASCADE on gym deletion
 run_mutant \
   "(d) remove CASCADE" \
   "Remove ON DELETE CASCADE from gym_domains.gym_id" \
-  "alter table public.gym_domains drop constraint gym_domains_gym_id_fkey; alter table public.gym_domains add constraint gym_domains_gym_id_fkey foreign key (gym_id) references public.gyms(id);"
+  "ALTER TABLE public.gym_domains DROP CONSTRAINT gym_domains_gym_id_fkey; 
+   ALTER TABLE public.gym_domains ADD CONSTRAINT gym_domains_gym_id_fkey 
+   FOREIGN KEY (gym_id) REFERENCES public.gyms(id);"
 
-# Note: Mutant (e) "remove lowercase constraint" is not tested because the format
+# Note: Mutant (e) "remove lowercase constraint" was removed because the format
 # constraint regex (^[a-z0-9]...) already only allows lowercase letters, making
 # the lowercase constraint redundant. The lowercase constraint is kept as
 # defense-in-depth and clear intent, but removing it doesn't break functionality.
@@ -128,27 +142,38 @@ run_mutant \
 run_mutant \
   "(f) remove anon grant" \
   "Revoke execute on resolve_gym_by_host from anon" \
-  "revoke execute on function public.resolve_gym_by_host(text) from anon;"
+  "REVOKE EXECUTE ON FUNCTION public.resolve_gym_by_host(text) FROM anon;"
 
 # Mutant (g): Remove anon grant from get_gym_brand
 run_mutant \
   "(g) remove anon grant from get_gym_brand" \
   "Revoke execute on get_gym_brand from anon" \
-  "revoke execute on function public.get_gym_brand(uuid) from anon;"
+  "REVOKE EXECUTE ON FUNCTION public.get_gym_brand(uuid) FROM anon;"
 
 # Mutant (h): Leak private field from get_gym_brand
 run_mutant \
   "(h) leak private field" \
   "Add id column to get_gym_brand return" \
-  "drop function if exists public.get_gym_brand(uuid); create function public.get_gym_brand(p_gym_id uuid) returns table (name text, slug text, timezone text, id uuid) language sql security definer set search_path = '' stable as \$\$ select g.name, g.slug, g.timezone, g.id from public.gyms g where g.id = p_gym_id limit 1; \$\$; grant execute on function public.get_gym_brand(uuid) to anon, authenticated;"
+  "DROP FUNCTION IF EXISTS public.get_gym_brand(uuid); 
+   CREATE FUNCTION public.get_gym_brand(p_gym_id uuid) 
+   RETURNS TABLE (name text, slug text, timezone text, id uuid) 
+   LANGUAGE sql SECURITY DEFINER 
+   SET search_path = ''
+   STABLE AS \$\$
+     SELECT g.name, g.slug, g.timezone, g.id 
+     FROM public.gyms g 
+     WHERE g.id = p_gym_id 
+     LIMIT 1;
+   \$\$; 
+   GRANT EXECUTE ON FUNCTION public.get_gym_brand(uuid) TO anon, authenticated;"
 
 echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-echo "Total mutants:                   7"
-echo "Killed:                          $((7 - FAILED - ${#SKIPPED[@]}))"
-echo "Survived:                        $FAILED"
+echo "Total mutants:                   $TOTAL_MUTANTS"
+echo "Killed:                          $KILLED"
+echo "Survived:                        ${#SURVIVORS[@]}"
 echo "Skipped:                         ${#SKIPPED[@]}"
 echo "========================================="
 echo
@@ -169,8 +194,8 @@ if [ ${#SKIPPED[@]} -gt 0 ]; then
   echo
 fi
 
-if [ $FAILED -gt 0 ]; then
-  echo "❌ FAIL: $FAILED survivor(s), ${#SKIPPED[@]} skip(s)"
+if [ ${#SURVIVORS[@]} -gt 0 ]; then
+  echo "❌ FAIL: ${#SURVIVORS[@]} survivor(s), ${#SKIPPED[@]} skip(s)"
   exit 1
 fi
 
@@ -179,5 +204,5 @@ if [ ${#SKIPPED[@]} -gt 0 ]; then
   exit 1
 fi
 
-echo "✅ All mutants killed"
+echo "✅ All $TOTAL_MUTANTS mutants killed"
 exit 0
