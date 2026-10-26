@@ -118,9 +118,9 @@ test_mutant() {
       # KILLED = test printed assertion failure marker AND no uncaught exception stack
       # CRASHED = anything else (uncaught exception, process.exit, throw "string", etc.)
       
-      # Check for assertion failure markers: "  FAIL ", "FAILED:", or "AssertionError"
+      # Check for assertion failure markers: "  FAIL ", "FAILED:", "❌ FAIL:", or "AssertionError"
       local has_assertion_fail=0
-      if echo "$test_output" | grep -qE '(  FAIL |FAILED:|AssertionError)'; then
+      if echo "$test_output" | grep -qE '(  FAIL |FAILED:|❌ FAIL:|AssertionError)'; then
         has_assertion_fail=1
       fi
       
@@ -215,7 +215,12 @@ m1b() {
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "s/Math\\.floor/Math.ceil/" "$file"
+  # Use perl for reliable replacement
+  perl -i -pe 's/const snapped = Math\.floor\(rawReduced \/ roundingGrid\) \* roundingGrid;/const snapped = Math.ceil(rawReduced \/ roundingGrid) * roundingGrid;/' "$file"
+  if ! grep -q "const snapped = Math.ceil" "$file"; then
+    echo "ERROR: M1b mutation did not apply" >&2
+    return 1
+  fi
 }
 test_mutant "M1b: snap UP instead of DOWN" m1b
 
