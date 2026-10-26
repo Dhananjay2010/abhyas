@@ -16,7 +16,8 @@ import { buildProgressionInput } from "@/lib/session/build-progression-input";
 import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
-import type { ProgressionFeedback } from "@/lib/session/finish-exercise";
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+import type { SummaryNote } from "@/lib/session/load-session-summary";
 import { keepPlannedDay } from "@/lib/session/plan-day-keep-core";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
@@ -37,7 +38,6 @@ import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligib
 export type { SwapResult };
 
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
-import type { SummaryNote } from "@/lib/session/load-session-summary";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -357,8 +357,6 @@ export async function deleteSet(
     .eq("is_warmup_set", false);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
-
-import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 
 export type { ProgressionFeedback, SummaryNote };
 

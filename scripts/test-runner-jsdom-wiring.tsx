@@ -88,6 +88,7 @@ console.log("1. Stale session clock capped at 0:00 (f1d-runner, f1e-helper)");
     async logSet() { return { ok: true }; },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },
+    async getSessionSummary() { return { ok: true, data: [] }; },
     async finishSession() { return { ok: true, data: { status: "completed" } }; },
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
@@ -167,6 +168,7 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
     async logSet() { return { ok: true }; },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },
+    async getSessionSummary() { return { ok: true, data: [] }; },
     async finishSession() {
       finishAttempts++;
       if (finishAttempts === 1) {
@@ -299,6 +301,7 @@ console.log("\n3. Double-click busyRef guard: action called exactly once (9, 9b,
     },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },
+    async getSessionSummary() { return { ok: true, data: [] }; },
     async finishSession() { return { ok: true, data: { status: "completed" } }; },
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
@@ -409,6 +412,7 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
     async logSet() { return { ok: true }; },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },
+    async getSessionSummary() { return { ok: true, data: [] }; },
     async finishSession() { return { ok: true, data: { status: "completed" } }; },
     async abandonSession() {
       throw new TypeError("Failed to fetch");
@@ -548,6 +552,7 @@ console.log("\n5. Failed end early preserves rest timer in storage (rest-on-fail
     async logSet() { return { ok: true }; },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },
+    async getSessionSummary() { return { ok: true, data: [] }; },
     async finishSession() { return { ok: true, data: { status: "completed" } }; },
     async abandonSession() { return { ok: false, error: "Server error" }; },
     async findAlternatives() { return { ok: true, data: [] }; },
@@ -668,6 +673,7 @@ console.log("\n6. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
     async logSet() { return { ok: true }; },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },
+    async getSessionSummary() { return { ok: true, data: [] }; },
     async finishSession(params) {
       receivedCooldownCompleted = params.cooldownCompleted;
       return { ok: true, data: { status: "completed" } };
@@ -792,6 +798,7 @@ console.log("\n7. End early confirm with set counts, sends frozen elapsed, navig
     async logSet() { return { ok: true }; },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },
+    async getSessionSummary() { return { ok: true, data: [] }; },
     async finishSession() { return { ok: true, data: { status: "completed" } }; },
     async abandonSession(_sessionId: string, elapsedSeconds: number) {
       receivedDuration = elapsedSeconds;
@@ -939,6 +946,7 @@ console.log("\n8. Done sends frozen elapsed time (f1, f2)");
     async logSet() { return { ok: true }; },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },
+    async getSessionSummary() { return { ok: true, data: [] }; },
     async finishSession(params) {
       receivedDuration = params.durationSeconds;
       return { ok: true, data: { status: "completed" } };
@@ -1041,6 +1049,7 @@ console.log("\n9. Double confirm on end early calls abandonSession twice (endear
     async logSet() { return { ok: true }; },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },
+    async getSessionSummary() { return { ok: true, data: [] }; },
     async finishSession() { return { ok: true, data: { status: "completed" } }; },
     async abandonSession() {
       abandonCallCount++;
@@ -1148,6 +1157,7 @@ console.log("\n10. Clock resumes after failed end early (endearly-resume)");
     async logSet() { return { ok: true }; },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },
+    async getSessionSummary() { return { ok: true, data: [] }; },
     async finishSession() { return { ok: true, data: { status: "completed" } }; },
     async abandonSession() {
       if (abandonFails) {
@@ -1263,6 +1273,7 @@ console.log("\n11. Clock stops, resumes, and freezes when stale (stale-lifecycle
     async logSet() { return { ok: true }; },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },
+    async getSessionSummary() { return { ok: true, data: [] }; },
     async finishSession() { return { ok: true, data: { status: "completed" } }; },
     async abandonSession() { return { ok: true }; },
     async findAlternatives() { return { ok: true, data: [] }; },
