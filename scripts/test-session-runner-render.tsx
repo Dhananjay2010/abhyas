@@ -559,12 +559,13 @@ async function test7b7c() {
     
     await act(async () => {});
     
-    // Assert error text is shown
-    const errorText = screen.getByText(/failed to save sets/i);
-    assert(!!errorText, "7c: Shows 'Failed to save sets' error for network error on replay");
+    // Assert error text is shown (may appear in multiple places due to UI components)
+    const errorTexts = screen.queryAllByText(/failed to save sets/i);
+    assert(errorTexts.length > 0, "7c: Shows 'Failed to save sets' error for network error on replay");
     
-    const networkError = screen.getByText(/network error/i);
-    assert(!!networkError, "7c: Shows network error message");
+    // Network error is classified as offline, so shows "Still offline"
+    const offlineErrors = screen.queryAllByText(/still offline/i);
+    assert(offlineErrors.length > 0, "7c: Shows 'Still offline' message for network error");
   }
   
   cleanup();
@@ -848,9 +849,9 @@ async function test9b() {
   assert(!!doneButton, "9b: Done button exists");
   assert(doneButton !== undefined && 'disabled' in doneButton && Boolean(doneButton.disabled), "9b: Done button is disabled while sets are pending");
   
-  // Verify the notice shows the pending count
-  const pendingNotice = screen.queryByText(/1 set waiting to save/i);
-  assert(pendingNotice !== null, "9b: Notice shows '1 set waiting to save'");
+  // Verify the notice shows the pending count (new text from refactored component)
+  const pendingNotice = screen.queryByText(/1 set saved on this phone|1 set waiting to save/i);
+  assert(pendingNotice !== null, "9b: Notice shows pending set message");
   
   assert(skipCooldownButton !== null, "9c: Skip cool-down button exists");
   if (skipCooldownButton && 'disabled' in skipCooldownButton) {

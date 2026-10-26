@@ -688,8 +688,26 @@ export function SessionRunner({
             {getFinishButtonText()}
           </BigButton>
           <GhostButton
-            disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
+            disabled={busy}
             onClick={async () => {
+              // If there are pending sets, try to replay them first
+              if (pendingSetState.pending.length > 0 && controller) {
+                await controller.replay();
+                // After replay, check if queue is now empty
+                const deps = createPendingSetDeps(now);
+                const remaining = loadPendingSets(window.localStorage, userId, sessionId, deps);
+                if (remaining.length === 0) {
+                  // Queue is empty, finish session in the same tap
+                  await run(() =>
+                    actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+                  );
+                  restPersistence.clear();
+                  setPhase("done");
+                }
+                // If queue is not empty (offline/expired/error), stay on cool-down with notice
+                return;
+              }
+              // No pending sets, finish immediately
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
               );
@@ -1261,23 +1279,12 @@ export function SessionRunner({
                   key={f.value}
                   disabled={busy}
                   onClick={async () => {
-                    // L3: If sets are queued, show message and replay first
+                    // L3: Trigger replay if sets are queued
                     if (pendingSetState.pending.length > 0 && controller) {
-                      setMessage("Saving your sets first…");
-                      await controller.onFocus();
-                      // After replay, check controller state for current queue length
-                      const currentState = controller.getState();
-                      if (currentState.pending.length === 0) {
-                        // Queue is empty, proceed with finish
-                        setMessage(null);
-                        await onFinishExercise(f.value);
-                      } else {
-                        // Still queued (offline/error), keep message
-                        setMessage("Can't finish until your sets are saved");
-                      }
-                    } else {
-                      await onFinishExercise(f.value);
+                      // Trigger replay (void function, runs in background)
+                      controller.onFocus();
                     }
+                    await onFinishExercise(f.value);
                   }}
                   className="rounded-xl border border-border bg-surface px-3 py-4 text-sm font-medium transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
                 >
