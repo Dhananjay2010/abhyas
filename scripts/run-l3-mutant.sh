@@ -16,7 +16,7 @@ cp "$FILE" "$BACKUP"
 # Find the feel button onClick and remove the pending sets check
 # The current code checks `if (pendingSetState.pending.length > 0 && controller)` 
 # Change it to always proceed with onFinishExercise
-perl -i -0777 -pe 's/onClick=\{async \(\) => \{\s+\/\/ L3: If sets are queued.*?\n\s+if \(pendingSetState\.pending\.length > 0 && controller\) \{.*?else \{\s+await onFinishExercise\(f\.value\);\s+\}\s+\}\}/onClick={() => onFinishExercise(f.value)}/gs' "$FILE"
+perl -i -0777 -pe 's/onClick=\{\(\) => \{\s+\/\/ L3:.*?\n\s+if \(pendingSetState\.pending\.length > 0 && controller\) \{.*?\} else \{\s+void onFinishExercise\(f\.value\);\s+\}\s+\}\}/onClick={() => void onFinishExercise(f.value)}/gs' "$FILE"
 
 echo "Applied mutant: removed pending sets check in feel button onClick"
 echo "Running test..."

@@ -36,6 +36,7 @@ import {
   type SwapResult,
 } from "../actions";
 import { SessionExpiredPrompt } from "@/components/session-expired-prompt";
+import { isSessionExpired } from "@/lib/auth/session-expired";
 import {
   createPendingSetController,
   type PendingSetState,
@@ -878,7 +879,10 @@ export function SessionRunner({
   }
 
   const setsDone = current.sets.length;
-  const allSetsDone = setsDone >= current.plannedSets;
+  const pendingForCurrentExercise = pendingSetState.pending.filter(
+    p => p.sessionExerciseId === current.id
+  ).length;
+  const allSetsDone = (setsDone + pendingForCurrentExercise) >= current.plannedSets;
   const nextSetNumberTarget = nextSetTarget(
     exercises,
     current.id,
@@ -1032,12 +1036,33 @@ export function SessionRunner({
         feel,
         skipped,
       });
+    } catch (err) {
+      // Handle rejected promise (e.g. 401 proxy rejection on expiry)
+      if (isSessionExpired(err)) {
+        setSessionExpired(true);
+        setError(null);
+      } else if (err instanceof Error) {
+        setError(err.message || "An error occurred");
+        setSessionExpired(false);
+      } else {
+        setError("An error occurred");
+        setSessionExpired(false);
+      }
+      busyRef.current = false;
+      setBusy(false);
+      return;
     } finally {
       busyRef.current = false;
       setBusy(false);
     }
     if (!result.ok) {
-      setError(result.error);
+      // Check if this is a session expiry error
+      if ('code' in result && result.code === "SESSION_EXPIRED") {
+        setSessionExpired(true);
+        setError(null);
+      } else {
+        setError(result.error);
+      }
       return;
     }
     setError(null);
@@ -1276,13 +1301,14 @@ export function SessionRunner({
                 <button
                   key={f.value}
                   disabled={busy}
-                  onClick={async () => {
-                    // L3: Trigger replay if sets are queued
+                  onClick={() => {
+                    // L3: Trigger replay if sets are queued, but don't finish while offline
                     if (pendingSetState.pending.length > 0 && controller) {
-                      // Trigger replay (void function, runs in background)
                       controller.onFocus();
+                      // Don't call onFinishExercise while sets are queued
+                    } else {
+                      void onFinishExercise(f.value);
                     }
-                    await onFinishExercise(f.value);
                   }}
                   className="rounded-xl border border-border bg-surface px-3 py-4 text-sm font-medium transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
                 >
