@@ -182,13 +182,13 @@ async function main() {
     }, "2026-11-01");
 
     assert.equal(result.ok, true);
-    const deletes = calls.filter(c => c.method === "delete");
-    const inserts = calls.filter(c => c.method === "insert");
+    const deletes = calls.filter(c => c.method === "deleteSessions");
+    const inserts = calls.filter(c => c.method === "insertSession");
     assert.equal(deletes.length, 1, "Should delete old training");
     assert.equal(inserts.length, 1, "Should insert rest");
 
     const insertCall = inserts[0];
-    const row = (insertCall.args[1] as { actual_type: string }).actual_type;
+    const row = (insertCall.args[0] as { actual_type: string }).actual_type;
     assert.equal(row, "rest", "Inserted row should be rest");
   });
 
