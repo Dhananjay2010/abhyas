@@ -12,8 +12,6 @@ import {
   isDuplicateError,
   loadPendingSets,
   savePendingSet,
-  clearPendingSet,
-  clearPendingSets,
   type PendingSet,
   type Storage,
 } from "./pending-set-retry";
