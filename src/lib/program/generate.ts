@@ -822,7 +822,7 @@ function pickForSlot(
     altCandidates = altCandidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
     if (altCandidates.length === 0) continue;
     
-    // PART A: Knee-risk filter for SAFE_ALTERNATIVES
+    // PART A: Knee-risk filter for SAFE_ALTERNATIVES - past knee only (Brief knee-volume)
     const hasCurrentKneeAlt = input.currentInjuryRegions.includes("knee");
     
     
