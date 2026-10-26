@@ -19,10 +19,12 @@ export function PendingSetReplay({
   userId,
   getSessionStatus,
   logSet = defaultLogSet,
+  now,
 }: { 
   userId: string;
   getSessionStatus?: (sessionId: string) => Promise<"in-progress" | "ended" | "stale">;
   logSet?: typeof defaultLogSet;
+  now?: Date;
 }) {
   const [hasReplayed, setHasReplayed] = useState(false);
   const [closedSessions, setClosedSessions] = useState<{ sessionId: string; count: number }[]>([]);
@@ -33,25 +35,33 @@ export function PendingSetReplay({
     async function replay() {
       if (typeof window === "undefined") return;
       
-      const deps = createPendingSetDeps();
+      const deps = createPendingSetDeps(now);
       const storage = window.localStorage;
       const all = loadAllPendingSetsWithTimestamp(storage, userId, deps);
       
       const closedSessionsFound: { sessionId: string; count: number }[] = [];
       
+      const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+      
       for (const sessionId in all) {
-        const { sets } = all[sessionId];
+        const { sets, timestamp } = all[sessionId];
         if (sets.length === 0) continue;
+        
+        // Check if sets are expired (> 7 days old)
+        const isExpired = deps.now() - timestamp > STALE_THRESHOLD_MS;
         
         // Check session status if available
         let status: "in-progress" | "ended" | "stale" | undefined;
-        if (getSessionStatus) {
+        if (getSessionStatus && !isExpired) {
           try {
             status = await getSessionStatus(sessionId);
           } catch {
             // If we can't get status, assume in-progress and try replay
             status = "in-progress";
           }
+        } else if (isExpired) {
+          // Expired sets are treated as closed (ended)
+          status = "ended";
         }
         
         // If session is not in progress, surface it for Discard
@@ -89,7 +99,7 @@ export function PendingSetReplay({
     }
 
     replay();
-  }, [userId, hasReplayed, getSessionStatus]);
+  }, [userId, hasReplayed, getSessionStatus, logSet, now]);
 
   function handleDiscard(sessionId: string) {
     if (typeof window === "undefined") return;

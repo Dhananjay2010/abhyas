@@ -92,6 +92,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u1"
       getSessionStatus={getSessionStatus}
       logSet={logSetSuccess}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -138,6 +139,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u2"
       getSessionStatus={getSessionStatusEnded}
       logSet={logSetSuccess}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -199,6 +201,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u3"
       getSessionStatus={getSessionStatusEnded}
       logSet={logSetSuccess}
+      now={new Date(FIXED_TIME)}
     />
   );
   

@@ -112,19 +112,13 @@ function isValidTimestampedSets(value: unknown): value is PendingSetsWithTimesta
 }
 
 /**
- * Prune stale entries older than STALE_THRESHOLD_MS.
+ * Don't prune stale entries - keep them for keep-and-surface policy.
+ * Expired sets (> 7 days) are treated as "closed" by attemptPendingSet.
  */
 function pruneStaleEntries(data: PendingSetsWithTimestamp, now: number): PendingSetsWithTimestamp {
-  const pruned: PendingSetsWithTimestamp = {};
-  
-  for (const sessionId in data) {
-    const entry = data[sessionId];
-    if (entry && now - entry.timestamp < STALE_THRESHOLD_MS) {
-      pruned[sessionId] = entry;
-    }
-  }
-  
-  return pruned;
+  // Don't prune - return all entries
+  // The keep-and-surface policy will handle expired sets
+  return data;
 }
 
 /**
