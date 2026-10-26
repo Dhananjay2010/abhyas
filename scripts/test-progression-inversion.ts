@@ -15,8 +15,9 @@ import {
   evaluateProgression,
   type ExerciseMeta,
   type ProgressState,
-  type Feel,
 } from "../src/lib/program/progression";
+
+type Feel = "easy" | "right" | "hard";
 
 const BENCH: ExerciseMeta = {
   mechanic: "compound",
