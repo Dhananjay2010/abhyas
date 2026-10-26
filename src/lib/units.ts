@@ -50,8 +50,14 @@ export function lbToKg(lb: number | null | undefined): number {
 }
 
 /**
- * Round pounds to the nearest 0.5 lb.
- * This is the display format for imperial weight.
+ * Round pounds to the nearest 0.5 lb for display.
+ * This is the ONLY function that should be used for displaying lb weights.
+ * Used in: runner, History list, History detail, Progress charts, session finish.
+ * 
+ * Examples:
+ * - 159.7 lb → 160 lb
+ * - 159.3 lb → 159.5 lb
+ * - 159.25 lb → 159.5 lb (tie rounds up)
  */
 export function roundLbToHalf(lb: number): number {
   return Math.round(lb * 2) / 2;
@@ -117,6 +123,8 @@ export function feetAndInchesToInches(feet: number, inches: number): number {
  * Imperial: rounded to nearest 0.5 lb
  * Metric: displayed as-is (1 decimal place if needed)
  *
+ * NOTE: For body weight, use formatBodyWeight instead to preserve 0.1 lb precision.
+ *
  * @param kg - Weight in kilograms (canonical storage format)
  * @param units - 'metric' or 'imperial'
  * @param includeLabel - Whether to include unit label (default: true)
@@ -134,7 +142,37 @@ export function formatWeight(
 
   if (units === "imperial") {
     const lb = roundLbToHalf(kgToLb(kg));
-    // Round to 1 decimal place
+    const formatted = lb % 1 === 0 ? lb.toFixed(0) : lb.toFixed(1);
+    return includeLabel ? `${formatted} lb` : formatted;
+  }
+
+  // Metric: round to 1 decimal place
+  const rounded = Math.round(kg * 10) / 10;
+  const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+  return includeLabel ? `${formatted} kg` : formatted;
+}
+
+/**
+ * Format body weight for display with 0.1 lb/kg precision.
+ * More precise than formatWeight to ensure round-trip stability.
+ * 
+ * @param kg - Weight in kilograms (canonical storage format)
+ * @param units - 'metric' or 'imperial'
+ * @param includeLabel - Whether to include unit label (default: true)
+ * @param emptyValue - Value to return for missing/invalid input (default: em dash "—")
+ */
+export function formatBodyWeight(
+  kg: number | null | undefined,
+  units: string,
+  includeLabel = true,
+  emptyValue = "—"
+): string {
+  if (kg == null || kg <= 0 || !Number.isFinite(kg)) {
+    return emptyValue;
+  }
+
+  if (units === "imperial") {
+    const lb = kgToLb(kg);
     const rounded = Math.round(lb * 10) / 10;
     const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
     return includeLabel ? `${formatted} lb` : formatted;
@@ -215,7 +253,9 @@ export function formatVolume(volumeKg: number, units: UnitsPreference = "metric"
 
 /**
  * Format top set weight for History display.
- * Converts to user's units and shows up to one decimal place.
+ * Converts to user's units with consistent rounding:
+ * - Imperial: rounds to nearest 0.5 lb (same as runner and detail)
+ * - Metric: rounds to 1 decimal place
  * Trailing .0 is dropped (22.5kg shows as "22.5kg", 23.0kg shows as "23kg").
  * 
  * @param weightKg - Weight in kilograms
@@ -225,13 +265,14 @@ export function formatVolume(volumeKg: number, units: UnitsPreference = "metric"
 export function formatTopSet(weightKg: number, units: UnitsPreference = "metric"): string {
   let weight = weightKg;
   if (units === "imperial") {
-    weight = kgToLb(weightKg);
+    weight = roundLbToHalf(kgToLb(weightKg));
+  } else {
+    // Metric: round to 1 decimal place
+    weight = Math.round(weightKg * 10) / 10;
   }
   
-  // Round to 1 decimal place
-  const rounded = Math.round(weight * 10) / 10;
   // Format: drop trailing .0, otherwise show 1 decimal
-  const numStr = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+  const numStr = weight % 1 === 0 ? weight.toFixed(0) : weight.toFixed(1);
   
   // Add thousands separators
   const [intPart, decPart] = numStr.split(".");
@@ -455,7 +496,76 @@ export function parseHeight(
   return Math.round(value);
 }
 
-export type UnitsPreference = "metric" | "imperial";
+/**
+ * Parse body weight input and convert to canonical kg.
+ * Similar to parseWeight but preserves 0.1 lb precision for imperial.
+ * 
+ * For imperial: rounds to nearest 0.1 lb before converting to kg.
+ * For metric: rounds to nearest 0.1 kg.
+ * This ensures 170.6 lb → 77.38 kg → 170.6 lb (not 170.5 lb).
+ * 
+ * @param input - User input string or number
+ * @param units - 'metric' or 'imperial'
+ * @returns Weight in kg, or null for invalid input
+ */
+export function parseBodyWeight(
+  input: string | number | null | undefined,
+  units: UnitsPreference
+): number | null {
+  if (input == null || input === "") return null;
+
+  let value: number;
+  let explicitUnit: string | null = null;
+
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    const match = trimmed.match(/^(\d+\.?\d*)\s*(kg|lb|lbs)?$/i);
+    if (!match) return null;
+    value = Number(match[1]);
+    explicitUnit = match[2] ? match[2].toLowerCase() : null;
+  } else {
+    value = input;
+  }
+
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  let kg: number;
+  
+  if (explicitUnit) {
+    if (explicitUnit === "kg") {
+      kg = value;
+    } else if (explicitUnit === "lb" || explicitUnit === "lbs") {
+      const roundedLb = Math.round(value * 10) / 10;
+      kg = lbToKg(roundedLb);
+    } else {
+      return null;
+    }
+  } else {
+    if (units === "imperial") {
+      const roundedLb = Math.round(value * 10) / 10;
+      kg = lbToKg(roundedLb);
+    } else {
+      const roundedKg = Math.round(value * 10) / 10;
+      kg = roundedKg;
+    }
+  }
+
+  // Round to 2 decimal places (DB precision)
+  const roundedKg = Math.round(kg * 100) / 100;
+  
+  // Validate body weight bounds
+  let effectiveUnits: UnitsPreference;
+  if (explicitUnit === "lb" || explicitUnit === "lbs") {
+    effectiveUnits = "imperial";
+  } else if (explicitUnit === "kg") {
+    effectiveUnits = "metric";
+  } else {
+    effectiveUnits = units ?? "metric";
+  }
+  if (!validateBodyWeightKg(roundedKg, effectiveUnits)) return null;
+
+  return roundedKg;
+}
 
 // ============================================================
 // LOAD CONVERSION AND FORMATTING
@@ -503,6 +613,9 @@ export function displayToKg(value: number | null | undefined, units: UnitsPrefer
 
 /**
  * Format a load (weight) with unit label.
+ * Rounds to display precision:
+ * - Imperial: 0.5 lb
+ * - Metric: 0.1 kg (standard display precision, matches equipment grid better)
  * 
  * @param kg - Weight in kilograms (canonical storage)
  * @param units - 'metric' or 'imperial'
@@ -511,20 +624,20 @@ export function displayToKg(value: number | null | undefined, units: UnitsPrefer
 export function formatLoad(kg: number | null | undefined, units: UnitsPreference): string {
   if (kg == null || !Number.isFinite(kg) || kg <= 0) return "—";
   
-  const value = kgToDisplay(kg, units);
   const label = units === "imperial" ? "lb" : "kg";
   
   if (units === "imperial") {
     // Round to 0.5 lb for display
-    const rounded = roundLbToHalf(value);
+    const lb = kgToLb(kg);
+    const rounded = roundLbToHalf(lb);
     const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
     return `${formatted} ${label}`;
   }
   
-  // Metric: display exactly as stored, up to 2 decimal places
-  // Drop trailing zeros: 11.25 kg, 63.75 kg, 8.75 kg, 9 kg
-  const rounded = Math.round(value * 100) / 100;
-  const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(2).replace(/\.?0+$/, '');
+  // Metric: round to 1 decimal place for consistent display
+  // This avoids showing off-grid values like 71.44 kg (from lb-derived weights)
+  const rounded = Math.round(kg * 10) / 10;
+  const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
   return `${formatted} ${label}`;
 }
 
@@ -659,7 +772,7 @@ export function isValidWeightKg(kg: unknown): kg is number {
 
 /**
  * Validate body weight in kg with unit-specific bounds.
- * Used by both parseWeight and logBodyWeight for consistent validation.
+ * Used by both parseBodyWeight and logBodyWeight for consistent validation.
  * 
  * Imperial: validates 55.5-661 lb inclusive (checks in display units), also requires 25-300 kg
  * Metric: validates 25-300 kg
@@ -675,9 +788,8 @@ export function validateBodyWeightKg(kg: number | null, units: UnitsPreference):
   if (kg < WEIGHT_KG_MIN || kg > WEIGHT_KG_MAX) return false;
   
   if (units === "imperial") {
-    // Check in display units with rounding to handle parseWeight's 0.1 kg rounding
-    // 55.5 lb → 25.174 kg → rounds to 25.2 kg → back to 55.6 lb (rounded to 55.5 lb)
-    const displayLb = roundLbToHalf(kgToLb(kg));
+    // Check in display units with 0.1 lb precision for body weight
+    const displayLb = Math.round(kgToLb(kg) * 10) / 10;
     return displayLb >= BODY_WEIGHT_LB_MIN && displayLb <= BODY_WEIGHT_LB_MAX;
   }
   

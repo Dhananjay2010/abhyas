@@ -1269,9 +1269,11 @@ function SetEntry({
   // Remounted per set via a key at the call site, so the fields reset naturally
   // rather than being reset from an effect.
   const [reps, setReps] = useState(defaultReps !== null ? String(defaultReps) : "");
-  const [weight, setWeight] = useState(() => 
-    computeRunnerWeightPrefill(defaultWeight, units, isBodyweight)
+  const initialPrefill = useMemo(() => 
+    computeRunnerWeightPrefill(defaultWeight, units, isBodyweight),
+    [defaultWeight, units, isBodyweight]
   );
+  const [weight, setWeight] = useState(initialPrefill);
 
   /**
    * The hold timer.
@@ -1318,7 +1320,11 @@ function SetEntry({
   // round trip rather than after one. An empty field is only meaningful when
   // per-set logging is off, where the runner records that a set happened
   // without asking for numbers; here it means the user has not said yet.
-  const weightKg = weight === "" ? null : displayToKg(Number(weight), units);
+  // L-3 round-trip: if the weight field is unchanged from the prefill, submit
+  // the original defaultWeight to avoid precision loss from lb->kg conversion.
+  const weightKg = weight === "" ? null 
+    : weight === initialPrefill && defaultWeight !== null ? defaultWeight
+    : displayToKg(Number(weight), units);
   const invalid =
     reps === ""
       ? isTimed
