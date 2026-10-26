@@ -1,0 +1,34 @@
+{
+  "mainSha": "7795ff7c",
+  "comparedAt": "2026-10-26T08:08:50.435Z",
+  "totalCases": 51200,
+  "differingCases": 1,
+  "differences": [
+    {
+      "input": {
+        "mechanic": "compound",
+        "reps": [
+          10,
+          10,
+          10,
+          10
+        ],
+        "currentWeight": 40,
+        "failures": 1,
+        "weightAtFailureStart": 42.5
+      },
+      "mainOutput": {
+        "weight": 35,
+        "counter": 0,
+        "outcome": "backed_off"
+      },
+      "branchOutput": {
+        "weight": 40,
+        "counter": 0,
+        "outcome": "hold"
+      },
+      "approvedRule": "PR #142: In-range hold - when all sets hit the range, hold weight and reset counter (reserved for PR #142, not this PR)"
+    }
+  ],
+  "note": "In-range hold behavior reserved for PR #142. This PR (equipment progression fix) does not change no-equipment behavior."
+}
