@@ -121,12 +121,13 @@ async function runTests() {
     const { data: exercises, error: exerciseError } = await userClient
       .from("exercises")
       .select("id")
-      .in("slug", ["squat", "bench-press", "bent-over-row"])
+      .in("slug", ["barbell-squat", "barbell-bench-press-medium-grip", "reverse-grip-bent-over-rows"])
       .limit(3);
 
     if (exerciseError || !exercises || exercises.length < 3) {
       console.error("Failed to query exercises:", exerciseError);
-      console.error("Need at least 3 exercises in catalog (squat, bench-press, bent-over-row)");
+      console.error("Exercises data:", exercises);
+      console.error("Need at least 3 exercises in catalog (barbell-squat, barbell-bench-press-medium-grip, reverse-grip-bent-over-rows)");
       return false;
     }
 
