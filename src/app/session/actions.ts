@@ -12,8 +12,6 @@ import {
   evaluateProgression,
 } from "@/lib/program/progression";
 import { buildProgressionInput } from "@/lib/session/build-progression-input";
-import { applyDeload } from "@/lib/program/prescription";
-import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { startSessionFullCore } from "@/lib/session/start-session-full-core";
