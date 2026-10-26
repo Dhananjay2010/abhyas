@@ -2,15 +2,15 @@
 /**
  * Test Issue 2: Page call sites for userId and sessionStatus
  * 
- * Tests that session page extracts userId/sessionStatus from buildRunnerProps
- * and passes them correctly to SessionRunner.
+ * Tests that pages extract props via real tested helpers and spread them.
  * 
  * Mutants:
- * - N6_PAGE: userId="" → breaks pending set isolation
- * - N6S_PAGE: sessionStatus="in_progress" → breaks completed session handling
+ * - N6_PAGE: buildRunnerProps returns userId="" → breaks pending set isolation
+ * - N6S_PAGE: buildRunnerProps returns sessionStatus="in_progress" → breaks completed session handling
+ * - N8_PAGE: buildSettingsProps returns userId="" → leaves orphaned pending sets after sign-out
  */
 
-import { buildRunnerProps } from "../src/lib/session/build-runner-props";
+import { buildRunnerProps, buildSettingsProps } from "../src/lib/session/build-runner-props";
 
 let passed = 0;
 
@@ -25,9 +25,9 @@ function assert(condition: boolean, message: string) {
 }
 
 function testSessionPageCallSite() {
-  console.log("\n📋 Test: Session page call site wiring\n");
+  console.log("\n📋 Test: Session page buildRunnerProps wiring\n");
   
-  // Simulate what the page does
+  // Test with a completed session and specific user
   const mockSession = {
     status: "completed" as const,
   };
@@ -36,33 +36,39 @@ function testSessionPageCallSite() {
     id: "user-session-123",
   };
   
-  const { userId, sessionStatus } = buildRunnerProps(mockSession, mockUser);
+  const runnerProps = buildRunnerProps(mockSession, mockUser);
   
-  // The page passes these to SessionRunner
-  assert(userId === "user-session-123", "N6_PAGE: userId extracted correctly");
-  assert(userId !== "", "N6_PAGE MUTANT: userId not blank");
-  assert(sessionStatus === "completed", "N6S_PAGE: sessionStatus extracted correctly");
-  assert(sessionStatus !== "in_progress", "N6S_PAGE MUTANT: sessionStatus not hardcoded");
+  // The page spreads this into SessionRunner: <SessionRunner {...runnerProps} ... />
+  assert(runnerProps.userId === "user-session-123", "N6_PAGE: userId extracted correctly");
+  assert(runnerProps.sessionStatus === "completed", "N6S_PAGE: sessionStatus extracted correctly");
   
-  console.log("\nMUTANT N6_PAGE: userId=\"\" → breaks pending set storage keys");
-  console.log("MUTANT N6S_PAGE: sessionStatus=\"in_progress\" → replays on completed session\n");
+  // Test with a different user to ensure it's not hardcoded
+  const mockUser2 = { id: "user-456" };
+  const runnerProps2 = buildRunnerProps(mockSession, mockUser2);
+  assert(runnerProps2.userId === "user-456", "N6_PAGE: userId varies with user");
+  
+  console.log("\nMUTANT N6_PAGE: buildRunnerProps returns userId=\"\" → breaks pending set storage keys");
+  console.log("MUTANT N6S_PAGE: buildRunnerProps returns sessionStatus=\"in_progress\" → replays on completed session\n");
 }
 
 function testSettingsPageCallSite() {
-  console.log("📋 Test: Settings page SignOutButton call site\n");
+  console.log("📋 Test: Settings page buildSettingsProps wiring\n");
   
   const mockUser = {
-    id: "user-settings-456",
+    id: "user-settings-789",
   };
   
-  // Simulate what settings page does
-  const { userId } = { userId: mockUser.id };
+  // The page spreads this into SignOutButton: <SignOutButton {...signOutProps} />
+  const signOutProps = buildSettingsProps(mockUser);
   
-  // The page passes this to SignOutButton
-  assert(userId === "user-settings-456", "N8_PAGE: userId passed to SignOutButton");
-  assert(userId !== "", "N8_PAGE MUTANT: userId not blank");
+  assert(signOutProps.userId === "user-settings-789", "N8_PAGE: userId passed to SignOutButton");
   
-  console.log("\nMUTANT N8_PAGE: userId=\"\" → leaves orphaned pending sets after sign-out\n");
+  // Test with different user
+  const mockUser2 = { id: "user-abc" };
+  const signOutProps2 = buildSettingsProps(mockUser2);
+  assert(signOutProps2.userId === "user-abc", "N8_PAGE: userId varies with user");
+  
+  console.log("\nMUTANT N8_PAGE: buildSettingsProps returns userId=\"\" → leaves orphaned pending sets after sign-out\n");
 }
 
 try {

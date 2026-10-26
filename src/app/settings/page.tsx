@@ -63,7 +63,7 @@ export default async function SettingsPage() {
   const { supportEmail } = getSiteInfo();
 
   // N8: Extract userId via tested helper
-  const { userId } = buildSettingsProps(user);
+  const signOutProps = buildSettingsProps(user);
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
@@ -106,7 +106,7 @@ export default async function SettingsPage() {
         <section>
           <h2 className="text-lg font-semibold mb-2">Account</h2>
           <div className="space-y-3">
-            <SignOutButton userId={userId} />
+            <SignOutButton {...signOutProps} />
             <a
               href="/settings/delete-account"
               className="block rounded-xl border border-danger/30 bg-danger/10 px-6 py-3 text-sm font-medium text-danger transition-colors hover:bg-danger/20"

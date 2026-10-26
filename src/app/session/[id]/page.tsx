@@ -180,13 +180,12 @@ export default async function SessionPage({
   const tomorrow = await nextDayPlan(supabase, resolveTimezoneWithProfile(profileRes.data?.timezone));
 
   // N6/N6s: Extract userId and sessionStatus via tested helper
-  const { userId, sessionStatus } = buildRunnerProps(session, user);
+  const runnerProps = buildRunnerProps(session, user);
 
   return (
     <SessionRunner
+      {...runnerProps}
       sessionId={session.id}
-      sessionStatus={sessionStatus}
-      userId={userId}
       isDeload={session.is_deload}
       week={session.week_in_block ?? 1}
       warmupAlreadyDone={session.warmup_completed}
