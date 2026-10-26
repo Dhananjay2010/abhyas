@@ -13,10 +13,11 @@ export function isFinishDisabled(pendingCount: number, busy: boolean): boolean {
 
 /**
  * Get finish button text based on pending sets.
- * 
- * Always returns "Done" - the pending count is shown in the notice above.
  */
-export function getFinishButtonText(): string {
+export function getFinishButtonText(pendingCount: number): string {
+  if (pendingCount > 0) {
+    return `Saving ${pendingCount} ${pendingCount === 1 ? "set" : "sets"}…`;
+  }
   return "Done";
 }
 
