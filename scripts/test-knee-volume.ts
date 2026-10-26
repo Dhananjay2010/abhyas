@@ -10,6 +10,7 @@ import {
   PAST_KNEE_LUNGE_EXERCISES,
 } from "../src/lib/program/generate";
 import { isKneeRiskForKneeUser } from "../src/lib/program/knee-safety";
+import { isExcludedForPastKnee } from "../src/lib/program/past-knee";
 import { prescribe } from "../src/lib/program/prescription";
 import { KNEE_PROFILES, makeGeneratorInput } from "./knee-volume-grid";
 import { templatesFor, placeYoga, activeDayIndices } from "../src/lib/program/splits";
@@ -93,6 +94,13 @@ for (const spec of KNEE_PROFILES) {
         if (isKneeRiskForKneeUser(ex.exData!, input.anyKneeInjury) && 
             ex.exData!.movement_pattern === "squat") {
           fail(`${spec.id} day ${day.dayIndex}: knee-risk squat ${ex.name} in lunge slot`);
+        }
+      }
+      
+      // Mutant 10 killer: No past-knee excluded exercises (jumps, thrusters, etc.)
+      for (const ex of exercises) {
+        if (isExcludedForPastKnee(ex.exData!)) {
+          fail(`${spec.id} day ${day.dayIndex}: past-knee excluded exercise ${ex.name}`);
         }
       }
     }

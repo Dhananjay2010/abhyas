@@ -6,6 +6,7 @@
 import { readFileSync } from "fs";
 import { generateProgram, type CandidateExercise } from "../src/lib/program/generate";
 import { isKneeRiskForKneeUser } from "../src/lib/program/knee-safety";
+import { isExcludedForPastKnee } from "../src/lib/program/past-knee";
 import { KNEE_PROFILES, makeGeneratorInput } from "./knee-volume-grid";
 
 const catalogue = JSON.parse(
@@ -22,6 +23,7 @@ const pastKneeProfiles = KNEE_PROFILES.filter(spec =>
 let countWithKneeRiskOutsideSquat = 0;
 let countWithKneeRiskInAnySlot = 0;
 let countWithExplicitKneeContraindication = 0;
+let countWithPastKneeExcludedExercise = 0;
 
 for (const spec of pastKneeProfiles) {
   const input = makeGeneratorInput(spec, catalogue);
@@ -30,6 +32,7 @@ for (const spec of pastKneeProfiles) {
   let foundKneeRiskOutsideSquat = false;
   let foundKneeRiskInAnySlot = false;
   let foundExplicitKneeContraindication = false;
+  let foundPastKneeExcludedExercise = false;
   
   for (const day of result.days) {
     if (day.dayType === "rest") continue;
@@ -38,12 +41,22 @@ for (const spec of pastKneeProfiles) {
       const exData = catalogueById.get(ex.exerciseId);
       if (!exData) continue;
       
-      // K1 mutant killer: Check for explicitly knee-contraindicated exercises (NEVER allowed for past-knee)
-      if (exData.contraindicated_regions.includes("knee")) {
+      // K1 mutant killer: Check for explicitly knee-contraindicated exercises outside slot 0
+      // (slot 0 squat is allowed to have knee contraindication)
+      if (ex.orderIndex !== 0 && exData.contraindicated_regions.includes("knee")) {
         if (!foundExplicitKneeContraindication) {
           countWithExplicitKneeContraindication++;
           console.log(`${spec.id} day ${day.dayIndex}: slot ${ex.orderIndex} has ${ex.name} [EXPLICIT KNEE CONTRAINDICATION]`);
           foundExplicitKneeContraindication = true;
+        }
+      }
+      
+      // Mutant 10 killer: Check for past-knee excluded exercises (jumps, etc. - NEVER allowed for past-knee)
+      if (isExcludedForPastKnee(exData)) {
+        if (!foundPastKneeExcludedExercise) {
+          countWithPastKneeExcludedExercise++;
+          console.log(`${spec.id} day ${day.dayIndex}: slot ${ex.orderIndex} has ${ex.name} [PAST-KNEE EXCLUDED]`);
+          foundPastKneeExcludedExercise = true;
         }
       }
       
@@ -75,9 +88,15 @@ for (const spec of pastKneeProfiles) {
 console.log(`\n${countWithKneeRiskOutsideSquat} of ${pastKneeProfiles.length} past-knee profiles have knee-risk lifts outside squat slot`);
 console.log(`${countWithKneeRiskInAnySlot} of ${pastKneeProfiles.length} past-knee profiles have knee-risk lifts in any slot`);
 console.log(`${countWithExplicitKneeContraindication} of ${pastKneeProfiles.length} past-knee profiles have explicitly knee-contraindicated exercises`);
+console.log(`${countWithPastKneeExcludedExercise} of ${pastKneeProfiles.length} past-knee profiles have past-knee excluded exercises (jumps, etc.)`);
 
 if (countWithExplicitKneeContraindication > 0) {
   console.error(`✗ FAIL: Expected 0 explicitly knee-contraindicated exercises (K1 mutant killer)`);
+  process.exit(1);
+}
+
+if (countWithPastKneeExcludedExercise > 0) {
+  console.error(`✗ FAIL: Expected 0 past-knee excluded exercises (Mutant 10 killer: jumps, etc.)`);
   process.exit(1);
 }
 
@@ -86,5 +105,5 @@ if (countWithKneeRiskOutsideSquat > 0) {
   process.exit(1);
 }
 
-console.log(`✓ PASS: All past-knee profiles are knee-safe outside squat slot and have no explicit knee contraindications`);
+console.log(`✓ PASS: All past-knee profiles are knee-safe outside squat slot, have no explicit knee contraindications, and no past-knee excluded exercises`);
 process.exit(0);

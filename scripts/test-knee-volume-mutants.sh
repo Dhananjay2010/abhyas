@@ -66,7 +66,7 @@ function test_mutant {
 
 # Mutant 1: Disable knee-risk filter in pickForSlot (change hasPastKnee to false)
 test_mutant "disable-pickforslot-knee-filter" \
-  "sed -i '829s/input\\.anyKneeInjury/false/' $GENERATE_FILE"
+  "sed -i '771s/input\\.anyKneeInjury/false/' $GENERATE_FILE"
 
 # Mutant 2: Remove entire knee-risk filter block from pickForSlot
 test_mutant "remove-pickforslot-knee-block" \

@@ -7,6 +7,7 @@ import {
   KNEE_SAFE_QUAD_EXERCISES,
   getDerivedContraindications
 } from "./knee-safety";
+import { isExcludedForPastKnee } from "./past-knee";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -766,10 +767,17 @@ function pickForSlot(
     // For past knee: filter fallback patterns, and also filter normal patterns for non-squat slots
     // Squat slot (slot 0) keeps Barbell Squat even though it's knee-risk
     // For current knee: let shouldExcludeForSafety handle it (PR #124 logic)
+    // Also exclude jumps, thrusters, etc. (Mutant 10 killer)
     const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
     const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
-    if (hasPastKnee && (isFallback || slotIndex !== 0)) {
-      candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+    if (hasPastKnee) {
+      // Filter knee-risk exercises (derived contraindications) except slot 0
+      if (isFallback || slotIndex !== 0) {
+        candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+        if (candidates.length === 0) continue;
+      }
+      // Filter past-knee excluded exercises (jumps, thrusters, etc.) for all slots
+      candidates = candidates.filter((e) => !isExcludedForPastKnee(e));
       if (candidates.length === 0) continue;
     }
     
