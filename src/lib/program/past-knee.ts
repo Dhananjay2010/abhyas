@@ -305,7 +305,7 @@ export function shouldExcludeOlympicLift(
   if (hasCurrentInjury) return true;
   
   // Swap-only: exclude for past knee (Decision a)
-  if (false) return true;
+  if (input.anyKneeInjury) return true;
   
   return false;
 }
