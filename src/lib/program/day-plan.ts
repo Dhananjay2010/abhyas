@@ -46,6 +46,8 @@ export async function plannableDays(
   options?: {
     /** When provided, marks the next workout in rotation after this date's session */
     afterDate?: string;
+    /** User ID for filtering sessions (required when afterDate is provided) */
+    userId?: string;
   }
 ): Promise<PlannableDay[]> {
   const { data } = await supabase
@@ -62,10 +64,11 @@ export async function plannableDays(
   // Find which workout is "next up" based on the most recently completed session
   let nextUpId: string | null = null;
   
-  if (options?.afterDate && trainingDays.length > 0) {
+  if (options?.afterDate && options?.userId && trainingDays.length > 0) {
     const { data: recentSession } = await supabase
       .from("sessions")
       .select("program_day_id")
+      .eq("user_id", options.userId)
       .eq("status", "completed")
       .in("actual_type", ["weights", "bodyweight"])
       .lte("local_date", options.afterDate)
@@ -198,8 +201,8 @@ export type NextDayPlan = {
  * Returns null when there is no active block, which is the one case where
  * asking "what about tomorrow?" has no answer to offer.
  * 
- * After completing a swapped session: Tomorrow shows the NEXT workout in the
- * rotation, not the one just completed or what the weekly schedule says.
+ * Respects the schedule. After a swap where tomorrow would repeat the just-done
+ * workout, the swap flow itself should plan tomorrow differently via planDay.
  */
 export async function nextDayPlan(
   supabase: Client,
@@ -207,7 +210,7 @@ export async function nextDayPlan(
 ): Promise<NextDayPlan | null> {
   const { data: program } = await supabase
     .from("programs")
-    .select("id")
+    .select("id, user_id")
     .eq("status", "active")
     .maybeSingle();
   if (!program) return null;
@@ -215,50 +218,14 @@ export async function nextDayPlan(
   const today = localDateString(timezone);
   const tomorrow = addDays(today, 1);
   
-  // Check if today had a completed training session
-  const { data: todaySessions } = await supabase
-    .from("sessions")
-    .select("program_day_id, actual_type, status")
-    .eq("local_date", today)
-    .eq("status", "completed")
-    .in("actual_type", ["weights", "bodyweight"])
-    .order("created_at", { ascending: false })
-    .limit(1);
-  
-  const [resolved, days, programDays] = await Promise.all([
+  const [resolved, days] = await Promise.all([
     resolveDay(supabase, program.id, tomorrow),
-    plannableDays(supabase, program.id, { afterDate: today }),
-    supabase
-      .from("program_days")
-      .select("id, day_index, day_type, label")
-      .eq("program_id", program.id)
-      .eq("status", "active")
-      .in("day_type", ["weights", "bodyweight"])
-      .order("day_index"),
+    plannableDays(supabase, program.id, { afterDate: today, userId: program.user_id }),
   ]);
-
-  let plannedLabel = resolved?.label ?? "Rest";
-  
-  // If today had a completed training session, compute what's next in rotation
-  if (todaySessions && todaySessions.length > 0 && programDays.data) {
-    const completedDay = programDays.data.find(d => d.id === todaySessions[0].program_day_id);
-    
-    if (completedDay) {
-      // Find the next day in rotation after the completed one
-      const trainingDays = programDays.data;
-      const currentIndex = trainingDays.findIndex(d => d.id === completedDay.id);
-      
-      if (currentIndex >= 0) {
-        // Next day in rotation (wraps around)
-        const nextDay = trainingDays[(currentIndex + 1) % trainingDays.length];
-        plannedLabel = nextDay.label ?? "Training";
-      }
-    }
-  }
 
   return {
     localDate: tomorrow,
-    plannedLabel,
+    plannedLabel: resolved?.label ?? "Rest",
     days,
   };
 }

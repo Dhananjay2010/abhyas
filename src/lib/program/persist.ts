@@ -224,11 +224,10 @@ export async function createBlockForUser(
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver: options.carryOver,
-    // For NEW plans (block 1), anchor to started_on so first training day = sign-up day.
-    // For rebuilds, pass rebuildOf.started_on to keep the existing anchor.
-    // For rollovers (options.mode === "new" but block > 1), don't pass startedOn
-    // so the original weekday mapping is preserved.
-    startedOn: rebuildOf?.started_on ?? (blockNumber === 1 ? today : undefined),
+    // NEW plans (block 1 at onboarding) anchor to started_on = today.
+    // REBUILT or rolled-over plans keep the original weekday mapping: pass NO startedOn,
+    // so the generator uses the fixed weekday indices and preserves the schedule.
+    startedOn: blockNumber === 1 && !rebuildOf ? today : undefined,
   };
 
   const plan = generateProgram(input);
