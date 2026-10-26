@@ -323,7 +323,7 @@ const metricExercise: RunnerExercise = {
   name: "Overhead Press",
   cue: null,
   metric: "reps",
-  primaryMuscles: ["shoulders"],
+  primaryMuscles: ["front_delts"],
   plannedSets: 3,
   plannedRepsMin: 6,
   plannedRepsMax: 8,
