@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { resolveStaleFinishExtended } from "./stale-duration";
+import { resolveStaleFinish, type StaleFinishInput } from "./stale-duration";
 import { buildCloseStaleDeps, supabaseCloseStaleQueries } from "./close-stale-deps";
 import type { CloseStaleDeps } from "./close-stale-deps";
 import { secondsSinceIso, isoFromMs } from "@/lib/dates";
@@ -197,7 +197,6 @@ export async function closeStaleSessionsCore(
   const workingSetCounts = new Map<string, number>();
   const firstSetCompletedAt = new Map<string, string | null>();
   const lastSetCompletedAt = new Map<string, string | null>();
-  const lastSetRestSeconds = new Map<string, number | null>();
 
   for (const row of rows) {
     const sets = row.session_sets ?? [];
@@ -230,7 +229,6 @@ export async function closeStaleSessionsCore(
         const existing = lastSetCompletedAt.get(row.session_id);
         if (!existing || latestSet.completed_at > existing) {
           lastSetCompletedAt.set(row.session_id, latestSet.completed_at);
-          lastSetRestSeconds.set(row.session_id, row.rest_seconds);
         }
       }
     }
@@ -277,21 +275,16 @@ export async function closeStaleSessionsCore(
       if (!startedAt) return false;
 
       const workingSetCount = workingSetCounts.get(id) ?? 0;
-      const restSecondsValue = lastSetRestSeconds.get(id);
-      const finish = resolveStaleFinishExtended({
+      const input: StaleFinishInput = {
         startedAt,
         lastSetCompletedAt: lastSetCompletedAt.get(id) ?? null,
         workingSetCount,
-        ...(restSecondsValue != null ? { restSeconds: restSecondsValue } : {}),
-      });
-      
-      // If endedAt is null (invalid timestamps), skip this session
-      if (!finish.endedAt) return false;
+      };
+
+      const finish = resolveStaleFinish(input);
       
       // Cap duration at 6 hours (21600 seconds) to prevent unrealistic values
-      const cappedDuration = finish.durationSeconds === null 
-        ? null 
-        : Math.min(finish.durationSeconds, STALE_INACTIVITY_THRESHOLD_SECONDS);
+      const cappedDuration = Math.min(finish.durationSeconds, STALE_INACTIVITY_THRESHOLD_SECONDS);
       
       try {
         const updated = await deps.markSessionDone(id, finish.status, finish.endedAt, cappedDuration);
@@ -325,35 +318,32 @@ export async function closeStaleSessionsCore(
           return false;
         }
         // Has sets - use first set as start, last set as end
-        const restSecondsValue = lastSetRestSeconds.get(id);
-        const finish = resolveStaleFinishExtended({
+        const input: StaleFinishInput = {
           startedAt: firstSetTime,
           lastSetCompletedAt: lastSetTime ?? firstSetTime,
           workingSetCount: 0,
-          ...(restSecondsValue != null ? { restSeconds: restSecondsValue } : {}),
-        });
-        if (finish.endedAt) {
-          try {
-            await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
-          } catch (error) {
-            console.error(`Failed to mark abandoned session ${id} as done:`, error);
-          }
-        }
-        return false;
-      }
-
-      const finish = resolveStaleFinishExtended({
-        startedAt: session.started_at,
-        lastSetCompletedAt: null,
-        workingSetCount: 0,
-      });
-      
-      if (finish.endedAt) {
+        };
+        const finish = resolveStaleFinish(input);
         try {
           await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
         } catch (error) {
           console.error(`Failed to mark abandoned session ${id} as done:`, error);
         }
+        return false;
+      }
+
+      const input: StaleFinishInput = {
+        startedAt: session.started_at,
+        lastSetCompletedAt: null,
+        workingSetCount: 0,
+      };
+
+      const finish = resolveStaleFinish(input);
+      
+      try {
+        await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
+      } catch (error) {
+        console.error(`Failed to mark abandoned session ${id} as done:`, error);
       }
       // Abandoned sessions are never credited (they're skipped)
       return false;
