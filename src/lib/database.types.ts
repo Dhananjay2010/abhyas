@@ -1522,6 +1522,26 @@ export type Database = {
         }
         Returns: string
       }
+      get_gym_brand: {
+        Args: {
+          p_gym_id: string
+        }
+        Returns: {
+          name: string
+          slug: string
+          timezone: string | null
+        }[]
+      }
+      resolve_gym_by_host: {
+        Args: {
+          p_host: string
+        }
+        Returns: {
+          gym_id: string
+          gym_slug: string
+          gym_name: string
+        }[]
+      }
     }
     Enums: {
       body_region:
