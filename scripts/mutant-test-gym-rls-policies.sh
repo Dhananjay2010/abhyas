@@ -25,6 +25,14 @@ done
 SCHEMA_FILE="supabase/migrations/20261025000034_gym_tenant_schema.sql"
 BACKFILL_FILE="supabase/migrations/20261025000035_gym_backfill_default.sql"
 
+# Skip if REAL_DB is not set (shard environments don't have Supabase)
+if [ "${REAL_DB:-}" != "1" ]; then
+  echo "⏭️  Skipping mutant tests (REAL_DB=1 not set)"
+  echo "   Set REAL_DB=1 to run these tests against a local Supabase instance"
+  echo
+  exit 0
+fi
+
 if [ ! -f "$SCHEMA_FILE" ]; then
   echo "❌ ERROR: Schema migration not found: $SCHEMA_FILE" >&2
   exit 1

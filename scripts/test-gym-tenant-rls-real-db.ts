@@ -410,7 +410,11 @@ async function runTests() {
       .update({ role: "staff" })
       .eq("gym_id", gymIdA)
       .eq("user_id", userIdMemberC);
-    check("Staff D can't update role", !!error && error.code === "42501");
+    check(
+      "Staff D can't update role",
+      !!error && error.code === "42501",
+      error ? `${error.code}: ${error.message}` : "no error (operation succeeded)"
+    );
   }
   console.log();
 
