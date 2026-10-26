@@ -350,7 +350,7 @@
     "test:stale-rest-used": "tsx scripts/test-stale-rest-used.ts",
     "test:stale-runner-clock-guard": "tsx scripts/test-stale-runner-clock-guard.ts",
     "test:warmup-exclusion": "tsx scripts/test-warmup-exclusion.ts",
-    "test:duration-dash-scope && npm run test:format-duration-dash": "tsx scripts/test-duration-dash-scope.ts",
+    "test:duration-dash-scope": "tsx scripts/test-duration-dash-scope.ts",
     "test:format-duration-dash": "tsx scripts/test-format-duration-dash.ts"
   },
   "dependencies": {
