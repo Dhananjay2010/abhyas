@@ -103,18 +103,17 @@ Object.defineProperty(window, 'localStorage', {
     clearAllPendingSetsForUser(storage, userId);
   };
   
-  type SignOutAction = () => Promise<never>;
-  
-  const signOutAction: SignOutAction = async () => {
+  // Success case: signOut returns success (in real code it would redirect)
+  const signOutSuccess = async () => {
     callOrder.push("signOut");
-    return new Promise(() => {});
+    return { ok: true as const };
   };
   
   render(
     <SignOutButton
       userId="u1"
       clearSets={clearSets}
-      signOut={signOutAction}
+      signOut={signOutSuccess}
     />
   );
   
@@ -124,10 +123,11 @@ Object.defineProperty(window, 'localStorage', {
   });
   
   await act(async () => {});
+  await act(async () => {});
   
-  // Verify that clearSets was called before signOut
-  assert(callOrder[0] === "clearSets", "4b: clearSets called first");
-  assert(callOrder[1] === "signOut", "4c: signOut called after clearSets");
+  // New behavior: signOut called first, clearSets called after success
+  assert(callOrder[0] === "signOut", "4b: signOut called first");
+  assert(callOrder[1] === "clearSets", "4c: clearSets called after signOut success");
   
   // Verify u1 pending sets are removed
   assert(fakeStorage.getItem("pending-sets:u1") === null, "4b: u1 pending sets removed");

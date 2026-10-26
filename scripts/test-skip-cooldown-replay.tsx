@@ -62,7 +62,6 @@ const fakeTimer = {
   console.log("\n📋 Test: Skip cool-down with pending sets\n");
   
   let finishSessionCalled = false;
-  let replayCalled = false;
   let logSetCallCount = 0;
   let shouldLogSetFail = true;
   
