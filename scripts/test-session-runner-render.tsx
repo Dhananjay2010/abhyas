@@ -1603,13 +1603,12 @@ async function testRetryButton() {
 async function testItem2b() {
   console.log("\n📋 Test Item 2b: 1 saved set + 3 taps → setNumbers [2,3,4]");
   
-  const submittedSetNumbers: number[] = [];
-  
+  const calls: number[] = [];
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
-    logSet: async (input) => {
-      submittedSetNumbers.push(input.setNumber);
-      throw new Error("SESSION_EXPIRED: test");
+    logSet: async (input) => { 
+      calls.push(input.setNumber); 
+      return { ok: false, error: "Not signed in", code: "SESSION_EXPIRED" }; 
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
@@ -1622,120 +1621,75 @@ async function testItem2b() {
   };
   
   const exercises: RunnerExercise[] = [
-    {
-      id: "ex1",
-      exerciseId: "squat",
-      name: "Squat",
-      cue: null,
-      metric: "reps",
-      primaryMuscles: ["quads"],
-      plannedSets: 5,
-      plannedRepsMin: 8,
-      repsMin: 8,
-      plannedRepsMax: 12,
-      repsMax: 12,
-      restSeconds: 90,
-      workingWeightKg: null,
-      suggestedWeightKg: null,
-      status: "pending",
-      feel: null,
-      sets: [
-        { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null }
-      ],
-      isBodyweight: false,
-    },
+    { 
+      id: "ex1", 
+      exerciseId: "squat", 
+      name: "Squat", 
+      cue: null, 
+      metric: "reps", 
+      primaryMuscles: ["quads"], 
+      plannedSets: 5, 
+      plannedRepsMin: 8, 
+      repsMin: 8, 
+      plannedRepsMax: 12, 
+      repsMax: 12, 
+      restSeconds: 90, 
+      workingWeightKg: null, 
+      suggestedWeightKg: null, 
+      status: "pending", 
+      feel: null, 
+      sets: [{ setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null }], 
+      isBodyweight: false 
+    }
   ];
   
-  const settings: RunnerSettings = {
-    perSetLogging: false,
-    restSound: false,
-    restVibrate: false,
-    restAutostart: false,
-    restOverrideSeconds: null,
-    cooldownEnabled: false,
+  const settings: RunnerSettings = { 
+    perSetLogging: false, 
+    restSound: false, 
+    restVibrate: false, 
+    restAutostart: false, 
+    restOverrideSeconds: null, 
+    cooldownEnabled: false 
   };
-  
-  const userId = "test-user-item2b";
-  const sessionId = "session-item2b";
   
   fakeStorage.clear();
   
   render(
-    <SessionRunner
-      sessionId={sessionId}
-      sessionStatus="in_progress"
-      userId={userId}
-      isDeload={false}
-      week={1}
-      warmupAlreadyDone={true}
-      startedAt={new Date(FIXED_TIME).toISOString()}
-      warmup={[]}
-      cooldown={[]}
-      exercises={exercises}
-      settings={settings}
-      actions={actions}
-      timer={fakeTimer}
+    <SessionRunner 
+      sessionId="s-proof" 
+      sessionStatus="in_progress" 
+      userId="u-proof" 
+      isDeload={false} 
+      week={1} 
+      warmupAlreadyDone={true} 
+      startedAt={new Date(FIXED_TIME).toISOString()} 
+      warmup={[]} 
+      cooldown={[]} 
+      exercises={exercises} 
+      settings={settings} 
+      actions={actions} 
+      timer={fakeTimer} 
+      now={() => FIXED_TIME}
     />
   );
   
   await act(async () => {});
   
-  const repsInputs = screen.queryAllByRole("spinbutton");
-  const repsInput = repsInputs[0];
-  const logButton2 = screen.getByRole("button", { name: /log set 2/i });
-  
-  await act(async () => {
-    if (repsInput && 'value' in repsInput) {
-      repsInput.setAttribute("value", "10");
-      repsInput.dispatchEvent(new Event("input", { bubbles: true }));
+  for (let i = 0; i < 3; i++) {
+    const b = screen.queryAllByRole("button").find((x) => /Set \d+ done|Log set/i.test(x.textContent ?? ""));
+    if (!b) {
+      assert(false, `Item2b tap ${i + 1}: Log button not found`);
+      throw new Error(`Button not found at tap ${i + 1}`);
     }
-  });
+    await act(async () => { b.click(); });
+    await act(async () => {});
+  }
   
-  await act(async () => {
-    logButton2.click();
-  });
+  assert(JSON.stringify(calls) === "[2,3,4]", `Item2b: Submitted setNumbers [2,3,4] (got ${JSON.stringify(calls)})`);
   
-  await act(async () => {});
-  
-  const logButton3 = screen.getByRole("button", { name: /log set 3/i });
-  await act(async () => {
-    if (repsInput && 'value' in repsInput) {
-      repsInput.setAttribute("value", "10");
-      repsInput.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-  });
-  
-  await act(async () => {
-    logButton3.click();
-  });
-  
-  await act(async () => {});
-  
-  const logButton4 = screen.getByRole("button", { name: /log set 4/i });
-  await act(async () => {
-    if (repsInput && 'value' in repsInput) {
-      repsInput.setAttribute("value", "10");
-      repsInput.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-  });
-  
-  await act(async () => {
-    logButton4.click();
-  });
-  
-  await act(async () => {});
-  
-  assert(submittedSetNumbers.length === 3, `Item2b: 3 logSet calls (got ${submittedSetNumbers.length})`);
-  assert(submittedSetNumbers[0] === 2, `Item2b: First submit setNumber=2 (got ${submittedSetNumbers[0]})`);
-  assert(submittedSetNumbers[1] === 3, `Item2b: Second submit setNumber=3 (got ${submittedSetNumbers[1]})`);
-  assert(submittedSetNumbers[2] === 4, `Item2b: Third submit setNumber=4 (got ${submittedSetNumbers[2]})`);
-  
-  const stored = loadPendingSets(fakeStorage, userId, sessionId, fakeDeps);
+  const stored = loadPendingSets(fakeStorage, "u-proof", "s-proof", fakeDeps);
   const storedSetNumbers = stored.map(s => s.setNumber).sort((a, b) => a - b);
-  assert(storedSetNumbers.length === 3, `Item2b: 3 stored pending sets (got ${storedSetNumbers.length})`);
-  assert(storedSetNumbers[0] === 2, `Item2b: Stored setNumber=2 (got ${storedSetNumbers[0]})`);
-  assert(storedSetNumbers[1] === 3, `Item2b: Stored setNumber=3 (got ${storedSetNumbers[1]})`);
-  assert(storedSetNumbers[2] === 4, `Item2b: Stored setNumber=4 (got ${storedSetNumbers[2]})`);
+  assert(JSON.stringify(storedSetNumbers) === "[2,3,4]", `Item2b: Stored setNumbers [2,3,4] (got ${JSON.stringify(storedSetNumbers)})`);
   
   console.log("\nPLANTED BUG at :843: nextSetTarget ignores pending → submits [2,2,2] (data loss)");
   
