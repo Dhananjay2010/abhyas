@@ -62,12 +62,7 @@ export function EditSets({ units, exercises, saveSet = updateSet }: EditSetsProp
 
     let numValue = value === "" ? null : parseFloat(value);
     
-    // Convert display units to kg for weight field
-    if (field === "weight_kg" && numValue !== null) {
-      numValue = convertWeightInputToKg(numValue, units);
-    }
-    
-    // Validation
+    // Validation (before conversion for weight)
     const newErrors = new Map(errors);
     if (numValue !== null) {
       if (isNaN(numValue)) {
@@ -76,8 +71,13 @@ export function EditSets({ units, exercises, saveSet = updateSet }: EditSetsProp
         newErrors.set(`${key}-${field}`, "Must be positive");
       } else if (field === "reps" && numValue > 100) {
         newErrors.set(`${key}-${field}`, "Maximum 100 reps");
-      } else if (field === "weight_kg" && numValue > 500) {
-        newErrors.set(`${key}-${field}`, `Maximum ${units === "imperial" ? `${LOAD_IMPERIAL_MAX_LB} lb` : `${LOAD_METRIC_MAX_KG} kg`}`);
+      } else if (field === "weight_kg") {
+        const maxDisplay = units === "imperial" ? LOAD_IMPERIAL_MAX_LB : LOAD_METRIC_MAX_KG;
+        if (numValue > maxDisplay) {
+          newErrors.set(`${key}-${field}`, `Maximum ${units === "imperial" ? `${LOAD_IMPERIAL_MAX_LB} lb` : `${LOAD_METRIC_MAX_KG} kg`}`);
+        } else {
+          newErrors.delete(`${key}-${field}`);
+        }
       } else if (field === "duration_seconds" && numValue > 3600) {
         newErrors.set(`${key}-${field}`, "Maximum 1 hour");
       } else {
@@ -87,6 +87,11 @@ export function EditSets({ units, exercises, saveSet = updateSet }: EditSetsProp
       newErrors.delete(`${key}-${field}`);
     }
     setErrors(newErrors);
+    
+    // Convert display units to kg for weight field (after validation)
+    if (field === "weight_kg" && numValue !== null) {
+      numValue = convertWeightInputToKg(numValue, units);
+    }
 
     const updatedSet = { ...currentSet, [field]: numValue };
     setEditedSets(new Map(editedSets.set(key, updatedSet)));

@@ -58,6 +58,7 @@ Module.prototype.require = function (id: string) {
 import React from "react";
 import { render, fireEvent } from "@testing-library/react";
 import { EditSets } from "../src/app/history/[id]/edit-sets";
+import { displayToKg } from "../src/lib/units";
 
 let failures = 0;
 
@@ -99,21 +100,78 @@ console.log("\n1. Imperial user: weight input max attribute");
   const editButtons = getAllByText("Edit sets");
   fireEvent.click(editButtons[0]);
 
-  const weightInput = container.querySelector('input[type="number"][placeholder="lb"]') as HTMLInputElement;
-  check(
-    "Weight input exists",
-    weightInput !== null
+  const el = container.querySelector('input[type="number"][placeholder="lb"]');
+  if (!(el instanceof HTMLInputElement)) {
+    throw new Error("Imperial weight input not found");
+  }
+
+  check('Weight input max is "999"', el.max === "999", `got "${el.max}"`);
+}
+
+// Test 2: Imperial user: entering 1000 lb shows error or disables save
+console.log("\n2. Imperial user: entering 1000 lb shows validation error");
+{
+  const { container, getAllByText } = render(
+    React.createElement(EditSets, {
+      units: "imperial" as const,
+      exercises,
+    })
   );
 
+  const editButtons = getAllByText("Edit sets");
+  fireEvent.click(editButtons[0]);
+
+  const el = container.querySelector('input[type="number"][placeholder="lb"]');
+  if (!(el instanceof HTMLInputElement)) {
+    throw new Error("Imperial weight input not found");
+  }
+
+  fireEvent.change(el, { target: { value: "1000" } });
+  fireEvent.blur(el);
+
+  const errorText = container.textContent || "";
+  const hasError = errorText.includes("999 lb") || errorText.includes("Maximum");
+
   check(
-    'Weight input max is "999"',
-    weightInput?.max === "999",
-    `got "${weightInput?.max}"`
+    "1000 lb shows error with 999 lb limit",
+    hasError,
+    hasError ? "error message found" : "no error shown"
   );
 }
 
-// Test 2: Metric user sees max="500"
-console.log("\n2. Metric user: weight input max attribute");
+// Test 3: Imperial user: entering 999 lb has no error (would save if clicked)
+console.log("\n3. Imperial user: 999 lb accepted (no validation error)");
+{
+  const { container, getAllByText } = render(
+    React.createElement(EditSets, {
+      units: "imperial" as const,
+      exercises,
+    })
+  );
+
+  const editButtons = getAllByText("Edit sets");
+  fireEvent.click(editButtons[0]);
+
+  const el = container.querySelector('input[type="number"][placeholder="lb"]');
+  if (!(el instanceof HTMLInputElement)) {
+    throw new Error("Imperial weight input not found");
+  }
+
+  fireEvent.change(el, { target: { value: "999" } });
+  fireEvent.blur(el);
+
+  const errorText = container.textContent || "";
+  const hasMaxError = errorText.includes("999 lb") || (errorText.includes("Maximum") && errorText.includes("lb"));
+
+  check(
+    "999 lb accepted (no max error)",
+    !hasMaxError,
+    hasMaxError ? "UNEXPECTED: error shown for valid value" : "no error"
+  );
+}
+
+// Test 4: Metric user sees max="500"
+console.log("\n4. Metric user: weight input max attribute");
 {
   const { container, getAllByText } = render(
     React.createElement(EditSets, {
@@ -125,16 +183,73 @@ console.log("\n2. Metric user: weight input max attribute");
   const editButtons = getAllByText("Edit sets");
   fireEvent.click(editButtons[0]);
 
-  const weightInput = container.querySelector('input[type="number"][placeholder="kg"]') as HTMLInputElement;
-  check(
-    "Weight input exists",
-    weightInput !== null
+  const el = container.querySelector('input[type="number"][placeholder="kg"]');
+  if (!(el instanceof HTMLInputElement)) {
+    throw new Error("Metric weight input not found");
+  }
+
+  check('Weight input max is "500"', el.max === "500", `got "${el.max}"`);
+}
+
+// Test 5: Metric user: entering 501 kg shows error
+console.log("\n5. Metric user: entering 501 kg shows validation error");
+{
+  const { container, getAllByText } = render(
+    React.createElement(EditSets, {
+      units: "metric" as const,
+      exercises,
+    })
   );
 
+  const editButtons = getAllByText("Edit sets");
+  fireEvent.click(editButtons[0]);
+
+  const el = container.querySelector('input[type="number"][placeholder="kg"]');
+  if (!(el instanceof HTMLInputElement)) {
+    throw new Error("Metric weight input not found");
+  }
+
+  fireEvent.change(el, { target: { value: "501" } });
+  fireEvent.blur(el);
+
+  const errorText = container.textContent || "";
+  const hasError = errorText.includes("500 kg") || errorText.includes("Maximum");
+
   check(
-    'Weight input max is "500"',
-    weightInput?.max === "500",
-    `got "${weightInput?.max}"`
+    "501 kg shows error with 500 kg limit",
+    hasError,
+    hasError ? "error message found" : "no error shown"
+  );
+}
+
+// Test 6: Metric user: entering 500 kg has no error
+console.log("\n6. Metric user: 500 kg accepted (no validation error)");
+{
+  const { container, getAllByText } = render(
+    React.createElement(EditSets, {
+      units: "metric" as const,
+      exercises,
+    })
+  );
+
+  const editButtons = getAllByText("Edit sets");
+  fireEvent.click(editButtons[0]);
+
+  const el = container.querySelector('input[type="number"][placeholder="kg"]');
+  if (!(el instanceof HTMLInputElement)) {
+    throw new Error("Metric weight input not found");
+  }
+
+  fireEvent.change(el, { target: { value: "500" } });
+  fireEvent.blur(el);
+
+  const errorText = container.textContent || "";
+  const hasMaxError = errorText.includes("500 kg") || (errorText.includes("Maximum") && errorText.includes("kg"));
+
+  check(
+    "500 kg accepted (no max error)",
+    !hasMaxError,
+    hasMaxError ? "UNEXPECTED: error shown for valid value" : "no error"
   );
 }
 
