@@ -12,7 +12,8 @@ type Pattern = Database["public"]["Enums"]["movement_pattern"];
  * 2. PREFER: knee-friendly primaries (goblet squat, box squat, leg press, split squat
  *    with controlled range; dumbbell rear lunge or step-up over barbell lunge)
  * 3. Barbell back squat stays as swap option but NOT default primary
- * 4. Squat swap list must include leg press and goblet squat when equipment allows
+ * 4. Squat swap list: leg-extensions, single-leg-leg-extension, wall-sit, spanish-squat,
+ *    then knee-safe hinge/bridge fallbacks (glutes or hamstrings as primary muscles)
  * 5. Deficit deadlift in swaps is fine
  */
 
