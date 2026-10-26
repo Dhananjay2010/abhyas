@@ -45,6 +45,7 @@ const initialState: SettingsState = {
   bodyweightPrompt: "weekly",
   timezone: "America/New_York",
   dateOfBirth: null,
+  units: 'metric',
 };
 
 const equipment = [

@@ -91,6 +91,7 @@ const settings: RunnerSettings = {
   restVibrate: false,
   restOverrideSeconds: null,
   cooldownEnabled: false,
+  units: "metric",
 };
 
 // What getSessionSummary returns: PBs. The extra old-style `message` is what a

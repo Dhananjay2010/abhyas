@@ -166,6 +166,7 @@ async function test1b1d() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-1b";
@@ -286,6 +287,7 @@ async function testN7() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "specific-user-n7";
@@ -430,6 +432,7 @@ async function test7b7c() {
       restAutostart: false,
       restOverrideSeconds: null,
       cooldownEnabled: false,
+      units: "metric",
     };
     
     const userId = "user-7b";
@@ -524,6 +527,7 @@ async function test7b7c() {
       restAutostart: false,
       restOverrideSeconds: null,
       cooldownEnabled: false,
+      units: "metric",
     };
     
     const userId = "user-7c";
@@ -646,6 +650,7 @@ async function test8d8e() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-8de";
@@ -801,6 +806,7 @@ async function test9b() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: true,
+      units: "metric",
   };
   
   const userId = "test-user-9b";
@@ -921,6 +927,7 @@ async function testN11() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-n11";
@@ -1030,6 +1037,7 @@ async function testN12() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-n12";
@@ -1128,6 +1136,7 @@ async function testConflict() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-conflict";
@@ -1251,6 +1260,7 @@ async function testDoubleTap() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-doubletap";
@@ -1351,6 +1361,7 @@ async function testFailedSubmit() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-failed";
@@ -1456,6 +1467,7 @@ async function testN7sCompletedSession() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-n7s";
@@ -1566,6 +1578,7 @@ async function testRetryButton() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-retry";
@@ -1680,7 +1693,8 @@ async function testItem2b() {
     restVibrate: false, 
     restAutostart: false, 
     restOverrideSeconds: null, 
-    cooldownEnabled: false 
+    cooldownEnabled: false,
+    units: "metric",
   };
   
   fakeStorage.clear();

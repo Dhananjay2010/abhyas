@@ -106,6 +106,7 @@ const fakeTimer = {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-f5";

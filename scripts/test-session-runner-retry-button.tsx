@@ -136,6 +136,7 @@ async function testR4AndR4s() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-r4";

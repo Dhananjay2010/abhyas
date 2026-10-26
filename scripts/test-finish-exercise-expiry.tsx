@@ -85,6 +85,7 @@ const fakeTimer = {
       restAutostart: false,
       restOverrideSeconds: null,
       cooldownEnabled: false,
+      units: "metric",
     };
     
     render(
@@ -176,6 +177,7 @@ const fakeTimer = {
       restAutostart: false,
       restOverrideSeconds: null,
       cooldownEnabled: false,
+      units: "metric",
     };
     
     render(

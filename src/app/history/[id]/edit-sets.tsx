@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateSet, deleteSet } from "../actions";
+import { kgToDisplay, weightLabel, roundLbToHalf, convertWeightInputToKg, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG, type UnitsPreference } from "@/lib/units";
 
 interface SetData {
   session_exercise_id: string;
@@ -14,16 +15,17 @@ interface SetData {
 }
 
 interface EditSetsProps {
-  sessionId: string;
+  units: UnitsPreference;
   exercises: Array<{
     id: string;
     name: string;
     sets: SetData[];
     metric: string;
   }>;
+  saveSet?: typeof updateSet;
 }
 
-export function EditSets({ sessionId, exercises }: EditSetsProps) {
+export function EditSets({ units, exercises, saveSet = updateSet }: EditSetsProps) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -58,9 +60,9 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
     const currentSet = editedSets.get(key);
     if (!currentSet) return;
 
-    const numValue = value === "" ? null : parseFloat(value);
+    let numValue = value === "" ? null : parseFloat(value);
     
-    // Validation
+    // Validation (before conversion for weight)
     const newErrors = new Map(errors);
     if (numValue !== null) {
       if (isNaN(numValue)) {
@@ -69,8 +71,13 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
         newErrors.set(`${key}-${field}`, "Must be positive");
       } else if (field === "reps" && numValue > 100) {
         newErrors.set(`${key}-${field}`, "Maximum 100 reps");
-      } else if (field === "weight_kg" && numValue > 500) {
-        newErrors.set(`${key}-${field}`, "Maximum 500 kg");
+      } else if (field === "weight_kg") {
+        const maxDisplay = units === "imperial" ? LOAD_IMPERIAL_MAX_LB : LOAD_METRIC_MAX_KG;
+        if (numValue > maxDisplay) {
+          newErrors.set(`${key}-${field}`, `Maximum ${units === "imperial" ? `${LOAD_IMPERIAL_MAX_LB} lb` : `${LOAD_METRIC_MAX_KG} kg`}`);
+        } else {
+          newErrors.delete(`${key}-${field}`);
+        }
       } else if (field === "duration_seconds" && numValue > 3600) {
         newErrors.set(`${key}-${field}`, "Maximum 1 hour");
       } else {
@@ -80,6 +87,11 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
       newErrors.delete(`${key}-${field}`);
     }
     setErrors(newErrors);
+    
+    // Convert display units to kg for weight field (after validation)
+    if (field === "weight_kg" && numValue !== null) {
+      numValue = convertWeightInputToKg(numValue, units);
+    }
 
     const updatedSet = { ...currentSet, [field]: numValue };
     setEditedSets(new Map(editedSets.set(key, updatedSet)));
@@ -165,9 +177,9 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
     startTransition(async () => {
       const updates: Promise<{ success?: boolean; error?: string }>[] = [];
 
-      for (const [key, set] of editedSets) {
+      for (const [, set] of editedSets) {
         updates.push(
-          updateSet(
+          saveSet(
             set.session_exercise_id,
             set.set_number,
             set.reps,
@@ -286,7 +298,13 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
                         <div className="flex-1">
                           <input
                             type="number"
-                            value={editedSet.weight_kg ?? ""}
+                            value={
+                              editedSet.weight_kg !== null
+                                ? units === "imperial"
+                                  ? roundLbToHalf(kgToDisplay(editedSet.weight_kg, units))
+                                  : kgToDisplay(editedSet.weight_kg, units)
+                                : ""
+                            }
                             onChange={(e) =>
                               handleSetChange(
                                 set.session_exercise_id,
@@ -295,9 +313,9 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
                                 e.target.value
                               )
                             }
-                            placeholder="kg"
+                            placeholder={weightLabel(units)}
                             min="0"
-                            max="500"
+                            max={units === "imperial" ? LOAD_IMPERIAL_MAX_LB : LOAD_METRIC_MAX_KG}
                             step="0.5"
                             className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
                           />

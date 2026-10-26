@@ -45,6 +45,7 @@ const settings: RunnerSettings = {
   restAutostart: false,
   restOverrideSeconds: null,
   cooldownEnabled: true,
+      units: "metric",
 };
 
 (async () => {

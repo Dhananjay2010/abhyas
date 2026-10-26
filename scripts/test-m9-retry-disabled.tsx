@@ -135,6 +135,7 @@ async function testM9() {
     restAutostart: false,
     restOverrideSeconds: null,
     cooldownEnabled: false,
+      units: "metric",
   };
   
   const userId = "test-user-m9";
