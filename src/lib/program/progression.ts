@@ -484,7 +484,7 @@ export function evaluateProgression(input: {
 
   if (succeeded) {
     // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+    const currentWeight = effectiveBaseWeight(state.currentWorkingWeightKg, working) ?? (heaviest > 0 ? heaviest : null);
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
       // Hold at current weight (don't snap down)
       return {
@@ -613,13 +613,15 @@ export function evaluateProgression(input: {
         ? "Staying at this hold length until every set reaches the top of the range."
         : currentWeight === null
           ? "Staying here until every set reaches the top of the range."
-          : `Staying at ${displayWeight(currentWeight, unit)} until every set reaches the top of the range.`,
+          : currentWeight === 0
+            ? "Staying at this weight until every set reaches the top of the range."
+            : `Staying at ${displayWeight(currentWeight, unit)} until every set reaches the top of the range.`,
     };
   }
 
   // MISS: sets incomplete, or any set's reps below repsMin. Increment consecutiveFailures.
   const failures = state.consecutiveFailures + 1;
-  const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+  const currentWeight = effectiveBaseWeight(state.currentWorkingWeightKg, working) ?? (heaviest > 0 ? heaviest : null);
 
   /**
    * Shared helper: compute what the two-miss back-off would return.

@@ -164,9 +164,13 @@ Because a rebuild is consequential — it discards the current exercise selectio
 - **Stall rule:** miss the target twice in a row → automatically drop ~10% and build back.
 - **In-range hold rule:** when all sets hit the minimum but not all hit the top (e.g. 4×10 in an 8-12 range), hold at the **actual weight used**. If every set was at or above the stored weight, the stored weight becomes the lowest weight from those sets (rounded to 2 decimal places). If any set was lighter than stored, the stored weight stays unchanged. Examples:
   - Stored 40 kg, all sets @ 45 kg in-range → stores 45 kg (heavier weight used)
-  - Stored 40 kg, all sets @ 45 kg hit top → increases from 45 kg to 47.5 kg
+  - Stored 40 kg, all sets @ 45 kg hit top → increases from 45 kg to 47.5 kg *(upper-body 2.5 kg increment; lower-body would use 5 kg)*
   - Stored 40 kg, sets @ [42.5, 45, 42.5, 42.5] in-range → stores 42.5 kg (lowest)
   - Stored 40 kg, one set @ 37.5 kg → stores 40 kg (unchanged, lighter set blocks update)
+  - **Stored null** (first session): uses the heaviest logged weight as the base for progression
+  - **Stored 0** (pure bodyweight): preserved as 0 when no external load is added; switches to the lowest added weight (rounded to 2dp) when load is used
+  - **Zero-rep or null-weight sets** are filtered out before computing the base weight
+  - **Hard-feel hold:** when all sets hit the top but feel is "hard" and equipment is available, the weight holds at the **actual weight used** (not stored), matching the in-range hold behavior
 
 ### Planning mode (user setting)
 - `progression` (default) — everything above

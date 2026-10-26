@@ -208,6 +208,7 @@ console.log("\nCase 6: Bodyweight (stored 0) in-range => stays 0");
   check("Outcome: hold", decision.outcome === "hold", decision.outcome);
   check("Next weight: 0 (not null)", decision.nextWorkingWeightKg === 0, `${decision.nextWorkingWeightKg}`);
   check("Failures: reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
+  check("Message: 'this weight' (not 'here' or '0 kg')", decision.message === "Staying at this weight until every set reaches the top of the range.", decision.message);
 }
 
 // Case 7: Bodyweight top of range => progresses reps, weight stays 0
@@ -360,6 +361,60 @@ console.log("\nCase 12: Stored 0, in-range with lowest 41.257 => rounds to 41.26
 
   check("Outcome: hold", decision.outcome === "hold", decision.outcome);
   check("Next weight: 41.26 kg (rounded to 2 dp)", decision.nextWorkingWeightKg === 41.26, `${decision.nextWorkingWeightKg}`);
+  check("Failures: reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
+}
+
+// Case 13: Hard feel with stored 40, 4x12@45 => holds at 45 (not 40)
+console.log("\nCase 13: Hard feel: stored 40, 4x12@45 feel hard => holds 45");
+{
+  const decision = evaluateProgression({
+    sets: [
+      { reps: 12, weightKg: 45 },
+      { reps: 12, weightKg: 45 },
+      { reps: 12, weightKg: 45 },
+      { reps: 12, weightKg: 45 },
+    ],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "hard",
+    meta: BENCH,
+    state: state({ currentWorkingWeightKg: 40 }),
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+
+  check("Outcome: hold", decision.outcome === "hold", decision.outcome);
+  check("Next weight: 45 kg (heavier weight used, not stored 40)", decision.nextWorkingWeightKg === 45, `${decision.nextWorkingWeightKg}`);
+  check("Failures: reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
+  check("Message: 'felt hard'", decision.message.includes("felt hard"), decision.message);
+}
+
+// Case 14: Zero-rep set filter: stored 40, 4x10@45 + 0-rep set @20 => holds 45 (not 40 or 20)
+console.log("\nCase 14: Zero-rep filter: stored 40, 4x10@45 + 0-rep @20 => holds 45");
+{
+  const decision = evaluateProgression({
+    sets: [
+      { reps: 10, weightKg: 45 },
+      { reps: 10, weightKg: 45 },
+      { reps: 10, weightKg: 45 },
+      { reps: 10, weightKg: 45 },
+      { reps: 0, weightKg: 20 }, // Zero-rep set should be filtered out
+    ],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: BENCH,
+    state: state({ currentWorkingWeightKg: 40 }),
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+
+  check("Outcome: hold", decision.outcome === "hold", decision.outcome);
+  check("Next weight: 45 kg (0-rep set filtered)", decision.nextWorkingWeightKg === 45, `${decision.nextWorkingWeightKg}`);
   check("Failures: reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
 }
 
