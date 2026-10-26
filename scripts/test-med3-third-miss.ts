@@ -93,7 +93,7 @@ console.log("1. Dumbbell isolation 12.5 kg");
   });
 
   check("Dumbbell 2nd miss: holds at 12.5 kg", secondMiss.nextWorkingWeightKg === 12.5, `got ${secondMiss.nextWorkingWeightKg}`);
-  check("Dumbbell 2nd miss: outcome backed_off (weight clamped to current)", secondMiss.outcome === "backed_off");
+  check("Dumbbell 2nd miss: outcome hold (weight clamped to current)", secondMiss.outcome === "hold");
 
   // Third miss at 12.5 kg: 0.9 * 15 = 13.5, snap DOWN = 12.5 = current
   // MED-3 triggers: drop one step = 12.5 - 2.5 = 10 kg

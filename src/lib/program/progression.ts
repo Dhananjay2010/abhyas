@@ -891,6 +891,19 @@ export function evaluateProgression(input: {
       };
     }
     
+    // Never raise: if back-off would increase weight, hold instead
+    if (reduced > currentWeight) {
+      return {
+        ...carried,
+        outcome: "hold",
+        nextWorkingWeightKg: currentWeight,
+        nextTargetReps: repsMax,
+        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
+        weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss
+        message: "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up.",
+      };
+    }
+    
     return {
       ...carried,
       outcome: "backed_off",
