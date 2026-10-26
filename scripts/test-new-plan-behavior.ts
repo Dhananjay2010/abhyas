@@ -120,12 +120,12 @@ console.log("\n3. EXISTING plans preserve weekday mapping");
     age: 30,
     bmi: 24,
     hasAllEquipment: true,
-    equipmentIds: [],
-    currentInjuryRegions: [],
-    preferredSessionMinutes: 60,
-    catalogue: CATALOGUE as unknown as typeof CATALOGUE[number][],
-    // NO startedOn - should use original mapping
-  };
+      equipmentIds: [],
+      currentInjuryRegions: [],
+      preferredSessionMinutes: 60,
+      catalogue: CATALOGUE,
+      // NO startedOn - should use original mapping
+    };
   
   const plan = generateProgram(input);
   const trainingDays = plan.days
@@ -153,12 +153,12 @@ console.log("\n4. Rest day spacing");
     age: 30,
     bmi: 24,
     hasAllEquipment: true,
-    equipmentIds: [],
-    currentInjuryRegions: [],
-    preferredSessionMinutes: 60,
-    catalogue: CATALOGUE as unknown as typeof CATALOGUE[number][],
-    startedOn: "2026-10-27", // Tuesday
-  };
+      equipmentIds: [],
+      currentInjuryRegions: [],
+      preferredSessionMinutes: 60,
+      catalogue: CATALOGUE,
+      startedOn: "2026-10-27", // Tuesday
+    };
   
   const plan = generateProgram(input);
   const trainingDays = plan.days

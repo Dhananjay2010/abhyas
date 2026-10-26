@@ -4,11 +4,8 @@ import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { createBlockForUser } from "@/lib/program/persist";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
-import { createClient } from "@/lib/supabase/server";
-import { localDateString } from "@/lib/dates";
+import { addDays, localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { resolveDay } from "@/lib/program/day-plan";
-import { planDay } from "@/app/session/actions";
 
 export type BuildPlanResult = { ok: true } | { ok: false; error: string };
 
@@ -40,13 +37,15 @@ export async function buildPlan(): Promise<BuildPlanResult> {
 /**
  * Shift a brand-new plan's anchor by one day ("Or start tomorrow").
  * 
- * Makes tomorrow day 1 and today rest by planning rest for today.
+ * Makes tomorrow day 1 by updating the program's started_on and ends_on dates.
  * Only allowed for a brand-new plan (block 1) before its first session is started.
- * Idempotent: if today is already rest, does nothing.
+ * Idempotent: two clicks shift only one day.
  */
 export async function startTomorrow(): Promise<{ ok: true } | { ok: false; error: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const rateLimit = await checkActionRateLimit("expensive");
+  if (rateLimit) return rateLimit;
+
+  const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
   const { data: profile } = await supabase
@@ -58,11 +57,12 @@ export async function startTomorrow(): Promise<{ ok: true } | { ok: false; error
 
   const timezone = resolveTimezoneWithProfile(profile.timezone);
   const today = localDateString(timezone);
+  const tomorrow = addDays(today, 1);
 
   // Get active program
   const { data: program } = await supabase
     .from("programs")
-    .select("id, block_number, started_on")
+    .select("id, block_number, started_on, ends_on")
     .eq("user_id", user.id)
     .eq("status", "active")
     .maybeSingle();
@@ -88,21 +88,22 @@ export async function startTomorrow(): Promise<{ ok: true } | { ok: false; error
     return { ok: false, error: "Plan already started" };
   }
 
-  // Check if today is already rest (idempotent)
-  const resolved = await resolveDay(supabase, program.id, today);
-  if (!resolved || resolved.dayType === "rest") {
-    // Already rest, nothing to do
+  // Idempotent: check if already shifted (tomorrow is the anchor)
+  if (program.started_on === tomorrow) {
     return { ok: true };
   }
 
-  // Plan rest for today (makes tomorrow day 1)
-  const result = await planDay({
-    localDate: today,
-    plan: { kind: "rest" },
-  });
+  // Shift the anchor by one day
+  const { error } = await supabase
+    .from("programs")
+    .update({
+      started_on: tomorrow,
+      ends_on: addDays(program.ends_on, 1),
+    })
+    .eq("id", program.id);
 
-  if (!result.ok) {
-    return { ok: false, error: result.error };
+  if (error) {
+    return { ok: false, error: error.message };
   }
 
   revalidateTrainingData();

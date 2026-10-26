@@ -619,8 +619,9 @@ export default async function TodayPage() {
                 <StartSessionButton
                   label={strengthOpen?.started_at ? "Resume session" : "Start session"}
                 />
-                {/* "Or start tomorrow" link for brand-new plans */}
+                {/* "Or start tomorrow" link for brand-new plans on their first day */}
                 {program.block_number === 1 &&
+                  program.started_on === localToday &&
                   !strengthOpen &&
                   todaySessions.filter(s => s.status === "in_progress" || s.status === "completed").length === 0 && (
                     <StartTomorrowLink />

@@ -46,6 +46,13 @@ export function DayPlanPrompt({
   const [settled, setSettled] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Sort days so nextUp is first (preselected)
+  const sortedDays = [...days].sort((a, b) => {
+    if (a.nextUp && !b.nextUp) return -1;
+    if (!a.nextUp && b.nextUp) return 1;
+    return 0;
+  });
+
   function choose(plan: DayPlan, describedAs: string) {
     setError(null);
     startTransition(async () => {
@@ -104,7 +111,7 @@ export function DayPlanPrompt({
         </div>
       ) : (
         <div className="mt-4 space-y-2">
-          {days.map((d) => (
+          {sortedDays.map((d) => (
             <Choice
               key={d.programDayId}
               wide
