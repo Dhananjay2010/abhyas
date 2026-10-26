@@ -284,7 +284,6 @@ async function testGetSessionStatusForEndedSession() {
     };
   };
   
-  let logSetCalled = false;
   const fakeGetSessionStatus = async (sid: string) => {
     if (sid === sessionId) return "ended" as const;
     return "in_progress" as const;

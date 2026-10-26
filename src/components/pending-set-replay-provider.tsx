@@ -10,7 +10,7 @@ export type AuthSubscription = {
 
 export type PendingSetReplayProviderViewProps = {
   getUser: () => Promise<{ id: string } | null>;
-  onAuthStateChange: (callback: (event: string, session: any) => void) => AuthSubscription;
+  onAuthStateChange: (callback: (event: string, session: unknown) => void) => AuthSubscription;
   getSessionStatus: (sessionId: string) => Promise<"in_progress" | "ended" | "stale">;
 };
 
@@ -57,7 +57,7 @@ export function PendingSetReplayProvider() {
     return user;
   }
 
-  function onAuthStateChange(callback: (event: string, session: any) => void) {
+  function onAuthStateChange(callback: (event: string, session: unknown) => void) {
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(callback);
     return subscription;

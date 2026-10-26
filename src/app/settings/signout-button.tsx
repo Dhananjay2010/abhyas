@@ -3,7 +3,7 @@
 import { signOutAction } from "@/lib/auth/signout";
 import { logSet } from "@/app/session/actions";
 import { useSignOut } from "@/lib/auth/use-signout";
-import { SignOutFormView, type SignOutFormViewProps } from "@/app/today/signout-form";
+import { SignOutFormView } from "@/app/today/signout-form";
 
 export function SignOutButton({ 
   userId,
