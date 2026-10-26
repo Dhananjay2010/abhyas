@@ -1691,7 +1691,13 @@ async function testItem2b() {
   const storedSetNumbers = stored.map(s => s.setNumber).sort((a, b) => a - b);
   assert(JSON.stringify(storedSetNumbers) === "[2,3,4]", `Item2b: Stored setNumbers [2,3,4] (got ${JSON.stringify(storedSetNumbers)})`);
   
+  // Issue 6: Assert clientId uses injected now() clock, not Date.now()
+  const storedClientIds = stored.map(s => s.clientId).sort();
+  const expectedClientIds = [`ex1:2:${FIXED_TIME}`, `ex1:3:${FIXED_TIME}`, `ex1:4:${FIXED_TIME}`];
+  assert(JSON.stringify(storedClientIds) === JSON.stringify(expectedClientIds), `Item2b: ClientIds use fixed time (got ${JSON.stringify(storedClientIds)})`);
+  
   console.log("\nPLANTED BUG at :843: nextSetTarget ignores pending → submits [2,2,2] (data loss)");
+  console.log("PLANTED BUG at :846: clientId uses Date.now() → unpredictable test IDs");
   
   cleanup();
   fakeStorage.clear();
