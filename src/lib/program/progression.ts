@@ -640,7 +640,7 @@ export function evaluateProgression(input: {
     const from = baseWeight ?? heaviest;
     
     let next: number;
-    if (equipmentIds) {
+    if (equipmentIds && equipmentIds.length > 0) {
       const isKettlebell = equipmentIds.includes('kettlebell');
       
       if (isKettlebell) {
@@ -684,6 +684,19 @@ export function evaluateProgression(input: {
         message: isTimed
           ? "Held to the top of the range — no heavier load available."
           : "All sets at the top of the range — no heavier load available.",
+      };
+    }
+
+    // Bodyweight without stored working weight: no kg target in message
+    if (state.currentWorkingWeightKg === null || state.currentWorkingWeightKg === 0) {
+      return {
+        ...carried,
+        outcome: "progressed",
+        nextWorkingWeightKg: next,
+        nextTargetReps: repsMax,
+        consecutiveFailures: 0,
+        weightAtFailureStartKg: null,
+        message: "All sets at the top of the range — ready for the next step.",
       };
     }
 
@@ -734,16 +747,13 @@ export function evaluateProgression(input: {
    * Shared helper: compute what the two-miss back-off would return.
    * Used by both the actual two-miss path and the first-miss invariant clamp (Rule 2).
    * 
-   * M1: For actual two-miss back-off, backs off from pre-miss weight and snaps DOWN.
-   * For Rule 2 floor check, uses original behavior: finds smallest loadable >= target (snap UP).
+   * 42314b8d behavior: finds SMALLEST loadable >= target and < current.
+   * If no such value exists, returns current (hold).
    * 
    * @param weight - Weight to compute from
-   * @param snapDown - M1: true for two-miss back-off (snap DOWN), false for Rule 2 floor (snap UP, original)
-   * 
-   * Returns the loadable value (snapped according to mode) >= 90% (at most one increment below) and < current.
-   * If no such value exists, returns current (hold).
+   * @param forRuleTwo - true for Rule 2 floor check (accepts smaller cuts), false for two-miss back-off
    */
-  function computeTwoMissResult(weight: number, snapDown: boolean = false): number {
+  function computeTwoMissResult(weight: number, forRuleTwo: boolean = false): number {
     const liftIncrement = incrementFor(meta);
     
     // Hold at light weight
@@ -764,8 +774,8 @@ export function evaluateProgression(input: {
       return weight;
     }
     
-    // With equipment: find loadable value relative to target
-    if (equipmentIds) {
+    // With equipment: find SMALLEST loadable >= target and < current (42314b8d behavior)
+    if (equipmentIds && equipmentIds.length > 0) {
       let candidate: number | null = null;
       
       if (equipmentIds.includes('kettlebell')) {
@@ -778,21 +788,11 @@ export function evaluateProgression(input: {
           }
         }
       } else {
-        // Standard equipment: snap to loadable grid
+        // Standard equipment: snap UP to loadable grid (42314b8d behavior)
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
-        
-        if (snapDown) {
-          // M1 two-miss: snap DOWN (floor) - may be < target
-          const snappedDown = Math.floor(target / gridStep) * gridStep;
-          if (snappedDown < weight - 0.001 && snappedDown > 0) {
-            candidate = snappedDown;
-          }
-        } else {
-          // Rule 2 floor: snap UP (ceil) - smallest loadable >= target (original behavior)
-          const snappedUp = Math.ceil(target / gridStep) * gridStep;
-          if (snappedUp < weight - 0.001) {
-            candidate = snappedUp;
-          }
+        const snappedUp = Math.ceil(target / gridStep) * gridStep;
+        if (snappedUp < weight - 0.001) {
+          candidate = snappedUp;
         }
       }
       
@@ -829,7 +829,7 @@ export function evaluateProgression(input: {
     
     // M1: Use pre-miss weight if available, otherwise fall back to current weight
     const weightToBackOffFrom = state.weightAtFailureStartKg ?? currentWeight;
-    const reduced = computeTwoMissResult(weightToBackOffFrom, true); // M1: snap DOWN for two-miss back-off
+    const reduced = computeTwoMissResult(weightToBackOffFrom);
     
     // MED-3: Third+ consecutive miss - if 0.9x back-off doesn't change weight, drop one grid step
     if (failures >= 3 && reduced === currentWeight && equipmentIds) {

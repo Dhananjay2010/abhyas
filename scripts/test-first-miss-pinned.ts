@@ -217,7 +217,7 @@ console.log("\n=== First-Miss: Leg Extension & Med Ball ===");
 console.log("\n=== Two-Miss: Barbell 13.75 kg (metric, isolation) ===");
 
 // Two misses at 13.75 kg with equipment (isolation): 90% = 12.375, floor to 1.25 grid = 11.25, cap at 12.375 - 1.25 = 11.125 → max(11.25, 11.125) = 11.25
-// M1: Snap DOWN to 2.5 kg grid: floor(11.25 / 2.5) * 2.5 = 10 kg
+// 42314b8d: SMALLEST loadable >= 11.25 (snap UP) is 12.5 kg
 {
   const d = run({
     equipmentIds: ["barbell"],
@@ -225,8 +225,8 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (metric, isolation) ===");
     meta: CURL,  // isolation
     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
   });
-  check("Barbell 13.75 kg two-miss with equipment (isolation) → 10 kg (M1: snap DOWN)", 
-    d.nextWorkingWeightKg === 10 && d.consecutiveFailures === 0);
+  check("Barbell 13.75 kg two-miss with equipment (isolation) → 12.5 kg (42314b8d: snap UP)", 
+    d.nextWorkingWeightKg === 12.5 && d.consecutiveFailures === 0);
 }
 
 // Two misses at 13.75 kg WITHOUT equipment (isolation): same logic → 11.25 (no equipment snap)
