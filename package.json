@@ -324,6 +324,7 @@
     "test:plan-day-validation": "tsx scripts/test-plan-day-validation.ts",
     "test:wiring-behavioral": "tsx scripts/test-wiring-behavioral.ts",
     "test:keep-delete-error": "tsx scripts/test-keep-delete-error.ts",
+    "test:null-actual-type": "tsx scripts/test-null-actual-type.ts",
     "test:shard1": "node scripts/run-test-shard.js 1 3",
     "test:shard2": "node scripts/run-test-shard.js 2 3",
     "test:shard3": "node scripts/run-test-shard.js 3 3",
