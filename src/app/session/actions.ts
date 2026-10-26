@@ -800,7 +800,10 @@ export async function planDay(input: {
                 .from(table)
                 .select(columns)
                 .eq(column, value);
-              return { data, error };
+              return {
+                data: data as unknown as Database["public"]["Tables"]["sessions"]["Row"][] | null,
+                error: error ? (error as unknown as Error) : null,
+              };
             },
           };
         },
@@ -809,11 +812,11 @@ export async function planDay(input: {
     async deleteFrom(rows) {
       const ids = rows.map((r) => r.id);
       const { error } = await supabase.from("sessions").delete().in("id", ids);
-      return { error };
+      return { error: error ? (error as unknown as Error) : null };
     },
     async insert(table, row) {
       const { error } = await supabase.from(table).insert(row);
-      return { error };
+      return { error: error ? (error as unknown as Error) : null };
     },
   };
 
