@@ -58,7 +58,6 @@ Module.prototype.require = function (id: string) {
 import React from "react";
 import { render, fireEvent } from "@testing-library/react";
 import { EditSets } from "../src/app/history/[id]/edit-sets";
-import { displayToKg } from "../src/lib/units";
 
 let failures = 0;
 

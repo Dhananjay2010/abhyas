@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { BarChart, LineChart, StatTile, type Point } from "@/components/charts";
+import { BarChart, LineChart, StatTile } from "@/components/charts";
 import { buildDayRecords, computeStreaks } from "@/lib/progress/streaks";
 import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-charts";
 import { localDateString } from "@/lib/dates";
