@@ -2,7 +2,7 @@ import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "@/lib/program/past-knee-lunge-order";
-import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly, shouldExcludeOlympicLift, getKneeFriendlyPrimaries } from "@/lib/program/past-knee";
+import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly, shouldExcludeOlympicLift } from "@/lib/program/past-knee";
 import { PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
 import { isKneeRiskForKneeUser } from "@/lib/program/knee-safety";
 
@@ -294,11 +294,10 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 6e. QA Bot 1: Past-knee users filter knee-risk exercises from swaps
     // Apply the same knee predicate as generation (isKneeRiskForKneeUser)
     if (hasPastKnee) {
-      // For squat→squat swaps: filter out knee-risk squats, allow only PAST_KNEE_LUNGE_EXERCISES or knee-friendly primaries
+      // For squat→squat swaps: filter out knee-risk squats, allow only PAST_KNEE_LUNGE_EXERCISES
       if (current.movement_pattern === "squat" && candidate.movement_pattern === "squat") {
         if (isKneeRiskForKneeUser(candidate, true)) {
-          const kneeFriendlySquats = getKneeFriendlyPrimaries("squat");
-          if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug) && !kneeFriendlySquats.includes(candidate.slug)) {
+          if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
             continue;
           }
         }
@@ -431,7 +430,7 @@ export function rankAlternatives<T extends ExerciseRow>(
   // Past-knee squat swaps: specific ordering per PR #152 follow-up
   // 1. PAST_KNEE_LUNGE_EXERCISES (spanish-squat, wall-sit, leg-extensions, single-leg-leg-extension) 
   //    in that order, filtered by equipment and excluding current
-  // 2. Then knee-safe hinge/bridge fallbacks (glute/hamstring primary muscles only)
+  // 2. Then knee-safe hinge/bridge fallbacks (glute/hamstring primary muscles only, hinge pattern)
   // Note: Other squat-pattern exercises (goblet-squat, bodyweight-squat, etc.) are excluded
   // to minimize knee load and prioritize quad isolation + hip-dominant work
   if (hasPastKnee && current.movement_pattern === "squat" && deduplicated.length > 0) {
@@ -442,8 +441,9 @@ export function rankAlternatives<T extends ExerciseRow>(
     for (const ex of deduplicated) {
       if (PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {
         quadIsolation.push(ex);
-      } else if (ex.movement_pattern === "hinge" || ex.movement_pattern === "core") {
+      } else if (ex.movement_pattern === "hinge") {
         // Only include genuine hip-dominant hinges/bridges (glutes or hamstrings primary)
+        // Hinge pattern only - if a bridge is tagged core, include by explicit slug list
         const hasHipDominantMuscle = ex.primary_muscles.some(m => m === "glutes" || m === "hamstrings");
         if (hasHipDominantMuscle) {
           hingeFallbacks.push(ex);

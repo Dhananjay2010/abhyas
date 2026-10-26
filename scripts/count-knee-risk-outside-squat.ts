@@ -21,6 +21,7 @@ const pastKneeProfiles = KNEE_PROFILES.filter(spec =>
 
 let countWithKneeRiskOutsideSquat = 0;
 let countWithKneeRiskInAnySlot = 0;
+let countWithExplicitKneeContraindication = 0;
 
 for (const spec of pastKneeProfiles) {
   const input = makeGeneratorInput(spec, catalogue);
@@ -28,6 +29,7 @@ for (const spec of pastKneeProfiles) {
   
   let foundKneeRiskOutsideSquat = false;
   let foundKneeRiskInAnySlot = false;
+  let foundExplicitKneeContraindication = false;
   
   for (const day of result.days) {
     if (day.dayType === "rest") continue;
@@ -35,6 +37,15 @@ for (const spec of pastKneeProfiles) {
     for (const ex of day.exercises) {
       const exData = catalogueById.get(ex.exerciseId);
       if (!exData) continue;
+      
+      // K1 mutant killer: Check for explicitly knee-contraindicated exercises (NEVER allowed for past-knee)
+      if (exData.contraindicated_regions.includes("knee")) {
+        if (!foundExplicitKneeContraindication) {
+          countWithExplicitKneeContraindication++;
+          console.log(`${spec.id} day ${day.dayIndex}: slot ${ex.orderIndex} has ${ex.name} [EXPLICIT KNEE CONTRAINDICATION]`);
+          foundExplicitKneeContraindication = true;
+        }
+      }
       
       // Check if it's a knee-risk lift in ANY slot (including squat slot)
       if (isKneeRiskForKneeUser(exData, true)) {
@@ -63,11 +74,17 @@ for (const spec of pastKneeProfiles) {
 
 console.log(`\n${countWithKneeRiskOutsideSquat} of ${pastKneeProfiles.length} past-knee profiles have knee-risk lifts outside squat slot`);
 console.log(`${countWithKneeRiskInAnySlot} of ${pastKneeProfiles.length} past-knee profiles have knee-risk lifts in any slot`);
+console.log(`${countWithExplicitKneeContraindication} of ${pastKneeProfiles.length} past-knee profiles have explicitly knee-contraindicated exercises`);
+
+if (countWithExplicitKneeContraindication > 0) {
+  console.error(`✗ FAIL: Expected 0 explicitly knee-contraindicated exercises (K1 mutant killer)`);
+  process.exit(1);
+}
 
 if (countWithKneeRiskOutsideSquat > 0) {
   console.error(`✗ FAIL: Expected 0 knee-risk lifts outside squat slot`);
   process.exit(1);
-} else {
-  console.log(`✓ PASS: All past-knee profiles are knee-safe outside squat slot`);
-  process.exit(0);
 }
+
+console.log(`✓ PASS: All past-knee profiles are knee-safe outside squat slot and have no explicit knee contraindications`);
+process.exit(0);

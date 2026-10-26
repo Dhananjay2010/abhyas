@@ -660,10 +660,11 @@ export function wouldViolateConstraints(
   pickedSoFar: Array<{ ex: CandidateExercise; slotIndex: number }>,
   input: GeneratorInput,
 ): boolean {
-  const hasKneeInjury = input.currentInjuryRegions.includes("knee");
+  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+  const hasAnyKnee = hasCurrentKnee || (input.anyKneeInjury ?? false);
   
   // For knee-injured users only: timed holds should not end up in main slots after sorting
-  if (hasKneeInjury && candidate.metric === "seconds") {
+  if (hasCurrentKnee && candidate.metric === "seconds") {
     // Simulate sorting with this candidate
     const withCandidate = [...pickedSoFar, { ex: candidate, slotIndex }];
     const sorted = withCandidate.sort((a, b) => {
@@ -688,11 +689,11 @@ export function wouldViolateConstraints(
     }
   }
   
-  // For knee-injured users, check adjacent hinges in FINAL sorted order
+  // For knee-injured users (current or past), check adjacent hinges in FINAL sorted order
   // Only apply constraint to LOADED hinges (spinal_load !== "none")
   // This allows stacking unloaded bridges (glute-bridge, butt-lift-bridge, etc.)
   // and allows a second hinge when a non-hinge exercise separates them
-  if (hasKneeInjury && candidate.movement_pattern === "hinge" && candidate.spinal_load !== "none") {
+  if (hasAnyKnee && candidate.movement_pattern === "hinge" && candidate.spinal_load !== "none") {
     // Simulate the sorted order with this candidate added
     const withCandidate = [...pickedSoFar, { ex: candidate, slotIndex }];
     const sorted = withCandidate.sort((a, b) => {
@@ -824,13 +825,11 @@ function pickForSlot(
     
     // PART A: Knee-risk filter for SAFE_ALTERNATIVES - past knee only (Brief knee-volume)
     const hasCurrentKneeAlt = input.currentInjuryRegions.includes("knee");
-    
-    
     const hasPastKneeAlt = input.anyKneeInjury && !hasCurrentKneeAlt;
     if (hasPastKneeAlt) {
       altCandidates = altCandidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+      if (altCandidates.length === 0) continue;
     }
-    if (altCandidates.length === 0) continue;
     
     // Apply shared constraint checker
     const finalCandidates = altCandidates.filter((e) => !wouldViolateConstraints(e, slotIndex, pickedSoFar, input));
@@ -1809,11 +1808,11 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         // PART B: exclude knee-risk for PAST knee users (Brief knee-volume)
         const accessoryPatterns = entry.slots.slice(-2); // Last 2 patterns
         if (accessoryPatterns.length > 0) {
+          const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
           const pattern = accessoryPatterns[exercises.length % accessoryPatterns.length];
           
           // MED-2: For past-knee lower/full days with calf capped at 4, don't add a second calf
           // (prevents duplicate calf exercises when main calf is capped below 5)
-          const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
           if (hasPastKneeM3 && isLowerOrFullDay && pattern === "calf") {
             // Check if we already have a calf exercise
             const hasCalfAlready = exercises.some(ex => {
@@ -1836,6 +1835,29 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           
           if (hasPastKneeM3) {
             candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+            
+            // MED-2: For lower/full days and hinge pattern, prioritize hip-dominant exercises
+            // (glute/hamstring primary muscles, avoid adjacent loaded hinges)
+            if (isLowerOrFullDay && pattern === "hinge" && candidates.length > 1) {
+              // Transform exercises to the format wouldViolateConstraints expects
+              const pickedSoFar = exercises.map((ex, idx) => {
+                const exData = pool.find(e => e.id === ex.exerciseId);
+                return exData ? { ex: exData, slotIndex: idx } : null;
+              }).filter((item): item is { ex: CandidateExercise; slotIndex: number } => item !== null);
+              
+              const hipDominantCandidates = candidates.filter(e => {
+                // Must have glutes or hamstrings as primary muscle
+                const hasHipDominantMuscle = e.primary_muscles.some(m => 
+                  m === "glutes" || m === "hamstrings"
+                );
+                // Must not violate adjacency constraints (no adjacent loaded hinges)
+                if (!hasHipDominantMuscle) return false;
+                return !wouldViolateConstraints(e, exercises.length, pickedSoFar, input);
+              });
+              if (hipDominantCandidates.length > 0) {
+                candidates = hipDominantCandidates;
+              }
+            }
           }
           
           candidates = candidates.sort((a, b) => 
