@@ -106,7 +106,7 @@ echo ""
 # M2v: Remove cap in SQL view (view definition only)
 echo "M2v: Remove 12-rep cap in SQL view"
 # Target only the view's line, not the recompute
-sed -i '/create or replace view exercise_strength_history/,/^create or replace function/s/else ss\.weight_kg \* (1 + least(ss\.reps, 12) \/ 30\.0)/else ss.weight_kg * (1 + ss.reps \/ 30.0)/' supabase/migrations/20261025000030_align_e1rm_formula.sql
+sed -i '/create or replace view exercise_strength_history/,/^grant select on exercise_strength_history/s/round(ss\.weight_kg \* (30 + least(ss\.reps, 12)) \/ 30, 2)/round(ss.weight_kg * (30 + ss.reps) \/ 30, 2)/' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ M2v: sed did not change migration"
@@ -124,7 +124,7 @@ echo ""
 echo "M3: Change reps=1 to use formula in recompute (w*1.0333 instead of w)"
 # Target only the recompute UPDATE's CASE statement
 # Change "when ss.reps = 1 then ss.weight_kg" to "when ss.reps = 1 then round(ss.weight_kg * 31 / 30, 2)"
-sed -i '/^update exercise_progress ep$/,/^);$/s/when ss\.reps = 1 then ss\.weight_kg/when ss.reps = 1 then round(ss.weight_kg * 31 \/ 30, 2)/g' supabase/migrations/20261025000030_align_e1rm_formula.sql
+sed -i '/^update exercise_progress ep$/,/^  and ep\.best_e1rm is distinct from s\.e1rm;$/s/when ss\.reps = 1 then ss\.weight_kg/when ss.reps = 1 then round(ss.weight_kg * 31 \/ 30, 2)/g' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ M3: sed did not change migration"
@@ -158,7 +158,7 @@ echo ""
 
 # M4: Skip recompute UPDATE
 echo "M4: Comment out recompute UPDATE"
-sed -i '/^update exercise_progress ep$/,/^);$/s/^/-- /' supabase/migrations/20261025000030_align_e1rm_formula.sql
+sed -i '/^update exercise_progress ep$/,/^  and ep\.best_e1rm is distinct from s\.e1rm;$/s/^/-- /' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ M4: sed did not change migration"
