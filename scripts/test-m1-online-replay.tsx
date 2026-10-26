@@ -30,8 +30,8 @@ const fakeDeps = createPendingSetDeps(() => Date.now());
 const FIXED_TIME = new Date("2026-01-15T10:00:00Z").getTime();
 
 const fakeTimer = {
-  setTimeout: (callback: () => void) => {
-    callback();
+  setTimeout: () => {
+    // Don't call callback - let the test control timing
     return 0;
   },
   clearTimeout: () => {},
