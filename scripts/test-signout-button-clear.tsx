@@ -1,9 +1,16 @@
 #!/usr/bin/env tsx
 /**
- * Test: SignOutButton clears pending sets before signing out
+ * Test: SignOutButton clears pending sets and navigates correctly
+ * 
+ * Covers:
+ * - Success: clearSets called after signOut returns {ok:true}, then navigation
+ * - Failure: queue NOT cleared when signOut returns {ok:false}
+ * - Throw: queue NOT cleared when signOut throws
+ * - Navigation: router.replace("/") and router.refresh() both called
  */
 
 import "./helpers/setup-jsdom";
+import { mockNextRouter } from "./helpers/setup-jsdom";
 
 import { render, act, screen } from "@testing-library/react";
 import { SignOutButton } from "../src/app/settings/signout-button";
@@ -12,11 +19,9 @@ import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 import type { Storage } from "../src/lib/session/pending-set-retry";
 
 let passed = 0;
-let failed = 0;
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
-    failed++;
     console.error(`  ❌ ${message}`);
     throw new Error(message);
   } else {
@@ -25,38 +30,18 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-// Fake localStorage for testing
 class FakeStorage implements Storage {
   private data: Map<string, string> = new Map();
   
-  get length() {
-    return this.data.size;
-  }
-  
-  clear(): void {
-    this.data.clear();
-  }
-  
-  getItem(key: string): string | null {
-    return this.data.get(key) || null;
-  }
-  
-  key(index: number): string | null {
-    return Array.from(this.data.keys())[index] || null;
-  }
-  
-  removeItem(key: string): void {
-    this.data.delete(key);
-  }
-  
-  setItem(key: string, value: string): void {
-    this.data.set(key, value);
-  }
+  get length() { return this.data.size; }
+  clear(): void { this.data.clear(); }
+  getItem(key: string): string | null { return this.data.get(key) || null; }
+  key(index: number): string | null { return Array.from(this.data.keys())[index] || null; }
+  removeItem(key: string): void { this.data.delete(key); }
+  setItem(key: string, value: string): void { this.data.set(key, value); }
 }
 
 const fakeStorage = new FakeStorage();
-
-// Override window.localStorage globally
 Object.defineProperty(window, 'localStorage', {
   value: fakeStorage,
   writable: true,
@@ -64,16 +49,31 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 (async () => {
-  console.log("\n📋 Test: SignOutButton clears pending sets before sign out\n");
+  console.log("\n📋 Test: SignOutButton clears and navigates\n");
   
   const FIXED_TIME = new Date('2026-10-25T12:00:00Z').getTime();
   const fakeDeps: PendingSetDeps = {
     now: () => FIXED_TIME,
   };
   
+  // Track router calls
+  const replaceCalls: string[] = [];
+  const refreshCalls: number[] = [];
+  
+  mockNextRouter.replace = (path?: string) => {
+    if (path) replaceCalls.push(path);
+  };
+  mockNextRouter.refresh = () => {
+    refreshCalls.push(Date.now());
+  };
+  
+  // ========================================================================
+  // Test 1: Success path - clear after signOut, then navigate
+  // ========================================================================
+  console.log("=== Test 1: Success path ===\n");
+  
   const callOrder: string[] = [];
   
-  // Seed storage with pending sets for u1 and u2
   fakeStorage.clear();
   savePendingSet(fakeStorage, "u1", "session-1", {
     sessionExerciseId: "ex1",
@@ -93,7 +93,6 @@ Object.defineProperty(window, 'localStorage', {
     clientId: "pending-u2"
   }, fakeDeps);
   
-  // Verify both keys exist before
   assert(fakeStorage.getItem("pending-sets:u1") !== null, "u1 pending sets exist before");
   assert(fakeStorage.getItem("pending-sets:u2") !== null, "u2 pending sets exist before");
   
@@ -103,11 +102,13 @@ Object.defineProperty(window, 'localStorage', {
     clearAllPendingSetsForUser(storage, userId);
   };
   
-  // Success case: signOut returns success (in real code it would redirect on client)
   const signOutSuccess = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
     callOrder.push("signOut");
     return { ok: true };
   };
+  
+  replaceCalls.length = 0;
+  refreshCalls.length = 0;
   
   render(
     <SignOutButton
@@ -125,18 +126,17 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
-  // New behavior: signOut called first, clearSets called after success
-  assert(callOrder[0] === "signOut", "4b: signOut called first");
-  assert(callOrder[1] === "clearSets", "4c: clearSets called after signOut success");
+  assert(callOrder[0] === "signOut", "signOut called first");
+  assert(callOrder[1] === "clearSets", "clearSets called after signOut success");
+  assert(fakeStorage.getItem("pending-sets:u1") === null, "u1 pending sets removed");
+  assert(fakeStorage.getItem("pending-sets:u2") !== null, "u2 pending sets kept");
+  assert(replaceCalls.length === 1 && replaceCalls[0] === "/", "M13: router.replace('/') called once");
+  assert(refreshCalls.length === 1, "M13: router.refresh() called once");
   
-  // Verify u1 pending sets are removed
-  assert(fakeStorage.getItem("pending-sets:u1") === null, "4b: u1 pending sets removed");
-  
-  // Verify u2 pending sets still exist
-  assert(fakeStorage.getItem("pending-sets:u2") !== null, "4b: u2 pending sets kept");
-  
-  // F8: Test that queue is NOT cleared when sign-out fails
-  console.log("\n--- Testing F8: Queue stays on failure ---\n");
+  // ========================================================================
+  // Test 2: Failure path - queue NOT cleared
+  // ========================================================================
+  console.log("\n=== Test 2: Failure path (returns error) ===\n");
   
   fakeStorage.clear();
   const queueData = JSON.stringify({
@@ -153,7 +153,7 @@ Object.defineProperty(window, 'localStorage', {
   });
   fakeStorage.setItem("pending-sets:u3", queueData);
   
-  const clearSetsF8 = (storage: Storage, userId: string) => {
+  const clearSetsFailure = (storage: Storage, userId: string) => {
     clearAllPendingSetsForUser(storage, userId);
   };
   
@@ -161,10 +161,13 @@ Object.defineProperty(window, 'localStorage', {
     return { ok: false as const, error: "Sign-out failed" };
   };
   
+  replaceCalls.length = 0;
+  refreshCalls.length = 0;
+  
   render(
     <SignOutButton
       userId="u3"
-      clearSets={clearSetsF8}
+      clearSets={clearSetsFailure}
       signOut={signOutFailure}
     />
   );
@@ -177,13 +180,68 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
-  // Queue should NOT be cleared when sign-out fails
   const remainingQueue = fakeStorage.getItem("pending-sets:u3");
-  assert(remainingQueue !== null, "F8: Queue stays when sign-out fails");
-  assert(remainingQueue === queueData, "F8: Queue unchanged on failure");
+  assert(remainingQueue !== null, "Queue stays when sign-out fails");
+  assert(remainingQueue === queueData, "Queue unchanged on failure");
+  assert(replaceCalls.length === 0, "router.replace not called on failure");
+  assert(refreshCalls.length === 0, "router.refresh not called on failure");
   
-  console.log("\nPLANTED BUG: Clearing queue before checking sign-out result → data loss\n");
+  // ========================================================================
+  // Test 3: Throw path - queue NOT cleared (M9)
+  // ========================================================================
+  console.log("\n=== Test 3: Throw path (M9) ===\n");
   
-  console.log(`\n✅ SignOutButton test passed (${passed}/${passed + failed})\n`);
-  process.exit(failed > 0 ? 1 : 0);
+  fakeStorage.clear();
+  const queueDataThrow = JSON.stringify({
+    version: 1,
+    timestamp: FIXED_TIME,
+    sets: [{
+      sessionExerciseId: "ex4",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-u4"
+    }]
+  });
+  fakeStorage.setItem("pending-sets:u4", queueDataThrow);
+  
+  const clearSetsThrow = (storage: Storage, userId: string) => {
+    clearAllPendingSetsForUser(storage, userId);
+  };
+  
+  const signOutThrow = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
+    throw new Error("Network error");
+  };
+  
+  replaceCalls.length = 0;
+  refreshCalls.length = 0;
+  
+  render(
+    <SignOutButton
+      userId="u4"
+      clearSets={clearSetsThrow}
+      signOut={signOutThrow}
+    />
+  );
+  
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  const remainingQueueThrow = fakeStorage.getItem("pending-sets:u4");
+  assert(remainingQueueThrow !== null, "M9: Queue stays when sign-out throws");
+  assert(remainingQueueThrow === queueDataThrow, "M9: Queue unchanged when thrown");
+  assert(replaceCalls.length === 0, "M9: router.replace not called when thrown");
+  assert(refreshCalls.length === 0, "M9: router.refresh not called when thrown");
+  
+  console.log("\nPLANTED BUG: Clearing queue before checking sign-out result → data loss");
+  console.log("MUTANT M9: Clear on throw → kills the queue even when signOut throws\n");
+  
+  console.log(`\n✅ SignOutButton test passed (${passed} assertions)\n`);
+  process.exit(0);
 })();

@@ -110,9 +110,10 @@ const fakeTimer = {
     const feelButtons = screen.queryAllByRole("button", { name: /Just right/i });
     assert(feelButtons.length > 0, "Feel button exists");
     const feelButton = feelButtons[0];
+    if (!feelButton) throw new Error("Feel button not found");
     
     await act(async () => {
-      feelButton!.click();
+      feelButton.click();
     });
     
     await act(async () => {});
@@ -197,9 +198,10 @@ const fakeTimer = {
     
     const feelButtons = screen.queryAllByRole("button", { name: /Just right/i });
     const feelButton = feelButtons.length > 0 ? feelButtons[0] : null;
+    if (!feelButton) throw new Error("Feel button not found");
     
     await act(async () => {
-      feelButton!.click();
+      feelButton.click();
     });
     
     await act(async () => {});

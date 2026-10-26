@@ -41,6 +41,7 @@ import {
   type PendingSetState,
 } from "@/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
+import { loadPendingSets } from "@/lib/session/pending-set-retry";
 import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
 import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
@@ -677,10 +678,22 @@ export function SessionRunner({
             onClick={async () => {
               // If there are pending sets, try to replay them first
               if (pendingSetState.pending.length > 0 && controller) {
-                controller.replay();
+                await controller.replay();
+                // After replay, check if queue is now empty
+                const deps = createPendingSetDeps();
+                const remaining = loadPendingSets(window.localStorage, userId, sessionId, deps);
+                if (remaining.length === 0) {
+                  // Queue is empty, finish session in the same tap
+                  await run(() =>
+                    actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+                  );
+                  restPersistence.clear();
+                  setPhase("done");
+                }
+                // If queue is not empty (offline/expired/error), stay on cool-down with notice
                 return;
               }
-              // Only finish session once queue is empty
+              // No pending sets, finish immediately
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
               );

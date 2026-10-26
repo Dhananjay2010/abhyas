@@ -41,8 +41,9 @@ export function SignOutButton({
         clearSets(window.localStorage, userId);
       }
       
-      // Redirect to home
-      router.push("/");
+      // Replace (not push) so /settings isn't in history, then refresh
+      router.replace("/");
+      router.refresh();
     });
   }
 

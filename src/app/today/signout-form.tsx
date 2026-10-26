@@ -43,8 +43,9 @@ export function SignOutForm({
         clearSets(window.localStorage, userId);
       }
       
-      // Redirect to home
-      router.push("/");
+      // Replace (not push) so /today isn't in history, then refresh
+      router.replace("/");
+      router.refresh();
     });
   }
 
