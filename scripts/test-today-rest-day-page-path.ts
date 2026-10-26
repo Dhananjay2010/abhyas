@@ -32,13 +32,14 @@ console.log("\n1. Page wiring: shouldLoadPlannableDays call");
   );
 
   check(
-    "Calls shouldLoadPlannableDays({ askAboutToday, dayType })",
-    pageContent.includes("shouldLoadPlannableDays({ askAboutToday, dayType })")
+    "Calls shouldLoadPlannableDays with askAboutToday, dayType, and strengthOpen",
+    pageContent.includes("shouldLoadPlannableDays({ askAboutToday, dayType") &&
+    pageContent.includes("strengthOpen")
   );
 
   check(
     "Conditionally loads plannableDays based on result",
-    pageContent.includes("shouldLoadPlannableDays({ askAboutToday, dayType })") &&
+    pageContent.includes("shouldLoadPlannableDays({ askAboutToday, dayType") &&
     pageContent.includes("? plannableDays(")
   );
 }
