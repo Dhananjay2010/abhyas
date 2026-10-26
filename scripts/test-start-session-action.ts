@@ -407,21 +407,21 @@ async function testWeekdayIndependence() {
   console.log("\nWeekday independence check:");
   
   const weekdays = [
-    { name: "Monday", date: "2026-10-26T10:00:00Z" },
-    { name: "Tuesday", date: "2026-10-27T10:00:00Z" },
-    { name: "Wednesday", date: "2026-10-28T10:00:00Z" },
-    { name: "Thursday", date: "2026-10-29T10:00:00Z" },
-    { name: "Friday", date: "2026-10-30T10:00:00Z" },
-    { name: "Saturday", date: "2026-10-31T10:00:00Z" },
-    { name: "Sunday", date: "2026-11-01T10:00:00Z" },
-    { name: "Future date (3 months ahead)", date: "2027-01-26T10:00:00Z" },
+    { name: "Monday", date: "2026-10-26T10:00:00Z", expectedDay: 1 },
+    { name: "Tuesday", date: "2026-10-27T10:00:00Z", expectedDay: 2 },
+    { name: "Wednesday", date: "2026-10-28T10:00:00Z", expectedDay: 3 },
+    { name: "Thursday", date: "2026-10-29T10:00:00Z", expectedDay: 4 },
+    { name: "Friday", date: "2026-10-30T10:00:00Z", expectedDay: 5 },
+    { name: "Saturday", date: "2026-10-31T10:00:00Z", expectedDay: 6 },
+    { name: "Sunday", date: "2026-11-01T10:00:00Z", expectedDay: 7 },
+    { name: "Future date (3 months ahead)", date: "2027-01-26T10:00:00Z", expectedDay: 2 },
   ];
 
-  for (const { name, date } of weekdays) {
+  for (const { name, date, expectedDay } of weekdays) {
     const timestampMs = new Date(date).getTime();
     
     let capturedInsert: unknown = null;
-    const stubFetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const stubFetch: typeof fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       const method = init?.method ?? "GET";
       
@@ -436,7 +436,7 @@ async function testWeekdayIndependence() {
     };
     
     const client = createClient<Database>("http://localhost:54321", "test-key", {
-      global: { fetch: stubFetch as typeof fetch },
+      global: { fetch: stubFetch },
     });
 
     stubState.client = client;
@@ -452,18 +452,16 @@ async function testWeekdayIndependence() {
         throw new Error(`Weekday test failed for ${name}: ${JSON.stringify(result)}`);
       }
       
-      const dateObj = new Date(timestampMs);
-      const dayOfWeek = dateObj.getUTCDay();
-      const expectedDayIndex = dayOfWeek === 0 ? 7 : dayOfWeek;
-      
-      if (capturedInsert && typeof capturedInsert === "object" && "program_day_id" in capturedInsert) {
-        const dayId = capturedInsert.program_day_id;
-        if (typeof dayId === "string" && !dayId.includes(`-${expectedDayIndex}`)) {
-          throw new Error(`${name}: expected day ${expectedDayIndex} in program_day_id, got ${dayId}`);
-        }
+      if (!capturedInsert || typeof capturedInsert !== "object" || !("program_day_id" in capturedInsert)) {
+        throw new Error(`${name}: insert body was not captured`);
       }
       
-      console.log(`  ✓ ${name}: ${date} → sessionId=${result.data.sessionId}, day=${expectedDayIndex}`);
+      const dayId = capturedInsert.program_day_id;
+      if (typeof dayId !== "string" || !dayId.includes(`-${expectedDay}`)) {
+        throw new Error(`${name}: expected day ${expectedDay} in program_day_id, got ${dayId}`);
+      }
+      
+      console.log(`  ✓ ${name}: ${date} → sessionId=${result.data.sessionId}, day=${expectedDay}`);
     } finally {
       restoreClock();
     }
