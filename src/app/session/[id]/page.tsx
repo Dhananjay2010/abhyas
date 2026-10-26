@@ -9,6 +9,7 @@ import { isUuid } from "@/lib/ids";
 import { buildRunnerExercise } from "@/lib/session/build-runner-exercises";
 import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
+import { buildRunnerProps } from "@/lib/session/build-runner-props";
 import { getUnitsPreference } from "@/lib/units";
 
 export const dynamic = "force-dynamic";
@@ -179,8 +180,12 @@ export default async function SessionPage({
   // answer here can never delay the screen the user is waiting on.
   const tomorrow = await nextDayPlan(supabase, resolveTimezoneWithProfile(profileRes.data?.timezone));
 
+  // N6/N6s: Extract userId and sessionStatus via tested helper
+  const runnerProps = buildRunnerProps(session, user);
+
   return (
     <SessionRunner
+      {...runnerProps}
       sessionId={session.id}
       isDeload={session.is_deload}
       week={session.week_in_block ?? 1}

@@ -6,6 +6,7 @@ import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
 import { getSwapPatterns } from "@/lib/program/swap-patterns";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { resolveAuth } from "@/lib/session/auth-result";
 import type { CandidateExercise } from "@/lib/program/generate";
 import {
   describePersonalBest,
@@ -310,34 +311,43 @@ export async function logSet(input: {
   const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
   if (invalid) return { ok: false, error: invalid };
 
-  const { supabase, user } = await requireUser();
+  return await resolveAuth(
+    async () => {
+      const { supabase, user } = await getAuthedClient();
+      return { user, supabase };
+    },
+    async ({ user, supabase }) => {
+      if (!user) throw new Error("Not signed in");
+      
+      // Reject writes to sessions that are no longer in_progress or don't exist
+      // For ended sessions, allow idempotent retry if the exact set already exists
+      const validationDeps = buildLogSetValidationDeps(supabase);
+      const validationResult = await validateSessionForLogSet(
+        validationDeps, 
+        input.sessionExerciseId,
+        {
+          setNumber: input.setNumber,
+          reps: input.reps,
+          weightKg: input.weightKg,
+          durationSeconds,
+        }
+      );
+  
+      if (!validationResult.ok) {
+        return validationResult;
+      }
 
-  // Reject writes to sessions that are no longer in_progress or don't exist
-  // For ended sessions, allow idempotent retry if the exact set already exists
-  const validationDeps = buildLogSetValidationDeps(supabase);
-  const validationResult = await validateSessionForLogSet(
-    validationDeps, 
-    input.sessionExerciseId,
-    {
-      setNumber: input.setNumber,
-      reps: input.reps,
-      weightKg: input.weightKg,
-      durationSeconds,
+      return logSetCore(supabase, user.id, {
+        sessionExerciseId: input.sessionExerciseId,
+        setNumber: input.setNumber,
+        reps: input.reps,
+        weightKg: input.weightKg,
+        durationSeconds,
+      });
     }
   );
-  
-  if (!validationResult.ok) {
-    return validationResult;
-  }
-
-  return logSetCore(supabase, user.id, {
-    sessionExerciseId: input.sessionExerciseId,
-    setNumber: input.setNumber,
-    reps: input.reps,
-    weightKg: input.weightKg,
-    durationSeconds,
-  });
 }
+
 
 export async function deleteSet(
   sessionExerciseId: string,
@@ -378,9 +388,17 @@ export async function finishExercise(input: {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit as Result<ProgressionFeedback | null>;
   
-  const { supabase, user } = await requireUser();
-
-  return finishExerciseCore(supabase, user.id, input, { applyProgression });
+  return await resolveAuth(
+    async () => {
+      const { supabase, user } = await getAuthedClient();
+      return { user, supabase };
+    },
+    async ({ user, supabase }) => {
+      if (!user) throw new Error("Not signed in");
+      
+      return finishExerciseCore(supabase, user.id, input, { applyProgression });
+    }
+  );
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];

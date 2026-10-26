@@ -118,6 +118,8 @@ console.log("Test swap sheet close on exercise change:\n");
 
   const { container: c1, unmount: unmount1 } = render(
     <SessionRunner
+      sessionStatus="in_progress"
+      userId="test-user"
       sessionId="s1"
       isDeload={false}
       week={1}
@@ -239,6 +241,8 @@ console.log("Test swap sheet close on exercise change:\n");
 
   const { rerender: rerender2, container: c2, unmount: unmount2 } = render(
     <SessionRunner
+      sessionStatus="in_progress"
+      userId="test-user"
       sessionId="s2"
       isDeload={false}
       week={1}
@@ -277,6 +281,8 @@ console.log("Test swap sheet close on exercise change:\n");
   await act(async () => {
     rerender2(
       <SessionRunner
+      sessionStatus="in_progress"
+      userId="test-user"
         sessionId="s2"
         isDeload={false}
         week={1}
@@ -341,6 +347,8 @@ console.log("Test swap sheet close on exercise change:\n");
 
   const { container: c3, unmount: unmount3 } = render(
     <SessionRunner
+      sessionStatus="in_progress"
+      userId="test-user"
       sessionId="s3"
       isDeload={false}
       week={1}
