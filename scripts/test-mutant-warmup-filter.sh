@@ -12,7 +12,7 @@ BACKUP_FILE=$(mktemp "${TMPDIR:-/tmp}/in-progress-original.XXXXXX")
 OUTPUT_FILE=$(mktemp "${TMPDIR:-/tmp}/mutant-output.XXXXXX")
 
 # Trap to restore and cleanup
-trap 'if [ -f "$BACKUP_FILE" ]; then mv "$BACKUP_FILE" src/lib/session/in-progress.ts 2>/dev/null || true; fi; rm -f "$BACKUP_FILE" "$OUTPUT_FILE"' EXIT
+trap 'if [ -s "$BACKUP_FILE" ]; then mv "$BACKUP_FILE" src/lib/session/in-progress.ts 2>/dev/null || true; fi; rm -f "$BACKUP_FILE" "$OUTPUT_FILE"' EXIT
 
 # Backup original
 cp src/lib/session/in-progress.ts "$BACKUP_FILE"
