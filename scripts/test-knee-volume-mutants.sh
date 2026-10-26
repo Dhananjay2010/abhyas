@@ -80,6 +80,10 @@ test_mutant "remove-alternatives-knee-block" \
 test_mutant "helper-always-false" \
   "sed -i '/export function isKneeRiskForKneeUser/,/^}/ s/if (!anyKneeInjury) {/if (true || !anyKneeInjury) {/' $KNEE_SAFETY_FILE"
 
+# Mutant 5: Remove squat slot exception (change slotIndex !== 0 so Barbell Squat gets filtered from slot 0)
+test_mutant "remove-squat-slot-exception" \
+  "sed -i 's/slotIndex !== 0/slotIndex !== 999/g' $GENERATE_FILE"
+
 echo ""
 echo "=== RESULT: $KILLED/$TOTAL killed ==="
 

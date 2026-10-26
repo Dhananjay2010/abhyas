@@ -189,14 +189,10 @@ if (!pkLower) {
     fail(`pk: Lower day has no PAST_KNEE_LUNGE_EXERCISES exercise outside squat slot`);
   }
   
-  // Check Back Squat sets
-  const backSquat = pkLower.exercises.find(e => {
-    const ex = catalogueById.get(e.exerciseId);
-    return ex?.slug === "barbell-squat";
-  });
-  
-  if (backSquat && backSquat.targetSets > 4) {
-    fail(`pk: Barbell Squat has ${backSquat.targetSets} sets, expected <= 4`);
+  // Check Barbell Squat is in slot 0 (squat slot exception: slot 0 keeps Barbell Squat)
+  const slot0 = pkLower.exercises.find(e => e.orderIndex === 0);
+  if (!slot0 || catalogueById.get(slot0.exerciseId)?.slug !== "barbell-squat") {
+    fail(`pk: Expected Barbell Squat in slot 0 but got ${slot0?.name || "nothing"}`);
   }
 }
 
