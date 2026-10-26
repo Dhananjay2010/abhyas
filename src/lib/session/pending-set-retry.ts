@@ -23,7 +23,7 @@ type PendingSets = {
   [sessionId: string]: PendingSet[];
 };
 
-type PendingSetsWithTimestamp = {
+export type PendingSetsWithTimestamp = {
   [sessionId: string]: {
     sets: PendingSet[];
     timestamp: number;
@@ -130,7 +130,7 @@ function pruneStaleEntries(data: PendingSetsWithTimestamp, now: number): Pending
 /**
  * Load all pending sets from storage with pruning.
  */
-function loadAllPendingSetsWithTimestamp(storage: Storage, userId: string, deps: PendingSetDeps): PendingSetsWithTimestamp {
+export function loadAllPendingSetsWithTimestamp(storage: Storage, userId: string, deps: PendingSetDeps): PendingSetsWithTimestamp {
   try {
     const raw = storage.getItem(storageKey(userId));
     if (!raw) return {};

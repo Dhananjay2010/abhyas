@@ -93,11 +93,13 @@ export function createPendingSetController(config: {
 
   function load(): void {
     if (!canReplayForStatus(sessionStatus)) {
-      clearPendingSets(storage, userId, sessionId, deps);
+      // NEVER delete silently - keep sets for keep-and-surface policy
+      // They'll be surfaced by app-level replay or cleared by user via Discard
+      const loaded = loadPendingSets(storage, userId, sessionId, deps);
       setState({
-        pending: [],
+        pending: loaded,
         expired: false,
-        error: "Session is not in progress",
+        error: loaded.length > 0 ? "Session is not in progress" : null,
       });
       return;
     }
