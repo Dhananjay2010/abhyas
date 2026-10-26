@@ -232,6 +232,35 @@ check("No-injury minimal has at least 2 mobility drills (including bodyweight-sq
   `got ${noInjuryMobility.length} drills: ${noInjuryMobility.map(w => w.slug).join(", ")}`
 );
 
+// Test 5d: Replacement logic (not just final output)
+console.log("\n5d. Replacement logic kills mutants (past-knee replaces excluded drills)");
+// Use a scenario where excluded drills WOULD be selected by overlap ranking
+const replacementTest = selectWarmup({
+  warmups,
+  trainingMuscles: ["quads", "glutes"], // High overlap with bodyweight-squat and walking-lunge
+  injuryRegions: [],
+  prehabRegions: ["knee"],
+  track: "weights",
+  hasAllEquipment: true,
+  availableEquipment: null,
+});
+
+const replacementMobility = replacementTest.filter(w => w.phase === "mobility");
+const hasExcluded = replacementMobility.some(w => PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug));
+check("Replacement test: no excluded slugs in final mobility",
+  !hasExcluded,
+  `Found: ${replacementMobility.filter(w => PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug)).map(w => w.slug).join(", ")}`
+);
+
+// Verify it includes replacement drills
+const hasReplacements = replacementMobility.some(w => 
+  ["glute-bridge", "hip-circles", "leg-swing-front", "leg-swing-side"].includes(w.slug)
+);
+check("Replacement test: includes knee-safe lower replacement drills",
+  hasReplacements,
+  `Mobility: ${replacementMobility.map(w => w.slug).join(", ")}`
+);
+
 // Test 6: Past knee + another region (e.g., past shoulder) should still exclude
 console.log("\n6. Past knee + past shoulder (combined injuries)");
 const pastKneePastShoulder = selectWarmup({

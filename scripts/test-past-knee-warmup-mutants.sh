@@ -74,17 +74,17 @@ function test_mutant() {
   fi
 }
 
-# Mutant (a): Remove mobility pool exclusion
-test_mutant "Remove mobility pool exclusion" \
-  "sed -i.bak '/Past-knee exclusion: exclude knee-loading mobility drills/,+3d' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
+# Mutant (a): Remove the entire replacement logic block
+test_mutant "Remove replacement logic" \
+  "sed -i.bak '/Past-knee exclusion: replace excluded drills/,/^    }$/{ /^    }$/b; d; }' \"$WARMUP_FILE\" && sed -i.bak '/^    }$/d' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
 
-# Mutant (b): Add bodyweight-squat to past-knee fallback list (before glute-bridge)
+# Mutant (b): Add bodyweight-squat to past-knee fallback list
 test_mutant "Add knee-loading drill to past-knee fallback" \
   "sed -i.bak 's/\\[\"glute-bridge\",/[\"bodyweight-squat\", \"glute-bridge\",/' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
 
-# Mutant (c): Apply exclusion to all users (remove isPastKnee condition)
-test_mutant "Apply exclusion to all users" \
-  "sed -i.bak 's/if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS/if (PAST_KNEE_EXCLUDED_WARMUP_SLUGS/g' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
+# Mutant (c): Remove isPastKnee condition from replacement block
+test_mutant "Apply replacement to all users" \
+  "sed -i.bak '/Past-knee exclusion: replace/,/if (isPastKnee)/s/if (isPastKnee) {/if (true) {/' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
 
 # Mutant (d): Treat current knee as past knee (change the condition)
 # EQUIVALENT: current knee already excludes these through target_regions
@@ -96,9 +96,15 @@ test_mutant "Treat current knee as past knee" \
 test_mutant "Drop worlds-greatest from excluded set" \
   "sed -i.bak '/\"worlds-greatest\",/d' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
 
-# Mutant (f): Remove the 3-drill limit check (allow overrun)
+# Mutant (f): Remove 3-drill limit in fallback
 test_mutant "Remove 3-drill limit in fallback" \
-  "sed -i.bak '/if (mobility.length >= 3)/d' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
+  "sed -i.bak 's/if (mobility.length >= 3) break;/\\/\\/ if (mobility.length >= 3) break;/' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\""
+
+# Mutant (g): Change break to continue in fallback (effectively equivalent)
+# Equivalent because both stop adding after 3 drills
+test_mutant "Change break to continue in fallback" \
+  "sed -i.bak 's/if (mobility.length >= 3) break;/if (mobility.length >= 3) continue;/' \"$WARMUP_FILE\" && rm -f \"${WARMUP_FILE}.bak\"" \
+  "true"
 
 # Restore original
 cp "$BACKUP" "$WARMUP_FILE"

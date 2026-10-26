@@ -123,14 +123,7 @@ export function selectWarmup(input: {
     // Exclude any warmup that targets an injured region OR is contraindicated for the injury
     const targetsInjury = w.target_regions.some((r) => regions.has(r));
     const contraindicated = (w.contraindicated_regions ?? []).some((r) => regions.has(r));
-    if (targetsInjury || contraindicated) return false;
-    
-    // Past-knee exclusion: exclude knee-loading mobility drills
-    if (isPastKnee && PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug)) {
-      return false;
-    }
-    
-    return true;
+    return !(targetsInjury || contraindicated);
   });
   
   // 2. Five minutes of mobility for what is about to be trained. Exercises that
@@ -149,16 +142,78 @@ export function selectWarmup(input: {
   // Take top 4 with muscle overlap, or at minimum take top 2 mobility drills
   // even if overlap is zero, to ensure activation work is included.
   const withOverlap = mobilityRanked.filter((x) => x.overlap > 0).slice(0, 4);
-  const mobility = withOverlap.length >= 2
+  let mobility = withOverlap.length >= 2
     ? withOverlap.map((x) => x.w)
     : mobilityRanked.slice(0, Math.max(2, withOverlap.length)).map((x) => x.w);
+
+  // Past-knee exclusion: replace excluded drills 1:1 with alternatives
+  // to maintain the same count and total time as main would produce.
+  // Prefer knee-safe lower-body drills first, then other non-excluded drills of same duration.
+  // On lower days, never use non-lower drills while knee-safe lower drills remain.
+  if (isPastKnee) {
+    const excluded = mobility.filter(w => PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug));
+    
+    if (excluded.length > 0) {
+      const kneeSafeLowerDrills = ["glute-bridge", "hip-circles", "leg-swing-front", "leg-swing-side"];
+      const lowerMuscleGroups = ["quads", "glutes", "hamstrings", "calves", "hip_flexors", "lower_back", "abs", "obliques"];
+      const isLowerDay = Array.from(muscles).some(m => lowerMuscleGroups.includes(m));
+      
+      // Build replacement pool
+      let availableReplacements = mobilityPool
+        .filter(w => 
+          !PAST_KNEE_EXCLUDED_WARMUP_SLUGS.has(w.slug) && 
+          !mobility.some(m => m.id === w.id)
+        );
+      
+      for (const excludedDrill of excluded) {
+        let replacement: typeof availableReplacements[0] | undefined;
+        
+        // Strategy 1: same-duration knee-safe lower drill
+        replacement = availableReplacements.find(w =>
+          w.duration_seconds === excludedDrill.duration_seconds &&
+          kneeSafeLowerDrills.includes(w.slug)
+        );
+        
+        // Strategy 2 (lower days only): any knee-safe lower drill
+        if (!replacement && isLowerDay) {
+          replacement = availableReplacements.find(w => kneeSafeLowerDrills.includes(w.slug));
+        }
+        
+        // Strategy 3: same-duration non-lower drill (only if no knee-safe lower drills remain)
+        if (!replacement) {
+          const hasKneeSafeLower = availableReplacements.some(w => kneeSafeLowerDrills.includes(w.slug));
+          if (!isLowerDay || !hasKneeSafeLower) {
+            replacement = availableReplacements.find(w => w.duration_seconds === excludedDrill.duration_seconds);
+          }
+        }
+        
+        // Strategy 4: any available drill (only if no knee-safe lower drills remain on lower days)
+        if (!replacement) {
+          const hasKneeSafeLower = availableReplacements.some(w => kneeSafeLowerDrills.includes(w.slug));
+          if (!isLowerDay || !hasKneeSafeLower) {
+            replacement = availableReplacements[0];
+          }
+        }
+        
+        if (replacement) {
+          const idx = mobility.findIndex(m => m.id === excludedDrill.id);
+          if (idx >= 0) {
+            mobility[idx] = replacement;
+            // Remove from available pool
+            availableReplacements = availableReplacements.filter(r => r.id !== replacement!.id);
+          }
+        } else {
+          // No replacement available; remove the excluded drill
+          mobility = mobility.filter(m => m.id !== excludedDrill.id);
+        }
+      }
+    }
+  }
 
   if (mobility.length < 3) {
     // Fallback drills, filtered by contraindications. Never suggest a squat for
     // a knee injury or spinal movement for a lower-back injury.
     // For past-knee users training lower body, prefer knee-safe lower-body drills.
-    // For past-knee users, prefer knee-safe lower-body drills first.
-    // The past-knee fallback list excludes knee-loading drills by construction.
     const fallbackSlugs = isPastKnee 
       ? ["glute-bridge", "hip-circles", "leg-swing-front", "leg-swing-side", "cat-cow", "arm-circles"]
       : ["cat-cow", "arm-circles", "bodyweight-squat", "hip-circles"];
@@ -171,7 +226,8 @@ export function selectWarmup(input: {
       
       // Filter out contraindicated movements
       const isContraindicated = w.target_regions.some((r) => regions.has(r));
-      if (!isContraindicated && canUseEquipment(w)) {
+      // For past-knee, equipment filter ensures BW-only users get appropriate drills
+      if (!isContraindicated && (isPastKnee ? canUseEquipment(w) : true)) {
         mobility.push(w);
       }
     }
