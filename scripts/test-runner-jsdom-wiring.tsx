@@ -11,8 +11,8 @@
  * - Double-click busyRef guard: action called exactly once (9, 9b, 9d-runner)
  * - Offline error shows runnerErrorMessage text, no unhandled rejection (run-error)
  * - Cool-down Done sends cooldownCompleted=true (w-cooldown)
- * - End early confirm with set counts, sends frozen elapsed (w-title, endearly, f1c)
- * - Done sends frozen elapsed time (f1, f2)
+ * - End early confirm with set counts, sends frozen elapsed, navigates to /today (w-title, endearly, f1c)
+ * - Done sends frozen elapsed time, shows summary (f1, f2)
  *
  *   npx tsx scripts/test-runner-jsdom-wiring.tsx
  */
@@ -769,15 +769,23 @@ console.log("\n6. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
   document.body.removeChild(container);
 }
 
-// Test 7: End early confirm with set counts, sends frozen elapsed
-console.log("\n7. End early confirm with set counts, sends frozen elapsed (w-title, endearly, f1c)");
+// Test 7: End early confirm with set counts, sends frozen elapsed, navigates to /today
+console.log("\n7. End early confirm with set counts, sends frozen elapsed, navigates to /today (w-title, endearly, f1c)");
 {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
 
   let receivedDuration: number | null = null;
+  const pushCalls: string[] = [];
   const clock = createFakeClock(Date.parse("2026-10-25T12:00:00Z"));
+
+  // Import mockNextRouter from setup
+  const { mockNextRouter } = await import("./helpers/setup-jsdom");
+  const originalPush = mockNextRouter.push;
+  mockNextRouter.push = (...args: unknown[]) => {
+    if (args.length > 0) pushCalls.push(String(args[0]));
+  };
 
   const fakeActions: SessionActions = {
     async markWarmupDone() { return { ok: true }; },
@@ -902,11 +910,15 @@ console.log("\n7. End early confirm with set counts, sends frozen elapsed (w-tit
     }
   });
 
+  // Wait for abandonSession and navigation to complete
   await act(async () => {});
 
-  // After successful end early, abandonSession is called with frozen duration
-  // (No summary screen - redirects to /today immediately)
+  // After successful end early, abandonSession is called with frozen duration and navigates to /today
   check("abandonSession received frozen duration", receivedDuration !== null && receivedDuration === 120);
+  check("router.push('/today') called", pushCalls.length > 0 && pushCalls[0] === "/today");
+
+  // Restore original push
+  mockNextRouter.push = originalPush;
 
   root.unmount();
   document.body.removeChild(container);
