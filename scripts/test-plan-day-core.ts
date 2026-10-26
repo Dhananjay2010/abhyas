@@ -29,7 +29,7 @@ async function test(name: string, fn: () => Promise<void>) {
 
 type Call = { method: string; args: unknown[] };
 
-function createFakeClient(existingSessions: Partial<SessionRow>[] = []): {
+function createFakeClient(existingSessions: SessionRow[] = []): {
   client: PlanDayClient;
   calls: Call[];
 } {
@@ -42,7 +42,7 @@ function createFakeClient(existingSessions: Partial<SessionRow>[] = []): {
           return {
             async eq(column: string, value: string) {
               calls.push({ method: "select", args: [table, columns, column, value] });
-              return { data: existingSessions as SessionRow[], error: null };
+              return { data: existingSessions, error: null };
             },
           };
         },
@@ -65,7 +65,7 @@ async function main() {
   console.log("Testing planDayCore\n");
 
   await test("(a) Keep on existing training override: ZERO writes", async () => {
-    const existing = [{ id: "sess-1", actual_type: "weights" as const, status: "planned" as const }];
+    const existing = [{ id: "sess-1", actual_type: "weights", status: "planned" }] as SessionRow[];
     const { client, calls } = createFakeClient(existing);
 
     const result = await planDayCore(client, "user-1", {
@@ -79,7 +79,7 @@ async function main() {
   });
 
   await test("(a) Keep on existing yoga override: ZERO writes", async () => {
-    const existing = [{ id: "sess-2", actual_type: "yoga" as const, status: "planned" as const }];
+    const existing = [{ id: "sess-2", actual_type: "yoga", status: "planned" }] as SessionRow[];
     const { client, calls } = createFakeClient(existing);
 
     const result = await planDayCore(client, "user-1", {
@@ -93,7 +93,7 @@ async function main() {
   });
 
   await test("(a) Keep on existing breathing override: ZERO writes", async () => {
-    const existing = [{ id: "sess-3", actual_type: "meditation" as const, status: "planned" as const }];
+    const existing = [{ id: "sess-3", actual_type: "meditation", status: "planned" }] as SessionRow[];
     const { client, calls } = createFakeClient(existing);
 
     const result = await planDayCore(client, "user-1", {
@@ -107,7 +107,7 @@ async function main() {
   });
 
   await test("(a) Keep on existing rest override: ZERO writes", async () => {
-    const existing = [{ id: "sess-4", actual_type: "rest" as const, status: "planned" as const }];
+    const existing = [{ id: "sess-4", actual_type: "rest", status: "planned" }] as SessionRow[];
     const { client, calls } = createFakeClient(existing);
 
     const result = await planDayCore(client, "user-1", {
@@ -162,7 +162,7 @@ async function main() {
   });
 
   await test("(c) Normal swap (training): deletes old, inserts new", async () => {
-    const existing = [{ id: "old-1", actual_type: "rest" as const, status: "planned" as const }];
+    const existing = [{ id: "old-1", actual_type: "rest", status: "planned" }] as SessionRow[];
     const { client, calls } = createFakeClient(existing);
 
     const result = await planDayCore(client, "user-1", {
@@ -178,7 +178,7 @@ async function main() {
   });
 
   await test("(c) Swap to rest: deletes old, inserts rest", async () => {
-    const existing = [{ id: "old-2", actual_type: "weights" as const, status: "planned" as const }];
+    const existing = [{ id: "old-2", actual_type: "weights", status: "planned" }] as SessionRow[];
     const { client, calls } = createFakeClient(existing);
 
     const result = await planDayCore(client, "user-1", {

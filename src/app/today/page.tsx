@@ -20,10 +20,6 @@ import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
 import { StrengthDoneBanner } from "./strength-done-banner";
 import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
-import { buildChosenByDayIndex } from "@/lib/today/chosen-by-day";
-import { shouldLoadPlannableDays } from "@/lib/today/should-load-plannable";
-import { decideRestDayResume } from "@/lib/today/rest-day-resume";
-import { decideTodayPrompts } from "@/lib/today/decide-today-prompts";
 import { deriveTodayView } from "@/lib/today/derive-today-view";
 
 export const dynamic = "force-dynamic";
@@ -315,9 +311,6 @@ export default async function TodayPage() {
     allSessions,
     days: days ?? [],
   });
-
-  // Legacy: still used for loading plannable days
-  const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
 
   // ---- wave 3 -------------------------------------------------------------
   // Both of these are conditional, and on most loads neither runs: the prompt

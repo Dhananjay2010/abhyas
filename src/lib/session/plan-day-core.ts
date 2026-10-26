@@ -18,6 +18,10 @@ type PlanDayInput = {
   plan: unknown;
 };
 
+function ownsPlannedWorkout(sessionType: string | null): boolean {
+  return sessionType === "weights" || sessionType === "bodyweight";
+}
+
 export async function planDayCore(
   client: PlanDayClient,
   userId: string,
@@ -25,6 +29,45 @@ export async function planDayCore(
   today: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { localDate, plan } = input;
+
+  // Date format validation
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) {
+    return { ok: false, error: "That is not a date." };
+  }
+
+  // Past date check
+  if (localDate < today) {
+    return { ok: false, error: "That day has already been and gone." };
+  }
+
+  // Fetch existing sessions for this date
+  const { data: existing, error: fetchError } = await client
+    .from("sessions")
+    .select("*")
+    .eq("local_date", localDate);
+
+  if (fetchError) {
+    return { ok: false, error: "Failed to fetch planned sessions." };
+  }
+
+  const existingSessions = existing ?? [];
+
+  // Check for settled (completed or in-progress) workout sessions
+  const settled = existingSessions.find(
+    (s) =>
+      ownsPlannedWorkout(s.actual_type) &&
+      (s.status === "completed" || s.status === "in_progress")
+  );
+
+  if (settled) {
+    return {
+      ok: false,
+      error:
+        settled.status === "completed"
+          ? "That day is already done."
+          : "That session has already started.",
+    };
+  }
 
   // Validation
   if (!plan) {
@@ -49,16 +92,7 @@ export async function planDayCore(
   }
 
   // Fetch existing planned sessions for this date
-  const { data: planned, error: fetchError } = await client
-    .from("sessions")
-    .select("*")
-    .eq("local_date", localDate);
-
-  if (fetchError) {
-    return { ok: false, error: "Failed to fetch planned sessions." };
-  }
-
-  const plannedSessions = planned ?? [];
+  const plannedSessions = existingSessions.filter((s) => s.status === "planned");
 
   // Handle "keep" - no-op
   if (plan.kind === "keep") {
