@@ -269,8 +269,8 @@ async function testExtraFieldsIgnored() {
   assert(result["session-1"]?.[0]?.setNumber === 1, "Data with extra fields is accepted");
 }
 
-async function testStaleEntriesPruned() {
-  console.log("\n--- Stale entries are pruned ---");
+async function testStaleEntriesKept() {
+  console.log("\n--- Stale entries are kept (not pruned) ---");
 
   const storage = createStorage();
   
@@ -311,7 +311,7 @@ async function testStaleEntriesPruned() {
 
   const result = loadAllPendingSets(storage, "test-user-id", createPendingSetDeps(() => FIXED_TIME));
 
-  assert(result["old-session"] === undefined, "Stale session (>7 days) is pruned");
+  assert(result["old-session"] !== undefined, "Stale session (>7 days) is kept (not pruned)");
   assert(result["recent-session"] !== undefined, "Recent session is kept");
   assertEqual(result["recent-session"]?.length, 1, "Recent session has correct data");
 }
@@ -406,7 +406,7 @@ async function main() {
   await testSavePendingSetValidation();
   await testNullFieldsValid();
   await testExtraFieldsIgnored();
-  await testStaleEntriesPruned();
+  await testStaleEntriesKept();
   await testLegacyFormatMigrated();
   await testTimestampUpdatedOnSave();
 
