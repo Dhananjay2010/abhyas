@@ -396,6 +396,42 @@ export default async function TodayPage() {
     localToday,
   });
 
+  // FIX (c): Wire in logged sets for completed sessions
+  if (loggedSetsRes?.data) {
+    const { formatLoggedSets } = await import("@/lib/session/format-logged-sets");
+    const { getUnitsPreference } = await import("@/lib/units");
+    const units = getUnitsPreference(profile.units);
+    
+    const loggedByOrder = new Map(
+      loggedSetsRes.data.map((ex) => [
+        ex.order_index,
+        {
+          metric: ex.metric,
+          sets: ex.session_sets ?? [],
+        },
+      ])
+    );
+
+    for (const row of todayExercises) {
+      const logged = loggedByOrder.get(parseInt(row.key.replace("actual-", ""), 10));
+      if (logged && logged.sets.length > 0 && row.metric) {
+        const formatted = formatLoggedSets(
+          logged.sets.map((s) => ({
+            reps: s.reps,
+            weightKg: s.weight_kg,
+            durationSeconds: s.duration_seconds,
+            isWarmupSet: s.is_warmup_set,
+          })),
+          row.metric,
+          units,
+        );
+        if (formatted) {
+          row.loggedSets = formatted;
+        }
+      }
+    }
+  }
+
   // Recompute week and isDeload for UI display (header, deload banner, etc.)
   const { cycleWeekFor } = await import("@/lib/program/block-range");
   const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
