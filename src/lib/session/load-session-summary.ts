@@ -11,6 +11,12 @@
  * warm-ups and skipped exercises excluded), never from exercise_progress's
  * best_* columns, which finishExercise has already overwritten with this
  * session's result. A first session has nothing to beat, so it claims nothing.
+ * Only sets logged before this session started count, so reopening an old
+ * summary still shows the PBs it had (later sessions don't erase them).
+ *
+ * Daily-menu mode: applyProgression keeps no working-weight memory there and
+ * finishExercise returns no feedback, so exercise_progress is stale and any
+ * note or PB would be made up. Like main, the summary is empty.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -54,11 +60,30 @@ export async function loadSessionSummary(
   sessionId: string,
   userId: string,
 ): Promise<SummaryNote[]> {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("units")
-    .eq("id", userId)
-    .single();
+  const [{ data: settings }, { data: profile }, { data: session }] = await Promise.all([
+    supabase
+      .from("user_settings")
+      .select("planning_mode")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("units")
+      .eq("id", userId)
+      .single(),
+    supabase
+      .from("sessions")
+      .select("started_at, created_at")
+      .eq("id", sessionId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+
+  // Same rule as applyProgression: daily_menu keeps no progression, so no notes.
+  if (settings?.planning_mode === "daily_menu") return [];
+  if (!session) return [];
+  // History is what existed when this session began.
+  const cutoff = session.started_at ?? session.created_at;
 
   const units = getUnitsPreference(profile?.units);
 
@@ -95,7 +120,7 @@ export async function loadSessionSummary(
     const { data: page, error } = await supabase
       .from("session_sets")
       .select(
-        `id, reps, weight_kg, duration_seconds, is_warmup_set,
+        `id, reps, weight_kg, duration_seconds, is_warmup_set, completed_at,
          session_exercises!inner(exercise_id, session_id, status, metric)`
       )
       .eq("user_id", userId)
@@ -103,6 +128,7 @@ export async function loadSessionSummary(
       .in("session_exercises.exercise_id", exerciseIds)
       .neq("session_exercises.session_id", sessionId)
       .eq("session_exercises.status", "completed")
+      .lt("completed_at", cutoff)
       .order("id")
       .range(offset, offset + HISTORY_PAGE_SIZE - 1);
     if (error) throw error;

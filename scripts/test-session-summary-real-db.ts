@@ -50,6 +50,10 @@ async function main() {
       if (created.error || !created.data.user) throw new Error(`createUser: ${created.error?.message}`);
       const userId = created.data.user.id;
       must("profile units", await admin.from("profiles").update({ units: spec.units ?? "metric" }).eq("id", userId));
+      must("planning mode", await admin.from("user_settings").update({ planning_mode: spec.planning_mode ?? "progression" }).eq("user_id", userId));
+      // Sets default completed_at to now(), so history inserted first is before
+      // the current session's start; "after" sessions are stamped later.
+      const laterStamp = new Date(Date.now() + 3600_000).toISOString();
 
       const addSession = async (s: SessionSpec, status: "completed" | "in_progress"): Promise<string> => {
         const sessionId = randomUUID();
@@ -57,6 +61,7 @@ async function main() {
         const localDate = new Date(Date.UTC(2026, 0, 1) + day * 86400000).toISOString().slice(0, 10);
         must("session", await admin.from("sessions").insert({
           id: sessionId, user_id: userId, local_date: localDate, status, actual_type: "weights", planned_type: "weights",
+          ...(status === "in_progress" ? { started_at: new Date().toISOString() } : {}),
         }));
         for (const [i, e] of s.exercises.entries()) {
           const seId = randomUUID();
@@ -68,6 +73,7 @@ async function main() {
           const rows = e.sets.map((st, j) => ({
             ...(st.last ? { id: `ffffffff-ffff-4fff-bfff-${randomBytes(6).toString("hex")}` } : {}),
             session_exercise_id: seId, user_id: userId, set_number: j + 1, reps: st.reps, weight_kg: st.w, is_warmup_set: !!st.warm,
+            ...(s.after ? { completed_at: laterStamp } : {}),
           }));
           for (let k = 0; k < rows.length; k += 500) {
             must("session_sets", await admin.from("session_sets").insert(rows.slice(k, k + 500)));
@@ -76,8 +82,10 @@ async function main() {
         return sessionId;
       };
 
-      for (const h of spec.history) await addSession(h, "completed");
+      for (const h of spec.history.filter((x) => !x.after)) await addSession(h, "completed");
+      await new Promise((r) => setTimeout(r, 20));
       const sessionId = await addSession(spec.current, "in_progress");
+      for (const h of spec.history.filter((x) => x.after)) await addSession(h, "completed");
       for (const p of spec.progress) {
         must("exercise_progress", await admin.from("exercise_progress").upsert({
           user_id: userId, exercise_id: EXERCISE_IDS[p.ex],

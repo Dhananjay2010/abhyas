@@ -25,9 +25,11 @@ export const EXERCISE_NAMES: Record<ExKey, string> = {
 
 export type SetSpec = { reps: number; w: number; warm?: boolean; last?: boolean };
 export type ExSpec = { ex: ExKey; status: "completed" | "skipped"; planned_reps_max?: number; sets: SetSpec[] };
-export type SessionSpec = { exercises: ExSpec[] };
+/** after: logged AFTER the current session started (a later session, seen when an old summary is reopened). */
+export type SessionSpec = { exercises: ExSpec[]; after?: boolean };
 export type ScenarioSpec = {
   units?: "metric" | "imperial";
+  planning_mode?: "progression" | "daily_menu";
   history: SessionSpec[];
   current: SessionSpec;
   progress: Array<{ ex: ExKey; current_working_weight_kg: number; current_target_reps: number; best_weight_kg: number; best_e1rm: number }>;
@@ -166,6 +168,32 @@ export async function runScenarios(env: Env): Promise<number> {
       progress: [progressAfter("bench", 85, 85)],
     });
     check("no false PB from a truncated history", find(notes, "bench")?.personalBest === null, String(find(notes, "bench")?.personalBest));
+  }
+
+  console.log("\n9. daily_menu mode: no notes and no PBs (progress is not kept there), as on main");
+  {
+    const notes = await run({
+      planning_mode: "daily_menu",
+      history: [{ exercises: [{ ex: "bench", status: "completed", sets: sets(3, 10, 60) }] }],
+      current: { exercises: [{ ex: "bench", status: "completed", sets: sets(3, 10, 70) }] },
+      // Stale: daily_menu never updated it after an old progression session.
+      progress: [progressAfter("bench", 80, 80)],
+    });
+    check("summary is empty", notes.length === 0, JSON.stringify(notes));
+  }
+
+  console.log("\n10. Reopening an old summary: sessions logged after it don't count");
+  {
+    const notes = await run({
+      history: [
+        { exercises: [{ ex: "bench", status: "completed", sets: sets(3, 10, 80) }] },
+        { exercises: [{ ex: "bench", status: "completed", sets: sets(3, 10, 120) }], after: true },
+      ],
+      current: { exercises: [{ ex: "bench", status: "completed", sets: sets(3, 10, 85) }] },
+      progress: [progressAfter("bench", 120, 120)],
+    });
+    check("still a PB at 85 kg (the later 120 kg session is ignored)",
+      find(notes, "bench")?.personalBest === "Heaviest set yet — 85 kg", String(find(notes, "bench")?.personalBest));
   }
 
   return failures;

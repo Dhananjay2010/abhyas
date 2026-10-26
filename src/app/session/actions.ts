@@ -37,7 +37,6 @@ export type { SwapResult };
 
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
-import { getUnitsPreference } from "@/lib/units";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -393,21 +392,11 @@ async function applyProgression(
   sessionExerciseId: string,
   feel: SetFeel | null,
 ): Promise<ProgressionFeedback | null> {
-  const [settingsRes, profileRes] = await Promise.all([
-    supabase
-      .from("user_settings")
-      .select("planning_mode, per_set_logging")
-      .eq("user_id", userId)
-      .maybeSingle(),
-    supabase
-      .from("profiles")
-      .select("units")
-      .eq("id", userId)
-      .single(),
-  ]);
-
-  const settings = settingsRes.data;
-  const units = getUnitsPreference(profileRes.data?.units);
+  const { data: settings } = await supabase
+    .from("user_settings")
+    .select("planning_mode, per_set_logging")
+    .eq("user_id", userId)
+    .maybeSingle();
 
   // Daily-menu mode keeps no working-weight memory. History is preserved, so
   // switching back to progression resumes from where it left off.
@@ -492,7 +481,7 @@ async function applyProgression(
     outcome: decision.outcome,
     message: decision.message,
     personalBest: decision.personalBest
-      ? describePersonalBest(decision.personalBest, units)
+      ? describePersonalBest(decision.personalBest)
       : null,
   };
 }

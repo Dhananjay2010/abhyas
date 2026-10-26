@@ -5,10 +5,15 @@
  * under test builds its queries with the real query builder; this side parses
  * the HTTP request PostgREST would get. It supports what loadSessionSummary
  * sends: column and embedded (`rel!inner(cols)`, `alias:rel!hint(cols)`)
- * selects, eq / neq / in filters (dotted ones on an `!inner` embed filter the
- * parent row), order, offset/limit, `.single()`, and the server's max_rows
- * cap (1000, as in supabase/config.toml). Anything else throws, so a query the
- * fake does not understand fails the test instead of passing silently.
+ * selects, eq / neq / in / lt filters (dotted ones on an `!inner` embed filter
+ * the parent row; lt compares strings, which is right for ISO timestamps),
+ * order, offset/limit, `.single()`, and the server's max_rows cap (1000, as in
+ * supabase/config.toml). Anything else throws, so a query the fake does not
+ * understand fails the test instead of passing silently.
+ *
+ * A ranged read with NO order comes back in an unspecified order, as Postgres
+ * gives no order guarantee across pages: the fake reverses the rows on every
+ * other such request, so paging without `.order()` skips or repeats rows.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../src/lib/database.types";
@@ -54,6 +59,7 @@ function matches(cell: unknown, filter: string): boolean {
   const str = cell === null || cell === undefined ? null : String(cell);
   if (op === "eq") return str !== null && str === raw;
   if (op === "neq") return str !== null && str !== raw;
+  if (op === "lt") return str !== null && str < raw;
   if (op === "in") {
     const items = raw.replace(/^\(/, "").replace(/\)$/, "").split(",").map((x) => x.replace(/^"|"$/g, ""));
     return str !== null && items.includes(str);
@@ -63,6 +69,7 @@ function matches(cell: unknown, filter: string): boolean {
 
 export function createEmbedFake(tables: Record<string, Row[]>, relations: Relations) {
   const requests: string[] = [];
+  let unorderedRanged = 0;
 
   function materialize(table: string, row: Row, sel: Sel[]): Row {
     const out: Row = {};
@@ -125,6 +132,9 @@ export function createEmbedFake(tables: Record<string, Row[]>, relations: Relati
         return Array.isArray(e) ? e.length > 0 : e !== null;
       });
     }
+
+    const ranged = url.searchParams.has("offset") || url.searchParams.has("limit");
+    if (!order && ranged && unorderedRanged++ % 2 === 1) rows = [...rows].reverse();
 
     if (order) {
       const [col, dir] = order.split(".");

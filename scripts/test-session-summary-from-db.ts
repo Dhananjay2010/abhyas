@@ -18,6 +18,13 @@ const relations: Relations = {
   },
 };
 
+// The current session starts at CURRENT_START; history is logged before it,
+// "after" sessions after it.
+const CURRENT_START = "2026-06-01T00:00:00.000Z";
+let clock = 0;
+const before = () => new Date(Date.UTC(2026, 0, 1) + ++clock * 1000).toISOString();
+const later = () => new Date(Date.UTC(2026, 6, 1) + ++clock * 1000).toISOString();
+
 let seq = 0;
 const id = (p: string) => `${p}-${String(++seq).padStart(8, "0")}`;
 
@@ -28,13 +35,17 @@ const env: Env = {
     const otherUser = id("user");
     const tables: Record<string, Row[]> = {
       profiles: [{ id: userId, units: spec.units ?? "metric" }, { id: otherUser, units: "metric" }],
+      user_settings: [{ user_id: userId, planning_mode: spec.planning_mode ?? "progression" }, { user_id: otherUser, planning_mode: "progression" }],
+      sessions: [],
       exercises: Object.entries(EXERCISE_IDS).map(([k, v]) => ({ id: v, name: EXERCISE_NAMES[k as keyof typeof EXERCISE_IDS], mechanic: "compound", movement_pattern: "horizontal_press" })),
       session_exercises: [],
       session_sets: [],
       exercise_progress: spec.progress.map((p) => ({ user_id: userId, exercise_id: EXERCISE_IDS[p.ex], ...p })),
     };
-    const addSession = (s: ScenarioSpec["current"], uid: string): string => {
+    const addSession = (s: ScenarioSpec["current"], uid: string, kind: "history" | "current" = "history"): string => {
       const sessionId = id("session");
+      const stamp = kind === "current" ? () => later() : s.after ? later : before;
+      tables.sessions.push({ id: sessionId, user_id: uid, started_at: kind === "current" ? CURRENT_START : stamp(), created_at: CURRENT_START });
       s.exercises.forEach((e, i) => {
         const seId = id("se");
         tables.session_exercises.push({
@@ -44,7 +55,7 @@ const env: Env = {
         });
         e.sets.forEach((st, j) => tables.session_sets.push({
           id: st.last ? "zzzz-last" : id("set"), session_exercise_id: seId, user_id: uid, set_number: j + 1,
-          reps: st.reps, weight_kg: st.w, duration_seconds: null, is_warmup_set: !!st.warm,
+          reps: st.reps, weight_kg: st.w, duration_seconds: null, is_warmup_set: !!st.warm, completed_at: stamp(),
         }));
       });
       return sessionId;
@@ -52,7 +63,7 @@ const env: Env = {
     for (const h of spec.history) addSession(h, userId);
     // Another user's heavier lift must never count.
     addSession({ exercises: [{ ex: "bench", status: "completed", sets: [{ reps: 10, w: 300 }] }] }, otherUser);
-    const sessionId = addSession(spec.current, userId);
+    const sessionId = addSession(spec.current, userId, "current");
     return { client: createEmbedFake(tables, relations).client, userId, sessionId };
   },
 };
