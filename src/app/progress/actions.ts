@@ -18,12 +18,32 @@ export async function logBodyWeight(weightKg: number): Promise<LogWeightResult> 
   
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
-
+  
+  // Fetch user's units for display-unit validation
   const { data: profile } = await supabase
     .from("profiles")
-    .select("timezone")
+    .select("timezone, units")
     .eq("id", user.id)
     .single();
+  
+  const units = (profile?.units === "imperial" || profile?.units === "metric") 
+    ? profile.units 
+    : "metric";
+  
+  // Validate in user's display unit for inclusive bounds
+  // Imperial: 55-661 lb (client shows this range)
+  // Metric: 25-300 kg
+  if (units === "imperial") {
+    const { kgToLb } = await import("@/lib/units");
+    const displayLb = kgToLb(weightKg);
+    if (displayLb < 55 || displayLb > 661) {
+      return { ok: false, error: "Weight should be between 55 and 661 lb." };
+    }
+  } else {
+    if (weightKg < 25 || weightKg > 300) {
+      return { ok: false, error: "Weight should be between 25 and 300 kg." };
+    }
+  }
 
   // One weigh-in per local day; logging again replaces it.
   const timezone = resolveTimezoneWithProfile(profile?.timezone);

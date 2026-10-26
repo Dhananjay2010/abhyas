@@ -1318,14 +1318,15 @@ function SetEntry({
   // round trip rather than after one. An empty field is only meaningful when
   // per-set logging is off, where the runner records that a set happened
   // without asking for numbers; here it means the user has not said yet.
+  const weightKg = weight === "" ? null : displayToKg(Number(weight), units);
   const invalid =
     reps === ""
       ? isTimed
         ? "Hold it, or enter the seconds you held."
         : "Enter the reps you did."
       : isTimed
-        ? validateSet(null, weight === "" ? null : Number(weight), Number(reps))
-        : validateSet(Number(reps), weight === "" ? null : Number(weight));
+        ? validateSet(null, weightKg, Number(reps), units)
+        : validateSet(Number(reps), weightKg, undefined, units);
 
   if (!perSetLogging) {
     return (
@@ -1410,7 +1411,6 @@ function SetEntry({
         <BigButton
           disabled={disabled || invalid !== null || holdEndsAt !== null}
           onClick={() => {
-            const weightKg = weight === "" ? null : displayToKg(Number(weight), units);
             return isTimed
               ? onLog(null, weightKg, Number(reps))
               : onLog(reps === "" ? null : Number(reps), weightKg);

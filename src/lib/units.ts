@@ -321,9 +321,18 @@ export function parseWeight(
     }
   }
 
-  // Reject absurd values: 25 to 300 kg (~55 to ~661 lb)
-  // Bounds aligned with server-side validation
-  if (kg < WEIGHT_KG_MIN || kg > WEIGHT_KG_MAX) return null;
+  // Reject absurd values
+  // For imperial: check in display units (55-661 lb inclusive)
+  // For metric: 25-300 kg
+  if (units === "imperial" || (explicitUnit && (explicitUnit === "lb" || explicitUnit === "lbs"))) {
+    const displayLb = kgToLb(kg);
+    const minLb = 55;
+    const maxLb = 661;
+    if (displayLb < minLb || displayLb > maxLb) return null;
+  } else {
+    // Metric or explicit kg
+    if (kg < WEIGHT_KG_MIN || kg > WEIGHT_KG_MAX) return null;
+  }
 
   // Round to 1 decimal place
   return Math.round(kg * 10) / 10;
@@ -738,8 +747,10 @@ export function computeRunnerWeightPrefill(
     return String(defaultWeightKg);
   }
   
-  // Imperial: convert to lb and round to 0.5 lb (matches working weight line)
-  const displayValue = kgToDisplay(defaultWeightKg, units);
+  // Imperial: snap to 0.5 lb grid first (same as working weight line)
+  const snappedKg = snapPrescribedWeight(defaultWeightKg, units);
+  if (snappedKg === null) return "";
+  const displayValue = kgToDisplay(snappedKg, units);
   const rounded = roundLbToHalf(displayValue);
   return String(rounded);
 }
