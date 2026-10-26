@@ -1,3 +1,4 @@
+  "exclude": ["node_modules", "scripts/test-signout-button-clear.tsx"]
 {
   "compilerOptions": {
     "target": "ES2017",
@@ -30,5 +31,4 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
 }
