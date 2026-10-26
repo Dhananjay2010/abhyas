@@ -8,7 +8,6 @@
  * - No drift across save/reload cycles
  */
 
-import { strict as assert } from "node:assert";
 import {
   kgToDisplay,
   displayToKg,
