@@ -54,6 +54,7 @@ type SubmitResult =
   | { status: "saved" }
   | { status: "saved"; reason: "set_exists"; savedSets: Array<{ setNumber: number; reps: number | null; weightKg: number | null; durationSeconds: number | null }> }
   | { status: "expired" }
+  | { status: "queued" }
   | { status: "failed"; error: string };
 
 type PendingSetController = {
@@ -244,7 +245,7 @@ export function createPendingSetController(config: {
           error: null,
         });
 
-        return { status: "expired" };
+        return { status: "queued" };
       }
 
       const message = err instanceof Error ? err.message : "Network error";

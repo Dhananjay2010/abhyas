@@ -924,6 +924,25 @@ export function SessionRunner({
           if (settings.restAutostart && target.setNumber < current.plannedSets) {
             startRest(restSeconds);
           }
+        } else if (result.status === "queued") {
+          // Network failure - set is queued and will be replayed
+          setError(null);
+          setMessage(null);
+          setExercises((prev) =>
+            prev.map((e) =>
+              e.id === target.sessionExerciseId
+                ? {
+                    ...e,
+                    sets: [...e.sets, { setNumber: target.setNumber, reps, weightKg, durationSeconds }],
+                  }
+                : e,
+            ),
+          );
+          
+          const current = exercises[exerciseIndex];
+          if (settings.restAutostart && target.setNumber < current.plannedSets) {
+            startRest(restSeconds);
+          }
         } else if (result.status === "expired") {
           setError(null);
         } else if (result.status === "failed") {

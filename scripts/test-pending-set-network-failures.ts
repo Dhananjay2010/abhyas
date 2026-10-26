@@ -8,6 +8,7 @@
  */
 
 import { createPendingSetController, type LogSetFunction } from "../src/lib/session/pending-set-controller";
+import type { PendingSetState } from "../src/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 import type { RetryTimer } from "../src/lib/session/pending-set-retry-scheduler";
 
@@ -111,11 +112,10 @@ async function testNetworkFailureQueued() {
     clientId: "client-1",
   });
   
-  assert(result.status === "expired", "Should return expired status (reusing expired flow for offline queue)");
+  assert(result.status === "queued", "Should return queued status for network failure");
   assert(states[states.length - 1].pending.length === 1, "Should have 1 pending set");
   assert(states[states.length - 1].error === null, "Should not show error for queued set");
-  // Network failures set expired: false, unlike real SESSION_EXPIRED which sets expired: true
-  assert(states[states.length - 1].expired === false, "Should NOT be marked as session-expired (only pending)");
+  assert(states[states.length - 1].expired === false, "Should NOT be marked as session-expired");
   
   // Check storage
   const stored = storage.getItem("pending-sets:user-1");
