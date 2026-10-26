@@ -28,9 +28,9 @@ function check(label: string, condition: boolean, detail = "") {
 
 console.log("Imperial units path through actions.ts → buildProgressionInput → evaluateProgression");
 
-const metricReps: "reps" = "reps";
-const mechanicCompound: "compound" = "compound";
-const movementHorizontalPress: "horizontal_press" = "horizontal_press";
+const metricReps = "reps" as const;
+const mechanicCompound = "compound" as const;
+const movementHorizontalPress = "horizontal_press" as const;
 
 // Simulate DB rows for a barbell bench press exercise
 const sessionExercise = {
