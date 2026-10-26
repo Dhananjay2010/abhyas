@@ -21,7 +21,6 @@ export {
 
 export {
   // Pure calculation functions
-  calculateEpley1RM,
   calculateSetVolume,
   findTopSet,
   detectPersonalRecords,
@@ -31,3 +30,6 @@ export {
   type PersonalRecord,
   type PRType,
 } from "./calculations";
+
+// Re-export the shared e1RM helper from progression
+export { computeE1rm } from "@/lib/program/progression";

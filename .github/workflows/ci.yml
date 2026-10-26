@@ -424,3 +424,15 @@ jobs:
           npm run test:block-range-db-followup
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/abhyas_test
+
+      - name: Run e1RM formula DB tests
+        run: npx tsx scripts/test-e1rm-formula-db.ts
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/abhyas_test
+          REQUIRE_DB: "1"
+
+      - name: Run e1RM formula mutant tests
+        run: bash scripts/test-e1rm-formula-mutants.sh
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/abhyas_test
+          REQUIRE_DB: "1"

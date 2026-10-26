@@ -15,18 +15,23 @@ echo ""
 cp "$PROGRESSION_FILE" "$BACKUP_FILE"
 
 cleanup() {
+  if [ "${cleanup_done:-0}" = "1" ]; then
+    return
+  fi
+  cleanup_done=1
   echo "Restoring original file..."
   cp "$BACKUP_FILE" "$PROGRESSION_FILE"
   rm -rf "$TMP"
 }
-trap cleanup EXIT INT TERM
+trap 'cleanup; exit 130' INT TERM
+trap cleanup EXIT
 
 # Mutant 1: Remove rounding from e1rm calculation
 echo "Mutant 1: Remove roundToStoragePrecision() call"
 echo "Expected: test-pb-precision.ts should fail"
 echo ""
 
-sed -i 's/const e1rm = roundToStoragePrecision(estimateOneRepMax(w, v));/const e1rm = estimateOneRepMax(w, v);/' "$PROGRESSION_FILE"
+sed -i 's/const e1rm = roundToStoragePrecision(estimateOneRepMax(roundedWeight, v));/const e1rm = estimateOneRepMax(roundedWeight, v);/' "$PROGRESSION_FILE"
 
 if npx tsx scripts/test-pb-precision.ts > /dev/null 2>&1; then
   echo "✗ FAIL: Mutant 1 survived (test still passes without rounding)"
