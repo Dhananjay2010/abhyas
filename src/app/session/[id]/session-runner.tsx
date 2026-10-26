@@ -1265,9 +1265,9 @@ export function SessionRunner({
                     if (pendingSetState.pending.length > 0 && controller) {
                       setMessage("Saving your sets first…");
                       await controller.onFocus();
-                      // After replay, check if queue is now empty
-                      const remaining = pendingSetState.pending.length;
-                      if (remaining === 0) {
+                      // After replay, check controller state for current queue length
+                      const currentState = controller.getState();
+                      if (currentState.pending.length === 0) {
                         // Queue is empty, proceed with finish
                         setMessage(null);
                         await onFinishExercise(f.value);
