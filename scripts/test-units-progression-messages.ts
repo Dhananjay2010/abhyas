@@ -11,6 +11,7 @@
  */
 
 import { evaluateProgression, type ExerciseMeta, type ProgressState } from "@/lib/program/progression";
+import { formatWeight } from "@/lib/units";
 import { strict as assert } from "assert";
 
 function check(desc: string, condition: boolean, context?: string) {
@@ -240,7 +241,6 @@ console.log();
 console.log("7. Zero-weight emptyValue handling in displayWeight");
 // This tests the displayWeight helper directly by checking formatWeight behavior
 // with the emptyValue parameter used in progression.ts line 438
-const { formatWeight } = require("@/lib/units");
 
 const metricZero = formatWeight(0, "metric", true, "0 kg");
 const imperialZero = formatWeight(0, "imperial", true, "0 lb");
