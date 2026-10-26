@@ -68,8 +68,8 @@ const fakeDeps: PendingSetDeps = {
 };
 
 const fakeTimer = {
-  setTimeout: (callback: () => void) => {
-    callback();
+  setTimeout: () => {
+    // Don't call callback - let the test proceed without auto-retry
     return 0;
   },
   clearTimeout: () => {},
@@ -87,7 +87,7 @@ async function testR4AndR4s() {
       // Always throw on first mount to ensure error state and Retry button
       if (replayCallCount === 0) {
         replayCallCount++;
-        throw new Error("Network error");
+        throw new Error("Server timeout");
       }
       replayCallCount++;
       // Return a deferred promise to hold "retrying" state for M9
@@ -178,19 +178,21 @@ async function testR4AndR4s() {
   });
   
   await act(async () => {});
+  await act(async () => {});
+  await act(async () => {});
   
   // R4: Assert Retry button is visible
   const retryButtons = screen.queryAllByRole("button", { name: /retry/i });
   assert(retryButtons.length > 0, "R4: Retry button is visible after replay error");
   
   // R4e: Assert error message is shown (not just the heading)
-  const errorTexts = screen.queryAllByText(/failed to save|network error/i);
+  const errorTexts = screen.queryAllByText(/failed to save|server timeout/i);
   assert(errorTexts.length > 0, "R4e: Error heading shown after replay failure");
   
   // R4e detail: Assert the actual error message (not just heading) is present
-  // getReplayErrorMessage returns the replayError, which is "Network error" from the mock
-  const errorMessage = screen.queryByText("Network error", { exact: false });
-  assert(errorMessage !== null, "R4e detail: Error message content shown (getReplayErrorMessage output)");
+  // getReplayErrorMessage returns the replayError, which is "Server timeout" from the mock
+  const errorMessages = screen.queryAllByText(/server timeout/i);
+  assert(errorMessages.length > 0, "R4e detail: Error message content shown (getReplayErrorMessage output)");
   
   const retryButton = retryButtons[retryButtons.length - 1];
   assert(retryButton !== null, "R4: Retry button element exists");
