@@ -42,7 +42,7 @@ async function runTests() {
     const exerciseUpdates: Array<{ id: string; status: string }> = [];
     
     const deps: AbandonSessionDeps & { 
-      loadExercisesForUpdate?: () => Promise<{ data: any[] | null; error: string | null }>;
+      loadExercisesForUpdate?: () => Promise<{ data: Array<{ id: string; status: string; planned_sets: number; session_sets: unknown[] }> | null; error: string | null }>;
       updateExerciseStatus?: (id: string, status: string) => Promise<{ error: string | null }>;
     } = {
       async loadExercises() {
@@ -100,7 +100,7 @@ async function runTests() {
     const exerciseUpdates: Array<{ id: string; status: string }> = [];
 
     const deps: AbandonSessionDeps & {
-      loadExercisesForUpdate?: () => Promise<{ data: any[] | null; error: string | null }>;
+      loadExercisesForUpdate?: () => Promise<{ data: Array<{ id: string; status: string; planned_sets: number; session_sets: unknown[] }> | null; error: string | null }>;
       updateExerciseStatus?: (id: string, status: string) => Promise<{ error: string | null }>;
     } = {
       async loadExercises() {
