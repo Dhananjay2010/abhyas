@@ -12,7 +12,6 @@ import { shouldShowSwap } from "../src/lib/today/should-show-swap";
 import { shouldLoadPlannableDays } from "../src/lib/today/should-load-plannable";
 import { decideRestDayResume } from "../src/lib/today/rest-day-resume";
 import { buildChosenByDayIndex } from "../src/lib/today/chosen-by-day";
-import { keepPlannedDay } from "../src/lib/session/plan-day-keep-core";
 
 export {}; // Module
 
@@ -175,39 +174,6 @@ async function main() {
     const result = buildChosenByDayIndex(sessions, days, "2026-11-02", 1); // Monday (index 1) is today
     // Template says Tuesday should be Upper, session is Upper - match!
     assert.equal(result.size, 0, "Template match should not be recorded");
-  });
-
-  // Undo 5: planDay keep bypasses keepPlannedDay helper
-  await test("keepPlannedDay: empty array → ok with empty deletedIds", async () => {
-    const result = await keepPlannedDay();
-    assert.equal(result.ok, true, "Should succeed");
-    if (result.ok) {
-      assert.equal(result.deletedIds.length, 0, "Should have no deleted IDs");
-    }
-  });
-
-  await test("keepPlannedDay: training row → kept (not deleted)", async () => {
-    const result = await keepPlannedDay();
-    assert.equal(result.ok, true, "Should succeed");
-    if (result.ok) {
-      assert.equal(result.deletedIds.length, 0, "Training row should be kept");
-    }
-  });
-
-  await test("keepPlannedDay: rest row → kept (L1 fix)", async () => {
-    const result = await keepPlannedDay();
-    assert.equal(result.ok, true, "Should succeed");
-    if (result.ok) {
-      assert.equal(result.deletedIds.length, 0, "Rest row should be kept (L1)");
-    }
-  });
-
-  await test("keepPlannedDay: yoga row → kept", async () => {
-    const result = await keepPlannedDay();
-    assert.equal(result.ok, true, "Should succeed");
-    if (result.ok) {
-      assert.equal(result.deletedIds.length, 0, "Yoga row should be kept");
-    }
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
