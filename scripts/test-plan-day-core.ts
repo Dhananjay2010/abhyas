@@ -36,6 +36,7 @@ function makeFakeClient(config: {
   existingSessions?: SessionRow[];
   program?: Program | null;
   programDays?: Record<string, ProgramDay>;
+  programDaysByIndex?: Record<number, ProgramDay>;
 }): { client: PlanDayClient; calls: Call[] } {
   const calls: Call[] = [];
 
@@ -61,6 +62,10 @@ function makeFakeClient(config: {
         return { ok: false, error: "Program day not found." };
       }
       return { ok: true, day };
+    },
+    async findProgramDayByIndex(dayIndex: number) {
+      const day = config.programDaysByIndex?.[dayIndex];
+      return { day: day ?? null, error: null };
     },
     async updateSession(id: string, row: SessionInsert) {
       calls.push({ method: "updateSession", id, row });
@@ -340,8 +345,23 @@ async function main() {
     assert.equal(result.ok === false && result.error, "That day is already done.");
   });
 
-  await test("Keep with no planned rows: no-op", async () => {
-    const { client, calls } = makeFakeClient({ existingSessions: [] });
+  await test("Keep with no planned rows: writes today's planned row with template day type", async () => {
+    const program: Program = {
+      id: "prog-1",
+      started_on: "2026-11-01",
+      deload_week: 4,
+      week_offset: 0,
+    };
+    const programDay: ProgramDay = {
+      id: "day-upper",
+      day_type: "weights",
+    };
+
+    const { client, calls } = makeFakeClient({
+      existingSessions: [],
+      program,
+      programDaysByIndex: { 7: programDay },
+    });
 
     const result = await planDayCore(client, {
       userId: "user-1",
@@ -351,8 +371,16 @@ async function main() {
     });
 
     assert.equal(result.ok, true, "Should succeed");
-    const deleteCall = calls.find((c) => c.method === "deleteSessions");
-    assert(!deleteCall, "Should NOT delete when no planned rows");
+    const insertCall = calls.find((c) => c.method === "insertSession");
+    assert(insertCall, "Should insert a session");
+    if (insertCall.method !== "insertSession") throw new Error("Wrong call");
+
+    assert.equal(insertCall.row.actual_type, "weights", "Should be weights");
+    assert.equal(insertCall.row.planned_type, "weights", "planned_type should be weights");
+    assert.equal(insertCall.row.program_day_id, "day-upper", "Should have program_day_id");
+    assert.equal(insertCall.row.program_id, "prog-1", "Should have program_id");
+    assert.equal(insertCall.row.week_in_block, 3, "Week 3 for 2026-11-15 from 2026-11-01");
+    assert.equal(insertCall.row.status, "planned", "Should be planned");
   });
 
   await test("Keep with 2 rest rows: deleteSessions NOT called", async () => {
@@ -394,6 +422,41 @@ async function main() {
     assert(deleteCall, "Should delete yoga row");
     if (deleteCall.method !== "deleteSessions") throw new Error("Wrong call");
     assert.deepEqual(deleteCall.ids, ["sess-1"], "Should delete sess-1");
+  });
+
+  await test("Keep on a Rest day: writes Rest planned row", async () => {
+    const program: Program = {
+      id: "prog-1",
+      started_on: "2026-11-01",
+      deload_week: 4,
+      week_offset: 0,
+    };
+    const programDay: ProgramDay = {
+      id: "day-rest",
+      day_type: "rest",
+    };
+
+    const { client, calls } = makeFakeClient({
+      existingSessions: [],
+      program,
+      programDaysByIndex: { 2: programDay },
+    });
+
+    const result = await planDayCore(client, {
+      userId: "user-1",
+      localDate: "2026-11-17",
+      today: "2026-11-14",
+      plan: { kind: "keep" },
+    });
+
+    assert.equal(result.ok, true, "Should succeed");
+    const insertCall = calls.find((c) => c.method === "insertSession");
+    assert(insertCall, "Should insert a session");
+    if (insertCall.method !== "insertSession") throw new Error("Wrong call");
+
+    assert.equal(insertCall.row.actual_type, "rest", "Should be rest");
+    assert.equal(insertCall.row.planned_type, "rest", "planned_type should be rest");
+    assert.equal(insertCall.row.status, "planned", "Should be planned");
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);

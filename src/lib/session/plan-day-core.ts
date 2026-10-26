@@ -36,6 +36,7 @@ export interface PlanDayClient {
   findDaySessions(localDate: string): Promise<{ rows: SessionRow[]; error: string | null }>;
   findActiveProgram(): Promise<{ program: Program | null; error: string | null }>;
   loadProgramDay(programDayId: string): Promise<{ ok: true; day: ProgramDay } | { ok: false; error: string }>;
+  findProgramDayByIndex(dayIndex: number): Promise<{ day: ProgramDay | null; error: string | null }>;
   updateSession(id: string, row: SessionInsert): Promise<{ error: string | null }>;
   deleteSessions(ids: string[]): Promise<{ error: string | null }>;
   insertSession(row: SessionInsert): Promise<{ error: string | null }>;
@@ -96,6 +97,49 @@ export async function planDayCore(
 
   if (input.plan.kind === "keep") {
     if (planned.length === 0) {
+      const programResult = await client.findActiveProgram();
+      if (programResult.error) {
+        return { ok: false, error: programResult.error };
+      }
+      const program = programResult.program;
+      if (!program) {
+        return { ok: false, error: "No active program." };
+      }
+
+      const dayIndex = new Date(input.localDate + "T12:00:00Z").getUTCDay();
+      const adjustedIndex = dayIndex === 0 ? 7 : dayIndex;
+
+      const programDayResult = await client.findProgramDayByIndex(adjustedIndex);
+      if (programDayResult.error) {
+        return { ok: false, error: programDayResult.error };
+      }
+      if (!programDayResult.day) {
+        return { ok: false, error: "Could not find program day." };
+      }
+
+      const week = program
+        ? cycleWeekFor(
+            { started_on: program.started_on, week_offset: program.week_offset },
+            input.localDate,
+          )
+        : null;
+
+      const row: SessionInsert = {
+        user_id: input.userId,
+        program_id: program.id,
+        program_day_id: programDayResult.day.id,
+        local_date: input.localDate,
+        week_in_block: week,
+        is_deload: week !== null && week === program.deload_week,
+        planned_type: programDayResult.day.day_type,
+        actual_type: programDayResult.day.day_type,
+        status: "planned",
+      };
+
+      const insertResult = await client.insertSession(row);
+      if (insertResult.error) {
+        return { ok: false, error: insertResult.error };
+      }
       return { ok: true };
     }
     const ids = idsToDeleteOnKeep(planned);

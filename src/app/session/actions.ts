@@ -829,6 +829,15 @@ export async function planDay(input: {
       );
       return result;
     },
+    async findProgramDayByIndex(dayIndex: number) {
+      const { data, error } = await supabase
+        .from("program_days")
+        .select("id, day_type")
+        .eq("user_id", user.id)
+        .eq("day_index", dayIndex)
+        .maybeSingle();
+      return { day: data, error: error?.message ?? null };
+    },
     async updateSession(id: string, row) {
       const { error} = await supabase
         .from("sessions")
