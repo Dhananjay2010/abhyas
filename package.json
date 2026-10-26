@@ -355,7 +355,8 @@
     "test:past-knee-squat-swap-ordering": "tsx scripts/test-past-knee-squat-swap-ordering.ts",
     "test:med2-hip-dominant": "tsx scripts/test-med2-hip-dominant-time-fill.ts",
     "test:identity-vs-main": "tsx scripts/test-identity-vs-main.ts",
-    "test:catalogue-slug-coverage": "tsx scripts/test-catalogue-slug-coverage.ts"
+    "test:catalogue-slug-coverage": "tsx scripts/test-catalogue-slug-coverage.ts",
+    "test:count-knee-risk-outside-squat": "tsx scripts/count-knee-risk-outside-squat.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

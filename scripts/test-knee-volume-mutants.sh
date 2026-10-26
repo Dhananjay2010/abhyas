@@ -85,6 +85,13 @@ run_mutant() {
     restore
     return
   fi
+  # Verify mutation was applied
+  if diff -q "$BACKUP" "$file" >/dev/null 2>&1; then
+    echo "  ⊘ SKIP: file unchanged after mutation"
+    SKIPPED=$((SKIPPED + 1))
+    restore
+    return
+  fi
   if ! node node_modules/typescript/lib/tsc.js --noEmit >/dev/null 2>&1; then
     echo "  ⊘ SKIP: does not compile (must be killed by a test, not tsc)"
     SKIPPED=$((SKIPPED + 1))
@@ -92,14 +99,14 @@ run_mutant() {
     return
   fi
   
-  local killer=""
+  killer=""
   for t in "$@"; do
-    local output=$(npm run -s "$t" 2>&1)
-    local exit_code=$?
+    output=$(npm run -s "$t" 2>&1)
+    exit_code=$?
     
     if [ $exit_code -ne 0 ]; then
       # Check for crashes: uncaught errors with stack traces
-      if echo "$output" | grep -qE "(SyntaxError|TypeError|ReferenceError|RangeError|Error:.*\n.*at )"; then
+      if echo "$output" | grep -qE "(SyntaxError|TypeError|ReferenceError|RangeError)"; then
         echo "  ✗ CRASH in $t (uncaught error, not an assertion failure)"
         CRASHED=$((CRASHED + 1))
         restore
@@ -114,6 +121,8 @@ run_mutant() {
       
       # Non-zero exit without assertion or crash signature
       echo "  ✗ CRASH in $t (exit $exit_code, no assertion message)"
+      echo "  First 5 lines of output:"
+      echo "$output" | head -5 | sed 's/^/    /'
       CRASHED=$((CRASHED + 1))
       restore
       return
@@ -160,12 +169,12 @@ echo "✓ All baseline tests passed"
 echo ""
 
 run_mutant "1. Disable knee-risk filter in pickForSlot (change hasPastKnee gate)" "$GENERATE" \
-  '    // Also exclude jumps, thrusters, etc. (Mutant 10 killer)
-    const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
-    const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;' \
-  '    // Also exclude jumps, thrusters, etc. (Mutant 10 killer)
-    const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
-    const hasPastKnee = false && input.anyKneeInjury && !hasCurrentKnee;' "$V" "$I" "$C" "$F"
+  '    const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+    const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
+    if (hasPastKnee) {' \
+  '    const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+    const hasPastKnee = false && input.anyKneeInjury && !hasCurrentKnee;
+    if (hasPastKnee) {' "$V" "$I" "$C" "$F"
 
 run_mutant "2. Remove entire knee-risk filter block from pickForSlot" "$GENERATE" \
   '      // Filter knee-risk exercises (derived contraindications) except slot 0
@@ -193,10 +202,10 @@ run_mutant "4. Make helper always return false" "$KNEE_SAFETY" \
   }' "$V" "$C" "$F"
 
 run_mutant "5. Remove squat slot exception (filter Barbell Squat from slot 0)" "$GENERATE" \
-  '      if (isFallback || slotIndex !== 0) {
-        candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));' \
-  '      if (isFallback || slotIndex !== 999) {
-        candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));' "$V" "$I" "$C"
+  '      // Filter knee-risk exercises (derived contraindications) except slot 0
+      if (isFallback || slotIndex !== 0) {' \
+  '      // Filter knee-risk exercises (derived contraindications) except slot 0
+      if (isFallback || slotIndex !== 999) {' "$V" "$I" "$C"
 
 run_mutant "P1. Remove isExcludedForPastKnee filter from pickForSlot" "$GENERATE" \
   '      // Filter past-knee excluded exercises (jumps, thrusters, etc.) for all slots
