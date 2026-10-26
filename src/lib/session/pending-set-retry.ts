@@ -267,16 +267,6 @@ export function clearPendingSet(
 }
 
 /**
- * Clear all pending sets for a user (used on sign-out).
- */
-export function clearAllPendingSetsForUser(
-  storage: Storage,
-  userId: string
-): void {
-  storage.removeItem(storageKey(userId));
-}
-
-/**
  * Replay all pending sets for a user across all sessions.
  * Returns the number of sets still pending after replay.
  */

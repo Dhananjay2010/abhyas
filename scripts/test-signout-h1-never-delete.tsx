@@ -364,11 +364,13 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   }
   
   // ========================================================================
-  // Test (f): Per-user isolation
+  // Test (f): Per-user isolation - only signed-out user's queue is touched
   // ========================================================================
   console.log(`\n=== Test (f): Per-user isolation ===\n`);
   
   fakeStorage.clear();
+  
+  // Set up queues for both users
   savePendingSet(fakeStorage, "userA", "session-a", {
     sessionExerciseId: "ex-a",
     setNumber: 1,
@@ -378,11 +380,65 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     clientId: "pending-a"
   }, fakeDeps);
   
-  const userBQueue = fakeStorage.getItem(storageKey("userB"));
-  assert(userBQueue === null, "(f) User B sees no queue from User A");
+  savePendingSet(fakeStorage, "userB", "session-b", {
+    sessionExerciseId: "ex-b",
+    setNumber: 1,
+    reps: 15,
+    weightKg: 60,
+    durationSeconds: null,
+    clientId: "pending-b"
+  }, fakeDeps);
   
-  const userAQueue = fakeStorage.getItem(storageKey("userA"));
-  assert(userAQueue !== null, "(f) User A's queue exists");
+  const userAQueueBefore = fakeStorage.getItem(storageKey("userA"));
+  const userBQueueBefore = fakeStorage.getItem(storageKey("userB"));
+  
+  assert(userAQueueBefore !== null, "(f) User A queue exists");
+  assert(userBQueueBefore !== null, "(f) User B queue exists");
+  
+  // Define test doubles
+  const signOutSuccessF = async (): Promise<{ ok: true } | { ok: false; error: string }> => {
+    return { ok: true };
+  };
+  const logSetSuccessF = async () => ({ ok: true as const });
+  
+  // Test SignOutButton for userA
+  for (const name of ["SignOutButton", "SignOutForm"]) {
+    let unmountF: () => void;
+    
+    if (name === "SignOutButton") {
+      const result = render(<SignOutButton userId="userA" signOut={signOutSuccessF} logSet={logSetSuccessF} now={new Date(FIXED_TIME)} />);
+      unmountF = result.unmount;
+    } else {
+      const result = render(<SignOutForm label="Sign out" userId="userA" signOut={signOutSuccessF} logSet={logSetSuccessF} now={new Date(FIXED_TIME)} />);
+      unmountF = result.unmount;
+    }
+    
+    await act(async () => {
+      const buttons = screen.queryAllByRole("button");
+      buttons[buttons.length - 1].click();
+    });
+    
+    await act(async () => {});
+    await act(async () => {});
+    
+    // User A's queue should be cleared (replay succeeded)
+    assert(fakeStorage.getItem(storageKey("userA")) === null, `(f) ${name}: User A queue cleared`);
+    
+    // User B's queue should be untouched
+    assert(fakeStorage.getItem(storageKey("userB")) === userBQueueBefore, `(f) ${name}: User B queue untouched`);
+    
+    unmountF();
+    
+    // Restore userA's queue for next test
+    savePendingSet(fakeStorage, "userA", "session-a", {
+      sessionExerciseId: "ex-a",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-a"
+    }, fakeDeps);
+  }
   
   console.log(`\n✅ H1 tests passed (${passed} assertions)\n`);
   console.log("MUTANTS TO TEST:");

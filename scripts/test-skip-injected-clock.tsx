@@ -99,8 +99,7 @@ const settings: RunnerSettings = {
 (async () => {
   console.log("\n📋 Test: Skip with injected clock (B2)\n");
   
-  console.log(`Fixed time: ${new Date(FIXED_TIME).toISOString()}`);
-  console.log(`Age: ${(Date.now() - FIXED_TIME) / 1000 / 60 / 60 / 24} days old\n`);
+  console.log(`Fixed time: ${new Date(FIXED_TIME).toISOString()}\n`);
   
   let finishSessionCalled = false;
   
