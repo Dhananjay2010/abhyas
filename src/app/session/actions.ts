@@ -841,7 +841,7 @@ export async function planDay(input: {
       return { error: error?.message ?? null };
     },
     async deleteSessions(ids: string[]) {
-      const { error } = await supabase.from("sessions").delete().in("id", ids);
+      const { error } = await supabase.from("sessions").delete().in("id", ids).eq("user_id", user.id);
       return { error: error?.message ?? null };
     },
     async insertSession(row) {
@@ -852,7 +852,8 @@ export async function planDay(input: {
       const { data, error } = await supabase
         .from("sessions")
         .select("id, status, actual_type, program_day_id")
-        .eq("local_date", localDate);
+        .eq("local_date", localDate)
+        .eq("user_id", user.id);
       return { rows: data ?? [], error: error?.message ?? null };
     },
   };

@@ -142,9 +142,11 @@ export async function planDayCore(
       return { ok: true };
     }
 
-    const deleteResult = await client.deleteSessions(ids);
-    if (deleteResult.error) {
-      return { ok: false, error: deleteResult.error };
+    if (ids.length > 0) {
+      const deleteResult = await client.deleteSessions(ids);
+      if (deleteResult.error) {
+        return { ok: false, error: deleteResult.error };
+      }
     }
 
     const week = cycleWeekFor(

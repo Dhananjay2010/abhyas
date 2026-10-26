@@ -421,6 +421,9 @@ async function main() {
     assert.equal(insertCall.row.program_id, "prog-1", "Should have program_id");
     assert.equal(insertCall.row.week_in_block, 3, "Week 3 for 2026-11-15 from 2026-11-01");
     assert.equal(insertCall.row.status, "planned", "Should be planned");
+
+    const deleteCall = calls.find((c) => c.method === "deleteSessions");
+    assert(!deleteCall, "Should NOT call deleteSessions when no planned rows exist");
   });
 
   await test("Keep with 2 rest rows: deleteSessions NOT called", async () => {
