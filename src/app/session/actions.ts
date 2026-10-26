@@ -20,8 +20,8 @@ import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { keepPlannedDay } from "@/lib/session/plan-day-keep-core";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
-import type { WeightUnit } from "@/lib/session/equipment-grid";
 import { pickReusableSession } from "@/lib/session/reusable-session";
+import { getUnitsPreference } from "@/lib/units";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
@@ -407,7 +407,7 @@ async function applyProgression(
   ]);
 
   const settings = settingsRes.data;
-  const units = (profileRes.data?.units ?? "metric") as "metric" | "imperial";
+  const units = getUnitsPreference(profileRes.data?.units);
 
   // Daily-menu mode keeps no working-weight memory. History is preserved, so
   // switching back to progression resumes from where it left off.

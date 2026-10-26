@@ -51,8 +51,8 @@ const testInput: SwapExerciseCoreInput = {
     movement_pattern: "horizontal_press",
   },
   profile: {
-    goal: "muscle_gain" as const,
-    level: "intermediate" as const,
+    goal: "muscle_gain",
+    level: "intermediate",
   },
   remembersWeights: true,
 };

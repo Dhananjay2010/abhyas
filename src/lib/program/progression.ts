@@ -435,7 +435,7 @@ export function evaluateProgression(input: {
    * Format weight for display in progression messages.
    * Uses the user's unit preference (metric or imperial).
    */
-  const displayWeight = (kg: number) => formatWeight(kg, units, true, "0 kg");
+  const displayWeight = (kg: number) => formatWeight(kg, units, true, units === "imperial" ? "0 lb" : "0 kg");
 
   // Get resolved target (what the display shows) for write-back
   const resolvedTargetForBase = resolveTarget({
