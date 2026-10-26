@@ -30,7 +30,7 @@ const FULL_BODY_B: DayTemplate = {
 const FULL_BODY_C: DayTemplate = {
   focus: "full_body",
   label: "Full Body C",
-  slots: ["horizontal_press", "horizontal_pull", "calf", "lunge"],
+  slots: ["lunge", "horizontal_press", "horizontal_pull", "calf"],
 };
 
 const UPPER: DayTemplate = {
