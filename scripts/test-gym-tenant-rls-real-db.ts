@@ -789,11 +789,11 @@ async function runTests() {
   // SECURITY TEST: get_owned_gym_name() doesn't leak across users
   console.log("TEST: get_owned_gym_name() only returns caller's own gym");
   {
-    // Owner A calls get_owned_gym_name() - should get Gym A
+    // Owner A calls get_owned_gym_name() - should get Gym A (updated earlier to "Gym A Updated")
     const { data: ownerResult, error: ownerError } = await clientA
       .rpc("get_owned_gym_name");
     check("Owner A can call get_owned_gym_name()", !ownerError, ownerError?.message);
-    check("Owner A gets their own gym name", ownerResult === "Gym A", `Expected 'Gym A', got: '${ownerResult}'`);
+    check("Owner A gets their own gym name", ownerResult === "Gym A Updated");
 
     // Member MC calls get_owned_gym_name() - should get null (MC is not an owner)
     const { data: memberResult, error: memberError } = await clientMemberC
