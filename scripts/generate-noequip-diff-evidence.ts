@@ -23,6 +23,7 @@ async function runComparison() {
 
     // Dynamic imports
     const branchModule = await import("@/lib/program/progression");
+    // @ts-ignore - temp file created dynamically
     const mainModule = await import("../src/lib/program/progression-main-temp.js");
 
     const branchEvaluate = branchModule.evaluateProgression;
@@ -127,7 +128,7 @@ async function runComparison() {
       plannedSets: 3,
       repsMin: 8,
       repsMax: 12,
-      feel: testCase.feel,
+      feel: testCase.feel as "easy" | "right" | "hard" | null,
       meta,
       state,
       isDeload: testCase.deload,
@@ -153,12 +154,12 @@ async function runComparison() {
       diffs.push({
         input: testCase,
         mainOutput: {
-          weight: mainResult.nextWorkingWeightKg,
+          weight: mainResult.nextWorkingWeightKg ?? 0,
           counter: mainResult.consecutiveFailures,
           outcome: mainResult.outcome,
         },
         branchOutput: {
-          weight: branchResult.nextWorkingWeightKg,
+          weight: branchResult.nextWorkingWeightKg ?? 0,
           counter: branchResult.consecutiveFailures,
           outcome: branchResult.outcome,
         },
