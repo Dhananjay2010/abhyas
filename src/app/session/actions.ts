@@ -13,6 +13,7 @@ import { cycleWeekFor } from "@/lib/program/block-range";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
+import { getProfileUnits } from "@/lib/get-profile-units";
 import { planDayCore, type PlanDayClient } from "@/lib/session/plan-day-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { queryActiveProgramDay } from "@/lib/session/query-active-program-day";
@@ -393,21 +394,16 @@ async function applyProgression(
   sessionExerciseId: string,
   feel: SetFeel | null,
 ): Promise<ProgressionFeedback | null> {
-  const [settingsRes, profileRes] = await Promise.all([
+  const [settingsRes, units] = await Promise.all([
     supabase
       .from("user_settings")
       .select("planning_mode, per_set_logging")
       .eq("user_id", userId)
       .maybeSingle(),
-    supabase
-      .from("profiles")
-      .select("units")
-      .eq("id", userId)
-      .maybeSingle(),
+    getProfileUnits(supabase, userId),
   ]);
 
   const settings = settingsRes.data;
-  const units = getUnitsPreference(profileRes.data?.units);
 
   // Daily-menu mode keeps no working-weight memory. History is preserved, so
   // switching back to progression resumes from where it left off.

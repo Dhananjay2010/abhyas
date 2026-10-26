@@ -69,6 +69,7 @@ TESTS=(
   "npm run test:swap-prefill-equipmentids"
   "npm run test:m1-null-premiss-fallback"
   "npm run test:third-miss-step-down"
+  "npm run test:imperial-units-full-path"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
