@@ -59,6 +59,10 @@ const decision = evaluateProgression({
 console.log(`  Next weight: ${decision.nextWorkingWeightKg} kg`);
 console.log(`  Message: ${decision.message}`);
 
+if (decision.nextWorkingWeightKg === null) {
+  throw new Error("Expected next weight but got null");
+}
+
 const isValidBarbell = decision.nextWorkingWeightKg % 2.5 === 0;
 check("Barbell isolation at 40kg + easy → 42.5kg", decision.nextWorkingWeightKg === 42.5, `got ${decision.nextWorkingWeightKg}`);
 check("Result is on 2.5kg grid", isValidBarbell, `${decision.nextWorkingWeightKg} % 2.5 = ${decision.nextWorkingWeightKg % 2.5}`);
@@ -96,6 +100,10 @@ const decisionRight = evaluateProgression({
 console.log(`  Next weight: ${decisionRight.nextWorkingWeightKg} kg`);
 console.log(`  Message: ${decisionRight.message}`);
 
+if (decisionRight.nextWorkingWeightKg === null) {
+  throw new Error("Expected next weight but got null");
+}
+
 check("Barbell isolation at 40kg + right → 42.5kg", decisionRight.nextWorkingWeightKg === 42.5, `got ${decisionRight.nextWorkingWeightKg}`);
 check("Right feel on 2.5kg grid", decisionRight.nextWorkingWeightKg % 2.5 === 0);
 
@@ -130,6 +138,11 @@ for (let weight = 20; weight <= 150; weight += 5) {
   });
 
   const next = sweepDecision.nextWorkingWeightKg;
+  if (next === null) {
+    check(`${weight}kg → null (unexpected)`, false, "next weight is null");
+    continue;
+  }
+  
   const onGrid = next % 2.5 === 0;
   
   if (!onGrid) {

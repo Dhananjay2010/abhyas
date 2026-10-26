@@ -9,18 +9,21 @@ ACTIONS="src/app/session/actions.ts"
 BUILD_INPUT="src/lib/session/build-progression-input.ts"
 BUILD_RUNNER="src/lib/session/build-runner-exercises.ts"
 PROG_INPUTS="src/lib/session/progression-inputs.ts"
+SWAP_PREFILL="src/lib/session/swap-prefill.ts"
 
 BACKUP_PROG=$(mktemp /tmp/prog-backup.XXXXXX.ts)
 BACKUP_ACTIONS=$(mktemp /tmp/actions-backup.XXXXXX.ts)
 BACKUP_BUILD_INPUT=$(mktemp /tmp/build-input-backup.XXXXXX.ts)
 BACKUP_BUILD_RUNNER=$(mktemp /tmp/build-runner-backup.XXXXXX.ts)
 BACKUP_PROG_INPUTS=$(mktemp /tmp/prog-inputs-backup.XXXXXX.ts)
+BACKUP_SWAP=$(mktemp /tmp/swap-backup.XXXXXX.ts)
 
 cp "$PROG" "$BACKUP_PROG"
 cp "$ACTIONS" "$BACKUP_ACTIONS"
 cp "$BUILD_INPUT" "$BACKUP_BUILD_INPUT"
 cp "$BUILD_RUNNER" "$BACKUP_BUILD_RUNNER"
 cp "$PROG_INPUTS" "$BACKUP_PROG_INPUTS"
+cp "$SWAP_PREFILL" "$BACKUP_SWAP"
 
 COUNT=0
 KILLED=0
