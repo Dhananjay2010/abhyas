@@ -179,9 +179,7 @@ async function main() {
 
   // Undo 5: planDay keep bypasses keepPlannedDay helper
   await test("keepPlannedDay: empty array → ok with empty deletedIds", async () => {
-    type MockClient = Record<string, never>;
-    const mockClient: MockClient = {};
-    const result = await keepPlannedDay(mockClient as never, []);
+    const result = await keepPlannedDay();
     assert.equal(result.ok, true, "Should succeed");
     if (result.ok) {
       assert.equal(result.deletedIds.length, 0, "Should have no deleted IDs");
@@ -189,12 +187,7 @@ async function main() {
   });
 
   await test("keepPlannedDay: training row → kept (not deleted)", async () => {
-    type MockClient = Record<string, never>;
-    const mockClient: MockClient = {};
-    const rows = [
-      { id: "sess-1", status: "planned", actual_type: "weights", local_date: "2026-11-01" },
-    ];
-    const result = await keepPlannedDay(mockClient as never, rows as never);
+    const result = await keepPlannedDay();
     assert.equal(result.ok, true, "Should succeed");
     if (result.ok) {
       assert.equal(result.deletedIds.length, 0, "Training row should be kept");
@@ -202,12 +195,7 @@ async function main() {
   });
 
   await test("keepPlannedDay: rest row → kept (L1 fix)", async () => {
-    type MockClient = Record<string, never>;
-    const mockClient: MockClient = {};
-    const rows = [
-      { id: "sess-2", status: "planned", actual_type: "rest", local_date: "2026-11-01" },
-    ];
-    const result = await keepPlannedDay(mockClient as never, rows as never);
+    const result = await keepPlannedDay();
     assert.equal(result.ok, true, "Should succeed");
     if (result.ok) {
       assert.equal(result.deletedIds.length, 0, "Rest row should be kept (L1)");
@@ -215,12 +203,7 @@ async function main() {
   });
 
   await test("keepPlannedDay: yoga row → kept", async () => {
-    type MockClient = Record<string, never>;
-    const mockClient: MockClient = {};
-    const rows = [
-      { id: "sess-3", status: "planned", actual_type: "yoga", local_date: "2026-11-01" },
-    ];
-    const result = await keepPlannedDay(mockClient as never, rows as never);
+    const result = await keepPlannedDay();
     assert.equal(result.ok, true, "Should succeed");
     if (result.ok) {
       assert.equal(result.deletedIds.length, 0, "Yoga row should be kept");

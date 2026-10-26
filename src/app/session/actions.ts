@@ -833,7 +833,7 @@ export async function planDay(input: {
   }
 
   if (input.plan.kind === "keep") {
-    const keepResult = await keepPlannedDay(supabase, planned);
+    const keepResult = await keepPlannedDay();
     if (!keepResult.ok) return keepResult;
     revalidateTrainingData();
     return { ok: true };

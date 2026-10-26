@@ -33,20 +33,12 @@ async function main() {
   console.log("Testing keepPlannedDay delete-error handling\n");
 
   await test("K6: empty array → ok (no deletes attempted)", async () => {
-    type MockClient = Record<string, never>;
-    const mockClient: MockClient = {};
-    const result = await keepPlannedDay(mockClient as never, []);
+    const result = await keepPlannedDay();
     assert.equal(result.ok, true, "Should succeed with empty array");
   });
 
   await test("K6: any non-empty array → ok (keep logic never deletes)", async () => {
-    type MockClient = Record<string, never>;
-    const mockClient: MockClient = {};
-    const rows = [
-      { id: "sess-1", status: "planned", actual_type: "weights", local_date: "2026-11-01" },
-      { id: "sess-2", status: "planned", actual_type: "rest", local_date: "2026-11-01" },
-    ];
-    const result = await keepPlannedDay(mockClient as never, rows as never);
+    const result = await keepPlannedDay();
     assert.equal(result.ok, true, "Should succeed (L1: keep keeps everything)");
     if (result.ok) {
       assert.equal(result.deletedIds.length, 0, "No deletes performed");

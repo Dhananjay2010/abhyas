@@ -1,11 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
-
-type SessionRow = {
-  id: string;
-  actual_type: Database["public"]["Enums"]["day_type"] | null;
-};
-
 /**
  * Core logic for planDay's "keep" action.
  *
@@ -16,12 +8,10 @@ type SessionRow = {
  *
  * Returns an empty deletedIds array (nothing was deleted).
  */
-export async function keepPlannedDay(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _supabase: SupabaseClient<Database>,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _planned: SessionRow[]
-): Promise<{ ok: true; deletedIds: string[] } | { ok: false; error: string }> {
+export async function keepPlannedDay(): Promise<{
+  ok: true;
+  deletedIds: string[];
+} | { ok: false; error: string }> {
   // "Keep it" always keeps: training override, yoga override, breathing override, or Rest override
   return { ok: true, deletedIds: [] };
 }
