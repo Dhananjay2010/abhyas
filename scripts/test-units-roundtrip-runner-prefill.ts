@@ -9,7 +9,7 @@
  * - Metric works correctly
  */
 
-import { weightKgToSubmit, computeRunnerWeightPrefill } from "../src/lib/units";
+import { weightKgToSubmit, computeRunnerWeightPrefill, formatTopSet, snapPrescribedWeight } from "../src/lib/units";
 
 let passed = 0;
 let failed = 0;
@@ -151,6 +151,55 @@ check(
   "72.5 kg: unedited prefill returns original",
   result11 === originalKg11,
   `got ${result11} kg`
+);
+
+console.log("\n=== Test Rounding Rule: Stored weights round to nearest, targets floor ===\n");
+
+// Test (a) and (b): Runner prefill equals History display for stored kg values
+const storedWeights = [
+  { kg: 72.5, expectedLb: "160" },
+  { kg: 85, expectedLb: "187.5" },
+  { kg: 90, expectedLb: "198.5" },
+  { kg: 60, expectedLb: "132.5" },
+  { kg: 77.5, expectedLb: "171" },
+];
+
+for (const { kg, expectedLb } of storedWeights) {
+  const runnerPrefill = computeRunnerWeightPrefill(kg, "imperial", false);
+  const historyDisplay = formatTopSet(kg, "imperial");
+  
+  check(
+    `${kg} kg: runner prefill "${runnerPrefill}" equals History display`,
+    historyDisplay.includes(runnerPrefill),
+    `runner="${runnerPrefill}", history="${historyDisplay}"`
+  );
+  
+  if (kg === 72.5) {
+    check(
+      `72.5 kg: shows 160 lb in both runner and History`,
+      runnerPrefill === "160" && historyDisplay === "160 lb top",
+      `runner="${runnerPrefill}", history="${historyDisplay}"`
+    );
+  }
+}
+
+// Test (c): New targets still floor (snapPrescribedWeight behavior)
+const targetKg = 72.5;
+const snappedTarget = snapPrescribedWeight(targetKg, "imperial");
+check(
+  "72.5 kg target: snapPrescribedWeight floors to loadable grid",
+  snappedTarget !== null && snappedTarget <= targetKg,
+  `snapped to ${snappedTarget} kg`
+);
+
+// Test (d): Unedited prefill submits original kg (already covered above, verify once more)
+const testKg = 72.5;
+const testPrefill = computeRunnerWeightPrefill(testKg, "imperial", false);
+const testResult = weightKgToSubmit(testPrefill, testPrefill, testKg, "imperial");
+check(
+  "Rounding rule: unedited prefill still submits original kg exactly",
+  testResult === testKg,
+  `prefill="${testPrefill}", submitted ${testResult} kg (original ${testKg} kg)`
 );
 
 console.log("");

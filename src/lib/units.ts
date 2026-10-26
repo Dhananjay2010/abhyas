@@ -901,11 +901,10 @@ export function computeRunnerWeightPrefill(
     return rounded.toFixed(2).replace(/\.?0+$/, "");
   }
   
-  // Imperial: snap to 0.5 lb grid first (same as working weight line)
-  const snappedKg = snapPrescribedWeight(defaultWeightKg, units);
-  if (snappedKg === null) return "";
-  const displayValue = kgToDisplay(snappedKg, units);
-  const rounded = roundLbToHalf(displayValue);
+  // Imperial: stored weights display rounded to NEAREST 0.5 lb
+  // (runner prefill matches History display)
+  const lb = kgToLb(defaultWeightKg);
+  const rounded = roundLbToHalf(lb);
   return String(rounded);
 }
 
