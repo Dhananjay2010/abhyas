@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Mutant test for formatVolumeLifted (FIX d)
-
 set -euo pipefail
 
 TEMP=$(mktemp -d)
@@ -8,14 +6,9 @@ SRC="src/lib/session/format-volume-lifted.ts"
 BACKUP="$TEMP/format-volume-lifted.ts.bak"
 
 cleanup() {
-  CODE=$?
-  if [ -f "$BACKUP" ]; then
-    cp "$BACKUP" "$SRC"
-  fi
+  [ -f "$BACKUP" ] && cp "$BACKUP" "$SRC"
   rm -rf "$TEMP"
-  exit $CODE
 }
-
 trap cleanup EXIT INT TERM
 
 [ ! -f "$SRC" ] && echo "✗ Source not found" && exit 1
@@ -30,60 +23,37 @@ fi
 echo "✓ Baseline passed"
 echo
 
-# M1
+# M1: Abbreviate with t
 echo "M1: Abbreviate with t"
-sed -i '/Metric: round to nearest kg/a\    if (rounded >= 10000) return \`$\{Math.round(rounded / 1000)\}t\`;' "$SRC"
-if cmp -s "$SRC" "$BACKUP"; then
-  echo "  ✗ M1: No change"
-  exit 1
-fi
+# Insert the abbreviation line after the comment
+sed -i '/Metric: round to nearest kg/{n;a\    if (rounded >= 10000) return `${Math.round(rounded / 1000)}t`;' -e '}' "$SRC"
+cmp -s "$SRC" "$BACKUP" && echo "  ✗ M1: No change" && exit 1
 OUT=$(npx tsx scripts/test-format-volume-lifted.ts 2>&1) || true
-if echo "$OUT" | grep -q "✗"; then
-  echo "  ✓ M1: Killed"
-  echo "     $(echo "$OUT" | grep "✗" | head -1)"
-else
-  echo "  ✗ M1: Survived"
-  exit 1
-fi
+echo "$OUT" | grep -q "✗" || { echo "  ✗ M1: Survived"; exit 1; }
+echo "  ✓ M1: Killed"
+echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"
 
-# M2
+# M2: No imperial conversion
 echo "M2: No imperial conversion"
 sed -i 's/const lb = kgToLb(volumeKg);/const lb = volumeKg;/' "$SRC"
-if cmp -s "$SRC" "$BACKUP"; then
-  echo "  ✗ M2: No change"
-  exit 1
-fi
+cmp -s "$SRC" "$BACKUP" && echo "  ✗ M2: No change" && exit 1
 OUT=$(npx tsx scripts/test-format-volume-lifted.ts 2>&1) || true
-if echo "$OUT" | grep -q "✗"; then
-  echo "  ✓ M2: Killed"
-  echo "     $(echo "$OUT" | grep "✗" | head -1)"
-else
-  echo "  ✗ M2: Survived"
-  exit 1
-fi
+echo "$OUT" | grep -q "✗" || { echo "  ✗ M2: Survived"; exit 1; }
+echo "  ✓ M2: Killed"
+echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"
 
-# M3
+# M3: No separators
 echo "M3: No separators"
 sed -i 's/const formatted = rounded.toLocaleString("en-US");/const formatted = String(rounded);/' "$SRC"
-if cmp -s "$SRC" "$BACKUP"; then
-  echo "  ✗ M3: No change"
-  exit 1
-fi
+cmp -s "$SRC" "$BACKUP" && echo "  ✗ M3: No change" && exit 1
 OUT=$(npx tsx scripts/test-format-volume-lifted.ts 2>&1) || true
-if echo "$OUT" | grep -q "✗"; then
-  echo "  ✓ M3: Killed"
-  echo "     $(echo "$OUT" | grep "✗" | head -1)"
-else
-  echo "  ✗ M3: Survived"
-  exit 1
-fi
+echo "$OUT" | grep -q "✗" || { echo "  ✗ M3: Survived"; exit 1; }
+echo "  ✓ M3: Killed"
+echo "     $(echo "$OUT" | grep "✗" | head -1)"
 cp "$BACKUP" "$SRC"
 
-if ! git diff --quiet "$SRC"; then
-  echo "✗ Not restored"
-  exit 1
-fi
+git diff --quiet "$SRC" || { echo "✗ Not restored"; exit 1; }
 echo
 echo "✅ All 3 mutants killed"
