@@ -19,7 +19,7 @@ import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { keepPlannedDay } from "@/lib/session/plan-day-keep-core";
 import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
-import { isoWeekday, localDateString } from "@/lib/dates";
+import { localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";

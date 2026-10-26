@@ -21,15 +21,29 @@ import { installServerActionStubs, stubState } from "./helpers/server-action-stu
 
 const FIXED_DATE_MS = new Date("2026-10-20T10:00:00Z").getTime(); // Monday Oct 20, 2026
 let originalDateNow: () => number;
+let originalDateConstructor: DateConstructor;
 
 function mockClock(timestampMs: number) {
   originalDateNow = Date.now;
+  originalDateConstructor = Date;
   Date.now = () => timestampMs;
+  const FixedDate = new Proxy(originalDateConstructor, {
+    construct(target, args: any[]) {
+      if (args.length === 0) {
+        return new target(timestampMs);
+      }
+      return new target(...(args as [any?, any?, any?, any?, any?, any?, any?]));
+    }
+  });
+  (globalThis as typeof globalThis & { Date: DateConstructor }).Date = FixedDate as DateConstructor;
 }
 
 function restoreClock() {
   if (originalDateNow) {
     Date.now = originalDateNow;
+  }
+  if (originalDateConstructor) {
+    (globalThis as typeof globalThis & { Date: DateConstructor }).Date = originalDateConstructor;
   }
 }
 
@@ -282,21 +296,24 @@ async function testFreshStart() {
   stubState.userId = "user-1";
 
   mockClock(FIXED_DATE_MS);
-  const { startSession } = await import("@/app/session/actions");
-  const result = await startSession();
-  restoreClock();
+  try {
+    const { startSession } = await import("@/app/session/actions");
+    const result = await startSession();
 
-  if (!result.ok) {
-    throw new Error(`Test fresh start failed: expected ok=true, got error: ${result.error}`);
-  }
-  if (!result.data?.sessionId) {
-    throw new Error(`Test fresh start failed: expected sessionId in data`);
-  }
-  if (result.data.sessionId !== "sess-new-123") {
-    throw new Error(`Test fresh start failed: expected sessionId=sess-new-123, got ${result.data.sessionId}`);
-  }
+    if (!result.ok) {
+      throw new Error(`Test fresh start failed: expected ok=true, got error: ${result.error}`);
+    }
+    if (!result.data?.sessionId) {
+      throw new Error(`Test fresh start failed: expected sessionId in data`);
+    }
+    if (result.data.sessionId !== "sess-new-123") {
+      throw new Error(`Test fresh start failed: expected sessionId=sess-new-123, got ${result.data.sessionId}`);
+    }
 
-  console.log("✓ Test fresh start: returns new sessionId");
+    console.log("✓ Test fresh start: returns new sessionId");
+  } finally {
+    restoreClock();
+  }
 }
 
 async function testInsertFailure() {
@@ -309,18 +326,21 @@ async function testInsertFailure() {
   stubState.userId = "user-1";
 
   mockClock(FIXED_DATE_MS);
-  const { startSession } = await import("@/app/session/actions");
-  const result = await startSession();
-  restoreClock();
+  try {
+    const { startSession } = await import("@/app/session/actions");
+    const result = await startSession();
 
-  if (result.ok) {
-    throw new Error(`Test insert failure failed: expected ok=false, got ok=true`);
-  }
-  if (!result.error) {
-    throw new Error(`Test insert failure failed: expected error message`);
-  }
+    if (result.ok) {
+      throw new Error(`Test insert failure failed: expected ok=false, got ok=true`);
+    }
+    if (!result.error) {
+      throw new Error(`Test insert failure failed: expected error message`);
+    }
 
-  console.log("✓ Test insert failure: returns {ok: false, error}");
+    console.log("✓ Test insert failure: returns {ok: false, error}");
+  } finally {
+    restoreClock();
+  }
 }
 
 async function testResumePath() {
@@ -339,21 +359,24 @@ async function testResumePath() {
   stubState.userId = "user-1";
 
   mockClock(FIXED_DATE_MS);
-  const { startSession } = await import("@/app/session/actions");
-  const result = await startSession();
-  restoreClock();
+  try {
+    const { startSession } = await import("@/app/session/actions");
+    const result = await startSession();
 
-  if (!result.ok) {
-    throw new Error(`Test resume path failed: expected ok=true, got error: ${result.error}`);
-  }
-  if (!result.data?.sessionId) {
-    throw new Error(`Test resume path failed: expected sessionId in data`);
-  }
-  if (result.data.sessionId !== "sess-existing-456") {
-    throw new Error(`Test resume path failed: expected sessionId=sess-existing-456, got ${result.data.sessionId}`);
-  }
+    if (!result.ok) {
+      throw new Error(`Test resume path failed: expected ok=true, got error: ${result.error}`);
+    }
+    if (!result.data?.sessionId) {
+      throw new Error(`Test resume path failed: expected sessionId in data`);
+    }
+    if (result.data.sessionId !== "sess-existing-456") {
+      throw new Error(`Test resume path failed: expected sessionId=sess-existing-456, got ${result.data.sessionId}`);
+    }
 
-  console.log("✓ Test resume path: handles 23505 duplicate and returns existing sessionId");
+    console.log("✓ Test resume path: handles 23505 duplicate and returns existing sessionId");
+  } finally {
+    restoreClock();
+  }
 }
 
 async function testWeekdayIndependence() {
@@ -381,15 +404,18 @@ async function testWeekdayIndependence() {
     stubState.userId = "user-1";
 
     mockClock(timestampMs);
-    delete require.cache[require.resolve("@/app/session/actions")];
-    const { startSession } = await import("@/app/session/actions");
-    const result = await startSession();
-    restoreClock();
+    try {
+      delete require.cache[require.resolve("@/app/session/actions")];
+      const { startSession } = await import("@/app/session/actions");
+      const result = await startSession();
 
-    if (!result.ok || !result.data?.sessionId) {
-      throw new Error(`Weekday test failed for ${name}: ${JSON.stringify(result)}`);
+      if (!result.ok || !result.data?.sessionId) {
+        throw new Error(`Weekday test failed for ${name}: ${JSON.stringify(result)}`);
+      }
+      console.log(`  ✓ ${name}: ${date} → sessionId=${result.data.sessionId}`);
+    } finally {
+      restoreClock();
     }
-    console.log(`  ✓ ${name}: ${date} → sessionId=${result.data.sessionId}`);
   }
 }
 
