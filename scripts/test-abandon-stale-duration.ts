@@ -41,6 +41,7 @@ function makeFakeDeps(config: {
   timezone?: string;
 }): AbandonSessionDeps & { getSavedDuration: () => number | null } {
   const state = { savedDuration: null as number | null };
+  const nowValue = config.now;
 
   return {
     getSavedDuration: () => state.savedDuration,
@@ -81,7 +82,7 @@ function makeFakeDeps(config: {
     async loadSessionStatus() {
       return { data: { status: "completed" as const }, error: null };
     },
-    now: config.now ? () => config.now : undefined,
+    now: nowValue !== undefined ? (() => nowValue) : undefined,
   };
 }
 
