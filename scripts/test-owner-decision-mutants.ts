@@ -118,7 +118,7 @@ for (const mutant of MUTANTS) {
   
   try {
     // Run tests
-    let testFailed = false;
+    let testFailed: boolean | "crash" = false;
     for (const test of mutant.tests) {
       try {
         execSync(`npm run ${test}`, {
@@ -126,8 +126,9 @@ for (const mutant of MUTANTS) {
           encoding: "utf-8",
           cwd: process.cwd(),
         });
-      } catch (error: any) {
-        const output = error.stdout || error.stderr || "";
+      } catch (error: unknown) {
+        const err = error as { stdout?: string; stderr?: string };
+        const output = err.stdout || err.stderr || "";
         if (output.includes("Error:") || output.includes("at ")) {
           // Stack trace detected - this is a crash
           console.log(`  💥 CRASH: ${test} crashed with error`);

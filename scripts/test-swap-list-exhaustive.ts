@@ -148,7 +148,7 @@ async function main() {
         }
         if (removed.length > 0) {
           strictlySmaller++;
-          removals.push({ profile, exercise: current.slug, removed });
+          removals.push({ profile: name, exercise: current.slug, removed });
         }
       }
 

@@ -7,11 +7,13 @@ import { readFileSync, cpSync, rmSync } from "fs";
 import { execSync } from "child_process";
 import { isEligible, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
+type BodyRegion = "core" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle";
+
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
 );
 
-const profiles = [
+const profiles: Array<{ injury: string; current: BodyRegion[]; anyKnee: boolean }> = [
   { injury: "none", current: [], anyKnee: false },
   { injury: "past-knee", current: [], anyKnee: true },
   { injury: "current-knee", current: ["knee"], anyKnee: true },

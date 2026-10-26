@@ -8,6 +8,8 @@ import { readFileSync } from "node:fs";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { rankAlternatives, type AlternativesContext } from "../src/lib/program/alternatives";
 
+type Level = "beginner" | "intermediate" | "expert";
+
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
 );
@@ -33,7 +35,7 @@ let totalViolations = 0;
 
 // Test 1: Current-knee users - generated programs
 console.log("\n=== Testing current-knee generated programs ===");
-const currentKneeConfigs = [
+const currentKneeConfigs: Array<{ days: number; minutes: number; level: Level }> = [
   { days: 3, minutes: 45, level: "beginner" },
   { days: 4, minutes: 60, level: "intermediate" },
 ];
