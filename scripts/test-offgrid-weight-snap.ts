@@ -79,8 +79,8 @@ async function runTests() {
 
     check("Equipment passed", input.equipmentIds?.includes("barbell") ?? false);
     check("Next weight is 72.5 kg", decision.nextWorkingWeightKg === 72.5);
-    check("Jump <= 2.5 kg", decision.nextWorkingWeightKg - 72.35 <= 2.5);
-    check("Next > stored", decision.nextWorkingWeightKg > 72.35);
+    check("Jump <= 2.5 kg", (decision.nextWorkingWeightKg ?? 0) - 72.35 <= 2.5);
+    check("Next > stored", (decision.nextWorkingWeightKg ?? 0) > 72.35);
     check("Outcome is progressed", decision.outcome === "progressed");
     
     if (!input.equipmentIds || input.equipmentIds.length === 0) {
@@ -142,8 +142,8 @@ async function runTests() {
 
     check("Equipment passed", input.equipmentIds?.includes("dumbbell") ?? false);
     check("Next weight is 72.5 kg", decision.nextWorkingWeightKg === 72.5);
-    check("Jump <= 2.5 kg", decision.nextWorkingWeightKg - 71.44 <= 2.5);
-    check("Next > stored", decision.nextWorkingWeightKg > 71.44);
+    check("Jump <= 2.5 kg", (decision.nextWorkingWeightKg ?? 0) - 71.44 <= 2.5);
+    check("Next > stored", (decision.nextWorkingWeightKg ?? 0) > 71.44);
     check("Outcome is progressed", decision.outcome === "progressed");
     
     if (!input.equipmentIds || input.equipmentIds.length === 0) {
@@ -206,7 +206,7 @@ async function runTests() {
     check("Equipment passed", input.equipmentIds?.includes("barbell") ?? false);
     check("Next weight is 72.5 kg", decision.nextWorkingWeightKg === 72.5);
     check("Message shows 159.5 or 160 lb", decision.message.includes("159.5") || decision.message.includes("160") || decision.message.includes("159.8"));
-    check("Jump <= 2.5 kg", decision.nextWorkingWeightKg - 72.3 <= 2.5);
+    check("Jump <= 2.5 kg", (decision.nextWorkingWeightKg ?? 0) - 72.3 <= 2.5);
     check("Outcome is progressed", decision.outcome === "progressed");
     
     if (!input.equipmentIds || input.equipmentIds.length === 0) {
@@ -269,7 +269,7 @@ async function runTests() {
     check("Equipment passed", input.equipmentIds?.includes("dumbbell") ?? false);
     check("Next weight is 67.5 kg", decision.nextWorkingWeightKg === 67.5);
     check("Message shows 148.5, 148.8, or 149 lb", decision.message.includes("148.5") || decision.message.includes("149") || decision.message.includes("148.8"));
-    check("Jump <= 2.5 kg", decision.nextWorkingWeightKg - 65.77 <= 2.5);
+    check("Jump <= 2.5 kg", (decision.nextWorkingWeightKg ?? 0) - 65.77 <= 2.5);
     check("Outcome is progressed", decision.outcome === "progressed");
     
     if (!input.equipmentIds || input.equipmentIds.length === 0) {

@@ -47,6 +47,7 @@ console.log("Barbell 72.3 kg (imperial):");
   const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "imperial");
   const decision = evaluateProgression(input);
 
+  if (!decision.nextWorkingWeightKg) throw new Error("nextWorkingWeightKg is null");
   console.log("Next weight:", decision.nextWorkingWeightKg, "kg =", decision.nextWorkingWeightKg * 2.20462, "lb");
   console.log("Message:", decision.message);
 }
@@ -96,6 +97,7 @@ console.log("\nDumbbell 65.77 kg (imperial):");
   const input = buildProgressionInput(sessionExercise, sets, progress, session, "right", "imperial");
   const decision = evaluateProgression(input);
 
+  if (!decision.nextWorkingWeightKg) throw new Error("nextWorkingWeightKg is null");
   console.log("Next weight:", decision.nextWorkingWeightKg, "kg =", decision.nextWorkingWeightKg * 2.20462, "lb");
   console.log("Message:", decision.message);
 }
