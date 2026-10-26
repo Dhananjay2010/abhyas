@@ -20,7 +20,9 @@ import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
 import { StrengthDoneBanner } from "./strength-done-banner";
 import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
+import { buildChosenByDayIndex } from "@/lib/today/chosen-by-day";
 import { shouldLoadPlannableDays } from "@/lib/today/should-load-plannable";
+import { decideRestDayResume } from "@/lib/today/rest-day-resume";
 
 export const dynamic = "force-dynamic";
 
@@ -306,7 +308,7 @@ export default async function TodayPage() {
   // a workout has been started. Run together so the uncommon day that needs
   // both still costs one round trip.
   const [plannable, performedRows, endedEarlySummary, loggedSetsRes] = await Promise.all([
-    shouldLoadPlannableDays({ askAboutToday, dayType })
+    shouldLoadPlannableDays({ askAboutToday, dayType, strengthOpen: strengthOpen !== undefined })
       ? plannableDays(supabase, program.id)
       : Promise.resolve([]),
     performed
@@ -410,24 +412,13 @@ export default async function TodayPage() {
     Rest for tomorrow and the week still said Push. Only a difference is
     recorded -- "keep the plan" writes no row, and a swap that happens to match
     the template is not news.
+
+    A swapped day keeps its identity after the session finishes: the header says
+    "You chose this for today" throughout, so "Your week" must too. Completed
+    strength sessions are included; yoga and breathing are not (they're anytime
+    activities that don't own the day).
   */
-  const chosenByDayIndex = new Map<number, string>();
-  for (const d of days ?? []) {
-    // The next time this weekday comes round, which is today for today.
-    const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
-    const sess = allSessions.find(
-      (x) =>
-        x.local_date === date &&
-        (x.status === "planned" || x.status === "in_progress") &&
-        x.actual_type !== null,
-    );
-    if (!sess?.actual_type) continue;
-    const chosenDay = sess.program_day_id
-      ? days?.find((pd) => pd.id === sess.program_day_id)
-      : undefined;
-    const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
-    if (label !== d.label) chosenByDayIndex.set(d.day_index, label);
-  }
+  const chosenByDayIndex = buildChosenByDayIndex(allSessions, days ?? [], localToday, todayIndex);
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-36">
@@ -498,43 +489,66 @@ export default async function TodayPage() {
         />
       )}
 
-      {dayType === "rest" && (
-        <>
-          <p className="mt-6 text-muted">
-            Rest is part of the training. Your body builds strength while recovering.
-          </p>
-          <div className="mt-6 space-y-3">
-            <div className="rounded-xl border border-border bg-surface-2 p-5">
-              <h3 className="font-semibold">Active recovery</h3>
-              <p className="mt-1 text-sm text-muted">
-                Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
-              </p>
-              <div className="mt-4 flex gap-3">
-                <Link
-                  href="/yoga"
-                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
-                >
-                  Yoga
-                </Link>
-                <Link
-                  href="/breathe"
-                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
-                >
-                  Breathe
-                </Link>
+      {dayType === "rest" && (() => {
+        const decision = decideRestDayResume({ dayType, strengthOpen, localToday });
+
+        return (
+          <>
+            {/* Rest day with an open strength session shows Resume */}
+            {decision.showResume && decision.resumeButton && (
+              <div className="mt-7">
+                {decision.resumeButton.type === "link" ? (
+                  <Link
+                    href={decision.resumeButton.href}
+                    className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+                  >
+                    Resume session
+                  </Link>
+                ) : (
+                  <StartSessionButton label={decision.resumeButton.label} />
+                )}
               </div>
+            )}
+
+            <p className="mt-6 text-muted">
+              Rest is part of the training. Your body builds strength while recovering.
+            </p>
+            <div className="mt-6 space-y-3">
+              <div className="rounded-xl border border-border bg-surface-2 p-5">
+                <h3 className="font-semibold">Active recovery</h3>
+                <p className="mt-1 text-sm text-muted">
+                  Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
+                </p>
+                <div className="mt-4 flex gap-3">
+                  <Link
+                    href="/yoga"
+                    className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                  >
+                    Yoga
+                  </Link>
+                  <Link
+                    href="/breathe"
+                    className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                  >
+                    Breathe
+                  </Link>
+                </div>
+              </div>
+              {/* Only show swap prompt when no strength session is open */}
+              {decision.showSwap && (
+                <DayPlanPrompt
+                  localDate={localToday}
+                  dayLabel="Today"
+                  plannedLabel="Rest"
+                  days={plannable}
+                  heading="Or train today anyway"
+                  intro="Pick what you'd like to do instead."
+                />
+              )}
             </div>
-            <DayPlanPrompt
-              localDate={localToday}
-              dayLabel="Today"
-              plannedLabel="Rest"
-              days={plannable}
-              heading="Or train today anyway"
-              intro="Pick what you'd like to do instead."
-            />
-          </div>
-        </>
-      )}
+          </>
+        );
+      })()}
 
       {dayType === "meditation" && (
         <div className="mt-6">
