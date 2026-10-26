@@ -23,9 +23,9 @@ function check(label: string, condition: boolean, detail = "") {
 console.log("Sequential real-path zero-weight progression tests\n");
 
 // Helper to create DB rows
-const mechanicCompound = "compound" as const;
-const movementVerticalPull = "vertical_pull" as const;
-const metricReps = "reps" as const;
+const mechanicCompound: "compound" = "compound";
+const movementVerticalPull: "vertical_pull" = "vertical_pull";
+const metricReps: "reps" = "reps";
 
 function makeSessionExercise(equipmentIds: string[]) {
   return {

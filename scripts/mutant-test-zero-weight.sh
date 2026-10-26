@@ -87,7 +87,7 @@ test_mutant() {
 # H5: bar/band floor at gridStep instead of 0
 test_mutant "H5 (bar/band floor = gridStep)" \
   "const floor = isBodyweightEquipment ? 0 : gridStep;" \
-  "const floor = gridStep;" || true
+  "const floor = gridStep;" || true || true
 
 # Z1: bar message
 test_mutant "Z1 (bar message wording)" \
