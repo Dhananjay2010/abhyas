@@ -42,7 +42,7 @@ import {
 } from "@/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
-import { getPendingUiMode } from "@/lib/session/pending-ui-state";
+import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
 import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
 import { resolveSetConflict, type ConflictResult } from "@/lib/session/conflict-reducer";
@@ -1078,7 +1078,14 @@ export function SessionRunner({
         <RunnerStatusArea {...selectRunnerStatusProps(pendingSetState)} />
         {pendingSetState.pending.length > 0 && (
           <div className="mb-5">
-            {getPendingUiMode(pendingSetState) === "expired" && <SessionExpiredPrompt />}
+            {getPendingUiMode(pendingSetState) === "replay-error" ? (
+              <div className="rounded-xl border border-muted/30 bg-muted/10 px-4 py-3 text-sm text-muted">
+                <p className="font-medium">Failed to save sets</p>
+                <p className="mt-1">{getReplayErrorMessage(pendingSetState)}</p>
+              </div>
+            ) : getPendingUiMode(pendingSetState) === "expired" ? (
+              <SessionExpiredPrompt />
+            ) : null}
             <p className="mt-2 text-sm text-muted">
               {pendingSetState.pending.length}{" "}
               {pendingSetState.pending.length === 1 ? "set" : "sets"} waiting to save
