@@ -31,56 +31,52 @@ async function runComparison() {
 
   console.log("Imported both versions successfully\n");
 
-  // Generate all 51,200 sweep inputs
-  const mechanics = ["compound", "isolation"];
-  const patterns = ["horizontal_press", "vertical_press", "horizontal_pull", "vertical_pull"];
-  const feels = [null, "easy", "right", "hard"];
-  const repsOptions = [
-    [10, 10, 10, 10], // in-range
-    [8, 8, 8], // low-range
-    [5, 5, 5], // miss
+  // Generate all 51,200 sweep inputs - EXACT same parameters as test-first-miss-noequip-sweep.ts
+  const MECHANICS: Array<"compound" | "isolation"> = ["compound", "isolation"];
+  const PATTERNS: Array<"horizontal_press" | "vertical_pull" | "squat" | "hinge" | "biceps"> = [
+    "horizontal_press",
+    "vertical_pull",
+    "squat",
+    "hinge",
+    "biceps",
   ];
-  const weightsCompound = [2.5, 3.75, 5, 10, 20, 40, 60, 80, 100];
-  const weightsIsolation = [2.5, 3.75, 5, 7.5, 10, 15, 20];
-  const failureStates = [
-    { failures: 0, weightAtFailureStart: null },
-    { failures: 1, weightAtFailureStart: null },
-    { failures: 1, weightAtFailureStart: 42.5 },
-    { failures: 2, weightAtFailureStart: 42.5 },
-  ];
-  const deloadOptions = [false, true];
+  const FEELS: Array<"easy" | "right" | "hard" | null> = ["easy", "right", "hard", null];
+  const MISS_COUNTS = [0, 1, 2, 3];
+  const DELOADS = [false, true];
+
+  // Weights: on-grid (2.5 kg multiples) and off-grid, 0 to 200
+  const WEIGHTS: number[] = [];
+  for (let w = 0; w <= 200; w += 2.5) {
+    WEIGHTS.push(w);
+    if (w > 0 && w < 200) {
+      WEIGHTS.push(w + 1.25); // off-grid
+    }
+  }
 
   interface TestCase {
-    mechanic: string;
+    mechanic: "compound" | "isolation";
     pattern: string;
-    feel: string | null;
-    reps: number[];
+    feel: "easy" | "right" | "hard" | null;
+    missCount: number;
     weight: number;
-    failures: number;
-    weightAtFailureStart: number | null;
     deload: boolean;
   }
 
   const cases: TestCase[] = [];
-  for (const mechanic of mechanics) {
-    const weights = mechanic === "compound" ? weightsCompound : weightsIsolation;
-    for (const pattern of patterns) {
-      for (const feel of feels) {
-        for (const reps of repsOptions) {
-          for (const weight of weights) {
-            for (const failureState of failureStates) {
-              for (const deload of deloadOptions) {
-                cases.push({
-                  mechanic,
-                  pattern,
-                  feel,
-                  reps,
-                  weight,
-                  failures: failureState.failures,
-                  weightAtFailureStart: failureState.weightAtFailureStart,
-                  deload,
-                });
-              }
+  for (const mechanic of MECHANICS) {
+    for (const pattern of PATTERNS) {
+      for (const feel of FEELS) {
+        for (const missCount of MISS_COUNTS) {
+          for (const weight of WEIGHTS) {
+            for (const deload of DELOADS) {
+              cases.push({
+                mechanic,
+                pattern,
+                feel,
+                missCount,
+                weight,
+                deload,
+              });
             }
           }
         }
@@ -88,7 +84,7 @@ async function runComparison() {
     }
   }
 
-  console.log(`Generated ${cases.length} test cases`);
+  console.log(`Generated ${cases.length} test cases (expected 51,200)\n`);
 
   // Compare outputs
   interface Diff {
@@ -102,7 +98,7 @@ async function runComparison() {
 
   for (const testCase of cases) {
     const meta = {
-      mechanic: testCase.mechanic as "compound" | "isolation",
+      mechanic: testCase.mechanic,
       movementPattern: testCase.pattern as any,
       metric: "reps" as const,
       isBodyweight: false,
@@ -112,23 +108,26 @@ async function runComparison() {
 
     const state = {
       currentWorkingWeightKg: testCase.weight,
-      currentTargetReps: 10,
-      consecutiveFailures: testCase.failures,
+      currentTargetReps: 12,
+      consecutiveFailures: testCase.missCount,
       bestWeightKg: testCase.weight,
-      bestReps: 10,
+      bestReps: 12,
       bestE1rm: null,
-      totalSessions: 1,
-      weightAtFailureStartKg: testCase.weightAtFailureStart,
+      totalSessions: 3,
+      weightAtFailureStartKg: testCase.missCount > 0 ? testCase.weight : null,
     };
 
-    const sets = testCase.reps.map(r => ({ reps: r, weightKg: testCase.weight }));
+    // Generate sets based on miss count (same logic as test-first-miss-noequip-sweep.ts)
+    const sets = testCase.missCount === 0
+      ? [{ reps: 12, weightKg: testCase.weight }, { reps: 12, weightKg: testCase.weight }, { reps: 12, weightKg: testCase.weight }]
+      : [{ reps: 5, weightKg: testCase.weight }, { reps: 5, weightKg: testCase.weight }, { reps: 5, weightKg: testCase.weight }];
 
     const input = {
       sets,
       plannedSets: 3,
       repsMin: 8,
       repsMax: 12,
-      feel: testCase.feel as "easy" | "right" | "hard" | null,
+      feel: testCase.feel,
       meta,
       state,
       isDeload: testCase.deload,
@@ -177,16 +176,20 @@ async function runComparison() {
     // Determine which rule caused the difference
     let rule = "unknown";
 
-    // Counter preserved at lightest weights (first-miss guard)
+    // Counter preserved/incremented at lightest weights (first-miss guard)
     if (
       diff.diffFields.includes("consecutiveFailures") &&
       !diff.diffFields.includes("weight") &&
       !diff.diffFields.includes("outcome") &&
-      diff.input.reps.some(r => r < 8) && // Miss
-      diff.input.failures === 0 &&
-      [2.5, 3.75, 5].includes(diff.input.weight)
+      diff.input.missCount > 0
     ) {
-      rule = "M1: Counter preserved at lightest weights (first-miss guard prevents drop)";
+      if (diff.mainOutput.counter === 0 && diff.branchOutput.counter > 0) {
+        rule = "M1: Counter preserved at light weights (first-miss guards prevent drop, counter still increments)";
+      } else if (diff.mainOutput.counter < 3 && diff.branchOutput.counter === 3) {
+        rule = "Counter cap: Branch caps at 3 to prevent infinite growth at minimum weights";
+      } else {
+        rule = `Counter diff: main=${diff.mainOutput.counter}, branch=${diff.branchOutput.counter}`;
+      }
     }
 
     if (!diffsByRule[rule]) {

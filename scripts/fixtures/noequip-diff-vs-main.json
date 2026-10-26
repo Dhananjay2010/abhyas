@@ -1,26 +1,20 @@
 {
   "mainSha": "7795ff7c",
-  "comparedAt": "2026-10-26T08:26:53.934Z",
-  "totalCases": 6144,
-  "differingCases": 576,
+  "comparedAt": "2026-10-26T08:36:15.658Z",
+  "totalCases": 51200,
+  "differingCases": 328,
   "differencesByRule": [
     {
-      "rule": "unknown",
-      "count": 576,
+      "rule": "M1: Counter preserved at light weights (first-miss guards prevent drop, counter still increments)",
+      "count": 288,
       "examples": [
         {
           "input": {
             "mechanic": "compound",
             "pattern": "horizontal_press",
-            "feel": null,
-            "reps": [
-              5,
-              5,
-              5
-            ],
+            "feel": "easy",
+            "missCount": 1,
             "weight": 2.5,
-            "failures": 1,
-            "weightAtFailureStart": null,
             "deload": false
           },
           "mainOutput": {
@@ -41,24 +35,18 @@
           "input": {
             "mechanic": "compound",
             "pattern": "horizontal_press",
-            "feel": null,
-            "reps": [
-              5,
-              5,
-              5
-            ],
-            "weight": 2.5,
-            "failures": 1,
-            "weightAtFailureStart": 42.5,
+            "feel": "easy",
+            "missCount": 1,
+            "weight": 3.75,
             "deload": false
           },
           "mainOutput": {
-            "weight": 2.5,
+            "weight": 3.75,
             "counter": 0,
             "outcome": "hold"
           },
           "branchOutput": {
-            "weight": 2.5,
+            "weight": 3.75,
             "counter": 2,
             "outcome": "hold"
           },
@@ -70,15 +58,32 @@
           "input": {
             "mechanic": "compound",
             "pattern": "horizontal_press",
-            "feel": null,
-            "reps": [
-              5,
-              5,
-              5
-            ],
+            "feel": "easy",
+            "missCount": 1,
+            "weight": 5,
+            "deload": false
+          },
+          "mainOutput": {
+            "weight": 5,
+            "counter": 0,
+            "outcome": "hold"
+          },
+          "branchOutput": {
+            "weight": 5,
+            "counter": 2,
+            "outcome": "hold"
+          },
+          "diffFields": [
+            "consecutiveFailures"
+          ]
+        },
+        {
+          "input": {
+            "mechanic": "compound",
+            "pattern": "horizontal_press",
+            "feel": "easy",
+            "missCount": 2,
             "weight": 2.5,
-            "failures": 2,
-            "weightAtFailureStart": 42.5,
             "deload": false
           },
           "mainOutput": {
@@ -99,15 +104,9 @@
           "input": {
             "mechanic": "compound",
             "pattern": "horizontal_press",
-            "feel": null,
-            "reps": [
-              5,
-              5,
-              5
-            ],
+            "feel": "easy",
+            "missCount": 2,
             "weight": 3.75,
-            "failures": 1,
-            "weightAtFailureStart": null,
             "deload": false
           },
           "mainOutput": {
@@ -117,7 +116,82 @@
           },
           "branchOutput": {
             "weight": 3.75,
-            "counter": 2,
+            "counter": 3,
+            "outcome": "hold"
+          },
+          "diffFields": [
+            "consecutiveFailures"
+          ]
+        }
+      ]
+    },
+    {
+      "rule": "Counter diff: main=4, branch=3",
+      "count": 40,
+      "examples": [
+        {
+          "input": {
+            "mechanic": "compound",
+            "pattern": "horizontal_press",
+            "feel": "easy",
+            "missCount": 3,
+            "weight": 0,
+            "deload": false
+          },
+          "mainOutput": {
+            "weight": 0,
+            "counter": 4,
+            "outcome": "hold"
+          },
+          "branchOutput": {
+            "weight": 0,
+            "counter": 3,
+            "outcome": "hold"
+          },
+          "diffFields": [
+            "consecutiveFailures"
+          ]
+        },
+        {
+          "input": {
+            "mechanic": "compound",
+            "pattern": "horizontal_press",
+            "feel": "right",
+            "missCount": 3,
+            "weight": 0,
+            "deload": false
+          },
+          "mainOutput": {
+            "weight": 0,
+            "counter": 4,
+            "outcome": "hold"
+          },
+          "branchOutput": {
+            "weight": 0,
+            "counter": 3,
+            "outcome": "hold"
+          },
+          "diffFields": [
+            "consecutiveFailures"
+          ]
+        },
+        {
+          "input": {
+            "mechanic": "compound",
+            "pattern": "horizontal_press",
+            "feel": "hard",
+            "missCount": 3,
+            "weight": 0,
+            "deload": false
+          },
+          "mainOutput": {
+            "weight": 0,
+            "counter": 4,
+            "outcome": "hold"
+          },
+          "branchOutput": {
+            "weight": 0,
+            "counter": 3,
             "outcome": "hold"
           },
           "diffFields": [
@@ -129,24 +203,41 @@
             "mechanic": "compound",
             "pattern": "horizontal_press",
             "feel": null,
-            "reps": [
-              5,
-              5,
-              5
-            ],
-            "weight": 3.75,
-            "failures": 1,
-            "weightAtFailureStart": 42.5,
+            "missCount": 3,
+            "weight": 0,
             "deload": false
           },
           "mainOutput": {
-            "weight": 3.75,
-            "counter": 0,
+            "weight": 0,
+            "counter": 4,
             "outcome": "hold"
           },
           "branchOutput": {
-            "weight": 3.75,
-            "counter": 2,
+            "weight": 0,
+            "counter": 3,
+            "outcome": "hold"
+          },
+          "diffFields": [
+            "consecutiveFailures"
+          ]
+        },
+        {
+          "input": {
+            "mechanic": "compound",
+            "pattern": "vertical_pull",
+            "feel": "easy",
+            "missCount": 3,
+            "weight": 0,
+            "deload": false
+          },
+          "mainOutput": {
+            "weight": 0,
+            "counter": 4,
+            "outcome": "hold"
+          },
+          "branchOutput": {
+            "weight": 0,
+            "counter": 3,
             "outcome": "hold"
           },
           "diffFields": [
