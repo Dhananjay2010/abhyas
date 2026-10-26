@@ -70,15 +70,35 @@ const fakeDeps: PendingSetDeps = {
 
 const fakeTimer = {
   setTimeout: (callback: () => void) => {
-    callback();
+    // Don't call callback immediately - store it for manual control
     return 0;
   },
   clearTimeout: () => {},
 };
 
+const eventHandlers = new Map<string, (() => void)[]>();
+
+const fakeAddEventListener = (type: string, handler: () => void) => {
+  if (!eventHandlers.has(type)) {
+    eventHandlers.set(type, []);
+  }
+  eventHandlers.get(type)!.push(handler);
+};
+
+const fakeRemoveEventListener = (type: string, handler: () => void) => {
+  const handlers = eventHandlers.get(type);
+  if (handlers) {
+    const index = handlers.indexOf(handler);
+    if (index > -1) {
+      handlers.splice(index, 1);
+    }
+  }
+};
+
 async function testM9() {
   console.log("\n📋 Test M9: Retry button disabled while retrying\n");
   
+  eventHandlers.clear();
   let replayCallCount = 0;
   let logSetDeferred: ((value: { ok: true }) => void) | null = null;
   
@@ -165,6 +185,8 @@ async function testM9() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+      addEventListener={fakeAddEventListener}
+      removeEventListener={fakeRemoveEventListener}
     />
   );
   
