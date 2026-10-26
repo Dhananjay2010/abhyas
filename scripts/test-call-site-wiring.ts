@@ -66,9 +66,9 @@ check(
 );
 
 check(
-  "does NOT query units from profiles (M2: imperial removed)",
-  !pageContent.includes('profileRes.data?.units'),
-  "units removed per M2"
+  "queries units from profiles (coordinator units rule)",
+  pageContent.includes('profileRes.data?.units'),
+  "units passed per coordinator rule"
 );
 
 check(

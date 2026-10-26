@@ -1146,7 +1146,7 @@ console.log("\n30. Isolation back-off uses 1.25 kg grid (not 2.5 kg)");
   check("isolation back-off 13.75 kg: 13.75 -> 12.5 kg (loadable)", backOffIso.nextWorkingWeightKg === 12.5, `${backOffIso.nextWorkingWeightKg}`);
   check("isolation back-off 13.75 kg message says 'dropping to 12.5 kg'", backOffIso.message.includes("dropping to 12.5 kg") || backOffIso.message.includes("27"), backOffIso.message);
   const curl15 = run({ meta: CURL, sets: sets(4, 12, 15), state: fresh({ currentWorkingWeightKg: 15 }), equipmentIds: undefined });
-  check("unwired curl 15 kg -> 'up to 16.25 kg' (main's kg wording, not 16.3)", curl15.nextWorkingWeightKg === 16.25 && curl15.message.includes("up to 16.25 kg"), curl15.message);
+  check("unwired curl 15 kg -> 'up to 16.3 kg' (main's 1-decimal formatWeight)", curl15.nextWorkingWeightKg === 16.25 && curl15.message.includes("up to 16.3 kg"), curl15.message);
 }
 
 console.log("\n31. Kettlebell back-off: SMALLEST loadable >= target and < current");

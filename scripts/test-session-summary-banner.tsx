@@ -75,6 +75,7 @@ function engineMessage(set: Logged, isDeload: boolean): string {
   const state: ProgressState = {
     currentWorkingWeightKg: 40, currentTargetReps: 12, consecutiveFailures: 0,
     bestWeightKg: 40, bestReps: 10, bestE1rm: 50, totalSessions: 3,
+    weightAtFailureStartKg: null,
   };
   return evaluateProgression({
     sets: [{ reps: set.reps, weightKg: set.weightKg }],
