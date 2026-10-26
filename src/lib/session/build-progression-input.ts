@@ -107,7 +107,7 @@ export function buildProgressionInput(
     plannedMin: sessionExercise.planned_reps_min ?? 8,
     plannedMax: sessionExercise.planned_reps_max ?? 12,
     currentTargetReps: progress?.current_target_reps ?? null,
-    equipmentIds: ex.equipment_ids ?? [],
+    equipmentIds: [] ?? [],
     currentWorkingWeightKg: progress?.current_working_weight_kg === null || progress === null
       ? null
       : Number(progress.current_working_weight_kg),

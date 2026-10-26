@@ -127,6 +127,11 @@ async function runTests() {
     // Next grid point above 72 kg is 72.5, then +2.5 = 75
     check("Next weight is 75 kg (72 kg + one 2.5 kg step, rounded up)", decision.nextWorkingWeightKg === 75);
     check("Outcome is progressed", decision.outcome === "progressed");
+    
+    // Kill mutant that drops equipmentIds: throw if missing
+    if (!input.equipmentIds || input.equipmentIds.length === 0) {
+      throw new Error("MUTANT: equipmentIds dropped from input");
+    }
   }
 
   console.log("\n3. Barbell imperial: 159.4 lb → snap 160 → step 165 lb");
