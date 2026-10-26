@@ -1,4 +1,4 @@
-const pkg = require('../package.json');
+import pkg from '../package.json' assert { type: "json" };
 
 const testScripts = Object.keys(pkg.scripts)
   .filter(k => k.startsWith('test:'))
@@ -22,7 +22,7 @@ testScripts.forEach(s => {
   counts[s] = (counts[s] || 0) + 1;
 });
 
-const dups = Object.entries(counts).filter(([k, v]) => v > 1);
+const dups = Object.entries(counts).filter(([_, v]) => v > 1);
 console.log('Duplicates:', dups.length);
 if (dups.length > 0) {
   console.log('  ', dups.map(([k, v]) => `${k} (${v})`).join('\n   '));
