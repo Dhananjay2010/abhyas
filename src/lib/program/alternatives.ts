@@ -431,19 +431,17 @@ export function rankAlternatives<T extends ExerciseRow>(
   // Past-knee squat swaps: specific ordering per PR #152 follow-up
   // 1. PAST_KNEE_LUNGE_EXERCISES (spanish-squat, wall-sit, leg-extensions, single-leg-leg-extension) 
   //    in that order, filtered by equipment and excluding current
-  // 2. Then other knee-safe squat-pattern exercises (e.g. bodyweight-squat, goblet-squat)
-  // 3. Then knee-safe hinge/bridge fallbacks (glute/hamstring primary muscles only)
+  // 2. Then knee-safe hinge/bridge fallbacks (glute/hamstring primary muscles only)
+  // Note: Other squat-pattern exercises (goblet-squat, bodyweight-squat, etc.) are excluded
+  // to minimize knee load and prioritize quad isolation + hip-dominant work
   if (hasPastKnee && current.movement_pattern === "squat" && deduplicated.length > 0) {
     const quadIsolationOrder = ["spanish-squat", "wall-sit", "leg-extensions", "single-leg-leg-extension"];
     const quadIsolation: T[] = [];
-    const otherSquats: T[] = [];
     const hingeFallbacks: T[] = [];
     
     for (const ex of deduplicated) {
       if (PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {
         quadIsolation.push(ex);
-      } else if (ex.movement_pattern === "squat") {
-        otherSquats.push(ex);
       } else if (ex.movement_pattern === "hinge" || ex.movement_pattern === "core") {
         // Only include genuine hip-dominant hinges/bridges (glutes or hamstrings primary)
         const hasHipDominantMuscle = ex.primary_muscles.some(m => m === "glutes" || m === "hamstrings");
@@ -460,7 +458,7 @@ export function rankAlternatives<T extends ExerciseRow>(
       return aIndex - bIndex;
     });
     
-    return [...quadIsolation, ...otherSquats, ...hingeFallbacks];
+    return [...quadIsolation, ...hingeFallbacks];
   }
   
   return deduplicated;

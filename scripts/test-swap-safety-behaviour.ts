@@ -118,8 +118,8 @@ async function main() {
   const SQUAT = ["low-impact-box-jump", "bodyweight-squat"];
   await scenario("Squat — healthy (control): low-impact box jump offered", healthy("intermediate", ["flat_bench", "dumbbell"]), "goblet-squat", SQUAT, SQUAT);
   const SQUAT_WITH_FALLBACKS = ["low-impact-box-jump", "bodyweight-squat", "wall-sit", "glute-bridge", "butt-lift-bridge", "stiff-legged-dumbbell-deadlift"];
-  await scenario("Squat — PAST knee: quad isolation first, then other squats, then hinge fallbacks", knee("past", "intermediate", ["flat_bench", "dumbbell"]), "goblet-squat", SQUAT_WITH_FALLBACKS,
-    ["wall-sit", "bodyweight-squat", "stiff-legged-dumbbell-deadlift", "butt-lift-bridge", "glute-bridge"]); // wall-sit from quad isolation, bodyweight-squat, then hinge fallbacks
+  await scenario("Squat — PAST knee: quad isolation first, then hinge fallbacks", knee("past", "intermediate", ["flat_bench", "dumbbell"]), "goblet-squat", SQUAT_WITH_FALLBACKS,
+    ["wall-sit", "stiff-legged-dumbbell-deadlift", "butt-lift-bridge", "glute-bridge"]); // wall-sit from quad isolation, then hinge fallbacks (bodyweight-squat excluded to minimize knee load)
   const HP = ["plyo-push-up", "clock-push-up", "push-up-wide", "single-arm-push-up"];
   await scenario("Horizontal press (hold) — PAST knee: upper-body plyo-push-up still offered", knee("past", "intermediate", []), "isometric-wipers", HP, HP);
 
