@@ -165,6 +165,7 @@ export default async function SessionPage({
   });
 
   const s = settingsRes.data;
+  const profile = profileRes.data;
   const settings: RunnerSettings = {
     perSetLogging: s?.per_set_logging ?? true,
     restAutostart: s?.rest_timer_autostart ?? true,
@@ -172,6 +173,7 @@ export default async function SessionPage({
     restVibrate: s?.rest_timer_vibrate ?? true,
     restOverrideSeconds: s?.rest_seconds_override ?? null,
     cooldownEnabled: s?.cooldown_enabled ?? true,
+    units: (profile?.units === "imperial" || profile?.units === "metric") ? profile.units : "metric",
   };
 
   // "What about tomorrow?" needs the block's own days to offer as alternatives,

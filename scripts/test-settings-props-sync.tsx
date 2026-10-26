@@ -60,6 +60,7 @@ const INITIAL_A: SettingsState = {
   bodyweightPrompt: "weekly",
   timezone: "America/New_York",
   dateOfBirth: null,
+  units: 'metric',
 };
 
 const INITIAL_B: SettingsState = {

@@ -7,6 +7,8 @@
 
 import { localDateString } from "@/lib/dates";
 import { utcToZonedDateTime } from "@/lib/timezone";
+import type { UnitsPreference } from "@/lib/units";
+import { LOAD_METRIC_MAX_KG, LOAD_IMPERIAL_MAX_LB, LOAD_LB_EPSILON, kgToLb } from "@/lib/units";
 
 export interface ValidationResult {
   valid: boolean;
@@ -33,21 +35,37 @@ export function validateReps(reps: number | null): ValidationResult {
 }
 
 /**
- * Validate set weight: must be a finite number from 0 to 500 kg with at most 2 decimals.
+ * Validate set weight: must be a finite number with at most 2 decimals.
+ * Enforces unit-specific maxima: 999 lb for imperial, 500 kg for metric.
+ * @param units - User's units preference for formatting error messages
  */
-export function validateWeightKg(weightKg: number | null): ValidationResult {
+export function validateWeightKg(weightKg: number | null, units: UnitsPreference = "metric"): ValidationResult {
   if (weightKg === null) {
     return { valid: true };
   }
   if (!Number.isFinite(weightKg)) {
     return { valid: false, error: "Weight must be a valid number." };
   }
-  if (weightKg < 0) {
-    return { valid: false, error: "Weight must be between 0 and 500 kg." };
+  
+  // Enforce unit-specific maxima in display units
+  // Use small epsilon to handle rounding: 999 lb→453.14 kg→999.0027 lb
+  if (units === "imperial") {
+    const displayLb = kgToLb(weightKg);
+    if (weightKg < 0) {
+      return { valid: false, error: `Weight must be between 0 and ${LOAD_IMPERIAL_MAX_LB} lb.` };
+    }
+    if (displayLb > LOAD_IMPERIAL_MAX_LB + LOAD_LB_EPSILON) {
+      return { valid: false, error: `Weight must be between 0 and ${LOAD_IMPERIAL_MAX_LB} lb.` };
+    }
+  } else {
+    if (weightKg < 0) {
+      return { valid: false, error: `Weight must be between 0 and ${LOAD_METRIC_MAX_KG} kg.` };
+    }
+    if (weightKg > LOAD_METRIC_MAX_KG) {
+      return { valid: false, error: `Weight must be between 0 and ${LOAD_METRIC_MAX_KG} kg.` };
+    }
   }
-  if (weightKg > 500) {
-    return { valid: false, error: "Weight must be between 0 and 500 kg." };
-  }
+  
   // Check at most 2 decimals
   const decimals = (weightKg.toString().split(".")[1] || "").length;
   if (decimals > 2) {

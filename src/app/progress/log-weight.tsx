@@ -2,10 +2,21 @@
 
 import { useState, useTransition } from "react";
 import { logBodyWeight } from "./actions";
+import { formatWeight, parseWeight, weightLabel, type UnitsPreference } from "@/lib/units";
 
-export function LogWeight({ current }: { current: number | null }) {
+export function LogWeight({ 
+  current,
+  units,
+  logAction = logBodyWeight,
+}: { 
+  current: number | null;
+  units: UnitsPreference;
+  logAction?: (kg: number) => Promise<{ ok: true } | { ok: false; error: string }>;
+}) {
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(current !== null ? String(current) : "");
+  const [value, setValue] = useState(
+    current !== null ? formatWeight(current, units, false) : ""
+  );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -26,13 +37,11 @@ export function LogWeight({ current }: { current: number | null }) {
         <input
           type="number"
           inputMode="decimal"
-          step="0.1"
-          min={25}
-          max={300}
+          step={units === "imperial" ? "0.5" : "0.1"}
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="kg"
+          placeholder={weightLabel(units)}
           className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-center text-lg font-semibold tabular-nums outline-none focus:border-accent"
         />
         <button
@@ -40,12 +49,18 @@ export function LogWeight({ current }: { current: number | null }) {
           onClick={() =>
             startTransition(async () => {
               setError(null);
-              const r = await logBodyWeight(Number(value));
+              const weightKg = parseWeight(value, units);
+              if (weightKg === null) {
+                setError(
+                  units === "imperial"
+                    ? "Weight should be between 55 and 661 lb"
+                    : "Weight should be between 25 and 300 kg"
+                );
+                return;
+              }
+              const r = await logAction(weightKg);
               if (!r.ok) return setError(r.error);
               setOpen(false);
-              // logBodyWeight revalidates "/progress" and the action's response
-              // carries the new tree. Refreshing as well re-fetched all seven of
-              // this screen's queries for a second time.
             })
           }
           className="shrink-0 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-accent-fg disabled:opacity-50"

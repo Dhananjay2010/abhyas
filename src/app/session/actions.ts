@@ -12,7 +12,6 @@ import {
   evaluateProgression,
 } from "@/lib/program/progression";
 import { buildProgressionInput } from "@/lib/session/build-progression-input";
-import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
@@ -111,15 +110,20 @@ export async function logSet(input: {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
   
-  const durationSeconds = input.durationSeconds ?? null;
-  const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
-  if (invalid) return { ok: false, error: invalid };
-
   const { supabase, user } = await requireUser();
+  
+  const { checkLogSetInput } = await import("@/lib/session/check-log-set-input");
+  const invalid = await checkLogSetInput(supabase, user.id, {
+    reps: input.reps,
+    weightKg: input.weightKg,
+    durationSeconds: input.durationSeconds,
+  });
+  if (invalid) return { ok: false, error: invalid };
 
   // Reject writes to sessions that are no longer in_progress or don't exist
   // For ended sessions, allow idempotent retry if the exact set already exists
   const validationDeps = buildLogSetValidationDeps(supabase);
+  const durationSeconds = input.durationSeconds ?? null;
   const validationResult = await validateSessionForLogSet(
     validationDeps, 
     input.sessionExerciseId,
