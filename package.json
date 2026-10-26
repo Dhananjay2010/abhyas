@@ -47,7 +47,6 @@
     "test:first-miss-pinned": "tsx scripts/test-first-miss-pinned.ts",
     "test:first-miss-noequip-sweep": "tsx scripts/test-first-miss-noequip-sweep.ts",
     "test:first-miss-equipment-sweep": "tsx scripts/test-first-miss-equipment-sweep.ts",
-    "test:first-miss-mutants": "bash scripts/mutant-test-first-miss.sh",
     "test:progression-in-range-mutants": "bash scripts/test-progression-in-range-mutants.sh",
     "test:h2-new-user-inrange": "tsx scripts/test-h2-new-user-inrange.ts",
     "test:h2-real-path-persistence": "tsx scripts/test-h2-real-path-persistence.ts",

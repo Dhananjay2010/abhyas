@@ -188,8 +188,8 @@ async function main() {
     assert.equal(inserts.length, 1, "Should insert rest");
 
     const insertCall = inserts[0];
-    const row = (insertCall.args[0] as { actual_type: string }).actual_type;
-    assert.equal(row, "rest", "Inserted row should be rest");
+    const row = insertCall.args[0] as { actual_type: string };
+    assert.equal(row.actual_type, "rest", "Inserted row should be rest");
   });
 
   console.log(`\n${passed} passed, ${failed} failed`);
