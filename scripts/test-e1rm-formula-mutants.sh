@@ -296,8 +296,8 @@ echo ""
 
 # M9: Drop backup table creation
 echo "M9: Drop backup table creation"
-# Comment out the backup (Test 12 will fail: backup table doesn't exist)
-sed -i '/^create table if not exists exercise_progress_best_e1rm_backup/,/^from exercise_progress;$/s/^/-- MUTANT: /' supabase/migrations/20261025000030_align_e1rm_formula.sql
+# Comment out the backup creation AND the RLS/revoke lines that follow
+sed -i '/^create table if not exists exercise_progress_best_e1rm_backup/,/^revoke all on exercise_progress_best_e1rm_backup_20261025000030/s/^/-- MUTANT: /' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ M9: sed did not change migration"
