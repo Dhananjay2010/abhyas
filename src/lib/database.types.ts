@@ -1495,13 +1495,13 @@ export type Database = {
       }
       is_gym_owner: {
         Args: {
-          target_gym_id: string
+          check_gym_id: string
         }
         Returns: boolean
       }
       is_gym_staff: {
         Args: {
-          target_gym_id: string
+          check_gym_id: string
         }
         Returns: boolean
       }
@@ -1581,7 +1581,7 @@ export type Database = {
         | "flexibility_stress"
       fitness_level: "beginner" | "intermediate" | "expert"
       force_type: "push" | "pull" | "static"
-      gym_role: "member" | "owner" | "staff"
+      gym_role: "owner" | "staff" | "member"
       impact_level: "low" | "medium" | "high"
       injury_severity: "current" | "past"
       mechanic_type: "compound" | "isolation"
@@ -1819,7 +1819,7 @@ export const Constants = {
       ],
       fitness_level: ["beginner", "intermediate", "expert"],
       force_type: ["push", "pull", "static"],
-      gym_role: ["member", "owner", "staff"],
+      gym_role: ["owner", "staff", "member"],
       impact_level: ["low", "medium", "high"],
       injury_severity: ["current", "past"],
       mechanic_type: ["compound", "isolation"],
