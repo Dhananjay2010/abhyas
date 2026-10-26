@@ -7,7 +7,7 @@ import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { computeHistoryEndedEarlyForRow } from "@/lib/history/compute-ended-early-for-row";
+import { computeSessionEndedEarly } from "@/lib/history/compute-session-ended-early";
 
 export const dynamic = "force-dynamic";
 
@@ -222,12 +222,11 @@ export default async function HistoryPage({
     const plannedSets = plannedSetsBySession.get(s.id);
     const hasPendingExercise = hasPendingExerciseBySession.get(s.id) ?? false;
     
-    const endedEarly = computeHistoryEndedEarlyForRow({
-      session: { actual_type: s.actual_type, status: s.status },
-      exercises,
-      workingSetCount,
-      plannedSets,
-      hasPendingExercise,
+    const endedEarly = computeSessionEndedEarly(s, {
+      exercisesBySession,
+      setCountsBySession,
+      plannedSetsBySession,
+      hasPendingExerciseBySession,
     });
 
     return {
