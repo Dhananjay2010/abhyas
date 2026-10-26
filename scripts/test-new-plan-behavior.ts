@@ -10,11 +10,11 @@
  */
 
 import { strict as assert } from "assert";
-import { generateProgram, type GeneratorInput } from "../src/lib/program/generate";
+import { generateProgram, type GeneratorInput, type CandidateExercise } from "../src/lib/program/generate";
 import { isoWeekday } from "../src/lib/dates";
 
 // Minimal valid catalogue
-const CATALOGUE = [
+const CATALOGUE: CandidateExercise[] = [
   { id: "1", slug: "squat", name: "Squat", movement_pattern: "squat", mechanic: "compound", metric: "reps", primary_muscles: ["quads"], equipment_ids: [], level_min: "beginner", contraindicated_regions: [], impact: "low", spinal_load: "low", tracks: ["weights"], default_rest_seconds: 90, category: "strength" },
   { id: "2", slug: "bench", name: "Bench Press", movement_pattern: "horizontal_press", mechanic: "compound", metric: "reps", primary_muscles: ["chest"], equipment_ids: [], level_min: "beginner", contraindicated_regions: [], impact: "low", spinal_load: "low", tracks: ["weights"], default_rest_seconds: 90, category: "strength" },
   { id: "3", slug: "row", name: "Row", movement_pattern: "horizontal_pull", mechanic: "compound", metric: "reps", primary_muscles: ["upper_back"], equipment_ids: [], level_min: "beginner", contraindicated_regions: [], impact: "low", spinal_load: "low", tracks: ["weights"], default_rest_seconds: 75, category: "strength" },
@@ -23,7 +23,7 @@ const CATALOGUE = [
   { id: "6", slug: "pulldown", name: "Pulldown", movement_pattern: "vertical_pull", mechanic: "compound", metric: "reps", primary_muscles: ["lats"], equipment_ids: [], level_min: "beginner", contraindicated_regions: [], impact: "low", spinal_load: "none", tracks: ["weights"], default_rest_seconds: 75, category: "strength" },
   { id: "7", slug: "plank", name: "Plank", movement_pattern: "core", mechanic: "isolation", metric: "seconds", primary_muscles: ["abs"], equipment_ids: [], level_min: "beginner", contraindicated_regions: [], impact: "low", spinal_load: "none", tracks: ["weights", "bodyweight"], default_rest_seconds: 60, category: "strength" },
   { id: "8", slug: "lunge", name: "Lunge", movement_pattern: "lunge", mechanic: "compound", metric: "reps", primary_muscles: ["quads", "glutes"], equipment_ids: [], level_min: "beginner", contraindicated_regions: [], impact: "low", spinal_load: "low", tracks: ["weights", "bodyweight"], default_rest_seconds: 75, category: "strength" },
-] as const;
+];
 
 console.log("Test: New plan behavior\n");
 
@@ -51,7 +51,7 @@ console.log("1. NEW plans: Sign-up day = first training day");
       equipmentIds: [],
       currentInjuryRegions: [],
       preferredSessionMinutes: 60,
-      catalogue: CATALOGUE as unknown as typeof CATALOGUE[number][],
+      catalogue: CATALOGUE,
       startedOn,
     };
     
@@ -92,7 +92,7 @@ console.log("\n2. Different plan sizes");
       equipmentIds: [],
       currentInjuryRegions: [],
       preferredSessionMinutes: 60,
-      catalogue: CATALOGUE as unknown as typeof CATALOGUE[number][],
+      catalogue: CATALOGUE,
       startedOn: "2026-10-27", // Tuesday
     };
     

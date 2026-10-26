@@ -4,6 +4,7 @@ import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
 import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
 import { SignOutForm } from "./signout-form";
+import { StartTomorrowLink } from "./start-tomorrow-link";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { addDays, isoWeekday, localDateString } from "@/lib/dates";
