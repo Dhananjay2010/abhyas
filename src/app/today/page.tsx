@@ -15,6 +15,7 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
+import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
 import { StrengthDoneBanner } from "./strength-done-banner";
@@ -569,17 +570,16 @@ export default async function TodayPage() {
 
       {isTraining && (
         <div className="mt-7">
-          {strengthDone ? (
+          {endedEarlySummary ? (
             <StrengthDoneBanner
-              endedEarly={endedEarlySummary?.endedEarly ?? false}
               workingSets={endedEarlySummary?.workingSets ?? 0}
               plannedSets={endedEarlySummary?.plannedSets ?? 0}
             />
           ) : (() => {
-            const decision = decideRestDayResume({ dayType, strengthOpen, localToday });
-            return decision.resumeButton?.type === "link" ? (
+            const resumeHref = previousDayResumeHref(strengthOpen, localToday);
+            return resumeHref ? (
               <Link
-                href={decision.resumeButton.href}
+                href={resumeHref}
                 className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
               >
                 Resume session
@@ -592,7 +592,7 @@ export default async function TodayPage() {
                 a workout half-done when they had not.
               */
               <StartSessionButton
-                label={decision.resumeButton?.label ?? (strengthOpen?.started_at ? "Resume session" : "Start session")}
+                label={strengthOpen?.started_at ? "Resume session" : "Start session"}
               />
             );
           })()}
