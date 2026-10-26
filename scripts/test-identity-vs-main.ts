@@ -163,8 +163,8 @@ for (const testCase of testCases) {
     const currentSet = new Set(current);
     const expectedSet = new Set(expected);
     
-    const onlyInExpected = expected.filter(s => !currentSet.has(s));
-    const onlyInCurrent = current.filter(s => !expectedSet.has(s));
+    const onlyInExpected = expected.filter((s: string) => !currentSet.has(s));
+    const onlyInCurrent = current.filter((s: string) => !expectedSet.has(s));
     
     const turkishGetUpSlugs = ["kettlebell-turkish-get-up-lunge-style", "kettlebell-turkish-get-up-squat-style"];
     const isTurkishGetUpChange = 

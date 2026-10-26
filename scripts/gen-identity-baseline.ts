@@ -37,21 +37,40 @@ const testCases: Array<{
   { id: "lower-back-past", injuries: [{ region: "lower_back", severity: "past" }], level: "intermediate" },
 ];
 
-const baseline: Record<string, any> = {};
+interface BaselineEntry {
+  program: {
+    days: Array<{
+      dayIndex: number;
+      dayType: string;
+      focus: string;
+      label: string;
+      exercises: Array<{
+        name: string;
+        orderIndex: number;
+        targetSets: number;
+        targetRepsMin: number;
+        targetRepsMax: number;
+      }>;
+    }>;
+  };
+  swaps: Record<string, string[]>;
+}
+
+const baseline: Record<string, BaselineEntry> = {};
 
 for (const testCase of testCases) {
   const currentInjuryRegions = testCase.injuries
     .filter(i => i.severity === "current")
-    .map(i => i.region as any);
+    .map(i => i.region as "knee" | "lower_back" | "shoulder");
   
   const anyKneeInjury = testCase.injuries.some(i => i.region === "knee");
   
   const input: GeneratorInput = {
     userId: `test-${testCase.id}`,
     blockNumber: 1,
-    goal: "muscle_gain" as any,
-    level: testCase.level as any,
-    primaryTrack: "weights" as any,
+    goal: "muscle_gain" as const,
+    level: testCase.level as "beginner" | "intermediate" | "advanced",
+    primaryTrack: "weights" as const,
     daysPerWeek: 4,
     yogaDaysPerWeek: 0,
     age: 30,

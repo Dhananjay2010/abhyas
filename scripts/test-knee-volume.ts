@@ -101,7 +101,8 @@ for (const spec of KNEE_PROFILES) {
     // MED-1: Classify by slot type, not orderIndex (Full Body C lunge slot is orderIndex 0)
     if (hasPastKnee && input.hasAllEquipment) {
       // Find the template for this day to identify which slot is the lunge slot
-      const trainingDays = Math.max(1, spec.daysPerWeek - Math.min(spec.yogaDaysPerWeek || 0, spec.daysPerWeek - 1));
+      const yogaDays = 0; // ProfileSpec doesn't have yogaDaysPerWeek
+      const trainingDays = Math.max(1, spec.daysPerWeek - Math.min(yogaDays, spec.daysPerWeek - 1));
       const templates = templatesFor(trainingDays);
       const laidOut = placeYoga(templates, spec.yogaDaysPerWeek || 0);
       const activeIdx = activeDayIndices(spec.daysPerWeek);
