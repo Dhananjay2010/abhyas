@@ -6,10 +6,11 @@ import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-c
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
-import { getUnitsPreference, kgToDisplay, weightLabel, roundLbToHalf } from "@/lib/units";
+import { getUnitsPreference, weightLabel } from "@/lib/units";
 import { formatVolumeLifted } from "@/lib/session/format-volume-lifted";
 import { LogWeight } from "./log-weight";
 import { loadProgramDays } from "@/lib/progress/load-program-days";
+import { buildVolumeChartPoints, buildBodyWeightChartPoints } from "@/lib/progress/chart-points";
 
 export const dynamic = "force-dynamic";
 
@@ -170,17 +171,7 @@ export default async function ProgressPage() {
   // ---- charts ------------------------------------------------------------
   // Reverse data since it was fetched newest-first for h1 fix
   const weights = [...(weightsRes.data ?? [])].reverse();
-  const weightPoints: Point[] = weights.map((w) => {
-    const kg = Number(w.weight_kg);
-    const displayValue = kgToDisplay(kg, units);
-    // For body weight chart: round imperial to 0.5 lb to match user input
-    // (typed 172 lb should show as 172 lb, not 171.96 lb)
-    const value = units === "imperial" ? roundLbToHalf(displayValue) : displayValue;
-    return {
-      label: shortDate(w.recorded_on),
-      value,
-    };
-  });
+  const weightPoints = buildBodyWeightChartPoints(weights, units, shortDate);
   const latestWeight = weights.length ? Number(weights[weights.length - 1].weight_kg) : null;
 
   // View columns are typed nullable by Supabase's generator, so narrow first.
@@ -211,13 +202,12 @@ export default async function ProgressPage() {
   }
   
   // Volume chart with deload markers (change 7: headline skips deload sessions)
-  const volumePoints: Point[] = volumeRows
-    .slice(-14)
-    .map((v) => ({ 
-      label: shortDate(v.local_date), 
-      value: Math.round(kgToDisplay(Number(v.volume_kg), units)),
-      isDeload: deloadDates.has(v.local_date)
-    }));
+  const volumePoints = buildVolumeChartPoints(
+    volumeRows.slice(-14),
+    units,
+    shortDate,
+    deloadDates
+  );
   
   const strengthCharts = buildStrengthChartsFromDescendingRows(
     strengthRes.data ?? [],

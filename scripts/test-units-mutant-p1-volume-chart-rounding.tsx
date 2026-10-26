@@ -1,13 +1,13 @@
 #!/usr/bin/env tsx
 /**
- * Mutant P1: Progress volume chart left unrounded ('10,900 lb').
+ * Mutant P1: Progress volume chart left unrounded ('10,902 lb').
  *
  * This test verifies that the volume chart applies Math.round() to imperial
  * values before displaying them. The mutant would show raw lb values with
- * decimals (e.g., '10,900.5 lb').
+ * decimals (e.g., '10,901.86 lb').
  */
 
-import { kgToDisplay, roundLbToHalf } from "../src/lib/units";
+import { buildVolumeChartPoints, buildBodyWeightChartPoints } from "../src/lib/progress/chart-points";
 
 console.log("\nMutant P1: Progress volume chart must round imperial values\n");
 
@@ -22,48 +22,52 @@ function check(label: string, pass: boolean, detail = "") {
   }
 }
 
-// Test 1: Volume chart uses Math.round for large imperial values
-const volumeKg = 4944; // ~10,900 lb (4944 kg × 2.20462 ≈ 10899.6 → rounds to 10900)
-const rawLb = kgToDisplay(volumeKg, "imperial");
-const roundedLb = Math.round(rawLb);
+const shortDate = (iso: string) => iso;
 
-console.log(`\n1. Volume: ${volumeKg} kg → ${rawLb.toFixed(2)} lb (raw)`);
+// Test 1: Volume chart with large imperial value (4945 kg)
+console.log("\n1. Volume chart: 4945 kg → imperial");
+const volumeRows = [{ local_date: "2026-10-26", volume_kg: 4945 }];
+const volumePoints = buildVolumeChartPoints(volumeRows, "imperial", shortDate, new Set());
+
 check(
-  "Raw conversion has decimals",
-  rawLb !== Math.floor(rawLb),
-  `${rawLb.toFixed(2)} lb is not a whole number`
+  "4945 kg converts to whole number lb (no decimals)",
+  Number.isInteger(volumePoints[0].value),
+  `got ${volumePoints[0].value}`
 );
 
 check(
-  "Rounded value is whole number",
-  roundedLb === Math.floor(roundedLb),
-  `${roundedLb} lb`
+  "4945 kg displays as 10902 lb (not 10901.86)",
+  volumePoints[0].value === 10902,
+  `got ${volumePoints[0].value}`
 );
 
-const formatted = roundedLb.toLocaleString("en-US");
+// Test 2: Body weight chart with 78.02 kg
+console.log("\n2. Body weight chart: 78.02 kg → imperial");
+const weightRows = [{ recorded_on: "2026-10-26", weight_kg: 78.02 }];
+const weightPoints = buildBodyWeightChartPoints(weightRows, "imperial", shortDate);
+
 check(
-  "Formatted value is '10,900' (not '10,899.6')",
-  formatted === "10,900",
-  `got "${formatted}"`
+  "78.02 kg rounds to 0.5 lb increment",
+  weightPoints[0].value === 172,
+  `got ${weightPoints[0].value}`
 );
 
-// Test 2: Body weight chart uses roundLbToHalf (different rounding rule)
-const bodyWeightKg = 78.02; // 172 lb stored
-const rawBodyLb = kgToDisplay(bodyWeightKg, "imperial");
-const roundedBodyLb = roundLbToHalf(rawBodyLb);
+// Test 3: Metric identity (no conversion artifacts)
+console.log("\n3. Metric identity");
+const volumeMetric = buildVolumeChartPoints([{ local_date: "2026-10-26", volume_kg: 100 }], "metric", shortDate, new Set());
+const weightMetric = buildBodyWeightChartPoints([{ recorded_on: "2026-10-26", weight_kg: 70 }], "metric", shortDate);
 
-console.log(`\n2. Body weight: ${bodyWeightKg} kg → ${rawBodyLb.toFixed(2)} lb (raw)`);
 check(
-  "Body weight rounds to 0.5 lb",
-  roundedBodyLb === 172,
-  `got ${roundedBodyLb} lb`
+  "Volume 100 kg stays 100 kg",
+  volumeMetric[0].value === 100,
+  `got ${volumeMetric[0].value}`
 );
 
-// Test 3: Verify the page.tsx implementation (manual check)
-console.log("\n3. Implementation check:");
-console.log("   src/app/progress/page.tsx line ~210 must have:");
-console.log("   value: Math.round(kgToDisplay(Number(v.volume_kg), units))");
-console.log("   (for volume chart imperial values)");
+check(
+  "Weight 70 kg stays 70 kg",
+  weightMetric[0].value === 70,
+  `got ${weightMetric[0].value}`
+);
 
 if (failures > 0) {
   console.error(`\n❌ FAIL: ${failures} check(s) failed`);
