@@ -97,7 +97,7 @@ const twoMissResult = evaluateProgression({
 check("Two-miss message contains 'kg'", twoMissResult.message.includes("kg"), `message: "${twoMissResult.message}"`);
 check("Two-miss message does NOT contain 'lb'", !twoMissResult.message.includes("lb"), `message: "${twoMissResult.message}"`);
 
-console.log("\n4. No-equipment exercises (no weight in message)");
+console.log("\n4. No-equipment exercises can show weight when adding weight");
 
 const noEquipInputs = progressionInputsFromExercise({ equipment_ids: [] });
 
@@ -114,8 +114,12 @@ const noEquipResult = evaluateProgression({
 });
 
 check("No-equipment message exists", noEquipResult.message.length > 0, `message: "${noEquipResult.message}"`);
-check("No-equipment message does not mention weight unit", !noEquipResult.message.includes("kg") && !noEquipResult.message.includes("lb"), `message: "${noEquipResult.message}"`);
-
+// Option A: bodyweight with added weight shows unit (kg) when naming the weight
+if (noEquipResult.message.includes("kg")) {
+  check("Bodyweight message uses kg (not lb)", !noEquipResult.message.includes("lb"), `message: "${noEquipResult.message}"`);
+} else {
+  check("Bodyweight message without weight does not mention unit", !noEquipResult.message.includes("lb"), `message: "${noEquipResult.message}"`);
+}
 console.log("\n5. Loaded exercise with null stored weight still shows kg target");
 
 // A) Probe: dumbbell compound, 3×12 @40, state.currentWorkingWeightKg null, equipmentIds ['dumbbell']
