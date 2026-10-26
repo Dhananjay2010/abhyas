@@ -14,12 +14,15 @@ describe("Controller keep-and-surface", () => {
   it("load() keeps sets when session is not in progress", async () => {
     const mockStorage: Storage = {
       data: new Map<string, string>(),
-      getItem(key: string) { return this.data.get(key) ?? null; },
-      setItem(key: string, value: string) { this.data.set(key, value); },
-      removeItem(key: string) { this.data.delete(key); },
-      clear() { this.data.clear(); },
-      get length() { return this.data.size; },
-      key(index: number) { return Array.from(this.data.keys())[index] ?? null; },
+      getItem(key): string | null { return this.data.get(key) ?? null; },
+      setItem(key, value): void { this.data.set(key, value); },
+      removeItem(key): void { this.data.delete(key); },
+      clear(): void { this.data.clear(); },
+      get length(): number { return this.data.size; },
+      key(index): string | null { 
+        const keys: string[] = Array.from(this.data.keys()); 
+        return index >= 0 && index < keys.length ? keys[index] : null; 
+      },
     };
     
     const mockNow = () => Date.parse("2026-01-15T12:00:00Z");
@@ -74,12 +77,15 @@ describe("Controller keep-and-surface", () => {
   it("replay() keeps sets when session is not in progress", async () => {
     const mockStorage: Storage = {
       data: new Map<string, string>(),
-      getItem(key: string) { return this.data.get(key) ?? null; },
-      setItem(key: string, value: string) { this.data.set(key, value); },
-      removeItem(key: string) { this.data.delete(key); },
-      clear() { this.data.clear(); },
-      get length() { return this.data.size; },
-      key(index: number) { return Array.from(this.data.keys())[index] ?? null; },
+      getItem(key): string | null { return this.data.get(key) ?? null; },
+      setItem(key, value): void { this.data.set(key, value); },
+      removeItem(key): void { this.data.delete(key); },
+      clear(): void { this.data.clear(); },
+      get length(): number { return this.data.size; },
+      key(index): string | null { 
+        const keys: string[] = Array.from(this.data.keys()); 
+        return index >= 0 && index < keys.length ? keys[index] : null; 
+      },
     };
     
     const mockNow = () => Date.parse("2026-01-15T12:00:00Z");

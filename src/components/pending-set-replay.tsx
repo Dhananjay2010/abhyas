@@ -22,7 +22,7 @@ export function PendingSetReplay({
   now,
 }: { 
   userId: string;
-  getSessionStatus?: (sessionId: string) => Promise<"in-progress" | "ended" | "stale">;
+  getSessionStatus?: (sessionId: string) => Promise<"in_progress" | "ended" | "stale">;
   logSet?: typeof defaultLogSet;
   now?: Date;
 }) {
@@ -49,13 +49,13 @@ export function PendingSetReplay({
         const isExpired = deps.now() - timestamp > STALE_THRESHOLD_MS;
         
         // Check session status if available
-        let status: "in-progress" | "ended" | "stale" | undefined;
+        let status: "in_progress" | "ended" | "stale" | undefined;
         if (getSessionStatus && !isExpired) {
           try {
             status = await getSessionStatus(sessionId);
           } catch {
-            // If we can't get status, assume in-progress and try replay
-            status = "in-progress";
+            // If we can't get status, assume in_progress and try replay
+            status = "in_progress";
           }
         } else if (isExpired) {
           // Expired sets are treated as closed (ended)
@@ -63,7 +63,7 @@ export function PendingSetReplay({
         }
         
         // If session is not in progress, surface it for Discard
-        if (status && status !== "in-progress") {
+        if (status && status !== "in_progress") {
           closedSessionsFound.push({ sessionId, count: sets.length });
           continue;
         }

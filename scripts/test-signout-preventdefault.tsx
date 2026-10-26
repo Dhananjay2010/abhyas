@@ -15,7 +15,7 @@ import { SignOutButton } from "../src/app/settings/signout-button";
 
 describe("Sign-out form preventDefault", () => {
   it("SignOutForm prevents default form submission", async () => {
-    const mockSignOut = async () => {};
+    const mockSignOut = async () => ({ ok: true } as const);
     const mockLogSet = async () => ({ ok: true } as const);
     
     const { container } = render(
@@ -50,7 +50,7 @@ describe("Sign-out form preventDefault", () => {
   });
 
   it("SignOutButton prevents default form submission", async () => {
-    const mockSignOut = async () => {};
+    const mockSignOut = async () => ({ ok: true } as const);
     const mockLogSet = async () => ({ ok: true } as const);
 
     const { container } = render(

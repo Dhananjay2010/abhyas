@@ -37,7 +37,7 @@ export function PendingSetReplayProvider() {
   async function getSessionStatus(sessionId: string): Promise<"in_progress" | "ended" | "stale"> {
     const supabase = createClient();
     const { data } = await supabase
-      .from("workout_sessions")
+      .from("sessions")
       .select("status")
       .eq("id", sessionId)
       .maybeSingle();
