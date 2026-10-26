@@ -57,6 +57,10 @@ const storedWeights = [null, 0, 20, 40];
 const setWeights = [20, 40, 45, 60]; // below, at, above stored
 const repPatterns: RepPattern[] = ["miss", "in-range", "top"];
 const feels: Feel[] = ["easy", "right", "hard"];
+const equipmentSets = [
+  { name: "gym", ids: ["barbell", "dumbbell", "flat_bench", "squat_rack"] },
+  { name: "limited", ids: ["dumbbell"] },
+];
 const repsMin = 8;
 const repsMax = 12;
 
@@ -64,67 +68,69 @@ const repsMax = 12;
 for (const stored of storedWeights) {
   for (const weight of setWeights) {
     for (const feel of feels) {
-      // Test all rep pattern pairs where pattern1 has fewer reps than pattern2
-      for (let i = 0; i < repPatterns.length; i++) {
-        for (let j = i + 1; j < repPatterns.length; j++) {
-          const pattern1 = repPatterns[i];
-          const pattern2 = repPatterns[j];
-          
-          const reps1 = getReps(pattern1, repsMin, repsMax);
-          const reps2 = getReps(pattern2, repsMin, repsMax);
-          
-          // pattern2 should have more reps (better session)
-          if (reps2 <= reps1) continue;
-          
-          const decision1 = evaluateProgression({
-            sets: [
-              { reps: reps1, weightKg: weight },
-              { reps: reps1, weightKg: weight },
-              { reps: reps1, weightKg: weight },
-              { reps: reps1, weightKg: weight },
-            ],
-            plannedSets: 4,
-            repsMin,
-            repsMax,
-            feel,
-            meta: BENCH,
-            state: state({ currentWorkingWeightKg: stored }),
-            isDeload: false,
-            equipmentIds: ["barbell"],
-            unit: "kg",
-          });
-          
-          const decision2 = evaluateProgression({
-            sets: [
-              { reps: reps2, weightKg: weight },
-              { reps: reps2, weightKg: weight },
-              { reps: reps2, weightKg: weight },
-              { reps: reps2, weightKg: weight },
-            ],
-            plannedSets: 4,
-            repsMin,
-            repsMax,
-            feel,
-            meta: BENCH,
-            state: state({ currentWorkingWeightKg: stored }),
-            isDeload: false,
-            equipmentIds: ["barbell"],
-            unit: "kg",
-          });
-          
-          totalComparisons++;
-          
-          const next1 = decision1.nextWorkingWeightKg ?? 0;
-          const next2 = decision2.nextWorkingWeightKg ?? 0;
-          
-          // Inversion: better session (more reps) gives LOWER next weight
-          if (next2 < next1) {
-            inversionCount++;
-            console.log(`❌ INVERSION: stored=${stored}, weight=${weight}, feel=${feel}`);
-            console.log(`   ${pattern1} (${reps1} reps) → next=${next1} kg`);
-            console.log(`   ${pattern2} (${reps2} reps) → next=${next2} kg (WORSE!)`);
-            console.log(`   outcomes: ${decision1.outcome} vs ${decision2.outcome}`);
-            console.log();
+      for (const equipmentSet of equipmentSets) {
+        // Test all rep pattern pairs where pattern1 has fewer reps than pattern2
+        for (let i = 0; i < repPatterns.length; i++) {
+          for (let j = i + 1; j < repPatterns.length; j++) {
+            const pattern1 = repPatterns[i];
+            const pattern2 = repPatterns[j];
+            
+            const reps1 = getReps(pattern1, repsMin, repsMax);
+            const reps2 = getReps(pattern2, repsMin, repsMax);
+            
+            // pattern2 should have more reps (better session)
+            if (reps2 <= reps1) continue;
+            
+            const decision1 = evaluateProgression({
+              sets: [
+                { reps: reps1, weightKg: weight },
+                { reps: reps1, weightKg: weight },
+                { reps: reps1, weightKg: weight },
+                { reps: reps1, weightKg: weight },
+              ],
+              plannedSets: 4,
+              repsMin,
+              repsMax,
+              feel,
+              meta: BENCH,
+              state: state({ currentWorkingWeightKg: stored }),
+              isDeload: false,
+              equipmentIds: equipmentSet.ids,
+              unit: "kg",
+            });
+            
+            const decision2 = evaluateProgression({
+              sets: [
+                { reps: reps2, weightKg: weight },
+                { reps: reps2, weightKg: weight },
+                { reps: reps2, weightKg: weight },
+                { reps: reps2, weightKg: weight },
+              ],
+              plannedSets: 4,
+              repsMin,
+              repsMax,
+              feel,
+              meta: BENCH,
+              state: state({ currentWorkingWeightKg: stored }),
+              isDeload: false,
+              equipmentIds: equipmentSet.ids,
+              unit: "kg",
+            });
+            
+            totalComparisons++;
+            
+            const next1 = decision1.nextWorkingWeightKg ?? 0;
+            const next2 = decision2.nextWorkingWeightKg ?? 0;
+            
+            // Inversion: better session (more reps) gives LOWER next weight
+            if (next2 < next1) {
+              inversionCount++;
+              console.log(`❌ INVERSION: stored=${stored}, weight=${weight}, feel=${feel}, equipment=${equipmentSet.name}`);
+              console.log(`   ${pattern1} (${reps1} reps) → next=${next1} kg`);
+              console.log(`   ${pattern2} (${reps2} reps) → next=${next2} kg (WORSE!)`);
+              console.log(`   outcomes: ${decision1.outcome} vs ${decision2.outcome}`);
+              console.log();
+            }
           }
         }
       }

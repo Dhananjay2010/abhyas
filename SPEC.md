@@ -169,7 +169,7 @@ Because a rebuild is consequential — it discards the current exercise selectio
   - Stored 40 kg, one set @ 37.5 kg → stores 40 kg (unchanged, lighter set blocks update)
   - **Stored null** (first session): uses the heaviest logged weight as the base for progression
   - **Stored 0** (pure bodyweight): preserved as 0 when no external load is added; switches to the lowest added weight (rounded to 2dp) when load is used
-  - **Zero-rep or null-weight sets** are filtered out before computing the base weight
+  - **Zero-rep sets** (reps = 0 or null for rep-based exercises, durationSeconds = 0 or null for timed exercises) are filtered out before computing the base weight; null-weight sets are treated as 0 kg
   - **Hard-feel hold:** when all sets hit the top but feel is "hard" and equipment is available, the weight holds at the **actual weight used** (not stored), matching the in-range hold behavior
 
 ### Planning mode (user setting)

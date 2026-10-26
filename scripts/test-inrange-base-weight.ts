@@ -418,5 +418,59 @@ console.log("\nCase 14: Zero-rep filter: stored 40, 4x10@45 + 0-rep @20 => holds
   check("Failures: reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
 }
 
+// Case 14a: Zero-rep filter on success path: stored 40, 4x12@45 + 0-rep@20, feel right => 47.5
+console.log("\nCase 14a: Zero-rep filter on success path: stored 40, 4x12@45 + 0-rep@20 => 47.5");
+{
+  const decision = evaluateProgression({
+    sets: [
+      { reps: 12, weightKg: 45 },
+      { reps: 12, weightKg: 45 },
+      { reps: 12, weightKg: 45 },
+      { reps: 12, weightKg: 45 },
+      { reps: 0, weightKg: 20 }, // Zero-rep set should be filtered out
+    ],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: BENCH,
+    state: state({ currentWorkingWeightKg: 40 }),
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+
+  check("Outcome: progressed", decision.outcome === "progressed", decision.outcome);
+  check("Next weight: 47.5 kg (0-rep set filtered, from 45)", decision.nextWorkingWeightKg === 47.5, `${decision.nextWorkingWeightKg}`);
+  check("Failures: reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
+}
+
+// Case 14b: Zero-rep filter on hard-feel path: stored 40, 4x12@45 + 0-rep@20, feel hard => holds 45
+console.log("\nCase 14b: Zero-rep filter on hard-feel path: stored 40, 4x12@45 + 0-rep@20, feel hard => holds 45");
+{
+  const decision = evaluateProgression({
+    sets: [
+      { reps: 12, weightKg: 45 },
+      { reps: 12, weightKg: 45 },
+      { reps: 12, weightKg: 45 },
+      { reps: 12, weightKg: 45 },
+      { reps: 0, weightKg: 20 }, // Zero-rep set should be filtered out
+    ],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "hard",
+    meta: BENCH,
+    state: state({ currentWorkingWeightKg: 40 }),
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+
+  check("Outcome: hold", decision.outcome === "hold", decision.outcome);
+  check("Next weight: 45 kg (0-rep set filtered, heavier weight used)", decision.nextWorkingWeightKg === 45, `${decision.nextWorkingWeightKg}`);
+  check("Failures: reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
+}
+
 console.log(`\n${failures === 0 ? "✅ PASSED" : `❌ ${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
