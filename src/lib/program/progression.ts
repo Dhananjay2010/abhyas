@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import { KETTLEBELL_WEIGHTS_KG, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, type WeightUnit } from "@/lib/session/equipment-grid";
 import { formatWeight } from "@/lib/units";
+import type { UnitsPreference } from "@/lib/units";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -62,17 +63,21 @@ export type PersonalBest =
   | { kind: "reps"; value: number }
   | { kind: "e1rm"; value: number };
 
-/** One line, for the session summary. */
-export function describePersonalBest(pb: PersonalBest): string {
+/**
+ * Describe a personal best for the session summary.
+ * FIX: PB toast rounds e1RM to whole kg (54.58 shows as 55). Must show with
+ * app precision (1 dp, trailing .0 dropped) and respect units preference.
+ */
+export function describePersonalBest(pb: PersonalBest, units: UnitsPreference = "metric"): string {
   switch (pb.kind) {
     case "weight":
-      return `Heaviest set yet — ${pb.value} kg`;
+      return `Heaviest set yet — ${formatWeight(pb.value, units)}`;
     case "hold":
       return `Longest hold yet — ${pb.value}s`;
     case "reps":
       return `Most reps yet — ${pb.value}`;
     case "e1rm":
-      return `Best estimated one-rep max yet — ${Math.round(pb.value)} kg`;
+      return `Best estimated one-rep max yet — ${formatWeight(pb.value, units)}`;
   }
 }
 
