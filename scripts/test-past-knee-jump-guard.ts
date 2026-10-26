@@ -260,8 +260,14 @@ console.log("\n5. Mutant 10 killer: LOW-impact jumps excluded (not caught by hig
   // This is only caught by isJumpingExercise, NOT by isHighImpactLegExercise
   // When Mutant 10 disables the lower-body check, isJumpingExercise returns false,
   // so isExcludedForPastKnee would incorrectly return false
+  const benchJump = bySlug.get("bench-jump");
+  if (!benchJump) {
+    check("bench-jump exists in catalogue", false);
+    failures++;
+    return;
+  }
   const lowImpactJump: CandidateExercise = {
-    ...bySlug.get("bench-jump")!,
+    ...benchJump,
     id: "test-low-impact-jump",
     slug: "test-low-impact-jump",
     name: "Test Low-Impact Jump",

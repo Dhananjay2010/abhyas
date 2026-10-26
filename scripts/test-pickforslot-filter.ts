@@ -9,9 +9,9 @@ import { readFileSync } from "fs";
 import type { CandidateExercise } from "../src/lib/program/generate";
 import { isKneeRiskForKneeUser } from "../src/lib/program/knee-safety";
 
-const catalogue = JSON.parse(
+const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as CandidateExercise[];
+);
 
 // Find a knee-risk exercise (e.g., bodyweight-squat, goblet-squat)
 const kneeRiskExercise = catalogue.find(ex => 
@@ -33,22 +33,36 @@ if (!isKneeRiskForKneeUser(kneeRiskExercise, true)) {
 // Test 1: Past-knee user in non-squat slot (e.g., accessory slot 4)
 // This exercises the pickForSlot filter at line 771-780
 // When Mutant 1 changes hasPastKnee to false, this filter is disabled
-const pastKneeInput = {
+const pastKneeInput: {
+  anyKneeInjury: boolean;
+  currentInjuryRegions: string[];
+  level: "intermediate";
+  primaryTrack: "full_gym";
+  hasAllEquipment: boolean;
+  equipmentIds: string[];
+} = {
   anyKneeInjury: true,
-  currentInjuryRegions: [] as string[],
-  level: "intermediate" as const,
-  primaryTrack: "full_gym" as const,
+  currentInjuryRegions: [],
+  level: "intermediate",
+  primaryTrack: "full_gym",
   hasAllEquipment: true,
-  equipmentIds: [] as string[],
+  equipmentIds: [],
 };
 
-const nonKneeInput = {
+const nonKneeInput: {
+  anyKneeInjury: boolean;
+  currentInjuryRegions: string[];
+  level: "intermediate";
+  primaryTrack: "full_gym";
+  hasAllEquipment: boolean;
+  equipmentIds: string[];
+} = {
   anyKneeInjury: false,
-  currentInjuryRegions: [] as string[],
-  level: "intermediate" as const,
-  primaryTrack: "full_gym" as const,
+  currentInjuryRegions: [],
+  level: "intermediate",
+  primaryTrack: "full_gym",
   hasAllEquipment: true,
-  equipmentIds: [] as string[],
+  equipmentIds: [],
 };
 
 // Simulate the pickForSlot logic for a non-squat slot (slot 4, accessory)

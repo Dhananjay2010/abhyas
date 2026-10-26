@@ -9,9 +9,9 @@ import { readFileSync } from "fs";
 import type { CandidateExercise } from "../src/lib/program/generate";
 import { isExcludedForPastKnee } from "../src/lib/program/past-knee";
 
-const catalogue = JSON.parse(
+const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as CandidateExercise[];
+);
 
 // Find a past-knee excluded exercise (e.g., kettlebell-thruster, low-impact-box-jump)
 const thrusterExercise = catalogue.find(ex => ex.slug === "kettlebell-thruster");
@@ -44,14 +44,14 @@ if (!jumpExcluded) {
 console.log("✓ Past-knee user: bench-jump excluded");
 
 // Test 3: Simulate the pickForSlot logic with isExcludedForPastKnee filter
-const pastKneeInput = {
+const pastKneeInput: { anyKneeInjury: boolean; currentInjuryRegions: string[] } = {
   anyKneeInjury: true,
-  currentInjuryRegions: [] as string[],
+  currentInjuryRegions: [],
 };
 
-const nonKneeInput = {
+const nonKneeInput: { anyKneeInjury: boolean; currentInjuryRegions: string[] } = {
   anyKneeInjury: false,
-  currentInjuryRegions: [] as string[],
+  currentInjuryRegions: [],
 };
 
 const hasCurrentKnee = pastKneeInput.currentInjuryRegions.includes("knee");
