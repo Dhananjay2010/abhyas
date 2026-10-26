@@ -65,7 +65,7 @@ TESTS=(
   "npm run test:msg-bodyweight-zero"
   "npm run test:med3-third-miss"
   "npm run test:barbell-grid-snap"
-  "npm run test:swap-prefill-deload"
+  "npm run test:swap-equipmentids"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
