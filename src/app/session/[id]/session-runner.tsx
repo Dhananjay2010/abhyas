@@ -1094,7 +1094,8 @@ export function SessionRunner({
               <div className="mt-3">
                 <button
                   onClick={() => {
-                    controller.replay();
+                    // L5: Use onFocus for manual retry to reset attempt counter
+                    controller.onFocus();
                   }}
                   disabled={pendingSetState.retrying}
                   className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent transition-opacity hover:opacity-90 disabled:opacity-60"

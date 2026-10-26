@@ -123,6 +123,7 @@ export function createPendingSetController(config: {
 
   let replayPromise: Promise<void> | null = null;
   let replayAttempted = false;
+  let failedAttempts = 0; // L5: Track failed replay attempts (cap at 5)
   
   const scheduler: RetryScheduler | null = timer
     ? createRetryScheduler({
@@ -359,6 +360,14 @@ export function createPendingSetController(config: {
 
       const remaining = loadPendingSets(storage, userId, sessionId, deps);
       
+      // L5: Increment failed attempts if there was an error
+      if (firstError) {
+        failedAttempts += 1;
+      } else {
+        // Reset on success
+        failedAttempts = 0;
+      }
+      
       setState({
         pending: remaining,
         expired: remaining.length > 0 && authFailed,
@@ -368,7 +377,8 @@ export function createPendingSetController(config: {
         conflicts: conflictCount,
       });
       
-      if (remaining.length > 0 && scheduler) {
+      // L5: Cap automatic retries at 5 attempts
+      if (remaining.length > 0 && scheduler && failedAttempts < 5) {
         scheduler.scheduleRetry(() => {
           replayPromise = null;
           replay();
@@ -391,6 +401,8 @@ export function createPendingSetController(config: {
       if (scheduler) {
         scheduler.reset();
       }
+      // L5: Reset failed attempts on manual retry
+      failedAttempts = 0;
       replay();
     }
   }
