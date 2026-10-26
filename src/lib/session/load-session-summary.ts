@@ -58,6 +58,15 @@ export async function loadSessionSummary(
   sessionId: string,
   userId: string,
 ): Promise<SummaryNote[]> {
+  // Fetch user's units preference for PB toast formatting
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("units")
+    .eq("id", userId)
+    .single();
+
+  const units = profile?.units === "imperial" ? "imperial" : "metric";
+
   return buildSessionSummary(sessionId, {
     async fetchExercisesWithSets(sessionId: string) {
       const { data: exercises, error: exError } = await supabase

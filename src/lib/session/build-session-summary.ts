@@ -16,6 +16,7 @@ import type { Database } from "@/lib/database.types";
 import { evaluateProgression } from "@/lib/program/progression";
 import { buildProgressionInput } from "./build-progression-input";
 import { describePersonalBest } from "@/lib/program/progression";
+import type { UnitsPreference } from "@/lib/units";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -80,6 +81,7 @@ export interface BuildSummaryDeps {
 export async function buildSessionSummary(
   sessionId: string,
   deps: BuildSummaryDeps,
+  units: UnitsPreference = "metric",
 ): Promise<SummaryNote[]> {
   const [exercises, session] = await Promise.all([
     deps.fetchExercisesWithSets(sessionId),
@@ -132,7 +134,7 @@ export async function buildSessionSummary(
     notes.push({
       name: ex.exercise_name,
       message: decision.message,
-      personalBest: decision.personalBest ? describePersonalBest(decision.personalBest) : null,
+      personalBest: decision.personalBest ? describePersonalBest(decision.personalBest, units) : null,
     });
   }
 

@@ -482,7 +482,7 @@ async function applyProgression(
     outcome: decision.outcome,
     message: decision.message,
     personalBest: decision.personalBest
-      ? describePersonalBest(decision.personalBest)
+      ? describePersonalBest(decision.personalBest, units)
       : null,
   };
 }
