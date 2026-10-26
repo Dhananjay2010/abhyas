@@ -128,7 +128,7 @@ const abhyas: Brand = {
   name: "Abhyas",
   shortName: "Abhyas",
   description:
-    "Workouts built around your time. Abhyas tells you exactly what to train, guides you through it, and makes next week harder than this one.",
+    "Workouts built around your time. Abhyas tells you exactly what to train, guides you through it, and adds weight when you're ready.",
   siteUrl: "https://abhyas-indol.vercel.app",
   // No timezone set — falls back to browser detection
   // No logo set — shows text name
@@ -170,7 +170,7 @@ const example: Brand = {
   name: "FitCore Gym",
   shortName: "FitCore",
   description:
-    "Your personalized training coach. FitCore builds your program, guides every session, and tracks your progress.",
+    "Your personalized training coach. FitCore builds your program, guides every session, and adds weight when you're ready.",
   siteUrl: "https://example-gym.com",
   timezone: "America/New_York",
   logo: "/icons/icon-192.png", // Example: uses same icon as logo
