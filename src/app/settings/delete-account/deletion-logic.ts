@@ -26,6 +26,12 @@ export interface DeletionDeps {
 export function mapDeletionError(error: { code?: string; message?: string }): string {
   const { supportEmail } = getSiteInfo();
   
+  // Gym owner deletion blocked (SQLSTATE OWN01)
+  // Message format: "You own <gym_name>. Transfer ownership before deleting your account."
+  if (error.code === "OWN01" || error.message?.includes("Transfer ownership")) {
+    return error.message || "You own a gym. Transfer ownership before deleting your account.";
+  }
+  
   // If there's a permission issue (check first, before function-related checks)
   if (error.code === "42501" || error.message?.includes("permission denied")) {
     return "Permission denied. Please contact support.";

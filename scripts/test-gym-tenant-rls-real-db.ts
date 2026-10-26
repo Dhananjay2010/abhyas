@@ -480,6 +480,14 @@ async function runTests() {
       .update({ name: "Gym A Updated" })
       .eq("id", gymIdA);
     check("Owner A can update gym A", !error, error?.message);
+    
+    // Read back to verify the change actually persisted
+    const { data: updatedGym } = await clientA
+      .from("gyms")
+      .select("name")
+      .eq("id", gymIdA)
+      .single();
+    check("Gym name actually changed", updatedGym?.name === "Gym A Updated", `got: ${updatedGym?.name}`);
   }
   console.log();
 
@@ -640,6 +648,87 @@ async function runTests() {
       .eq("gym_id", gymIdA)
       .eq("user_id", userIdA);
     check("Owner A can't delete own membership", !!error);
+  }
+  console.log();
+
+  // IMMUTABILITY TEST: gym_id and user_id can't be changed
+  console.log("TEST: gym_id and user_id are immutable");
+  {
+    // Test 1: Owner A tries to change gym_id on a staff membership (RLS allows owner to update)
+    const { data: staffMembership } = await adminClient
+      .from("gym_memberships")
+      .select("*")
+      .eq("gym_id", gymIdA)
+      .eq("role", "staff")
+      .limit(1)
+      .single();
+    
+    if (staffMembership) {
+      const { error } = await clientA
+        .from("gym_memberships")
+        .update({ gym_id: gymIdB })
+        .eq("gym_id", gymIdA)
+        .eq("user_id", staffMembership.user_id);
+      check("Owner can't change staff member's gym_id", !!error, error?.message);
+    }
+
+    // Test 2: Owner A tries to change user_id on a member membership (RLS allows owner to update)
+    const { data: memberMembership } = await adminClient
+      .from("gym_memberships")
+      .select("*")
+      .eq("gym_id", gymIdA)
+      .eq("role", "member")
+      .limit(1)
+      .single();
+    
+    if (memberMembership) {
+      const { error } = await clientA
+        .from("gym_memberships")
+        .update({ user_id: userIdB })
+        .eq("gym_id", gymIdA)
+        .eq("user_id", memberMembership.user_id);
+      check("Owner can't change member's user_id", !!error, error?.message);
+    }
+
+    // Test 3: Admin/service role tries to change gym_id (bypasses RLS)
+    if (staffMembership) {
+      const { error } = await adminClient
+        .from("gym_memberships")
+        .update({ gym_id: gymIdB })
+        .eq("gym_id", gymIdA)
+        .eq("user_id", staffMembership.user_id);
+      check("Admin can't change gym_id (trigger blocks)", !!error, error?.message);
+    }
+
+    // Test 4: Admin tries to change user_id (bypasses RLS)
+    if (memberMembership) {
+      const { error } = await adminClient
+        .from("gym_memberships")
+        .update({ user_id: userIdB })
+        .eq("gym_id", gymIdA)
+        .eq("user_id", memberMembership.user_id);
+      check("Admin can't change user_id (trigger blocks)", !!error, error?.message);
+    }
+
+    // Test 5: Owner A tries to change their own gym_id
+    {
+      const { error } = await clientA
+        .from("gym_memberships")
+        .update({ gym_id: gymIdB })
+        .eq("gym_id", gymIdA)
+        .eq("user_id", userIdA);
+      check("Owner can't change own gym_id", !!error, error?.message);
+    }
+
+    // Test 6: Owner A tries to change their own user_id
+    {
+      const { error } = await clientA
+        .from("gym_memberships")
+        .update({ user_id: userIdB })
+        .eq("gym_id", gymIdA)
+        .eq("user_id", userIdA);
+      check("Owner can't change own user_id", !!error, error?.message);
+    }
   }
   console.log();
 

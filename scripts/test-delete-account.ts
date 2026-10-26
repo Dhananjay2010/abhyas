@@ -173,6 +173,26 @@ async function runTests() {
 
   console.log("\n7. Error mapping (pure function)");
   {
+    // OWN01: Gym owner deletion blocked
+    const msgOWN01 = mapDeletionError({ 
+      code: "OWN01", 
+      message: "You own Gym ABC. Transfer ownership before deleting your account." 
+    });
+    check(
+      "OWN01 error shows gym name",
+      msgOWN01.includes("Gym ABC")
+    );
+    check(
+      "OWN01 error mentions transfer ownership",
+      msgOWN01.includes("Transfer ownership")
+    );
+    
+    const msgOWN01NoMessage = mapDeletionError({ code: "OWN01" });
+    check(
+      "OWN01 without message shows fallback",
+      msgOWN01NoMessage.includes("own a gym") && msgOWN01NoMessage.includes("Transfer ownership")
+    );
+
     const msg42883 = mapDeletionError({ code: "42883" });
     check(
       "42883 error is user-friendly",
