@@ -1,113 +1,165 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+#
+# Mutation tests for knee-volume safety filtering.
+#
+# Each mutant replaces ONE exact literal that must occur exactly once in its
+# file (otherwise the mutant is reported as SKIPPED, never silently a no-op).
+# A mutant that does not type-check is also SKIPPED: it must be killed by a
+# behavioural test, not by tsc. The original file is always restored (trap).
+#
+# Exit 1 on any skip or survivor.
 
-# Test knee-volume mutants: apply mutations and verify tests catch them
-# Exit 1 if any mutant survives or if any mutation is a no-op
+set -u
 
-GENERATE_FILE="src/lib/program/generate.ts"
-KNEE_SAFETY_FILE="src/lib/program/knee-safety.ts"
-BACKUP_GENERATE="/tmp/generate-backup-mutants.ts"
-BACKUP_KNEE_SAFETY="/tmp/knee-safety-backup-mutants.ts"
-
-# Trap to restore files
-function cleanup {
-  if [ -f "$BACKUP_GENERATE" ]; then
-    cp "$BACKUP_GENERATE" "$GENERATE_FILE"
-    rm "$BACKUP_GENERATE"
-  fi
-  if [ -f "$BACKUP_KNEE_SAFETY" ]; then
-    cp "$BACKUP_KNEE_SAFETY" "$KNEE_SAFETY_FILE"
-    rm "$BACKUP_KNEE_SAFETY"
-  fi
-}
-trap cleanup EXIT
-
-# Backup originals
-cp "$GENERATE_FILE" "$BACKUP_GENERATE"
-cp "$KNEE_SAFETY_FILE" "$BACKUP_KNEE_SAFETY"
-
-TOTAL=0
 KILLED=0
+SURVIVED=0
+SKIPPED=0
+CURRENT_FILE=""
+BACKUP=""
 
-function test_mutant {
-  local name="$1"
-  local mutation="$2"
-  
-  TOTAL=$((TOTAL + 1))
-  echo ""
-  echo "=== Mutant $TOTAL: $name ==="
-  
-  # Restore originals
-  cp "$BACKUP_GENERATE" "$GENERATE_FILE"
-  cp "$BACKUP_KNEE_SAFETY" "$KNEE_SAFETY_FILE"
-  
-  # Apply mutation
-  eval "$mutation"
-  
-  # Check if it compiles
-  if npx tsc --noEmit 2>&1 | grep -q "error TS"; then
-    echo "FAIL: Mutant does not compile"
-    cleanup
-    exit 1
+restore() {
+  if [ -n "$CURRENT_FILE" ] && [ -n "$BACKUP" ] && [ -f "$BACKUP" ]; then
+    cp "$BACKUP" "$CURRENT_FILE"
+    rm -f "$BACKUP"
   fi
-  
-  # Run tests
-  if npm run test:knee-volume 2>&1 | grep -q "✓ All invariants passed" && \
-     npm run test:knee-volume-identity 2>&1 | grep -q "✓ Identity test passed" && \
-     npx tsx scripts/count-knee-risk-outside-squat.ts 2>&1 | grep -q "✓ PASS" && \
-     npx tsx scripts/test-pickforslot-filter.ts 2>&1 | grep -q "✓ pickForSlot filter test passed" && \
-     npx tsx scripts/test-past-knee-excluded.ts 2>&1 | grep -q "✓ isExcludedForPastKnee filter test passed"; then
-    echo "SURVIVOR: Tests passed (mutant not killed)"
-    cleanup
-    exit 1
-  else
-    echo "KILLED: Tests failed as expected"
-    KILLED=$((KILLED + 1))
-  fi
+  CURRENT_FILE=""
+  BACKUP=""
+}
+trap restore EXIT INT TERM
+
+# replace_once FILE OLD NEW -> 0 if OLD occurred exactly once and was replaced
+replace_once() {
+  FILE="$1" OLD="$2" NEW="$3" node -e '
+    const fs = require("fs");
+    const { FILE, OLD, NEW } = process.env;
+    const src = fs.readFileSync(FILE, "utf8");
+    const n = src.split(OLD).length - 1;
+    if (n !== 1) { console.error(`  pattern occurs ${n} times`); process.exit(1); }
+    fs.writeFileSync(FILE, src.replace(OLD, () => NEW));
+  '
 }
 
-# Mutant 1: Disable knee-risk filter in pickForSlot (change hasPastKnee to false)
-test_mutant "disable-pickforslot-knee-filter" \
-  "sed -i '772s/input\\.anyKneeInjury/false/' $GENERATE_FILE"
+# run_mutant NAME FILE OLD NEW TEST...
+run_mutant() {
+  local name=$1 file=$2 old=$3 new=$4
+  shift 4
+  echo ""
+  echo "$name"
+  CURRENT_FILE="$file"
+  BACKUP="$(mktemp)"
+  cp "$file" "$BACKUP"
 
-# Mutant 2: Remove entire knee-risk filter block from pickForSlot
-test_mutant "remove-pickforslot-knee-block" \
-  "sed -i '/PART A: Knee-risk filter for PAST knee users/,/^    }/d' $GENERATE_FILE"
+  if ! replace_once "$file" "$old" "$new"; then
+    echo "  ⊘ SKIP: pattern not found exactly once"
+    SKIPPED=$((SKIPPED + 1))
+    restore
+    return
+  fi
+  if ! node node_modules/typescript/lib/tsc.js --noEmit >/dev/null 2>&1; then
+    echo "  ⊘ SKIP: does not compile (must be killed by a test, not tsc)"
+    SKIPPED=$((SKIPPED + 1))
+    restore
+    return
+  fi
+  local killer=""
+  for t in "$@"; do
+    if ! npm run -s "$t" >/dev/null 2>&1; then
+      killer="$t"
+      break
+    fi
+  done
+  if [ -n "$killer" ]; then
+    echo "  ✓ KILLED by $killer"
+    KILLED=$((KILLED + 1))
+  else
+    echo "  ✗ SURVIVED ($*)"
+    SURVIVED=$((SURVIVED + 1))
+  fi
+  restore
+}
 
-# Mutant 3: Remove knee-risk filter from SAFE_ALTERNATIVES
-test_mutant "remove-alternatives-knee-block" \
-  "sed -i '/PART A: Knee-risk filter for SAFE_ALTERNATIVES - past knee only/,/^    }/d' $GENERATE_FILE"
+GENERATE=src/lib/program/generate.ts
+KNEE_SAFETY=src/lib/program/knee-safety.ts
+V=test:knee-volume
+I=test:knee-volume-identity
+C=test:count-knee-risk-outside-squat
+F=test:pickforslot-filter
+X=test:past-knee-excluded
 
-# Mutant 4: Make helper always return false
-test_mutant "helper-always-false" \
-  "sed -i '/export function isKneeRiskForKneeUser/,/^}/ s/if (!anyKneeInjury) {/if (true || !anyKneeInjury) {/' $KNEE_SAFETY_FILE"
+echo "Knee Volume Mutation Testing"
+echo "──────────────────────────────────────────────────────────"
 
-# Mutant 5: Remove squat slot exception (change slotIndex !== 0 so Barbell Squat gets filtered from slot 0)
-test_mutant "remove-squat-slot-exception" \
-  "sed -i 's/slotIndex !== 0/slotIndex !== 999/g' $GENERATE_FILE"
+npm run -s "$V" >/dev/null 2>&1 || { echo "FATAL: baseline $V fails"; exit 1; }
 
-# MED-1 Mutant P1: Remove fallback filter in pickForSlot
-# This removes the knee-risk filter from the SAFE_ALTERNATIVES path
-test_mutant "P1-remove-fallback-filter" \
-  "sed -i '/PART A: Knee-risk filter for SAFE_ALTERNATIVES - past knee only/,/^    }/d' $GENERATE_FILE"
+run_mutant "1. Disable knee-risk filter in pickForSlot (change hasPastKnee gate)" "$GENERATE" \
+  '    // Also exclude jumps, thrusters, etc. (Mutant 10 killer)
+    const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+    const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;' \
+  '    // Also exclude jumps, thrusters, etc. (Mutant 10 killer)
+    const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+    const hasPastKnee = false && input.anyKneeInjury && !hasCurrentKnee;' "$V" "$I" "$C" "$F"
 
-# MED-1 Mutant K1: Ignore explicit knee tag in isKneeRiskForKneeUser
-# Comment out the check for explicit contraindicated_regions.includes('knee')
-test_mutant "K1-ignore-explicit-knee-tag" \
-  "sed -i '/Check explicit contraindications/,/return true;/s/if (ex.contraindicated_regions.includes(\"knee\")) {/if (false \&\& ex.contraindicated_regions.includes(\"knee\")) {/' $KNEE_SAFETY_FILE"
+run_mutant "2. Remove entire knee-risk filter block from pickForSlot" "$GENERATE" \
+  '      // Filter knee-risk exercises (derived contraindications) except slot 0
+      if (isFallback || slotIndex !== 0) {
+        candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+        if (candidates.length === 0) continue;
+      }' \
+  '' "$V" "$I" "$C" "$F"
 
-# MED-1 Mutant K5: Drop derived squat-pattern check
-# Remove the derived contraindication check from isKneeRiskForKneeUser
-test_mutant "K5-drop-derived-squat-check" \
-  "sed -i '/Check derived contraindications/,/return true;/{/return true;/d}' $KNEE_SAFETY_FILE"
+run_mutant "3. Remove knee-risk filter from SAFE_ALTERNATIVES" "$GENERATE" \
+  '    if (hasPastKneeAlt) {
+      altCandidates = altCandidates.filter((e) => !isKneeRiskForKneeUser(e, true));
+      if (altCandidates.length === 0) continue;
+    }' \
+  '' "$V" "$I" "$C" "$F"
+
+run_mutant "4. Make helper always return false" "$KNEE_SAFETY" \
+  '  // Non-knee users: never knee-risk
+  if (!anyKneeInjury) {
+    return false;
+  }' \
+  '  // Non-knee users: never knee-risk
+  if (true || !anyKneeInjury) {
+    return false;
+  }' "$V" "$C" "$F"
+
+run_mutant "5. Remove squat slot exception (filter Barbell Squat from slot 0)" "$GENERATE" \
+  '      if (isFallback || slotIndex !== 0) {
+        candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));' \
+  '      if (isFallback || slotIndex !== 999) {
+        candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));' "$V" "$I" "$C"
+
+run_mutant "P1. Remove isExcludedForPastKnee filter from pickForSlot" "$GENERATE" \
+  '      // Filter past-knee excluded exercises (jumps, thrusters, etc.) for all slots
+      candidates = candidates.filter((e) => !isExcludedForPastKnee(e));
+      if (candidates.length === 0) continue;' \
+  '' "$V" "$C" "$X"
+
+run_mutant "K1. Ignore explicit knee tag in isKneeRiskForKneeUser" "$KNEE_SAFETY" \
+  '  // Check explicit contraindications
+  if (ex.contraindicated_regions.includes("knee")) {
+    return true;
+  }' \
+  '' "$V" "$C"
+
+run_mutant "K5. Drop derived squat-pattern check" "$KNEE_SAFETY" \
+  '  // Check derived contraindications (squat/lunge pattern, unless in knee-safe list)
+  const derived = getDerivedContraindications(ex);
+  if (derived.includes("knee")) {
+    return true;
+  }' \
+  '' "$V" "$C"
 
 echo ""
-echo "=== RESULT: $KILLED/$TOTAL killed ==="
+echo "──────────────────────────────────────────────────────────"
+echo "Mutants killed:   $KILLED"
+echo "Mutants survived: $SURVIVED"
+echo "Mutants skipped:  $SKIPPED"
+echo ""
 
-if [ $KILLED -eq $TOTAL ]; then
-  echo "✓ All mutants killed"
-  exit 0
-else
-  echo "✗ Some mutants survived"
+if [ $SURVIVED -gt 0 ] || [ $SKIPPED -gt 0 ]; then
+  echo "❌ FAILED: $SURVIVED survived, $SKIPPED skipped"
   exit 1
 fi
+echo "✅ PASSED: All mutants killed"

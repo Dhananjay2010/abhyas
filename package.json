@@ -318,6 +318,7 @@
     "test:knee-volume": "tsx scripts/test-knee-volume.ts",
     "test:knee-volume-identity": "tsx scripts/test-knee-volume-identity.ts",
     "test:knee-volume-mutants": "bash scripts/test-knee-volume-mutants.sh",
+    "test:count-knee-risk-outside-squat": "tsx scripts/count-knee-risk-outside-squat.ts",
     "test:plan-day-keep-core": "tsx scripts/test-plan-day-keep-core.ts",
     "test:chosen-by-day": "tsx scripts/test-chosen-by-day.ts",
     "test:rest-day-resume-button": "tsx scripts/test-rest-day-resume-button.ts",
