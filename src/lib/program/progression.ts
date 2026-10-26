@@ -257,12 +257,28 @@ function roundToGrid(
   }
 }
 
-
-/** Epley. Only meaningful for a working set, so callers cap the rep count. */
+/**
+ * Estimated one-rep max (Epley formula, capped at 12 reps).
+ * 
+ * Returns: w if reps = 1, else w × (30 + min(reps, 12)) / 30, clamped to 9999.99
+ * 
+ * The 12-rep cap ensures reliability: high-rep sets (15+) are endurance work
+ * and produce inflated strength estimates. The clamp prevents overflow of
+ * numeric(6,2) storage (max 9999.99).
+ * 
+ * This is the single source of truth for e1RM across:
+ * - Session PB tracking (nextBest)
+ * - History (detectPersonalRecords, getExerciseHistory)
+ * - Progress aggregates (SQL view exercise_strength_history)
+ */
 export function estimateOneRepMax(weightKg: number, reps: number): number {
   if (reps <= 0) return 0;
-  if (reps === 1) return weightKg;
-  return weightKg * (1 + reps / 30);
+  if (reps === 1) return Math.min(weightKg, 9999.99);
+  const capped = Math.min(reps, 12);
+  // Exact rational arithmetic using integer hundredths to match SQL ROUND(x,2)
+  // Equivalent to SQL: ROUND(weight_kg * (30 + least(reps,12)) / 30, 2)
+  const raw = Math.round(Math.round(weightKg * 100) * (30 + capped) / 30) / 100;
+  return Math.min(raw, 9999.99);
 }
 
 /**
@@ -276,6 +292,22 @@ export function estimateOneRepMax(weightKg: number, reps: number): number {
 export function roundToStoragePrecision(value: number): number {
   return Math.round(value * 100) / 100;
 }
+
+/**
+ * Compute e1RM with storage precision.
+ * 
+ * Combines estimateOneRepMax (capped, clamped formula) with roundToStoragePrecision.
+ * Returns null for bodyweight (weight ≤ 0) or invalid inputs.
+ * 
+ * Use this whenever you need to compute an e1RM that will be compared to or stored
+ * in the database (exercise_progress.best_e1rm, History PR detection, etc.).
+ */
+export function computeE1rm(weightKg: number | null, reps: number | null): number | null {
+  if (reps === null || reps < 1) return null;
+  if (weightKg === null || weightKg <= 0) return null;
+  return roundToStoragePrecision(estimateOneRepMax(weightKg, reps));
+}
+
 
 export type BestState = {
   bestWeightKg: number | null;
@@ -337,7 +369,8 @@ export function nextBest(
     // lift -- so timed work never contributes one. Bodyweight exercises (w=0)
     // also cannot produce an e1RM.
     if (w > 0 && !isTimed) {
-      const e1rm = roundToStoragePrecision(estimateOneRepMax(w, v));
+      // Compute e1RM from the ROUNDED weight so both use the same weight
+      const e1rm = roundToStoragePrecision(estimateOneRepMax(roundedWeight, v));
       if (bestE1rm === null || e1rm > bestE1rm) bestE1rm = e1rm;
     }
   }

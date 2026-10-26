@@ -10,7 +10,7 @@ import { EditSets } from "./edit-sets";
 import { SessionActions } from "./session-actions";
 import { exerciseCompletion } from "@/lib/session/completion";
 import { countWorkingSets } from "@/lib/session/count-sets";
-import { formatVolume, getUnitsPreference } from "@/lib/units";
+import { formatVolume, formatWeight, getUnitsPreference } from "@/lib/units";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
 import { computeSessionDuration, formatDurationMinutes } from "@/lib/history/compute-duration";
@@ -211,7 +211,7 @@ export default async function SessionDetailPage({
                             : isTimed
                               ? "—s"
                               : "— reps"}
-                        {s.weight_kg ? ` · ${Number(s.weight_kg)} kg` : ""}
+                        {s.weight_kg ? ` · ${formatWeight(Number(s.weight_kg), units)}` : ""}
                       </span>
                     </li>
                   ))}
