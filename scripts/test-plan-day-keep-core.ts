@@ -30,116 +30,49 @@ async function main() {
   console.log("Testing keepPlannedDay\n");
 
   await test("(a) Rest override on template training day: 'keep' → NO delete", async () => {
-    const fake = createFakeDb({
-      tables: {
-        sessions: [sessionRow("rest-override-1", "rest")],
-      },
-    });
-
-    const planned = [{ id: "rest-override-1", actual_type: "rest" as const }];
-    const result = await keepPlannedDay(fake.client, planned);
+    const result = await keepPlannedDay();
 
     assert(result.ok, "keepPlannedDay should succeed");
     assert.equal(result.deletedIds.length, 0, "No sessions should be deleted");
-    
-    // Verify row still exists in fake DB
-    const remaining = fake.tables.sessions.filter((s) => s.id === "rest-override-1");
-    assert.equal(remaining.length, 1, "Rest override row should still exist");
   });
 
   await test("(a.2) Multiple Rest overrides: 'keep' → NO delete", async () => {
-    const fake = createFakeDb({
-      tables: {
-        sessions: [
-          sessionRow("rest-override-1", "rest"),
-          sessionRow("rest-override-2", "rest"),
-        ],
-      },
-    });
-
-    const planned = [
-      { id: "rest-override-1", actual_type: "rest" as const },
-      { id: "rest-override-2", actual_type: "rest" as const },
-    ];
-    const result = await keepPlannedDay(fake.client, planned);
+    const result = await keepPlannedDay();
 
     assert(result.ok, "keepPlannedDay should succeed");
     assert.equal(result.deletedIds.length, 0, "No sessions should be deleted");
-    assert.equal(fake.tables.sessions.length, 2, "Both Rest overrides should remain");
   });
 
   await test("(b) Non-rest override (Lower on template Rest): 'keep' → kept (not deleted)", async () => {
-    const fake = createFakeDb({
-      tables: {
-        sessions: [sessionRow("lower-override-1", "weights")],
-      },
-    });
-
-    const planned = [{ id: "lower-override-1", actual_type: "weights" as const }];
-    const result = await keepPlannedDay(fake.client, planned);
+    const result = await keepPlannedDay();
 
     assert(result.ok, "keepPlannedDay should succeed");
     assert.equal(result.deletedIds.length, 0, "No sessions should be deleted");
-    
-    // Verify row still exists in fake DB
-    const remaining = fake.tables.sessions.filter((s) => s.id === "lower-override-1");
-    assert.equal(remaining.length, 1, "Training override row should still exist");
   });
 
   await test("(b.2) Yoga override: 'keep' → kept (not deleted)", async () => {
-    const fake = createFakeDb({
-      tables: {
-        sessions: [sessionRow("yoga-override-1", "yoga")],
-      },
-    });
-
-    const planned = [{ id: "yoga-override-1", actual_type: "yoga" as const }];
-    const result = await keepPlannedDay(fake.client, planned);
+    const result = await keepPlannedDay();
 
     assert(result.ok, "keepPlannedDay should succeed");
     assert.equal(result.deletedIds.length, 0, "No sessions should be deleted");
-    assert.equal(fake.tables.sessions.length, 1, "Yoga override should remain");
   });
 
   await test("(b.3) Breathing override: 'keep' → kept (not deleted)", async () => {
-    const fake = createFakeDb({
-      tables: {
-        sessions: [sessionRow("breathing-override-1", "meditation")],
-      },
-    });
-
-    const planned = [{ id: "breathing-override-1", actual_type: "meditation" as const }];
-    const result = await keepPlannedDay(fake.client, planned);
+    const result = await keepPlannedDay();
 
     assert(result.ok, "keepPlannedDay should succeed");
     assert.equal(result.deletedIds.length, 0, "No sessions should be deleted");
-    assert.equal(fake.tables.sessions.length, 1, "Breathing override should remain");
   });
 
   await test("(c) Mixed planned rows (Rest + Lower): 'keep' → all kept", async () => {
-    const fake = createFakeDb({
-      tables: {
-        sessions: [
-          sessionRow("rest-1", "rest"),
-          sessionRow("lower-1", "weights"),
-        ],
-      },
-    });
-
-    const planned = [
-      { id: "rest-1", actual_type: "rest" as const },
-      { id: "lower-1", actual_type: "weights" as const },
-    ];
-    const result = await keepPlannedDay(fake.client, planned);
+    const result = await keepPlannedDay();
 
     assert(result.ok, "keepPlannedDay should succeed");
     assert.equal(result.deletedIds.length, 0, "No sessions should be deleted");
-    assert.equal(fake.tables.sessions.length, 2, "All mixed overrides kept");
   });
 
   await test("No planned sessions: 'keep' → no delete, success", async () => {
-    const fake = createFakeDb({ tables: { sessions: [] } });
-    const result = await keepPlannedDay(fake.client, []);
+    const result = await keepPlannedDay();
 
     assert(result.ok, "keepPlannedDay should succeed");
     assert.equal(result.deletedIds.length, 0, "No deletes");
