@@ -213,6 +213,7 @@ async function test1b1d() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -324,15 +325,16 @@ async function testN7() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
   await act(async () => {});
   
-  // Assert the UI shows "2 sets waiting to save" and "Saving..." rows
+  // Assert the UI shows "2 sets waiting to save" and "waiting..." rows
   assert(!!screen.queryByText(/2 sets waiting to save/i), "Shows '2 sets waiting to save' text");
   
-  assert((screen.queryAllByText(/saving/i) || []).length >= 2, "Shows 'Saving...' rows for pending sets");
+  assert((screen.queryAllByText(/waiting/i) || []).length >= 2, "Shows 'waiting...' rows for pending sets");
   
   // Now test with a different userId - pending sets should NOT appear
   cleanup(); // Unmount the first render
@@ -361,6 +363,7 @@ async function testN7() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -454,7 +457,8 @@ async function test7b7c() {
         settings={settings}
         actions={actions}
       timer={fakeTimer}
-      />
+      now={() => FIXED_TIME}
+    />
     );
     
     await act(async () => {});
@@ -545,7 +549,8 @@ async function test7b7c() {
         exercises={exercises}
         settings={settings}
         actions={errorActions}
-      />
+      now={() => FIXED_TIME}
+    />
     );
     
     await act(async () => {});
@@ -679,6 +684,7 @@ async function test8d8e() {
       timer={fakeTimer}
       addEventListener={mockAddEventListener}
       removeEventListener={mockRemoveEventListener}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -821,24 +827,28 @@ async function test9b() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
   await act(async () => {});
   
-  // Assert cooldown Done and Skip buttons show "Saving 1 set..." and are disabled
+  // Assert cooldown Done and Skip buttons
+  // Done button now always says "Done" (the pending count is shown in the notice)
   const buttons = screen.getAllByRole("button");
-  // In cooldown phase, the buttons are "Saving 1 set…" (Done) and "Skip cool-down"
-  const savingButton = buttons.find(b => b.textContent?.includes("Saving"));
+  const doneButton = buttons.find(b => b.textContent?.trim() === "Done");
   const skipCooldownButton = buttons.find(b => b.textContent?.includes("Skip cool-down"));
   
-  assert(!!savingButton, "9b: Saving button exists");
-  assert(!!(savingButton?.textContent?.includes("Saving 1 set")), "9b: Button shows 'Saving 1 set' text");
-  assert(savingButton !== undefined && 'disabled' in savingButton && Boolean(savingButton.disabled), "9b: Saving button is disabled while saving");
+  assert(!!doneButton, "9b: Done button exists");
+  assert(doneButton !== undefined && 'disabled' in doneButton && Boolean(doneButton.disabled), "9b: Done button is disabled while sets are pending");
+  
+  // Verify the notice shows the pending count
+  const pendingNotice = screen.queryByText(/1 set waiting to save/i);
+  assert(pendingNotice !== null, "9b: Notice shows '1 set waiting to save'");
   
   assert(skipCooldownButton !== null, "9c: Skip cool-down button exists");
   if (skipCooldownButton && 'disabled' in skipCooldownButton) {
-    assert(skipCooldownButton.disabled === true, "9c: Skip cool-down button is disabled while saving");
+    assert(skipCooldownButton.disabled === false, "9c: Skip cool-down button is NOT disabled by pending sets (F1)");
   }
   
   cleanup();
@@ -935,6 +945,7 @@ async function testN11() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1041,6 +1052,7 @@ async function testN12() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1129,6 +1141,7 @@ async function testConflict() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1250,6 +1263,7 @@ async function testDoubleTap() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1348,6 +1362,7 @@ async function testFailedSubmit() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1461,6 +1476,7 @@ async function testN7sCompletedSession() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   
@@ -1569,6 +1585,7 @@ async function testRetryButton() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
+    now={() => FIXED_TIME}
     />
   );
   

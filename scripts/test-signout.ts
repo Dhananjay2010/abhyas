@@ -32,53 +32,37 @@ function createRequest(url: string, headers: Record<string, string> = {}): Reque
 }
 
 async function runTests() {
-  console.log("\n1. Sign-out awaits signOut before redirecting");
+  console.log("\n1. Sign-out awaits signOut before completing");
   {
     let signOutCalled = false;
-    let redirectCalled = false;
-    let signOutResolvedBeforeRedirect = false;
+    let signOutResolved = false;
 
     const mockSignOut = async () => {
       signOutCalled = true;
       await new Promise((resolve) => setTimeout(resolve, 10));
-      signOutResolvedBeforeRedirect = !redirectCalled;
+      signOutResolved = true;
       return { error: null };
     };
 
-    const mockRedirect = (() => {
-      redirectCalled = true;
-      throw new Error("REDIRECT");
-    }) as never;
-
-    try {
-      await performSignOut({ signOut: mockSignOut, redirect: mockRedirect });
-    } catch {
-      // redirect throws, which is expected
-    }
+    const result = await performSignOut({ signOut: mockSignOut });
 
     check("signOut was called", signOutCalled);
-    check("redirect was called", redirectCalled);
-    check("signOut resolved before redirect", signOutResolvedBeforeRedirect);
+    check("signOut resolved before returning", signOutResolved);
+    check("returns ok: true", result.ok === true);
   }
 
-  console.log("\n2. Sign-out does not redirect on error");
+  console.log("\n2. Sign-out returns error on failure");
   {
     const errorMessage = "Network error";
-    let redirectCalled = false;
 
     const mockSignOut = async () => ({
       error: new Error(errorMessage),
     });
 
-    const mockRedirect = (() => {
-      redirectCalled = true;
-      throw new Error("REDIRECT");
-    }) as never;
+    const result = await performSignOut({ signOut: mockSignOut });
 
-    const result = await performSignOut({ signOut: mockSignOut, redirect: mockRedirect });
-
-    check("redirect was not called", !redirectCalled);
-    check("returns generic error", !result.ok && result.error === "Sign-out failed", result.ok ? "returned ok: true" : result.error);
+    check("returns ok: false", result.ok === false);
+    check("returns generic error", !result.ok && result.error === "Sign-out failed", !result.ok ? result.error : "ok: true");
   }
 
   console.log("\n3. Sign-out returns generic error message");
@@ -89,70 +73,31 @@ async function runTests() {
       error: new Error(errorMessage),
     });
 
-    const mockRedirect = (() => {
-      throw new Error("REDIRECT");
-    }) as never;
-
-    const result = await performSignOut({ signOut: mockSignOut, redirect: mockRedirect });
+    const result = await performSignOut({ signOut: mockSignOut });
 
     check("result.ok is false", result.ok === false);
     check("result.error is generic", !result.ok && result.error === "Sign-out failed", !result.ok ? result.error : "ok: true");
   }
 
-  console.log("\n4. Sign-out calls redirect with correct path");
+  console.log("\n4. Sign-out handles null error correctly");
   {
-    let redirectPath = "";
-
     const mockSignOut = async () => ({ error: null });
 
-    const mockRedirect = ((path: string) => {
-      redirectPath = path;
-      throw new Error("REDIRECT");
-    }) as never;
+    const result = await performSignOut({ signOut: mockSignOut });
 
-    try {
-      await performSignOut({ signOut: mockSignOut, redirect: mockRedirect });
-    } catch {
-      // expected
-    }
-
-    check("redirects to /", redirectPath === "/", `got ${redirectPath}`);
+    check("returns ok: true on success", result.ok === true);
   }
 
-  console.log("\n5. Sign-out handles null error correctly");
-  {
-    let redirectCalled = false;
-
-    const mockSignOut = async () => ({ error: null });
-
-    const mockRedirect = (() => {
-      redirectCalled = true;
-      throw new Error("REDIRECT");
-    }) as never;
-
-    try {
-      await performSignOut({ signOut: mockSignOut, redirect: mockRedirect });
-    } catch {
-      // expected
-    }
-
-    check("redirect was called on success", redirectCalled);
-  }
-
-  console.log("\n6. Sign-out does not swallow signOut errors");
+  console.log("\n5. Sign-out does not swallow signOut errors");
   {
     const mockSignOut = async () => {
       // Simulate an unexpected throw (not error in result)
       throw new Error("Unexpected signOut error");
     };
 
-    const mockRedirect = (() => {
-      throw new Error("REDIRECT");
-    }) as never;
-
     let threwError = false;
     try {
-      await performSignOut({ signOut: mockSignOut, redirect: mockRedirect });
+      await performSignOut({ signOut: mockSignOut });
     } catch (err) {
       if (err instanceof Error && err.message === "Unexpected signOut error") {
         threwError = true;
@@ -162,7 +107,7 @@ async function runTests() {
     check("unexpected errors propagate", threwError);
   }
 
-  console.log("\n7. Same-origin requests are allowed");
+  console.log("\n6. Same-origin requests are allowed");
   {
     const req = createRequest("https://example.com/auth/signout", {
       origin: "https://example.com",
@@ -170,7 +115,7 @@ async function runTests() {
     check("matching Origin header", isSameOriginRequest(req));
   }
 
-  console.log("\n8. Sec-Fetch-Site same-origin is allowed");
+  console.log("\n7. Sec-Fetch-Site same-origin is allowed");
   {
     const req = createRequest("https://example.com/auth/signout", {
       "sec-fetch-site": "same-origin",
@@ -178,7 +123,7 @@ async function runTests() {
     check("Sec-Fetch-Site: same-origin", isSameOriginRequest(req));
   }
 
-  console.log("\n9. Cross-site requests are rejected");
+  console.log("\n8. Cross-site requests are rejected");
   {
     const req = createRequest("https://example.com/auth/signout", {
       origin: "https://evil.example",
@@ -186,7 +131,7 @@ async function runTests() {
     check("different Origin header", !isSameOriginRequest(req));
   }
 
-  console.log("\n10. Cross-site Sec-Fetch-Site is rejected");
+  console.log("\n9. Cross-site Sec-Fetch-Site is rejected");
   {
     const req = createRequest("https://example.com/auth/signout", {
       "sec-fetch-site": "cross-site",
@@ -194,13 +139,13 @@ async function runTests() {
     check("Sec-Fetch-Site: cross-site", !isSameOriginRequest(req));
   }
 
-  console.log("\n11. Missing headers are rejected");
+  console.log("\n10. Missing headers are rejected");
   {
     const req = createRequest("https://example.com/auth/signout", {});
     check("no Origin or Sec-Fetch-Site headers", !isSameOriginRequest(req));
   }
 
-  console.log("\n12. Same-origin with different port matches");
+  console.log("\n11. Same-origin with different port matches");
   {
     const req = createRequest("https://example.com:3000/auth/signout", {
       origin: "https://example.com:3000",
@@ -208,7 +153,7 @@ async function runTests() {
     check("same origin with port", isSameOriginRequest(req));
   }
 
-  console.log("\n13. Different port is rejected");
+  console.log("\n12. Different port is rejected");
   {
     const req = createRequest("https://example.com:3000/auth/signout", {
       origin: "https://example.com:4000",
@@ -216,7 +161,7 @@ async function runTests() {
     check("different port", !isSameOriginRequest(req));
   }
 
-  console.log("\n14. HTTP vs HTTPS is rejected");
+  console.log("\n13. HTTP vs HTTPS is rejected");
   {
     const req = createRequest("https://example.com/auth/signout", {
       origin: "http://example.com",
@@ -224,7 +169,7 @@ async function runTests() {
     check("different protocol", !isSameOriginRequest(req));
   }
 
-  console.log("\n15. Sec-Fetch-Site overrides mismatched Origin");
+  console.log("\n14. Sec-Fetch-Site overrides mismatched Origin");
   {
     // This is a realistic case: a browser might send both headers,
     // and we trust Sec-Fetch-Site when it says same-origin
