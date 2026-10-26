@@ -36,7 +36,7 @@ export function LandingContent({ error, next }: LandingContentProps) {
 
         <ul className="mt-10 space-y-4 text-sm text-muted">
           {[
-            "Warm-up and cool-down built into every session",
+            "Warm-up and cool-down built into every workout",
             "Weights, bodyweight, yoga or breathing — your call",
             "Every set recorded, so the weight goes up when you are ready",
           ].map((line) => (
