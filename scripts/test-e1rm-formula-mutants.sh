@@ -329,7 +329,8 @@ echo ""
 
 # M9b: Backup taken AFTER the recompute UPDATE
 echo "M9b: Backup taken AFTER the recompute UPDATE"
-perl -0pi -e 's/(create table if not exists exercise_progress_best_e1rm_backup_20261025000030 as\nselect user_id, exercise_id, best_e1rm\nfrom exercise_progress;\n)(.*)\z/$2\n$1/s' supabase/migrations/20261025000030_align_e1rm_formula.sql
+# Move CREATE TABLE + ALTER + REVOKE block to after the UPDATE
+perl -0pi -e 's/(-- 2\. Back up existing.*?revoke all on exercise_progress_best_e1rm_backup_20261025000030 from anon, authenticated;\n)(.*)\z/$2$1/s' supabase/migrations/20261025000030_align_e1rm_formula.sql
 
 if cmp -s "${TEMP_DIR}/migration.sql.bak" supabase/migrations/20261025000030_align_e1rm_formula.sql; then
   echo "✗ M9b: sed did not change migration"
