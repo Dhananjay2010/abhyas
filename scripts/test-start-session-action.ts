@@ -3,8 +3,8 @@
  *
  * Uses server-action-stubs.ts to stub request-scoped edges (auth, rate-limit,
  * revalidate) and createClient<Database> with stub fetch to provide a fake
- * Supabase client. Then imports and calls the REAL startSession() from
- * src/app/session/actions.ts.
+ * Supabase client. Mocks Date.now() to control the clock. Then imports and
+ * calls the REAL startSession() from src/app/session/actions.ts.
  *
  * Tests:
  * 1. Fresh start: returns new sessionId from inserted session
@@ -18,6 +18,20 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { installServerActionStubs, stubState } from "./helpers/server-action-stubs";
+
+const FIXED_DATE_MS = new Date("2026-10-20T10:00:00Z").getTime(); // Monday Oct 20, 2026
+let originalDateNow: () => number;
+
+function mockClock(timestampMs: number) {
+  originalDateNow = Date.now;
+  Date.now = () => timestampMs;
+}
+
+function restoreClock() {
+  if (originalDateNow) {
+    Date.now = originalDateNow;
+  }
+}
 
 function createStubFetch(
   options: {
@@ -142,9 +156,13 @@ function createStubFetch(
           deload_week: 4,
           week_offset: 0,
           program_days: [
-            { id: "day-1", day_index: 0, day_type: "weights", focus: null, label: null, status: "active" },
-            { id: "day-2", day_index: 1, day_type: "weights", focus: null, label: null, status: "active" },
-            { id: "day-3", day_index: 2, day_type: "rest", focus: null, label: null, status: "active" },
+            { id: "day-1", day_index: 1, day_type: "weights", focus: null, label: null, status: "active" },
+            { id: "day-2", day_index: 2, day_type: "weights", focus: null, label: null, status: "active" },
+            { id: "day-3", day_index: 3, day_type: "rest", focus: null, label: null, status: "active" },
+            { id: "day-4", day_index: 4, day_type: "weights", focus: null, label: null, status: "active" },
+            { id: "day-5", day_index: 5, day_type: "weights", focus: null, label: null, status: "active" },
+            { id: "day-6", day_index: 6, day_type: "rest", focus: null, label: null, status: "active" },
+            { id: "day-7", day_index: 7, day_type: "rest", focus: null, label: null, status: "active" },
           ],
         }]),
         { status: 200, headers: { "Content-Type": "application/json", "Content-Range": "0-0/1" } }
@@ -263,8 +281,10 @@ async function testFreshStart() {
   stubState.client = client;
   stubState.userId = "user-1";
 
+  mockClock(FIXED_DATE_MS);
   const { startSession } = await import("@/app/session/actions");
   const result = await startSession();
+  restoreClock();
 
   if (!result.ok) {
     throw new Error(`Test fresh start failed: expected ok=true, got error: ${result.error}`);
@@ -288,8 +308,10 @@ async function testInsertFailure() {
   stubState.client = client;
   stubState.userId = "user-1";
 
+  mockClock(FIXED_DATE_MS);
   const { startSession } = await import("@/app/session/actions");
   const result = await startSession();
+  restoreClock();
 
   if (result.ok) {
     throw new Error(`Test insert failure failed: expected ok=false, got ok=true`);
@@ -305,8 +327,8 @@ async function testResumePath() {
   const existingSession = {
     id: "sess-existing-456",
     user_id: "user-1",
-    local_date: "2026-10-26",
-    created_at: "2026-10-26T09:00:00Z",
+    local_date: "2026-10-20",
+    created_at: "2026-10-20T09:00:00Z",
   };
   const stubFetch = createStubFetch({ insertFails: true, existingSession });
   const client = createClient<Database>("http://localhost:54321", "test-key", {
@@ -316,8 +338,10 @@ async function testResumePath() {
   stubState.client = client;
   stubState.userId = "user-1";
 
+  mockClock(FIXED_DATE_MS);
   const { startSession } = await import("@/app/session/actions");
   const result = await startSession();
+  restoreClock();
 
   if (!result.ok) {
     throw new Error(`Test resume path failed: expected ok=true, got error: ${result.error}`);
@@ -332,11 +356,49 @@ async function testResumePath() {
   console.log("✓ Test resume path: handles 23505 duplicate and returns existing sessionId");
 }
 
+async function testWeekdayIndependence() {
+  console.log("\nWeekday independence check:");
+  
+  const weekdays = [
+    { name: "Monday", date: "2026-10-26T10:00:00Z" },
+    { name: "Tuesday", date: "2026-10-27T10:00:00Z" },
+    { name: "Wednesday", date: "2026-10-28T10:00:00Z" },
+    { name: "Thursday", date: "2026-10-29T10:00:00Z" },
+    { name: "Friday", date: "2026-10-30T10:00:00Z" },
+    { name: "Saturday", date: "2026-10-31T10:00:00Z" },
+    { name: "Sunday", date: "2026-11-01T10:00:00Z" },
+    { name: "Future date (3 months ahead)", date: "2027-01-26T10:00:00Z" },
+  ];
+
+  for (const { name, date } of weekdays) {
+    const timestampMs = new Date(date).getTime();
+    const stubFetch = createStubFetch();
+    const client = createClient<Database>("http://localhost:54321", "test-key", {
+      global: { fetch: stubFetch },
+    });
+
+    stubState.client = client;
+    stubState.userId = "user-1";
+
+    mockClock(timestampMs);
+    delete require.cache[require.resolve("@/app/session/actions")];
+    const { startSession } = await import("@/app/session/actions");
+    const result = await startSession();
+    restoreClock();
+
+    if (!result.ok || !result.data?.sessionId) {
+      throw new Error(`Weekday test failed for ${name}: ${JSON.stringify(result)}`);
+    }
+    console.log(`  ✓ ${name}: ${date} → sessionId=${result.data.sessionId}`);
+  }
+}
+
 async function main() {
   installServerActionStubs();
   await testFreshStart();
   await testInsertFailure();
   await testResumePath();
+  await testWeekdayIndependence();
   console.log("\nAll tests passed!");
 }
 

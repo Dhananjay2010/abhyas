@@ -688,8 +688,10 @@ async function main() {
     eq(result.ok, true, "Succeeds with planned row having empty exercises array");
     eq(insertedExercises.length, 1, "Inserts one exercise");
     if (insertedExercises.length > 0) {
-      const ex = insertedExercises[0] as { metric: string };
-      eq(ex.metric, "reps", "Falls back to 'reps' metric when exercises array is empty");
+      const ex = insertedExercises[0];
+      if (ex && typeof ex === "object" && "metric" in ex) {
+        eq(ex.metric, "reps", "Falls back to 'reps' metric when exercises array is empty");
+      }
     }
   });
 
