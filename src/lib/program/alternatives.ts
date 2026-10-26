@@ -460,11 +460,10 @@ export function rankAlternatives<T extends ExerciseRow>(
     
     // Wall-sit is never first. If it would be first, move it after other quads or after first hinge.
     if (quadIsolation.length > 0 && quadIsolation[0].slug === "wall-sit") {
-      const wallSit = quadIsolation.shift()!;
-      if (quadIsolation.length > 0) {
+      const [wallSit, ...restQuads] = quadIsolation;
+      if (restQuads.length > 0) {
         // Move wall-sit after other quad exercises
-        quadIsolation.push(wallSit);
-        return [...quadIsolation, ...hingeFallbacks];
+        return [...restQuads, wallSit, ...hingeFallbacks];
       } else {
         // Only wall-sit in quad list: place it after first hinge (or at end if no hinges)
         if (hingeFallbacks.length > 0) {

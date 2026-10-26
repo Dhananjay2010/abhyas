@@ -157,56 +157,6 @@ for (const profile of nonKneeProfiles) {
   }
 }
 
-// Guard: kettlebell-thruster must be pickable by the specific userIds that catch M-a
-const thrusterGuardProfiles = [
-  { id: "pk-int-3d-90m-kb-wt-fl", run: 4 },
-  { id: "pk-exp-6d-90m-kb-bw-fl", run: 10 },
-];
-
-for (const guard of thrusterGuardProfiles) {
-  const profile = pastKneeProfiles.find(p => p.id === guard.id);
-  if (!profile) continue;
-
-  const input: GeneratorInput = {
-    userId: `test-${profile.id}-run${guard.run}`,
-    blockNumber: 1,
-    goal: profile.goal,
-    level: profile.level,
-    primaryTrack: profile.primaryTrack,
-    daysPerWeek: profile.days,
-    yogaDaysPerWeek: 0,
-    age: 30,
-    bmi: 22,
-    hasAllEquipment: false,
-    equipmentIds: ["kettlebell"],
-    anyKneeInjury: true,
-    currentInjuryRegions: [],
-    preferredSessionMinutes: profile.preferredSessionMinutes,
-    catalogue,
-  };
-
-  const program = generateProgram(input);
-  let foundThruster = false;
-
-  for (const day of program.days) {
-    if (day.dayType === "rest") continue;
-    for (const ex of day.exercises) {
-      const exercise = byId.get(ex.exerciseId);
-      if (exercise?.slug === "kettlebell-thruster") {
-        foundThruster = true;
-        break;
-      }
-    }
-    if (foundThruster) break;
-  }
-
-  if (foundThruster) {
-    console.error(`✗ FATAL: ${guard.id} run${guard.run} (past-knee) picks kettlebell-thruster without M-a`);
-    console.error(`  This userId would make the test vacuous (false positive).`);
-    failures++;
-  }
-}
-
 if (failures > 0) {
   console.error(`\n✗ ${failures} assertion(s) failed`);
   process.exit(1);

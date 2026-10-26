@@ -21,11 +21,6 @@ const catalogueById = new Map(catalogue.map(ex => [ex.id, ex]));
 
 let failures = 0;
 
-function fail(message: string) {
-  console.error(`FAIL: ${message}`);
-  failures++;
-}
-
 function check(label: string, ok: boolean, detail = "") {
   if (!ok) {
     console.log(`  ✗ ${label}${detail ? ` — ${detail}` : ""}`);

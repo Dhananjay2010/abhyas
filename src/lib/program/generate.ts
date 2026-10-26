@@ -776,9 +776,6 @@ function pickForSlot(
         candidates = candidates.filter((e) => !isKneeRiskForKneeUser(e, true));
         if (candidates.length === 0) continue;
       }
-      // Filter past-knee excluded exercises (jumps, thrusters, etc.) for all slots
-      candidates = candidates.filter((e) => !isExcludedForPastKnee(e));
-      if (candidates.length === 0) continue;
     }
     
     // Apply shared constraint checker (timed holds in mains, adjacent hinges for knee injury)
@@ -810,7 +807,8 @@ function pickForSlot(
         // 3. RNG breaks ties (provides variety for accessories across blocks)
         return b.rng - a.rng;
       })
-      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));
+      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug))
+      .filter((item) => !(hasPastKnee && isExcludedForPastKnee(item.e)));
 
     if (ranked.length > 0) {
       return ranked[0].e;
@@ -857,7 +855,8 @@ function pickForSlot(
         }
         return b.rng - a.rng;
       })
-      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));
+      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug))
+      .filter((item) => !(hasPastKneeAlt && isExcludedForPastKnee(item.e)));
     
     if (ranked.length > 0) {
       return ranked[0].e;
@@ -1501,6 +1500,21 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       const bCore = b.ex.movement_pattern === "core";
       if (aCore && !bCore) return 1;  // Core goes last
       if (!aCore && bCore) return -1;
+      
+      // For past-knee users on Full Body days: Wall Sit comes after other lower-body exercises
+      const hasPastKnee = input.anyKneeInjury && !hasKneeInjury;
+      const isFullDay = entry.focus === "full_body";
+      if (hasPastKnee && isFullDay) {
+        const aIsWallSit = a.ex.slug === "wall-sit";
+        const bIsWallSit = b.ex.slug === "wall-sit";
+        const lowerBodyPatterns = new Set(["squat", "lunge", "hinge", "calf"]);
+        const aIsLower = lowerBodyPatterns.has(a.ex.movement_pattern);
+        const bIsLower = lowerBodyPatterns.has(b.ex.movement_pattern);
+        
+        // Wall Sit after other lower-body, but before upper-body and core
+        if (aIsWallSit && bIsLower && !bIsWallSit) return 1;
+        if (bIsWallSit && aIsLower && !aIsWallSit) return -1;
+      }
       
       const aCompound = a.ex.mechanic === "compound";
       const bCompound = b.ex.mechanic === "compound";

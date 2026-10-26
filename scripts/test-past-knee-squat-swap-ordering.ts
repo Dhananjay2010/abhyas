@@ -3,10 +3,12 @@
  * 
  * Verifies that past-knee squat swaps:
  * 1. Are never empty
- * 2. Offer PAST_KNEE_LUNGE_EXERCISES first (spanish-squat, wall-sit, leg-extensions, single-leg-leg-extension)
+ * 2. Offer PAST_KNEE_LUNGE_EXERCISES first (leg-extensions, single-leg-leg-extension, wall-sit, spanish-squat)
  *    in that order, filtered by equipment and excluding the current exercise
  * 3. Then offer knee-safe hinge/bridge fallbacks (hip thrust, glute bridge, RDL variants, hamstring curl)
+ *    with glutes or hamstrings as primary muscles
  * 4. Contain no knee-risk exercises
+ * 5. Contain no core patterns or other squat patterns
  * 
  * Tests three equipment profiles:
  * - Full gym
@@ -162,6 +164,26 @@ function testProfile(profileName: string, equipmentIds: string[], currentSlug: s
     check("hinge fallbacks are knee-safe", hingeKneeRisk.length === 0,
       hingeKneeRisk.length > 0 ? `knee-risk hinges: ${hingeKneeRisk.map(e => e.slug).join(", ")}` : "");
   }
+  
+  // 6. Verify all exercises are either PAST_KNEE_LUNGE_EXERCISES or glute/hamstring-primary hinges
+  const invalidExercises = ranked.filter(ex => {
+    // Valid if it's one of the 4 PAST_KNEE_LUNGE_EXERCISES
+    if (quadIsolationSlugs.includes(ex.slug)) return false;
+    
+    // Valid if it's a hinge with glutes or hamstrings as primary muscle
+    if (ex.movement_pattern === "hinge" && 
+        (ex.primary_muscles.includes("glutes") || ex.primary_muscles.includes("hamstrings"))) {
+      return false;
+    }
+    
+    // Otherwise invalid
+    return true;
+  });
+  check("all exercises are valid (PAST_KNEE_LUNGE_EXERCISES or glute/hamstring hinges)", 
+    invalidExercises.length === 0,
+    invalidExercises.length > 0 
+      ? `invalid: ${invalidExercises.map(e => `${e.slug} (${e.movement_pattern}, primary: ${e.primary_muscles.join(",")})`).join("; ")}` 
+      : "");
   
   // Print the list for inspection
   console.log(`  List (${ranked.length}):`);

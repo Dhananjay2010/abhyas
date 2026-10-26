@@ -211,10 +211,15 @@ run_mutant "5. Remove squat slot exception (filter Barbell Squat from slot 0)" "
       if (isFallback || slotIndex !== 999) {' "$V" "$I" "$C"
 
 run_mutant "P1. Remove isExcludedForPastKnee filter from pickForSlot" "$GENERATE" \
-  '      // Filter past-knee excluded exercises (jumps, thrusters, etc.) for all slots
-      candidates = candidates.filter((e) => !isExcludedForPastKnee(e));
-      if (candidates.length === 0) continue;' \
-  '' "$V" "$C" "$X"
+  '        // 3. RNG breaks ties (provides variety for accessories across blocks)
+        return b.rng - a.rng;
+      })
+      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug))
+      .filter((item) => !(hasPastKnee && isExcludedForPastKnee(item.e)));' \
+  '        // 3. RNG breaks ties (provides variety for accessories across blocks)
+        return b.rng - a.rng;
+      })
+      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));' "$X"
 
 run_mutant "K1. Ignore explicit knee tag in isKneeRiskForKneeUser" "$KNEE_SAFETY" \
   '  // Check explicit contraindications
