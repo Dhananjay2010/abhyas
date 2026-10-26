@@ -97,7 +97,7 @@ console.log("\n4. Stored 53.33 vs live 40×11 → PB");
   
   check("PB when genuinely improved", result.personalBest?.kind === "e1rm", 
     result.personalBest ? `got ${result.personalBest.kind}` : "null");
-  check("bestE1rm updated", result.bestE1rm > stored, `${result.bestE1rm}`);
+  check("bestE1rm updated", result.bestE1rm !== null && result.bestE1rm > stored, `${result.bestE1rm}`);
 }
 
 console.log("\n5. No stored value → PB (first time)");
