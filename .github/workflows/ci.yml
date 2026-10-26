@@ -11,7 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  lint-typecheck-build:
+    name: lint-typecheck-build
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -28,14 +29,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify test shard coverage
+        run: npm run verify-test-shards
+
       - name: Lint
         run: npm run lint
 
       - name: Type check
         run: npx tsc --noEmit
-
-      - name: Run tests
-        run: npm test
 
       - name: Build
         run: npm run build
@@ -54,6 +55,102 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+
+  test-shard-1:
+    name: test (shard 1/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test shard 1
+        run: npm run test:shard1
+
+  test-shard-2:
+    name: test (shard 2/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test shard 2
+        run: npm run test:shard2
+
+  test-shard-3:
+    name: test (shard 3/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test shard 3
+        run: npm run test:shard3
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [lint-typecheck-build, test-shard-1, test-shard-2, test-shard-3]
+    if: always()
+
+    steps:
+      - name: Check all required jobs succeeded
+        run: |
+          echo "Checking results of all required jobs..."
+          echo "lint-typecheck-build: ${{ needs.lint-typecheck-build.result }}"
+          echo "test-shard-1: ${{ needs.test-shard-1.result }}"
+          echo "test-shard-2: ${{ needs.test-shard-2.result }}"
+          echo "test-shard-3: ${{ needs.test-shard-3.result }}"
+          
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "❌ At least one job failed"
+            exit 1
+          fi
+          
+          if [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "❌ At least one job was cancelled"
+            exit 1
+          fi
+          
+          if [[ "${{ contains(needs.*.result, 'skipped') }}" == "true" ]]; then
+            echo "❌ At least one job was skipped"
+            exit 1
+          fi
+          
+          echo "✅ All required jobs succeeded"
 
   database-seed-test:
     runs-on: ubuntu-latest

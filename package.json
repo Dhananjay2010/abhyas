@@ -312,7 +312,11 @@
     "test:swap-banned-real-path": "tsx scripts/test-swap-banned-real-path.ts",
     "test:knee-volume": "tsx scripts/test-knee-volume.ts",
     "test:knee-volume-identity": "tsx scripts/test-knee-volume-identity.ts",
-    "test:knee-volume-mutants": "bash scripts/test-knee-volume-mutants.sh"
+    "test:knee-volume-mutants": "bash scripts/test-knee-volume-mutants.sh",
+    "test:shard1": "node scripts/run-test-shard.js 1 3",
+    "test:shard2": "node scripts/run-test-shard.js 2 3",
+    "test:shard3": "node scripts/run-test-shard.js 3 3",
+    "verify-test-shards": "node scripts/verify-test-shards.js 3"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
