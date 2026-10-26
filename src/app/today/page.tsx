@@ -23,6 +23,7 @@ import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-s
 import { buildChosenByDayIndex } from "@/lib/today/chosen-by-day";
 import { shouldLoadPlannableDays } from "@/lib/today/should-load-plannable";
 import { decideRestDayResume } from "@/lib/today/rest-day-resume";
+import { shouldShowSwap } from "@/lib/today/should-show-swap";
 
 export const dynamic = "force-dynamic";
 
@@ -256,6 +257,7 @@ export default async function TodayPage() {
     override !== undefined &&
     (override.actual_type !== (scheduled?.day_type ?? null) ||
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
+  const showSwap = shouldShowSwap(overrideDiffers, scheduled);
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
   const completedStrengthSession = pickLatestCompletedStrength(todaySessions);

@@ -1,5 +1,3 @@
-import type { DayPlan } from "@/lib/program/day-plan";
-
 /**
  * Validate planDay input at runtime.
  * 
