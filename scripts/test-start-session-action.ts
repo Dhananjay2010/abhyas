@@ -468,12 +468,197 @@ async function testWeekdayIndependence() {
   }
 }
 
+async function testStaleSessionClosed() {
+  const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime();
+  const YESTERDAY = "2026-10-25";
+  const OVER_6H_AGO_MS = NOW_MS - (6 * 3600 * 1000 + 1000);
+  const STALE_STARTED_AT = new Date(OVER_6H_AGO_MS).toISOString();
+
+  const requests: Array<{ method: string; url: string; body: unknown }> = [];
+
+  const stubFetch: typeof fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const method = init?.method ?? "GET";
+    const bodyText = init?.body && typeof init.body === "string" ? init.body : null;
+    const body = bodyText ? JSON.parse(bodyText) : null;
+
+    requests.push({ method, url, body });
+
+    if (url.includes("/sessions") && method === "GET") {
+      const headers = new Headers(init?.headers);
+      const accept = headers.get("accept");
+      const wantsSingle = accept?.includes("application/vnd.pgrst.object+json");
+
+      if (wantsSingle) {
+        return new Response(JSON.stringify(null), {
+          status: 406,
+          headers: { "Content-Type": "application/vnd.pgrst.object+json" },
+        });
+      } else {
+        const data = [{
+          id: "stale-session-id",
+          user_id: "user-1",
+          status: "in_progress",
+          local_date: YESTERDAY,
+          actual_type: "weights",
+          started_at: STALE_STARTED_AT,
+        }];
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Content-Range": `0-0/1` },
+        });
+      }
+    }
+
+    if (url.includes("/sessions") && method === "PATCH") {
+      return new Response(JSON.stringify({ id: "stale-session-id" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return createStubFetch()(input, init);
+  };
+
+  const client = createClient<Database>("http://localhost:54321", "test-key", {
+    global: { fetch: stubFetch },
+  });
+
+  stubState.client = client;
+  stubState.userId = "user-1";
+
+  mockClock(NOW_MS);
+  try {
+    delete require.cache[require.resolve("@/app/session/actions")];
+    const { startSession } = await import("@/app/session/actions");
+    const result = await startSession();
+
+    if (!result.ok) {
+      throw new Error(`Stale test failed: expected ok=true, got error: ${result.error}`);
+    }
+
+    const patchIndex = requests.findIndex(r => r.method === "PATCH" && r.url.includes("/sessions"));
+    const postIndex = requests.findIndex(r => r.method === "POST" && r.url.includes("/sessions"));
+
+    if (patchIndex === -1) {
+      throw new Error("Stale test failed: expected PATCH to close stale session, but none was sent");
+    }
+
+    if (postIndex === -1) {
+      throw new Error("Stale test failed: expected POST to create new session, but none was sent");
+    }
+
+    if (patchIndex >= postIndex) {
+      throw new Error(`Stale test failed: PATCH (index ${patchIndex}) must come before POST (index ${postIndex})`);
+    }
+
+    const patchBody = requests[patchIndex].body;
+    if (!patchBody || typeof patchBody !== "object") {
+      throw new Error("Stale test failed: PATCH body is missing or invalid");
+    }
+
+    const patchBodyObj = patchBody as Record<string, unknown>;
+    if (patchBodyObj.status !== "completed") {
+      throw new Error(`Stale test failed: PATCH body.status should be 'completed', got '${patchBodyObj.status}'`);
+    }
+
+    console.log("✓ Stale session: >6h old session from yesterday is closed before new session insert");
+  } finally {
+    restoreClock();
+  }
+}
+
+async function testFreshSessionResumed() {
+  const NOW_MS = new Date("2026-10-26T20:00:00Z").getTime();
+  const TODAY = "2026-10-26";
+  const RECENT_MS = NOW_MS - (30 * 60 * 1000); // 30 minutes ago
+  const FRESH_STARTED_AT = new Date(RECENT_MS).toISOString();
+
+  const requests: Array<{ method: string; url: string }> = [];
+
+  const stubFetch: typeof fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const method = init?.method ?? "GET";
+
+    requests.push({ method, url });
+
+    if (url.includes("/sessions") && method === "GET") {
+      const headers = new Headers(init?.headers);
+      const accept = headers.get("accept");
+      const wantsSingle = accept?.includes("application/vnd.pgrst.object+json");
+
+      if (wantsSingle) {
+        return new Response(JSON.stringify(null), {
+          status: 406,
+          headers: { "Content-Type": "application/vnd.pgrst.object+json" },
+        });
+      } else {
+        const data = [{
+          id: "fresh-session-id",
+          user_id: "user-1",
+          status: "in_progress",
+          local_date: TODAY,
+          actual_type: "weights",
+          started_at: FRESH_STARTED_AT,
+        }];
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Content-Range": `0-0/1` },
+        });
+      }
+    }
+
+    if (url.includes("/sessions") && method === "PATCH") {
+      return new Response(JSON.stringify({ id: "fresh-session-id" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return createStubFetch()(input, init);
+  };
+
+  const client = createClient<Database>("http://localhost:54321", "test-key", {
+    global: { fetch: stubFetch },
+  });
+
+  stubState.client = client;
+  stubState.userId = "user-1";
+
+  mockClock(NOW_MS);
+  try {
+    delete require.cache[require.resolve("@/app/session/actions")];
+    const { startSession } = await import("@/app/session/actions");
+    const result = await startSession();
+
+    if (!result.ok) {
+      throw new Error(`Fresh test failed: expected ok=true, got error: ${result.error}`);
+    }
+
+    if (result.data?.sessionId !== "fresh-session-id") {
+      throw new Error(`Fresh test failed: expected sessionId=fresh-session-id, got ${result.data?.sessionId}`);
+    }
+
+    const closePatchCount = requests.filter(r => r.method === "PATCH" && r.url.includes("/sessions") && !r.url.includes("session_exercises")).length;
+
+    if (closePatchCount > 0) {
+      throw new Error(`Fresh test failed: expected no close PATCH for fresh session, but ${closePatchCount} were sent`);
+    }
+
+    console.log("✓ Fresh session: <6h old session is resumed without closing");
+  } finally {
+    restoreClock();
+  }
+}
+
 async function main() {
   installServerActionStubs();
   await testFreshStart();
   await testInsertFailure();
   await testResumePath();
   await testWeekdayIndependence();
+  await testStaleSessionClosed();
+  await testFreshSessionResumed();
   console.log("\nAll tests passed!");
 }
 
