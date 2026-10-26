@@ -360,6 +360,7 @@ async function runTests() {
   // Create an isolation barbell exercise at 20 kg
   const barbellCurl = await adminClient.from("exercises").insert({
     name: "Barbell Curl Test",
+    slug: `barbell-curl-test-${Date.now()}`,
     movement_pattern: "biceps",
     mechanic: "isolation",
     metric: "reps",

@@ -16,7 +16,7 @@ const mockSupabase = {
       }),
     }),
   }),
-} as any;
+} as unknown as ReturnType<typeof import("@supabase/supabase-js").createClient>;
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -34,7 +34,7 @@ async function testSwapMutant() {
     consecutive_failures: 0,
   };
 
-  (mockSupabase.from as any) = (table: string) => {
+  (mockSupabase.from as unknown as (table: string) => unknown) = (table: string) => {
     if (table === "exercise_progress") {
       return {
         select: () => ({
