@@ -1344,7 +1344,7 @@ function SetEntry({
             inputMode="decimal"
             step="0.5"
             min={0}
-            max={units === "imperial" ? LOAD_IMPERIAL_MAX_LB : LOAD_METRIC_MAX_KG}
+            max={999}
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             placeholder="—"

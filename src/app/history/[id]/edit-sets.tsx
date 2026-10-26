@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateSet, deleteSet } from "../actions";
-import { kgToDisplay, displayToKg, weightLabel, roundLbToHalf, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG, WEIGHT_KG_MAX, type UnitsPreference } from "@/lib/units";
+import { kgToDisplay, displayToKg, weightLabel, roundLbToHalf, type UnitsPreference } from "@/lib/units";
 
 interface SetData {
   session_exercise_id: string;
@@ -77,8 +77,8 @@ export function EditSets({ sessionId, units, exercises }: EditSetsProps) {
         newErrors.set(`${key}-${field}`, "Must be positive");
       } else if (field === "reps" && numValue > 100) {
         newErrors.set(`${key}-${field}`, "Maximum 100 reps");
-      } else if (field === "weight_kg" && numValue > WEIGHT_KG_MAX) {
-        newErrors.set(`${key}-${field}`, `Maximum ${units === "imperial" ? `${LOAD_IMPERIAL_MAX_LB} lb` : `${LOAD_METRIC_MAX_KG} kg`}`);
+      } else if (field === "weight_kg" && numValue > 500) {
+        newErrors.set(`${key}-${field}`, `Maximum ${units === "imperial" ? "999 lb" : "500 kg"}`);
       } else if (field === "duration_seconds" && numValue > 3600) {
         newErrors.set(`${key}-${field}`, "Maximum 1 hour");
       } else {
@@ -311,7 +311,7 @@ export function EditSets({ sessionId, units, exercises }: EditSetsProps) {
                             }
                             placeholder={weightLabel(units)}
                             min="0"
-                            max={units === "imperial" ? LOAD_IMPERIAL_MAX_LB : LOAD_METRIC_MAX_KG}
+                            max={units === "imperial" ? 999 : 500}
                             step="0.5"
                             className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
                           />
