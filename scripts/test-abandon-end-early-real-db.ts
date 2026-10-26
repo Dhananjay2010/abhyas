@@ -16,6 +16,7 @@ import { randomUUID } from "crypto";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
 import { makeAbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 import { summarizeEndedEarly } from "../src/lib/session/load-ended-early-summary";
+import { computeHistoryEndedEarly } from "../src/lib/history/compute-ended-early";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
@@ -116,24 +117,22 @@ async function runTests() {
     const now = "2026-10-25T12:00:00Z";
     const setCompletedAt = "2026-10-25T12:04:00Z";
 
-    // Create exercises
+    // Query existing exercises from catalog (exercises table has no user_id)
     const { data: exercises, error: exerciseError } = await userClient
       .from("exercises")
-      .insert([
-        { id: randomUUID(), name: "Squat", user_id: userId },
-        { id: randomUUID(), name: "Bench", user_id: userId },
-        { id: randomUUID(), name: "Row", user_id: userId },
-      ])
-      .select("id");
+      .select("id")
+      .in("slug", ["squat", "bench-press", "bent-over-row"])
+      .limit(3);
 
-    if (exerciseError || !exercises || exercises.length !== 3) {
-      console.error("Failed to create exercises:", exerciseError);
+    if (exerciseError || !exercises || exercises.length < 3) {
+      console.error("Failed to query exercises:", exerciseError);
+      console.error("Need at least 3 exercises in catalog (squat, bench-press, bent-over-row)");
       return false;
     }
 
     // Create session
     const sessionId = randomUUID();
-    const { error: sessionError } = await userClient
+    const { error: sessionError} = await userClient
       .from("sessions")
       .insert({
         id: sessionId,
@@ -223,7 +222,7 @@ async function runTests() {
     check("Exercise 3 still pending (not touched)", exercisesAfter[2].status === "pending", `got ${exercisesAfter[2].status}`);
 
     // Check Today banner: summarizeEndedEarly
-    const { data: summaryData } = await userClient
+    const { data: summaryData, error: summaryError } = await userClient
       .from("sessions")
       .select(`
         id,
@@ -239,27 +238,29 @@ async function runTests() {
       .eq("id", sessionId)
       .maybeSingle();
 
-    if (summaryData && summaryData.session_exercises) {
-      const summary = summarizeEndedEarly(summaryData.session_exercises);
-      check("Today banner detects ended early", summary.endedEarly === true);
-      check("Today banner shows 1 of 22 sets", summary.endedEarly && summary.workingSets === 1 && summary.plannedSets === 22, 
-        summary.endedEarly ? `${summary.workingSets} of ${summary.plannedSets}` : "not ended early");
+    if (summaryError || !summaryData || !summaryData.session_exercises) {
+      console.error("Failed to query Today banner data:", summaryError);
+      return false;
     }
 
-    // Check History label: hasPendingExercise and endedEarly computed like real History
+    const summary = summarizeEndedEarly(summaryData.session_exercises);
+    check("Today banner detects ended early", summary.endedEarly === true);
+    check("Today banner shows 1 of 22 sets", summary.endedEarly && summary.workingSets === 1 && summary.plannedSets === 22, 
+      summary.endedEarly ? `${summary.workingSets} of ${summary.plannedSets}` : "not ended early");
+
+    // Check History label: use REAL History helper
     const pendingCount = exercisesAfter.filter(ex => ex.status === "pending").length;
     const hasPendingExercise = pendingCount > 0;
     check("History detects pending exercises", hasPendingExercise === true, `${pendingCount} pending`);
 
-    // Compute endedEarly like src/app/history/page.tsx:226-232
-    const plannedSets: number = 22;
-    const workingSets: number = 1;
-    const isStrength: boolean = true;
-    const endedEarly = 
-      (hasPendingExercise && 
-       plannedSets > 0 && 
-       workingSets < plannedSets) ||
-      (isStrength && sessionData.status === "completed" && workingSets === 0 && hasPendingExercise);
+    const endedEarly = computeHistoryEndedEarly({
+      hasPendingExercise,
+      plannedSets: 22,
+      workingSetCount: 1,
+      isStrength: true,
+      status: sessionData.status,
+      hasNoExercises: false,
+    });
 
     check("History computes ended early = true", endedEarly === true);
 
