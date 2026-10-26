@@ -496,6 +496,8 @@ export function parseHeight(
   return Math.round(value);
 }
 
+export type UnitsPreference = "metric" | "imperial";
+
 /**
  * Parse body weight input and convert to canonical kg.
  * Similar to parseWeight but preserves 0.1 lb precision for imperial.
