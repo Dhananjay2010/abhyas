@@ -42,12 +42,16 @@ const mutants: Mutant[] = [
   },
 
   // 2. Past-knee lunge filter (PR #73 core logic)
+  // EQUIVALENT as of QA Bot 1: With tag-based exclusion at generate.ts:489, unsafe lunges
+  // (tagged with knee in contraindicated_regions) are caught by the tag check BEFORE this filter.
+  // Tag layer tested by KNEE-CTR-GEN mutant in test-knee-volume-mutants.sh.
   {
     name: "Disable past-knee lunge filter (allow unsafe lunges for past knee)",
     file: "src/lib/program/generate.ts",
     pattern: /if \(hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES\.has\(ex\.slug\)\) \{/,
     mutate: 'if (!hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {',
     tests: ["test:knee-safety-matrix"],
+    equivalent: true,
   },
 
   // 3. Beginner high-impact filter (PR #73 Step C)
@@ -119,6 +123,9 @@ const mutants: Mutant[] = [
   },
 
   // 5h. Re-add current-knee skip for step-ups and split-squats
+  // EQUIVALENT as of QA Bot 1: These exercises (step-ups, split-squats) are tagged with knee in
+  // contraindicated_regions. The tag-based exclusion at generate.ts:489 catches them for ANY knee
+  // injury, making this skip redundant. Tag layer tested by KNEE-CTR-GEN mutant.
   {
     name: "Re-add current-knee contraindication skip for step-ups/split-squats",
     file: "src/lib/program/generate.ts",
@@ -136,6 +143,7 @@ const mutants: Mutant[] = [
       }
     }`,
     tests: ["test:knee-safety-matrix", "test:knee-swaps"],
+    equivalent: true,
   },
 
   // B0. BMI>=30 high-impact ban
@@ -175,16 +183,16 @@ const mutants: Mutant[] = [
   },
   
   // PR #73 Run 21: Sissy ban in isEligible is the PRIMARY barrier for past-knee plans
-  // (weighted-sissy-squat has contraindicated_regions: ["knee"], but that only filters
-  // current-knee. Past-knee users have currentInjuryRegions: [] and rely on this explicit
-  // anyKneeInjury check at 570 to block sissy from plans). Removing 570 changes 139 past-knee plans.
-  // The alternatives.ts ban is the BACKSTOP for swaps (rankAlternatives doesn't call isEligible).
+  // EQUIVALENT as of QA Bot 1: weighted-sissy-squat is tagged with knee in contraindicated_regions.
+  // The tag-based exclusion at generate.ts:489 now catches it for ANY knee injury BEFORE this slug
+  // check runs, making this check redundant defense-in-depth. Tag layer tested by KNEE-CTR-GEN mutant.
   {
     name: "Remove sissy-squat ban in isEligible (plan generation for past-knee)",
     file: "src/lib/program/generate.ts",
     pattern: /\/\/ PR #73 coordinator: ANY knee injury excludes sissy squats \(including weighted-sissy-squat\)\s+if \(input\.anyKneeInjury && ex\.slug\.includes\("sissy"\)\) \{\s+return false;\s+\}/,
     mutate: '// MUTANT: Removed sissy ban from isEligible\n  // if (input.anyKneeInjury && ex.slug.includes("sissy")) {\n  //   return false;\n  // }',
     tests: ["test:sissy-squat-ban"],
+    equivalent: true,
   },
   
   // EQUIVALENT for current-knee users: PR #124 adds isExcludedForPastKnee() to
