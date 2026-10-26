@@ -18,14 +18,11 @@ import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
-import { updateSessionCore } from "@/lib/session/update-session-core";
-import { pickReusableSession } from "@/lib/session/reusable-session";
 import { localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
-import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligible-swap-list";
@@ -57,14 +54,6 @@ async function requireUser() {
 }
 
 /**
- * The metric to stamp on a session exercise, from an embedded `exercises` row.
- *
- * PostgREST types a to-one embed as either an object or an array depending on
- * how it infers the relationship, and the shape is not worth arguing with at
- * four call sites. `reps` is the safe default: it is the column default too,
- * and it is what every exercise was before `metric` existed.
- */
-/**
  * Start (or resume) today's session.
  *
  * Resuming matters: people lock their phone mid-workout. If a session for today
@@ -76,96 +65,6 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   if (rateLimit) return rateLimit as Result<{ sessionId: string }>;
   
   const { supabase, user } = await requireUser();
-
-  // ---- wave 1 -------------------------------------------------------------
-  // This action used to run seven round trips one after another, and it is the
-  // one the user waits on with their finger still on the button: the elapsed
-  // timer starts when the session row is inserted, so every second spent here
-  // is a second already gone by the time the runner appears on screen.
-  //
-  // Two of those dependencies were only apparent. The open-session lookup was
-  // filtered by today's local date, which needs the timezone from the profile;
-  // it now fetches open sessions regardless of date and matches the date in
-  // code, of which there is at most a handful. And the day lookup needed the
-  // active program's id, so the program is fetched with all seven of its days
-  // embedded and the right one is picked once the timezone is known.
-  const [profileRes, openRes, settingsRes] = await Promise.all([
-    supabase.from("profiles").select("timezone, primary_track").eq("id", user.id).single(),
-    supabase
-      .from("sessions")
-      // `skipped` is in here so that an attempt ended early can be picked up
-      // again -- see the reuse logic below.
-      .select("id, status, local_date, actual_type, started_at")
-      .in("status", ["planned", "in_progress", "skipped"])
-      .order("local_date", { ascending: false })
-      // Newest first within a date, so that where an account carries more than
-      // one abandoned row for today -- which only pre-fix data can -- the most
-      // recent attempt is the one resumed, rather than whichever row the
-      // database happened to hand back first.
-      .order("created_at", { ascending: false })
-      .limit(10),
-    supabase.from("user_settings").select("resume_session").eq("user_id", user.id).maybeSingle(),
-  ]);
-
-  const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
-  const today = localDateString(timezone);
-  const resumeEnabled = settingsRes.data?.resume_session ?? true;
-
-  const todayRows = (openRes.data ?? []).filter((s) => s.local_date === today);
-  const existing = pickReusableSession(todayRows, resumeEnabled);
-
-  if (existing) {
-    // A session row can exist with no exercises attached -- an abandoned first
-    // attempt, or a row created by a yoga or breathing session earlier today.
-    // Returning it as-is used to strand the user on "this session has no
-    // exercises" with no way forward, permanently, because this branch would
-    // keep returning the same empty shell.
-    /*
-      This is the update path. The session exists with status 'skipped' or
-      status 'completed' and started_at: null (unstarted). The user pressed
-      "Start" from the Today page.
-
-      Stamped on a first start, and again when a deliberately abandoned
-      session is restarted. The session clock is wall time since
-      `started_at`, so carrying the old stamp across a quit at 7am and a
-      restart at 1pm would record a six-hour workout. Resuming an
-      `in_progress` session keeps its stamp, because that is the
-      phone-locked-mid-set case the clock is meant to survive.
-    */
-    const updatePayload = {
-      status: "in_progress" as const,
-      ...(existing.started_at === null || existing.status === "skipped"
-        ? { started_at: new Date().toISOString() }
-        : {}),
-    };
-
-    const [updateResult] = await Promise.all([
-      updateSessionCore(supabase, existing.id, user.id, today, updatePayload),
-      ensureSessionExercises(supabase, user.id, existing.id),
-    ]);
-
-    if (!updateResult.ok) {
-      return { ok: false, error: updateResult.error };
-    }
-
-    return { ok: true, data: { sessionId: updateResult.sessionId } };
-  }
-
-  // A session row can exist with no exercises attached -- an abandoned first
-  // attempt, or a row created by a yoga or breathing session earlier today.
-  // Returning it as-is used to strand the user on "this session has no
-  // exercises" with no way forward, permanently, because this branch would
-  // keep returning the same empty shell.
-  //
-  // When restarting a deliberately abandoned session: the session clock is wall
-  // time since `started_at`, so carrying the old stamp across a quit at 7am and
-  // a restart at 1pm would record a six-hour workout. Resuming an `in_progress`
-  // session keeps its stamp, because that is the phone-locked-mid-set case the
-  // clock is meant to survive.
-  //
-  // From the local date already computed above, not a second read of the clock:
-  // deriving them separately let the weekday and the date disagree across a
-  // midnight boundary.
 
   const result = await startSessionFullCore(buildStartSessionFullDeps(supabase, user.id, Date.now()));
   if (!result.ok) return { ok: false, error: result.error };
