@@ -45,6 +45,9 @@ export function decideRestDayResume(input: {
   }
 
   // Session from today: use the form button
+  // The Today page may render this with Start/Resume on a rest day.
+  // Though previousDayResumeHref returns null for today's sessions,
+  // decideRestDayResume provides the label for StartSessionButton.
   const label = input.strengthOpen.started_at ? "Resume session" : "Start session";
   return {
     showResume: true,

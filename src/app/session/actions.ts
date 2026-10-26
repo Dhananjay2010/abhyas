@@ -4,7 +4,6 @@ import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
-import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { getSwapPatterns } from "@/lib/program/swap-patterns";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { CandidateExercise } from "@/lib/program/generate";
@@ -17,9 +16,9 @@ import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
-import { keepPlannedDay } from "@/lib/session/plan-day-keep-core";
 import { startSessionCore } from "@/lib/session/start-session-core";
 import { updateSessionCore } from "@/lib/session/update-session-core";
+import { planDayCore, type PlanDayClient } from "@/lib/session/plan-day-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
@@ -781,15 +780,6 @@ export type PlannableDay = {
   dayType: Database["public"]["Enums"]["day_type"];
 };
 
-const OVERRIDE_TYPE: Record<
-  Exclude<DayPlan["kind"], "keep" | "training">,
-  Database["public"]["Enums"]["day_type"]
-> = {
-  rest: "rest",
-  yoga: "yoga",
-  breathing: "meditation",
-};
-
 /**
  * Plan one day.
  *
@@ -815,108 +805,57 @@ export async function planDay(input: {
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const today = localDateString(timezone);
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
-    return { ok: false, error: "That is not a date." };
-  }
-  if (input.localDate < today) {
-    return { ok: false, error: "That day has already been and gone." };
-  }
-
-  // Anything already under way or finished is not ours to rewrite -- but only
-  // the day's WORKOUT owns the day. Yoga and breathing are offered on every
-  // screen as "anytime" activities, so a six-minute breathing session in the
-  // morning must not make the day unplannable. Today already judges its own
-  // state per training type for exactly this reason; this used to say "that day
-  // is already done" to anyone who had breathed.
-  const { data: existing } = await supabase
-    .from("sessions")
-    .select("id, status, actual_type")
-    .eq("local_date", input.localDate);
-
-  const settled = (existing ?? []).find(
-    (s) =>
-      ownsPlannedWorkout(s.actual_type) &&
-      (s.status === "completed" || s.status === "in_progress"),
-  );
-  if (settled) {
-    return {
-      ok: false,
-      error:
-        settled.status === "completed"
-          ? "That day is already done."
-          : "That session has already started.",
-    };
-  }
-
-  const planned = (existing ?? []).filter((s) => s.status === "planned");
-
-  if (input.plan.kind === "keep") {
-    const keepResult = await keepPlannedDay(supabase, planned);
-    if (!keepResult.ok) return keepResult;
-    revalidateTrainingData();
-    return { ok: true };
-  }
-
-  const { data: program } = await supabase
-    .from("programs")
-    .select("id, started_on, deload_week, week_offset")
-    .eq("status", "active")
-    .maybeSingle();
-
-  let actualType: Database["public"]["Enums"]["day_type"];
-  let programDayId: string | null = null;
-
-  if (input.plan.kind === "training") {
-    const dayResult = await loadPlanDay(
-      createLoadPlanDayDeps(supabase),
-      input.plan.programDayId
-    );
-    if (!dayResult.ok) return { ok: false, error: dayResult.error };
-    actualType = dayResult.day.day_type;
-    programDayId = dayResult.day.id;
-  } else {
-    actualType = OVERRIDE_TYPE[input.plan.kind];
-  }
-
-  // Stamped now rather than left null. `startSession` fills these in only on
-  // the path that creates a session itself; resuming a planned row keeps
-  // whatever it was written with, and a null week would have shown "Week 1" on
-  // an override day and silently skipped the deload.
-  const week = program ? cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, input.localDate) : null;
-
-  const row = {
-    user_id: user.id,
-    program_id: program?.id ?? null,
-    program_day_id: programDayId,
-    local_date: input.localDate,
-    week_in_block: week,
-    is_deload: week !== null && week === program?.deload_week,
-    planned_type: actualType,
-    actual_type: actualType,
-    status: "planned" as const,
+  // Create client adapter
+  const client: PlanDayClient = {
+    async findDaySessions(localDate: string) {
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("id, status, actual_type")
+        .eq("local_date", localDate);
+      return { rows: data ?? [], error: error?.message ?? null };
+    },
+    async findActiveProgram() {
+      const { data, error } = await supabase
+        .from("programs")
+        .select("id, started_on, deload_week, week_offset")
+        .eq("status", "active")
+        .maybeSingle();
+      return { program: data, error: error?.message ?? null };
+    },
+    async loadProgramDay(programDayId: string) {
+      const result = await loadPlanDay(
+        createLoadPlanDayDeps(supabase),
+        programDayId,
+      );
+      return result;
+    },
+    async updateSession(id: string, row) {
+      const { error} = await supabase
+        .from("sessions")
+        .update(row)
+        .eq("id", id);
+      return { error: error?.message ?? null };
+    },
+    async deleteSessions(ids: string[]) {
+      const { error } = await supabase.from("sessions").delete().in("id", ids);
+      return { error: error?.message ?? null };
+    },
+    async insertSession(row) {
+      const { error } = await supabase.from("sessions").insert(row);
+      return { error: error?.message ?? null };
+    },
   };
 
-  // One planned row per day: replace whatever was there rather than stacking
-  // overrides, which is how the four duplicate "Skipped" rows in History
-  // happened elsewhere.
-  if (planned.length > 0) {
-    const [first, ...rest] = planned;
-    if (rest.length > 0) {
-      await supabase
-        .from("sessions")
-        .delete()
-        .in(
-          "id",
-          rest.map((s) => s.id),
-        );
-    }
-    const { error } = await supabase.from("sessions").update(row).eq("id", first.id);
-    if (error) return { ok: false, error: error.message };
-  } else {
-    const { error } = await supabase.from("sessions").insert(row);
-    if (error) return { ok: false, error: error.message };
+  const result = await planDayCore(client, {
+    userId: user.id,
+    localDate: input.localDate,
+    today,
+    plan: input.plan,
+  });
+
+  if (result.ok) {
+    revalidateTrainingData();
   }
 
-  revalidateTrainingData();
-  return { ok: true };
+  return result;
 }

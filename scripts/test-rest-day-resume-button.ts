@@ -28,7 +28,7 @@ function test(name: string, fn: () => void) {
   }
 }
 
-const localToday = "2026-10-27"; // Monday
+const localToday = "2026-10-27"; // Tuesday
 
 function main() {
   console.log("Testing decideRestDayResume\n");

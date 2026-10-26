@@ -3,26 +3,17 @@
  *
  * We load them in two cases:
  * 1. Yesterday was missed and today is still changeable (askAboutToday).
- * 2. Today is a rest day with no open strength session, so "Or train today anyway"
- *    can list strength days.
- *
- * We DON'T load them when:
- * - Today is a rest day AND a strength session from an earlier day is open.
- *   In that case, the rest day shows Resume (like training days do), not swap options.
+ * 2. Today is a rest day, so "Or train today anyway" can list strength days.
  */
 export function shouldLoadPlannableDays(params: {
   askAboutToday: boolean;
   dayType: string | null;
-  strengthOpen?: boolean;
 }): boolean {
-  const { askAboutToday, dayType, strengthOpen = false } = params;
+  const { askAboutToday, dayType } = params;
 
-  // Missed yesterday always prompts, even with an open session
+  // Missed yesterday always prompts
   if (askAboutToday) return true;
 
-  // OLD BROKEN LOGIC: didn't check strengthOpen
-  // if (dayType === "rest" && strengthOpen) return false;
-
-  // Rest day with no open session offers swap
+  // Rest day offers swap
   return dayType === "rest";
 }
