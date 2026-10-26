@@ -229,9 +229,20 @@ let killed = 0;
 let survived = 0;
 let skipped = 0;
 let equivalent = 0;
+let crashed = 0;
 
 function sha256(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
+}
+
+function hasStackTrace(output: string): boolean {
+  // Check for common stack trace patterns
+  return (
+    output.includes("    at ") || // Node.js stack trace
+    output.includes("\n    at ") ||
+    output.includes("Error: ") && output.includes("    at ") ||
+    /^\s+at\s+/m.test(output) // Stack frame pattern
+  );
 }
 
 function runMutation(mutant: Mutant): void {
@@ -284,17 +295,30 @@ function runMutation(mutant: Mutant): void {
 
     // 5. Run targeted test(s)
     let testFailed = false;
+    let testCrashed = false;
     for (const test of tests) {
       try {
         execSync(`npm run ${test}`, { stdio: "pipe", encoding: "utf8" });
-      } catch {
-        testFailed = true;
-        break;
+      } catch (error: any) {
+        // Check if this is a crash (uncaught exception with stack trace) or test failure
+        const output = (error.stdout || "") + (error.stderr || "");
+        if (hasStackTrace(output)) {
+          console.log(`  💥 CRASH: Uncaught exception in ${test}`);
+          console.log(`  Output: ${output.substring(0, 200)}...`);
+          testCrashed = true;
+          break;
+        } else {
+          testFailed = true;
+          break;
+        }
       }
     }
 
     // 6. Report
-    if (testFailed) {
+    if (testCrashed) {
+      console.log(`  💥 CRASH (needs investigation)`);
+      crashed++;
+    } else if (testFailed) {
       console.log(`  ✓ KILLED`);
       killed++;
     } else if (mutant.equivalent) {
@@ -382,11 +406,12 @@ console.log("\n" + "─".repeat(60));
 console.log(`Mutants killed:     ${killed}`);
 console.log(`Mutants equivalent: ${equivalent}`);
 console.log(`Mutants survived:   ${survived}`);
+console.log(`Mutants crashed:    ${crashed}`);
 console.log(`Mutants skipped:    ${skipped}`);
 console.log("");
 
-if (survived > 0 || skipped > 0) {
-  console.log(`FAILED: ${survived} survived, ${skipped} skipped`);
+if (survived > 0 || skipped > 0 || crashed > 0) {
+  console.log(`FAILED: ${survived} survived, ${skipped} skipped, ${crashed} crashed`);
   process.exit(1);
 } else {
   console.log("PASSED: All mutants killed or equivalent");
