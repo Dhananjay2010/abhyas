@@ -170,7 +170,7 @@ const example: Brand = {
   name: "FitCore Gym",
   shortName: "FitCore",
   description:
-    "Your personalized training coach. FitCore builds your program, guides every session, and adds weight when you're ready.",
+    "Your personalized training coach. FitCore builds your program, guides every session, and tracks your progress.",
   siteUrl: "https://example-gym.com",
   timezone: "America/New_York",
   logo: "/icons/icon-192.png", // Example: uses same icon as logo
