@@ -2,15 +2,23 @@
 /**
  * Test H1: Sign-out never deletes unsynced sets
  * 
- * Tests: (a) empty queue, (b) replay succeeds, (c) replay fails warning,
- * (d) Sync now succeeds, (e) Sign out anyway keeps queue, (f) per-user isolation
+ * Tests both SignOutButton and SignOutForm:
+ * (a) Empty queue signs out
+ * (b) Replay succeeds, queue empties, signs out
+ * (c) Replay leaves N pending, warning shows, no signOut
+ * (d) Sync now retries and signs out when empty
+ * (e) Sign out anyway keeps queue byte-identical
+ * (f) Per-user isolation
  */
 
 import "./helpers/setup-jsdom";
+import { mockNextRouter } from "./helpers/setup-jsdom";
 import { render, screen, act } from "@testing-library/react";
 import { SignOutButton } from "../src/app/settings/signout-button";
+import { SignOutForm } from "../src/app/today/signout-form";
 import { savePendingSet, storageKey } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
+import type { Storage } from "../src/lib/session/pending-set-retry";
 
 let passed = 0;
 
@@ -46,19 +54,6 @@ Object.defineProperty(window, 'localStorage', {
 const FIXED_TIME = new Date('2026-10-26T12:00:00Z').getTime();
 const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
 
-const mockNextRouter = {
-  replace: (path?: string) => {},
-  refresh: () => {},
-  push: (path: string) => {},
-  back: () => {},
-  forward: () => {},
-  prefetch: () => {},
-};
-
-jest.mock('next/navigation', () => ({
-  useRouter: () => mockNextRouter,
-}));
-
 (async () => {
   console.log("\n📋 Test H1: Sign-out never deletes unsynced sets\n");
   
@@ -72,255 +67,288 @@ jest.mock('next/navigation', () => ({
     refreshCalls.push(refreshCalls.length);
   };
   
+  // Test both SignOutButton and SignOutForm
+  const components = [
+    { name: "SignOutButton", Component: SignOutButton },
+    { name: "SignOutForm", Component: SignOutForm },
+  ];
+  
+  for (const { name, Component } of components) {
+    console.log(`\n=== Testing ${name} ===\n`);
+    
+    // ========================================================================
+    // Test (a): Empty queue signs out
+    // ========================================================================
+    console.log(`Test (a) ${name}: Empty queue signs out\n`);
+    
+    fakeStorage.clear();
+    let signOutCalls = 0;
+    
+    const signOutSuccess = async () => {
+      signOutCalls++;
+      return { ok: true as const };
+    };
+    
+    const logSetSuccess = async () => ({ ok: true as const });
+    
+    replaceCalls.length = 0;
+    refreshCalls.length = 0;
+    
+    const propsA = name === "SignOutButton" 
+      ? { userId: "u1", signOut: signOutSuccess, logSet: logSetSuccess }
+      : { label: "Sign out", userId: "u1", signOut: signOutSuccess, logSet: logSetSuccess };
+    
+    const { unmount: unmountA } = render(<Component {...propsA} />);
+    
+    await act(async () => {
+      const button = screen.getByRole("button");
+      button.click();
+    });
+    
+    await act(async () => {});
+    await act(async () => {});
+    
+    assert(signOutCalls === 1, `(a) ${name}: signOut called`);
+    assert(replaceCalls.length === 1 && replaceCalls[0] === "/", `(a) ${name}: router.replace('/')`);
+    
+    unmountA();
+    
+    // ========================================================================
+    // Test (b): Replay succeeds → signs out, queue empty
+    // ========================================================================
+    console.log(`\nTest (b) ${name}: Replay succeeds → queue empty, signs out\n`);
+    
+    fakeStorage.clear();
+    savePendingSet(fakeStorage, "u2", "session-2", {
+      sessionExerciseId: "ex1",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-u2-1"
+    }, fakeDeps);
+    
+    assert(fakeStorage.getItem(storageKey("u2")) !== null, `(b) ${name}: u2 queue exists before`);
+    
+    signOutCalls = 0;
+    replaceCalls.length = 0;
+    
+    const propsB = name === "SignOutButton"
+      ? { userId: "u2", signOut: signOutSuccess, logSet: logSetSuccess }
+      : { label: "Sign out", userId: "u2", signOut: signOutSuccess, logSet: logSetSuccess };
+    
+    const { unmount: unmountB } = render(<Component {...propsB} />);
+    
+    await act(async () => {
+      const buttons = screen.queryAllByRole("button");
+      buttons[buttons.length - 1].click();
+    });
+    
+    await act(async () => {});
+    await act(async () => {});
+    await act(async () => {});
+    
+    assert(signOutCalls === 1, `(b) ${name}: signOut called after replay`);
+    assert(fakeStorage.getItem(storageKey("u2")) === null, `(b) ${name}: u2 queue empty`);
+    
+    unmountB();
+    
+    // ========================================================================
+    // Test (c): Replay fails → warning shows N, no signOut
+    // ========================================================================
+    console.log(`\nTest (c) ${name}: Replay fails → warning, no signOut\n`);
+    
+    fakeStorage.clear();
+    savePendingSet(fakeStorage, "u3", "session-3", {
+      sessionExerciseId: "ex1",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-u3-1"
+    }, fakeDeps);
+    savePendingSet(fakeStorage, "u3", "session-3", {
+      sessionExerciseId: "ex1",
+      setNumber: 2,
+      reps: 12,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-u3-2"
+    }, fakeDeps);
+    
+    signOutCalls = 0;
+    
+    const logSetFail = async () => ({ ok: false as const, error: "Network error" });
+    
+    const propsC = name === "SignOutButton"
+      ? { userId: "u3", signOut: signOutSuccess, logSet: logSetFail }
+      : { label: "Sign out", userId: "u3", signOut: signOutSuccess, logSet: logSetFail };
+    
+    const { unmount: unmountC } = render(<Component {...propsC} />);
+    
+    await act(async () => {
+      const buttons = screen.queryAllByRole("button");
+      buttons[buttons.length - 1].click();
+    });
+    
+    await act(async () => {});
+    await act(async () => {});
+    await act(async () => {});
+    
+    assert(signOutCalls === 0, `(c) ${name}: signOut NOT called`);
+    
+    const warningText = screen.queryByText(/2 sets haven't synced yet/i);
+    assert(warningText !== null, `(c) ${name}: Shows '2 sets haven't synced yet'`);
+    
+    const syncButton = screen.queryByRole("button", { name: /Sync now/i });
+    const signOutAnywayButton = screen.queryByRole("button", { name: /Sign out anyway/i });
+    assert(syncButton !== null, `(c) ${name}: 'Sync now' button exists`);
+    assert(signOutAnywayButton !== null, `(c) ${name}: 'Sign out anyway' button exists`);
+    
+    unmountC();
+    
+    // Test singular copy
+    console.log(`\nTest (c2) ${name}: Singular copy for 1 set\n`);
+    
+    fakeStorage.clear();
+    savePendingSet(fakeStorage, "u3b", "session-3b", {
+      sessionExerciseId: "ex1",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-u3b-1"
+    }, fakeDeps);
+    
+    const propsC2 = name === "SignOutButton"
+      ? { userId: "u3b", signOut: signOutSuccess, logSet: logSetFail }
+      : { label: "Sign out", userId: "u3b", signOut: signOutSuccess, logSet: logSetFail };
+    
+    const { unmount: unmountC2 } = render(<Component {...propsC2} />);
+    
+    await act(async () => {
+      const buttons = screen.queryAllByRole("button");
+      buttons[buttons.length - 1].click();
+    });
+    
+    await act(async () => {});
+    await act(async () => {});
+    
+    const singularText = screen.queryByText(/1 set hasn't synced yet/i);
+    assert(singularText !== null, `(c2) ${name}: Shows '1 set hasn't synced yet'`);
+    
+    unmountC2();
+    
+    // ========================================================================
+    // Test (d): "Sync now" succeeds → signs out
+    // ========================================================================
+    console.log(`\nTest (d) ${name}: 'Sync now' succeeds → signs out\n`);
+    
+    fakeStorage.clear();
+    savePendingSet(fakeStorage, "u4", "session-4", {
+      sessionExerciseId: "ex1",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-u4-1"
+    }, fakeDeps);
+    
+    signOutCalls = 0;
+    let logSetCallCount = 0;
+    
+    const logSetFailOnceThenSucceed = async () => {
+      logSetCallCount++;
+      if (logSetCallCount === 1) {
+        return { ok: false as const, error: "Network error" };
+      }
+      return { ok: true as const };
+    };
+    
+    const propsD = name === "SignOutButton"
+      ? { userId: "u4", signOut: signOutSuccess, logSet: logSetFailOnceThenSucceed }
+      : { label: "Sign out", userId: "u4", signOut: signOutSuccess, logSet: logSetFailOnceThenSucceed };
+    
+    const { unmount: unmountD } = render(<Component {...propsD} />);
+    
+    await act(async () => {
+      const buttons = screen.queryAllByRole("button");
+      buttons[buttons.length - 1].click();
+    });
+    
+    await act(async () => {});
+    await act(async () => {});
+    
+    const syncNowButton = screen.getByRole("button", { name: /Sync now/i });
+    
+    await act(async () => {
+      syncNowButton.click();
+    });
+    
+    await act(async () => {});
+    await act(async () => {});
+    
+    assert(signOutCalls === 1, `(d) ${name}: signOut called after 'Sync now'`);
+    assert(fakeStorage.getItem(storageKey("u4")) === null, `(d) ${name}: u4 queue empty`);
+    
+    unmountD();
+    
+    // ========================================================================
+    // Test (e): "Sign out anyway" → queue unchanged
+    // ========================================================================
+    console.log(`\nTest (e) ${name}: 'Sign out anyway' keeps queue\n`);
+    
+    fakeStorage.clear();
+    savePendingSet(fakeStorage, "u5", "session-5", {
+      sessionExerciseId: "ex1",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+      clientId: "pending-u5-1"
+    }, fakeDeps);
+    
+    const queueBeforeE = fakeStorage.getItem(storageKey("u5"));
+    assert(queueBeforeE !== null, `(e) ${name}: u5 queue exists before`);
+    
+    signOutCalls = 0;
+    
+    const propsE = name === "SignOutButton"
+      ? { userId: "u5", signOut: signOutSuccess, logSet: logSetFail }
+      : { label: "Sign out", userId: "u5", signOut: signOutSuccess, logSet: logSetFail };
+    
+    const { unmount: unmountE } = render(<Component {...propsE} />);
+    
+    await act(async () => {
+      const buttons = screen.queryAllByRole("button");
+      buttons[buttons.length - 1].click();
+    });
+    
+    await act(async () => {});
+    await act(async () => {});
+    
+    const signOutAnywayBtn = screen.getByRole("button", { name: /Sign out anyway/i });
+    
+    await act(async () => {
+      signOutAnywayBtn.click();
+    });
+    
+    await act(async () => {});
+    await act(async () => {});
+    
+    assert(signOutCalls === 1, `(e) ${name}: signOut called`);
+    
+    const queueAfterE = fakeStorage.getItem(storageKey("u5"));
+    assert(queueAfterE !== null, `(e) ${name}: u5 queue kept`);
+    assert(queueAfterE === queueBeforeE, `(e) ${name}: u5 queue byte-identical`);
+    
+    unmountE();
+  }
+  
   // ========================================================================
-  // Test (a): Empty queue signs out
+  // Test (f): Per-user isolation
   // ========================================================================
-  console.log("=== Test (a): Empty queue signs out ===\n");
-  
-  fakeStorage.clear();
-  let signOutCalls = 0;
-  
-  const signOutSuccess = async () => {
-    signOutCalls++;
-    return { ok: true as const };
-  };
-  
-  const logSetSuccess = async () => ({ ok: true as const });
-  
-  replaceCalls.length = 0;
-  refreshCalls.length = 0;
-  
-  render(
-    <SignOutButton
-      userId="u1"
-      signOut={signOutSuccess}
-      logSet={logSetSuccess}
-    />
-  );
-  
-  await act(async () => {
-    const button = screen.getByRole("button");
-    button.click();
-  });
-  
-  await act(async () => {});
-  await act(async () => {});
-  
-  assert(signOutCalls === 1, "(a) signOut called");
-  assert(replaceCalls.length === 1 && replaceCalls[0] === "/", "(a) router.replace('/')");
-  
-  // ========================================================================
-  // Test (b): Pending, replay succeeds → signs out, queue empty
-  // ========================================================================
-  console.log("\n=== Test (b): Replay succeeds → signs out, queue empty ===\n");
-  
-  fakeStorage.clear();
-  savePendingSet(fakeStorage, "u2", "session-2", {
-    sessionExerciseId: "ex1",
-    setNumber: 1,
-    reps: 10,
-    weightKg: 50,
-    durationSeconds: null,
-    clientId: "pending-u2-1"
-  }, fakeDeps);
-  
-  assert(fakeStorage.getItem(storageKey("u2")) !== null, "(b) u2 queue exists before");
-  
-  signOutCalls = 0;
-  replaceCalls.length = 0;
-  
-  const { unmount: unmount2 } = render(
-    <SignOutButton
-      userId="u2"
-      signOut={signOutSuccess}
-      logSet={logSetSuccess}
-    />
-  );
-  
-  await act(async () => {
-    const buttons = screen.queryAllByRole("button");
-    buttons[buttons.length - 1].click();
-  });
-  
-  await act(async () => {});
-  await act(async () => {});
-  await act(async () => {});
-  
-  assert(signOutCalls === 1, "(b) signOut called after successful replay");
-  assert(fakeStorage.getItem(storageKey("u2")) === null, "(b) u2 queue empty after replay");
-  
-  unmount2();
-  
-  // ========================================================================
-  // Test (c): Replay fails → warning shows right N, no signOut
-  // ========================================================================
-  console.log("\n=== Test (c): Replay fails → warning, no signOut ===\n");
-  
-  fakeStorage.clear();
-  savePendingSet(fakeStorage, "u3", "session-3", {
-    sessionExerciseId: "ex1",
-    setNumber: 1,
-    reps: 10,
-    weightKg: 50,
-    durationSeconds: null,
-    clientId: "pending-u3-1"
-  }, fakeDeps);
-  savePendingSet(fakeStorage, "u3", "session-3", {
-    sessionExerciseId: "ex1",
-    setNumber: 2,
-    reps: 12,
-    weightKg: 50,
-    durationSeconds: null,
-    clientId: "pending-u3-2"
-  }, fakeDeps);
-  
-  signOutCalls = 0;
-  
-  const logSetFail = async () => ({ ok: false as const, error: "Network error" });
-  
-  const { unmount: unmount3 } = render(
-    <SignOutButton
-      userId="u3"
-      signOut={signOutSuccess}
-      logSet={logSetFail}
-    />
-  );
-  
-  await act(async () => {
-    const buttons = screen.queryAllByRole("button");
-    buttons[buttons.length - 1].click();
-  });
-  
-  await act(async () => {});
-  await act(async () => {});
-  await act(async () => {});
-  
-  assert(signOutCalls === 0, "(c) signOut NOT called");
-  
-  const warningText = screen.queryByText(/2 sets haven't synced yet/i);
-  assert(warningText !== null, "(c) Warning shows '2 sets haven't synced yet'");
-  
-  const syncButton = screen.queryByRole("button", { name: /Sync now/i });
-  const signOutAnywayButton = screen.queryByRole("button", { name: /Sign out anyway/i });
-  assert(syncButton !== null, "(c) 'Sync now' button exists");
-  assert(signOutAnywayButton !== null, "(c) 'Sign out anyway' button exists");
-  
-  unmount3();
-  
-  // ========================================================================
-  // Test (d): "Sync now" succeeds → signs out
-  // ========================================================================
-  console.log("\n=== Test (d): 'Sync now' succeeds → signs out ===\n");
-  
-  fakeStorage.clear();
-  savePendingSet(fakeStorage, "u4", "session-4", {
-    sessionExerciseId: "ex1",
-    setNumber: 1,
-    reps: 10,
-    weightKg: 50,
-    durationSeconds: null,
-    clientId: "pending-u4-1"
-  }, fakeDeps);
-  
-  signOutCalls = 0;
-  let logSetCallCount = 0;
-  
-  const logSetFailOnceThenSucceed = async () => {
-    logSetCallCount++;
-    if (logSetCallCount === 1) {
-      return { ok: false as const, error: "Network error" };
-    }
-    return { ok: true as const };
-  };
-  
-  const { unmount: unmount4 } = render(
-    <SignOutButton
-      userId="u4"
-      signOut={signOutSuccess}
-      logSet={logSetFailOnceThenSucceed}
-    />
-  );
-  
-  await act(async () => {
-    const buttons = screen.queryAllByRole("button");
-    buttons[buttons.length - 1].click();
-  });
-  
-  await act(async () => {});
-  await act(async () => {});
-  
-  // Warning should show
-  const syncNowButton = screen.getByRole("button", { name: /Sync now/i });
-  
-  await act(async () => {
-    syncNowButton.click();
-  });
-  
-  await act(async () => {});
-  await act(async () => {});
-  
-  assert(signOutCalls === 1, "(d) signOut called after 'Sync now' succeeds");
-  assert(fakeStorage.getItem(storageKey("u4")) === null, "(d) u4 queue empty");
-  
-  unmount4();
-  
-  // ========================================================================
-  // Test (e): "Sign out anyway" → signOut called, queue unchanged
-  // ========================================================================
-  console.log("\n=== Test (e): 'Sign out anyway' keeps queue ===\n");
-  
-  fakeStorage.clear();
-  savePendingSet(fakeStorage, "u5", "session-5", {
-    sessionExerciseId: "ex1",
-    setNumber: 1,
-    reps: 10,
-    weightKg: 50,
-    durationSeconds: null,
-    clientId: "pending-u5-1"
-  }, fakeDeps);
-  
-  const queueBeforeE = fakeStorage.getItem(storageKey("u5"));
-  assert(queueBeforeE !== null, "(e) u5 queue exists before");
-  
-  signOutCalls = 0;
-  
-  const { unmount: unmount5 } = render(
-    <SignOutButton
-      userId="u5"
-      signOut={signOutSuccess}
-      logSet={logSetFail}
-    />
-  );
-  
-  await act(async () => {
-    const buttons = screen.queryAllByRole("button");
-    buttons[buttons.length - 1].click();
-  });
-  
-  await act(async () => {});
-  await act(async () => {});
-  
-  const signOutAnywayBtn = screen.getByRole("button", { name: /Sign out anyway/i });
-  
-  await act(async () => {
-    signOutAnywayBtn.click();
-  });
-  
-  await act(async () => {});
-  await act(async () => {});
-  
-  assert(signOutCalls === 1, "(e) signOut called");
-  
-  const queueAfterE = fakeStorage.getItem(storageKey("u5"));
-  assert(queueAfterE !== null, "(e) u5 queue kept");
-  assert(queueAfterE === queueBeforeE, "(e) u5 queue unchanged");
-  
-  unmount5();
-  
-  // ========================================================================
-  // Test (f): User B doesn't see A's sets
-  // ========================================================================
-  console.log("\n=== Test (f): Per-user isolation ===\n");
+  console.log(`\n=== Test (f): Per-user isolation ===\n`);
   
   fakeStorage.clear();
   savePendingSet(fakeStorage, "userA", "session-a", {
@@ -339,5 +367,11 @@ jest.mock('next/navigation', () => ({
   assert(userAQueue !== null, "(f) User A's queue exists");
   
   console.log(`\n✅ H1 tests passed (${passed} assertions)\n`);
+  console.log("MUTANTS TO TEST:");
+  console.log("- Clear queue on 'Sign out anyway'");
+  console.log("- Skip replay-first step");
+  console.log("- Sign out despite pending");
+  console.log("- Wrong N in warning\n");
+  
   process.exit(0);
 })();
