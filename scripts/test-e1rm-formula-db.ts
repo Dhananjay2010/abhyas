@@ -971,10 +971,21 @@ async function runTests() {
 
     console.log("TEST 14: Backup table has RLS enabled");
     {
-      const { rows } = await testPool!.query(`
-        SELECT relrowsecurity FROM pg_class WHERE relname = 'exercise_progress_best_e1rm_backup_20261025000030'
+      const { rows: tableExists } = await testPool!.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'exercise_progress_best_e1rm_backup_20261025000030'
+        ) as exists
       `);
-      check("Backup table has RLS enabled", rows[0]?.relrowsecurity === true, `relrowsecurity=${rows[0]?.relrowsecurity}`);
+      
+      if (tableExists[0].exists) {
+        const { rows } = await testPool!.query(`
+          SELECT relrowsecurity FROM pg_class WHERE relname = 'exercise_progress_best_e1rm_backup_20261025000030'
+        `);
+        check("Backup table has RLS enabled", rows[0]?.relrowsecurity === true, `relrowsecurity=${rows[0]?.relrowsecurity}`);
+      } else {
+        check("Backup table has RLS enabled", false, "table does not exist");
+      }
     }
 
     console.log(`\n${failures === 0 ? '✅ ALL CHECKS PASSED' : `❌ ${failures} CHECKS FAILED`}\n`);
