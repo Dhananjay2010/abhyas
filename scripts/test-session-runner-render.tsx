@@ -1509,11 +1509,11 @@ async function testN7sCompletedSession() {
   // Assert logSet was never called (no replay for completed sessions)
   assert(!logSetCalled, "N7s: logSet not called for completed session");
   
-  // Assert pending key was cleared
+  // Assert pending sets are kept for surfacing (decision A)
   const pendingKey = fakeStorage.getItem(`pending-sets:${userId}`);
   const pendingSets = pendingKey ? JSON.parse(pendingKey) : null;
   const sessionPending = pendingSets?.[sessionId];
-  assert(!sessionPending || sessionPending.sets?.length === 0, "N7s: Pending sets cleared for completed session");
+  assert(sessionPending && sessionPending.sets?.length === 1, "N7s: Pending sets kept for completed session (decision A)");
   
   cleanup();
   fakeStorage.clear();
