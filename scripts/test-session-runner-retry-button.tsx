@@ -338,7 +338,9 @@ async function testR4NetworkError() {
   // Verify replay was called
   assert(replayCallCount > 0, "R4-network: Replay was called on mount");
   
-  // Should show "Still offline" error but still show Retry button
+  // Should show "Still offline" error message (telling user WHY it failed)
+  // AND show Retry button (giving user a way to manually retry)
+  // This is NOT contradictory - error explains the problem, button provides action
   const offlineText = screen.queryAllByText(/still offline/i);
   assert(offlineText.length > 0, "R4-network: 'Still offline' error message shown");
   
