@@ -570,8 +570,9 @@ export default async function TodayPage() {
 
       {isTraining && (
         <div className="mt-7">
-          {endedEarlySummary ? (
+          {strengthDone ? (
             <StrengthDoneBanner
+              endedEarly={endedEarlySummary?.endedEarly ?? false}
               workingSets={endedEarlySummary?.workingSets ?? 0}
               plannedSets={endedEarlySummary?.plannedSets ?? 0}
             />
