@@ -33,11 +33,11 @@ assertEquals(
   "completed weights with null"
 );
 
-console.log("\n2. Skipped strength session, null duration → '—'");
+console.log("\n2. Skipped strength session, null duration → null (not '—')");
 assertEquals(
   formatDurationMinutes(null, "skipped", "bodyweight"),
-  "—",
-  "skipped bodyweight with null"
+  null,
+  "skipped bodyweight with null returns null (not '—')"
 );
 
 // 3. Non-strength sessions with null duration → null (not "—")

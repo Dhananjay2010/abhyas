@@ -61,14 +61,15 @@ export function formatDurationMinutes(
   }
 
   // seconds is null - decide whether to show "—"
-  // Item 9: Only show "—" for finished strength sessions (completed or ended early)
-  const isFinished = status === "completed" || status === "skipped";
+  // Item 9: Only show "—" for completed strength sessions (includes ended-early with working sets)
+  // Skipped sessions (ended early with 0 working sets) show null
+  const isCompleted = status === "completed";
   const isStrength = actualType === "weights" || actualType === "bodyweight";
   
-  if (isFinished && isStrength) {
+  if (isCompleted && isStrength) {
     return "—";
   }
 
-  // Other cases (in progress, planned, breathing/yoga) return null
+  // Other cases (in progress, planned, skipped, breathing/yoga) return null
   return null;
 }
