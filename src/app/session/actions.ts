@@ -815,7 +815,8 @@ export async function planDay(input: {
     async findDaySessions(localDate: string) {
       const { data, error } = await supabase
         .from("sessions")
-        .select("id, status, actual_type")
+        .select("id, status, actual_type, program_day_id")
+        .eq("user_id", user.id)
         .eq("local_date", localDate);
       return { rows: data ?? [], error: error?.message ?? null };
     },
@@ -850,6 +851,9 @@ export async function planDay(input: {
     },
     async insertSession(row) {
       const { error } = await supabase.from("sessions").insert(row);
+      if (error?.code === "23505") {
+        return { error: null };
+      }
       return { error: error?.message ?? null };
     },
     async rereadDaySessions(localDate: string) {
