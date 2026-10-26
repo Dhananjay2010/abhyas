@@ -230,12 +230,12 @@ test_mutant "Success check ignores stored target" c2
 c3() {
   local file="$PROG"
   local count
-  count=$(grep -Fc "const twoMissFloor = computeTwoMissResult(currentWeight, false);" "$file" || true)
+  count=$(grep -Fc "const twoMissFloor = computeTwoMissResult(currentWeight);" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Rule 2 pattern found $count times (expected 1)" >&2
     return 1
   fi
-  perl -0pi -e "s/(const twoMissFloor = computeTwoMissResult\(currentWeight, false\);.*?if \(candidateWeight < twoMissFloor\) \{\n\s*)candidateWeight = currentWeight;\n(\s*)holdReason = 'twomiss';/\$1\/\/ MUTANT: Rule 2 hold removed\n\$2void 0;/s" "$file"
+  perl -0pi -e "s/(const twoMissFloor = computeTwoMissResult\(currentWeight\);.*?if \(candidateWeight < twoMissFloor\) \{\n\s*)candidateWeight = currentWeight;\n(\s*)holdReason = 'twomiss';/\$1\/\/ MUTANT: Rule 2 hold removed\n\$2void 0;/s" "$file"
   if cmp -s "$file" "$BACKUP_PROG"; then
     echo "ERROR: C3 did not change the file" >&2
     return 1
@@ -335,12 +335,12 @@ barbell_grid() {
 }
 test_mutant "BARBELL: incrementFor ignores equipment grid" barbell_grid
 
-# MED-3: No third-miss step-down (third miss holds instead of stepping down)
+# MED-3: No third-miss step-down (change failures >= 3 to failures >= 999)
 med3() {
   local file="$PROG"
-  # Change the third-miss condition to never trigger
-  sed -i 's/if (failures >= 3 && reduced === currentWeight && equipmentIds) {/if (false \&\& failures >= 3 \&\& reduced === currentWeight \&\& equipmentIds) {/' "$file"
-  if ! grep -q 'if (false && failures >= 3' "$file"; then
+  # Change the condition to never trigger (but keep valid TypeScript)
+  sed -i 's/if (failures >= 3 && reduced === currentWeight && equipmentIds) {/if (failures >= 999 \&\& reduced === currentWeight \&\& equipmentIds) {/' "$file"
+  if ! grep -q 'failures >= 999' "$file"; then
     echo "ERROR: MED-3 mutation did not apply" >&2
     return 1
   fi

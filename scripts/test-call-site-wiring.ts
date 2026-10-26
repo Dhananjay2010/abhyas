@@ -35,16 +35,17 @@ check(
 );
 
 check(
-  "actions.ts does NOT query units from profiles (M2: imperial removed)",
-  !actionsContent.includes('supabase.from("profiles").select("units")') ||
-  !actionsContent.includes('profileRes'),
-  "units query removed per M2"
+  "actions.ts queries units from profiles (Option A: unit formatting)",
+  actionsContent.includes('supabase') &&
+  actionsContent.includes('.from("profiles")') &&
+  actionsContent.includes('.select("units")'),
+  "units queried for progression messages per Option A"
 );
 
 check(
-  "actions.ts does NOT pass units to buildProgressionInput",
-  !actionsContent.includes('profileRes.data?.units'),
-  "userUnits parameter removed per M2"
+  "actions.ts passes units to buildProgressionInput",
+  actionsContent.includes('units,') || actionsContent.includes('units)'),
+  "units parameter passed per Option A"
 );
 
 // U1: Static assertion that applyProgression is passed to finishExerciseCore

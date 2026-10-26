@@ -398,12 +398,12 @@ async function applyProgression(
     supabase
       .from("profiles")
       .select("units")
-      .eq("user_id", userId)
+      .eq("id", userId)
       .maybeSingle(),
   ]);
 
   const settings = settingsRes.data;
-  const units = profileRes.data?.units ?? "metric";
+  const units = (profileRes.data?.units ?? "metric") as "metric" | "imperial";
 
   // Daily-menu mode keeps no working-weight memory. History is preserved, so
   // switching back to progression resumes from where it left off.
