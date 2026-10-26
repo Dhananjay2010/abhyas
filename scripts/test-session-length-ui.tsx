@@ -103,6 +103,7 @@ function check(label: string, ok: boolean, detail = "") {
       hasAllEquipment: false,
       equipmentIds: [],
       injuries: [],
+      units: "metric" as const,
     };
 
     const stubActions = {
@@ -168,6 +169,7 @@ function check(label: string, ok: boolean, detail = "") {
       restOverrideSeconds: null,
       bodyweightPrompt: "weekly" as const,
       timezone: null,
+      units: "metric" as const,
     };
 
     let updateCalls = 0;
