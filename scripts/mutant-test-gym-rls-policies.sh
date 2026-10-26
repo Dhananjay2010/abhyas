@@ -33,28 +33,23 @@ SURVIVORS=()
 SKIPPED=()
 
 echo "Running baseline tests..."
-if ! supabase db reset > /dev/null 2>&1; then
+BASELINE_OUTPUT=$(mktemp)
+if ! supabase db reset > "$BASELINE_OUTPUT" 2>&1; then
   echo "❌ Baseline: db reset failed" >&2
+  cat "$BASELINE_OUTPUT"
+  rm -f "$BASELINE_OUTPUT"
   exit 1
 fi
 
-if ! REAL_DB=1 npm run test:gym-tenant-rls-real-db > /dev/null 2>&1; then
+if ! REAL_DB=1 npm run test:gym-tenant-rls-real-db > "$BASELINE_OUTPUT" 2>&1; then
   echo "❌ Baseline tests failed. Fix the code before running mutant tests." >&2
+  echo "Full baseline output:"
+  cat "$BASELINE_OUTPUT"
+  rm -f "$BASELINE_OUTPUT"
   exit 1
 fi
+rm -f "$BASELINE_OUTPUT"
 echo "✓ Baseline tests pass"
-
-# Restart Supabase to ensure clean state for mutants
-echo "Restarting Supabase for mutant tests..."
-if ! supabase stop > /dev/null 2>&1; then
-  echo "⚠️  Warning: supabase stop failed" >&2
-fi
-sleep 2
-if ! supabase start > /dev/null 2>&1; then
-  echo "❌ Failed to restart Supabase" >&2
-  exit 1
-fi
-echo "✓ Supabase restarted"
 echo
 
 run_mutant() {
@@ -66,30 +61,45 @@ run_mutant() {
   echo "  $description"
   
   # Reset database
-  if ! supabase db reset > /dev/null 2>&1; then
+  local reset_output=$(mktemp)
+  if ! supabase db reset > "$reset_output" 2>&1; then
     echo "  ❌ SKIPPED: db reset failed"
     SKIPPED+=("$name: db reset failed")
+    rm -f "$reset_output"
     sleep 2
     return 0
   fi
+  rm -f "$reset_output"
   
   # Apply mutation via psql
+  local mutation_output=$(mktemp)
   if ! psql "${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/postgres}" \
-    -c "$sql_mutation" > /dev/null 2>&1; then
+    -c "$sql_mutation" > "$mutation_output" 2>&1; then
     echo "  ❌ SKIPPED: mutation SQL failed"
     SKIPPED+=("$name: mutation failed")
+    rm -f "$mutation_output"
     sleep 2
     return 0
   fi
+  rm -f "$mutation_output"
   
-  # Run tests
-  if REAL_DB=1 npm run test:gym-tenant-rls-real-db > /dev/null 2>&1; then
-    echo "  ❌ SURVIVED"
+  # Run tests and capture output
+  local test_output=$(mktemp)
+  if REAL_DB=1 npm run test:gym-tenant-rls-real-db > "$test_output" 2>&1; then
+    echo "  ❌ SURVIVED (tests passed when they should have failed)"
+    echo "  Last 20 lines of test output:"
+    tail -20 "$test_output" | sed 's/^/    /'
     SURVIVORS+=("$name")
     FAILED=$((FAILED + 1))
   else
     echo "  ✅ KILLED"
+    # Show which test failed (grep for FAIL lines)
+    if grep -q "FAIL" "$test_output"; then
+      echo "  Failed assertion:"
+      grep "FAIL" "$test_output" | head -3 | sed 's/^/    /'
+    fi
   fi
+  rm -f "$test_output"
   
   sleep 2
   return 0

@@ -597,21 +597,21 @@ export type Database = {
           id: string
           name: string
           slug: string
-          timezone: string
+          timezone: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
           slug: string
-          timezone?: string
+          timezone?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
           slug?: string
-          timezone?: string
+          timezone?: string | null
         }
         Relationships: []
       }
@@ -1489,6 +1489,22 @@ export type Database = {
           days_completed: number
         }[]
       }
+      get_owned_gym_name: {
+        Args: Record<PropertyKey, never>
+        Returns: string | null
+      }
+      is_gym_owner: {
+        Args: {
+          check_gym_id: string
+        }
+        Returns: boolean
+      }
+      is_gym_staff: {
+        Args: {
+          check_gym_id: string
+        }
+        Returns: boolean
+      }
       rebuild_block: {
         Args: {
           p_today: string
@@ -1585,7 +1601,7 @@ export type Database = {
         | "flexibility_stress"
       fitness_level: "beginner" | "intermediate" | "expert"
       force_type: "push" | "pull" | "static"
-      gym_role: "member" | "owner" | "staff"
+      gym_role: "owner" | "staff" | "member"
       impact_level: "low" | "medium" | "high"
       injury_severity: "current" | "past"
       mechanic_type: "compound" | "isolation"
@@ -1823,7 +1839,7 @@ export const Constants = {
       ],
       fitness_level: ["beginner", "intermediate", "expert"],
       force_type: ["push", "pull", "static"],
-      gym_role: ["member", "owner", "staff"],
+      gym_role: ["owner", "staff", "member"],
       impact_level: ["low", "medium", "high"],
       injury_severity: ["current", "past"],
       mechanic_type: ["compound", "isolation"],

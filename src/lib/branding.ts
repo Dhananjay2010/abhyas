@@ -72,6 +72,12 @@ export type Brand = {
    */
   timezone?: string;
   /**
+   * Optional support email for the gym/brand.
+   * Used in error messages (e.g., account deletion when user owns a gym).
+   * Falls back to NEXT_PUBLIC_SUPPORT_EMAIL if not set.
+   */
+  supportEmail?: string;
+  /**
    * Logo image URL (relative to /public/ or absolute).
    * Shown in the app header/landing page. If not set, the text name is shown.
    */
@@ -128,7 +134,7 @@ const abhyas: Brand = {
   name: "Abhyas",
   shortName: "Abhyas",
   description:
-    "One hour a day. Abhyas tells you exactly what to train, guides you through it, and makes next week harder than this one.",
+    "Workouts built around your time. Abhyas tells you exactly what to train, guides you through it, and adds weight when you're ready.",
   siteUrl: "https://abhyas-indol.vercel.app",
   // No timezone set — falls back to browser detection
   // No logo set — shows text name
