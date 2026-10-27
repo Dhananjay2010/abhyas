@@ -30,11 +30,6 @@ async function runTests() {
       check("Error result is defined", !!result);
       check("Error result has neutral id", result.id === "neutral" || result.id === neutralBrand.id);
       check("Error result has neutral name", result.name === "Fitness" || result.name === neutralBrand.name);
-      
-      // Neutral brand should have neutral colors
-      if (result.primaryColor) {
-        check("Error result has neutral primary color", result.primaryColor === neutralBrand.primaryColor);
-      }
     } catch (error) {
       check("Error caught and handled", false, `Unexpected throw: ${error}`);
     }
@@ -67,7 +62,7 @@ async function runTests() {
     check("Neutral brand id is 'neutral'", neutralBrand.id === "neutral");
     check("Neutral brand has name", !!neutralBrand.name);
     check("Neutral brand name is 'Fitness'", neutralBrand.name === "Fitness");
-    check("Neutral brand has neutral colors", !!neutralBrand.primaryColor && neutralBrand.primaryColor.includes("#"));
+    check("Neutral brand has description", !!neutralBrand.description);
     check("Neutral brand is not Abhyas", neutralBrand.name !== "Abhyas");
   }
   console.log();

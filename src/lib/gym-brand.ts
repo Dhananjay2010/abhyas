@@ -17,16 +17,15 @@ import { validateTimezone, branding } from "@/lib/branding";
  * - The host is NOT the app's own domain (not localhost, not *.vercel.app, not NEXT_PUBLIC_SITE_URL)
  * 
  * This prevents gym members from seeing another brand on their gym's domain during an outage.
- * Never cached. Uses neutral greys and generic name.
+ * Never cached. Uses generic name and minimal branding.
  */
 export const neutralBrand: Brand = {
   id: "neutral",
   name: "Fitness",
   shortName: "Fitness",
+  description: "Fitness training",
+  siteUrl: branding.siteUrl,
   timezone: branding.timezone,
-  primaryColor: "#6b7280", // neutral grey-500
-  backgroundColor: "#f9fafb", // neutral grey-50
-  textColor: "#111827", // neutral grey-900
 };
 
 /**

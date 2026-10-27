@@ -83,7 +83,7 @@ async function runTests() {
     check("Neutral brand has 'neutral' id", neutral.id === "neutral");
     check("Neutral brand has 'Fitness' name", neutral.name === "Fitness");
     check("Neutral brand is not Abhyas", neutral.name !== "Abhyas");
-    check("Neutral brand has neutral colors", neutral.primaryColor === "#6b7280");
+    check("Neutral brand has description", !!neutral.description);
   }
   console.log();
 
