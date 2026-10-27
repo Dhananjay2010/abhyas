@@ -15,7 +15,7 @@
  */
 
 import "./helpers/setup-jsdom";
-import { render, waitFor, fireEvent, act } from "@testing-library/react";
+import { render, waitFor, fireEvent } from "@testing-library/react";
 import {
   SessionRunner,
   type RunnerExercise,
@@ -104,7 +104,7 @@ const testCases = [
       status: "pending",
       feel: null,
       sets: [
-        { setNumber: 1, reps: 7, weightKg: kg, durationSeconds: null, feel: null }
+        { setNumber: 1, reps: 7, weightKg: kg, durationSeconds: null }
       ],
       isBodyweight: false,
     };
