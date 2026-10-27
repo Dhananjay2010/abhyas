@@ -654,7 +654,7 @@ async function runTests() {
   });
   check("Anon redeem fails", !!anonRedeemError);
   check("Anon error is permission denied or not authenticated", 
-    anonRedeemError?.message?.includes("Not authenticated") || anonRedeemError?.message?.includes("permission denied"));
+    !!anonRedeemError && (anonRedeemError.message?.includes("Not authenticated") || anonRedeemError.message?.includes("permission denied")));
 
   const { error: anonPreviewError } = await anonClient.rpc("preview_join_code", {
     p_code: memberCode,
@@ -680,8 +680,8 @@ async function runTests() {
     });
   check("Owner cannot INSERT directly", !!directInsertError);
   check("INSERT error is RLS policy violation",
-    directInsertError?.message?.includes("row-level security") || 
-    directInsertError?.message?.includes("policy"));
+    !!directInsertError && (directInsertError.message?.includes("row-level security") || 
+    directInsertError.message?.includes("policy")));
   
   const { error: directUpdateError } = await clientA
     .from("gym_join_codes")
@@ -689,62 +689,62 @@ async function runTests() {
     .eq("id", memberCodeId);
   check("Owner cannot UPDATE directly", !!directUpdateError);
   check("UPDATE error is RLS policy violation",
-    directUpdateError?.message?.includes("row-level security") || 
-    directUpdateError?.message?.includes("policy"));
+    !!directUpdateError && (directUpdateError.message?.includes("row-level security") || 
+    directUpdateError.message?.includes("policy")));
   console.log();
 
   // TEST: Throttle limits at exactly 10 misses
   console.log("TEST: Throttle triggers at 10 misses");
   // Create a fresh user for throttle test
-  const emailF = `test-f-${Date.now()}-${Math.random()}@example.com`;
-  const { data: authUserF } = await adminClient.auth.admin.createUser({
-    email: emailF,
+  const emailThrottle = `test-throttle-${Date.now()}-${Math.random()}@example.com`;
+  const { data: authUserThrottle } = await adminClient.auth.admin.createUser({
+    email: emailThrottle,
     password: "password123",
     email_confirm: true,
   });
-  const clientF = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  await clientF.auth.signInWithPassword({
-    email: emailF,
+  const clientThrottle = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  await clientThrottle.auth.signInWithPassword({
+    email: emailThrottle,
     password: "password123",
   });
   
   // Make 9 failed attempts (should not throttle)
   for (let i = 0; i < 9; i++) {
-    await clientF.rpc("preview_join_code", { p_code: "INVALID" });
+    await clientThrottle.rpc("preview_join_code", { p_code: "INVALID" });
   }
   
   // 10th attempt should still work (threshold is >= 10)
-  const { error: attempt10 } = await clientF.rpc("preview_join_code", { p_code: "INVALID" });
+  const { error: attempt10 } = await clientThrottle.rpc("preview_join_code", { p_code: "INVALID" });
   check("10th miss still works (not throttled yet)", !attempt10 || !attempt10.message?.includes("Too many"));
   
   // 11th attempt should be throttled
-  const { error: attempt11 } = await clientF.rpc("preview_join_code", { p_code: "INVALID" });
+  const { error: attempt11 } = await clientThrottle.rpc("preview_join_code", { p_code: "INVALID" });
   check("11th miss is throttled", !!attempt11);
-  check("Throttle error message", attempt11?.message?.includes("Too many") || attempt11?.code === "GJC10");
+  check("Throttle error message", !!attempt11 && (attempt11.message?.includes("Too many") || attempt11.code === "GJC10"));
   console.log();
 
   // TEST: Successful redemptions don't count toward throttle
   console.log("TEST: Successes don't trigger throttle");
   // Create a fresh user for success test
-  const emailG = `test-g-${Date.now()}-${Math.random()}@example.com`;
-  const { data: authUserG } = await adminClient.auth.admin.createUser({
-    email: emailG,
+  const emailSuccess = `test-success-${Date.now()}-${Math.random()}@example.com`;
+  const { data: authUserSuccess } = await adminClient.auth.admin.createUser({
+    email: emailSuccess,
     password: "password123",
     email_confirm: true,
   });
-  const clientG = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  await clientG.auth.signInWithPassword({
-    email: emailG,
+  const clientSuccess = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  await clientSuccess.auth.signInWithPassword({
+    email: emailSuccess,
     password: "password123",
   });
   
   // Make 20 successful previews (should NOT throttle, only misses count)
   for (let i = 0; i < 20; i++) {
-    await clientG.rpc("preview_join_code", { p_code: memberCode });
+    await clientSuccess.rpc("preview_join_code", { p_code: memberCode });
   }
   
   // Next attempt should still work (successes don't count)
-  const { error: successAfter20 } = await clientG.rpc("preview_join_code", { p_code: memberCode });
+  const { error: successAfter20 } = await clientSuccess.rpc("preview_join_code", { p_code: memberCode });
   check("20 successes don't throttle", !successAfter20);
   console.log();
 
@@ -760,9 +760,9 @@ async function runTests() {
     });
   check("Invalid format code rejected", !!invalidFormatError);
   check("Format error mentions constraint or check",
-    invalidFormatError?.message?.includes("code_format") || 
-    invalidFormatError?.message?.includes("check constraint") ||
-    invalidFormatError?.message?.toLowerCase().includes("violates"));
+    !!invalidFormatError && (invalidFormatError.message?.includes("code_format") || 
+    invalidFormatError.message?.includes("check constraint") ||
+    invalidFormatError.message?.toLowerCase().includes("violates")));
   
   const { error: ambiguousCharError } = await adminClient
     .from("gym_join_codes")
