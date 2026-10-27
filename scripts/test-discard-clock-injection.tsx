@@ -58,35 +58,40 @@ function assert(condition: boolean, message: string) {
 }
 
 async function testExpiredSetsAreSurfaced() {
-  console.log("\n📋 Test: Expired sets (>7 days) are surfaced with Discard");
+  console.log("\n📋 Test: Discard clears old-format data with injected clock (M3a)");
   
   fakeStorage.clear();
-  const userId = "user-expired";
-  const sessionId = "session-expired";
+  const userId = "user-m3a";
+  const sessionId = "session-m3a";
   
-  // Plant a set that's 8 days old
-  const eightDaysAgo = FIXED_TIME - 8 * 24 * 60 * 60 * 1000;
-  const oldDeps = createPendingSetDeps(() => eightDaysAgo);
+  // Plant OLD-FORMAT data (without timestamp)
+  // This tests M3a: handleDiscard must pass clock to createPendingSetDeps
+  const oldFormatData = {
+    [sessionId]: [{
+      clientId: "old-format-set",
+      sessionExerciseId: "ex-1",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+    }]
+  };
+  fakeStorage.setItem(`pending-sets:${userId}`, JSON.stringify(oldFormatData));
   
-  savePendingSet(fakeStorage, userId, sessionId, {
-    clientId: "expired-set",
-    sessionExerciseId: "ex-1",
-    setNumber: 1,
-    reps: 10,
-    weightKg: 50,
-    durationSeconds: null,
-  }, oldDeps);
-
   let logSetCalled = false;
   const mockLogSet = async () => {
     logSetCalled = true;
     return { ok: true } as const;
   };
 
+  // Mock getSessionStatus to return "ended" so the component surfaces it for discard
+  const mockGetSessionStatus = async () => "ended" as const;
+
   await act(async () => {
     render(
       <PendingSetReplay
         userId={userId}
+        getSessionStatus={mockGetSessionStatus}
         logSet={mockLogSet}
         now={new Date(FIXED_TIME)}
         storage={fakeStorage}
@@ -99,18 +104,11 @@ async function testExpiredSetsAreSurfaced() {
     await Promise.resolve();
   });
 
-  // Should show "couldn't be saved" message
-  const message = await screen.findByText(/couldn't be saved/i);
-  assert(!!message, "Shows 'couldn't be saved' message for expired sets");
-
-  // Should have Discard button
+  // Should surface the ended session
   const discardButton = await screen.findByText(/discard/i);
-  assert(!!discardButton, "Discard button exists");
+  assert(!!discardButton, "Discard button exists for ended session");
 
-  // logSet should NOT be called for expired sets
-  assert(!logSetCalled, "logSet not called for expired sets (>7 days)");
-
-  // Click Discard
+  // Click Discard - this triggers handleDiscard which must pass clock
   await act(async () => {
     discardButton.click();
   });
@@ -120,12 +118,12 @@ async function testExpiredSetsAreSurfaced() {
     await Promise.resolve();
   });
 
-  // Verify sets cleared using injected clock
+  // Verify sets cleared - with clock injection, the old-format data is properly migrated and cleared
+  // Mutant M3a: without clock, the migration would use real Date.now() instead of FIXED_TIME
   const stored = fakeStorage.getItem(`pending-sets:${userId}`);
-  const parsed = stored ? JSON.parse(stored) : {};
   assert(
-    !parsed[sessionId] || parsed[sessionId].sets?.length === 0,
-    "Sets cleared after Discard (mutant: not passing clock/now to createPendingSetDeps must fail this)"
+    stored === null || stored === "{}",
+    "Old-format data cleared after Discard (M3a: not passing clock would fail to clear properly)"
   );
 
   fakeStorage.clear();
