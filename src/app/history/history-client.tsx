@@ -9,6 +9,7 @@ import { closeOutSession } from "./actions";
 import { getSessionLabel, type SessionStatus, type ActualType } from "@/lib/history/session-label";
 import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
 import { formatDurationMinutes } from "@/lib/history/compute-duration";
+import { historyEmptyState } from "@/lib/history/empty-state";
 
 // Helper for proper pluralization
 function pluralize(count: number, singular: string, plural?: string): string {
@@ -25,27 +26,13 @@ interface HistoryClientProps {
   timezone: string;
   units: UnitsPreference;
   hasErrors: boolean;
+  countsByFilter: Record<SessionType, number>;
 }
 
 const FILTER_LABELS: Record<SessionType, string> = {
   lifts: "Lifts",
   yoga: "Yoga",
   breathing: "Breathing",
-};
-
-const EMPTY_MESSAGES: Record<SessionType, { title: string; message: string }> = {
-  lifts: {
-    title: "No strength sessions yet",
-    message: "Your strength workouts will appear here once you complete them.",
-  },
-  yoga: {
-    title: "No yoga sessions yet",
-    message: "Your yoga sessions will appear here once you complete them.",
-  },
-  breathing: {
-    title: "No breathing practices yet",
-    message: "Your breathing practices will appear here once you complete them.",
-  },
 };
 
 function longDate(iso: string): string {
@@ -67,12 +54,15 @@ export function HistoryClient({
   timezone,
   units,
   hasErrors,
+  countsByFilter,
 }: HistoryClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const limit = 20;
   const totalPages = Math.ceil(totalCount / limit);
   const [closingOut, setClosingOut] = useState<string | null>(null);
+  
+  const emptyState = historyEmptyState(items.length, filter, countsByFilter, hasErrors);
 
   const handleFilterChange = (newFilter: SessionType) => {
     const params = new URLSearchParams(searchParams);
@@ -125,22 +115,74 @@ export function HistoryClient({
         </p>
       )}
 
-      {/* Session count */}
-      <p className="mt-4 text-sm text-muted">
-        {totalCount === 0
-          ? "Nothing here yet."
-          : totalCount === 1
-            ? "1 session."
-            : `${totalCount} sessions.`}
-      </p>
+      {/* Session count (only above a list; the empty-state cards carry their own copy) */}
+      {emptyState === "populated" && (
+        <p className="mt-4 text-sm text-muted">
+          {totalCount === 1 ? "1 session." : `${totalCount} sessions.`}
+        </p>
+      )}
 
       {/* Session list */}
-      {items.length === 0 ? (
+      {emptyState === "error" ? (
         <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
-          <p className="text-sm font-medium text-muted">{EMPTY_MESSAGES[filter].title}</p>
-          <p className="mt-1 text-sm text-muted">{EMPTY_MESSAGES[filter].message}</p>
+          <p className="text-sm font-medium text-fg">Couldn&apos;t load your sessions</p>
+          <p className="mt-2 text-sm text-muted">Pull to refresh or try again later.</p>
         </div>
-      ) : (
+      ) : emptyState === "true-empty" ? (
+        <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+          <p className="text-sm font-medium text-fg">No completed sessions yet</p>
+          <p className="mt-2 text-sm text-muted">
+            Your workout history will appear here once you complete your first session.
+          </p>
+          <Link
+            href="/today"
+            className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            Start today&apos;s workout
+          </Link>
+        </div>
+      ) : emptyState === "page-empty" ? (
+        <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+          <p className="text-sm font-medium text-fg">No sessions on this page</p>
+          <p className="mt-2 text-sm text-muted">
+            Your {FILTER_LABELS[filter]} sessions start on page 1.
+          </p>
+          <button
+            onClick={() => {
+              const params = new URLSearchParams(searchParams);
+              params.set("filter", filter);
+              params.delete("page");
+              router.push(`/history?${params.toString()}`);
+            }}
+            className="mt-4 inline-block rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-fg transition-colors hover:border-muted/50"
+          >
+            Go to page 1
+          </button>
+        </div>
+      ) : emptyState === "filtered-empty" ? (() => {
+          const target = (["lifts", "yoga", "breathing"] as const).find(
+            f => f !== filter && countsByFilter[f] > 0
+          ) ?? filter;
+          return (
+            <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+              <p className="text-sm font-medium text-fg">No {FILTER_LABELS[filter]} sessions yet</p>
+              <p className="mt-2 text-sm text-muted">
+                Your completed sessions are under another tab.
+              </p>
+              <button
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams);
+                  params.set("filter", target);
+                  params.delete("page");
+                  router.push(`/history?${params.toString()}`);
+                }}
+                className="mt-4 inline-block rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-fg transition-colors hover:border-muted/50"
+              >
+                Switch to {FILTER_LABELS[target]} ({countsByFilter[target]})
+              </button>
+            </div>
+          );
+        })() : (
         <>
           <ul className="mt-6 space-y-2">
             {items.map((item) => {

@@ -43,6 +43,31 @@ export default async function HistoryPage({
   
   const limit = 20;
 
+  // Fetch per-tab counts for empty state logic (K1)
+  const tabs = ["lifts", "yoga", "breathing"] as const;
+  const countRes = await Promise.all(
+    tabs.map(f => 
+      // @ts-expect-error - RPC function not in generated types yet
+      supabase.rpc("get_history_page", {
+        p_user: user.id,
+        p_filter: f,
+        p_today: today,
+        p_limit: 1,
+        p_offset: 0,
+      })
+    )
+  );
+  const countsByFilter = Object.fromEntries(
+    tabs.map((f, i) => [
+      f,
+      Number((countRes[i].data as { total_count: number }[] | null)?.[0]?.total_count ?? 0)
+    ])
+  ) as Record<SessionType, number>;
+  const countsError = countRes.some(r => r.error);
+  if (countsError) {
+    console.error("Failed to load history tab counts:", countRes.find(r => r.error)?.error);
+  }
+
   // Load history page with pagination (fix: fetch with correct offset)
   const { loadHistoryPage } = await import("@/lib/history/load-history-page");
   const historyResult = await loadHistoryPage(supabase, {
@@ -159,7 +184,7 @@ export default async function HistoryPage({
   // For yoga/breathing, no filtering needed (they don't have zero-set issues)
 
   // Collect error flags (QA Bot 3 M3)
-  const hasErrors = !!(finalPageError || sessionsError || volumeError || exercisesError || setsError);
+  const hasErrors = !!(countsError || finalPageError || sessionsError || volumeError || exercisesError || setsError);
 
   return (
     <HistoryClient
@@ -171,6 +196,7 @@ export default async function HistoryPage({
       timezone={timezone}
       units={units}
       hasErrors={hasErrors}
+      countsByFilter={countsByFilter}
     />
   );
 }
