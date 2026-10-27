@@ -52,9 +52,10 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
     });
   };
 
-  // Preview colors (use values or defaults)
-  const previewPrimary = primaryColor || "#6b7280";
-  const previewAccent = accentColor || "#4b5563";
+  // Preview colors (use user input or neutral defaults from CSS custom properties)
+  // These are passed into CSS custom properties on the preview wrapper
+  const previewPrimary = primaryColor || "var(--color-muted)";
+  const previewAccent = accentColor || "var(--color-border)";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -200,20 +201,28 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
       {/* Live Preview */}
       <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
         <h3 className="text-sm font-semibold text-muted">Live Preview</h3>
-        <div className="space-y-3">
+        <div
+          className="space-y-3"
+          style={{
+            // Set CSS custom properties for preview (same names as main theming)
+            // @ts-expect-error - CSS custom properties are not in React.CSSProperties
+            "--color-accent": previewPrimary,
+            "--color-accent-hover": previewAccent,
+          }}
+        >
           {/* Preview button using CSS variables */}
           <button
             type="button"
             className="w-full rounded-lg px-6 py-3 text-sm font-semibold transition-colors"
             style={{
-              backgroundColor: previewPrimary,
+              backgroundColor: "var(--color-accent)",
               color: "#ffffff",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = previewAccent;
+              e.currentTarget.style.backgroundColor = "var(--color-accent-hover)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = previewPrimary;
+              e.currentTarget.style.backgroundColor = "var(--color-accent)";
             }}
           >
             Start Workout
