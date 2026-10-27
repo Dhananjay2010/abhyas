@@ -57,7 +57,7 @@ async function main() {
   const programDayId = "20000000-0000-0000-0000-000000000001";
   const exerciseId = "30000000-0000-0000-0000-000000000001";
 
-  await adminClient.from("programs").insert({
+  const { error: progError } = await adminClient.from("programs").insert({
     id: programId,
     user_id: userId,
     goal: "strength",
@@ -72,8 +72,9 @@ async function main() {
     week_offset: 0,
     status: "active",
   });
+  if (progError) throw new Error(`Failed to create program: ${progError.message}`);
 
-  await adminClient.from("program_days").insert({
+  const { error: dayError } = await adminClient.from("program_days").insert({
     id: programDayId,
     program_id: programId,
     user_id: userId,
@@ -81,6 +82,7 @@ async function main() {
     day_type: "weights",
     status: "active",
   });
+  if (dayError) throw new Error(`Failed to create program_day: ${dayError.message}`);
 
   // Seed test cases with explicit UUIDs and timestamps
   const baseTime = "2026-11-15T10:00:00Z";
@@ -125,7 +127,7 @@ async function main() {
   const caseH2 = "h0000000-0000-0000-0000-000000000002";
   const caseH3 = "h0000000-0000-0000-0000-000000000003";
 
-  await adminClient.from("sessions").insert([
+  const { error: sessError } = await adminClient.from("sessions").insert([
     // Case (a): pure dup
     { id: caseA1, user_id: userId, program_id: programId, program_day_id: programDayId, local_date: "2026-11-20", status: "planned", planned_type: "weights", week_in_block: 1, is_deload: false, created_at: baseTime },
     { id: caseA2, user_id: userId, program_id: programId, program_day_id: programDayId, local_date: "2026-11-20", status: "planned", planned_type: "weights", week_in_block: 1, is_deload: false, created_at: laterTime },
@@ -165,9 +167,10 @@ async function main() {
     { id: caseH2, user_id: userId, program_id: programId, program_day_id: programDayId, local_date: "2026-11-29", status: "planned", planned_type: "weights", week_in_block: 1, is_deload: false, created_at: laterTime },
     { id: caseH3, user_id: userId, program_id: programId, program_day_id: programDayId, local_date: "2026-11-29", status: "planned", planned_type: "weights", week_in_block: 1, is_deload: false, created_at: "2026-11-15T11:00:00Z" },
   ]);
+  if (sessError) throw new Error(`Failed to insert sessions: ${sessError.message}`);
 
   // Add session_exercises and session_sets
-  await adminClient.from("session_exercises").insert([
+  const { error: exError } = await adminClient.from("session_exercises").insert([
     // Case (b): B2 has exercise with sets
     { id: "be000000-0000-0000-0000-000000000002", session_id: caseB2, user_id: userId, exercise_id: exerciseId, order_index: 0, status: "pending", planned_sets: 3 },
     // Case (b2): B2_2 has exercise without sets
@@ -180,17 +183,19 @@ async function main() {
     // Case (h): H2 (middle) has exercise
     { id: "he000000-0000-0000-0000-000000000002", session_id: caseH2, user_id: userId, exercise_id: exerciseId, order_index: 0, status: "pending", planned_sets: 3 },
   ]);
+  if (exError) throw new Error(`Failed to insert session_exercises: ${exError.message}`);
 
-  await adminClient.from("session_sets").insert([
+  const { error: setError } = await adminClient.from("session_sets").insert([
     // Case (b): B2 has sets
     { user_id: userId, session_exercise_id: "be000000-0000-0000-0000-000000000002", set_number: 1, reps: 10, weight_kg: 100, is_warmup_set: false },
     // Case (c): both have sets
     { user_id: userId, session_exercise_id: "ce000000-0000-0000-0000-000000000001", set_number: 1, reps: 10, weight_kg: 100, is_warmup_set: false },
     { user_id: userId, session_exercise_id: "ce000000-0000-0000-0000-000000000002", set_number: 1, reps: 10, weight_kg: 100, is_warmup_set: false },
   ]);
+  if (setError) throw new Error(`Failed to insert session_sets: ${setError.message}`);
 
   // Add breathing_log for case (f)
-  await adminClient.from("breathing_logs").insert({
+  const { error: breathError } = await adminClient.from("breathing_logs").insert({
     session_id: caseF2,
     user_id: userId,
     pattern_name: "Box Breathing",
@@ -201,6 +206,7 @@ async function main() {
     guidance: "inhale",
     ended_early: false,
   });
+  if (breathError) throw new Error(`Failed to insert breathing_log: ${breathError.message}`);
 
   // Count children before migration
   const { count: exercisesBefore } = await adminClient.from("session_exercises").select("*", { count: "exact", head: true });
