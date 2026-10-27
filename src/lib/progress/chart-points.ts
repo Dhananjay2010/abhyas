@@ -11,7 +11,7 @@ type VolumeRow = {
   volume_kg: string | number;
 };
 
-type WeightRow = {
+export type WeightRow = {
   recorded_on: string;
   weight_kg: string | number;
 };
