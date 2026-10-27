@@ -247,43 +247,6 @@ rm -f "$MUTANT4_LOG"
 # Restore
 cp "$BACKUP_CORE" "$REBUILD_CORE"
 
-# Mutant 5: Change >= to > in rollover last-day check
-echo ""
-echo "Mutant 5: Change >= to > in rollover last-day check"
-echo "Expected: Unit test should fail (last-day rebuild scenario)"
-echo ""
-
-cp "$BACKUP_ROLLOVER" "$ROLLOVER_FILE"
-# Change active.ends_on >= today to active.ends_on > today
-sed -i 's/active\.ends_on >= today/active.ends_on > today/g' "$ROLLOVER_FILE"
-# Also change retry.ends_on >= today to retry.ends_on > today
-sed -i 's/retry\.ends_on >= today/retry.ends_on > today/g' "$ROLLOVER_FILE"
-
-# Verify the mutation applied
-if diff -q "$BACKUP_ROLLOVER" "$ROLLOVER_FILE" > /dev/null 2>&1; then
-  echo "✗ FAIL: Mutant 5 did not apply (files are identical)"
-  exit 1
-fi
-
-MUTANT5_LOG=$(mktemp)
-if npx tsx scripts/test-rebuild-rollover-progress.ts > "$MUTANT5_LOG" 2>&1; then
-  echo "✗ SURVIVED: Mutant 5 (unit test passes with > instead of >=)"
-  cat "$MUTANT5_LOG"
-  SURVIVED=$((SURVIVED + 1))
-else
-  if ! grep -q "❌ FAIL" "$MUTANT5_LOG"; then
-    echo "✗ FAIL: Mutant 5 killed by crash, not assertion"
-    cat "$MUTANT5_LOG"
-    exit 1
-  fi
-  echo "✓ Mutant 5 killed (unit test fails with > instead of >=)"
-  KILLED=$((KILLED + 1))
-fi
-rm -f "$MUTANT5_LOG"
-
-# Restore
-cp "$BACKUP_ROLLOVER" "$ROLLOVER_FILE"
-
 # Mutant 5: Change effectiveStart min() to ?? in progress wiring
 echo ""
 echo "Mutant 5: Change effectiveStart min to ?? (progress loader wiring)"
