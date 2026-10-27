@@ -64,8 +64,8 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
 
   // Preview colors (use user input or neutral defaults)
   // LOW-10: Use static hex fallback for color input (doesn't support CSS vars)
-  const previewPrimary = primaryColor || "#6b7280"; // neutral-500
-  const previewAccent = accentColor || "#d4d4d8"; // neutral-300
+  const previewPrimary = primaryColor || branding.colors.neutralMuted;
+  const previewAccent = accentColor || branding.colors.neutralBorder;
   
   // Compute accessible text color for preview when a valid color is entered
   // Use simple contrast: if sum of RGB > 382 (roughly half of max 765), use black, else white
