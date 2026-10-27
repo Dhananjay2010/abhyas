@@ -159,9 +159,9 @@ function createTestSupabaseAdapter(pool: Pool, userId: string) {
   return {
     from(table: string) {
       let selectCols = "*";
-      let whereClauses: string[] = [];
-      let whereParams: unknown[] = [];
-      let orderClauses: string[] = [];
+      const whereClauses: string[] = [];
+      const whereParams: unknown[] = [];
+      const orderClauses: string[] = [];
       let limitVal: number | null = null;
 
       return {
@@ -212,7 +212,7 @@ function createTestSupabaseAdapter(pool: Pool, userId: string) {
         },
       };
     },
-  } as any; // Type as any for simplicity in test
+  } as Pick<SupabaseClient, "from">;
 }
 
 async function runTests() {
