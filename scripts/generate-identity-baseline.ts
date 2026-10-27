@@ -28,7 +28,7 @@ type EquipmentSet = "all" | "bodyweight" | "db+bench" | "kb-only" | "barbell+rac
 
 const injuries: InjuryClass[] = ["no-injury", "current-knee", "past-knee", "shoulder-past", "lower-back-past"];
 const equipment: EquipmentSet[] = ["all", "bodyweight", "db+bench", "kb-only", "barbell+rack+bench"];
-const levels = ["beginner", "intermediate", "advanced"] as const;
+const levels = ["beginner", "intermediate", "expert"] as const;
 const daysList = [2, 3, 4, 5, 6];
 const minutesList = [30, 45, 60, 75, 90];
 const goals = ["muscle_gain", "strength"] as const;
