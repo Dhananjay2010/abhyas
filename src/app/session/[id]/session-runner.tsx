@@ -120,6 +120,16 @@ export type RunnerSettings = {
   units: "metric" | "imperial";
 };
 
+export type RunnerTimer = {
+  setTimeout: (callback: () => void, ms: number) => ReturnType<typeof globalThis.setTimeout>;
+  clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => void;
+};
+
+const REAL_TIMER: RunnerTimer = {
+  setTimeout: (cb, ms) => globalThis.setTimeout(cb, ms),
+  clearTimeout: (id) => globalThis.clearTimeout(id),
+};
+
 type Phase = "warmup" | "work" | "cooldown" | "done";
 
 const FEELS: { value: Feel; label: string }[] = [
@@ -141,6 +151,7 @@ export function SessionRunner({
   tomorrow,
   units = "metric",
   actions = REAL_ACTIONS,
+  timer,
   onExit,
 }: {
   sessionId: string;
@@ -157,9 +168,11 @@ export function SessionRunner({
   /** The user's display units, for the summary's total volume. */
   units?: UnitsPreference;
   actions?: SessionActions;
+  timer?: RunnerTimer;
   onExit?: () => void;
 }) {
   const router = useRouter();
+  const timerImpl = timer ?? REAL_TIMER;
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
   
@@ -305,9 +318,9 @@ export function SessionRunner({
     markSynced();
   }
   useEffect(() => {
-    const t = setTimeout(markSynced, 4000);
-    return () => clearTimeout(t);
-  }, []);
+    const t = timerImpl.setTimeout(markSynced, 4000);
+    return () => timerImpl.clearTimeout(t);
+  }, [timerImpl]);
 
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
@@ -798,8 +811,7 @@ export function SessionRunner({
           startRest(restSeconds);
         }
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Network error. Check your connection.";
-        setError(errorMessage);
+        setError(runnerErrorMessage(err));
       } finally {
         setBusy(false);
       }
