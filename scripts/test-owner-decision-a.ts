@@ -46,7 +46,7 @@ let violations = 0;
 // Test 1: Past-knee eligible exercises
 console.log("=== Test 1: Past-knee eligible exercises ===");
 
-const pastKneeInput: Partial<GeneratorInput> = {
+const pastKneeInput: GeneratorInput = {
   userId: "test-user",
   blockNumber: 1,
   goal: "strength",
@@ -94,7 +94,7 @@ console.log("");
 // Test 2: Current-knee loses jammers
 console.log("=== Test 2: Current-knee eligible exercises ===");
 
-const currentKneeInput: Partial<GeneratorInput> = {
+const currentKneeInput: GeneratorInput = {
   ...pastKneeInput,
   currentInjuryRegions: ["knee"],
   anyKneeInjury: true,
