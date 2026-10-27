@@ -369,11 +369,11 @@ EOSQL
       SURVIVORS+=("(j)")
       FAILED=$((FAILED + 1))
     else
-      # Check if it failed on cross-tenant "Other gym" assertion
-      if grep -q "FAIL.*Other gym" "$j_test_output"; then
+      # Check if it failed on cross-tenant "Other gym" assertion (not setup or owner check)
+      if grep -qE "FAIL Other gym (display_name|logo_url|primary_color|accent_color) unchanged" "$j_test_output"; then
         echo "  ✅ KILLED"
         echo "  Failed assertion:"
-        grep "FAIL.*Other gym" "$j_test_output" | head -5 | sed 's/^/    /'
+        grep -E "FAIL Other gym (display_name|logo_url|primary_color|accent_color) unchanged" "$j_test_output" | head -5 | sed 's/^/    /'
       else
         echo "  ❌ SURVIVED (failed on validation but not cross-tenant isolation)"
         echo "  Failed assertions (no 'Other gym' failure found):"

@@ -94,6 +94,8 @@ async function testSwapScenario(
   console.log(`\n${label}:`);
   const r = render(
     <SessionRunner
+      sessionStatus="in_progress"
+      userId="test-user"
       sessionId="s1"
       isDeload={false}
       week={1}
@@ -207,6 +209,8 @@ async function testUserTypeSurvival() {
 
   const r = render(
     <SessionRunner
+      sessionStatus="in_progress"
+      userId="test-user"
       sessionId="s1"
       isDeload={false}
       week={1}
@@ -271,6 +275,8 @@ async function testUserTypeSurvival() {
 
   r.rerender(
     <SessionRunner
+      sessionStatus="in_progress"
+      userId="test-user"
       sessionId="s1"
       isDeload={false}
       week={1}
@@ -430,6 +436,8 @@ console.log("Test swap entry box reset (HIGH-1):\n");
 
   const r = render(
     <SessionRunner
+      sessionStatus="in_progress"
+      userId="test-user"
       sessionId="s1"
       isDeload={true}
       week={4}
@@ -540,6 +548,8 @@ console.log("Test swap entry box reset (HIGH-1):\n");
 
   const r6 = render(
     <SessionRunner
+      sessionStatus="in_progress"
+      userId="test-user"
       sessionId="s1"
       isDeload={false}
       week={1}
