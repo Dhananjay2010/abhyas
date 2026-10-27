@@ -272,8 +272,21 @@ async function runTests() {
     assert(beforeData.status === "active", "Block 1 is active before rebuild", `got ${beforeData.status}`);
     assert(beforeData.ends_on === "2026-10-26", "Block 1 ends_on is 2026-10-26", `got ${beforeData.ends_on}`);
 
+    // Create authenticated client (rebuild_block RPC requires auth.uid())
+    const userClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    });
+    const { error: signInError } = await userClient.auth.signInWithPassword({
+      email: testEmail,
+      password: "test-password-123",
+    });
+    if (signInError) {
+      console.error("❌ Failed to sign in test user:", signInError);
+      process.exit(1);
+    }
+
     // Rebuild via rebuildPlanCore (same code path as Settings)
-    const deps = buildRebuildPlanDeps(adminClient, userId, today);
+    const deps = buildRebuildPlanDeps(userClient, userId, today);
     const result = await rebuildPlanCore(deps);
 
     assert(result.ok === true, "Rebuild succeeded", result.ok ? "" : result.error);
@@ -389,8 +402,21 @@ async function runTests() {
 
     const today = "2026-10-15";
 
+    // Create authenticated client (rebuild_block RPC requires auth.uid())
+    const userClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    });
+    const { error: signInError } = await userClient.auth.signInWithPassword({
+      email: testEmail,
+      password: "test-password-456",
+    });
+    if (signInError) {
+      console.error("❌ Failed to sign in test user:", signInError);
+      process.exit(1);
+    }
+
     // Rebuild mid-block
-    const deps = buildRebuildPlanDeps(adminClient, userId, today);
+    const deps = buildRebuildPlanDeps(userClient, userId, today);
     const result = await rebuildPlanCore(deps);
 
     assert(result.ok === true, "Mid-block rebuild succeeded");
