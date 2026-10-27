@@ -1,37 +1,38 @@
-import { branding } from "@/lib/branding";
+import { branding, type Brand } from "@/lib/branding";
 import { BrandLogo } from "@/components/brand-logo";
 import { SignInButton } from "./sign-in-button";
 import { Footer } from "@/components/footer";
 
 export interface LandingContentProps {
+  brand?: Brand;
   error?: string;
   next?: string;
 }
 
-export function LandingContent({ error, next }: LandingContentProps) {
+export function LandingContent({ brand = branding, error, next }: LandingContentProps) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-between px-6 py-12">
       <div className="flex flex-1 flex-col justify-center">
-        {branding.tagline && (
+        {brand.tagline && (
           <p 
-            {...(branding.taglineLang && { lang: branding.taglineLang })} 
+            {...(brand.taglineLang && { lang: brand.taglineLang })} 
             className="text-base font-medium text-accent"
           >
-            {branding.tagline}
+            {brand.tagline}
           </p>
         )}
         <div className="mt-3">
-          {branding.logo ? (
+          {brand.logo ? (
             <>
-              <BrandLogo className="h-12 w-auto object-contain" />
-              <h1 className="mt-2 text-sm font-medium text-muted">{branding.name}</h1>
+              <BrandLogo brand={brand} className="h-12 w-auto object-contain" />
+              <h1 className="mt-2 text-sm font-medium text-muted">{brand.name}</h1>
             </>
           ) : (
-            <h1 className="text-5xl font-bold tracking-tight">{branding.name}</h1>
+            <h1 className="text-5xl font-bold tracking-tight">{brand.name}</h1>
           )}
         </div>
         <p className="mt-5 text-lg leading-relaxed text-muted">
-          {branding.description}
+          {brand.description}
         </p>
 
         <ul className="mt-10 space-y-4 text-sm text-muted">

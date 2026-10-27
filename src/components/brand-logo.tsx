@@ -1,17 +1,19 @@
-import { branding } from "@/lib/branding";
+import { branding, type Brand } from "@/lib/branding";
 import Image from "next/image";
 
 /**
  * Brand logo component.
  * Shows the configured logo image if available, otherwise renders the brand name as text.
  * Used in headers and anywhere the app displays its brand identity.
+ * 
+ * @param brand - Brand to display (defaults to static branding for backward compatibility)
  */
-export function BrandLogo({ className }: { className?: string }) {
-  if (branding.logo) {
+export function BrandLogo({ brand = branding, className }: { brand?: Brand; className?: string }) {
+  if (brand.logo) {
     return (
       <Image
-        src={branding.logo}
-        alt={branding.name}
+        src={brand.logo}
+        alt={brand.name}
         width={48}
         height={48}
         className={className}
@@ -21,5 +23,5 @@ export function BrandLogo({ className }: { className?: string }) {
   }
 
   // Fallback to text name when no logo is configured
-  return <span className={className}>{branding.name}</span>;
+  return <span className={className}>{brand.name}</span>;
 }
