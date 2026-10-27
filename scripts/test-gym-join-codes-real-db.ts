@@ -14,14 +14,16 @@
  * 
  * Run: supabase start && REAL_DB=1 npm run test:gym-join-codes-real-db
  * 
- * NO-OP BY DEFAULT: Skips (exit 0) unless REAL_DB=1 is set.
- * In CI: REAL_DB=1 is set in database-seed-test job.
+ * NO-OP BY DEFAULT: Skips (exit 0) unless REAL_DB=1 is set AND guard allows.
+ * In CI: REAL_DB=1 is set in database-seed-test job, CI=true bypasses guard.
  */
 
-// NO-OP by default: skip unless REAL_DB=1
-if (process.env.REAL_DB !== "1") {
-  console.log("⏭️  Skipping gym join codes real-DB tests (REAL_DB=1 not set)");
-  console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance");
+import { checkRealDbTest } from "./lib-db-reset-guard.js";
+
+// Check guard first
+const guardDecision = checkRealDbTest();
+if (!guardDecision.allow) {
+  console.log(`⏭️  Skipping gym join codes real-DB tests: ${guardDecision.reason}`);
   console.log();
   process.exit(0);
 }
@@ -52,12 +54,6 @@ async function testDatabaseConnection() {
 }
 
 async function runTests() {
-  if (process.env.REAL_DB !== "1") {
-    console.log("\n⏭️  Skipping real DB tests (REAL_DB=1 not set)");
-    console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance\n");
-    return true;
-  }
-
   console.log("Checking Supabase connection...");
   
   const isAvailable = await testDatabaseConnection();

@@ -502,8 +502,40 @@ end $$;
 -- SUPABASE ADVISOR FIXES (idempotent policy updates)
 -- ============================================================
 -- These fix Supabase advisor warnings from migrations 034-036:
--- (1) Wrap auth.uid() in subquery to avoid optimization issues
--- (2) Merge permissive SELECT policies on gym_memberships into one
+-- QA LOWs from #159: Wrap auth.uid() in subqueries and merge policies
+-- (1) Fix helper functions: is_gym_staff and is_gym_owner
+-- (2) Fix gyms_member_select policy
+-- (3) Merge permissive SELECT policies on gym_memberships into one
+
+-- Fix is_gym_staff: wrap auth.uid() in subquery
+create or replace function public.is_gym_staff(check_gym_id uuid)
+returns boolean language sql security definer
+set search_path = ''
+stable as $$
+  select exists (
+    select 1 
+    from public.gym_memberships 
+    where gym_id = check_gym_id
+      and user_id = (select auth.uid())
+      and role in ('owner', 'staff')
+      and status = 'active'
+  );
+$$;
+
+-- Fix is_gym_owner: wrap auth.uid() in subquery
+create or replace function public.is_gym_owner(check_gym_id uuid)
+returns boolean language sql security definer
+set search_path = ''
+stable as $$
+  select exists (
+    select 1 
+    from public.gym_memberships 
+    where gym_id = check_gym_id
+      and user_id = (select auth.uid())
+      and role = 'owner'
+      and status = 'active'
+  );
+$$;
 
 -- Fix gyms_member_select: wrap auth.uid() in subquery
 do $$

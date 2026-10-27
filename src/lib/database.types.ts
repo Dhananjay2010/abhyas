@@ -1543,6 +1543,16 @@ export type Database = {
           days_completed: number
         }[]
       }
+      get_gym_brand: {
+        Args: {
+          p_gym_id: string
+        }
+        Returns: {
+          name: string
+          slug: string
+          timezone: string
+        }[]
+      }
       get_owned_gym_name: {
         Args: Record<PropertyKey, never>
         Returns: string | null
@@ -1621,6 +1631,16 @@ export type Database = {
           p_user_pattern_id: string
         }
         Returns: string
+      }
+      resolve_gym_by_host: {
+        Args: {
+          p_host: string
+        }
+        Returns: {
+          gym_id: string
+          gym_slug: string
+          gym_name: string
+        }[]
       }
       rollover_block: {
         Args: {

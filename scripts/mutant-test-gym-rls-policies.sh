@@ -22,6 +22,22 @@ if [ "${REAL_DB:-}" != "1" ]; then
   exit 0
 fi
 
+# Source guard and check
+source "$(dirname "$0")/lib-db-reset-guard.sh"
+if ! check_db_reset_guard_bash check "supabase/config.toml"; then
+  echo "❌ DB reset guard check failed:"
+  check_db_reset_guard_bash explain "supabase/config.toml"
+  exit 1
+fi
+
+# In CI, default SUPABASE_DB_URL if not set (standard Supabase local stack)
+# Outside CI, SUPABASE_DB_URL is required (enforced by guard above)
+if [ "${CI:-}" = "true" ] && [ -z "${SUPABASE_DB_URL:-}" ]; then
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54322/postgres"
+  echo "CI: Using default SUPABASE_DB_URL: $SUPABASE_DB_URL"
+  echo
+fi
+
 # Check we're in the repo root
 if [ ! -f "package.json" ]; then
   echo "❌ ERROR: Must run from repo root" >&2
@@ -77,9 +93,9 @@ run_mutant() {
   fi
   rm -f "$reset_output"
   
-  # Apply mutation via psql
+  # Apply mutation via psql to the DB
   local mutation_output=$(mktemp)
-  if ! psql "${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/postgres}" \
+  if ! psql "$SUPABASE_DB_URL" \
     -c "$sql_mutation" > "$mutation_output" 2>&1; then
     echo "  ❌ SKIPPED: mutation SQL failed"
     SKIPPED+=("$name: mutation failed")

@@ -8,11 +8,19 @@ set -euo pipefail
 echo "=== Mutant Testing: Gym Join Codes ==="
 echo
 
-# Database reset guard: prevent accidental wipes on shared boxes
-if ! npx tsx scripts/lib/db-reset-guard-cli.ts; then
+# Source shared guard
+source "$(dirname "$0")/lib-db-reset-guard.sh"
+
+# Check guard
+if ! check_db_reset_guard_bash check; then
+  check_db_reset_guard_bash explain
   exit 1
 fi
-echo
+
+# CI can default DB URL
+if [ -z "${SUPABASE_DB_URL:-}" ] && [ "${CI:-}" = "true" ]; then
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+fi
 
 # Skip if REAL_DB is not set (shard environments don't have Supabase)
 if [ "${REAL_DB:-}" != "1" ]; then
