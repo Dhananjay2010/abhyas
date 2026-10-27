@@ -8,7 +8,7 @@
  */
 
 import { strict as assert } from "node:assert";
-import { resolveTomorrowAfterSwap } from "../src/lib/program/day-plan";
+import { resolveTomorrowAfterSwap, wasSwapDay } from "../src/lib/program/day-plan";
 
 console.log("Test: Post-swap collision resolution\n");
 
@@ -35,8 +35,8 @@ console.log("1. Swap with collision: serves next in rotation");
 
   assert.ok(result, "Should resolve collision");
   assert.equal(result.label, "Upper", "Next in rotation is Upper");
-  assert.ok(result.collisionResolved, "Should mark as resolved");
-  console.log("  ✓ Collision resolved: serves Upper");
+  assert.equal(result.programDayId, "upper-1", "ProgramDayId is upper-1");
+  console.log("  ✓ Collision resolved: serves Upper with programDayId");
 }
 
 console.log("\n2. Normal day (no swap): no collision resolution");
@@ -94,7 +94,7 @@ console.log("\n4. Wraps around rotation");
 
   assert.ok(result, "Should resolve collision");
   assert.equal(result.label, "Full Body A", "Wraps to first");
-  assert.ok(result.collisionResolved, "Should mark as resolved");
+  assert.equal(result.programDayId, "day-a", "ProgramDayId wraps to day-a");
   console.log("  ✓ Wraps around: day-c → day-a");
 }
 
@@ -114,6 +114,42 @@ console.log("\n5. Swap but tomorrow is different day: no collision");
 
   assert.ok(!result, "Should not resolve (tomorrow is different)");
   console.log("  ✓ Swap with different tomorrow: no collision");
+}
+
+console.log("\n6. wasSwapDay: Rest day swap");
+{
+  const wasSwap = wasSwapDay({
+    completedProgramDayId: "day-a",
+    scheduledProgramDayId: null, // Rest day
+    completedActualType: "weights",
+  });
+  
+  assert.ok(wasSwap, "Should be a swap when scheduled Rest but did a workout");
+  console.log("  ✓ Rest day swap detected");
+}
+
+console.log("\n7. wasSwapDay: Different program day");
+{
+  const wasSwap = wasSwapDay({
+    completedProgramDayId: "day-b",
+    scheduledProgramDayId: "day-a",
+    completedActualType: "weights",
+  });
+  
+  assert.ok(wasSwap, "Should be a swap when different program day");
+  console.log("  ✓ Different program day swap detected");
+}
+
+console.log("\n8. wasSwapDay: Not a swap (same day)");
+{
+  const wasSwap = wasSwapDay({
+    completedProgramDayId: "day-a",
+    scheduledProgramDayId: "day-a",
+    completedActualType: "weights",
+  });
+  
+  assert.ok(!wasSwap, "Should not be a swap when same program day");
+  console.log("  ✓ Same day: not a swap");
 }
 
 console.log("\n✅ All post-swap collision resolution tests passed");

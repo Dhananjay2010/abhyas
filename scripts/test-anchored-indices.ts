@@ -69,9 +69,6 @@ console.log("\n3. 4-day and 5-day plans");
 // Test 4: Maintains spacing pattern
 console.log("\n4. Spacing pattern maintained");
 {
-  const base = activeDayIndices(3); // [1,3,5]
-  const baseSpacing = base[1] - base[0]; // 2
-  
   // Check that anchored version maintains 2-day spacing
   const anchored = activeDayIndicesAnchored("2026-10-27", 3);
   const sorted = anchored.sort((a, b) => a - b);

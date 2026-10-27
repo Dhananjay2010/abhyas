@@ -176,7 +176,53 @@ export default async function TodayPage() {
   // Derived from the user's own local date rather than re-reading the clock,
   // so the weekday and the date can never disagree at a midnight boundary.
   const todayIndex = isoWeekday(localToday);
-  const scheduled = days?.find((d) => d.day_index === todayIndex);
+  let scheduled = days?.find((d) => d.day_index === todayIndex);
+  
+  // Post-swap collision resolution: if yesterday was a swap and today's
+  // scheduled day equals yesterday's completed day, resolve to next in rotation
+  const yesterdayDate = addDays(localToday, -1);
+  const yesterdayIdx = isoWeekday(yesterdayDate);
+  const [yesterdaySessionRes] = await Promise.all([
+    supabase
+      .from("sessions")
+      .select("program_day_id, actual_type")
+      .eq("user_id", user.id)
+      .eq("local_date", yesterdayDate)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  
+  const yesterdaySession = yesterdaySessionRes.data;
+  if (yesterdaySession && days && scheduled) {
+    const { wasSwapDay, resolveTomorrowAfterSwap } = await import("@/lib/program/day-plan");
+    const scheduledYesterday = days.find(d => d.day_index === yesterdayIdx);
+    
+    const yesterdayWasSwap = wasSwapDay({
+      completedProgramDayId: yesterdaySession.program_day_id,
+      scheduledProgramDayId: scheduledYesterday?.id ?? null,
+      completedActualType: yesterdaySession.actual_type ?? "",
+    });
+    
+    if (yesterdayWasSwap && yesterdaySession.program_day_id === scheduled.id) {
+      const rotation = days
+        .filter(d => d.day_type === "weights" || d.day_type === "bodyweight")
+        .sort((a, b) => a.day_index - b.day_index);
+      
+      const resolved = resolveTomorrowAfterSwap({
+        todayWasSwap: yesterdayWasSwap,
+        doneProgramDayId: yesterdaySession.program_day_id,
+        scheduledTomorrow: { programDayId: scheduled.id, label: scheduled.label ?? "" },
+        rotation,
+      });
+      
+      if (resolved) {
+        // Replace scheduled with the resolved next-in-rotation day
+        scheduled = days.find(d => d.id === resolved.programDayId) ?? scheduled;
+      }
+    }
+  }
 
   // Session state already loaded before wave 2, with allSessions and todaySessions
   const { allSessions, todaySessions } = sessionState;

@@ -133,7 +133,7 @@ export function resolveTomorrowAfterSwap({
   scheduledTomorrow: { programDayId: string; label: string } | null;
   /** All training days in the rotation, sorted by day_index */
   rotation: ProgramDay[];
-}): { label: string; collisionResolved: boolean } | null {
+}): { programDayId: string; label: string } | null {
   // No collision if not a swap
   if (!todayWasSwap) return null;
   
@@ -150,10 +150,46 @@ export function resolveTomorrowAfterSwap({
   const nextIndex = (currentIndex + 1) % rotation.length;
   const nextDay = rotation[nextIndex];
   
+  if (!nextDay) return null;
+  
   return {
-    label: nextDay?.label ?? scheduledTomorrow.label,
-    collisionResolved: true,
+    programDayId: nextDay.id,
+    label: nextDay.label ?? scheduledTomorrow.label,
   };
+}
+
+/**
+ * Determine if today was a swap day.
+ * 
+ * A swap occurs when:
+ * - The completed session's program_day_id differs from the scheduled day, OR
+ * - Today was scheduled Rest but a workout was done
+ */
+export function wasSwapDay({
+  completedProgramDayId,
+  scheduledProgramDayId,
+  completedActualType,
+}: {
+  /** The program_day_id of the completed session */
+  completedProgramDayId: string | null;
+  /** The scheduled program_day_id for today (null for Rest days) */
+  scheduledProgramDayId: string | null;
+  /** The actual_type of the completed session */
+  completedActualType: string;
+}): boolean {
+  // Not a swap if no workout was completed
+  if (!completedProgramDayId) return false;
+  
+  // Not a swap if not a strength workout
+  if (completedActualType !== "weights" && completedActualType !== "bodyweight") {
+    return false;
+  }
+  
+  // Swap if scheduled Rest but did a workout
+  if (scheduledProgramDayId === null) return true;
+  
+  // Swap if different program day
+  return completedProgramDayId !== scheduledProgramDayId;
 }
 
 /**
@@ -242,8 +278,10 @@ export async function resolveDay(
 export type NextDayPlan = {
   localDate: string;
   plannedLabel: string;
+  /** The resolved program_day_id for tomorrow (null for Rest) */
+  programDayId: string | null;
   days: PlannableDay[];
-  _collisionResolved?: boolean;
+  collisionResolved: boolean;
 };
 
 /**
@@ -271,45 +309,54 @@ export async function nextDayPlan(
   const today = localDateString(timezone);
   const tomorrow = addDays(today, 1);
   const userId = options?.userId ?? program.user_id;
-  
-  // Check if today had a completed swap session
-  const { data: todaySession } = await supabase
-    .from("sessions")
-    .select("id, program_day_id, actual_type")
-    .eq("user_id", userId)
-    .eq("local_date", today)
-    .eq("status", "completed")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  // Get scheduled day for today
   const todayDayIndex = isoWeekday(today);
-  const { data: scheduledToday } = await supabase
-    .from("program_days")
-    .select("id")
-    .eq("program_id", program.id)
-    .eq("day_index", todayDayIndex)
-    .maybeSingle();
-
-  // Determine if today was a swap
-  const wasSwap = todaySession?.program_day_id && 
-    scheduledToday?.id && 
-    todaySession.program_day_id !== scheduledToday.id &&
-    (todaySession.actual_type === "weights" || todaySession.actual_type === "bodyweight");
   
-  const [resolved, days, allProgramDays] = await Promise.all([
-    resolveDay(supabase, program.id, tomorrow),
-    plannableDays(supabase, program.id, { afterDate: today, userId }),
+  const [todaySessionRes, allProgramDaysRes, resolved, days] = await Promise.all([
+    // Today's completed session
+    supabase
+      .from("sessions")
+      .select("id, program_day_id, actual_type")
+      .eq("user_id", userId)
+      .eq("local_date", today)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    // All program days (includes rotation and scheduled today)
     supabase
       .from("program_days")
       .select("id, label, day_index, day_type")
       .eq("program_id", program.id)
+      .eq("status", "active")
       .order("day_index"),
+    // Tomorrow's resolved day
+    resolveDay(supabase, program.id, tomorrow),
+    // Plannable days for the prompt
+    plannableDays(supabase, program.id, { afterDate: today, userId }),
   ]);
 
+  const todaySession = todaySessionRes.data;
+  const allProgramDays = allProgramDaysRes.data ?? [];
+  
+  // Find scheduled day for today
+  const scheduledToday = allProgramDays.find(d => d.day_index === todayDayIndex);
+
+  // Determine if today was a swap
+  const todayWasSwap = todaySession 
+    ? wasSwapDay({
+        completedProgramDayId: todaySession.program_day_id,
+        scheduledProgramDayId: scheduledToday?.id ?? null,
+        completedActualType: todaySession.actual_type ?? "",
+      })
+    : false;
+
+  // Get rotation (all training days)
+  const rotation = allProgramDays
+    .filter(d => d.day_type === "weights" || d.day_type === "bodyweight")
+    .sort((a, b) => a.day_index - b.day_index);
+
   // Resolve post-swap collision
-  const collision = (wasSwap && resolved && resolved.programDayId) 
+  const collision = (todayWasSwap && resolved && resolved.programDayId) 
     ? resolveTomorrowAfterSwap({
         todayWasSwap: true,
         doneProgramDayId: todaySession?.program_day_id ?? null,
@@ -317,9 +364,7 @@ export async function nextDayPlan(
           programDayId: resolved.programDayId, 
           label: resolved.label 
         },
-        rotation: (allProgramDays.data ?? [])
-          .filter(d => d.day_type === "weights" || d.day_type === "bodyweight")
-          .sort((a, b) => a.day_index - b.day_index),
+        rotation,
       })
     : null;
 
@@ -327,14 +372,17 @@ export async function nextDayPlan(
     return {
       localDate: tomorrow,
       plannedLabel: collision.label,
+      programDayId: collision.programDayId,
       days,
-      _collisionResolved: true,
+      collisionResolved: true,
     };
   }
 
   return {
     localDate: tomorrow,
     plannedLabel: resolved?.label ?? "Rest",
+    programDayId: resolved?.programDayId ?? null,
     days,
+    collisionResolved: false,
   };
 }

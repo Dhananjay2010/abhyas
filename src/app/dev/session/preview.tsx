@@ -120,6 +120,8 @@ const EXERCISES: RunnerExercise[] = [
 const TOMORROW = {
   localDate: "2999-01-02",
   plannedLabel: "Legs",
+  programDayId: "d3",
+  collisionResolved: false,
   days: [
     { programDayId: "d1", label: "Push", dayType: "weights" as const },
     { programDayId: "d2", label: "Pull", dayType: "weights" as const },
