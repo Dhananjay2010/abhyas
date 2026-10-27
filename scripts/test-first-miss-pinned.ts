@@ -717,6 +717,51 @@ console.log("\n=== HARD-FEEL HOLD ===");
   check("Kettlebell 20 kg success → 24 kg (kills mutant k')", d.nextWorkingWeightKg === 24 && d.outcome === "progressed");
 }
 
+// Test added-weight progression with grid-step (kills grid-step-ignored mutant)
+{
+  const d = evaluateProgression({
+    sets: [
+      { reps: 12, weightKg: 5 },
+      { reps: 12, weightKg: 5 },
+      { reps: 12, weightKg: 5 },
+    ],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: { ...BENCH, isBodyweight: true }, // Added weight exercise
+    state: { currentWorkingWeightKg: 5, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: 5, bestReps: 12, bestE1rm: null, totalSessions: 1, weightAtFailureStartKg: null },
+    isDeload: false,
+    equipmentIds: ["dip_belt"], // Loadable, 2.5 kg grid
+    unit: "kg",
+  });
+  // Added weight pattern step is 1.25, but grid is 2.5, so should use max(1.25, 2.5) = 2.5
+  // 5 + 2.5 = 7.5
+  check("Dip belt 5 kg added weight → 7.5 kg (kills grid-step-ignored)", d.nextWorkingWeightKg === 7.5 && d.outcome === "progressed");
+}
+
+// Test never-raise (kills never-raise-removed mutant)
+{
+  const d = evaluateProgression({
+    sets: [
+      { reps: 12, weightKg: 60.5 }, // Off-grid
+      { reps: 12, weightKg: 60.5 },
+      { reps: 12, weightKg: 60.5 },
+    ],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: BENCH,
+    state: { currentWorkingWeightKg: 60.5, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: 60.5, bestReps: 12, bestE1rm: null, totalSessions: 1, weightAtFailureStartKg: null },
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  // 60.5 + 2.5 = 63, snap to 62.5. Must use Math.max(62.5, 60.5) = 62.5
+  check("Off-grid 60.5 kg → at least 60.5 kg (kills never-raise-removed)", d.nextWorkingWeightKg !== null && d.nextWorkingWeightKg >= 60.5);
+}
+
 console.log("\n=== IN-RANGE HOLD (4×10 in 8-12) ===");
 // Test that in-range sessions hold weight and reset failures
 {
