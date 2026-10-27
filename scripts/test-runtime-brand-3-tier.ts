@@ -103,14 +103,22 @@ async function main() {
       if (gymId === 'gym-b-id') {
         const partialBrand: Partial<Brand> = {
           name: 'Gold Coast Iron',
-          colors: { accent: '#F59E0B', accentFg: '#000000' },
+          colors: {
+            ...branding.colors,
+            accent: '#F59E0B',
+            accentFg: '#000000',
+          },
         };
         return partialBrand;
       }
       if (gymId === 'gym-a-id') {
         const partialBrand: Partial<Brand> = {
           name: 'Iron Temple',
-          colors: { accent: '#1E40AF', accentFg: '#ffffff' },
+          colors: {
+            ...branding.colors,
+            accent: '#1E40AF',
+            accentFg: '#ffffff',
+          },
         };
         return partialBrand;
       }
@@ -142,7 +150,11 @@ async function main() {
       if (gymId === 'iron-temple-id') {
         const partialBrand: Partial<Brand> = {
           name: 'Iron Temple',
-          colors: { accent: '#1E40AF', accentFg: '#ffffff' },
+          colors: {
+            ...branding.colors,
+            accent: '#1E40AF',
+            accentFg: '#ffffff',
+          },
         };
         return partialBrand;
       }
@@ -182,11 +194,17 @@ async function main() {
     
     const mockFetchGymBrand = async (gymId: string): Promise<Partial<Brand>> => {
       if (gymId === 'gym-b-id') {
-        const partialBrand: Partial<Brand> = { name: 'Gold Coast Iron', colors: { accent: '#F59E0B' } };
+        const partialBrand: Partial<Brand> = { 
+          name: 'Gold Coast Iron', 
+          colors: { ...branding.colors, accent: '#F59E0B' } 
+        };
         return partialBrand;
       }
       if (gymId === 'iron-temple-id') {
-        const partialBrand: Partial<Brand> = { name: 'Iron Temple', colors: { accent: '#1E40AF' } };
+        const partialBrand: Partial<Brand> = { 
+          name: 'Iron Temple', 
+          colors: { ...branding.colors, accent: '#1E40AF' } 
+        };
         return partialBrand;
       }
       return {};
