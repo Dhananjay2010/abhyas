@@ -2,18 +2,17 @@
  * Test insertSession 23505 handling in the adapter.
  *
  * Issue 3: Test that:
- * - insertSession with 23505 returns {error: null}
- * - insertSession with other error codes (23503) surfaces the error
+ * - mapInsertSessionError with 23505 returns null
+ * - mapInsertSessionError with other error codes surfaces the message
+ * - mapInsertSessionError with null returns null
  * - Through planDayCore: 23505 results in ok:true and one planned row
  *
  *   npx tsx scripts/test-adapter-23505-handling.ts
  */
 
 import { strict as assert } from "node:assert";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createPlanDayDbOps } from "../src/lib/session/make-plan-day-client";
+import { mapInsertSessionError } from "../src/lib/session/make-plan-day-client";
 import { planDayCore, type PlanDayClient } from "../src/lib/session/plan-day-core";
-import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
 
@@ -32,93 +31,23 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-function makeFakeSupabaseClient(insertErrorCode: string | null) {
-  return {
-    from(table: string) {
-      if (table === "sessions") {
-        return {
-          insert() {
-            return Promise.resolve({
-              data: null,
-              error: insertErrorCode ? { code: insertErrorCode, message: `Simulated error ${insertErrorCode}` } : null,
-              count: null,
-              status: 200,
-              statusText: "OK",
-            });
-          },
-          select() {
-            return this;
-          },
-          eq() {
-            return this;
-          },
-          maybeSingle() {
-            return Promise.resolve({ data: null, error: null, count: null, status: 200, statusText: "OK" });
-          },
-        };
-      }
-      return {
-        select() {
-          return this;
-        },
-        eq() {
-          return this;
-        },
-        maybeSingle() {
-          return Promise.resolve({ data: null, error: null, count: null, status: 200, statusText: "OK" });
-        },
-      };
-    },
-  };
-}
-
 async function main() {
   console.log("Testing 23505 handling in adapter\n");
 
-  await test("insertSession with 23505 returns {error: null}", async () => {
-    const fakeSupabase = makeFakeSupabaseClient("23505");
-    const adapter = createPlanDayDbOps(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
-    
-    const result = await adapter.insertSession({
-      user_id: "user-1",
-      local_date: "2026-11-02",
-      status: "planned",
-      actual_type: null,
-      program_day_id: "day-1",
-    });
-    
-    assert.equal(result.error, null, "23505 should be suppressed and return {error: null}");
+  await test("mapInsertSessionError with 23505 returns null", async () => {
+    const result = mapInsertSessionError({ code: "23505", message: "duplicate key" });
+    assert.equal(result, null, "23505 should be suppressed and return null");
   });
 
-  await test("insertSession with 23503 surfaces the error", async () => {
-    const fakeSupabase = makeFakeSupabaseClient("23503");
-    const adapter = createPlanDayDbOps(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
-    
-    const result = await adapter.insertSession({
-      user_id: "user-1",
-      local_date: "2026-11-02",
-      status: "planned",
-      actual_type: null,
-      program_day_id: "day-1",
-    });
-    
-    assert.notEqual(result.error, null, "Non-23505 errors should be surfaced");
-    assert(result.error?.includes("23503"), `Error should mention 23503, got: ${result.error}`);
+  await test("mapInsertSessionError with 23503 surfaces the error", async () => {
+    const result = mapInsertSessionError({ code: "23503", message: "foreign key violation" });
+    assert.notEqual(result, null, "Non-23505 errors should be surfaced");
+    assert.equal(result, "foreign key violation", "Should return the message");
   });
 
-  await test("insertSession with null error returns {error: null}", async () => {
-    const fakeSupabase = makeFakeSupabaseClient(null);
-    const adapter = createPlanDayDbOps(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
-    
-    const result = await adapter.insertSession({
-      user_id: "user-1",
-      local_date: "2026-11-02",
-      status: "planned",
-      actual_type: null,
-      program_day_id: "day-1",
-    });
-    
-    assert.equal(result.error, null, "Successful insert should return {error: null}");
+  await test("mapInsertSessionError with null returns null", async () => {
+    const result = mapInsertSessionError(null);
+    assert.equal(result, null, "Null error should return null");
   });
 
   await test("planDayCore with 23505: one planned row and ok:true", async () => {

@@ -11,6 +11,13 @@ import type { Database } from "@/lib/database.types";
 
 type SessionInsert = Database["public"]["Tables"]["sessions"]["Insert"];
 
+export function mapInsertSessionError(error: { code?: string; message?: string } | null): string | null {
+  if (error?.code === "23505") {
+    return null;
+  }
+  return error?.message ?? null;
+}
+
 export function createPlanDayDbOps(
   supabase: SupabaseClient<Database>,
   userId: string
@@ -57,10 +64,7 @@ export function createPlanDayDbOps(
     },
     async insertSession(row: SessionInsert) {
       const { error } = await supabase.from("sessions").insert(row);
-      if (error?.code === "23505") {
-        return { error: null };
-      }
-      return { error: error?.message ?? null };
+      return { error: mapInsertSessionError(error) };
     },
     async rereadDaySessions(localDate: string) {
       const { data, error } = await supabase
