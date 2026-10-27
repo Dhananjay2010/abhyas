@@ -162,6 +162,25 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     check("P3 empty state still shown when nothing was completed", html.includes("No progress data yet"));
   }
 
+  // P9: strength member with only completed meditation/breathing sessions (in HISTORY_TYPES but don't count toward streaks)
+  // This kills mutant 19: hasAnyCompletedSession=true but streaks.totalSessions=0
+  fake = {
+    profile: strengthProfile,
+    tables: {
+      programs: p3Program, program_days: p3Days,
+      sessions: [
+        { id: "m1", local_date: "2026-10-15", status: "completed", actual_type: "meditation", is_deload: false, duration_seconds: 600 },
+        { id: "m2", local_date: "2026-10-16", status: "completed", actual_type: "meditation", is_deload: false, duration_seconds: 600 },
+      ],
+    },
+    rpc: { progress_summary: { days_trained: 0, local_dates: [], total_volume_kg: 0, session_count: 0 }, get_session_set_counts: [] },
+  };
+  {
+    const html = await renderProgress("P9: strength member, only completed meditation sessions (HISTORY_TYPES but not counted toward streaks)");
+    check("P9 empty state NOT shown (History lists meditation sessions)", !html.includes("No progress data yet"), "mutation check: hasAnyCompletedSession vs streaks.totalSessions");
+    check("P9 stat tiles shown", html.includes("Best streak"));
+  }
+
   // QA3 MED-2: every banner source is pinned, including the two RPCs and the yoga stats.
   const banner = (h: string) => h.includes("Couldn&#x27;t load some stats") || h.includes("Couldn't load some stats");
   for (const n of ["progress_summary", "get_session_set_counts"]) {
