@@ -147,6 +147,8 @@ console.log("1. Done button: finishSession fails - rest persistence NOT cleared"
   render(
     <SessionRunner
       sessionId={SESSION_ID}
+      sessionStatus="in_progress"
+      userId="test-user-id"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -234,6 +236,8 @@ console.log("\n2. Done button: finishSession succeeds - rest persistence cleared
   render(
     <SessionRunner
       sessionId={SESSION_ID}
+      sessionStatus="in_progress"
+      userId="test-user-id"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -318,6 +322,8 @@ console.log("\n3. Skip button: finishSession fails - rest persistence NOT cleare
   render(
     <SessionRunner
       sessionId={SESSION_ID}
+      sessionStatus="in_progress"
+      userId="test-user-id"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -405,6 +411,8 @@ console.log("\n4. Skip button: finishSession succeeds - rest persistence cleared
   render(
     <SessionRunner
       sessionId={SESSION_ID}
+      sessionStatus="in_progress"
+      userId="test-user-id"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
