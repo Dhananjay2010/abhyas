@@ -12,6 +12,7 @@ import { progressionFeedback } from "../src/lib/session/progression-feedback";
 import { getProfileUnits } from "../src/lib/get-profile-units";
 import { createFakeDb } from "./helpers/fake-postgrest";
 import type { UnitsPreference } from "../src/lib/units";
+import type { SessionExerciseRow } from "../src/lib/session/build-progression-input";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -23,17 +24,17 @@ async function runTests() {
   console.log("\n🧪 Progression messages respect user units (MEDIUM M-1)\n");
 
   // Test data
-  const sessionExercise = {
+  const sessionExercise: SessionExerciseRow = {
     id: "se-1",
     session_id: "sess-1",
     exercise_id: "ex-1",
     planned_sets: 3,
     planned_reps_min: 8,
     planned_reps_max: 12,
-    metric: "reps" as const,
+    metric: "reps",
     exercises: {
-      mechanic: "compound" as const,
-      movement_pattern: "horizontal_press" as const,
+      mechanic: "compound",
+      movement_pattern: "horizontal_press",
       equipment_ids: ["barbell"],
       progression_chain: null,
       progression_rank: null,

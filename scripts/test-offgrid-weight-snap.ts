@@ -14,7 +14,7 @@
  * - Dumbbell: 2.5 kg / 5 lb
  */
 
-import { buildProgressionInput } from "../src/lib/session/build-progression-input";
+import { buildProgressionInput, type SessionExerciseRow } from "../src/lib/session/build-progression-input";
 import { evaluateProgression } from "../src/lib/program/progression";
 
 let failures = 0;
@@ -33,17 +33,17 @@ async function runTests() {
   console.log("   Jump: 0.15 kg (< 2.5 kg step)");
   console.log("   (Split weights evenly, no clear mode -> uses stored weight)");
   {
-    const sessionExercise = {
+    const sessionExercise: SessionExerciseRow = {
       id: "se-1",
       session_id: "s-1",
       exercise_id: "e-1",
       planned_sets: 4,
       planned_reps_min: 8,
       planned_reps_max: 12,
-      metric: "reps" as const,
+      metric: "reps",
       exercises: {
-        mechanic: "compound" as const,
-        movement_pattern: "horizontal_press" as const,
+        mechanic: "compound",
+        movement_pattern: "horizontal_press",
         equipment_ids: ["barbell"],
         progression_chain: null,
         progression_rank: null,
@@ -96,17 +96,17 @@ async function runTests() {
   console.log("   Jump: 1.06 kg (< 2.5 kg step)");
   console.log("   (Varied set weights to trigger stored-weight fallback)");
   {
-    const sessionExercise = {
+    const sessionExercise: SessionExerciseRow = {
       id: "se-2",
       session_id: "s-2",
       exercise_id: "e-2",
       planned_sets: 4,
       planned_reps_min: 8,
       planned_reps_max: 12,
-      metric: "reps" as const,
+      metric: "reps",
       exercises: {
-        mechanic: "compound" as const,
-        movement_pattern: "horizontal_press" as const,
+        mechanic: "compound",
+        movement_pattern: "horizontal_press",
         equipment_ids: ["dumbbell"],
         progression_chain: null,
         progression_rank: null,
@@ -159,17 +159,17 @@ async function runTests() {
   console.log("   72.5 kg = 159.8 lb, Jump: 0.2 kg (0.4 lb)");
   console.log("   (Varied set weights to trigger stored-weight fallback)");
   {
-    const sessionExercise = {
+    const sessionExercise: SessionExerciseRow = {
       id: "se-3",
       session_id: "s-3",
       exercise_id: "e-3",
       planned_sets: 4,
       planned_reps_min: 8,
       planned_reps_max: 12,
-      metric: "reps" as const,
+      metric: "reps",
       exercises: {
-        mechanic: "compound" as const,
-        movement_pattern: "horizontal_press" as const,
+        mechanic: "compound",
+        movement_pattern: "horizontal_press",
         equipment_ids: ["barbell"],
         progression_chain: null,
         progression_rank: null,
@@ -222,17 +222,17 @@ async function runTests() {
   console.log("   67.5 kg = 148.8 lb, Jump: 1.73 kg (3.8 lb)");
   console.log("   (Varied set weights to trigger stored-weight fallback)");
   {
-    const sessionExercise = {
+    const sessionExercise: SessionExerciseRow = {
       id: "se-4",
       session_id: "s-4",
       exercise_id: "e-4",
       planned_sets: 4,
       planned_reps_min: 8,
       planned_reps_max: 12,
-      metric: "reps" as const,
+      metric: "reps",
       exercises: {
-        mechanic: "compound" as const,
-        movement_pattern: "horizontal_press" as const,
+        mechanic: "compound",
+        movement_pattern: "horizontal_press",
         equipment_ids: ["dumbbell"],
         progression_chain: null,
         progression_rank: null,
