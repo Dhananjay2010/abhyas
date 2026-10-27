@@ -121,7 +121,7 @@ export async function cleanBannedPlannedExercises(
         .eq("user_id", userId);
       
       const hasLoggedSets = (sessionsWithSets ?? []).some(s => 
-        (s.session_exercises ?? []).some((se: any) => (se.session_sets ?? []).length > 0)
+        (s.session_exercises ?? []).some(se => (se.session_sets ?? []).length > 0)
       );
       
       if (hasLoggedSets) {

@@ -11,6 +11,15 @@ echo "MUTANT TESTING: replace-banned-in-planned"
 echo "================================================================================"
 echo ""
 
+# Baseline check: run target test unmutated first
+echo "Running baseline tests (unmutated)..."
+if ! npx tsx scripts/test-replace-banned-in-planned.ts > /dev/null 2>&1; then
+  echo "❌ ABORT: Baseline test fails unmutated"
+  exit 1
+fi
+echo "✓ Baseline tests pass"
+echo ""
+
 # Create temporary backups
 BACKUP_DIR=$(mktemp -d)
 trap 'rm -rf "$BACKUP_DIR"' EXIT
@@ -39,6 +48,7 @@ run_mutant_test() {
   # Check anchor exists
   if ! grep -qF "$original" "$file"; then
     echo "  ⊘ SKIP: Original pattern not found"
+    FAILURES=$((FAILURES + 1))
     restore_file "$file"
     return
   fi
@@ -47,6 +57,7 @@ run_mutant_test() {
   local occurrences=$(grep -cF "$original" "$file" || true)
   if [ "$occurrences" -ne 1 ]; then
     echo "  ⊘ SKIP: Pattern occurs $occurrences times (expected 1)"
+    FAILURES=$((FAILURES + 1))
     restore_file "$file"
     return
   fi
@@ -240,6 +251,7 @@ if grep -qF "$ORIGINAL_LINE" "$GEN_FILE"; then
 else
   echo "Testing M9: generate.ts:828 reverted to past-only"
   echo "  ⊘ SKIP: Original pattern not found"
+  FAILURES=$((FAILURES + 1))
 fi
 
 restore_file "$GEN_FILE"

@@ -238,9 +238,9 @@ async function test4() {
   
   mockNextRouter.refreshCalls = [];
   
-  let resolveSave: (value: Result) => void;
+  const resolvers = { resolveSave: null as ((value: Result) => void) | null };
   const hangingPromise = new Promise<Result>((resolve) => {
-    resolveSave = resolve;
+    resolvers.resolveSave = resolve;
   });
   
   const actions: SettingsActions = {
@@ -280,7 +280,7 @@ async function test4() {
   assert(mockNextRouter.refreshCalls.length === 0, "router.refresh() not called while save pending");
   
   // Cleanup: resolve the hanging promise
-  resolveSave!({ ok: true });
+  resolvers.resolveSave!({ ok: true });
   await new Promise(r => setTimeout(r, 100));
   
   cleanup();
