@@ -245,23 +245,23 @@ m1c() {
 }
 test_mutant "M1c: no hold when back-off unchanged" m1c
 
-# C1: One-step cap removed (remove the snap-down step addition)
+# C1: One-step cap removed (remove the max cap, allowing increment only)
 c1() {
   local file="$PROG"
-  local search='next = snappedFrom + gridStep;'
-  local replace='next = from;'
+  local search='next = snappedFrom + Math.max(gridStep, jump);'
+  local replace='next = snappedFrom + jump;'
   local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "s/next = snappedFrom + gridStep;/next = from;/" "$file"
+  sed -i "s/next = snappedFrom + Math.max(gridStep, jump);/next = snappedFrom + jump;/" "$file"
   if cmp -s "$file" "$BACKUP_PROG"; then
     echo "ERROR: C1 did not change the file" >&2
     return 1
   fi
 }
-test_mutant "One-step cap removed (no snap step)" c1
+test_mutant "One-step cap removed (no max cap)" c1
 
 # C2: Success check ignores stored target (mutates the successTarget resolveTarget call only)
 c2() {
