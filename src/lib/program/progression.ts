@@ -822,7 +822,9 @@ export function evaluateProgression(input: {
       weightAtFailureStartKg: null, // M1: clear on in-range hold
       message: isTimed
         ? "Staying at this hold length until every set reaches the top of the range."
-        : "Staying at this weight until every set reaches the top of the range.",
+        : currentWeight === null
+          ? "Staying here until every set reaches the top of the range."
+          : "Staying at this weight until every set reaches the top of the range.",
     };
   }
 

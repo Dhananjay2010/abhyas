@@ -189,7 +189,7 @@ async function main() {
     });
 
     check("First miss: outcome hold", decision1.outcome === "hold", decision1.outcome);
-    check("First miss: weight drops to 57.5", decision1.nextWorkingWeightKg === 57.5, `${decision1.nextWorkingWeightKg}`);
+    check("First miss: weight holds at 60 (first miss always holds)", decision1.nextWorkingWeightKg === 60, `${decision1.nextWorkingWeightKg}`);
     check("First miss: failures=1", decision1.consecutiveFailures === 1, `${decision1.consecutiveFailures}`);
 
     // Persist first miss
@@ -205,7 +205,7 @@ async function main() {
 
     const written1 = fake1.getWritten();
     check("First miss persisted: consecutive_failures=1", written1?.consecutive_failures === 1, `${written1?.consecutive_failures}`);
-    check("First miss persisted: weight=57.5", written1?.current_working_weight_kg === 57.5, `${written1?.current_working_weight_kg}`);
+    check("First miss persisted: weight=60", written1?.current_working_weight_kg === 60, `${written1?.current_working_weight_kg}`);
 
     // Read back into state for second miss
     const state2: ProgressState = {
@@ -236,7 +236,7 @@ async function main() {
     });
 
     check("Second miss: outcome backed_off", decision2.outcome === "backed_off", decision2.outcome);
-    check("Second miss: deloads to 50 kg", decision2.nextWorkingWeightKg === 50, `${decision2.nextWorkingWeightKg}`);
+    check("Second miss: deloads to 52.5 kg (0.9 * 60, floor to grid)", decision2.nextWorkingWeightKg === 52.5, `${decision2.nextWorkingWeightKg}`);
     check("Second miss: failures reset to 0", decision2.consecutiveFailures === 0, `${decision2.consecutiveFailures}`);
 
     // Persist second miss
@@ -252,7 +252,7 @@ async function main() {
 
     const written2 = fake2.getWritten();
     check("Second miss persisted: consecutive_failures=0", written2?.consecutive_failures === 0, `${written2?.consecutive_failures}`);
-    check("Second miss persisted: weight=50", written2?.current_working_weight_kg === 50, `${written2?.current_working_weight_kg}`);
+    check("Second miss persisted: weight=52.5", written2?.current_working_weight_kg === 52.5, `${written2?.current_working_weight_kg}`);
   }
 
   console.log("\n3. One miss then in-range resets failures and doesn't deload");
@@ -321,7 +321,7 @@ async function main() {
     });
 
     check("In-range after miss: outcome hold", decision2.outcome === "hold", decision2.outcome);
-    check("In-range after miss: weight held at 37.5", decision2.nextWorkingWeightKg === 37.5, `${decision2.nextWorkingWeightKg}`);
+    check("In-range after miss: weight held at 40", decision2.nextWorkingWeightKg === 40, `${decision2.nextWorkingWeightKg}`);
     check("In-range after miss: failures reset to 0", decision2.consecutiveFailures === 0, `${decision2.consecutiveFailures}`);
 
     const fake2 = createFakeClient();
