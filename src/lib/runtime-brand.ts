@@ -14,7 +14,7 @@ import { branding, type Brand } from "@/lib/branding";
 import { createClient } from "@/lib/supabase/server";
 import { getGymBrand, neutralBrand } from "@/lib/gym-brand";
 import { getUserGymMembership } from "@/lib/gym/member-gym";
-import { contrastRatio, accessibleTextColor } from "@/lib/contrast";
+import { accessibleTextColor } from "@/lib/contrast";
 import { ensureMinContrast } from "@/lib/brand-contrast";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
