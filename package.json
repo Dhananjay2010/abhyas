@@ -464,7 +464,15 @@
     "test:adapter-23505-handling": "tsx scripts/test-adapter-23505-handling.ts",
     "test:constraint-error-mapping": "tsx scripts/test-constraint-error-mapping.ts",
     "test:log-weight-render": "tsx scripts/test-log-weight-render.tsx",
-    "test:unique-planned-session-migration-real-db": "tsx scripts/test-unique-planned-session-migration-real-db.ts"
+    "test:unique-planned-session-migration-real-db": "tsx scripts/test-unique-planned-session-migration-real-db.ts",
+    "test:demo-path-anchoring": "tsx scripts/test-anchored-indices.ts",
+    "test:demo-path-new-plan-behavior": "tsx scripts/test-new-plan-behavior.ts",
+    "test:rest-day-swap-preselect-dom": "tsx scripts/test-rest-day-swap-preselect-dom.tsx",
+    "test:post-swap-collision": "tsx scripts/test-post-swap-collision.ts",
+    "test:existing-plan-schedule-unchanged": "tsx scripts/test-existing-plan-schedule-unchanged.ts",
+    "test:today-plan-loader": "tsx scripts/test-today-plan-loader.ts",
+    "test:next-day-plan-core": "tsx scripts/test-next-day-plan-core.ts",
+    "test:start-session-today-resolve": "tsx scripts/test-start-session-today-resolve.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

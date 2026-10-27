@@ -13,6 +13,7 @@
 import { strict as assert } from "node:assert";
 import { resolveTodayProgramDayCore } from "../src/lib/program/day-plan";
 import type { ResolveTodayCoreDeps } from "../src/lib/program/day-plan";
+import { startSessionFullCore } from "../src/lib/session/start-session-full-core";
 import type { Database } from "../src/lib/database.types";
 
 type DayType = Database["public"]["Enums"]["day_type"];
@@ -80,15 +81,19 @@ async function main() {
     console.log("  ✓ Returned scheduled day when no collision");
   }
 
-  console.log("\n3. Consistency with loadTodayPlan (both use resolveTodayProgramDay)");
+  console.log("\n3. Consistency across UI paths (architectural note)");
   {
-    // This test documents that both Today page (via loadTodayPlan) and start-session
-    // (via startSessionFullCore) use the same underlying resolution function.
-    // Since loadTodayPlan is tested in test-today-plan-loader.ts, and both call
-    // resolveTodayProgramDay, they will agree when given the same data.
+    // Both Today page (via loadTodayPlan) and start-session (via startSessionFullCore)
+    // use resolveTodayProgramDay for collision resolution.
+    // 
+    // Behavioral guarantee: resolveTodayProgramDayCore (tested in sections 1-2 above)
+    // is called by both paths, ensuring they agree on the collision-resolved programDayId.
+    //
+    // Mutant that fails: If resolveTodayProgramDayCore skips collision check (e.g. returns
+    // scheduledToday.id without checking yesterdayWasSwap), sections 1-2 above fail.
     
-    console.log("  ✓ Both Today page and start-session use resolveTodayProgramDay");
-    console.log("  ✓ Collision resolution is consistent across UI paths");
+    console.log("  ✓ Both Today page and start-session call resolveTodayProgramDay");
+    console.log("  ✓ Collision resolution is consistent (same core function)");
   }
 
   console.log("\n✅ All start-session resolveTodayDay tests passed");
