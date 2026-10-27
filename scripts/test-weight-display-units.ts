@@ -74,7 +74,7 @@ function check(label: string, ok: boolean, detail = "") {
     { exercise_id: "e1", exercise_name: "Bench", local_date: "2026-10-13", best_e1rm: 50, top_weight_kg: 42.5 },
   ];
 
-  for (const [units, latest, older, raw] of [["metric", "54.58 kg", "50 kg", "54.58"], ["imperial", "120.5 lb", "110 lb", "120.33"]] as const) {
+  for (const [units, latest, older] of [["metric", "54.58 kg", "50 kg"], ["imperial", "120.5 lb", "110 lb"]] as const) {
     console.log(`\n1. Strength e1RM LineChart, ${units}`);
     const [chart] = buildStrengthChartsFromDescendingRows(rows, (d) => d, units);
     const r = render(React.createElement(LineChart, { points: chart.points, unit: chart.unitLabel, weightUnits: chart.units, title: "Bench (est. 1RM)", height: 110 }));
@@ -82,7 +82,12 @@ function check(label: string, ok: boolean, detail = "") {
     check(`${units}: readout shows ${latest}`, r.container.querySelector("p.mt-1 span.font-semibold")?.textContent === latest,
       r.container.querySelector("p.mt-1 span.font-semibold")?.textContent ?? "missing");
     check(`${units}: aria-label uses ${latest}`, (r.container.querySelector("svg")?.getAttribute("aria-label") ?? "").includes(`latest value ${latest}`));
-    check(`${units}: raw ${raw} never shown`, !html.includes(raw));
+    // With 2dp metric, "54.58" is shown; imperial 120.33 raw is still rounded to 120.5
+    if (units === "metric") {
+      check(`${units}: 54.58 shown with 2dp`, html.includes("54.58"));
+    } else {
+      check(`${units}: raw 120.33 never shown`, !html.includes("120.33"));
+    }
     const axis = [...r.container.querySelectorAll("svg text")].map((t) => t.textContent ?? "");
     // niceBounds([50, 54.58]) = [49.4504, 55.1296]
     const hi = formatWeight(55.1296, units, false, "0"), lo = formatWeight(49.4504, units, false, "0");
@@ -97,7 +102,7 @@ function check(label: string, ok: boolean, detail = "") {
 
   console.log("\n2. Real ProgressPage passes the member's unit to the strength chart");
   const { default: ProgressPage } = await import("../src/app/progress/page");
-  for (const [units, latest, raw] of [["metric", "54.58 kg", "54.58"], ["imperial", "120.5 lb", "120.33"]] as const) {
+  for (const [units, latest] of [["metric", "54.58 kg"], ["imperial", "120.5 lb"]] as const) {
     fake = {
       tables: { exercise_strength_history: rows },
       single: { profiles: { timezone: "UTC", onboarding_completed_at: "2026-01-01", units, primary_track: "weights" } },
@@ -105,7 +110,12 @@ function check(label: string, ok: boolean, detail = "") {
     };
     const html = renderToStaticMarkup((await ProgressPage()) as React.ReactElement);
     check(`Progress ${units}: strength readout ${latest}`, html.includes(`>${latest}<`));
-    check(`Progress ${units}: no raw ${raw}`, !html.includes(raw));
+    // With 2dp metric, "54.58" is shown; imperial 120.33 raw is still rounded to 120.5
+    if (units === "metric") {
+      check(`Progress ${units}: 54.58 shown with 2dp`, html.includes("54.58"));
+    } else {
+      check(`Progress ${units}: raw 120.33 never shown`, !html.includes("120.33"));
+    }
   }
 
   console.log("\n3. Real History detail page: set weights in the member's unit");

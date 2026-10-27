@@ -102,14 +102,14 @@ check(
 
 console.log("\n=== Test L-4a: Metric prefill matches formatLoad display ===\n");
 
-// Test case 9: Off-grid metric weight prefills rounded value but submits original
+// Test case 9: Metric weight with 2dp prefills exact value, submits original
 const originalKg9 = 35.15;
 const prefill9 = computeRunnerWeightPrefill(originalKg9, "metric", false);
 const result9 = weightKgToSubmit(prefill9, prefill9, originalKg9, "metric");
 
 check(
-  "35.15 kg: prefills as 35.25 (0.25 kg grid)",
-  prefill9 === "35.25",
+  "35.15 kg: prefills as 35.15 (2 decimal places)",
+  prefill9 === "35.15",
   `got "${prefill9}"`
 );
 

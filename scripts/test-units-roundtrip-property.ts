@@ -187,23 +187,23 @@ for (const kg of testWeights) {
 
 console.log(`\nTested ${testWeights.length} weight values\n`);
 
-console.log("=== Property Test 5: Metric display rounds to 0.25 kg ===\n");
+console.log("=== Property Test 5: Metric display shows 2 decimal places ===\n");
 
-// Test that metric weights derived from lb display rounded to 0.25 kg
+// Test that metric weights display with 2 decimal places (trailing zeros trimmed)
 const lbDerivedKg = [
-  71.44, // from 157.5 lb → rounds to 71.5 kg
-  72.35, // from 159.5 lb (floored) → rounds to 72.25 kg
-  77.38, // from 170.6 lb → rounds to 77.5 kg
-  61.23, // from 135 lb → rounds to 61.25 kg
+  71.44, // from 157.5 lb → displays as "71.44 kg"
+  72.35, // from 159.5 lb (floored) → displays as "72.35 kg"
+  77.38, // from 170.6 lb → displays as "77.38 kg"
+  61.23, // from 135 lb → displays as "61.23 kg"
 ];
 
 for (const kg of lbDerivedKg) {
   const display = formatLoad(kg, "metric");
-  const rounded = Math.round(kg * 4) / 4;
+  const rounded = Math.round(kg * 100) / 100;
   const expected = `${rounded.toFixed(2).replace(/\.?0+$/, "")} kg`;
   
   check(
-    `${kg} kg displays rounded to 0.25 kg`,
+    `${kg} kg displays as "${expected}"`,
     display === expected,
     `expected "${expected}", got "${display}"`
   );

@@ -32,10 +32,10 @@ if (result2 !== expected2) {
 }
 console.log(`✓ Metric (55.0 kg): "${result2}"`);
 
-// Test 3: Metric - 22.47 -> 22.5
+// Test 3: Metric - 22.47 -> 22.47 (2dp)
 const pb3: PersonalBest = { kind: "e1rm", value: 22.47 };
 const result3 = describePersonalBest(pb3, "metric");
-const expected3 = "Best estimated one-rep max yet — 22.5 kg";
+const expected3 = "Best estimated one-rep max yet — 22.47 kg";
 if (result3 !== expected3) {
   console.error(`✗ Metric (22.47 kg): expected "${expected3}", got "${result3}"`);
   process.exit(1);

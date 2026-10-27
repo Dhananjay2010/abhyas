@@ -100,7 +100,7 @@ console.log("\n5. Weight rounding: kg to 1 decimal");
     `got ${weight2}`);
 
   const formatted = formatWeight(70.567, "metric", false);
-  check("70.567 kg formats to 70.5", formatted === "70.5",
+  check("70.567 kg formats to 70.57", formatted === "70.57",
     `got ${formatted}`);
 }
 

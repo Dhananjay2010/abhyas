@@ -1,6 +1,6 @@
 /**
  * Tests for M2 and M3 QA issues:
- * M2: Metric History list and detail must agree (both use 0.25 kg grid)
+ * M2: Metric History list and detail must agree (both use 2 decimal places)
  * M3: Body weight displays at 0.1 lb precision (no rounding)
  */
 
@@ -27,12 +27,12 @@ function check(name: string, condition: boolean, detail?: string): void {
 
 console.log("=== M2: Metric History list and detail agreement ===\n");
 
-// Test that formatWeight and formatTopSet agree for metric
+// Test that formatWeight and formatTopSet agree for metric (2 decimal places)
 const metricWeights = [
-  { kg: 71.44, expected: "71.5 kg" },
-  { kg: 85.27, expected: "85.25 kg" },
-  { kg: 85.28, expected: "85.25 kg" },
-  { kg: 35.15, expected: "35.25 kg" },
+  { kg: 71.44, expected: "71.44 kg" },
+  { kg: 85.27, expected: "85.27 kg" },
+  { kg: 85.28, expected: "85.28 kg" },
+  { kg: 35.15, expected: "35.15 kg" },
 ];
 
 for (const { kg, expected } of metricWeights) {
