@@ -123,7 +123,7 @@ console.log("\nCase 2: Barbell Squat 72.5 kg, all sets hit, EASY feel");
   console.log(`  Outcome: ${d.outcome}`);
   console.log(`  Message: "${d.message}"`);
   console.log(`  Jump: ${d.nextWorkingWeightKg !== null ? d.nextWorkingWeightKg - 72.5 : 'N/A'} kg`);
-  check("Barbell squat 72.5 kg (EASY feel) → 75 kg (capped to one step)", d.nextWorkingWeightKg === 75);
+  check("Barbell squat 72.5 kg (EASY feel) → 80 kg (doubled increment: floor-snap + 10)", d.nextWorkingWeightKg === 80);
 }
 
 console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
