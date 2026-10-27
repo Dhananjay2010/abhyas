@@ -38,7 +38,12 @@ export function progressStartDate(input: {
       )
     : null;
 
-  const firstBlockDate = programs.length > 0 ? programs[0].startedOn : null;
+  const firstBlockDate = programs.length > 0
+    ? programs.reduce((earliest, p) => 
+        p.startedOn < earliest ? p.startedOn : earliest,
+        programs[0].startedOn
+      )
+    : null;
 
   if (!firstSessionDate && !firstBlockDate) return null;
   if (!firstSessionDate) return firstBlockDate;
