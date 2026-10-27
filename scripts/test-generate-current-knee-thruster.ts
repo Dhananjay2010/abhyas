@@ -10,8 +10,7 @@
  */
 
 import { readFileSync } from "fs";
-import { generateProgram } from "../src/lib/program/generate";
-import type { GeneratorInput } from "../src/lib/program/generate";
+import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import type { Database } from "../src/lib/database.types";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
@@ -22,20 +21,20 @@ const catalogue = JSON.parse(
 
 // Current-knee user (knee in currentInjuryRegions)
 const currentKneeInput: GeneratorInput = {
-  sex: "male",
-  age: 30,
+  userId: "test-user",
+  blockNumber: 1,
+  goal: "muscle_gain",
   level: "intermediate",
-  goals: ["strength", "size"],
-  userTimeZone: "America/New_York",
-  availableDays: [1, 2, 3, 4],
-  availableEquipment: ["barbell", "dumbbell", "kettlebell", "bodyweight"],
-  preferredSessionLength: 60,
-  bodyweightKg: 75,
-  heightCm: 178,
+  primaryTrack: "weights",
+  daysPerWeek: 4,
+  yogaDaysPerWeek: 0,
+  age: 30,
+  bmi: 23,
+  hasAllEquipment: true,
+  equipmentIds: [],
   currentInjuryRegions: ["knee"], // CURRENT knee injury
   anyKneeInjury: true,
-  practicedYoga: false,
-  randomSeed: "thruster-current-knee-test",
+  preferredSessionMinutes: 60,
   catalogue: catalogue as CandidateExercise[],
 };
 
@@ -45,7 +44,7 @@ const program = generateProgram(currentKneeInput);
 let found = false;
 for (const [dayIndex, day] of program.days.entries()) {
   for (const ex of day.exercises) {
-    if (ex.slug === "kettlebell-thruster") {
+    if (ex.exerciseSlug === "kettlebell-thruster") {
       console.error(`✗ FAIL: kettlebell-thruster found in day ${dayIndex + 1} for CURRENT-knee user`);
       console.error(`  Exercise:`, ex);
       found = true;
