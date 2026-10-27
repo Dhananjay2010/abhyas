@@ -328,10 +328,12 @@ run_mutant \
   "(i) hard-feel doesn't hold" \
   "Change hard-feel check to right (never holds early)" \
   '    // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+    // Use mode (most common working-set weight) when available; otherwise fall back to stored or heaviest
+    const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds) {' \
   '    // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+    // Use mode (most common working-set weight) when available; otherwise fall back to stored or heaviest
+    const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));
     if (feel === "right" && currentWeight !== null && currentWeight > 0 && equipmentIds) {'
 
 # Mutant (j): 1.5-step rule - DELETED
