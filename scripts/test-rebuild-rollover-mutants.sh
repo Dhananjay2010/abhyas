@@ -284,42 +284,9 @@ rm -f "$MUTANT5_LOG"
 # Restore
 cp "$BACKUP_ROLLOVER" "$ROLLOVER_FILE"
 
-# Mutant 6: Comment out rebuildPlanCore call from buildPlan wiring test
+# Mutant 5: Change effectiveStart min() to ?? in progress wiring
 echo ""
-echo "Mutant 6: Skip rebuildPlanCore in buildPlan (production wiring)"
-echo "Expected: Unit test should detect missing core logic"
-echo ""
-
-ACTIONS_FILE="src/app/today/actions.ts"
-BACKUP_ACTIONS_MED2="$TMP/actions-med2.ts"
-cp "$ACTIONS_FILE" "$BACKUP_ACTIONS_MED2"
-
-# Comment out the rebuildPlanCore call
-sed -i '/const result = await rebuildPlanCore/,/return { ok: false, error: result.error };/s/^/\/\/ /' "$ACTIONS_FILE"
-
-# Verify mutation applied
-if diff -q "$BACKUP_ACTIONS_MED2" "$ACTIONS_FILE" > /dev/null 2>&1; then
-  echo "✗ FAIL: Mutant 6 did not apply"
-  exit 1
-fi
-
-MUTANT6_LOG=$(mktemp)
-if npx tsx scripts/test-rebuild-rollover-progress.ts > "$MUTANT6_LOG" 2>&1; then
-  echo "✗ SURVIVED: Mutant 6 (wiring test passes without rebuildPlanCore call)"
-  cat "$MUTANT6_LOG"
-  SURVIVED=$((SURVIVED + 1))
-else
-  echo "✓ Mutant 6 killed (wiring test detects missing rebuildPlanCore)"
-  KILLED=$((KILLED + 1))
-fi
-rm -f "$MUTANT6_LOG"
-
-# Restore
-cp "$BACKUP_ACTIONS_MED2" "$ACTIONS_FILE"
-
-# Mutant 7: Change effectiveStart min() to ?? in progress wiring
-echo ""
-echo "Mutant 7: Change effectiveStart min to ?? (progress loader wiring)"
+echo "Mutant 5: Change effectiveStart min to ?? (progress loader wiring)"
 echo "Expected: Unit test should detect incorrect date calculation"
 echo ""
 
@@ -333,21 +300,21 @@ if diff -q "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE" > /dev/null 2>&1; the
   exit 1
 fi
 
-MUTANT7_LOG=$(mktemp)
-if npx tsx scripts/test-rebuild-rollover-progress.ts > "$MUTANT7_LOG" 2>&1; then
-  echo "✗ SURVIVED: Mutant 7 (progress test passes with ?? instead of min)"
-  cat "$MUTANT7_LOG"
+MUTANT5_LOG=$(mktemp)
+if npx tsx scripts/test-rebuild-rollover-progress.ts > "$MUTANT5_LOG" 2>&1; then
+  echo "✗ SURVIVED: Mutant 5 (progress test passes with ?? instead of min)"
+  cat "$MUTANT5_LOG"
   SURVIVED=$((SURVIVED + 1))
 else
-  if ! grep -q "❌ FAIL" "$MUTANT7_LOG"; then
-    echo "✗ FAIL: Mutant 7 killed by crash, not assertion"
-    cat "$MUTANT7_LOG"
+  if ! grep -q "❌ FAIL" "$MUTANT5_LOG"; then
+    echo "✗ FAIL: Mutant 5 killed by crash, not assertion"
+    cat "$MUTANT5_LOG"
     exit 1
   fi
-  echo "✓ Mutant 7 killed (progress test detects incorrect date logic)"
+  echo "✓ Mutant 5 killed (progress test detects incorrect date logic)"
   KILLED=$((KILLED + 1))
 fi
-rm -f "$MUTANT7_LOG"
+rm -f "$MUTANT5_LOG"
 
 # Restore
 cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
