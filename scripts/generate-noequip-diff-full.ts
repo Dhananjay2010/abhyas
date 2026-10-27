@@ -56,7 +56,24 @@ const mainFixture = JSON.parse(
 console.log(`Loaded main fixture from ${mainFixture.mainSha.slice(0, 7)}`);
 console.log("Comparing PR behavior against main...\n");
 
-const allDiffs: any[] = [];
+interface DiffCase {
+  input: {
+    mechanic: string;
+    pattern: string;
+    feel: string | null;
+    missCount: number;
+    weight: number;
+    deload: boolean;
+  };
+  branchOutput: {
+    weight: number | null;
+    counter: number;
+    outcome: string;
+    m1Counter: number | null;
+  };
+}
+
+const allDiffs: DiffCase[] = [];
 let caseCount = 0;
 
 for (const mechanic of MECHANICS) {
@@ -137,7 +154,7 @@ for (const mechanic of MECHANICS) {
                     weight: prResult.nextWorkingWeightKg,
                     counter: prResult.consecutiveFailures,
                     outcome: prResult.outcome,
-                    m1Counter: prResult.weightAtFailureStartKg,
+                    m1Counter: prResult.weightAtFailureStartKg ?? null,
                   },
                 });
               }

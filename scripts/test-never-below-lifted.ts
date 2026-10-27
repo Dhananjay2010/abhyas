@@ -59,7 +59,7 @@ console.log("\n=== Never-Below-Lifted Invariant ===\n");
     unit: "lb",
   });
   
-  check("45.36 kg 'right': next >= 45.36", (d.nextWorkingWeightKg ?? NaN) >= 45.36, `got ${d.nextWorkingWeightKg}`);
+  check("45.36 kg 'right': next >= 45.36", ((d.nextWorkingWeightKg ?? 0)) >= 45.36, `got ${d.nextWorkingWeightKg}`);
   check("45.36 kg 'right': outcome is progressed or hold", ["progressed", "hold"].includes(d.outcome));
 }
 
@@ -78,7 +78,7 @@ console.log("\n=== Never-Below-Lifted Invariant ===\n");
     unit: "lb",
   });
   
-  check("45.36 kg 'easy': next >= 45.36", d.nextWorkingWeightKg ?? NaN >= 45.36, `got ${d.nextWorkingWeightKg}`);
+  check("45.36 kg 'easy': next >= 45.36", ((d.nextWorkingWeightKg ?? 0)) >= 45.36, `got ${d.nextWorkingWeightKg}`);
   check("45.36 kg 'easy': progresses (not holds)", d.outcome === "progressed");
 }
 
@@ -97,7 +97,7 @@ console.log("\n=== Never-Below-Lifted Invariant ===\n");
     unit: "kg",
   });
   
-  check("12 kg dumbbell 'right': next >= 12", d.nextWorkingWeightKg ?? NaN >= 12, `got ${d.nextWorkingWeightKg}`);
+  check("12 kg dumbbell 'right': next >= 12", (d.nextWorkingWeightKg ?? 0) >= 12, `got ${d.nextWorkingWeightKg}`);
 }
 
 // Test 4: Property test - sweep off-grid weights
@@ -121,7 +121,7 @@ console.log("\n=== Never-Below-Lifted Invariant ===\n");
       unit: "kg",
     });
     
-    check(`  ${weight} kg: next >= ${weight}`, d.nextWorkingWeightKg ?? NaN >= weight, `got ${d.nextWorkingWeightKg}`);
+    check(`  ${weight} kg: next >= ${weight}`, (d.nextWorkingWeightKg ?? 0) >= weight, `got ${d.nextWorkingWeightKg}`);
   }
 }
 
@@ -140,7 +140,7 @@ console.log("\n=== Never-Below-Lifted Invariant ===\n");
     unit: "kg",
   });
   
-  check("18.5 kg kettlebell: next >= 18.5", d.nextWorkingWeightKg ?? NaN >= 18.5, `got ${d.nextWorkingWeightKg}, outcome: ${d.outcome}`);
+  check("18.5 kg kettlebell: next >= 18.5", (d.nextWorkingWeightKg ?? 0) >= 18.5, `got ${d.nextWorkingWeightKg}, outcome: ${d.outcome}`);
 }
 
 // Test 6: Medicine ball off-grid (medicine ball: 1 kg grid, but 1 kg increment)
@@ -158,7 +158,7 @@ console.log("\n=== Never-Below-Lifted Invariant ===\n");
     unit: "kg",
   });
   
-  check("7.3 kg medicine ball: next >= 7.3", d.nextWorkingWeightKg ?? NaN >= 7.3, `got ${d.nextWorkingWeightKg}`);
+  check("7.3 kg medicine ball: next >= 7.3", (d.nextWorkingWeightKg ?? 0) >= 7.3, `got ${d.nextWorkingWeightKg}`);
 }
 
 // Test 7: Edge case that requires max() - very small off-grid weight
@@ -179,7 +179,7 @@ console.log("\n=== Never-Below-Lifted Invariant ===\n");
     unit: "kg",
   });
   
-  check("3.7 kg (off-grid): next >= 3.7", d.nextWorkingWeightKg ?? NaN >= 3.7, `got ${d.nextWorkingWeightKg}`);
+  check("3.7 kg (off-grid): next >= 3.7", (d.nextWorkingWeightKg ?? 0) >= 3.7, `got ${d.nextWorkingWeightKg}`);
 }
 
 // Test 8: Off-grid dip belt case where step is below grid (item 6 requirement)
@@ -207,7 +207,7 @@ console.log("\n=== Never-Below-Lifted Invariant ===\n");
     unit: "kg",
   });
   
-  check("5.1 kg dip_belt 'right': next >= 5.1", d.nextWorkingWeightKg ?? NaN >= 5.1, `got ${d.nextWorkingWeightKg}`);
+  check("5.1 kg dip_belt 'right': next >= 5.1", (d.nextWorkingWeightKg ?? 0) >= 5.1, `got ${d.nextWorkingWeightKg}`);
   check("5.1 kg dip_belt 'right': expected 7.5 kg", d.nextWorkingWeightKg === 7.5, `got ${d.nextWorkingWeightKg}`);
 }
 

@@ -66,7 +66,13 @@ const sets = (n: number, reps: number, w: number | null): LoggedSet[] =>
   Array.from({ length: n }, () => ({ reps, weightKg: w }));
 
 // Build a lookup map for whitelisted diffs
-const diffMap = new Map<string, { mainOutput: any; branchOutput: any }>();
+interface WhitelistOutput {
+  weight: number;
+  counter: number;
+  outcome: string;
+}
+
+const diffMap = new Map<string, { mainOutput: WhitelistOutput; branchOutput: WhitelistOutput }>();
 for (const rule of diffWhitelist.differencesByRule) {
   for (const example of rule.examples) {
     const key = JSON.stringify({
@@ -126,7 +132,6 @@ const buckets: { hash: string; count: number }[] = Array.from(
 
 let diffsFound = 0;
 let diffsExpected = 0;
-let unexpectedDiffs: any[] = [];
 
 console.log("\n=== GOLDEN COMPARISON ===");
 
@@ -244,8 +249,8 @@ if (caseCount !== mainFixture.totalCases) {
   process.exit(1);
 }
 
-if (diffsFound !== diffWhitelist.differencesByRule.reduce((sum, rule) => sum + rule.examples.length, 0)) {
-  console.error(`\n❌ Example case count mismatch: expected ${diffWhitelist.differencesByRule.reduce((sum, rule) => sum + rule.examples.length, 0)}, found ${diffsFound}`);
+if (diffsFound !== diffWhitelist.differencesByRule.reduce((sum: number, rule: { examples: unknown[] }) => sum + rule.examples.length, 0)) {
+  console.error(`\n❌ Example case count mismatch: expected ${diffWhitelist.differencesByRule.reduce((sum: number, rule: { examples: unknown[] }) => sum + rule.examples.length, 0)}, found ${diffsFound}`);
   process.exit(1);
 }
 
