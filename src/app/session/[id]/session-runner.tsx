@@ -298,6 +298,21 @@ export function SessionRunner({
     );
   }, [controller, addEventListener, removeEventListener]);
 
+  // Clear error when user comes back online
+  useEffect(() => {
+    const handleOnline = () => {
+      setError(null);
+      if (controller) {
+        controller.onFocus(); // Retry when coming online
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", handleOnline);
+      return () => window.removeEventListener("online", handleOnline);
+    }
+  }, [controller]);
+
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
   /*
