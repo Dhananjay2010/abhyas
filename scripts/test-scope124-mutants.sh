@@ -116,18 +116,34 @@ run_mutant "5. Olympic lifts: allow for anyKneeInjury" "$PAST_KNEE" \
   'if (input.anyKneeInjury) return true;' \
   'if (input.anyKneeInjury) return false;' "$B"
 
-run_mutant "6. KB push press: allow for current knee" "$PAST_KNEE" \
-  '  "one-arm-kettlebell-push-press",
+run_mutant "6. KB push press: remove from current-knee-only list" "$PAST_KNEE" \
+  '  // Kettlebell push presses: leg-driven explosive press (current knee only)
+  "double-kettlebell-push-press",
+  "one-arm-kettlebell-push-press",
+  
+  // Kettlebell thruster: banned for both tiers (Decision a: pinned here for M5 test coverage)
+  "kettlebell-thruster",
 ]);' \
-  ']);' "$B"
+  '  // Kettlebell push presses: leg-driven explosive press (current knee only)
+  "double-kettlebell-push-press",
+  
+  // Kettlebell thruster: banned for both tiers (Decision a: pinned here for M5 test coverage)
+  "kettlebell-thruster",
+]);' "$B"
 
-run_mutant "7. Push press: ban for past knee" "$PAST_KNEE" \
-  '  "kettlebell-thruster",' \
-  '  "kettlebell-thruster", "one-arm-kettlebell-push-press",' "$B"
+run_mutant "7. Push press: add to past-knee list (wrong tier)" "$PAST_KNEE" \
+  '  // Thrusters: banned for BOTH current AND past knee (item 14)
+  "kettlebell-thruster",' \
+  '  // Thrusters: banned for BOTH current AND past knee (item 14)
+  "kettlebell-thruster",
+  "one-arm-kettlebell-push-press",' "$B"
 
-run_mutant "8. Thruster: allow for past knee" "$PAST_KNEE" \
-  '  "kettlebell-thruster",' \
-  '' "$B"
+run_mutant "8. Thruster: remove from past-knee list" "$PAST_KNEE" \
+  '  // Thrusters: banned for BOTH current AND past knee (item 14)
+  "kettlebell-thruster",
+  
+  // Olympic lift jerks: banned for BOTH tiers (squat-jerk involves deep catch)' \
+  '  // Olympic lift jerks: banned for BOTH tiers (squat-jerk involves deep catch)' "$B"
 
 run_mutant "9. Chest push with run release: allow for past knee" "$PAST_KNEE" \
   '  "chest-push-with-run-release",' \
