@@ -13,7 +13,7 @@ interface JoinConfirmationProps {
   role: GymRole;
   currentGymName: string | null;
   currentGymRole?: GymRole;
-  alreadyInCodeGym: boolean;
+  codeGymRole?: GymRole;
   otherMemberGymName?: string | null;
 }
 
@@ -23,23 +23,34 @@ export function JoinConfirmation({
   role,
   currentGymName,
   currentGymRole,
-  alreadyInCodeGym,
+  codeGymRole,
   otherMemberGymName,
 }: JoinConfirmationProps) {
   const router = useRouter();
   const [redeeming, setRedeeming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Determine if user is already in code's gym at same or higher role
+  const roleOrder = { owner: 3, staff: 2, member: 1 };
+  const alreadyInAtSameOrHigher = codeGymRole && 
+    (roleOrder[codeGymRole] ?? 0) >= (roleOrder[role] ?? 0);
+  
+  // Determine if this is a member->staff upgrade case
+  const isMemberUpgradeToStaff = codeGymRole === "member" && role === "staff";
+
   const handleConfirm = async () => {
     setRedeeming(true);
     setError(null);
 
-    const result = await redeemJoinCode(code);
+    try {
+      const result = await redeemJoinCode(code);
 
-    if (result.ok) {
-      router.push("/today");
-    } else {
-      setError(result.error);
+      if (result.ok) {
+        router.push("/today");
+      } else {
+        setError(result.error);
+      }
+    } finally {
       setRedeeming(false);
     }
   };
@@ -47,11 +58,18 @@ export function JoinConfirmation({
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border bg-surface-2 px-6 py-8 text-center">
-        {alreadyInCodeGym ? (
+        {alreadyInAtSameOrHigher ? (
           <>
             <h1 className="text-2xl font-bold">Already in {gymName}</h1>
             <p className="mt-3 text-sm text-muted">
-              You are already part of this gym as a <strong>{currentGymRole}</strong>
+              You are already part of this gym as <strong>{codeGymRole}</strong>
+            </p>
+          </>
+        ) : isMemberUpgradeToStaff ? (
+          <>
+            <h1 className="text-2xl font-bold">Join {gymName} as staff?</h1>
+            <p className="mt-3 text-sm text-muted">
+              You are currently a <strong>member</strong> of this gym. This code will upgrade you to <strong>staff</strong>.
             </p>
           </>
         ) : (
@@ -97,16 +115,18 @@ export function JoinConfirmation({
           disabled={redeeming}
           className="flex-1 rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-50"
         >
-          Cancel
+          {alreadyInAtSameOrHigher ? "Close" : "Cancel"}
         </button>
-        <button
-          type="button"
-          onClick={handleConfirm}
-          disabled={redeeming}
-          className="flex-1 rounded-xl border border-accent bg-accent px-6 py-3 text-sm font-medium text-fg-on-accent transition-colors hover:bg-accent-hover disabled:opacity-50"
-        >
-          {redeeming ? "Joining..." : "Confirm"}
-        </button>
+        {!alreadyInAtSameOrHigher && (
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={redeeming}
+            className="flex-1 rounded-xl border border-accent bg-accent px-6 py-3 text-sm font-medium text-fg-on-accent transition-colors hover:bg-accent-hover disabled:opacity-50"
+          >
+            {redeeming ? "Joining..." : isMemberUpgradeToStaff ? "Join as staff" : "Confirm"}
+          </button>
+        )}
       </div>
     </div>
   );

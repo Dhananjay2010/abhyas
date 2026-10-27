@@ -295,7 +295,9 @@ async function runTests() {
     .select("use_count")
     .eq("id", staffGymCodeId)
     .single();
-  check("Staff redeem own gym doesn't consume use", usesAfter?.use_count === usesBefore?.use_count);
+  check("Staff redeem own gym doesn't consume use", 
+    usesBefore && usesAfter && usesAfter.use_count === usesBefore.use_count,
+    "", !usesBefore || !usesAfter ? "Failed to read use_count" : undefined);
   console.log();
 
   console.log("TEST: Own-gym redeem rules");
@@ -371,7 +373,9 @@ async function runTests() {
     .select("use_count")
     .eq("id", ownerMemberCodeId?.id)
     .single();
-  check("Owner redeem own gym doesn't consume use", ownerMemberUseCount?.use_count === ownerMemberCodeId?.use_count);
+  check("Owner redeem own gym doesn't consume use", 
+    ownerMemberCodeId && ownerMemberUseCount && ownerMemberUseCount.use_count === ownerMemberCodeId.use_count,
+    "", !ownerMemberCodeId || !ownerMemberUseCount ? "Failed to read use_count" : undefined);
   
   const { data: ownerRoleAfter } = await adminClient
     .from("gym_memberships")
@@ -407,7 +411,9 @@ async function runTests() {
     .select("use_count")
     .eq("id", ownerStaffCodeId?.id)
     .single();
-  check("Owner redeem own staff code doesn't consume use", ownerStaffUseCount?.use_count === ownerStaffCodeId?.use_count);
+  check("Owner redeem own staff code doesn't consume use", 
+    ownerStaffCodeId && ownerStaffUseCount && ownerStaffUseCount.use_count === ownerStaffCodeId.use_count,
+    "", !ownerStaffCodeId || !ownerStaffUseCount ? "Failed to read use_count" : undefined);
   
   // Test 3: Staff redeeming their own gym's staff code with max_uses=1
   const { data: staffStaffCodeData } = await ownerOwnGym.client.rpc("create_join_code", {
@@ -436,7 +442,9 @@ async function runTests() {
     .select("use_count")
     .eq("id", staffStaffCodeBefore?.id)
     .single();
-  check("Staff redeem own staff code doesn't consume use (max_uses=1)", staffStaffCodeAfter?.use_count === staffStaffCodeBefore?.use_count);
+  check("Staff redeem own staff code doesn't consume use (max_uses=1)", 
+    staffStaffCodeBefore && staffStaffCodeAfter && staffStaffCodeAfter.use_count === staffStaffCodeBefore.use_count,
+    "", !staffStaffCodeBefore || !staffStaffCodeAfter ? "Failed to read use_count" : undefined);
   
   // Real invitee can still redeem
   const realInvitee = await createTestUser("real-invitee");
@@ -487,7 +495,9 @@ async function runTests() {
     .select("use_count")
     .eq("id", memberStaffCodeBefore?.id)
     .single();
-  check("Member upgrade consumes one use", memberStaffCodeAfterUpgrade?.use_count === (memberStaffCodeBefore?.use_count ?? 0) + 1);
+  check("Member upgrade consumes one use", 
+    memberStaffCodeBefore && memberStaffCodeAfterUpgrade && memberStaffCodeAfterUpgrade.use_count === memberStaffCodeBefore.use_count + 1,
+    "", !memberStaffCodeBefore || !memberStaffCodeAfterUpgrade ? "Failed to read use_count" : undefined);
   
   // Now redeem again as staff (should be no-op)
   const { data: memberRedeemStaffAgain } = await memberOwnGym.client.rpc("redeem_join_code", {
@@ -502,7 +512,9 @@ async function runTests() {
     .select("use_count")
     .eq("id", memberStaffCodeBefore?.id)
     .single();
-  check("Second redeem (as staff) doesn't consume use", memberStaffCodeAfterSecond?.use_count === memberStaffCodeAfterUpgrade?.use_count);
+  check("Second redeem (as staff) doesn't consume use", 
+    memberStaffCodeAfterUpgrade && memberStaffCodeAfterSecond && memberStaffCodeAfterSecond.use_count === memberStaffCodeAfterUpgrade.use_count,
+    "", !memberStaffCodeAfterUpgrade || !memberStaffCodeAfterSecond ? "Failed to read use_count" : undefined);
   
   // Test 5: No attempts recorded for any own-gym redeems
   const { data: ownGymAttempts } = await adminClient

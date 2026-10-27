@@ -49,12 +49,18 @@ export default async function JoinPage({ params }: PageProps) {
 
   const { gym_name, gym_slug, role } = result;
 
-  // Check current gym membership(s) - ANY active role counts
+  // Check current gym membership(s)
   const { data: currentMemberships } = await supabase
     .from("gym_memberships")
     .select("gym_id, role, status, gyms(name, slug)")
     .eq("user_id", user.id)
     .eq("status", "active");
+
+  // Find role in THIS code's gym specifically
+  const codeGymMembership = currentMemberships?.find(
+    m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug === gym_slug
+  );
+  const codeGymRole = codeGymMembership?.role;
 
   // Find current gym (prefer owner > staff > member, exclude default gym unless it's the only one)
   const sortedMemberships = currentMemberships?.filter(
@@ -68,11 +74,6 @@ export default async function JoinPage({ params }: PageProps) {
   const currentGym = sortedMemberships?.find(
     m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug !== "default"
   ) ?? sortedMemberships?.[0];
-  
-  // Check if user is already in the code's gym (any role)
-  const alreadyInCodeGym = currentMemberships?.some(
-    m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug === gym_slug
-  );
 
   // Check if user has an active member membership in another gym (will be moved if joining as member)
   const otherMemberMembership = currentMemberships?.find(
@@ -90,7 +91,7 @@ export default async function JoinPage({ params }: PageProps) {
         role={role as "member" | "staff" | "owner"}
         currentGymName={currentGym?.gyms && !Array.isArray(currentGym.gyms) ? currentGym.gyms.name : null}
         currentGymRole={currentGym?.role}
-        alreadyInCodeGym={alreadyInCodeGym ?? false}
+        codeGymRole={codeGymRole}
         otherMemberGymName={otherMemberGymName}
       />
     </main>

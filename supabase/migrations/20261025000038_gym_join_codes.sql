@@ -85,32 +85,6 @@ end $$;
 
 grant execute on function public.generate_join_code() to postgres, service_role;
 
--- Check throttle: raise if user has >10 misses in last 15 minutes
-create or replace function public.check_join_code_throttle(p_user_id uuid)
-returns void language plpgsql security definer
-set search_path = '' as $$
-declare
-  v_attempt_count int;
-begin
-  select count(*) into v_attempt_count
-  from public.gym_join_code_attempts
-  where user_id = p_user_id
-    and attempted_at > now() - interval '15 minutes';
-  
-  if v_attempt_count >= 10 then
-    raise exception 'Too many failed attempts. Please try again later.' using errcode = 'GJC10';
-  end if;
-end;
-$$;
-
--- Revoke all access
-do $$
-begin
-  revoke execute on function public.check_join_code_throttle(uuid) from public, anon, authenticated;
-end $$;
-
-grant execute on function public.check_join_code_throttle(uuid) to postgres, service_role;
-
 -- Record a failed attempt
 create or replace function public.record_join_code_miss(p_user_id uuid)
 returns void language plpgsql security definer

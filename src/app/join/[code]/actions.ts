@@ -4,10 +4,10 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { parseRedeemJoinCodeResult, type RedeemJoinCodeResult } from "@/lib/gym-join-code-types";
 
 export type RedeemCodeResult = 
-  | { ok: true }
+  | { ok: true; gymName?: string }
   | { ok: false; error: string };
 
-function mapRedeemResultToMessage(result: RedeemJoinCodeResult): string {
+function mapRedeemResultToMessage(result: RedeemJoinCodeResult, gymName?: string): string {
   if (result.ok) return ""; // Success
   
   const reason = result.reason;
@@ -32,6 +32,12 @@ function mapRedeemResultToMessage(result: RedeemJoinCodeResult): string {
     return "Too many attempts. Please try again in a few minutes";
   }
   
+  if (reason === "already_member") {
+    return gymName ? `You're already in ${gymName}` : "You're already a member of this gym";
+  }
+  
+  // Exhaustive check: if we reach here, TypeScript will error on a new reason
+  const _exhaustive: never = reason;
   return "An error occurred. Please try again";
 }
 
@@ -80,5 +86,5 @@ export async function redeemJoinCode(code: string): Promise<RedeemCodeResult> {
     return { ok: false, error: errorMessage };
   }
 
-  return { ok: true };
+  return { ok: true, gymName: result.gym_name };
 }

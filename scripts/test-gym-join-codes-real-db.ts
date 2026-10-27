@@ -813,13 +813,6 @@ async function runTests() {
     password: "password123",
   });
   
-  // Deactivate default gym membership
-  await adminClient
-    .from("gym_memberships")
-    .update({ status: "removed" })
-    .eq("user_id", authUserSuccess.user?.id)
-    .eq("gym_id", defaultGym?.id);
-  
   // Create a code with high max_uses for successful redeems
   const { data: successCodeData } = await clientA.rpc("create_join_code", {
     p_gym_id: gymIdA,
