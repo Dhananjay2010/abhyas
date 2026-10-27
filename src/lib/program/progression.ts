@@ -670,12 +670,36 @@ export function evaluateProgression(input: {
       const isKettlebell = equipmentIds.includes('kettlebell');
       
       if (isKettlebell) {
-        // Kettlebell: apply increment + easy doubling, then round to next available bell
-        const increment = incrementFor(meta, equipmentIds);
+        // Kettlebell: move up by bell count (1 bell for 'right', 2 bells for 'easy')
+        // Never skip bells or invent weights above the top bell
+        const bells = KETTLEBELL_WEIGHTS_KG;
         const isCompound = meta.mechanic === "compound";
-        const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? increment * 2 : increment;
-        const rawNext = from + jump;
-        next = roundToGrid(rawNext, equipmentIds, 'kg', increment, 'up');
+        const bellsToMove = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? 2 : 1;
+        
+        // Find current position in bell list
+        const epsilon = 0.001;
+        let currentIndex = -1;
+        for (let i = 0; i < bells.length; i++) {
+          if (Math.abs(bells[i] - from) < epsilon) {
+            currentIndex = i;
+            break;
+          }
+          if (bells[i] > from) {
+            // Between bells, start from the one just below
+            currentIndex = i - 1;
+            break;
+          }
+        }
+        
+        // If at or past the end, we're at max bell
+        if (currentIndex < 0) currentIndex = 0;
+        if (currentIndex >= bells.length - 1) {
+          // At or above max bell: hold
+          next = from;
+        } else {
+          const targetIndex = Math.min(currentIndex + bellsToMove, bells.length - 1);
+          next = bells[targetIndex];
+        }
       } else {
         // Standard equipment: snap DOWN to largest loadable value <= from, then add one increment.
         // The cap is ONE INCREMENT (5kg lower-body compound, 2.5kg upper-body compound),
