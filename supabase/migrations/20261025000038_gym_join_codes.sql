@@ -193,8 +193,8 @@ begin
   -- Check if user is already in this gym (any active role counts)
   select * into v_existing_membership
   from public.gym_memberships
-  where gym_id = v_code_record.gym_id
-    and user_id = v_caller_id;
+  where public.gym_memberships.gym_id = v_code_record.gym_id
+    and public.gym_memberships.user_id = v_caller_id;
 
   -- If already active in the gym with ANY role, it's an idempotent no-op
   -- (owner, staff, or member - never downgrade, never consume a use)
@@ -208,10 +208,10 @@ begin
   if v_code_record.role = 'member' then
     update public.gym_memberships
     set status = 'removed'
-    where user_id = v_caller_id
-      and role = 'member'
-      and status = 'active'
-      and gym_id != v_code_record.gym_id;
+    where public.gym_memberships.user_id = v_caller_id
+      and public.gym_memberships.role = 'member'
+      and public.gym_memberships.status = 'active'
+      and public.gym_memberships.gym_id != v_code_record.gym_id;
   end if;
 
   -- Insert or reactivate the membership in the new gym
@@ -225,9 +225,9 @@ begin
     set 
       role = v_code_record.role,
       status = 'active',
-  joined_at = case when status = 'removed' then now() else joined_at end
-    where gym_id = v_code_record.gym_id
-      and user_id = v_caller_id;
+      joined_at = case when public.gym_memberships.status = 'removed' then now() else public.gym_memberships.joined_at end
+    where public.gym_memberships.gym_id = v_code_record.gym_id
+      and public.gym_memberships.user_id = v_caller_id;
   end if;
 
   -- Increment use_count (consume a use)
