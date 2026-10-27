@@ -4,6 +4,40 @@
 -- Authenticated users (via RLS) can only update brand columns: display_name, logo_url, primary_color, accent_color.
 
 -- ============================================================
+-- TABLE CHECK CONSTRAINTS: Length caps for brand columns (LOW-2)
+-- ============================================================
+
+-- Add length constraints to brand columns (idempotent)
+-- These mirror the RPC validations in set_gym_branding (migration 040)
+-- and prevent storage of oversized values via direct owner UPDATE (gyms_owner_update policy, migration 034).
+
+-- display_name: max 100 characters (enforces RPC's char_length check)
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint 
+    where conname = 'gyms_display_name_length' 
+      and conrelid = 'public.gyms'::regclass
+  ) then
+    alter table public.gyms add constraint gyms_display_name_length
+      check (display_name is null or char_length(display_name) <= 100);
+  end if;
+end $$;
+
+-- logo_url: max 2048 characters (enforces RPC's char_length check)
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint 
+    where conname = 'gyms_logo_url_length' 
+      and conrelid = 'public.gyms'::regclass
+  ) then
+    alter table public.gyms add constraint gyms_logo_url_length
+      check (logo_url is null or char_length(logo_url) <= 2048);
+  end if;
+end $$;
+
+-- ============================================================
 -- TRIGGER FUNCTION: enforce_gyms_brand_only_update
 -- ============================================================
 

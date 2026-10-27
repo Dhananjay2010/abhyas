@@ -47,10 +47,6 @@ export type BrandColors = {
   danger: string;
   /** Chart data color (validated for contrast against surface) */
   chart: string;
-  /** Neutral muted color for color picker fallback (LOW-10) */
-  neutralMuted: string;
-  /** Neutral border color for color picker fallback (LOW-10) */
-  neutralBorder: string;
 };
 
 /**
@@ -160,8 +156,6 @@ const abhyas: Brand = {
     warningFg: "#1a1000",
     danger: "#f87171",
     chart: "#d95926",
-    neutralMuted: "#6b7280",
-    neutralBorder: "#d4d4d8",
   },
   icons: {
     icon192: "/icons/icon-192.png",
@@ -202,8 +196,6 @@ const example: Brand = {
     warningFg: "#1a1000",
     danger: "#ef4444",
     chart: "#f97316", // orange for charts
-    neutralMuted: "#6b7280",
-    neutralBorder: "#d4d4d8",
   },
   icons: {
     // In a real deployment, these would point to FitCore's own icon files
@@ -312,8 +304,6 @@ function validateBrand(brand: Brand): void {
     "warningFg",
     "danger",
     "chart",
-    "neutralMuted",
-    "neutralBorder",
   ];
   for (const key of colorKeys) {
     const color = brand.colors[key];

@@ -62,10 +62,10 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
     });
   };
 
-  // Preview colors (use user input or neutral defaults)
-  // LOW-10: Use static hex fallback for color input (doesn't support CSS vars)
-  const previewPrimary = primaryColor || branding.colors.neutralMuted;
-  const previewAccent = accentColor || branding.colors.neutralBorder;
+  // Preview colors (use user input or brand defaults)
+  // LOW-10: Color input doesn't support CSS vars, so use brand.colors hex values directly
+  const previewPrimary = primaryColor || branding.colors.muted;
+  const previewAccent = accentColor || branding.colors.border;
   
   // Compute accessible text color for preview when a valid color is entered
   // Use simple contrast: if sum of RGB > 382 (roughly half of max 765), use black, else white
@@ -178,7 +178,7 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
             />
           </div>
           <p className="mt-1 text-xs text-muted">
-            6-digit hex code (e.g. #FF9A2E) for buttons and highlights
+            6-digit hex code for buttons and highlights
           </p>
           {errors.primaryColor && (
             <p className="mt-1 text-xs text-danger">{errors.primaryColor}</p>
@@ -208,7 +208,7 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
             />
           </div>
           <p className="mt-1 text-xs text-muted">
-            6-digit hex code (e.g. #E8850C) for hover states
+            6-digit hex code for hover states
           </p>
           {errors.accentColor && (
             <p className="mt-1 text-xs text-danger">{errors.accentColor}</p>

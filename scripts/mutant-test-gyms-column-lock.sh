@@ -209,10 +209,24 @@ run_mutant \
   "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_accent_color_hex; ALTER TABLE public.gyms ADD CONSTRAINT gyms_accent_color_hex CHECK (accent_color IS NULL OR accent_color ~ '^#[0-9A-Fa-f]{6}');" \
   "Hex with trailing"
 
+# Mutant (l): Remove display_name length constraint (LOW-2)
+run_mutant \
+  "(l) remove display_name length CHECK" \
+  "Drop gyms_display_name_length constraint" \
+  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_display_name_length;" \
+  "display_name over 100 chars rejected"
+
+# Mutant (m): Remove logo_url length constraint (LOW-2)
+run_mutant \
+  "(m) remove logo_url length CHECK" \
+  "Drop gyms_logo_url_length constraint" \
+  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_length;" \
+  "logo_url over 2048 chars rejected"
+
 echo
 echo "=== Mutant Test Summary ==="
 echo "Total mutants: $((FAILED + $(echo "$BASELINE_OUTPUT" | wc -l) - FAILED))"
-echo "Killed: $((11 - FAILED - ${#SKIPPED[@]}))"
+echo "Killed: $((13 - FAILED - ${#SKIPPED[@]}))"
 echo "Survived: $FAILED"
 echo "Skipped: ${#SKIPPED[@]}"
 echo

@@ -8,7 +8,7 @@
 -- to updating only brand columns: display_name, logo_url, primary_color, accent_color
 --
 -- Run this BEFORE applying migration 043 in production:
---   psql $DATABASE_URL -f preflight-043-check-gyms-updates.sql
+--   psql $DATABASE_URL -f supabase/preflight/043-gyms-updates-check.sql
 --
 -- Expected result: No functions or procedures found (empty result set).
 -- If any functions are returned, review them to ensure they either:

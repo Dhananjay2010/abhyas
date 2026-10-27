@@ -45,11 +45,17 @@ async function testDatabaseConnection() {
 }
 
 async function runTests() {
-  // Import and check guard
+  // Import and check guard (LOW-5: fail if REAL_DB=1 but guard refuses)
   const { checkRealDbTest } = await import("./lib-db-reset-guard");
   const guardResult = checkRealDbTest();
   
   if (!guardResult.allow) {
+    // LOW-5: If REAL_DB=1 but guard refuses, this is a configuration error - fail the test
+    if (process.env.REAL_DB === "1") {
+      console.error(`\n❌ REAL_DB=1 but guard check failed: ${guardResult.reason}\n`);
+      return false;
+    }
+    // If REAL_DB is not set, skip is OK
     console.log(`\n⏭️  Skipping real DB tests: ${guardResult.reason}\n`);
     return true;
   }
@@ -798,6 +804,112 @@ async function runTests() {
     if (data && data[0]) {
       check("Clear won over set (primary)", data[0].primary_color === null);
       check("Clear won over set (accent)", data[0].accent_color === null);
+    }
+  }
+  console.log();
+
+  // LOW-1 tests: RPC validation gaps
+  console.log("TEST: Display name validation (LOW-1)");
+  {
+    // Blank display name (whitespace only)
+    const { error: blankError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "   ",
+    });
+    check("Blank display_name rejected", !!blankError && blankError.code === "22023");
+
+    // Display name over 100 characters
+    const longName = "A".repeat(101);
+    const { error: longError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: longName,
+    });
+    check("Display name over 100 chars rejected", !!longError && longError.code === "22023");
+
+    // Valid display name at exactly 100 characters (boundary test)
+    const exactName = "B".repeat(100);
+    const { error: exactError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: exactName,
+    });
+    check("Display name at exactly 100 chars accepted", !exactError, exactError?.message);
+  }
+  console.log();
+
+  console.log("TEST: NULL in p_clear rejected (LOW-1)");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_clear: [null, "display_name"] as any,
+    });
+    check("NULL in p_clear rejected", !!error && error.code === "BRND6");
+  }
+  console.log();
+
+  console.log("TEST: Single-color clear rejected (LOW-1)");
+  {
+    // Set both colors first
+    await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#FF0000",
+      p_accent_color: "#00FF00",
+    });
+
+    // Try to clear only primary
+    const { error: onlyPrimary } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_clear: ["primary_color"],
+    });
+    check("Clear only primary_color rejected", !!onlyPrimary && onlyPrimary.code === "BRND7");
+
+    // Try to clear only accent
+    const { error: onlyAccent } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_clear: ["accent_color"],
+    });
+    check("Clear only accent_color rejected", !!onlyAccent && onlyAccent.code === "BRND7");
+  }
+  console.log();
+
+  console.log("TEST: Logo control character validation (LOW-1)");
+  {
+    // Control character (newline)
+    const { error: newlineError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_logo_url: "https://example.com/logo\n.png",
+    });
+    check("Logo with newline rejected", !!newlineError && newlineError.code === "BRND4");
+
+    // Control character (tab)
+    const { error: tabError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_logo_url: "https://example.com/logo\t.png",
+    });
+    check("Logo with tab rejected", !!tabError && tabError.code === "BRND4");
+  }
+  console.log();
+
+  console.log("TEST: Clear wins over set for display_name (LOW-1)");
+  {
+    // Set a display name first
+    await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "Test Name",
+    });
+
+    // Try to set and clear at the same time - clear should win
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "New Name",
+      p_clear: ["display_name"],
+    });
+    check("Clear with set succeeds for display_name", !error, error?.message);
+
+    const { data } = await clientOwner.rpc("get_gym_brand", {
+      p_gym_id: gymId,
+    });
+    if (data && data[0]) {
+      check("Clear won over set for display_name", data[0].display_name === null);
     }
   }
   console.log();

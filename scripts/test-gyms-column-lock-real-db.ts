@@ -45,11 +45,17 @@ async function testDatabaseConnection() {
 }
 
 async function runTests() {
-  // Import and check guard
+  // Import and check guard (LOW-5: fail if REAL_DB=1 but guard refuses)
   const { checkRealDbTest } = await import("./lib-db-reset-guard");
   const guardResult = checkRealDbTest();
   
   if (!guardResult.allow) {
+    // LOW-5: If REAL_DB=1 but guard refuses, this is a configuration error - fail the test
+    if (process.env.REAL_DB === "1") {
+      console.error(`\n❌ REAL_DB=1 but guard check failed: ${guardResult.reason}\n`);
+      return false;
+    }
+    // If REAL_DB is not set, skip is OK
     console.log(`\n⏭️  Skipping real DB tests: ${guardResult.reason}\n`);
     return true;
   }
@@ -420,6 +426,33 @@ async function runTests() {
       .eq("id", gymId);
     check(".. path traversal rejected", !!logo5);
     check("SQLSTATE 23514", logo5?.code === "23514");
+  }
+  console.log();
+
+  // TEST: Length constraints via direct UPDATE (LOW-2)
+  console.log("TEST: Length constraints on direct UPDATE (LOW-2)");
+  {
+    // display_name over 100 characters
+    const longDisplayName = "A".repeat(101);
+    const { error: displayError } = await clientOwner
+      .from("gyms")
+      .update({ display_name: longDisplayName })
+      .eq("id", gymId);
+    check("display_name over 100 chars rejected", !!displayError);
+    check("SQLSTATE 23514 (check_violation)", displayError?.code === "23514");
+    check("Constraint name: gyms_display_name_length",
+      !!displayError?.message?.includes("gyms_display_name_length"));
+
+    // logo_url over 2048 characters
+    const longLogoUrl = "https://example.com/" + "x".repeat(2030);
+    const { error: logoError } = await clientOwner
+      .from("gyms")
+      .update({ logo_url: longLogoUrl })
+      .eq("id", gymId);
+    check("logo_url over 2048 chars rejected", !!logoError);
+    check("SQLSTATE 23514 (check_violation)", logoError?.code === "23514");
+    check("Constraint name: gyms_logo_url_length",
+      !!logoError?.message?.includes("gyms_logo_url_length"));
   }
   console.log();
 
