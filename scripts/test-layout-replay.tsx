@@ -232,7 +232,8 @@ async function testAuthStateChangeSwitchUser() {
   
   fakeStorage.clear();
   
-  // Seed storage with pending sets for both users
+  // Seed storage with DIFFERENT data for both users
+  // user1: 1 set (10 reps), user2: 2 sets (12 and 15 reps)
   const deps = createPendingSetDeps(() => FIXED_TIME);
   savePendingSet(fakeStorage, "user1", "session1", {
     sessionExerciseId: "ex1",
@@ -250,6 +251,15 @@ async function testAuthStateChangeSwitchUser() {
     weightKg: 80,
     durationSeconds: null,
     clientId: "user2:ex2:1:456",
+  }, deps);
+  
+  savePendingSet(fakeStorage, "user2", "session2", {
+    sessionExerciseId: "ex2",
+    setNumber: 2,
+    reps: 15,
+    weightKg: 85,
+    durationSeconds: null,
+    clientId: "user2:ex2:2:789",
   }, deps);
 
   let currentUser: { id: string } | null = { id: "user1" };
@@ -282,9 +292,13 @@ async function testAuthStateChangeSwitchUser() {
     await Promise.resolve();
   });
   
-  // Assert user1's replay UI is visible
+  // Assert user1's replay UI is visible with 1 set
   let elements = screen.queryAllByText(/couldn't be saved|discard/i);
   assert(elements.length > 0, "Provider shows user1's pending sets");
+  
+  let text = document.body.textContent || "";
+  const hasUser1Data = text.includes("1 set") || text.includes("1 pending");
+  assert(hasUser1Data, "Shows user1's 1 set");
 
   // Simulate sign-in as different user
   currentUser = { id: "user2" };
@@ -297,9 +311,16 @@ async function testAuthStateChangeSwitchUser() {
     await Promise.resolve();
   });
 
-  // Provider should now show user2's pending sets
+  // Provider should now show user2's pending sets (2 sets) and NOT user1's data
   elements = screen.queryAllByText(/couldn't be saved|discard/i);
   assert(elements.length > 0, "Provider switches to user2's pending sets");
+  
+  text = document.body.textContent || "";
+  const hasUser2Data = text.includes("2 sets") || text.includes("2 pending");
+  const stillHasUser1Data = text.includes("1 set") || text.includes("1 pending");
+  
+  assert(hasUser2Data, "Shows user2's 2 sets (M8: without proper user isolation, this would show user1's 1 set)");
+  assert(!stillHasUser1Data, "Does NOT show user1's 1 set after switching (M8: setUserId must clear old user's data)");
 
   cleanup();
   fakeStorage.clear();

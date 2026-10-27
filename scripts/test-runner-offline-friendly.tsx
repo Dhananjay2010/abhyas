@@ -490,8 +490,111 @@ await (async () => {
   document.body.removeChild(container);
 })();
 
-  console.log(`\n${exitCode === 0 ? "✅ All" : "❌ Some"} tests ${exitCode === 0 ? "passed" : "failed"}\n`);
-  process.exit(exitCode);
+// Test M6c: run() actions show friendly copy, not raw error
+await (async () => {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  
+  const fakeTimer = createFakeTimer();
+
+  const deleteSetErrorActions: SessionActions = {
+    ...defaultActions,
+    deleteSet: async () => {
+      throw new Error("500 Internal Server Error");
+    },
+  };
+
+  const root = createRoot(container);
+  await act(async () => {
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "sess-delete-error",
+        userId: "user-delete",
+        sessionStatus: "in_progress" as const,
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt: new Date(FIXED_TIME).toISOString(),
+        warmup: [],
+        cooldown: [],
+        exercises: [baseExercise("ex1", "Bench Press")],
+        settings: {
+          perSetLogging: true,
+          restAutostart: false,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+          units: "metric" as const,
+        },
+        actions: deleteSetErrorActions,
+        nowFn: () => FIXED_TIME,
+        timer: fakeTimer.timer,
+      })
+    );
+  });
+  
+  await act(async () => {
+    fakeTimer.advance();
+  });
+  
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  
+  // Log a set so Undo button appears
+  await act(async () => {
+    fillRepsInput(container, "10");
+  });
+
+  await act(async () => {
+    const button = Array.from(document.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Log set")
+    );
+    if (button) {
+      button.click();
+    }
+  });
+  
+  await act(async () => {
+    fakeTimer.advance();
+  });
+  
+  // Click Undo to trigger deleteSet through run()
+  await act(async () => {
+    const undoButton = Array.from(document.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Undo") || b.getAttribute("aria-label")?.includes("Undo")
+    );
+    if (undoButton) {
+      undoButton.click();
+    }
+  });
+
+  await act(async () => {
+    fakeTimer.advance();
+  });
+  
+  // Wait for error state
+  await act(async () => {
+    await Promise.resolve();
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  const text = container.textContent || "";
+  const hasFriendlyActionMessage = text.includes("Something went wrong on our side") && text.includes("Please try again");
+  const hasRawError = text.includes("500") || text.includes("Internal Server Error");
+
+  assert(hasFriendlyActionMessage, "run() actions show friendly action message (M6c)");
+  assert(!hasRawError, "Raw '500 Internal Server Error' NOT shown in run() errors (mutant M6c: using raw err.message must fail this)");
+
+  root.unmount();
+  document.body.removeChild(container);
+})();
+
+console.log(`\n${exitCode === 0 ? "✅ All" : "❌ Some"} tests ${exitCode === 0 ? "passed" : "failed"}\n`);
+process.exit(exitCode);
 }
 
 main();

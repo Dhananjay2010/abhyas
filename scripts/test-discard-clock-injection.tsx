@@ -62,17 +62,26 @@ async function testExpiredSetsAreSurfaced() {
   
   fakeStorage.clear();
   const userId = "user-m3a";
-  const sessionId = "session-m3a";
+  const sessionId1 = "session-m3a-1";
+  const sessionId2 = "session-m3a-2";
   
-  // Plant OLD-FORMAT data (without timestamp)
+  // Plant TWO OLD-FORMAT sessions (without timestamp)
   // This tests M3a: handleDiscard must pass clock to createPendingSetDeps
   const oldFormatData = {
-    [sessionId]: [{
-      clientId: "old-format-set",
+    [sessionId1]: [{
+      clientId: "old-format-set-1",
       sessionExerciseId: "ex-1",
       setNumber: 1,
       reps: 10,
       weightKg: 50,
+      durationSeconds: null,
+    }],
+    [sessionId2]: [{
+      clientId: "old-format-set-2",
+      sessionExerciseId: "ex-2",
+      setNumber: 1,
+      reps: 12,
+      weightKg: 60,
       durationSeconds: null,
     }]
   };
@@ -82,8 +91,8 @@ async function testExpiredSetsAreSurfaced() {
     return { ok: true } as const;
   };
 
-  // Mock getSessionStatus to return "ended" so the component surfaces it for discard
-  const mockGetSessionStatus = async () => "ended" as const;
+  // Mock getSessionStatus to return "ended" for sessionId1 only
+  const mockGetSessionStatus = async (sid: string) => sid === sessionId1 ? "ended" as const : "in_progress" as const;
 
   await act(async () => {
     render(
@@ -116,13 +125,17 @@ async function testExpiredSetsAreSurfaced() {
     await Promise.resolve();
   });
 
-  // Verify sets cleared - with clock injection, the old-format data is properly migrated and cleared
-  // Mutant M3a: without clock, the migration would use real Date.now() instead of FIXED_TIME
+  // Verify sessionId1 is cleared and sessionId2 survived with FIXED_TIME timestamp
   const stored = fakeStorage.getItem(`pending-sets:${userId}`);
-  assert(
-    stored === null || stored === "{}",
-    "Old-format data cleared after Discard (M3a: not passing clock would fail to clear properly)"
-  );
+  assert(stored !== null, "Storage still has pending sets for user");
+  
+  const parsed = JSON.parse(stored);
+  assert(!parsed[sessionId1], "Discarded session removed");
+  assert(parsed[sessionId2], "Survivor session still present");
+  
+  // M3a critical assertion: survivor must have been migrated with FIXED_TIME
+  const survivor = parsed[sessionId2][0];
+  assert(survivor.timestamp === FIXED_TIME, `Survivor timestamp === FIXED_TIME (got ${survivor.timestamp}, expected ${FIXED_TIME}). M3a: without clock injection, this would be Date.now() instead.`);
 
   fakeStorage.clear();
 }
