@@ -27,11 +27,12 @@ import { finishSessionAction, abandonSessionAction } from "@/lib/session/session
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligible-swap-list";
-
-export type { SwapResult };
-
+import { friendlyPlanDayError } from "@/lib/session/friendly-plan-day-error";
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
+import { checkLogSetInput } from "@/lib/session/check-log-set-input";
+
+export type { SwapResult };
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -50,8 +51,6 @@ export type SetConflictResult = {
     durationSeconds: number | null;
   }>;
 };
-
-import { friendlyPlanDayError } from "@/lib/session/friendly-plan-day-error";
 
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
@@ -122,7 +121,6 @@ export async function logSet(input: {
     async ({ user, supabase }) => {
       if (!user) throw new Error("Not signed in");
       
-      const { checkLogSetInput } = await import("@/lib/session/check-log-set-input");
       const invalid = await checkLogSetInput(supabase, user.id, {
         reps: input.reps,
         weightKg: input.weightKg,
@@ -634,7 +632,10 @@ export async function planDay(input: {
       // Cast: real Supabase client is structurally compatible; types differ only in unused methods
       fetchSessionLocalDate: makeFetchSessionLocalDate(supabase as unknown as SessionLookupClient),
     },
-    { userId: user.id, sessionId: input.sessionId, localDate: input.localDate }
+    "sessionId" in input && input.sessionId
+      ? { userId: user.id, sessionId: input.sessionId }
+      : { userId: user.id, localDate: input.localDate! },
+    today,
   );
 
   if (!targetResult.ok) {

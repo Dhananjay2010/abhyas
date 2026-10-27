@@ -91,7 +91,7 @@ function check(label: string, pass: boolean, detail?: string) {
     await resolvePlanTargetDate(deps, {
       userId: "user-456-scoped",
       sessionId: "session-123",
-    });
+    }, "2026-10-26");
 
     check("userId passed to fetch (verifies scoping)", capturedUserId === "user-456-scoped");
   }
@@ -107,7 +107,7 @@ function check(label: string, pass: boolean, detail?: string) {
     const result = await resolvePlanTargetDate(deps, {
       userId: "user-789",
       sessionId: "session-error",
-    });
+    }, "2026-10-29");
 
     check("result not ok", !result.ok);
     if (!result.ok) {

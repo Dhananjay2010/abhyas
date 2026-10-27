@@ -417,6 +417,18 @@ run_mutant "MED-2d. Session-runner passes localDate instead of sessionId" "$COMP
           ? { localDate, plan }
           : { sessionId: sessionId!, plan };' "$T"
 
+run_mutant "MED-4. Old session fallback removed (always uses session.local_date + 1)" "$RESOLVE" \
+  '    // MED-4: session.local_date + 1, but never a past day
+    const candidate = sessionPlanTargetDate(result.localDate);
+    if (candidate >= userLocalToday) {
+      return { ok: true, data: candidate };
+    }
+    // Session is old (started 2+ days ago) - fall back to today + 1
+    return { ok: true, data: addDays(userLocalToday, 1) };' \
+  '    // MED-4: session.local_date + 1, but never a past day
+    const candidate = sessionPlanTargetDate(result.localDate);
+    return { ok: true, data: candidate };' "$T_RESOLVE"
+
 run_mutant "M-A1. page.tsx omits sessionTargetDate (MED-A behavioral)" "src/app/session/[id]/page.tsx" \
   'const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate);' \
   'const tomorrow = await nextDayPlan(supabase, timezone);' "$T_MED_A"

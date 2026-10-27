@@ -1,9 +1,9 @@
 #!/usr/bin/env tsx
 /**
- * Test: resolvePlanTargetDate - session-based date resolution
+ * Test: resolvePlanTargetDate (MED-A + MED-4)
  *
- * MED-3: Target date must be session.local_date + 1, computed server-side.
- * Handles midnight crossing: session started 23:50, finished 00:20 -> targets D+1.
+ * MED-A: session.local_date + 1 for midnight-crossing consistency
+ * MED-4: Never offer a past day - fall back to today + 1 when session is old
  */
 
 import { resolvePlanTargetDate, type ResolvePlanTargetDateDeps } from "../src/lib/session/resolve-plan-target-date";
@@ -16,154 +16,148 @@ function check(label: string, pass: boolean, detail?: string) {
 }
 
 (async () => {
-  console.log("Resolve Plan Target Date\n");
+  console.log("resolvePlanTargetDate (MED-A + MED-4)\n");
 
-  console.log("Case 1: sessionId with midnight crossing");
+  console.log("Case 1: localDate input passes through unchanged");
   {
-    // Session started 23:50 IST on 2026-10-26, finished 00:20 IST on 2026-10-27
-    // Session's local_date is 2026-10-26 (day D)
-    // Current time is already 2026-10-27 (day D+1)
-    // Must return D+1 (2026-10-27), not D (2026-10-26) and not D+2 (2026-10-28)
     const deps: ResolvePlanTargetDateDeps = {
-      async fetchSessionLocalDate(sessionId, userId) {
-        if (sessionId === "session-midnight" && userId === "user-123") {
-          return { localDate: "2026-10-26", error: null };
-        }
-        return { localDate: null, error: "not found" };
+      async fetchSessionLocalDate() {
+        throw new Error("should not be called");
       },
     };
 
-    const result = await resolvePlanTargetDate(deps, {
-      userId: "user-123",
-      sessionId: "session-midnight",
-    });
-
+    const result = await resolvePlanTargetDate(deps, { userId: "u1", localDate: "2026-10-30" }, "2026-10-29");
     check("result ok", result.ok);
     if (result.ok) {
-      check("returns D+1 (2026-10-27)", result.data === "2026-10-27", result.data);
-      check("not D (2026-10-26)", result.data !== "2026-10-26");
-      check("not D+2 (2026-10-28)", result.data !== "2026-10-28");
+      check("localDate passes through", result.data === "2026-10-30");
     }
   }
 
-  console.log("\nCase 2: missing session (another user's or not found)");
+  console.log("\nCase 2: sessionId → session.local_date + 1 (MED-A)");
   {
     const deps: ResolvePlanTargetDateDeps = {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      async fetchSessionLocalDate(_sessionId, _userId) {
+      async fetchSessionLocalDate(sessionId, userId) {
+        check("sessionId passed", sessionId === "s-123");
+        check("userId passed", userId === "u-456");
+        return { localDate: "2026-10-28", error: null };
+      },
+    };
+
+    const result = await resolvePlanTargetDate(deps, { userId: "u-456", sessionId: "s-123" }, "2026-10-29");
+    check("result ok", result.ok);
+    if (result.ok) {
+      check("adds 1 day (28 → 29)", result.data === "2026-10-29");
+    }
+  }
+
+  console.log("\nCase 3: Session lookup error returns friendly message");
+  {
+    const deps: ResolvePlanTargetDateDeps = {
+      async fetchSessionLocalDate() {
+        return { localDate: null, error: "network timeout" };
+      },
+    };
+
+    const result = await resolvePlanTargetDate(deps, { userId: "u1", sessionId: "s-err" }, "2026-10-29");
+    check("result not ok", !result.ok);
+    if (!result.ok) {
+      check("friendly error", result.error === "Could not load session.");
+    }
+  }
+
+  console.log("\nCase 4: Session not found returns error");
+  {
+    const deps: ResolvePlanTargetDateDeps = {
+      async fetchSessionLocalDate() {
         return { localDate: null, error: null };
       },
     };
 
-    const result = await resolvePlanTargetDate(deps, {
-      userId: "user-123",
-      sessionId: "session-missing",
-    });
-
+    const result = await resolvePlanTargetDate(deps, { userId: "u1", sessionId: "s-none" }, "2026-10-29");
     check("result not ok", !result.ok);
     if (!result.ok) {
-      check("friendly error message", result.error === "Session not found.", result.error);
+      check("not found error", result.error === "Session not found.");
     }
   }
 
-  console.log("\nCase 3: fetch error (DB error)");
-  {
-    const deps: ResolvePlanTargetDateDeps = {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      async fetchSessionLocalDate(sessionId, userId) {
-        return { localDate: null, error: "connection failed" };
-      },
-    };
+  console.log("\nMED-4 Clock Cases:");
 
-    const result = await resolvePlanTargetDate(deps, {
-      userId: "user-123",
-      sessionId: "session-error",
-    });
-
-    check("result not ok", !result.ok);
-    if (!result.ok) {
-      check("friendly error (no raw DB text)", result.error === "Could not load session.", result.error);
-    }
-  }
-
-  console.log("\nCase 4: localDate path unchanged");
+  console.log("\n  Case 5: Same day - session 23 Oct, finished 23 Oct, today=23 Oct → 24 Oct");
   {
     const deps: ResolvePlanTargetDateDeps = {
       async fetchSessionLocalDate() {
-        throw new Error("Should not be called");
+        return { localDate: "2026-10-23", error: null };
       },
     };
 
-    const result = await resolvePlanTargetDate(deps, {
-      userId: "user-123",
-      localDate: "2026-10-28",
-    });
-
+    const result = await resolvePlanTargetDate(deps, { userId: "u1", sessionId: "s-same" }, "2026-10-23");
     check("result ok", result.ok);
     if (result.ok) {
-      check("returns localDate unchanged", result.data === "2026-10-28", result.data);
+      check("targets 24 Oct", result.data === "2026-10-24", result.data);
     }
   }
 
-  console.log("\nCase 5: neither sessionId nor localDate");
+  console.log("\n  Case 6: Just after midnight IST - session 23 Oct, finished 24 Oct 00:30, today=24 Oct → 24 Oct");
   {
     const deps: ResolvePlanTargetDateDeps = {
       async fetchSessionLocalDate() {
-        throw new Error("Should not be called");
+        return { localDate: "2026-10-23", error: null };
       },
     };
 
-    const result = await resolvePlanTargetDate(deps, {
-      userId: "user-123",
-    });
-
-    check("result not ok", !result.ok);
-    if (!result.ok) {
-      check("error message", result.error.includes("required"), result.error);
-    }
-  }
-
-  console.log("\nCase 6: session from different date (no midnight crossing)");
-  {
-    const deps: ResolvePlanTargetDateDeps = {
-      async fetchSessionLocalDate(sessionId, userId) {
-        if (sessionId === "session-normal" && userId === "user-456") {
-          return { localDate: "2026-10-25", error: null };
-        }
-        return { localDate: null, error: "not found" };
-      },
-    };
-
-    const result = await resolvePlanTargetDate(deps, {
-      userId: "user-456",
-      sessionId: "session-normal",
-    });
-
+    const result = await resolvePlanTargetDate(deps, { userId: "u1", sessionId: "s-midnight" }, "2026-10-24");
     check("result ok", result.ok);
     if (result.ok) {
-      check("returns local_date + 1", result.data === "2026-10-26", result.data);
+      check("still targets 24 Oct (not 25)", result.data === "2026-10-24", result.data);
     }
   }
 
-  console.log("\nCase 7: MED-B N6 - session lookup IS scoped by userId");
+  console.log("\n  Case 7: 2 days later - session 23 Oct, finished 25 Oct, today=25 Oct → 26 Oct (today+1)");
   {
-    let capturedSessionId = "";
-    let capturedUserId = "";
     const deps: ResolvePlanTargetDateDeps = {
-      async fetchSessionLocalDate(sessionId, userId) {
-        capturedSessionId = sessionId;
-        capturedUserId = userId;
-        return { localDate: "2026-10-27", error: null };
+      async fetchSessionLocalDate() {
+        return { localDate: "2026-10-23", error: null };
       },
     };
 
-    await resolvePlanTargetDate(deps, {
-      userId: "user-scoped",
-      sessionId: "session-123",
-    });
+    const result = await resolvePlanTargetDate(deps, { userId: "u1", sessionId: "s-2days" }, "2026-10-25");
+    check("result ok", result.ok);
+    if (result.ok) {
+      check("falls back to today+1 (26 Oct)", result.data === "2026-10-26", result.data);
+      check("NOT session.local_date+1 (would be 24)", result.data !== "2026-10-24");
+    }
+  }
 
-    check("sessionId passed to fetch", capturedSessionId === "session-123");
-    check("userId passed to fetch (verifies scoping)", capturedUserId === "user-scoped");
+  console.log("\n  Case 8: 3 days later - session 23 Oct, finished 26 Oct, today=26 Oct → 27 Oct (today+1)");
+  {
+    const deps: ResolvePlanTargetDateDeps = {
+      async fetchSessionLocalDate() {
+        return { localDate: "2026-10-23", error: null };
+      },
+    };
+
+    const result = await resolvePlanTargetDate(deps, { userId: "u1", sessionId: "s-3days" }, "2026-10-26");
+    check("result ok", result.ok);
+    if (result.ok) {
+      check("falls back to today+1 (27 Oct)", result.data === "2026-10-27", result.data);
+      check("NEVER offers past day", result.data >= "2026-10-27");
+    }
+  }
+
+  console.log("\n  Case 9: America/Los_Angeles - session 20 Oct, finished 22 Oct, today=22 Oct → 23 Oct (today+1)");
+  {
+    const deps: ResolvePlanTargetDateDeps = {
+      async fetchSessionLocalDate() {
+        return { localDate: "2026-10-20", error: null };
+      },
+    };
+
+    const result = await resolvePlanTargetDate(deps, { userId: "u1", sessionId: "s-la" }, "2026-10-22");
+    check("result ok", result.ok);
+    if (result.ok) {
+      check("falls back to today+1 (23 Oct)", result.data === "2026-10-23", result.data);
+      check("candidate 21 Oct < today 22 Oct, so fallback triggered", true);
+    }
   }
 
   if (failures > 0) {

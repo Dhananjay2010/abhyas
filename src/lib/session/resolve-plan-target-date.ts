@@ -1,6 +1,4 @@
-import { addDays } from "@/lib/dates";
-
-type Result<T> = { ok: true; data: T } | { ok: false; error: string };
+import { addDays, localDateString } from "@/lib/dates";
 
 /**
  * Compute the target date for planning from a session's local_date.
@@ -20,25 +18,33 @@ export interface ResolvePlanTargetDateDeps {
   ): Promise<{ localDate: string | null; error: string | null }>;
 }
 
+type Input = 
+  | { userId: string; sessionId: string }
+  | { userId: string; localDate: string };
+
+type Result = { ok: true; data: string } | { ok: false; error: string };
+
 /**
- * Resolve the target date for planning.
- *
- * When sessionId is provided, reads the session's local_date from the DB
- * (scoped to userId) and returns local_date + 1 day. This ensures that a
- * session starting at 23:50 IST and finishing at 00:20 IST targets D+1
- * from the session's stored local_date, not from the current time.
- *
- * When localDate is provided directly (Today page), returns it unchanged.
+ * MED-A + MED-4: Resolve the target date for planning.
+ * 
+ * When sessionId is provided:
+ * - Fetch session.local_date
+ * - Compute candidate = session.local_date + 1
+ * - If candidate >= user-local today, use candidate
+ * - Otherwise (session is old), fall back to user-local today + 1
+ * - This ensures the prompt NEVER offers a past day
+ * 
+ * Examples:
+ * - Session on 23 Oct finished same day → targets 24 Oct
+ * - Session started 23 Oct, finished 24 Oct 00:30 → still targets 24 Oct
+ * - Session started 23 Oct, finished 26 Oct → targets 27 Oct (today + 1)
  */
 export async function resolvePlanTargetDate(
   deps: ResolvePlanTargetDateDeps,
-  input: {
-    userId: string;
-    sessionId?: string;
-    localDate?: string;
-  }
-): Promise<Result<string>> {
-  if (input.sessionId) {
+  input: Input,
+  userLocalToday: string,
+): Promise<Result> {
+  if ("sessionId" in input) {
     const result = await deps.fetchSessionLocalDate(input.sessionId, input.userId);
     if (result.error) {
       return { ok: false, error: "Could not load session." };
@@ -46,13 +52,15 @@ export async function resolvePlanTargetDate(
     if (!result.localDate) {
       return { ok: false, error: "Session not found." };
     }
-    const targetDate = sessionPlanTargetDate(result.localDate);
-    return { ok: true, data: targetDate };
+
+    // MED-4: session.local_date + 1, but never a past day
+    const candidate = sessionPlanTargetDate(result.localDate);
+    if (candidate >= userLocalToday) {
+      return { ok: true, data: candidate };
+    }
+    // Session is old (started 2+ days ago) - fall back to today + 1
+    return { ok: true, data: addDays(userLocalToday, 1) };
   }
 
-  if (input.localDate) {
-    return { ok: true, data: input.localDate };
-  }
-
-  return { ok: false, error: "Either sessionId or localDate is required." };
+  return { ok: true, data: input.localDate };
 }

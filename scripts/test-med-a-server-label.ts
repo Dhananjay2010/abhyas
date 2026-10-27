@@ -43,7 +43,7 @@ function check(label: string, pass: boolean, detail?: string) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require("fs");
     const pageSource = fs.readFileSync("src/app/session/[id]/page.tsx", "utf8");
-    const hasImport = pageSource.includes('sessionPlanTargetDate } = await import("@/lib/session/resolve-plan-target-date")');
+    const hasImport = pageSource.includes('import { sessionPlanTargetDate } from "@/lib/session/resolve-plan-target-date"');
     const hasCall = pageSource.includes("sessionPlanTargetDate(session.local_date)");
     const hasParameter = pageSource.includes("nextDayPlan(supabase, timezone, sessionTargetDate)");
     
