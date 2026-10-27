@@ -2,17 +2,29 @@
  * Test: Owner branding page access control (unit)
  * 
  * Verifies:
- * - checkGymOwnership correctly identifies owners
+ * - checkGymOwnership type structure
  * - Page logic redirects non-owners
- * - Pure unit test without database calls
+ * - Imports from real production code (fails if owner branding doesn't exist)
  */
 
-import { type GymOwnership } from "../src/lib/gym/owner-check";
+import { type GymOwnership, checkGymOwnership } from "../src/lib/gym/owner-check";
+import { isValidHexColor, isValidLogoUrl } from "../src/lib/gym/branding-validation";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
     throw new Error(`❌ ${message}`);
   }
+}
+
+function testImportsExist() {
+  console.log("\n▶ Testing real production code imports...");
+  
+  // These imports will fail if owner branding doesn't exist
+  assert(typeof checkGymOwnership === "function", "checkGymOwnership must be a function");
+  assert(typeof isValidHexColor === "function", "isValidHexColor must be a function");
+  assert(typeof isValidLogoUrl === "function", "isValidLogoUrl must be a function");
+  
+  console.log("  ✓ All required functions are imported from production code");
 }
 
 function testOwnershipStructure() {
@@ -147,6 +159,7 @@ function main() {
   console.log("==================================================");
 
   try {
+    testImportsExist();
     testOwnershipStructure();
     testAccessDecision();
     testNeutralBrandFallback();

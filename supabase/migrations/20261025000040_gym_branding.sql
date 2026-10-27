@@ -59,21 +59,22 @@ alter table public.gyms drop constraint if exists gyms_primary_color_hex;
 alter table public.gyms drop constraint if exists gyms_accent_color_hex;
 alter table public.gyms drop constraint if exists gyms_logo_url_format;
 
--- Primary color: must be NULL or a strict 6-digit hex code (#RRGGBB)
+-- Primary color: must be NULL or exactly 6-digit hex code (#RRGGBB), anchored and case-sensitive subset
 alter table public.gyms add constraint gyms_primary_color_hex
-  check (primary_color is null or primary_color ~ '^#[0-9a-fA-F]{6}$');
+  check (primary_color is null or primary_color ~ '^#[0-9A-Fa-f]{6}$');
 
--- Accent color: must be NULL or a strict 6-digit hex code (#RRGGBB)
+-- Accent color: must be NULL or exactly 6-digit hex code (#RRGGBB), anchored and case-sensitive subset
 alter table public.gyms add constraint gyms_accent_color_hex
-  check (accent_color is null or accent_color ~ '^#[0-9a-fA-F]{6}$');
+  check (accent_color is null or accent_color ~ '^#[0-9A-Fa-f]{6}$');
 
--- Logo URL: must be NULL or start with https:// or /storage/
+-- Logo URL: must be NULL or start with anchored case-sensitive https:// or /storage/
 -- Allows fully qualified URLs (https://...) or Supabase Storage paths (/storage/v1/object/...)
+-- Rejects bare https://, control characters, newlines, and path traversal (..)
 alter table public.gyms add constraint gyms_logo_url_format
   check (
     logo_url is null 
-    or logo_url ~ '^https://' 
-    or logo_url ~ '^/storage/'
+    or (logo_url ~ '^https://.+' and logo_url !~ '[\x00-\x1F\x7F]' and logo_url !~ '\.\.')
+    or (logo_url ~ '^/storage/.+' and logo_url !~ '[\x00-\x1F\x7F]' and logo_url !~ '\.\.')
   );
 
 -- ============================================================
@@ -107,9 +108,13 @@ begin
       using errcode = 'BRND1';
   end if;
 
-  -- Validate clear field names (BRND6)
+  -- Validate clear field names and reject NULL elements (BRND6)
   if p_clear is not null then
     foreach v_field in array p_clear loop
+      if v_field is null then
+        raise exception 'BRND6: p_clear array cannot contain NULL elements'
+          using errcode = 'BRND6';
+      end if;
       if v_field not in ('display_name', 'logo_url', 'primary_color', 'accent_color') then
         raise exception 'BRND6: Invalid clear field name: %', v_field
           using errcode = 'BRND6';
@@ -123,31 +128,79 @@ begin
     v_clear_accent_color := 'accent_color' = any(p_clear);
   end if;
 
+  -- Validate display_name: reject blank/whitespace-only, enforce length (LOW-2)
+  if p_display_name is not null then
+    if char_length(btrim(p_display_name)) < 1 then
+      raise exception 'Display name cannot be blank or whitespace-only'
+        using errcode = '22023';  -- invalid_parameter_value
+    end if;
+    if char_length(p_display_name) > 100 then
+      raise exception 'Display name cannot exceed 100 characters'
+        using errcode = '22023';
+    end if;
+  end if;
+
   -- Validate primary_color if provided (BRND2)
-  if p_primary_color is not null and p_primary_color !~ '^#[0-9a-fA-F]{6}$' then
-    raise exception 'BRND2: primary_color must be a 6-digit hex code (e.g. #FF9A2E)'
-      using errcode = 'BRND2';
+  if p_primary_color is not null then
+    if p_primary_color !~ '^#[0-9A-Fa-f]{6}$' then
+      raise exception 'BRND2: primary_color must be exactly 6-digit hex code (e.g. #FF9A2E)'
+        using errcode = 'BRND2';
+    end if;
+    if p_primary_color ~ 'var\(' then
+      raise exception 'BRND2: primary_color cannot contain CSS var() functions'
+        using errcode = 'BRND2';
+    end if;
   end if;
 
   -- Validate accent_color if provided (BRND3)
-  if p_accent_color is not null and p_accent_color !~ '^#[0-9a-fA-F]{6}$' then
-    raise exception 'BRND3: accent_color must be a 6-digit hex code (e.g. #E8850C)'
-      using errcode = 'BRND3';
+  if p_accent_color is not null then
+    if p_accent_color !~ '^#[0-9A-Fa-f]{6}$' then
+      raise exception 'BRND3: accent_color must be exactly 6-digit hex code (e.g. #E8850C)'
+        using errcode = 'BRND3';
+    end if;
+    if p_accent_color ~ 'var\(' then
+      raise exception 'BRND3: accent_color cannot contain CSS var() functions'
+        using errcode = 'BRND3';
+    end if;
   end if;
 
   -- Validate logo_url if provided (BRND4)
-  if p_logo_url is not null 
-     and p_logo_url !~ '^https://' 
-     and p_logo_url !~ '^/storage/' then
-    raise exception 'BRND4: logo_url must start with https:// or /storage/'
-      using errcode = 'BRND4';
+  if p_logo_url is not null then
+    if char_length(p_logo_url) < 1 or char_length(btrim(p_logo_url)) < 1 then
+      raise exception 'BRND4: logo_url cannot be blank or whitespace-only'
+        using errcode = 'BRND4';
+    end if;
+    if char_length(p_logo_url) > 2048 then
+      raise exception 'BRND4: logo_url cannot exceed 2048 characters'
+        using errcode = 'BRND4';
+    end if;
+    if p_logo_url !~ '^https://.+' and p_logo_url !~ '^/storage/.+' then
+      raise exception 'BRND4: logo_url must start with https:// or /storage/ and contain a path'
+        using errcode = 'BRND4';
+    end if;
+    if p_logo_url ~ '[\x00-\x1F\x7F]' then
+      raise exception 'BRND4: logo_url cannot contain control characters or newlines'
+        using errcode = 'BRND4';
+    end if;
+    if p_logo_url ~ '\.\.' then
+      raise exception 'BRND4: logo_url cannot contain path traversal sequences (..)'
+        using errcode = 'BRND4';
+    end if;
   end if;
 
-  -- Enforce color pair rule: both or neither (unless clearing)
-  if not v_clear_primary_color and not v_clear_accent_color then
-    if (p_primary_color is not null and p_accent_color is null and not v_clear_accent_color)
-       or (p_accent_color is not null and p_primary_color is null and not v_clear_primary_color) then
-      raise exception 'BRND7: Both primary_color and accent_color must be set together or cleared together'
+  -- Enforce color pair rule: both or neither (BRND7)
+  -- When clearing colors, both must be cleared together
+  if v_clear_primary_color or v_clear_accent_color then
+    if v_clear_primary_color <> v_clear_accent_color then
+      raise exception 'BRND7: Both primary_color and accent_color must be cleared together'
+        using errcode = 'BRND7';
+    end if;
+  end if;
+  -- When setting colors, both must be provided together
+  if (p_primary_color is not null or p_accent_color is not null) 
+     and not v_clear_primary_color and not v_clear_accent_color then
+    if p_primary_color is null or p_accent_color is null then
+      raise exception 'BRND7: Both primary_color and accent_color must be set together'
         using errcode = 'BRND7';
     end if;
   end if;

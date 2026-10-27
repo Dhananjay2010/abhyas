@@ -691,6 +691,206 @@ async function runTests() {
   }
   console.log();
 
+  // MED-3b: Test rejected cases for colors and logo
+  console.log("TEST: Reject leading space in logo URL (MED-3b)");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_logo_url: " https://example.com/logo.png",
+    });
+    check("Leading space in logo URL rejected", !!error && error.code === "BRND4");
+  }
+  console.log();
+
+  console.log("TEST: Reject javascript: in logo URL (MED-3b)");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_logo_url: "javascript:alert('https://')",
+    });
+    check("javascript: logo URL rejected", !!error && error.code === "BRND4");
+  }
+  console.log();
+
+  console.log("TEST: Reject 3-digit hex colors (MED-3b)");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#fff",
+      p_accent_color: "#000",
+    });
+    check("3-digit hex rejected", !!error && error.code === "BRND2");
+  }
+  console.log();
+
+  console.log("TEST: Reject hex with trailing characters (MED-3b)");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#FFFFFF;}",
+      p_accent_color: "#000000",
+    });
+    check("Hex with trailing ;} rejected", !!error && error.code === "BRND2");
+  }
+  console.log();
+
+  console.log("TEST: Reject 8-digit hex colors (MED-3b)");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#FFFFFFFF",
+      p_accent_color: "#00000000",
+    });
+    check("8-digit hex rejected", !!error && error.code === "BRND2");
+  }
+  console.log();
+
+  console.log("TEST: Reject uppercase HTTPS:// protocol (MED-3b)");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_logo_url: "HTTPS://example.com/logo.png",
+    });
+    check("Uppercase HTTPS:// rejected", !!error && error.code === "BRND4");
+  }
+  console.log();
+
+  // MED-3c: Test BRND7 and clear wins over set
+  console.log("TEST: BRND7 - color pair rule (MED-3c)");
+  {
+    // Try to set only primary without accent
+    const { error: onlyPrimary } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#FF0000",
+    });
+    check("Setting only primary color rejected", !!onlyPrimary && onlyPrimary?.code === "BRND7");
+
+    // Try to set only accent without primary
+    const { error: onlyAccent } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_accent_color: "#00FF00",
+    });
+    check("Setting only accent color rejected", !!onlyAccent && onlyAccent?.code === "BRND7");
+  }
+  console.log();
+
+  console.log("TEST: Clear wins over set (MED-3c)");
+  {
+    // First set a color
+    await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#FF0000",
+      p_accent_color: "#00FF00",
+    });
+
+    // Now try to set and clear at the same time - clear should win
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#0000FF",
+      p_accent_color: "#FFFF00",
+      p_clear: ["primary_color", "accent_color"],
+    });
+    check("Clear with set succeeds", !error, error?.message);
+
+    const { data } = await clientOwner.rpc("get_gym_brand", {
+      p_gym_id: gymId,
+    });
+    if (data && data[0]) {
+      check("Clear won over set (primary)", data[0].primary_color === null);
+      check("Clear won over set (accent)", data[0].accent_color === null);
+    }
+  }
+  console.log();
+
+  // MED-3c: Test pg_proc prosecdef and proconfig
+  console.log("TEST: SECURITY DEFINER and search_path (MED-3c)");
+  {
+    // Import pg for direct database queries
+    const { Client } = await import("pg");
+    const pgClient = new Client({
+      connectionString: process.env.SUPABASE_DB_URL || "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+    });
+    await pgClient.connect();
+
+    try {
+      // Check set_gym_branding
+      const { rows: setRows } = await pgClient.query(`
+        SELECT prosecdef, proconfig
+        FROM pg_proc
+        WHERE proname = 'set_gym_branding'
+          AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+        LIMIT 1;
+      `);
+
+      check("set_gym_branding has prosecdef", setRows.length > 0 && setRows[0].prosecdef === true);
+      check(
+        "set_gym_branding has search_path=''",
+        setRows.length > 0 && 
+        Array.isArray(setRows[0].proconfig) && 
+        setRows[0].proconfig.some((cfg: string) => cfg === 'search_path=""' || cfg === "search_path=")
+      );
+
+      // Check get_gym_brand
+      const { rows: getRows } = await pgClient.query(`
+        SELECT prosecdef, proconfig
+        FROM pg_proc
+        WHERE proname = 'get_gym_brand'
+          AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+        LIMIT 1;
+      `);
+
+      check("get_gym_brand has prosecdef", getRows.length > 0 && getRows[0].prosecdef === true);
+      check(
+        "get_gym_brand has search_path=''",
+        getRows.length > 0 && 
+        Array.isArray(getRows[0].proconfig) && 
+        getRows[0].proconfig.some((cfg: string) => cfg === 'search_path=""' || cfg === "search_path=")
+      );
+    } finally {
+      await pgClient.end();
+    }
+  }
+  console.log();
+
+  // MED-3a: Assert another gym's brand is unchanged after owner saves
+  console.log("TEST: Other gym's brand unchanged (MED-3a)");
+  {
+    // Set branding for other gym
+    await clientOtherOwner.rpc("set_gym_branding", {
+      p_gym_id: otherGymId,
+      p_display_name: "Other Gym Brand",
+      p_logo_url: "https://other.com/logo.png",
+      p_primary_color: "#123456",
+      p_accent_color: "#654321",
+    });
+
+    // Get other gym brand before this gym's update
+    const { data: beforeData } = await anonClient.rpc("get_gym_brand", {
+      p_gym_id: otherGymId,
+    });
+    const beforeBrand = beforeData && beforeData[0];
+
+    // Update this gym's brand
+    await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "This Gym Updated",
+      p_primary_color: "#ABCDEF",
+      p_accent_color: "#FEDCBA",
+    });
+
+    // Get other gym brand after this gym's update
+    const { data: afterData } = await anonClient.rpc("get_gym_brand", {
+      p_gym_id: otherGymId,
+    });
+    const afterBrand = afterData && afterData[0];
+
+    check("Other gym display_name unchanged", beforeBrand?.display_name === afterBrand?.display_name);
+    check("Other gym logo_url unchanged", beforeBrand?.logo_url === afterBrand?.logo_url);
+    check("Other gym primary_color unchanged", beforeBrand?.primary_color === afterBrand?.primary_color);
+    check("Other gym accent_color unchanged", beforeBrand?.accent_color === afterBrand?.accent_color);
+  }
+  console.log();
+
   // Clean up test users
   console.log("Cleaning up test users...");
   if (userIdOwner) await adminClient.auth.admin.deleteUser(userIdOwner);

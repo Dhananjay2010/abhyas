@@ -31,23 +31,31 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
     setSuccessMessage("");
 
     startTransition(async () => {
-      const result: BrandingResult = await updateBranding({
-        gymId,
-        displayName,
-        logoUrl,
-        primaryColor,
-        accentColor,
-      });
+      try {
+        const result: BrandingResult = await updateBranding({
+          gymId,
+          displayName,
+          logoUrl,
+          primaryColor,
+          accentColor,
+        });
 
-      if (result.success) {
-        setSuccessMessage("Branding updated successfully");
-        setTimeout(() => setSuccessMessage(""), 3000);
-      } else {
-        if (result.field) {
-          setErrors({ [result.field]: result.error });
+        if (result.success) {
+          setSuccessMessage("Branding updated successfully");
+          setTimeout(() => setSuccessMessage(""), 3000);
         } else {
-          setErrors({ _form: result.error });
+          if (result.field) {
+            setErrors({ [result.field]: result.error });
+          } else {
+            setErrors({ _form: result.error });
+          }
         }
+      } catch (error) {
+        // Handle unexpected errors (should be rare after MED-2 fixes)
+        console.error("Form submit error:", error);
+        setErrors({ 
+          _form: "Couldn't save your branding. Please check your connection and try again." 
+        });
       }
     });
   };
@@ -56,6 +64,23 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
   // These are passed into CSS custom properties on the preview wrapper
   const previewPrimary = primaryColor || "var(--color-muted)";
   const previewAccent = accentColor || "var(--color-border)";
+  
+  // Compute accessible text color for preview when a valid color is entered
+  // Use simple contrast: if sum of RGB > 382 (roughly half of max 765), use black, else white
+  const getTextColor = (bgColor: string): string => {
+    if (!bgColor || !bgColor.match(/^#[0-9A-Fa-f]{6}$/)) {
+      return "#1a1000"; // default accentFg from branding
+    }
+    const r = parseInt(bgColor.slice(1, 3), 16);
+    const g = parseInt(bgColor.slice(3, 5), 16);
+    const b = parseInt(bgColor.slice(5, 7), 16);
+    // Simple luminance check: if bright background, use dark text
+    return (r + g + b > 382) ? "#000000" : "#ffffff";
+  };
+  
+  const previewTextColor = primaryColor && primaryColor.match(/^#[0-9A-Fa-f]{6}$/) 
+    ? getTextColor(primaryColor) 
+    : "#1a1000";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -208,27 +233,22 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
             // @ts-expect-error - CSS custom properties are not in React.CSSProperties
             "--color-accent": previewPrimary,
             "--color-accent-hover": previewAccent,
+            "--color-accent-fg": previewTextColor,
           }}
         >
-          {/* Preview button using CSS variables */}
+          {/* Preview button using CSS variables with hover */}
           <button
             type="button"
-            className="w-full rounded-lg px-6 py-3 text-sm font-semibold transition-colors"
+            className="w-full rounded-lg px-6 py-3 text-sm font-semibold transition-colors hover:brightness-90"
             style={{
               backgroundColor: "var(--color-accent)",
               color: "var(--color-accent-fg)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--color-accent-hover)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--color-accent)";
             }}
           >
             Start Workout
           </button>
           <p className="text-xs text-muted text-center">
-            Hover over the button to see the accent color
+            Hover or tap to see the accent color effect
           </p>
         </div>
       </div>

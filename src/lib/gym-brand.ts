@@ -7,6 +7,7 @@ import { unstable_cache } from "next/cache";
 import type { Database } from "@/lib/database.types";
 import type { Brand } from "@/lib/branding";
 import { validateTimezone, branding } from "@/lib/branding";
+import { accessibleTextColor } from "@/lib/contrast";
 
 /**
  * Neutral unbranded fallback for when the database is unreachable
@@ -148,8 +149,9 @@ async function getGymBrandInternal(gymId: string): Promise<Partial<Brand>> {
       // Use gym's custom colors where provided
       accent: row.primary_color,
       accentHover: row.accent_color,
+      // Derive accessible text color for buttons based on primary color (WCAG AA 4.5:1)
+      accentFg: accessibleTextColor(row.primary_color),
       // Keep defaults for other colors from branding config
-      accentFg: branding.colors.accentFg,
       bg: branding.colors.bg,
       surface: branding.colors.surface,
       surface2: branding.colors.surface2,

@@ -5,16 +5,11 @@
  * - Hex color validation (6-digit, case-insensitive)
  * - Logo URL validation (https:// or /storage/)
  * - Color pair validation (both or neither)
+ * 
+ * Imports the real production validators from branding-validation.ts
  */
 
-function isValidHexColor(color: string): boolean {
-  return /^#[0-9a-fA-F]{6}$/.test(color);
-}
-
-function isValidLogoUrl(url: string): boolean {
-  if (!url) return true;
-  return url.startsWith("https://") || url.startsWith("/storage/");
-}
+import { isValidHexColor, isValidLogoUrl } from "../src/lib/gym/branding-validation";
 
 function assertBranding(condition: boolean, message: string): void {
   if (!condition) {
@@ -40,16 +35,18 @@ function testHexColorValidation() {
   }
   console.log(`  ✓ Valid hex colors pass (${validColors.length} cases)`);
 
-  // Invalid colors
+  // Invalid colors (including #RGB, #FFFFFFFF, var(), rgb())
   const invalidColors = [
     "",
-    "#FFF",
-    "#FFFFFFF",
+    "#FFF",             // 3-digit (MED-3d requirement)
+    "#FFFFFFF",         // 7-digit
+    "#FFFFFFFF",        // 8-digit (MED-3b requirement)
     "FF9A2E",
     "#GG9A2E",
-    "rgb(255,154,46)",
+    "rgb(255,154,46)",  // rgb() (MED-3d requirement)
     "#FF9A2E ",
     " #FF9A2E",
+    "var(--color-accent)", // var() (LOW-8)
   ];
 
   for (const color of invalidColors) {
@@ -75,13 +72,18 @@ function testLogoUrlValidation() {
   }
   console.log(`  ✓ Valid logo URLs pass (${validUrls.length} cases)`);
 
-  // Invalid URLs
+  // Invalid URLs (including MED-3b requirements: ' https://x', 'javascript:...', 'HTTPS://')
   const invalidUrls = [
     "http://example.com/logo.png",
     "ftp://example.com/logo.png",
     "example.com/logo.png",
     "/public/logo.png",
     "logo.png",
+    " https://example.com/logo.png",  // leading space (MED-3b)
+    "javascript:alert('https://')",   // javascript: (MED-3b)
+    "HTTPS://example.com/logo.png",   // uppercase protocol (MED-3b)
+    "https://",                        // bare https:// (LOW-3)
+    "/storage/",                       // bare /storage/ (LOW-3)
   ];
 
   for (const url of invalidUrls) {

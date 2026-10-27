@@ -175,12 +175,18 @@ run_mutant \
   "Ignore p_clear array in set_gym_branding" \
   "create or replace function public.set_gym_branding(p_gym_id uuid, p_display_name text default null, p_logo_url text default null, p_primary_color text default null, p_accent_color text default null, p_clear text[] default array[]::text[]) returns json language plpgsql security definer set search_path = '' as \$\$ declare v_updated_count int; begin if not public.is_gym_owner(p_gym_id) then raise exception 'BRND1: Only the gym owner can update branding settings' using errcode = 'BRND1'; end if; if p_primary_color is not null and p_primary_color !~ '^#[0-9a-fA-F]{6}$' then raise exception 'BRND2: primary_color must be a 6-digit hex code (e.g. #FF9A2E)' using errcode = 'BRND2'; end if; if p_accent_color is not null and p_accent_color !~ '^#[0-9a-fA-F]{6}$' then raise exception 'BRND3: accent_color must be a 6-digit hex code (e.g. #E8850C)' using errcode = 'BRND3'; end if; if p_logo_url is not null and p_logo_url !~ '^https://' and p_logo_url !~ '^/storage/' then raise exception 'BRND4: logo_url must start with https:// or /storage/' using errcode = 'BRND4'; end if; update public.gyms set display_name = coalesce(p_display_name, display_name), logo_url = coalesce(p_logo_url, logo_url), primary_color = coalesce(p_primary_color, primary_color), accent_color = coalesce(p_accent_color, accent_color) where id = p_gym_id; get diagnostics v_updated_count = row_count; if v_updated_count = 0 then raise exception 'BRND5: Gym not found' using errcode = 'BRND5'; end if; return json_build_object('success', true); end; \$\$;"
 
+# Mutant (j): Cross-gym attack (MED-3a) - Remove where id = p_gym_id
+run_mutant \
+  "(j) cross-gym attack: remove WHERE id = p_gym_id" \
+  "Allow owner to update all gyms' branding (cross-tenant)" \
+  "create or replace function public.set_gym_branding(p_gym_id uuid, p_display_name text default null, p_logo_url text default null, p_primary_color text default null, p_accent_color text default null, p_clear text[] default array[]::text[]) returns json language plpgsql security definer set search_path = '' as \$\$ declare v_updated_count int; v_field text; v_clear_display_name boolean := false; v_clear_logo_url boolean := false; v_clear_primary_color boolean := false; v_clear_accent_color boolean := false; begin if not public.is_gym_owner(p_gym_id) then raise exception 'BRND1: Only the gym owner can update branding settings' using errcode = 'BRND1'; end if; if p_clear is not null then foreach v_field in array p_clear loop if v_field not in ('display_name', 'logo_url', 'primary_color', 'accent_color') then raise exception 'BRND6: Invalid clear field name: %', v_field using errcode = 'BRND6'; end if; end loop; v_clear_display_name := 'display_name' = any(p_clear); v_clear_logo_url := 'logo_url' = any(p_clear); v_clear_primary_color := 'primary_color' = any(p_clear); v_clear_accent_color := 'accent_color' = any(p_clear); end if; update public.gyms set display_name = case when v_clear_display_name then null else coalesce(p_display_name, display_name) end, logo_url = case when v_clear_logo_url then null else coalesce(p_logo_url, logo_url) end, primary_color = case when v_clear_primary_color then null else coalesce(p_primary_color, primary_color) end, accent_color = case when v_clear_accent_color then null else coalesce(p_accent_color, accent_color) end; get diagnostics v_updated_count = row_count; if v_updated_count = 0 then raise exception 'BRND5: Gym not found' using errcode = 'BRND5'; end if; return json_build_object('success', true); end; \$\$;"
+
 echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-echo "Total mutants:                   9"
-echo "Killed:                          $((9 - FAILED - ${#SKIPPED[@]}))"
+echo "Total mutants:                   10"
+echo "Killed:                          $((10 - FAILED - ${#SKIPPED[@]}))"
 echo "Survived:                        $FAILED"
 echo "Skipped:                         ${#SKIPPED[@]}"
 echo "========================================="
