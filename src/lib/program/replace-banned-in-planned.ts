@@ -58,8 +58,8 @@ export function replaceBannedInPlanned(
   generatorInput: GeneratorInput,
   sessionExerciseIdSeed: string,
 ): PlannedExercise[] {
-  const hasPastKnee = generatorInput.anyKneeInjury && generatorInput.currentInjuryRegions.length === 0;
-  const hasAnyKnee = generatorInput.anyKneeInjury;
+  const hasPastKnee = (generatorInput.anyKneeInjury ?? false) && generatorInput.currentInjuryRegions.length === 0;
+  const hasAnyKnee = generatorInput.anyKneeInjury ?? false;
   
   // No knee injury: pass through unchanged
   if (!hasAnyKnee) return planned;
