@@ -76,7 +76,7 @@ Object.defineProperty(window, 'localStorage', {
 
 // Fake deps with fixed time
 const fakeDeps: PendingSetDeps = {
-  now: () => FIXED_TIME,
+  nowFn: () => FIXED_TIME,
 };
 
 // Deferred: a controllable promise for tests
@@ -127,7 +127,7 @@ async function test1b1d() {
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -215,7 +215,7 @@ async function test1b1d() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -248,7 +248,7 @@ async function testN7() {
     logSet: async () => replayDeferred.promise,
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -329,7 +329,7 @@ async function testN7() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -367,7 +367,7 @@ async function testN7() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -393,7 +393,7 @@ async function test7b7c() {
       logSet: async () => expiredDeferred.promise,
       deleteSet: async () => ({ ok: true }),
       finishExercise: async () => ({ ok: true, data: null }),
-      finishSession: async () => ({ ok: true }),
+      finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
       abandonSession: async () => ({ ok: true }),
       findAlternatives: async () => ({ ok: true, data: [] }),
       swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -463,7 +463,7 @@ async function test7b7c() {
         settings={settings}
         actions={actions}
       timer={fakeTimer}
-      now={() => FIXED_TIME}
+      nowFn={() => FIXED_TIME}
     />
     );
     
@@ -488,7 +488,7 @@ async function test7b7c() {
       },
       deleteSet: async () => ({ ok: true }),
       finishExercise: async () => ({ ok: true, data: null }),
-      finishSession: async () => ({ ok: true }),
+      finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
       abandonSession: async () => ({ ok: true }),
       findAlternatives: async () => ({ ok: true, data: [] }),
       swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -557,7 +557,7 @@ async function test7b7c() {
         exercises={exercises}
         settings={settings}
         actions={errorActions}
-      now={() => FIXED_TIME}
+      nowFn={() => FIXED_TIME}
     />
     );
     
@@ -611,7 +611,7 @@ async function test8d8e() {
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -694,7 +694,7 @@ async function test8d8e() {
       timer={fakeTimer}
       addEventListener={mockAddEventListener}
       removeEventListener={mockRemoveEventListener}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -766,7 +766,7 @@ async function test9b() {
     logSet: async () => replayDeferred.promise,
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -839,7 +839,7 @@ async function test9b() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -959,7 +959,7 @@ async function testN11() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -998,7 +998,7 @@ async function testN12() {
     logSet: async () => replayDeferred.promise,
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -1068,7 +1068,7 @@ async function testN12() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -1097,7 +1097,7 @@ async function testConflict() {
     logSet: async () => conflictDeferred.promise,
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -1159,7 +1159,7 @@ async function testConflict() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -1221,7 +1221,7 @@ async function testDoubleTap() {
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -1283,7 +1283,7 @@ async function testDoubleTap() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -1322,7 +1322,7 @@ async function testFailedSubmit() {
     logSet: async () => failDeferred.promise,
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -1384,7 +1384,7 @@ async function testFailedSubmit() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -1424,7 +1424,7 @@ async function testN7sCompletedSession() {
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -1500,7 +1500,7 @@ async function testN7sCompletedSession() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -1539,7 +1539,7 @@ async function testRetryButton() {
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -1611,7 +1611,7 @@ async function testRetryButton() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-    now={() => FIXED_TIME}
+    nowFn={() => FIXED_TIME}
     />
   );
   
@@ -1655,7 +1655,7 @@ async function testItem2b() {
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -1714,7 +1714,7 @@ async function testItem2b() {
       settings={settings} 
       actions={actions} 
       timer={fakeTimer} 
-      now={() => FIXED_TIME}
+      nowFn={() => FIXED_TIME}
     />
   );
   

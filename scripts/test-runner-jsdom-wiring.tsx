@@ -58,13 +58,13 @@ function createFakeTimer(): {
 }
 
 function createFakeClock(startMs: number): {
-  now: () => string;
+  nowFn: () => string;
   advanceMs: (ms: number) => void;
   nowMs: () => number;
 } {
   let currentMs = startMs;
   return {
-    now: () => new Date(currentMs).toISOString(),
+    nowFn: () => new Date(currentMs).toISOString(),
     advanceMs: (ms: number) => { currentMs += ms; },
     nowMs: () => currentMs,
   };

@@ -85,7 +85,7 @@ const settings: RunnerSettings = {
       // Throw an error that isSessionExpired recognizes
       throw new Error("SESSION_EXPIRED: Your session has expired");
     },
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -109,7 +109,7 @@ const settings: RunnerSettings = {
       settings={settings}
       actions={actions1}
       timer={fakeTimer}
-      now={() => FIXED_TIME}
+      nowFn={() => FIXED_TIME}
     />
   );
   
@@ -179,7 +179,7 @@ const settings: RunnerSettings = {
       // Throw an error that contains "401" but is NOT a session expiry
       throw new Error("Database error at line 401: Connection timeout");
     },
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -203,7 +203,7 @@ const settings: RunnerSettings = {
       settings={settings}
       actions={actions2}
       timer={fakeTimer}
-      now={() => FIXED_TIME}
+      nowFn={() => FIXED_TIME}
     />
   );
   

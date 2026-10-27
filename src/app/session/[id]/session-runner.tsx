@@ -52,7 +52,7 @@ import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guar
 import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
 import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
-import { resolveSetConflict } from "@/lib/session/conflict-resolver";
+import { resolveSetConflict, type ConflictResult } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
 import { nextSetTarget, pickCurrentExerciseIndex } from "@/lib/session/resume-state";
@@ -1034,7 +1034,7 @@ export function SessionRunner({
     const target = nextSetTarget(exercises, displayedExerciseId, pendingSetState.pending);
     if (!target) return;
 
-    const clientId = `${target.sessionExerciseId}:${target.setNumber}:${now()}`;
+    const clientId = `${target.sessionExerciseId}:${target.setNumber}:${nowFn()}`;
 
     await createConcurrentGuard(async () => {
       setBusy(true);

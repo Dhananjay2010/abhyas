@@ -105,7 +105,7 @@ const defaultActions: SessionActions = {
   logSet: async () => ({ ok: true }),
   deleteSet: async () => ({ ok: true }),
   finishExercise: async () => ({ ok: true, data: null }),
-  finishSession: async () => ({ ok: true }),
+  finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
   abandonSession: async () => ({ ok: true }),
   findAlternatives: async () => ({ ok: true, data: [] }),
   swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
@@ -154,7 +154,7 @@ async function main() {
           units: "metric" as const,
         },
         actions: offlineActions,
-        now: () => FIXED_TIME,
+        nowFn: () => FIXED_TIME,
         timer: fakeTimer.timer,
       })
     );
@@ -235,7 +235,7 @@ await (async () => {
           units: "metric" as const,
         },
         actions: serverErrorActions,
-        now: () => FIXED_TIME,
+        nowFn: () => FIXED_TIME,
         timer: fakeTimer.timer,
       })
     );
@@ -321,7 +321,7 @@ await (async () => {
           units: "metric" as const,
         },
         actions: recoveringActions,
-        now: () => FIXED_TIME,
+        nowFn: () => FIXED_TIME,
         timer: fakeTimer.timer,
       })
     );
@@ -419,7 +419,7 @@ await (async () => {
           units: "metric" as const,
         },
         actions: finishErrorActions,
-        now: () => FIXED_TIME,
+        nowFn: () => FIXED_TIME,
         timer: fakeTimer.timer,
       })
     );

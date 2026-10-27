@@ -65,7 +65,7 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 const fakeDeps: PendingSetDeps = {
-  now: () => FIXED_TIME,
+  nowFn: () => FIXED_TIME,
 };
 
 const fakeTimer: RunnerTimer = {
@@ -96,7 +96,7 @@ async function testM9() {
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -167,7 +167,7 @@ async function testM9() {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-      now={() => FIXED_TIME}
+      nowFn={() => FIXED_TIME}
     />
   );
   

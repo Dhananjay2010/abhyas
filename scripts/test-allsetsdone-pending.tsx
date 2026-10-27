@@ -47,7 +47,7 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 const FIXED_TIME = new Date('2026-10-26T12:00:00Z').getTime();
-const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
+const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
 const fakeTimer: RunnerTimer = {
   setTimeout: (callback: () => void) => { callback(); return setTimeout(() => {}, 999999); },
   clearTimeout: () => {},
@@ -64,7 +64,7 @@ const fakeTimer: RunnerTimer = {
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -139,7 +139,7 @@ const fakeTimer: RunnerTimer = {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-      now={() => FIXED_TIME}
+      nowFn={() => FIXED_TIME}
     />
   );
   

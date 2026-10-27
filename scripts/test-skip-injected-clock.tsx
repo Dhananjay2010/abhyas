@@ -56,7 +56,7 @@ Object.defineProperty(window, 'localStorage', {
 // Fixed time well in the past (2020) so dropping `now` fails TODAY
 const FIXED_TIME = new Date('2020-01-01T10:00:00Z').getTime();
 
-const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
+const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
 const fakeTimer: RunnerTimer = {
   setTimeout: (callback: () => void) => { callback(); return setTimeout(() => {}, 999999); },
   clearTimeout: () => {},
@@ -155,7 +155,7 @@ const settings: RunnerSettings = {
       settings={settings}
       actions={actions}
       timer={fakeTimer}
-      now={() => FIXED_TIME}
+      nowFn={() => FIXED_TIME}
     />
   );
   

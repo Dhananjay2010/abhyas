@@ -44,7 +44,7 @@ const fakeTimer: RunnerTimer = {
       finishExercise: async () => {
         throw new Error("SESSION_EXPIRED: Not signed in");
       },
-      finishSession: async () => ({ ok: true }),
+      finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
       abandonSession: async () => ({ ok: true }),
       findAlternatives: async () => ({ ok: true, data: [] }),
       swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -136,7 +136,7 @@ const fakeTimer: RunnerTimer = {
       finishExercise: async () => {
         return { ok: false, error: "Not signed in", code: "SESSION_EXPIRED" };
       },
-      finishSession: async () => ({ ok: true }),
+      finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
       abandonSession: async () => ({ ok: true }),
       findAlternatives: async () => ({ ok: true, data: [] }),
       swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
