@@ -75,3 +75,13 @@ export function secondsSinceIso(iso: string, nowMs: number): number {
 export function isoFromMs(ms: number): string {
   return new Date(ms).toISOString();
 }
+
+/** Get the current local hour (0-23) in the given IANA timezone. */
+export function localHour(timezone: string, at: Date = new Date()): number {
+  const hourString = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "numeric",
+    hour12: false,
+  }).format(at);
+  return parseInt(hourString, 10);
+}

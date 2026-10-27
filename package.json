@@ -397,10 +397,10 @@
     "test:landing-copy": "tsx scripts/test-landing-copy.tsx",
     "test:demo-path-anchoring": "tsx scripts/test-anchored-indices.ts",
     "test:demo-path-new-plan-behavior": "tsx scripts/test-new-plan-behavior.ts",
-    "test:start-tomorrow-action": "tsx scripts/test-start-tomorrow-action.ts",
-    "test:start-tomorrow-link-20h": "tsx scripts/test-start-tomorrow-link-20h.tsx",
-    "test:rest-day-swap-preselect": "tsx scripts/test-rest-day-swap-preselect.tsx",
-    "test:post-swap-tomorrow-rotation": "tsx scripts/test-post-swap-tomorrow-rotation.ts",
+    "test:should-offer-start-tomorrow": "tsx scripts/test-should-offer-start-tomorrow.ts",
+    "test:start-tomorrow-core": "tsx scripts/test-start-tomorrow-core.ts",
+    "test:rest-day-swap-preselect-dom": "tsx scripts/test-rest-day-swap-preselect-dom.tsx",
+    "test:post-swap-tomorrow-real": "tsx scripts/test-post-swap-tomorrow-real.ts",
     "test:existing-plan-schedule-unchanged": "tsx scripts/test-existing-plan-schedule-unchanged.ts"
   },
   "dependencies": {
