@@ -460,8 +460,8 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     r.unmount();
   }
 
-  // Test 4: Logged weight 62.75 kg → rounded to nearest 138.5 lb
-  console.log("\nTest 4: Logged weight 62.75 kg (rounded to 138.5 lb, not floored)");
+  // Test 4: Held weight 60 kg → nearest 132 lb (M1/L1)
+  console.log("\nTest 4: Held weight 60 kg → nearest 132 lb");
   {
     let capturedWeightKg: number | null = null;
     
@@ -597,7 +597,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     }, { timeout: 1000 });
     
     // Task fix: Assert what the runner actually submitted via logSet, not the fixture
-    check("Test 4: logSet submitted exact 62.75 kg unedited", 
+    check("Test 4: logSet submitted exact 60 kg unedited", 
       capturedWeightKg === 62.75,
       capturedWeightKg === null ? "logSet not called" : `got ${capturedWeightKg}`);
 

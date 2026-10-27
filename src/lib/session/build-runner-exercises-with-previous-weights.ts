@@ -1,4 +1,3 @@
-import type { RunnerExercise } from "@/app/session/[id]/session-runner";
 import { buildRunnerExercise, type SessionExerciseInput, type ProgressInput } from "./build-runner-exercises";
 
 /**
@@ -25,7 +24,7 @@ export function buildRunnerExercisesWithPreviousWeights({
   previousWeightByExercise: Map<string, number>;
   remembersWeights: boolean;
   isDeload: boolean;
-}): RunnerExercise[] {
+}) {
   return rows.map((r) => {
     const progress = remembersWeights ? progressByExercise.get(r.exercises?.id ?? "") : undefined;
     const previousWeight = previousWeightByExercise.get(r.exercises?.id ?? "");

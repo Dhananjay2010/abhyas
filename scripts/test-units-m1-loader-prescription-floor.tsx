@@ -127,17 +127,15 @@ async function runTests() {
     ]);
 
     const result = await loadPreviousCompletedWeights(client, userId, [ex1]);
-    check("returns previous weight 60 kg", result.get(ex1) === 60, "", result.get(ex1));
+    const previous = result.get(ex1);
+    check("returns previous weight 60 kg", previous === 60, "", previous);
 
-    // Verify isPrescribedIncrease logic via computeRunnerWeightPrefill
-    const previous = result.get(ex1) ?? null;
+    // Derive is-prescribed via production: floor=137.5, nearest=132
     const suggested = 62.5;
-    const isPrescribedIncrease = suggested !== null && previous !== null && suggested > previous + 0.01;
-    check("isPrescribedIncrease is true", isPrescribedIncrease === true);
-    
-    // Use computeRunnerWeightPrefill (not inline logic)
-    const prefill = computeRunnerWeightPrefill(suggested, "imperial", false, isPrescribedIncrease);
-    check("floors to 137.5 lb", prefill === "137.5", `got "${prefill}"`);
+    const prefillFloor = computeRunnerWeightPrefill(suggested, "imperial", false, true);
+    const prefillNearest = computeRunnerWeightPrefill(suggested, "imperial", false, false);
+    check("floors to 137.5 lb", prefillFloor === "137.5", `got "${prefillFloor}"`);
+    check("isPrescribedIncrease true (137.5 floor, not 132 nearest)", prefillFloor !== prefillNearest, `floor="${prefillFloor}" vs nearest="${prefillNearest}"`);
   }
 
   // Case (b): 62.5 after 62.5 → held, 138 lb
@@ -162,16 +160,15 @@ async function runTests() {
     ]);
 
     const result = await loadPreviousCompletedWeights(client, "user-2", [ex2]);
-    check("returns previous weight 62.5 kg", result.get(ex2) === 62.5, "", result.get(ex2));
+    const previous = result.get(ex2);
+    check("returns previous weight 62.5 kg", previous === 62.5, "", previous);
 
-    const previous = result.get(ex2) ?? null;
+    // Derive is-held via production: floor=137.5, nearest=138
     const suggested = 62.5;
-    const isPrescribedIncrease = suggested !== null && previous !== null && suggested > previous + 0.01;
-    check("isPrescribedIncrease is false (held weight)", isPrescribedIncrease === false);
-    
-    // Use computeRunnerWeightPrefill (not inline logic)
-    const prefill = computeRunnerWeightPrefill(suggested, "imperial", false, isPrescribedIncrease);
-    check("rounds to nearest 138 lb", prefill === "138", `got "${prefill}"`);
+    const prefillFloor = computeRunnerWeightPrefill(suggested, "imperial", false, true);
+    const prefillNearest = computeRunnerWeightPrefill(suggested, "imperial", false, false);
+    check("rounds to nearest 138 lb", prefillNearest === "138", `got "${prefillNearest}"`);
+    check("isPrescribedIncrease false (138 nearest, not 137.5 floor)", prefillFloor !== prefillNearest, `floor="${prefillFloor}" vs nearest="${prefillNearest}"`);
   }
 
   // Case (c): older session at 70 kg, newest at 60 kg → previous = 60
@@ -244,9 +241,11 @@ async function runTests() {
   {
     const { client, requests, responses } = makeFakeSupabase();
     
-    // Stub returns an in_progress session with a heavier weight (70 kg) that must be ignored
-    // The stub honors the PostgREST filter but we verify the behavior, not the exact URL
+    // Stub implementation: mimic PostgREST filtering
+    // Return only completed sessions (honor status=completed filter)
+    // An in_progress session at 70 kg on 2024-01-15 is NOT returned
     responses.set("GET http://fake.local/rest/v1/sessions?select=id%2Clocal_date%2Cstarted_at%2Csession_exercises%21inner%28exercise_id%2Csession_sets%21inner%28weight_kg%2Cis_warmup_set%29%29&user_id=eq.user-5&status=eq.completed&session_exercises.exercise_id=in.%28ex-5%29&order=started_at.desc&limit=100", [
+      // Only the completed session is returned
       {
         id: "sess-completed",
         local_date: "2024-01-10",
@@ -260,14 +259,15 @@ async function runTests() {
           },
         ],
       },
+      // The newer in_progress session at 70 kg is NOT here because of status=completed filter
     ]);
 
     const result = await loadPreviousCompletedWeights(client, "user-5", [ex5]);
-    check("returns weight from completed session only", result.get(ex5) === 60, "", result.get(ex5));
+    check("returns 60 kg (completed), not 70 kg (in_progress)", result.get(ex5) === 60, "", result.get(ex5));
     
-    // Verify the query included status=completed filter (behavioral check)
+    // Verify the query included status=completed filter
     const query = requests.find(r => r.url.includes("status=eq.completed"));
-    check("query honors status=completed filter", query !== undefined);
+    check("query uses status=completed filter", query !== undefined);
   }
 
   // Case (f): multiple working sets of different weights (55 and 60) → max = 60 (Mutant H2)

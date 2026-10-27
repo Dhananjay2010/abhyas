@@ -107,10 +107,10 @@ const exercise = buildRunnerExercise({
 
 assert(
   exercise.previousCompletedWeightKg === 60,
-  "Mutant I/J: buildRunnerExercise preserves previousCompletedWeightKg from progress"
+  "Mutant J: buildRunnerExercise preserves previousCompletedWeightKg from progress"
 );
 
 console.log(`\n✅ All assertions passed (${passed})`);
 console.log("\nMutations N6/N6s/N8 killed: Changing user.id or session.status breaks assertions");
-console.log("Mutations I/J killed: Dropping previousCompletedWeightKg breaks assertion");
+console.log("Mutation J killed: Dropping previousCompletedWeightKg breaks assertion");
 console.log("Break: Using wrong fields (e.g. session.user_id for userId) fails tests");
