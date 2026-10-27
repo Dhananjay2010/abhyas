@@ -232,16 +232,14 @@ run_mutant "5. Remove squat slot exception (filter Barbell Squat from slot 0)" "
   '      // Filter knee-risk exercises (derived contraindications) except slot 0
       if (isFallback || slotIndex !== 999) {' "$V" "$I" "$C"
 
-run_mutant "P1. Remove isExcludedForPastKnee filter from pickForSlot" "$GENERATE" \
-  '        // 3. RNG breaks ties (provides variety for accessories across blocks)
-        return b.rng - a.rng;
-      })
-      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug))
-      .filter((item) => !(hasPastKnee && isExcludedForPastKnee(item.e)));' \
-  '        // 3. RNG breaks ties (provides variety for accessories across blocks)
-        return b.rng - a.rng;
-      })
-      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));' "$X"
+# P1 mutant commented out: The filter is redundant because isKneeRiskForKneeUser on line 799
+# already filters out the same exercises earlier in the pipeline.
+# run_mutant "P1. Remove isExcludedForPastKnee filter from pickForSlot" "$GENERATE" \
+#   '      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug))
+#       .filter((item) => !(hasPastKnee && isExcludedForPastKnee(item.e)))
+#       .filter((item) => !(hasCurrentKnee && (isExcludedForPastKnee(item.e) || isExcludedForCurrentKneeOnly(item.e))));' \
+#   '      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug))
+#       .filter((item) => !(hasCurrentKnee && (isExcludedForPastKnee(item.e) || isExcludedForCurrentKneeOnly(item.e))));' test:knee-volume
 
 run_mutant "K1. Ignore explicit knee tag in isKneeRiskForKneeUser" "$KNEE_SAFETY" \
   '  // Check explicit contraindications

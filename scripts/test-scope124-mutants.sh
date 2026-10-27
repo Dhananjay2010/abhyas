@@ -116,17 +116,21 @@ run_mutant "5. Olympic lifts: allow for anyKneeInjury" "$PAST_KNEE" \
   'if (input.anyKneeInjury) return true;' \
   'if (input.anyKneeInjury) return false;' "$B"
 
-run_mutant "6. KB push press: allow for current knee" "$PAST_KNEE" \
+run_mutant "6. KB push press: exclude for current knee only (not past)" "$PAST_KNEE" \
+  '  // Kettlebell push presses: leg-driven explosive press (current knee only)
+  "double-kettlebell-push-press",
+  "one-arm-kettlebell-push-press",
+]);' \
+  ']);' "$B"
+
+run_mutant "7. Push press: must stay in current-knee-only list" "$PAST_KNEE" \
   '  "one-arm-kettlebell-push-press",
 ]);' \
   ']);' "$B"
 
-run_mutant "7. Push press: ban for past knee" "$PAST_KNEE" \
-  '  "kettlebell-thruster",' \
-  '  "kettlebell-thruster", "one-arm-kettlebell-push-press",' "$B"
-
-run_mutant "8. Thruster: allow for past knee" "$PAST_KNEE" \
-  '  "kettlebell-thruster",' \
+run_mutant "8. Thruster: ban for past knee (stays in PAST_KNEE list)" "$PAST_KNEE" \
+  '  // Thrusters: banned for BOTH current AND past knee (item 14)
+  "kettlebell-thruster",' \
   '' "$B"
 
 run_mutant "9. Chest push with run release: allow for past knee" "$PAST_KNEE" \
