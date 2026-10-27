@@ -352,7 +352,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
       name: "Row",
       cue: null,
       metric: "reps",
-      primaryMuscles: ["back"],
+      primaryMuscles: ["lats"],
       plannedSets: 3,
       plannedRepsMin: 6,
       plannedRepsMax: 8,
@@ -496,7 +496,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
       suggestedWeightKg: 62.5,
       status: "pending",
       feel: null,
-      sets: [{ weightKg: 62.75, reps: 7, durationSeconds: null }], // Logged set!
+      sets: [{ setNumber: 1, weightKg: 62.75, reps: 7, durationSeconds: null }], // Logged set!
       isBodyweight: false,
     };
 

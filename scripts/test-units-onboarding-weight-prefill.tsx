@@ -9,9 +9,13 @@
 
 import "./helpers/setup-jsdom";
 import React from "react";
-import { render, fireEvent, waitFor } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { OnboardingFlow } from "../src/app/onboarding/onboarding-flow";
 import type { Goal, Level, Track, Sex } from "../src/lib/onboarding/options";
+import type { Database } from "../src/lib/database.types";
+
+type BodyRegion = Database["public"]["Enums"]["body_region"];
+type InjurySeverity = Database["public"]["Enums"]["injury_severity"];
 
 let failures = 0;
 
@@ -22,47 +26,68 @@ function check(label: string, pass: boolean, detail = "") {
 
 console.log("\n=== OnboardingFlow weight prefill preservation ===\n");
 
+type InitialState = {
+  displayName: string | null;
+  dateOfBirth: string | null;
+  sex: Sex | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  goal: Goal | null;
+  level: Level | null;
+  primaryTrack: Track | null;
+  daysPerWeek: number | null;
+  sessionMinutes: number | null;
+  yogaDaysPerWeek: number;
+  disclaimerAccepted: boolean;
+  hasAllEquipment: boolean;
+  equipmentIds: string[];
+  injuries: Array<{ bodyRegion: BodyRegion; severity: InjurySeverity }>;
+  units: "metric" | "imperial";
+};
+
 // Test 1: Metric 82.1 kg
 console.log("Test 1: Metric 82.1 kg prefills and submits exactly");
 {
   let capturedWeightKg: number | null = null;
-  let capturedUnits: string | null = null;
 
-  const initial = {
+  const initial: InitialState = {
+    displayName: null,
+    dateOfBirth: "1990-01-01",
+    sex: "male" as Sex,
+    heightCm: 175,
+    weightKg: 82.1,
     goal: "build_muscle" as Goal,
     level: "beginner" as Level,
-    track: "weights" as Track,
-    sex: "male" as Sex,
+    primaryTrack: "weights" as Track,
+    daysPerWeek: 3,
+    sessionMinutes: 60,
+    yogaDaysPerWeek: 0,
+    disclaimerAccepted: true,
+    hasAllEquipment: false,
+    equipmentIds: [],
+    injuries: [],
     units: "metric" as const,
-    weightKg: 82.1,
-    heightCm: 175,
   };
 
   const actions = {
-    saveAboutYou: async (data: { weightKg: number; heightCm: number; sex: Sex }) => {
+    acceptDisclaimer: async () => ({ ok: true as const }),
+    saveAboutYou: async (data: { weightKg: number; heightCm: number; sex: Sex; dateOfBirth: string }) => {
       capturedWeightKg = data.weightKg;
       return { ok: true as const };
     },
-    saveOnboarding: async (data: {
-      goal: Goal;
-      level: Level;
-      track: Track;
-      units: "metric" | "imperial";
-      equipment_ids: string[];
-      injuries: Array<{ region: string; severity: string }>;
-    }) => {
-      capturedUnits = data.units;
-      return { ok: true as const, data: { ok: true as const, user_id: "u1" } };
-    },
-    setEquipment: async () => ({ ok: true as const }),
+    saveProfileFields: async () => ({ ok: true as const }),
+    saveEquipment: async () => ({ ok: true as const }),
+    saveInjuries: async () => ({ ok: true as const }),
+    saveSessionLength: async () => ({ ok: true as const }),
+    completeOnboarding: async () => ({ ok: true as const }),
   };
 
   const r = render(
-    <OnboardingFlow
-      initial={initial}
-      availableEquipment={[]}
-      actions={actions}
-    />
+    React.createElement(OnboardingFlow, {
+      initial,
+      equipment: [],
+      actions,
+    })
   );
 
   // Find weight input
@@ -80,7 +105,7 @@ console.log("Test 1: Metric 82.1 kg prefills and submits exactly");
     const continueButton = r.getByText("Continue");
     fireEvent.click(continueButton);
 
-    // Wait for saveAboutYou to be called
+    // Wait a tick for React to process
     setTimeout(() => {
       check("Metric: Unedited weight submits exactly 82.1 kg", capturedWeightKg === 82.1,
         capturedWeightKg === null ? "saveAboutYou not called" : `got ${capturedWeightKg}`);
@@ -92,33 +117,44 @@ console.log("Test 1: Metric 82.1 kg prefills and submits exactly");
       {
         let capturedWeightKg2: number | null = null;
 
-        const initial2 = {
+        const initial2: InitialState = {
+          displayName: null,
+          dateOfBirth: "1990-01-01",
+          sex: "male" as Sex,
+          heightCm: 180,
+          weightKg: 77.38,
           goal: "build_muscle" as Goal,
           level: "beginner" as Level,
-          track: "weights" as Track,
-          sex: "male" as Sex,
+          primaryTrack: "weights" as Track,
+          daysPerWeek: 3,
+          sessionMinutes: 60,
+          yogaDaysPerWeek: 0,
+          disclaimerAccepted: true,
+          hasAllEquipment: false,
+          equipmentIds: [],
+          injuries: [],
           units: "imperial" as const,
-          weightKg: 77.38,
-          heightCm: 180,
         };
 
         const actions2 = {
-          saveAboutYou: async (data: { weightKg: number; heightCm: number; sex: Sex }) => {
+          acceptDisclaimer: async () => ({ ok: true as const }),
+          saveAboutYou: async (data: { weightKg: number; heightCm: number; sex: Sex; dateOfBirth: string }) => {
             capturedWeightKg2 = data.weightKg;
             return { ok: true as const };
           },
-          saveOnboarding: async () => {
-            return { ok: true as const, data: { ok: true as const, user_id: "u1" } };
-          },
-          setEquipment: async () => ({ ok: true as const }),
+          saveProfileFields: async () => ({ ok: true as const }),
+          saveEquipment: async () => ({ ok: true as const }),
+          saveInjuries: async () => ({ ok: true as const }),
+          saveSessionLength: async () => ({ ok: true as const }),
+          completeOnboarding: async () => ({ ok: true as const }),
         };
 
         const r2 = render(
-          <OnboardingFlow
-            initial={initial2}
-            availableEquipment={[]}
-            actions={actions2}
-          />
+          React.createElement(OnboardingFlow, {
+            initial: initial2,
+            equipment: [],
+            actions: actions2,
+          })
         );
 
         const weightInput2 = r2.container.querySelector<HTMLInputElement>("input[type='text'][placeholder*='lb']");

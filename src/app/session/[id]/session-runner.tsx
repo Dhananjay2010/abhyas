@@ -1382,6 +1382,7 @@ function SetEntry({
   metric,
   targetSeconds,
   defaultWeight,
+  isPrescription,
   defaultReps,
   setNumber,
   isBodyweight,

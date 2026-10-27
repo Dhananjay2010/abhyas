@@ -107,9 +107,9 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
       React.createElement(LogWeight, {
         current: null,
         units,
-        logAction: async (data) => {
+        logAction: async (weightKg) => {
           progressAccepted = true;
-          progressCapturedKg = data.weightKg;
+          progressCapturedKg = weightKg;
           return { ok: true as const };
         }
       })

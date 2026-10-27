@@ -10,6 +10,7 @@
  */
 
 import "./helpers/setup-jsdom";
+import React from "react";
 import { render, waitFor } from "@testing-library/react";
 import { SessionRunner, type RunnerExercise, type SessionActions } from "../src/app/session/[id]/session-runner";
 import { weightKgToSubmit, computeRunnerWeightPrefill, formatTopSet, snapPrescribedWeight } from "../src/lib/units";
@@ -265,18 +266,18 @@ console.log("\nTest (c): Real SessionRunner prescription flooring");
     };
 
     const r = render(
-      <SessionRunner
-        sessionId="s1"
-        isDeload={false}
-        week={1}
-        warmupAlreadyDone={true}
-        startedAt={new Date().toISOString()}
-        warmup={[]}
-        cooldown={[]}
-        exercises={[exercise]}
-        settings={settings}
-        actions={actions}
-      />,
+      React.createElement(SessionRunner, {
+        sessionId: "s1",
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt: new Date().toISOString(),
+        warmup: [],
+        cooldown: [],
+        exercises: [exercise],
+        settings,
+        actions,
+      })
     );
 
     await waitFor(() => {
@@ -304,24 +305,27 @@ console.log("\nTest (c): Real SessionRunner prescription flooring");
 
     r.unmount();
   }
-})().catch(e => { console.error(e); process.exit(1); });
 
-// Test (d): Unedited prefill submits original kg (already covered above, verify once more)
-const testKg = 72.5;
-const testPrefill = computeRunnerWeightPrefill(testKg, "imperial", false);
-const testResult = weightKgToSubmit(testPrefill, testPrefill, testKg, "imperial");
-check(
-  "Rounding rule: unedited prefill still submits original kg exactly",
-  testResult === testKg,
-  `prefill="${testPrefill}", submitted ${testResult} kg (original ${testKg} kg)`
-);
+  // Test (d): Unedited prefill submits original kg (already covered above, verify once more)
+  const testKg = 72.5;
+  const testPrefill = computeRunnerWeightPrefill(testKg, "imperial", false, false);
+  const testResult = weightKgToSubmit(testPrefill, testPrefill, testKg, "imperial");
+  check(
+    "Rounding rule: unedited prefill still submits original kg exactly",
+    testResult === testKg,
+    `prefill="${testPrefill}", submitted ${testResult} kg (original ${testKg} kg)`
+  );
 
-console.log("");
+  console.log("");
 
-if (failed === 0) {
-  console.log(`✓ All ${passed} tests passed\n`);
-  process.exit(0);
-} else {
-  console.log(`✗ ${failed} of ${passed + failed} tests failed\n`);
-  process.exit(1);
-}
+  if (failed === 0) {
+    console.log(`✓ All ${passed} tests passed\n`);
+    process.exit(0);
+  } else {
+    console.log(`✗ ${failed} of ${passed + failed} tests failed\n`);
+    process.exit(1);
+  }
+})().catch(e => { 
+  console.error(e); 
+  process.exit(1); 
+});
