@@ -226,7 +226,7 @@ Pure functions are separated from queries for easy unit testing:
 import { computeE1rm, findTopSet } from "@/lib/exercise-history";
 
 // Test pure functions without DB
-const e1rm = computeE1rm(100, 8); // 106.67kg
+const e1rm = computeE1rm(100, 8); // 126.67kg (100 × (30 + 8) / 30)
 const topSet = findTopSet([
   { reps: 8, weight_kg: 100, duration_seconds: null },
   { reps: 10, weight_kg: 90, duration_seconds: null },
