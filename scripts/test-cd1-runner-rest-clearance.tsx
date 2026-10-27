@@ -174,7 +174,9 @@ console.log("1. Done button: finishSession fails - rest persistence NOT cleared"
 
   await act(async () => {
     cooldownButton.click();
-    await waitFor(() => finishAttempts > 0, { timeout: 1000 });
+    await waitFor(() => {
+      if (finishAttempts === 0) throw new Error("waiting for finishSession");
+    }, { timeout: 1000 });
   });
 
   assertEqualsCd1(finishAttempts, 1, "finishSession was called");
@@ -259,8 +261,12 @@ console.log("\n2. Done button: finishSession succeeds - rest persistence cleared
 
   await act(async () => {
     cooldownButton.click();
-    await waitFor(() => finishAttempts > 0, { timeout: 1000 });
-    await waitFor(() => !fakeStorage.data.has(restKey), { timeout: 1000 });
+    await waitFor(() => {
+      if (finishAttempts === 0) throw new Error("waiting for finishSession");
+    }, { timeout: 1000 });
+    await waitFor(() => {
+      if (fakeStorage.data.has(restKey)) throw new Error("waiting for storage clear");
+    }, { timeout: 1000 });
   });
 
   assertEqualsCd1(finishAttempts, 1, "finishSession was called");
@@ -339,7 +345,9 @@ console.log("\n3. Skip button: finishSession fails - rest persistence NOT cleare
 
   await act(async () => {
     skipButton.click();
-    await waitFor(() => finishAttempts > 0, { timeout: 1000 });
+    await waitFor(() => {
+      if (finishAttempts === 0) throw new Error("waiting for finishSession");
+    }, { timeout: 1000 });
   });
 
   assertEqualsCd1(finishAttempts, 1, "finishSession was called");
@@ -424,8 +432,12 @@ console.log("\n4. Skip button: finishSession succeeds - rest persistence cleared
 
   await act(async () => {
     skipButton.click();
-    await waitFor(() => finishAttempts > 0, { timeout: 1000 });
-    await waitFor(() => !fakeStorage.data.has(restKey), { timeout: 1000 });
+    await waitFor(() => {
+      if (finishAttempts === 0) throw new Error("waiting for finishSession");
+    }, { timeout: 1000 });
+    await waitFor(() => {
+      if (fakeStorage.data.has(restKey)) throw new Error("waiting for storage clear");
+    }, { timeout: 1000 });
   });
 
   assertEqualsCd1(finishAttempts, 1, "finishSession was called");
