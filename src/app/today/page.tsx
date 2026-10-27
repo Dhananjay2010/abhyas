@@ -179,8 +179,9 @@ export default async function TodayPage() {
   const todayIndex = isoWeekday(localToday);
   
   // Apply post-swap collision resolution via shared resolver
-  let scheduled = days?.find((d) => d.day_index === todayIndex);
-  if (program && days) {
+  const baseScheduled = days?.find((d) => d.day_index === todayIndex);
+  let scheduled = baseScheduled;
+  if (program && days && baseScheduled) {
     const todayPlan = await loadTodayPlan(
       {
         getProgramDays: async () => days,
@@ -197,7 +198,9 @@ export default async function TodayPage() {
       localToday,
       todayIndex
     );
-    scheduled = todayPlan.resolved;
+    if (todayPlan.resolved) {
+      scheduled = days.find(d => d.id === todayPlan.resolved?.id) ?? baseScheduled;
+    }
   }
 
   // Session state already loaded before wave 2, with allSessions and todaySessions

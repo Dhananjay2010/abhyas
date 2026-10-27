@@ -16,8 +16,22 @@ console.log("Test: Today plan loader with post-swap collision resolution\n");
 console.log("1. Rest-day swap collision: loader returns Upper's programDayId");
 (async () => {
   const programDays = [
-    { id: "lower-id", day_index: 2, day_type: "weights" as const, label: "Lower" },
-    { id: "upper-id", day_index: 4, day_type: "weights" as const, label: "Upper" },
+    { 
+      id: "lower-id", 
+      day_index: 2, 
+      day_type: "weights" as const, 
+      focus: null,
+      label: "Lower",
+      program_day_exercises: [],
+    },
+    { 
+      id: "upper-id", 
+      day_index: 4, 
+      day_type: "weights" as const, 
+      focus: null,
+      label: "Upper",
+      program_day_exercises: [],
+    },
   ];
   
   const deps = {
@@ -49,8 +63,22 @@ console.log("1. Rest-day swap collision: loader returns Upper's programDayId");
 console.log("\n2. No collision: loader returns scheduled day");
 (async () => {
   const programDays = [
-    { id: "lower-id", day_index: 2, day_type: "weights" as const, label: "Lower" },
-    { id: "upper-id", day_index: 4, day_type: "weights" as const, label: "Upper" },
+    { 
+      id: "lower-id", 
+      day_index: 2, 
+      day_type: "weights" as const, 
+      focus: null,
+      label: "Lower",
+      program_day_exercises: [],
+    },
+    { 
+      id: "upper-id", 
+      day_index: 4, 
+      day_type: "weights" as const, 
+      focus: null,
+      label: "Upper",
+      program_day_exercises: [],
+    },
   ];
   
   const deps = {

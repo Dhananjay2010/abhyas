@@ -10,7 +10,21 @@ type ProgramDay = {
   id: string;
   day_index: number;
   day_type: Database["public"]["Enums"]["day_type"];
+  focus: string | null;
   label: string | null;
+  program_day_exercises: Array<{
+    order_index: number;
+    target_sets: number | null;
+    target_reps_min: number | null;
+    target_reps_max: number | null;
+    rest_seconds: number | null;
+    exercises: {
+      name: string;
+      cue: string | null;
+      movement_pattern: string | null;
+      metric: string | null;
+    } | null;
+  }>;
 };
 
 export type LoadTodayPlanDeps = {
