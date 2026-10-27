@@ -707,9 +707,7 @@ export function evaluateProgression(input: {
           next = bells[targetIndex];
         }
       } else {
-        // Standard equipment: add increment then round to grid, ensuring we never go below lifted weight
-        const gridStep = equipmentGridStep(equipmentIds, 'kg');
-        
+        // Standard equipment: add increment then round to grid if equipment is loadable
         const step = isBodyweightWithAddedWeight ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";
         
@@ -739,12 +737,21 @@ export function evaluateProgression(input: {
         // Add jump to current weight
         const rawNext = from + jump;
         
-        // Round to equipment grid, but ensure we never suggest below the lifted weight
-        const ceilToGrid = Math.ceil(rawNext / gridStep) * gridStep;
-        const floorToGrid = Math.floor(rawNext / gridStep) * gridStep;
+        // Check if equipment is loadable - only round to grid for loadable equipment
+        const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
         
-        // Use ceil if it's at or above from, otherwise use the raw value (shouldn't happen with positive jump)
-        next = ceilToGrid >= from ? ceilToGrid : Math.max(floorToGrid, from);
+        if (hasLoadable) {
+          // Loadable equipment: round to equipment grid, ensuring we never suggest below lifted weight
+          const gridStep = equipmentGridStep(equipmentIds, 'kg');
+          const ceilToGrid = Math.ceil(rawNext / gridStep) * gridStep;
+          const floorToGrid = Math.floor(rawNext / gridStep) * gridStep;
+          
+          // Use ceil if it's at or above from, otherwise use floor but ensure >= from
+          next = ceilToGrid >= from ? ceilToGrid : Math.max(floorToGrid, from);
+        } else {
+          // Non-loadable equipment (e.g., dip_bars): use raw calculated value, but ensure >= from
+          next = Math.max(rawNext, from);
+        }
       }
     } else {
       // No equipment info: use standard increment, doubled when easy (preserve old behavior)
