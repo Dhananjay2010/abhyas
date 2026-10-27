@@ -84,7 +84,6 @@ async function testWithPendingSets() {
 
   let signOutCalled = false;
   let syncCalled = false;
-  let signOutAnywayCalled = false;
 
   await act(async () => {
     render(
@@ -96,7 +95,7 @@ async function testWithPendingSets() {
         showWarning={true}
         handleSignOut={() => { signOutCalled = true; }}
         handleSyncNow={() => { syncCalled = true; }}
-        handleSignOutAnyway={() => { signOutAnywayCalled = true; }}
+        handleSignOutAnyway={() => {}}
       />
     );
   });

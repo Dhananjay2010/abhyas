@@ -14,7 +14,7 @@ import { createRoot } from "react-dom/client";
 import { act } from "react-dom/test-utils";
 
 import { SessionRunner } from "../src/app/session/[id]/session-runner";
-import type { SessionActions } from "../src/app/session/[id]/session-runner";
+import type { SessionActions, RunnerTimer } from "../src/app/session/[id]/session-runner";
 
 let exitCode = 0;
 
@@ -29,28 +29,89 @@ function assert(condition: boolean, message: string) {
 
 const FIXED_TIME = 1700000000000;
 
+function setInputValue(input: HTMLInputElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  if (!descriptor || !descriptor.set) {
+    throw new Error("HTMLInputElement.value setter not available");
+  }
+  descriptor.set.call(input, value);
+}
+
+function fillRepsInput(container: HTMLElement, value: string) {
+  const inputs = Array.from(container.querySelectorAll('input[type="number"]'));
+  const repsInput = inputs[0];
+  if (!(repsInput instanceof HTMLInputElement)) {
+    throw new Error("Expected first input to be HTMLInputElement");
+  }
+  setInputValue(repsInput, value);
+  repsInput.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function createFakeTimer() {
+  const callbacks: Array<() => void> = [];
+  const realHandles: Array<ReturnType<typeof globalThis.setTimeout>> = [];
+  const timer: RunnerTimer = {
+    setTimeout: (callback: () => void, ms: number) => {
+      void ms;
+      const handle = globalThis.setTimeout(() => {}, 999999999);
+      realHandles.push(handle);
+      callbacks.push(callback);
+      return handle;
+    },
+    clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => {
+      const index = realHandles.indexOf(id);
+      if (index >= 0) {
+        globalThis.clearTimeout(id);
+        callbacks[index] = () => {};
+      }
+    },
+  };
+  return {
+    timer,
+    advance: () => {
+      realHandles.forEach(h => globalThis.clearTimeout(h));
+      callbacks.forEach(cb => cb());
+      callbacks.length = 0;
+      realHandles.length = 0;
+    },
+  };
+}
+
 function baseExercise(id: string, name: string) {
   return {
     id,
-    displayedExerciseId: id,
+    exerciseId: `exercise-${id}`,
     name,
+    cue: null,
+    metric: "reps" as const,
+    primaryMuscles: [],
     plannedSets: 3,
-    targetReps: { min: 8, max: 12 },
+    plannedRepsMin: 8,
+    plannedRepsMax: 12,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 90,
     workingWeightKg: 60,
+    suggestedWeightKg: 60,
+    status: "pending" as const,
+    feel: null,
     sets: [],
-    slug: "bench_press",
-    bodyweight: false,
-    durationSeconds: null,
-    sortOrder: 1,
+    isBodyweight: false,
   };
 }
 
 const defaultActions = {
-  finishExercise: async () => ({ ok: true }),
-  finishSession: async () => ({ ok: true }),
+  markWarmupDone: async () => ({ ok: true }),
   logSet: async () => ({ ok: true }),
-  deleteSet: async () => true,
-  swapExercise: async () => ({ ok: true }),
+  deleteSet: async () => ({ ok: true }),
+  finishExercise: async () => ({ ok: true, data: null }),
+  finishSession: async () => ({ ok: true }),
+  abandonSession: async () => ({ ok: true }),
+  findAlternatives: async () => ({ ok: true, data: [] }),
+  swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
+  refreshAfterSession: async () => ({ ok: true }),
+  planDay: async () => ({ ok: true }),
+  getSessionSummary: async () => ({ ok: true, data: [] }),
 } as const;
 
 async function main() {
@@ -59,6 +120,8 @@ async function main() {
   await (async () => {
   const container = document.createElement("div");
   document.body.appendChild(container);
+  
+  const fakeTimer = createFakeTimer();
 
   const offlineActions: SessionActions = {
     ...defaultActions,
@@ -92,8 +155,19 @@ async function main() {
         },
         actions: offlineActions,
         now: () => FIXED_TIME,
+        timer: fakeTimer.timer,
       })
     );
+  });
+  
+  // Advance timer to mark component as synced
+  await act(async () => {
+    fakeTimer.advance();
+  });
+  
+  // Fill in reps
+  await act(async () => {
+    fillRepsInput(container, "10");
   });
 
   // Trigger log set by finding and clicking the log button
@@ -106,9 +180,9 @@ async function main() {
     }
   });
 
-  // Wait for error to appear
+  // Advance timer for any pending state updates
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    fakeTimer.advance();
   });
 
   const text = container.textContent || "";
@@ -127,6 +201,8 @@ console.log("\n2. 500 error shows friendly server error message");
 await (async () => {
   const container = document.createElement("div");
   document.body.appendChild(container);
+  
+  const fakeTimer = createFakeTimer();
 
   const serverErrorActions: SessionActions = {
     ...defaultActions,
@@ -160,8 +236,19 @@ await (async () => {
         },
         actions: serverErrorActions,
         now: () => FIXED_TIME,
+        timer: fakeTimer.timer,
       })
     );
+  });
+  
+  // Advance timer to mark component as synced
+  await act(async () => {
+    fakeTimer.advance();
+  });
+  
+  // Fill in reps
+  await act(async () => {
+    fillRepsInput(container, "10");
   });
 
   // Trigger log set
@@ -174,9 +261,9 @@ await (async () => {
     }
   });
 
-  // Wait for error to appear
+  // Advance timer for any pending state updates
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    fakeTimer.advance();
   });
 
   const text = container.textContent || "";
@@ -195,6 +282,8 @@ console.log("\n3. Error clears on next successful save");
 await (async () => {
   const container = document.createElement("div");
   document.body.appendChild(container);
+  
+  const fakeTimer = createFakeTimer();
 
   let shouldFail = true;
   const recoveringActions: SessionActions = {
@@ -233,8 +322,19 @@ await (async () => {
         },
         actions: recoveringActions,
         now: () => FIXED_TIME,
+        timer: fakeTimer.timer,
       })
     );
+  });
+  
+  // Advance timer to mark component as synced
+  await act(async () => {
+    fakeTimer.advance();
+  });
+  
+  // Fill in reps
+  await act(async () => {
+    fillRepsInput(container, "10");
   });
 
   // First attempt: fails
@@ -248,11 +348,16 @@ await (async () => {
   });
 
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    fakeTimer.advance();
   });
 
   let text = container.textContent || "";
   assert(text.includes("Saved on this device"), "Error shows after first failure");
+
+  // Fill in reps again
+  await act(async () => {
+    fillRepsInput(container, "10");
+  });
 
   // Second attempt: succeeds
   await act(async () => {
@@ -265,7 +370,7 @@ await (async () => {
   });
 
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    fakeTimer.advance();
   });
 
   text = container.textContent || "";

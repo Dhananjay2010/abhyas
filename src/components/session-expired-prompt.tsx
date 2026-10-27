@@ -21,7 +21,7 @@ export function SessionExpiredPrompt() {
       data-testid="session-expired-prompt"
       className="rounded-xl border border-accent bg-accent/10 p-4 text-accent"
     >
-      <p className="text-sm font-medium">Your session expired. Sign in again</p>
+      <p className="text-sm font-medium">Your session has expired, please sign in again</p>
       <Link
         href={href}
         className="mt-3 inline-flex min-h-[44px] items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg transition-opacity hover:opacity-90"

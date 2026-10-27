@@ -140,7 +140,6 @@ async function testSignedOutRendersNothing() {
   });
 
   // Should render nothing (returns null when !userId)
-  const container = document.body;
   const elements = screen.queryAllByText(/couldn't be saved|discard/i);
   assert(elements.length === 0, "Provider renders nothing when signed out");
 

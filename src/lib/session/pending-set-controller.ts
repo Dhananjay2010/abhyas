@@ -8,6 +8,7 @@
 
 import type { Result } from "@/app/session/actions";
 import { isSessionExpired } from "@/lib/auth/session-expired";
+import { runnerErrorMessage } from "./runner-error-message";
 import {
   isDuplicateError,
   loadPendingSets,
@@ -186,7 +187,7 @@ export function createPendingSetController(config: {
         return { status: "expired" };
       }
 
-      const message = err instanceof Error ? err.message : "Network error";
+      const message = runnerErrorMessage(err);
       setState({ error: message });
       return { status: "failed", error: message };
     }
