@@ -569,10 +569,21 @@ async function runTests() {
     if (data && data.length === 1) {
       const row = data[0];
       const keys = Object.keys(row).sort();
-      const expectedKeys = ["name", "slug", "timezone"].sort();
-      // Assert exact column set: name, slug, timezone (no private fields like id or created_at)
+      // After migration 040, get_gym_brand returns brand fields
+      // Migration 037: name, slug, timezone
+      // Migration 040: adds display_name, logo_url, primary_color, accent_color
+      const expectedKeys = [
+        "name",
+        "slug",
+        "timezone",
+        "display_name",
+        "logo_url",
+        "primary_color",
+        "accent_color",
+      ].sort();
+      // Assert exact column set (no private fields like id or created_at)
       check(
-        "Exact column set: name, slug, timezone",
+        "Exact column set: name, slug, timezone, display_name, logo_url, primary_color, accent_color",
         keys.length === expectedKeys.length &&
         keys.every((k, i) => k === expectedKeys[i]),
         `got: [${keys.join(", ")}]`,
