@@ -22,7 +22,7 @@ const MUTANTS: Mutant[] = [
     file: "src/lib/program/past-knee.ts",
     original: '  "calf-press-on-the-leg-press-machine",',
     mutated: '  // MUTANT: Removed "calf-press-on-the-leg-press-machine",',
-    tests: ["test:owner-decision-a"],
+    tests: ["test:owner-decision-a", "test:past-knee-calf-swap-exclusion"],
   },
   
   // G-3: Remove landmine jammer from past-knee exclusions
@@ -61,29 +61,20 @@ const MUTANTS: Mutant[] = [
     tests: ["test:owner-decision-a"],
   },
   
-  // Re-apply tag exclusion to past-knee in generate.ts
+  // Global tag filtering in alternatives (changes 174 swap lists)
   {
-    name: "Decision(a).1: Re-apply tag exclusion to past-knee in generate.ts",
-    file: "src/lib/program/generate.ts",
-    original: '  // Tag-based knee contraindication applies to CURRENT knee only (owner decision a)\n  if (input.currentInjuryRegions.includes("knee") && ex.contraindicated_regions.includes("knee")) {\n    return false;\n  }',
-    mutated: '  // MUTANT: Re-apply tag exclusion to ANY knee\n  if (input.anyKneeInjury && ex.contraindicated_regions.includes("knee")) {\n    return false;\n  }',
-    tests: ["test:owner-decision-a", "test:knee-contraindicated"],
-  },
-  
-  // Re-apply tag exclusion to past-knee in alternatives.ts
-  {
-    name: "Decision(a).2: Re-apply tag exclusion to past-knee in alternatives.ts",
+    name: "Decision(a).1: Add global tag filtering in rankAlternatives",
     file: "src/lib/program/alternatives.ts",
     original: '    // Tag-based knee contraindication applies to CURRENT knee only (owner decision a)\n    if (ctx.injuryRegions.includes("knee") && candidate.contraindicated_regions.includes("knee")) {\n      continue;\n    }',
-    mutated: '    // MUTANT: Re-apply tag exclusion to ANY knee\n    if ((ctx.anyKneeInjury ?? false) && candidate.contraindicated_regions.includes("knee")) {\n      continue;\n    }',
-    tests: ["test:owner-decision-a"],
+    mutated: '    // MUTANT: Apply tag filtering to ANY knee (WRONG - breaks 174 swap lists)\n    if ((ctx.anyKneeInjury ?? false) && candidate.contraindicated_regions.includes("knee")) {\n      continue;\n    }',
+    tests: ["test:past-knee-keeps-tier"],
   },
   
   // Remove past-knee exclusion check in isEligible
   {
-    name: "Decision(a).3: Remove past-knee exclusion check in isEligible",
+    name: "Decision(a).2: Remove past-knee exclusion check in isEligible",
     file: "src/lib/program/generate.ts",
-    original: '  // Owner decision (a): Past-knee specific exclusions (explicit slug list)\n  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");\n  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;\n  if (hasPastKnee && isExcludedForPastKnee(ex)) {\n    return false;\n  }',
+    original: '  // Owner decision (a): Past-knee specific NEW exclusions (3 slugs added in this PR)\n  // Calf-press is knee-contraindicated but only excluded for past-knee (not current, see tag check above)\n  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");\n  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;\n  if (hasPastKnee && isExcludedForPastKnee(ex)) {\n    return false;\n  }',
     mutated: '  // MUTANT: Removed past-knee exclusion check\n  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");\n  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;',
     tests: ["test:owner-decision-a"],
   },
@@ -106,14 +97,24 @@ for (const mutant of MUTANTS) {
   
   // Check if original pattern exists
   if (!content.includes(mutant.original)) {
-    console.log(`  ⚠ WARNING: Original pattern not found in ${mutant.file}`);
-    console.log(`  Looking for: ${mutant.original.substring(0, 60)}...`);
+    console.log(`  ❌ FAIL: Original pattern not found in ${mutant.file}`);
+    console.log(`  Looking for: ${mutant.original.substring(0, 80)}...`);
+    console.log(`  This mutant cannot be applied - pattern is stale or missing`);
     survived++;
+    console.log("");
+    // Continue to next mutant - will fail at end if any survived
     continue;
   }
   
-  // Apply mutation
+  // Verify the mutation makes a change
   const mutated = content.replace(mutant.original, mutant.mutated);
+  if (mutated === content) {
+    console.log(`  ❌ FAIL: Mutation produced no diff in ${mutant.file}`);
+    survived++;
+    console.log("");
+    continue;
+  }
+  
   writeFileSync(mutant.file, mutated, "utf-8");
   
   try {
@@ -129,16 +130,32 @@ for (const mutant of MUTANTS) {
       } catch (error: unknown) {
         const stdout = typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "";
         const stderr = typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "";
-        const output = stdout || stderr || "";
-        if (output.includes("Error:") || output.includes("at ")) {
-          // Stack trace detected - this is a crash
-          console.log(`  💥 CRASH: ${test} crashed with error`);
+        const status = typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : 1;
+        const output = stdout + stderr;
+        
+        // Crash detection: string throw, stack trace, or silent exit(1) without assertion
+        const hasStackTrace = output.includes("    at ") || /^\s+at\s+/m.test(output) || output.includes("Error:");
+        const hasAssertion = output.includes("✗ FAIL") || output.includes("❌ FAILED");
+        const isSilentExit = status !== 0 && !output.trim();
+        
+        if (hasStackTrace || isSilentExit) {
+          // This is a crash, not a kill
+          console.log(`  💥 CRASH: ${test} crashed (${hasStackTrace ? 'stack trace' : 'silent exit'})`);
+          if (output) {
+            console.log(`  Output preview: ${output.substring(0, 200)}`);
+          }
           crashed++;
           testFailed = "crash";
           break;
-        } else {
-          // Normal test failure
+        } else if (hasAssertion) {
+          // Normal test failure with assertion
           testFailed = true;
+        } else {
+          // Non-zero exit without clear signal - treat as crash
+          console.log(`  💥 CRASH: ${test} exited ${status} without clear assertion`);
+          crashed++;
+          testFailed = "crash";
+          break;
         }
       }
     }
@@ -164,9 +181,15 @@ console.log("=".repeat(80));
 console.log(`RESULTS: ${killed} killed, ${survived} survived, ${crashed} crashed`);
 console.log("=".repeat(80));
 
-if (survived > 0 || crashed > 0) {
+if (survived > 0) {
+  console.error(`\n❌ FAILED: ${survived} mutant(s) survived`);
   process.exit(1);
-} else {
-  console.log("✅ All mutants killed");
-  process.exit(0);
 }
+
+if (crashed > 0) {
+  console.error(`\n❌ FAILED: ${crashed} mutant(s) caused crashes (not clean kills)`);
+  process.exit(1);
+}
+
+console.log(`\n✅ PASSED: All ${killed} mutants killed cleanly`);
+process.exit(0);

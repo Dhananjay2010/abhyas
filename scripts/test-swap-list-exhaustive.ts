@@ -129,13 +129,14 @@ async function main() {
         const added = [...offered].filter((id) => !mainSet.has(id));
         const removed = [...mainSet].filter((id) => !offered.has(id));
         
-        // Allow specific replacements caused by G-3 (landmine jammer exclusion) for current-knee expert full gym
-        // When landmine-linear-jammer and single-arm-linear-jammer are excluded, standing-military-press and 
-        // standing-front-barbell-raise-over-head become available as vertical press alternatives
-        const ALLOWED_G3_REPLACEMENTS = new Set([
+        // Allow specific replacements for G-3 (landmine jammer exclusion) ONLY in "Current knee, expert, full gym" context
+        // When jammers are excluded, standing-military-press and standing-front-barbell-raise-over-head 
+        // become available as vertical press alternatives
+        const isG3Context = name === "Current knee, expert, full gym" && current.movement_pattern === "vertical_press";
+        const ALLOWED_G3_REPLACEMENTS = isG3Context ? new Set([
           "standing-military-press",
           "standing-front-barbell-raise-over-head"
-        ]);
+        ]) : new Set<string>();
         
         const unexpectedAdded = added.filter((id) => {
           const slug = byId.get(id)?.slug;

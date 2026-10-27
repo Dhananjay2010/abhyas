@@ -192,7 +192,9 @@ if (overheadPress) {
   }
 }
 
-console.log(`  ✓ PASS: None of the 3 excluded slugs appear in past-knee swaps`);
+if (violations === 0) {
+  console.log(`  ✓ PASS: None of the 3 excluded slugs appear in past-knee swaps`);
+}
 
 console.log("");
 

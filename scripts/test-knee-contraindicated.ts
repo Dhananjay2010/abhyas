@@ -207,7 +207,6 @@ if (totalViolations > 0) {
   process.exit(1);
 } else {
   console.log("\n✅ PASSED: No violations");
-  console.log("This test MUST fail on main c3662dce where past-knee users");
-  console.log("also exclude knee-contraindicated exercises");
+  console.log("G-3 jammer exclusion working correctly (new in this PR)");
   process.exit(0);
 }
