@@ -91,7 +91,7 @@ console.log("Test 1: Metric 82.1 kg prefills and submits exactly");
   );
 
   // Find weight input
-  const weightInput = r.container.querySelector<HTMLInputElement>("input[type='text'][placeholder*='kg']");
+  const weightInput = r.container.querySelector<HTMLInputElement>("input[type='number']");
   
   check("Metric: Weight input found", weightInput !== null);
   if (!weightInput) {
@@ -157,7 +157,7 @@ console.log("Test 1: Metric 82.1 kg prefills and submits exactly");
           })
         );
 
-        const weightInput2 = r2.container.querySelector<HTMLInputElement>("input[type='text'][placeholder*='lb']");
+        const weightInput2 = r2.container.querySelector<HTMLInputElement>("input[type='number']");
         
         check("Imperial: Weight input found", weightInput2 !== null);
         if (!weightInput2) {
