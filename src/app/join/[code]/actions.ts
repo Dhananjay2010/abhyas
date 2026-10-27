@@ -29,7 +29,7 @@ function mapDbErrorToMessage(error: { code?: string; message?: string }): string
   return "An error occurred. Please try again";
 }
 
-export async function redeemJoinCode(code: string): Promise<RedeemCodeResult> {
+export async function redeemJoinCode(code: string, gymName?: string): Promise<RedeemCodeResult> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
@@ -49,7 +49,7 @@ export async function redeemJoinCode(code: string): Promise<RedeemCodeResult> {
   }
   
   if (!result.ok) {
-    const errorMessage = mapRedeemResultToMessage(result);
+    const errorMessage = mapRedeemResultToMessage(result, gymName);
     return { ok: false, error: errorMessage };
   }
 

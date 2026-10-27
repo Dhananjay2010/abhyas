@@ -75,11 +75,12 @@ async function runTests() {
 
   // Create test gym
   const gymId = randomUUID();
-  await adminClient.from("gyms").insert({
+  const { error: gymError } = await adminClient.from("gyms").insert({
     id: gymId,
     slug: `test-gym-${timestamp}`,
     name: "Test Gym",
   });
+  if (gymError) throw new Error(`Failed to insert test gym: ${gymError.message}`);
 
   // Add roles
   // Note: The member user is already active in the default gym (signup trigger),
@@ -255,11 +256,12 @@ async function runTests() {
   console.log("TEST: Staff redeeming own gym's member code stays staff");
   const staffOwnGym = await createTestUser("staff-own");
   const gymStaff = randomUUID();
-  await adminClient.from("gyms").insert({
+  const { error: staffGymError } = await adminClient.from("gyms").insert({
     id: gymStaff,
     slug: `staff-gym-${timestamp}`,
     name: "Staff Gym",
   });
+  if (staffGymError) throw new Error(`Failed to insert staff gym: ${staffGymError.message}`);
   await adminClient.from("gym_memberships").insert([
     { gym_id: gymStaff, user_id: owner.userId, role: "owner", status: "active" },
     { gym_id: gymStaff, user_id: staffOwnGym.userId, role: "staff", status: "active" },
@@ -315,11 +317,12 @@ async function runTests() {
   const staffOwnGym2 = await createTestUser("staff-owngym2");
   const memberOwnGym = await createTestUser("member-owngym");
   
-  await adminClient.from("gyms").insert({
+  const { error: ownGymError } = await adminClient.from("gyms").insert({
     id: ownGymTest,
     slug: `owngym-test-${timestamp}`,
     name: "Own Gym Test",
   });
+  if (ownGymError) throw new Error(`Failed to insert own gym test: ${ownGymError.message}`);
   
   // Deactivate default memberships for staff and member
   if (defaultGym) {
