@@ -165,7 +165,8 @@ async function main() {
     // Timezone not merged at runtime (handled by gym-brand.ts getGymBrand)
     check("Primary color merged", result.colors.accent === '#3b82f6');
     check("Accent color merged", result.colors.accentHover === '#2563eb');
-    check("accentFg merged", result.colors.accentFg === '#ffffff');
+    // accentFg is computed via accessibleTextColor on the (potentially adjusted) accent
+    check("accentFg merged", result.colors.accentFg === '#000000');
     
     // Verify resolve_gym_by_host was called
     const resolveCall = stub.calls.find(c => c.url.includes('/rpc/resolve_gym_by_host'));
