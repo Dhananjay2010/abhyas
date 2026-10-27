@@ -17,6 +17,7 @@ import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
 import { planDayCore, type PlanDayClient } from "@/lib/session/plan-day-core";
 import { localDateString } from "@/lib/dates";
+import { resolvePlanTargetDate } from "@/lib/session/resolve-plan-target-date";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
@@ -615,30 +616,27 @@ export async function planDay(input: {
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const today = localDateString(timezone);
 
-  let targetDate: string;
+  // Resolve target date (session.local_date + 1 or direct localDate)
+  const targetResult = await resolvePlanTargetDate(
+    {
+      async fetchSessionLocalDate(sessionId, userId) {
+        const { data, error } = await supabase
+          .from("sessions")
+          .select("local_date")
+          .eq("id", sessionId)
+          .eq("user_id", userId)
+          .maybeSingle();
+        return { localDate: data?.local_date ?? null, error: error?.message ?? null };
+      },
+    },
+    { userId: user.id, sessionId: input.sessionId, localDate: input.localDate }
+  );
 
-  if (input.sessionId) {
-    // Read the session to get its local_date
-    const { data: session } = await supabase
-      .from("sessions")
-      .select("local_date, user_id")
-      .eq("id", input.sessionId)
-      .eq("user_id", user.id)
-      .single();
-
-    if (!session) {
-      return { ok: false, error: "Could not load session." };
-    }
-
-    // Compute target date = session's local_date + 1 day
-    const { addDays } = await import("@/lib/dates");
-    targetDate = addDays(session.local_date, 1);
-  } else if (input.localDate) {
-    // Direct date planning (Today page)
-    targetDate = input.localDate;
-  } else {
-    return { ok: false, error: "Either sessionId or localDate is required." };
+  if (!targetResult.ok) {
+    return { ok: false, error: targetResult.error };
   }
+
+  const targetDate = targetResult.data;
 
   // Create client adapter
   const client: PlanDayClient = {
@@ -699,12 +697,17 @@ export async function planDay(input: {
     plan: input.plan,
   });
 
-  if (!result.ok && result.error && (result.error.includes("duplicate key") || result.error.includes("constraint"))) {
-    return { ok: false, error: "Couldn't save your choice. Please try again." };
-  }
-
   if (!result.ok) {
-    return { ok: false, error: result.error || "Couldn't save. Please try again." };
+    // Map all database/system errors to friendly copy
+    // Log raw error server-side if needed (repo has no logger pattern yet)
+    const friendlyError = result.error?.includes("already done") || result.error?.includes("already started")
+      ? result.error
+      : result.error?.includes("already been and gone")
+      ? result.error
+      : result.error?.includes("No active program")
+      ? result.error
+      : "Couldn't save your choice. Please try again.";
+    return { ok: false, error: friendlyError };
   }
 
   revalidateTrainingData();

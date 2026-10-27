@@ -79,7 +79,9 @@ run_mutant() {
 
 COMPONENT=src/components/day-plan-prompt.tsx
 ACTION=src/app/session/actions.ts
+RESOLVE=src/lib/session/resolve-plan-target-date.ts
 T=test:day-plan-rest-prompt
+T_RESOLVE=test:resolve-plan-target-date
 
 echo "D7 Rest-Day Prompt Mutation Testing"
 echo "──────────────────────────────────────────────────────────"
@@ -341,13 +343,11 @@ run_mutant "R11. Training choice sends wrong programDayId (rest branch)" "$COMPO
             )}
             {days.some' "$T"
 
-run_mutant "M1. Server uses current date instead of session.local_date + 1" "$ACTION" \
-  '    // Compute target date = session'\''s local_date + 1 day
-    const { addDays } = await import("@/lib/dates");
-    targetDate = addDays(session.local_date, 1);' \
-  '    // Compute target date = session'\''s local_date + 1 day
-    const { addDays } = await import("@/lib/dates");
-    targetDate = today;' "$T"
+run_mutant "M1. Server uses current date instead of session.local_date + 1" "$RESOLVE" \
+  '    const targetDate = addDays(result.localDate, 1);
+    return { ok: true, data: targetDate };' \
+  '    const targetDate = result.localDate;
+    return { ok: true, data: targetDate };' "$T_RESOLVE"
 
 run_mutant "Q1. Yoga not added when already in block" "$COMPONENT" \
   '            {days.some((d) => d.dayType === "yoga") ? null : (
