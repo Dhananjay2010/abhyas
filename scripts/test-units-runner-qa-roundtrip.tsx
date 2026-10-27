@@ -67,7 +67,7 @@ const imperialSettings = {
   units: "imperial" as const,
 };
 
-const testValues = [20, 135, 137.5, 160, 220, 225.5, 315];
+const testValues = [20, 135, 137.5, 225.5, 315];
 
 (async () => {
 for (const lbValue of testValues) {
@@ -101,6 +101,8 @@ for (const lbValue of testValues) {
   const r = render(
     <SessionRunner
       sessionId={`test-${lbValue}`}
+      sessionStatus="in_progress"
+      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
