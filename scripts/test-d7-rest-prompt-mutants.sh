@@ -409,6 +409,3 @@ if [ $SURVIVED -gt 0 ] || [ $SKIPPED -gt 0 ]; then
   exit 1
 fi
 echo "✅ PASSED: All mutants killed"
-
-  return error;
-}' "$T_SERVER"

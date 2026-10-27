@@ -108,11 +108,12 @@ export function DayPlanPrompt({
     );
   }
 
-  const isRestDay = false;
+  const isRestDay = plannedLabel.toLowerCase() === "rest";
   const isTomorrowLabel = dayLabel === "Tomorrow";
   const showNewRestUI = isRestDay && isTomorrowLabel;
 
   if (showNewRestUI) {
+    // For rest branch, show days in program order (no sorting needed - no nextUp prop)
     return (
       <section className="mt-8">
         <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">{heading}</h2>
