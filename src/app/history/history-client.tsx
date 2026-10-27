@@ -199,7 +199,8 @@ export function HistoryClient({
               }
 
               // Item 9: Duration - never show "0 min" for NULL duration
-              const durationLabel = formatDurationMinutes(item.durationSeconds);
+              // "—" only for finished strength sessions (completed or ended early)
+              const durationLabel = formatDurationMinutes(item.durationSeconds, item.status, item.actualType);
 
               // Build label for the session
               let label = "";
@@ -245,8 +246,10 @@ export function HistoryClient({
                 if (durationLabel) details.push(durationLabel);
                 
                 // Show set count unless it's zero-set or already shown in "Ended early"
+                // L-3: in-progress rows always show set count even if endedEarly is true
                 const isZeroSetStrength = (item.actualType === "weights" || item.actualType === "bodyweight" || item.actualType === null) && item.setCount === 0;
-                if (!item.endedEarly && !isZeroSetStrength && item.setCount > 0) {
+                const showSetCount = (item.status === "in_progress" || !item.endedEarly) && !isZeroSetStrength && item.setCount > 0;
+                if (showSetCount) {
                   details.push(pluralize(item.setCount, "set"));
                 }
                 if (item.topSetWeight) {

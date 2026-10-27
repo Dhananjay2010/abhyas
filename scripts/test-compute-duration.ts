@@ -71,9 +71,9 @@ test("formatDurationMinutes shows <1 min for very short", () => {
   assertEqual(result, "<1 min");
 });
 
-test("formatDurationMinutes returns null for NULL", () => {
+test("formatDurationMinutes returns null for NULL without metadata (backward compat)", () => {
   const result = formatDurationMinutes(null);
-  assertEqual(result, null, "Should return null for NULL duration");
+  assertEqual(result, null, "Should return null for NULL duration when status/type not provided");
 });
 
 test("formatDurationMinutes returns null for 0 (not '0 min')", () => {

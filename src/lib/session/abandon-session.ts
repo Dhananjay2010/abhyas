@@ -1,3 +1,9 @@
+import type { AbandonSessionDeps } from "./abandon-session-deps";
+import { resolveStaleFinishExtended } from "./stale-duration";
+import { isStaleSession } from "./is-stale-session";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { extractLastSetMetadata } from "./last-set-metadata";
+
 export type SessionSet = {
   id: string;
   is_warmup_set: boolean;
@@ -17,18 +23,11 @@ export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string };
 
-// Minimal Supabase client interface
-export interface SupabaseClient {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  from: (table: string) => any;
-}
-
 /**
  * Decide whether a session being abandoned early should count as completed or skipped.
  *
- * Product rule: If the user logged at least one working set, the session counts
- * as completed (not skipped). Only a session with no working sets at all is marked skipped.
- * Warm-up sets don't count as training.
+ * The rule: if the user logged at least one working set, the session counts
+ * as completed. Only a session with no working sets at all is marked skipped.
  */
 export function decideAbandonStatus(
   exercises: SessionExercise[],
@@ -42,7 +41,7 @@ export function decideAbandonStatus(
 }
 
 /**
- * Core idempotent session abandonment logic.
+ * Core idempotent session abandon logic.
  *
  * Extracted from the server action for testability. Only the first call that
  * transitions from in_progress to completed/skipped applies the outcome. Concurrent
@@ -55,33 +54,94 @@ export function decideAbandonStatus(
  * Alternative would be a new status like "partial" that's resumable but counts.
  */
 export async function abandonSessionCore(
-  supabase: SupabaseClient,
+  deps: AbandonSessionDeps,
   sessionId: string,
   elapsedSeconds: number,
-): Promise<Result> {
+): Promise<Result<{ status: "completed" | "skipped" }>> {
+  // Load session metadata for stale detection
+  const { data: sessionMeta, error: metaError } = await deps.loadSessionMetadata(sessionId);
+  if (metaError) return { ok: false, error: metaError };
+  if (!sessionMeta) return { ok: false, error: "Session not found" };
+
+  const startedAt = sessionMeta.started_at;
+  const userId = sessionMeta.user_id;
+
+  // Load profile timezone
+  const { data: timezoneData, error: timezoneError } = await deps.loadTimezone(userId);
+  if (timezoneError) return { ok: false, error: timezoneError };
+
+  const timezone = resolveTimezoneWithProfile(timezoneData?.timezone);
+
   // Check if any working sets were logged
-  const { data: exercises } = await supabase
-    .from("session_exercises")
-    .select("session_sets(id, is_warmup_set)")
-    .eq("session_id", sessionId);
+  const { data: exercises, error: readError } = await deps.loadExercises(sessionId);
+
+  if (readError) return { ok: false, error: readError };
 
   const status = decideAbandonStatus(exercises ?? []);
 
-  // Clamp duration to sane range: 0 to 6 hours
-  const clampedDuration = Math.max(0, Math.min(21600, Math.round(elapsedSeconds)));
+  const now = deps.now?.() ?? new Date().toISOString();
+
+  // Check if session is stale (null or invalid timestamps are treated as stale)
+  const stale = !startedAt || isStaleSession({
+    startedAt,
+    now,
+    timezone,
+  });
+
+  let durationSeconds: number | null;
+  let completedAt: string;
+
+  if (stale) {
+    // Load exercises with sets for stale calculation
+    const { data: exercisesWithSets, error: setsError} = await deps.loadExercisesWithSets(sessionId);
+    if (setsError) return { ok: false, error: setsError };
+
+    // Extract last set metadata using shared helper
+    const { workingSetCount, lastSetCompletedAt, lastSetRestSeconds } = extractLastSetMetadata(exercisesWithSets ?? []);
+
+    const staleFinish = resolveStaleFinishExtended({
+      startedAt,
+      lastSetCompletedAt,
+      workingSetCount,
+      restSeconds: lastSetRestSeconds,
+    });
+
+    durationSeconds = staleFinish.durationSeconds;
+    completedAt = staleFinish.endedAt ?? now;
+  } else {
+    // Non-stale: use passed elapsed time and now
+    durationSeconds = elapsedSeconds;
+    completedAt = now;
+  }
+
+  // Clamp duration to sane range: 0 to 6 hours, or keep null for invalid timestamps
+  const clampedDuration = durationSeconds === null
+    ? null
+    : Math.max(0, Math.min(21600, Math.round(durationSeconds)));
 
   // Safety: Only update if status is 'in_progress' to prevent double-accumulation on retry.
-  // The client's elapsed time is cumulative (wall clock from started_at).
-  const { error } = await supabase
-    .from("sessions")
-    .update({
-      status,
-      completed_at: status === "completed" ? new Date().toISOString() : null,
-      duration_seconds: clampedDuration,
-    })
-    .eq("id", sessionId)
-    .eq("status", "in_progress"); // Only abandon once
+  const { error, updatedCount } = await deps.updateSession(sessionId, {
+    status,
+    completed_at: status === "completed" ? completedAt : null,
+    duration_seconds: clampedDuration,
+  });
 
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  if (error) return { ok: false, error };
+
+  // If 0 rows were updated, the session was already finished - re-read the actual status
+  if (updatedCount === 0) {
+    const { data: statusData, error: rereadError } = await deps.loadSessionStatus(sessionId);
+
+    if (rereadError) return { ok: false, error: rereadError };
+    if (!statusData) return { ok: false, error: "Session not found on re-read" };
+
+    // The session should be completed or skipped (not in_progress) since update matched 0 rows
+    if (statusData.status === "in_progress") {
+      return { ok: false, error: "Session still in_progress after retry" };
+    }
+
+    return { ok: true, data: { status: statusData.status } };
+  }
+
+  return { ok: true, data: { status } };
 }

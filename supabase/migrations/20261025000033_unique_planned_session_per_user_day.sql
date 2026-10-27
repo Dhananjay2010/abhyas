@@ -5,7 +5,8 @@
 -- First, dedupe existing duplicate planned rows.
 -- Ranking: prefer rows with logged data (sets, exercises, breathing), then oldest, then lowest id.
 -- Childless duplicates: DELETE.
--- Data-bearing duplicates: UPDATE to status='skipped' (preserves data; skipped sessions are not startable).
+-- Data-bearing duplicates: UPDATE to status='skipped' (keeps data; hidden from History list and Progress;
+-- a skipped strength row can be restarted when the day has no planned or in-progress row).
 -- This is idempotent: re-running is safe.
 DO $$
 DECLARE
