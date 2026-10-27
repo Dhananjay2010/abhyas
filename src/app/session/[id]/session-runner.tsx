@@ -12,6 +12,9 @@ import {
   vibrate,
   useVibrationSupported,
 } from "@/lib/session/device";
+import { useElapsedWithClock } from "@/lib/session/use-elapsed-with-clock";
+import { displayElapsed } from "@/lib/session/display-elapsed";
+import { summaryDurationSeconds } from "@/lib/session/summary-duration";
 import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
@@ -144,6 +147,7 @@ export function SessionRunner({
   week,
   warmupAlreadyDone,
   startedAt,
+  isStale = false,
   warmup,
   cooldown,
   exercises: initialExercises,
@@ -152,6 +156,7 @@ export function SessionRunner({
   units = "metric",
   actions = REAL_ACTIONS,
   timer,
+  nowFn,
   onExit,
 }: {
   sessionId: string;
@@ -159,6 +164,7 @@ export function SessionRunner({
   week: number;
   warmupAlreadyDone: boolean;
   startedAt: string | null;
+  isStale?: boolean;
   warmup: WarmupItem[];
   cooldown: WarmupItem[];
   exercises: RunnerExercise[];
@@ -169,11 +175,26 @@ export function SessionRunner({
   units?: UnitsPreference;
   actions?: SessionActions;
   timer?: RunnerTimer;
+  nowFn?: () => number;
   onExit?: () => void;
 }) {
   const router = useRouter();
   const timerImpl = timer ?? REAL_TIMER;
-  const elapsed = useElapsed(startedAt);
+  const rawElapsed = useElapsedWithClock(startedAt, nowFn ?? Date.now);
+  const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
+  const elapsed = frozenElapsed ?? displayElapsed(rawElapsed, isStale);
+  const [savedDuration, setSavedDuration] = useState<number | null>(null);
+  
+  const stopElapsed = useCallback(() => {
+    const current = rawElapsed;
+    setFrozenElapsed(current);
+    return current;
+  }, [rawElapsed]);
+  
+  const resumeElapsed = useCallback(() => {
+    setFrozenElapsed(null);
+  }, []);
+  
   const beeper = useBeeper(settings.restSound);
   
   // Use reducer to manage exercises with server data merging
@@ -422,19 +443,19 @@ export function SessionRunner({
    */
   const [confirming, setConfirming] = useState<"skip" | null>(null);
 
-  async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>) {
-    if (busyRef.current) return false;
+  async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>): Promise<T | null> {
+    if (busyRef.current) return null;
     busyRef.current = true;
     setBusy(true);
     try {
       const r = await fn();
       if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
       else setError(null);
-      return r.ok;
+      return r;
     } catch (err) {
       // h2: Catch network errors (offline, timeout, etc)
       setError(runnerErrorMessage(err));
-      return false;
+      return null;
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -539,9 +560,15 @@ export function SessionRunner({
           <BigButton
             disabled={busy}
             onClick={async () => {
-              await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
+              const frozen = stopElapsed();
+              const result = await run(() =>
+                actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true }),
               );
+              if (result?.ok && result.data?.durationSeconds !== undefined) {
+                setSavedDuration(result.data.durationSeconds);
+              } else {
+                setSavedDuration(frozen);
+              }
               restPersistence.clear();
               setPhase("done");
             }}
@@ -551,9 +578,15 @@ export function SessionRunner({
           <GhostButton
             disabled={busy}
             onClick={async () => {
-              await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+              const frozen = stopElapsed();
+              const result = await run(() =>
+                actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false }),
               );
+              if (result?.ok && result.data?.durationSeconds !== undefined) {
+                setSavedDuration(result.data.durationSeconds);
+              } else {
+                setSavedDuration(frozen);
+              }
               restPersistence.clear();
               setPhase("done");
             }}
@@ -575,11 +608,20 @@ export function SessionRunner({
       (n, e) => n + e.sets.reduce((m, s) => m + (s.reps ?? 0) * (s.weightKg ?? 0), 0),
       0,
     );
+    
+    // MEDIUM-1: Use summaryDurationSeconds to show stale-capped duration, not raw elapsed
+    const summaryDuration = summaryDurationSeconds({
+      savedDurationSeconds: savedDuration ?? elapsed,
+      elapsedSeconds: rawElapsed,
+      isStale,
+      nowMs: (nowFn ?? Date.now)(),
+    });
+    
     return (
       <Shell
         title="Session complete"
         subtitle={null}
-        elapsed={elapsed}
+        elapsed={summaryDuration}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
@@ -587,7 +629,7 @@ export function SessionRunner({
         confirmExit={false}
       >
         <div className="space-y-3">
-          <Stat label="Time" value={formatClock(elapsed)} />
+          <Stat label="Time" value={formatClock(summaryDuration)} />
           <Stat label="Sets logged" value={`${totalSetsDone}`} />
           {volume > 0 && <Stat label="Total volume" value={formatVolumeLifted(volume, units)} />}
           <Stat
@@ -879,9 +921,15 @@ export function SessionRunner({
     if (next === -1) {
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
-        await run(() =>
-          actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+        const frozen = stopElapsed();
+        const result = await run(() =>
+          actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false }),
         );
+        if (result?.ok && result.data?.durationSeconds !== undefined) {
+          setSavedDuration(result.data.durationSeconds);
+        } else {
+          setSavedDuration(frozen);
+        }
         setPhase("done");
       }
     } else {
@@ -1198,7 +1246,8 @@ export function SessionRunner({
           <GhostButton
             disabled={busy}
             onClick={async () => {
-              if (await run(() => actions.abandonSession(sessionId, elapsed))) {
+              const result = await run(() => actions.abandonSession(sessionId, elapsed));
+              if (result?.ok) {
                 restPersistence.clear();
                 if (onExit) onExit();
                 else router.push("/today");
