@@ -9,7 +9,7 @@ function check(label: string, pass: boolean, detail = "") {
 }
 
 console.log("\n=== M1 Loader Test ===\n");
-console.log("Case 1: Increase 60 kg → 62.5 kg");
+console.log("Case 1: Increase 60 kg → 62.5 kg (current_working=62.5, previous=60)");
 {
   const sessionExercise: SessionExerciseInput = {
     id: "se1", planned_sets: 3, planned_reps_min: 6, planned_reps_max: 8,
@@ -18,11 +18,16 @@ console.log("Case 1: Increase 60 kg → 62.5 kg");
       primary_muscles: ["chest"], equipment_ids: ["barbell"] },
     session_sets: []
   };
+  // Key: progression has current_working=62.5 but user actually lifted 60 last time
   const progress: ProgressInput = {
-    current_working_weight_kg: 62.5, current_target_reps: 8, previous_completed_weight_kg: 60
+    current_working_weight_kg: 62.5,
+    current_target_reps: 8,
+    previous_completed_weight_kg: 60
   };
   const result = buildRunnerExercise({ row: sessionExercise, progress, remembersWeights: true, isDeload: false });
-  check("Previous is 60 kg", result.previousCompletedWeightKg === 60, "got " + result.previousCompletedWeightKg);
+  check("Previous is 60 kg (not 62.5)", result.previousCompletedWeightKg === 60, "got " + result.previousCompletedWeightKg);
+  check("Working is 62.5 kg", result.workingWeightKg === 62.5, "got " + result.workingWeightKg);
+  check("Previous !== working (detects increase)", result.previousCompletedWeightKg !== result.workingWeightKg);
   const isIncrease = result.suggestedWeightKg !== null && result.previousCompletedWeightKg !== null &&
     result.suggestedWeightKg > result.previousCompletedWeightKg + 0.01;
   check("Detected as increase", isIncrease);
@@ -42,6 +47,7 @@ console.log("\nCase 2: Held 62.5 kg → 62.5 kg");
   };
   const result = buildRunnerExercise({ row: sessionExercise, progress, remembersWeights: true, isDeload: false });
   check("Previous is 62.5 kg", result.previousCompletedWeightKg === 62.5, "got " + result.previousCompletedWeightKg);
+  check("Previous === working (held weight)", result.previousCompletedWeightKg === result.workingWeightKg);
   const isIncrease = result.suggestedWeightKg !== null && result.previousCompletedWeightKg !== null &&
     result.suggestedWeightKg > result.previousCompletedWeightKg + 0.01;
   check("NOT detected as increase", !isIncrease);
