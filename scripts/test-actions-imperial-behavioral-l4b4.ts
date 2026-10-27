@@ -154,7 +154,9 @@ console.log("=== L4B-4: buildProgressionFeedbackForUser with real createClient =
     }
   } catch (err) {
     console.error("❌ EXCEPTION:", err);
-    console.error("Stack:", (err as Error).stack);
+    if (err instanceof Error) {
+      console.error("Stack:", err.stack);
+    }
     process.exit(1);
   }
 })();

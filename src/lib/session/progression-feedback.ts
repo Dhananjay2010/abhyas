@@ -71,13 +71,15 @@ export async function buildProgressionFeedbackForUser(
     .maybeSingle();
   if (!se) return null;
 
-  const ex = se.exercises as unknown as {
+  type ExercisesJoin = {
     mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
     movement_pattern: MovementPattern;
     equipment_ids: string[];
     progression_chain: string | null;
     progression_rank: number | null;
-  };
+  } | null;
+
+  const ex: ExercisesJoin = se.exercises;
   if (!ex) return null;
 
   const [sessionRes, setsRes, progressRes] = await Promise.all([

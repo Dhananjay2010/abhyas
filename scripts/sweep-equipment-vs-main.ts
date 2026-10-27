@@ -62,7 +62,7 @@ for (const eq of equipment) {
         state: {currentWorkingWeightKg: weight, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: weight, bestReps: 12, bestE1rm: null, totalSessions: 5, weightAtFailureStartKg: null},
         isDeload: false,
         equipmentIds: eq.ids,
-        units: "metric" as const,
+        unit: "kg",
       };
       
       const mainResult = mainEval(input);

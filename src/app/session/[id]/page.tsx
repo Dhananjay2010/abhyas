@@ -114,16 +114,18 @@ export default async function SessionPage({
   */
   const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
 
+  type ExercisesJoin = {
+    id: string;
+    name: string;
+    cue: string | null;
+    mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
+    movement_pattern: Database["public"]["Enums"]["movement_pattern"];
+    primary_muscles: Muscle[];
+    equipment_ids: string[];
+  } | null;
+
   const exercises: RunnerExercise[] = rows.map((r) => {
-    const ex = r.exercises as unknown as {
-      id: string;
-      name: string;
-      cue: string | null;
-      mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
-      movement_pattern: Database["public"]["Enums"]["movement_pattern"];
-      primary_muscles: Muscle[];
-      equipment_ids: string[];
-    };
+    const ex: ExercisesJoin = r.exercises;
     const progress = remembersWeights ? progressByExercise.get(ex?.id ?? "") : undefined;
     
     return buildRunnerExercise({

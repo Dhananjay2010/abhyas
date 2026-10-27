@@ -15,6 +15,10 @@ import type { ExerciseMeta, ProgressState } from "../program/progression";
 import type { WeightUnit } from "./equipment-grid";
 import { progressionInputsFromExercise } from "./progression-inputs";
 
+function unitsToWeightUnit(units: "metric" | "imperial"): WeightUnit {
+  return units === "imperial" ? "lb" : "kg";
+}
+
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
 export type SessionExerciseRow = {
@@ -113,7 +117,7 @@ export function buildProgressionInput(
     meta,
     state,
     isDeload: session.is_deload ?? false,
-    unit: (units === "imperial" ? "lb" : "kg") as WeightUnit,
+    unit: unitsToWeightUnit(units),
     ...progressionInputsFromExercise(ex),
   };
 }
