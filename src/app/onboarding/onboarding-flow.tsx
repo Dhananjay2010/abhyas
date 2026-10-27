@@ -45,16 +45,13 @@ import {
 } from "./actions";
 import { branding } from "@/lib/branding";
 import {
-  formatWeight,
+  formatBodyWeight,
   formatHeight,
-  parseWeight,
+  parseBodyWeight,
   parseHeight,
   weightLabel,
   heightLabel,
-  BODY_WEIGHT_LB_MIN,
-  BODY_WEIGHT_LB_MAX,
-  WEIGHT_KG_MIN,
-  WEIGHT_KG_MAX,
+  getBodyWeightRangeMessage,
   type UnitsPreference,
 } from "@/lib/units";
 
@@ -145,7 +142,7 @@ export function OnboardingFlow({
   );
   const [heightTouched, setHeightTouched] = useState(false);
   const [weightKg, setWeightKg] = useState(
-    initial.weightKg ? formatWeight(initial.weightKg, units, false) : ""
+    initial.weightKg ? formatBodyWeight(initial.weightKg, units, false) : ""
   );
   const [weightTouched, setWeightTouched] = useState(false);
   const [goal, setGoal] = useState<Goal | null>(initial.goal);
@@ -296,7 +293,7 @@ export function OnboardingFlow({
   if (current === "about") {
     // Parse height and weight from user input
     const heightCmValue = parseHeight(heightCm, units);
-    const weightKgValue = parseWeight(weightKg, units);
+    const weightKgValue = parseBodyWeight(weightKg, units);
     
     // Get today as ISO string for validation
     const today = new Date();
@@ -313,9 +310,7 @@ export function OnboardingFlow({
         : "Height should be between 100 and 250 cm"
       : null;
     const weightError = weightTouched && weightKg !== "" && weightKgValue === null
-      ? units === "imperial"
-        ? `Weight should be between ${BODY_WEIGHT_LB_MIN} and ${BODY_WEIGHT_LB_MAX} lb`
-        : `Weight should be between ${WEIGHT_KG_MIN} and ${WEIGHT_KG_MAX} kg`
+      ? getBodyWeightRangeMessage(units)
       : null;
     
     const dobValid = dateOfBirth !== null && dobValidationError === null;
