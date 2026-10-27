@@ -93,6 +93,9 @@ async function runTests() {
     process.exit(1);
   }
 
+  // Track created users for cleanup
+  const createdUserIds: string[] = [];
+
   // Get a test exercise for sessions
   const { data: exerciseRows, error: exerciseError } = await adminClient
     .from("exercises")
@@ -107,7 +110,8 @@ async function runTests() {
   const exerciseId = exerciseRows[0].id;
   assert(!!exerciseId, "Found test exercise");
 
-  console.log("TEST: pd-b scenario - Settings rebuild after block ends WITHOUT Today rollover");
+  try {
+    console.log("TEST: pd-b scenario - Settings rebuild after block ends WITHOUT Today rollover");
   {
     const scenarioStartFailures = testsFailed;
     // Create test user via admin API
@@ -124,6 +128,7 @@ async function runTests() {
     }
 
     const userId = authData.user.id;
+    createdUserIds.push(userId);
     assert(!!userId, "Created test user");
 
     // Ensure profile exists (trigger creates it, but set required fields for plan builder)
@@ -346,6 +351,7 @@ async function runTests() {
     }
 
     const userId = authData.user.id;
+    createdUserIds.push(userId);
 
     // Ensure profile exists (trigger creates it, but set required fields for plan builder)
     await adminClient.from("profiles").upsert({
@@ -438,12 +444,26 @@ async function runTests() {
       console.log(`  FAIL: mid-block rebuild test (${testsFailed - scenarioStartFailures} failures)\n`);
     }
   }
+  } finally {
+    // Clean up: delete created test users
+    if (createdUserIds.length > 0) {
+      console.log(`\nCleaning up ${createdUserIds.length} test user(s)...`);
+      for (const userId of createdUserIds) {
+        try {
+          await adminClient.auth.admin.deleteUser(userId);
+        } catch (error) {
+          console.warn(`Failed to delete user ${userId}:`, error);
+        }
+      }
+      console.log("✓ Test user cleanup complete\n");
+    }
+  }
 
   if (testsFailed === 0) {
-    console.log("\n✅ ALL TESTS PASSED");
+    console.log("✅ ALL TESTS PASSED");
     process.exit(0);
   } else {
-    console.error(`\n❌ ${testsFailed} TESTS FAILED`);
+    console.error(`❌ ${testsFailed} TESTS FAILED`);
     process.exit(1);
   }
 }
