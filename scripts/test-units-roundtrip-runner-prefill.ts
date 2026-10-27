@@ -268,6 +268,8 @@ console.log("\nTest (c): Real SessionRunner prescription flooring");
     const r = render(
       React.createElement(SessionRunner, {
         sessionId: "s1",
+        userId: "test-user",
+        sessionStatus: "in_progress" as const,
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
