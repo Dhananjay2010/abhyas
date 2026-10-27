@@ -16,7 +16,7 @@ function isValidLogoUrl(url: string): boolean {
   return url.startsWith("https://") || url.startsWith("/storage/");
 }
 
-function assert(condition: boolean, message: string): void {
+function assertBranding(condition: boolean, message: string): void {
   if (!condition) {
     throw new Error(`❌ ${message}`);
   }
@@ -36,7 +36,7 @@ function testHexColorValidation() {
   ];
 
   for (const color of validColors) {
-    assert(isValidHexColor(color), `${color} should be valid`);
+    assertBranding(isValidHexColor(color), `${color} should be valid`);
   }
   console.log(`  ✓ Valid hex colors pass (${validColors.length} cases)`);
 
@@ -53,7 +53,7 @@ function testHexColorValidation() {
   ];
 
   for (const color of invalidColors) {
-    assert(!isValidHexColor(color), `"${color}" should be invalid`);
+    assertBranding(!isValidHexColor(color), `"${color}" should be invalid`);
   }
   console.log(`  ✓ Invalid hex colors rejected (${invalidColors.length} cases)`);
 }
@@ -71,7 +71,7 @@ function testLogoUrlValidation() {
   ];
 
   for (const url of validUrls) {
-    assert(isValidLogoUrl(url), `"${url}" should be valid`);
+    assertBranding(isValidLogoUrl(url), `"${url}" should be valid`);
   }
   console.log(`  ✓ Valid logo URLs pass (${validUrls.length} cases)`);
 
@@ -85,7 +85,7 @@ function testLogoUrlValidation() {
   ];
 
   for (const url of invalidUrls) {
-    assert(!isValidLogoUrl(url), `"${url}" should be invalid`);
+    assertBranding(!isValidLogoUrl(url), `"${url}" should be invalid`);
   }
   console.log(`  ✓ Invalid logo URLs rejected (${invalidUrls.length} cases)`);
 }
@@ -96,25 +96,25 @@ function testColorPairValidation() {
   // Both set: valid
   const hasPrimary1 = Boolean("#FF9A2E");
   const hasAccent1 = Boolean("#E8850C");
-  assert(hasPrimary1 === hasAccent1, "Both colors set should be valid");
+  assertBranding(hasPrimary1 === hasAccent1, "Both colors set should be valid");
   console.log("  ✓ Both colors set is valid");
 
   // Both empty: valid
   const hasPrimary2 = Boolean("");
   const hasAccent2 = Boolean("");
-  assert(hasPrimary2 === hasAccent2, "Both colors empty should be valid");
+  assertBranding(hasPrimary2 === hasAccent2, "Both colors empty should be valid");
   console.log("  ✓ Both colors empty is valid");
 
   // Only primary: invalid
   const hasPrimary3 = Boolean("#FF9A2E");
   const hasAccent3 = Boolean("");
-  assert(hasPrimary3 !== hasAccent3, "Only primary should be invalid");
+  assertBranding(hasPrimary3 !== hasAccent3, "Only primary should be invalid");
   console.log("  ✓ Only primary color is invalid");
 
   // Only accent: invalid
   const hasPrimary4 = Boolean("");
   const hasAccent4 = Boolean("#E8850C");
-  assert(hasPrimary4 !== hasAccent4, "Only accent should be invalid");
+  assertBranding(hasPrimary4 !== hasAccent4, "Only accent should be invalid");
   console.log("  ✓ Only accent color is invalid");
 }
 

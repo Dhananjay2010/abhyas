@@ -593,23 +593,35 @@ export type Database = {
       }
       gyms: {
         Row: {
+          accent_color: string | null
           created_at: string
+          display_name: string | null
           id: string
+          logo_url: string | null
           name: string
+          primary_color: string | null
           slug: string
           timezone: string | null
         }
         Insert: {
+          accent_color?: string | null
           created_at?: string
+          display_name?: string | null
           id?: string
+          logo_url?: string | null
           name: string
+          primary_color?: string | null
           slug: string
           timezone?: string | null
         }
         Update: {
+          accent_color?: string | null
           created_at?: string
+          display_name?: string | null
           id?: string
+          logo_url?: string | null
           name?: string
+          primary_color?: string | null
           slug?: string
           timezone?: string | null
         }
@@ -1494,9 +1506,13 @@ export type Database = {
           p_gym_id: string
         }
         Returns: {
+          accent_color: string | null
+          display_name: string | null
+          logo_url: string | null
           name: string
+          primary_color: string | null
           slug: string
-          timezone: string
+          timezone: string | null
         }[]
       }
       get_owned_gym_name: {
@@ -1540,6 +1556,16 @@ export type Database = {
           p_user_pattern_id: string
         }
         Returns: string
+      }
+      set_gym_branding: {
+        Args: {
+          p_gym_id: string
+          p_display_name?: string
+          p_logo_url?: string
+          p_primary_color?: string
+          p_accent_color?: string
+        }
+        Returns: Json
       }
       resolve_gym_by_host: {
         Args: {

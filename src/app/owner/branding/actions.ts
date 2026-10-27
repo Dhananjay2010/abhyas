@@ -87,10 +87,10 @@ export async function updateBranding(
   // Call the RPC
   const { error } = await supabase.rpc("set_gym_branding", {
     p_gym_id: formData.gymId,
-    p_display_name: formData.displayName || null,
-    p_logo_url: formData.logoUrl || null,
-    p_primary_color: formData.primaryColor || null,
-    p_accent_color: formData.accentColor || null,
+    p_display_name: formData.displayName || undefined,
+    p_logo_url: formData.logoUrl || undefined,
+    p_primary_color: formData.primaryColor || undefined,
+    p_accent_color: formData.accentColor || undefined,
   });
 
   if (error) {
@@ -127,7 +127,7 @@ export async function updateBranding(
   }
 
   // Invalidate the brand cache
-  revalidateTag(gymBrandTag(formData.gymId));
+  revalidateTag(gymBrandTag(formData.gymId), "max");
 
   return { success: true };
 }
