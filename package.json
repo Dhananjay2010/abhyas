@@ -577,7 +577,14 @@
     "test:today-plan-loader": "tsx scripts/test-today-plan-loader.ts",
     "test:tomorrow-after-swap": "tsx scripts/test-tomorrow-after-swap.ts",
     "ci:migration-040-idempotent": "bash scripts/test-migration-040-idempotent.sh",
-    "ci:mutant-gym-branding": "bash scripts/mutant-test-gym-branding.sh"
+    "ci:mutant-gym-branding": "bash scripts/mutant-test-gym-branding.sh",
+    "test:signout-anyway-clears-queue": "tsx scripts/test-signout-anyway-clears-queue.tsx",
+    "test:require-weight-loaded": "tsx scripts/test-require-weight-loaded.tsx",
+    "test:runner-mount-pending-queue": "tsx scripts/test-runner-mount-pending-queue.tsx",
+    "test:logset-session-expired": "tsx scripts/test-logset-session-expired.ts",
+    "test:session-runner-expired-banner": "tsx scripts/test-session-runner-expired-banner.tsx",
+    "test:cooldown-done-skip-replay": "tsx scripts/test-cooldown-done-skip-replay.tsx",
+    "test:units-runner-render": "tsx scripts/test-units-runner-render.tsx"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
