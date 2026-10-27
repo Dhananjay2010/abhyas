@@ -18,5 +18,5 @@ export function shouldOfferStartTomorrow({
 }): boolean {
   if (!isFirstDay) return false;
   if (sessionStarted) return false;
-  return localHour >= 20;
+  return true; // MUTANT: always true if first day and not started (no 20:00 check)
 }
