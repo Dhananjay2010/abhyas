@@ -90,6 +90,12 @@ function runTests() {
     check("Cache keys differ for different gyms", expectedKey1 !== expectedKey2);
     check("Cache key 1 includes gym ID 1", expectedKey1.includes(gymId1));
     check("Cache key 2 includes gym ID 2", expectedKey2.includes(gymId2));
+    
+    // TypeScript knows these are different string literals, but conceptually
+    // we're testing that the pattern embeds the gym ID
+    const key1: string = expectedKey1;
+    const key2: string = expectedKey2;
+    check("Cache keys are functionally different", key1 !== key2);
   }
   console.log();
 

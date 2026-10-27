@@ -6,38 +6,42 @@
 -- TABLE: gym_domains
 -- ============================================================
 
--- Clean up any existing rows that violate the new stricter format
--- (for DBs that ran Round 1's migration 037)
-do $$
-declare
-  bad_row record;
-begin
-  -- Log and delete rows that violate the new format
-  for bad_row in
-    select host, gym_id
-    from public.gym_domains
-    where 
-      -- Not lowercase
-      host <> lower(host)
-      -- Or has port/scheme/path/trailing dot
-      or host ~ '(^https?://|:[0-9]+$|/$|\.$)'
-      -- Or exceeds length limits (253 total, 63 per label)
-      or char_length(host) > 253
-      or host ~ '[a-z0-9-]{64,}'
-      -- Or invalid format (leading dot, consecutive dots, starts/ends with hyphen)
-      or not (host ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$')
-  loop
-    raise notice 'Deleting invalid gym_domains row: host=%, gym_id=%', bad_row.host, bad_row.gym_id;
-    delete from public.gym_domains where host = bad_row.host;
-  end loop;
-end $$;
-
+-- Create table first
 create table if not exists public.gym_domains (
   host            text primary key,
   gym_id          uuid not null references public.gyms(id) on delete cascade,
   verified        boolean not null default false,
   created_at      timestamptz not null default now()
 );
+
+-- Clean up any existing rows that violate the new stricter format
+-- (for DBs that ran Round 1's migration 037)
+do $$
+declare
+  bad_row record;
+begin
+  -- Only run cleanup if table exists and has data
+  if exists (select from information_schema.tables where table_schema = 'public' and table_name = 'gym_domains') then
+    -- Log and delete rows that violate the new format
+    for bad_row in
+      select host, gym_id
+      from public.gym_domains
+      where 
+        -- Not lowercase
+        host <> lower(host)
+        -- Or has port/scheme/path/trailing dot
+        or host ~ '(^https?://|:[0-9]+$|/$|\.$)'
+        -- Or exceeds length limits (253 total, 63 per label)
+        or char_length(host) > 253
+        or host ~ '[a-z0-9-]{64,}'
+        -- Or invalid format (leading dot, consecutive dots, starts/ends with hyphen)
+        or not (host ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$')
+    loop
+      raise notice 'Deleting invalid gym_domains row: host=%, gym_id=%', bad_row.host, bad_row.gym_id;
+      delete from public.gym_domains where host = bad_row.host;
+    end loop;
+  end if;
+end $$;
 
 -- Drop old constraints if they exist (idempotent for re-running migration)
 alter table public.gym_domains drop constraint if exists gym_domains_host_lowercase;
