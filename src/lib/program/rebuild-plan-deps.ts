@@ -36,7 +36,7 @@ export function buildRebuildPlanDeps(
     },
 
     async createBlock() {
-      const result = await createBlockForUser(supabase, userId, { mode: "rebuild" });
+      const result = await createBlockForUser(supabase, userId, { mode: "rebuild", today });
       return result;
     },
   };

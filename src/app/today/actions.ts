@@ -34,7 +34,12 @@ export async function buildPlan(): Promise<BuildPlanResult> {
     .select("timezone")
     .eq("id", user.id)
     .single();
-  const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
+  
+  if (profileRes.error || !profileRes.data) {
+    return { ok: false, error: "Failed to load profile" };
+  }
+  
+  const timezone = resolveTimezoneWithProfile(profileRes.data.timezone);
   const today = localDateString(timezone);
 
   const deps = buildRebuildPlanDeps(supabase, user.id, today);

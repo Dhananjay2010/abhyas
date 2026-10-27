@@ -132,7 +132,7 @@ async function callBlockRPC(
 export async function createBlockForUser(
   supabase: Client,
   userId: string,
-  options: { carryOver?: Record<string, string>; mode?: "new" | "rebuild" } = {},
+  options: { carryOver?: Record<string, string>; mode?: "new" | "rebuild"; today?: string } = {},
 ): Promise<BuildResult> {
   const [
     profileRes,
@@ -237,8 +237,10 @@ export async function createBlockForUser(
     };
   }
 
-  const timezone = resolveTimezoneWithProfile(profile.timezone);
-  const today = localDateString(timezone);
+  const today = options.today ?? (() => {
+    const timezone = resolveTimezoneWithProfile(profile.timezone);
+    return localDateString(timezone);
+  })();
 
   // For rebuild mode, use the rebuild_block RPC
   if (rebuildOf) {
