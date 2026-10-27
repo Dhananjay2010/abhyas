@@ -5,6 +5,13 @@
  */
 
 /**
+ * Derive finish button disabled state from pending sets and busy flag.
+ */
+export function isFinishDisabled(pendingCount: number, busy: boolean): boolean {
+  return busy || pendingCount > 0;
+}
+
+/**
  * Get finish button text based on pending sets.
  * 
  * Always returns "Done" - the pending count is shown in the notice above.

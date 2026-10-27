@@ -892,6 +892,93 @@ async function test9b() {
   
   cleanup();
   fakeStorage.clear();
+  
+  // NEGATIVE CASE: replay fails, queue kept, finishSession NOT called
+  console.log("  Testing negative case: replay fails");
+  
+  let logSetCallCount2 = 0;
+  let finishSessionCalled2 = false;
+  
+  const actions2: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async () => {
+      logSetCallCount2++;
+      return { ok: false, error: "NETWORK_ERROR" };
+    },
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => {
+      finishSessionCalled2 = true;
+      return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
+    },
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+    getSessionSummary: async () => ({ ok: true, data: [] }),
+  };
+  
+  fakeStorage.clear();
+  
+  // Add pending set for negative test
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 3,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-9b-fail"
+  }, fakeDeps);
+  
+  render(
+    <SessionRunner
+      sessionId={sessionId}
+      sessionStatus="in_progress"
+      userId={userId}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={exercises}
+      settings={settings}
+      actions={actions2}
+      timer={fakeTimer}
+      nowFn={() => FIXED_TIME}
+    />
+  );
+  
+  await act(async () => {});
+  
+  const buttons2 = screen.getAllByRole("button");
+  const doneButton2 = buttons2.find(b => b.textContent?.trim() === "Done");
+  
+  assert(!!doneButton2, "9b negative: Done button exists");
+  
+  // Click Done - replay should fail and finishSession should NOT be called
+  await act(async () => {
+    if (doneButton2) fireEvent.click(doneButton2);
+  });
+  
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+  
+  assert(logSetCallCount2 === 1, `9b negative: logSet called once during replay (got ${logSetCallCount2})`);
+  
+  const pendingAfterFail = loadPendingSets(fakeStorage, userId, sessionId, deps);
+  assert(pendingAfterFail.length === 1, `9b negative: queue NOT empty after failed replay (got ${pendingAfterFail.length})`);
+  
+  assert(!finishSessionCalled2, "9b negative: finishSession NOT called when replay fails");
+  
+  // Verify pending notice still shown
+  const pendingText = screen.queryByText(/1 set.*pending/i);
+  assert(!!pendingText, "9b negative: Pending notice still shown after failed replay");
+  
+  cleanup();
+  fakeStorage.clear();
 }
 
 // Test N11: Cool-down routing with pending sets
