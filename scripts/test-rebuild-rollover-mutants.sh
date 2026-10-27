@@ -11,6 +11,14 @@ if [ "$REAL_DB" != "1" ]; then
   exit 0
 fi
 
+# Source guard and check
+source "$(dirname "$0")/lib-db-reset-guard.sh"
+if ! check_db_reset_guard_bash check "supabase/config.toml"; then
+  echo "❌ DB reset guard check failed:"
+  check_db_reset_guard_bash explain "supabase/config.toml"
+  exit 1
+fi
+
 # Check DATABASE_URL early - test script needs it
 if [ -z "$DATABASE_URL" ]; then
   echo "❌ FAIL: DATABASE_URL not set (mutants would incorrectly pass/fail)"
