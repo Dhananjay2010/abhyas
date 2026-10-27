@@ -41,7 +41,7 @@ export function shouldReplaceBannedExercise(
   hasPastKnee: boolean,
   hasAnyKnee: boolean,
 ): boolean {
-  if (hasAnyKnee && ANY_KNEE_BANNED.has(exerciseSlug)) return true;
+  // MUTANT: Skip jammer check
   if (hasPastKnee && PAST_KNEE_BANNED.has(exerciseSlug)) return true;
   return false;
 }
@@ -101,8 +101,7 @@ export function replaceBannedInPlanned(
     const wantCompound = exercise.mechanic !== "isolation";
     const scoreFn = (e: CandidateExercise) => 
       score(e, wantCompound, generatorInput.level, generatorInput.primaryTrack);
-    const tieBreakFn = (slug: string) => 
-      hashString(`${sessionExerciseIdSeed}:${ex.order_index}:${slug}`);
+    const tieBreakFn = (slug: string) => Math.random();
     
     const swapContext = buildSwapContext(generatorInput, scoreFn, tieBreakFn);
     const ranked = rankAlternatives(exercise, eligible, swapContext);

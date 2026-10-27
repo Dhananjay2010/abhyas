@@ -95,12 +95,9 @@ type AllowedChange =
 
 const ALLOWED_CHANGES: Map<number, AllowedChange[]> = new Map([
   [2, [
-    // Fixture drift: Calf 5→4 is pre-existing between main's fixture and code
-    { type: 'fixturedrift', exercise: 'Barbell Seated Calf Raise', baselineSets: 5, codeSets: 4, baselineMinutes: 70, codeMinutes: 68 },
-  ]],
-  [5, [
-    // single-leg-leg-extension exclusion reshuffle (APP-approved: abs only, sets and minutes unchanged)
-    { type: 'exercise', exercise: 'Cable Crunch', becomes: 'Crunches', reason: 'single-leg-leg-extension exclusion reshuffle (APP-approved: abs only, sets and minutes unchanged)' },
+    // NO fixture drift - main's code already generates calf=4, 22 lower, 26 total, 68 minutes
+    // This entry exists to document that the baseline is byte-identical to main's code
+    { type: 'fixturedrift', exercise: 'Barbell Seated Calf Raise', baselineSets: 4, codeSets: 4, baselineMinutes: 68, codeMinutes: 68 },
   ]],
 ]);
 
@@ -338,21 +335,20 @@ if (allowedChangesUsed.size !== totalAllowedChanges) {
   console.log(`  ✓ All ${totalAllowedChanges} allow-list entries were checked`);
 }
 
-if (totalAllowedChanges !== 2) {
-  console.log(`  ✗ WRONG COUNT: Expected exactly 2 allow-list entries, got ${totalAllowedChanges}`);
+if (totalAllowedChanges !== 1) {
+  console.log(`  ✗ WRONG COUNT: Expected exactly 1 allow-list entry, got ${totalAllowedChanges}`);
   failures++;
 } else {
-  console.log(`  ✓ Exactly 2 allow-list entries present`);
+  console.log(`  ✓ Exactly 1 allow-list entry present`);
 }
 
 console.log("");
 
 console.log("─".repeat(80));
 console.log("\nRequirements:");
-console.log("  - Match baseline from origin/main (byte-identical fixture)");
-console.log("  - Allow explicit RNG drifts from owner decision exclusions");
-console.log("  - Day 2: Calf 5→4 (pre-existing fixture drift)");
-console.log("  - Day 5: Cable Crunch→Crunches (RNG shift from exclusions)");
+console.log("  - Match baseline from origin/main c6bf6a9f (byte-identical)");
+console.log("  - Main's code already generates the same output as this branch");
+console.log("  - No RNG drift: single-leg-leg-extension was already excluded by isEligible");
 
 console.log("\n" + "─".repeat(80));
 if (failures === 0) {
