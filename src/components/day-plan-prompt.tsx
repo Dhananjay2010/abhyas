@@ -57,10 +57,10 @@ export function DayPlanPrompt({
     startTransition(async () => {
       try {
         // Type-safe construction without cast
-        const input = localDate 
-          ? { localDate, plan }
-          : sessionId
+        const input = sessionId 
           ? { sessionId, plan }
+          : localDate
+          ? { localDate, plan }
           : { plan } as never; // Should never happen - component requires one or the other
         const r = await onPlan(input);
         if (!r.ok) {
