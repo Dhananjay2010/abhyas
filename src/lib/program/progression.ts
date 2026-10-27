@@ -672,11 +672,10 @@ export function evaluateProgression(input: {
       const isKettlebell = equipmentIds.includes('kettlebell');
       
       if (isKettlebell) {
-        // Kettlebell: move up by bell count (1 bell for 'right', 2 bells for 'easy')
-        // Never skip bells or invent weights above the top bell
+        // Kettlebell: move up by bell count
+        // #120: One-grid-step cap: easy feel doesn't double with equipment (1 bell for all feels)
         const bells = KETTLEBELL_WEIGHTS_KG;
-        const isCompound = meta.mechanic === "compound";
-        const bellsToMove = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? 2 : 1;
+        const bellsToMove = 1;
         
         // Find current position in bell list
         const epsilon = 0.001;
