@@ -29,6 +29,93 @@ export function labelForDayType(dayType: DayType, fallback: string | null): stri
   return OVERRIDE_LABEL[dayType] ?? fallback ?? "Today";
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// resolveTodayProgramDay: core + wrapper (for mutant viii)
+// ────────────────────────────────────────────────────────────────────────────
+
+type ProgramDayForResolve = {
+  id: string;
+  day_index: number;
+  day_type: string;
+  label: string | null;
+};
+
+export type ResolveTodayCoreDeps = {
+  getAllProgramDays: () => Promise<ProgramDayForResolve[]>;
+  getYesterdaySession: () => Promise<{
+    programDayId: string | null;
+    actualType: string;
+  } | null>;
+  getTodayIndex: () => number;
+  getYesterdayIndex: () => number;
+};
+
+export function resolveTodayProgramDayCore(
+  deps: ResolveTodayCoreDeps
+): Promise<{ programDayId: string; dayType: string; label: string | null } | null> {
+  return (async () => {
+    const todayIndex = deps.getTodayIndex();
+    const yesterdayIndex = deps.getYesterdayIndex();
+
+    const [days, yesterdaySession] = await Promise.all([
+      deps.getAllProgramDays(),
+      deps.getYesterdaySession(),
+    ]);
+
+    const scheduledToday = days.find((d) => d.day_index === todayIndex);
+
+    if (!scheduledToday) return null;
+
+    if (!yesterdaySession) {
+      return {
+        programDayId: scheduledToday.id,
+        dayType: scheduledToday.day_type,
+        label: scheduledToday.label,
+      };
+    }
+
+    const scheduledYesterday = days.find((d) => d.day_index === yesterdayIndex);
+    const yesterdayWasSwap = wasSwapDay({
+      completedProgramDayId: yesterdaySession.programDayId,
+      scheduledProgramDayId: scheduledYesterday?.id ?? null,
+      completedActualType: yesterdaySession.actualType,
+    });
+
+    if (yesterdayWasSwap && yesterdaySession.programDayId === scheduledToday.id) {
+      const rotation = days.filter(
+        (d) => d.day_type === "weights" || d.day_type === "bodyweight"
+      );
+
+      const resolved = resolveTomorrowAfterSwap({
+        todayWasSwap: yesterdayWasSwap,
+        doneProgramDayId: yesterdaySession.programDayId,
+        scheduledTomorrow: {
+          programDayId: scheduledToday.id,
+          label: scheduledToday.label ?? "",
+        },
+        rotation,
+      });
+
+      if (resolved) {
+        const resolvedDay = days.find((d) => d.id === resolved.programDayId);
+        if (resolvedDay) {
+          return {
+            programDayId: resolvedDay.id,
+            dayType: resolvedDay.day_type,
+            label: resolvedDay.label,
+          };
+        }
+      }
+    }
+
+    return {
+      programDayId: scheduledToday.id,
+      dayType: scheduledToday.day_type,
+      label: scheduledToday.label,
+    };
+  })();
+}
+
 /**
  * Resolve today's program day, applying post-swap collision resolution.
  * 
@@ -48,75 +135,41 @@ export async function resolveTodayProgramDay({
   const todayIndex = isoWeekday(localToday);
   const yesterday = addDays(localToday, -1);
   const yesterdayIndex = isoWeekday(yesterday);
-  
-  const [daysRes, yesterdaySessionRes] = await Promise.all([
-    supabase
-      .from("program_days")
-      .select("id, day_index, day_type, label")
-      .eq("program_id", programId)
-      .eq("status", "active")
-      .order("day_index"),
-    supabase
-      .from("sessions")
-      .select("program_day_id, actual_type")
-      .eq("user_id", userId)
-      .eq("local_date", yesterday)
-      .eq("status", "completed")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-  
-  const days = daysRes.data ?? [];
-  const scheduledToday = days.find(d => d.day_index === todayIndex);
-  
-  if (!scheduledToday) return null;
-  
-  const yesterdaySession = yesterdaySessionRes.data;
-  if (!yesterdaySession) {
-    return {
-      programDayId: scheduledToday.id,
-      dayType: scheduledToday.day_type,
-      label: scheduledToday.label,
-    };
-  }
-  
-  const scheduledYesterday = days.find(d => d.day_index === yesterdayIndex);
-  const yesterdayWasSwap = wasSwapDay({
-    completedProgramDayId: yesterdaySession.program_day_id,
-    scheduledProgramDayId: scheduledYesterday?.id ?? null,
-    completedActualType: yesterdaySession.actual_type ?? "",
-  });
-  
-  if (yesterdayWasSwap && yesterdaySession.program_day_id === scheduledToday.id) {
-    const rotation = days
-      .filter(d => d.day_type === "weights" || d.day_type === "bodyweight")
-      .sort((a, b) => a.day_index - b.day_index);
-    
-    const resolved = resolveTomorrowAfterSwap({
-      todayWasSwap: yesterdayWasSwap,
-      doneProgramDayId: yesterdaySession.program_day_id,
-      scheduledTomorrow: { programDayId: scheduledToday.id, label: scheduledToday.label ?? "" },
-      rotation,
-    });
-    
-    if (resolved) {
-      const resolvedDay = days.find(d => d.id === resolved.programDayId);
-      if (resolvedDay) {
-        return {
-          programDayId: resolvedDay.id,
-          dayType: resolvedDay.day_type,
-          label: resolvedDay.label,
-        };
-      }
-    }
-  }
-  
-  return {
-    programDayId: scheduledToday.id,
-    dayType: scheduledToday.day_type,
-    label: scheduledToday.label,
+
+  const deps: ResolveTodayCoreDeps = {
+    async getAllProgramDays() {
+      const { data } = await supabase
+        .from("program_days")
+        .select("id, day_index, day_type, label")
+        .eq("program_id", programId)
+        .eq("status", "active")
+        .order("day_index");
+      return data ?? [];
+    },
+
+    async getYesterdaySession() {
+      const { data } = await supabase
+        .from("sessions")
+        .select("program_day_id, actual_type")
+        .eq("user_id", userId)
+        .eq("local_date", yesterday)
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data
+        ? {
+            programDayId: data.program_day_id,
+            actualType: data.actual_type ?? "",
+          }
+        : null;
+    },
+
+    getTodayIndex: () => todayIndex,
+    getYesterdayIndex: () => yesterdayIndex,
   };
+
+  return await resolveTodayProgramDayCore(deps);
 }
 
 /**
@@ -374,6 +427,92 @@ export type NextDayPlan = {
   collisionResolved: boolean;
 };
 
+// ────────────────────────────────────────────────────────────────────────────
+// nextDayPlan: core + wrapper (for mutant vii)
+// ────────────────────────────────────────────────────────────────────────────
+
+type ProgramDayForCore = {
+  id: string;
+  day_index: number;
+  day_type: DayType;
+  label: string | null;
+};
+
+export type NextDayPlanCoreDeps = {
+  getTodayCompletedSession: () => Promise<{
+    programDayId: string | null;
+    actualType: string;
+  } | null>;
+  getAllProgramDays: () => Promise<ProgramDayForCore[]>;
+  getResolvedTomorrow: () => Promise<ResolvedDay | null>;
+  getPlannableDays: () => Promise<PlannableDay[]>;
+  getTodayDayIndex: () => number;
+  getToday: () => string;
+  getTomorrow: () => string;
+};
+
+export async function nextDayPlanCore(
+  deps: NextDayPlanCoreDeps
+): Promise<NextDayPlan | null> {
+  const today = deps.getToday();
+  const tomorrow = deps.getTomorrow();
+  const todayDayIndex = deps.getTodayDayIndex();
+
+  const [todaySession, allProgramDays, resolved, days] = await Promise.all([
+    deps.getTodayCompletedSession(),
+    deps.getAllProgramDays(),
+    deps.getResolvedTomorrow(),
+    deps.getPlannableDays(),
+  ]);
+
+  const scheduledToday = allProgramDays.find((d) => d.day_index === todayDayIndex);
+
+  const todayWasSwap = todaySession
+    ? wasSwapDay({
+        completedProgramDayId: todaySession.programDayId,
+        scheduledProgramDayId: scheduledToday?.id ?? null,
+        completedActualType: todaySession.actualType,
+      })
+    : false;
+
+  const rotation = allProgramDays.filter(
+    (d) => d.day_type === "weights" || d.day_type === "bodyweight"
+  );
+
+  const resolvedProgramDayId = resolved?.programDayId ?? null;
+
+  const collision =
+    todayWasSwap && resolvedProgramDayId
+      ? resolveTomorrowAfterSwap({
+          todayWasSwap: true,
+          doneProgramDayId: todaySession?.programDayId ?? null,
+          scheduledTomorrow: {
+            programDayId: resolvedProgramDayId,
+            label: resolved?.label ?? "",
+          },
+          rotation,
+        })
+      : null;
+
+  if (collision) {
+    return {
+      localDate: tomorrow,
+      plannedLabel: collision.label ?? "Unknown",
+      programDayId: collision.programDayId,
+      days,
+      collisionResolved: true,
+    };
+  }
+
+  return {
+    localDate: tomorrow,
+    plannedLabel: resolved?.label ?? "Rest",
+    programDayId: resolvedProgramDayId,
+    days,
+    collisionResolved: false,
+  };
+}
+
 /**
  * Everything the end-of-session prompt needs about tomorrow.
  *
@@ -400,79 +539,48 @@ export async function nextDayPlan(
   const tomorrow = addDays(today, 1);
   const userId = options?.userId ?? program.user_id;
   const todayDayIndex = isoWeekday(today);
-  
-  const [todaySessionRes, allProgramDaysRes, resolved, days] = await Promise.all([
-    // Today's completed session
-    supabase
-      .from("sessions")
-      .select("id, program_day_id, actual_type")
-      .eq("user_id", userId)
-      .eq("local_date", today)
-      .eq("status", "completed")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    // All program days (includes rotation and scheduled today)
-    supabase
-      .from("program_days")
-      .select("id, label, day_index, day_type")
-      .eq("program_id", program.id)
-      .eq("status", "active")
-      .order("day_index"),
-    // Tomorrow's resolved day
-    resolveDay(supabase, program.id, tomorrow),
-    // Plannable days for the prompt
-    plannableDays(supabase, program.id, { afterDate: today, userId }),
-  ]);
 
-  const todaySession = todaySessionRes.data;
-  const allProgramDays = allProgramDaysRes.data ?? [];
-  
-  // Find scheduled day for today
-  const scheduledToday = allProgramDays.find(d => d.day_index === todayDayIndex);
+  const deps: NextDayPlanCoreDeps = {
+    async getTodayCompletedSession() {
+      const { data } = await supabase
+        .from("sessions")
+        .select("id, program_day_id, actual_type")
+        .eq("user_id", userId)
+        .eq("local_date", today)
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data
+        ? { programDayId: data.program_day_id, actualType: data.actual_type ?? "" }
+        : null;
+    },
 
-  // Determine if today was a swap
-  const todayWasSwap = todaySession 
-    ? wasSwapDay({
-        completedProgramDayId: todaySession.program_day_id,
-        scheduledProgramDayId: scheduledToday?.id ?? null,
-        completedActualType: todaySession.actual_type ?? "",
-      })
-    : false;
+    async getAllProgramDays() {
+      const { data } = await supabase
+        .from("program_days")
+        .select("id, label, day_index, day_type")
+        .eq("program_id", program.id)
+        .eq("status", "active")
+        .order("day_index");
+      return data ?? [];
+    },
 
-  // Get rotation (all training days)
-  const rotation = allProgramDays
-    .filter(d => d.day_type === "weights" || d.day_type === "bodyweight")
-    .sort((a, b) => a.day_index - b.day_index);
+    async getResolvedTomorrow() {
+      return await resolveDay(supabase, program.id, tomorrow);
+    },
 
-  // Resolve post-swap collision
-  const collision = (todayWasSwap && resolved && resolved.programDayId) 
-    ? resolveTomorrowAfterSwap({
-        todayWasSwap: true,
-        doneProgramDayId: todaySession?.program_day_id ?? null,
-        scheduledTomorrow: { 
-          programDayId: resolved.programDayId, 
-          label: resolved.label 
-        },
-        rotation,
-      })
-    : null;
+    async getPlannableDays() {
+      return await plannableDays(supabase, program.id, {
+        afterDate: today,
+        userId,
+      });
+    },
 
-  if (collision) {
-    return {
-      localDate: tomorrow,
-      plannedLabel: collision.label,
-      programDayId: collision.programDayId,
-      days,
-      collisionResolved: true,
-    };
-  }
-
-  return {
-    localDate: tomorrow,
-    plannedLabel: resolved?.label ?? "Rest",
-    programDayId: resolved?.programDayId ?? null,
-    days,
-    collisionResolved: false,
+    getTodayDayIndex: () => todayDayIndex,
+    getToday: () => today,
+    getTomorrow: () => tomorrow,
   };
+
+  return await nextDayPlanCore(deps);
 }
