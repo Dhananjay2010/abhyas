@@ -446,7 +446,7 @@ async function runTests() {
   console.log();
 
   // TEST: Host format validation
-  console.log("TEST: Host format validation (bare hostname only)");
+  console.log("TEST: Host format validation (bare hostname with length limits)");
   {
     // Test lowercase constraint: uppercase host should be rejected
     {
@@ -459,15 +459,24 @@ async function runTests() {
     }
 
     // Test bare hostname constraint: no port, no scheme, no path, no trailing dot
+    // Also test length limits: max 253 chars total, max 63 chars per label
     const invalidHosts = [
-      "gym.com:3000",           // port
-      "https://gym.com",        // scheme
-      "gym.com/",              // path
-      "gym.com.",              // trailing dot
-      "example .com",          // space
-      "example..com",          // double dot
-      "-example.com",          // starts with hyphen
-      "example-.com",          // ends with hyphen before dot
+      "gym.com:3000",                                // port
+      "https://gym.com",                             // scheme
+      "gym.com/",                                    // path
+      "gym.com.",                                    // trailing dot
+      ".example.com",                                // leading dot
+      "example..com",                                // consecutive dots
+      "-example.com",                                // label starts with hyphen
+      "example-.com",                                // label ends with hyphen
+      "example.com-",                                // label ends with hyphen
+      "example_com.net",                             // underscore
+      "a".repeat(64) + ".example.com",               // 64-char label (max is 63)
+      "a".repeat(250) + ".com",                      // 254-char host (max is 253)
+      "1.2.3.4",                                     // IPv4 literal (all-numeric TLD)
+      "192.168.1.1",                                 // IPv4 literal
+      "bücher.example",                              // raw unicode (not punycode)
+      "example .com",                                // space
     ];
 
     for (const host of invalidHosts) {
@@ -476,7 +485,7 @@ async function runTests() {
         gym_id: gymId,
         verified: false,
       });
-      check(`'${host}' rejected by format constraint`, !!error);
+      check(`'${host.length > 40 ? host.slice(0, 37) + "..." : host}' rejected by format constraint`, !!error);
     }
 
     // Valid bare hostnames
@@ -486,6 +495,11 @@ async function runTests() {
       "sub.example.com",
       "my-app.example.com",
       "multi.level.sub.example.com",
+      "xn--bcher-kva.example",                       // punycode IDN
+      "a".repeat(63) + ".example.com",               // 63-char label (exactly at limit)
+      "a".repeat(240) + ".com",                      // 244-char host (under 253 limit)
+      "a1.example.com",                              // alphanumeric
+      "1a.example.com",                              // starts with digit, contains letter
     ];
 
     for (const host of validHosts) {
@@ -498,7 +512,7 @@ async function runTests() {
       if (!error) {
         await adminClient.from("gym_domains").delete().eq("host", host);
       }
-      check(`'${host}' accepted`, !error, error?.message);
+      check(`'${host.length > 40 ? host.slice(0, 37) + "..." : host}' accepted`, !error, error?.message);
     }
   }
   console.log();

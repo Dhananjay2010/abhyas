@@ -16,12 +16,24 @@ export type GymResolution = {
  * - Lowercase
  * - Strip port (:3000, :8080, etc.)
  * - Strip trailing dot
+ * - Strip IPv6 brackets and port ([::1]:3000 -> ::1)
  */
-function normalizeHost(host: string): string {
-  return host
-    .toLowerCase()
-    .replace(/:\d+$/, "")       // Strip port
-    .replace(/\.$/, "");        // Strip trailing dot
+export function normalizeHost(host: string): string {
+  let normalized = host.trim();
+  
+  // Strip IPv6 brackets and port: [::1]:3000 -> ::1
+  if (normalized.startsWith('[')) {
+    const closeBracket = normalized.indexOf(']');
+    if (closeBracket !== -1) {
+      normalized = normalized.slice(1, closeBracket);
+    }
+  } else {
+    // Strip port for regular hostnames
+    normalized = normalized.replace(/:\d+$/, '');
+  }
+  
+  // Lowercase and strip trailing dot
+  return normalized.toLowerCase().replace(/\.$/, '');
 }
 
 /**
@@ -37,8 +49,13 @@ function normalizeHost(host: string): string {
  * the caller should fall back to the default brand via getDefaultBrand().
  */
 export async function resolveGymByHost(
-  host: string,
+  host: string | null | undefined,
 ): Promise<GymResolution | null> {
+  // Guard null, undefined, or empty host
+  if (!host || host.trim() === '') {
+    return null;
+  }
+
   // Normalize the host header first
   const normalized = normalizeHost(host);
 

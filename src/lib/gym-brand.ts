@@ -6,11 +6,12 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import type { Database } from "@/lib/database.types";
 import type { Brand } from "@/lib/branding";
-import { validateTimezone } from "@/lib/branding";
+import { validateTimezone, branding } from "@/lib/branding";
 
 /**
  * Return the cache tag string for a gym's brand.
- * Use this tag with revalidateTag() when the gym's branding is updated.
+ * Use this tag with updateTag(gymBrandTag(gymId)) when the gym's branding is updated.
+ * (Next.js 16: updateTag is the preferred API from server actions)
  */
 export function gymBrandTag(gymId: string): string {
   return `gym-brand:${gymId}`;
@@ -28,7 +29,8 @@ export function gymBrandTag(gymId: string): string {
  * This function:
  * - Uses an anon client (no cookies/session) since brand data is public
  * - Validates the timezone against IANA names
- * - Returns {} when the gym is not found or has no public brand data
+ * - Throws on RPC errors (not cached)
+ * - Returns {} when the gym is not found
  */
 async function getGymBrandInternal(gymId: string): Promise<Partial<Brand>> {
   // Create an anon client (no cookies, no session)
@@ -49,8 +51,8 @@ async function getGymBrandInternal(gymId: string): Promise<Partial<Brand>> {
   });
 
   if (error) {
-    console.error("Failed to get gym brand:", error);
-    return {};
+    // Throw so the error is not cached
+    throw new Error(`Failed to get gym brand: ${error.message}`);
   }
 
   if (!data || data.length === 0) {
@@ -83,15 +85,27 @@ async function getGymBrandInternal(gymId: string): Promise<Partial<Brand>> {
  * Get public brand fields for a gym.
  *
  * Cached with Next.js unstable_cache using the gym-brand:<gymId> tag.
- * To invalidate: revalidateTag(gymBrandTag(gymId)).
+ * On RPC errors, falls back to the default brand for that request only (error not cached).
+ * Cache expires after 600s (not-found results aren't cached forever).
+ * 
+ * To invalidate: updateTag(gymBrandTag(gymId)) from a server action.
  */
-export function getGymBrand(gymId: string): Promise<Partial<Brand>> {
-  return unstable_cache(
+export async function getGymBrand(gymId: string): Promise<Partial<Brand>> {
+  const cachedFn = unstable_cache(
     async () => getGymBrandInternal(gymId),
     [`gym-brand-${gymId}`],
     {
       tags: [gymBrandTag(gymId)],
-      revalidate: false, // Only revalidate via revalidateTag
+      revalidate: 600, // 10 minutes
     },
-  )();
+  );
+
+  try {
+    return await cachedFn();
+  } catch (error) {
+    // RPC error: fall back to default brand for this request only
+    // The error is not cached, so a later success will return the real brand
+    console.error(`getGymBrand error for ${gymId}, falling back to default:`, error);
+    return branding;
+  }
 }
