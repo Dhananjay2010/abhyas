@@ -22,12 +22,15 @@ export function buildRebuildPlanDeps(
     today,
 
     async fetchActiveBlock() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("programs")
         .select("id, ends_on")
         .eq("user_id", userId)
         .eq("status", "active")
         .maybeSingle();
+      if (error) {
+        throw new Error(`Failed to fetch active block: ${error.message}`);
+      }
       return data;
     },
 
@@ -36,7 +39,7 @@ export function buildRebuildPlanDeps(
     },
 
     async createBlock() {
-      const result = await createBlockForUser(supabase, userId, { mode: "rebuild" });
+      const result = await createBlockForUser(supabase, userId, { mode: "rebuild", today });
       return result;
     },
   };

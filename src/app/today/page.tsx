@@ -7,7 +7,8 @@ import { SignOutForm } from "./signout-form";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { addDays, isoWeekday, localDateString } from "@/lib/dates";
-import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
+import { labelForDayType, plannableDays, resolveTodayProgramDay } from "@/lib/program/day-plan";
+import { loadTodayPlan } from "@/lib/today/load-today-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
@@ -84,7 +85,7 @@ export default async function TodayPage() {
           problem, not yours.
         </p>
         <div className="mt-8">
-          <SignOutForm label="Sign out and try again" />
+          <SignOutForm label="Sign out and try again" userId={user.id} />
         </div>
       </main>
     );
@@ -174,7 +175,31 @@ export default async function TodayPage() {
   // Derived from the user's own local date rather than re-reading the clock,
   // so the weekday and the date can never disagree at a midnight boundary.
   const todayIndex = isoWeekday(localToday);
-  const scheduled = days?.find((d) => d.day_index === todayIndex);
+  
+  // Apply post-swap collision resolution via shared resolver
+  const baseScheduled = days?.find((d) => d.day_index === todayIndex);
+  let scheduled = baseScheduled;
+  if (program && days && baseScheduled) {
+    const todayPlan = await loadTodayPlan(
+      {
+        getProgramDays: async () => days,
+        resolveTodayDay: async (programId, localToday) => {
+          return await resolveTodayProgramDay({
+            supabase,
+            programId,
+            localToday,
+            userId: user.id,
+          });
+        },
+      },
+      program.id,
+      localToday,
+      todayIndex
+    );
+    if (todayPlan.resolved) {
+      scheduled = days.find(d => d.id === todayPlan.resolved?.id) ?? baseScheduled;
+    }
+  }
 
   // Session state already loaded before wave 2, with allSessions and todaySessions
   const { allSessions, todaySessions } = sessionState;
@@ -322,7 +347,7 @@ export default async function TodayPage() {
   // both still costs one round trip.
   const [plannable, performedRows, endedEarlySummary, loggedSetsRes] = await Promise.all([
     viewModel.shouldLoadPlannableDays
-      ? plannableDays(supabase, program.id)
+      ? plannableDays(supabase, program.id, { afterDate: localToday, userId: user.id })
       : Promise.resolve([]),
     performed
       ? supabase
@@ -494,6 +519,7 @@ export default async function TodayPage() {
           localDate={localToday}
           dayLabel="Today"
           plannedLabel={dayLabel}
+          programDayId={null}
           days={plannable}
           heading={viewModel.prompt.heading}
           intro={viewModel.prompt.intro}
@@ -548,6 +574,7 @@ export default async function TodayPage() {
                   localDate={localToday}
                   dayLabel="Today"
                   plannedLabel="Rest"
+                  programDayId={null}
                   days={plannable}
                   heading="Or train today anyway"
                   intro="Pick what you'd like to do instead."
@@ -608,15 +635,17 @@ export default async function TodayPage() {
                 Resume session
               </Link>
             ) : (
-              /*
-                "Resume" only once something has actually been started. A day
-                planned through "what about tomorrow?" is a session row that was
-                never begun, and calling that a resume told the user they had left
-                a workout half-done when they had not.
-              */
-              <StartSessionButton
-                label={strengthOpen?.started_at ? "Resume session" : "Start session"}
-              />
+              <>
+                {/*
+                  "Resume" only once something has actually been started. A day
+                  planned through "what about tomorrow?" is a session row that was
+                  never begun, and calling that a resume told the user they had left
+                  a workout half-done when they had not.
+                */}
+                <StartSessionButton
+                  label={strengthOpen?.started_at ? "Resume session" : "Start session"}
+                />
+              </>
             );
           })()}
         </div>
@@ -729,7 +758,7 @@ export default async function TodayPage() {
 
       <div className="mt-10 space-y-3">
         <BuildPlanButton label="Rebuild this block" />
-        <SignOutForm label="Sign out" />
+        <SignOutForm label="Sign out" userId={user.id} />
       </div>
 
     </main>

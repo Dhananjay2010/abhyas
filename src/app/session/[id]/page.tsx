@@ -10,6 +10,7 @@ import { isUuid } from "@/lib/ids";
 import { buildRunnerExercise } from "@/lib/session/build-runner-exercises";
 import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
+import { buildRunnerProps } from "@/lib/session/build-runner-props";
 import { getUnitsPreference } from "@/lib/units";
 
 export const dynamic = "force-dynamic";
@@ -178,10 +179,16 @@ export default async function SessionPage({
   };
 
   // "What about tomorrow?" needs the block's own days to offer as alternatives,
-  // and what tomorrow already is. Read after the session itself so a slow
-  // answer here can never delay the screen the user is waiting on.
+  // and what tomorrow already is. MED-1 fix: precompute targetLocalDate as
+  // session.local_date + 1 (matches PR #166). This ensures a session finishing
+  // after midnight still plans the correct next day, and the swap check uses
+  // the session's date. Pass session.id to query the specific session.
   const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
-  const tomorrow = await nextDayPlan(supabase, timezone);
+  const { addDays } = await import("@/lib/dates");
+  const targetLocalDate = session.local_date ? addDays(session.local_date, 1) : undefined;
+  const tomorrow = await nextDayPlan(supabase, timezone, targetLocalDate, {
+    sessionId: session.id,
+  });
 
   // Compute isStale on the server to avoid requiring timezone in client components
   const isStale = session.started_at
@@ -192,8 +199,12 @@ export default async function SessionPage({
       })
     : false;
 
+  // N6/N6s: Extract userId and sessionStatus via tested helper
+  const runnerProps = buildRunnerProps(session, user);
+
   return (
     <SessionRunner
+      {...runnerProps}
       sessionId={session.id}
       isDeload={session.is_deload}
       week={session.week_in_block ?? 1}

@@ -8,6 +8,10 @@
  * Only considers sessions that pass countsTowardStreak (completed strength with
  * working sets, or completed yoga), so skipped, breathing, or rest sessions never
  * move the start earlier.
+ * 
+ * Edge case: If there are no blocks and only a future-dated completed session,
+ * returns that future date. This is consistent with treating all completed sessions
+ * as progress markers, but callers may wish to filter future dates if needed.
  */
 
 import type { Database } from "@/lib/database.types";
@@ -38,7 +42,12 @@ export function progressStartDate(input: {
       )
     : null;
 
-  const firstBlockDate = programs.length > 0 ? programs[0].startedOn : null;
+  const firstBlockDate = programs.length > 0
+    ? programs.reduce((earliest, p) => 
+        p.startedOn < earliest ? p.startedOn : earliest,
+        programs[0].startedOn
+      )
+    : null;
 
   if (!firstSessionDate && !firstBlockDate) return null;
   if (!firstSessionDate) return firstBlockDate;

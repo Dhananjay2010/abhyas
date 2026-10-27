@@ -3,10 +3,7 @@
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
-import { buildRebuildPlanDeps } from "@/lib/program/rebuild-plan-deps";
-import { rebuildPlanCore } from "@/lib/program/rebuild-plan-core";
-import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { localDateString } from "@/lib/dates";
+import { buildPlanLogic } from "@/lib/program/build-plan-logic";
 
 export type BuildPlanResult = { ok: true } | { ok: false; error: string };
 
@@ -28,20 +25,8 @@ export async function buildPlan(): Promise<BuildPlanResult> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  // Get user's timezone to compute today
-  const profileRes = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", user.id)
-    .single();
-  const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
-  const today = localDateString(timezone);
-
-  const deps = buildRebuildPlanDeps(supabase, user.id, today);
-  const result = await rebuildPlanCore(deps);
-  if (!result.ok) {
-    return { ok: false, error: result.error };
-  }
+  const result = await buildPlanLogic(supabase, user.id);
+  if (!result.ok) return result;
 
   revalidateTrainingData();
   return { ok: true };

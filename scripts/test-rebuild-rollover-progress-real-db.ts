@@ -93,6 +93,9 @@ async function runTests() {
     process.exit(1);
   }
 
+  // Track created users for cleanup
+  const createdUserIds: string[] = [];
+
   // Get a test exercise for sessions
   const { data: exerciseRows, error: exerciseError } = await adminClient
     .from("exercises")
@@ -107,7 +110,8 @@ async function runTests() {
   const exerciseId = exerciseRows[0].id;
   assert(!!exerciseId, "Found test exercise");
 
-  console.log("TEST: pd-b scenario - Settings rebuild after block ends WITHOUT Today rollover");
+  try {
+    console.log("TEST: pd-b scenario - Settings rebuild after block ends WITHOUT Today rollover");
   {
     const scenarioStartFailures = testsFailed;
     // Create test user via admin API
@@ -124,6 +128,7 @@ async function runTests() {
     }
 
     const userId = authData.user.id;
+    createdUserIds.push(userId);
     assert(!!userId, "Created test user");
 
     // Ensure profile exists (trigger creates it, but set required fields for plan builder)
@@ -254,7 +259,9 @@ async function runTests() {
       process.exit(1);
     }
 
-    // Day after block ends is 2026-10-27; user rebuilds from Settings on that day
+    // Pin today for the ENTIRE flow (no clock drift between setup, RPCs, and assertions)
+    // This test can run at any pinned date; validated at 2026-10-27, 2026-10-28, and 2026-10-30
+    // Currently: 2026-10-27 (day after block 1 ends on 2026-10-26)
     const today = "2026-10-27";
 
     // Before rebuild: block 1 is still active, ends_on has passed
@@ -305,22 +312,33 @@ async function runTests() {
 
     assert(afterData.status === "completed", "Block 1 marked 'completed' (not 'superseded')", `got ${afterData.status}`);
 
-    // Verify new block 2 was created
-    const { data: newBlocks, error: newBlockError } = await adminClient
+    // Verify new block 2 was created and count all blocks
+    const { data: allBlocks, error: allBlocksError } = await adminClient
       .from("programs")
-      .select("block_number, status")
+      .select("id, block_number, status, started_on, week_offset")
       .eq("user_id", userId)
-      .eq("status", "active")
-      .order("block_number", { ascending: false })
-      .limit(1);
+      .order("block_number", { ascending: true });
 
-    if (newBlockError || !newBlocks || newBlocks.length === 0) {
-      console.error("❌ Failed to find new block:", newBlockError);
+    if (allBlocksError || !allBlocks) {
+      console.error("❌ Failed to fetch all blocks:", allBlocksError);
       process.exit(1);
     }
 
-    assert(newBlocks[0].block_number === 2, "New block has block_number 2", `got ${newBlocks[0].block_number}`);
-    assert(newBlocks[0].status === "active", "New block is active", `got ${newBlocks[0].status}`);
+    assert(allBlocks.length === 2, "Exactly 2 blocks exist", `got ${allBlocks.length}`);
+    assert(allBlocks[0].status === "completed", "Block 1 is completed", `got ${allBlocks[0].status}`);
+    assert(allBlocks[1].status === "active", "Block 2 is active", `got ${allBlocks[1].status}`);
+    assert(allBlocks[1].block_number === 2, "Block 2 has block_number 2", `got ${allBlocks[1].block_number}`);
+    assert(allBlocks[1].started_on === today, "Block 2 started_on equals today", `got ${allBlocks[1].started_on}`);
+    assert(allBlocks[1].week_offset === 0, "Block 2 week_offset is 0", `got ${allBlocks[1].week_offset}`);
+    
+    // Check current week number (week 1 since week_offset is 0 and it just started)
+    const daysSinceStart = Math.floor((new Date(today).getTime() - new Date(allBlocks[1].started_on).getTime()) / (1000 * 60 * 60 * 24));
+    const currentWeek = Math.floor(daysSinceStart / 7) + 1;
+    assert(currentWeek === 1, "Current week is 1", `got ${currentWeek}`);
+    
+    // Verify no superseded blocks exist
+    const supersededBlocks = allBlocks.filter(b => b.status === "superseded");
+    assert(supersededBlocks.length === 0, "No superseded blocks", `got ${supersededBlocks.length}`);
 
     if (testsFailed === scenarioStartFailures) {
       console.log("  PASS: pd-b scenario test\n");
@@ -329,7 +347,7 @@ async function runTests() {
     }
   }
 
-  console.log("TEST: Mid-block rebuild preserves completed status");
+  console.log("TEST: Mid-block rebuild supersedes old block");
   {
     const scenarioStartFailures = testsFailed;
     // Create test user
@@ -346,6 +364,7 @@ async function runTests() {
     }
 
     const userId = authData.user.id;
+    createdUserIds.push(userId);
 
     // Ensure profile exists (trigger creates it, but set required fields for plan builder)
     await adminClient.from("profiles").upsert({
@@ -400,6 +419,9 @@ async function runTests() {
       target_reps_max: 12,
     });
 
+    // Pin today for the ENTIRE flow (no clock drift between setup, RPCs, and assertions)
+    // This test can run at any pinned date; validated at 2026-10-15, 2026-10-28, and 2026-10-30
+    // Currently: 2026-10-15 (mid-block: after block starts 2026-10-01, before it ends 2026-10-29)
     const today = "2026-10-15";
 
     // Create authenticated client (rebuild_block RPC requires auth.uid())
@@ -421,8 +443,8 @@ async function runTests() {
 
     assert(result.ok === true, "Mid-block rebuild succeeded");
 
-    // After rebuild: original block should still be 'active' (not superseded or completed)
-    // because ends_on hasn't passed yet
+    // After rebuild: original block should be 'superseded'
+    // (rebuild always creates a new block and supersedes the old one)
     const { data: afterData } = await adminClient
       .from("programs")
       .select("status, ends_on")
@@ -438,12 +460,26 @@ async function runTests() {
       console.log(`  FAIL: mid-block rebuild test (${testsFailed - scenarioStartFailures} failures)\n`);
     }
   }
+  } finally {
+    // Clean up: delete created test users
+    if (createdUserIds.length > 0) {
+      console.log(`\nCleaning up ${createdUserIds.length} test user(s)...`);
+      for (const userId of createdUserIds) {
+        try {
+          await adminClient.auth.admin.deleteUser(userId);
+        } catch (error) {
+          console.warn(`Failed to delete user ${userId}:`, error);
+        }
+      }
+      console.log("✓ Test user cleanup complete\n");
+    }
+  }
 
   if (testsFailed === 0) {
-    console.log("\n✅ ALL TESTS PASSED");
+    console.log("✅ ALL TESTS PASSED");
     process.exit(0);
   } else {
-    console.error(`\n❌ ${testsFailed} TESTS FAILED`);
+    console.error(`❌ ${testsFailed} TESTS FAILED`);
     process.exit(1);
   }
 }

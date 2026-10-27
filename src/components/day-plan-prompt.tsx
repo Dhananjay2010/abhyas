@@ -19,6 +19,7 @@ export function DayPlanPrompt({
   localDate,
   dayLabel,
   plannedLabel,
+  programDayId,
   days,
   heading,
   intro,
@@ -31,6 +32,8 @@ export function DayPlanPrompt({
   dayLabel: string;
   /** What the block currently says that day is. */
   plannedLabel: string;
+  /** The resolved program_day_id for this day (after collision resolution). Null for Rest. */
+  programDayId: string | null;
   /** The training days of the block, offered as alternatives. */
   days: PlannableDay[];
   heading: string;
@@ -45,6 +48,13 @@ export function DayPlanPrompt({
   const [choosing, setChoosing] = useState(false);
   const [settled, setSettled] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Sort days so nextUp is first (preselected)
+  const sortedDays = [...days].sort((a, b) => {
+    if (a.nextUp && !b.nextUp) return -1;
+    if (!a.nextUp && b.nextUp) return 1;
+    return 0;
+  });
 
   function choose(plan: DayPlan, describedAs: string) {
     setError(null);
@@ -90,7 +100,14 @@ export function DayPlanPrompt({
 
       {!choosing ? (
         <div className={`mt-4 gap-2 ${showRestOption ? "grid grid-cols-3" : "flex"}`}>
-          <Choice disabled={pending} onClick={() => choose({ kind: "keep" }, plannedLabel)}>
+          <Choice
+            disabled={pending}
+            onClick={() =>
+              programDayId
+                ? choose({ kind: "training", programDayId }, plannedLabel)
+                : choose({ kind: "keep" }, plannedLabel)
+            }
+          >
             Keep it
           </Choice>
           <Choice disabled={pending} onClick={() => setChoosing(true)}>
@@ -104,7 +121,7 @@ export function DayPlanPrompt({
         </div>
       ) : (
         <div className="mt-4 space-y-2">
-          {days.map((d) => (
+          {sortedDays.map((d) => (
             <Choice
               key={d.programDayId}
               wide
@@ -113,7 +130,14 @@ export function DayPlanPrompt({
                 choose({ kind: "training", programDayId: d.programDayId }, d.label)
               }
             >
-              {d.label}
+              <div className="flex items-center justify-between">
+                <span>{d.label}</span>
+                {d.nextUp && (
+                  <span className="rounded bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent">
+                    Next up
+                  </span>
+                )}
+              </div>
             </Choice>
           ))}
           <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
