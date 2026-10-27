@@ -57,14 +57,52 @@ echo "✓ Database connection: ${DB_URL%%\?*}"
 # In CI, the stack already has all migrations applied by earlier steps.
 # We don't reset - we just verify that 040 can be re-applied twice.
 
-# In CI, the stack already has all migrations applied by earlier steps.
-# We don't reset - we just verify that 040 can be re-applied twice.
+# Step 0: Set branding data on one test gym (so "data survived" check proves something)
+echo ""
+echo "Step 0: Setting test branding data on one gym..."
+
+TEST_GYM_ID=$(psql "$DB_URL" -t -c "
+  SELECT id FROM public.gyms LIMIT 1;
+" | xargs || echo "")
+
+if [ -z "$TEST_GYM_ID" ]; then
+  echo "❌ No test gym found to set branding data"
+  exit 1
+fi
+
+echo "Test gym ID: $TEST_GYM_ID"
+
+# Set branding data via UPDATE (direct postgres access is fine in CI-only script)
+psql "$DB_URL" -v ON_ERROR_STOP=1 -c "
+  UPDATE public.gyms 
+  SET display_name = 'Test Branded Gym',
+      logo_url = 'https://example.com/test-logo.png',
+      primary_color = '#1E3A8A',
+      accent_color = '#3B82F6'
+  WHERE id = '$TEST_GYM_ID';
+" > /dev/null
+
+echo "✓ Test branding data set on gym $TEST_GYM_ID"
 
 # Step 1: Capture current state before re-applying 040
 echo ""
 echo "Step 1: Capturing current state..."
 
-# Check if any test gyms have branding data
+# Capture the test gym's branding data
+TEST_GYM_BRANDING=$(psql "$DB_URL" -t -c "
+  SELECT display_name, logo_url, primary_color, accent_color
+  FROM public.gyms 
+  WHERE id = '$TEST_GYM_ID';
+" | xargs || echo "")
+
+echo "Test gym branding before: $TEST_GYM_BRANDING"
+
+if [ -z "$TEST_GYM_BRANDING" ]; then
+  echo "❌ Failed to capture test gym branding data"
+  exit 1
+fi
+
+# Check if any test gyms have branding data (should be at least 1 now)
 GYMS_WITH_BRANDING=$(psql "$DB_URL" -t -c "
   SELECT count(*) FROM public.gyms 
   WHERE display_name IS NOT NULL 
@@ -74,6 +112,11 @@ GYMS_WITH_BRANDING=$(psql "$DB_URL" -t -c "
 " | xargs || echo "0")
 
 echo "Gyms with branding data: $GYMS_WITH_BRANDING"
+
+if [ "$GYMS_WITH_BRANDING" -lt "1" ]; then
+  echo "❌ Expected at least 1 gym with branding data after Step 0"
+  exit 1
+fi
 
 # Capture set_gym_branding grants before re-applying
 SET_GRANTS_BEFORE=$(psql "$DB_URL" -t -c "
@@ -166,6 +209,24 @@ echo "✓ All CHECK constraints still exist"
 echo ""
 echo "Step 5: Verifying existing branding data survived..."
 
+# Check the specific test gym's branding data
+TEST_GYM_BRANDING_AFTER=$(psql "$DB_URL" -t -c "
+  SELECT display_name, logo_url, primary_color, accent_color
+  FROM public.gyms 
+  WHERE id = '$TEST_GYM_ID';
+" | xargs || echo "")
+
+echo "Test gym branding after: $TEST_GYM_BRANDING_AFTER"
+
+if [ "$TEST_GYM_BRANDING" != "$TEST_GYM_BRANDING_AFTER" ]; then
+  echo "❌ Test gym branding data changed"
+  echo "   Before: $TEST_GYM_BRANDING"
+  echo "   After:  $TEST_GYM_BRANDING_AFTER"
+  exit 1
+fi
+echo "✓ Test gym branding data unchanged"
+
+# Check overall count
 GYMS_WITH_BRANDING_AFTER=$(psql "$DB_URL" -t -c "
   SELECT count(*) FROM public.gyms 
   WHERE display_name IS NOT NULL 
@@ -175,7 +236,7 @@ GYMS_WITH_BRANDING_AFTER=$(psql "$DB_URL" -t -c "
 " | xargs || echo "0")
 
 if [ "$GYMS_WITH_BRANDING" != "$GYMS_WITH_BRANDING_AFTER" ]; then
-  echo "❌ Branding data changed"
+  echo "❌ Branding data count changed"
   echo "   Before: $GYMS_WITH_BRANDING gyms"
   echo "   After:  $GYMS_WITH_BRANDING_AFTER gyms"
   exit 1
@@ -227,8 +288,23 @@ if [ "$BRANDING_FUNC" != "set_gym_branding" ]; then
 fi
 echo "✓ set_gym_branding function exists"
 
+# Verify test gym's branding data is still unchanged after second re-application
+TEST_GYM_BRANDING_FINAL=$(psql "$DB_URL" -t -c "
+  SELECT display_name, logo_url, primary_color, accent_color
+  FROM public.gyms 
+  WHERE id = '$TEST_GYM_ID';
+" | xargs || echo "")
+
+if [ "$TEST_GYM_BRANDING" != "$TEST_GYM_BRANDING_FINAL" ]; then
+  echo "❌ Test gym branding data changed after second re-application"
+  echo "   Before: $TEST_GYM_BRANDING"
+  echo "   After:  $TEST_GYM_BRANDING_FINAL"
+  exit 1
+fi
+echo "✓ Test gym branding data unchanged after both re-applications"
+
 echo ""
 echo "✅ All migration 040 idempotency tests passed"
 echo "   - Migration 040 can be re-applied twice on an already-migrated database"
 echo "   - Functions, grants, and CHECK constraints remain unchanged"
-echo "   - Existing branding data survives re-application"
+echo "   - Existing branding data survives both re-applications (verified with test gym)"

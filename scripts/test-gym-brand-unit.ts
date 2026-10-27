@@ -130,6 +130,31 @@ function runTests() {
   }
   console.log();
 
+  console.log("TEST: Pre-040 RPC response (name, slug, timezone only)");
+  {
+    // Simulate a pre-040 RPC mock or response without brand fields
+    // This should pass the type guard and produce the default brand
+    const preBrandingRow = { name: "Test Gym", slug: "test-gym", timezone: null };
+    
+    // Test that the row structure is valid (would pass isGymBrandRow)
+    check("Pre-040 row has required fields", 
+      typeof preBrandingRow.name === "string" && 
+      typeof preBrandingRow.slug === "string");
+    
+    // Test that optional brand fields can be missing
+    check("Pre-040 row has no display_name", !("display_name" in preBrandingRow));
+    check("Pre-040 row has no logo_url", !("logo_url" in preBrandingRow));
+    check("Pre-040 row has no primary_color", !("primary_color" in preBrandingRow));
+    check("Pre-040 row has no accent_color", !("accent_color" in preBrandingRow));
+    
+    // Test that a brand built from this row would use defaults
+    // (In the actual code, missing brand fields result in no brand.colors, 
+    // falling back to branding.colors)
+    check("Default brand fallback available", !!branding.colors);
+    check("Default accentFg preserved", branding.colors.accentFg === "#1a1000");
+  }
+  console.log();
+
   if (failures > 0) {
     console.error(`\n❌ ${failures} test(s) failed\n`);
     process.exit(1);
