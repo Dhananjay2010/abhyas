@@ -49,7 +49,8 @@ function check(label: string, pass: boolean, detail?: string) {
   console.log("\nCase 2: missing session (another user's or not found)");
   {
     const deps: ResolvePlanTargetDateDeps = {
-      async fetchSessionLocalDate(sessionId, userId) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      async fetchSessionLocalDate(_sessionId, _userId) {
         return { localDate: null, error: null };
       },
     };
@@ -68,6 +69,7 @@ function check(label: string, pass: boolean, detail?: string) {
   console.log("\nCase 3: fetch error (DB error)");
   {
     const deps: ResolvePlanTargetDateDeps = {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       async fetchSessionLocalDate(sessionId, userId) {
         return { localDate: null, error: "connection failed" };
       },
