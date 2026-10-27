@@ -48,23 +48,26 @@ export async function loadPreviousCompletedWeights(
   // Process: for each exercise, find most recent session and take max working-set weight
   const byExercise = new Map<string, Array<{ weight: number; started_at: string }>>();
   
+  function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+  
   for (const session of data) {
     const exercises = session.session_exercises;
     if (!Array.isArray(exercises)) continue;
     
     for (const exercise of exercises) {
-      if (!exercise || typeof exercise !== 'object') continue;
-      const ex = exercise as Record<string, unknown>;
+      if (!isRecord(exercise)) continue;
       
-      const exerciseId = ex.exercise_id;
+      const exerciseId = exercise.exercise_id;
       if (typeof exerciseId !== 'string') continue;
       
-      const sets = ex.session_sets;
+      const sets = exercise.session_sets;
       if (!Array.isArray(sets)) continue;
       
       // Get max working-set weight (exclude warm-ups)
       const workingWeights = sets
-        .filter((s): s is Record<string, unknown> => typeof s === 'object' && s !== null)
+        .filter(isRecord)
         .filter((s) => s.is_warmup_set === false)
         .map((s) => s.weight_kg)
         .filter((w): w is number => typeof w === 'number' && w > 0);
