@@ -478,10 +478,12 @@ await (async () => {
   });
 
   const text = container.textContent || "";
-  const hasFriendlyMessage = text.includes("Something went wrong on our side") && text.includes("wasn't saved");
+  const hasFriendlyMessage = text.includes("Something went wrong on our side") && text.includes("Please try again");
   const hasRawError = text.includes("500") || text.includes("Internal Server Error");
+  const hasSetCopy = text.includes("wasn't saved");
 
-  assert(hasFriendlyMessage, "Shows friendly message for run() errors");
+  assert(hasFriendlyMessage, "Shows friendly action message for finishExercise errors");
+  assert(!hasSetCopy, "Does not show set-specific copy for finishExercise (action, not set)");
   assert(!hasRawError, "Raw '500 Internal Server Error' NOT shown (mutant M6c: restore raw err.message must fail this)");
 
   root.unmount();

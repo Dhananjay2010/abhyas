@@ -51,7 +51,7 @@ import { loadPendingSets } from "@/lib/session/pending-set-retry";
 import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
 import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
-import { shouldShowCooldownForPending } from "@/lib/session/session-finish-decisions";
+import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
 import { resolveSetConflict, type ConflictResult } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
@@ -757,9 +757,9 @@ export function SessionRunner({
               const result = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
               );
+              restPersistence.clear();
               if (result && result.ok) {
                 setSavedDurationSeconds(result.data.durationSeconds);
-                restPersistence.clear();
                 setPhase("done");
               } else {
                 resumeElapsed();
@@ -805,9 +805,9 @@ export function SessionRunner({
                   const result = await run(() =>
                     actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
                   );
+                  restPersistence.clear();
                   if (result && result.ok) {
                     setSavedDurationSeconds(result.data.durationSeconds);
-                    restPersistence.clear();
                     setPhase("done");
                   } else {
                     resumeElapsed();
@@ -823,9 +823,9 @@ export function SessionRunner({
               const result = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
               );
+              restPersistence.clear();
               if (result && result.ok) {
                 setSavedDurationSeconds(result.data.durationSeconds);
-                restPersistence.clear();
                 setPhase("done");
               } else {
                 resumeElapsed();
@@ -1149,7 +1149,7 @@ export function SessionRunner({
         setSessionExpired(true);
         setError(null);
       } else {
-        setError(runnerErrorMessage(err, 'set'));
+        setError(runnerErrorMessage(err, 'action'));
         setSessionExpired(false);
       }
       busyRef.current = false;
@@ -1193,22 +1193,26 @@ export function SessionRunner({
     const next = exercises.findIndex((e, i) => i > exerciseIndex && e.status === "pending");
     setBannerFor(next === -1 ? null : next);
     if (next === -1) {
-      if (shouldShowCooldownForPending(settings.cooldownEnabled, pendingSetState.pending.length)) {
+      if (settings.cooldownEnabled) {
         setPhase("cooldown");
-        return;
-      }
-      const frozen = stopElapsed();
-      setLastCooldownCompleted(false);
-      const result = await run(() =>
-        actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
-      );
-      if (result && result.ok) {
-        setSavedDurationSeconds(result.data?.durationSeconds ?? null);
-        setPhase("done");
       } else {
-        resumeElapsed();
+        if (shouldShowCooldownForPending(settings.cooldownEnabled, pendingSetState.pending.length)) {
+          setPhase("cooldown");
+          return;
+        }
+        const frozen = stopElapsed();
+        setLastCooldownCompleted(false);
+        const result = await run(() =>
+          actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
+        );
+        if (result && result.ok) {
+          setSavedDurationSeconds(result.data?.durationSeconds ?? null);
+          setPhase("done");
+        } else {
+          resumeElapsed();
+        }
+        setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
       }
-      setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
     } else {
       setExerciseIndex(next);
     }
@@ -1600,7 +1604,7 @@ export function SessionRunner({
           )}
           <GhostButton
             buttonRef={endEarlyTriggerRef}
-            disabled={busy}
+            disabled={isEndEarlyDisabled(busy, pendingSetState.pending.length)}
             onClick={() => setConfirming("end_early")}
           >
             End session early
