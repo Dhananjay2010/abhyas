@@ -27,11 +27,15 @@ REBUILD_CORE="src/lib/program/rebuild-plan-core.ts"
 PROGRESS_START_FILE="src/lib/progress/progress-start-date.ts"
 STREAKS_FILE="src/lib/progress/streaks.ts"
 ROLLOVER_FILE="src/lib/program/rollover.ts"
+PROGRESS_PAGE_FILE="src/app/progress/page.tsx"
+BUILD_PLAN_LOGIC_FILE="src/lib/program/build-plan-logic.ts"
 TMP=$(mktemp -d)
 BACKUP_CORE="$TMP/rebuild-plan-core.ts"
 BACKUP_PROGRESS_START="$TMP/progress-start-date.ts"
 BACKUP_STREAKS="$TMP/streaks.ts"
 BACKUP_ROLLOVER="$TMP/rollover.ts"
+BACKUP_PROGRESS_PAGE="$TMP/progress-page.tsx"
+BACKUP_BUILD_PLAN_LOGIC="$TMP/build-plan-logic.ts"
 
 echo "Mutant test: rebuild rollover and progress defensive fixes"
 echo "============================================================"
@@ -42,6 +46,8 @@ cp "$REBUILD_CORE" "$BACKUP_CORE"
 cp "$PROGRESS_START_FILE" "$BACKUP_PROGRESS_START"
 cp "$STREAKS_FILE" "$BACKUP_STREAKS"
 cp "$ROLLOVER_FILE" "$BACKUP_ROLLOVER"
+cp "$PROGRESS_PAGE_FILE" "$BACKUP_PROGRESS_PAGE"
+cp "$BUILD_PLAN_LOGIC_FILE" "$BACKUP_BUILD_PLAN_LOGIC"
 
 cleanup() {
   if [ "${cleanup_done:-0}" = "1" ]; then
@@ -53,6 +59,8 @@ cleanup() {
   cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
   cp "$BACKUP_STREAKS" "$STREAKS_FILE"
   cp "$BACKUP_ROLLOVER" "$ROLLOVER_FILE"
+  cp "$BACKUP_PROGRESS_PAGE" "$PROGRESS_PAGE_FILE"
+  cp "$BACKUP_BUILD_PLAN_LOGIC" "$BUILD_PLAN_LOGIC_FILE"
   rm -rf "$TMP"
 }
 trap 'cleanup; exit 130' INT TERM
@@ -282,6 +290,83 @@ rm -f "$MUTANT5_LOG"
 # Restore
 cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
 
+# Mutant A (MED-2a): drop effectiveStart from the Progress page's buildDayRecords call
+echo ""
+echo "Mutant A: Remove effectiveStart from page.tsx buildDayRecords call"
+echo "Expected: test-progress-superseded-ended-wiring.tsx should fail by assertion"
+echo ""
+
+cp "$BACKUP_PROGRESS_PAGE" "$PROGRESS_PAGE_FILE"
+# Delete the shorthand property inside the buildDayRecords({ ... }) argument only
+sed -i '/const dayRecords = buildDayRecords({/,/});/{/^    effectiveStart,$/d}' "$PROGRESS_PAGE_FILE"
+
+# Verify the mutation applied: files differ and the call no longer passes effectiveStart
+if diff -q "$BACKUP_PROGRESS_PAGE" "$PROGRESS_PAGE_FILE" > /dev/null 2>&1; then
+  echo "✗ FAIL: Mutant A did not apply (files are identical)"
+  exit 1
+fi
+if sed -n '/const dayRecords = buildDayRecords({/,/});/p' "$PROGRESS_PAGE_FILE" | grep -q 'effectiveStart'; then
+  echo "✗ FAIL: Mutant A did not remove effectiveStart from buildDayRecords call"
+  exit 1
+fi
+
+MUTANTA_LOG=$(mktemp)
+if npx tsx scripts/test-progress-superseded-ended-wiring.tsx > "$MUTANTA_LOG" 2>&1; then
+  echo "✗ SURVIVED: Mutant A (Progress render passes without effectiveStart)"
+  cat "$MUTANTA_LOG"
+  SURVIVED=$((SURVIVED + 1))
+else
+  if ! grep -q "❌ FAIL" "$MUTANTA_LOG" || grep -q "^Test error:" "$MUTANTA_LOG"; then
+    echo "✗ FAIL: Mutant A killed by crash, not assertion"
+    cat "$MUTANTA_LOG"
+    exit 1
+  fi
+  grep "❌ FAIL" "$MUTANTA_LOG"
+  echo "✓ Mutant A killed (rendered Progress stats wrong without effectiveStart)"
+  KILLED=$((KILLED + 1))
+fi
+rm -f "$MUTANTA_LOG"
+
+# Restore
+cp "$BACKUP_PROGRESS_PAGE" "$PROGRESS_PAGE_FILE"
+
+# Mutant B (MED-2b): buildPlanLogic skips rebuildPlanCore and calls createBlockForUser directly
+echo ""
+echo "Mutant B: buildPlanLogic bypasses rebuildPlanCore (createBlockForUser rebuild directly)"
+echo "Expected: test-build-plan-logic-wiring.ts should fail by assertion"
+echo ""
+
+cp "$BACKUP_BUILD_PLAN_LOGIC" "$BUILD_PLAN_LOGIC_FILE"
+sed -i 's|^import { rebuildPlanCore } from "./rebuild-plan-core";$|import { rebuildPlanCore } from "./rebuild-plan-core";\nimport { createBlockForUser } from "./persist";|' "$BUILD_PLAN_LOGIC_FILE"
+sed -i 's|const result = await rebuildPlanCore(deps);|void deps; void rebuildPlanCore; const result = await createBlockForUser(supabase, userId, { mode: "rebuild" });|' "$BUILD_PLAN_LOGIC_FILE"
+
+# Verify the mutation applied
+if ! grep -q 'const result = await createBlockForUser(supabase, userId, { mode: "rebuild" });' "$BUILD_PLAN_LOGIC_FILE" \
+  || ! grep -q '^import { createBlockForUser } from "./persist";$' "$BUILD_PLAN_LOGIC_FILE"; then
+  echo "✗ FAIL: Mutant B did not apply (replacement not found)"
+  exit 1
+fi
+
+MUTANTB_LOG=$(mktemp)
+if npx tsx scripts/test-build-plan-logic-wiring.ts > "$MUTANTB_LOG" 2>&1; then
+  echo "✗ SURVIVED: Mutant B (wiring test passes without rebuildPlanCore)"
+  cat "$MUTANTB_LOG"
+  SURVIVED=$((SURVIVED + 1))
+else
+  if ! grep -q "❌ FAIL" "$MUTANTB_LOG" || grep -q "^Test error:" "$MUTANTB_LOG"; then
+    echo "✗ FAIL: Mutant B killed by crash, not assertion"
+    cat "$MUTANTB_LOG"
+    exit 1
+  fi
+  grep "❌ FAIL" "$MUTANTB_LOG"
+  echo "✓ Mutant B killed (buildPlanLogic wiring test detects skipped rollover)"
+  KILLED=$((KILLED + 1))
+fi
+rm -f "$MUTANTB_LOG"
+
+# Restore
+cp "$BACKUP_BUILD_PLAN_LOGIC" "$BUILD_PLAN_LOGIC_FILE"
+
 echo ""
 echo "============================================================"
 echo "Summary: $KILLED killed, $SURVIVED survived"
@@ -293,6 +378,8 @@ cp "$BACKUP_CORE" "$REBUILD_CORE"
 cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
 cp "$BACKUP_STREAKS" "$STREAKS_FILE"
 cp "$BACKUP_ROLLOVER" "$ROLLOVER_FILE"
+cp "$BACKUP_PROGRESS_PAGE" "$PROGRESS_PAGE_FILE"
+cp "$BACKUP_BUILD_PLAN_LOGIC" "$BUILD_PLAN_LOGIC_FILE"
 rm -rf "$TMP"
 
 if [ $SURVIVED -gt 0 ]; then

@@ -20,7 +20,9 @@ export type BuildPlanLogicResult =
  */
 export async function buildPlanLogic(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
+  /** Injectable clock for tests; production callers omit it. */
+  now: Date = new Date()
 ): Promise<BuildPlanLogicResult> {
   // Get user's timezone to compute today
   const profileRes = await supabase
@@ -34,7 +36,7 @@ export async function buildPlanLogic(
   }
   
   const timezone = resolveTimezoneWithProfile(profileRes.data.timezone);
-  const today = localDateString(timezone);
+  const today = localDateString(timezone, now);
 
   const deps = buildRebuildPlanDeps(supabase, userId, today);
   
