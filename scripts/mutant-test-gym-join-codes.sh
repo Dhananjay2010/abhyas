@@ -87,6 +87,98 @@ rm -f "$BASELINE_OUTPUT"
 echo "✓ Baseline tests pass"
 echo
 
+run_mutant_migration_file() {
+  local name="$1"
+  local description="$2"
+  local migration_file="$3"
+  local sed_command="$4"
+  local expected_error="$5"
+  
+  echo "Testing mutant: $name"
+  echo "  $description"
+  
+  # Backup migration file
+  cp "$migration_file" "$migration_file.backup"
+  
+  # Apply mutation
+  eval "$sed_command \"$migration_file\"" > "$migration_file.tmp"
+  
+  # Verify sed changed the file
+  if cmp -s "$migration_file" "$migration_file.tmp"; then
+    echo "  ⚠️  SKIPPED: sed did not change the file"
+    SKIPPED+=("$name: sed pattern not found")
+    mv "$migration_file.backup" "$migration_file"
+    rm -f "$migration_file.tmp"
+    sleep 2
+    return 0
+  fi
+  
+  mv "$migration_file.tmp" "$migration_file"
+  
+  # Reset database (which will re-apply all migrations including mutated one)
+  local reset_output=$(mktemp)
+  if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
+    if ! npx supabase@2.122.0 db reset > "$reset_output" 2>&1; then
+      echo "  ❌ SKIPPED: db reset failed"
+      SKIPPED+=("$name: db reset failed")
+      mv "$migration_file.backup" "$migration_file"
+      rm -f "$reset_output"
+      sleep 2
+      return 0
+    fi
+  else
+    if ! npx supabase@2.122.0 db reset --db-url "$SUPABASE_DB_URL" > "$reset_output" 2>&1; then
+      echo "  ❌ SKIPPED: db reset failed"
+      SKIPPED+=("$name: db reset failed")
+      mv "$migration_file.backup" "$migration_file"
+      rm -f "$reset_output"
+      sleep 2
+      return 0
+    fi
+  fi
+  rm -f "$reset_output"
+  
+  # Run tests and capture output
+  local test_output=$(mktemp)
+  local test1_passed=false
+  local test2_passed=false
+  
+  if REAL_DB=1 npm run test:gym-join-codes-real-db > "$test_output" 2>&1; then
+    test1_passed=true
+  fi
+  
+  if REAL_DB=1 npm run test:gym-join-codes-comprehensive >> "$test_output" 2>&1; then
+    test2_passed=true
+  fi
+  
+  # Restore migration file immediately
+  mv "$migration_file.backup" "$migration_file"
+  
+  if [ "$test1_passed" = true ] && [ "$test2_passed" = true ]; then
+    echo "  ❌ SURVIVED (both tests passed when they should have failed)"
+    echo "  Last 20 lines of test output:"
+    tail -20 "$test_output" | sed 's/^/    /'
+    FAILED=$((FAILED + 1))
+    SURVIVORS+=("$name")
+  else
+    # Check if expected error message appears
+    if grep -q "$expected_error" "$test_output"; then
+      echo "  ✓ KILLED (test caught the mutation with expected error)"
+    else
+      echo "  ❌ SURVIVED (test failed but not with expected message)"
+      echo "  Expected error: $expected_error"
+      echo "  Last 20 lines of test output:"
+      tail -20 "$test_output" | sed 's/^/    /'
+      FAILED=$((FAILED + 1))
+      SURVIVORS+=("$name")
+    fi
+  fi
+  
+  rm -f "$test_output"
+  echo
+  sleep 2
+}
+
 run_mutant() {
   local name="$1"
   local description="$2"
@@ -246,11 +338,19 @@ run_mutant \
   "Allow staff to see both member and staff codes" \
   "DROP POLICY IF EXISTS gym_join_codes_select ON public.gym_join_codes; CREATE POLICY gym_join_codes_select ON public.gym_join_codes FOR SELECT TO authenticated USING ((SELECT public.is_gym_owner(gym_id)) OR (SELECT public.is_gym_staff(gym_id)));"
 
+# Mutant (o): Remove gym_name from already_member returns in migration 042
+run_mutant_migration_file \
+  "(o) already_member returns no gym_name" \
+  "Remove gym_name from already_member jsonb_build_object calls" \
+  "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
+  "sed \"s/, 'gym_name', v_code_record.gym_name//g\"" \
+  "already_member includes gym_name"
+
 echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-TOTAL_MUTANTS=14
+TOTAL_MUTANTS=15
 echo "Total mutants:                   $TOTAL_MUTANTS"
 echo "Killed:                          $((TOTAL_MUTANTS - FAILED - ${#SKIPPED[@]}))"
 echo "Survived:                        $FAILED"

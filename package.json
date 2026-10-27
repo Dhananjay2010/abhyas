@@ -564,6 +564,7 @@
     "test:split-join-codes": "tsx scripts/test-split-join-codes.ts",
     "test:gym-join-code-wiring": "tsx scripts/test-gym-join-code-wiring.ts",
     "ci:migration-040-idempotent": "bash scripts/test-migration-040-idempotent.sh",
+    "ci:migration-042-idempotent": "bash scripts/test-migration-042-idempotent.sh",
     "ci:mutant-gym-branding": "bash scripts/mutant-test-gym-branding.sh",
     "ci:mutant-join-code-wiring": "bash scripts/mutant-test-gym-join-code-wiring.sh"
   },

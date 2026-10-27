@@ -397,6 +397,7 @@ jobs:
           REAL_DB=1 npm run test:gym-join-codes-comprehensive
           REAL_DB=1 npm run ci:mutant-gym-join-codes
           REAL_DB=1 npm run ci:migration-040-idempotent
+          REAL_DB=1 npm run ci:migration-042-idempotent
           REAL_DB=1 npm run test:gym-branding-real-db
           REAL_DB=1 npm run ci:mutant-gym-branding
         env:
