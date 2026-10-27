@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { JoinConfirmation } from "./join-confirmation";
+import { parsePreviewJoinCodeResult } from "@/lib/gym-join-code-types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,15 +20,15 @@ export default async function JoinPage({ params }: PageProps) {
   }
 
   // Preview the join code
-  const { data: previewResult } = await supabase.rpc("preview_join_code", {
+  const { data: previewData } = await supabase.rpc("preview_join_code", {
     p_code: code,
   });
 
-  // Handle jsonb result
-  const result = previewResult as { ok: boolean; reason?: string; gym_name?: string; gym_slug?: string; role?: string } | null;
+  // Parse jsonb result with type guard
+  const result = parsePreviewJoinCodeResult(previewData);
 
   if (!result || !result.ok) {
-    const reason = result?.reason || "invalid";
+    const reason = result?.ok === false ? result.reason : "invalid";
     const isThrottled = reason === "throttled";
     
     return (
@@ -74,14 +75,11 @@ export default async function JoinPage({ params }: PageProps) {
   );
 
   // Check if user has an active member membership in another gym (will be moved if joining as member)
-  const hasOtherMemberGym = currentMemberships?.some(
+  const otherMemberMembership = currentMemberships?.find(
     m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug !== gym_slug && m.role === "member"
   );
-  const otherMemberGymName = hasOtherMemberGym 
-    ? currentMemberships?.find(m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug !== gym_slug && m.role === "member")?.gyms && 
-      !Array.isArray(currentMemberships?.find(m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug !== gym_slug && m.role === "member")?.gyms) 
-      ? (currentMemberships?.find(m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug !== gym_slug && m.role === "member")?.gyms as any)?.name
-      : null
+  const otherMemberGymName = otherMemberMembership?.gyms && !Array.isArray(otherMemberMembership.gyms) 
+    ? otherMemberMembership.gyms.name 
     : null;
 
   return (

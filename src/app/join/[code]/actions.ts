@@ -1,17 +1,16 @@
 "use server";
 
 import { getAuthedClient } from "@/lib/supabase/auth";
+import { parseRedeemJoinCodeResult, type RedeemJoinCodeResult } from "@/lib/gym-join-code-types";
 
 export type RedeemCodeResult = 
   | { ok: true }
   | { ok: false; error: string };
 
-function mapRedeemResultToMessage(result: { ok: boolean; reason?: string; gym_id?: string; gym_name?: string } | null): string {
-  if (!result) return "An error occurred";
-  
+function mapRedeemResultToMessage(result: RedeemJoinCodeResult): string {
   if (result.ok) return ""; // Success
   
-  const reason = result.reason || "";
+  const reason = result.reason;
   
   if (reason === "invalid") {
     return "This code is invalid or no longer available";
@@ -69,10 +68,14 @@ export async function redeemJoinCode(code: string): Promise<RedeemCodeResult> {
     return { ok: false, error: mapDbErrorToMessage(error) };
   }
 
-  // Handle jsonb result
-  const result = data as { ok: boolean; reason?: string; gym_id?: string; gym_name?: string } | null;
+  // Parse jsonb result with type guard
+  const result = parseRedeemJoinCodeResult(data);
   
-  if (!result || !result.ok) {
+  if (!result) {
+    return { ok: false, error: "Invalid response from server" };
+  }
+  
+  if (!result.ok) {
     const errorMessage = mapRedeemResultToMessage(result);
     return { ok: false, error: errorMessage };
   }

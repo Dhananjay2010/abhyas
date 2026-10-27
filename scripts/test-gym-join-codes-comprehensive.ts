@@ -47,9 +47,10 @@ async function runTests() {
       password: "password123",
       email_confirm: true,
     });
+    if (!data.user?.id) throw new Error("Failed to create user");
     const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     await client.auth.signInWithPassword({ email, password: "password123" });
-    return { userId: data.user?.id!, client };
+    return { userId: data.user.id, client };
   };
 
   const owner = await createTestUser("owner");

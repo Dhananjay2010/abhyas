@@ -669,6 +669,32 @@ export type Database = {
           },
         ]
       }
+      gym_join_code_attempts: {
+        Row: {
+          attempted_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          attempted_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_join_code_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1573,20 +1599,29 @@ export type Database = {
         Args: {
           p_code: string
         }
-        Returns: {
-          gym_name: string
-          gym_slug: string
-          role: Database["public"]["Enums"]["gym_role"]
-        }[]
+        Returns: Json
       }
       redeem_join_code: {
         Args: {
           p_code: string
         }
-        Returns: {
-          gym_id: string
-          gym_name: string
-        }[]
+        Returns: Json
+      }
+      check_join_code_throttle: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      generate_join_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      record_join_code_miss: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: undefined
       }
       create_join_code: {
         Args: {
