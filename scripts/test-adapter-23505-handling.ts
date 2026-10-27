@@ -10,8 +10,10 @@
  */
 
 import { strict as assert } from "node:assert";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createPlanDayDbOps } from "../src/lib/session/make-plan-day-client";
 import { planDayCore, type PlanDayClient } from "../src/lib/session/plan-day-core";
+import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
 
@@ -30,34 +32,42 @@ async function test(name: string, fn: () => void | Promise<void>) {
   }
 }
 
-function makeFakeDbWithError(errorCode: string | null): PlanDayClient {
+function makeFakeSupabaseClient(insertErrorCode: string | null) {
   return {
-    async findDaySessions() {
-      return { rows: [], error: null };
-    },
-    async findActiveProgram() {
-      return { program: null, error: null };
-    },
-    async loadProgramDay() {
-      return { ok: false, error: "not implemented" };
-    },
-    async findProgramDay() {
-      return { day: null, error: null };
-    },
-    async updateSession() {
-      return { error: null };
-    },
-    async deleteSessions() {
-      return { error: null };
-    },
-    async insertSession() {
-      if (errorCode) {
-        return { error: `Simulated error ${errorCode}` };
+    from(table: string) {
+      if (table === "sessions") {
+        return {
+          insert() {
+            return Promise.resolve({
+              data: null,
+              error: insertErrorCode ? { code: insertErrorCode, message: `Simulated error ${insertErrorCode}` } : null,
+              count: null,
+              status: 200,
+              statusText: "OK",
+            });
+          },
+          select() {
+            return this;
+          },
+          eq() {
+            return this;
+          },
+          maybeSingle() {
+            return Promise.resolve({ data: null, error: null, count: null, status: 200, statusText: "OK" });
+          },
+        };
       }
-      return { error: null };
-    },
-    async rereadDaySessions() {
-      return { rows: [], error: null };
+      return {
+        select() {
+          return this;
+        },
+        eq() {
+          return this;
+        },
+        maybeSingle() {
+          return Promise.resolve({ data: null, error: null, count: null, status: 200, statusText: "OK" });
+        },
+      };
     },
   };
 }
@@ -66,14 +76,10 @@ async function main() {
   console.log("Testing 23505 handling in adapter\n");
 
   await test("insertSession with 23505 returns {error: null}", async () => {
-    const fakeDb: PlanDayClient = {
-      ...makeFakeDbWithError(null),
-      async insertSession() {
-        return { error: null };
-      },
-    };
+    const fakeSupabase = makeFakeSupabaseClient("23505");
+    const adapter = createPlanDayDbOps(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
     
-    const result = await fakeDb.insertSession({
+    const result = await adapter.insertSession({
       user_id: "user-1",
       local_date: "2026-11-02",
       status: "planned",
@@ -85,14 +91,10 @@ async function main() {
   });
 
   await test("insertSession with 23503 surfaces the error", async () => {
-    const fakeDb: PlanDayClient = {
-      ...makeFakeDbWithError(null),
-      async insertSession() {
-        return { error: "Simulated error 23503" };
-      },
-    };
+    const fakeSupabase = makeFakeSupabaseClient("23503");
+    const adapter = createPlanDayDbOps(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
     
-    const result = await fakeDb.insertSession({
+    const result = await adapter.insertSession({
       user_id: "user-1",
       local_date: "2026-11-02",
       status: "planned",
@@ -105,9 +107,10 @@ async function main() {
   });
 
   await test("insertSession with null error returns {error: null}", async () => {
-    const fakeDb = makeFakeDbWithError(null);
+    const fakeSupabase = makeFakeSupabaseClient(null);
+    const adapter = createPlanDayDbOps(fakeSupabase as unknown as SupabaseClient<Database>, "user-1");
     
-    const result = await fakeDb.insertSession({
+    const result = await adapter.insertSession({
       user_id: "user-1",
       local_date: "2026-11-02",
       status: "planned",
@@ -126,7 +129,7 @@ async function main() {
       program_day_id: "day-1",
     };
     
-    const client = {
+    const client: PlanDayClient = {
       async findDaySessions() {
         return { rows: [existingRow], error: null };
       },

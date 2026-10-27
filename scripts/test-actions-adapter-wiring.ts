@@ -9,7 +9,6 @@
 
 import { strict as assert } from "node:assert";
 import type { PlanDayClient } from "../src/lib/session/plan-day-core";
-import type { Database } from "../src/lib/database.types";
 
 export {}; // Module
 
