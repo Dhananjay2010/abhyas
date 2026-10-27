@@ -1,39 +1,41 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { signOutAction } from "@/lib/auth/signout";
-import { clearPendingChanges } from "@/lib/auth/pending-changes";
+import { logSet } from "@/app/session/actions";
+import { useSignOut } from "@/lib/auth/use-signout";
+import { SignOutFormView } from "@/app/today/signout-form";
 
-export function SignOutButton() {
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSignOut() {
-    startTransition(async () => {
-      clearPendingChanges();
-      const result = await signOutAction();
-      // If we reach here, signOut failed (success redirects and never returns)
-      if (!result.ok) {
-        // Show a friendly error message instead of exposing internal error details
-        setError("Unable to sign out. Please try again.");
-      }
-    });
-  }
+export function SignOutButton({ 
+  userId,
+  signOut = signOutAction,
+  logSet: logSetProp = logSet,
+  now,
+}: { 
+  userId: string;
+  signOut?: typeof signOutAction;
+  logSet?: typeof logSet;
+  now?: Date;
+}) {
+  const {
+    pending,
+    error,
+    pendingCount,
+    showWarning,
+    handleSignOut,
+    handleSyncNow,
+    handleSignOutAnyway,
+  } = useSignOut({ userId, signOut, logSet: logSetProp, now });
 
   return (
-    <div>
-      <button
-        onClick={handleSignOut}
-        disabled={pending}
-        className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg text-left disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {pending ? "Signing out..." : "Sign out"}
-      </button>
-      {error && (
-        <p className="mt-2 text-sm text-danger" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
+    <SignOutFormView
+      label="Sign out"
+      pending={pending}
+      error={error}
+      pendingCount={pendingCount}
+      showWarning={showWarning}
+      handleSignOut={handleSignOut}
+      handleSyncNow={handleSyncNow}
+      handleSignOutAnyway={handleSignOutAnyway}
+    />
   );
 }
