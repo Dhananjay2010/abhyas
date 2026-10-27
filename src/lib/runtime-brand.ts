@@ -13,7 +13,8 @@ import { branding, type Brand } from "@/lib/branding";
 import { createClient } from "@/lib/supabase/server";
 import { getGymBrand } from "@/lib/gym-brand";
 import { getUserGymMembership } from "@/lib/gym/member-gym";
-import { contrastRatio } from "@/lib/contrast";
+import { contrastRatio, accessibleTextColor } from "@/lib/contrast";
+import { ensureMinContrast } from "@/lib/brand-contrast";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
@@ -169,6 +170,7 @@ export const getRequestBrand = cache(async (): Promise<Brand> => {
  * Merge a partial brand over a base brand.
  * Validates colors (hex), URLs (https or /storage/), and name length.
  * Applies contrast guard: accent must have >= 3:1 contrast against app bg.
+ * Uses OKLCH lightness adjustment to raise colors deterministically.
  * Never throws; invalid values are silently ignored.
  */
 export function mergeBrand(base: Brand, partial: Partial<Brand>): Brand {
@@ -192,32 +194,45 @@ export function mergeBrand(base: Brand, partial: Partial<Brand>): Brand {
     }
   }
   
-  // Merge colors (hex only) with contrast guard
+  // Merge colors (hex only) with OKLCH contrast guard
   if (partial.colors) {
     const hexRegex = /^#[0-9a-fA-F]{6}$/;
     merged.colors = { ...base.colors };
     
-    // Contrast guard: accent must have >= 3:1 contrast against app bg
-    // App bg is base.colors.bg (#0a0c0e for default brand)
+    // App background from base brand config
     const appBg = base.colors.bg;
+    const minRatio = 3.0;
     
+    // Adjust primary/accent color
     if (partial.colors.accent && hexRegex.test(partial.colors.accent)) {
-      const ratio = contrastRatio(partial.colors.accent, appBg);
-      if (ratio >= 3.0) {
-        merged.colors.accent = partial.colors.accent;
+      const adjusted = ensureMinContrast(
+        partial.colors.accent,
+        appBg,
+        minRatio,
+        base.colors.accent
+      );
+      merged.colors.accent = adjusted;
+      
+      // Compute accentFg against the ADJUSTED color (not original)
+      const accentFg = accessibleTextColor(adjusted);
+      merged.colors.accentFg = accentFg;
+      
+      // Verify fg contrast is 4.5:1 or better
+      const fgRatio = contrastRatio(accentFg, adjusted);
+      if (fgRatio < 4.5) {
+        console.warn(`accentFg contrast ${fgRatio.toFixed(2)} < 4.5:1 for ${adjusted}`);
       }
-      // If contrast < 3:1, fall back to base.colors.accent (buttons remain visible)
     }
     
+    // Adjust accentHover color
     if (partial.colors.accentHover && hexRegex.test(partial.colors.accentHover)) {
-      const ratio = contrastRatio(partial.colors.accentHover, appBg);
-      if (ratio >= 3.0) {
-        merged.colors.accentHover = partial.colors.accentHover;
-      }
-    }
-    
-    if (partial.colors.accentFg && hexRegex.test(partial.colors.accentFg)) {
-      merged.colors.accentFg = partial.colors.accentFg;
+      const adjusted = ensureMinContrast(
+        partial.colors.accentHover,
+        appBg,
+        minRatio,
+        base.colors.accentHover
+      );
+      merged.colors.accentHover = adjusted;
     }
   }
   
