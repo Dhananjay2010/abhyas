@@ -108,7 +108,7 @@ export function DayPlanPrompt({
     );
   }
 
-  const isRestDay = plannedLabel.toLowerCase() === "rest";
+  const isRestDay = false;
   const isTomorrowLabel = dayLabel === "Tomorrow";
   const showNewRestUI = isRestDay && isTomorrowLabel;
 
