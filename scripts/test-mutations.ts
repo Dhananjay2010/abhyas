@@ -20,6 +20,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { isCrash, selfTestCrashDetection } from "./lib/mutant-classify";
 
 type Mutant = {
   name: string;
@@ -41,7 +42,8 @@ const mutants: Mutant[] = [
     tests: ["test:knee-safety-matrix"],
   },
 
-  // 2. Past-knee lunge filter (PR #73 core logic)
+  
+  // 2b. Past-knee lunge filter
   {
     name: "Disable past-knee lunge filter (allow unsafe lunges for past knee)",
     file: "src/lib/program/generate.ts",
@@ -68,17 +70,16 @@ const mutants: Mutant[] = [
     tests: ["test:knee-safety-matrix"],
   },
 
-  // 5a. Drop knee high-impact filter in swap path (alternatives.ts)
-  // EQUIVALENT for current-knee users: PR #124 adds isExcludedForPastKnee() to
-  // rankAlternatives, which also runs for current-knee users and already removes
-  // high-impact lower-body work, making this filter redundant for current knee.
+  
+  // 5a2. High-impact filter in alternatives (equivalent: isEligible already blocks in plan generation)
   {
     name: "Drop knee high-impact filter in alternatives (swaps)",
     file: "src/lib/program/alternatives.ts",
     pattern: /\/\/ 6b\. PR #73: Knee injuries exclude high-impact lower-body moves\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.impact === "high"\) \{/,
-    mutate: '// 6b. PR #73: Knee injuries exclude high-impact lower-body moves\n    if (!(ctx.anyKneeInjury ?? false) && candidate.impact === "high") {',
+    mutate: '// 6b. PR #73: Knee injuries exclude high-impact lower-body moves\n    if (false && candidate.impact === "high") {',
     tests: ["test:swap-mutations"],
     equivalent: true,
+    notes: "True drop (if false): 0 swap-list diffs across 483,912 lists (no-injury + all injury profiles). Inversion would change 11,949 no-injury lists.",
   },
 
   // 5b. Drop past-knee 4-list restriction in swaps (alternatives.ts)
@@ -118,7 +119,7 @@ const mutants: Mutant[] = [
     notes: "UNSAFE_KNEE_LUNGES is NOT redundant with contraindication tags - these exercises are not explicitly tagged as contraindicated in the catalogue, so this filter is necessary."
   },
 
-  // 5h. Re-add current-knee skip for step-ups and split-squats
+  // 5h. Current-knee contraindication skip (already handled by tag check, defense-in-depth)
   {
     name: "Re-add current-knee contraindication skip for step-ups/split-squats",
     file: "src/lib/program/generate.ts",
@@ -174,11 +175,7 @@ const mutants: Mutant[] = [
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
   },
   
-  // PR #73 Run 21: Sissy ban in isEligible is the PRIMARY barrier for past-knee plans
-  // (weighted-sissy-squat has contraindicated_regions: ["knee"], but that only filters
-  // current-knee. Past-knee users have currentInjuryRegions: [] and rely on this explicit
-  // anyKneeInjury check at 570 to block sissy from plans). Removing 570 changes 139 past-knee plans.
-  // The alternatives.ts ban is the BACKSTOP for swaps (rankAlternatives doesn't call isEligible).
+  // Sissy squat ban in isEligible (PRIMARY barrier for past-knee plans)
   {
     name: "Remove sissy-squat ban in isEligible (plan generation for past-knee)",
     file: "src/lib/program/generate.ts",
@@ -187,9 +184,7 @@ const mutants: Mutant[] = [
     tests: ["test:sissy-squat-ban"],
   },
   
-  // EQUIVALENT for current-knee users: PR #124 adds isExcludedForPastKnee() to
-  // rankAlternatives, which runs for current-knee users and already bans sissy
-  // squats (via the slug check), making this filter redundant for current knee.
+  // Sissy squat ban in rankAlternatives (BACKSTOP: isEligible is the primary barrier for past-knee)
   {
     name: "Remove sissy-squat ban in rankAlternatives (swap generation)",
     file: "src/lib/program/alternatives.ts",
@@ -197,6 +192,7 @@ const mutants: Mutant[] = [
     mutate: '// MUTANT: Removed sissy ban from swaps',
     tests: ["test:sissy-squat-ban"],
     equivalent: true,
+    notes: "isEligible already excludes sissy squats for ANY knee injury during plan generation, so candidates never include them for ranking.",
   },
   
   // PR #73 Run 20: M3 protection - never drop the only pull on knee-injured full-body days
@@ -222,6 +218,7 @@ let killed = 0;
 let survived = 0;
 let skipped = 0;
 let equivalent = 0;
+let crashed = 0;
 
 function sha256(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
@@ -277,17 +274,32 @@ function runMutation(mutant: Mutant): void {
 
     // 5. Run targeted test(s)
     let testFailed = false;
+    let testCrashed = false;
     for (const test of tests) {
       try {
         execSync(`npm run ${test}`, { stdio: "pipe", encoding: "utf8" });
-      } catch {
-        testFailed = true;
-        break;
+      } catch (error: unknown) {
+        // Check if this is a crash or clean test failure
+        if (isCrash(error)) {
+          const output = 
+            (typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "") +
+            (typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "");
+          console.log(`  💥 CRASH: Uncaught exception in ${test}`);
+          console.log(`  Output: ${output.substring(0, 200)}...`);
+          testCrashed = true;
+          break;
+        } else {
+          testFailed = true;
+          break;
+        }
       }
     }
 
     // 6. Report
-    if (testFailed) {
+    if (testCrashed) {
+      console.log(`  💥 CRASH (needs investigation)`);
+      crashed++;
+    } else if (testFailed) {
       console.log(`  ✓ KILLED`);
       killed++;
     } else if (mutant.equivalent) {
@@ -312,6 +324,9 @@ function runMutation(mutant: Mutant): void {
     }
   }
 }
+
+// Run crash detection self-test
+selfTestCrashDetection();
 
 console.log("Knee Safety Mutation Testing");
 console.log("─".repeat(60));
@@ -375,11 +390,12 @@ console.log("\n" + "─".repeat(60));
 console.log(`Mutants killed:     ${killed}`);
 console.log(`Mutants equivalent: ${equivalent}`);
 console.log(`Mutants survived:   ${survived}`);
+console.log(`Mutants crashed:    ${crashed}`);
 console.log(`Mutants skipped:    ${skipped}`);
 console.log("");
 
-if (survived > 0 || skipped > 0) {
-  console.log(`FAILED: ${survived} survived, ${skipped} skipped`);
+if (survived > 0 || skipped > 0 || crashed > 0) {
+  console.log(`FAILED: ${survived} survived, ${skipped} skipped, ${crashed} crashed`);
   process.exit(1);
 } else {
   console.log("PASSED: All mutants killed or equivalent");

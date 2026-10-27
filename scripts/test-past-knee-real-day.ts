@@ -196,5 +196,37 @@ check("No-injury Lower includes knee-loading drills", hasKneeLoading,
   `mobility: ${noInjuryLower.filter(w => w.phase === "mobility").map(w => w.slug).join(", ")}`
 );
 
+// Test case 4: Pin exact mobility seconds for a past-knee Lower day (item 6a)
+console.log("\n\nPin exact mobility seconds for past-knee Lower day (item 6a):");
+const pinnedPastKneeProfile = selectWarmup({
+  warmups,
+  trainingMuscles: ["quads", "glutes", "hamstrings", "calves"],
+  injuryRegions: [],
+  prehabRegions: ["knee"], // Past knee, so prehab is included
+  track: "weights",
+  hasAllEquipment: true,
+  availableEquipment: null,
+});
+
+const pinnedMobility = pinnedPastKneeProfile.filter(w => w.phase === "mobility");
+const pinnedMobilitySeconds = pinnedMobility.reduce((sum, w) => sum + (w.duration_seconds ?? 0), 0);
+const pinnedMobilitySlugs = pinnedMobility.map(w => w.slug);
+
+console.log("  Past-knee Lower day mobility:");
+pinnedMobility.forEach(drill => {
+  console.log(`    - ${drill.slug}: ${drill.duration_seconds}s`);
+});
+
+const expectedSlugs = ["hip-circles", "glute-bridge", "leg-swing-front", "ankle-rock"];
+const slugsMatch = JSON.stringify(pinnedMobilitySlugs) === JSON.stringify(expectedSlugs);
+
+check("Past-knee Lower mobility seconds exactly 195", pinnedMobilitySeconds === 195,
+  `got ${pinnedMobilitySeconds}s`
+);
+check("Past-knee Lower mobility slugs exactly [hip-circles, glute-bridge, leg-swing-front, ankle-rock]", 
+  slugsMatch,
+  `got [${pinnedMobilitySlugs.join(", ")}]`
+);
+
 console.log(`\n${failures === 0 ? "✓ All tests passed!" : `✗ ${failures} test(s) failed`}`);
 process.exit(failures > 0 ? 1 : 0);
