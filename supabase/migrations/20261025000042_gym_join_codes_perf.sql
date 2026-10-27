@@ -14,15 +14,16 @@ begin
 end $$;
 
 -- Create the merged permissive policy
--- Allows: owner of the gym OR staff of the gym
+-- Allows: owner of the gym OR staff of the gym (staff can only see member codes)
+-- Wrapped helper calls with (select ...) for initplan fix
 do $$
 begin
   drop policy if exists gym_join_codes_select on public.gym_join_codes;
   create policy gym_join_codes_select on public.gym_join_codes
     for select to authenticated
     using (
-      public.is_gym_owner(gym_id) or 
-      (public.is_gym_staff(gym_id) and role = 'member')
+      (select public.is_gym_owner(gym_id)) or 
+      ((select public.is_gym_staff(gym_id)) and role = 'member')
     );
 end $$;
 

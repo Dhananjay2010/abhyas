@@ -240,11 +240,17 @@ run_mutant \
   "Remove owner/staff restrictions from merged SELECT policy" \
   "DROP POLICY IF EXISTS gym_join_codes_select ON public.gym_join_codes; CREATE POLICY gym_join_codes_select ON public.gym_join_codes FOR SELECT TO authenticated USING (true);"
 
+# Mutant (n): Staff can see staff codes (drop role = 'member' restriction)
+run_mutant \
+  "(n) staff can see staff codes" \
+  "Allow staff to see both member and staff codes" \
+  "DROP POLICY IF EXISTS gym_join_codes_select ON public.gym_join_codes; CREATE POLICY gym_join_codes_select ON public.gym_join_codes FOR SELECT TO authenticated USING ((SELECT public.is_gym_owner(gym_id)) OR (SELECT public.is_gym_staff(gym_id)));"
+
 echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-TOTAL_MUTANTS=13
+TOTAL_MUTANTS=14
 echo "Total mutants:                   $TOTAL_MUTANTS"
 echo "Killed:                          $((TOTAL_MUTANTS - FAILED - ${#SKIPPED[@]}))"
 echo "Survived:                        $FAILED"

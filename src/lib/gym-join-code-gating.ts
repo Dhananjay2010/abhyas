@@ -2,7 +2,9 @@
  * Role-gating logic for gym join code confirmation UI
  */
 
-export type GymRole = "owner" | "staff" | "member";
+import type { Database } from "./database.types";
+
+export type GymRole = Database["public"]["Enums"]["gym_role"];
 
 const roleOrder: Record<GymRole, number> = {
   owner: 3,
