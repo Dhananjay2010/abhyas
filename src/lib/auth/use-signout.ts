@@ -80,13 +80,14 @@ export function useSignOut({
   }
 
   async function handleSignOutAnyway() {
+    // Clear this user's pending queue before signing out (Item 1)
+    if (typeof window !== "undefined") {
+      clearAllPendingSetsForUser(window.localStorage, userId);
+    }
+    
     startTransition(async () => {
       setError(null);
       setShowWarning(false);
-      // Clear this user's pending queue before signing out
-      if (typeof window !== "undefined") {
-        clearAllPendingSetsForUser(window.localStorage, userId);
-      }
       await performSignOut();
     });
   }

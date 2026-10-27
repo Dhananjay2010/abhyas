@@ -345,10 +345,20 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     await act(async () => {});
     await act(async () => {});
     
+    // Click "Sign out anyway" once to show confirmation
     const signOutAnywayBtn = screen.getByRole("button", { name: /Sign out anyway/i });
     
     await act(async () => {
       signOutAnywayBtn.click();
+    });
+    
+    await act(async () => {});
+    
+    // Click "Sign out anyway" again to confirm
+    await act(async () => {
+      const anywayButtons = screen.queryAllByText(/Sign out anyway/i);
+      const confirmButton = anywayButtons[anywayButtons.length - 1];
+      confirmButton.click();
     });
     
     await act(async () => {});

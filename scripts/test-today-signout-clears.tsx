@@ -245,10 +245,18 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   await act(async () => {});
   await act(async () => {});
   
-  // Now click "Sign out anyway" which triggers expired session path
+  // Click "Sign out anyway" once to show confirmation, then click again to confirm
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
+  });
+  
+  await act(async () => {});
+  
+  await act(async () => {
+    const anywayButtons = screen.queryAllByText(/Sign out anyway/i);
+    const confirmButton = anywayButtons[anywayButtons.length - 1];
+    confirmButton.click();
   });
   
   await act(async () => {});
@@ -306,10 +314,18 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   await act(async () => {});
   await act(async () => {});
   
-  // Now click "Sign out anyway" which triggers throw
+  // Click "Sign out anyway" once to show confirmation, then click again to confirm
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
+  });
+  
+  await act(async () => {});
+  
+  await act(async () => {
+    const anywayButtons = screen.queryAllByText(/Sign out anyway/i);
+    const confirmButton = anywayButtons[anywayButtons.length - 1];
+    confirmButton.click();
   });
   
   await act(async () => {});
@@ -362,10 +378,18 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   await act(async () => {});
   await act(async () => {});
   
-  // Now click "Sign out anyway" which triggers ok:false
+  // Click "Sign out anyway" once to show confirmation, then click again to confirm
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
+  });
+  
+  await act(async () => {});
+  
+  await act(async () => {
+    const anywayButtons = screen.queryAllByText(/Sign out anyway/i);
+    const confirmButton = anywayButtons[anywayButtons.length - 1];
+    confirmButton.click();
   });
   
   await act(async () => {});
@@ -425,10 +449,18 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   await act(async () => {});
   await act(async () => {});
   
-  // Now click "Sign out anyway" which triggers expired session path with non-ok POST
+  // Click "Sign out anyway" once to show confirmation, then click again to confirm
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
+  });
+  
+  await act(async () => {});
+  
+  await act(async () => {
+    const anywayButtons = screen.queryAllByText(/Sign out anyway/i);
+    const confirmButton = anywayButtons[anywayButtons.length - 1];
+    confirmButton.click();
   });
   
   await act(async () => {});
