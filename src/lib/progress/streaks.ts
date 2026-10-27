@@ -130,8 +130,15 @@ export function buildDayRecords(input: {
   const ordered = [...programs].sort((a, b) => a.startedOn.localeCompare(b.startedOn));
   const firstBlockStart = ordered.length > 0 ? ordered[0].startedOn : null;
   
-  // Fix pd-b: Use effectiveStart if provided and earlier than first block
-  const first = effectiveStart ?? firstBlockStart;
+  // Fix pd-b: Use the EARLIER of effectiveStart and firstBlockStart
+  // so a later effectiveStart can never cut off block days
+  let first: string | null = null;
+  if (effectiveStart && firstBlockStart) {
+    first = effectiveStart < firstBlockStart ? effectiveStart : firstBlockStart;
+  } else {
+    first = effectiveStart ?? firstBlockStart;
+  }
+  
   if (!first || first > today) return [];
 
   // Convert to BlockRange format for blockForDate

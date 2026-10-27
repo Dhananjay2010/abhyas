@@ -3,13 +3,21 @@
 
 set -e
 
+# Check DATABASE_URL early - test script needs it
+if [ -z "$DATABASE_URL" ]; then
+  echo "❌ FAIL: DATABASE_URL not set (mutants would incorrectly pass/fail)"
+  exit 1
+fi
+
 ACTIONS_FILE="src/app/today/actions.ts"
+REBUILD_CORE="src/lib/program/rebuild-plan-core.ts"
+PROGRESS_START_FILE="src/lib/progress/progress-start-date.ts"
 STREAKS_FILE="src/lib/progress/streaks.ts"
-PROGRESS_FILE="src/app/progress/page.tsx"
 TMP=$(mktemp -d)
 BACKUP_ACTIONS="$TMP/actions.ts"
+BACKUP_CORE="$TMP/rebuild-plan-core.ts"
+BACKUP_PROGRESS_START="$TMP/progress-start-date.ts"
 BACKUP_STREAKS="$TMP/streaks.ts"
-BACKUP_PROGRESS="$TMP/page.tsx"
 
 echo "Mutant test: rebuild rollover and progress defensive fixes"
 echo "============================================================"
@@ -17,8 +25,9 @@ echo ""
 
 # Backup originals
 cp "$ACTIONS_FILE" "$BACKUP_ACTIONS"
+cp "$REBUILD_CORE" "$BACKUP_CORE"
+cp "$PROGRESS_START_FILE" "$BACKUP_PROGRESS_START"
 cp "$STREAKS_FILE" "$BACKUP_STREAKS"
-cp "$PROGRESS_FILE" "$BACKUP_PROGRESS"
 
 cleanup() {
   if [ "${cleanup_done:-0}" = "1" ]; then
@@ -27,20 +36,28 @@ cleanup() {
   cleanup_done=1
   echo "Restoring original files..."
   cp "$BACKUP_ACTIONS" "$ACTIONS_FILE"
+  cp "$BACKUP_CORE" "$REBUILD_CORE"
+  cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
   cp "$BACKUP_STREAKS" "$STREAKS_FILE"
-  cp "$BACKUP_PROGRESS" "$PROGRESS_FILE"
   rm -rf "$TMP"
 }
 trap 'cleanup; exit 130' INT TERM
 trap cleanup EXIT
 
-# Mutant 1: Remove the ensureCurrentBlock call from buildPlan
-echo "Mutant 1: Remove ensureCurrentBlock call from buildPlan"
+# Mutant 1: Remove the ensureCurrentBlock call from rebuild core
+echo "Mutant 1: Remove ensureCurrentBlock call from rebuild-plan-core"
 echo "Expected: test-rebuild-rollover-progress.ts should fail"
 echo ""
 
-# Remove the entire rollover section from buildPlan
-sed -i '/Fix pd-b: Run rollover BEFORE rebuild/,/if (rollover.status === "error")/d' "$ACTIONS_FILE"
+# Remove the rollover section from rebuildPlanCore
+cp "$BACKUP_CORE" "$REBUILD_CORE"
+sed -i '/const activeBlock = await deps.fetchActiveBlock/,/}/d' "$REBUILD_CORE"
+
+# Verify the mutation applied
+if diff -q "$BACKUP_CORE" "$REBUILD_CORE" > /dev/null 2>&1; then
+  echo "✗ FAIL: Mutant 1 did not apply (files are identical)"
+  exit 1
+fi
 
 if npx tsx scripts/test-rebuild-rollover-progress.ts > /dev/null 2>&1; then
   echo "✗ FAIL: Mutant 1 survived (test passes without ensureCurrentBlock)"
@@ -50,49 +67,64 @@ else
 fi
 
 # Restore for next mutant
-cp "$BACKUP_ACTIONS" "$ACTIONS_FILE"
+cp "$BACKUP_CORE" "$REBUILD_CORE"
 
-# Mutant 2: Remove the effectiveStart logic from Progress page
+# Mutant 2: Revert progressStartDate to just first block date
 echo ""
-echo "Mutant 2: Remove effectiveStart calculation (revert to firstBlockDate only)"
+echo "Mutant 2: Revert progressStartDate to only use first block date"
 echo "Expected: test-rebuild-rollover-progress.ts should fail"
 echo ""
 
-# Replace the effectiveStart calculation with just firstBlockDate
-sed -i '/Fix pd-b: Start from the EARLIER/,/effectiveStart,$/c\
-  const dayRecords = buildDayRecords({\
-    programs,\
-    dayTypesByProgram,\
-    completedSessions,\
-    today,' "$PROGRESS_FILE"
+cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
+# Replace the entire function body to just return firstBlockDate
+cat > "$PROGRESS_START_FILE" << 'EOF'
+export function progressStartDate(input: {
+  programs: Array<{ startedOn: string }>;
+  completedSessions: Array<{ local_date: string }>;
+}): string | null {
+  const { programs } = input;
+  return programs.length > 0 ? programs[0].startedOn : null;
+}
+EOF
+
+# Verify the mutation applied
+if diff -q "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE" > /dev/null 2>&1; then
+  echo "✗ FAIL: Mutant 2 did not apply (files are identical)"
+  exit 1
+fi
 
 if npx tsx scripts/test-rebuild-rollover-progress.ts > /dev/null 2>&1; then
-  echo "✗ FAIL: Mutant 2 survived (test passes without effectiveStart)"
+  echo "✗ FAIL: Mutant 2 survived (test passes with only first block date)"
   exit 1
 else
-  echo "✓ Mutant 2 killed (test fails without effectiveStart)"
+  echo "✓ Mutant 2 killed (test fails without session date consideration)"
 fi
 
 # Restore for next mutant
-cp "$BACKUP_PROGRESS" "$PROGRESS_FILE"
+cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
 
-# Mutant 3: Remove the effectiveStart parameter from buildDayRecords
+# Mutant 3: Revert buildDayRecords min() logic to ?? fallback
 echo ""
-echo "Mutant 3: Remove effectiveStart parameter from buildDayRecords signature"
-echo "Expected: test-rebuild-rollover-progress.ts should fail (type error or wrong behavior)"
+echo "Mutant 3: Revert buildDayRecords to use ?? instead of min()"
+echo "Expected: test-rebuild-rollover-progress.ts should fail"
 echo ""
 
-# Remove effectiveStart from function signature and revert to old logic
-sed -i '/Fix pd-b: Optional override for the start date/d' "$STREAKS_FILE"
-sed -i 's/effectiveStart?: string | null;//' "$STREAKS_FILE"
-sed -i 's/const { programs, dayTypesByProgram, completedSessions, today, effectiveStart } = input;/const { programs, dayTypesByProgram, completedSessions, today } = input;/' "$STREAKS_FILE"
-sed -i 's/const first = effectiveStart ?? firstBlockStart;/const first = firstBlockStart;/' "$STREAKS_FILE"
+cp "$BACKUP_STREAKS" "$STREAKS_FILE"
+# Replace the min logic with just ?? fallback
+sed -i '/Fix pd-b: Use the EARLIER of effectiveStart/,/first = effectiveStart ?? firstBlockStart;/c\
+  const first = effectiveStart ?? firstBlockStart;' "$STREAKS_FILE"
+
+# Verify the mutation applied  
+if diff -q "$BACKUP_STREAKS" "$STREAKS_FILE" > /dev/null 2>&1; then
+  echo "✗ FAIL: Mutant 3 did not apply (files are identical)"
+  exit 1
+fi
 
 if npx tsx scripts/test-rebuild-rollover-progress.ts > /dev/null 2>&1; then
-  echo "✗ FAIL: Mutant 3 survived (test passes without effectiveStart parameter)"
+  echo "✗ FAIL: Mutant 3 survived (test passes with ?? fallback)"
   exit 1
 else
-  echo "✓ Mutant 3 killed (test fails without effectiveStart parameter)"
+  echo "✓ Mutant 3 killed (test fails without min() logic)"
 fi
 
 # Restore
@@ -105,8 +137,9 @@ echo ""
 
 cleanup_done=1
 cp "$BACKUP_ACTIONS" "$ACTIONS_FILE"
+cp "$BACKUP_CORE" "$REBUILD_CORE"
+cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
 cp "$BACKUP_STREAKS" "$STREAKS_FILE"
-cp "$BACKUP_PROGRESS" "$PROGRESS_FILE"
 rm -rf "$TMP"
 
 exit 0
