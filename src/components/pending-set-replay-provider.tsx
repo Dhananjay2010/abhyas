@@ -47,7 +47,7 @@ export function PendingSetReplayProviderView({
 
   if (!userId) return null;
 
-  return <PendingSetReplay userId={userId} getSessionStatus={getSessionStatus} />;
+  return <PendingSetReplay key={userId} userId={userId} getSessionStatus={getSessionStatus} />;
 }
 
 /**

@@ -234,7 +234,6 @@ async function testAuthStateChangeSwitchUser() {
   
   // Seed storage with DIFFERENT data for both users
   // user1: 1 set, user2: 2 sets (to distinguish after switch)
-  const deps = createPendingSetDeps(() => FIXED_TIME);
   
   // Directly set old-format storage (arrays, no timestamp wrapper)
   const oldFormatData = {

@@ -115,15 +115,30 @@ async function testExpiredSetsAreSurfaced() {
   const discardButton = await screen.findByText(/discard/i);
   assert(!!discardButton, "Discard button exists for ended session");
   
-  // Verify migration happened with FIXED_TIME before clicking Discard
-  const afterReplay = fakeStorage.getItem(`pending-sets:${userId}`);
-  if (afterReplay) {
-    const parsed = JSON.parse(afterReplay);
-    if (parsed[sessionId1]) {
-      // M3a critical assertion BEFORE discard: ended session should be migrated with FIXED_TIME
-      assert(parsed[sessionId1].timestamp === FIXED_TIME, `Session1 migrated with FIXED_TIME (got ${parsed[sessionId1].timestamp}, expected ${FIXED_TIME}). M3a: without clock injection, this would be Date.now().`);
-    }
-  }
+  // After replay completes, plant a THIRD legacy (untimestamped) session
+  // to test that handleDiscard passes the injected clock through clearPendingSets
+  // We need to write pure old-format data (all arrays, no timestamps) so the
+  // migration happens during handleDiscard, not during the next load
+  const sessionId3 = "session-m3a-3";
+  const oldFormatWith3Sessions = {
+    [sessionId1]: [{
+      clientId: "old-format-set-1",
+      sessionExerciseId: "ex-1",
+      setNumber: 1,
+      reps: 10,
+      weightKg: 50,
+      durationSeconds: null,
+    }],
+    [sessionId3]: [{
+      clientId: "old-format-set-3",
+      sessionExerciseId: "ex-3",
+      setNumber: 1,
+      reps: 8,
+      weightKg: 55,
+      durationSeconds: null,
+    }]
+  };
+  fakeStorage.setItem(`pending-sets:${userId}`, JSON.stringify(oldFormatWith3Sessions));
 
   // Click Discard - this triggers handleDiscard which must pass clock
   await act(async () => {
@@ -135,11 +150,19 @@ async function testExpiredSetsAreSurfaced() {
     await Promise.resolve();
   });
 
-  // Verify sessions cleared
-  const stored = fakeStorage.getItem(`pending-sets:${userId}`);
-  
-  // After discarding all ended sessions, storage should be cleared (session2 was replayed earlier)
-  assert(stored === null || stored === "{}", "Storage cleared after discarding all ended sessions");
+  // M3a CRITICAL: The third session should now have timestamp === FIXED_TIME
+  // because handleDiscard called clearPendingSets(storage, userId, sessionId1, deps)
+  // and clearPendingSets called loadAllPendingSetsWithTimestamp(..., deps)
+  // which migrated the third legacy session using deps.now()
+  const afterDiscard = fakeStorage.getItem(`pending-sets:${userId}`);
+  const parsedAfter = JSON.parse(afterDiscard || "{}");
+  assert(
+    parsedAfter[sessionId3]?.timestamp === FIXED_TIME,
+    `M3a: Third session must have timestamp === ${FIXED_TIME} after discard (got ${parsedAfter[sessionId3]?.timestamp}). Without clock injection in handleDiscard, this would be Date.now().`
+  );
+
+  // Verify session1 was discarded
+  assert(!parsedAfter[sessionId1], "Session1 should be removed after discard");
 
   fakeStorage.clear();
 }
