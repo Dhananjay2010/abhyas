@@ -21,20 +21,25 @@ if (!thruster) {
 }
 
 // Simulate swapping a vertical_press exercise for a current-knee user
-const rankedSwaps = rankAlternatives({
-  original: {
-    ...thruster,
-    id: "test-id",
-    name: "Test Press",
-    slug: "test-press",
-  },
-  pool: catalogue,
-  injuryRegions: ["knee"], // Current knee injury
-  anyKneeInjury: true,
-  level: "intermediate",
-  equipment: ["barbell", "dumbbell", "kettlebell"],
-  limit: 20,
-});
+const originalExercise = catalogue.find(e => e.movement_pattern === "vertical_press" && e.slug !== "kettlebell-thruster");
+if (!originalExercise) {
+  console.error("✗ FAIL: No vertical press exercise found for test");
+  process.exit(1);
+}
+
+const rankedSwaps = rankAlternatives(
+  originalExercise,
+  catalogue.filter(e => e.movement_pattern === "vertical_press" || e.movement_pattern === "horizontal_press"),
+  {
+    injuryRegions: ["knee"], // Current knee injury
+    anyKneeInjury: true,
+    level: "intermediate",
+    availableEquipment: new Set(["barbell", "dumbbell", "kettlebell"]),
+    scoreFn: () => 0, // Simple scoring for test
+    tieBreakFn: (slug: string) => slug.length, // Simple tie-break
+    limit: 20,
+  }
+);
 
 const thrusterInSwaps = rankedSwaps.some(s => s.slug === "kettlebell-thruster");
 

@@ -36,9 +36,10 @@ const currentKneeInput: GeneratorInput = {
   anyKneeInjury: true,
   practicedYoga: false,
   randomSeed: "thruster-current-knee-test",
+  catalogue: catalogue as CandidateExercise[],
 };
 
-const program = generateProgram(currentKneeInput, catalogue);
+const program = generateProgram(currentKneeInput);
 
 // Check that no day contains kettlebell-thruster
 let found = false;

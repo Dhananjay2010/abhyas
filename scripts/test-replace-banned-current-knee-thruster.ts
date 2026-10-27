@@ -65,15 +65,15 @@ if (thrusterKept) {
   process.exit(1);
 }
 
-if (result.report.length === 0) {
-  console.error("✗ FAIL: No replacements reported");
+if (!result.changed) {
+  console.error("✗ FAIL: No replacements made (changed: false)");
   process.exit(1);
 }
 
-const thrusterReplaced = result.report.some(r => r.from === "kettlebell-thruster");
-if (!thrusterReplaced) {
-  console.error("✗ FAIL: kettlebell-thruster not in replacement report");
-  console.error("  Report:", result.report);
+// Verify the replacement exercise is different from thruster
+const replacedExerciseId = result.rows[0].exercise_id;
+if (replacedExerciseId === thruster.id) {
+  console.error("✗ FAIL: Exercise ID unchanged");
   process.exit(1);
 }
 

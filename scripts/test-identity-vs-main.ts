@@ -66,12 +66,6 @@ const baseline: BaselineData = JSON.parse(
 // Owner decision (a): current-knee-intermediate expected diffs from jammer exclusion.
 // Landmine jammer removal changes RNG stream for 6 accessory/core exercises.
 const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [
-  { profile: "current-knee-intermediate", day: 1, slot: 5, mainExercise: "Band Skull Crusher", expectedExercise: "Kneeling Cable Triceps Extension" },
-  { profile: "current-knee-intermediate", day: 1, slot: 6, mainExercise: "Incline Inner Biceps Curl", expectedExercise: "Lying Close-Grip Bar Curl On High Pulley" },
-  { profile: "current-knee-intermediate", day: 2, slot: 5, mainExercise: "Crunches", expectedExercise: "Decline Crunch" },
-  { profile: "current-knee-intermediate", day: 4, slot: 5, mainExercise: "Standing Bent-Over Two-Arm Dumbbell Triceps Extension", expectedExercise: "Standing Overhead Barbell Triceps Extension" },
-  { profile: "current-knee-intermediate", day: 4, slot: 6, mainExercise: "Preacher Hammer Dumbbell Curl", expectedExercise: "Seated Close-Grip Concentration Barbell Curl" },
-  { profile: "current-knee-intermediate", day: 5, slot: 5, mainExercise: "Sit-Up", expectedExercise: "Crunch - Legs On Exercise Ball" },
 ];
 
 const testCases: Array<{
