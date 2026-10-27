@@ -76,32 +76,38 @@ test_mutant() {
   fi
   local rc=$?
   
-  # Check for crash indicators
-  if echo "$output" | grep -qE 'TypeError|ReferenceError|SyntaxError|Transform failed'; then
-    echo "  💥 CRASHED"
-    [ "$file" = "src/app/session/actions.ts" ] && cp "$BACKUP_ACTIONS" "$file"
-    [ "$file" = "src/lib/session/progression-feedback.ts" ] && cp "$BACKUP_FEEDBACK" "$file"
-    [ "$file" = "src/lib/session/build-progression-input.ts" ] && cp "$BACKUP_BUILDER" "$file"
-    ((crashed++))
-    return 1
+  
+  # Check for crashes: stack traces, node:internal, empty output
+  # KILLED: non-zero exit + assertion marker (FAIL/❌/AssertionError) + no crash indicators
+  if [ $rc -ne 0 ]; then
+    if echo "$output" | grep -qE "^\s+at |node:internal|triggerUncaughtException"; then
+      echo "  💥 CRASHED"
+      cp "$BACKUP" src/lib/program/progression.ts
+      ((crashed++))
+      return 1
+    elif [ -z "$output" ]; then
+      echo "  💥 CRASHED (empty output)"
+      cp "$BACKUP" src/lib/program/progression.ts
+      ((crashed++))
+      return 1
+    elif echo "$output" | grep -qE "FAIL|❌|AssertionError"; then
+      echo "  ✅ KILLED"
+      cp "$BACKUP" src/lib/program/progression.ts
+      ((killed++))
+      return 0
+    else
+      echo "  ❌ SURVIVED (no assertion marker)"
+      cp "$BACKUP" src/lib/program/progression.ts
+      ((survived++))
+      return 1
+    fi
   fi
   
-  if [ $rc -eq 0 ]; then
-    echo "  ❌ SURVIVED"
-    [ "$file" = "src/app/session/actions.ts" ] && cp "$BACKUP_ACTIONS" "$file"
-    [ "$file" = "src/lib/session/progression-feedback.ts" ] && cp "$BACKUP_FEEDBACK" "$file"
-    [ "$file" = "src/lib/session/build-progression-input.ts" ] && cp "$BACKUP_BUILDER" "$file"
-    ((survived++))
-    return 1
-  else
-    echo "  ✅ KILLED"
-    echo "$output" | grep "❌ FAIL" | head -2
-    [ "$file" = "src/app/session/actions.ts" ] && cp "$BACKUP_ACTIONS" "$file"
-    [ "$file" = "src/lib/session/progression-feedback.ts" ] && cp "$BACKUP_FEEDBACK" "$file"
-    [ "$file" = "src/lib/session/build-progression-input.ts" ] && cp "$BACKUP_BUILDER" "$file"
-    ((killed++))
-    return 0
-  fi
+  # Exit 0: mutant survived
+  echo "  ❌ SURVIVED"
+  cp "$BACKUP" src/lib/program/progression.ts
+  ((survived++))
+  return 1
 }
 
 # UN1: actions.ts passes "metric" instead of units (same as L4B-4a)
