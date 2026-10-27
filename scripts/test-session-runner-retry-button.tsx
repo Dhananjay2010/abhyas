@@ -156,6 +156,8 @@ async function testR4AndR4s() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      sessionStatus="in_progress"
+      userId={userId}
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}

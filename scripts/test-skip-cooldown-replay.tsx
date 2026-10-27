@@ -149,6 +149,8 @@ const settings: RunnerSettings = {
   const { unmount: unmountA } = render(
     <SessionRunner
       sessionId={sessionId}
+      sessionStatus="in_progress"
+      userId={userId}
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -245,6 +247,8 @@ const settings: RunnerSettings = {
   const { unmount: unmountB } = render(
     <SessionRunner
       sessionId={sessionIdB}
+      sessionStatus="in_progress"
+      userId={userIdB}
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}

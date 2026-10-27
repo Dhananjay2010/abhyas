@@ -135,6 +135,8 @@ async function main() {
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "sess-offline",
+        userId: "user-offline",
+        sessionStatus: "in_progress" as const,
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -214,6 +216,8 @@ await (async () => {
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "sess-500",
+        userId: "user-500",
+        sessionStatus: "in_progress" as const,
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -298,6 +302,8 @@ await (async () => {
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "sess-recover",
+        userId: "user-recover",
+        sessionStatus: "in_progress" as const,
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -394,6 +400,8 @@ await (async () => {
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "sess-finish-error",
+        userId: "user-finish",
+        sessionStatus: "in_progress" as const,
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -501,6 +509,8 @@ await (async () => {
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "sess-delete-error",
+        userId: "user-delete",
+        sessionStatus: "in_progress" as const,
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
