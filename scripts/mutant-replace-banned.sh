@@ -86,12 +86,12 @@ run_mutant_test() {
   echo ""
 }
 
-# Mutant 1: Past-tier ban dropped
+# Mutant 1: Past-tier ban dropped (remove calf-press from past-tier list)
 run_mutant_test \
   "M1: Past-tier ban dropped" \
   "src/lib/program/past-knee.ts" \
-  '"single-leg-leg-extension",' \
-  '// MUTANT: single-leg-leg-extension removed' \
+  '"calf-press-on-the-leg-press-machine",' \
+  '// MUTANT: calf-press-on-the-leg-press-machine removed' \
   "npx tsx scripts/test-replace-banned-in-planned.ts"
 
 # Mutant 2: Current tier uses past list only
@@ -142,9 +142,43 @@ fi
 restore_file "$TIER_FILE"
 echo ""
 
-# Mutant 5: Thruster without knee tag (will test after we add the migration)
-echo "Testing M5: Thruster without knee tag"
-echo "  ⊘ SKIP: Checked-in fixture already has knee tag"
+# Mutant 5: barbell-lunge without knee tag (mutate fixture)
+FIXTURE_FILE="scripts/fixtures/catalogue.json"
+backup_file "$FIXTURE_FILE"
+
+if grep -q '"slug": "barbell-lunge"' "$FIXTURE_FILE"; then
+  echo "Testing M5: barbell-lunge without knee tag"
+  
+  # Remove 'knee' from barbell-lunge's contraindicated_regions array
+  # Find the barbell-lunge entry and remove "knee" from its contraindicated_regions
+  python3 -c "
+import json
+import sys
+
+with open('$FIXTURE_FILE', 'r') as f:
+    data = json.load(f)
+
+for ex in data:
+    if ex.get('slug') == 'barbell-lunge':
+        if 'contraindicated_regions' in ex and 'knee' in ex['contraindicated_regions']:
+            ex['contraindicated_regions'] = [r for r in ex['contraindicated_regions'] if r != 'knee']
+
+with open('$FIXTURE_FILE', 'w') as f:
+    json.dump(data, f, indent=2)
+" 2>/dev/null
+  
+  if npx tsx scripts/test-contraindicated-tag.ts > /dev/null 2>&1; then
+    echo "  ✗ SURVIVED: Mutant not killed"
+    FAILURES=$((FAILURES + 1))
+  else
+    echo "  ✓ KILLED: Test failed as expected"
+  fi
+else
+  echo "Testing M5: barbell-lunge without knee tag"
+  echo "  ⊘ SKIP: barbell-lunge not found"
+fi
+
+restore_file "$FIXTURE_FILE"
 echo ""
 
 # Mutant 6: Math.random tie-break

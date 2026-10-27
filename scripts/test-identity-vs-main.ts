@@ -87,6 +87,10 @@ const testCases: Array<{
   { id: "current-knee-intermediate", injuries: [{ region: "knee", severity: "current" }], level: "intermediate" },
   { id: "current-knee-beginner", injuries: [{ region: "knee", severity: "current" }], level: "beginner" },
   
+  // Past knee (anyKneeInjury=true, currentInjuryRegions=[])
+  { id: "past-knee-intermediate", injuries: [{ region: "knee", severity: "past" }], level: "intermediate" },
+  { id: "past-knee-beginner", injuries: [{ region: "knee", severity: "past" }], level: "beginner" },
+  
   // Other injuries (not knee)
   { id: "shoulder-past", injuries: [{ region: "shoulder", severity: "past" }], level: "intermediate" },
   { id: "lower-back-past", injuries: [{ region: "lower_back", severity: "past" }], level: "intermediate" },
