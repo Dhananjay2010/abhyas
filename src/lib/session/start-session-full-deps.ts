@@ -181,7 +181,7 @@ export function buildStartSessionFullDeps(
 
       const profile = profileRes.data;
       const injuries = injuriesRes.data || [];
-      const catalogue = catalogueRes.data as CandidateExercise[];
+      const catalogue = (catalogueRes.data ?? []) as unknown as CandidateExercise[];
       const equipmentIds = (equipmentRes.data ?? []).map(r => r.equipment_id);
 
       if (!profile || !catalogue) {

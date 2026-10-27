@@ -187,7 +187,7 @@ export default async function TodayPage() {
       const { buildInjuryFlags } = await import("@/lib/program/injury-regions");
       const { replaceBannedInPlanned } = await import("@/lib/program/replace-banned-in-planned");
       
-      const catalogue = catalogueRes.data as CandidateExercise[];
+      const catalogue = (catalogueRes.data ?? []) as unknown as CandidateExercise[];
       const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries || []);
       
       if (!profile.goal || !profile.level || !profile.primary_track || 

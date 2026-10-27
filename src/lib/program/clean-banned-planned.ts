@@ -36,7 +36,7 @@ export async function cleanBannedPlannedExercises(
     
     const profile = profileRes.data;
     const injuries = injuriesRes.data || [];
-    const catalogue = catalogueRes.data as CandidateExercise[];
+    const catalogue = (catalogueRes.data ?? []) as unknown as CandidateExercise[];
     
     const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
     
