@@ -127,7 +127,11 @@ export default async function SessionPage({
     
     return buildRunnerExercise({
       row: r,
-      progress,
+      progress: progress ? { 
+        ...progress, 
+        // M1: Use current_working_weight_kg as the "previous" weight to detect increases
+        previous_completed_weight_kg: progress.current_working_weight_kg 
+      } : undefined,
       remembersWeights,
       isDeload: session.is_deload,
     });

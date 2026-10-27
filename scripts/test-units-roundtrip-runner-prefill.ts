@@ -259,6 +259,7 @@ console.log("\nTest (c): Real SessionRunner prescription flooring");
       restSeconds: 180,
       workingWeightKg: testCase.kg,
       suggestedWeightKg: testCase.kg,
+      previousCompletedWeightKg: null,
       status: "pending",
       feel: null,
       sets: [],

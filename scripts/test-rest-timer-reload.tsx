@@ -53,6 +53,7 @@ function makeExercise(
     restSeconds: 90,
     workingWeightKg: 50,
     suggestedWeightKg: 50,
+      previousCompletedWeightKg: null,
     status: sets.length >= plannedSets ? "completed" : "pending",
     feel: sets.length >= plannedSets ? "right" : null,
     sets,

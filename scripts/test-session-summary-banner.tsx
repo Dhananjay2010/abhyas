@@ -62,6 +62,7 @@ function makeExercise(id: string, name: string, done: boolean, set: Logged = { r
     restSeconds: 60,
     workingWeightKg: 40,
     suggestedWeightKg: 40,
+      previousCompletedWeightKg: null,
     // One set already logged: the screen opens on "How did that feel?".
     status: done ? "completed" : "pending",
     feel: done ? "right" : null,

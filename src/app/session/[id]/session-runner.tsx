@@ -106,6 +106,8 @@ export type RunnerExercise = {
   restSeconds: number;
   workingWeightKg: number | null;
   suggestedWeightKg: number | null;
+  /** Weight from the last completed session for this exercise (for M1 floor/nearest logic) */
+  previousCompletedWeightKg: number | null;
   status: Database["public"]["Enums"]["exercise_status"];
   feel: Feel | null;
   sets: LoggedSet[];
@@ -807,12 +809,13 @@ export function SessionRunner({
   const lastWeight =
     [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ??
     current.suggestedWeightKg;
-  // M1/L1: isPrescription is true only when suggestedWeightKg differs from workingWeightKg,
-  // indicating a prescribed increase. A held weight (same kg as last time) uses nearest rounding.
+  // M1/L1: isPrescription is true only for prescribed INCREASES above the last completed weight.
+  // Compare suggested vs previousCompleted to detect increases (not deloads or holds).
+  // A deload, decrease, or held weight uses nearest 0.5 lb; only an increase floors.
   const isPrescribedIncrease = !hasLoggedWeightThisExercise && 
     current.suggestedWeightKg !== null && 
-    current.workingWeightKg !== null &&
-    Math.abs(current.suggestedWeightKg - current.workingWeightKg) > 0.01;
+    current.previousCompletedWeightKg !== null &&
+    current.suggestedWeightKg > current.previousCompletedWeightKg + 0.01;
 
   /**
    * What the reps field starts on — and, for the first set, nothing.

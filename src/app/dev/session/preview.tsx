@@ -92,6 +92,7 @@ const EXERCISES: RunnerExercise[] = [
     metric: "reps",
     primaryMuscles: ["chest"], plannedSets: 4, plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12,
     restSeconds: 8, workingWeightKg: 60, suggestedWeightKg: 60,
+    previousCompletedWeightKg: null,
     status: "pending", feel: null, sets: [], isBodyweight: false,
   },
   {
@@ -100,6 +101,7 @@ const EXERCISES: RunnerExercise[] = [
     metric: "reps",
     primaryMuscles: ["lats"], plannedSets: 3, plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12,
     restSeconds: 8, workingWeightKg: null, suggestedWeightKg: null,
+    previousCompletedWeightKg: null,
     status: "pending", feel: null, sets: [], isBodyweight: false,
   },
   // A hold, so the countdown and the seconds field can be exercised here. The
@@ -110,6 +112,7 @@ const EXERCISES: RunnerExercise[] = [
     metric: "seconds",
     primaryMuscles: ["abs"], plannedSets: 2, plannedRepsMin: 6, plannedRepsMax: 10, repsMin: 6, repsMax: 10,
     restSeconds: 8, workingWeightKg: null, suggestedWeightKg: null,
+    previousCompletedWeightKg: null,
     status: "pending", feel: null, sets: [], isBodyweight: true,
   },
 ];
