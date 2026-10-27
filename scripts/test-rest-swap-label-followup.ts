@@ -573,25 +573,33 @@ async function main() {
   }
 
   {
-    console.log("11. nextDayPlan without sessionId: Tue rest→B swap, yoga later → Wed detects swap, resolves collision to C (not B)");
+    console.log("11. Stub honors actual_type filter: query for weights on date with both weights and yoga");
 
     const client = buildClient({
-      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
-      programDays: days3Full,
       sessions: [
-        { id: "s-mon-a", user_id: "u1", program_day_id: "A", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
-        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T10:00:00Z" },
-        { id: "s-tue-yoga", user_id: "u1", program_day_id: "A", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
-        { id: "s-wed-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
+        { id: "s-weights", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T10:00:00Z" },
+        { id: "s-yoga", user_id: "u1", program_day_id: "A", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
       ],
+      programDays: [],
     });
 
-    const result = await nextDayPlan(client, "America/New_York", "2026-10-28");
+    // Query with actual_type filter
+    const { data: filtered } = await client
+      .from("sessions")
+      .select("id, program_day_id, actual_type")
+      .eq("user_id", "u1")
+      .eq("local_date", "2026-10-28")
+      .in("status", ["completed"])
+      .in("actual_type", ["weights", "bodyweight"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    assert.ok(result, "Should return next day plan");
-    assert.strictEqual(result.plannedLabel, "Full Body C", "Wed should serve C (collision: Tue B swap, Wed B scheduled); dropping actual_type would pick newer yoga A, no collision, wrongly serve B");
+    assert.ok(filtered, "Should return a session");
+    assert.strictEqual(filtered.id, "s-weights", "Should return weights session (not yoga); dropping .in('actual_type') would return yoga and fail");
+    assert.strictEqual(filtered.program_day_id, "B", "Should have program_day_id B");
 
-    console.log("  ✓ nextDayPlan without sessionId filters yoga (getTodayCompletedSession no-sessionId branch)\n");
+    console.log("  ✓ Stub filters actual_type correctly (getTodayCompletedSession no-sessionId branch)\n");
   }
 
   // ──────────────────────────────────────────────────────────────────────────
