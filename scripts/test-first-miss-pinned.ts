@@ -691,7 +691,7 @@ console.log("\n=== HARD-FEEL HOLD ===");
   const KETTLEBELL_SWING: ExerciseMeta = {
     mechanic: "compound",
     metric: "reps",
-    movementPattern: "hip_hinge",
+    movementPattern: "hinge",
     isBodyweight: false,
     progressionChain: null,
     progressionRank: null,
