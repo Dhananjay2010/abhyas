@@ -78,6 +78,9 @@ type BaselineDay = {
     slug?: string;
     targetSets: number;
     movementPattern?: string;
+    targetRepsMin?: number;
+    targetRepsMax?: number;
+    restSeconds?: number;
   }>;
 };
 
@@ -266,6 +269,26 @@ for (const day of lowerDays) {
       } else if (prEx.targetSets !== baseEx.targetSets) {
         console.log(`  ✗ Exercise ${i + 1} "${prEx.name}": ${prEx.targetSets} sets vs baseline ${baseEx.targetSets} sets`);
         failures++;
+      }
+      
+      // Check reps (only if not swapped and baseline has reps)
+      if (!exerciseSwap && baseEx.targetRepsMin !== undefined && baseEx.targetRepsMax !== undefined) {
+        if (prEx.targetRepsMin !== baseEx.targetRepsMin) {
+          console.log(`  ✗ Exercise ${i + 1} "${prEx.name}": reps min ${prEx.targetRepsMin} vs baseline ${baseEx.targetRepsMin}`);
+          failures++;
+        }
+        if (prEx.targetRepsMax !== baseEx.targetRepsMax) {
+          console.log(`  ✗ Exercise ${i + 1} "${prEx.name}": reps max ${prEx.targetRepsMax} vs baseline ${baseEx.targetRepsMax}`);
+          failures++;
+        }
+      }
+      
+      // Check rest seconds (only if not swapped and baseline has restSeconds)
+      if (!exerciseSwap && baseEx.restSeconds !== undefined) {
+        if (prEx.restSeconds !== baseEx.restSeconds) {
+          console.log(`  ✗ Exercise ${i + 1} "${prEx.name}": rest ${prEx.restSeconds}s vs baseline ${baseEx.restSeconds}s`);
+          failures++;
+        }
       }
     }
   }

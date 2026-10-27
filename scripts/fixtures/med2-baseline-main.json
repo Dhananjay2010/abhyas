@@ -3,45 +3,63 @@
     "dayIndex": 2,
     "label": "Lower",
     "focus": "lower",
-    "lowerBodySets": 23,
-    "totalSets": 27,
-    "estMinutes": 70,
+    "lowerBodySets": 22,
+    "totalSets": 26,
+    "estMinutes": 68,
     "exercises": [
       {
         "name": "Barbell Squat",
         "slug": "barbell-squat",
         "targetSets": 4,
-        "movementPattern": "squat"
+        "movementPattern": "squat",
+        "targetRepsMin": 8,
+        "targetRepsMax": 12,
+        "restSeconds": 90
       },
       {
         "name": "Barbell Deadlift",
         "slug": "barbell-deadlift",
         "targetSets": 5,
-        "movementPattern": "hinge"
+        "movementPattern": "hinge",
+        "targetRepsMin": 8,
+        "targetRepsMax": 12,
+        "restSeconds": 90
       },
       {
         "name": "Spanish Squat",
         "slug": "spanish-squat",
         "targetSets": 5,
-        "movementPattern": "squat"
+        "movementPattern": "squat",
+        "targetRepsMin": 8,
+        "targetRepsMax": 12,
+        "restSeconds": 90
       },
       {
         "name": "Barbell Seated Calf Raise",
         "slug": "barbell-seated-calf-raise",
-        "targetSets": 5,
-        "movementPattern": "calf"
+        "targetSets": 4,
+        "movementPattern": "calf",
+        "targetRepsMin": 8,
+        "targetRepsMax": 12,
+        "restSeconds": 75
       },
       {
         "name": "Leg Extensions",
         "slug": "leg-extensions",
         "targetSets": 4,
-        "movementPattern": "squat"
+        "movementPattern": "squat",
+        "targetRepsMin": 8,
+        "targetRepsMax": 12,
+        "restSeconds": 75
       },
       {
         "name": "Standing Rope Crunch",
         "slug": "standing-rope-crunch",
         "targetSets": 4,
-        "movementPattern": "core"
+        "movementPattern": "core",
+        "targetRepsMin": 8,
+        "targetRepsMax": 12,
+        "restSeconds": 75
       }
     ]
   },
@@ -57,37 +75,55 @@
         "name": "Barbell Squat",
         "slug": "barbell-squat",
         "targetSets": 4,
-        "movementPattern": "squat"
+        "movementPattern": "squat",
+        "targetRepsMin": 8,
+        "targetRepsMax": 12,
+        "restSeconds": 90
       },
       {
         "name": "Barbell Deadlift",
         "slug": "barbell-deadlift",
         "targetSets": 5,
-        "movementPattern": "hinge"
+        "movementPattern": "hinge",
+        "targetRepsMin": 8,
+        "targetRepsMax": 12,
+        "restSeconds": 90
       },
       {
         "name": "Spanish Squat",
         "slug": "spanish-squat",
         "targetSets": 5,
-        "movementPattern": "squat"
+        "movementPattern": "squat",
+        "targetRepsMin": 8,
+        "targetRepsMax": 12,
+        "restSeconds": 90
       },
       {
         "name": "Barbell Seated Calf Raise",
         "slug": "barbell-seated-calf-raise",
         "targetSets": 3,
-        "movementPattern": "calf"
+        "movementPattern": "calf",
+        "targetRepsMin": 8,
+        "targetRepsMax": 12,
+        "restSeconds": 75
       },
       {
         "name": "Wall Sit",
         "slug": "wall-sit",
         "targetSets": 4,
-        "movementPattern": "squat"
+        "movementPattern": "squat",
+        "targetRepsMin": 20,
+        "targetRepsMax": 40,
+        "restSeconds": 75
       },
       {
-        "name": "Cable Crunch",
-        "slug": "cable-crunch",
+        "name": "Crunches",
+        "slug": "crunches",
         "targetSets": 4,
-        "movementPattern": "core"
+        "movementPattern": "core",
+        "targetRepsMin": 8,
+        "targetRepsMax": 12,
+        "restSeconds": 75
       }
     ]
   }
