@@ -18,32 +18,14 @@ interface Mutant {
 const MUTANTS: Mutant[] = [
   // G-3: Remove calf-press from past-knee exclusions
   {
-    name: "G-3.1: Remove calf-press from PAST_KNEE_EXCLUDED_SLUGS",
-    file: "src/lib/program/past-knee.ts",
-    original: '  "calf-press-on-the-leg-press-machine",',
-    mutated: '  // MUTANT: Removed "calf-press-on-the-leg-press-machine",',
+    name: "G-3.1: Remove calf-press inline exclusion for past-knee",
+    file: "src/lib/program/generate.ts",
+    original: '  // Owner decision (a): Past-knee specific NEW exclusions (3 slugs added in this PR)\n  // Calf-press is knee-contraindicated but only excluded for past-knee (not current, see tag check above)\n  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");\n  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;\n  if (hasPastKnee && ex.slug === "calf-press-on-the-leg-press-machine") {\n    return false;\n  }',
+    mutated: '  // MUTANT: Removed calf-press exclusion\n  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");\n  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;',
     tests: ["test:owner-decision-a", "test:past-knee-calf-swap-exclusion"],
   },
   
-  // G-3: Remove landmine jammer from past-knee exclusions
-  {
-    name: "G-3.2: Remove landmine-linear-jammer from PAST_KNEE_EXCLUDED_SLUGS",
-    file: "src/lib/program/past-knee.ts",
-    original: '  "landmine-linear-jammer",',
-    mutated: '  // MUTANT: Removed "landmine-linear-jammer",',
-    tests: ["test:owner-decision-a"],
-  },
-  
-  // G-3: Remove single-arm jammer from past-knee exclusions
-  {
-    name: "G-3.3: Remove single-arm-linear-jammer from PAST_KNEE_EXCLUDED_SLUGS",
-    file: "src/lib/program/past-knee.ts",
-    original: '  "single-arm-linear-jammer",',
-    mutated: '  // MUTANT: Removed "single-arm-linear-jammer",',
-    tests: ["test:owner-decision-a"],
-  },
-  
-  // Remove jammer check in generate.ts
+  // G-3: Remove jammer check in generate.ts (primary defense)
   {
     name: "G-3.4: Remove jammer check in generate.ts",
     file: "src/lib/program/generate.ts",
@@ -52,31 +34,13 @@ const MUTANTS: Mutant[] = [
     tests: ["test:knee-contraindicated"],
   },
   
-  // Remove jammer check in alternatives.ts
-  {
-    name: "G-3.5: Remove jammer check in alternatives.ts",
-    file: "src/lib/program/alternatives.ts",
-    original: '    // G-3: Landmine jammers excluded for ANY knee injury (leg-driven presses)\n    if ((ctx.anyKneeInjury ?? false) && \n        (candidate.slug === "landmine-linear-jammer" || candidate.slug === "single-arm-linear-jammer")) {\n      continue;\n    }',
-    mutated: '    // MUTANT: Removed jammer check',
-    tests: ["test:owner-decision-a"],
-  },
-  
-  // Global tag filtering in alternatives (changes 174 swap lists)
+  // Global tag filtering would break past-knee swaps
   {
     name: "Decision(a).1: Add global tag filtering in rankAlternatives",
     file: "src/lib/program/alternatives.ts",
-    original: '    // Tag-based knee contraindication applies to CURRENT knee only (owner decision a)\n    if (ctx.injuryRegions.includes("knee") && candidate.contraindicated_regions.includes("knee")) {\n      continue;\n    }',
-    mutated: '    // MUTANT: Apply tag filtering to ANY knee (WRONG - breaks 174 swap lists)\n    if ((ctx.anyKneeInjury ?? false) && candidate.contraindicated_regions.includes("knee")) {\n      continue;\n    }',
+    original: '    // G-3: Landmine jammers excluded for ANY knee injury (leg-driven presses)\n    if ((ctx.anyKneeInjury ?? false) && (candidate.slug === "landmine-linear-jammer" || candidate.slug === "single-arm-linear-jammer")) {\n      continue;\n    }',
+    mutated: '    // MUTANT: Apply GLOBAL tag filtering to ANY knee (WRONG - breaks 174 swap lists)\n    if ((ctx.anyKneeInjury ?? false) && candidate.contraindicated_regions.includes("knee")) {\n      continue;\n    }',
     tests: ["test:past-knee-keeps-tier"],
-  },
-  
-  // Remove past-knee exclusion check in isEligible
-  {
-    name: "Decision(a).2: Remove past-knee exclusion check in isEligible",
-    file: "src/lib/program/generate.ts",
-    original: '  // Owner decision (a): Past-knee specific NEW exclusions (3 slugs added in this PR)\n  // Calf-press is knee-contraindicated but only excluded for past-knee (not current, see tag check above)\n  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");\n  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;\n  if (hasPastKnee && isExcludedForPastKnee(ex)) {\n    return false;\n  }',
-    mutated: '  // MUTANT: Removed past-knee exclusion check\n  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");\n  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;',
-    tests: ["test:owner-decision-a"],
   },
 ];
 

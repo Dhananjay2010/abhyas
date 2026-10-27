@@ -226,9 +226,32 @@ function hasStackTrace(output: string): boolean {
   return (
     output.includes("    at ") || // Node.js stack trace
     output.includes("\n    at ") ||
-    output.includes("Error: ") && output.includes("    at ") ||
+    (output.includes("Error: ") && output.includes("    at ")) ||
     /^\s+at\s+/m.test(output) // Stack frame pattern
   );
+}
+
+function isCrash(error: unknown): boolean {
+  const stdout = typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "";
+  const stderr = typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "";
+  const status = typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : 1;
+  const output = stdout + stderr;
+  
+  // Crash indicators:
+  // 1. Stack trace present
+  if (hasStackTrace(output)) return true;
+  
+  // 2. Silent exit (no output but non-zero status)
+  if (status !== 0 && output.trim().length === 0) return true;
+  
+  // 3. FAIL followed by stack trace
+  if (output.includes("FAIL") && hasStackTrace(output)) return true;
+  
+  // 4. Uncaught exception patterns
+  if (output.includes("Uncaught") || output.includes("unhandled")) return true;
+  
+  // Otherwise it's a clean test failure
+  return false;
 }
 
 function runMutation(mutant: Mutant): void {
@@ -286,11 +309,11 @@ function runMutation(mutant: Mutant): void {
       try {
         execSync(`npm run ${test}`, { stdio: "pipe", encoding: "utf8" });
       } catch (error: unknown) {
-        // Check if this is a crash (uncaught exception with stack trace) or test failure
-        const output = 
-          (typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "") +
-          (typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "");
-        if (hasStackTrace(output)) {
+        // Check if this is a crash or clean test failure
+        if (isCrash(error)) {
+          const output = 
+            (typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "") +
+            (typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "");
           console.log(`  💥 CRASH: Uncaught exception in ${test}`);
           console.log(`  Output: ${output.substring(0, 200)}...`);
           testCrashed = true;

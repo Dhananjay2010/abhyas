@@ -114,29 +114,40 @@ run_mutant() {
     exit_code=$?
     
     if [ $exit_code -ne 0 ]; then
-      # Check for crashes: uncaught errors with stack traces (lines starting with "at ")
+      # Check for crashes: stack traces, silent exits, or string throws
+      has_stack_trace=0
+      has_assertion=0
+      is_silent=0
+      
       if echo "$output" | grep -qE '^\s+at '; then
-        # Stack trace found - this is a crash
-        # But if it also contains FAIL or ✗, count it as killed (test printed assertion before crash)
-        if echo "$output" | grep -qE '(✗|FAIL)'; then
-          killer="$t"
-          break
-        else
-          echo "  ✗ CRASH in $t (uncaught exception)"
-          CRASHED=$((CRASHED + 1))
-          restore
-          return
-        fi
+        has_stack_trace=1
       fi
       
-      # Check for assertion failures (no stack trace)
-      if echo "$output" | grep -qE '(✗|FAIL)'; then
+      if echo "$output" | grep -qE '(✗|FAIL|❌)'; then
+        has_assertion=1
+      fi
+      
+      if [ -z "$(echo "$output" | tr -d '[:space:]')" ]; then
+        is_silent=1
+      fi
+      
+      # Crash if: stack trace present, OR silent exit, OR uncaught/unhandled
+      if [ $has_stack_trace -eq 1 ] || [ $is_silent -eq 1 ] || echo "$output" | grep -qE '(Uncaught|unhandled)'; then
+        # Even with assertion, a stack trace means crash
+        echo "  💥 CRASH in $t (${has_stack_trace:+stack trace}${is_silent:+silent exit})"
+        CRASHED=$((CRASHED + 1))
+        restore
+        return
+      fi
+      
+      # Clean assertion failure (no stack trace)
+      if [ $has_assertion -eq 1 ]; then
         killer="$t"
         break
       fi
       
-      # Non-zero exit without assertion or stack trace
-      echo "  ✗ CRASH in $t (exit $exit_code, no assertion message)"
+      # Non-zero exit without clear signal - treat as crash
+      echo "  💥 CRASH in $t (exit $exit_code, no assertion message)"
       CRASHED=$((CRASHED + 1))
       restore
       return

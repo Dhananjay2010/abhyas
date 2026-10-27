@@ -118,6 +118,69 @@ console.log("\n=== G-3: Testing landmine jammer exclusion ===");
 let jammerViolations = 0;
 const jammerSlugs = new Set(jammers.map(ex => ex.slug));
 
+// Direct eligibility check for jammers
+const linearJammer = catalogue.find(ex => ex.slug === "landmine-linear-jammer");
+if (!linearJammer) {
+  console.error("✗ FAIL: landmine-linear-jammer not found in catalogue");
+  process.exit(1);
+}
+
+// Test direct eligibility for past-knee and current-knee
+const pastKneeTestInput: GeneratorInput = {
+  userId: "past-knee-eligibility",
+  blockNumber: 1,
+  daysPerWeek: 4,
+  yogaDaysPerWeek: 0,
+  goal: "muscle_gain",
+  level: "intermediate",
+  preferredSessionMinutes: 60,
+  equipmentIds: ["barbell", "squat_rack", "flat_bench", "dumbbell", "landmine"],
+  catalogue,
+  hasAllEquipment: false,
+  primaryTrack: "weights",
+  age: 36,
+  bmi: 22.5,
+  currentInjuryRegions: [],
+  anyKneeInjury: true,
+};
+
+// Import isEligible to test directly
+const { isEligible } = require("../src/lib/program/generate");
+
+if (isEligible(linearJammer, pastKneeTestInput)) {
+  jammerViolations++;
+  totalViolations++;
+  console.error("❌ G-3 VIOLATION: landmine-linear-jammer should NOT be eligible for past-knee");
+} else {
+  console.log("  ✓ PASS: landmine-linear-jammer correctly excluded for past-knee");
+}
+
+const currentKneeTestInput: GeneratorInput = {
+  userId: "current-knee-eligibility",
+  blockNumber: 1,
+  daysPerWeek: 4,
+  yogaDaysPerWeek: 0,
+  goal: "muscle_gain",
+  level: "intermediate",
+  preferredSessionMinutes: 60,
+  equipmentIds: ["barbell", "squat_rack", "flat_bench", "dumbbell", "landmine"],
+  catalogue,
+  hasAllEquipment: false,
+  primaryTrack: "weights",
+  age: 36,
+  bmi: 22.5,
+  currentInjuryRegions: ["knee"],
+  anyKneeInjury: true,
+};
+
+if (isEligible(linearJammer, currentKneeTestInput)) {
+  jammerViolations++;
+  totalViolations++;
+  console.error("❌ G-3 VIOLATION: landmine-linear-jammer should NOT be eligible for current-knee");
+} else {
+  console.log("  ✓ PASS: landmine-linear-jammer correctly excluded for current-knee");
+}
+
 const pastKneeInput: GeneratorInput = {
   userId: "past-knee-g3",
   blockNumber: 1,
