@@ -73,7 +73,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
     deleteSet: ok,
     finishExercise: async () =>
       ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: async (input) => {
+    finishSession: async (input: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       finishCalls.push({ cooldownCompleted: input?.cooldownCompleted });
       await Promise.resolve();
       return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
@@ -109,7 +109,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
       startedAt={new Date().toISOString()}
       isStale={false}
       warmup={[]}
-      cooldown={[{ id: "c1", name: "Hamstring stretch", cue: null }]}
+      cooldown={[{ id: "c1", name: "Hamstring stretch", slug: "hamstring-stretch", type: "stretch", target_regions: ["lower_back"], target_muscles: ["hamstrings"], instructions: [""], duration_seconds: 30 }]}
       exercises={[exercise1]}
       settings={settings}
       actions={actions1}
@@ -161,7 +161,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
   let finishCalls2: Array<{ cooldownCompleted?: boolean }> = [];
   const actions2: SessionActions = {
     ...actions1,
-    finishSession: async (input) => {
+    finishSession: async (input: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       finishCalls2.push({ cooldownCompleted: input?.cooldownCompleted });
       await Promise.resolve();
       return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
@@ -179,7 +179,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
       startedAt={new Date().toISOString()}
       isStale={false}
       warmup={[]}
-      cooldown={[{ id: "c2", name: "Quad stretch", cue: null }]}
+      cooldown={[{ id: "c2", name: "Quad stretch", slug: "quad-stretch", type: "stretch", target_regions: ["lower_back"], target_muscles: ["quads"], instructions: [""], duration_seconds: 30, cue: null }]}
       exercises={[exercise2]}
       settings={settings}
       actions={actions2}
@@ -234,7 +234,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
       await Promise.resolve();
       return { ok: true };
     },
-    finishSession: async (input) => {
+    finishSession: async (input: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       finishCalls3.push({ cooldownCompleted: input?.cooldownCompleted });
       await Promise.resolve();
       return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
@@ -252,7 +252,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
       startedAt={new Date().toISOString()}
       isStale={false}
       warmup={[]}
-      cooldown={[{ id: "c3", name: "Hip stretch", cue: null }]}
+      cooldown={[{ id: "c3", name: "Hip stretch", slug: "hip-stretch", type: "stretch", target_regions: ["hip"], target_muscles: ["hip_flexors"], instructions: [""], duration_seconds: 30, cue: null }]}
       exercises={[exercise3]}
       settings={settings}
       actions={actions3}
