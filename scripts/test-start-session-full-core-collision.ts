@@ -60,10 +60,11 @@ function makeFakeDeps(resolvedDayId: string | null): StartSessionFullDeps {
     },
     
     findInProgressToday: async () => [],
-    buildStaleDeps: () => ({
+    buildStaleDeps: (openSessions, today, nowMs) => ({
+      today,
       readOpenSessions: async () => [],
-      checkStale: async () => false,
-      updateStale: async () => ({ ok: true }),
+      closeStaleSessions: async () => 0,
+      checkRemainingInProgress: async () => ({ ok: true, sessionId: null }),
     }),
     insertSession: async () => ({ ok: true, sessionId: "sess-123" }),
     fetchPlannedExercises: async () => [
