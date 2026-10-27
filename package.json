@@ -409,6 +409,13 @@
     "test:start-session-over-6h": "tsx scripts/test-start-session-over-6h.ts",
     "test:gym-tenant-rls-real-db": "tsx scripts/test-gym-tenant-rls-real-db.ts",
     "test:gym-owner-guards-sql": "tsx scripts/test-gym-owner-guards-sql.ts",
+    "test:units-roundtrip-property": "tsx scripts/test-units-roundtrip-property.ts",
+    "test:units-roundtrip-runner-prefill": "tsx scripts/test-units-roundtrip-runner-prefill.ts",
+    "test:units-roundtrip-history-list-detail": "tsx scripts/test-units-roundtrip-history-list-detail.ts",
+    "test:units-roundtrip-body-weight": "tsx scripts/test-units-roundtrip-body-weight.ts",
+    "test:units-roundtrip-runner-wiring": "tsx scripts/test-units-roundtrip-runner-wiring.tsx",
+    "test:units-m2-m3": "tsx scripts/test-units-m2-m3.ts",
+    "test:units-body-weight-validation": "tsx scripts/test-units-body-weight-validation.ts",
     "ci:mutant-gym-rls-policies": "bash scripts/mutant-test-gym-rls-policies.sh"
   },
   "dependencies": {
