@@ -61,9 +61,9 @@ const MUTANTS: Mutant[] = [
   {
     name: "M7: Remove both jammer slugs from PAST_KNEE_EXCLUDED_SLUGS",
     file: "src/lib/program/past-knee.ts",
-    original: 'export function getPastKneeExcludedSlugs(): Set<string> {\n  return new Set([\n    "calf-press-on-the-leg-press-machine",\n    "landmine-linear-jammer",\n    "single-arm-linear-jammer",\n  ]);\n}',
-    mutated: 'export function getPastKneeExcludedSlugs(): Set<string> {\n  return new Set([\n    "calf-press-on-the-leg-press-machine",\n    // MUTANT: Removed both jammer slugs\n  ]);\n}',
-    tests: ["test:owner-decision-a", "test:past-knee-calf-swap-exclusion"],
+    original: '  // Calf Press on Leg Press: knee-contraindicated (QA Bot 1 finding)\n  "calf-press-on-the-leg-press-machine",\n  \n  // G-3: Landmine jammers are leg-driven presses (push from legs through shoulders)\n  "landmine-linear-jammer",\n  "single-arm-linear-jammer",',
+    mutated: '  // Calf Press on Leg Press: knee-contraindicated (QA Bot 1 finding)\n  "calf-press-on-the-leg-press-machine",\n  \n  // MUTANT: Removed both jammer slugs\n  // "landmine-linear-jammer",\n  // "single-arm-linear-jammer",',
+    tests: ["test:knee-contraindicated", "test:past-knee-calf-swap-exclusion"],
     equivalent: true,
     notes: "rankAlternatives' only production caller is buildEligibleSwapList (eligible-swap-list.ts:71), which first applies isEligible's any-knee jammer check. Evidence: byte-identical output across 483,912 swap lists (4 injury sets x 11 equipment x 3 levels x 2 tracks x 611 exercises x 3 session ids) and 7,290 plans.",
   },
