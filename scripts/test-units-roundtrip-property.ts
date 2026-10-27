@@ -19,6 +19,7 @@ import {
   parseBodyWeight,
   formatBodyWeight,
   computeRunnerWeightPrefill,
+  weightKgToSubmit,
 } from "../src/lib/units";
 
 let passed = 0;
@@ -71,6 +72,29 @@ for (let kg = 20; kg <= 300; kg += 0.5) {
 console.log(
   `\nTested ${passed + failed} kg values from 20-300 kg in 0.5 kg steps\n`
 );
+
+console.log("=== QA Demo Case: 40 kg → 88 lb → must save exactly 40 kg ===\n");
+
+// Explicit check for QA rehearsal scenario: 40 kg prescribed weight
+const qa40kg = 40;
+const qa40Prefill = computeRunnerWeightPrefill(qa40kg, "imperial", false);
+
+check(
+  `40 kg displays as ${qa40Prefill} lb`,
+  qa40Prefill === "88",
+  `expected "88", got "${qa40Prefill}"`
+);
+
+// Test unedited submit using weightKgToSubmit (what the runner actually does)
+const qa40Submitted = weightKgToSubmit(qa40Prefill, qa40Prefill, qa40kg, "imperial");
+
+check(
+  `Unedited ${qa40Prefill} lb submits exactly 40 kg (not 39.92)`,
+  qa40Submitted === qa40kg,
+  `expected ${qa40kg}, got ${qa40Submitted}`
+);
+
+console.log("");
 
 console.log("=== Property Test 2: Session weight round-trip (every 0.5 lb) ===\n");
 

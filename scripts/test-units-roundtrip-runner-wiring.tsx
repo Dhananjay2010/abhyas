@@ -36,6 +36,8 @@ const testCases = [
   { kg: 62.75, expectedPrefill: "138.5", expectedLine: "138.5 lb", desc: "62.75 kg (critical: rounds up, not down)" },
   // Additional cases for coverage
   { kg: 72.5, expectedPrefill: "160", expectedLine: "160 lb", desc: "72.5 kg" },
+  // QA demo rehearsal: 40 kg → 88 lb, unedited submit must save exactly 40 kg (not 39.92)
+  { kg: 40, expectedPrefill: "88", expectedLine: "88 lb", desc: "40 kg (QA: e1RM preservation)" },
 ];
 
 (async () => {
