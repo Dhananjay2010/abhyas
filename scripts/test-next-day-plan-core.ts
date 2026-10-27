@@ -17,19 +17,22 @@ import type { Database } from "../src/lib/database.types";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 
+const WEIGHTS: DayType = "weights";
+const REST: DayType = "rest";
+
 async function main() {
   console.log("Test: nextDayPlanCore collision resolution (mutant vii)\n");
 
   console.log("1. Rest-day swap collision: returns Upper with programDayId and collisionResolved true");
   {
     const programDays = [
-      { id: "lower-id", day_index: 2, day_type: "weights" as DayType, label: "Lower" },
-      { id: "upper-id", day_index: 4, day_type: "weights" as DayType, label: "Upper" },
+      { id: "lower-id", day_index: 2, day_type: WEIGHTS, label: "Lower" },
+      { id: "upper-id", day_index: 4, day_type: WEIGHTS, label: "Upper" },
     ];
 
     const plannableDays = [
-      { programDayId: "lower-id", dayType: "weights" as DayType, label: "Lower" },
-      { programDayId: "upper-id", dayType: "weights" as DayType, label: "Upper" },
+      { programDayId: "lower-id", dayType: WEIGHTS, label: "Lower" },
+      { programDayId: "upper-id", dayType: WEIGHTS, label: "Upper" },
     ];
 
     const deps: NextDayPlanCoreDeps = {
@@ -76,12 +79,12 @@ async function main() {
   console.log("\n2. No swap: returns scheduled day with collisionResolved false");
   {
     const programDays = [
-      { id: "rest-id", day_index: 0, day_type: "rest" as DayType, label: null },
-      { id: "lower-id", day_index: 2, day_type: "weights" as DayType, label: "Lower" },
+      { id: "rest-id", day_index: 0, day_type: REST, label: null },
+      { id: "lower-id", day_index: 2, day_type: WEIGHTS, label: "Lower" },
     ];
 
     const plannableDays = [
-      { programDayId: "lower-id", dayType: "weights" as DayType, label: "Lower" },
+      { programDayId: "lower-id", dayType: WEIGHTS, label: "Lower" },
     ];
 
     const deps: NextDayPlanCoreDeps = {

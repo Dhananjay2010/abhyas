@@ -13,10 +13,12 @@
 import { strict as assert } from "node:assert";
 import { resolveTodayProgramDayCore } from "../src/lib/program/day-plan";
 import type { ResolveTodayCoreDeps } from "../src/lib/program/day-plan";
-import { startSessionFullCore } from "../src/lib/session/start-session-full-core";
 import type { Database } from "../src/lib/database.types";
 
 type DayType = Database["public"]["Enums"]["day_type"];
+
+const WEIGHTS: DayType = "weights";
+const REST: DayType = "rest";
 
 async function main() {
   console.log("Test: start-session resolveTodayDay collision resolution (mutant viii)\n");
@@ -24,9 +26,9 @@ async function main() {
   console.log("1. Rest-day swap collision: resolveTodayDay returns Upper's programDayId");
   {
     const programDays = [
-      { id: "rest-id", day_index: 0, day_type: "rest" as DayType, label: null },
-      { id: "lower-id", day_index: 2, day_type: "weights" as DayType, label: "Lower" },
-      { id: "upper-id", day_index: 4, day_type: "weights" as DayType, label: "Upper" },
+      { id: "rest-id", day_index: 0, day_type: REST, label: null },
+      { id: "lower-id", day_index: 2, day_type: WEIGHTS, label: "Lower" },
+      { id: "upper-id", day_index: 4, day_type: WEIGHTS, label: "Upper" },
     ];
 
     const deps: ResolveTodayCoreDeps = {
@@ -56,8 +58,8 @@ async function main() {
   console.log("\n2. No collision: resolveTodayDay returns scheduled day");
   {
     const programDays = [
-      { id: "lower-id", day_index: 2, day_type: "weights" as DayType, label: "Lower" },
-      { id: "upper-id", day_index: 4, day_type: "weights" as DayType, label: "Upper" },
+      { id: "lower-id", day_index: 2, day_type: WEIGHTS, label: "Lower" },
+      { id: "upper-id", day_index: 4, day_type: WEIGHTS, label: "Upper" },
     ];
 
     const deps: ResolveTodayCoreDeps = {
@@ -81,25 +83,9 @@ async function main() {
     console.log("  ✓ Returned scheduled day when no collision");
   }
 
-  console.log("\n3. Consistency across UI paths (architectural note)");
-  {
-    // Both Today page (via loadTodayPlan) and start-session (via startSessionFullCore)
-    // use resolveTodayProgramDay for collision resolution.
-    // 
-    // Behavioral guarantee: resolveTodayProgramDayCore (tested in sections 1-2 above)
-    // is called by both paths, ensuring they agree on the collision-resolved programDayId.
-    //
-    // Mutant that fails: If resolveTodayProgramDayCore skips collision check (e.g. returns
-    // scheduledToday.id without checking yesterdayWasSwap), sections 1-2 above fail.
-    
-    console.log("  ✓ Both Today page and start-session call resolveTodayProgramDay");
-    console.log("  ✓ Collision resolution is consistent (same core function)");
-  }
-
   console.log("\n✅ All start-session resolveTodayDay tests passed");
   console.log("  ✓ Returned Upper's programDayId after collision resolution");
   console.log("  ✓ Returned scheduled day when no collision");
-  console.log("  ✓ Consistency verified across UI paths");
 }
 
 main().catch((e) => {
