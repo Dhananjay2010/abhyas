@@ -50,11 +50,21 @@ SKIPPED=()
 
 echo "Running baseline tests..."
 BASELINE_OUTPUT=$(mktemp)
-if ! supabase db reset --db-url "$SUPABASE_DB_URL" > "$BASELINE_OUTPUT" 2>&1; then
-  echo "❌ Baseline: db reset failed" >&2
-  cat "$BASELINE_OUTPUT"
-  rm -f "$BASELINE_OUTPUT"
-  exit 1
+# In CI with local URL, use plain reset (already linked). Outside CI or with custom URL, use --db-url.
+if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" =~ localhost:54322 ]]; then
+  if ! supabase db reset > "$BASELINE_OUTPUT" 2>&1; then
+    echo "❌ Baseline: db reset failed" >&2
+    cat "$BASELINE_OUTPUT"
+    rm -f "$BASELINE_OUTPUT"
+    exit 1
+  fi
+else
+  if ! supabase db reset --db-url "$SUPABASE_DB_URL" > "$BASELINE_OUTPUT" 2>&1; then
+    echo "❌ Baseline: db reset failed" >&2
+    cat "$BASELINE_OUTPUT"
+    rm -f "$BASELINE_OUTPUT"
+    exit 1
+  fi
 fi
 
 if ! REAL_DB=1 npm run test:gym-tenant-rls-real-db > "$BASELINE_OUTPUT" 2>&1; then
@@ -78,12 +88,23 @@ run_mutant() {
   
   # Reset database
   local reset_output=$(mktemp)
-  if ! supabase db reset --db-url "$SUPABASE_DB_URL" > "$reset_output" 2>&1; then
-    echo "  ❌ SKIPPED: db reset failed"
-    SKIPPED+=("$name: db reset failed")
-    rm -f "$reset_output"
-    sleep 2
-    return 0
+  # In CI with local URL, use plain reset. Outside CI or with custom URL, use --db-url.
+  if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" =~ localhost:54322 ]]; then
+    if ! supabase db reset > "$reset_output" 2>&1; then
+      echo "  ❌ SKIPPED: db reset failed"
+      SKIPPED+=("$name: db reset failed")
+      rm -f "$reset_output"
+      sleep 2
+      return 0
+    fi
+  else
+    if ! supabase db reset --db-url "$SUPABASE_DB_URL" > "$reset_output" 2>&1; then
+      echo "  ❌ SKIPPED: db reset failed"
+      SKIPPED+=("$name: db reset failed")
+      rm -f "$reset_output"
+      sleep 2
+      return 0
+    fi
   fi
   rm -f "$reset_output"
   
