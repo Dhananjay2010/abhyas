@@ -68,7 +68,7 @@ check("Redeem success: has gym_id", redeemSuccess?.ok === true && redeemSuccess.
 check("Redeem success: has gym_name", redeemSuccess?.ok === true && redeemSuccess.gym_name === "Test Gym");
 
 // Valid failure results
-const reasons = ["invalid", "expired", "revoked", "exhausted", "throttled"] as const;
+const reasons = ["invalid", "expired", "revoked", "exhausted", "throttled", "already_member"] as const;
 for (const reason of reasons) {
   const result = parseRedeemJoinCodeResult({ ok: false, reason });
   check(`Redeem ${reason}: ok=false`, result?.ok === false);

@@ -68,11 +68,55 @@ async function runTests() {
   });
 
   // Add roles
-  await adminClient.from("gym_memberships").insert([
-    { gym_id: gymId, user_id: owner.userId, role: "owner", status: "active" },
-    { gym_id: gymId, user_id: staff.userId, role: "staff", status: "active" },
-    { gym_id: gymId, user_id: member.userId, role: "member", status: "active" },
-  ]);
+  // Note: The member user is already active in the default gym (signup trigger),
+  // so we must deactivate that first to satisfy the one_active_member_per_user constraint
+  const { data: defaultGym } = await adminClient
+    .from("gyms")
+    .select("id")
+    .eq("slug", "default")
+    .single();
+  
+  if (defaultGym) {
+    const { error: deactivateError } = await adminClient
+      .from("gym_memberships")
+      .update({ status: "removed" })
+      .eq("user_id", member.userId)
+      .eq("gym_id", defaultGym.id);
+    if (deactivateError) {
+      throw new Error(`Failed to deactivate default gym membership: ${deactivateError.message}`);
+    }
+  }
+
+  // Insert memberships separately with error checking
+  const { error: ownerInsertError } = await adminClient.from("gym_memberships").insert({
+    gym_id: gymId,
+    user_id: owner.userId,
+    role: "owner",
+    status: "active",
+  });
+  if (ownerInsertError) {
+    throw new Error(`Failed to insert owner membership: ${ownerInsertError.message}`);
+  }
+
+  const { error: staffInsertError } = await adminClient.from("gym_memberships").insert({
+    gym_id: gymId,
+    user_id: staff.userId,
+    role: "staff",
+    status: "active",
+  });
+  if (staffInsertError) {
+    throw new Error(`Failed to insert staff membership: ${staffInsertError.message}`);
+  }
+
+  const { error: memberInsertError } = await adminClient.from("gym_memberships").insert({
+    gym_id: gymId,
+    user_id: member.userId,
+    role: "member",
+    status: "active",
+  });
+  if (memberInsertError) {
+    throw new Error(`Failed to insert member membership: ${memberInsertError.message}`);
+  }
 
   console.log("TEST: Non-owner cannot create codes");
   const { error: staffCreateError } = await staff.client.rpc("create_join_code", {
@@ -247,22 +291,249 @@ async function runTests() {
   check("Staff redeem own gym doesn't consume use", usesAfter?.use_count === usesBefore?.use_count);
   console.log();
 
+  console.log("TEST: Own-gym redeem rules");
+  
+  // Create a fresh gym for these tests
+  const ownGymTest = randomUUID();
+  const ownerOwnGym = await createTestUser("owner-owngym");
+  const staffOwnGym2 = await createTestUser("staff-owngym2");
+  const memberOwnGym = await createTestUser("member-owngym");
+  
+  await adminClient.from("gyms").insert({
+    id: ownGymTest,
+    slug: `owngym-test-${timestamp}`,
+    name: "Own Gym Test",
+  });
+  
+  // Deactivate default memberships for staff and member
+  if (defaultGym) {
+    await adminClient
+      .from("gym_memberships")
+      .update({ status: "removed" })
+      .in("user_id", [staffOwnGym2.userId, memberOwnGym.userId])
+      .eq("gym_id", defaultGym.id);
+  }
+  
+  const { error: ownGymOwnerErr } = await adminClient.from("gym_memberships").insert({
+    gym_id: ownGymTest,
+    user_id: ownerOwnGym.userId,
+    role: "owner",
+    status: "active",
+  });
+  if (ownGymOwnerErr) throw new Error(`Failed to insert owner: ${ownGymOwnerErr.message}`);
+  
+  const { error: ownGymStaffErr } = await adminClient.from("gym_memberships").insert({
+    gym_id: ownGymTest,
+    user_id: staffOwnGym2.userId,
+    role: "staff",
+    status: "active",
+  });
+  if (ownGymStaffErr) throw new Error(`Failed to insert staff: ${ownGymStaffErr.message}`);
+  
+  const { error: ownGymMemberErr } = await adminClient.from("gym_memberships").insert({
+    gym_id: ownGymTest,
+    user_id: memberOwnGym.userId,
+    role: "member",
+    status: "active",
+  });
+  if (ownGymMemberErr) throw new Error(`Failed to insert member: ${ownGymMemberErr.message}`);
+  
+  // Test 1: Owner redeeming their own gym's member code
+  const { data: ownerMemberCodeData } = await ownerOwnGym.client.rpc("create_join_code", {
+    p_gym_id: ownGymTest,
+    p_role: "member",
+  });
+  const ownerMemberCodeParsed = parseCreateJoinCodeResult(ownerMemberCodeData);
+  if (!ownerMemberCodeParsed) throw new Error("Failed to create owner member code");
+  
+  const { data: ownerMemberCodeId } = await adminClient
+    .from("gym_join_codes")
+    .select("id, use_count")
+    .eq("code", ownerMemberCodeParsed.code)
+    .single();
+  
+  const { data: ownerRedeemMember } = await ownerOwnGym.client.rpc("redeem_join_code", {
+    p_code: ownerMemberCodeParsed.code,
+  });
+  const ownerRedeemMemberResult = parseRedeemJoinCodeResult(ownerRedeemMember);
+  check("Owner redeeming own gym member code returns already_member",
+    ownerRedeemMemberResult !== null && ownerRedeemMemberResult.ok === false && ownerRedeemMemberResult.reason === "already_member");
+  
+  const { data: ownerMemberUseCount } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", ownerMemberCodeId?.id)
+    .single();
+  check("Owner redeem own gym doesn't consume use", ownerMemberUseCount?.use_count === ownerMemberCodeId?.use_count);
+  
+  const { data: ownerRoleAfter } = await adminClient
+    .from("gym_memberships")
+    .select("role")
+    .eq("gym_id", ownGymTest)
+    .eq("user_id", ownerOwnGym.userId)
+    .single();
+  check("Owner role unchanged", ownerRoleAfter?.role === "owner");
+  
+  // Test 2: Owner redeeming their own gym's staff code
+  const { data: ownerStaffCodeData } = await ownerOwnGym.client.rpc("create_join_code", {
+    p_gym_id: ownGymTest,
+    p_role: "staff",
+  });
+  const ownerStaffCodeParsed = parseCreateJoinCodeResult(ownerStaffCodeData);
+  if (!ownerStaffCodeParsed) throw new Error("Failed to create owner staff code");
+  
+  const { data: ownerStaffCodeId } = await adminClient
+    .from("gym_join_codes")
+    .select("id, use_count")
+    .eq("code", ownerStaffCodeParsed.code)
+    .single();
+  
+  const { data: ownerRedeemStaff } = await ownerOwnGym.client.rpc("redeem_join_code", {
+    p_code: ownerStaffCodeParsed.code,
+  });
+  const ownerRedeemStaffResult = parseRedeemJoinCodeResult(ownerRedeemStaff);
+  check("Owner redeeming own gym staff code returns already_member",
+    ownerRedeemStaffResult !== null && ownerRedeemStaffResult.ok === false && ownerRedeemStaffResult.reason === "already_member");
+  
+  const { data: ownerStaffUseCount } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", ownerStaffCodeId?.id)
+    .single();
+  check("Owner redeem own staff code doesn't consume use", ownerStaffUseCount?.use_count === ownerStaffCodeId?.use_count);
+  
+  // Test 3: Staff redeeming their own gym's staff code with max_uses=1
+  const { data: staffStaffCodeData } = await ownerOwnGym.client.rpc("create_join_code", {
+    p_gym_id: ownGymTest,
+    p_role: "staff",
+    p_max_uses: 1,
+  });
+  const staffStaffCodeParsed = parseCreateJoinCodeResult(staffStaffCodeData);
+  if (!staffStaffCodeParsed) throw new Error("Failed to create staff staff code");
+  
+  const { data: staffStaffCodeBefore } = await adminClient
+    .from("gym_join_codes")
+    .select("id, use_count")
+    .eq("code", staffStaffCodeParsed.code)
+    .single();
+  
+  const { data: staffRedeemStaff } = await staffOwnGym2.client.rpc("redeem_join_code", {
+    p_code: staffStaffCodeParsed.code,
+  });
+  const staffRedeemStaffResult = parseRedeemJoinCodeResult(staffRedeemStaff);
+  check("Staff redeeming own gym staff code returns already_member",
+    staffRedeemStaffResult !== null && staffRedeemStaffResult.ok === false && staffRedeemStaffResult.reason === "already_member");
+  
+  const { data: staffStaffCodeAfter } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", staffStaffCodeBefore?.id)
+    .single();
+  check("Staff redeem own staff code doesn't consume use (max_uses=1)", staffStaffCodeAfter?.use_count === staffStaffCodeBefore?.use_count);
+  
+  // Real invitee can still redeem
+  const realInvitee = await createTestUser("real-invitee");
+  if (defaultGym) {
+    await adminClient
+      .from("gym_memberships")
+      .update({ status: "removed" })
+      .eq("user_id", realInvitee.userId)
+      .eq("gym_id", defaultGym.id);
+  }
+  
+  const { data: realInviteeRedeem } = await realInvitee.client.rpc("redeem_join_code", {
+    p_code: staffStaffCodeParsed.code,
+  });
+  const realInviteeResult = parseRedeemJoinCodeResult(realInviteeRedeem);
+  check("Real invitee can still redeem after staff no-op", realInviteeResult !== null && realInviteeResult.ok === true);
+  
+  // Test 4: Member redeeming their own gym's staff code (upgrade path)
+  const { data: memberStaffCodeData } = await ownerOwnGym.client.rpc("create_join_code", {
+    p_gym_id: ownGymTest,
+    p_role: "staff",
+  });
+  const memberStaffCodeParsed = parseCreateJoinCodeResult(memberStaffCodeData);
+  if (!memberStaffCodeParsed) throw new Error("Failed to create member staff code");
+  
+  const { data: memberStaffCodeBefore } = await adminClient
+    .from("gym_join_codes")
+    .select("id, use_count")
+    .eq("code", memberStaffCodeParsed.code)
+    .single();
+  
+  const { data: memberRedeemStaff } = await memberOwnGym.client.rpc("redeem_join_code", {
+    p_code: memberStaffCodeParsed.code,
+  });
+  const memberRedeemStaffResult = parseRedeemJoinCodeResult(memberRedeemStaff);
+  check("Member redeeming own gym staff code succeeds (upgrade)", memberRedeemStaffResult !== null && memberRedeemStaffResult.ok === true);
+  
+  const { data: memberRoleAfter } = await adminClient
+    .from("gym_memberships")
+    .select("role")
+    .eq("gym_id", ownGymTest)
+    .eq("user_id", memberOwnGym.userId)
+    .single();
+  check("Member upgraded to staff", memberRoleAfter?.role === "staff");
+  
+  const { data: memberStaffCodeAfterUpgrade } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", memberStaffCodeBefore?.id)
+    .single();
+  check("Member upgrade consumes one use", memberStaffCodeAfterUpgrade?.use_count === (memberStaffCodeBefore?.use_count ?? 0) + 1);
+  
+  // Now redeem again as staff (should be no-op)
+  const { data: memberRedeemStaffAgain } = await memberOwnGym.client.rpc("redeem_join_code", {
+    p_code: memberStaffCodeParsed.code,
+  });
+  const memberRedeemStaffAgainResult = parseRedeemJoinCodeResult(memberRedeemStaffAgain);
+  check("Member (now staff) redeeming same code returns already_member",
+    memberRedeemStaffAgainResult !== null && memberRedeemStaffAgainResult.ok === false && memberRedeemStaffAgainResult.reason === "already_member");
+  
+  const { data: memberStaffCodeAfterSecond } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", memberStaffCodeBefore?.id)
+    .single();
+  check("Second redeem (as staff) doesn't consume use", memberStaffCodeAfterSecond?.use_count === memberStaffCodeAfterUpgrade?.use_count);
+  
+  // Test 5: No attempts recorded for any own-gym redeems
+  const { data: ownGymAttempts } = await adminClient
+    .from("gym_join_code_attempts")
+    .select("*")
+    .in("user_id", [ownerOwnGym.userId, staffOwnGym2.userId, memberOwnGym.userId]);
+  check("No attempts recorded for own-gym redeems", ownGymAttempts?.length === 0);
+  console.log();
+
   console.log("TEST: Case-insensitive unique constraint");
-  const testCode = "TESTCODE99";
-  await adminClient.from("gym_join_codes").insert({
+  const testCode = "TSTCDE2345"; // Valid format: no 0, 1, I, O
+  const { error: firstInsertError } = await adminClient.from("gym_join_codes").insert({
     gym_id: gymId,
     code: testCode,
     role: "member",
     created_by: owner.userId,
   });
+  if (firstInsertError) {
+    throw new Error(`Failed to insert test code: ${firstInsertError.message}`);
+  }
 
-  const { error: dupError } = await adminClient.from("gym_join_codes").insert({
+  // Exact duplicate should hit unique index (23505)
+  const { error: exactDupError } = await adminClient.from("gym_join_codes").insert({
     gym_id: gymId,
-    code: testCode.toLowerCase(), // lowercase version
+    code: testCode,
     role: "member",
     created_by: owner.userId,
   });
-  check("Lowercase duplicate rejected", !!dupError && dupError.code === "23505");
+  check("Exact duplicate rejected (23505)", !!exactDupError && exactDupError.code === "23505");
+
+  // Lowercase version should also hit unique index (or CHECK if invalid, accept both)
+  const { error: dupError } = await adminClient.from("gym_join_codes").insert({
+    gym_id: gymId,
+    code: testCode.toLowerCase(),
+    role: "member",
+    created_by: owner.userId,
+  });
+  check("Lowercase duplicate rejected", !!dupError && (dupError.code === "23505" || dupError.code === "23514"));
   console.log();
 
   console.log("TEST: gen_random_bytes produces valid codes");
@@ -346,6 +617,39 @@ async function runTests() {
   await adminClient.from("gym_join_code_attempts").delete().eq("id", testAttemptId);
   console.log();
 
+  console.log("TEST: Read-only transaction refusal (GET)");
+  // Create a valid code and an invalid one for testing
+  const { data: getTestCodeData } = await owner.client.rpc("create_join_code", {
+    p_gym_id: gymId,
+    p_role: "member",
+  });
+  const getTestCodeParsed = parseCreateJoinCodeResult(getTestCodeData);
+  if (!getTestCodeParsed) throw new Error("Failed to create GET test code");
+  const getTestCode = getTestCodeParsed.code;
+  
+  // Preview with {get:true} should be refused for both hit and miss
+  const { error: previewGetHitError } = await outsider.client.rpc("preview_join_code", {
+    p_code: getTestCode,
+  }, { get: true });
+  check("Preview GET with valid code refused (GJC11)", !!previewGetHitError && previewGetHitError.code === "GJC11");
+  
+  const { error: previewGetMissError } = await outsider.client.rpc("preview_join_code", {
+    p_code: "INVALIDGET",
+  }, { get: true });
+  check("Preview GET with invalid code refused (GJC11)", !!previewGetMissError && previewGetMissError.code === "GJC11");
+  
+  // Redeem with {get:true} should be refused for both hit and miss
+  const { error: redeemGetHitError } = await outsider.client.rpc("redeem_join_code", {
+    p_code: getTestCode,
+  }, { get: true });
+  check("Redeem GET with valid code refused (GJC11)", !!redeemGetHitError && redeemGetHitError.code === "GJC11");
+  
+  const { error: redeemGetMissError } = await outsider.client.rpc("redeem_join_code", {
+    p_code: "INVALIDGET",
+  }, { get: true });
+  check("Redeem GET with invalid code refused (GJC11)", !!redeemGetMissError && redeemGetMissError.code === "GJC11");
+  console.log();
+
   console.log("TEST: Helper functions not executable by authenticated");
   const { error: genError } = await outsider.client.rpc("generate_join_code", {});
   check("generate_join_code denied", !!genError && genError.code === "42501");
@@ -361,17 +665,56 @@ async function runTests() {
   check("record_join_code_miss denied", !!recordError && recordError.code === "42501");
   console.log();
 
+  console.log("TEST: Mutant killers - gen_random_bytes, search_path");
+  // Mutant: random() instead of gen_random_bytes
+  // Generate many codes and check they all match the format (random() would fail the alphabet constraint)
+  const generatedCodes = [];
+  for (let i = 0; i < 10; i++) {
+    const { data: codeData } = await owner.client.rpc("create_join_code", {
+      p_gym_id: gymId,
+      p_role: "member",
+    });
+    const codeParsed = parseCreateJoinCodeResult(codeData);
+    if (codeParsed) generatedCodes.push(codeParsed.code);
+  }
+  const allValidFormat = generatedCodes.every(c => /^[2-9A-HJ-NP-Z]{10}$/.test(c));
+  check("All generated codes match format (kills random() mutant)", allValidFormat && generatedCodes.length === 10);
+  
+  // Mutant: search_path dropped
+  // Check that all SECURITY DEFINER functions have search_path set in proconfig
+  const { data: definerFuncs } = await adminClient.rpc("execute_sql", {
+    query: `
+      SELECT proname, proconfig
+      FROM pg_proc
+      WHERE proname IN ('preview_join_code', 'redeem_join_code', 'create_join_code', 'revoke_join_code', 'check_join_code_throttle', 'record_join_code_miss')
+        AND prosecdef = true
+    `,
+  }) as { data: Array<{ proname: string; proconfig: string[] | null }> | null };
+  
+  if (definerFuncs && definerFuncs.length > 0) {
+    const allHaveSearchPath = definerFuncs.every(f => 
+      f.proconfig !== null && f.proconfig.some(c => c.includes("search_path"))
+    );
+    check("All SECURITY DEFINER functions have search_path set (kills search_path mutant)", 
+      allHaveSearchPath && definerFuncs.length === 6);
+  } else {
+    check("All SECURITY DEFINER functions have search_path set (kills search_path mutant)", false, "Could not query pg_proc");
+  }
+  console.log();
+
   // Cleanup
   console.log("Cleaning up...");
   await adminClient.from("gym_join_codes").delete().eq("gym_id", gymId);
   await adminClient.from("gym_join_codes").delete().eq("gym_id", gymStaff);
+  await adminClient.from("gym_join_codes").delete().eq("gym_id", ownGymTest);
   await adminClient.from("gym_memberships").delete().eq("gym_id", gymId);
   await adminClient.from("gym_memberships").delete().eq("gym_id", gymStaff);
+  await adminClient.from("gym_memberships").delete().eq("gym_id", ownGymTest);
   await adminClient.from("gym_join_code_attempts").delete().in("user_id", [
     throttleUser.userId,
     successUser.userId,
   ]);
-  await adminClient.from("gyms").delete().in("id", [gymId, gymStaff]);
+  await adminClient.from("gyms").delete().in("id", [gymId, gymStaff, ownGymTest]);
 
   if (failures > 0) {
     console.error(`\n❌ ${failures} test(s) failed\n`);

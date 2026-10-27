@@ -342,21 +342,31 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'exhausted');
   end if;
 
-  -- Check if user is already in this gym (any active role counts)
+  -- Check if user is already in this gym
   select * into v_existing_membership
   from public.gym_memberships
   where public.gym_memberships.gym_id = v_code_record.gym_id
     and public.gym_memberships.user_id = v_caller_id;
 
-  -- If already active in the gym with owner or staff role, it's an idempotent no-op
-  -- Staff redeeming their own gym's member code stays staff (no demotion)
+  -- If already active in the gym, handle based on role hierarchy (owner > staff > member)
   if v_existing_membership.gym_id is not null and v_existing_membership.status = 'active' then
-    if v_existing_membership.role in ('owner', 'staff') and v_code_record.role = 'member' then
-      -- Staff or owner redeeming member code for their own gym: idempotent no-op, don't consume
-      return jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name);
-    elsif v_existing_membership.role = 'member' then
-      -- Member redeeming code for same gym: idempotent no-op, don't consume
-      return jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name);
+    -- Owner redeeming any code for their own gym: no-op (no demotion, no error)
+    if v_existing_membership.role = 'owner' then
+      return jsonb_build_object('ok', false, 'reason', 'already_member');
+    end if;
+    
+    -- Staff redeeming staff or member code: no-op (no demotion)
+    if v_existing_membership.role = 'staff' then
+      return jsonb_build_object('ok', false, 'reason', 'already_member');
+    end if;
+    
+    -- Member redeeming staff code: UPGRADE to staff and consume one use
+    if v_existing_membership.role = 'member' and v_code_record.role = 'staff' then
+      -- Fall through to the membership update logic (will upgrade member → staff)
+      null;
+    else
+      -- Member redeeming member code: no-op
+      return jsonb_build_object('ok', false, 'reason', 'already_member');
     end if;
   end if;
 

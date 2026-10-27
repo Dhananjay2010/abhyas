@@ -27,7 +27,7 @@ export interface RedeemJoinCodeSuccess {
 
 export interface RedeemJoinCodeFailure {
   ok: false;
-  reason: "invalid" | "expired" | "revoked" | "exhausted" | "throttled";
+  reason: "invalid" | "expired" | "revoked" | "exhausted" | "throttled" | "already_member";
 }
 
 export type RedeemJoinCodeResult = RedeemJoinCodeSuccess | RedeemJoinCodeFailure;
@@ -86,11 +86,11 @@ export function parseRedeemJoinCodeResult(data: unknown): RedeemJoinCodeResult |
   }
   
   if (data.ok === false) {
-    const validReasons = ["invalid", "expired", "revoked", "exhausted", "throttled"];
+    const validReasons = ["invalid", "expired", "revoked", "exhausted", "throttled", "already_member"];
     if (typeof data.reason === "string" && validReasons.includes(data.reason)) {
       return {
         ok: false,
-        reason: data.reason as "invalid" | "expired" | "revoked" | "exhausted" | "throttled",
+        reason: data.reason as "invalid" | "expired" | "revoked" | "exhausted" | "throttled" | "already_member",
       };
     }
     return null;
