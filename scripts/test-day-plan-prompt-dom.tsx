@@ -13,7 +13,6 @@
 
 import "./helpers/setup-jsdom";
 import { strict as assert } from "node:assert";
-import type { PlannableDay } from "../src/app/session/actions";
 
 async function main() {
   const { render } = await import("@testing-library/react");

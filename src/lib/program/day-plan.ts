@@ -232,7 +232,7 @@ export async function plannableDays(
   let nextUpLabel: string | null = null;
   
   if (options?.afterDate && options?.userId && trainingDays.length > 0) {
-    let recentSession: { id: string; program_day_id: string } | null = null;
+    let recentSession: { id: string; program_day_id: string | null } | null = null;
     
     if (options.currentSessionId) {
       // MED-B: When currentSessionId is provided, use that exact session
