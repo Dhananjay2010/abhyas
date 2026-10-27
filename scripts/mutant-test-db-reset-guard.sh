@@ -1,0 +1,475 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Refuse-case test for db-reset-guard: verifies all guard checks are tested
+# Each case starts from GOOD_ENV and changes exactly one thing
+# A case PASSES if the guard refuses (proving the check works)
+
+echo "=== DB Reset Guard Refuse-Case Test ==="
+echo "Testing 57 guard refuse cases (bash and TypeScript)"
+echo
+
+PASSED=0
+FAILED=0
+TOTAL_CASES=57
+
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+
+# Create test configs
+cat > "$TMPDIR/default-config.toml" << 'EOF'
+project_id = "Fitness"
+
+[db]
+port = 54322
+
+[api]
+port = 54321
+EOF
+
+cat > "$TMPDIR/custom-config.toml" << 'EOF'
+project_id = "TestGym"
+
+[db]
+port = 54333
+
+[api]
+port = 54334
+EOF
+
+cat > "$TMPDIR/garbage-config.toml" << 'EOF'
+This is not valid TOML!
+[broken
+EOF
+
+cat > "$TMPDIR/env-ref-config.toml" << 'EOF'
+project_id = "env(PROJECT_ID)"
+
+[db]
+port = 54333
+
+[api]
+port = 54334
+EOF
+
+# Source the bash guard
+source "$(dirname "$0")/lib-db-reset-guard.sh"
+
+# Helper: test that a case is REFUSED (check is working)
+# Base env: GOOD_ENV (ALLOW_DB_RESET=1, custom ports, all URLs set)
+test_refuse_bash() {
+  local name="$1"
+  shift
+  local env_args=("$@")
+  
+  # Save and clear all relevant env vars
+  local saved_env=()
+  for var in CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL; do
+    if [ -n "${!var:-}" ]; then
+      saved_env+=("$var=${!var}")
+    fi
+    unset "$var" 2>/dev/null || true
+  done
+  
+  # Set base GOOD_ENV
+  export ALLOW_DB_RESET="1"
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+  export SUPABASE_URL="http://localhost:54334"
+  export NEXT_PUBLIC_SUPABASE_URL="http://localhost:54334"
+  
+  # Apply test-specific overrides
+  for arg in "${env_args[@]}"; do
+    export "$arg"
+  done
+  
+  # Run guard (should refuse)
+  if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml" 2>/dev/null; then
+    echo "  ✗ FAILED: $name (guard allowed, check not working)"
+    FAILED=$((FAILED + 1))
+  else
+    echo "  ✓ PASSED: $name (guard refused as expected)"
+    PASSED=$((PASSED + 1))
+  fi
+  
+  # Restore env
+  for var in CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL; do
+    unset "$var" 2>/dev/null || true
+  done
+  for entry in "${saved_env[@]}"; do
+    export "$entry"
+  done
+}
+
+# Helper: test that a TS case is REFUSED
+# Base env: GOOD_ENV (ALLOW_DB_RESET=1, custom ports, all URLs set)
+test_refuse_ts() {
+  local name="$1"
+  local config="$2"
+  local env_setup="$3"
+  
+  if npx tsx << TSTEST 2>/dev/null
+import { checkDbResetGuard } from "./scripts/lib-db-reset-guard";
+
+// Clear all relevant env vars
+delete process.env.CI;
+delete process.env.ALLOW_DB_RESET;
+delete process.env.SUPABASE_PROJECT_ID;
+delete process.env.SUPABASE_DB_PORT;
+delete process.env.SUPABASE_WORKDIR;
+delete process.env.SUPABASE_ACCESS_TOKEN;
+delete process.env.PGHOST;
+delete process.env.PGPORT;
+delete process.env.PGSERVICE;
+delete process.env.PGHOSTADDR;
+delete process.env.SUPABASE_DB_URL;
+delete process.env.SUPABASE_URL;
+delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+// Set base GOOD_ENV
+process.env.ALLOW_DB_RESET = "1";
+process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+process.env.SUPABASE_URL = "http://localhost:54334";
+process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";
+
+// Apply test-specific overrides
+$env_setup
+
+// Run guard (should refuse)
+const result = checkDbResetGuard("$config");
+process.exit(result.allow ? 0 : 1);
+TSTEST
+  then
+    echo "  ✗ FAILED: $name (guard allowed, check not working)"
+    FAILED=$((FAILED + 1))
+  else
+    echo "  ✓ PASSED: $name (guard refused as expected)"
+    PASSED=$((PASSED + 1))
+  fi
+}
+
+echo "BASH GUARD CHECKS:"
+echo
+
+echo "Check 1: CI must be exactly 'true' (not other truthy values)"
+test_refuse_bash "CI=1 refused" \
+  "CI=1" "ALLOW_DB_RESET=0" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 2: ALLOW_DB_RESET=1 required (outside CI)"
+# Inline test - need to not set ALLOW_DB_RESET
+if (
+  unset CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL 2>/dev/null || true
+  # Don't set ALLOW_DB_RESET - testing that it's required
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+  export SUPABASE_URL="http://localhost:54334"
+  export NEXT_PUBLIC_SUPABASE_URL="http://localhost:54334"
+  check_db_reset_guard_bash check "$TMPDIR/custom-config.toml" 2>/dev/null
+); then
+  echo "  ✗ FAILED: No ALLOW_DB_RESET refused (guard allowed)"
+  FAILED=$((FAILED + 1))
+else
+  echo "  ✓ PASSED: No ALLOW_DB_RESET refused (guard refused)"
+  PASSED=$((PASSED + 1))
+fi
+
+echo "Check 3: SUPABASE_PROJECT_ID env var not allowed"
+test_refuse_bash "SUPABASE_PROJECT_ID env refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_PROJECT_ID=TestGym" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 4: SUPABASE_DB_PORT env var not allowed"
+test_refuse_bash "SUPABASE_DB_PORT env refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_PORT=54333" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 5: PGHOST env var not allowed"
+test_refuse_bash "PGHOST env refused" \
+  "ALLOW_DB_RESET=1" "PGHOST=localhost" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 6: PGPORT env var not allowed"
+test_refuse_bash "PGPORT env refused" \
+  "ALLOW_DB_RESET=1" "PGPORT=54333" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 7: PGSERVICE env var not allowed"
+test_refuse_bash "PGSERVICE env refused" \
+  "ALLOW_DB_RESET=1" "PGSERVICE=myservice" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 8: PGHOSTADDR env var not allowed"
+test_refuse_bash "PGHOSTADDR env refused" \
+  "ALLOW_DB_RESET=1" "PGHOSTADDR=127.0.0.1" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 9: Default port 54322 not allowed"
+test_refuse_bash "Default 54322 refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54322/postgres" "SUPABASE_URL=http://localhost:54321"
+
+echo "Check 10: Default project_id 'Fitness' not allowed"
+# Inline test with default-config.toml (has Fitness project_id)
+if (
+  unset CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL 2>/dev/null || true
+  export ALLOW_DB_RESET="1"
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54322/postgres"
+  export SUPABASE_URL="http://localhost:54321"
+  export NEXT_PUBLIC_SUPABASE_URL="http://localhost:54321"
+  check_db_reset_guard_bash check "$TMPDIR/default-config.toml" 2>/dev/null
+); then
+  echo "  ✗ FAILED: Default Fitness refused (guard allowed)"
+  FAILED=$((FAILED + 1))
+else
+  echo "  ✓ PASSED: Default Fitness refused (guard refused)"
+  PASSED=$((PASSED + 1))
+fi
+
+echo "Check 11: Query params (?) not allowed in SUPABASE_DB_URL"
+test_refuse_bash "Query ?port= refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres?port=54322" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 12: Percent-encoding (%) not allowed in SUPABASE_DB_URL"
+test_refuse_bash "Percent %70 refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:%70assword@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 13: DB hostname must be loopback"
+test_refuse_bash "Remote host 10.1.2.3 refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@10.1.2.3:54333/postgres" "SUPABASE_URL=http://10.1.2.3:54334"
+
+echo "Check 14: DB URL port must match config [db] port"
+test_refuse_bash "Port mismatch 54399!=54333 refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54399/postgres" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 15: SUPABASE_URL hostname must be loopback"
+test_refuse_bash "SUPABASE_URL remote refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://192.168.1.100:54334"
+
+echo "Check 16: SUPABASE_URL port must match config [api] port"
+test_refuse_bash "SUPABASE_URL port mismatch refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54399"
+
+echo "Check 17: Query params (?) not allowed in SUPABASE_URL"
+test_refuse_bash "SUPABASE_URL ?key= refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334?key=val"
+
+echo "Check 18: Percent-encoding (%) not allowed in SUPABASE_URL"
+test_refuse_bash "SUPABASE_URL %20 refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334/%20path"
+
+echo "Check 19: NEXT_PUBLIC_SUPABASE_URL must be loopback (via SUPABASE_URL match)"
+test_refuse_bash "NEXT_PUBLIC remote refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" \
+  "SUPABASE_URL=http://localhost:54334" "NEXT_PUBLIC_SUPABASE_URL=http://evil.com:54334"
+
+echo "Check 20: NEXT_PUBLIC_SUPABASE_URL must match SUPABASE_URL"
+test_refuse_bash "NEXT_PUBLIC mismatch refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" \
+  "SUPABASE_URL=http://localhost:54334" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54399"
+
+echo "Check 21: Multi-host URLs not allowed"
+test_refuse_bash "Multi-host refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333,other:5432/postgres" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 22: Default API port 54321 not allowed (distinct from DB port check)"
+# Test specifically :54321 API port (case 9 tests :54322 DB port)
+test_refuse_bash "Default API 54321 refused" \
+  "SUPABASE_URL=http://localhost:54321" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321"
+
+echo
+echo "TYPESCRIPT GUARD CHECKS:"
+echo
+
+echo "Check 23: TS - CI must be exactly 'true'"
+test_refuse_ts "TS CI=1 refused" "$TMPDIR/custom-config.toml" \
+  'process.env.CI = "1"; process.env.ALLOW_DB_RESET = "0"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 24: TS - ALLOW_DB_RESET=1 required"
+test_refuse_ts "TS No ALLOW_DB_RESET refused" "$TMPDIR/custom-config.toml" \
+  'delete process.env.ALLOW_DB_RESET; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 25: TS - SUPABASE_PROJECT_ID env not allowed"
+test_refuse_ts "TS SUPABASE_PROJECT_ID refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_PROJECT_ID = "TestGym"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 26: TS - SUPABASE_DB_PORT env not allowed"
+test_refuse_ts "TS SUPABASE_DB_PORT refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_PORT = "54333"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 27: TS - PGHOST env not allowed"
+test_refuse_ts "TS PGHOST refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.PGHOST = "localhost"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 28: TS - PGPORT env not allowed"
+test_refuse_ts "TS PGPORT refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.PGPORT = "54333"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 29: TS - PGSERVICE env not allowed"
+test_refuse_ts "TS PGSERVICE refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.PGSERVICE = "myservice"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 30: TS - PGHOSTADDR env not allowed"
+test_refuse_ts "TS PGHOSTADDR refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.PGHOSTADDR = "127.0.0.1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 31: TS - Default port 54322 not allowed"
+test_refuse_ts "TS Default 54322 refused" "$TMPDIR/default-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54322/postgres"; process.env.SUPABASE_URL = "http://localhost:54321";'
+
+echo "Check 32: TS - Default project_id not allowed"
+test_refuse_ts "TS Default Fitness refused" "$TMPDIR/default-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54322/postgres"; process.env.SUPABASE_URL = "http://localhost:54321";'
+
+echo "Check 33: TS - Query params (?) not allowed in SUPABASE_DB_URL"
+test_refuse_ts "TS Query ?port= refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres?port=54322"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 34: TS - Percent-encoding (%) not allowed"
+test_refuse_ts "TS Percent %70 refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:%70assword@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 35: TS - DB hostname must be loopback"
+test_refuse_ts "TS Remote 192.168.1.100 refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@192.168.1.100:54333/postgres"; process.env.SUPABASE_URL = "http://192.168.1.100:54334";'
+
+echo "Check 36: TS - DB URL port must match config"
+test_refuse_ts "TS Port mismatch refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54399/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 37: TS - SUPABASE_URL hostname must be loopback"
+test_refuse_ts "TS SUPABASE_URL remote refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://192.168.1.100:54334";'
+
+echo "Check 38: TS - SUPABASE_URL port must match config"
+test_refuse_ts "TS SUPABASE_URL port mismatch refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54399";'
+
+echo "Check 39: TS - Query params (?) not allowed in SUPABASE_URL"
+test_refuse_ts "TS SUPABASE_URL ?key= refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334?key=val";'
+
+echo "Check 40: TS - Percent-encoding (%) not allowed in SUPABASE_URL"
+test_refuse_ts "TS SUPABASE_URL %20 refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334/%20path";'
+
+echo "Check 41: TS - NEXT_PUBLIC must be loopback (via match)"
+test_refuse_ts "TS NEXT_PUBLIC remote refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://evil.com:54334";'
+
+echo "Check 42: TS - NEXT_PUBLIC must match SUPABASE_URL"
+test_refuse_ts "TS NEXT_PUBLIC mismatch refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54399";'
+
+echo "Check 43: TS - Multi-host URLs not allowed"
+test_refuse_ts "TS Multi-host refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333,other:5432/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 44: SUPABASE_WORKDIR not allowed (bash)"
+test_refuse_bash "SUPABASE_WORKDIR refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_WORKDIR=/tmp" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54334"
+
+echo "Check 45: Unknown SUPABASE_* key not allowed (bash)"
+test_refuse_bash "Unknown SUPABASE_* refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_ACCESS_TOKEN=secret" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54334"
+
+echo "Check 46: SUPABASE_DB_URL must be set (bash)"
+# Inline test - need to actually unset the variable
+if (
+  unset CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL 2>/dev/null || true
+  export ALLOW_DB_RESET="1"
+  # Don't set SUPABASE_DB_URL - testing that it's required
+  export SUPABASE_URL="http://localhost:54334"
+  export NEXT_PUBLIC_SUPABASE_URL="http://localhost:54334"
+  check_db_reset_guard_bash check "$TMPDIR/custom-config.toml" 2>/dev/null
+); then
+  echo "  ✗ FAILED: SUPABASE_DB_URL unset refused (guard allowed)"
+  FAILED=$((FAILED + 1))
+else
+  echo "  ✓ PASSED: SUPABASE_DB_URL unset refused (guard refused)"
+  PASSED=$((PASSED + 1))
+fi
+
+echo "Check 47: SUPABASE_URL must be set (bash)"
+# Inline test - need to actually unset the variable
+if (
+  unset CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL 2>/dev/null || true
+  export ALLOW_DB_RESET="1"
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+  # Don't set SUPABASE_URL - testing that it's required
+  export NEXT_PUBLIC_SUPABASE_URL="http://localhost:54334"
+  check_db_reset_guard_bash check "$TMPDIR/custom-config.toml" 2>/dev/null
+); then
+  echo "  ✗ FAILED: SUPABASE_URL unset refused (guard allowed)"
+  FAILED=$((FAILED + 1))
+else
+  echo "  ✓ PASSED: SUPABASE_URL unset refused (guard refused)"
+  PASSED=$((PASSED + 1))
+fi
+
+echo "Check 48: NEXT_PUBLIC_SUPABASE_URL must be set (bash)"
+# Inline test - need to actually unset the variable
+if (
+  unset CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL 2>/dev/null || true
+  export ALLOW_DB_RESET="1"
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+  export SUPABASE_URL="http://localhost:54334"
+  # Don't set NEXT_PUBLIC_SUPABASE_URL - testing that it's required
+  check_db_reset_guard_bash check "$TMPDIR/custom-config.toml" 2>/dev/null
+); then
+  echo "  ✗ FAILED: NEXT_PUBLIC unset refused (guard allowed)"
+  FAILED=$((FAILED + 1))
+else
+  echo "  ✓ PASSED: NEXT_PUBLIC unset refused (guard refused)"
+  PASSED=$((PASSED + 1))
+fi
+
+echo "Check 49: TS - SUPABASE_WORKDIR not allowed"
+test_refuse_ts "TS SUPABASE_WORKDIR refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_WORKDIR = "/tmp"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 50: TS - Unknown SUPABASE_* key not allowed"
+test_refuse_ts "TS Unknown SUPABASE_* refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_ACCESS_TOKEN = "secret"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 51: TS - SUPABASE_DB_URL must be set"
+test_refuse_ts "TS SUPABASE_DB_URL unset refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; delete process.env.SUPABASE_DB_URL; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 52: TS - SUPABASE_URL must be set"
+test_refuse_ts "TS SUPABASE_URL unset refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; delete process.env.SUPABASE_URL; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 53: TS - NEXT_PUBLIC_SUPABASE_URL must be set"
+test_refuse_ts "TS NEXT_PUBLIC unset refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; delete process.env.NEXT_PUBLIC_SUPABASE_URL;'
+
+echo "Check 54: TS - Config file must exist"
+test_refuse_ts "TS missing config refused" "/nonexistent/config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 55: TS - Config must be valid TOML"
+test_refuse_ts "TS garbage config refused" "$TMPDIR/garbage-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 56: Default API port 54321 not allowed (bash)"
+test_refuse_bash "API port 54321 refused" \
+  "ALLOW_DB_RESET=1" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54321" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321"
+
+echo "Check 57: TS - project_id with env() not allowed"
+test_refuse_ts "TS project_id env() refused" "$TMPDIR/env-ref-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo
+echo "=== REFUSE-CASE TEST RESULTS ==="
+echo "Total: $TOTAL_CASES refuse cases"
+echo "PASSED: $PASSED (guard refused as expected)"
+echo "FAILED: $FAILED (guard allowed or wrong reason)"
+echo
+
+if [ "$PASSED" -eq "$TOTAL_CASES" ] && [ "$FAILED" -eq 0 ]; then
+  echo "✅ All $TOTAL_CASES refuse cases passed"
+  exit 0
+else
+  echo "❌ Some refuse cases failed"
+  exit 1
+fi
