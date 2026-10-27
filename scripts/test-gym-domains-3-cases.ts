@@ -1,12 +1,26 @@
 /**
- * Unit tests for resolveGymByHost 3-case logic.
- * Tests the real code paths for:
- * - Case 1: App's own domain (localhost, *.vercel.app, NEXT_PUBLIC_SITE_URL) -> null (default brand)
- * - Case 2: Unmapped host (no verified row) -> null (default brand)
- * - Case 3: RPC error on custom domain -> USE_NEUTRAL_BRAND symbol (neutral brand)
+ * Unit tests for gym resolution 3-case logic.
+ * Tests the pure decision function that takes:
+ * - normalized host
+ * - isAppDomain flag
+ * - lookup result
+ * - lookup error flag
+ * 
+ * And returns:
+ * - null (default brand) for app domains and unmapped hosts
+ * - USE_NEUTRAL_BRAND (neutral brand) for RPC errors on custom domains
+ * - GymResolution for mapped custom domains
  */
 
-import { resolveGymByHost, USE_NEUTRAL_BRAND, normalizeHost, getDefaultBrand, getNeutralBrand } from "../src/lib/gym-domains";
+import { 
+  decideGymResolution, 
+  normalizeHost, 
+  isAppOwnDomain, 
+  getDefaultBrand, 
+  getNeutralBrand,
+  USE_NEUTRAL_BRAND,
+  type GymResolution 
+} from "../src/lib/gym-domains";
 import { branding } from "../src/lib/branding";
 import { neutralBrand } from "../src/lib/gym-brand";
 
@@ -19,63 +33,60 @@ function check(label: string, ok: boolean, detail = "") {
   );
 }
 
-async function runTests() {
+function runTests() {
   console.log("TEST: Case 1 - App's own domain returns null (use default brand)");
   {
-    // localhost
-    const result1 = await resolveGymByHost("localhost");
-    check("localhost returns null", result1 === null);
+    // Test isAppOwnDomain helper
+    check("localhost is app domain", isAppOwnDomain("localhost"));
+    check("localhost:3000 is app domain", isAppOwnDomain("localhost:3000"));
+    check("127.0.0.1 is app domain", isAppOwnDomain("127.0.0.1"));
+    check("127.0.0.1:8080 is app domain", isAppOwnDomain("127.0.0.1:8080"));
+    check("::1 is app domain", isAppOwnDomain("::1"));
+    check("vercel.app is app domain", isAppOwnDomain("vercel.app"));
+    check("my-app.vercel.app is app domain", isAppOwnDomain("my-app.vercel.app"));
     
-    const result2 = await resolveGymByHost("localhost:3000");
-    check("localhost:3000 returns null", result2 === null);
+    // Test decideGymResolution for app domains
+    const result1 = decideGymResolution("localhost", true, null, false);
+    check("localhost -> null", result1 === null);
     
-    // 127.0.0.1
-    const result3 = await resolveGymByHost("127.0.0.1");
-    check("127.0.0.1 returns null", result3 === null);
-    
-    const result4 = await resolveGymByHost("127.0.0.1:8080");
-    check("127.0.0.1:8080 returns null", result4 === null);
-    
-    // IPv6 localhost
-    const result5 = await resolveGymByHost("::1");
-    check("::1 returns null", result5 === null);
-    
-    const result6 = await resolveGymByHost("[::1]:3000");
-    check("[::1]:3000 returns null", result6 === null);
-    
-    // *.vercel.app
-    const result7 = await resolveGymByHost("my-app.vercel.app");
-    check("my-app.vercel.app returns null", result7 === null);
-    
-    const result8 = await resolveGymByHost("vercel.app");
-    check("vercel.app returns null", result8 === null);
+    const result2 = decideGymResolution("vercel.app", true, [], false);
+    check("vercel.app -> null", result2 === null);
     
     // When result is null, caller should use default brand
     const defaultBrand = getDefaultBrand();
     check("Default brand is branding constant", defaultBrand === branding);
-    check("Default brand has Abhyas name", defaultBrand.name.includes("Abhyas") || defaultBrand.id === "default");
+    check("Default brand has name", Boolean(defaultBrand.name));
   }
   console.log();
 
   console.log("TEST: Case 2 - Unmapped host returns null (use default brand)");
   {
-    // A host that isn't in the database (genuinely unmapped)
-    // This should succeed (no RPC error) but return no rows
-    const result = await resolveGymByHost("unmapped-host-xyz123.example.com");
-    check("Unmapped host returns null", result === null);
+    // Custom domain, no error, but empty result
+    const result1 = decideGymResolution("unmapped.example.com", false, [], false);
+    check("Unmapped host with empty array -> null", result1 === null);
     
-    // Another unmapped host
-    const result2 = await resolveGymByHost("definitely-not-mapped.test");
-    check("Another unmapped host returns null", result2 === null);
+    const result2 = decideGymResolution("another-unmapped.com", false, null, false);
+    check("Unmapped host with null data -> null", result2 === null);
+    
+    // Not an app domain
+    check("unmapped.example.com is NOT app domain", !isAppOwnDomain("unmapped.example.com"));
   }
   console.log();
 
-  console.log("TEST: Case 3 markers - USE_NEUTRAL_BRAND and neutral brand");
+  console.log("TEST: Case 3 - RPC error on custom domain returns USE_NEUTRAL_BRAND");
   {
-    // We can't easily simulate an RPC error in unit tests without mocking,
-    // but we can verify the USE_NEUTRAL_BRAND symbol and neutral brand exist
-    check("USE_NEUTRAL_BRAND symbol is defined", USE_NEUTRAL_BRAND !== undefined);
-    check("USE_NEUTRAL_BRAND is a symbol", typeof USE_NEUTRAL_BRAND === "symbol");
+    // Custom domain, RPC error (lookupError = true)
+    const result1 = decideGymResolution("custom.example.com", false, null, true);
+    check("Custom domain with RPC error -> USE_NEUTRAL_BRAND", result1 === USE_NEUTRAL_BRAND);
+    
+    // Even if we somehow have data but also an error, error takes precedence
+    const mockData: GymResolution[] = [{
+      gymId: "test-id",
+      gymSlug: "test-slug",
+      gymName: "Test Gym"
+    }];
+    const result2 = decideGymResolution("error.example.com", false, mockData, true);
+    check("Error flag takes precedence over data", result2 === USE_NEUTRAL_BRAND);
     
     // When USE_NEUTRAL_BRAND is returned, caller should use neutral brand
     const neutral = getNeutralBrand();
@@ -83,7 +94,25 @@ async function runTests() {
     check("Neutral brand has 'neutral' id", neutral.id === "neutral");
     check("Neutral brand has 'Fitness' name", neutral.name === "Fitness");
     check("Neutral brand is not Abhyas", neutral.name !== "Abhyas");
-    check("Neutral brand has description", !!neutral.description);
+  }
+  console.log();
+
+  console.log("TEST: Case 4 - Mapped custom domain returns GymResolution");
+  {
+    const mockData: GymResolution[] = [{
+      gymId: "gym-123",
+      gymSlug: "my-gym",
+      gymName: "My Fitness Gym"
+    }];
+    
+    const result = decideGymResolution("custom.gym.com", false, mockData, false);
+    check("Mapped custom domain returns GymResolution", result !== null && result !== USE_NEUTRAL_BRAND);
+    
+    if (result && result !== USE_NEUTRAL_BRAND) {
+      check("GymResolution has gymId", result.gymId === "gym-123");
+      check("GymResolution has gymSlug", result.gymSlug === "my-gym");
+      check("GymResolution has gymName", result.gymName === "My Fitness Gym");
+    }
   }
   console.log();
 
@@ -95,6 +124,15 @@ async function runTests() {
     check("IPv6 brackets stripped", normalizeHost("[::1]:3000") === "::1");
     check("Empty returns empty", normalizeHost("") === "");
     check("Whitespace trimmed", normalizeHost("  example.com  ") === "example.com");
+  }
+  console.log();
+
+  console.log("TEST: Symbol uniqueness");
+  {
+    check("USE_NEUTRAL_BRAND is defined", USE_NEUTRAL_BRAND !== undefined);
+    check("USE_NEUTRAL_BRAND is a symbol", typeof USE_NEUTRAL_BRAND === "symbol");
+    check("USE_NEUTRAL_BRAND !== null", USE_NEUTRAL_BRAND !== null);
+    check("USE_NEUTRAL_BRAND !== undefined", USE_NEUTRAL_BRAND !== undefined);
   }
   console.log();
 

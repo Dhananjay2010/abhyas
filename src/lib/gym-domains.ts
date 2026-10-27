@@ -25,7 +25,7 @@ export const USE_NEUTRAL_BRAND = Symbol("USE_NEUTRAL_BRAND");
  * - *.vercel.app
  * - The host from NEXT_PUBLIC_SITE_URL (if set)
  */
-function isAppOwnDomain(host: string): boolean {
+export function isAppOwnDomain(host: string): boolean {
   const normalized = host.toLowerCase();
   
   // localhost or 127.0.0.1
@@ -81,6 +81,42 @@ export function normalizeHost(host: string): string {
 }
 
 /**
+ * Pure decision logic for gym resolution.
+ * Takes the normalized host, app domain check, lookup result, and error flag.
+ * Returns the gym resolution decision without side effects.
+ * 
+ * Three cases:
+ * 1. Host is app's own domain -> null (default brand)
+ * 2. Lookup succeeded with no results (unmapped) -> null (default brand)
+ * 3. Lookup errored on custom domain -> USE_NEUTRAL_BRAND (neutral brand)
+ * 4. Lookup succeeded with results -> GymResolution
+ */
+export function decideGymResolution(
+  normalizedHost: string,
+  isAppDomain: boolean,
+  lookupResult: GymResolution[] | null,
+  lookupError: boolean,
+): GymResolution | null | typeof USE_NEUTRAL_BRAND {
+  // Case 1: Host is the app's own domain
+  if (isAppDomain) {
+    return null;
+  }
+
+  // Case 3: RPC error on a custom domain (not app's own domain)
+  if (lookupError) {
+    return USE_NEUTRAL_BRAND;
+  }
+
+  // Case 2: Lookup succeeded but no verified row (genuinely unmapped host)
+  if (!lookupResult || lookupResult.length === 0) {
+    return null;
+  }
+
+  // Case 4: Lookup succeeded with a verified mapping
+  return lookupResult[0];
+}
+
+/**
  * Resolve a hostname to a gym via the gym_domains table.
  * Returns only verified mappings; unverified or unknown hosts return null.
  *
@@ -109,9 +145,11 @@ export async function resolveGymByHost(
   // Normalize the host header first
   const normalized = normalizeHost(host);
 
-  // Case 1: Host is the app's own domain (localhost, *.vercel.app, NEXT_PUBLIC_SITE_URL)
-  // Return null so caller uses the default brand
-  if (isAppOwnDomain(normalized)) {
+  // Check if it's an app domain
+  const isAppDomain = isAppOwnDomain(normalized);
+
+  // For app domains, short-circuit without RPC call
+  if (isAppDomain) {
     return null;
   }
 
@@ -122,24 +160,20 @@ export async function resolveGymByHost(
   });
 
   if (error) {
-    // Case 3: RPC error on a custom domain (not app's own domain)
-    // Return USE_NEUTRAL_BRAND so caller uses neutralBrand (never cached)
     console.error("Failed to resolve gym by host:", error);
-    return USE_NEUTRAL_BRAND;
   }
 
-  // Case 2: Lookup succeeded but no verified row (genuinely unmapped host)
-  // Return null so caller uses the default brand
-  if (!data || data.length === 0) {
-    return null;
-  }
+  // Map RPC data (snake_case) to GymResolution (camelCase)
+  const mappedData: GymResolution[] | null = data
+    ? data.map(row => ({
+        gymId: row.gym_id,
+        gymSlug: row.gym_slug,
+        gymName: row.gym_name,
+      }))
+    : null;
 
-  const row = data[0];
-  return {
-    gymId: row.gym_id,
-    gymSlug: row.gym_slug,
-    gymName: row.gym_name,
-  };
+  // Use pure decision logic
+  return decideGymResolution(normalized, isAppDomain, mappedData, Boolean(error));
 }
 
 /**
