@@ -69,6 +69,7 @@ console.log("1. Completed strength with null duration → shows '—'");
         timezone="UTC"
         units="metric"
         hasErrors={false}
+      countsByFilter={{ lifts: 1, yoga: 0, breathing: 0 }}
       />
     );
   });
@@ -119,6 +120,7 @@ console.log("\n2. In-progress strength with null duration → no '—'");
         timezone="UTC"
         units="metric"
         hasErrors={false}
+      countsByFilter={{ lifts: 1, yoga: 0, breathing: 0 }}
       />
     );
   });
@@ -169,6 +171,7 @@ console.log("\n3. Completed yoga with null duration → no '—'");
         timezone="UTC"
         units="metric"
         hasErrors={false}
+      countsByFilter={{ lifts: 1, yoga: 0, breathing: 0 }}
       />
     );
   });
@@ -219,6 +222,7 @@ console.log("\n4. Completed strength with 1800s → shows '30 min'");
         timezone="UTC"
         units="metric"
         hasErrors={false}
+      countsByFilter={{ lifts: 1, yoga: 0, breathing: 0 }}
       />
     );
   });

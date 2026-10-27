@@ -63,6 +63,7 @@ try {
         timezone: "America/New_York",
         units: "metric" as const,
         hasErrors: false,
+    countsByFilter: { lifts: 1, yoga: 0, breathing: 0 },
       })
     );
   });
