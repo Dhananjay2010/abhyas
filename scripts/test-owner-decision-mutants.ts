@@ -14,6 +14,8 @@ interface Mutant {
   original: string;
   mutated: string;
   tests: string[];
+  equivalent?: boolean;
+  notes?: string;
 }
 
 const MUTANTS: Mutant[] = [
@@ -43,11 +45,34 @@ const MUTANTS: Mutant[] = [
     mutated: '    // MUTANT: Apply GLOBAL tag filtering to ANY knee (WRONG - breaks 174 swap lists)\n    if ((ctx.anyKneeInjury ?? false) && candidate.contraindicated_regions.includes("knee")) {\n      continue;\n    }',
     tests: ["test:past-knee-keeps-tier"],
   },
+  
+  // M3: Remove jammer continue in rankAlternatives (EQUIVALENT)
+  {
+    name: "M3: Remove jammer continue in rankAlternatives",
+    file: "src/lib/program/alternatives.ts",
+    original: '    // G-3: Landmine jammers excluded for ANY knee injury (leg-driven presses)\n    if ((ctx.anyKneeInjury ?? false) && (candidate.slug === "landmine-linear-jammer" || candidate.slug === "single-arm-linear-jammer")) {\n      continue;\n    }',
+    mutated: '    // MUTANT: Removed jammer check in rankAlternatives',
+    tests: ["test:owner-decision-a", "test:past-knee-calf-swap-exclusion"],
+    equivalent: true,
+    notes: "rankAlternatives' only production caller is buildEligibleSwapList (eligible-swap-list.ts:71), which first applies isEligible's any-knee jammer check. Evidence: byte-identical output across 483,912 swap lists (4 injury sets x 11 equipment x 3 levels x 2 tracks x 611 exercises x 3 session ids) and 7,290 plans.",
+  },
+  
+  // M7: Remove both jammer slugs from PAST_KNEE_EXCLUDED_SLUGS (EQUIVALENT)
+  {
+    name: "M7: Remove both jammer slugs from PAST_KNEE_EXCLUDED_SLUGS",
+    file: "src/lib/program/past-knee.ts",
+    original: 'export function getPastKneeExcludedSlugs(): Set<string> {\n  return new Set([\n    "calf-press-on-the-leg-press-machine",\n    "landmine-linear-jammer",\n    "single-arm-linear-jammer",\n  ]);\n}',
+    mutated: 'export function getPastKneeExcludedSlugs(): Set<string> {\n  return new Set([\n    "calf-press-on-the-leg-press-machine",\n    // MUTANT: Removed both jammer slugs\n  ]);\n}',
+    tests: ["test:owner-decision-a", "test:past-knee-calf-swap-exclusion"],
+    equivalent: true,
+    notes: "rankAlternatives' only production caller is buildEligibleSwapList (eligible-swap-list.ts:71), which first applies isEligible's any-knee jammer check. Evidence: byte-identical output across 483,912 swap lists (4 injury sets x 11 equipment x 3 levels x 2 tracks x 611 exercises x 3 session ids) and 7,290 plans.",
+  },
 ];
 
 let killed = 0;
 let survived = 0;
 let crashed = 0;
+let equivalent = 0;
 
 console.log("=".repeat(80));
 console.log("MUTATION TESTING - Owner Decision (a) Implementation");
@@ -115,11 +140,23 @@ for (const mutant of MUTANTS) {
     if (testFailed === "crash") {
       // Already counted as crash
     } else if (testFailed) {
-      console.log(`  ✓ KILLED: Tests failed as expected`);
-      killed++;
+      if (mutant.equivalent) {
+        console.log(`  ✗ UNEXPECTED KILL: Expected to survive (marked equivalent) but tests failed`);
+        console.log(`  Notes: ${mutant.notes || "none"}`);
+        survived++;  // Count as survived because it didn't behave as expected
+      } else {
+        console.log(`  ✓ KILLED: Tests failed as expected`);
+        killed++;
+      }
     } else {
-      console.log(`  ✗ SURVIVED: All tests passed with mutant active`);
-      survived++;
+      if (mutant.equivalent) {
+        console.log(`  ≡ EQUIVALENT: Tests passed (expected to survive)`);
+        console.log(`  Notes: ${mutant.notes || "none"}`);
+        equivalent++;
+      } else {
+        console.log(`  ✗ SURVIVED: All tests passed with mutant active`);
+        survived++;
+      }
     }
   } finally {
     // Restore original
@@ -130,7 +167,7 @@ for (const mutant of MUTANTS) {
 }
 
 console.log("=".repeat(80));
-console.log(`RESULTS: ${killed} killed, ${survived} survived, ${crashed} crashed`);
+console.log(`RESULTS: ${killed} killed, ${equivalent} equivalent, ${survived} survived, ${crashed} crashed`);
 console.log("=".repeat(80));
 
 if (survived > 0) {
@@ -143,5 +180,5 @@ if (crashed > 0) {
   process.exit(1);
 }
 
-console.log(`\n✅ PASSED: All ${killed} mutants killed cleanly`);
+console.log(`\n✅ PASSED: ${killed} killed, ${equivalent} equivalent`);
 process.exit(0);

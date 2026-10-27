@@ -164,8 +164,6 @@ const mutants: Mutant[] = [
     pattern: /\/\/ Never drop the only quad \(protect it for knee-injured users\)\s+if \(quadCount === 1 && ex\.primary_muscles\.includes\("quads"\)\) continue;/,
     mutate: '// MUTANT: Removed quad protection\n              // if (quadCount === 1 && ex.primary_muscles.includes("quads")) continue;',
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
-    equivalent: true,
-    notes: "isEligible already filters exercises during pool creation, so time-fill trim never encounters violations. Evidence: byte-identical output across 483,912 swap lists and 7,290 plans.",
   },
 
   // PR #73 Run 13: Wall-sit reuse mutant
@@ -204,8 +202,6 @@ const mutants: Mutant[] = [
     pattern: /\/\/ Never drop the only pull or only push\s+if \(isPull && pullCount === 1\) continue;/,
     mutate: '// MUTANT: Removed pull protection\n                // if (isPull && pullCount === 1) continue;',
     tests: ["test:knee-safety-matrix"],
-    equivalent: true,
-    notes: "isEligible already filters exercises during pool creation, so time-fill trim never encounters violations. Evidence: byte-identical output across 483,912 swap lists and 7,290 plans.",
   },
   
   // PR #73 Run 20: M3 protection - never drop the only push on knee-injured full-body days
@@ -215,8 +211,6 @@ const mutants: Mutant[] = [
     pattern: /if \(isPush && pushCount === 1\) continue;/,
     mutate: '// MUTANT: Removed push protection\n                // if (isPush && pushCount === 1) continue;',
     tests: ["test:knee-safety-matrix"],
-    equivalent: true,
-    notes: "isEligible already filters exercises during pool creation, so time-fill trim never encounters violations. Evidence: byte-identical output across 483,912 swap lists and 7,290 plans.",
   },
 ];
 
