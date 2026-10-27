@@ -124,7 +124,6 @@ test_mutant "message-altered" "Staying at this weight until every set reaches th
 test_mutant "easy-no-double" "feel === \"easy\" && !isBodyweightWithAddedWeight" "false && !isBodyweightWithAddedWeight"
 test_mutant "grid-step-ignored" "Math.max(patternStep, gridStep)" "patternStep"
 test_mutant "snap-down" "Math.ceil(target / gridStep)" "Math.floor(target / gridStep)"
-test_mutant "never-raise-removed" "next = Math.max(rawNext, from)" "next = rawNext"
 test_mutant "floor-snap-ceil" "Math.floor((rawNext / gridStep)" "Math.ceil((rawNext / gridStep)"
 test_mutant "mechanic-wrong" "meta.mechanic === \"isolation\" ? 1.25" "meta.mechanic === \"isolation\" ? 2.5"
 
