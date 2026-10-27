@@ -410,7 +410,7 @@ await (async () => {
         cooldown: [],
         exercises: [baseExercise("ex1", "Bench Press")],
         settings: {
-          perSetLogging: false,
+          perSetLogging: true,
           restAutostart: false,
           restSound: false,
           restVibrate: false,
@@ -430,15 +430,35 @@ await (async () => {
     fakeTimer.advance();
   });
   
-  // Fill reps
+  // Wait for component to render inputs
   await act(async () => {
-    fillRepsInput(container, "10");
+    await new Promise(resolve => setTimeout(resolve, 0));
   });
+  
+  // Log 3 sets so Finish button appears
+  for (let i = 0; i < 3; i++) {
+    await act(async () => {
+      fillRepsInput(container, "10");
+    });
 
-  // Click finish button
+    await act(async () => {
+      const button = Array.from(document.querySelectorAll("button")).find((b) =>
+        b.textContent?.includes("Log set")
+      );
+      if (button) {
+        button.click();
+      }
+    });
+    
+    await act(async () => {
+      fakeTimer.advance();
+    });
+  }
+  
+  // Now click a feel button (Easy/Just right/Hard) to finish and trigger the error
   await act(async () => {
     const button = Array.from(document.querySelectorAll("button")).find((b) =>
-      b.textContent?.includes("Finish")
+      b.textContent?.includes("Just right")
     );
     if (button) {
       button.click();
@@ -447,6 +467,14 @@ await (async () => {
 
   await act(async () => {
     fakeTimer.advance();
+  });
+  
+  // Wait for error state to render
+  await act(async () => {
+    await Promise.resolve();
+  });
+  await act(async () => {
+    await Promise.resolve();
   });
 
   const text = container.textContent || "";

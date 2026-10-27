@@ -1064,11 +1064,8 @@ export function SessionRunner({
       if (isSessionExpired(err)) {
         setSessionExpired(true);
         setError(null);
-      } else if (err instanceof Error) {
-        setError(err.message || "An error occurred");
-        setSessionExpired(false);
       } else {
-        setError("An error occurred");
+        setError(runnerErrorMessage(err));
         setSessionExpired(false);
       }
       busyRef.current = false;
