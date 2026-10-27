@@ -38,16 +38,29 @@ export default async function JoinPage({ params }: PageProps) {
 
   const { gym_name, gym_slug, role } = preview[0];
 
-  // Check current gym membership(s)
+  // Check current gym membership(s) - ANY active role counts
   const { data: currentMemberships } = await supabase
     .from("gym_memberships")
     .select("gym_id, role, status, gyms(name, slug)")
     .eq("user_id", user.id)
     .eq("status", "active");
 
-  // Find non-default active member-role gym
-  const currentMemberGym = currentMemberships?.find(
-    m => m.role === "member" && m.gyms && !Array.isArray(m.gyms) && m.gyms.slug !== "default"
+  // Find current gym (prefer owner > staff > member, exclude default gym unless it's the only one)
+  const sortedMemberships = currentMemberships?.filter(
+    m => m.gyms && !Array.isArray(m.gyms)
+  ).sort((a, b) => {
+    // Role priority: owner (0) > staff (1) > member (2)
+    const roleOrder = { owner: 0, staff: 1, member: 2 };
+    return (roleOrder[a.role] ?? 999) - (roleOrder[b.role] ?? 999);
+  });
+  
+  const currentGym = sortedMemberships?.find(
+    m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug !== "default"
+  ) ?? sortedMemberships?.[0];
+  
+  // Check if user is already in the code's gym (any role)
+  const alreadyInCodeGym = currentMemberships?.some(
+    m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug === gym_slug
   );
 
   return (
@@ -56,7 +69,9 @@ export default async function JoinPage({ params }: PageProps) {
         code={code}
         gymName={gym_name}
         role={role}
-        currentMemberGym={currentMemberGym?.gyms && !Array.isArray(currentMemberGym.gyms) ? currentMemberGym.gyms.name : null}
+        currentGymName={currentGym?.gyms && !Array.isArray(currentGym.gyms) ? currentGym.gyms.name : null}
+        currentGymRole={currentGym?.role}
+        alreadyInCodeGym={alreadyInCodeGym ?? false}
       />
     </main>
   );

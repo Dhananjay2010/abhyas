@@ -11,14 +11,18 @@ interface JoinConfirmationProps {
   code: string;
   gymName: string;
   role: GymRole;
-  currentMemberGym: string | null;
+  currentGymName: string | null;
+  currentGymRole?: GymRole;
+  alreadyInCodeGym: boolean;
 }
 
 export function JoinConfirmation({
   code,
   gymName,
   role,
-  currentMemberGym,
+  currentGymName,
+  currentGymRole,
+  alreadyInCodeGym,
 }: JoinConfirmationProps) {
   const router = useRouter();
   const [redeeming, setRedeeming] = useState(false);
@@ -41,14 +45,25 @@ export function JoinConfirmation({
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border bg-surface-2 px-6 py-8 text-center">
-        <h1 className="text-2xl font-bold">Join {gymName}?</h1>
-        <p className="mt-3 text-sm text-muted">
-          You will join as a <strong>{role}</strong>
-        </p>
-        {currentMemberGym && role === "member" && (
-          <p className="mt-3 text-sm text-warning">
-            You are currently a member of <strong>{currentMemberGym}</strong>. Joining {gymName} will move your membership.
-          </p>
+        {alreadyInCodeGym ? (
+          <>
+            <h1 className="text-2xl font-bold">Already in {gymName}</h1>
+            <p className="mt-3 text-sm text-muted">
+              You are already part of this gym as a <strong>{currentGymRole}</strong>
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold">Join {gymName}?</h1>
+            <p className="mt-3 text-sm text-muted">
+              You will join as a <strong>{role}</strong>
+            </p>
+            {currentGymName && role === "member" && (
+              <p className="mt-3 text-sm text-warning">
+                You are currently part of <strong>{currentGymName}</strong>. Joining {gymName} will move your membership.
+              </p>
+            )}
+          </>
         )}
       </div>
 

@@ -467,8 +467,139 @@ async function runTests() {
   check("Redeem revoked code fails", !!redeemRevokedError);
   console.log();
 
+  // TEST: Owner redeeming code for their own gym (idempotent no-op, use_count unchanged)
+  console.log("TEST: Owner redeeming member code for their own gym");
+  const { data: ownerCodeData } = await clientA.rpc("create_join_code", {
+    p_gym_id: gymIdA,
+    p_role: "member",
+  });
+  const ownerCode = ownerCodeData?.[0]?.code;
+  const ownerCodeId = ownerCodeData?.[0]?.id;
+
+  // Get initial use_count
+  const { data: beforeRedeem } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", ownerCodeId)
+    .single();
+  const initialUseCount = beforeRedeem?.use_count ?? 0;
+
+  // Owner A redeems code for gym A (where they're already owner)
+  const { error: ownerRedeemError } = await clientA.rpc("redeem_join_code", {
+    p_code: ownerCode,
+  });
+  check("Owner A can redeem code for own gym (idempotent)", !ownerRedeemError, ownerRedeemError?.message);
+
+  // Check use_count is unchanged (idempotent no-op)
+  const { data: afterRedeem } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", ownerCodeId)
+    .single();
+  check("use_count unchanged after owner redeems for own gym", afterRedeem?.use_count === initialUseCount);
+
+  // Check Owner A is still owner (not downgraded to member)
+  const { data: ownerAMembership } = await adminClient
+    .from("gym_memberships")
+    .select("role")
+    .eq("gym_id", gymIdA)
+    .eq("user_id", userIdA)
+    .single();
+  check("Owner A role still owner (not downgraded)", ownerAMembership?.role === "owner");
+  console.log();
+
+  // TEST: Owner of default gym redeeming code for another gym
+  console.log("TEST: Owner of default gym redeeming code for another gym");
+  const { data: defaultGymData } = await adminClient
+    .from("gyms")
+    .select("id")
+    .eq("slug", "default")
+    .single();
+  const defaultGymId = defaultGymData?.id;
+
+  // Create a new user H who will be owner of default gym
+  const { data: userHData } = await adminClient.auth.admin.createUser({
+    email: `gym-owner-default-${Date.now()}@example.com`,
+    password: "test-password-mno",
+    email_confirm: true,
+  });
+  const userIdH = userHData.user?.id;
+  if (!userIdH) return false;
+
+  const clientH = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  await clientH.auth.signInWithPassword({ 
+    email: `gym-owner-default-${Date.now()}@example.com`, 
+    password: "test-password-mno" 
+  });
+
+  // Make user H owner of default gym
+  await adminClient
+    .from("gym_memberships")
+    .update({ role: "owner", status: "active" })
+    .eq("gym_id", defaultGymId)
+    .eq("user_id", userIdH);
+
+  // User H redeems code for gym B
+  const { data: gymBMemberCodeData } = await clientB.rpc("create_join_code", {
+    p_gym_id: gymIdB,
+    p_role: "member",
+  });
+  const gymBMemberCode = gymBMemberCodeData?.[0]?.code;
+
+  const { error: userHRedeemError } = await clientH.rpc("redeem_join_code", {
+    p_code: gymBMemberCode,
+  });
+  check("Owner of default gym can redeem code for gym B", !userHRedeemError, userHRedeemError?.message);
+
+  // Check user H is member of gym B
+  const { data: userHGymB } = await adminClient
+    .from("gym_memberships")
+    .select("role, status")
+    .eq("gym_id", gymIdB)
+    .eq("user_id", userIdH)
+    .single();
+  check("User H is member of gym B", userHGymB?.role === "member" && userHGymB?.status === "active");
+
+  // Check user H is still owner of default gym (not removed)
+  const { data: userHDefault } = await adminClient
+    .from("gym_memberships")
+    .select("role, status")
+    .eq("gym_id", defaultGymId)
+    .eq("user_id", userIdH)
+    .single();
+  check("User H is still owner of default gym", userHDefault?.role === "owner" && userHDefault?.status === "active");
+  console.log();
+
+  // TEST: Staff redeeming code for another gym
+  console.log("TEST: Staff of gym A redeeming code for gym B");
+  // Staff E redeems code for gym B (already have staff role in gym A)
+  const { error: staffERedeemError } = await clientE.rpc("redeem_join_code", {
+    p_code: gymBMemberCode,
+  });
+  check("Staff E can redeem code for gym B", !staffERedeemError, staffERedeemError?.message);
+
+  // Check staff E is member of gym B
+  const { data: staffEGymB } = await adminClient
+    .from("gym_memberships")
+    .select("role, status")
+    .eq("gym_id", gymIdB)
+    .eq("user_id", userIdE)
+    .single();
+  check("Staff E is member of gym B", staffEGymB?.role === "member" && staffEGymB?.status === "active");
+
+  // Check staff E is still staff of gym A (not removed, because staff role is not moved)
+  const { data: staffEGymA } = await adminClient
+    .from("gym_memberships")
+    .select("role, status")
+    .eq("gym_id", gymIdA)
+    .eq("user_id", userIdE)
+    .single();
+  check("Staff E is still staff of gym A", staffEGymA?.role === "staff" && staffEGymA?.status === "active");
+  console.log();
+
   // Clean up
   console.log("Cleaning up test users...");
+  if (userIdH) await adminClient.auth.admin.deleteUser(userIdH);
   await adminClient.auth.admin.deleteUser(userIdA);
   await adminClient.auth.admin.deleteUser(userIdB);
   await adminClient.auth.admin.deleteUser(userIdC);
