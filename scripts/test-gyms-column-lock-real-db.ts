@@ -477,7 +477,7 @@ async function runTests() {
         stdio: 'pipe'
       });
       
-      const result = execSync(
+      execSync(
         `psql -v VERBOSITY=verbose "${dbUrl}" <<'SQL'
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', jsonb_build_object('sub', '${userIdOwner}', 'role', 'authenticated')::text, false);
