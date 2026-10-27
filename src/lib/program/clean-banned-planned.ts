@@ -15,6 +15,7 @@ import type { Database } from "@/lib/database.types";
 import { replaceBannedInPlanned, type PlannedExercise } from "@/lib/program/replace-banned-in-planned";
 import type { CandidateExercise, GeneratorInput } from "@/lib/program/generate";
 import { buildInjuryFlags } from "@/lib/program/injury-regions";
+import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
 
 export async function cleanBannedPlannedExercises(
   supabase: SupabaseClient<Database>,
@@ -36,7 +37,7 @@ export async function cleanBannedPlannedExercises(
     
     const profile = profileRes.data;
     const injuries = injuriesRes.data || [];
-    const catalogue = (catalogueRes.data ?? []) as unknown as CandidateExercise[];
+    const catalogue = toCandidateExercises(catalogueRes.data);
     
     const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
     

@@ -27,6 +27,7 @@ import { StrengthDoneBanner } from "./strength-done-banner";
 import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
 import { deriveTodayView } from "@/lib/today/derive-today-view";
 import { CleanupTrigger } from "./cleanup-trigger";
+import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -189,7 +190,7 @@ export default async function TodayPage() {
       const { buildInjuryFlags } = await import("@/lib/program/injury-regions");
       const { replaceBannedInPlanned } = await import("@/lib/program/replace-banned-in-planned");
       
-      const catalogue = (catalogueRes.data ?? []) as unknown as CandidateExercise[];
+      const catalogue = toCandidateExercises(catalogueRes.data);
       const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries || []);
       
       if (!profile.goal || !profile.level || !profile.primary_track || 

@@ -15,6 +15,7 @@ import { buildStartSessionStaleDeps } from "./build-start-session-stale-deps";
 import type { StartSessionFullDeps, ProgramDayExercise } from "./start-session-full-core";
 import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
 import type { CandidateExercise } from "@/lib/program/generate";
+import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
 
 export function buildStartSessionFullDeps(
   supabase: SupabaseClient<Database>,
@@ -181,7 +182,7 @@ export function buildStartSessionFullDeps(
 
       const profile = profileRes.data;
       const injuries = injuriesRes.data || [];
-      const catalogue = (catalogueRes.data ?? []) as unknown as CandidateExercise[];
+      const catalogue = toCandidateExercises(catalogueRes.data);
       const equipmentIds = (equipmentRes.data ?? []).map(r => r.equipment_id);
 
       if (!profile || !catalogue) {
