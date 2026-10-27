@@ -407,6 +407,8 @@
     "test:start-session-m10-no-block": "tsx scripts/test-start-session-m10-no-block.ts",
     "test:start-session-m11-stale-error": "tsx scripts/test-start-session-m11-stale-error.ts",
     "test:start-session-over-6h": "tsx scripts/test-start-session-over-6h.ts",
+    "test:day-plan-rest-prompt": "tsx scripts/test-day-plan-rest-prompt.tsx",
+    "test:d7-rest-prompt-mutants": "bash scripts/test-d7-rest-prompt-mutants.sh",
     "test:gym-tenant-rls-real-db": "tsx scripts/test-gym-tenant-rls-real-db.ts",
     "test:gym-owner-guards-sql": "tsx scripts/test-gym-owner-guards-sql.ts",
     "ci:mutant-gym-rls-policies": "bash scripts/mutant-test-gym-rls-policies.sh"

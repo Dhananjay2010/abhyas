@@ -662,7 +662,7 @@ export function SessionRunner({
         */}
         {tomorrow && (
           <DayPlanPrompt
-            localDate={tomorrow.localDate}
+            sessionId={sessionId}
             dayLabel="Tomorrow"
             plannedLabel={tomorrow.plannedLabel}
             days={tomorrow.days}

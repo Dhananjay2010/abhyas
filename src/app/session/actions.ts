@@ -598,7 +598,8 @@ export type PlannableDay = {
  * prompt safe to change your mind with.
  */
 export async function planDay(input: {
-  localDate: string;
+  sessionId?: string;
+  localDate?: string;
   plan: DayPlan;
 }): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
@@ -613,6 +614,31 @@ export async function planDay(input: {
     .single();
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const today = localDateString(timezone);
+
+  let targetDate: string;
+
+  if (input.sessionId) {
+    // Read the session to get its local_date
+    const { data: session } = await supabase
+      .from("sessions")
+      .select("local_date, user_id")
+      .eq("id", input.sessionId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!session) {
+      return { ok: false, error: "Could not load session." };
+    }
+
+    // Compute target date = session's local_date + 1 day
+    const { addDays } = await import("@/lib/dates");
+    targetDate = addDays(session.local_date, 1);
+  } else if (input.localDate) {
+    // Direct date planning (Today page)
+    targetDate = input.localDate;
+  } else {
+    return { ok: false, error: "Either sessionId or localDate is required." };
+  }
 
   // Create client adapter
   const client: PlanDayClient = {
@@ -668,14 +694,19 @@ export async function planDay(input: {
 
   const result = await planDayCore(client, {
     userId: user.id,
-    localDate: input.localDate,
+    localDate: targetDate,
     today,
     plan: input.plan,
   });
 
-  if (result.ok) {
-    revalidateTrainingData();
+  if (!result.ok && result.error && (result.error.includes("duplicate key") || result.error.includes("constraint"))) {
+    return { ok: false, error: "Couldn't save your choice. Please try again." };
   }
 
-  return result;
+  if (!result.ok) {
+    return { ok: false, error: result.error || "Couldn't save. Please try again." };
+  }
+
+  revalidateTrainingData();
+  return { ok: true };
 }
