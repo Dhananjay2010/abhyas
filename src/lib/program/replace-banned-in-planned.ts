@@ -109,7 +109,13 @@ export function replaceBannedInPlanned(
       });
       changed = true;
     } else {
-      result.push(ex);
+      // No safe alternative: drop the slot for current-knee users only
+      if (tier === "current") {
+        changed = true;
+        // Don't push to result - slot is dropped
+      } else {
+        result.push(ex);
+      }
     }
   }
   

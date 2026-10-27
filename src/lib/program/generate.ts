@@ -1316,6 +1316,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               // Must be eligible and knee-safe
               if (!isEligible(e, input)) return false;
               if (e.contraindicated_regions.includes("knee")) return false;
+              if (isExcludedForCurrentKneeOnly(e.slug, input)) return false;
               if (e.movement_pattern === "squat" || e.movement_pattern === "lunge") {
                 if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
               }

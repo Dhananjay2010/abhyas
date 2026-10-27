@@ -116,19 +116,46 @@ export async function cleanBannedPlannedExercises(
       
       if (!result.changed) continue;
       
+      // Build a map of original exercise_id to replacement
+      const replacementMap = new Map<string, string | null>();
+      let resultIdx = 0;
       for (let i = 0; i < exercises.length; i++) {
         const original = exercises[i];
-        const cleaned = result.rows[i];
-        
-        if (original.exercise_id !== cleaned.exercise_id) {
+        if (resultIdx < result.rows.length && result.rows[resultIdx].id === original.id) {
+          const cleaned = result.rows[resultIdx];
+          if (original.exercise_id !== cleaned.exercise_id) {
+            replacementMap.set(original.id, cleaned.exercise_id);
+          }
+          resultIdx++;
+        } else {
+          // Slot was dropped
+          replacementMap.set(original.id, null);
+        }
+      }
+      
+      // Apply updates and deletions
+      for (const [originalId, replacementExerciseId] of replacementMap.entries()) {
+        if (replacementExerciseId === null) {
+          // Delete dropped slot
           const { error } = await supabase
             .from("program_day_exercises")
-            .update({ exercise_id: cleaned.exercise_id })
-            .eq("id", original.id)
-            .eq("exercise_id", original.exercise_id);
+            .delete()
+            .eq("id", originalId);
           
           if (error) {
-            errors.push(`Failed to update exercise ${original.id}: ${error.message}`);
+            errors.push(`Failed to delete exercise ${originalId}: ${error.message}`);
+          } else {
+            totalCleaned++;
+          }
+        } else {
+          // Update to replacement
+          const { error } = await supabase
+            .from("program_day_exercises")
+            .update({ exercise_id: replacementExerciseId })
+            .eq("id", originalId);
+          
+          if (error) {
+            errors.push(`Failed to update exercise ${originalId}: ${error.message}`);
           } else {
             totalCleaned++;
           }
