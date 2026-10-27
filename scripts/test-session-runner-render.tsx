@@ -858,9 +858,10 @@ async function test9b() {
   const skipCooldownButton = buttons.find(b => b.textContent?.includes("Skip cool-down"));
   
   assert(!!doneButton, "9b: Done button exists");
-  console.log("  DEBUG: doneButton.disabled =", doneButton.disabled, "typeof =", typeof doneButton.disabled);
-  console.log("  DEBUG: doneButton attributes:", Array.from(doneButton.attributes || []).map((a: any) => a.name + "=" + a.value));
-  assert(doneButton !== undefined && Boolean(doneButton.disabled), "9b: Done button is disabled while sets are pending");
+  if (!doneButton || !('disabled' in doneButton)) {
+    throw new Error("Done button missing disabled property");
+  }
+  assert((doneButton as HTMLButtonElement).disabled === true, "9b: Done button is disabled while sets are pending");
   
   // Verify the notice shows the pending count
   const pendingNotice = screen.queryByText(/1 set waiting to save/i);
