@@ -12,6 +12,13 @@
  * Run: supabase start && REAL_DB=1 npm run test:gym-branding-real-db
  */
 
+// Skip unless REAL_DB=1
+if (process.env.REAL_DB !== "1") {
+  console.log("\n⏭️  Skipping real DB tests (REAL_DB=1 not set)");
+  console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance\n");
+  process.exit(0);
+}
+
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
@@ -38,13 +45,6 @@ async function testDatabaseConnection() {
 }
 
 async function runTests() {
-  // Skip unless REAL_DB=1
-  if (process.env.REAL_DB !== "1") {
-    console.log("\n⏭️  Skipping real DB tests (REAL_DB=1 not set)");
-    console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance\n");
-    return true;
-  }
-
   // Import and check guard
   const { checkRealDbTest } = await import("./lib-db-reset-guard");
   const guardResult = checkRealDbTest();

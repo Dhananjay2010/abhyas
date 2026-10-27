@@ -6,6 +6,9 @@
  * remains unchanged.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
+(globalThis as Record<string, unknown>).AsyncLocalStorage = AsyncLocalStorage;
+
 import { accessibleTextColor, contrastRatio, meetsWCAG_AA } from "../src/lib/contrast";
 import { branding } from "../src/lib/branding";
 
@@ -120,7 +123,107 @@ function testAccessibleTextColorLogic() {
   console.log("  ✓ Text color selection logic correct");
 }
 
-function main() {
+async function testPre040RpcMock() {
+  console.log("\n▶ Testing pre-040 RPC response (name, slug, timezone only)...");
+
+  // Setup fake environment for getGymBrand
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "http://fake.supabase.local";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
+
+  // In-memory cache store (minimal, just to satisfy unstable_cache)
+  type Entry = { body: string; revalidate: number; tags: string[] };
+  const store = new Map<string, Entry>();
+
+  (globalThis as Record<string, unknown>).__incrementalCache = {
+    isOnDemandRevalidate: false,
+    generateSimpleCacheKey: async (k: string) => k,
+    get: async (key: string) => {
+      const e = store.get(key);
+      return e ? { isStale: false, value: { kind: "FETCH", data: { body: e.body } } } : null;
+    },
+    set: async (key: string, v: { data: { body: string }; revalidate: number }, ctx: { tags: string[] }) => {
+      const e = { body: v.data.body, revalidate: v.revalidate, tags: ctx.tags };
+      store.set(key, e);
+    },
+  };
+
+  // Mock fetch to return pre-040 RPC response (no brand fields)
+  const realFetch = globalThis.fetch;
+  let pre040Called = false;
+  let customColorsCalled = false;
+
+  (globalThis as Record<string, unknown>).fetch = async (url: string | URL | Request, init?: RequestInit) => {
+    const u = String(url);
+    if (!u.includes("/rest/v1/rpc/get_gym_brand")) return realFetch(url, init);
+
+    const id = JSON.parse((init as RequestInit & { body: string }).body).p_gym_id;
+
+    if (id === "pre040") {
+      pre040Called = true;
+      // Pre-040 mock: only name, slug, timezone (no brand fields)
+      return new Response(
+        JSON.stringify([{ name: "Test Gym", slug: "test-gym", timezone: null }]),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+
+    if (id === "custom") {
+      customColorsCalled = true;
+      // Post-040 mock: with custom colors
+      return new Response(
+        JSON.stringify([{ 
+          name: "Custom Gym", 
+          slug: "custom-gym", 
+          timezone: null,
+          display_name: "Custom Branding",
+          logo_url: "https://example.com/logo.png",
+          primary_color: "#1E3A8A",
+          accent_color: "#3B82F6"
+        }]),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+
+    return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+  };
+
+  const { getGymBrand } = await import("../src/lib/gym-brand");
+
+  // Test 1: Pre-040 mock (no brand fields) returns default brand
+  const pre040Brand = await getGymBrand("pre040");
+  
+  assert(pre040Called, "Pre-040 mock should be called");
+  assert(pre040Brand.name === "Test Gym", `Pre-040 brand name should be "Test Gym", got "${pre040Brand.name}"`);
+  assert(!pre040Brand.colors, "Pre-040 brand should have no colors field (falls back to branding.colors)");
+  
+  // When no colors field is present, the app uses branding.colors.accentFg (#1a1000)
+  const defaultAccentFg = branding.colors.accentFg;
+  console.log(`  ✓ Pre-040 mock (no brand fields) returns default brand`);
+  console.log(`  ✓ No colors field (falls back to branding.colors.accentFg: ${defaultAccentFg})`);
+
+  // Test 2: Custom colors use accessibleTextColor
+  const customBrand = await getGymBrand("custom");
+  
+  assert(customColorsCalled, "Custom colors mock should be called");
+  assert(customBrand.name === "Custom Branding", `Custom brand name should be "Custom Branding", got "${customBrand.name}"`);
+  assert(!!customBrand.colors, "Custom brand should have colors field");
+  
+  if (customBrand.colors) {
+    const expectedFg = accessibleTextColor("#1E3A8A");
+    assert(
+      customBrand.colors.accentFg === expectedFg,
+      `Custom brand accentFg should be ${expectedFg}, got ${customBrand.colors.accentFg}`
+    );
+    console.log(`  ✓ Custom colors use accessibleTextColor (${customBrand.colors.accentFg})`);
+  }
+
+  // Restore
+  (globalThis as Record<string, unknown>).fetch = realFetch;
+
+  console.log("  ✓ Pre-040 RPC response compatibility verified");
+}
+
+async function main() {
   console.log("Testing Accessible Text Colors for Branding (MED-4)");
   console.log("====================================================");
 
@@ -129,11 +232,13 @@ function main() {
     testRequiredColors();
     testContrastFunction();
     testAccessibleTextColorLogic();
+    await testPre040RpcMock();
 
     console.log("\n✅ All contrast tests passed\n");
     console.log("MED-4 verified:");
     console.log("  - Default Abhyas brand output stays byte-identical to main");
     console.log("  - Navy, black, purple, red, teal, and default primary all meet 4.5:1 contrast");
+    console.log("  - Pre-040 RPC mocks (no brand fields) work correctly");
     process.exit(0);
   } catch (error) {
     console.error(`\n${error instanceof Error ? error.message : String(error)}\n`);
