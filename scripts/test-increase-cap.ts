@@ -123,7 +123,9 @@ console.log("\nCase 2: Barbell Squat 72.5 kg, all sets hit, EASY feel");
   console.log(`  Outcome: ${d.outcome}`);
   console.log(`  Message: "${d.message}"`);
   console.log(`  Jump: ${d.nextWorkingWeightKg !== null ? d.nextWorkingWeightKg - 72.5 : 'N/A'} kg`);
-  check("Barbell squat 72.5 kg (EASY feel) → 82.5 kg (doubled increment: floor-snap + 10)", d.nextWorkingWeightKg === 82.5);
+  // #120: With equipment, easy uses ONE grid step (not doubled)
+  // 72.5 kg + 5 kg = 77.5 kg (one increment, not doubled)
+  check("Barbell squat 72.5 kg (EASY feel) → 77.5 kg (one-step cap)", d.nextWorkingWeightKg === 77.5);
 }
 
 console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
@@ -167,7 +169,9 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     state: makeState({ currentWorkingWeightKg: 14 }),
     isDeload: false,
   });
-  check("Dumbbell lunge 14 kg → 22.5 kg (easy feel, doubled increment)", d.nextWorkingWeightKg === 22.5);
+  // #120: With equipment, easy uses ONE grid step (not doubled)
+  // 14 kg + 2.5 kg = 16.5 → rounds up to 17.5 kg
+  check("Dumbbell lunge 14 kg → 17.5 kg (easy feel, one-step cap)", d.nextWorkingWeightKg === 17.5);
 }
 
 // DB lunge 15 -> 17.5
@@ -218,7 +222,9 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     state: makeState({ currentWorkingWeightKg: 72.5 }),
     isDeload: false,
   });
-  check("Barbell squat 72.5 kg → 82.5 kg (easy feel, doubled increment)", d.nextWorkingWeightKg === 82.5);
+  // #120: With equipment, easy uses ONE grid step (not doubled)
+  // 72.5 kg + 5 kg = 77.5 kg (one increment, not doubled)
+  check("Barbell squat 72.5 kg → 77.5 kg (easy feel, one-step cap)", d.nextWorkingWeightKg === 77.5);
 }
 
 // KB 22 -> 24
@@ -277,7 +283,9 @@ console.log("\nCase 4: Dumbbell 14 kg with EASY feel");
   console.log(`  Next weight: ${d.nextWorkingWeightKg} kg`);
   console.log(`  Jump: ${d.nextWorkingWeightKg !== null ? d.nextWorkingWeightKg - 14 : 'N/A'} kg`);
   
-  check("Dumbbell 14 kg (EASY) → 22.5 kg (doubled increment)", d.nextWorkingWeightKg === 22.5);
+  // #120: With equipment, easy uses ONE grid step (not doubled)
+  // 14 kg + 2.5 kg (dumbbell grid) = 16.5 → rounds up to 17.5 kg
+  check("Dumbbell 14 kg (EASY) → 17.5 kg (one-step cap)", d.nextWorkingWeightKg === 17.5);
 }
 
 console.log("\nCase 5: Kettlebell 22 kg → next bell");
@@ -328,8 +336,9 @@ console.log("\nCase 6: Kettlebell 22 kg with EASY feel");
   console.log(`  Next weight: ${d.nextWorkingWeightKg} kg`);
   console.log(`  Message: "${d.message}"`);
   
-  // For kettlebells, EASY doubles: 22→24 (right), 22→28 (easy, 2 bells up)
-  check("Kettlebell 22 kg (EASY) → 28 kg (2 bells up for easy)", d.nextWorkingWeightKg === 28);
+  // #120: With equipment, easy uses ONE grid step (not doubled)
+  // For kettlebells: 22 → 24 kg (next bell, same for right and easy)
+  check("Kettlebell 22 kg (EASY) → 24 kg (one bell, not two)", d.nextWorkingWeightKg === 24);
 }
 
 console.log("\n" + "=".repeat(60));
