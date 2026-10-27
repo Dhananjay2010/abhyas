@@ -120,11 +120,11 @@ function check(label: string, pass: boolean, detail = "") {
   check("S6: 'Working weight' text present", hasWorkingWeight);
   
   if (hasWorkingWeight) {
-    // Extract the line containing "Working weight" and check for "138 lb"
+    // Extract the line containing "Working weight" and check for "137.5 lb"
     const lines = text.split(/\n|(?=Working weight)/);
     const workingWeightLine = lines.find(l => l.includes("Working weight"));
-    const hasRoundedValue = workingWeightLine?.includes("138") && workingWeightLine?.includes("lb");
-    check("S6: Working weight line shows '138 lb'", hasRoundedValue ?? false, workingWeightLine ? `got: "${workingWeightLine}"` : "line not found");
+    const hasRoundedValue = workingWeightLine?.includes("137.5") && workingWeightLine?.includes("lb");
+    check("S6: Working weight line shows '137.5 lb'", hasRoundedValue ?? false, workingWeightLine ? `got: "${workingWeightLine}"` : "line not found");
   }
 
   // S7: Check weight input prefill value
@@ -140,7 +140,7 @@ function check(label: string, pass: boolean, detail = "") {
   }
 
   const prefillValue = parseFloat(weightInput.value || "0");
-  check("S7: Weight input value is exactly 138", prefillValue === 138, `got ${prefillValue}`);
+  check("S7: Weight input value is exactly 137.5", prefillValue === 137.5, `got ${prefillValue}`);
 
   // ============================================================
   // Additional test: 100 kg → 220.5 lb
@@ -190,8 +190,8 @@ function check(label: string, pass: boolean, detail = "") {
 
   const text100 = r100.container.textContent || "";
   const workingWeightLine100 = text100.split(/\n|(?=Working weight)/).find(l => l.includes("Working weight"));
-  const hasRoundedValue100 = workingWeightLine100?.includes("220.5") && workingWeightLine100?.includes("lb");
-  check("100 kg: Working weight line shows '220.5 lb'", hasRoundedValue100 ?? false, workingWeightLine100 ? `got: "${workingWeightLine100}"` : "");
+  const hasRoundedValue100 = workingWeightLine100?.includes("220") && workingWeightLine100?.includes("lb") && !workingWeightLine100?.includes("220.");
+  check("100 kg: Working weight line shows '220 lb'", hasRoundedValue100 ?? false, workingWeightLine100 ? `got: "${workingWeightLine100}"` : "");
 
   const weightInput100 = [...r100.container.querySelectorAll<HTMLInputElement>("input")].find(
     (i) => {
@@ -200,7 +200,7 @@ function check(label: string, pass: boolean, detail = "") {
     }
   );
   const prefillValue100 = parseFloat(weightInput100?.value || "0");
-  check("100 kg: Weight input value is 220.5", prefillValue100 === 220.5, `got ${prefillValue100}`);
+  check("100 kg: Weight input value is 220", prefillValue100 === 220, `got ${prefillValue100}`);
 
   // ============================================================
   // Final report

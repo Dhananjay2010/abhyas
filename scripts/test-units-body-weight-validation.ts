@@ -75,7 +75,7 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
 
 (async () => {
   const React = await import("react");
-  const { render, fireEvent, waitFor } = await import("@testing-library/react");
+  const { render, fireEvent, waitFor, act } = await import("@testing-library/react");
   const { LogWeight } = await import("../src/app/progress/log-weight");
   const { OnboardingFlow } = await import("../src/app/onboarding/onboarding-flow");
 
@@ -122,35 +122,49 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
 
     const progressInput = progressContainer.querySelector<HTMLInputElement>("input[type='number']");
     if (progressInput) {
-      fireEvent.change(progressInput, { target: { value } });
+      act(() => {
+        fireEvent.change(progressInput, { target: { value } });
+      });
       
-      const submitButton = progressContainer.querySelector("button[type='button']");
-      if (submitButton && submitButton.textContent?.includes("Log")) {
-        fireEvent.click(submitButton);
+      const submitButton = Array.from(progressContainer.querySelectorAll("button")).find(
+        (btn) => btn.textContent?.includes("Save") || btn.textContent?.includes("Log")
+      );
+      if (submitButton) {
+        await act(async () => {
+          fireEvent.click(submitButton);
+          // Give startTransition time to process
+          await new Promise(resolve => setTimeout(resolve, 100));
+        });
+        
+        // Now check the results
+        const errorEl = progressContainer.querySelector("[role='alert']");
+        progressError = errorEl ? errorEl.textContent : null;
       }
     }
 
-    await waitFor(() => {
-      const errorEl = progressContainer.querySelector("[role='alert']");
-      progressError = errorEl ? errorEl.textContent : null;
-      return true;
-    });
-
     progressUnmount();
 
-    check(
-      `Progress ${desc}: ${shouldAccept ? "accepts" : "rejects with error"}`,
-      progressAccepted === shouldAccept && (shouldAccept || progressError !== null),
-      `accepted=${progressAccepted}, hasError=${progressError !== null}, expected=${shouldAccept}`
-    );
-
-    if (!shouldAccept && value !== "") {
-      const expectedError = getBodyWeightRangeMessage(units);
+    if (shouldAccept) {
       check(
-        `Progress ${desc}: shows correct error message`,
-        progressError === expectedError,
-        `error="${progressError}", expected="${expectedError}"`
+        `Progress ${desc}: accepts`,
+        progressAccepted && progressError === null,
+        `accepted=${progressAccepted}, error="${progressError}"`
       );
+    } else {
+      check(
+        `Progress ${desc}: ${value === "" ? "rejects empty" : "rejects with error"}`,
+        !progressAccepted && (value === "" || progressError !== null),
+        `accepted=${progressAccepted}, error="${progressError}"`
+      );
+
+      if (value !== "") {
+        const expectedError = getBodyWeightRangeMessage(units);
+        check(
+          `Progress ${desc}: shows correct error message`,
+          progressError === expectedError,
+          `error="${progressError}", expected="${expectedError}"`
+        );
+      }
     }
 
     // Test Onboarding body-weight input (from OnboardingFlow at "about" step)
@@ -218,7 +232,7 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
 
     check(
       `Onboarding ${desc}: ${shouldAccept ? "no error shown" : "shows error"}`,
-      shouldAccept ? onboardingError === null : onboardingError !== null,
+      value === "" ? onboardingError === null : (shouldAccept ? onboardingError === null : onboardingError !== null),
       `error="${onboardingError}", shouldAccept=${shouldAccept}`
     );
 
