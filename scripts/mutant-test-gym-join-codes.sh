@@ -8,6 +8,12 @@ set -euo pipefail
 echo "=== Mutant Testing: Gym Join Codes ==="
 echo
 
+# Database reset guard: prevent accidental wipes on shared boxes
+if ! npx tsx scripts/lib/db-reset-guard-cli.ts; then
+  exit 1
+fi
+echo
+
 # Skip if REAL_DB is not set (shard environments don't have Supabase)
 if [ "${REAL_DB:-}" != "1" ]; then
   echo "⏭️  Skipping mutant tests (REAL_DB=1 not set)"
