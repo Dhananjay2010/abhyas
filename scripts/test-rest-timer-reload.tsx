@@ -127,8 +127,8 @@ const actions: SessionActions = {
   logSet: async () => ({ ok: true as const }),
   deleteSet: ok,
   finishExercise: async () => ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-  finishSession: ok,
-    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+  finishSession: async () => ({ ok: true as const, data: { status: "completed" as const, durationSeconds: 600 } }),
+  getSessionSummary: async () => ({ ok: true as const, data: [] }),
   abandonSession: ok,
   planDay: ok,
   refreshAfterSession: async () => ({ ok: true as const }),
@@ -159,6 +159,7 @@ const { container: c0, unmount: unmount0 } = render(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[]}
     exercises={[exercise0]}
@@ -231,6 +232,7 @@ const { container: c0b, unmount: unmount0b } = render(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now - 10000).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[]}
     exercises={[{ ...exercise0, sets: [{ setNumber: 1, reps: 10, weightKg: null, durationSeconds: null }] }]}
@@ -275,6 +277,7 @@ const { container: c1, unmount: unmount1 } = render(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[]}
     exercises={[exercise1a, exercise1b]}
@@ -307,6 +310,7 @@ const { container: c2, unmount: unmount2 } = render(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[]}
     exercises={[exercise2a, exercise2b]}
@@ -436,6 +440,7 @@ const { container: c3, unmount: unmount3 } = render(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[]}
     exercises={[exercise3]}
@@ -457,7 +462,18 @@ if (endEarlyButton) {
     fireEvent.click(endEarlyButton);
     await new Promise((resolve) => setTimeout(resolve, 200));
   });
-  check("End early clears storage", !mockStorage.data.has(key));
+  // Find and click the "End now" confirmation button
+  const endNowButton = [...c3.querySelectorAll("button")].find((b) =>
+    /End now/.test(b.textContent ?? "")
+  );
+  if (endNowButton) {
+    await act(async () => {
+      fireEvent.click(endNowButton);
+    });
+    check("End early clears storage", !mockStorage.data.has(key));
+  } else {
+    check("End now button found", false);
+  }
 } else {
   check("End early button found", false);
 }
@@ -478,6 +494,7 @@ const { container: c4, unmount: unmount4 } = render(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[]}
     exercises={[exercise4]}
@@ -619,6 +636,7 @@ const { container: c4b, unmount: unmount4b } = render(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[cooldownItem]}
     exercises={[exercise4b]}
@@ -779,6 +797,7 @@ const { container: c5, unmount: unmount5 } = render(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[]}
     exercises={[exercise5]}
@@ -829,6 +848,7 @@ const { container: c6, unmount: unmount6 } = render(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[]}
     exercises={[exercise6]}
@@ -882,6 +902,7 @@ const { container: c7, unmount: unmount7 } = render(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now - 100000).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[]}
     exercises={[exercise7]}
@@ -924,6 +945,7 @@ const serverHtml = renderToString(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[]}
     exercises={[exercise8]}
@@ -952,6 +974,7 @@ const root8 = hydrateRoot(
     week={1}
     warmupAlreadyDone={true}
     startedAt={new Date(now).toISOString()}
+    isStale={false}
     warmup={[]}
     cooldown={[]}
     exercises={[exercise8]}

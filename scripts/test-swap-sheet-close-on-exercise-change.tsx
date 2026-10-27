@@ -126,6 +126,7 @@ console.log("Test swap sheet close on exercise change:\n");
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
       exercises={[exerciseA1, exerciseB1]}
@@ -249,6 +250,7 @@ console.log("Test swap sheet close on exercise change:\n");
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
       exercises={[exerciseA2, exerciseB2]}
@@ -289,6 +291,7 @@ console.log("Test swap sheet close on exercise change:\n");
         week={1}
         warmupAlreadyDone={true}
         startedAt={new Date().toISOString()}
+        isStale={false}
         warmup={[]}
         cooldown={[]}
         exercises={[exerciseA2Completed, exerciseB2]}
@@ -355,6 +358,7 @@ console.log("Test swap sheet close on exercise change:\n");
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
       exercises={[exerciseA3, exerciseB3]}

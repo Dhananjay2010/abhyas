@@ -9,6 +9,7 @@ import {
 } from "@/app/session/[id]/session-runner";
 
 const ok = async () => ({ ok: true }) as const;
+const finishOk = async () => ({ ok: true as const, data: { status: "completed" as const, durationSeconds: 300 } });
 
 const STUB: SessionActions = {
   markWarmupDone: ok,
@@ -37,7 +38,7 @@ const STUB: SessionActions = {
             },
     });
   })(),
-  finishSession: ok,
+  finishSession: finishOk,
   abandonSession: ok,
   refreshAfterSession: ok,
   planDay: ok,
@@ -202,6 +203,7 @@ export function SessionPreview() {
         week={2}
         warmupAlreadyDone={false}
         startedAt={null}
+        isStale={false}
         warmup={WARMUP}
         cooldown={[]}
         exercises={startFinished ? FINISHED : EXERCISES}

@@ -115,7 +115,7 @@ function makeActions(messages: Record<string, string>, summaryImpl?: (call: numb
     },
     finishSession: async () => {
       calls.finishSession++;
-      return { ok: true as const };
+      return { ok: true as const, data: { status: "completed" as const, durationSeconds: 600 } };
     },
     getSessionSummary: async () => {
       calls.summary++;
@@ -172,6 +172,7 @@ async function resumedSummary(actions: SessionActions, units?: "metric" | "imper
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
+      isStale={false}
       startedAt={new Date().toISOString()}
       warmup={[]}
       cooldown={[]}
@@ -212,6 +213,7 @@ async function resumedSummary(actions: SessionActions, units?: "metric" | "imper
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
+      isStale={false}
         startedAt={new Date().toISOString()}
         warmup={[]}
         cooldown={[]}
@@ -265,6 +267,7 @@ async function resumedSummary(actions: SessionActions, units?: "metric" | "imper
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
+      isStale={false}
         startedAt={new Date().toISOString()}
         warmup={[]}
         cooldown={[]}
@@ -297,6 +300,7 @@ async function resumedSummary(actions: SessionActions, units?: "metric" | "imper
         isDeload={true}
         week={4}
         warmupAlreadyDone={true}
+      isStale={false}
         startedAt={new Date().toISOString()}
         warmup={[]}
         cooldown={[]}

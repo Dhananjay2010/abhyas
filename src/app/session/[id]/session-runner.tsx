@@ -2,23 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { nextSetTarget } from "@/lib/session/resume-state";
 import type { Database } from "@/lib/database.types";
 import type { WarmupItem } from "@/lib/program/warmup";
 import {
   formatClock,
   useBeeper,
-  useElapsed,
   useWakeLock,
   vibrate,
   useVibrationSupported,
 } from "@/lib/session/device";
+import { useElapsedWithClock } from "@/lib/session/use-elapsed-with-clock";
+import { displayElapsed } from "@/lib/session/display-elapsed";
+import { summaryDurationSeconds } from "@/lib/session/summary-duration";
 import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { displayToKg, formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
+import { shouldShowFinishRetry, runEndEarly } from "@/lib/session/finish-flow";
+import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
+import { focusTrap } from "@/lib/focus-trap";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
 import { applySwapTarget } from "@/lib/session/apply-swap-target";
@@ -36,23 +40,11 @@ import {
   type Alternative,
   type SwapResult,
 } from "../actions";
-import { SessionExpiredPrompt } from "@/components/session-expired-prompt";
-import { isSessionExpired } from "@/lib/auth/session-expired";
-import {
-  createPendingSetController,
-  type PendingSetState,
-} from "@/lib/session/pending-set-controller";
-import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
-import { loadPendingSets } from "@/lib/session/pending-set-retry";
-import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
-import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
-import { registerFocusRetry } from "@/lib/session/focus-retry";
-import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
-import { resolveSetConflict, type ConflictResult } from "@/lib/session/conflict-reducer";
+import { resolveSetConflict } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
-import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
-import { pickCurrentExerciseIndex } from "@/lib/session/resume-state";
+import { nextSetTarget, pickCurrentExerciseIndex } from "@/lib/session/resume-state";
+import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -87,8 +79,8 @@ const REAL_ACTIONS: SessionActions = {
   getSessionSummary,
 };
 
-type Feel = Database["public"]["Enums"]["set_feel"];
-type Muscle = Database["public"]["Enums"]["muscle"];
+export type Feel = Database["public"]["Enums"]["set_feel"];
+export type Muscle = Database["public"]["Enums"]["muscle"];
 
 export type LoggedSet = {
   setNumber: number;
@@ -151,15 +143,13 @@ const FEELS: { value: Feel; label: string }[] = [
   { value: "hard", label: "Hard" },
 ];
 
-
 export function SessionRunner({
   sessionId,
-  sessionStatus,
-  userId,
   isDeload,
   week,
   warmupAlreadyDone,
   startedAt,
+  isStale = false,
   warmup,
   cooldown,
   exercises: initialExercises,
@@ -167,19 +157,16 @@ export function SessionRunner({
   tomorrow,
   units = "metric",
   actions = REAL_ACTIONS,
+  timer,
+  nowFn,
   onExit,
-  addEventListener: addEventListenerProp,
-  removeEventListener: removeEventListenerProp,
-  timer = REAL_TIMER,
-  now = Date.now,
 }: {
   sessionId: string;
-  sessionStatus: Database["public"]["Enums"]["session_status"];
-  userId: string;
   isDeload: boolean;
   week: number;
   warmupAlreadyDone: boolean;
   startedAt: string | null;
+  isStale?: boolean;
   warmup: WarmupItem[];
   cooldown: WarmupItem[];
   exercises: RunnerExercise[];
@@ -190,35 +177,26 @@ export function SessionRunner({
   units?: UnitsPreference;
   actions?: SessionActions;
   timer?: RunnerTimer;
+  nowFn?: () => number;
   onExit?: () => void;
-  addEventListener?: (type: string, handler: () => void) => void;
-  removeEventListener?: (type: string, handler: () => void) => void;
-  now?: () => number;
-  
 }) {
-  // Stable event listener functions for focus retry
-  const addEventListener = useCallback((type: string, handler: () => void) => {
-    if (addEventListenerProp) {
-      addEventListenerProp(type, handler);
-    } else if (type === "focus") {
-      window.addEventListener(type, handler);
-    } else {
-      document.addEventListener(type, handler);
-    }
-  }, [addEventListenerProp]);
-  
-  const removeEventListener = useCallback((type: string, handler: () => void) => {
-    if (removeEventListenerProp) {
-      removeEventListenerProp(type, handler);
-    } else if (type === "focus") {
-      window.removeEventListener(type, handler);
-    } else {
-      document.removeEventListener(type, handler);
-    }
-  }, [removeEventListenerProp]);
   const router = useRouter();
+  const rawElapsed = useElapsedWithClock(startedAt, nowFn ?? Date.now);
+  const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
+  const elapsed = frozenElapsed ?? displayElapsed(rawElapsed, isStale);
+  
+  const stopElapsed = useCallback(() => {
+    const current = rawElapsed;
+    setFrozenElapsed(current);
+    return current;
+  }, [rawElapsed]);
+  
+  const resumeElapsed = useCallback(() => {
+    setFrozenElapsed(null);
+  }, []);
+  
   const timerImpl = timer ?? REAL_TIMER;
-  const elapsed = useElapsed(startedAt);
+  
   const beeper = useBeeper(settings.restSound);
   
   // Use reducer to manage exercises with server data merging
@@ -238,8 +216,9 @@ export function SessionRunner({
     );
   }, []);
   const [error, setError] = useState<string | null>(null);
-  const [sessionExpired, setSessionExpired] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [needsFinishRetry, setNeedsFinishRetry] = useState(false);
+  const [lastCooldownCompleted, setLastCooldownCompleted] = useState<boolean>(true);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [alternativesForExerciseId, setAlternativesForExerciseId] = useState<string | null>(null);
   // FIX (a): Load summary from DB on phase transition, not client state
@@ -247,66 +226,17 @@ export function SessionRunner({
   const [summaryError, setSummaryError] = useState(false);
   const [summaryAttempt, setSummaryAttempt] = useState(0);
   const [summaryLoaded, setSummaryLoaded] = useState(false);
+  const [savedDurationSeconds, setSavedDurationSeconds] = useState<number | null>(null);
+  const endEarlyTriggerRef = useRef<HTMLButtonElement>(null);
+  const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
+  const endingRef = useRef(false);
+  const [ending, setEnding] = useState(false);
   const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [bannerContent, setBannerContent] = useState<{ name: string; message: string } | null>(null);
   // "What changed for next time": exactly the banner messages finishExercise
   // returned during THIS mount, one per exercise in finishing order. Never
   // rebuilt from the database (M-1): after a remount the section is absent.
   const [changeNotes, setChangeNotes] = useState<Array<{ id: string; name: string; message: string }>>([]);
-
-  // Pending set controller for retry functionality (PR #113)
-  const [pendingSetState, setPendingSetState] = useState<PendingSetState>({
-    pending: [],
-    expired: false,
-    retrying: false,
-    error: null,
-    replayed: [],
-  });
-
-  const [controller] = useState(() => {
-    if (typeof window === "undefined") return null;
-    return createPendingSetController({
-      storage: window.localStorage,
-      logSet: actions.logSet,
-      sessionId,
-      sessionStatus,
-      userId,
-      onChange: setPendingSetState,
-      deps: createPendingSetDeps(now),
-    });
-  });
-
-  useEffect(() => {
-    if (controller) {
-      controller.load();
-    }
-  }, [controller]);
-
-  // Auto-retry on mount, focus, and visibility change
-  useEffect(() => {
-    if (!controller) return;
-
-    return registerFocusRetry(
-      addEventListener,
-      removeEventListener,
-      () => controller.onFocus()
-    );
-  }, [controller, addEventListener, removeEventListener]);
-
-  // Clear error when user comes back online
-  useEffect(() => {
-    const handleOnline = () => {
-      setError(null);
-      if (controller) {
-        controller.onFocus(); // Retry when coming online
-      }
-    };
-
-    if (typeof window !== "undefined") {
-      window.addEventListener("online", handleOnline);
-      return () => window.removeEventListener("online", handleOnline);
-    }
-  }, [controller]);
 
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
@@ -365,50 +295,6 @@ export function SessionRunner({
   );
 
   const wakeLock = useWakeLock(phase !== "done");
-
-  // ---- process replayed sets -----------------------------------------------
-  // Track which sets have been processed to avoid re-processing
-  const processedReplayedRef = useRef(new Set<string>());
-  
-  useEffect(() => {
-    const newReplayed = pendingSetState.replayed.filter(
-      (s) => !processedReplayedRef.current.has(s.clientId)
-    );
-    
-    if (newReplayed.length === 0) return;
-    
-    // Mark as processed
-    newReplayed.forEach((s) => processedReplayedRef.current.add(s.clientId));
-
-    setExercises((prevExercises) => {
-      return prevExercises.map((e) => {
-        const replayedForExercise = newReplayed.filter(
-          (s) => s.sessionExerciseId === e.id
-        );
-        if (replayedForExercise.length === 0) return e;
-
-        const updatedSets = [...e.sets];
-        for (const set of replayedForExercise) {
-          const existingIndex = updatedSets.findIndex((s) => s.setNumber === set.setNumber);
-          const newSet = {
-            setNumber: set.setNumber,
-            reps: set.reps,
-            weightKg: set.weightKg,
-            durationSeconds: set.durationSeconds,
-          };
-          if (existingIndex >= 0) {
-            updatedSets[existingIndex] = newSet;
-          } else {
-            updatedSets.push(newSet);
-          }
-        }
-        return {
-          ...e,
-          sets: updatedSets.sort((a, b) => a.setNumber - b.setNumber),
-        };
-      });
-    });
-  }, [pendingSetState.replayed, setExercises]);
 
   // ---- rest timer -------------------------------------------------------
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
@@ -564,21 +450,25 @@ export function SessionRunner({
    * that button lives in the header. Neither loses logged sets, which is why
    * both ask rather than block.
    */
-  const [confirming, setConfirming] = useState<"skip" | null>(null);
+  const [confirming, setConfirming] = useState<"skip" | "end_early" | null>(null);
 
-  async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>) {
-    if (busyRef.current) return false;
+  async function run<T extends { ok: boolean; error?: string }>(
+    fn: () => Promise<T>
+  ): Promise<T | null> {
+    if (busyRef.current) return null;
     busyRef.current = true;
     setBusy(true);
     try {
       const r = await fn();
-      if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
-      else setError(null);
-      return r.ok;
+      if (!r.ok) {
+        setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
+      } else {
+        setError(null);
+      }
+      return r.ok ? r : null;
     } catch (err) {
-      // h2: Catch network errors (offline, timeout, etc)
       setError(runnerErrorMessage(err, 'action'));
-      return false;
+      return null;
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -664,41 +554,6 @@ export function SessionRunner({
         error={error}
         message={message}
       >
-        {pendingSetState.pending.length > 0 && (
-          <div className="mb-5">
-            {getPendingUiMode(pendingSetState) === "replay-error" ? (
-              <div className="rounded-xl border border-muted/30 bg-muted/10 px-4 py-3 text-sm text-muted">
-                <p className="font-medium">Failed to save sets</p>
-                <p className="mt-1">{getReplayErrorMessage(pendingSetState)}</p>
-              </div>
-            ) : getPendingUiMode(pendingSetState) === "expired" ? (
-              <SessionExpiredPrompt />
-            ) : null}
-            <p className="mt-2 text-sm text-muted">
-              {pendingSetState.pending.length}{" "}
-              {pendingSetState.pending.length === 1 ? "set" : "sets"} waiting to save
-            </p>
-            {controller && (
-              <div className="mt-3">
-                <button
-                  onClick={() => {
-                    controller.replay();
-                  }}
-                  disabled={pendingSetState.retrying}
-                  className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent transition-opacity hover:opacity-90 disabled:opacity-60"
-                >
-                  {pendingSetState.retrying
-                    ? `Saving ${pendingSetState.pending.length} ${
-                        pendingSetState.pending.length === 1 ? "set" : "sets"
-                      }…`
-                    : `Retry saving ${pendingSetState.pending.length} ${
-                        pendingSetState.pending.length === 1 ? "set" : "sets"
-                      }`}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
         <p className="text-muted">
           Static stretches for what you trained. Hold each for 30 seconds,
           breathing slowly and evenly. Nothing should be sharp.
@@ -716,43 +571,61 @@ export function SessionRunner({
         </ul>
         <div className="mt-10 space-y-3">
           <BigButton
-            disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
+            disabled={busy}
             onClick={async () => {
-              await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
+              const frozen = stopElapsed();
+              setLastCooldownCompleted(true);
+              const result = await run(() =>
+                actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
               );
               restPersistence.clear();
-              setPhase("done");
+              if (result && result.ok) {
+                setSavedDurationSeconds(result.data.durationSeconds);
+                setPhase("done");
+              } else {
+                resumeElapsed();
+              }
+              setNeedsFinishRetry(shouldShowFinishRetry(!!result, true));
             }}
           >
-            {getFinishButtonText()}
+            Done
           </BigButton>
+          {needsFinishRetry && error && (
+            <BigButton
+              disabled={busy}
+              onClick={async () => {
+                const frozen = stopElapsed();
+                const result = await run(() =>
+                  actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: lastCooldownCompleted })
+                );
+                if (result && result.ok) {
+                  setSavedDurationSeconds(result.data.durationSeconds);
+                  setPhase("done");
+                } else {
+                  resumeElapsed();
+                }
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result, lastCooldownCompleted));
+              }}
+            >
+              Try again
+            </BigButton>
+          )}
           <GhostButton
             disabled={busy}
             onClick={async () => {
-              // If there are pending sets, try to replay them first
-              if (pendingSetState.pending.length > 0 && controller) {
-                await controller.replay();
-                // After replay, check if queue is now empty
-                const deps = createPendingSetDeps(now);
-                const remaining = loadPendingSets(window.localStorage, userId, sessionId, deps);
-                if (remaining.length === 0) {
-                  // Queue is empty, finish session in the same tap
-                  await run(() =>
-                    actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
-                  );
-                  restPersistence.clear();
-                  setPhase("done");
-                }
-                // If queue is not empty (offline/expired/error), stay on cool-down with notice
-                return;
-              }
-              // No pending sets, finish immediately
-              await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+              const frozen = stopElapsed();
+              setLastCooldownCompleted(false);
+              const result = await run(() =>
+                actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
               );
               restPersistence.clear();
-              setPhase("done");
+              if (result && result.ok) {
+                setSavedDurationSeconds(result.data.durationSeconds);
+                setPhase("done");
+              } else {
+                resumeElapsed();
+              }
+              setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
             }}
           >
             Skip cool-down
@@ -772,11 +645,17 @@ export function SessionRunner({
       (n, e) => n + e.sets.reduce((m, s) => m + (s.reps ?? 0) * (s.weightKg ?? 0), 0),
       0,
     );
+    const summaryDuration = summaryDurationSeconds({
+      savedDurationSeconds,
+      elapsedSeconds: elapsed,
+      isStale,
+      nowMs: (nowFn ?? Date.now)(),
+    });
     return (
       <Shell
         title="Session complete"
         subtitle={null}
-        elapsed={elapsed}
+        elapsed={summaryDuration}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
@@ -784,7 +663,7 @@ export function SessionRunner({
         confirmExit={false}
       >
         <div className="space-y-3">
-          <Stat label="Time" value={formatClock(elapsed)} />
+          <Stat label="Time" value={formatClock(summaryDuration)} />
           <Stat label="Sets logged" value={`${totalSetsDone}`} />
           {volume > 0 && <Stat label="Total volume" value={formatVolumeLifted(volume, units)} />}
           <Stat
@@ -920,16 +799,8 @@ export function SessionRunner({
   }
 
   const setsDone = current.sets.length;
-  const pendingForCurrentExercise = pendingSetState.pending.filter(
-    p => p.sessionExerciseId === current.id
-  ).length;
-  const allSetsDone = (setsDone + pendingForCurrentExercise) >= current.plannedSets;
-  const nextSetNumberTarget = nextSetTarget(
-    exercises,
-    current.id,
-    pendingSetState.pending
-  );
-  const nextSetNumber = nextSetNumberTarget?.setNumber ?? 1;
+  const allSetsDone = setsDone >= current.plannedSets;
+  const nextSetNumber = setsDone + 1;
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
   // For imperial: snap prescription to lb grid so prefill matches working weight line.
@@ -968,60 +839,52 @@ export function SessionRunner({
     weightKg: number | null,
     durationSeconds: number | null = null,
   ) {
-    if (!controller) {
-      setError("Controller not initialized");
-      return;
-    }
-
-    const target = nextSetTarget(exercises, displayedExerciseId, pendingSetState.pending);
+    // B1: the set goes under the exercise that was on screen when it was
+    // submitted, numbered from that exercise's own sets.
+    const target = nextSetTarget(exercises, displayedExerciseId);
     if (!target) return;
-
-    const clientId = `${target.sessionExerciseId}:${target.setNumber}:${now()}`;
-
+    // createConcurrentGuard holds busyRef for the whole save, so a double tap
+    // logs the set once.
     await createConcurrentGuard(async () => {
       setBusy(true);
       try {
-        const result = await controller.submit({
+        const result = await actions.logSet({
           sessionExerciseId: target.sessionExerciseId,
           setNumber: target.setNumber,
           reps,
           weightKg,
           durationSeconds,
-          clientId,
         });
 
-        if (result.status === "saved") {
+        if (!result.ok) {
           if ("reason" in result && result.reason === "set_exists") {
-            const conflictResult: ConflictResult = { ok: false, reason: "set_exists", savedSets: result.savedSets };
-            const resolution = resolveSetConflict(exercises, target.sessionExerciseId, exerciseIndex, conflictResult);
-            setExercises((prev) => resolveSetConflict(prev, target.sessionExerciseId, exerciseIndex, conflictResult).exercises);
+            const resolution = resolveSetConflict(exercises, target.sessionExerciseId, exerciseIndex, result);
+            // The index and message come from this render; the sets are applied
+            // to the state at dispatch time so a resume merge is not undone.
+            setExercises((prev) => resolveSetConflict(prev, target.sessionExerciseId, exerciseIndex, result).exercises);
             setExerciseIndex(resolution.nextExerciseIndex);
             setMessage(resolution.message);
             setError(null);
             return;
           }
-          
-          setError(null);
-          setMessage(null);
-          setExercises((prev) =>
-            prev.map((e) =>
-              e.id === target.sessionExerciseId
-                ? {
-                    ...e,
-                    sets: [...e.sets, { setNumber: target.setNumber, reps, weightKg, durationSeconds }],
-                  }
-                : e,
-            ),
-          );
-          
-          const current = exercises[exerciseIndex];
-          if (settings.restAutostart && target.setNumber < current.plannedSets) {
-            startRest(restSeconds);
-          }
-        } else if (result.status === "expired") {
-          setError(null);
-        } else if (result.status === "failed") {
-          setError(result.error);
+          setError("error" in result ? (result.error ?? "Something went wrong") : "Failed");
+          return;
+        }
+
+        setError(null);
+        setMessage(null);
+        setExercises((prev) =>
+          prev.map((e) =>
+            e.id === target.sessionExerciseId
+              ? {
+                  ...e,
+                  sets: [...e.sets, { setNumber: target.setNumber, reps, weightKg, durationSeconds }],
+                }
+              : e,
+          ),
+        );
+        if (settings.restAutostart && target.setNumber < current.plannedSets) {
+          startRest(restSeconds);
         }
       } catch (err) {
         setError(runnerErrorMessage(err));
@@ -1060,14 +923,7 @@ export function SessionRunner({
         skipped,
       });
     } catch (err) {
-      // Handle rejected promise (e.g. 401 proxy rejection on expiry)
-      if (isSessionExpired(err)) {
-        setSessionExpired(true);
-        setError(null);
-      } else {
-        setError(runnerErrorMessage(err, 'action'));
-        setSessionExpired(false);
-      }
+      setError(runnerErrorMessage(err, 'action'));
       busyRef.current = false;
       setBusy(false);
       return;
@@ -1076,17 +932,10 @@ export function SessionRunner({
       setBusy(false);
     }
     if (!result.ok) {
-      // Check if this is a session expiry error
-      if ('code' in result && result.code === "SESSION_EXPIRED") {
-        setSessionExpired(true);
-        setError(null);
-      } else {
-        setError(result.error);
-      }
+      setError(result.error);
       return;
     }
     setError(null);
-    setSessionExpired(false);
     
     // FIX (a): Store feedback from finishExercise for immediate banner display
     if (skipped || !result.data?.message) {
@@ -1111,14 +960,18 @@ export function SessionRunner({
     if (next === -1) {
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
-        if (shouldShowCooldownForPending(settings.cooldownEnabled, pendingSetState.pending.length)) {
-          setPhase("cooldown");
-          return;
-        }
-        await run(() =>
-          actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+        const frozen = stopElapsed();
+        setLastCooldownCompleted(false);
+        const result = await run(() =>
+          actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
         );
-        setPhase("done");
+        if (result && result.ok) {
+          setSavedDurationSeconds(result.data?.durationSeconds ?? null);
+          setPhase("done");
+        } else {
+          resumeElapsed();
+        }
+        setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
       }
     } else {
       setExerciseIndex(next);
@@ -1136,41 +989,6 @@ export function SessionRunner({
         message={message}
     >
       <div onPointerDown={onAnyTap}>
-        {pendingSetState.pending.length > 0 && (
-          <div className="mb-5">
-            {getPendingUiMode(pendingSetState) === "replay-error" ? (
-              <div className="rounded-xl border border-muted/30 bg-muted/10 px-4 py-3 text-sm text-muted">
-                <p className="font-medium">Failed to save sets</p>
-                <p className="mt-1">{getReplayErrorMessage(pendingSetState)}</p>
-              </div>
-            ) : getPendingUiMode(pendingSetState) === "expired" ? (
-              <SessionExpiredPrompt />
-            ) : null}
-            <p className="mt-2 text-sm text-muted">
-              {pendingSetState.pending.length}{" "}
-              {pendingSetState.pending.length === 1 ? "set" : "sets"} waiting to save
-            </p>
-            {controller && (
-              <div className="mt-3">
-                <button
-                  onClick={() => {
-                    controller.replay();
-                  }}
-                  disabled={pendingSetState.retrying}
-                  className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent transition-opacity hover:opacity-90 disabled:opacity-60"
-                >
-                  {pendingSetState.retrying
-                    ? `Saving ${pendingSetState.pending.length} ${
-                        pendingSetState.pending.length === 1 ? "set" : "sets"
-                      }…`
-                    : `Retry saving ${pendingSetState.pending.length} ${
-                        pendingSetState.pending.length === 1 ? "set" : "sets"
-                      }`}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
         {bannerFor === exerciseIndex && bannerContent && (
           <p className="mb-5 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
             <span className="font-semibold">{bannerContent.name}:</span> {bannerContent.message}
@@ -1228,9 +1046,6 @@ export function SessionRunner({
         <ol className="mt-6 space-y-2">
           {Array.from({ length: current.plannedSets }, (_, i) => i + 1).map((n) => {
             const logged = current.sets.find((s) => s.setNumber === n);
-            const isPending = !logged && pendingSetState.pending.some(
-              (s) => s.sessionExerciseId === current.id && s.setNumber === n
-            );
             return (
               <li
                 key={n}
@@ -1251,9 +1066,7 @@ export function SessionRunner({
                             logged.weightKg ? ` · ${formatLoad(logged.weightKg, settings.units)}` : ""
                           }`
                         : "done"
-                      : isPending
-                        ? "waiting…"
-                        : "—"}
+                      : "—"}
                   </span>
                   {/*
                     Undo, offered only on the most recently logged set.
@@ -1312,11 +1125,6 @@ export function SessionRunner({
 
         {allSetsDone && (
           <div className="mt-8">
-            {sessionExpired && (
-              <div className="mb-4">
-                <SessionExpiredPrompt />
-              </div>
-            )}
             <p className="mb-3 text-sm font-medium">How did that feel?</p>
             <div className="grid grid-cols-3 gap-2">
               {FEELS.map((f) => (
@@ -1476,18 +1284,67 @@ export function SessionRunner({
               Skip this exercise
             </GhostButton>
           )}
+          {confirming === "end_early" && (
+            <EndEarlyConfirm
+              totalSetsDone={totalSetsDone}
+              totalSetsPlanned={totalSetsPlanned}
+              triggerRef={endEarlyTriggerRef}
+              offlineError={endEarlyOfflineError}
+              onClearOfflineError={() => setEndEarlyOfflineError(false)}
+              onCancel={() => {
+                setConfirming(null);
+                setEndEarlyOfflineError(false);
+              }}
+              onConfirm={async () => {
+                const ended = await runEndEarly(
+                  {
+                    abandonSession: actions.abandonSession,
+                    stopElapsed,
+                    resumeElapsed,
+                    setError,
+                    navigateToToday: () => router.push("/today"),
+                  },
+                  {
+                    sessionId,
+                    setConfirming: (v) => setConfirming(v),
+                    setOfflineError: setEndEarlyOfflineError,
+                    endingRef,
+                    setEnding,
+                  },
+                );
+                if (ended) restPersistence.clear();
+              }}
+              disabled={ending}
+            />
+          )}
           <GhostButton
-            disabled={isEndEarlyDisabled(busy, pendingSetState.pending.length)}
-            onClick={async () => {
-              if (await run(() => actions.abandonSession(sessionId, elapsed))) {
-                restPersistence.clear();
-                if (onExit) onExit();
-                else router.push("/today");
-              }
-            }}
+            buttonRef={endEarlyTriggerRef}
+            disabled={busy}
+            onClick={() => setConfirming("end_early")}
           >
             End session early
           </GhostButton>
+          {!settings.cooldownEnabled && needsFinishRetry && error && (
+            <BigButton
+              disabled={busy}
+              onClick={async () => {
+                const frozen = stopElapsed();
+                setLastCooldownCompleted(false);
+                const result = await run(() =>
+                  actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
+                );
+                if (result && result.ok) {
+                  setSavedDurationSeconds(result.data.durationSeconds);
+                  setPhase("done");
+                } else {
+                  resumeElapsed();
+                }
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
+              }}
+            >
+              Try again
+            </BigButton>
+          )}
         </div>
 
         <p className="mt-8 text-center text-xs text-muted">
@@ -1840,13 +1697,16 @@ function GhostButton({
   children,
   onClick,
   disabled = false,
+  buttonRef,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  buttonRef?: React.RefObject<HTMLButtonElement | null>;
 }) {
   return (
     <button
+      ref={buttonRef}
       onClick={onClick}
       disabled={disabled}
       className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-60"
@@ -1895,4 +1755,133 @@ export function CapabilityNote({
   if (vibrateEnabled && !vibrationSupported) bits.push("vibration unsupported here");
 
   return <p className="mt-4 text-center text-[11px] text-muted/70">{bits.join(" · ")}</p>;
+}
+
+/**
+ * Confirmation dialog for ending a session early.
+ *
+ * Uses a native <dialog> element opened with showModal() for proper a11y:
+ * - modal semantics with backdrop
+ * - Escape key support via cancel event
+ * - focus trap with Tab/Shift+Tab cycling
+ * - focus management: initial focus on "Keep going", returns to trigger on close
+ * - offline error handling: shows error and clears on 'online' event
+ */
+function EndEarlyConfirm({
+  totalSetsDone,
+  totalSetsPlanned,
+  triggerRef,
+  offlineError,
+  onClearOfflineError,
+  onCancel,
+  onConfirm,
+  disabled = false,
+}: {
+  totalSetsDone: number;
+  totalSetsPlanned: number;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
+  offlineError: boolean;
+  onClearOfflineError: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+  disabled?: boolean;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const keepGoingRef = useRef<HTMLButtonElement>(null);
+  const endSessionRef = useRef<HTMLButtonElement>(null);
+  const onCancelRef = useRef(onCancel);
+  const onConfirmRef = useRef(onConfirm);
+
+  useEffect(() => {
+    onCancelRef.current = onCancel;
+    onConfirmRef.current = onConfirm;
+  });
+
+  useEffect(() => {
+    const handleOnline = () => {
+      onClearOfflineError();
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [onClearOfflineError]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    dialog.showModal();
+
+    const trap = focusTrap({
+      element: dialog,
+      onEscape: () => onCancelRef.current(),
+      returnFocusTo: triggerRef.current,
+      initialFocus: true,
+    });
+
+    const handleCancel = (e: Event) => {
+      e.preventDefault();
+      onCancelRef.current();
+    };
+
+    dialog.addEventListener("cancel", handleCancel);
+
+    return () => {
+      dialog.removeEventListener("cancel", handleCancel);
+      trap.release();
+      dialog.close();
+    };
+  }, [triggerRef]);
+
+  const handleKeepGoing = () => {
+    onCancelRef.current();
+  };
+
+  const handleEndSession = () => {
+    onConfirmRef.current();
+  };
+
+  const hasNoSets = totalSetsDone === 0;
+  const titleText = endEarlyConfirmTitle(totalSetsDone, totalSetsPlanned);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="end-early-title"
+      aria-describedby="end-early-desc"
+      className="max-w-[390px] rounded-xl border border-border bg-surface-2 px-4 py-4 backdrop:bg-bg/80"
+    >
+      <p id="end-early-title" className="text-sm font-medium">
+        {titleText}
+      </p>
+      <p id="end-early-desc" className="mt-2 text-sm text-muted">
+        {hasNoSets
+          ? "You can start it again from Today."
+          : "The session can\u2019t be resumed once ended."}
+      </p>
+      {offlineError && (
+        <p role="alert" className="mt-3 text-sm text-danger">
+          You&apos;re offline. Your session wasn&apos;t ended – try again when you&apos;re back
+          online.
+        </p>
+      )}
+      <div className="mt-4 flex gap-3">
+        <button
+          ref={keepGoingRef}
+          onClick={handleKeepGoing}
+          className="flex-1 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover min-h-11"
+        >
+          Keep going
+        </button>
+        <button
+          ref={endSessionRef}
+          disabled={disabled}
+          onClick={handleEndSession}
+          className="flex-1 rounded-lg bg-surface px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-surface-2 disabled:opacity-60 min-h-11"
+        >
+          End now
+        </button>
+      </div>
+    </dialog>
+  );
 }
