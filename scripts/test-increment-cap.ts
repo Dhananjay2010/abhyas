@@ -241,6 +241,37 @@ console.log("=== One-Increment Cap (kills C1 and CAP-1) ===\n");
   check("Dumbbell 20 kg (easy isolation) → exactly 22.5 kg", result.nextWorkingWeightKg === 22.5, `got ${result.nextWorkingWeightKg}`);
 }
 
+// Pin-stack isolation 40 kg → 45 kg (gridStep = 5kg > increment = 1.25kg, so cap at gridStep)
+{
+  const result = evaluateProgression({
+    sets: [
+      { reps: 12, weightKg: 40, durationSeconds: null },
+      { reps: 12, weightKg: 40, durationSeconds: null },
+      { reps: 12, weightKg: 40, durationSeconds: null },
+    ],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: CURL,
+    state: {
+      currentWorkingWeightKg: 40,
+      currentTargetReps: 12,
+      consecutiveFailures: 0,
+      bestWeightKg: 40,
+      bestReps: 12,
+      bestE1rm: null,
+      totalSessions: 3,
+      weightAtFailureStartKg: null,
+    },
+    isDeload: false,
+    equipmentIds: ["leg_curl"],
+    units: "metric",
+  });
+  
+  check("Leg curl machine isolation 40 kg → exactly 45 kg (gridStep 5kg wins)", result.nextWorkingWeightKg === 45, `got ${result.nextWorkingWeightKg}`);
+}
+
 if (failures > 0) {
   console.error(`\n❌ ${failures} test(s) failed`);
   process.exit(1);
