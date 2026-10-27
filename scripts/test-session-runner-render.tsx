@@ -14,7 +14,7 @@
 
 import "./helpers/setup-jsdom";
 
-import { render, act, screen, cleanup, waitFor } from "@testing-library/react";
+import { render, act, screen, cleanup, waitFor, fireEvent } from "@testing-library/react";
 import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 import { savePendingSet, loadPendingSets } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
@@ -756,16 +756,23 @@ async function test8d8e() {
 
 // Test 9b: Done/Skip buttons disabled while pending
 async function test9b() {
-  console.log("\n📋 Test 9b: Done/Skip buttons disabled while pending");
+  console.log("\n📋 Test 9b: L3 - Done/Skip buttons enabled, replay pending sets then finish");
   
-  const replayDeferred = createDeferred<{ ok: true }>();
+  let logSetCallCount = 0;
+  let finishSessionCalled = false;
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
-    logSet: async () => replayDeferred.promise,
+    logSet: async () => {
+      logSetCallCount++;
+      return { ok: true };
+    },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
+    finishSession: async () => {
+      finishSessionCalled = true;
+      return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
+    },
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -842,35 +849,40 @@ async function test9b() {
     />
   );
   
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  });
+  await act(async () => {});
   
-  // Wait for pending state to load
-  await waitFor(() => {
-    if (!screen.queryByText(/waiting to save/)) throw new Error("Pending notice not shown");
-  }, { timeout: 2000 });
-  
-  // Assert cooldown Done and Skip buttons
-  // Done button now always says "Done" (the pending count is shown in the notice)
+  // Assert cooldown Done and Skip buttons exist and are enabled
   const buttons = screen.getAllByRole("button");
   const doneButton = buttons.find(b => b.textContent?.trim() === "Done");
   const skipCooldownButton = buttons.find(b => b.textContent?.includes("Skip cool-down"));
   
   assert(!!doneButton, "9b: Done button exists");
+  assert(!!skipCooldownButton, "9b: Skip cool-down button exists");
+  
   if (!doneButton || !('disabled' in doneButton)) {
     throw new Error("Done button missing disabled property");
   }
-  assert((doneButton as HTMLButtonElement).disabled === true, "9b: Done button is disabled while sets are pending");
-  
-  // Verify the notice shows the pending count
-  const pendingNotice = screen.queryByText(/1 set waiting to save/i);
-  assert(pendingNotice !== null, "9b: Notice shows '1 set waiting to save'");
-  
-  assert(skipCooldownButton !== null, "9c: Skip cool-down button exists");
-  if (skipCooldownButton && 'disabled' in skipCooldownButton) {
-    assert(skipCooldownButton.disabled === false, "9c: Skip cool-down button is NOT disabled by pending sets (F1)");
+  if (!skipCooldownButton || !('disabled' in skipCooldownButton)) {
+    throw new Error("Skip cool-down button missing disabled property");
   }
+  
+  // L3: Both buttons should be enabled (symmetric behavior)
+  assert((doneButton as HTMLButtonElement).disabled === false, "9b: L3 - Done button is ENABLED (replays pending sets before finishing)");
+  assert((skipCooldownButton as HTMLButtonElement).disabled === false, "9b: L3 - Skip cool-down button is ENABLED (symmetric with Done)");
+  
+  // Click Done button - it should replay pending sets then finish
+  await act(async () => {
+    fireEvent.click(doneButton);
+  });
+  
+  // Wait for async operations
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+  
+  // Assert replay happened and then finish was called
+  assert(logSetCallCount === 1, `9b: L3 - logSet called once during replay (got ${logSetCallCount})`);
+  assert(finishSessionCalled === true, "9b: L3 - finishSession called after replay");
   
   cleanup();
   fakeStorage.clear();

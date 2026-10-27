@@ -317,6 +317,111 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
   unmount2();
   console.log("✓ Test 2 passed\n");
 
+  // ===== Test 3: Non-expired error → NO expired banner (M2) =====
+  console.log("=== Test 3: Non-expired error → NO expired banner ===\n");
+
+  const exercise3 = makeExercise("ex-3", "deadlift", "Deadlift", 1);
+
+  let logSetCalls3 = 0;
+  const actions3: SessionActions = {
+    markWarmupDone: ok,
+    logSet: async () => {
+      logSetCalls3++;
+      await Promise.resolve();
+      return { ok: false, error: "Network error" };
+    },
+    deleteSet: ok,
+    finishExercise: async () =>
+      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: ok,
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => {
+      throw new Error("Should not swap");
+    },
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+  } as unknown as SessionActions;
+
+  const { container: c3, unmount: unmount3 } = render(
+    <SessionRunner
+      sessionId="s3"
+      sessionStatus="in_progress"
+      userId="test-user-3"
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date().toISOString()}
+      isStale={false}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[exercise3]}
+      settings={settings}
+      actions={actions3}
+    />,
+  );
+
+  // Wait for sync
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 4500));
+  });
+
+  await waitFor(() => {
+    if (!c3.textContent?.includes("Deadlift")) throw new Error("Exercise not shown");
+  });
+
+  check("Exercise loaded", true);
+
+  // Log first set with network error
+  const repsInput3 = [...c3.querySelectorAll("input")].find((input) =>
+    input.closest("label")?.textContent?.includes("Reps"),
+  ) as HTMLInputElement | undefined;
+
+  if (!repsInput3) {
+    console.log("  ✗ FAIL Reps input not found");
+    process.exit(1);
+  }
+
+  await act(async () => {
+    fireEvent.change(repsInput3, { target: { value: "10" } });
+  });
+
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  const logBtn3 = [...c3.querySelectorAll("button")].find((b) =>
+    /Log set 1/.test(b.textContent ?? ""),
+  );
+
+  if (!logBtn3) {
+    console.log("  ✗ FAIL Log set button not found");
+    process.exit(1);
+  }
+
+  await act(async () => {
+    fireEvent.click(logBtn3);
+  });
+
+  // Wait for logSet to complete
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+
+  check("Logged set (network error)", logSetCalls3 === 1);
+
+  // Check for NO expired prompt
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  });
+
+  const expiredPrompts3 = (c3.textContent?.match(/session has expired/gi) || []).length;
+  check(`M2: No expired prompt for non-expired error`, expiredPrompts3 === 0, `found ${expiredPrompts3}`);
+
+  unmount3();
+  console.log("✓ Test 3 passed\n");
+
   console.log("\n✅ All L1 tests passed\n");
   process.exit(0);
 })();
