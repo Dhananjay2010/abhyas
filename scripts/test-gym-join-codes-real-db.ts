@@ -518,8 +518,9 @@ async function runTests() {
   const defaultGymId = defaultGymData?.id;
 
   // Create a new user H who will be owner of default gym
+  const emailOwnerH = `gym-owner-default-${Date.now()}@example.com`;
   const { data: userHData } = await adminClient.auth.admin.createUser({
-    email: `gym-owner-default-${Date.now()}@example.com`,
+    email: emailOwnerH,
     password: "test-password-mno",
     email_confirm: true,
   });
@@ -528,7 +529,7 @@ async function runTests() {
 
   const clientH = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   await clientH.auth.signInWithPassword({ 
-    email: `gym-owner-default-${Date.now()}@example.com`, 
+    email: emailOwnerH, 
     password: "test-password-mno" 
   });
 
