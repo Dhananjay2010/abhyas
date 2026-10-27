@@ -7,7 +7,8 @@
  */
 
 import { strict as assert } from "node:assert";
-import { buildStartSessionFullDeps, type DepsClient } from "../src/lib/session/start-session-full-deps";
+import { buildStartSessionFullDeps } from "../src/lib/session/start-session-full-deps";
+import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 
 // Fake Supabase client that simulates a swap collision:
@@ -17,112 +18,53 @@ import type { Database } from "../src/lib/database.types";
 // - Today is scheduled for "day-tuesday-push" (weights)
 // - Collision: today's scheduled day was completed yesterday via swap
 // - Should rotate to "day-wednesday-legs" (weights, different label)
-function makeFakeSupabaseWithCollision(): DepsClient {
-  return {
-    from: (table: string) => {
-      if (table === "program_days") {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                order: () => ({
-                  data: [
-                    { id: "day-monday-rest", day_index: 1, day_type: "rest" as const, label: null },
-                    { id: "day-tuesday-push", day_index: 2, day_type: "weights" as const, label: "Push" },
-                    { id: "day-wednesday-legs", day_index: 3, day_type: "weights" as const, label: "Legs" },
-                    { id: "day-thursday-pull", day_index: 4, day_type: "weights" as const, label: "Pull" },
-                  ],
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      if (table === "sessions") {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                eq: () => ({
-                  order: () => ({
-                    limit: () => ({
-                      maybeSingle: async () => ({
-                        data: { program_day_id: "day-tuesday-push", actual_type: "weights" as const },
-                        error: null,
-                      }),
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      return {
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              order: () => ({
-                data: [],
-                error: null,
-              }),
-            }),
-          }),
-        }),
-      };
-    },
+function makeFakeSupabaseWithCollision() {
+  const stubFetch = async (url: string | URL | Request): Promise<Response> => {
+    const urlStr = url.toString();
+    
+    if (urlStr.includes("/program_days")) {
+      return new Response(JSON.stringify([
+        { id: "day-monday-rest", day_index: 1, day_type: "rest", label: null },
+        { id: "day-tuesday-push", day_index: 2, day_type: "weights", label: "Push" },
+        { id: "day-wednesday-legs", day_index: 3, day_type: "weights", label: "Legs" },
+        { id: "day-thursday-pull", day_index: 4, day_type: "weights", label: "Pull" },
+      ]), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    
+    if (urlStr.includes("/sessions")) {
+      return new Response(JSON.stringify([
+        { program_day_id: "day-tuesday-push", actual_type: "weights" },
+      ]), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    
+    return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
   };
+  
+  return createClient<Database>("http://stub.local", "anon", {
+    global: { fetch: stubFetch as typeof fetch },
+  });
 }
 
-function makeFakeSupabaseNoCollision(): DepsClient {
-  return {
-    from: (table: string) => {
-      if (table === "program_days") {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                order: () => ({
-                  data: [{ id: "day-monday-push", day_index: 1, day_type: "weights" as const, label: "Push" }],
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      if (table === "sessions") {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                eq: () => ({
-                  order: () => ({
-                    limit: () => ({
-                      maybeSingle: async () => ({ data: null, error: null }),
-                    }),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-      return {
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              order: () => ({
-                data: [],
-                error: null,
-              }),
-            }),
-          }),
-        }),
-      };
-    },
+function makeFakeSupabaseNoCollision() {
+  const stubFetch = async (url: string | URL | Request): Promise<Response> => {
+    const urlStr = url.toString();
+    
+    if (urlStr.includes("/program_days")) {
+      return new Response(JSON.stringify([
+        { id: "day-monday-push", day_index: 1, day_type: "weights", label: "Push" },
+      ]), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    
+    if (urlStr.includes("/sessions")) {
+      return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    
+    return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
   };
+  
+  return createClient<Database>("http://stub.local", "anon", {
+    global: { fetch: stubFetch as typeof fetch },
+  });
 }
 
 (async () => {
