@@ -272,6 +272,10 @@ type ProgramDay = {
   day_index: number;
 };
 
+function isDayType(value: string): value is DayType {
+  return ["weights", "bodyweight", "rest", "yoga", "breathing"].includes(value);
+}
+
 /**
  * Resolve tomorrow's workout after a rest-day swap collision.
  * 
@@ -323,10 +327,13 @@ export function resolveTomorrowAfterSwap({
   
   if (!nextDay) return null;
   
+  // Type guard with fallback: rotation is filtered to weights|bodyweight, but type system needs proof
+  const dayType = isDayType(nextDay.day_type) ? nextDay.day_type : "weights";
+  
   return {
     programDayId: nextDay.id,
     label: nextDay.label ?? scheduledTomorrow.label,
-    dayType: nextDay.day_type as DayType,
+    dayType,
   };
 }
 
