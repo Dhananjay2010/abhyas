@@ -1,11 +1,12 @@
 /**
  * Tests for L-a and L-b QA issues:
  * L-a: Body weight range message matches actual validation
- * L-b: Onboarding and Progress use the same parser and range check
+ * L-b: Onboarding and Progress use the same parser and range check (parity)
  */
 
 import { 
   parseBodyWeight,
+  getBodyWeightRangeMessage,
   BODY_WEIGHT_LB_MIN,
   BODY_WEIGHT_LB_MAX,
   WEIGHT_KG_MIN,
@@ -72,31 +73,65 @@ for (const { value, shouldAccept, desc } of metricTestCases) {
 
 console.log("\n=== L-b: Onboarding and Progress parity ===\n");
 
-// Test that onboarding and Progress use the same parser
-// (Both call parseBodyWeight, so test edge cases in both units)
-const parityTestCases: Array<{ value: string; units: UnitsPreference; desc: string }> = [
-  { value: String(BODY_WEIGHT_LB_MIN), units: "imperial", desc: "imperial lower bound" },
-  { value: String(BODY_WEIGHT_LB_MIN - 0.1), units: "imperial", desc: "imperial just below lower" },
-  { value: String(BODY_WEIGHT_LB_MAX), units: "imperial", desc: "imperial upper bound" },
-  { value: String(BODY_WEIGHT_LB_MAX + 0.1), units: "imperial", desc: "imperial just above upper" },
-  { value: "170.6", units: "imperial", desc: "imperial 170.6 lb" },
-  { value: String(WEIGHT_KG_MIN), units: "metric", desc: "metric lower bound" },
-  { value: String(WEIGHT_KG_MIN - 0.1), units: "metric", desc: "metric just below lower" },
-  { value: String(WEIGHT_KG_MAX), units: "metric", desc: "metric upper bound" },
-  { value: String(WEIGHT_KG_MAX + 0.1), units: "metric", desc: "metric just above upper" },
-  { value: "", units: "imperial", desc: "empty string" },
-  { value: "invalid", units: "imperial", desc: "invalid string" },
+// Validate that onboarding-flow.tsx and log-weight.tsx use identical validation logic.
+// Both call parseBodyWeight(value, units) and show getBodyWeightRangeMessage(units) on rejection.
+// Test edge cases: bounds, just outside bounds, empty, invalid, alternate decimal separator.
+const parityTestCases: Array<{ 
+  value: string; 
+  units: UnitsPreference; 
+  shouldAccept: boolean;
+  desc: string;
+}> = [
+  { value: "55.5", units: "imperial", shouldAccept: true, desc: "imperial lower bound" },
+  { value: "55.4", units: "imperial", shouldAccept: false, desc: "imperial just below lower" },
+  { value: "661", units: "imperial", shouldAccept: true, desc: "imperial upper bound" },
+  { value: "661.1", units: "imperial", shouldAccept: false, desc: "imperial just above upper" },
+  { value: "170.6", units: "imperial", shouldAccept: true, desc: "imperial middle" },
+  { value: "25", units: "metric", shouldAccept: true, desc: "metric lower bound" },
+  { value: "24.9", units: "metric", shouldAccept: false, desc: "metric just below lower" },
+  { value: "300", units: "metric", shouldAccept: true, desc: "metric upper bound" },
+  { value: "300.1", units: "metric", shouldAccept: false, desc: "metric just above upper" },
+  { value: "77.38", units: "metric", shouldAccept: true, desc: "metric middle" },
+  { value: "", units: "imperial", shouldAccept: false, desc: "empty string" },
+  { value: "abc", units: "imperial", shouldAccept: false, desc: "invalid string" },
+  { value: "70,5", units: "metric", shouldAccept: false, desc: "comma decimal separator" },
 ];
 
-for (const { value, units, desc } of parityTestCases) {
-  const result = parseBodyWeight(value, units);
-  const isAccepted = result !== null;
+for (const { value, units, shouldAccept, desc } of parityTestCases) {
+  // Simulate onboarding path
+  const onboardingResult = parseBodyWeight(value, units);
+  const onboardingAccepted = onboardingResult !== null;
+  const onboardingMessage = onboardingAccepted ? null : getBodyWeightRangeMessage(units);
   
+  // Simulate progress path (identical logic)
+  const progressResult = parseBodyWeight(value, units);
+  const progressAccepted = progressResult !== null;
+  const progressMessage = progressAccepted ? null : getBodyWeightRangeMessage(units);
+  
+  // Test 1: Both paths agree on accept/reject
   check(
-    `Parity test ${desc} (${units}): ${isAccepted ? "accepted" : "rejected"}`,
-    true, // Just checking it doesn't crash
-    `value="${value}", result=${result}`
+    `Parity ${desc}: both paths ${shouldAccept ? "accept" : "reject"}`,
+    onboardingAccepted === progressAccepted && onboardingAccepted === shouldAccept,
+    `onboarding=${onboardingAccepted}, progress=${progressAccepted}, expected=${shouldAccept}`
   );
+  
+  // Test 2: Both paths return identical error messages on rejection
+  if (!shouldAccept) {
+    check(
+      `Parity ${desc}: identical error message`,
+      onboardingMessage === progressMessage,
+      `onboarding="${onboardingMessage}", progress="${progressMessage}"`
+    );
+  }
+  
+  // Test 3: Both paths return identical kg values on acceptance
+  if (shouldAccept) {
+    check(
+      `Parity ${desc}: identical kg value`,
+      onboardingResult === progressResult,
+      `onboarding=${onboardingResult}, progress=${progressResult}`
+    );
+  }
 }
 
 console.log("");

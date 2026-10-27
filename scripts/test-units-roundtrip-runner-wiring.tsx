@@ -41,34 +41,35 @@ const testCases = [
 ];
 
 (async () => {
-  const actions: SessionActions = {
-    markWarmupDone: async () => ({ ok: true }),
-    logSet: async () => ({ ok: true }),
-    deleteSet: async () => ({ ok: true }),
-    finishExercise: async () =>
-      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: async () => ({ ok: true }),
-    abandonSession: async () => ({ ok: true }),
-    planDay: async () => ({ ok: true }),
-    refreshAfterSession: async () => ({ ok: true }),
-    swapExercise: async () => ({ 
-      ok: true, 
-      data: { 
-        workoutSessionExerciseId: "", 
-        exerciseId: "",
-        metric: "reps" as const,
-        repsMin: null,
-        repsMax: null,
-        equipmentIds: [],
-        weightPrefill: null,
-        workingWeightKg: null,
-        currentTargetReps: null,
-        isBodyweight: false,
-      } 
-    }),
-    findAlternatives: async () => ({ ok: true as const, data: [] }),
-    getSessionSummary: async () => ({ ok: true as const, data: [] }),
-  };
+  for (const { kg, expectedPrefill, expectedLine, expectedWorking, desc } of testCases) {
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async () => ({ ok: true }),
+      deleteSet: async () => ({ ok: true }),
+      finishExercise: async () =>
+        ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+      finishSession: async () => ({ ok: true }),
+      abandonSession: async () => ({ ok: true }),
+      planDay: async () => ({ ok: true }),
+      refreshAfterSession: async () => ({ ok: true }),
+      swapExercise: async () => ({ 
+        ok: true, 
+        data: { 
+          workoutSessionExerciseId: "", 
+          exerciseId: "",
+          metric: "reps" as const,
+          repsMin: null,
+          repsMax: null,
+          equipmentIds: [],
+          weightPrefill: null,
+          workingWeightKg: null,
+          currentTargetReps: null,
+          isBodyweight: false,
+        } 
+      }),
+      findAlternatives: async () => ({ ok: true as const, data: [] }),
+      getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    };
 
   const settings = {
     perSetLogging: true,
@@ -80,7 +81,6 @@ const testCases = [
     units: "imperial" as const,
   };
 
-  for (const { kg, expectedPrefill, expectedLine, expectedWorking, desc } of testCases) {
     const exercise: RunnerExercise = {
       id: "ex1",
       exerciseId: "bench-press",
@@ -122,13 +122,21 @@ const testCases = [
         throw new Error("Exercise not loaded");
     });
 
-    const text = r.container.textContent || "";
+    // Check working weight line (scoped to working-weight element)
+    const workingWeightElements = [...r.container.querySelectorAll("*")].filter(
+      (el) => el.textContent?.includes("Working weight")
+    );
     
-    // Check working weight line
     const workingLine = expectedLine || expectedWorking || "";
-    const hasWorkingWeight = text.includes("Working weight") && text.includes(workingLine);
-    check(`${desc}: Working weight line shows "${workingLine}"`, hasWorkingWeight, 
-      hasWorkingWeight ? "" : `text includes: ${text.slice(0, 200)}`);
+    const foundInWorkingWeight = workingWeightElements.some(
+      (el) => el.textContent?.includes(workingLine)
+    );
+    
+    check(
+      `${desc}: Working weight element shows "${workingLine}"`, 
+      foundInWorkingWeight,
+      foundInWorkingWeight ? "" : `working weight elements: ${workingWeightElements.map(e => e.textContent).join("; ")}`
+    );
     
     // Check weight input prefill
     const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
@@ -137,6 +145,7 @@ const testCases = [
 
     if (!weightInput) {
       check(`${desc}: Weight input found`, false, "input not found");
+      r.unmount();
       continue;
     }
 
@@ -144,19 +153,19 @@ const testCases = [
     check(`${desc}: Weight input prefill is "${expectedPrefill}"`, prefillValue === expectedPrefill,
       `expected "${expectedPrefill}", got "${prefillValue}"`);
     
-    r.unmount();
-  }
-
-  // Test unedited submit (using weightKgToSubmit directly)
-  const { weightKgToSubmit } = await import("../src/lib/units");
-  
-  for (const { kg, expectedPrefill, desc } of testCases) {
-    const submitted = weightKgToSubmit(expectedPrefill, expectedPrefill, kg, "imperial");
+    // Test unedited submit: verify weightKgToSubmit logic
+    // The button click would call weightKgToSubmit(weight, initialPrefill, defaultWeight, units)
+    // where weight === initialPrefill (unedited). This tests the exact logic used on submit.
+    const { weightKgToSubmit } = await import("../src/lib/units");
+    const submittedKg = weightKgToSubmit(expectedPrefill, expectedPrefill, kg, "imperial");
+    
     check(
       `${desc}: unedited prefill submits original ${kg} kg exactly`,
-      submitted === kg,
-      `expected ${kg}, got ${submitted}`
+      submittedKg === kg,
+      `expected ${kg}, got ${submittedKg}`
     );
+    
+    r.unmount();
   }
 
   if (failures === 0) {

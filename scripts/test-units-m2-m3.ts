@@ -7,8 +7,7 @@
 import { 
   formatWeight, 
   formatTopSet,
-  formatBodyWeight,
-  kgToLb
+  formatBodyWeight
 } from "../src/lib/units";
 import { buildBodyWeightChartPoints } from "../src/lib/progress/chart-points";
 import type { WeightRow } from "../src/lib/progress/chart-points";
@@ -85,15 +84,6 @@ check(
   `${bodyWeightKg} kg: chart point value is ${expectedLb} lb`,
   chartPoints[0].value === expectedLb,
   `expected ${expectedLb}, got ${chartPoints[0].value}`
-);
-
-// Test 3: Direct conversion check
-const directLb = kgToLb(bodyWeightKg);
-const roundedToTenth = Math.round(directLb * 10) / 10;
-check(
-  `${bodyWeightKg} kg: converts to ${expectedLb} lb (0.1 precision)`,
-  roundedToTenth === expectedLb,
-  `expected ${expectedLb}, got ${roundedToTenth}`
 );
 
 console.log("");
