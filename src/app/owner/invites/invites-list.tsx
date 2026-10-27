@@ -3,7 +3,8 @@
 import { useState } from "react";
 import type { Database } from "@/lib/database.types";
 import { createJoinCode, revokeJoinCode } from "./actions";
-import { formatJoinCodeExpiry, isJoinCodeActive } from "./code-helpers";
+import { formatJoinCodeExpiry } from "./code-helpers";
+import { splitJoinCodes } from "@/lib/split-join-codes";
 
 type JoinCode = Database["public"]["Tables"]["gym_join_codes"]["Row"];
 type GymRole = Database["public"]["Enums"]["gym_role"];
@@ -143,66 +144,100 @@ export function InvitesList({ gymId, initialCodes, timezone }: InvitesListProps)
         )}
       </section>
 
-      <section>
-        <h2 className="text-lg font-semibold mb-4">Active Codes</h2>
-        {codes.length === 0 ? (
-          <p className="text-sm text-muted">No invite codes yet. Create one above.</p>
-        ) : (
-          <div className="space-y-3">
-            {codes.map((code) => {
-              const isActive = isJoinCodeActive(code);
-              const expiryText = formatJoinCodeExpiry(code, timezone);
-              
-              return (
-                <div
-                  key={code.id}
-                  className={`rounded-xl border ${isActive ? 'border-border bg-surface-2' : 'border-border/50 bg-surface-1 opacity-60'} px-6 py-4`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <code className="text-lg font-mono font-bold">{code.code}</code>
-                        <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
-                          {code.role}
-                        </span>
-                        {!isActive && (
-                          <span className="rounded-full bg-danger/10 px-3 py-1 text-xs font-medium text-danger">
-                            {code.revoked_at ? "Revoked" : "Expired"}
-                          </span>
-                        )}
+      {(() => {
+        const { active, inactive } = splitJoinCodes(codes);
+        
+        return (
+          <>
+            <section>
+              <h2 className="text-lg font-semibold mb-4">Active Codes</h2>
+              {active.length === 0 ? (
+                <p className="text-sm text-muted">No active invite codes. Create one above.</p>
+              ) : (
+                <div className="space-y-3">
+                  {active.map((code) => {
+                    const expiryText = formatJoinCodeExpiry(code, timezone);
+                    
+                    return (
+                      <div
+                        key={code.id}
+                        className="rounded-xl border border-border bg-surface-2 px-6 py-4"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <code className="text-lg font-mono font-bold">{code.code}</code>
+                              <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
+                                {code.role}
+                              </span>
+                            </div>
+                            <div className="mt-2 text-sm text-muted">
+                              <div>Uses: {code.use_count}{code.max_uses ? ` / ${code.max_uses}` : " (unlimited)"}</div>
+                              {expiryText && <div>{expiryText}</div>}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyLink(code.code)}
+                              className="rounded-lg border border-border bg-surface-3 px-4 py-2 text-xs font-medium text-fg transition-colors hover:bg-surface-4"
+                            >
+                              Copy Link
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRevokeCode(code.id)}
+                              className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-2 text-xs font-medium text-danger transition-colors hover:bg-danger/20"
+                            >
+                              Revoke
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="mt-2 text-sm text-muted">
-                        <div>Uses: {code.use_count}{code.max_uses ? ` / ${code.max_uses}` : " (unlimited)"}</div>
-                        {expiryText && <div>{expiryText}</div>}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      {isActive && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyLink(code.code)}
-                            className="rounded-lg border border-border bg-surface-3 px-4 py-2 text-xs font-medium text-fg transition-colors hover:bg-surface-4"
-                          >
-                            Copy Link
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRevokeCode(code.id)}
-                            className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-2 text-xs font-medium text-danger transition-colors hover:bg-danger/20"
-                          >
-                            Revoke
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+              )}
+            </section>
+
+            {inactive.length > 0 && (
+              <section>
+                <h2 className="text-lg font-semibold mb-4">Inactive</h2>
+                <div className="space-y-3">
+                  {inactive.map((code) => {
+                    const expiryText = formatJoinCodeExpiry(code, timezone);
+                    
+                    return (
+                      <div
+                        key={code.id}
+                        className="rounded-xl border border-border/50 bg-surface-1 opacity-60 px-6 py-4"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <code className="text-lg font-mono font-bold">{code.code}</code>
+                              <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
+                                {code.role}
+                              </span>
+                              <span className="rounded-full bg-danger/10 px-3 py-1 text-xs font-medium text-danger">
+                                {code.revoked_at ? "Revoked" : code.max_uses !== null && code.use_count >= code.max_uses ? "Exhausted" : "Expired"}
+                              </span>
+                            </div>
+                            <div className="mt-2 text-sm text-muted">
+                              <div>Uses: {code.use_count}{code.max_uses ? ` / ${code.max_uses}` : " (unlimited)"}</div>
+                              {expiryText && <div>{expiryText}</div>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }

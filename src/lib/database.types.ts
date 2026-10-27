@@ -1626,12 +1626,6 @@ export type Database = {
         }
         Returns: Json
       }
-      check_join_code_throttle: {
-        Args: {
-          p_user_id: string
-        }
-        Returns: undefined
-      }
       generate_join_code: {
         Args: Record<PropertyKey, never>
         Returns: string
