@@ -86,7 +86,7 @@ async function runTests() {
     if (!input.equipmentIds || input.equipmentIds.length === 0) {
       throw new Error("MUTANT: equipmentIds dropped from input");
     }
-    if (input.units !== "metric") {
+    if (("units" in input ? input.units : "metric") !== "metric") {
       throw new Error("MUTANT: units dropped from input");
     }
   }
@@ -149,8 +149,8 @@ async function runTests() {
     if (!input.equipmentIds || input.equipmentIds.length === 0) {
       throw new Error("MUTANT: equipmentIds dropped");
     }
-    if (input.units !== "metric") {
-      throw new Error("MUTANT: units dropped");
+    if (("units" in input ? input.units : "metric") !== "metric") {
+      throw new Error("MUTANT: units dropped or set incorrectly");
     }
   }
 
@@ -212,8 +212,8 @@ async function runTests() {
     if (!input.equipmentIds || input.equipmentIds.length === 0) {
       throw new Error("MUTANT: equipmentIds dropped");
     }
-    if (input.units !== "imperial") {
-      throw new Error("MUTANT: units dropped");
+    if (("units" in input ? input.units : "metric") !== "imperial") {
+      throw new Error("MUTANT: units dropped or set incorrectly");
     }
   }
 
@@ -275,8 +275,8 @@ async function runTests() {
     if (!input.equipmentIds || input.equipmentIds.length === 0) {
       throw new Error("MUTANT: equipmentIds dropped");
     }
-    if (input.units !== "imperial") {
-      throw new Error("MUTANT: units dropped");
+    if (("units" in input ? input.units : "metric") !== "imperial") {
+      throw new Error("MUTANT: units dropped or set incorrectly");
     }
   }
 
