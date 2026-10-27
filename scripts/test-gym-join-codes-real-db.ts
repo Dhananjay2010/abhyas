@@ -600,17 +600,20 @@ async function runTests() {
   // TEST: Owner redeeming their own gym's member code (idempotent no-op)
   console.log("TEST: Owner of gym A redeeming member code for gym A (no-op)");
   
+  // Get the member code id
+  const memberCodeId = memberCodeData?.[0]?.id;
+  
   // Get current use_count for gym A member code
   const { data: beforeUseCount } = await adminClient
     .from("gym_join_codes")
     .select("use_count")
-    .eq("id", gymAMemberCodeId)
+    .eq("id", memberCodeId)
     .single();
   const useCountBefore = beforeUseCount?.use_count ?? 0;
   
   // Owner A redeems member code for their own gym (should be no-op)
   const { error: ownerARedeemOwnError } = await clientA.rpc("redeem_join_code", {
-    p_code: gymAMemberCode,
+    p_code: memberCode,
   });
   check("Owner A can call redeem on their own gym code (no-op)", !ownerARedeemOwnError, ownerARedeemOwnError?.message);
   
@@ -618,7 +621,7 @@ async function runTests() {
   const { data: afterUseCount } = await adminClient
     .from("gym_join_codes")
     .select("use_count")
-    .eq("id", gymAMemberCodeId)
+    .eq("id", memberCodeId)
     .single();
   check("Use count unchanged after owner redeeming own gym code", afterUseCount?.use_count === useCountBefore);
   
