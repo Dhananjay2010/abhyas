@@ -1,148 +1,204 @@
 /**
  * Runtime gym branding resolution for per-request white-label hosting.
  *
- * Resolves the gym from the request host and merges its brand fields over
- * the build-time base brand. Only VERIFIED gym_domains mappings are returned.
+ * Resolves brand via 3-tier fallback:
+ * 1. Host-mapped verified gym (host wins)
+ * 2. User's active gym membership (member fallback)
+ * 3. Base brand (default)
  */
 
 import { headers } from "next/headers";
 import { cache } from "react";
-import { branding, type Brand, validateTimezone } from "@/lib/branding";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
+import { branding, type Brand } from "@/lib/branding";
+import { createClient } from "@/lib/supabase/server";
 import { getGymBrand } from "@/lib/gym-brand";
-import { accessibleTextColor } from "@/lib/contrast";
+import { getUserGymMembership } from "@/lib/gym/member-gym";
+import { accessibleTextColor, contrastRatio } from "@/lib/contrast";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 
 /**
- * RPC return type from resolve_gym_by_host
+ * Resolution result for branding.
+ * Tracks which tier resolved the brand (for host-wins notice).
  */
-type ResolveGymResult = {
-  gym_id: string;
-  gym_slug: string;
-  gym_name: string;
+export type BrandResolution = {
+  brand: Brand;
+  /** Gym ID that provided the brand (null if base) */
+  gymId: string | null;
+  /** Gym name (null if base) */
+  gymName: string | null;
+  /** Resolution tier: 'host', 'member', or 'base' */
+  tier: "host" | "member" | "base";
 };
 
 /**
- * Type guard for ResolveGymResult
+ * Resolve brand following the 3-tier resolution order:
+ * 1. Host-mapped verified gym (host wins)
+ * 2. User's active gym membership (member fallback)
+ * 3. Base brand (default)
+ * 
+ * @param supabase Supabase client
+ * @param host Hostname from the request (null for no host)
+ * @param userId User ID if signed in (null for anon)
+ * @param base Base brand to use as fallback
+ * @param fetchGymBrand Optional fetcher for gym brand (for testing)
  */
-function isResolveGymResult(row: unknown): row is ResolveGymResult {
-  if (typeof row !== 'object' || row === null) return false;
-  if (!('gym_id' in row) || typeof row.gym_id !== 'string') return false;
-  if (!('gym_slug' in row) || typeof row.gym_slug !== 'string') return false;
-  if (!('gym_name' in row) || typeof row.gym_name !== 'string') return false;
-  return true;
-}
-
-/**
- * Merge a gym's Partial<Brand> over the base brand.
- * Validates colors (hex), URL (https), and name length.
- * Invalid fields fall back to base values; never throws.
- */
-function mergeBrand(base: Brand, gym: Partial<Brand>): Brand {
-  const merged: Brand = { ...base };
-
-  // Merge name if valid
-  if (gym.name && typeof gym.name === 'string' && gym.name.length > 0 && gym.name.length <= 100) {
-    merged.name = gym.name;
-    merged.shortName = gym.name.length <= 12 ? gym.name : gym.name.slice(0, 12);
-  }
-
-  // Merge logo if valid (https:// URL)
-  if (gym.logo && typeof gym.logo === 'string' && /^https:\/\/.+/.test(gym.logo)) {
-    merged.logo = gym.logo;
-  }
-
-  // Merge timezone if valid
-  if (gym.timezone && typeof gym.timezone === 'string') {
-    const validated = validateTimezone(gym.timezone);
-    if (validated) {
-      merged.timezone = validated;
-    }
-  }
-
-  // Merge colors if valid (must have both accent and accentHover)
-  if (gym.colors && typeof gym.colors === 'object') {
-    const hexRegex = /^#[0-9a-fA-F]{6}$/;
-    const accent = gym.colors.accent;
-    const accentHover = gym.colors.accentHover;
-
-    if (accent && hexRegex.test(accent) && accentHover && hexRegex.test(accentHover)) {
-      merged.colors = {
-        ...base.colors,
-        accent,
-        accentHover,
-        accentFg: accessibleTextColor(accent),
-      };
-    }
-  }
-
-  return merged;
-}
-
-/**
- * Resolve brand for a given host (pure-ish, testable).
- * Takes a Supabase client, host, and a brand fetcher function.
- * Returns the merged brand.
- */
-export async function resolveBrandForHost(
-  supabase: ReturnType<typeof createSupabaseClient<Database>>,
+export async function resolveBrand(
+  supabase: SupabaseClient<Database>,
   host: string | null,
+  userId: string | null,
   base: Brand,
   fetchGymBrand: (gymId: string) => Promise<Partial<Brand>> = getGymBrand
-): Promise<Brand> {
-  if (!host) {
-    return base;
+): Promise<BrandResolution> {
+  // Tier 1: Host-mapped verified gym
+  if (host) {
+    const normalizedHost = host.toLowerCase().split(":")[0];
+
+    // Localhost and vercel preview domains skip tier 1
+    const isUnmapped =
+      normalizedHost === "localhost" ||
+      normalizedHost.endsWith(".vercel.app");
+
+    if (!isUnmapped) {
+      try {
+        const { data, error } = await supabase.rpc("resolve_gym_by_host", {
+          p_host: normalizedHost,
+        });
+
+        if (!error && data && data.length > 0) {
+          const resolution = data[0];
+
+          if (resolution.verified && resolution.gym_id) {
+            const gymBrand = await fetchGymBrand(resolution.gym_id);
+            const brand = mergeBrand(base, gymBrand);
+
+            return {
+              brand,
+              gymId: resolution.gym_id,
+              gymName: resolution.gym_name || null,
+              tier: "host",
+            };
+          }
+        }
+      } catch (err) {
+        console.error("Host resolution error:", err);
+      }
+    }
   }
 
-  try {
-    const { data: hostData, error: hostError } = await supabase.rpc("resolve_gym_by_host", {
-      p_host: host,
-    });
+  // Tier 2: User's active gym membership
+  if (userId) {
+    try {
+      const membership = await getUserGymMembership(supabase, userId);
 
-    if (hostError || !hostData || hostData.length === 0) {
-      return base;
+      if (membership) {
+        const gymBrand = await fetchGymBrand(membership.gymId);
+        const brand = mergeBrand(base, gymBrand);
+
+        return {
+          brand,
+          gymId: membership.gymId,
+          gymName: membership.gymName,
+          tier: "member",
+        };
+      }
+    } catch (err) {
+      console.error("Member gym resolution error:", err);
     }
-
-    const row = hostData[0];
-    if (!isResolveGymResult(row)) {
-      return base;
-    }
-
-    const gymId = row.gym_id;
-    const gymBrand = await fetchGymBrand(gymId);
-    return mergeBrand(base, gymBrand);
-  } catch {
-    // On error, fall back to base brand
-    return base;
   }
+
+  // Tier 3: Base brand
+  return {
+    brand: base,
+    gymId: null,
+    gymName: null,
+    tier: "base",
+  };
 }
 
 /**
- * Get the brand for the current request.
- * Wrapped in React cache() so multiple components in one render share the result.
- * 
- * Resolves the gym from the request host, fetches its brand fields, and merges
- * them over the build-time base brand. Unmapped hosts get the base brand
- * (byte-identical to today).
+ * Get the runtime brand resolution for the current request.
+ * Cached per request via React cache().
+ * Follows 3-tier resolution: host → member → base.
+ */
+export const getRequestBrandResolution = cache(async (): Promise<BrandResolution> => {
+  const headersList = await headers();
+  const host = headersList.get("host");
+  const supabase = await createClient();
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id ?? null;
+  
+  return resolveBrand(supabase, host, userId, branding);
+});
+
+/**
+ * Get the runtime brand for the current request.
+ * Cached per request via React cache().
  */
 export const getRequestBrand = cache(async (): Promise<Brand> => {
-  const headersList = await headers();
-  const host = headersList.get('host');
-
-  // Create an anon client (no cookies, no session)
-  const supabase = createSupabaseClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    },
-  );
-
-  return resolveBrandForHost(supabase, host, branding);
+  const resolution = await getRequestBrandResolution();
+  return resolution.brand;
 });
+
+/**
+ * Merge a partial brand over a base brand.
+ * Validates colors (hex), URLs (https or /storage/), and name length.
+ * Applies contrast guard: accent must have >= 3:1 contrast against app bg.
+ * Never throws; invalid values are silently ignored.
+ */
+export function mergeBrand(base: Brand, partial: Partial<Brand>): Brand {
+  const merged = { ...base };
+  
+  // Merge ID
+  if (partial.id) {
+    merged.id = partial.id;
+  }
+  
+  // Merge name (2-100 chars)
+  if (partial.name && partial.name.length >= 2 && partial.name.length <= 100) {
+    merged.name = partial.name;
+  }
+  
+  // Merge logo (https:// or /storage/)
+  if (partial.logo) {
+    const logoStr = String(partial.logo);
+    if (logoStr.startsWith("https://") || logoStr.startsWith("/storage/")) {
+      merged.logo = logoStr;
+    }
+  }
+  
+  // Merge colors (hex only) with contrast guard
+  if (partial.colors) {
+    const hexRegex = /^#[0-9a-fA-F]{6}$/;
+    merged.colors = { ...base.colors };
+    
+    // Contrast guard: accent must have >= 3:1 contrast against app bg
+    // App bg is base.colors.bg (#0a0c0e for default brand)
+    const appBg = base.colors.bg;
+    
+    if (partial.colors.accent && hexRegex.test(partial.colors.accent)) {
+      const ratio = contrastRatio(partial.colors.accent, appBg);
+      if (ratio >= 3.0) {
+        merged.colors.accent = partial.colors.accent;
+      }
+      // If contrast < 3:1, fall back to base.colors.accent (buttons remain visible)
+    }
+    
+    if (partial.colors.accentHover && hexRegex.test(partial.colors.accentHover)) {
+      const ratio = contrastRatio(partial.colors.accentHover, appBg);
+      if (ratio >= 3.0) {
+        merged.colors.accentHover = partial.colors.accentHover;
+      }
+    }
+    
+    if (partial.colors.accentFg && hexRegex.test(partial.colors.accentFg)) {
+      merged.colors.accentFg = partial.colors.accentFg;
+    }
+  }
+  
+  return merged;
+}
 
 /**
  * Get CSS variable declarations for a brand's colors.

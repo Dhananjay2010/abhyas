@@ -5,7 +5,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { NewVersionHint } from "@/components/new-version-hint";
 import { branding } from "@/lib/branding";
-import { getRequestBrand, getBrandCssVariablesForBrand } from "@/lib/runtime-brand";
+import { getRequestBrandResolution, getBrandCssVariablesForBrand } from "@/lib/runtime-brand";
 import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 import { InProgressBar } from "@/components/in-progress-bar";
 import { PendingSetReplayProvider } from "@/components/pending-set-replay-provider";
@@ -15,10 +15,15 @@ import { createClient } from "@/lib/supabase/server";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 async function getHostWinsNoticeProps(): Promise<{ userGymName: string | null; hostGymName: string | null }> {
-  const supabase = await createClient();
-  const brand = await getRequestBrand();
+  const resolution = await getRequestBrandResolution();
+  
+  // Only show notice in tier "host" (host wins)
+  if (resolution.tier !== "host") {
+    return { userGymName: null, hostGymName: null };
+  }
   
   // Get user's gym
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   let userGymName: string | null = null;
   
@@ -36,14 +41,20 @@ async function getHostWinsNoticeProps(): Promise<{ userGymName: string | null; h
     }
   }
   
-  // Host gym name comes from the brand
-  const hostGymName = brand.id !== 'default' && brand.name !== branding.name ? brand.name : null;
+  // Host gym name comes from resolution
+  const hostGymName = resolution.gymName;
+  
+  // Only show if user has a gym AND it differs from host gym
+  if (!userGymName || !hostGymName || userGymName === hostGymName) {
+    return { userGymName: null, hostGymName: null };
+  }
   
   return { userGymName, hostGymName };
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const brand = await getRequestBrand();
+  const resolution = await getRequestBrandResolution();
+  const brand = resolution.brand;
   
   return {
     metadataBase: new URL(branding.siteUrl),
@@ -91,7 +102,8 @@ export default async function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   // Inject brand CSS variables on the server to avoid flash of default theme.
   // Runtime brand is resolved from the request host.
-  const brand = await getRequestBrand();
+  const resolution = await getRequestBrandResolution();
+  const brand = resolution.brand;
   const brandCssVars = getBrandCssVariablesForBrand(brand);
   const noticeProps = await getHostWinsNoticeProps();
 
