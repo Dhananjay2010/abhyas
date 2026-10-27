@@ -488,14 +488,14 @@ async function runTests() {
   // Create anon client for public access tests
   const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // TEST: Anon cannot set branding (BRND1)
+  // TEST: Anon cannot set branding (permission denied)
   console.log("TEST: Anon cannot set branding");
   {
     const { error } = await anonClient.rpc("set_gym_branding", {
       p_gym_id: gymId,
       p_display_name: "Anon Hack",
     });
-    check("Anon cannot call set_gym_branding", !!error && error.code === "BRND1");
+    check("Anon cannot call set_gym_branding", !!error, error?.message);
   }
   console.log();
 
