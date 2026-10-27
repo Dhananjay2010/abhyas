@@ -41,7 +41,7 @@ export type LogSetCoreDeps = {
       weightKg: number | null;
       durationSeconds: number | null;
     }
-  ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  ) => Promise<LogSetResult>;
 };
 
 export type LogSetInput = {
