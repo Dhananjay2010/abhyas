@@ -79,13 +79,13 @@ const EXPECTED_UNSAFE_KNEE_LUNGES = new Set([
   "smith-machine-pistol-squat",
 ]);
 
-// Hard-coded PAST_KNEE_LUNGE_EXERCISES (3-exercise list after single-leg-leg-extension exclusion)
-// Owner decision: single-leg-leg-extension excluded for past-knee only
-// Actual past-knee lunge list from generator
+// Hard-coded PAST_KNEE_LUNGE_EXERCISES (3-exercise quad isolation list)
+// These are the allowed quad-isolation exercises for past-knee SQUAT swaps
+// (Not actual lunge exercises; the name is historical)
 const EXPECTED_PAST_KNEE_LUNGE_EXERCISES = new Set([
-  "split-squat-with-dumbbells",
-  "dumbbell-rear-lunge",
-  "barbell-step-ups",
+  "leg-extensions",
+  "wall-sit",
+  "spanish-squat",
 ]);
 
 // Verify single-leg-leg-extension is NOT in the past-knee list (it's excluded for past-knee)

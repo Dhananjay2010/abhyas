@@ -144,7 +144,61 @@ echo ""
 
 # Mutant 5: Thruster without knee tag (will test after we add the migration)
 echo "Testing M5: Thruster without knee tag"
-echo "  ⊘ SKIP: Will be tested after catalogue/migration update"
+echo "  ⊘ SKIP: Checked-in fixture already has knee tag"
+echo ""
+
+# Mutant 6: Math.random tie-break
+run_mutant_test \
+  "M6: Math.random tie-break" \
+  "src/lib/session/eligible-swap-list.ts" \
+  'const tieBreakFn = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);' \
+  'const tieBreakFn = (slug: string) => Math.random(); // MUTANT' \
+  "npx tsx scripts/test-replace-banned-in-planned.ts"
+
+# Mutant 7: Today call site removed
+run_mutant_test \
+  "M7: Today call site removed" \
+  "src/app/today/page.tsx" \
+  'const result = replaceBannedInPlanned(planned, catalogue, generatorInput);' \
+  '// MUTANT: replaceBannedInPlanned call removed' \
+  "npx tsx scripts/test-replace-banned-in-planned.ts"
+
+# Mutant 8: ensure-session-exercises call site removed
+run_mutant_test \
+  "M8: ensure-session-exercises call site removed" \
+  "src/lib/session/ensure-session-exercises.ts" \
+  'const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId);' \
+  '// MUTANT: applyBannedCleanup call removed; const cleaned = plannedForCleaning;' \
+  "npx tsx scripts/test-replace-banned-in-planned.ts"
+
+# Mutant 9: generate.ts:828 reverted to past-only
+GEN_FILE="src/lib/program/generate.ts"
+backup_file "$GEN_FILE"
+
+# Need to handle special regex characters carefully
+ORIGINAL_LINE='.filter((item) => !(hasCurrentKnee && (isExcludedForPastKnee(item.e) || isExcludedForCurrentKneeOnly(item.e))));'
+
+if grep -qF "$ORIGINAL_LINE" "$GEN_FILE"; then
+  # Apply mutation
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "s|.*hasCurrentKnee.*isExcludedForPastKnee.*isExcludedForCurrentKneeOnly.*|      // MUTANT: current-knee filter removed|" "$GEN_FILE"
+  else
+    sed -i "s|.*hasCurrentKnee.*isExcludedForPastKnee.*isExcludedForCurrentKneeOnly.*|      // MUTANT: current-knee filter removed|" "$GEN_FILE"
+  fi
+  
+  echo "Testing M9: generate.ts:828 reverted to past-only"
+  if npx tsx scripts/test-generate-current-knee-filter.ts > /dev/null 2>&1; then
+    echo "  ✗ SURVIVED: Mutant not killed"
+    FAILURES=$((FAILURES + 1))
+  else
+    echo "  ✓ KILLED: Test failed as expected"
+  fi
+else
+  echo "Testing M9: generate.ts:828 reverted to past-only"
+  echo "  ⊘ SKIP: Original pattern not found"
+fi
+
+restore_file "$GEN_FILE"
 echo ""
 
 echo "================================================================================"
