@@ -12,10 +12,6 @@ import {
   evaluateProgression,
 } from "@/lib/program/progression";
 import { buildProgressionInput } from "@/lib/session/build-progression-input";
-import { progressionFeedback, buildProgressionFeedbackForUser } from "@/lib/session/progression-feedback";
-import { getProfileUnits } from "@/lib/get-profile-units";
-import type { UnitsPreference } from "@/lib/units";
-import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
 import { planDayCore, type PlanDayClient } from "@/lib/session/plan-day-core";
@@ -24,6 +20,7 @@ import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
+import { finishSessionAction, abandonSessionAction } from "@/lib/session/session-action-wrappers";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligible-swap-list";
@@ -169,6 +166,7 @@ export async function deleteSet(
 }
 
 import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+import { makeFinishExerciseDeps } from "@/lib/session/finish-exercise-deps";
 
 export type { ProgressionFeedback, SummaryNote };
 
@@ -191,8 +189,9 @@ export async function finishExercise(input: {
   if (rateLimit) return rateLimit as Result<ProgressionFeedback | null>;
   
   const { supabase, user } = await requireUser();
+  const deps = makeFinishExerciseDeps(supabase, applyProgression);
 
-  return finishExerciseCore(supabase, user.id, input, { applyProgression });
+  return finishExerciseCore(deps, user.id, input);
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
@@ -203,7 +202,98 @@ async function applyProgression(
   sessionExerciseId: string,
   feel: SetFeel | null,
 ): Promise<ProgressionFeedback | null> {
-  return buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel);
+  const { data: settings } = await supabase
+    .from("user_settings")
+    .select("planning_mode, per_set_logging")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  // Daily-menu mode keeps no working-weight memory. History is preserved, so
+  // switching back to progression resumes from where it left off.
+  if (settings?.planning_mode === "daily_menu") return null;
+
+  const { data: se } = await supabase
+    .from("session_exercises")
+    .select("id, session_id, exercise_id, planned_sets, planned_reps_min, planned_reps_max, metric, exercises!session_exercises_exercise_id_fkey(mechanic, movement_pattern, equipment_ids, progression_chain, progression_rank)")
+    .eq("id", sessionExerciseId)
+    .maybeSingle();
+  if (!se) return null;
+
+  const ex = se.exercises as unknown as {
+    mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
+    movement_pattern: MovementPattern;
+    equipment_ids: string[];
+    progression_chain: string | null;
+    progression_rank: number | null;
+  };
+  if (!ex) return null;
+
+  const [sessionRes, setsRes, progressRes] = await Promise.all([
+    supabase.from("sessions").select("is_deload, local_date, program_id").eq("id", se.session_id).maybeSingle(),
+    supabase
+      .from("session_sets")
+      .select("reps, weight_kg, duration_seconds")
+      .eq("session_exercise_id", sessionExerciseId)
+      .eq("is_warmup_set", false)
+      .order("set_number"),
+    supabase
+      .from("exercise_progress")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("exercise_id", se.exercise_id)
+      .maybeSingle(),
+  ]);
+
+  const prior = progressRes.data;
+  const totalSessions = prior?.total_sessions ?? 0;
+
+  const decision = evaluateProgression(
+    buildProgressionInput(
+      se,
+      setsRes.data ?? [],
+      prior,
+      sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
+      feel
+    )
+  );
+
+  await writeExerciseProgressCore(
+    supabase,
+    userId,
+    se.exercise_id,
+    decision,
+    totalSessions,
+    sessionRes.data?.local_date ?? null,
+  );
+
+  // Outgrew a bodyweight variation: upgrade the plan so next time is harder.
+  if (decision.wantsHarderVariation && ex.progression_chain) {
+    await upgradeVariation(supabase, userId, se.exercise_id, ex.progression_chain, ex.progression_rank ?? 0);
+  }
+
+  /*
+    Nothing to say when the user has chosen not to give us numbers.
+
+    With per-set logging off, a set is recorded with `reps`, `weight_kg` and
+    `duration_seconds` all null -- that is the whole point of the mode, and
+    `validateSet` allows it. `evaluateProgression` then has no working sets and
+    returns `no_data`, so every exercise of every session would raise a banner
+    reading "No reps recorded, so nothing changed": nagging someone about a
+    setting they chose on purpose, three or five times a workout.
+
+    The progress row above is still written. "You did this today" is worth
+    recording whether or not it came with numbers, and it is what makes
+    switching back to per-set logging resume from the right place.
+  */
+  if (settings?.per_set_logging === false && decision.outcome === "no_data") return null;
+
+  return {
+    outcome: decision.outcome,
+    message: decision.message,
+    personalBest: decision.personalBest
+      ? describePersonalBest(decision.personalBest)
+      : null,
+  };
 }
 
 /** Swap the exercise in the active program for the next link in its chain. */
@@ -236,27 +326,17 @@ export async function finishSession(input: {
   sessionId: string;
   durationSeconds: number;
   cooldownCompleted: boolean;
-}): Promise<Result> {
-  const rateLimit = await checkActionRateLimit("session");
+}): Promise<Result<{ status: "completed" | "skipped"; durationSeconds: number | null }>> {
+  const rateLimit = await checkActionRateLimit<{ status: "completed" | "skipped"; durationSeconds: number | null }>("session");
   if (rateLimit) return rateLimit;
   
   const { supabase } = await requireUser();
-  const { error } = await supabase
-    .from("sessions")
-    .update({
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      duration_seconds: input.durationSeconds,
-      cooldown_completed: input.cooldownCompleted,
-    })
-    .eq("id", input.sessionId);
-  if (error) return { ok: false, error: error.message };
 
   // Deliberately NOT revalidating here. Revalidating refreshes the session
   // route, whose "completed -> redirect to /today" guard then fires before the
   // client can show the summary, so the user never saw their totals or what
   // progression changed. Today is refreshed when they leave the summary.
-  return { ok: true };
+  return await finishSessionAction(supabase, input);
 }
 
 /**
@@ -280,7 +360,7 @@ export async function abandonSession(
   if (rateLimit) return rateLimit;
 
   const { supabase } = await requireUser();
-  const result = await abandonSessionCore(supabase, sessionId, elapsedSeconds);
+  const result = await abandonSessionAction(supabase, sessionId, elapsedSeconds);
   if (result.ok) revalidateTrainingData();
   return result;
 }

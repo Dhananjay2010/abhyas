@@ -4,9 +4,9 @@ import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { getUnitsPreference } from "@/lib/units";
 import { HistoryClient } from "./history-client";
-import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
 import type { PostgrestError } from "@supabase/supabase-js";
+import { buildHistoryListItems } from "@/lib/history/build-history-list-items";
 
 export const dynamic = "force-dynamic";
 
@@ -124,8 +124,6 @@ export default async function HistoryPage({
     console.error("Failed to load session volume:", volumeError);
   }
 
-  const volumeById = new Map((volumeData ?? []).map((v) => [v.session_id, v]));
-
   // Get session exercises to find top sets and PRs, and to calculate planned sets (QA Bot 3 M3: handle errors silently)
   const { data: sessionExercises, error: exercisesError } = await supabase
     .from("session_exercises")
@@ -134,32 +132,6 @@ export default async function HistoryPage({
 
   if (exercisesError) {
     console.error("Failed to load session exercises:", exercisesError);
-  }
-
-  const exercisesBySession = new Map<string, Array<{ id: string; exercise_id: string; metric: string }>>();
-  const plannedSetsBySession = new Map<string, number>();
-  const hasPendingExerciseBySession = new Map<string, boolean>();
-  
-  for (const ex of sessionExercises ?? []) {
-    // Only add completed exercises for top set calculation
-    if (ex.status === "completed") {
-      const list = exercisesBySession.get(ex.session_id) ?? [];
-      list.push({ id: ex.id, exercise_id: ex.exercise_id, metric: ex.metric ?? "reps" });
-      exercisesBySession.set(ex.session_id, list);
-    }
-    
-    // Sum planned_sets only over 'pending' or 'completed' exercises (exclude 'skipped' and 'swapped_out')
-    if ((ex.status === "pending" || ex.status === "completed") && ex.planned_sets && ex.planned_sets > 0) {
-      plannedSetsBySession.set(
-        ex.session_id,
-        (plannedSetsBySession.get(ex.session_id) ?? 0) + ex.planned_sets
-      );
-    }
-    
-    // Track if any exercise is still pending
-    if (ex.status === "pending") {
-      hasPendingExerciseBySession.set(ex.session_id, true);
-    }
   }
 
   // Detect which sessions had PRs at the time AND get set counts
@@ -177,7 +149,7 @@ export default async function HistoryPage({
   // (set counts already computed by detectSessionPRs above)
   // QA Bot 3 M3: handle errors silently
   const sessionExerciseIds = (sessionExercises ?? []).map((se) => se.id);
-  const allSets: Array<{ session_exercise_id: string; reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null }> = [];
+  const allSets: Array<{ session_exercise_id: string; reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null; completed_at: string | null }> = [];
   const chunkSize = 100;
   let setsError = null;
   
@@ -185,7 +157,7 @@ export default async function HistoryPage({
     const chunk = sessionExerciseIds.slice(i, i + chunkSize);
     const { data, error } = await supabase
       .from("session_sets")
-      .select("session_exercise_id, reps, weight_kg, duration_seconds, is_warmup_set")
+      .select("session_exercise_id, reps, weight_kg, duration_seconds, is_warmup_set, completed_at")
       .in("session_exercise_id", chunk)
       .eq("is_warmup_set", false);  // Only need working sets for top set calculation
     if (error) {
@@ -195,92 +167,19 @@ export default async function HistoryPage({
     if (data) allSets.push(...data);
   }
 
-  const setsByExercise = new Map<string, Array<{ reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null }>>();
-  for (const set of allSets) {
-    const list = setsByExercise.get(set.session_exercise_id) ?? [];
-    list.push(set);
-    setsByExercise.set(set.session_exercise_id, list);
-  }
-
-  // Get exercise history helpers
-  const { findTopSet } = await import("@/lib/exercise-history/calculations");
+  // Get pickTopSet helper
   const { pickTopSet } = await import("@/lib/history/pick-top-set");
 
-  const items: SessionListItem[] = (orderedSessions ?? [])
-    .map((s) => {
-      const vol = volumeById.get(s.id);
-      const isBreathing = s.actual_type === "meditation";
-      const exercises = exercisesBySession.get(s.id) ?? [];
-
-      // Get working set count from detectSessionPRs (already computed)
-      const workingSetCount = setCountsBySession.get(s.id) ?? 0;
-
-      // Calculate top set weight for strength sessions
-    // Use pickTopSet to find the heaviest working set across all exercises
-    let topSetWeight: number | null = null;
-
-    if (!isBreathing && exercises.length > 0) {
-      // Collect all working sets from all exercises in this session
-      const allSets = exercises.flatMap((ex) => setsByExercise.get(ex.id) ?? []);
-      topSetWeight = pickTopSet(allSets);
-    }
-
-    // Check if this session had any PRs at the time
-    const hasPR = sessionsWithPRs.has(s.id);
-
-    const logs = (s.breathing_logs ?? []) as Array<{
-      breaths: number;
-      routine_name: string | null;
-    }>;
-    const routineName = logs.find((l) => l.routine_name)?.routine_name ?? null;
-    const pattern = s.breathing_patterns as unknown as
-      | { name: string; phases: unknown }
-      | null;
-    const pumps =
-      routineName === null &&
-      Array.isArray(pattern?.phases) &&
-      pattern.phases.some(
-        (p) => typeof p === "object" && p !== null && (p as { kind?: string }).kind === "pump"
-      );
-
-    const plannedSets = plannedSetsBySession.get(s.id);
-    const hasPendingExercise = hasPendingExerciseBySession.get(s.id) ?? false;
-    const hasNoExercises = exercises.length === 0;
-    
-    // Restore main's original inline logic for History (byte-identical behavior for all statuses)
-    const isStrength = !isBreathing && s.actual_type !== "yoga";
-    const endedEarly = 
-      (hasPendingExercise && 
-       plannedSets !== undefined && 
-       plannedSets > 0 && 
-       workingSetCount < plannedSets) ||
-      (isStrength && s.status === "completed" && workingSetCount === 0 && (hasPendingExercise || hasNoExercises));
-
-    return {
-      id: s.id,
-      localDate: s.local_date,
-      status: s.status,
-      actualType: s.actual_type,
-      durationSeconds: s.duration_seconds,
-      startedAt: s.started_at,
-      completedAt: s.completed_at,
-      isDeload: s.is_deload,
-      endedEarly,
-      plannedSets: plannedSets ?? null,
-      programDayLabel: (s.program_days as unknown as { label: string } | null)?.label ?? null,
-      setCount: workingSetCount,
-      volumeKg: Number(vol?.volume_kg ?? 0),
-      topSetWeight,
-      hasPR,
-      breathing: isBreathing
-        ? {
-            breaths: logs.length ? logs.reduce((n, l) => n + l.breaths, 0) : null,
-            pumps,
-            patternName: routineName ?? pattern?.name ?? null,
-          }
-        : null,
-    };
-  });
+  // Build complete SessionListItem rows using the lib function
+  const items = buildHistoryListItems(
+    orderedSessions ?? [],
+    sessionExercises ?? [],
+    allSets,
+    volumeData ?? [],
+    setCountsBySession,
+    sessionsWithPRs,
+    pickTopSet
+  );
   // For lifts, filtering already happened at SQL level via session_volume join
   // For yoga/breathing, no filtering needed (they don't have zero-set issues)
 
