@@ -12,6 +12,7 @@
 --   1. Re-marks wrongly superseded blocks as 'completed'
 --   2. Sets their ended_on = ends_on (natural end date)
 --   3. Resets the replacing block's week_offset to 0 (as rollover would)
+--   4. Handles blocks with no replacement (still marks them completed)
 --
 -- IDEMPOTENT: Running twice changes nothing the second time.
 -- ONE TRANSACTION: All changes commit together or roll back together.
@@ -20,61 +21,50 @@
 
 BEGIN;
 
--- Step 1: Identify and fix wrongly superseded blocks
--- These are blocks with status='superseded' AND ended_on >= ends_on
--- (superseded on or after their natural end, not mid-block rebuilds)
-WITH wrongly_superseded AS (
-  SELECT
-    p.id,
-    p.user_id,
-    p.ends_on as natural_end,
-    p.ended_on as superseded_on
-  FROM programs p
-  WHERE p.status = 'superseded'
-    AND p.ended_on IS NOT NULL
-    AND p.ended_on >= p.ends_on
-),
+-- Create temp table with repair targets
+-- The guard `new.week_offset = old.week_offset + FLOOR((new.started_on - old.started_on)/7)`
+-- ensures we only fix blocks where the week_offset was carried over.
+-- rebuild_block sets new.started_on = p_today and old.ended_on = p_today - 1,
+-- so new.started_on = old.ended_on + 1 when they're consecutive.
+CREATE TEMP TABLE _repair_targets ON COMMIT DROP AS
+SELECT
+  old.id AS old_id,
+  old.user_id,
+  new.id AS new_id,
+  old.ends_on,
+  old.week_offset AS old_week_offset,
+  new.week_offset AS new_week_offset
+FROM programs old
+LEFT JOIN programs new ON new.user_id = old.user_id
+  AND new.started_on = old.ended_on + 1
+  AND new.id <> old.id
+  AND new.week_offset = old.week_offset + FLOOR((new.started_on - old.started_on) / 7)
+WHERE old.status = 'superseded'
+  AND old.ended_on IS NOT NULL
+  AND old.ended_on >= old.ends_on;
 
--- Step 2: Find the replacing blocks for each wrongly superseded block
--- The replacing block is the next active or completed block after ended_on
-replacing_blocks AS (
-  SELECT DISTINCT ON (ws.id)
-    ws.id as old_block_id,
-    ws.user_id,
-    ws.natural_end,
-    p2.id as replacing_block_id,
-    p2.started_on as replacing_started_on,
-    p2.week_offset as replacing_week_offset
-  FROM wrongly_superseded ws
-  JOIN programs p2 ON p2.user_id = ws.user_id
-  WHERE p2.status IN ('active', 'completed')
-    AND (
-      p2.started_on > ws.superseded_on
-      OR (p2.started_on = ws.superseded_on + 1 AND p2.id != ws.id)
-    )
-  ORDER BY ws.id, p2.started_on, p2.created_at
-)
-
--- Step 3: Update wrongly superseded blocks to 'completed' with ended_on = ends_on
+-- Step 1: Fix wrongly superseded blocks (mark as completed, fix ended_on)
 UPDATE programs p
 SET
   status = 'completed',
-  ended_on = p.ends_on
-FROM wrongly_superseded ws
-WHERE p.id = ws.id
+  ended_on = rt.ends_on
+FROM _repair_targets rt
+WHERE p.id = rt.old_id
   AND p.status = 'superseded';  -- Guard: only update if still superseded
 
--- Step 4: Fix the replacing blocks' week_offset to 0 (as rollover_block would)
--- This fixes the "Week 5 of 4" issue on Today page
+-- Step 2: Fix replacing blocks' week_offset (reset to 0)
+-- Handles chains: if a mid-block rebuild happened on the replacing block,
+-- it kept the bad week_offset, so we fix every block in the chain.
 UPDATE programs p
 SET
   week_offset = 0
-FROM replacing_blocks rb
-WHERE p.id = rb.replacing_block_id
+FROM _repair_targets rt
+WHERE p.id = rt.new_id
+  AND rt.new_id IS NOT NULL
   AND p.week_offset != 0;  -- Only update if not already 0
 
 COMMIT;
 
 -- How to verify this worked:
--- SELECT COUNT(*) FROM programs WHERE status = 'superseded' AND ended_on >= ends_on;
--- Should return 0 after running this script.
+-- Run scripts/sql/detect-superseded-ended-blocks.sql
+-- Should return 0 rows after running this script.

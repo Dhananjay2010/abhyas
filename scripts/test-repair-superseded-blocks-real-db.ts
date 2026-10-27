@@ -1,19 +1,15 @@
 /**
  * Real database test for repair-superseded-ended-blocks.sql
  * 
- * Seeds a broken account (the way main's bug creates it), runs the repair script,
- * and verifies that:
- * - Detection finds the broken block before repair
- * - Repair fixes the block status and week_offset
- * - Detection finds nothing after repair
- * - Progress stats are correct (via real streak/progress code)
- * - Today week number is correct (via real cycleWeekFor)
- * - Sessions and sets remain untouched (row counts and checksums match)
+ * Seeds broken state using the REAL rebuild_block RPC (as main's bug creates it),
+ * runs the actual SQL files via psql, and verifies repair with real helpers.
  *
  * Run: REAL_DB=1 npm run test:repair-superseded-blocks-real-db
  */
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
+import { execSync } from "child_process";
+import { join } from "path";
 import type { Database } from "../src/lib/database.types.js";
 import { checkRealDbTest } from "./lib-db-reset-guard.js";
 import { cycleWeekFor } from "../src/lib/program/block-range.js";
@@ -42,6 +38,9 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
 
+// Convert Supabase URL to postgres connection string (port 54322 for postgres)
+const dbUrl = SUPABASE_URL.replace("http://", "postgresql://postgres:postgres@").replace(":54321", ":54322/postgres");
+
 let testsFailed = 0;
 function assert(condition: boolean, message: string, detail = "") {
   if (!condition) {
@@ -63,56 +62,18 @@ async function testDatabaseConnection() {
 }
 
 /**
- * Execute the repair logic using individual Supabase client calls.
- * This is equivalent to the repair SQL script but broken down into steps.
+ * Execute SQL file via psql
  */
-async function executeRepair(client: any, userId: string) {
-  // Find wrongly superseded blocks
-  const { data: wronglySuperseded } = await client
-    .from("programs")
-    .select("id, user_id, ends_on, ended_on")
-    .eq("user_id", userId)
-    .eq("status", "superseded")
-    .not("ended_on", "is", null)
-    .gte("ended_on", "ends_on");
-
-  if (!wronglySuperseded || wronglySuperseded.length === 0) {
-    return;
-  }
-
-  // For each wrongly superseded block, find its replacing block
-  for (const ws of wronglySuperseded) {
-    // Find the replacing block
-    const { data: replacingBlocks } = await client
-      .from("programs")
-      .select("id, started_on, week_offset")
-      .eq("user_id", ws.user_id)
-      .in("status", ["active", "completed"])
-      .gt("started_on", ws.ended_on)
-      .order("started_on")
-      .order("created_at")
-      .limit(1);
-
-    // Fix the wrongly superseded block
-    await client
-      .from("programs")
-      .update({
-        status: "completed",
-        ended_on: ws.ends_on
-      })
-      .eq("id", ws.id)
-      .eq("status", "superseded"); // Guard: only update if still superseded
-
-    // Fix the replacing block's week_offset if found
-    if (replacingBlocks && replacingBlocks.length > 0) {
-      const rb = replacingBlocks[0];
-      if (rb.week_offset !== 0) {
-        await client
-          .from("programs")
-          .update({ week_offset: 0 })
-          .eq("id", rb.id);
-      }
-    }
+function executeSQLFile(filePath: string, expectOutput = false): string {
+  try {
+    const result = execSync(
+      `psql "${dbUrl}" -v ON_ERROR_STOP=1 -f "${filePath}"`,
+      { encoding: "utf-8", stdio: expectOutput ? "pipe" : "inherit" }
+    );
+    return result;
+  } catch (error) {
+    console.error(`❌ SQL file execution failed: ${filePath}`);
+    throw error;
   }
 }
 
@@ -164,9 +125,7 @@ async function runTests() {
   }
   const exerciseId = exerciseRows[0].id;
 
-  // We don't load the SQL scripts here since we execute the repair via individual client calls
-
-  console.log("TEST: Repair wrongly superseded blocks");
+  console.log("TEST: Repair wrongly superseded blocks (seeded with real rebuild_block RPC)");
   {
     const scenarioStartFailures = testsFailed;
     
@@ -184,13 +143,32 @@ async function runTests() {
     }
 
     const userId = authData.user.id;
-    let createdUserIds = [userId]; // Track for cleanup
+    const createdUserIds = [userId]; // Track for cleanup
+
+    // Create second test user for mid-block rebuild test
+    const testEmail2 = `test-midblock-${Date.now()}@example.com`;
+    const { data: authData2, error: createError2 } = await adminClient.auth.admin.createUser({
+      email: testEmail2,
+      password: "test-password-456",
+      email_confirm: true,
+    });
+
+    if (createError2 || !authData2.user) {
+      console.error("❌ Failed to create second test user:", createError2);
+      process.exit(1);
+    }
+
+    const userId2 = authData2.user.id;
+    createdUserIds.push(userId2);
 
     try {
-      assert(!!userId, "Created test user");
+      assert(!!userId, "Created test user 1");
+      assert(!!userId2, "Created test user 2");
 
+      // === USER 1: Wrongly superseded scenario ===
+      
       // Ensure profile exists with required fields
-      const { error: profileError } = await adminClient.from("profiles").upsert({
+      await adminClient.from("profiles").upsert({
         id: userId,
         timezone: "America/Los_Angeles",
         onboarding_completed_at: new Date().toISOString(),
@@ -201,21 +179,10 @@ async function runTests() {
         days_per_week: 4,
       });
 
-      if (profileError) {
-        console.error("❌ Failed to upsert profile:", profileError);
-        throw profileError;
-      }
-
-      // SEED BROKEN STATE (as main's bug creates it):
-      // Block 1: started 2026-09-29, ends 2026-10-26
-      // Sessions: one completed on 2026-09-30, one missed day (2026-10-01)
-      // Bug: rebuild on 2026-10-27 marks block 1 'superseded' with ended_on = 2026-10-26
-      // Bug: creates block 2 with started_on = 2026-10-27, week_offset = 4 (WRONG!)
-
+      // Create block 1: started 2026-09-29, ends 2026-10-26 (28 days)
       const blockId1 = randomUUID();
       const dayId1 = randomUUID();
 
-      // Insert block 1 as 'superseded' (the bug state)
       await adminClient.from("programs").insert({
         id: blockId1,
         user_id: userId,
@@ -227,10 +194,9 @@ async function runTests() {
         level: "intermediate",
         started_on: "2026-09-29",
         ends_on: "2026-10-26",
-        ended_on: "2026-10-26",  // Bug: superseded on its natural end date
         deload_week: 4,
         week_offset: 0,
-        status: "superseded",  // Bug: should be 'completed'
+        status: "active",
       });
 
       await adminClient.from("program_days").insert({
@@ -281,56 +247,126 @@ async function runTests() {
       // Add working sets
       const setIds = [randomUUID(), randomUUID(), randomUUID()];
       await adminClient.from("session_sets").insert([
-        {
-          id: setIds[0],
-          session_exercise_id: sessionExId,
-          user_id: userId,
-          set_number: 1,
-          reps: 10,
-          weight_kg: 50,
-        },
-        {
-          id: setIds[1],
-          session_exercise_id: sessionExId,
-          user_id: userId,
-          set_number: 2,
-          reps: 9,
-          weight_kg: 50,
-        },
-        {
-          id: setIds[2],
-          session_exercise_id: sessionExId,
-          user_id: userId,
-          set_number: 3,
-          reps: 8,
-          weight_kg: 50,
-        },
+        { id: setIds[0], session_exercise_id: sessionExId, user_id: userId, set_number: 1, reps: 10, weight_kg: 50 },
+        { id: setIds[1], session_exercise_id: sessionExId, user_id: userId, set_number: 2, reps: 9, weight_kg: 50 },
+        { id: setIds[2], session_exercise_id: sessionExId, user_id: userId, set_number: 3, reps: 8, weight_kg: 50 },
       ]);
 
-      // Insert block 2 as 'active' with WRONG week_offset = 4 (the bug)
-      const blockId2 = randomUUID();
-      const dayId2 = randomUUID();
+      // Create authenticated client to call rebuild_block RPC (needs auth.uid())
+      const userClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+      });
+      await userClient.auth.signInWithPassword({
+        email: testEmail,
+        password: "test-password-123",
+      });
 
-      await adminClient.from("programs").insert({
-        id: blockId2,
-        user_id: userId,
+      // Call rebuild_block RPC with p_today > ends_on (reproduces main's bug)
+      const todayBuggy = "2026-10-27"; // Day after block 1 ended
+      const payload1 = {
+        id: randomUUID(),
         block_number: 2,
         split_type: "upper_lower",
         days_per_week: 4,
         primary_track: "weights",
         goal: "strength",
         level: "intermediate",
-        started_on: "2026-10-27",  // Day after block 1 ended
         ends_on: "2026-11-23",
         deload_week: 4,
-        week_offset: 4,  // Bug: should be 0!
+        days: [{
+          day_index: 1,
+          day_type: "weights",
+          focus: null,
+          label: "Upper A",
+          exercises: [{
+            exercise_id: exerciseId,
+            order_index: 0,
+            target_sets: 3,
+            target_reps_min: 8,
+            target_reps_max: 12,
+            rest_seconds: 90,
+          }],
+        }],
+      };
+
+      const { error: rebuildError } = await userClient.rpc("rebuild_block", {
+        p_today: todayBuggy,
+        p_payload: payload1 as Database["public"]["Functions"]["rebuild_block"]["Args"]["p_payload"],
+      });
+
+      if (rebuildError) {
+        console.error("❌ rebuild_block RPC failed:", rebuildError);
+        throw rebuildError;
+      }
+
+      // Assert broken state BEFORE repair
+      const { data: block1Before } = await adminClient
+        .from("programs")
+        .select("status, ended_on, ends_on, week_offset")
+        .eq("id", blockId1)
+        .single();
+
+      assert(block1Before?.status === "superseded", 
+        "Block 1 is 'superseded' (the bug)", 
+        `got ${block1Before?.status}`);
+      assert(block1Before?.ended_on === "2026-10-26", 
+        "Block 1 ended_on = 2026-10-26", 
+        `got ${block1Before?.ended_on}`);
+
+      const { data: block2Before } = await adminClient
+        .from("programs")
+        .select("week_offset, started_on, id")
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .single();
+
+      assert(block2Before?.week_offset === 4, 
+        "Block 2 has wrong week_offset (the bug)", 
+        `got ${block2Before?.week_offset}`);
+
+      // Verify Today shows "Week 5" due to bug
+      const weekNumberBuggy = cycleWeekFor(
+        { started_on: block2Before!.started_on, week_offset: block2Before!.week_offset },
+        todayBuggy
+      );
+      assert(weekNumberBuggy === 5, "Today shows 'Week 5' due to bug", `got Week ${weekNumberBuggy}`);
+
+      // === USER 2: Legitimate mid-block rebuild ===
+      
+      await adminClient.from("profiles").upsert({
+        id: userId2,
+        timezone: "America/Los_Angeles",
+        onboarding_completed_at: new Date().toISOString(),
+        date_of_birth: "1990-01-01",
+        goal: "strength",
+        level: "intermediate",
+        primary_track: "weights",
+        days_per_week: 4,
+      });
+
+      const blockId2 = randomUUID();
+      const dayId2 = randomUUID();
+
+      await adminClient.from("programs").insert({
+        id: blockId2,
+        user_id: userId2,
+        block_number: 1,
+        split_type: "upper_lower",
+        days_per_week: 4,
+        primary_track: "weights",
+        goal: "strength",
+        level: "intermediate",
+        started_on: "2026-10-01",
+        ends_on: "2026-10-28",
+        deload_week: 4,
+        week_offset: 0,
         status: "active",
       });
 
       await adminClient.from("program_days").insert({
         id: dayId2,
         program_id: blockId2,
-        user_id: userId,
+        user_id: userId2,
         day_index: 1,
         day_type: "weights",
         label: "Upper A",
@@ -339,7 +375,7 @@ async function runTests() {
       await adminClient.from("program_day_exercises").insert({
         id: randomUUID(),
         program_day_id: dayId2,
-        user_id: userId,
+        user_id: userId2,
         exercise_id: exerciseId,
         order_index: 0,
         target_sets: 3,
@@ -347,73 +383,93 @@ async function runTests() {
         target_reps_max: 12,
       });
 
+      // Mid-block rebuild on day 15 (2026-10-15)
+      const userClient2 = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+      });
+      await userClient2.auth.signInWithPassword({
+        email: testEmail2,
+        password: "test-password-456",
+      });
+
+      const payload2 = {
+        id: randomUUID(),
+        block_number: 1,
+        split_type: "upper_lower",
+        days_per_week: 4,
+        primary_track: "weights",
+        goal: "strength",
+        level: "intermediate",
+        ends_on: "2026-10-28",
+        deload_week: 4,
+        days: [{
+          day_index: 1,
+          day_type: "weights",
+          focus: null,
+          label: "Upper A",
+          exercises: [{
+            exercise_id: exerciseId,
+            order_index: 0,
+            target_sets: 3,
+            target_reps_min: 8,
+            target_reps_max: 12,
+            rest_seconds: 90,
+          }],
+        }],
+      };
+
+      await userClient2.rpc("rebuild_block", {
+        p_today: "2026-10-15",
+        p_payload: payload2 as Database["public"]["Functions"]["rebuild_block"]["Args"]["p_payload"],
+      });
+
+      const { data: midBlockBefore } = await adminClient
+        .from("programs")
+        .select("*")
+        .eq("id", blockId2)
+        .single();
+
       // Checkpoint: capture session/set state BEFORE repair
       const { data: sessionsBefore } = await adminClient
         .from("sessions")
         .select("id")
-        .eq("user_id", userId);
+        .in("user_id", createdUserIds);
 
       const { data: setsBefore } = await adminClient
         .from("session_sets")
         .select("id")
-        .eq("user_id", userId);
+        .in("user_id", createdUserIds);
 
       const sessionCountBefore = sessionsBefore?.length ?? 0;
       const setCountBefore = setsBefore?.length ?? 0;
       const sessionIdsBefore = sessionsBefore?.map(s => s.id).sort().join(",");
       const setIdsBefore = setsBefore?.map(s => s.id).sort().join(",");
 
-      assert(sessionCountBefore === 1, "Seeded 1 session", `got ${sessionCountBefore}`);
-      assert(setCountBefore === 3, "Seeded 3 sets", `got ${setCountBefore}`);
+      // Run detection SQL (should find user 1's broken block)
+      console.log("\n  Running detection SQL (before repair)...");
+      const detectPath = join(process.cwd(), "scripts/sql/detect-superseded-ended-blocks.sql");
+      const detectOutput = executeSQLFile(detectPath, true);
+      const detectLines = detectOutput.trim().split("\n").filter(l => l && !l.includes("---") && !l.includes("superseded_block_id"));
+      assert(detectLines.length >= 1, "Detection finds at least 1 broken block", `found ${detectLines.length} lines`);
 
-      // STEP 1: Run detection query (should find the broken block)
-      const { data: detectedBefore, error: detectError1 } = await adminClient
-        .from("programs")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("status", "superseded")
-        .gte("ended_on", "ends_on");
+      // Run repair SQL (first time)
+      console.log("\n  Running repair SQL (first time)...");
+      const repairPath = join(process.cwd(), "scripts/sql/repair-superseded-ended-blocks.sql");
+      executeSQLFile(repairPath);
+      assert(true, "Repair SQL executed successfully (first time)");
 
-      if (detectError1) {
-        console.error("❌ Detection query failed:", detectError1);
-        throw detectError1;
-      }
+      // Run repair SQL (second time, idempotency test)
+      console.log("\n  Running repair SQL (second time, idempotency)...");
+      executeSQLFile(repairPath);
+      assert(true, "Repair SQL executed successfully (second time, idempotent)");
 
-      assert(detectedBefore && detectedBefore.length === 1, 
-        "Detection finds 1 broken block before repair", 
-        `found ${detectedBefore?.length ?? 0}`);
+      // Run detection SQL again (should find nothing)
+      console.log("\n  Running detection SQL (after repair)...");
+      const detectOutput2 = executeSQLFile(detectPath, true);
+      const detectLines2 = detectOutput2.trim().split("\n").filter(l => l && !l.includes("---") && !l.includes("superseded_block_id"));
+      assert(detectLines2.length === 0, "Detection finds 0 broken blocks after repair", `found ${detectLines2.length} lines`);
 
-      // STEP 2: Run repair (via client calls)
-      try {
-        await executeRepair(adminClient, userId);
-        assert(true, "Repair executed successfully (first time)");
-      } catch (error) {
-        console.error("❌ Repair failed (first run):", error);
-        throw error;
-      }
-
-      // STEP 3: Run repair AGAIN (idempotency test)
-      try {
-        await executeRepair(adminClient, userId);
-        assert(true, "Repair executed successfully (second time, idempotent)");
-      } catch (error) {
-        console.error("❌ Repair failed (second run):", error);
-        throw error;
-      }
-
-      // STEP 4: Run detection query again (should find nothing)
-      const { data: detectedAfter } = await adminClient
-        .from("programs")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("status", "superseded")
-        .gte("ended_on", "ends_on");
-
-      assert(detectedAfter && detectedAfter.length === 0, 
-        "Detection finds 0 broken blocks after repair", 
-        `found ${detectedAfter?.length ?? 0}`);
-
-      // STEP 5: Verify block 1 is now 'completed'
+      // Verify user 1: block 1 is now 'completed'
       const { data: block1After } = await adminClient
         .from("programs")
         .select("status, ended_on, ends_on")
@@ -427,34 +483,42 @@ async function runTests() {
         "Block 1 ended_on = ends_on", 
         `ended_on=${block1After?.ended_on}, ends_on=${block1After?.ends_on}`);
 
-      // STEP 6: Verify block 2 has week_offset = 0
+      // Verify user 1: block 2 has week_offset = 0
       const { data: block2After } = await adminClient
         .from("programs")
         .select("week_offset, started_on")
-        .eq("id", blockId2)
+        .eq("id", block2Before!.id)
         .single();
 
       assert(block2After?.week_offset === 0, 
         "Block 2 week_offset is 0", 
         `got ${block2After?.week_offset}`);
 
-      // STEP 7: Verify Today week number via cycleWeekFor
-      const todayDate = "2026-10-27"; // First day of block 2
-      const weekNumber = cycleWeekFor(
+      // Verify Today week number fixed
+      const weekNumber1 = cycleWeekFor(
         { started_on: block2After!.started_on, week_offset: block2After!.week_offset },
-        todayDate
+        todayBuggy
       );
-      assert(weekNumber === 1, "Today shows 'Week 1' on first day of block 2", `got Week ${weekNumber}`);
+      assert(weekNumber1 === 1, "Today shows 'Week 1' on first day", `got Week ${weekNumber1}`);
 
-      // Week 4 (last week of the 28-day block)
-      const lastWeekDate = "2026-11-17"; // 21 days after started_on
-      const lastWeekNumber = cycleWeekFor(
+      const lastWeekDate = "2026-11-17";
+      const weekNumber4 = cycleWeekFor(
         { started_on: block2After!.started_on, week_offset: block2After!.week_offset },
         lastWeekDate
       );
-      assert(lastWeekNumber === 4, "Week 4 on day 22 of block", `got Week ${lastWeekNumber}`);
+      assert(weekNumber4 === 4, "Today shows 'Week 4' on day 22", `got Week ${weekNumber4}`);
 
-      // STEP 8: Verify Progress stats via real code
+      // Verify user 2: mid-block rebuild block is UNCHANGED
+      const { data: midBlockAfter } = await adminClient
+        .from("programs")
+        .select("*")
+        .eq("id", blockId2)
+        .single();
+
+      assert(JSON.stringify(midBlockBefore) === JSON.stringify(midBlockAfter),
+        "Mid-block rebuild block unchanged (byte-identical)");
+
+      // Verify Progress stats for user 1 via real code
       const { data: allPrograms } = await adminClient
         .from("programs")
         .select("id, started_on, ends_on, ended_on, created_at")
@@ -493,10 +557,10 @@ async function runTests() {
         local_date: s.local_date,
         actual_type: s.actual_type,
         status: s.status,
-        working_set_count: 3, // We created 3 working sets
+        working_set_count: 3,
       }));
 
-      const today = "2026-10-27";
+      const today = todayBuggy;
       const dayRecords = buildDayRecords({
         programs,
         dayTypesByProgram,
@@ -506,28 +570,26 @@ async function runTests() {
 
       const streaks = computeStreaks(dayRecords, today);
 
-      // Expected: 1 completed session on 2026-09-30, missed 2026-10-01
-      // Current streak should be 0 (broke on missed day)
-      // Best streak should be 1
-      // Days trained should be 1
       assert(streaks.current === 0, "Current streak is 0 (broke on missed day)", `got ${streaks.current}`);
       assert(streaks.longest === 1, "Best streak is 1", `got ${streaks.longest}`);
       assert(streaks.totalSessions === 1, "Days trained is 1", `got ${streaks.totalSessions}`);
 
-      // Verify start date
-      const startDate = progressStartDate(programs, sessions.map(s => s.local_date));
+      const startDate = progressStartDate({
+        programs,
+        completedSessions: sessions
+      });
       assert(startDate === "2026-09-29", "Progress start date is block 1 start", `got ${startDate}`);
 
-      // STEP 9: Verify sessions and sets weren't touched
+      // Verify sessions and sets weren't touched
       const { data: sessionsAfter } = await adminClient
         .from("sessions")
         .select("id")
-        .eq("user_id", userId);
+        .in("user_id", createdUserIds);
 
       const { data: setsAfter } = await adminClient
         .from("session_sets")
         .select("id")
-        .eq("user_id", userId);
+        .in("user_id", createdUserIds);
 
       const sessionCountAfter = sessionsAfter?.length ?? 0;
       const setCountAfter = setsAfter?.length ?? 0;
@@ -546,9 +608,9 @@ async function runTests() {
         "Set IDs unchanged (checksum match)");
 
       if (testsFailed === scenarioStartFailures) {
-        console.log("  PASS: repair-superseded-blocks test\n");
+        console.log("\n  PASS: repair-superseded-blocks test\n");
       } else {
-        console.log(`  FAIL: repair-superseded-blocks test (${testsFailed - scenarioStartFailures} failures)\n`);
+        console.log(`\n  FAIL: repair-superseded-blocks test (${testsFailed - scenarioStartFailures} failures)\n`);
       }
 
     } finally {
