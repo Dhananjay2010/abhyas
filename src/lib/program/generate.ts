@@ -377,7 +377,6 @@ export const KNEE_SAFE_LUNGE_EXERCISES: ReadonlySet<string> = new Set([
  */
 export const PAST_KNEE_LUNGE_EXERCISES: ReadonlySet<string> = new Set([
   'leg-extensions',
-  'single-leg-leg-extension',
   'wall-sit',
   'spanish-squat',
 ]);
@@ -484,6 +483,24 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
       return false;
     }
   }
+  
+  // G-3: Landmine jammers excluded for ANY knee injury (leg-driven presses)
+  if (input.anyKneeInjury && (ex.slug === "landmine-linear-jammer" || ex.slug === "single-arm-linear-jammer")) {
+    return false;
+  }
+  
+  // Owner decision (a): Past-knee specific NEW exclusions (3 slugs added in this PR)
+  // Calf-press is knee-contraindicated but only excluded for past-knee (not current, see tag check above)
+  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
+  if (hasPastKnee && ex.slug === "calf-press-on-the-leg-press-machine") {
+    return false;
+  }
+  
+  // Owner decision: Single-Leg Leg Extension excluded for past-knee only
+  if (hasPastKnee && ex.slug === "single-leg-leg-extension") {
+    return false;
+  }
 
   // BMI >= 30 excludes high-impact work
   if (input.bmi !== null && input.bmi >= 30 && ex.impact === "high") return false;
@@ -518,12 +535,10 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   if (input.anyKneeInjury && UNSAFE_KNEE_LUNGES.has(ex.slug)) {
     return false;
   }
-
+  
   // PR #73 QA scoped policy: Lunge slots use different lists for current vs past knee
   // Current knee: step-ups and split squats (KNEE_SAFE_LUNGE_EXERCISES)
   // Past knee: quad isolation list (PAST_KNEE_LUNGE_EXERCISES)
-  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
-  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
   
   if (ex.movement_pattern === "lunge") {
     if (hasCurrentKnee && !KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
@@ -1388,10 +1403,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     if (avoidHighSpinalLoad && (entry.focus === "lower" || entry.focus === "full" || entry.focus === "legs") && (input.hasAllEquipment || input.equipmentIds.length > 0)) {
       const hinges = pickedExercises.filter(p => p.ex.movement_pattern === "hinge");
       const hasHighSpinalHinge = hinges.some(p => p.ex.spinal_load === "high");
-      const hasSafeLoadedHinge = hinges.some(p => 
-        p.ex.spinal_load !== "high" &&
-        p.ex.equipment_ids.some(id => id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine")
-      );
       
       // If we have a high-spinal hinge, try to replace it
       if (hasHighSpinalHinge) {
@@ -1649,7 +1660,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         // Strategy 1: Drop an accessory if we have more than minimum, preferring duplicates
         if (exercises.length > minExercises) {
-          const patternsSeen = new Set<string>();
           const patternCounts = new Map<string, number>();
           let dropIndex = -1;
           

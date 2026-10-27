@@ -13,10 +13,10 @@ set -u
 
 GENERATE=src/lib/program/generate.ts
 KNEE_SAFETY=src/lib/program/knee-safety.ts
+ALTERNATIVES=src/lib/program/alternatives.ts
 
-# Create private backups with mktemp
-BACKUP_GENERATE=$(mktemp "${TMPDIR:-/tmp}/generate-backup.XXXXXX")
-BACKUP_KNEE_SAFETY=$(mktemp "${TMPDIR:-/tmp}/knee-safety-backup.XXXXXX")
+# Create private backup directory with mktemp -d
+BACKUP_DIR=$(mktemp -d)
 
 CURRENT_FILE=""
 BACKUP=""
@@ -34,24 +34,30 @@ restore() {
 
 cleanup() {
   restore
-  if [ -s "$BACKUP_GENERATE" ]; then
-    cp "$BACKUP_GENERATE" "$GENERATE"
+  if [ -s "$BACKUP_DIR/generate.ts" ]; then
+    cp "$BACKUP_DIR/generate.ts" "$GENERATE"
   fi
-  rm -f "$BACKUP_GENERATE"
-  if [ -s "$BACKUP_KNEE_SAFETY" ]; then
-    cp "$BACKUP_KNEE_SAFETY" "$KNEE_SAFETY"
+  if [ -s "$BACKUP_DIR/knee-safety.ts" ]; then
+    cp "$BACKUP_DIR/knee-safety.ts" "$KNEE_SAFETY"
   fi
-  rm -f "$BACKUP_KNEE_SAFETY"
+  if [ -s "$BACKUP_DIR/alternatives.ts" ]; then
+    cp "$BACKUP_DIR/alternatives.ts" "$ALTERNATIVES"
+  fi
+  rm -rf "$BACKUP_DIR"
 }
 trap cleanup EXIT INT TERM
 
 # Backup originals - check cp succeeded before counting as backed up
-if ! cp "$GENERATE" "$BACKUP_GENERATE"; then
+if ! cp "$GENERATE" "$BACKUP_DIR/generate.ts"; then
   echo "FATAL: failed to backup $GENERATE"
   exit 1
 fi
-if ! cp "$KNEE_SAFETY" "$BACKUP_KNEE_SAFETY"; then
+if ! cp "$KNEE_SAFETY" "$BACKUP_DIR/knee-safety.ts"; then
   echo "FATAL: failed to backup $KNEE_SAFETY"
+  exit 1
+fi
+if ! cp "$ALTERNATIVES" "$BACKUP_DIR/alternatives.ts"; then
+  echo "FATAL: failed to backup $ALTERNATIVES"
   exit 1
 fi
 
@@ -74,7 +80,7 @@ run_mutant() {
   echo ""
   echo "$name"
   CURRENT_FILE="$file"
-  BACKUP=$(mktemp "${TMPDIR:-/tmp}/kv-mutant.XXXXXX")
+  BACKUP="$BACKUP_DIR/mutant-$(basename "$file")"
   if ! cp "$file" "$BACKUP"; then
     echo "  ⊘ SKIP: backup failed"
     SKIPPED=$((SKIPPED + 1))
@@ -108,24 +114,40 @@ run_mutant() {
     exit_code=$?
     
     if [ $exit_code -ne 0 ]; then
-      # Check for crashes: uncaught errors with stack traces
-      if echo "$output" | grep -qE "(SyntaxError|TypeError|ReferenceError|RangeError)"; then
-        echo "  ✗ CRASH in $t (uncaught error, not an assertion failure)"
+      # Check for crashes: stack traces, silent exits, or string throws
+      has_stack_trace=0
+      has_assertion=0
+      is_silent=0
+      
+      if echo "$output" | grep -qE '^\s+at '; then
+        has_stack_trace=1
+      fi
+      
+      if echo "$output" | grep -qE '(✗|FAIL|❌)'; then
+        has_assertion=1
+      fi
+      
+      if [ -z "$(echo "$output" | tr -d '[:space:]')" ]; then
+        is_silent=1
+      fi
+      
+      # Crash if: stack trace present, OR silent exit, OR uncaught/unhandled
+      if [ $has_stack_trace -eq 1 ] || [ $is_silent -eq 1 ] || echo "$output" | grep -qE '(Uncaught|unhandled)'; then
+        # Even with assertion, a stack trace means crash
+        echo "  💥 CRASH in $t (${has_stack_trace:+stack trace}${is_silent:+silent exit})"
         CRASHED=$((CRASHED + 1))
         restore
         return
       fi
       
-      # Check for assertion failures
-      if echo "$output" | grep -qE "(✗|FAIL|assertion.*failed)"; then
+      # Clean assertion failure (no stack trace)
+      if [ $has_assertion -eq 1 ]; then
         killer="$t"
         break
       fi
       
-      # Non-zero exit without assertion or crash signature
-      echo "  ✗ CRASH in $t (exit $exit_code, no assertion message)"
-      echo "  First 5 lines of output:"
-      echo "$output" | head -5 | sed 's/^/    /'
+      # Non-zero exit without clear signal - treat as crash
+      echo "  💥 CRASH in $t (exit $exit_code, no assertion message)"
       CRASHED=$((CRASHED + 1))
       restore
       return
@@ -226,7 +248,7 @@ run_mutant "K1. Ignore explicit knee tag in isKneeRiskForKneeUser" "$KNEE_SAFETY
   if (ex.contraindicated_regions.includes("knee")) {
     return true;
   }' \
-  '' "$V" "$C"
+  '' "$V" "$C" test:knee-risk-tag-direct
 
 run_mutant "K5. Drop derived squat-pattern check" "$KNEE_SAFETY" \
   '  // Check derived contraindications (squat/lunge pattern, unless in knee-safe list)
@@ -235,6 +257,31 @@ run_mutant "K5. Drop derived squat-pattern check" "$KNEE_SAFETY" \
     return true;
   }' \
   '' "$V" "$C"
+
+run_mutant "MED-2-TIME. Remove past-knee calf cap in time-fill" "$GENERATE" \
+  '            // MED-2: For lower/full days, cap calf exercises at 4 sets (not 5)
+            if (isLowerOrFullDay && candidate?.movement_pattern === "calf" && ex.targetSets >= 4) return false;' \
+  '            // MED-2: For lower/full days, cap calf exercises at 4 sets (not 5)
+            if (false && isLowerOrFullDay && candidate?.movement_pattern === "calf" && ex.targetSets >= 4) return false;' \
+  test:med2-time-fill-cap
+
+run_mutant "FB-C-WALL. Remove Wall Sit sort logic for Full Body days" "$GENERATE" \
+  '      // For past-knee users on Full Body days: Wall Sit comes after other lower-body exercises
+      const hasPastKnee = input.anyKneeInjury && !hasKneeInjury;
+      const isFullDay = entry.focus === "full_body";
+      if (hasPastKnee && isFullDay) {
+        const aIsWallSit = a.ex.slug === "wall-sit";
+        const bIsWallSit = b.ex.slug === "wall-sit";
+        const lowerBodyPatterns = new Set(["squat", "lunge", "hinge", "calf"]);
+        const aIsLower = lowerBodyPatterns.has(a.ex.movement_pattern);
+        const bIsLower = lowerBodyPatterns.has(b.ex.movement_pattern);
+        
+        // Wall Sit after other lower-body, but before upper-body and core
+        if (aIsWallSit && bIsLower && !bIsWallSit) return 1;
+        if (bIsWallSit && aIsLower && !aIsWallSit) return -1;
+      }' \
+  '' test:knee-volume test:knee-volume-identity test:count-knee-risk-outside-squat test:full-body-c-lunge
+
 
 echo ""
 echo "──────────────────────────────────────────────────────────"
@@ -248,4 +295,5 @@ if [ $SURVIVED -gt 0 ] || [ $SKIPPED -gt 0 ] || [ $CRASHED -gt 0 ]; then
   echo "❌ FAILED: $SURVIVED survived, $SKIPPED skipped, $CRASHED crashed"
   exit 1
 fi
+
 echo "✅ PASSED: All mutants killed"
