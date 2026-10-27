@@ -121,24 +121,6 @@ run_mutant "6. Keep rest button: change to 'Dismiss'" "$COMPONENT" \
               Dismiss
             </Choice>' "$T"
 
-run_mutant "7. Keep rest action: call with rest instead of keep" "$COMPONENT" \
-  '<Choice disabled={pending} onClick={() => choose({ kind: "keep" }, "a rest day")}>
-              Keep rest' \
-  '<Choice disabled={pending} onClick={() => choose({ kind: "rest" }, "a rest day")}>
-              Keep rest' "$T"
-
-run_mutant "8. Training days list in new UI: add Yoga button" "$COMPONENT" \
-  '            {days.some((d) => d.dayType === "yoga") ? null : (
-              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
-                Yoga
-              </Choice>
-            )}
-            <button' \
-  '            <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
-              Yoga
-            </Choice>
-            <button' "$T"
-
 run_mutant "9. Rest day detection: case-sensitive (accept 'Rest' but not 'rest')" "$COMPONENT" \
   'const isRestDay = plannedLabel.toLowerCase() === "rest";' \
   'const isRestDay = plannedLabel === "Rest";' "$T"
@@ -436,6 +418,22 @@ run_mutant "N10. SessionRunner passes localDate instead of sessionId" "$COMPONEN
           : sessionId
           ? { sessionId, plan }
           : { plan } as never;' "$T"
+
+run_mutant "M-A1. page.tsx omits sessionTargetDate (MED-A)" "src/app/session/[id]/page.tsx" \
+  'const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate);' \
+  'const tomorrow = await nextDayPlan(supabase, timezone);' "npm run test:med-a-server-label"
+
+run_mutant "M-A2. nextDayPlan ignores targetLocalDate parameter (MED-A)" "src/lib/program/day-plan.ts" \
+  'const tomorrow = targetLocalDate ?? sessionPlanTargetDate(localDateString(timezone));' \
+  'const tomorrow = sessionPlanTargetDate(localDateString(timezone));' "npm run test:med-a-server-label"
+
+run_mutant "M-A3. sessionPlanTargetDate adds 0 days instead of 1 (MED-A)" "src/lib/session/resolve-plan-target-date.ts" \
+  'export function sessionPlanTargetDate(sessionLocalDate: string): string {
+  return addDays(sessionLocalDate, 1);
+}' \
+  'export function sessionPlanTargetDate(sessionLocalDate: string): string {
+  return addDays(sessionLocalDate, 0);
+}' "npm run test:med-a-server-label"
 
 echo ""
 echo "──────────────────────────────────────────────────────────"

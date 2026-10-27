@@ -2,6 +2,17 @@ import { addDays } from "@/lib/dates";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
+/**
+ * Compute the target date for planning from a session's local_date.
+ * 
+ * Returns session.local_date + 1 day, so a session started at 23:50 IST
+ * and finishing at 00:20 IST the next day always targets the session's
+ * recorded day + 1, not the current wall-clock day.
+ */
+export function sessionPlanTargetDate(sessionLocalDate: string): string {
+  return addDays(sessionLocalDate, 1);
+}
+
 export interface ResolvePlanTargetDateDeps {
   fetchSessionLocalDate(
     sessionId: string,
@@ -35,7 +46,7 @@ export async function resolvePlanTargetDate(
     if (!result.localDate) {
       return { ok: false, error: "Session not found." };
     }
-    const targetDate = addDays(result.localDate, 1);
+    const targetDate = sessionPlanTargetDate(result.localDate);
     return { ok: true, data: targetDate };
   }
 

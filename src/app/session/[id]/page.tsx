@@ -183,7 +183,8 @@ export default async function SessionPage({
   // computed server-side, even after midnight. This ensures displayed plan and
   // saved date match.
   const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
-  const sessionTargetDate = session.local_date ? addDays(session.local_date, 1) : undefined;
+  const { sessionPlanTargetDate } = await import("@/lib/session/resolve-plan-target-date");
+  const sessionTargetDate = session.local_date ? sessionPlanTargetDate(session.local_date) : undefined;
   const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate);
 
   // Compute isStale on the server to avoid requiring timezone in client components

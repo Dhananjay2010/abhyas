@@ -170,7 +170,9 @@ export async function nextDayPlan(
     .maybeSingle();
   if (!program) return null;
 
-  const tomorrow = targetLocalDate ?? addDays(localDateString(timezone), 1);
+  const { sessionPlanTargetDate } = await import("@/lib/session/resolve-plan-target-date");
+  const { localDateString } = await import("@/lib/dates");
+  const tomorrow = targetLocalDate ?? sessionPlanTargetDate(localDateString(timezone));
   const [resolved, days] = await Promise.all([
     resolveDay(supabase, program.id, tomorrow),
     plannableDays(supabase, program.id),
