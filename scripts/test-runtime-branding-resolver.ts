@@ -507,8 +507,9 @@ async function main() {
     
     const resolution = await resolveBrand(supabase, 'error.example.com', memberGym, branding, mockFetchBrand, false);
     
-    // M12: Current implementation returns base tier on RPC error
-    check("M12: Falls back gracefully", resolution.tier === "base" || resolution.tier === "member" || resolution.tier === "host");
+    check("M12: Tier is neutral on host RPC error", resolution.tier === "neutral");
+    check("M12: Uses neutralBrand", resolution.brand.colors.accent === '#6B7280');
+    check("M12: Not showing member gym", resolution.gymId === null);
   }
   console.log();
 

@@ -163,7 +163,7 @@ export async function resolveBrand(
             brand,
             gymId: null,
             gymName: null,
-            tier: "base",
+            tier: "neutral",
           };
         }
       }
