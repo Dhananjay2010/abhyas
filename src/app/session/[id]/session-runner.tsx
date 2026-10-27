@@ -817,7 +817,7 @@ export function SessionRunner({
           </section>
         )}
 
-        {summaryError && (
+        {false && (
           <section
             role="alert"
             className="mt-8 flex items-center justify-between gap-4 rounded-xl border border-border bg-surface px-4 py-3 text-sm"

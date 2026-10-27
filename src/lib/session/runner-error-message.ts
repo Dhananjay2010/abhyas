@@ -16,8 +16,9 @@ function is5xxError(err: unknown): boolean {
   
   const message = err.message;
   
-  // Exact match for common 5xx message
+  // Exact match for common 5xx messages
   if (message === "Internal Server Error") return true;
+  if (message === "500 Internal Server Error") return true;
   
   // Pattern: "status 5XX" or "Status 5XX" (case insensitive)
   // This matches "status 500", "status 503", etc. but not "Weight 500" or "Set 1500"
