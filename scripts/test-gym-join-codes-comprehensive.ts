@@ -12,6 +12,7 @@
 import { checkRealDbTest } from "./lib-db-reset-guard.js";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
+import { parsePreviewJoinCodeResult, parseRedeemJoinCodeResult } from "../src/lib/gym-join-code-types.js";
 
 const guardDecision = checkRealDbTest();
 if (!guardDecision.allow) {
@@ -29,6 +30,20 @@ let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
+}
+
+function parseCreateJoinCodeResult(data: unknown): { id: string; code: string } | null {
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const first = data[0];
+  if (
+    typeof first === "object" &&
+    first !== null &&
+    typeof (first as Record<string, unknown>).id === "string" &&
+    typeof (first as Record<string, unknown>).code === "string"
+  ) {
+    return { id: (first as { id: string; code: string }).id, code: (first as { id: string; code: string }).code };
+  }
+  return null;
 }
 
 async function runTests() {
@@ -98,7 +113,9 @@ async function runTests() {
     p_gym_id: gymId,
     p_role: "member",
   });
-  const validCode = memberCodeData?.[0]?.code;
+  const memberCodeParsed = parseCreateJoinCodeResult(memberCodeData);
+  const validCode = memberCodeParsed?.code;
+  if (!validCode) throw new Error("Failed to create valid code");
 
   console.log("TEST: Throttle with mixed preview/redeem calls");
   const throttleUser = await createTestUser("throttle");
@@ -122,14 +139,16 @@ async function runTests() {
   const { data: throttledPreview } = await throttleUser.client.rpc("preview_join_code", {
     p_code: validCode,
   });
-  const previewResult = throttledPreview as {ok: boolean; reason?: string} | null;
-  check("11th attempt throttled on valid code (preview)", previewResult?.ok === false && previewResult?.reason === "throttled");
+  const previewResult = parsePreviewJoinCodeResult(throttledPreview);
+  check("11th attempt throttled on valid code (preview)", 
+    previewResult !== null && previewResult.ok === false && previewResult.reason === "throttled");
 
   const { data: throttledRedeem } = await throttleUser.client.rpc("redeem_join_code", {
     p_code: validCode,
   });
-  const redeemResult = throttledRedeem as {ok: boolean; reason?: string} | null;
-  check("11th attempt still throttled (redeem)", redeemResult?.ok === false && redeemResult?.reason === "throttled");
+  const redeemResult = parseRedeemJoinCodeResult(throttledRedeem);
+  check("11th attempt still throttled (redeem)", 
+    redeemResult !== null && redeemResult.ok === false && redeemResult.reason === "throttled");
 
   // Attempts table should still have 10 rows (throttled calls don't record)
   const { data: attemptsAfter } = await adminClient
@@ -146,7 +165,9 @@ async function runTests() {
     p_role: "member",
     p_max_uses: 50,
   });
-  const highUsesCode = highUsesCodeData?.[0]?.code;
+  const highUsesCodeParsed = parseCreateJoinCodeResult(highUsesCodeData);
+  const highUsesCode = highUsesCodeParsed?.code;
+  if (!highUsesCode) throw new Error("Failed to create high-uses code");
 
   // Make 15 successful preview calls
   for (let i = 0; i < 15; i++) {
@@ -169,8 +190,8 @@ async function runTests() {
   const { data: afterSuccesses } = await successUser.client.rpc("preview_join_code", {
     p_code: highUsesCode,
   });
-  const afterResult = afterSuccesses as {ok: boolean} | null;
-  check("30+ successes don't throttle", afterResult?.ok === true);
+  const afterResult = parsePreviewJoinCodeResult(afterSuccesses);
+  check("30+ successes don't throttle", afterResult !== null && afterResult.ok === true);
   console.log();
 
   console.log("TEST: Staff redeeming own gym's member code stays staff");
@@ -190,8 +211,10 @@ async function runTests() {
     p_gym_id: gymStaff,
     p_role: "member",
   });
-  const staffGymCode = staffGymCodeData?.[0]?.code;
-  const staffGymCodeId = staffGymCodeData?.[0]?.id;
+  const staffGymCodeParsed = parseCreateJoinCodeResult(staffGymCodeData);
+  const staffGymCode = staffGymCodeParsed?.code;
+  const staffGymCodeId = staffGymCodeParsed?.id;
+  if (!staffGymCode || !staffGymCodeId) throw new Error("Failed to create staff gym code");
 
   const { data: usesBefore } = await adminClient
     .from("gym_join_codes")
@@ -240,35 +263,72 @@ async function runTests() {
     p_gym_id: gymId,
     p_role: "member",
   });
-  const generatedCode = manyCodesData?.[0]?.code;
-  const isValid = /^[2-9A-HJ-NP-Z]{10}$/.test(generatedCode || "");
+  const manyCodesParsed = parseCreateJoinCodeResult(manyCodesData);
+  const generatedCode = manyCodesParsed?.code || "";
+  const isValid = /^[2-9A-HJ-NP-Z]{10}$/.test(generatedCode);
   check("Generated code matches format", isValid, `code=${generatedCode}`);
-  check("No ambiguous chars (0,1,I,O)", !/(0|1|I|O)/.test(generatedCode || ""));
+  check("No ambiguous chars (0,1,I,O)", !/(0|1|I|O)/.test(generatedCode));
   console.log();
 
   console.log("TEST: Attempts table RLS blocks everything");
-  const { error: anonSelectError } = await outsider.client
+  // With RLS enabled but no SELECT policy: returns 0 rows, no error
+  const { data: selectData, error: selectError } = await outsider.client
     .from("gym_join_code_attempts")
     .select("*")
     .limit(1);
-  check("User cannot SELECT attempts", !!anonSelectError);
+  check("User cannot SELECT attempts (returns 0 rows)", !selectError && selectData?.length === 0);
 
+  // With no INSERT policy: raises error
   const { error: insertError } = await outsider.client
     .from("gym_join_code_attempts")
     .insert({ user_id: outsider.userId, attempted_at: new Date().toISOString() });
   check("User cannot INSERT attempts", !!insertError);
 
-  const { error: updateError } = await outsider.client
+  // With no UPDATE policy: matches 0 rows, no error (we need to verify row is unchanged)
+  const testAttemptId = randomUUID();
+  await adminClient.from("gym_join_code_attempts").insert({
+    id: testAttemptId,
+    user_id: outsider.userId,
+    attempted_at: new Date().toISOString(),
+  });
+  
+  const { data: beforeUpdate } = await adminClient
     .from("gym_join_code_attempts")
-    .update({ attempted_at: new Date().toISOString() })
-    .eq("user_id", outsider.userId);
-  check("User cannot UPDATE attempts", !!updateError);
+    .select("attempted_at")
+    .eq("id", testAttemptId)
+    .single();
+  
+  const newTime = new Date(Date.now() + 86400000).toISOString();
+  const { data: updateResult, error: updateError } = await outsider.client
+    .from("gym_join_code_attempts")
+    .update({ attempted_at: newTime })
+    .eq("id", testAttemptId)
+    .select();
+  check("User UPDATE matches 0 rows (no error)", !updateError && (!updateResult || updateResult.length === 0));
+  
+  const { data: afterUpdate } = await adminClient
+    .from("gym_join_code_attempts")
+    .select("attempted_at")
+    .eq("id", testAttemptId)
+    .single();
+  check("Row unchanged after UPDATE", afterUpdate?.attempted_at === beforeUpdate?.attempted_at);
 
-  const { error: deleteError } = await outsider.client
+  // With no DELETE policy: matches 0 rows, no error (we need to verify row still exists)
+  const { data: deleteResult, error: deleteError } = await outsider.client
     .from("gym_join_code_attempts")
     .delete()
-    .eq("user_id", outsider.userId);
-  check("User cannot DELETE attempts", !!deleteError);
+    .eq("id", testAttemptId)
+    .select();
+  check("User DELETE matches 0 rows (no error)", !deleteError && (!deleteResult || deleteResult.length === 0));
+  
+  const { data: afterDelete } = await adminClient
+    .from("gym_join_code_attempts")
+    .select("id")
+    .eq("id", testAttemptId);
+  check("Row still exists after DELETE", afterDelete?.length === 1);
+  
+  // Cleanup test row
+  await adminClient.from("gym_join_code_attempts").delete().eq("id", testAttemptId);
   console.log();
 
   console.log("TEST: Helper functions not executable by authenticated");
