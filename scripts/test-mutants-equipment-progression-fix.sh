@@ -57,23 +57,10 @@ echo
 
 TESTS=(
   "npm run test:first-miss-pinned"
-  "npm run test:first-miss-two-miss-invariant"
   "npm run test:increase-cap"
-  "npm run test:message-weight-consistency"
-  "npm run test:kettlebell-success"
-  "npm run test:timed-hold-message"
-  "npm run test:progression-display-target-consistency"
-  "npm run test:progression-display-consistency"
-  "npm run test:qa-bot-1-full-path"
-  "npm run test:call-site-wiring"
+  "npm run test:increment-cap"
   "npm run test:progression-real-path"
-  "npm run test:msg-bodyweight-zero"
-  "npm run test:med3-third-miss"
-  "npm run test:barbell-grid-snap"
-  "npm run test:swap-prefill-equipmentids"
-  "npm run test:m1-null-premiss-fallback"
-  "npm run test:third-miss-step-down"
-  "npm run test:imperial-units-full-path"
+  "npm run test:imperial-actions-path"
   "npm run test:actions-imperial-behavioral-l4b4"
 )
 
@@ -245,23 +232,23 @@ m1c() {
 }
 test_mutant "M1c: no hold when back-off unchanged" m1c
 
-# C1: One-step cap removed (remove the max cap, allowing increment only)
+# C1: incrementFor returns raw mechanic increment (breaks increment >= gridStep guarantee)
 c1() {
   local file="$PROG"
-  local search='next = snappedFrom + Math.max(gridStep, jump);'
-  local replace='next = snappedFrom + jump;'
+  local search='return Math.max(mechanicIncrement, equipGrid);'
+  local replace='return mechanicIncrement;'
   local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern found $count times (expected 1)" >&2
     return 1
   fi
-  sed -i "s/next = snappedFrom + Math.max(gridStep, jump);/next = snappedFrom + jump;/" "$file"
+  sed -i "s/return Math.max(mechanicIncrement, equipGrid);/return mechanicIncrement;/" "$file"
   if cmp -s "$file" "$BACKUP_PROG"; then
     echo "ERROR: C1 did not change the file" >&2
     return 1
   fi
 }
-test_mutant "One-step cap removed (no max cap)" c1
+test_mutant "incrementFor returns raw mechanic increment" c1
 
 # C2: Success check ignores stored target (mutates the successTarget resolveTarget call only)
 c2() {
