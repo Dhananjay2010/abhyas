@@ -18,12 +18,18 @@ export function InvitesList({ gymId, gymName, initialCodes }: InvitesListProps) 
   const [codes, setCodes] = useState<JoinCode[]>(initialCodes);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<GymRole>("member");
+  const [expiryDays, setExpiryDays] = useState<string>("30");
+  const [maxUses, setMaxUses] = useState<string>("");
 
-  const handleCreateCode = async (role: GymRole) => {
+  const handleCreateCode = async () => {
     setCreating(true);
     setCreateError(null);
     
-    const result = await createJoinCode(gymId, role);
+    const expiresAt = expiryDays ? new Date(Date.now() + parseInt(expiryDays) * 24 * 60 * 60 * 1000).toISOString() : undefined;
+    const maxUsesNum = maxUses ? parseInt(maxUses) : undefined;
+    
+    const result = await createJoinCode(gymId, selectedRole, expiresAt, maxUsesNum);
     
     if (result.ok) {
       setCodes([result.code, ...codes]);
@@ -51,22 +57,61 @@ export function InvitesList({ gymId, gymName, initialCodes }: InvitesListProps) 
     <div className="space-y-8">
       <section>
         <h2 className="text-lg font-semibold mb-4">Create Invite Code</h2>
-        <div className="flex gap-3">
+        <div className="space-y-4 rounded-xl border border-border bg-surface-2 px-6 py-6">
+          <div>
+            <label htmlFor="role" className="block text-sm font-medium mb-2">
+              Role
+            </label>
+            <select
+              id="role"
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value as GymRole)}
+              className="w-full rounded-lg border border-border bg-surface-1 px-4 py-2 text-sm text-fg"
+            >
+              <option value="member">Member</option>
+              <option value="staff">Staff</option>
+            </select>
+          </div>
+          
+          <div>
+            <label htmlFor="expiry" className="block text-sm font-medium mb-2">
+              Expires in (days)
+            </label>
+            <input
+              id="expiry"
+              type="number"
+              min="1"
+              value={expiryDays}
+              onChange={(e) => setExpiryDays(e.target.value)}
+              placeholder="30"
+              className="w-full rounded-lg border border-border bg-surface-1 px-4 py-2 text-sm text-fg"
+            />
+            <p className="mt-1 text-xs text-muted">Default: 30 days. Leave empty for no expiry.</p>
+          </div>
+          
+          <div>
+            <label htmlFor="maxUses" className="block text-sm font-medium mb-2">
+              Max uses
+            </label>
+            <input
+              id="maxUses"
+              type="number"
+              min="1"
+              value={maxUses}
+              onChange={(e) => setMaxUses(e.target.value)}
+              placeholder="Unlimited"
+              className="w-full rounded-lg border border-border bg-surface-1 px-4 py-2 text-sm text-fg"
+            />
+            <p className="mt-1 text-xs text-muted">Default: unlimited. Set a number to limit uses.</p>
+          </div>
+          
           <button
             type="button"
-            onClick={() => handleCreateCode("member")}
+            onClick={handleCreateCode}
             disabled={creating}
-            className="flex-1 rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-fg transition-colors hover:bg-surface-3 disabled:opacity-50"
+            className="w-full rounded-xl border border-accent bg-accent px-6 py-3 text-sm font-medium text-fg-on-accent transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
-            {creating ? "Creating..." : "Create Member Code"}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleCreateCode("staff")}
-            disabled={creating}
-            className="flex-1 rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-fg transition-colors hover:bg-surface-3 disabled:opacity-50"
-          >
-            {creating ? "Creating..." : "Create Staff Code"}
+            {creating ? "Creating..." : "Create Code"}
           </button>
         </div>
         {createError && (

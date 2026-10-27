@@ -597,17 +597,57 @@ async function runTests() {
   check("Staff E is still staff of gym A", staffEGymA?.role === "staff" && staffEGymA?.status === "active");
   console.log();
 
-  // Clean up
-  console.log("Cleaning up test users...");
-  if (userIdH) await adminClient.auth.admin.deleteUser(userIdH);
-  await adminClient.auth.admin.deleteUser(userIdA);
-  await adminClient.auth.admin.deleteUser(userIdB);
-  await adminClient.auth.admin.deleteUser(userIdC);
-  await adminClient.auth.admin.deleteUser(userIdD);
-  await adminClient.auth.admin.deleteUser(userIdE);
-  if (userIdF) await adminClient.auth.admin.deleteUser(userIdF);
-  if (userIdG) await adminClient.auth.admin.deleteUser(userIdG);
-  console.log("✓ Test users cleaned up\n");
+  // TEST: Owner redeeming their own gym's member code (idempotent no-op)
+  console.log("TEST: Owner of gym A redeeming member code for gym A (no-op)");
+  
+  // Get current use_count for gym A member code
+  const { data: beforeUseCount } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", gymAMemberCodeId)
+    .single();
+  const useCountBefore = beforeUseCount?.use_count ?? 0;
+  
+  // Owner A redeems member code for their own gym (should be no-op)
+  const { error: ownerARedeemOwnError } = await clientA.rpc("redeem_join_code", {
+    p_code: gymAMemberCode,
+  });
+  check("Owner A can call redeem on their own gym code (no-op)", !ownerARedeemOwnError, ownerARedeemOwnError?.message);
+  
+  // Check use_count is UNCHANGED (no-op should not consume a use)
+  const { data: afterUseCount } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", gymAMemberCodeId)
+    .single();
+  check("Use count unchanged after owner redeeming own gym code", afterUseCount?.use_count === useCountBefore);
+  
+  // Check owner A is still owner (not downgraded to member)
+  const { data: ownerAStillOwner } = await adminClient
+    .from("gym_memberships")
+    .select("role, status")
+    .eq("gym_id", gymIdA)
+    .eq("user_id", userIdA)
+    .single();
+  check("Owner A is still owner (not downgraded)", ownerAStillOwner?.role === "owner");
+  console.log();
+
+  // Clean up (delete only test data, NOT users)
+  console.log("Cleaning up test data...");
+  
+  // Delete join codes for test gyms
+  await adminClient.from("gym_join_codes").delete().eq("gym_id", gymIdA);
+  await adminClient.from("gym_join_codes").delete().eq("gym_id", gymIdB);
+  
+  // Delete memberships for test gyms
+  await adminClient.from("gym_memberships").delete().eq("gym_id", gymIdA);
+  await adminClient.from("gym_memberships").delete().eq("gym_id", gymIdB);
+  
+  // Delete test gyms (cascade will handle remaining refs)
+  await adminClient.from("gyms").delete().eq("id", gymIdA);
+  await adminClient.from("gyms").delete().eq("id", gymIdB);
+  
+  console.log("✓ Test data cleaned up (users left intact for reuse)\n");
 
   if (failures > 0) {
     console.error(`\n❌ ${failures} test(s) failed\n`);

@@ -411,6 +411,7 @@
     "test:gym-owner-guards-sql": "tsx scripts/test-gym-owner-guards-sql.ts",
     "ci:mutant-gym-rls-policies": "bash scripts/mutant-test-gym-rls-policies.sh",
     "test:gym-join-code-helpers": "tsx scripts/test-gym-join-code-helpers.ts",
+    "test:gym-join-code-throttle": "tsx scripts/test-gym-join-code-throttle.ts",
     "test:gym-join-codes-real-db": "tsx scripts/test-gym-join-codes-real-db.ts"
   },
   "dependencies": {

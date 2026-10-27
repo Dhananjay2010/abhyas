@@ -18,7 +18,9 @@ export type RevokeCodeResult =
 
 export async function createJoinCode(
   gymId: string,
-  role: GymRole
+  role: GymRole,
+  expiresAt?: string,
+  maxUses?: number
 ): Promise<CreateCodeResult> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit && !rateLimit.ok) return { ok: false, error: rateLimit.error };
@@ -29,8 +31,8 @@ export async function createJoinCode(
   const { data, error } = await supabase.rpc("create_join_code", {
     p_gym_id: gymId,
     p_role: role,
-    p_expires_at: undefined,
-    p_max_uses: undefined,
+    p_expires_at: expiresAt || undefined,
+    p_max_uses: maxUses || undefined,
   });
 
   if (error) return { ok: false, error: error.message };

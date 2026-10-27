@@ -58,9 +58,19 @@ export function JoinConfirmation({
             <p className="mt-3 text-sm text-muted">
               You will join as a <strong>{role}</strong>
             </p>
-            {currentGymName && role === "member" && (
+            {currentGymName && role === "member" && currentGymRole === "member" && (
               <p className="mt-3 text-sm text-warning">
                 You are currently part of <strong>{currentGymName}</strong>. Joining {gymName} will move your membership.
+              </p>
+            )}
+            {currentGymName && role === "member" && currentGymRole === "owner" && (
+              <p className="mt-3 text-sm text-muted">
+                You&apos;ll stay <strong>owner</strong> of <strong>{currentGymName}</strong>.
+              </p>
+            )}
+            {currentGymName && role === "member" && currentGymRole === "staff" && (
+              <p className="mt-3 text-sm text-muted">
+                You&apos;ll stay <strong>staff</strong> of <strong>{currentGymName}</strong>.
               </p>
             )}
           </>
