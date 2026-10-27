@@ -10,7 +10,7 @@
  */
 
 import { branding } from "../src/lib/branding";
-import { getBrandCssVariablesForBrand } from "../src/lib/runtime-brand";
+import { mergeBrand } from "../src/lib/runtime-brand";
 import { getBrandCssVariables } from "../src/lib/branding";
 import { accessibleTextColor } from "../src/lib/contrast";
 
@@ -27,7 +27,7 @@ function runTests() {
   console.log("TEST: Base brand CSS variables");
   {
     const baseCss = getBrandCssVariables(branding);
-    const runtimeBaseCss = getBrandCssVariablesForBrand(branding);
+    const runtimeBaseCss = getBrandCssVariables(branding);
     check("Runtime CSS matches build-time CSS for base brand", baseCss === runtimeBaseCss);
     check("Base CSS includes accent", baseCss.includes("--color-accent:"));
     check("Base CSS includes accentFg", baseCss.includes("--color-accent-fg:"));
@@ -123,7 +123,7 @@ function runTests() {
 
   console.log("TEST: CSS variable format");
   {
-    const css = getBrandCssVariablesForBrand(branding);
+    const css = getBrandCssVariables(branding);
     
     // Must be space-separated declarations
     check("CSS is non-empty string", typeof css === "string" && css.length > 0);

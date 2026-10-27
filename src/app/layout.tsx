@@ -4,52 +4,28 @@ import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { NewVersionHint } from "@/components/new-version-hint";
-import { branding } from "@/lib/branding";
-import { getRequestBrandResolution, getBrandCssVariablesForBrand } from "@/lib/runtime-brand";
+import { branding, getBrandCssVariables } from "@/lib/branding";
+import { getRequestBrandResolution } from "@/lib/runtime-brand";
 import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 import { InProgressBar } from "@/components/in-progress-bar";
 import { PendingSetReplayProvider } from "@/components/pending-set-replay-provider";
 import { HostWinsNotice } from "@/components/host-wins-notice";
 import { createClient } from "@/lib/supabase/server";
+import { getUserGymMembership } from "@/lib/gym/member-gym";
+import { getHostWinsNoticeProps } from "@/lib/host-wins-logic";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
-async function getHostWinsNoticeProps(): Promise<{ userGymName: string | null; hostGymName: string | null }> {
+async function getHostWinsNoticePropsForLayout() {
   const resolution = await getRequestBrandResolution();
   
-  // Only show notice in tier "host" (host wins)
-  if (resolution.tier !== "host") {
-    return { userGymName: null, hostGymName: null };
-  }
-  
-  // Get user's gym
+  // Get user's gym membership (reuse cached resolution data)
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  let userGymName: string | null = null;
+  const memberGym = user ? await getUserGymMembership(supabase, user.id) : null;
   
-  if (user) {
-    const { data: membership } = await supabase
-      .from("gym_memberships")
-      .select(`gyms (name)`)
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .single();
-    
-    if (membership) {
-      const gym = Array.isArray(membership.gyms) ? membership.gyms[0] : membership.gyms;
-      userGymName = gym?.name ?? null;
-    }
-  }
-  
-  // Host gym name comes from resolution
-  const hostGymName = resolution.gymName;
-  
-  // Only show if user has a gym AND it differs from host gym
-  if (!userGymName || !hostGymName || userGymName === hostGymName) {
-    return { userGymName: null, hostGymName: null };
-  }
-  
-  return { userGymName, hostGymName };
+  // Use pure function to determine notice props
+  return getHostWinsNoticeProps(resolution, memberGym);
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -104,8 +80,8 @@ export default async function RootLayout({
   // Runtime brand is resolved from the request host.
   const resolution = await getRequestBrandResolution();
   const brand = resolution.brand;
-  const brandCssVars = getBrandCssVariablesForBrand(brand);
-  const noticeProps = await getHostWinsNoticeProps();
+  const brandCssVars = getBrandCssVariables(brand);
+  const noticeProps = await getHostWinsNoticePropsForLayout();
 
   return (
     <html lang="en" className={inter.variable}>

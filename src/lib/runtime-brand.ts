@@ -236,38 +236,3 @@ export function mergeBrand(base: Brand, partial: Partial<Brand>): Brand {
   
   return merged;
 }
-
-/**
- * Get CSS variable declarations for a brand's colors.
- * Returns a string suitable for inline <style> injection.
- * 
- * Security: All colors are validated as strict hex codes.
- */
-export function getBrandCssVariablesForBrand(brand: Brand): string {
-  // Validate all colors are strict hex codes (defense in depth)
-  const colorEntries = Object.entries(brand.colors);
-  for (const [key, value] of colorEntries) {
-    if (!/^#[0-9a-fA-F]{6}$/.test(value)) {
-      throw new Error(
-        `Brand ${brand.id}: colors.${key} must be a strict 6-digit hex code for CSS injection safety (got: ${value})`
-      );
-    }
-  }
-
-  return [
-    `--color-accent: ${brand.colors.accent};`,
-    `--color-accent-hover: ${brand.colors.accentHover};`,
-    `--color-accent-fg: ${brand.colors.accentFg};`,
-    `--color-bg: ${brand.colors.bg};`,
-    `--color-surface: ${brand.colors.surface};`,
-    `--color-surface-2: ${brand.colors.surface2};`,
-    `--color-border: ${brand.colors.border};`,
-    `--color-fg: ${brand.colors.fg};`,
-    `--color-muted: ${brand.colors.muted};`,
-    `--color-success: ${brand.colors.success};`,
-    `--color-warning: ${brand.colors.warning};`,
-    `--color-warning-fg: ${brand.colors.warningFg};`,
-    `--color-danger: ${brand.colors.danger};`,
-    `--color-chart: ${brand.colors.chart};`,
-  ].join(" ");
-}

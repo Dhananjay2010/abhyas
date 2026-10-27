@@ -12,7 +12,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 import { branding, type Brand } from "../src/lib/branding";
-import { resolveBrand, getBrandCssVariablesForBrand } from "../src/lib/runtime-brand";
+import { resolveBrand } from "../src/lib/runtime-brand";
 import { getBrandCssVariables } from "../src/lib/branding";
 
 let failures = 0;
@@ -99,7 +99,7 @@ async function main() {
     
     // Verify CSS is byte-identical
     const baseCss = getBrandCssVariables(branding);
-    const resultCss = getBrandCssVariablesForBrand(result);
+    const resultCss = getBrandCssVariables(result);
     check("CSS byte-identical", baseCss === resultCss);
     
     // Verify resolve_gym_by_host was called
