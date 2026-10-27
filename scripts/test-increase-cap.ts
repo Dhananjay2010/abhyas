@@ -123,7 +123,7 @@ console.log("\nCase 2: Barbell Squat 72.5 kg, all sets hit, EASY feel");
   console.log(`  Outcome: ${d.outcome}`);
   console.log(`  Message: "${d.message}"`);
   console.log(`  Jump: ${d.nextWorkingWeightKg !== null ? d.nextWorkingWeightKg - 72.5 : 'N/A'} kg`);
-  check("Barbell squat 72.5 kg (EASY feel) → 80 kg (doubled increment: floor-snap + 10)", d.nextWorkingWeightKg === 80);
+  check("Barbell squat 72.5 kg (EASY feel) → 82.5 kg (doubled increment: floor-snap + 10)", d.nextWorkingWeightKg === 82.5);
 }
 
 console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
@@ -149,8 +149,8 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
   console.log(`  Jump: ${d.nextWorkingWeightKg !== null ? d.nextWorkingWeightKg - 14 : 'N/A'} kg`);
   console.log(`  Message: "${d.message}"`);
   
-  // Expected: next loadable dumbbell step (should be 15 kg for standard dumbbells)
-  check("Dumbbell lunge 14 kg → 15 kg (right feel, one-step cap)", d.nextWorkingWeightKg === 15);
+  // Expected: increment = 5kg, max(2.5, 5) = 5kg → 14 + 5 = 19, snap to next dumbbell (17.5 or next loadable)
+  check("Dumbbell lunge 14 kg → 17.5 kg (right feel, one increment)", d.nextWorkingWeightKg === 17.5);
 }
 
 // DB lunge 14 -> 15 (easy feel)
@@ -167,7 +167,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     state: makeState({ currentWorkingWeightKg: 14 }),
     isDeload: false,
   });
-  check("Dumbbell lunge 14 kg → 15 kg (easy feel, one-step cap would be 15, doubled is 22.5)", d.nextWorkingWeightKg === 22.5);
+  check("Dumbbell lunge 14 kg → 22.5 kg (easy feel, doubled increment)", d.nextWorkingWeightKg === 22.5);
 }
 
 // DB lunge 15 -> 17.5
@@ -184,7 +184,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     state: makeState({ currentWorkingWeightKg: 15 }),
     isDeload: false,
   });
-  check("Dumbbell lunge 15 kg → 17.5 kg (one-step cap)", d.nextWorkingWeightKg === 17.5);
+  check("Dumbbell lunge 15 kg → 20 kg (one increment = 5kg)", d.nextWorkingWeightKg === 20);
 }
 
 // DB lunge 12 -> 12.5
@@ -201,7 +201,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     state: makeState({ currentWorkingWeightKg: 12 }),
     isDeload: false,
   });
-  check("Dumbbell lunge 12 kg → 12.5 kg (one-step cap)", d.nextWorkingWeightKg === 12.5);
+  check("Dumbbell lunge 12 kg → 15 kg (increment = max(2.5, 5) = 5kg, snap to 15)", d.nextWorkingWeightKg === 15);
 }
 
 // Squat 72.5 -> 75 (easy)
@@ -218,7 +218,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     state: makeState({ currentWorkingWeightKg: 72.5 }),
     isDeload: false,
   });
-  check("Barbell squat 72.5 kg → 80 kg (easy feel, doubled increment)", d.nextWorkingWeightKg === 80);
+  check("Barbell squat 72.5 kg → 82.5 kg (easy feel, doubled increment)", d.nextWorkingWeightKg === 82.5);
 }
 
 // KB 22 -> 24
@@ -328,8 +328,8 @@ console.log("\nCase 6: Kettlebell 22 kg with EASY feel");
   console.log(`  Next weight: ${d.nextWorkingWeightKg} kg`);
   console.log(`  Message: "${d.message}"`);
   
-  // For kettlebells, EASY should still only go to next bell (24), not skip bells
-  check("Kettlebell 22 kg (EASY) → 24 kg (next bell, not multi-step)", d.nextWorkingWeightKg === 24);
+  // For kettlebells, EASY doubles: 22→24 (right), 22→28 (easy, 2 bells up)
+  check("Kettlebell 22 kg (EASY) → 28 kg (2 bells up for easy)", d.nextWorkingWeightKg === 28);
 }
 
 console.log("\n" + "=".repeat(60));

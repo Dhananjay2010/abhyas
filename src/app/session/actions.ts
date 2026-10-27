@@ -12,7 +12,7 @@ import {
   evaluateProgression,
 } from "@/lib/program/progression";
 import { buildProgressionInput } from "@/lib/session/build-progression-input";
-import { progressionFeedback } from "@/lib/session/progression-feedback";
+import { progressionFeedback, buildProgressionFeedbackForUser } from "@/lib/session/progression-feedback";
 import { getProfileUnits } from "@/lib/get-profile-units";
 import type { UnitsPreference } from "@/lib/units";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
