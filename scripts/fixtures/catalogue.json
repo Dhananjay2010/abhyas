@@ -8401,8 +8401,7 @@
     ],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "wrist",
-      "knee"
+      "wrist"
     ],
     "impact": "low",
     "spinal_load": "none",

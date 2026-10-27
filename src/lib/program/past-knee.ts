@@ -252,9 +252,10 @@ export function getKneeFriendlyPrimaries(pattern: Pattern): readonly string[] {
 }
 
 /**
- * Item 14: Kettlebell jerks and push presses are banned for CURRENT knee only.
- * They are ALLOWED for past knee (not in PAST_KNEE_EXCLUDED_SLUGS).
- * Thrusters are banned for BOTH tiers (in PAST_KNEE_EXCLUDED_SLUGS).
+ * Item 14 (Decision a): Kettlebell jerks, push presses, and thrusters are banned for CURRENT knee.
+ * Jerks and push presses are ALLOWED for past knee (not in PAST_KNEE_EXCLUDED_SLUGS).
+ * Thrusters are banned for BOTH tiers (also in PAST_KNEE_EXCLUDED_SLUGS) but pinned here
+ * for test coverage of current-knee exclusion paths.
  */
 const CURRENT_KNEE_ONLY_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   // Kettlebell jerks: explosive overhead + deep catch (current knee only)
@@ -267,6 +268,9 @@ const CURRENT_KNEE_ONLY_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   // Kettlebell push presses: leg-driven explosive press (current knee only)
   "double-kettlebell-push-press",
   "one-arm-kettlebell-push-press",
+  
+  // Kettlebell thruster: banned for both tiers (Decision a: pinned here for M5 test coverage)
+  "kettlebell-thruster",
 ]);
 
 /**

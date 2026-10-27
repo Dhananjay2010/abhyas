@@ -142,44 +142,51 @@ fi
 restore_file "$TIER_FILE"
 echo ""
 
-# Mutant 5: kettlebell-thruster without knee tag (mutate fixture)
-# This exercise is ALSO in CURRENT_KNEE_ONLY_EXCLUDED_SLUGS, so the slug-based
-# filter still excludes it. This mutant tests that the catalogue data itself
-# has the correct tags for migration 000045 (which retags exercises).
-FIXTURE_FILE="scripts/fixtures/catalogue.json"
-backup_file "$FIXTURE_FILE"
+# Mutant 5: Remove kettlebell-thruster from CURRENT_KNEE_ONLY_EXCLUDED_SLUGS
+# Decision (a): kettlebell-thruster is pinned in CURRENT_KNEE_ONLY_EXCLUDED_SLUGS
+# for current-knee exclusion. Removing it must be killed by the pin test AND
+# at least one behavioural path test (e.g. generator test).
+PAST_KNEE_FILE="src/lib/program/past-knee.ts"
+backup_file "$PAST_KNEE_FILE"
 
-if grep -q '"slug": "kettlebell-thruster"' "$FIXTURE_FILE"; then
-  echo "Testing M5: kettlebell-thruster without knee tag"
+if grep -q '"kettlebell-thruster",' "$PAST_KNEE_FILE"; then
+  echo "Testing M5: Remove kettlebell-thruster from CURRENT_KNEE_ONLY_EXCLUDED_SLUGS"
   
-  # Remove 'knee' from kettlebell-thruster's contraindicated_regions array
-  python3 -c "
-import json
-
-with open('$FIXTURE_FILE', 'r') as f:
-    data = json.load(f)
-
-for ex in data:
-    if ex.get('slug') == 'kettlebell-thruster':
-        if 'contraindicated_regions' in ex and 'knee' in ex['contraindicated_regions']:
-            ex['contraindicated_regions'] = [r for r in ex['contraindicated_regions'] if r != 'knee']
-
-with open('$FIXTURE_FILE', 'w') as f:
-    json.dump(data, f, indent=2)
-" 2>/dev/null
-  
-  if npx tsx scripts/test-thruster-tag-direct.ts > /dev/null 2>&1; then
-    echo "  ✗ SURVIVED: Mutant not killed"
-    FAILURES=$((FAILURES + 1))
+  # Remove kettlebell-thruster line from the list
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' '/"kettlebell-thruster",/d' "$PAST_KNEE_FILE"
   else
-    echo "  ✓ KILLED: Test failed as expected"
+    sed -i '/"kettlebell-thruster",/d' "$PAST_KNEE_FILE"
+  fi
+  
+  # Run both the pin test and the behavioural test
+  PIN_PASSED=false
+  BEHAVIOURAL_PASSED=false
+  
+  if npx tsx scripts/test-current-knee-thruster-pin.ts > /dev/null 2>&1; then
+    echo "  ✗ Pin test SURVIVED"
+  else
+    PIN_PASSED=true
+  fi
+  
+  if npx tsx scripts/test-generate-current-knee-thruster.ts > /dev/null 2>&1; then
+    echo "  ✗ Behavioural test SURVIVED"
+  else
+    BEHAVIOURAL_PASSED=true
+  fi
+  
+  if [ "$PIN_PASSED" = true ] && [ "$BEHAVIOURAL_PASSED" = true ]; then
+    echo "  ✓ KILLED: Both pin test and behavioural test failed as expected"
+  else
+    echo "  ✗ SURVIVED: Mutant not killed by both tests"
+    FAILURES=$((FAILURES + 1))
   fi
 else
-  echo "Testing M5: kettlebell-thruster without knee tag"
+  echo "Testing M5: Remove kettlebell-thruster from CURRENT_KNEE_ONLY_EXCLUDED_SLUGS"
   echo "  ⊘ SKIP: kettlebell-thruster not found"
 fi
 
-restore_file "$FIXTURE_FILE"
+restore_file "$PAST_KNEE_FILE"
 echo ""
 
 # Mutant 6: Math.random tie-break
