@@ -3,7 +3,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
-import { getBrand } from "@/lib/branding";
+import { branding } from "@/lib/branding";
 
 export type GymResolution = {
   gymId: string;
@@ -34,7 +34,7 @@ function normalizeHost(host: string): string {
  * - Is callable by anon and authenticated users
  *
  * For unmapped hosts (localhost, *.vercel.app, unverified, or unknown),
- * the caller should fall back to the default brand via getBrand().
+ * the caller should fall back to the default brand via getDefaultBrand().
  */
 export async function resolveGymByHost(
   host: string,
@@ -70,5 +70,5 @@ export async function resolveGymByHost(
  * Used as a fallback when resolveGymByHost returns null.
  */
 export function getDefaultBrand() {
-  return getBrand();
+  return branding;
 }
