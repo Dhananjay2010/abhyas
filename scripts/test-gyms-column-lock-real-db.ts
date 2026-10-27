@@ -328,21 +328,19 @@ async function runTests() {
   // TEST: Owner blocked from updating name
   console.log("TEST: Owner blocked from updating name (GJC12)");
   {
-    // Get current name before attempt
     const { data: beforeName } = await clientOwner
       .from("gyms")
       .select("name")
       .eq("id", gymId)
       .single();
     
-    const { error } = await clientOwner
+    const { error: structError } = await clientOwner
       .from("gyms")
       .update({ name: "Hacked Name" })
       .eq("id", gymId);
-    check("Update name blocked", !!error);
-    check("Error code is GJC12", error?.code === "GJC12");
+    check("Owner can't UPDATE name directly", !!structError);
+    check("SQLSTATE GJC12", structError?.code === "GJC12");
     
-    // Verify name unchanged
     const { data: afterName } = await clientOwner
       .from("gyms")
       .select("name")
@@ -469,30 +467,30 @@ async function runTests() {
   // TEST: Future column update blocked (mutant (n))
   console.log("TEST: Future column update blocked");
   {
-    // Always create temp_future_col to test trigger blocks it
     const childProcess2 = await import("child_process");
     const { execSync } = childProcess2;
     const dbUrl = process.env.SUPABASE_DB_URL || "postgresql://postgres:postgres@localhost:54322/postgres";
     
     try {
-      // Add the column
       execSync(`psql -v ON_ERROR_STOP=1 "${dbUrl}" -c "ALTER TABLE public.gyms ADD COLUMN IF NOT EXISTS temp_future_col text;"`, {
         encoding: 'utf-8',
         stdio: 'pipe'
       });
       
-      // Try to update it as owner (should be blocked by trigger)
-      execSync(`psql -v ON_ERROR_STOP=1 "${dbUrl}" -c "SET ROLE authenticated; SELECT set_config('request.jwt.claims', jsonb_build_object('sub', '${userIdOwner}', 'role', 'authenticated')::text, false); UPDATE public.gyms SET temp_future_col = 'hacked' WHERE id = '${gymId}';"`, {
-        encoding: 'utf-8',
-        stdio: 'pipe'
-      });
+      const result = execSync(
+        `psql -v VERBOSITY=verbose "${dbUrl}" <<'SQL'
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', jsonb_build_object('sub', '${userIdOwner}', 'role', 'authenticated')::text, false);
+UPDATE public.gyms SET temp_future_col = 'hacked' WHERE id = '${gymId}';
+SQL`,
+        { encoding: 'utf-8', stdio: 'pipe' }
+      );
       
-      // If we get here, the update succeeded (should not happen)
       check("Future column update blocked", false, "Update succeeded when it should have been blocked");
     } catch (err) {
-      // Expected: trigger should block with GJC12
       const errStr = String(err);
-      check("Future column update blocked", errStr.includes("GJC12"), `Error: ${errStr.substring(0, 100)}`);
+      check("Future column update blocked", errStr.includes("GJC12") || errStr.includes("ERROR"));
+      check("SQLSTATE GJC12", errStr.includes("GJC12"));
     }
   }
   console.log();
@@ -634,20 +632,9 @@ async function runTests() {
   }
   console.log();
 
-  // Clean up test gyms
-  console.log("Cleaning up test gyms...");
-  {
-    const { error: gym1Error } = await adminClient.from("gyms").delete().eq("id", gymId);
-    check("Test gym deleted", !gym1Error, gym1Error?.message);
-    
-    const { error: gym2Error } = await adminClient.from("gyms").delete().eq("id", otherGymId);
-    check("Other gym deleted", !gym2Error, gym2Error?.message);
-  }
-  
-  // TEST: Multi-gym owner (LOW-11)
+  // TEST: Multi-gym owner (LOW-11) - MUST run before cleanup
   console.log("TEST: Multi-gym owner can't change other gym");
   {
-    // Make ownerA also an owner of otherGym
     const { error: addMembershipError } = await adminClient
       .from("gym_memberships")
       .insert({
@@ -657,21 +644,23 @@ async function runTests() {
       });
     check("ownerA added to gym B", !addMembershipError, addMembershipError?.message);
     
-    // Set distinct display_name for each gym
-    await adminClient.from("gyms").update({ display_name: "Gym A Display" }).eq("id", gymId);
+    const { data: brandAData } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "Gym A Display",
+      p_logo_url: null,
+      p_primary_color: "#FF9A2E",
+      p_accent_color: "#0A0C0E"
+    });
+    check("ownerA sets gym A branding", !!brandAData && Array.isArray(brandAData) && brandAData.length > 0 && brandAData[0].ok === true);
+
     await adminClient.from("gyms").update({ display_name: "Gym B Display" }).eq("id", otherGymId);
     
-    // ownerA tries to update gym B's name (should be blocked by RLS)
-    const { error: crossUpdateError, data: crossData } = await clientOwner
+    const { error: directNameError } = await clientOwner
       .from("gyms")
-      .update({ name: "Hacked Gym B" })
-      .eq("id", otherGymId)
-      .select();
+      .update({ name: "Hacked via direct" })
+      .eq("id", otherGymId);
+    check("Direct name update on gym B returns GJC12", directNameError?.code === "GJC12");
     
-    // RLS should block it (0 rows affected, not a GJC12 error)
-    check("ownerA can't UPDATE gym B (RLS blocks)", !crossUpdateError && (!crossData || crossData.length === 0));
-    
-    // Verify both gyms kept their own values
     const { data: gymAAfter } = await adminClient.from("gyms").select("display_name").eq("id", gymId).single();
     const { data: gymBAfter } = await adminClient.from("gyms").select("display_name").eq("id", otherGymId).single();
     
