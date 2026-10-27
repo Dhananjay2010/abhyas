@@ -162,6 +162,8 @@ export function SessionRunner({
   onExit,
 }: {
   sessionId: string;
+  userId?: string;
+  sessionStatus?: string;
   isDeload: boolean;
   week: number;
   warmupAlreadyDone: boolean;

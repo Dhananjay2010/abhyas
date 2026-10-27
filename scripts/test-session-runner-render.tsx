@@ -202,6 +202,8 @@ async function test1b1d() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -314,6 +316,8 @@ async function testN7() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -350,6 +354,8 @@ async function testN7() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -444,6 +450,8 @@ async function test7b7c() {
     render(
       <SessionRunner
         sessionId={sessionId}
+        userId={userId}
+        sessionStatus="in_progress"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
@@ -537,6 +545,8 @@ async function test7b7c() {
     render(
       <SessionRunner
         sessionId={sessionId}
+        userId={userId}
+        sessionStatus="in_progress"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
@@ -669,6 +679,8 @@ async function test8d8e() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -812,6 +824,8 @@ async function test9b() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -930,6 +944,8 @@ async function testN11() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -1037,6 +1053,8 @@ async function testN12() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -1126,6 +1144,8 @@ async function testConflict() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -1248,6 +1268,8 @@ async function testDoubleTap() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -1347,6 +1369,8 @@ async function testFailedSubmit() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -1461,6 +1485,8 @@ async function testN7sCompletedSession() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -1570,6 +1596,8 @@ async function testRetryButton() {
   render(
     <SessionRunner
       sessionId={sessionId}
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -1671,6 +1699,8 @@ async function testItem2b() {
   render(
     <SessionRunner 
       sessionId="s-proof" 
+      userId={userId}
+      sessionStatus="in_progress"
       isDeload={false} 
       week={1} 
       warmupAlreadyDone={true} 
