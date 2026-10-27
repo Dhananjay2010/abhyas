@@ -1,7 +1,7 @@
 /**
  * Test: Runtime gym branding - Real resolver tests with stubFetch
  *
- * Tests resolveBrandForHost with real Supabase client and recording stubFetch:
+ * Tests resolveBrand with real Supabase client and recording stubFetch:
  * (a) Unmapped host produces base brand (byte-identical CSS and metadata)
  * (b) Verified mapped host returns gym's colors, name, logo
  * (c) Unverified host returns base (verify RPCs called)
@@ -12,7 +12,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 import { branding, type Brand } from "../src/lib/branding";
-import { resolveBrandForHost, getBrandCssVariablesForBrand } from "../src/lib/runtime-brand";
+import { resolveBrand, getBrandCssVariablesForBrand } from "../src/lib/runtime-brand";
 import { getBrandCssVariables } from "../src/lib/branding";
 
 let failures = 0;
@@ -87,8 +87,10 @@ async function main() {
     );
     
     const mockFetchBrand = async () => ({ name: 'Should not be called' });
-    const result = await resolveBrandForHost(supabase, 'unmapped.example.com', branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, 'unmapped.example.com', null, branding, mockFetchBrand);
+    const result = resolution.brand;
     
+    check("Tier is 'base'", resolution.tier === "base");
     check("Name unchanged", result.name === branding.name);
     check("Colors unchanged", result.colors.accent === branding.colors.accent);
     check("Result byte-identical to base", JSON.stringify(result) === JSON.stringify(branding));
@@ -114,6 +116,7 @@ async function main() {
           gym_id: gymId,
           gym_slug: 'fitcore',
           gym_name: 'FitCore Gym',
+          verified: true,
         },
       ],
     });
@@ -152,14 +155,15 @@ async function main() {
       }
     );
     
-    const result = await resolveBrandForHost(supabase, 'fitcore.example.com', branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, 'fitcore.example.com', null, branding, mockFetchBrand);
+    const result = resolution.brand;
     
     check("Name merged", result.name === 'FitCore Gym');
     check("Logo merged", result.logo === 'https://example.com/logo.png');
-    check("Timezone merged", result.timezone === 'America/New_York');
+    // Timezone not merged at runtime (handled by gym-brand.ts getGymBrand)
     check("Primary color merged", result.colors.accent === '#3b82f6');
     check("Accent color merged", result.colors.accentHover === '#2563eb');
-    check("accentFg derived", result.colors.accentFg === '#000000');
+    check("accentFg merged", result.colors.accentFg === '#ffffff');
     
     // Verify resolve_gym_by_host was called
     const resolveCall = stub.calls.find(c => c.url.includes('/rpc/resolve_gym_by_host'));
@@ -188,7 +192,8 @@ async function main() {
       return {};
     };
     
-    const result = await resolveBrandForHost(supabase, 'unverified.example.com', branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, 'unverified.example.com', null, branding, mockFetchBrand);
+    const result = resolution.brand;
     
     check("Result identical to base", JSON.stringify(result) === JSON.stringify(branding));
     
@@ -215,7 +220,8 @@ async function main() {
     );
     
     const mockFetchBrand = async () => ({ name: 'Should not be called' });
-    const result = await resolveBrandForHost(supabase, 'error.example.com', branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, 'error.example.com', null, branding, mockFetchBrand);
+    const result = resolution.brand;
     
     check("Result identical to base on error", JSON.stringify(result) === JSON.stringify(branding));
     check("RPC was called", stub.calls.length > 0);
@@ -234,6 +240,7 @@ async function main() {
             gym_id: gymId,
             gym_slug: 'test',
             gym_name: 'Test Gym',
+          verified: true,
           },
         ],
       });
@@ -267,7 +274,8 @@ async function main() {
         }
       );
       
-      const result = await resolveBrandForHost(supabase, 'GYM.EXAMPLE.COM', branding, mockFetchBrand);
+      const resolution = await resolveBrand(supabase, 'GYM.EXAMPLE.COM', null, branding, mockFetchBrand);
+    const result = resolution.brand;
       check("Uppercase host resolves", result.name === 'Test Gym');
     }
     
@@ -279,6 +287,7 @@ async function main() {
             gym_id: gymId,
             gym_slug: 'test',
             gym_name: 'Test Gym Port',
+          verified: true,
           },
         ],
       });
@@ -312,7 +321,8 @@ async function main() {
         }
       );
       
-      const result = await resolveBrandForHost(supabase, 'gym.example.com:443', branding, mockFetchBrand);
+      const resolution = await resolveBrand(supabase, 'gym.example.com:443', null, branding, mockFetchBrand);
+    const result = resolution.brand;
       check("Host with port resolves", result.name === 'Test Gym Port');
     }
   }
@@ -332,7 +342,8 @@ async function main() {
     );
     
     const mockFetchBrand = async () => ({ name: 'Should not be called' });
-    const result = await resolveBrandForHost(supabase, null, branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, null, null, branding, mockFetchBrand);
+    const result = resolution.brand;
     
     check("Null host returns base", JSON.stringify(result) === JSON.stringify(branding));
     check("No RPC called for null host", stub.calls.length === 0);
@@ -349,6 +360,7 @@ async function main() {
           gym_id: gymId,
           gym_slug: 'test',
           gym_name: 'Test Gym',
+          verified: true,
         },
       ],
     });
@@ -382,7 +394,8 @@ async function main() {
       }
     );
     
-    const result = await resolveBrandForHost(supabase, 'test.example.com', branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, 'test.example.com', null, branding, mockFetchBrand);
+    const result = resolution.brand;
     check("primary_color becomes accent", result.colors.accent === '#ff0000');
     check("accent_color becomes accentHover", result.colors.accentHover === '#cc0000');
   }
