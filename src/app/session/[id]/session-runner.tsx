@@ -778,8 +778,8 @@ export function SessionRunner({
                   const result = await run(() =>
                     actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
                   );
-                  restPersistence.clear();
                   if (result && result.ok) {
+                    restPersistence.clear();
                     setSavedDurationSeconds(result.data.durationSeconds);
                     setPhase("done");
                   } else {
@@ -796,8 +796,8 @@ export function SessionRunner({
               const result = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
               );
-              restPersistence.clear();
               if (result && result.ok) {
+                restPersistence.clear();
                 setSavedDurationSeconds(result.data.durationSeconds);
                 setPhase("done");
               } else {
@@ -844,8 +844,8 @@ export function SessionRunner({
                   const result = await run(() =>
                     actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
                   );
-                  restPersistence.clear();
                   if (result && result.ok) {
+                    restPersistence.clear();
                     setSavedDurationSeconds(result.data.durationSeconds);
                     setPhase("done");
                   } else {
@@ -862,8 +862,8 @@ export function SessionRunner({
               const result = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
               );
-              restPersistence.clear();
               if (result && result.ok) {
+                restPersistence.clear();
                 setSavedDurationSeconds(result.data.durationSeconds);
                 setPhase("done");
               } else {
