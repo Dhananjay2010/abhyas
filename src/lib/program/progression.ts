@@ -712,7 +712,9 @@ export function evaluateProgression(input: {
         // Get the mechanic increment (5kg for lower-body compound, 2.5kg otherwise)
         const increment = incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";
-        const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? increment * 2 : increment;
+        // #120: One-grid-step cap: easy feel doesn't double with equipment
+        const hasEquipment = equipmentIds && equipmentIds.length > 0;
+        const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight && !hasEquipment ? increment * 2 : increment;
         
         // Add jump (incrementFor ensures jump >= gridStep for loadable equipment)
         next = snappedFrom + jump;
