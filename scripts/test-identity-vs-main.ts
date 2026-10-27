@@ -277,6 +277,20 @@ for (const testCase of testCases) {
   }
 }
 
+// Check for allow-list entries with unknown profiles (must fail if profile doesn't exist)
+console.log("\n" + "─".repeat(60));
+console.log("Allow-list profile verification:");
+const knownProfiles = new Set(testCases.map(tc => tc.id));
+const unknownProfileEntries = ALLOWED_DIFFS.filter(d => !knownProfiles.has(d.profile));
+
+if (unknownProfileEntries.length > 0) {
+  for (const entry of unknownProfileEntries) {
+    fail(`Allow-list references unknown profile: ${entry.profile} (Day ${entry.day} ex ${entry.slot})`);
+  }
+} else {
+  console.log("  ✓ All allow-list entries reference known profiles");
+}
+
 console.log("\n" + "─".repeat(60));
 console.log("Turkish Get-Up Changes (Expected):");
 if (turkishGetUpChanges.length > 0) {
@@ -293,6 +307,6 @@ if (failures === 0) {
   console.log(`  All ${testCases.length} test cases match main (except Turkish Get-Up removal)`);
   process.exit(0);
 } else {
-  console.log(`✗ ${failures} identity failures`);
+  console.log(`✗ FAIL: ${failures} identity assertion(s) failed`);
   process.exit(1);
 }

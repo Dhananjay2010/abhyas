@@ -33,7 +33,7 @@ const TWO_JAMMER_SLUGS = new Set([
 const PAST_KNEE_EXCLUDED = getPastKneeExcludedSlugs();
 for (const slug of THREE_EXCLUDED_SLUGS) {
   if (!PAST_KNEE_EXCLUDED.has(slug)) {
-    console.error(`✗ FATAL: getPastKneeExcludedSlugs() missing expected slug: ${slug}`);
+    console.error(`✗ FAIL: getPastKneeExcludedSlugs() missing expected slug: ${slug}`);
     process.exit(1);
   }
 }

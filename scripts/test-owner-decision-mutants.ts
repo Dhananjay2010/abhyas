@@ -19,33 +19,6 @@ interface Mutant {
 }
 
 const MUTANTS: Mutant[] = [
-  // G-3: Remove calf-press from past-knee exclusions
-  {
-    name: "G-3.1: Remove calf-press inline exclusion for past-knee",
-    file: "src/lib/program/generate.ts",
-    original: '  // Owner decision (a): Past-knee specific NEW exclusions (3 slugs added in this PR)\n  // Calf-press is knee-contraindicated but only excluded for past-knee (not current, see tag check above)\n  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");\n  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;\n  if (hasPastKnee && ex.slug === "calf-press-on-the-leg-press-machine") {\n    return false;\n  }',
-    mutated: '  // MUTANT: Removed calf-press exclusion\n  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");\n  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;',
-    tests: ["test:owner-decision-a", "test:past-knee-calf-swap-exclusion"],
-  },
-  
-  // G-3: Remove jammer check in generate.ts (primary defense)
-  {
-    name: "G-3.4: Remove jammer check in generate.ts",
-    file: "src/lib/program/generate.ts",
-    original: '  // G-3: Landmine jammers excluded for ANY knee injury (leg-driven presses)\n  if (input.anyKneeInjury && (ex.slug === "landmine-linear-jammer" || ex.slug === "single-arm-linear-jammer")) {\n    return false;\n  }',
-    mutated: '  // MUTANT: Removed jammer check',
-    tests: ["test:knee-contraindicated"],
-  },
-  
-  // Global tag filtering would break past-knee swaps
-  {
-    name: "Decision(a).1: Add global tag filtering in rankAlternatives",
-    file: "src/lib/program/alternatives.ts",
-    original: '    // G-3: Landmine jammers excluded for ANY knee injury (leg-driven presses)\n    if ((ctx.anyKneeInjury ?? false) && (candidate.slug === "landmine-linear-jammer" || candidate.slug === "single-arm-linear-jammer")) {\n      continue;\n    }',
-    mutated: '    // MUTANT: Apply GLOBAL tag filtering to ANY knee (WRONG - breaks 174 swap lists)\n    if ((ctx.anyKneeInjury ?? false) && candidate.contraindicated_regions.includes("knee")) {\n      continue;\n    }',
-    tests: ["test:past-knee-keeps-tier"],
-  },
-  
   // M3: Remove jammer continue in rankAlternatives (EQUIVALENT)
   {
     name: "M3: Remove jammer continue in rankAlternatives",
@@ -57,15 +30,44 @@ const MUTANTS: Mutant[] = [
     notes: "rankAlternatives' only production caller is buildEligibleSwapList (eligible-swap-list.ts:71), which first applies isEligible's any-knee jammer check. Evidence: byte-identical output across 483,912 swap lists (4 injury sets x 11 equipment x 3 levels x 2 tracks x 611 exercises x 3 session ids) and 7,290 plans.",
   },
   
-  // M7: Remove both jammer slugs from PAST_KNEE_EXCLUDED_SLUGS (EQUIVALENT)
+  // M7: Remove both jammer slugs from PAST_KNEE_EXCLUDED_SLUGS
   {
     name: "M7: Remove both jammer slugs from PAST_KNEE_EXCLUDED_SLUGS",
     file: "src/lib/program/past-knee.ts",
     original: '  // Calf Press on Leg Press: knee-contraindicated (QA Bot 1 finding)\n  "calf-press-on-the-leg-press-machine",\n  \n  // G-3: Landmine jammers are leg-driven presses (push from legs through shoulders)\n  "landmine-linear-jammer",\n  "single-arm-linear-jammer",',
     mutated: '  // Calf Press on Leg Press: knee-contraindicated (QA Bot 1 finding)\n  "calf-press-on-the-leg-press-machine",\n  \n  // MUTANT: Removed both jammer slugs\n  // "landmine-linear-jammer",\n  // "single-arm-linear-jammer",',
-    tests: ["test:knee-contraindicated", "test:past-knee-calf-swap-exclusion"],
-    equivalent: true,
-    notes: "rankAlternatives' only production caller is buildEligibleSwapList (eligible-swap-list.ts:71), which first applies isEligible's any-knee jammer check. Evidence: byte-identical output across 483,912 swap lists (4 injury sets x 11 equipment x 3 levels x 2 tracks x 611 exercises x 3 session ids) and 7,290 plans.",
+    tests: ["test:owner-decision-a", "test:knee-contraindicated", "test:past-knee-calf-swap-exclusion"],
+    equivalent: false,
+  },
+  
+  // M8: Make Day 5 appear unused (guard should catch it)
+  {
+    name: "M8: Simulate Day 5 allow-list not used",
+    file: "scripts/test-med2-comparison.ts",
+    original: '  if (prDay.dayIndex === ALLOWED_DAY5_DIFF.dayIndex) {\n    day5AllowListUsed = true;\n  }',
+    mutated: '  // MUTANT: Don\'t track Day 5 usage\n  if (prDay.dayIndex === ALLOWED_DAY5_DIFF.dayIndex) {\n    // day5AllowListUsed = true;\n  }',
+    tests: ["test:med2-comparison"],
+    equivalent: false,
+  },
+  
+  // M9: Remove baseline Day 2 (guard should catch missing day)
+  {
+    name: "M9: Remove baseline Day 2",
+    file: "scripts/fixtures/med2-baseline-main.json",
+    original: '  {\n    "dayIndex": 2,',
+    mutated: '  {\n    "dayIndex": 999,',
+    tests: ["test:med2-comparison"],
+    equivalent: false,
+  },
+  
+  // M10: Add unknown profile to allow-list (guard should catch it)
+  {
+    name: "M10: Add unknown profile to allow-list",
+    file: "scripts/test-identity-vs-main.ts",
+    original: 'const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [\n  { profile: "current-knee-intermediate",',
+    mutated: 'const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [\n  { profile: "FAKE-UNKNOWN-PROFILE-XYZ", day: 1, slot: 1, mainExercise: "fake", expectedExercise: "fake" },\n  { profile: "current-knee-intermediate",',
+    tests: ["test:identity-vs-main"],
+    equivalent: false,
   },
 ];
 
