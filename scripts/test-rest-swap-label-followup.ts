@@ -525,7 +525,7 @@ async function main() {
     const input = {
       userId: "test-user",
       blockNumber: 1,
-      goal: "fitness" as const,
+      goal: "general_fitness" as const,
       level: "beginner" as const,
       primaryTrack: "yoga" as const,
       daysPerWeek: 3,

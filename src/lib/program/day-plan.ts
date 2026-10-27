@@ -233,7 +233,7 @@ export async function plannableDays(
   
   if (options?.afterDate && options?.userId && trainingDays.length > 0) {
     // When computing from the summary, check both completed and in_progress (for currentSessionId)
-    const statuses = options.currentSessionId ? ["completed", "in_progress"] : ["completed"];
+    const statuses = options.currentSessionId ? ["completed", "in_progress"] as const : ["completed"] as const;
     
     const { data: recentSession } = await supabase
       .from("sessions")
