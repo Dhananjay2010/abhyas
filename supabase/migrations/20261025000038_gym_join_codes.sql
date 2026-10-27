@@ -3,6 +3,17 @@
 -- Members redeem codes to join a gym (switches their single active membership)
 -- Staff codes can only be created by owners
 
+-- Error codes (all exactly 5 characters):
+-- GJC00: Not authenticated
+-- GJC01: Failed to generate unique code (collision)
+-- GJC02: Invalid/expired/revoked/exhausted code
+-- GJC03: Not owner
+-- GJC04: Invalid role
+-- GJC05: Expiry must be in future
+-- GJC06: Max uses must be at least 1
+-- GJC07: Code not found
+-- GJC10: Too many failed attempts (throttle)
+
 -- ============================================================
 -- TABLES
 -- ============================================================
@@ -86,7 +97,7 @@ begin
     and attempted_at > now() - interval '15 minutes';
   
   if v_attempt_count >= 10 then
-    raise exception 'Too many failed attempts. Please try again later.' using errcode = 'P0001';
+    raise exception 'Too many failed attempts. Please try again later.' using errcode = 'GJC10';
   end if;
 end;
 $$;
@@ -181,7 +192,7 @@ begin
   v_caller_id := auth.uid();
   
   if v_caller_id is null then
-    raise exception 'Not authenticated' using errcode = 'PAUTH';
+    raise exception 'Not authenticated' using errcode = 'GJC00';
   end if;
   
   -- Check throttle before proceeding
@@ -238,7 +249,7 @@ begin
   v_caller_id := auth.uid();
   
   if v_caller_id is null then
-    raise exception 'Not authenticated' using errcode = 'PAUTH';
+    raise exception 'Not authenticated' using errcode = 'GJC00';
   end if;
 
   -- Check throttle before proceeding
@@ -263,28 +274,28 @@ begin
   exception
     when no_data_found then
       perform public.record_join_code_miss(v_caller_id);
-      raise exception 'Invalid code' using errcode = 'PCODE';
+      raise exception 'Invalid code' using errcode = 'GJC02';
     when too_many_rows then
       perform public.record_join_code_miss(v_caller_id);
-      raise exception 'Invalid code' using errcode = 'PCODE';
+      raise exception 'Invalid code' using errcode = 'GJC02';
   end;
 
   -- Validate not revoked
   if v_code_record.revoked_at is not null then
     perform public.record_join_code_miss(v_caller_id);
-    raise exception 'Invalid code' using errcode = 'PCODE';
+    raise exception 'Invalid code' using errcode = 'GJC02';
   end if;
 
   -- Validate not expired
   if v_code_record.expires_at is not null and v_code_record.expires_at <= now() then
     perform public.record_join_code_miss(v_caller_id);
-    raise exception 'Invalid code' using errcode = 'PCODE';
+    raise exception 'Invalid code' using errcode = 'GJC02';
   end if;
 
   -- Validate not exhausted
   if v_code_record.max_uses is not null and v_code_record.use_count >= v_code_record.max_uses then
     perform public.record_join_code_miss(v_caller_id);
-    raise exception 'Invalid code' using errcode = 'PCODE';
+    raise exception 'Invalid code' using errcode = 'GJC02';
   end if;
 
   -- Check if user is already in this gym (any active role counts)
@@ -364,27 +375,27 @@ begin
   v_caller_id := auth.uid();
   
   if v_caller_id is null then
-    raise exception 'Not authenticated' using errcode = 'PAUTH';
+    raise exception 'Not authenticated' using errcode = 'GJC00';
   end if;
 
   -- Check that caller is the owner of the gym
   if not public.is_gym_owner(p_gym_id) then
-    raise exception 'Only gym owners can create join codes' using errcode = 'POWNER';
+    raise exception 'Only gym owners can create join codes' using errcode = 'GJC03';
   end if;
 
   -- Validate role is member or staff
   if p_role not in ('member', 'staff') then
-    raise exception 'Role must be member or staff' using errcode = 'PROLE';
+    raise exception 'Role must be member or staff' using errcode = 'GJC04';
   end if;
 
   -- Validate expiry is in the future if provided
   if p_expires_at is not null and p_expires_at <= now() then
-    raise exception 'Expiry must be in the future' using errcode = 'PEXPIRY';
+    raise exception 'Expiry must be in the future' using errcode = 'GJC05';
   end if;
 
   -- Validate max_uses is at least 1 if provided
   if p_max_uses is not null and p_max_uses < 1 then
-    raise exception 'Max uses must be at least 1' using errcode = 'PMAXUSE';
+    raise exception 'Max uses must be at least 1' using errcode = 'GJC06';
   end if;
 
   -- Generate a unique code (retry up to 10 times on collision)
@@ -423,7 +434,7 @@ begin
     exception when unique_violation then
       v_attempts := v_attempts + 1;
       if v_attempts >= v_max_attempts then
-        raise exception 'Failed to generate unique code after % attempts' using errcode = 'PCOLLIDE';
+        raise exception 'Failed to generate unique code after % attempts', v_max_attempts using errcode = 'GJC01';
       end if;
       -- Continue loop to retry
     end;
@@ -453,7 +464,7 @@ begin
   v_caller_id := auth.uid();
   
   if v_caller_id is null then
-    raise exception 'Not authenticated' using errcode = 'PAUTH';
+    raise exception 'Not authenticated' using errcode = 'GJC00';
   end if;
 
   -- Get the gym_id for this code
@@ -463,14 +474,14 @@ begin
     where id = p_id;
   exception
     when no_data_found then
-      raise exception 'Code not found' using errcode = 'PNOTFND';
+      raise exception 'Code not found' using errcode = 'GJC07';
     when too_many_rows then
-      raise exception 'Code not found' using errcode = 'PNOTFND';
+      raise exception 'Code not found' using errcode = 'GJC07';
   end;
 
   -- Check that caller is the owner of the gym
   if not public.is_gym_owner(v_gym_id) then
-    raise exception 'Only gym owners can revoke join codes' using errcode = 'POWNER';
+    raise exception 'Only gym owners can revoke join codes' using errcode = 'GJC03';
   end if;
 
   -- Revoke the code

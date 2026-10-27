@@ -12,15 +12,15 @@ function mapDbErrorToMessage(error: { code?: string; message?: string }): string
   const code = error.code || "";
   const message = error.message || "";
   
-  if (code === "PAUTH" || message.includes("Not authenticated")) {
+  if (code === "GJC00" || message.includes("Not authenticated")) {
     return "You must be signed in";
   }
   
-  if (code === "PCODE" || message.includes("Invalid code")) {
+  if (code === "GJC02" || message.includes("Invalid code")) {
     return "This code is invalid, expired, or no longer available";
   }
   
-  if (code === "P0001" || message.includes("Too many failed attempts")) {
+  if (code === "GJC10" || message.includes("Too many failed attempts")) {
     return "Too many failed attempts. Please try again later";
   }
   

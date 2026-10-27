@@ -22,42 +22,44 @@ function mapDbErrorToMessage(error: { code?: string; message?: string }): string
   const code = error.code || "";
   const message = error.message || "";
   
-  if (code === "PAUTH" || message.includes("Not authenticated")) {
+  // Custom GJC error codes
+  if (code === "GJC00" || message.includes("Not authenticated")) {
     return "You must be signed in";
   }
   
-  if (code === "POWNER" || message.includes("Only gym owners")) {
-    return "Only gym owners can perform this action";
-  }
-  
-  if (code === "PROLE" || message.includes("Role must be")) {
-    return "Invalid role specified";
-  }
-  
-  if (code === "PEXPIRY" || message.includes("Expiry must be")) {
-    return "Expiry date must be in the future";
-  }
-  
-  if (code === "PMAXUSE" || message.includes("Max uses must be")) {
-    return "Max uses must be at least 1";
-  }
-  
-  if (code === "PCODE" || message.includes("Invalid code")) {
-    return "This code is invalid, expired, or no longer available";
-  }
-  
-  if (code === "PNOTFND" || message.includes("Code not found")) {
-    return "Code not found";
-  }
-  
-  if (code === "PCOLLIDE" || message.includes("Failed to generate unique code")) {
+  if (code === "GJC01" || message.includes("Failed to generate unique code")) {
     return "Unable to generate code. Please try again";
   }
   
-  if (code === "P0001" || message.includes("Too many failed attempts")) {
+  if (code === "GJC02" || message.includes("Invalid code")) {
+    return "This code is invalid, expired, or no longer available";
+  }
+  
+  if (code === "GJC03" || message.includes("Only gym owners")) {
+    return "Only gym owners can perform this action";
+  }
+  
+  if (code === "GJC04" || message.includes("Role must be")) {
+    return "Invalid role specified";
+  }
+  
+  if (code === "GJC05" || message.includes("Expiry must be")) {
+    return "Expiry date must be in the future";
+  }
+  
+  if (code === "GJC06" || message.includes("Max uses must be")) {
+    return "Max uses must be at least 1";
+  }
+  
+  if (code === "GJC07" || message.includes("Code not found")) {
+    return "Code not found";
+  }
+  
+  if (code === "GJC10" || message.includes("Too many failed attempts")) {
     return "Too many failed attempts. Please try again later";
   }
   
+  // Standard Postgres errors
   if (code === "23505" || message.includes("duplicate key") || message.includes("unique constraint")) {
     return "You're already a member of this gym";
   }
