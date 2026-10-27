@@ -15,6 +15,7 @@
 #   Mutant D        a rebuilt block 1 anchors to today
 #   Mutant F        a rebuilt block 1 is not anchored (main's behaviour)
 #   Mutant J        the anchor comes from the active row, not block 1's first start
+#   Mutant K        a pre-#165 (unanchored) block 1 gets anchored on rebuild
 #   Mutant H        Settings' plan-stale banner is not cleared after a rebuild
 
 set -e
@@ -494,8 +495,12 @@ run_mutant F "a rebuilt block 1 is not anchored (main's behaviour)" src/lib/prog
   scripts/test-rebuild-anchor-progress.ts scripts/test-create-block-anchoring.ts
 
 run_mutant J "the anchor comes from the active row, not block 1's first start" src/lib/program/persist.ts \
-  's|rebuildAnchor = firstRes\.data\?\.started_on \?\? rebuildOf\.started_on;|void firstRes; rebuildAnchor = rebuildOf.started_on;|' \
+  's|isAnchoredLayout\(weekdays, firstStartedOn\) \? firstStartedOn : null|isAnchoredLayout(weekdays, firstStartedOn) ? active.started_on : null|' \
   scripts/test-create-block-anchoring.ts
+
+run_mutant K "a pre-#165 (unanchored) block 1 gets anchored on rebuild" src/lib/program/persist.ts \
+  's|isAnchoredLayout\(weekdays, firstStartedOn\) \? firstStartedOn : null|firstStartedOn|' \
+  scripts/test-rebuild-anchor-progress.ts scripts/test-create-block-anchoring.ts
 
 run_mutant H "Settings' plan-stale banner is not cleared after a rebuild" src/app/today/build-plan-button.tsx \
   's|\n\s*onBuilt\?\.\(\);||' \

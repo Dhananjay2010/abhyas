@@ -14,7 +14,7 @@ import { randomUUID } from "crypto";
 import type { Database } from "../src/lib/database.types.js";
 import { rebuildPlanCore } from "../src/lib/program/rebuild-plan-core.js";
 import { buildRebuildPlanDeps } from "../src/lib/program/rebuild-plan-deps.js";
-import { activeDayIndicesAnchored } from "../src/lib/program/splits.js";
+import { activeDayIndices } from "../src/lib/program/splits.js";
 import { checkRealDbTest } from "./lib-db-reset-guard.js";
 
 // Skip unless REAL_DB=1
@@ -453,11 +453,14 @@ async function runTests() {
     // Mid-block rebuild supersedes the old block and creates a new one
     assert(afterData!.status === "superseded", "Mid-block rebuild marks old block superseded", `got ${afterData!.status}`);
 
-    // What rebuild_block (migration 20261025000023) preserves on a different-day rebuild:
-    // the old row keeps its started_on and is ended the day before; the new row starts on
-    // p_today with week_offset = old offset + whole weeks elapsed, so the cycle week the
-    // member sees is unchanged (week 3 on 2026-10-15 before and after). A rebuilt block 1
-    // also keeps the weekdays it was anchored to (2026-10-01, a Thursday).
+    // What rebuild_block preserves on a different-day rebuild. The live version is
+    // migration 20261025000025 (M1), which replaced 20261025000023's: the old row keeps
+    // its started_on and is ended the day before. Because p_today <= ends_on, the new row
+    // keeps started_on, ends_on and week_offset (the payload's today+27 ends_on is
+    // ignored), so the block still ends after week 4 and the member stays in week 3
+    // on 2026-10-15. A rebuild never
+    // moves a block's weekdays: this seeded block 1 has a single Monday day, which is the
+    // default layout, not one anchored to its Thursday start, so it stays on the default.
     const { data: midBlocks } = await adminClient
       .from("programs")
       .select("id, block_number, status, started_on, ends_on, ended_on, week_offset")
@@ -469,9 +472,9 @@ async function runTests() {
     assert(oldRow?.started_on === "2026-10-01", "Mid-block: superseded row keeps started_on 2026-10-01", `got ${oldRow?.started_on}`);
     assert(oldRow?.ended_on === "2026-10-14", "Mid-block: superseded row ended_on = p_today - 1 (2026-10-14)", `got ${oldRow?.ended_on}`);
     assert(newRow?.block_number === 1, "Mid-block: rebuilt row keeps block_number 1", `got ${newRow?.block_number}`);
-    assert(newRow?.started_on === today, "Mid-block: rebuilt row started_on = p_today (2026-10-15)", `got ${newRow?.started_on}`);
-    assert(newRow?.week_offset === 2, "Mid-block: rebuilt row week_offset 2 (two whole weeks carried)", `got ${newRow?.week_offset}`);
-    assert(newRow?.ends_on === "2026-11-11", "Mid-block: rebuilt row ends_on = p_today + 27 (payload)", `got ${newRow?.ends_on}`);
+    assert(newRow?.started_on === "2026-10-01", "Mid-block: rebuilt row keeps started_on 2026-10-01", `got ${newRow?.started_on}`);
+    assert(newRow?.week_offset === 0, "Mid-block: rebuilt row keeps week_offset 0", `got ${newRow?.week_offset}`);
+    assert(newRow?.ends_on === "2026-10-29", "Mid-block: rebuilt row keeps ends_on 2026-10-29 (not p_today + 27)", `got ${newRow?.ends_on}`);
     const cycleWeek = (offset: number, startedOn: string) =>
       offset + Math.floor((Date.parse(today) - Date.parse(startedOn)) / (7 * 86400000)) + 1;
     assert(
@@ -488,11 +491,11 @@ async function runTests() {
       .filter((d) => d.day_type === "weights" || d.day_type === "bodyweight" || d.day_type === "yoga")
       .map((d) => d.day_index)
       .sort((a, b) => a - b);
-    const anchored = activeDayIndicesAnchored("2026-10-01", 4);
+    const defaultLayout = activeDayIndices(4);
     assert(
-      JSON.stringify(trainedOn) === JSON.stringify(anchored),
-      "Mid-block: rebuilt block 1 keeps the Thursday-anchored weekdays",
-      `got ${JSON.stringify(trainedOn)}, want ${JSON.stringify(anchored)}`,
+      JSON.stringify(trainedOn) === JSON.stringify(defaultLayout),
+      "Mid-block: rebuilt unanchored block 1 stays on the default weekdays",
+      `got ${JSON.stringify(trainedOn)}, want ${JSON.stringify(defaultLayout)}`,
     );
 
     if (testsFailed === scenarioStartFailures) {

@@ -15,7 +15,10 @@
  *   - mid-block rebuild of block 1         -> [1,4,6] (keeps block 1's Thursday anchor;
  *                                             #168 changed this from main's [1,3,5])
  *   - second rebuild of block 1            -> [1,4,6] (anchor = earliest block-1 start,
- *                                             not the Tuesday the first rebuild started)
+ *                                             not the Tuesday an earlier rebuild under
+ *                                             migration 20261025000023 started the row on)
+ *   - rebuild of a pre-#165 block 1        -> [1,3,5] (started Thu, laid out on the
+ *                                             default; a rebuild never moves weekdays)
  *   - rebuild of block 2                   -> [1,3,5] (block 2+ is never anchored)
  *   - new block 2                          -> [1,3,5] (default mapping)
  *
@@ -88,8 +91,10 @@ function rows(data: unknown[], accept: string): Response {
 function buildClient(cfg: {
   lastBlockNumber: number | null;
   activeBlock: { block_number: number; started_on: string } | null;
-  /** started_on of every block-1 row (superseded ones included), for the anchor read. */
-  block1Starts?: string[];
+  /** Every block-1 row (superseded ones included), for the anchor read. */
+  block1Rows?: Array<{ id: string; started_on: string; status: string }>;
+  /** Training weekdays of the ACTIVE block-1 row's program_days (the layout signal). */
+  activeTrainingDays?: number[];
 }) {
   const recorded: Recorded = { insertedDays: [], rpc: [] };
 
@@ -140,14 +145,19 @@ function buildClient(cfg: {
     if (path.endsWith("/body_metrics")) return rows([{ weight_kg: 75 }], accept);
     if (path.endsWith("/user_equipment")) return rows([], accept);
     if (path.endsWith("/user_injuries")) return rows([], accept);
+    if (path.endsWith("/program_days")) {
+      const active = (cfg.block1Rows ?? []).find((r) => r.status === "active");
+      if (!active || url.searchParams.get("program_id") !== `eq.${active.id}`) return rows([], accept);
+      const train = cfg.activeTrainingDays ?? [];
+      return rows([1, 2, 3, 4, 5, 6, 7].map((d) => ({ day_index: d, day_type: train.includes(d) ? "weights" : "rest" })), accept);
+    }
     if (path.endsWith("/exercises")) return rows(catalogueFixture, accept);
     if (path.endsWith("/programs")) {
       if (url.searchParams.get("status") === "eq.active") {
         return rows(cfg.activeBlock ? [cfg.activeBlock] : [], accept);
       }
       if (url.searchParams.get("block_number") === "eq.1") {
-        const starts = [...(cfg.block1Starts ?? [])].sort();
-        return rows(starts.slice(0, 1).map((started_on) => ({ started_on })), accept);
+        return rows([...(cfg.block1Rows ?? [])].sort((a, b) => a.started_on.localeCompare(b.started_on)), accept);
       }
       return rows(cfg.lastBlockNumber === null ? [] : [{ block_number: cfg.lastBlockNumber }], accept);
     }
@@ -184,7 +194,8 @@ async function main() {
     const { client, recorded } = buildClient({
       lastBlockNumber: 1,
       activeBlock: { block_number: 1, started_on: "2026-10-15" },
-      block1Starts: ["2026-10-15"],
+      block1Rows: [{ id: "b1", started_on: "2026-10-15", status: "active" }],
+      activeTrainingDays: [1, 4, 6],
     });
     const result = await createBlockForUser(client, "user-1", { mode: "rebuild", now: MONDAY });
     assert.ok(result.ok, `rebuild should succeed: ${JSON.stringify(result)}`);
@@ -200,12 +211,18 @@ async function main() {
     console.log("  ✓ rebuild_block payload training weekdays [1,4,6]");
   }
 
-  console.log("2b. Second rebuild of block 1 (active row started Tue 2026-10-20 by the first rebuild) -> [1,4,6]");
+  // Today's rebuild_block (20261025000025) keeps started_on mid-block; this active row
+  // was rebuilt under 20261025000023, which started it on the rebuild day.
+  console.log("2b. Second rebuild of block 1 (active row started Tue 2026-10-20 by an older rebuild) -> [1,4,6]");
   {
     const { client, recorded } = buildClient({
       lastBlockNumber: 1,
       activeBlock: { block_number: 1, started_on: "2026-10-20" },
-      block1Starts: ["2026-10-20", "2026-10-15"],
+      block1Rows: [
+        { id: "b1b", started_on: "2026-10-20", status: "active" },
+        { id: "b1a", started_on: "2026-10-15", status: "superseded" },
+      ],
+      activeTrainingDays: [1, 4, 6],
     });
     const result = await createBlockForUser(client, "user-1", { mode: "rebuild", now: MONDAY });
     assert.ok(result.ok, `second rebuild should succeed: ${JSON.stringify(result)}`);
@@ -223,7 +240,7 @@ async function main() {
     const { client, recorded } = buildClient({
       lastBlockNumber: 2,
       activeBlock: { block_number: 2, started_on: "2026-10-15" },
-      block1Starts: ["2026-09-17"],
+      block1Rows: [{ id: "b1", started_on: "2026-09-17", status: "completed" }],
     });
     const result = await createBlockForUser(client, "user-1", { mode: "rebuild", now: MONDAY });
     assert.ok(result.ok, `block 2 rebuild should succeed: ${JSON.stringify(result)}`);
@@ -232,6 +249,25 @@ async function main() {
       trainingWeekdays(recorded.rpc[0]?.days ?? []),
       [1, 3, 5],
       "rebuild of block 2 must keep the default [1,3,5] mapping",
+    );
+    console.log("  ✓ rebuild_block payload training weekdays [1,3,5]");
+  }
+
+  console.log("2d. Rebuild of a pre-#165 block 1 (started Thu 2026-10-15, laid out Mon/Wed/Fri) -> [1,3,5]");
+  {
+    const { client, recorded } = buildClient({
+      lastBlockNumber: 1,
+      activeBlock: { block_number: 1, started_on: "2026-10-15" },
+      block1Rows: [{ id: "b1", started_on: "2026-10-15", status: "active" }],
+      activeTrainingDays: [1, 3, 5],
+    });
+    const result = await createBlockForUser(client, "user-1", { mode: "rebuild", now: MONDAY });
+    assert.ok(result.ok, `pre-#165 rebuild should succeed: ${JSON.stringify(result)}`);
+    assert.strictEqual(recorded.rpc[0]?.name, "rebuild_block", "pre-#165 rebuild must call rebuild_block");
+    assert.deepStrictEqual(
+      trainingWeekdays(recorded.rpc[0]?.days ?? []),
+      [1, 3, 5],
+      "a pre-#165 (unanchored) block 1 must keep [1,3,5] on rebuild, not move to its Thursday start",
     );
     console.log("  ✓ rebuild_block payload training weekdays [1,3,5]");
   }
