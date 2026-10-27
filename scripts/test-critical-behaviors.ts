@@ -130,7 +130,7 @@ async function testReplayDoesntClearBeforeConfirm() {
   );
 
   let callCount = 0;
-  let resolveLogSet: (() => void) | null = null;
+  let resolveLogSet: (() => void) | undefined;
   const logSetPromise = new Promise<{ ok: true } | { ok: false; error: string; code?: string }>((resolve) => {
     resolveLogSet = () => resolve({ ok: true });
   });
@@ -162,7 +162,7 @@ async function testReplayDoesntClearBeforeConfirm() {
   assertEqual(callCount, 1, "Server was called once");
   
   // Clean up by resolving the promise
-  if (resolveLogSet) resolveLogSet();
+  resolveLogSet?.();
   await replayPromise;
 }
 
