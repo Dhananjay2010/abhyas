@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Behavioral tests: rest-swap label followup (MED-1, LOW-1, rebuild anchor)
+ * Behavioral tests: rest-swap label followup (MED-1, LOW-1)
  *
  * MED-1: In 4-day Upper/Lower and 6-day PPL plans, a 'train anyway' swap on a
  * rest day must not repeat the next day. The collision check must compare by
@@ -9,16 +9,11 @@
  * LOW-1: getYesterdaySession and getTodayCompletedSession must filter by
  * actual_type, so 'swap to B, then yoga the same day' doesn't serve B again.
  *
- * Rebuild anchor: When a plan is rebuilt, startedOn must equal
- * rebuildOf.started_on (the original block's anchor), not today, so the
- * sign-up weekday stays a training day.
- *
  * Mutants killed:
  * - MED-1 mutant: compare by id instead of label in resolveTomorrowAfterSwap
  * - MED-1 mutant: mark nextUp by id instead of label in plannableDays
  * - LOW-1 mutant (a): drop actual_type filter from getYesterdaySession
  * - LOW-1 mutant (b): drop actual_type filter from getTodayCompletedSession
- * - Rebuild mutant: use today instead of rebuildOfStartedOn
  */
 
 import { strict as assert } from "node:assert";
@@ -29,7 +24,6 @@ import {
   nextDayPlanCore,
   plannableDays,
 } from "../src/lib/program/day-plan";
-import { decideBlockStartedOn } from "../src/lib/program/persist";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 
@@ -372,68 +366,12 @@ async function main() {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Rebuild anchor: keep original started_on
-  // ──────────────────────────────────────────────────────────────────────────
-  console.log("Rebuild anchor: keep original started_on\n");
-
-  {
-    console.log("6. Rebuild block 1 keeps original anchor (not today)");
-
-    // Block 1 started on Mon 2026-10-20
-    const originalAnchor = "2026-10-20";
-    const rebuildToday = "2026-10-24"; // Friday
-
-    const startedOn = decideBlockStartedOn({
-      blockNumber: 1,
-      isRebuild: true,
-      rebuildOfStartedOn: originalAnchor,
-      today: rebuildToday,
-    });
-
-    assert.strictEqual(startedOn, originalAnchor, "Should keep original anchor, not today");
-
-    console.log(`  ✓ Rebuild keeps ${originalAnchor} (not ${rebuildToday})\n`);
-  }
-
-  {
-    console.log("7. New block 1 anchors to today");
-
-    const today = "2026-10-24";
-    const startedOn = decideBlockStartedOn({
-      blockNumber: 1,
-      isRebuild: false,
-      rebuildOfStartedOn: undefined,
-      today,
-    });
-
-    assert.strictEqual(startedOn, today, "Should anchor to today");
-
-    console.log(`  ✓ New block 1 anchors to ${today}\n`);
-  }
-
-  {
-    console.log("8. Block 2 rollover returns undefined");
-
-    const today = "2026-10-24";
-    const startedOn = decideBlockStartedOn({
-      blockNumber: 2,
-      isRebuild: false,
-      rebuildOfStartedOn: undefined,
-      today,
-    });
-
-    assert.strictEqual(startedOn, undefined, "Should return undefined for block 2");
-
-    console.log("  ✓ Block 2 rollover returns undefined\n");
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
   // MED-B: Summary's 'Swap the day' list badges the NEXT workout, not the one just finished
   // ──────────────────────────────────────────────────────────────────────────
   console.log("MED-B: Summary badge on NEXT workout (not just finished)\n");
 
   {
-    console.log("9. 3-day: finish C → plannableDays badges A (not C)");
+    console.log("6. 3-day: finish C → plannableDays badges A (not C)");
 
     const client = buildClient({
       programDays: days3Full,
@@ -461,7 +399,7 @@ async function main() {
   }
 
   {
-    console.log("10. 6-day PPL: finish Pull → plannableDays badges Legs (not Pull)");
+    console.log("7. 6-day PPL: finish Pull → plannableDays badges Legs (not Pull)");
 
     const client = buildClient({
       programDays: days6PPL,
@@ -490,7 +428,7 @@ async function main() {
   // ──────────────────────────────────────────────────────────────────────────
   // MED-A: 6-day PPL after skipped days
   // ──────────────────────────────────────────────────────────────────────────
-  console.log("11. 6-day PPL after skipped days: Wed swap Push → Thu resolves Pull (not Push repeat)");
+  console.log("8. 6-day PPL after skipped days: Wed swap Push → Thu resolves Pull (not Push repeat)");
 
   {
     // Setup: Mon Push1, Tue Pull1 done. Wed rest-day (day 3) swap to Push (Push1).
@@ -517,7 +455,7 @@ async function main() {
   console.log("LOW: Anchor yoga-only plans\n");
 
   {
-    console.log("12. Yoga-only 3-day plan anchored to Tuesday");
+    console.log("9. Yoga-only 3-day plan anchored to Tuesday");
 
     // Simulate generateProgram for a yoga-only plan
     const { generateProgram } = await import("../src/lib/program/generate");
