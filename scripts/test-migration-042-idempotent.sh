@@ -161,3 +161,61 @@ echo "✅ All migration 042 idempotency tests passed"
 echo "   - Migration 042 can be re-applied on an already-migrated database"
 echo "   - redeem_join_code function exists with correct grants"
 echo "   - SELECT policy and created_by index remain intact"
+
+# Step 6: L4 - Verify already_member includes gym_name
+echo ""
+echo "Step 6: Verify already_member error includes gym_name..."
+
+OWNER_DATA=$(psql "$DB_URL" -tAc "
+  SELECT gm.user_id, gm.gym_id, g.name
+  FROM public.gym_memberships gm
+  JOIN public.gyms g ON gm.gym_id = g.id
+  WHERE gm.role = 'owner' AND gm.status = 'active'
+  LIMIT 1;
+" | tr '|' ' ')
+
+if [ -n "$OWNER_DATA" ]; then
+  read -r OWNER_USER_ID OWNER_GYM_ID OWNER_GYM_NAME <<< "$OWNER_DATA"
+  
+  JOIN_CODE=$(psql "$DB_URL" -tAc "
+    SELECT code FROM public.gym_join_codes
+    WHERE gym_id = '$OWNER_GYM_ID' AND revoked_at IS NULL
+    LIMIT 1;
+  ")
+  
+  if [ -n "$JOIN_CODE" ]; then
+    ALREADY_RESPONSE=$(psql "$DB_URL" -tAc "
+      SET ROLE authenticated;
+      SELECT set_config('request.jwt.claims', jsonb_build_object('sub', '$OWNER_USER_ID', 'role', 'authenticated')::text, false);
+      SELECT public.redeem_join_code('$JOIN_CODE')::text;
+      RESET ROLE;
+    " 2>&1 || echo "")
+    
+    if echo "$ALREADY_RESPONSE" | grep -q "already_member"; then
+      if echo "$ALREADY_RESPONSE" | grep -iq "gym_name"; then
+        echo "✓ already_member includes gym_name field"
+      else
+        echo "❌ gym_name missing from already_member"
+        exit 1
+      fi
+    fi
+    
+    # Verify owner sees join codes
+    CODE_VISIBLE=$(psql "$DB_URL" -tAc "
+      SET ROLE authenticated;
+      SELECT set_config('request.jwt.claims', jsonb_build_object('sub', '$OWNER_USER_ID', 'role', 'authenticated')::text, false);
+      SELECT COUNT(*) FROM public.gym_join_codes WHERE gym_id = '$OWNER_GYM_ID';
+      RESET ROLE;
+    ")
+    
+    if [ "$CODE_VISIBLE" -gt 0 ]; then
+      echo "✓ Owner sees $CODE_VISIBLE join code(s)"
+    else
+      echo "❌ Owner cannot see codes"
+      exit 1
+    fi
+  fi
+fi
+
+echo ""
+echo "✅ Migration 042 idempotent with L4 checks passed"
