@@ -577,7 +577,7 @@ export function SessionRunner({
       return r.ok;
     } catch (err) {
       // h2: Catch network errors (offline, timeout, etc)
-      setError(runnerErrorMessage(err));
+      setError(runnerErrorMessage(err, 'action'));
       return false;
     } finally {
       busyRef.current = false;
@@ -1065,7 +1065,7 @@ export function SessionRunner({
         setSessionExpired(true);
         setError(null);
       } else {
-        setError(runnerErrorMessage(err));
+        setError(runnerErrorMessage(err, 'action'));
         setSessionExpired(false);
       }
       busyRef.current = false;
