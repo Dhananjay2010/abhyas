@@ -17,8 +17,7 @@ import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps
 import { planDayCore } from "@/lib/session/plan-day-core";
 import { createPlanDayDbOps } from "@/lib/session/make-plan-day-client";
 import { localDateString } from "@/lib/dates";
-import { resolvePlanTargetDate, sessionPlanTargetDate } from "@/lib/session/resolve-plan-target-date";
-import type { ResolvePlanTargetDateDeps } from "@/lib/session/resolve-plan-target-date";
+import { resolvePlanTargetDate } from "@/lib/session/resolve-plan-target-date";
 import { makeFetchSessionLocalDate, type SessionLookupClient } from "@/lib/session/fetch-session-local-date";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
