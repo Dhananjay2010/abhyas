@@ -165,6 +165,42 @@ async function runUnitTests() {
     console.log("  PASS: Mutant 3 killer\n");
   }
 
+  console.log("TEST: Unit test - last-day rebuild (today == ends_on)");
+  {
+    // When today equals the block's ends_on date, the block is still current
+    // and rebuild should NOT trigger rollover (no new block should be created)
+    const callLog: string[] = [];
+    
+    const lastDayDeps = {
+      userId: "test-user",
+      today: "2026-10-27", // Same as ends_on
+      fetchActiveBlock: async () => {
+        callLog.push("fetchActiveBlock");
+        return { id: "block1", ends_on: "2026-10-27" };
+      },
+      ensureCurrentBlock: async (activeBlock: { id: string; ends_on: string } | null) => {
+        callLog.push("ensureCurrentBlock");
+        // Today == ends_on, so block is still current (not rolled over)
+        if (activeBlock && activeBlock.ends_on >= "2026-10-27") {
+          return { status: "current" as const, programId: activeBlock.id };
+        }
+        return { status: "none" as const };
+      },
+      createBlock: async () => {
+        callLog.push("createBlock");
+        return { ok: true as const, programId: "prog1", blockNumber: 1 };
+      },
+    };
+
+    const result = await rebuildPlanCore(lastDayDeps);
+    assert(result.ok === true, "Last-day rebuild succeeds");
+    assert(callLog.length === 3, "All functions called", `got ${callLog.length}`);
+    assert(callLog.includes("ensureCurrentBlock"), "ensureCurrentBlock called");
+    assert(callLog.includes("createBlock"), "createBlock called for rebuild");
+    
+    console.log("  PASS: last-day rebuild unit test\n");
+  }
+
   console.log("TEST: Unit test - rebuildPlanCore call order and error handling");
   {
     const callLog: string[] = [];

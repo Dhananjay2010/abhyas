@@ -29,11 +29,13 @@ ACTIONS_FILE="src/app/today/actions.ts"
 REBUILD_CORE="src/lib/program/rebuild-plan-core.ts"
 PROGRESS_START_FILE="src/lib/progress/progress-start-date.ts"
 STREAKS_FILE="src/lib/progress/streaks.ts"
+ROLLOVER_FILE="src/lib/program/rollover.ts"
 TMP=$(mktemp -d)
 BACKUP_ACTIONS="$TMP/actions.ts"
 BACKUP_CORE="$TMP/rebuild-plan-core.ts"
 BACKUP_PROGRESS_START="$TMP/progress-start-date.ts"
 BACKUP_STREAKS="$TMP/streaks.ts"
+BACKUP_ROLLOVER="$TMP/rollover.ts"
 
 echo "Mutant test: rebuild rollover and progress defensive fixes"
 echo "============================================================"
@@ -44,6 +46,7 @@ cp "$ACTIONS_FILE" "$BACKUP_ACTIONS"
 cp "$REBUILD_CORE" "$BACKUP_CORE"
 cp "$PROGRESS_START_FILE" "$BACKUP_PROGRESS_START"
 cp "$STREAKS_FILE" "$BACKUP_STREAKS"
+cp "$ROLLOVER_FILE" "$BACKUP_ROLLOVER"
 
 cleanup() {
   if [ "${cleanup_done:-0}" = "1" ]; then
@@ -55,6 +58,7 @@ cleanup() {
   cp "$BACKUP_CORE" "$REBUILD_CORE"
   cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
   cp "$BACKUP_STREAKS" "$STREAKS_FILE"
+  cp "$BACKUP_ROLLOVER" "$ROLLOVER_FILE"
   rm -rf "$TMP"
 }
 trap 'cleanup; exit 130' INT TERM
@@ -236,6 +240,41 @@ fi
 # Restore
 cp "$BACKUP_CORE" "$REBUILD_CORE"
 
+# Mutant 5: Change >= to > in rollover last-day check
+echo ""
+echo "Mutant 5: Change >= to > in rollover last-day check"
+echo "Expected: Unit test should fail (last-day rebuild scenario)"
+echo ""
+
+cp "$BACKUP_ROLLOVER" "$ROLLOVER_FILE"
+# Change active.ends_on >= today to active.ends_on > today
+sed -i 's/active\.ends_on >= today/active.ends_on > today/g' "$ROLLOVER_FILE"
+# Also change retry.ends_on >= today to retry.ends_on > today
+sed -i 's/retry\.ends_on >= today/retry.ends_on > today/g' "$ROLLOVER_FILE"
+
+# Verify the mutation applied
+if diff -q "$BACKUP_ROLLOVER" "$ROLLOVER_FILE" > /dev/null 2>&1; then
+  echo "✗ FAIL: Mutant 5 did not apply (files are identical)"
+  exit 1
+fi
+
+if npx tsx scripts/test-rebuild-rollover-progress.ts > /tmp/mutant5.log 2>&1; then
+  echo "✗ SURVIVED: Mutant 5 (unit test passes with > instead of >=)"
+  cat /tmp/mutant5.log
+  SURVIVED=$((SURVIVED + 1))
+else
+  if ! grep -q "❌ FAIL" /tmp/mutant5.log; then
+    echo "✗ FAIL: Mutant 5 killed by crash, not assertion"
+    cat /tmp/mutant5.log
+    exit 1
+  fi
+  echo "✓ Mutant 5 killed (unit test fails with > instead of >=)"
+  KILLED=$((KILLED + 1))
+fi
+
+# Restore
+cp "$BACKUP_ROLLOVER" "$ROLLOVER_FILE"
+
 echo ""
 echo "============================================================"
 echo "Summary: $KILLED killed, $SURVIVED survived"
@@ -247,6 +286,7 @@ cp "$BACKUP_ACTIONS" "$ACTIONS_FILE"
 cp "$BACKUP_CORE" "$REBUILD_CORE"
 cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
 cp "$BACKUP_STREAKS" "$STREAKS_FILE"
+cp "$BACKUP_ROLLOVER" "$ROLLOVER_FILE"
 rm -rf "$TMP"
 
 if [ $SURVIVED -gt 0 ]; then
