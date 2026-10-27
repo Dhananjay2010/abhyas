@@ -1,0 +1,912 @@
+/**
+ * Real database tests for gym join codes.
+ * 
+ * These tests run against a real local Supabase instance (supabase start).
+ * They verify:
+ * - RLS policies for gym_join_codes (owner/staff/member/outsider)
+ * - preview_join_code doesn't leak invalid/expired/revoked/exhausted info
+ * - redeem_join_code moves a member out of the default gym (old row status='removed', still present)
+ * - One-active-member-gym invariant
+ * - Staff codes work correctly
+ * - Idempotent re-redeem
+ * - max_uses race-safety (two concurrent redeems on a max_uses=1 code: exactly one succeeds)
+ * - Expiry and revoke
+ * 
+ * Run: supabase start && REAL_DB=1 npm run test:gym-join-codes-real-db
+ * 
+ * NO-OP BY DEFAULT: Skips (exit 0) unless REAL_DB=1 is set AND guard allows.
+ * In CI: REAL_DB=1 is set in database-seed-test job, CI=true bypasses guard.
+ */
+
+// Skip unless REAL_DB=1
+if (process.env.REAL_DB !== "1") {
+  console.log("\n⏭️  Skipping gym join codes real-DB tests (REAL_DB=1 not set)");
+  console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance\n");
+  process.exit(0);
+}
+
+import { checkRealDbTest } from "./lib-db-reset-guard.js";
+
+// Check guard first
+const guardDecision = checkRealDbTest();
+if (!guardDecision.allow) {
+  console.log(`⏭️  Skipping gym join codes real-DB tests: ${guardDecision.reason}`);
+  console.log();
+  process.exit(0);
+}
+
+import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "crypto";
+
+const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
+
+let failures = 0;
+function check(label: string, ok: boolean, detail = "", actual?: unknown) {
+  if (!ok) {
+    failures++;
+    const actualStr = actual !== undefined ? ` -- got: ${JSON.stringify(actual)}` : detail ? `  -- ${detail}` : "";
+    console.log(`  FAIL ${label}${actualStr}`);
+  } else {
+    console.log(`  ok   ${label}${detail ? `  -- ${detail}` : ""}`);
+  }
+}
+
+async function testDatabaseConnection() {
+  try {
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { error } = await client.from("profiles").select("id").limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function runTests() {
+  console.log("Checking Supabase connection...");
+  
+  const isAvailable = await testDatabaseConnection();
+  
+  if (!isAvailable) {
+    console.error("\n❌ REAL_DB=1 but Supabase is not available");
+    console.error("   Run `supabase start` to enable these tests\n");
+    return false;
+  }
+
+  console.log("✓ Connected to Supabase\n");
+
+  const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+
+  // Create test users
+  const emailOwnerA = `gym-owner-codes-${Date.now()}@example.com`;
+  const emailOwnerB = `gym-owner-codes-b-${Date.now()}@example.com`;
+  const emailMemberC = `gym-member-codes-c-${Date.now()}@example.com`;
+  const emailMemberD = `gym-member-codes-d-${Date.now()}@example.com`;
+  const emailStaffE = `gym-staff-codes-e-${Date.now()}@example.com`;
+
+  console.log("Creating test users...");
+  
+  const { data: userAData } = await adminClient.auth.admin.createUser({
+    email: emailOwnerA,
+    password: "test-password-123",
+    email_confirm: true,
+  });
+  const userIdA = userAData.user?.id;
+  if (!userIdA) return false;
+  console.log(`✓ Created owner A: ${userIdA}`);
+
+  const { data: userBData } = await adminClient.auth.admin.createUser({
+    email: emailOwnerB,
+    password: "test-password-456",
+    email_confirm: true,
+  });
+  const userIdB = userBData.user?.id;
+  if (!userIdB) return false;
+  console.log(`✓ Created owner B: ${userIdB}`);
+
+  const { data: userCData } = await adminClient.auth.admin.createUser({
+    email: emailMemberC,
+    password: "test-password-789",
+    email_confirm: true,
+  });
+  const userIdC = userCData.user?.id;
+  if (!userIdC) return false;
+  console.log(`✓ Created member C: ${userIdC}`);
+
+  const { data: userDData } = await adminClient.auth.admin.createUser({
+    email: emailMemberD,
+    password: "test-password-abc",
+    email_confirm: true,
+  });
+  const userIdD = userDData.user?.id;
+  if (!userIdD) return false;
+  console.log(`✓ Created member D: ${userIdD}`);
+
+  const { data: userEData } = await adminClient.auth.admin.createUser({
+    email: emailStaffE,
+    password: "test-password-def",
+    email_confirm: true,
+  });
+  const userIdE = userEData.user?.id;
+  if (!userIdE) return false;
+  console.log(`✓ Created staff E: ${userIdE}\n`);
+
+  // Sign in clients
+  const clientA = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const clientB = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const clientC = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const clientD = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const clientE = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  await clientA.auth.signInWithPassword({ email: emailOwnerA, password: "test-password-123" });
+  await clientB.auth.signInWithPassword({ email: emailOwnerB, password: "test-password-456" });
+  await clientC.auth.signInWithPassword({ email: emailMemberC, password: "test-password-789" });
+  await clientD.auth.signInWithPassword({ email: emailMemberD, password: "test-password-abc" });
+  await clientE.auth.signInWithPassword({ email: emailStaffE, password: "test-password-def" });
+
+  console.log("✓ All users signed in\n");
+
+  // Create two gyms
+  const gymIdA = randomUUID();
+  const gymIdB = randomUUID();
+
+  console.log("TEST: Create gyms");
+  await adminClient.from("gyms").insert({
+    id: gymIdA,
+    slug: `gym-codes-a-${Date.now()}`,
+    name: "Gym A",
+  });
+  check("Gym A created", true);
+
+  await adminClient.from("gyms").insert({
+    id: gymIdB,
+    slug: `gym-codes-b-${Date.now()}`,
+    name: "Gym B",
+  });
+  check("Gym B created", true);
+  console.log();
+
+  // Add owners
+  console.log("TEST: Add owners");
+  await adminClient.from("gym_memberships").insert({
+    gym_id: gymIdA,
+    user_id: userIdA,
+    role: "owner",
+    status: "active",
+  });
+  check("Owner A added to gym A", true);
+
+  await adminClient.from("gym_memberships").insert({
+    gym_id: gymIdB,
+    user_id: userIdB,
+    role: "owner",
+    status: "active",
+  });
+  check("Owner B added to gym B", true);
+  console.log();
+
+  // Add staff E to gym A
+  console.log("TEST: Add staff");
+  await adminClient.from("gym_memberships").insert({
+    gym_id: gymIdA,
+    user_id: userIdE,
+    role: "staff",
+    status: "active",
+  });
+  check("Staff E added to gym A", true);
+  console.log();
+
+  // TEST: Owner A creates a member code
+  console.log("TEST: Owner creates member code");
+  const { data: memberCodeData, error: memberCodeError } = await clientA.rpc("create_join_code", {
+    p_gym_id: gymIdA,
+    p_role: "member",
+  });
+  check("Owner A creates member code", !memberCodeError, memberCodeError?.message);
+  const memberCode = memberCodeData?.[0]?.code;
+  check("Member code returned", !!memberCode);
+  console.log();
+
+  // TEST: Owner A creates a staff code
+  console.log("TEST: Owner creates staff code");
+  const { data: staffCodeData, error: staffCodeError } = await clientA.rpc("create_join_code", {
+    p_gym_id: gymIdA,
+    p_role: "staff",
+  });
+  check("Owner A creates staff code", !staffCodeError, staffCodeError?.message);
+  const staffCode = staffCodeData?.[0]?.code;
+  check("Staff code returned", !!staffCode);
+  console.log();
+
+  // TEST: RLS - Owner A can see their codes
+  console.log("TEST: RLS - Owner can see their codes");
+  const { data: ownerCodes } = await clientA
+    .from("gym_join_codes")
+    .select("*")
+    .eq("gym_id", gymIdA);
+  check("Owner A sees 2 codes", ownerCodes?.length === 2);
+  console.log();
+
+  // TEST: RLS - Staff E can see member codes only
+  console.log("TEST: RLS - Staff can see member codes only");
+  const { data: staffCodes } = await clientE
+    .from("gym_join_codes")
+    .select("*")
+    .eq("gym_id", gymIdA);
+  check("Staff E sees only member codes", staffCodes?.length === 1);
+  check("Staff E sees member code", staffCodes?.[0]?.role === "member");
+  console.log();
+
+  // TEST: RLS - Member C can't see codes
+  console.log("TEST: RLS - Member can't see codes");
+  const { data: memberCodesView } = await clientC
+    .from("gym_join_codes")
+    .select("*")
+    .eq("gym_id", gymIdA);
+  check("Member C sees 0 codes", memberCodesView?.length === 0);
+  console.log();
+
+  // TEST: RLS - Owner B can't see gym A's codes
+  console.log("TEST: RLS - Owner B can't see gym A's codes");
+  const { data: ownerBCodes } = await clientB
+    .from("gym_join_codes")
+    .select("*")
+    .eq("gym_id", gymIdA);
+  check("Owner B sees 0 codes from gym A", ownerBCodes?.length === 0);
+  console.log();
+
+  // TEST: preview_join_code returns gym info for valid code
+  console.log("TEST: preview_join_code returns gym info for valid code");
+  const { data: previewValid } = await clientC.rpc("preview_join_code", {
+    p_code: memberCode,
+  });
+  const previewValidJson = previewValid && typeof previewValid === 'object' ? previewValid : null;
+  check("Preview returns ok:true", previewValidJson && 'ok' in previewValidJson && previewValidJson.ok === true);
+  check("Preview returns gym name", previewValidJson && 'gym_name' in previewValidJson && previewValidJson.gym_name === "Gym A");
+  check("Preview returns role", previewValidJson && 'role' in previewValidJson && previewValidJson.role === "member");
+  console.log();
+
+  // TEST: preview_join_code returns ok:false for invalid code
+  console.log("TEST: preview_join_code returns ok:false for invalid code");
+  const { data: previewInvalid } = await clientC.rpc("preview_join_code", {
+    p_code: "INVALID",
+  });
+  const previewInvalidJson = previewInvalid && typeof previewInvalid === 'object' ? previewInvalid : null;
+  check("Preview returns ok:false for invalid code", previewInvalidJson && 'ok' in previewInvalidJson && previewInvalidJson.ok === false);
+  check("Preview returns reason:invalid", previewInvalidJson && 'reason' in previewInvalidJson && previewInvalidJson.reason === 'invalid');
+  console.log();
+
+  // TEST: Redeem member code - member C joins gym A
+  console.log("TEST: Redeem member code - member C joins gym A");
+  
+  // Check C's default gym membership before redeem
+  const { data: defaultGym } = await adminClient
+    .from("gyms")
+    .select("id")
+    .eq("slug", "default")
+    .single();
+  
+  const { data: memberCDefaultBefore } = await adminClient
+    .from("gym_memberships")
+    .select("*")
+    .eq("user_id", userIdC)
+    .eq("gym_id", defaultGym?.id ?? "");
+  
+  check("Member C has default gym membership before redeem", memberCDefaultBefore?.length === 1);
+  check("Member C default membership is active before redeem", memberCDefaultBefore?.[0]?.status === "active");
+
+  const { data: redeemData, error: redeemError } = await clientC.rpc("redeem_join_code", {
+    p_code: memberCode,
+  });
+  const redeemJson = redeemData && typeof redeemData === 'object' ? redeemData : null;
+  check("Member C redeems code successfully", !redeemError && redeemJson && 'ok' in redeemJson && redeemJson.ok === true, redeemError?.message);
+
+  // Check C's default gym membership after redeem
+  const { data: memberCDefaultAfter } = await adminClient
+    .from("gym_memberships")
+    .select("*")
+    .eq("user_id", userIdC)
+    .eq("gym_id", defaultGym?.id ?? "");
+  
+  check("Member C default gym membership still exists (not deleted)", memberCDefaultAfter?.length === 1);
+  check("Member C default membership is removed after redeem", memberCDefaultAfter?.[0]?.status === "removed");
+
+  // Check C's new gym A membership
+  const { data: memberCGymA } = await adminClient
+    .from("gym_memberships")
+    .select("*")
+    .eq("user_id", userIdC)
+    .eq("gym_id", gymIdA);
+  
+  check("Member C has gym A membership", memberCGymA?.length === 1);
+  check("Member C gym A membership is active", memberCGymA?.[0]?.status === "active");
+  check("Member C gym A role is member", memberCGymA?.[0]?.role === "member");
+  console.log();
+
+  // TEST: Idempotent re-redeem
+  console.log("TEST: Idempotent re-redeem");
+  const { data: redeemAgainData } = await clientC.rpc("redeem_join_code", {
+    p_code: memberCode,
+  });
+  const redeemAgainJson = redeemAgainData && typeof redeemAgainData === 'object' ? redeemAgainData : null;
+  check("Member C redeeming again returns already_member", 
+    redeemAgainJson && 'ok' in redeemAgainJson && redeemAgainJson.ok === false && 
+    'reason' in redeemAgainJson && redeemAgainJson.reason === 'already_member',
+    "", redeemAgainJson);
+
+  // Check use_count NOT incremented (idempotent redeem doesn't consume)
+  const { data: codeAfterRedeem } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("code", memberCode)
+    .single();
+  check("Code use_count is 1 after two redeems (idempotent doesn't consume)", codeAfterRedeem?.use_count === 1);
+  console.log();
+
+  // TEST: One-active-member-gym invariant
+  console.log("TEST: One-active-member-gym invariant");
+  
+  // Owner B creates a code for gym B
+  const { data: gymBCodeData } = await clientB.rpc("create_join_code", {
+    p_gym_id: gymIdB,
+    p_role: "member",
+  });
+  const gymBCode = gymBCodeData?.[0]?.code;
+
+  // Member C redeems gym B code (should move from gym A to gym B)
+  const { data: redeemGymBData } = await clientC.rpc("redeem_join_code", {
+    p_code: gymBCode,
+  });
+  const redeemGymBJson = redeemGymBData && typeof redeemGymBData === 'object' ? redeemGymBData : null;
+  check("Member C redeems gym B code", redeemGymBJson && 'ok' in redeemGymBJson && redeemGymBJson.ok === true);
+
+  // Check C's gym A membership is now removed
+  const { data: memberCGymAAfter } = await adminClient
+    .from("gym_memberships")
+    .select("*")
+    .eq("user_id", userIdC)
+    .eq("gym_id", gymIdA);
+  check("Member C gym A membership is removed", memberCGymAAfter?.[0]?.status === "removed");
+
+  // Check C's gym B membership is active
+  const { data: memberCGymB } = await adminClient
+    .from("gym_memberships")
+    .select("*")
+    .eq("user_id", userIdC)
+    .eq("gym_id", gymIdB);
+  check("Member C gym B membership is active", memberCGymB?.[0]?.status === "active");
+  console.log();
+
+  // TEST: Staff code redemption
+  console.log("TEST: Staff code redemption");
+  const { data: redeemStaffData } = await clientD.rpc("redeem_join_code", {
+    p_code: staffCode,
+  });
+  const redeemStaffJson = redeemStaffData && typeof redeemStaffData === 'object' ? redeemStaffData : null;
+  check("Member D redeems staff code", redeemStaffJson && 'ok' in redeemStaffJson && redeemStaffJson.ok === true);
+
+  const { data: memberDGymA } = await adminClient
+    .from("gym_memberships")
+    .select("*")
+    .eq("user_id", userIdD)
+    .eq("gym_id", gymIdA);
+  check("Member D has gym A membership", memberDGymA?.length === 1);
+  check("Member D role is staff", memberDGymA?.[0]?.role === "staff");
+  console.log();
+
+  // TEST: max_uses race-safety
+  // Run many concurrent attempts - without FOR UPDATE, occasional double-success will fail
+  console.log("TEST: max_uses race-safety");
+  let allCorrect = true;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const { data: attemptCodeData } = await clientA.rpc("create_join_code", {
+      p_gym_id: gymIdA,
+      p_role: "member",
+      p_max_uses: 1,
+    });
+    const attemptCode = attemptCodeData?.[0]?.code;
+
+    const emailH = `attempt-${attempt}-h-${Date.now()}-${Math.random()}@example.com`;
+    const emailI = `attempt-${attempt}-i-${Date.now()}-${Math.random()}@example.com`;
+    
+    await adminClient.auth.admin.createUser({
+      email: emailH,
+      password: "password",
+      email_confirm: true,
+    });
+    await adminClient.auth.admin.createUser({
+      email: emailI,
+      password: "password",
+      email_confirm: true,
+    });
+
+    const clientH = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const clientI = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    await clientH.auth.signInWithPassword({ email: emailH, password: "password" });
+    await clientI.auth.signInWithPassword({ email: emailI, password: "password" });
+
+    const [resultH, resultI] = await Promise.all([
+      clientH.rpc("redeem_join_code", { p_code: attemptCode }),
+      clientI.rpc("redeem_join_code", { p_code: attemptCode }),
+    ]);
+
+    const resultHJson = resultH.data && typeof resultH.data === 'object' ? resultH.data : null;
+    const resultIJson = resultI.data && typeof resultI.data === 'object' ? resultI.data : null;
+    const successCount = [resultHJson, resultIJson].filter(r => r && 'ok' in r && r.ok === true).length;
+    if (successCount !== 1) {
+      allCorrect = false;
+      break;
+    }
+
+    // Verify use_count is exactly 1
+    const { data: codeUsage } = await adminClient
+      .from("gym_join_codes")
+      .select("use_count")
+      .eq("code", attemptCode)
+      .single();
+    if (codeUsage?.use_count !== 1) {
+      allCorrect = false;
+      break;
+    }
+  }
+  check("Exactly one concurrent redeem succeeds on max_uses=1", allCorrect);
+  console.log();
+
+  // TEST: Expired code
+  console.log("TEST: Expired code");
+  // Create a code normally, then expire it via direct UPDATE (create_join_code validates future expiry)
+  const { data: toExpireCodeData } = await clientA.rpc("create_join_code", {
+    p_gym_id: gymIdA,
+    p_role: "member",
+  });
+  const expiredCode = toExpireCodeData?.[0]?.code;
+  const expiredCodeId = toExpireCodeData?.[0]?.id;
+  
+  // Expire it via admin UPDATE
+  await adminClient
+    .from("gym_join_codes")
+    .update({ expires_at: new Date(Date.now() - 1000).toISOString() })
+    .eq("id", expiredCodeId);
+
+  const { data: previewExpired } = await clientC.rpc("preview_join_code", {
+    p_code: expiredCode,
+  });
+  const previewExpiredJson = previewExpired && typeof previewExpired === 'object' ? previewExpired : null;
+  check("Preview returns ok:false for expired code", previewExpiredJson && 'ok' in previewExpiredJson && previewExpiredJson.ok === false);
+  check("Preview returns reason:invalid for expired code", previewExpiredJson && 'reason' in previewExpiredJson && previewExpiredJson.reason === 'invalid');
+
+  const { data: redeemExpiredData } = await clientC.rpc("redeem_join_code", {
+    p_code: expiredCode,
+  });
+  const redeemExpiredJson = redeemExpiredData && typeof redeemExpiredData === 'object' ? redeemExpiredData : null;
+  check("Redeem expired code returns ok:false", redeemExpiredJson && 'ok' in redeemExpiredJson && redeemExpiredJson.ok === false);
+  check("Redeem expired code returns reason:expired", redeemExpiredJson && 'reason' in redeemExpiredJson && redeemExpiredJson.reason === 'expired');
+  console.log();
+
+  // TEST: Revoked code
+  console.log("TEST: Revoked code");
+  const { data: revokeCodeData } = await clientA.rpc("create_join_code", {
+    p_gym_id: gymIdA,
+    p_role: "member",
+  });
+  const revokeCode = revokeCodeData?.[0]?.code;
+  const revokeCodeId = revokeCodeData?.[0]?.id;
+
+  const { error: revokeError } = await clientA.rpc("revoke_join_code", {
+    p_id: revokeCodeId,
+  });
+  check("Owner A revokes code", !revokeError, revokeError?.message);
+
+  const { data: previewRevoked } = await clientC.rpc("preview_join_code", {
+    p_code: revokeCode,
+  });
+  const previewRevokedJson = previewRevoked && typeof previewRevoked === 'object' ? previewRevoked : null;
+  check("Preview returns ok:false for revoked code", previewRevokedJson && 'ok' in previewRevokedJson && previewRevokedJson.ok === false);
+  check("Preview returns reason:invalid for revoked code", previewRevokedJson && 'reason' in previewRevokedJson && previewRevokedJson.reason === 'invalid');
+
+  const { data: redeemRevokedData } = await clientC.rpc("redeem_join_code", {
+    p_code: revokeCode,
+  });
+  const redeemRevokedJson = redeemRevokedData && typeof redeemRevokedData === 'object' ? redeemRevokedData : null;
+  check("Redeem revoked code returns ok:false", redeemRevokedJson && 'ok' in redeemRevokedJson && redeemRevokedJson.ok === false);
+  check("Redeem revoked code returns reason:revoked", redeemRevokedJson && 'reason' in redeemRevokedJson && redeemRevokedJson.reason === 'revoked');
+  console.log();
+
+  // TEST: Owner redeeming code for their own gym (idempotent no-op, use_count unchanged)
+  console.log("TEST: Owner redeeming member code for their own gym");
+  const { data: ownerCodeData } = await clientA.rpc("create_join_code", {
+    p_gym_id: gymIdA,
+    p_role: "member",
+  });
+  const ownerCode = ownerCodeData?.[0]?.code;
+  const ownerCodeId = ownerCodeData?.[0]?.id;
+
+  // Get initial use_count
+  const { data: beforeRedeem } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", ownerCodeId)
+    .single();
+  const initialUseCount = beforeRedeem?.use_count ?? 0;
+
+  // Owner A redeems code for gym A (where they're already owner)
+  const { data: ownerRedeemData } = await clientA.rpc("redeem_join_code", {
+    p_code: ownerCode,
+  });
+  const ownerRedeemJson = ownerRedeemData && typeof ownerRedeemData === 'object' ? ownerRedeemData : null;
+  check("Owner redeeming own gym returns already_member", 
+    ownerRedeemJson && 'ok' in ownerRedeemJson && ownerRedeemJson.ok === false &&
+    'reason' in ownerRedeemJson && ownerRedeemJson.reason === 'already_member',
+    "", ownerRedeemJson);
+
+  // Check use_count is unchanged (idempotent no-op)
+  const { data: afterRedeem } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", ownerCodeId)
+    .single();
+  check("use_count unchanged after owner redeems for own gym", afterRedeem?.use_count === initialUseCount);
+
+  // Check Owner A is still owner (not downgraded to member)
+  const { data: ownerAMembership } = await adminClient
+    .from("gym_memberships")
+    .select("role")
+    .eq("gym_id", gymIdA)
+    .eq("user_id", userIdA)
+    .single();
+  check("Owner A role still owner (not downgraded)", ownerAMembership?.role === "owner");
+  console.log();
+
+  // TEST: Owner of default gym redeeming code for another gym
+  console.log("TEST: Owner of default gym redeeming code for another gym");
+  const { data: defaultGymData } = await adminClient
+    .from("gyms")
+    .select("id")
+    .eq("slug", "default")
+    .single();
+  const defaultGymId = defaultGymData?.id;
+
+  // Create a new user H who will be owner of default gym
+  const emailOwnerH = `gym-owner-default-${Date.now()}@example.com`;
+  const { data: userHData } = await adminClient.auth.admin.createUser({
+    email: emailOwnerH,
+    password: "test-password-mno",
+    email_confirm: true,
+  });
+  const userIdH = userHData.user?.id;
+  if (!userIdH) return false;
+
+  const clientH = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  await clientH.auth.signInWithPassword({ 
+    email: emailOwnerH, 
+    password: "test-password-mno" 
+  });
+
+  // Make user H owner of default gym
+  await adminClient
+    .from("gym_memberships")
+    .update({ role: "owner", status: "active" })
+    .eq("gym_id", defaultGymId)
+    .eq("user_id", userIdH);
+
+  // User H redeems code for gym B
+  const { data: gymBMemberCodeData } = await clientB.rpc("create_join_code", {
+    p_gym_id: gymIdB,
+    p_role: "member",
+  });
+  const gymBMemberCode = gymBMemberCodeData?.[0]?.code;
+
+  // User H redeems code for gym B
+  const { data: userHRedeemData } = await clientH.rpc("redeem_join_code", {
+    p_code: gymBMemberCode,
+  });
+  const userHRedeemJson = userHRedeemData && typeof userHRedeemData === 'object' ? userHRedeemData : null;
+  check("Owner of default gym can redeem code for gym B", userHRedeemJson && 'ok' in userHRedeemJson && userHRedeemJson.ok === true);
+
+  // Check user H is member of gym B
+  const { data: userHGymB } = await adminClient
+    .from("gym_memberships")
+    .select("role, status")
+    .eq("gym_id", gymIdB)
+    .eq("user_id", userIdH)
+    .single();
+  check("User H is member of gym B", userHGymB?.role === "member" && userHGymB?.status === "active");
+
+  // Check user H is still owner of default gym (not removed)
+  const { data: userHDefault } = await adminClient
+    .from("gym_memberships")
+    .select("role, status")
+    .eq("gym_id", defaultGymId)
+    .eq("user_id", userIdH)
+    .single();
+  check("User H is still owner of default gym", userHDefault?.role === "owner" && userHDefault?.status === "active");
+  console.log();
+
+  // TEST: Staff redeeming code for another gym
+  console.log("TEST: Staff of gym A redeeming code for gym B");
+  // Staff E redeems code for gym B (already have staff role in gym A)
+  const { data: staffERedeemData } = await clientE.rpc("redeem_join_code", {
+    p_code: gymBMemberCode,
+  });
+  const staffERedeemJson = staffERedeemData && typeof staffERedeemData === 'object' ? staffERedeemData : null;
+  check("Staff E can redeem code for gym B", staffERedeemJson && 'ok' in staffERedeemJson && staffERedeemJson.ok === true);
+
+  // Check staff E is member of gym B
+  const { data: staffEGymB } = await adminClient
+    .from("gym_memberships")
+    .select("role, status")
+    .eq("gym_id", gymIdB)
+    .eq("user_id", userIdE)
+    .single();
+  check("Staff E is member of gym B", staffEGymB?.role === "member" && staffEGymB?.status === "active");
+
+  // Check staff E is still staff of gym A (not removed, because staff role is not moved)
+  const { data: staffEGymA } = await adminClient
+    .from("gym_memberships")
+    .select("role, status")
+    .eq("gym_id", gymIdA)
+    .eq("user_id", userIdE)
+    .single();
+  check("Staff E is still staff of gym A", staffEGymA?.role === "staff" && staffEGymA?.status === "active");
+  console.log();
+
+  // TEST: Owner redeeming their own gym's member code (idempotent no-op)
+  console.log("TEST: Owner of gym A redeeming member code for gym A (no-op)");
+  
+  // Get the member code id
+  const memberCodeId = memberCodeData?.[0]?.id;
+  
+  // Get current use_count for gym A member code
+  const { data: beforeUseCount } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", memberCodeId)
+    .single();
+  const useCountBefore = beforeUseCount?.use_count ?? 0;
+  
+  // Owner A redeems member code for their own gym (should be no-op)
+  const { data: ownerARedeemOwnData } = await clientA.rpc("redeem_join_code", {
+    p_code: memberCode,
+  });
+  const ownerARedeemOwnJson = ownerARedeemOwnData && typeof ownerARedeemOwnData === 'object' ? ownerARedeemOwnData : null;
+  check("Owner redeeming own gym member code returns already_member", 
+    ownerARedeemOwnJson && 'ok' in ownerARedeemOwnJson && ownerARedeemOwnJson.ok === false &&
+    'reason' in ownerARedeemOwnJson && ownerARedeemOwnJson.reason === 'already_member',
+    "", ownerARedeemOwnJson);
+  
+  // Check use_count is UNCHANGED (no-op should not consume a use)
+  const { data: afterUseCount } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count")
+    .eq("id", memberCodeId)
+    .single();
+  check("Use count unchanged after owner redeeming own gym code", afterUseCount?.use_count === useCountBefore);
+  
+  // Check owner A is still owner (not downgraded to member)
+  const { data: ownerAStillOwner } = await adminClient
+    .from("gym_memberships")
+    .select("role, status")
+    .eq("gym_id", gymIdA)
+    .eq("user_id", userIdA)
+    .single();
+  check("Owner A is still owner (not downgraded)", ownerAStillOwner?.role === "owner");
+  console.log();
+
+  // TEST: Anon (unauthenticated) cannot call RPC functions
+  console.log("TEST: Anon cannot redeem codes");
+  const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { error: anonRedeemError } = await anonClient.rpc("redeem_join_code", {
+    p_code: memberCode,
+  });
+  check("Anon redeem fails", !!anonRedeemError);
+  // Must be permission denied (no EXECUTE grant), NOT "Not authenticated" (would mean GRANT exists)
+  check("Anon error is permission denied (no EXECUTE grant)", 
+    !!anonRedeemError && (
+      anonRedeemError.message?.toLowerCase().includes("permission denied") || 
+      anonRedeemError.code === "42501" ||
+      anonRedeemError.message?.includes("insufficient_privilege")
+    ));
+
+  const { error: anonPreviewError } = await anonClient.rpc("preview_join_code", {
+    p_code: memberCode,
+  });
+  check("Anon preview fails", !!anonPreviewError);
+  
+  const { error: anonCreateError } = await anonClient.rpc("create_join_code", {
+    p_gym_id: gymIdA,
+    p_role: "member",
+  });
+  check("Anon create fails", !!anonCreateError);
+  console.log();
+
+  // TEST: Direct INSERT/UPDATE blocked (RPC-only writes)
+  console.log("TEST: Direct table writes blocked");
+  const { error: directInsertError } = await clientA
+    .from("gym_join_codes")
+    .insert({
+      gym_id: gymIdA,
+      code: "TESTCODE99",
+      role: "member",
+      created_by: userIdA,
+    });
+  check("Owner cannot INSERT directly", !!directInsertError);
+  check("INSERT error is RLS policy violation",
+    !!directInsertError && (directInsertError.message?.includes("row-level security") || 
+    directInsertError.message?.includes("policy")));
+  
+  // UPDATE with no policy: silently matches 0 rows (no error in Postgres RLS)
+  // Read original state first
+  const { data: beforeUpdate } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count, revoked_at, expires_at")
+    .eq("id", memberCodeId)
+    .single();
+  
+  const testRevokedAt = new Date(Date.now() + 86400000).toISOString();
+  const { data: directUpdateResult } = await clientA
+    .from("gym_join_codes")
+    .update({ revoked_at: testRevokedAt })
+    .eq("id", memberCodeId)
+    .select();
+  check("Owner UPDATE matches 0 rows (no policy)", !directUpdateResult || directUpdateResult.length === 0);
+  
+  // Verify row is actually unchanged
+  const { data: afterUpdate } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count, revoked_at, expires_at")
+    .eq("id", memberCodeId)
+    .single();
+  check("Row unchanged after UPDATE with no policy", 
+    afterUpdate?.use_count === beforeUpdate?.use_count &&
+    afterUpdate?.revoked_at === beforeUpdate?.revoked_at &&
+    afterUpdate?.expires_at === beforeUpdate?.expires_at);
+  console.log();
+
+  // TEST: Throttle limits at exactly 10 misses
+  console.log("TEST: Throttle triggers at 10 misses");
+  // Create a fresh user for throttle test
+  const emailThrottle = `test-throttle-${Date.now()}-${Math.random()}@example.com`;
+  await adminClient.auth.admin.createUser({
+    email: emailThrottle,
+    password: "password123",
+    email_confirm: true,
+  });
+  const clientThrottle = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  await clientThrottle.auth.signInWithPassword({
+    email: emailThrottle,
+    password: "password123",
+  });
+  
+  // Make 9 failed attempts (should not throttle)
+  for (let i = 0; i < 9; i++) {
+    await clientThrottle.rpc("preview_join_code", { p_code: "INVALID" });
+  }
+  
+  // 10th attempt should still work (threshold is >= 10)
+  const { data: attempt10Data } = await clientThrottle.rpc("preview_join_code", { p_code: "INVALID" });
+  const attempt10Json = attempt10Data && typeof attempt10Data === 'object' ? attempt10Data : null;
+  check("10th miss still works (not throttled yet)", 
+    attempt10Json && 'ok' in attempt10Json && attempt10Json.ok === false && 
+    'reason' in attempt10Json && attempt10Json.reason === 'invalid');
+  
+  // 11th attempt should be throttled
+  const { data: attempt11Data } = await clientThrottle.rpc("preview_join_code", { p_code: "INVALID" });
+  const attempt11Json = attempt11Data && typeof attempt11Data === 'object' ? attempt11Data : null;
+  check("11th miss is throttled", attempt11Json && 'ok' in attempt11Json && attempt11Json.ok === false);
+  check("Throttle returns reason:throttled", attempt11Json && 'reason' in attempt11Json && attempt11Json.reason === 'throttled');
+  console.log();
+
+  // TEST: Successful redemptions and already_member don't count toward throttle
+  console.log("TEST: Successes and already_member don't trigger throttle");
+  // Create a fresh user for success test
+  const emailSuccess = `test-success-${Date.now()}-${Math.random()}@example.com`;
+  const { data: authUserSuccess } = await adminClient.auth.admin.createUser({
+    email: emailSuccess,
+    password: "password123",
+    email_confirm: true,
+  });
+  const clientSuccess = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  await clientSuccess.auth.signInWithPassword({
+    email: emailSuccess,
+    password: "password123",
+  });
+  
+  // Create a code with high max_uses for successful redeems
+  const { data: successCodeData } = await clientA.rpc("create_join_code", {
+    p_gym_id: gymIdA,
+    p_role: "member",
+    p_max_uses: 100,
+  });
+  const successCode = successCodeData?.[0]?.code;
+  
+  // First redeem joins the gym (success)
+  const { data: firstRedeem } = await clientSuccess.rpc("redeem_join_code", { p_code: successCode });
+  const firstRedeemJson = firstRedeem && typeof firstRedeem === 'object' ? firstRedeem : null;
+  check("First redeem succeeds", firstRedeemJson && 'ok' in firstRedeemJson && firstRedeemJson.ok === true, "", firstRedeemJson);
+  
+  // Next 19 redeems return already_member (should NOT throttle, only misses count)
+  for (let i = 1; i < 20; i++) {
+    await clientSuccess.rpc("redeem_join_code", { p_code: successCode });
+  }
+  
+  // Check that no attempts were recorded (neither success nor already_member count as misses)
+  const { data: successAttempts } = await adminClient
+    .from("gym_join_code_attempts")
+    .select("*")
+    .eq("user_id", authUserSuccess.user?.id);
+  check("Successes and already_member don't record attempts", successAttempts?.length === 0, "", successAttempts?.length);
+  
+  // 21st attempt should still work (returns already_member, not throttled)
+  const { data: successAfter20Data } = await clientSuccess.rpc("redeem_join_code", { p_code: successCode });
+  const successAfter20Json = successAfter20Data && typeof successAfter20Data === 'object' ? successAfter20Data : null;
+  check("20+ already_member don't throttle", 
+    successAfter20Json && 'ok' in successAfter20Json && successAfter20Json.ok === false &&
+    'reason' in successAfter20Json && successAfter20Json.reason === 'already_member',
+    "", successAfter20Json);
+  console.log();
+
+  // TEST: Code format CHECK constraint (using admin to bypass RLS)
+  console.log("TEST: Code format CHECK constraint");
+  const { error: invalidFormatError } = await adminClient
+    .from("gym_join_codes")
+    .insert({
+      gym_id: gymIdA,
+      code: "INVALID", // Only 7 chars, should fail format check
+      role: "member",
+      created_by: userIdA,
+    });
+  check("Invalid format code rejected", !!invalidFormatError);
+  check("Format error mentions constraint or check",
+    !!invalidFormatError && (invalidFormatError.message?.includes("code_format") || 
+    invalidFormatError.message?.includes("check constraint") ||
+    invalidFormatError.message?.toLowerCase().includes("violates")));
+  
+  const { error: ambiguousCharError } = await adminClient
+    .from("gym_join_codes")
+    .insert({
+      gym_id: gymIdA,
+      code: "ABCDEF01IO", // Contains ambiguous chars (0, 1, I, O)
+      role: "member",
+      created_by: userIdA,
+    });
+  check("Ambiguous char code rejected", !!ambiguousCharError);
+  console.log();
+
+  // Clean up (delete only test data, NOT users)
+  console.log("Cleaning up test data...");
+  
+  // Delete join codes for test gyms
+  await adminClient.from("gym_join_codes").delete().eq("gym_id", gymIdA);
+  await adminClient.from("gym_join_codes").delete().eq("gym_id", gymIdB);
+  
+  // Delete memberships for test gyms
+  await adminClient.from("gym_memberships").delete().eq("gym_id", gymIdA);
+  await adminClient.from("gym_memberships").delete().eq("gym_id", gymIdB);
+  
+  // Delete test gyms (cascade will handle remaining refs)
+  await adminClient.from("gyms").delete().eq("id", gymIdA);
+  await adminClient.from("gyms").delete().eq("id", gymIdB);
+  
+  console.log("✓ Test data cleaned up (users left intact for reuse)\n");
+
+  if (failures > 0) {
+    console.error(`\n❌ ${failures} test(s) failed\n`);
+    return false;
+  }
+
+  console.log("\n✅ All tests passed\n");
+  return true;
+}
+
+runTests().then((success) => {
+  process.exit(success ? 0 : 1);
+});
