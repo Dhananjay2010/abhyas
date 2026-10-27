@@ -118,7 +118,7 @@ async function main() {
           gym_id: gymId,
           gym_slug: 'fitcore',
           gym_name: 'FitCore Gym',
-          verified: true,
+          // Note: verified field removed (migration 037 shape)
         },
       ],
     });
@@ -160,6 +160,7 @@ async function main() {
     const resolution = await resolveBrand(supabase, 'fitcore.example.com', null, branding, mockFetchBrand);
     const result = resolution.brand;
     
+    check("Tier is 'host'", resolution.tier === "host");
     check("Name merged", result.name === 'FitCore Gym');
     check("Logo merged", result.logo === 'https://example.com/logo.png');
     // Timezone not merged at runtime (handled by gym-brand.ts getGymBrand)
@@ -171,6 +172,16 @@ async function main() {
     // Verify resolve_gym_by_host was called
     const resolveCall = stub.calls.find(c => c.url.includes('/rpc/resolve_gym_by_host'));
     check("resolve_gym_by_host called", resolveCall !== undefined);
+    
+    // Assert p_host is normalized (lowercase)
+    if (resolveCall?.body) {
+      const bodyMatch = resolveCall.body.match(/"p_host"\s*:\s*"([^"]+)"/);
+      if (bodyMatch) {
+        const receivedHost = bodyMatch[1];
+        check("p_host is lowercase", receivedHost === 'fitcore.example.com');
+        check("p_host has no port", !receivedHost.includes(':'));
+      }
+    }
   }
   console.log();
 
@@ -279,7 +290,17 @@ async function main() {
       
       const resolution = await resolveBrand(supabase, 'GYM.EXAMPLE.COM', null, branding, mockFetchBrand);
     const result = resolution.brand;
-      check("Uppercase host resolves", result.name === 'Test Gym');
+      check("Uppercase host resolves", resolution.gymId === gymId);
+      check("Tier is 'host'", resolution.tier === "host");
+      
+      // Assert p_host received is lowercase
+      const resolveCall = stub.calls.find(c => c.url.includes('/rpc/resolve_gym_by_host'));
+      if (resolveCall?.body) {
+        const bodyMatch = resolveCall.body.match(/"p_host"\s*:\s*"([^"]+)"/);
+        if (bodyMatch) {
+          check("p_host normalized to lowercase", bodyMatch[1] === 'gym.example.com');
+        }
+      }
     }
     
     // Test port
@@ -290,7 +311,6 @@ async function main() {
             gym_id: gymId,
             gym_slug: 'test',
             gym_name: 'Test Gym Port',
-          verified: true,
           },
         ],
       });
@@ -326,7 +346,18 @@ async function main() {
       
       const resolution = await resolveBrand(supabase, 'gym.example.com:443', null, branding, mockFetchBrand);
     const result = resolution.brand;
-      check("Host with port resolves", result.name === 'Test Gym Port');
+      check("Host with port resolves", resolution.gymId === gymId);
+      check("Tier is 'host'", resolution.tier === "host");
+      
+      // Assert p_host received has port stripped
+      const resolveCall = stub.calls.find(c => c.url.includes('/rpc/resolve_gym_by_host'));
+      if (resolveCall?.body) {
+        const bodyMatch = resolveCall.body.match(/"p_host"\s*:\s*"([^"]+)"/);
+        if (bodyMatch) {
+          check("p_host has port stripped", bodyMatch[1] === 'gym.example.com');
+          check("p_host has no colon", !bodyMatch[1].includes(':'));
+        }
+      }
     }
   }
   console.log();

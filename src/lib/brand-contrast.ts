@@ -10,7 +10,7 @@ import { contrastRatio } from "./contrast";
 /**
  * Convert hex color to sRGB linear [0-1] for each channel.
  */
-function hexToLinearRGB(hex: string): [number, number, number] {
+export function hexToLinearRGB(hex: string): [number, number, number] {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
   const b = parseInt(hex.slice(5, 7), 16) / 255;
@@ -43,7 +43,7 @@ function linearRGBToHex(r: number, g: number, b: number): string {
  * Convert linear sRGB to OKLCH.
  * Uses OKlab as intermediate step.
  */
-function linearRGBToOKLCH(r: number, g: number, b: number): { L: number; C: number; H: number } {
+export function linearRGBToOKLCH(r: number, g: number, b: number): { L: number; C: number; H: number } {
   // sRGB to OKLab (linear RGB to LMS to Lab)
   const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
   const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;

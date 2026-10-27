@@ -10,7 +10,7 @@
  * - End-to-end: Iron Temple on unmapped host
  */
 
-import { ensureMinContrast } from "../src/lib/brand-contrast";
+import { ensureMinContrast, hexToLinearRGB, linearRGBToOKLCH } from "../src/lib/brand-contrast";
 import { contrastRatio, accessibleTextColor } from "../src/lib/contrast";
 import { branding } from "../src/lib/branding";
 import { mergeBrand } from "../src/lib/runtime-brand";
@@ -49,9 +49,25 @@ async function main() {
     const adjusted = ensureMinContrast(original, appBg, minRatio, fallback);
     const ratio = contrastRatio(adjusted, appBg);
     
+    // Assert exact result and ratio (from user specification)
+    check("Result is #2f56c7", adjusted.toLowerCase() === '#2f56c7', `got ${adjusted}`);
+    check("Ratio ~3.06:1", Math.abs(ratio - 3.06) < 0.01, `${ratio.toFixed(2)}:1`);
     check("Contrast >= 3:1", ratio >= 3.0, `${ratio.toFixed(2)}:1`);
     check("Stays blue-hued", isBlueHued(adjusted), `${adjusted}`);
     check("Not fallback", adjusted !== fallback);
+    
+    // Verify OKLCH hue preservation (within 2 degrees)
+    const [r_orig, g_orig, b_orig] = hexToLinearRGB(original);
+    const oklch_orig = linearRGBToOKLCH(r_orig, g_orig, b_orig);
+    const [r_adj, g_adj, b_adj] = hexToLinearRGB(adjusted);
+    const oklch_adj = linearRGBToOKLCH(r_adj, g_adj, b_adj);
+    
+    const hueDelta = Math.abs(oklch_adj.H - oklch_orig.H);
+    check("Hue preserved (Δ ≤ 2°)", hueDelta <= 2.0, `Δ = ${hueDelta.toFixed(2)}°`);
+    
+    // Verify chroma preservation before gamut clamp (chroma should be close)
+    const chromaDelta = Math.abs(oklch_adj.C - oklch_orig.C);
+    check("Chroma preserved", chromaDelta < 0.01, `Δ = ${chromaDelta.toFixed(4)}`);
     
     // Verify fg contrast
     const fg = accessibleTextColor(adjusted);
