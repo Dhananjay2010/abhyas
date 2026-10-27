@@ -5,7 +5,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import { generateProgram, isEligible, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { rankAlternatives, type AlternativesContext } from "../src/lib/program/alternatives";
 
 type Level = "beginner" | "intermediate" | "expert";
@@ -143,9 +143,6 @@ const pastKneeTestInput: GeneratorInput = {
   currentInjuryRegions: [],
   anyKneeInjury: true,
 };
-
-// Import isEligible to test directly
-const { isEligible } = require("../src/lib/program/generate");
 
 if (isEligible(linearJammer, pastKneeTestInput)) {
   jammerViolations++;

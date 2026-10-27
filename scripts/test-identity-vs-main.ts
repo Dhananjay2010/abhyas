@@ -2,6 +2,26 @@
 /**
  * Identity test: prove non-knee and current-knee users get identical output to main.
  * Compare generated plans and swap lists against baseline fixture from main.
+ * 
+ * Owner decision (a): current-knee-intermediate baseline updated for jammer exclusion RNG shift.
+ * Landmine jammer exclusion (G-3) removes 2 exercises from the candidate pool for current-knee users,
+ * causing RNG stream shifts that affect 6 accessory/core exercises:
+ * 
+ * Before (main):
+ *   Day 1 ex 5: Band Skull Crusher
+ *   Day 1 ex 6: Incline Inner Biceps Curl
+ *   Day 2 ex 5: Crunches
+ *   Day 4 ex 5: Standing Bent-Over Two-Arm Dumbbell Triceps Extension
+ *   Day 4 ex 6: Preacher Hammer Dumbbell Curl
+ *   Day 5 ex 5: Sit-Up
+ * 
+ * After (decision a, jammer exclusion):
+ *   Day 1 ex 5: Kneeling Cable Triceps Extension
+ *   Day 1 ex 6: Lying Close-Grip Bar Curl On High Pulley
+ *   Day 2 ex 5: Decline Crunch
+ *   Day 4 ex 5: Standing Overhead Barbell Triceps Extension
+ *   Day 4 ex 6: Seated Close-Grip Concentration Barbell Curl
+ *   Day 5 ex 5: Crunch - Legs On Exercise Ball
  */
 
 import { readFileSync } from "fs";

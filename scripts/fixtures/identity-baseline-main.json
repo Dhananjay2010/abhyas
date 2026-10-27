@@ -539,14 +539,14 @@
               "targetRepsMax": 12
             },
             {
-              "name": "Band Skull Crusher",
+              "name": "Kneeling Cable Triceps Extension",
               "orderIndex": 4,
               "targetSets": 3,
               "targetRepsMin": 8,
               "targetRepsMax": 12
             },
             {
-              "name": "Incline Inner Biceps Curl",
+              "name": "Lying Close-Grip Bar Curl On High Pulley",
               "orderIndex": 5,
               "targetSets": 3,
               "targetRepsMin": 8,
@@ -589,7 +589,7 @@
               "targetRepsMax": 12
             },
             {
-              "name": "Crunches",
+              "name": "Decline Crunch",
               "orderIndex": 4,
               "targetSets": 4,
               "targetRepsMin": 8,
@@ -639,14 +639,14 @@
               "targetRepsMax": 12
             },
             {
-              "name": "Standing Bent-Over Two-Arm Dumbbell Triceps Extension",
+              "name": "Standing Overhead Barbell Triceps Extension",
               "orderIndex": 4,
               "targetSets": 3,
               "targetRepsMin": 8,
               "targetRepsMax": 12
             },
             {
-              "name": "Preacher Hammer Dumbbell Curl",
+              "name": "Seated Close-Grip Concentration Barbell Curl",
               "orderIndex": 5,
               "targetSets": 3,
               "targetRepsMin": 8,
@@ -689,7 +689,7 @@
               "targetRepsMax": 12
             },
             {
-              "name": "Sit-Up",
+              "name": "Crunch - Legs On Exercise Ball",
               "orderIndex": 4,
               "targetSets": 4,
               "targetRepsMin": 8,

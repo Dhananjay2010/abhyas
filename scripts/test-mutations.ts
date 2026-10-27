@@ -231,26 +231,44 @@ function hasStackTrace(output: string): boolean {
   );
 }
 
+function hasAssertionMarker(output: string): boolean {
+  // Check for assertion failure markers
+  return (
+    output.includes("✗") ||
+    output.includes("❌") ||
+    output.includes("FAIL") ||
+    output.includes("AssertionError")
+  );
+}
+
+function stripNpmHeaders(output: string): string {
+  // Remove npm run header lines like "> pkg@version script"
+  return output.replace(/^>\s+[^@]+@[^\s]+\s+[^\n]+\n/gm, "");
+}
+
 function isCrash(error: unknown): boolean {
   const stdout = typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "";
   const stderr = typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "";
   const status = typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : 1;
   const output = stdout + stderr;
   
+  // If there's an assertion marker, it's a clean kill (not a crash)
+  if (hasAssertionMarker(output)) return false;
+  
+  // Strip npm headers before checking for empty output
+  const cleanOutput = stripNpmHeaders(output).trim();
+  
   // Crash indicators:
-  // 1. Stack trace present
+  // 1. Stack trace present (without assertion marker)
   if (hasStackTrace(output)) return true;
   
-  // 2. Silent exit (no output but non-zero status)
-  if (status !== 0 && output.trim().length === 0) return true;
+  // 2. Silent exit after stripping npm headers
+  if (status !== 0 && cleanOutput.length === 0) return true;
   
-  // 3. FAIL followed by stack trace
-  if (output.includes("FAIL") && hasStackTrace(output)) return true;
-  
-  // 4. Uncaught exception patterns
+  // 3. Uncaught exception patterns
   if (output.includes("Uncaught") || output.includes("unhandled")) return true;
   
-  // Otherwise it's a clean test failure
+  // Otherwise it's a clean test failure (killed)
   return false;
 }
 
