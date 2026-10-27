@@ -49,16 +49,16 @@ function buildInput(anyKneeInjury: boolean, currentKnee: boolean): GeneratorInpu
 // Test 1: Past-knee banned exercise is replaced
 console.log("=== Test 1: Past-knee banned exercise replacement ===");
 
-const singleLegExt = catalogueBySlug.get("single-leg-leg-extension");
-if (!singleLegExt) {
-  console.log("  ✗ FAIL: single-leg-leg-extension not found");
+const thruster = catalogueBySlug.get("kettlebell-thruster");
+if (!thruster) {
+  console.log("  ✗ FAIL: kettlebell-thruster not found");
   failures++;
 } else {
   const pastKneeInput = buildInput(true, false);
   const planned: PlannedExercise[] = [
     {
       id: "test-row-1",
-      exercise_id: singleLegExt.id,
+      exercise_id: thruster.id,
       order_index: 0,
       target_sets: 3,
       target_reps_min: 8,
@@ -69,11 +69,11 @@ if (!singleLegExt) {
   
   const result = replaceBannedInPlanned(planned, catalogue, pastKneeInput);
   
-  if (result.changed && result.rows[0].exercise_id !== singleLegExt.id) {
+  if (result.changed && result.rows[0].exercise_id !== thruster.id) {
     const replacement = catalogueById.get(result.rows[0].exercise_id);
     console.log(`  ✓ PASS: Replaced with ${replacement?.name}`);
   } else {
-    console.log(`  ✗ FAIL: Should have replaced single-leg-leg-extension`);
+    console.log(`  ✗ FAIL: Should have replaced kettlebell-thruster`);
     failures++;
   }
 }
@@ -85,7 +85,7 @@ console.log("=== Test 2: No duplicates introduced ===");
 
 const barbellSquat = catalogueBySlug.get("barbell-squat");
 const legPress = catalogueBySlug.get("leg-press");
-if (!singleLegExt || !barbellSquat || !legPress) {
+if (!thruster || !barbellSquat || !legPress) {
   console.log("  ✗ FAIL: Test exercises not found");
   failures++;
 } else {
@@ -102,7 +102,7 @@ if (!singleLegExt || !barbellSquat || !legPress) {
     },
     {
       id: "test-row-2",
-      exercise_id: singleLegExt.id,
+      exercise_id: thruster.id,
       order_index: 1,
       target_sets: 3,
       target_reps_min: 8,
@@ -145,15 +145,15 @@ console.log("");
 // Test 3: Sets/reps/rest/order preserved
 console.log("=== Test 3: Prescription and order preserved ===");
 
-if (!singleLegExt) {
-  console.log("  ✗ FAIL: single-leg-leg-extension not found");
+if (!thruster) {
+  console.log("  ✗ FAIL: kettlebell-thruster not found");
   failures++;
 } else {
   const pastKneeInput = buildInput(true, false);
   const planned: PlannedExercise[] = [
     {
       id: "test-row-1",
-      exercise_id: singleLegExt.id,
+      exercise_id: thruster.id,
       order_index: 0,
       target_sets: 5,
       target_reps_min: 6,
@@ -201,15 +201,15 @@ console.log("");
 // Test 4: Determinism
 console.log("=== Test 4: Determinism ===");
 
-if (!singleLegExt) {
-  console.log("  ✗ FAIL: single-leg-leg-extension not found");
+if (!thruster) {
+  console.log("  ✗ FAIL: kettlebell-thruster not found");
   failures++;
 } else {
   const pastKneeInput = buildInput(true, false);
   const planned: PlannedExercise[] = [
     {
       id: "determinism-test-seed",
-      exercise_id: singleLegExt.id,
+      exercise_id: thruster.id,
       order_index: 0,
       target_sets: 3,
       target_reps_min: 8,
@@ -234,15 +234,15 @@ console.log("");
 // Test 5: Non-knee users pass through unchanged
 console.log("=== Test 5: Non-knee users unchanged ===");
 
-if (!singleLegExt) {
-  console.log("  ✗ FAIL: single-leg-leg-extension not found");
+if (!thruster) {
+  console.log("  ✗ FAIL: kettlebell-thruster not found");
   failures++;
 } else {
   const noKneeInput = buildInput(false, false);
   const planned: PlannedExercise[] = [
     {
       id: "test-row-1",
-      exercise_id: singleLegExt.id,
+      exercise_id: thruster.id,
       order_index: 0,
       target_sets: 3,
       target_reps_min: 8,
@@ -253,7 +253,7 @@ if (!singleLegExt) {
   
   const result = replaceBannedInPlanned(planned, catalogue, noKneeInput);
   
-  if (!result.changed && result.rows[0].exercise_id === singleLegExt.id) {
+  if (!result.changed && result.rows[0].exercise_id === thruster.id) {
     console.log(`  ✓ PASS: Non-knee users unchanged`);
   } else {
     console.log(`  ✗ FAIL: Non-knee users should be unchanged`);
@@ -266,7 +266,6 @@ console.log("");
 // Test 6: Current-knee banned exercises
 console.log("=== Test 6: Current-knee tier bans ===");
 
-const thruster = catalogueBySlug.get("kettlebell-thruster");
 const kbPushPress = catalogueBySlug.get("one-arm-kettlebell-push-press");
 if (!thruster || !kbPushPress) {
   console.log("  ✗ FAIL: Test exercises not found");
@@ -316,18 +315,18 @@ console.log("");
 // Test 7: Changed flag accuracy
 console.log("=== Test 7: Changed flag accuracy ===");
 
-if (!singleLegExt && !barbellSquat) {
+if (!thruster && !barbellSquat) {
   console.log("  ✗ FAIL: Test exercises not found");
   failures++;
 } else {
   const pastKneeInput = buildInput(true, false);
   
   // Test with banned exercise
-  if (singleLegExt) {
+  if (thruster) {
     const plannedBanned: PlannedExercise[] = [
       {
         id: "test-row-1",
-        exercise_id: singleLegExt.id,
+        exercise_id: thruster.id,
         order_index: 0,
         target_sets: 3,
         target_reps_min: 8,

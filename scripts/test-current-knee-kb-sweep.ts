@@ -59,11 +59,11 @@ for (const injury of injuries) {
             if (equip === "all") {
               hasAllEquipment = true;
             } else if (equip === "db+bench") {
-              equipmentIds = ["dumbbell", "bench"];
+              equipmentIds = ["dumbbell", "flat_bench"];
             } else if (equip === "kb-only") {
               equipmentIds = ["kettlebell"];
             } else if (equip === "barbell+rack+bench") {
-              equipmentIds = ["barbell", "squat-rack", "bench"];
+              equipmentIds = ["barbell", "squat_rack", "flat_bench"];
             }
             
             const input: GeneratorInput = {
@@ -87,12 +87,20 @@ for (const injury of injuries) {
             totalProfiles++;
             
             const program = generateProgram(input);
+            
+            // Build a map from exerciseId to slug
+            const idToSlug = new Map<string, string>();
+            for (const ex of catalogue) {
+              idToSlug.set(ex.id, ex.slug);
+            }
+            
             const allSlugs = new Set<string>();
             
             for (const day of program.days) {
               for (const ex of day.exercises) {
-                if ('slug' in ex && typeof ex.slug === 'string') {
-                  allSlugs.add(ex.slug);
+                const slug = idToSlug.get(ex.exerciseId);
+                if (slug) {
+                  allSlugs.add(slug);
                 }
               }
             }
