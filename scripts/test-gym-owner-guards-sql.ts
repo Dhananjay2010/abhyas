@@ -46,6 +46,17 @@ async function runTests() {
     return true;
   }
 
+  // Import and check guard
+  const { checkRealDbTest } = await import("./lib-db-reset-guard");
+  const guardResult = checkRealDbTest();
+  
+  if (!guardResult.allow) {
+    console.log(`\n⏭️  Skipping real DB tests: ${guardResult.reason}\n`);
+    return true;
+  }
+  
+  console.log(`✓ Guard check passed: ${guardResult.reason}\n`);
+
   console.log("Checking Supabase connection...");
   
   const isAvailable = await testDatabaseConnection();
