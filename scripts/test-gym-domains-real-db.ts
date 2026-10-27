@@ -472,7 +472,7 @@ async function runTests() {
       "example.com-",                                // label ends with hyphen
       "example_com.net",                             // underscore
       "a".repeat(64) + ".example.com",               // 64-char label (max is 63)
-      "a".repeat(250) + ".com",                      // 254-char host (max is 253)
+      "a".repeat(63) + "." + "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(62) + ".com", // 254-char host (max is 253)
       "1.2.3.4",                                     // IPv4 literal (all-numeric TLD)
       "192.168.1.1",                                 // IPv4 literal
       "bücher.example",                              // raw unicode (not punycode)
@@ -497,7 +497,7 @@ async function runTests() {
       "multi.level.sub.example.com",
       "xn--bcher-kva.example",                       // punycode IDN
       "a".repeat(63) + ".example.com",               // 63-char label (exactly at limit)
-      "a".repeat(63) + "." + "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(48) + ".com", // 249-char host (under 253 limit)
+      "a".repeat(63) + "." + "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(61) + ".com", // 253-char host (exactly at limit)
       "a1.example.com",                              // alphanumeric
       "1a.example.com",                              // starts with digit, contains letter
     ];

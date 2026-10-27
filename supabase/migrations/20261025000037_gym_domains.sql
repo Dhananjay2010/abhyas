@@ -14,17 +14,18 @@ create table if not exists public.gym_domains (
   created_at      timestamptz not null default now()
 );
 
--- Clean up any existing rows that violate the new stricter format
+-- Check for non-conforming rows before applying stricter constraint
 -- (for DBs that ran Round 1's migration 037)
 do $$
 declare
   bad_row record;
+  bad_hosts text[] := '{}';
 begin
-  -- Only run cleanup if table exists and has data
+  -- Only run cleanup check if table exists and has data
   if exists (select from information_schema.tables where table_schema = 'public' and table_name = 'gym_domains') then
-    -- Log and delete rows that violate the new format
+    -- Collect rows that violate the new format
     for bad_row in
-      select host, gym_id
+      select host, gym_id, verified
       from public.gym_domains
       where 
         -- Not lowercase
@@ -36,10 +37,17 @@ begin
         or host ~ '[a-z0-9-]{64,}'
         -- Or invalid format (leading dot, consecutive dots, starts/ends with hyphen)
         or not (host ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$')
+        -- Or all-numeric TLD (IPv4 literal)
+        or not (host ~ '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]*[a-z][a-z0-9]*$')
     loop
-      raise notice 'Deleting invalid gym_domains row: host=%, gym_id=%', bad_row.host, bad_row.gym_id;
-      delete from public.gym_domains where host = bad_row.host;
+      bad_hosts := array_append(bad_hosts, format('host=%L (gym_id=%s, verified=%s)', bad_row.host, bad_row.gym_id, bad_row.verified));
     end loop;
+    
+    -- If any bad rows found, raise exception so operator can fix data manually
+    if array_length(bad_hosts, 1) > 0 then
+      raise exception 'gym_domains table contains % row(s) that violate the new CHECK constraint. Please fix or delete these rows before re-running the migration: %',
+        array_length(bad_hosts, 1), array_to_string(bad_hosts, ', ');
+    end if;
   end if;
 end $$;
 
@@ -57,7 +65,7 @@ alter table public.gym_domains add constraint gym_domains_host_lowercase
 -- - Each label <= 63 chars (DNS maximum per label)
 -- - No scheme, no port, no path, no trailing dot
 -- - Each label: starts and ends with alphanumeric, hyphens only in middle
--- - TLD (last label) must contain at least one letter (no all-numeric TLD)
+-- - TLD (last label) must contain at least one letter (blocks IPv4 literals like 1.2.3.4)
 -- Allows: example.com, sub.example.com, multi.level.sub.example.com, xn--bcher-kva.example
 -- Blocks: https://example.com, example.com:3000, example.com/, example.com.
 -- Blocks: .example.com (leading dot), example..com (consecutive dots)
@@ -67,9 +75,10 @@ alter table public.gym_domains add constraint gym_domains_host_lowercase
 alter table public.gym_domains add constraint gym_domains_host_format 
   check (
     char_length(host) <= 253
-    -- Each label is <= 63 chars: [a-z0-9] followed by 0-61 [a-z0-9-] followed by [a-z0-9]
-    -- TLD (last label) must contain at least one letter (not all-numeric)
-    and host ~ '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]*[a-z][a-z0-9]*([a-z0-9-]{0,60}[a-z0-9])?$'
+    -- Hostname pattern: label(s) + TLD
+    -- Each label: [a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?
+    -- TLD (last label) must contain at least one letter: reject all-numeric like "1", "168", etc.
+    and host ~ '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]*[a-z][a-z0-9]*$'
   );
 
 -- Index for gym_id lookups (e.g. listing all domains for a gym)
