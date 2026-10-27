@@ -200,7 +200,7 @@ run_mutant \
 run_mutant \
   "(g) add anon grant" \
   "Allow anonymous users to call set_gym_branding" \
-  "sed 's/grant execute on function public.set_gym_branding/grant execute on function public.set_gym_branding(uuid, text, text, text, text) to anon;\ngrant execute on function public.set_gym_branding/' <" \
+  "sed 's/grant execute on function public.set_gym_branding/grant execute on function public.set_gym_branding(uuid, text, text, text, text, text[]) to anon;\ngrant execute on function public.set_gym_branding/' <" \
   "FAIL Anon cannot call set_gym_branding"
 
 # Reset DB after last mutant

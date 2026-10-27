@@ -84,9 +84,11 @@ echo "✓ Gym data unchanged"
 echo
 echo "Testing GJC12 enforcement after re-apply..."
 ERROR_OUTPUT=$(psql -v VERBOSITY=verbose "$SUPABASE_DB_URL" <<SQL 2>&1 || true
+BEGIN;
 SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claims', jsonb_build_object('sub', (SELECT user_id FROM public.gym_memberships WHERE gym_id = '$GYM_ID' AND role = 'owner' LIMIT 1))::text, false);
+SET LOCAL request.jwt.claims = '{"sub": "$(psql -tA "$SUPABASE_DB_URL" -c "SELECT user_id FROM public.gym_memberships WHERE gym_id = '$GYM_ID' AND role = 'owner' LIMIT 1")"}';
 UPDATE public.gyms SET name = 'Hacked' WHERE id = '$GYM_ID';
+ROLLBACK;
 SQL
 )
 
@@ -96,6 +98,15 @@ if ! echo "$ERROR_OUTPUT" | grep -q "GJC12"; then
   exit 1
 fi
 echo "✓ GJC12 enforced"
+
+echo
+echo "Cleaning up test data..."
+psql "$SUPABASE_DB_URL" <<SQL
+DELETE FROM public.gym_memberships WHERE gym_id = '$GYM_ID';
+DELETE FROM public.gyms WHERE id = '$GYM_ID';
+DELETE FROM auth.users WHERE email LIKE 'owner-idem043-%';
+SQL
+echo "✓ Test data cleaned up"
 
 echo
 echo "✅ Migration 043 is idempotent"

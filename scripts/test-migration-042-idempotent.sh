@@ -58,9 +58,16 @@ SQL
 echo "✓ Test data created"
 echo
 
-# Count visible rows before re-apply
-echo "Counting visible rows before re-apply..."
-ROW_COUNT_BEFORE=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA -c "SELECT COUNT(*) FROM public.gym_join_codes WHERE id = '$CODE_ID'")
+# Count visible rows before re-apply (as authenticated owner)
+echo "Counting visible rows before re-apply (RLS)..."
+ROW_COUNT_BEFORE=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
+SELECT COUNT(*) FROM public.gym_join_codes WHERE id = '$CODE_ID';
+ROLLBACK;
+SQL
+)
 echo "Visible rows before: $ROW_COUNT_BEFORE"
 
 if [ "$ROW_COUNT_BEFORE" != "1" ]; then
@@ -72,9 +79,11 @@ fi
 echo
 echo "Testing redeem_join_code before re-apply..."
 REDEEM_BEFORE=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+BEGIN;
 SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claims', jsonb_build_object('sub', '$OWNER_ID')::text, false);
+SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
 SELECT public.redeem_join_code('$JOIN_CODE');
+ROLLBACK;
 SQL
 )
 echo "Redeem result before: $REDEEM_BEFORE"
@@ -84,18 +93,14 @@ if ! echo "$REDEEM_BEFORE" | grep -q "already_member"; then
   exit 1
 fi
 
-if ! echo "$REDEEM_BEFORE" | grep -q "gym_name"; then
-  echo "❌ FAIL: Expected gym_name in already_member result before re-apply"
-  exit 1
-fi
-
-GYM_NAME_BEFORE=$(echo "$REDEEM_BEFORE" | grep -o '"gym_name":"[^"]*"' | cut -d'"' -f4)
+GYM_NAME_BEFORE=$(echo "$REDEEM_BEFORE" | jq -r '.gym_name // empty' 2>/dev/null || echo "$REDEEM_BEFORE" | grep -oP '"gym_name"\s*:\s*"\K[^"]+' || echo "")
 echo "Gym name in result: $GYM_NAME_BEFORE"
 
-if [ -z "$GYM_NAME_BEFORE" ]; then
-  echo "❌ FAIL: gym_name is empty before re-apply"
+if [ "$GYM_NAME_BEFORE" != "Idem 042 Gym" ]; then
+  echo "❌ FAIL: Expected gym_name 'Idem 042 Gym', got: $GYM_NAME_BEFORE"
   exit 1
 fi
+echo "✓ gym_name correct before re-apply"
 
 # Re-apply migration 042
 echo
@@ -106,10 +111,17 @@ if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -f "supabase/migrations/20261025
 fi
 echo "✓ Re-apply succeeded"
 
-# Count visible rows after re-apply
+# Count visible rows after re-apply (as authenticated owner)
 echo
-echo "Counting visible rows after re-apply..."
-ROW_COUNT_AFTER=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA -c "SELECT COUNT(*) FROM public.gym_join_codes WHERE id = '$CODE_ID'")
+echo "Counting visible rows after re-apply (RLS)..."
+ROW_COUNT_AFTER=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
+SELECT COUNT(*) FROM public.gym_join_codes WHERE id = '$CODE_ID';
+ROLLBACK;
+SQL
+)
 echo "Visible rows after: $ROW_COUNT_AFTER"
 
 if [ "$ROW_COUNT_AFTER" != "$ROW_COUNT_BEFORE" ]; then
@@ -122,9 +134,11 @@ echo "✓ Row count unchanged"
 echo
 echo "Testing redeem_join_code after re-apply..."
 REDEEM_AFTER=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+BEGIN;
 SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claims', jsonb_build_object('sub', '$OWNER_ID')::text, false);
+SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
 SELECT public.redeem_join_code('$JOIN_CODE');
+ROLLBACK;
 SQL
 )
 echo "Redeem result after: $REDEEM_AFTER"
@@ -134,12 +148,7 @@ if ! echo "$REDEEM_AFTER" | grep -q "already_member"; then
   exit 1
 fi
 
-if ! echo "$REDEEM_AFTER" | grep -q "gym_name"; then
-  echo "❌ FAIL: Expected gym_name in already_member result after re-apply"
-  exit 1
-fi
-
-GYM_NAME_AFTER=$(echo "$REDEEM_AFTER" | grep -o '"gym_name":"[^"]*"' | cut -d'"' -f4)
+GYM_NAME_AFTER=$(echo "$REDEEM_AFTER" | jq -r '.gym_name // empty' 2>/dev/null || echo "$REDEEM_AFTER" | grep -oP '"gym_name"\s*:\s*"\K[^"]+' || echo "")
 echo "Gym name in result: $GYM_NAME_AFTER"
 
 if [ "$GYM_NAME_BEFORE" != "$GYM_NAME_AFTER" ]; then
@@ -147,6 +156,16 @@ if [ "$GYM_NAME_BEFORE" != "$GYM_NAME_AFTER" ]; then
   exit 1
 fi
 echo "✓ gym_name unchanged"
+
+echo
+echo "Cleaning up test data..."
+psql "$SUPABASE_DB_URL" <<SQL
+DELETE FROM public.gym_join_codes WHERE id = '$CODE_ID';
+DELETE FROM public.gym_memberships WHERE gym_id = '$GYM_ID';
+DELETE FROM public.gyms WHERE id = '$GYM_ID';
+DELETE FROM auth.users WHERE id = '$OWNER_ID';
+SQL
+echo "✓ Test data cleaned up"
 
 echo
 echo "✅ Migration 042 is idempotent"

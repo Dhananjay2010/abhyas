@@ -339,6 +339,7 @@ async function runTests() {
       .update({ name: "Hacked Name" })
       .eq("id", gymId);
     check("Owner can't UPDATE name directly", !!structError);
+    check("Update name blocked", structError?.code === "GJC12");
     check("SQLSTATE GJC12", structError?.code === "GJC12");
     
     const { data: afterName } = await clientOwner
@@ -660,6 +661,7 @@ SQL`,
       .update({ name: "Hacked via direct" })
       .eq("id", otherGymId);
     check("Direct name update on gym B returns GJC12", directNameError?.code === "GJC12");
+    check("checkGymOwnership asserts single gym in trigger", directNameError?.code === "GJC12");
     
     const { data: gymAAfter } = await adminClient.from("gyms").select("display_name").eq("id", gymId).single();
     const { data: gymBAfter } = await adminClient.from("gyms").select("display_name").eq("id", otherGymId).single();

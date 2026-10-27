@@ -43,8 +43,8 @@ is_allowed() {
   return 1
 }
 
-hex_matches=$(grep -Hn "#[0-9a-fA-F]\{3,6\}" src/app/owner/ || true)
-color_fn_matches=$(grep -Hn -E "(rgb|rgba|hsl|hsla)\s*\(" src/app/owner/ || true)
+hex_matches=$(grep -rHn "#[0-9a-fA-F]\{3,6\}" src/app/owner/ || true)
+color_fn_matches=$(grep -rHn -E "(rgb|rgba|hsl|hsla)\s*\(" src/app/owner/ || true)
 all_matches=$(echo -e "$hex_matches\n$color_fn_matches" | grep -v "^$" || true)
 
 if [ -z "$all_matches" ]; then

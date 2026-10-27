@@ -11,7 +11,7 @@ SELECT EXISTS (
   AND tgrelid = 'public.gyms'::regclass
 ) AS trigger_exists \gset
 
-\if :{trigger_exists}
+\if :trigger_exists
   \echo '✗ FAIL: Trigger gyms_brand_only_update already exists (043 already applied?)'
   SELECT 1/0 AS preflight_failed;
 \else
@@ -26,7 +26,7 @@ SELECT EXISTS (
   AND p.proname = 'enforce_gyms_brand_only_update'
 ) AS function_exists \gset
 
-\if :{function_exists}
+\if :function_exists
   \echo '✗ FAIL: Function enforce_gyms_brand_only_update already exists (043 already applied?)'
   SELECT 1/0 AS preflight_failed;
 \else
@@ -41,7 +41,7 @@ SELECT EXISTS (
   AND p.proname = 'set_gym_branding'
 ) AS rpc_exists \gset
 
-\if :{rpc_exists}
+\if :rpc_exists
   \echo '✓ set_gym_branding exists (from 040)'
 \else
   \echo '✗ FAIL: set_gym_branding does not exist (040 not applied?)'
@@ -58,17 +58,22 @@ JOIN pg_namespace n ON p.pronamespace = n.oid
 WHERE n.nspname = 'public'
 AND p.proname = 'set_gym_branding' \gset
 
-\if :{is_security_definer}
+\if :is_security_definer
   \echo '✓ set_gym_branding is SECURITY DEFINER'
 \else
   \echo '✗ FAIL: set_gym_branding is not SECURITY DEFINER'
   SELECT 1/0 AS preflight_failed;
 \endif
 
--- Check search_path is set to empty string
-SELECT :'config' ~ 'search_path=""' AS has_empty_search_path \gset
+-- Check search_path is set to empty string (using SQL comparison)
+SELECT 
+  CASE 
+    WHEN :'config' = '{}' THEN false
+    WHEN 'search_path=""' = ANY(string_to_array(replace(replace(:'config', '{', ''), '}', ''), ',')) THEN true
+    ELSE false
+  END AS has_empty_search_path \gset
 
-\if :{has_empty_search_path}
+\if :has_empty_search_path
   \echo '✓ set_gym_branding has search_path=""'
 \else
   \echo '✗ FAIL: set_gym_branding does not have search_path=""'
