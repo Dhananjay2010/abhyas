@@ -21,6 +21,7 @@ export function applyBannedCleanup(
   },
   injuries: Array<{ body_region: Database["public"]["Enums"]["body_region"]; severity: "current" | "past" }>,
   userId: string,
+  equipmentIds: string[],
 ): PlannedExercise[] {
   const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
   
@@ -39,7 +40,7 @@ export function applyBannedCleanup(
     age: null,
     bmi: null,
     hasAllEquipment: profile.has_all_equipment,
-    equipmentIds: [],
+    equipmentIds,
     currentInjuryRegions,
     anyKneeInjury,
     catalogue,

@@ -41,6 +41,7 @@ export async function ensureSessionExercises(
     has_all_equipment: boolean;
   } | null,
   injuries?: Array<{ body_region: Database["public"]["Enums"]["body_region"]; severity: "current" | "past" }>,
+  equipmentIds?: string[],
 ): Promise<void> {
   // One round trip answers both questions this needs: whether the session
   // already has exercises, and which program day to copy them from. It used to
@@ -67,7 +68,7 @@ export async function ensureSessionExercises(
 
   // Clean banned exercises in-memory (backstop), then persist if needed
   let cleanedPlanned = planned;
-  if (catalogue && profile && injuries) {
+  if (catalogue && profile && injuries && equipmentIds) {
     const plannedForCleaning = planned.map(p => ({
       id: p.id,
       exercise_id: p.exercise_id,
@@ -78,7 +79,7 @@ export async function ensureSessionExercises(
       rest_seconds: p.rest_seconds,
     }));
     
-    const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId);
+    const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId, equipmentIds);
     
     // Persist cleaned exercises to program_day_exercises
     const changed = planned.some((p, i) => p.exercise_id !== cleaned[i].exercise_id);

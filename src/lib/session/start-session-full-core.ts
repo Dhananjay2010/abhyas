@@ -88,6 +88,8 @@ export type StartSessionFullDeps = {
   
   fetchPlannedExercises: (dayId: string) => Promise<ProgramDayExercise[] | null>;
   
+  cleanBannedExercises?: (exercises: ProgramDayExercise[]) => Promise<ProgramDayExercise[]>;
+  
   insertExercises: (exercises: SessionExerciseInsert[]) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
@@ -218,7 +220,10 @@ export async function startSessionFullCore(
 
   const sessionId = insertResult.sessionId;
   if (planned && planned.length > 0) {
-    const exercisesToInsert = planned.map((p) => {
+    // Clean banned exercises before insert (backstop for knee-injured users)
+    const cleanedPlanned = deps.cleanBannedExercises ? await deps.cleanBannedExercises(planned) : planned;
+    
+    const exercisesToInsert = cleanedPlanned.map((p) => {
       const dose = isDeloadWeek
         ? applyDeload({
             sets: p.target_sets,

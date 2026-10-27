@@ -22,11 +22,12 @@ export async function cleanBannedPlannedExercises(
 ): Promise<{ cleaned: number; errors: string[] }> {
   try {
     // Load user data
-    const [profileRes, injuriesRes, catalogueRes, programRes] = await Promise.all([
+    const [profileRes, injuriesRes, catalogueRes, programRes, equipmentRes] = await Promise.all([
       supabase.from("profiles").select("goal, level, primary_track, days_per_week, yoga_days_per_week, has_all_equipment").eq("id", userId).maybeSingle(),
-      supabase.from("user_injuries").select("body_region, severity"),
+      supabase.from("user_injuries").select("body_region, severity").eq("user_id", userId),
       supabase.from("exercises").select("id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category").eq("is_active", true),
       supabase.from("programs").select("id").eq("user_id", userId).eq("status", "active").maybeSingle(),
+      supabase.from("user_equipment").select("equipment_id").eq("user_id", userId),
     ]);
     
     if (!programRes.data || !profileRes.data || !catalogueRes.data) {
@@ -60,7 +61,7 @@ export async function cleanBannedPlannedExercises(
       age: null,
       bmi: null,
       hasAllEquipment: profile.has_all_equipment ?? true,
-      equipmentIds: [],
+      equipmentIds: (equipmentRes.data ?? []).map(r => r.equipment_id),
       currentInjuryRegions,
       anyKneeInjury,
       catalogue,
@@ -93,15 +94,18 @@ export async function cleanBannedPlannedExercises(
       if (!byDay.has(dayId)) {
         byDay.set(dayId, []);
       }
-      byDay.get(dayId)!.push({
-        id: ex.id,
-        exercise_id: ex.exercise_id,
-        order_index: ex.order_index,
-        target_sets: ex.target_sets,
-        target_reps_min: ex.target_reps_min,
-        target_reps_max: ex.target_reps_max,
-        rest_seconds: ex.rest_seconds,
-      });
+      const dayExercises = byDay.get(dayId);
+      if (dayExercises) {
+        dayExercises.push({
+          id: ex.id,
+          exercise_id: ex.exercise_id,
+          order_index: ex.order_index,
+          target_sets: ex.target_sets,
+          target_reps_min: ex.target_reps_min,
+          target_reps_max: ex.target_reps_max,
+          rest_seconds: ex.rest_seconds,
+        });
+      }
     }
     
     let totalCleaned = 0;

@@ -12,7 +12,9 @@ import { updateSessionCore } from "./update-session-core";
 import { ensureSessionExercises } from "./ensure-session-exercises";
 import { insertSessionExercises } from "./insert-session-exercises";
 import { buildStartSessionStaleDeps } from "./build-start-session-stale-deps";
-import type { StartSessionFullDeps } from "./start-session-full-core";
+import type { StartSessionFullDeps, ProgramDayExercise } from "./start-session-full-core";
+import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
+import type { CandidateExercise } from "@/lib/program/generate";
 
 export function buildStartSessionFullDeps(
   supabase: SupabaseClient<Database>,
@@ -166,6 +168,61 @@ export function buildStartSessionFullDeps(
         metric: e.metric,
       }));
       return await insertSessionExercises(supabase, mapped);
+    },
+
+    async cleanBannedExercises(exercises) {
+      // Load data needed for cleaning
+      const [profileRes, injuriesRes, catalogueRes, equipmentRes] = await Promise.all([
+        supabase.from("profiles").select("goal, level, primary_track, days_per_week, yoga_days_per_week, has_all_equipment").eq("id", userId).maybeSingle(),
+        supabase.from("user_injuries").select("body_region, severity").eq("user_id", userId),
+        supabase.from("exercises").select("id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category").eq("is_active", true),
+        supabase.from("user_equipment").select("equipment_id").eq("user_id", userId),
+      ]);
+
+      const profile = profileRes.data;
+      const injuries = injuriesRes.data || [];
+      const catalogue = catalogueRes.data as CandidateExercise[];
+      const equipmentIds = (equipmentRes.data ?? []).map(r => r.equipment_id);
+
+      if (!profile || !catalogue) {
+        return exercises;
+      }
+
+      if (!profile.goal || !profile.level || !profile.primary_track ||
+          profile.days_per_week === null || profile.days_per_week === undefined ||
+          profile.yoga_days_per_week === null || profile.yoga_days_per_week === undefined) {
+        return exercises;
+      }
+
+      const plannedForCleaning = exercises.map(e => ({
+        exercise_id: e.exercise_id,
+        order_index: e.order_index,
+        target_sets: e.target_sets,
+        target_reps_min: e.target_reps_min,
+        target_reps_max: e.target_reps_max,
+        rest_seconds: e.rest_seconds,
+      }));
+
+      const cleaned = applyBannedCleanup(
+        plannedForCleaning,
+        catalogue,
+        {
+          goal: profile.goal,
+          level: profile.level,
+          primary_track: profile.primary_track,
+          days_per_week: profile.days_per_week,
+          yoga_days_per_week: profile.yoga_days_per_week,
+          has_all_equipment: profile.has_all_equipment ?? true,
+        },
+        injuries,
+        userId,
+        equipmentIds,
+      );
+
+      return exercises.map((e, i) => ({
+        ...e,
+        exercise_id: cleaned[i].exercise_id,
+      }));
     },
   };
 }

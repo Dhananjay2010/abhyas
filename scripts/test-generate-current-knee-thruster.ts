@@ -40,11 +40,18 @@ const currentKneeInput: GeneratorInput = {
 
 const program = generateProgram(currentKneeInput);
 
+// Build a map from exerciseId to slug
+const idToSlug = new Map<string, string>();
+for (const ex of catalogue) {
+  idToSlug.set(ex.id, ex.slug);
+}
+
 // Check that no day contains kettlebell-thruster
 let found = false;
 for (const [dayIndex, day] of program.days.entries()) {
   for (const ex of day.exercises) {
-    if (ex.exerciseSlug === "kettlebell-thruster") {
+    const slug = idToSlug.get(ex.exerciseId);
+    if (slug === "kettlebell-thruster") {
       console.error(`✗ FAIL: kettlebell-thruster found in day ${dayIndex + 1} for CURRENT-knee user`);
       console.error(`  Exercise:`, ex);
       found = true;

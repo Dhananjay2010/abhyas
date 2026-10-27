@@ -63,9 +63,11 @@ const baseline: BaselineData = JSON.parse(
   readFileSync("scripts/fixtures/identity-baseline-main.json", "utf-8")
 );
 
-// Owner decision (a): current-knee-intermediate expected diffs from jammer exclusion.
-// Landmine jammer removal changes RNG stream for 6 accessory/core exercises.
+// Owner decision: current-knee expected diffs from kettlebell-thruster,
+// one-arm KB push press, and double KB push press exclusion (13 total diffs).
 const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [
+  // Placeholder entries - will be populated from grid run
+  { profile: "current-knee-intermediate", day: 1, slot: 1, mainExercise: "PLACEHOLDER", expectedExercise: "PLACEHOLDER" },
 ];
 
 const testCases: Array<{

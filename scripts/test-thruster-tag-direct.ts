@@ -12,11 +12,13 @@
 
 import { readFileSync } from "fs";
 
+type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
+
 const catalogue = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-);
+) as ExerciseRow[];
 
-const thruster = catalogue.find((e: any) => e.slug === "kettlebell-thruster");
+const thruster = catalogue.find(e => e.slug === "kettlebell-thruster");
 
 if (!thruster) {
   console.error("✗ FAIL: kettlebell-thruster not found in catalogue");
