@@ -188,7 +188,7 @@ async function main() {
     { id: "ce000000-0000-0000-0000-000000000001", session_id: caseC1, user_id: userId, exercise_id: exerciseId, order_index: 0, status: "pending", planned_sets: 3 },
     { id: "ce000000-0000-0000-0000-000000000002", session_id: caseC2, user_id: userId, exercise_id: exerciseId, order_index: 0, status: "pending", planned_sets: 3 },
     // Case (g): G1 has exercise
-    { id: "ge000000-0000-0000-0000-000000000001", session_id: caseG1, user_id: userId, exercise_id: exerciseId, order_index: 0, status: "pending", planned_sets: 3 },
+    { id: "91000000-0000-0000-0000-000000000001", session_id: caseG1, user_id: userId, exercise_id: exerciseId, order_index: 0, status: "pending", planned_sets: 3 },
     // Case (h): H2 (middle) has exercise
     { id: "8e000000-0000-0000-0000-000000000002", session_id: caseH2, user_id: userId, exercise_id: exerciseId, order_index: 0, status: "pending", planned_sets: 3 },
   ]);
