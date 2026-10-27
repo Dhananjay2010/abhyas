@@ -418,7 +418,8 @@
     "test:progress-empty-mutants": "bash scripts/test-progress-empty-mutants.sh",
     "test:gym-join-code-helpers": "tsx scripts/test-gym-join-code-helpers.ts",
     "test:gym-join-codes-real-db": "tsx scripts/test-gym-join-codes-real-db.ts",
-    "ci:mutant-gym-join-codes": "bash scripts/mutant-test-gym-join-codes.sh"
+    "ci:mutant-gym-join-codes": "bash scripts/mutant-test-gym-join-codes.sh",
+    "test:db-reset-guard": "tsx scripts/test-db-reset-guard.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

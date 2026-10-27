@@ -427,12 +427,19 @@ async function runTests() {
 
   // TEST: Expired code
   console.log("TEST: Expired code");
-  const { data: expiredCodeData } = await clientA.rpc("create_join_code", {
+  // Create a code normally, then expire it via direct UPDATE (create_join_code validates future expiry)
+  const { data: toExpireCodeData } = await clientA.rpc("create_join_code", {
     p_gym_id: gymIdA,
     p_role: "member",
-    p_expires_at: new Date(Date.now() - 1000).toISOString(),
   });
-  const expiredCode = expiredCodeData?.[0]?.code;
+  const expiredCode = toExpireCodeData?.[0]?.code;
+  const expiredCodeId = toExpireCodeData?.[0]?.id;
+  
+  // Expire it via admin UPDATE
+  await adminClient
+    .from("gym_join_codes")
+    .update({ expires_at: new Date(Date.now() - 1000).toISOString() })
+    .eq("id", expiredCodeId);
 
   const { data: previewExpired } = await clientC.rpc("preview_join_code", {
     p_code: expiredCode,
