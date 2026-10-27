@@ -714,7 +714,7 @@ console.log("\n=== HARD-FEEL HOLD ===");
     equipmentIds: ["kettlebell"],
     unit: "kg",
   });
-  check("Kettlebell 20 kg success → 22 kg (kills mutant k')", d.nextWorkingWeightKg === 22 && d.outcome === "progressed");
+  check("Kettlebell 20 kg success → 24 kg (kills mutant k')", d.nextWorkingWeightKg === 24 && d.outcome === "progressed");
 }
 
 console.log("\n=== IN-RANGE HOLD (4×10 in 8-12) ===");
