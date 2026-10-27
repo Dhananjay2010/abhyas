@@ -114,9 +114,18 @@ function getSupabaseDbPort(): string {
       const configContent = fs.readFileSync(configPath, "utf8");
       
       // Look for port under [db] section specifically
-      const dbSectionMatch = configContent.match(/\[db\][^[]*?^\s*port\s*=\s*(\d+)/ms);
-      if (dbSectionMatch && dbSectionMatch[1]) {
-        return dbSectionMatch[1];
+      // Find [db] section and extract port from it
+      const dbSectionStart = configContent.indexOf("[db]");
+      if (dbSectionStart !== -1) {
+        const nextSectionStart = configContent.indexOf("[", dbSectionStart + 1);
+        const dbSection = nextSectionStart === -1 
+          ? configContent.slice(dbSectionStart)
+          : configContent.slice(dbSectionStart, nextSectionStart);
+        
+        const portMatch = dbSection.match(/^\s*port\s*=\s*(\d+)/m);
+        if (portMatch && portMatch[1]) {
+          return portMatch[1];
+        }
       }
     } catch {
       // Fall through to default
