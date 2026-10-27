@@ -25,6 +25,27 @@ export async function buildPlan(): Promise<BuildPlanResult> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
+  // Fix pd-b: Run rollover BEFORE rebuild to close ended blocks as 'completed'
+  // instead of 'superseded'. This matches the flow that Today and Start use.
+  const { ensureCurrentBlock } = await import("@/lib/program/rollover");
+  const { resolveTimezoneWithProfile } = await import("@/lib/timezone");
+  const { localDateString } = await import("@/lib/dates");
+
+  const profileRes = await supabase.from("profiles").select("timezone").eq("id", user.id).single();
+  const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
+  const today = localDateString(timezone);
+
+  const activeBlockRes = await supabase
+    .from("programs")
+    .select("id, ends_on")
+    .eq("status", "active")
+    .maybeSingle();
+
+  const rollover = await ensureCurrentBlock(supabase, user.id, today, activeBlockRes.data);
+  if (rollover.status === "error") {
+    return { ok: false, error: rollover.error };
+  }
+
   const result = await createBlockForUser(supabase, user.id, { mode: "rebuild" });
   if (!result.ok) return { ok: false, error: result.error };
 

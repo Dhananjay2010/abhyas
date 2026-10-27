@@ -104,6 +104,10 @@ export function computeStreaks(days: DayRecord[], today: string): Streaks {
  *
  * Now also tracks the ACTUAL session type completed on each date, so "train anyway"
  * sessions on template rest days count toward streaks.
+ *
+ * Fix pd-b: effectiveStart allows starting before the first block to cover
+ * sessions that predate all blocks (e.g., when an ended block was marked
+ * superseded and excluded from programs).
  */
 export function buildDayRecords(input: {
   programs: Array<{ id: string; startedOn: string; endsOn: string; endedOn?: string | null }>;
@@ -117,13 +121,18 @@ export function buildDayRecords(input: {
     working_set_count?: number;
   }>;
   today: string;
+  /** Fix pd-b: Optional override for the start date, defaults to first block's startedOn */
+  effectiveStart?: string | null;
 }): DayRecord[] {
-  const { programs, dayTypesByProgram, completedSessions, today } = input;
-  if (programs.length === 0) return [];
+  const { programs, dayTypesByProgram, completedSessions, today, effectiveStart } = input;
+  if (programs.length === 0 && !effectiveStart) return [];
 
   const ordered = [...programs].sort((a, b) => a.startedOn.localeCompare(b.startedOn));
-  const first = ordered[0].startedOn;
-  if (first > today) return [];
+  const firstBlockStart = ordered.length > 0 ? ordered[0].startedOn : null;
+  
+  // Fix pd-b: Use effectiveStart if provided and earlier than first block
+  const first = effectiveStart ?? firstBlockStart;
+  if (!first || first > today) return [];
 
   // Convert to BlockRange format for blockForDate
   // L2: ended_on semantics: null = still active (covers today and beyond).

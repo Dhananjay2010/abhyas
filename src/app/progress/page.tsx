@@ -159,11 +159,27 @@ export default async function ProgressPage() {
     working_set_count: workingSetsBySession.get(s.id) as number | undefined,
   }));
 
+  // Fix pd-b: Start from the EARLIER of first non-superseded block's started_on
+  // and first completed session's local_date, so sessions always count even if
+  // an ended block was marked superseded instead of completed.
+  const firstSessionDate = completedSessions.length > 0
+    ? completedSessions.reduce((earliest, s) => 
+        s.local_date < earliest ? s.local_date : earliest, 
+        completedSessions[0].local_date
+      )
+    : null;
+  const firstBlockDate = programs.length > 0 ? programs[0].startedOn : null;
+  const effectiveStart = 
+    firstSessionDate && firstBlockDate 
+      ? (firstSessionDate < firstBlockDate ? firstSessionDate : firstBlockDate)
+      : firstBlockDate ?? firstSessionDate;
+
   const dayRecords = buildDayRecords({
     programs,
     dayTypesByProgram,
     completedSessions,
     today,
+    effectiveStart,
   });
 
   const streaks = computeStreaks(dayRecords, today);
