@@ -13,6 +13,7 @@
 -- GJC06: Max uses must be at least 1
 -- GJC07: Code not found
 -- GJC10: Too many failed attempts (throttle)
+-- GJC11: Read-only transaction refused
 
 -- ============================================================
 -- TABLES
@@ -54,7 +55,7 @@ alter table public.gym_join_code_attempts enable row level security;
 -- Generate a 10-character code from an unambiguous alphabet using crypto
 -- (no 0/O, 1/I/L confusion)
 create or replace function public.generate_join_code()
-returns text language plpgsql security definer
+returns text language plpgsql security invoker
 set search_path = '' as $$
 declare
   alphabet text := '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -115,8 +116,14 @@ create or replace function public.record_join_code_miss(p_user_id uuid)
 returns void language plpgsql security definer
 set search_path = '' as $$
 begin
+  -- Insert the new miss
   insert into public.gym_join_code_attempts (user_id, attempted_at)
   values (p_user_id, now());
+  
+  -- Prune old attempts (older than 15 minutes)
+  delete from public.gym_join_code_attempts
+  where user_id = p_user_id
+    and attempted_at <= now() - interval '15 minutes';
 end;
 $$;
 
@@ -179,15 +186,19 @@ end $$;
 -- SECURITY DEFINER FUNCTIONS
 -- ============================================================
 
--- Preview a join code: returns gym name, slug, and role only
--- No rows if invalid/expired/revoked/exhausted (no enumeration)
+-- Preview a join code: returns jsonb result
+-- Success: {ok: true, gym_name, gym_slug, role}
+-- Failure: {ok: false, reason: 'invalid'|'throttled'}
+-- VOLATILE: misses are recorded and count against the throttle
 create or replace function public.preview_join_code(p_code text)
-returns table(gym_name text, gym_slug text, role public.gym_role)
-language plpgsql security definer
+returns jsonb
+language plpgsql security definer volatile
 set search_path = '' as $$
 declare
   v_caller_id uuid;
   v_result record;
+  v_is_read_only text;
+  v_attempt_count int;
 begin
   v_caller_id := auth.uid();
   
@@ -195,8 +206,22 @@ begin
     raise exception 'Not authenticated' using errcode = 'GJC00';
   end if;
   
-  -- Check throttle before proceeding
-  perform public.check_join_code_throttle(v_caller_id);
+  -- Refuse read-only transactions (defense in depth against GET/HEAD)
+  v_is_read_only := current_setting('transaction_read_only');
+  if v_is_read_only = 'on' then
+    raise exception 'Read-only access not permitted' using errcode = 'GJC11';
+  end if;
+  
+  -- Check throttle BEFORE the lookup (don't reveal if code exists when over budget)
+  select count(*) into v_attempt_count
+  from public.gym_join_code_attempts
+  where user_id = v_caller_id
+    and attempted_at > now() - interval '15 minutes';
+  
+  if v_attempt_count >= 10 then
+    -- Over budget: return throttled without revealing if code exists
+    return jsonb_build_object('ok', false, 'reason', 'throttled');
+  end if;
   
   begin
     select 
@@ -212,16 +237,17 @@ begin
       and (public.gym_join_codes.max_uses is null or public.gym_join_codes.use_count < public.gym_join_codes.max_uses)
     limit 1;
     
-    return query select v_result.name, v_result.slug, v_result.role;
+    -- Success: return the gym info (don't record)
+    return jsonb_build_object('ok', true, 'gym_name', v_result.name, 'gym_slug', v_result.slug, 'role', v_result.role);
   exception
     when no_data_found then
-      -- Record miss and return empty
+      -- Record miss and return invalid
       perform public.record_join_code_miss(v_caller_id);
-      return;
+      return jsonb_build_object('ok', false, 'reason', 'invalid');
     when too_many_rows then
       -- Should not happen with limit 1, but handle it
       perform public.record_join_code_miss(v_caller_id);
-      return;
+      return jsonb_build_object('ok', false, 'reason', 'invalid');
   end;
 end;
 $$;
@@ -236,15 +262,17 @@ end $$;
 -- Redeem a join code: atomically validate and update memberships
 -- For member role: user can have only ONE active member-role gym
 -- For staff role: add or upgrade to staff in that gym
--- Returns gym_id and gym_name on success
+-- Returns jsonb result: {ok: true, gym_id, gym_name} or {ok: false, reason: 'invalid'|'expired'|'revoked'|'exhausted'|'throttled'}
 create or replace function public.redeem_join_code(p_code text)
-returns table(gym_id uuid, gym_name text)
-language plpgsql security definer
+returns jsonb
+language plpgsql security definer volatile
 set search_path = '' as $$
 declare
   v_code_record record;
   v_caller_id uuid;
   v_existing_membership record;
+  v_is_read_only text;
+  v_attempt_count int;
 begin
   v_caller_id := auth.uid();
   
@@ -252,8 +280,22 @@ begin
     raise exception 'Not authenticated' using errcode = 'GJC00';
   end if;
 
-  -- Check throttle before proceeding
-  perform public.check_join_code_throttle(v_caller_id);
+  -- Refuse read-only transactions (defense in depth against GET/HEAD)
+  v_is_read_only := current_setting('transaction_read_only');
+  if v_is_read_only = 'on' then
+    raise exception 'Read-only access not permitted' using errcode = 'GJC11';
+  end if;
+
+  -- Check throttle BEFORE the lookup (don't reveal if code exists when over budget)
+  select count(*) into v_attempt_count
+  from public.gym_join_code_attempts
+  where user_id = v_caller_id
+    and attempted_at > now() - interval '15 minutes';
+  
+  if v_attempt_count >= 10 then
+    -- Over budget: return throttled without revealing if code exists
+    return jsonb_build_object('ok', false, 'reason', 'throttled');
+  end if;
 
   -- Lock the code row FOR UPDATE (prevents race on max_uses)
   begin
@@ -273,29 +315,31 @@ begin
     for update;
   exception
     when no_data_found then
+      -- Record miss and return invalid
       perform public.record_join_code_miss(v_caller_id);
-      raise exception 'Invalid code' using errcode = 'GJC02';
+      return jsonb_build_object('ok', false, 'reason', 'invalid');
     when too_many_rows then
+      -- Record miss and return invalid
       perform public.record_join_code_miss(v_caller_id);
-      raise exception 'Invalid code' using errcode = 'GJC02';
+      return jsonb_build_object('ok', false, 'reason', 'invalid');
   end;
 
   -- Validate not revoked
   if v_code_record.revoked_at is not null then
     perform public.record_join_code_miss(v_caller_id);
-    raise exception 'Invalid code' using errcode = 'GJC02';
+    return jsonb_build_object('ok', false, 'reason', 'revoked');
   end if;
 
   -- Validate not expired
   if v_code_record.expires_at is not null and v_code_record.expires_at <= now() then
     perform public.record_join_code_miss(v_caller_id);
-    raise exception 'Invalid code' using errcode = 'GJC02';
+    return jsonb_build_object('ok', false, 'reason', 'expired');
   end if;
 
   -- Validate not exhausted
   if v_code_record.max_uses is not null and v_code_record.use_count >= v_code_record.max_uses then
     perform public.record_join_code_miss(v_caller_id);
-    raise exception 'Invalid code' using errcode = 'GJC02';
+    return jsonb_build_object('ok', false, 'reason', 'exhausted');
   end if;
 
   -- Check if user is already in this gym (any active role counts)
@@ -304,12 +348,16 @@ begin
   where public.gym_memberships.gym_id = v_code_record.gym_id
     and public.gym_memberships.user_id = v_caller_id;
 
-  -- If already active in the gym with ANY role, it's an idempotent no-op
-  -- (owner, staff, or member - never downgrade, never consume a use)
+  -- If already active in the gym with owner or staff role, it's an idempotent no-op
+  -- Staff redeeming their own gym's member code stays staff (no demotion)
   if v_existing_membership.gym_id is not null and v_existing_membership.status = 'active' then
-    -- Idempotent no-op: already in the gym, don't increment use_count
-    return query select v_code_record.gym_id, v_code_record.gym_name;
-    return;
+    if v_existing_membership.role in ('owner', 'staff') and v_code_record.role = 'member' then
+      -- Staff or owner redeeming member code for their own gym: idempotent no-op, don't consume
+      return jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name);
+    elsif v_existing_membership.role = 'member' then
+      -- Member redeeming code for same gym: idempotent no-op, don't consume
+      return jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name);
+    end if;
   end if;
 
   -- For member role: deactivate any existing active member-role memberships in other gyms
@@ -343,8 +391,8 @@ begin
   set use_count = use_count + 1
   where id = v_code_record.id;
 
-  -- Return gym_id and gym_name
-  return query select v_code_record.gym_id, v_code_record.gym_name;
+  -- Return success
+  return jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name);
 end;
 $$;
 
@@ -460,6 +508,7 @@ set search_path = '' as $$
 declare
   v_caller_id uuid;
   v_gym_id uuid;
+  v_is_owner boolean;
 begin
   v_caller_id := auth.uid();
   
@@ -467,21 +516,14 @@ begin
     raise exception 'Not authenticated' using errcode = 'GJC00';
   end if;
 
-  -- Get the gym_id for this code
-  begin
-    select gym_id into strict v_gym_id
-    from public.gym_join_codes
-    where id = p_id;
-  exception
-    when no_data_found then
-      raise exception 'Code not found' using errcode = 'GJC07';
-    when too_many_rows then
-      raise exception 'Code not found' using errcode = 'GJC07';
-  end;
+  -- Get the gym_id for this code and check ownership in one step
+  select gym_id, public.is_gym_owner(gym_id) into v_gym_id, v_is_owner
+  from public.gym_join_codes
+  where id = p_id;
 
-  -- Check that caller is the owner of the gym
-  if not public.is_gym_owner(v_gym_id) then
-    raise exception 'Only gym owners can revoke join codes' using errcode = 'GJC03';
+  -- Return same error for not found OR not owner (no oracle)
+  if v_gym_id is null or not v_is_owner then
+    raise exception 'Code not found or access denied' using errcode = 'GJC07';
   end if;
 
   -- Revoke the code

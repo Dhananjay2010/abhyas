@@ -15,28 +15,38 @@ export default async function JoinPage({ params }: PageProps) {
   const { supabase, user } = await getAuthedClient();
   
   if (!user) {
-    redirect(`/auth/sign-in?next=${encodeURIComponent(`/join/${code}`)}`);
+    redirect(`/?next=${encodeURIComponent(`/join/${code}`)}`);
   }
 
   // Preview the join code
-  const { data: preview } = await supabase.rpc("preview_join_code", {
+  const { data: previewResult } = await supabase.rpc("preview_join_code", {
     p_code: code,
   });
 
-  if (!preview || preview.length === 0) {
+  // Handle jsonb result
+  const result = previewResult as { ok: boolean; reason?: string; gym_name?: string; gym_slug?: string; role?: string } | null;
+
+  if (!result || !result.ok) {
+    const reason = result?.reason || "invalid";
+    const isThrottled = reason === "throttled";
+    
     return (
       <main className="mx-auto w-full max-w-md px-6 py-10">
         <div className="rounded-xl border border-danger/30 bg-danger/10 px-6 py-8 text-center">
-          <h1 className="text-2xl font-bold text-danger">Invalid Invite Code</h1>
+          <h1 className="text-2xl font-bold text-danger">
+            {isThrottled ? "Too Many Attempts" : "Invalid Invite Code"}
+          </h1>
           <p className="mt-2 text-sm text-muted">
-            This invite code is invalid, expired, or no longer available.
+            {isThrottled
+              ? "You've made too many attempts. Please try again in a few minutes."
+              : "This invite code is invalid, expired, or no longer available."}
           </p>
         </div>
       </main>
     );
   }
 
-  const { gym_name, gym_slug, role } = preview[0];
+  const { gym_name, gym_slug, role } = result;
 
   // Check current gym membership(s) - ANY active role counts
   const { data: currentMemberships } = await supabase
@@ -63,15 +73,27 @@ export default async function JoinPage({ params }: PageProps) {
     m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug === gym_slug
   );
 
+  // Check if user has an active member membership in another gym (will be moved if joining as member)
+  const hasOtherMemberGym = currentMemberships?.some(
+    m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug !== gym_slug && m.role === "member"
+  );
+  const otherMemberGymName = hasOtherMemberGym 
+    ? currentMemberships?.find(m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug !== gym_slug && m.role === "member")?.gyms && 
+      !Array.isArray(currentMemberships?.find(m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug !== gym_slug && m.role === "member")?.gyms) 
+      ? (currentMemberships?.find(m => m.gyms && !Array.isArray(m.gyms) && m.gyms.slug !== gym_slug && m.role === "member")?.gyms as any)?.name
+      : null
+    : null;
+
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10">
       <JoinConfirmation
         code={code}
-        gymName={gym_name}
-        role={role}
+        gymName={gym_name || ""}
+        role={role as "member" | "staff" | "owner"}
         currentGymName={currentGym?.gyms && !Array.isArray(currentGym.gyms) ? currentGym.gyms.name : null}
         currentGymRole={currentGym?.role}
         alreadyInCodeGym={alreadyInCodeGym ?? false}
+        otherMemberGymName={otherMemberGymName}
       />
     </main>
   );

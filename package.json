@@ -461,6 +461,7 @@
     "test:warmup-exclusion": "tsx scripts/test-warmup-exclusion.ts",
     "test:gym-join-code-helpers": "tsx scripts/test-gym-join-code-helpers.ts",
     "test:gym-join-codes-real-db": "tsx scripts/test-gym-join-codes-real-db.ts",
+    "test:gym-join-codes-comprehensive": "tsx scripts/test-gym-join-codes-comprehensive.ts",
     "ci:mutant-gym-join-codes": "bash scripts/mutant-test-gym-join-codes.sh",
     "test:plan-day-dedupe-keeps-lowest-id": "tsx scripts/test-plan-day-dedupe-keeps-lowest-id.ts",
     "test:actions-adapter-wiring": "tsx scripts/test-actions-adapter-wiring.ts",

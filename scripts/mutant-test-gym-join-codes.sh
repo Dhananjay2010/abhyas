@@ -37,8 +37,8 @@ if [ ! -f "package.json" ]; then
 fi
 
 # Test that Supabase is running
-if ! npx supabase@latest status &>/dev/null; then
-  echo "❌ Supabase not running. Start it with: npx supabase@latest start"
+if ! npx supabase@2.122.0 status &>/dev/null; then
+  echo "❌ Supabase not running. Start it with: npx supabase@2.122.0 start"
   exit 1
 fi
 
@@ -48,7 +48,7 @@ SKIPPED=()
 
 echo "Running baseline tests..."
 BASELINE_OUTPUT=$(mktemp)
-if ! npx supabase@latest db reset > "$BASELINE_OUTPUT" 2>&1; then
+if ! npx supabase@2.122.0 db reset > "$BASELINE_OUTPUT" 2>&1; then
   echo "❌ Baseline: db reset failed" >&2
   cat "$BASELINE_OUTPUT"
   rm -f "$BASELINE_OUTPUT"
@@ -57,6 +57,15 @@ fi
 
 if ! REAL_DB=1 npm run test:gym-join-codes-real-db > "$BASELINE_OUTPUT" 2>&1; then
   echo "❌ Baseline tests failed. Fix the code before running mutant tests." >&2
+  echo "Full baseline output:"
+  cat "$BASELINE_OUTPUT"
+  rm -f "$BASELINE_OUTPUT"
+  exit 1
+fi
+rm -f "$BASELINE_OUTPUT"
+
+if ! REAL_DB=1 npm run test:gym-join-codes-comprehensive > "$BASELINE_OUTPUT" 2>&1; then
+  echo "❌ Baseline comprehensive tests failed. Fix the code before running mutant tests." >&2
   echo "Full baseline output:"
   cat "$BASELINE_OUTPUT"
   rm -f "$BASELINE_OUTPUT"
@@ -76,7 +85,7 @@ run_mutant() {
   
   # Reset database
   local reset_output=$(mktemp)
-  if ! npx supabase@latest db reset > "$reset_output" 2>&1; then
+  if ! npx supabase@2.122.0 db reset > "$reset_output" 2>&1; then
     echo "  ❌ SKIPPED: db reset failed"
     SKIPPED+=("$name: db reset failed")
     rm -f "$reset_output"

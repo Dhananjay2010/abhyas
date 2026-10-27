@@ -14,6 +14,7 @@ interface JoinConfirmationProps {
   currentGymName: string | null;
   currentGymRole?: GymRole;
   alreadyInCodeGym: boolean;
+  otherMemberGymName?: string | null;
 }
 
 export function JoinConfirmation({
@@ -23,6 +24,7 @@ export function JoinConfirmation({
   currentGymName,
   currentGymRole,
   alreadyInCodeGym,
+  otherMemberGymName,
 }: JoinConfirmationProps) {
   const router = useRouter();
   const [redeeming, setRedeeming] = useState(false);
@@ -71,6 +73,11 @@ export function JoinConfirmation({
             {currentGymName && role === "member" && currentGymRole === "staff" && (
               <p className="mt-3 text-sm text-muted">
                 You&apos;ll stay <strong>staff</strong> of <strong>{currentGymName}</strong>.
+              </p>
+            )}
+            {otherMemberGymName && role === "member" && (currentGymRole === "owner" || currentGymRole === "staff") && (
+              <p className="mt-3 text-sm text-warning">
+                Your member role at <strong>{otherMemberGymName}</strong> will be moved to {gymName}.
               </p>
             )}
           </>
