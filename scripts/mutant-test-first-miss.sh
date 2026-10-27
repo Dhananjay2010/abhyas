@@ -78,7 +78,7 @@ mutate_exact() {
   local old="$1"
   local new="$2"
   
-  node scripts/mutate-helper.js "$FILE" "$old" "$new"
+  tsx scripts/mutate-helper.ts "$FILE" "$old" "$new"
 }
 
 test_mutant() {

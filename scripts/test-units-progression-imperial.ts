@@ -9,7 +9,7 @@
  * 4. No kg appears in imperial messages
  */
 
-import { evaluateProgression, describePersonalBest } from "../src/lib/program/progression.js";
+import { evaluateProgression, describePersonalBest, type ExerciseMeta, type PersonalBest } from "../src/lib/program/progression.js";
 
 let failures = 0;
 
@@ -22,19 +22,19 @@ function check(desc: string, pass: boolean, detail = "") {
   }
 }
 
-const CURL = {
-  mechanic: "isolation" as const,
-  metric: "reps" as const,
-  movementPattern: "biceps" as const,
+const CURL: ExerciseMeta = {
+  mechanic: "isolation",
+  metric: "reps",
+  movementPattern: "biceps",
   isBodyweight: false,
   progressionChain: null,
   progressionRank: null,
 };
 
-const PRESS = {
-  mechanic: "compound" as const,
-  metric: "reps" as const,
-  movementPattern: "vertical_press" as const,
+const PRESS: ExerciseMeta = {
+  mechanic: "compound",
+  metric: "reps",
+  movementPattern: "vertical_press",
   isBodyweight: false,
   progressionChain: null,
   progressionRank: null,
@@ -100,7 +100,7 @@ console.log("\n=== Imperial Units in Progression Messages ===\n");
 
 // Test 4: PB description includes unit
 {
-  const pb = { kind: "weight" as const, value: 56.7 };
+  const pb: PersonalBest = { kind: "weight", value: 56.7 };
   const desc = describePersonalBest(pb, "imperial");
   
   check("PB: weight PB includes 'lb'", desc.includes("lb"), desc);
