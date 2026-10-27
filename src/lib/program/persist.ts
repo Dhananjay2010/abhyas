@@ -35,23 +35,29 @@ export type BuildResult =
  * to their sign-up weekday by setting `started_on` to today. This ensures
  * their first workout lands on the day they join.
  * 
- * For all other cases (rebuild or rollover to block 2+), return undefined
- * to let the RPC or rollover logic handle the start date.
+ * For rebuilds, keep the original block's anchor to preserve the schedule.
+ * 
+ * For rollover to block 2+, return undefined to let the RPC or rollover
+ * logic handle the start date.
  * 
  * @param blockNumber - The block number being created
  * @param isRebuild - Whether this is a rebuild of an existing block
+ * @param rebuildOfStartedOn - The original block's started_on (when rebuilding)
  * @param today - The current date string (ISO format)
- * @returns today for new block 1, undefined otherwise
+ * @returns today for new block 1, rebuildOfStartedOn for rebuilds, undefined otherwise
  */
 export function decideBlockStartedOn({
   blockNumber,
   isRebuild,
+  rebuildOfStartedOn,
   today,
 }: {
   blockNumber: number;
   isRebuild: boolean;
+  rebuildOfStartedOn?: string;
   today: string;
 }): string | undefined {
+  if (isRebuild && rebuildOfStartedOn) return rebuildOfStartedOn;
   return blockNumber === 1 && !isRebuild ? today : undefined;
 }
 
@@ -240,8 +246,14 @@ export async function createBlockForUser(
   const isRebuild = !!rebuildOf;
 
   // For a brand new user's first block, anchor the schedule to their sign-up weekday.
-  // For rebuilds or block 2+, leave startedOn undefined so the generator uses the default mapping.
-  const startedOn = decideBlockStartedOn({ blockNumber, isRebuild, today });
+  // For rebuilds, keep the original anchor to preserve the schedule.
+  // For block 2+, leave startedOn undefined so the generator uses the default mapping.
+  const startedOn = decideBlockStartedOn({
+    blockNumber,
+    isRebuild,
+    rebuildOfStartedOn: rebuildOf?.started_on ?? undefined,
+    today,
+  });
 
   const input: GeneratorInput = {
     userId,

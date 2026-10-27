@@ -81,29 +81,39 @@ export function resolveTodayProgramDayCore(
       completedActualType: yesterdaySession.actualType,
     });
 
-    if (yesterdayWasSwap && yesterdaySession.programDayId === scheduledToday.id) {
-      const rotation = days.filter(
-        (d) => d.day_type === "weights" || d.day_type === "bodyweight"
-      );
+    // MED-1 fix: Compare by label (not id) to detect collision in splits
+    // where a template repeats (Upper×2 in 4-day, PPL×2 in 6-day).
+    // If yesterday was a swap AND today's scheduled label matches what was done,
+    // that's a collision even if the program_day ids differ.
+    if (yesterdayWasSwap) {
+      const yesterdayDay = days.find((d) => d.id === yesterdaySession.programDayId);
+      const yesterdayLabel = yesterdayDay?.label ?? "";
+      const todayLabel = scheduledToday.label ?? "";
 
-      const resolved = resolveTomorrowAfterSwap({
-        todayWasSwap: yesterdayWasSwap,
-        doneProgramDayId: yesterdaySession.programDayId,
-        scheduledTomorrow: {
-          programDayId: scheduledToday.id,
-          label: scheduledToday.label ?? "",
-        },
-        rotation,
-      });
+      if (yesterdayLabel && yesterdayLabel === todayLabel) {
+        const rotation = days.filter(
+          (d) => d.day_type === "weights" || d.day_type === "bodyweight"
+        );
 
-      if (resolved) {
-        const resolvedDay = days.find((d) => d.id === resolved.programDayId);
-        if (resolvedDay) {
-          return {
-            programDayId: resolvedDay.id,
-            dayType: resolvedDay.day_type,
-            label: resolvedDay.label,
-          };
+        const resolved = resolveTomorrowAfterSwap({
+          todayWasSwap: yesterdayWasSwap,
+          doneProgramDayId: yesterdaySession.programDayId,
+          scheduledTomorrow: {
+            programDayId: scheduledToday.id,
+            label: scheduledToday.label ?? "",
+          },
+          rotation,
+        });
+
+        if (resolved) {
+          const resolvedDay = days.find((d) => d.id === resolved.programDayId);
+          if (resolvedDay) {
+            return {
+              programDayId: resolvedDay.id,
+              dayType: resolvedDay.day_type,
+              label: resolvedDay.label,
+            };
+          }
         }
       }
     }
@@ -154,6 +164,7 @@ export async function resolveTodayProgramDay({
         .eq("user_id", userId)
         .eq("local_date", yesterday)
         .eq("status", "completed")
+        .in("actual_type", ["weights", "bodyweight"])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -205,7 +216,10 @@ export async function plannableDays(
   );
   
   // Find which workout is "next up" based on the most recently completed session
-  let nextUpId: string | null = null;
+  // MED-1 fix: Track by label (not id) so the badge lands on the kept row
+  // after deduplication. In 4-day Upper/Lower, the nextUp might be "Upper" (id U2),
+  // but deduplication keeps the first "Upper" (id U1), so we mark by label.
+  let nextUpLabel: string | null = null;
   
   if (options?.afterDate && options?.userId && trainingDays.length > 0) {
     const { data: recentSession } = await supabase
@@ -225,11 +239,11 @@ export async function plannableDays(
       if (completedIndex >= 0) {
         // Next workout in rotation (wraps around)
         const nextDay = trainingDays[(completedIndex + 1) % trainingDays.length];
-        nextUpId = nextDay.id;
+        nextUpLabel = nextDay.label ?? null;
       }
     } else {
       // No completed sessions yet: next up is the first day in the rotation
-      nextUpId = trainingDays[0]?.id ?? null;
+      nextUpLabel = trainingDays[0]?.label ?? null;
     }
   }
 
@@ -243,7 +257,7 @@ export async function plannableDays(
       programDayId: d.id, 
       label, 
       dayType: d.day_type,
-      nextUp: d.id === nextUpId
+      nextUp: label === nextUpLabel
     });
   }
   return out;
@@ -261,6 +275,11 @@ type ProgramDay = {
  * 
  * When today was a swap AND tomorrow's scheduled workout equals what was just done,
  * serve the next in rotation to avoid back-to-back repeats.
+ * 
+ * MED-1 fix: Compare by label (not id) to handle splits where a template
+ * repeats (Upper×2 in 4-day, PPL×2 in 6-day). The collision check must
+ * recognize that swapping to "Upper" and having "Upper" scheduled tomorrow
+ * is the same template, even if their program_day ids differ.
  */
 export function resolveTomorrowAfterSwap({
   todayWasSwap,
@@ -283,8 +302,15 @@ export function resolveTomorrowAfterSwap({
   // No collision if tomorrow is Rest or no scheduled day
   if (!scheduledTomorrow) return null;
   
-  // No collision if tomorrow is different from what was done today
-  if (doneProgramDayId !== scheduledTomorrow.programDayId) return null;
+  // Find the done day in rotation to get its label
+  const doneDay = rotation.find(d => d.id === doneProgramDayId);
+  if (!doneDay) return null;
+  
+  const doneLabel = doneDay.label ?? "";
+  const tomorrowLabel = scheduledTomorrow.label ?? "";
+  
+  // No collision if tomorrow's label is different from what was done today
+  if (doneLabel !== tomorrowLabel) return null;
   
   // Collision detected: find next in rotation
   const currentIndex = rotation.findIndex(d => d.id === doneProgramDayId);
@@ -565,6 +591,7 @@ export async function nextDayPlan(
           .eq("id", options.sessionId)
           .eq("user_id", userId)
           .in("status", ["completed", "in_progress"])
+          .in("actual_type", ["weights", "bodyweight"])
           .maybeSingle();
         return data
           ? { programDayId: data.program_day_id, actualType: data.actual_type ?? "" }
@@ -577,6 +604,7 @@ export async function nextDayPlan(
         .eq("user_id", userId)
         .eq("local_date", today)
         .in("status", ["completed", "in_progress"])
+        .in("actual_type", ["weights", "bodyweight"])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
