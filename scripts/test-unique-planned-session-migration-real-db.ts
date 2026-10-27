@@ -13,6 +13,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { createHash } from "crypto";
+import { Client } from "pg";
 import type { Database } from "../src/lib/database.types";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
@@ -38,6 +39,14 @@ async function main() {
   const adminClient = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
   });
+
+  // Drop the index if it exists (migration may have already run)
+  // This allows us to insert duplicate planned sessions to test the dedupe logic
+  const dbUrl = SUPABASE_URL.replace("http://", "postgresql://postgres:postgres@").replace(":54321", ":54322/postgres");
+  const pgClient = new Client({ connectionString: dbUrl });
+  await pgClient.connect();
+  await pgClient.query("DROP INDEX IF EXISTS public.sessions_user_date_planned_unique;");
+  await pgClient.end();
 
   // Create test user
   const userEmail = `test-migration-${Date.now()}@example.com`;
@@ -326,6 +335,12 @@ async function main() {
   }
 
   console.log(`Dedupe: deleted ${deletedCount} childless duplicate(s), skipped ${skippedCount} data-bearing duplicate(s)\n`);
+
+  // Create the index (completes the migration)
+  const pgClient2 = new Client({ connectionString: dbUrl });
+  await pgClient2.connect();
+  await pgClient2.query("CREATE UNIQUE INDEX IF NOT EXISTS sessions_user_date_planned_unique ON public.sessions (user_id, local_date) WHERE status = 'planned';");
+  await pgClient2.end();
 
   // Count children after migration
   const { count: exercisesAfter } = await adminClient.from("session_exercises").select("*", { count: "exact", head: true });
