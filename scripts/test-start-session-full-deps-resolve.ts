@@ -46,7 +46,7 @@ async function main() {
       }),
     } as any;
 
-    const deps = buildStartSessionFullDeps(mockSupabase, "test-user");
+    const deps = buildStartSessionFullDeps(mockSupabase, "test-user", Date.now());
     
     const result = await deps.resolveTodayDay!("prog-id", "2024-03-05");
 
