@@ -14,16 +14,8 @@ import { insertSessionExercises } from "./insert-session-exercises";
 import { buildStartSessionStaleDeps } from "./build-start-session-stale-deps";
 import type { StartSessionFullDeps } from "./start-session-full-core";
 
-/**
- * Minimal Supabase client interface for building start session dependencies.
- * Allows testing with structural fakes without full SupabaseClient implementation.
- */
-export interface MinimalSupabaseClient {
-  from: SupabaseClient<Database>["from"];
-}
-
 export function buildStartSessionFullDeps(
-  supabase: MinimalSupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
   nowMs: number
 ): StartSessionFullDeps {
