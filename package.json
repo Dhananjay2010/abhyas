@@ -557,6 +557,7 @@
     "test:runner-mount-pending-queue": "tsx scripts/test-runner-mount-pending-queue.tsx",
     "test:logset-session-expired": "tsx scripts/test-logset-session-expired.ts",
     "test:session-runner-expired-banner": "tsx scripts/test-session-runner-expired-banner.tsx",
+    "test:cooldown-done-skip-replay": "tsx scripts/test-cooldown-done-skip-replay.tsx",
     "test:units-runner-render": "tsx scripts/test-units-runner-render.tsx"
   },
   "dependencies": {
