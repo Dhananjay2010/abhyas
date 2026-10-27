@@ -439,14 +439,14 @@ export function rankAlternatives<T extends ExerciseRow>(
   }
   
   // Past-knee squat swaps: specific ordering per PR #152 chunk 3
-  // 1. PAST_KNEE_LUNGE_EXERCISES in this exact order: leg-extensions, wall-sit, spanish-squat
+  // 1. PAST_KNEE_LUNGE_EXERCISES in this exact order: leg-extensions, single-leg-leg-extension, wall-sit, spanish-squat
   //    filtered by equipment and excluding current
   //    wall-sit is never first
   // 2. Then knee-safe hinge fallbacks (glute/hamstring primary muscles only, hinge pattern)
   // Note: Other squat-pattern exercises (goblet-squat, bodyweight-squat, etc.) are excluded
   // to minimize knee load and prioritize quad isolation + hip-dominant work
   if (hasPastKnee && current.movement_pattern === "squat" && deduplicated.length > 0) {
-    const quadIsolationOrder = ["leg-extensions", "wall-sit", "spanish-squat"];
+    const quadIsolationOrder = ["leg-extensions", "single-leg-leg-extension", "wall-sit", "spanish-squat"];
     const quadIsolation: T[] = [];
     const hingeFallbacks: T[] = [];
     

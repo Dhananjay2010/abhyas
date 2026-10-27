@@ -281,18 +281,6 @@ export function getCurrentKneeOnlyExcludedSlugs(): ReadonlySet<string> {
   return CURRENT_KNEE_ONLY_EXCLUDED_SLUGS;
 }
 
-export type KneeTier = "past" | "current";
-
-export function getKneeBannedSlugs(tier: KneeTier): Set<string> {
-  if (tier === "current") {
-    return new Set([
-      ...Array.from(PAST_KNEE_EXCLUDED_SLUGS),
-      ...Array.from(CURRENT_KNEE_ONLY_EXCLUDED_SLUGS),
-    ]);
-  }
-  return new Set(Array.from(PAST_KNEE_EXCLUDED_SLUGS));
-}
-
 /**
  * Item 16: Check if exercise contains Olympic lift patterns (clean, snatch, jerk).
  * Decision (a): Swap-side filtering for knee injuries.

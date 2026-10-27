@@ -7,7 +7,7 @@ import {
   KNEE_SAFE_QUAD_EXERCISES,
   getDerivedContraindications
 } from "./knee-safety";
-import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly } from "./past-knee";
+import { isExcludedForPastKnee } from "./past-knee";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -823,8 +823,7 @@ function pickForSlot(
         return b.rng - a.rng;
       })
       .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug))
-      .filter((item) => !(hasPastKnee && isExcludedForPastKnee(item.e)))
-      .filter((item) => !(hasCurrentKnee && (isExcludedForPastKnee(item.e) || isExcludedForCurrentKneeOnly(item.e))));
+      .filter((item) => !(hasPastKnee && isExcludedForPastKnee(item.e)));
 
     if (ranked.length > 0) {
       return ranked[0].e;
