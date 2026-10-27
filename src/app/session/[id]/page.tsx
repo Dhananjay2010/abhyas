@@ -2,7 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
-import { sessionPlanTargetDate } from "@/lib/session/resolve-plan-target-date";
+import { planTargetDate } from "@/lib/session/resolve-plan-target-date";
+import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isStaleSession } from "@/lib/session/is-stale-session";
 import type { Database } from "@/lib/database.types";
@@ -180,11 +181,14 @@ export default async function SessionPage({
   };
 
   // "What about tomorrow?" needs the block's own days to offer as alternatives,
-  // and what tomorrow already is. MED-A: "tomorrow" = session.local_date + 1,
-  // computed server-side, even after midnight. This ensures displayed plan and
-  // saved date match.
+  // and what tomorrow already is. MED-A + MED-4: "tomorrow" = session.local_date
+  // + 1 (even after midnight), or user-local today + 1 for a stale session, so
+  // a past day is never offered. Same helper as the planDay action, so the
+  // displayed plan and the saved date always match.
   const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
-  const sessionTargetDate = session.local_date ? sessionPlanTargetDate(session.local_date) : undefined;
+  const sessionTargetDate = session.local_date
+    ? planTargetDate(session.local_date, localDateString(timezone))
+    : undefined;
   const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate);
 
   // Compute isStale on the server to avoid requiring timezone in client components

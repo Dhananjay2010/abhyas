@@ -2,18 +2,19 @@
  * Friendly error messages from plan-day-core that should pass through unchanged.
  */
 export const CORE_FRIENDLY_ERRORS = [
-  "You already planned this day.",
-  "That day isn't in your block.",
-  "Session has already started.",
+  // plan-day-core.ts
   "That is not a date.",
   "That day has already been and gone.",
   "That day is already done.",
   "That session has already started.",
   "No active program.",
   "Could not find program day.",
+  // load-plan-day.ts (via loadProgramDay)
+  "Could not load the training block.",
+  "That day is not in your block.",
 ] as const;
 
-const GENERIC_ERROR = "Couldn't save your choice. Please try again.";
+export const GENERIC_PLAN_DAY_ERROR = "Couldn't save your choice. Please try again.";
 
 /**
  * Map raw database errors to user-friendly messages.
@@ -26,5 +27,5 @@ export function friendlyPlanDayError(error: string): string {
   if ((CORE_FRIENDLY_ERRORS as readonly string[]).includes(error)) {
     return error;
   }
-  return GENERIC_ERROR;
+  return GENERIC_PLAN_DAY_ERROR;
 }

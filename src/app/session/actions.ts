@@ -27,7 +27,7 @@ import { finishSessionAction, abandonSessionAction } from "@/lib/session/session
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligible-swap-list";
-import { friendlyPlanDayError } from "@/lib/session/friendly-plan-day-error";
+import { friendlyPlanDayError, GENERIC_PLAN_DAY_ERROR } from "@/lib/session/friendly-plan-day-error";
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
 import { checkLogSetInput } from "@/lib/session/check-log-set-input";
@@ -626,15 +626,20 @@ export async function planDay(input: {
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const today = localDateString(timezone);
 
+  // LOW-9: neither a session nor a date means a caller bug; never guess a day.
+  if (!input.sessionId && !input.localDate) {
+    return { ok: false, error: GENERIC_PLAN_DAY_ERROR };
+  }
+
   // Resolve target date (session.local_date + 1 or direct localDate)
   const targetResult = await resolvePlanTargetDate(
     {
       // Cast: real Supabase client is structurally compatible; types differ only in unused methods
       fetchSessionLocalDate: makeFetchSessionLocalDate(supabase as unknown as SessionLookupClient),
     },
-    "sessionId" in input && input.sessionId
+    input.sessionId
       ? { userId: user.id, sessionId: input.sessionId }
-      : { userId: user.id, localDate: input.localDate! },
+      : { userId: user.id, localDate: input.localDate as string },
     today,
   );
 

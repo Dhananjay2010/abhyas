@@ -1,4 +1,4 @@
-import { addDays, localDateString } from "@/lib/dates";
+import { addDays } from "@/lib/dates";
 
 /**
  * Compute the target date for planning from a session's local_date.
@@ -9,6 +9,20 @@ import { addDays, localDateString } from "@/lib/dates";
  */
 export function sessionPlanTargetDate(sessionLocalDate: string): string {
   return addDays(sessionLocalDate, 1);
+}
+
+/**
+ * MED-4: the day the end-of-session prompt is about, given the session's
+ * local_date and the user's local today (both computed on the server).
+ *
+ * session.local_date + 1 when that is today or later; otherwise (a stale
+ * session finished 2+ days later) user-local today + 1, so the prompt never
+ * offers a day that has already been and gone. The session page (display) and
+ * the planDay action (write) both call this, so they always agree.
+ */
+export function planTargetDate(sessionLocalDate: string, userLocalToday: string): string {
+  const candidate = sessionPlanTargetDate(sessionLocalDate);
+  return candidate >= userLocalToday ? candidate : addDays(userLocalToday, 1);
 }
 
 export interface ResolvePlanTargetDateDeps {
@@ -54,12 +68,7 @@ export async function resolvePlanTargetDate(
     }
 
     // MED-4: session.local_date + 1, but never a past day
-    const candidate = sessionPlanTargetDate(result.localDate);
-    if (candidate >= userLocalToday) {
-      return { ok: true, data: candidate };
-    }
-    // Session is old (started 2+ days ago) - fall back to today + 1
-    return { ok: true, data: addDays(userLocalToday, 1) };
+    return { ok: true, data: planTargetDate(result.localDate, userLocalToday) };
   }
 
   return { ok: true, data: input.localDate };

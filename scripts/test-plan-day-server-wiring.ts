@@ -34,7 +34,10 @@ function check(label: string, pass: boolean, detail?: string) {
     check("NOT 'constraint'", !friendlyError.includes("constraint"));
   }
 
-  console.log("\nCase 2: MED-B N5 - planDay saves to resolved date");
+  // planDayCore writes the localDate it is handed. Whether the real planDay
+  // action hands it the RESOLVED date is pinned in
+  // scripts/test-plan-day-action-wiring.ts (QA3 r3: this case alone did not test planDay).
+  console.log("\nCase 2: MED-B N5 - planDayCore writes the localDate it is given");
   {
     let savedDate = "";
     const client: PlanDayClient = {

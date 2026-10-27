@@ -7,7 +7,6 @@
  * else maps to the generic "Couldn't save your choice. Please try again."
  */
 
-import assert from "node:assert/strict";
 import { friendlyPlanDayError, CORE_FRIENDLY_ERRORS } from "@/lib/session/friendly-plan-day-error";
 
 const RAW_ERRORS = [
@@ -57,6 +56,27 @@ function main() {
       !result.includes(raw.substring(0, 20)),
       result.includes(raw.substring(0, 20)) ? `Raw text leaked: ${result}` : undefined
     );
+  }
+
+  // Test 4: the allowlist is the core's REAL copy, in both directions
+  // (QA3 r3 LOW-6: a made-up string in the allowlist hides a real one missing).
+  console.log("\n4. Allowlist matches the copy plan-day-core / load-plan-day actually return");
+  {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require("fs");
+    const sources = ["src/lib/session/plan-day-core.ts", "src/lib/session/load-plan-day.ts"]
+      .map((f) => fs.readFileSync(f, "utf8") as string)
+      .join("\n");
+    const literals = [...sources.matchAll(/error:\s*"([^"]+)"/g)].map((m) => m[1]);
+    const nested = [...sources.matchAll(/\?\s*"([^"]+\.)"\s*:\s*"([^"]+\.)"/g)].flatMap((m) => [m[1], m[2]]);
+    const real = new Set([...literals, ...nested]);
+    check("found the core's literal error copy", real.size >= 8, JSON.stringify([...real]));
+    for (const a of CORE_FRIENDLY_ERRORS) {
+      check(`allowlisted "${a}" is real core copy`, real.has(a));
+    }
+    for (const r of real) {
+      check(`core copy "${r}" passes through`, friendlyPlanDayError(r) === r);
+    }
   }
 
   // Test 3: Verify the generic copy itself

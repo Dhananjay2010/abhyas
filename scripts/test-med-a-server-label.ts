@@ -4,9 +4,10 @@
  *
  * Verifies:
  * - M-A3: sessionPlanTargetDate adds exactly 1 day to session.local_date
+ * - MED-4: planTargetDate never returns a day before user-local today
  */
 
-import { sessionPlanTargetDate } from "../src/lib/session/resolve-plan-target-date";
+import { sessionPlanTargetDate, planTargetDate } from "../src/lib/session/resolve-plan-target-date";
 
 let failures = 0;
 
@@ -38,33 +39,18 @@ function check(label: string, pass: boolean, detail?: string) {
     check("2026-12-31 + 1 = 2027-01-01", result === "2027-01-01", result);
   }
 
-  console.log("\nCase 4: M-A1 - page.tsx source uses sessionPlanTargetDate");
+  console.log("\nCase 4: MED-4 - planTargetDate (shared by page and planDay)");
   {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require("fs");
-    const pageSource = fs.readFileSync("src/app/session/[id]/page.tsx", "utf8");
-    const hasImport = pageSource.includes('import { sessionPlanTargetDate } from "@/lib/session/resolve-plan-target-date"');
-    const hasCall = pageSource.includes("sessionPlanTargetDate(session.local_date)");
-    const hasParameter = pageSource.includes("nextDayPlan(supabase, timezone, sessionTargetDate)");
-    
-    check("M-A1: imports sessionPlanTargetDate", hasImport);
-    check("M-A1: calls sessionPlanTargetDate(session.local_date)", hasCall);
-    check("M-A1: passes result to nextDayPlan", hasParameter);
+    check("same day: 28 Oct session, today 28 -> 29", planTargetDate("2026-10-28", "2026-10-28") === "2026-10-29");
+    check("after midnight: 28 Oct session, today 29 -> 29", planTargetDate("2026-10-28", "2026-10-29") === "2026-10-29");
+    check("stale: 24 Oct session, today 28 -> 29 (today+1)", planTargetDate("2026-10-24", "2026-10-28") === "2026-10-29", planTargetDate("2026-10-24", "2026-10-28"));
+    check("stale across month: 29 Oct session, today 2 Nov -> 3 Nov", planTargetDate("2026-10-29", "2026-11-02") === "2026-11-03");
   }
 
-  console.log("\nCase 5: M-A2 - nextDayPlan source uses targetLocalDate parameter");
-  {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require("fs");
-    const dayPlanSource = fs.readFileSync("src/lib/program/day-plan.ts", "utf8");
-    const hasParameter = dayPlanSource.includes("targetLocalDate?: string");
-    const hasSessionHelper = dayPlanSource.includes('sessionPlanTargetDate } = await import("@/lib/session/resolve-plan-target-date")');
-    const usesTargetOrHelper = dayPlanSource.includes("targetLocalDate ?? sessionPlanTargetDate(localDateString(timezone))");
-    
-    check("M-A2: nextDayPlan accepts targetLocalDate parameter", hasParameter);
-    check("M-A2: nextDayPlan imports sessionPlanTargetDate", hasSessionHelper);
-    check("M-A2: nextDayPlan uses targetLocalDate ?? sessionPlanTargetDate(localDateString(timezone))", usesTargetOrHelper);
-  }
+  // M-A1 / M-A2 (page passes the session's target date; nextDayPlan honours
+  // it) used to be exact-string source scans here (QA3 r3 LOW-3). They are now
+  // pinned by behaviour in scripts/test-session-page-tomorrow-wiring.ts, which
+  // calls the real page and reads the date nextDayPlan actually queried.
 
   if (failures > 0) {
     console.log(`\n✗ ${failures} check(s) failed`);

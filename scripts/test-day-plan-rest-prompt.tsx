@@ -54,7 +54,12 @@ function mockPlanDay() {
 }
 
 async function click(el: Element | undefined, label: string) {
-  if (!el) throw new Error(`button not found: ${label}`);
+  // A missing button is an assertion failure, not a crash (mutant gate
+  // counts only assertion failures as kills).
+  if (!el) {
+    check(`button present: ${label}`, false);
+    return;
+  }
   await act(async () => {
     fireEvent.click(el);
     await new Promise((r) => setTimeout(r, 10));
@@ -651,6 +656,72 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     
     check("N10: sessionId passed (priority)", mock.calls[0]?.sessionId === "s-priority");
     check("N10: localDate NOT passed (sessionId won)", !mock.calls[0]?.localDate);
+    unmount();
+  }
+
+  console.log("\nCase 29: R7 - rest branch shows a server error inline; deterministic error has no Retry");
+  {
+    const calls: unknown[] = [];
+    const { container: c, unmount } = render(
+      <DayPlanPrompt
+        sessionId="s-r7"
+        dayLabel="Tomorrow"
+        plannedLabel="Rest"
+        days={TRAINING_DAYS}
+        heading="What about tomorrow?"
+        onPlan={async (a) => { calls.push(a); return { ok: false as const, error: "That day is not in your block." }; }}
+      />
+    );
+    await click(button(c, /^Train anyway$/), "Train anyway");
+    await click(button(c, /^Upper$/), "Upper");
+    const alert = c.querySelector('[role="alert"]');
+    check("R7: rest branch alert shows the error text", alert?.textContent?.includes("That day is not in your block.") ?? false, c.textContent?.slice(0, 200));
+    check("R7: not settled", !(c.textContent ?? "").includes("Tomorrow is Upper."));
+    check("LOW-7: no Retry for a deterministic error", !button(c, /^Retry$/));
+    check("one save attempt", calls.length === 1, String(calls.length));
+    unmount();
+  }
+
+  console.log("\nCase 30: R7b - non-rest branch shows a server error inline; Retry re-sends the same choice");
+  {
+    const calls: Array<{ sessionId?: string; plan: DayPlan }> = [];
+    const { container: c, unmount } = render(
+      <DayPlanPrompt
+        sessionId="s-r7b"
+        dayLabel="Tomorrow"
+        plannedLabel="Upper"
+        days={TRAINING_DAYS}
+        heading="What about tomorrow?"
+        onPlan={async (a) => { calls.push(a as { sessionId?: string; plan: DayPlan }); return { ok: false as const, error: "Couldn't save your choice. Please try again." }; }}
+      />
+    );
+    await click(button(c, /^Rest$/), "Rest");
+    const alert = c.querySelector('[role="alert"]');
+    check("R7b: non-rest alert shows the error text", alert?.textContent?.includes("Couldn't save your choice. Please try again.") ?? false, c.textContent?.slice(0, 200));
+    check("R7b: not settled", !(c.textContent ?? "").includes("Tomorrow is a rest day."));
+    const retry = button(c, /^Retry$/);
+    check("R7b: Retry shown for a generic error", !!retry);
+    await click(retry, "Retry");
+    check("Retry re-sends once more (2 calls)", calls.length === 2, String(calls.length));
+    check("Retry re-sends the same plan + sessionId", calls[1]?.plan?.kind === "rest" && calls[1]?.sessionId === "s-r7b", JSON.stringify(calls[1]));
+    unmount();
+  }
+
+  console.log("\nCase 31: LOW-7 - 'That day is already done.' has no Retry (non-rest branch)");
+  {
+    const { container: c, unmount } = render(
+      <DayPlanPrompt
+        sessionId="s-done"
+        dayLabel="Tomorrow"
+        plannedLabel="Upper"
+        days={TRAINING_DAYS}
+        heading="What about tomorrow?"
+        onPlan={async () => ({ ok: false as const, error: "That day is already done." })}
+      />
+    );
+    await click(button(c, /^Keep it$/), "Keep it");
+    check("alert shows 'That day is already done.'", c.querySelector('[role="alert"]')?.textContent?.includes("That day is already done.") ?? false);
+    check("no Retry", !button(c, /^Retry$/));
     unmount();
   }
 

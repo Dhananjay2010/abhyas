@@ -53,7 +53,9 @@ export function DayPlanPrompt({
 
   // LOW-7: Non-retryable errors (core errors that won't change on retry)
   const NON_RETRYABLE_ERRORS = [
-    "That day isn't in your block.",
+    "That day is not in your block.",
+    "That day is already done.",
+    "That day has already been and gone.",
     "That session has already started.",
     "Cannot save: missing session or date.",
   ];

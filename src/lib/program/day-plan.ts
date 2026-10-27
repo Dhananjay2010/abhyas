@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { isoWeekday } from "@/lib/dates";
+import { isoWeekday, localDateString } from "@/lib/dates";
+import { sessionPlanTargetDate } from "@/lib/session/resolve-plan-target-date";
 import type { PlannableDay } from "@/app/session/actions";
 
 type Client = SupabaseClient<Database>;
@@ -170,8 +171,6 @@ export async function nextDayPlan(
     .maybeSingle();
   if (!program) return null;
 
-  const { sessionPlanTargetDate } = await import("@/lib/session/resolve-plan-target-date");
-  const { localDateString } = await import("@/lib/dates");
   const tomorrow = targetLocalDate ?? sessionPlanTargetDate(localDateString(timezone));
   const [resolved, days] = await Promise.all([
     resolveDay(supabase, program.id, tomorrow),

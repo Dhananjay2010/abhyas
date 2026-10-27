@@ -6,6 +6,11 @@
 # file. A mutant that does not type-check is SKIPPED. The original file is
 # always restored (trap).
 #
+# A mutant counts as KILLED only when a test exits non-zero AND prints an
+# assertion failure line ("✗ FAIL" / "❌ FAIL") AND did not crash (no
+# "CRASH", "✗ ERROR", "Missing script", "Cannot find module", SyntaxError).
+# Every test name must be a real package.json script, checked up front.
+#
 # Exit 1 on any skip or survivor.
 
 set -u
@@ -75,9 +80,9 @@ run_mutant() {
     # - Output contains "FAIL" or "✗" (assertion failure markers)
     # - NOT a "Missing script" or crash error
     if [ $exit_code -ne 0 ]; then
-      if echo "$output" | grep -qE "(FAIL|✗|failed|check\(s\) failed)"; then
-        # Make sure it's not "Missing script"
-        if ! echo "$output" | grep -q "Missing script"; then
+      if echo "$output" | grep -qE "(✗ FAIL|❌ FAIL)"; then
+        # A crash is not a kill, even if an earlier assertion printed FAIL.
+        if ! echo "$output" | grep -qE "(CRASH|✗ ERROR|Missing script|Cannot find module|SyntaxError|ReferenceError)"; then
           killer="$t"
           break
         fi
@@ -104,15 +109,33 @@ T_SERVER=test:plan-day-server-wiring
 T_MED_A=test:med-a-server-label
 T_FETCH=test:fetch-session-local-date
 T_ERROR=test:plan-day-error-mapping
+T_ACTION=test:plan-day-action-wiring
+T_PAGE=test:session-page-tomorrow-wiring
+T_RUNNER=test:session-runner-plan-day-wiring
+RUNNER="src/app/session/[id]/session-runner.tsx"
+PAGE="src/app/session/[id]/page.tsx"
+DAYPLAN=src/lib/program/day-plan.ts
+FRIENDLY=src/lib/session/friendly-plan-day-error.ts
+ALL_TESTS="$T $T_RESOLVE $T_SERVER $T_MED_A $T_FETCH $T_ERROR $T_ACTION $T_PAGE $T_RUNNER"
+
+# MED-3: every test name must be a real npm script (no "npm run npm run ...")
+for test in $ALL_TESTS; do
+  if ! node -e 'process.exit(require("./package.json").scripts[process.argv[1]] ? 0 : 1)' "$test"; then
+    echo "FATAL: '$test' is not a script in package.json"
+    exit 1
+  fi
+done
 
 echo "D7 Rest-Day Prompt Mutation Testing"
 echo "──────────────────────────────────────────────────────────"
 
 # MED-3: Run every target test on CLEAN code first, exit 1 if any baseline fails
 echo "Baseline checks..."
-for test in "$T" "$T_RESOLVE" "$T_SERVER" "$T_MED_A" "$T_FETCH" "$T_ERROR"; do
-  if ! npm run -s "$test" >/dev/null 2>&1; then
-    echo "FATAL: baseline $test fails (exit code $?)"
+for test in $ALL_TESTS; do
+  npm run -s "$test" >/dev/null 2>&1
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "FATAL: baseline $test fails (exit code $rc)"
     exit 1
   fi
 done
@@ -258,6 +281,20 @@ run_mutant "R6b. Training choices not disabled while pending (rest branch)" "$CO
             {days.some' "$T"
 
 run_mutant "R7. Error not shown in rest branch" "$COMPONENT" \
+  '        {error && (
+          <div
+            role="alert"
+            className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
+          >
+            <p>{error}</p>' \
+  '        {false && error && (
+          <div
+            role="alert"
+            className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
+          >
+            <p>{error}</p>' "$T"
+
+run_mutant "R7b. Error not shown in non-rest branch" "$COMPONENT" \
   '      {error && (
         <div
           role="alert"
@@ -384,7 +421,7 @@ run_mutant "Q4. Never mind tap target too small (py-2)" "$COMPONENT" \
 
         {error && (' "$T"
 
-# MED-2 behavioral tests
+# MED-2 behavioural tests: the REAL planDay action (test-plan-day-action-wiring)
 run_mutant "MED-2a. planDay saves to today instead of resolved date" "$ACTION" \
   '  const result = await planDayCore(client, {
     userId: user.id,
@@ -393,23 +430,47 @@ run_mutant "MED-2a. planDay saves to today instead of resolved date" "$ACTION" \
   '  const result = await planDayCore(client, {
     userId: user.id,
     localDate: input.localDate ?? today,
-    today,' "$T_SERVER"
+    today,' "$T_ACTION"
 
 run_mutant "MED-2b. Raw error passes through (no friendlyPlanDayError)" "$ACTION" \
   '    return { ok: false, error: friendlyPlanDayError(result.error) };' \
-  '    return { ok: false, error: result.error };' "$T_ERROR"
+  '    return { ok: false, error: result.error };' "$T_ACTION"
 
 run_mutant "MED-2c. Failed session lookup falls back to today" "$RESOLVE" \
   '    if (result.error) {
       return { ok: false, error: "Could not load session." };
-    }
-    if (!result.localDate) {' \
+    }' \
   '    if (result.error) {
-      result = { localDate: new Date().toISOString().slice(0, 10), error: null };
-    }
-    if (!result.localDate) {' "$T_SERVER"
+      return { ok: true, data: userLocalToday };
+    }' "$T_ACTION"
 
-run_mutant "MED-2d. Session-runner passes localDate instead of sessionId" "$COMPONENT" \
+run_mutant "MED-2c2. Failed session lookup returns the raw lookup error" "$RESOLVE" \
+  '      return { ok: false, error: "Could not load session." };' \
+  '      return { ok: false, error: result.error };' "$T_ACTION"
+
+run_mutant "MED-2e. No-target guard removed (LOW-9)" "$ACTION" \
+  '  if (!input.sessionId && !input.localDate) {
+    return { ok: false, error: GENERIC_PLAN_DAY_ERROR };
+  }' \
+  '  if (false && !input.sessionId && !input.localDate) {
+    return { ok: false, error: GENERIC_PLAN_DAY_ERROR };
+  }' "$T_ACTION"
+
+run_mutant "MED-1. Allowlist reverted to a deny-list" "$FRIENDLY" \
+  '  if ((CORE_FRIENDLY_ERRORS as readonly string[]).includes(error)) {
+    return error;
+  }
+  return GENERIC_PLAN_DAY_ERROR;' \
+  '  if (/constraint|duplicate|unique/i.test(error)) {
+    return GENERIC_PLAN_DAY_ERROR;
+  }
+  return error;' "$T_ACTION" "$T_ERROR"
+
+run_mutant "MED-1b. Real core copy missing from allowlist" "$FRIENDLY" \
+  '  "That day is not in your block.",' \
+  '  "That day isn'"'"'t in your block.",' "$T_ACTION" "$T_ERROR"
+
+run_mutant "MED-2d. Component prefers localDate over sessionId" "$COMPONENT" \
   '        const input = sessionId 
           ? { sessionId, plan }
           : { localDate: localDate!, plan };' \
@@ -417,25 +478,29 @@ run_mutant "MED-2d. Session-runner passes localDate instead of sessionId" "$COMP
           ? { localDate, plan }
           : { sessionId: sessionId!, plan };' "$T"
 
-run_mutant "MED-4. Old session fallback removed (always uses session.local_date + 1)" "$RESOLVE" \
-  '    // MED-4: session.local_date + 1, but never a past day
-    const candidate = sessionPlanTargetDate(result.localDate);
-    if (candidate >= userLocalToday) {
-      return { ok: true, data: candidate };
-    }
-    // Session is old (started 2+ days ago) - fall back to today + 1
-    return { ok: true, data: addDays(userLocalToday, 1) };' \
-  '    // MED-4: session.local_date + 1, but never a past day
-    const candidate = sessionPlanTargetDate(result.localDate);
-    return { ok: true, data: candidate };' "$T_RESOLVE"
+# QA3 r3 Q4: the REAL runner must pass sessionId, not tomorrow.localDate
+run_mutant "RUN1. Session-runner passes localDate instead of sessionId" "$RUNNER" \
+  '            sessionId={sessionId}
+            dayLabel="Tomorrow"' \
+  '            localDate={tomorrow.localDate}
+            dayLabel="Tomorrow"' "$T_RUNNER"
 
-run_mutant "M-A1. page.tsx omits sessionTargetDate (MED-A behavioral)" "src/app/session/[id]/page.tsx" \
+run_mutant "MED-4. Stale-session fallback removed (always session.local_date + 1)" "$RESOLVE" \
+  '  return candidate >= userLocalToday ? candidate : addDays(userLocalToday, 1);' \
+  '  return candidate;' "$T_RESOLVE" "$T_ACTION" "$T_PAGE"
+
+# MED-A / MED-4 on the page, by behaviour (QA3 r3 Q5/Q6, replaces source scans)
+run_mutant "PG1. page.tsx shows session.local_date + 1 without the MED-4 clamp" "$PAGE" \
+  '    ? planTargetDate(session.local_date, localDateString(timezone))' \
+  '    ? planTargetDate(session.local_date, "0000-01-01")' "$T_PAGE"
+
+run_mutant "PG2. page.tsx omits sessionTargetDate (wall-clock tomorrow)" "$PAGE" \
   'const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate);' \
-  'const tomorrow = await nextDayPlan(supabase, timezone);' "$T_MED_A"
+  'const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate && undefined);' "$T_PAGE"
 
-run_mutant "M-A2. nextDayPlan ignores targetLocalDate parameter (MED-A behavioral)" "src/lib/program/day-plan.ts" \
-  'targetLocalDate ?? sessionPlanTargetDate(localDateString(timezone))' \
-  'sessionPlanTargetDate(localDateString(timezone))' "$T_MED_A"
+run_mutant "DP1. nextDayPlan ignores targetLocalDate" "$DAYPLAN" \
+  'const tomorrow = targetLocalDate ?? sessionPlanTargetDate(localDateString(timezone));' \
+  'const tomorrow = sessionPlanTargetDate(localDateString(timezone)) ?? targetLocalDate;' "$T_PAGE"
 
 echo ""
 echo "──────────────────────────────────────────────────────────"
