@@ -151,8 +151,8 @@ const MUTANTS: Mutant[] = [
   {
     name: "M17: Day-5 exercises order swap",
     file: "scripts/fixtures/med2-baseline-main.json",
-    original: '        "name": "Barbell Squat",\n        "slug": "barbell-squat",\n        "targetSets": 4,\n        "movementPattern": "squat"\n      },\n      {\n        "name": "Barbell Deadlift",',
-    mutated: '        "name": "Barbell Deadlift",\n        "slug": "barbell-deadlift",\n        "targetSets": 5,\n        "movementPattern": "hinge"\n      },\n      {\n        "name": "Barbell Squat",',
+    original: '  {\n    "dayIndex": 5,\n    "label": "Lower",\n    "focus": "lower",\n    "lowerBodySets": 21,\n    "totalSets": 25,\n    "estMinutes": 72,\n    "exercises": [\n      {\n        "name": "Barbell Squat",\n        "slug": "barbell-squat",\n        "targetSets": 4,\n        "movementPattern": "squat"\n      },\n      {\n        "name": "Barbell Deadlift",',
+    mutated: '  {\n    "dayIndex": 5,\n    "label": "Lower",\n    "focus": "lower",\n    "lowerBodySets": 21,\n    "totalSets": 25,\n    "estMinutes": 72,\n    "exercises": [\n      {\n        "name": "Barbell Deadlift",\n        "slug": "barbell-deadlift",\n        "targetSets": 5,\n        "movementPattern": "hinge"\n      },\n      {\n        "name": "Barbell Squat",',
     tests: ["test:med2-comparison"],
     equivalent: false,
   },
