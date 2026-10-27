@@ -102,3 +102,5 @@ test("Yoga session with pending exercise has endedEarly=true (first branch only)
 console.log("\n✅ All History in-progress row tests passed");
 console.log("\nThis ensures History's row text for in_progress sessions matches main:");
 console.log("  In-progress shows NO set count when endedEarly=true (main's behavior)\n");
+
+export {};

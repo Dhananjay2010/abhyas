@@ -4,6 +4,9 @@
  *
  * Run: npm run test:rebuild-rollover-progress
  */
+import { progressStartDate } from "../src/lib/progress/progress-start-date.js";
+import { buildDayRecords, computeStreaks } from "../src/lib/progress/streaks.js";
+import { rebuildPlanCore } from "../src/lib/program/rebuild-plan-core.js";
 
 let testsFailed = 0;
 function assert(condition: boolean, message: string, detail = "") {
@@ -18,7 +21,6 @@ function assert(condition: boolean, message: string, detail = "") {
 async function runUnitTests() {
   console.log("TEST: Unit test - progressStartDate with superseded block and earlier sessions");
   {
-    const { progressStartDate } = await import("../src/lib/progress/progress-start-date.js");
 
     // Case: superseded block filtered out, but sessions predate the active block
     const result = progressStartDate({
@@ -35,8 +37,6 @@ async function runUnitTests() {
 
   console.log("TEST: Unit test - buildDayRecords with days before any block");
   {
-    const { buildDayRecords, computeStreaks } = await import("../src/lib/progress/streaks.js");
-
     // Days before the first block with a completed session should count, but not break streak
     const dayRecords = buildDayRecords({
       programs: [
@@ -60,8 +60,6 @@ async function runUnitTests() {
 
   console.log("TEST: Unit test - breathing/rest/skipped sessions don't start range");
   {
-    const { progressStartDate } = await import("../src/lib/progress/progress-start-date.js");
-
     // Rest/breathing/skipped sessions don't count toward days trained, so they 
     // shouldn't affect start date - progressStartDate now filters via countsTowardStreak
     const result1 = progressStartDate({
@@ -104,8 +102,6 @@ async function runUnitTests() {
 
   console.log("TEST: Unit test - rebuildPlanCore call order and error handling");
   {
-    const { rebuildPlanCore } = await import("../src/lib/program/rebuild-plan-core.js");
-
     const callLog: string[] = [];
 
     // Happy path: ensureCurrentBlock runs before createBlock
