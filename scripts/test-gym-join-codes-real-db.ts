@@ -257,17 +257,20 @@ async function runTests() {
   const { data: previewValid } = await clientC.rpc("preview_join_code", {
     p_code: memberCode,
   });
-  check("Preview returns 1 row", previewValid?.length === 1);
-  check("Preview returns gym name", previewValid?.[0]?.gym_name === "Gym A");
-  check("Preview returns role", previewValid?.[0]?.role === "member");
+  const previewValidJson = previewValid && typeof previewValid === 'object' ? previewValid : null;
+  check("Preview returns ok:true", previewValidJson && 'ok' in previewValidJson && previewValidJson.ok === true);
+  check("Preview returns gym name", previewValidJson && 'gym_name' in previewValidJson && previewValidJson.gym_name === "Gym A");
+  check("Preview returns role", previewValidJson && 'role' in previewValidJson && previewValidJson.role === "member");
   console.log();
 
-  // TEST: preview_join_code returns no rows for invalid code
-  console.log("TEST: preview_join_code returns no rows for invalid code");
+  // TEST: preview_join_code returns ok:false for invalid code
+  console.log("TEST: preview_join_code returns ok:false for invalid code");
   const { data: previewInvalid } = await clientC.rpc("preview_join_code", {
     p_code: "INVALID",
   });
-  check("Preview returns 0 rows for invalid code", previewInvalid?.length === 0);
+  const previewInvalidJson = previewInvalid && typeof previewInvalid === 'object' ? previewInvalid : null;
+  check("Preview returns ok:false for invalid code", previewInvalidJson && 'ok' in previewInvalidJson && previewInvalidJson.ok === false);
+  check("Preview returns reason:invalid", previewInvalidJson && 'reason' in previewInvalidJson && previewInvalidJson.reason === 'invalid');
   console.log();
 
   // TEST: Redeem member code - member C joins gym A
@@ -289,10 +292,11 @@ async function runTests() {
   check("Member C has default gym membership before redeem", memberCDefaultBefore?.length === 1);
   check("Member C default membership is active before redeem", memberCDefaultBefore?.[0]?.status === "active");
 
-  const { error: redeemError } = await clientC.rpc("redeem_join_code", {
+  const { data: redeemData, error: redeemError } = await clientC.rpc("redeem_join_code", {
     p_code: memberCode,
   });
-  check("Member C redeems code successfully", !redeemError, redeemError?.message);
+  const redeemJson = redeemData && typeof redeemData === 'object' ? redeemData : null;
+  check("Member C redeems code successfully", !redeemError && redeemJson && 'ok' in redeemJson && redeemJson.ok === true, redeemError?.message);
 
   // Check C's default gym membership after redeem
   const { data: memberCDefaultAfter } = await adminClient
@@ -318,10 +322,11 @@ async function runTests() {
 
   // TEST: Idempotent re-redeem
   console.log("TEST: Idempotent re-redeem");
-  const { error: redeemAgainError } = await clientC.rpc("redeem_join_code", {
+  const { data: redeemAgainData } = await clientC.rpc("redeem_join_code", {
     p_code: memberCode,
   });
-  check("Member C can redeem again (idempotent)", !redeemAgainError);
+  const redeemAgainJson = redeemAgainData && typeof redeemAgainData === 'object' ? redeemAgainData : null;
+  check("Member C can redeem again (idempotent)", redeemAgainJson && 'ok' in redeemAgainJson && redeemAgainJson.ok === true);
 
   // Check use_count NOT incremented (idempotent redeem doesn't consume)
   const { data: codeAfterRedeem } = await adminClient
@@ -343,10 +348,11 @@ async function runTests() {
   const gymBCode = gymBCodeData?.[0]?.code;
 
   // Member C redeems gym B code (should move from gym A to gym B)
-  const { error: redeemGymBError } = await clientC.rpc("redeem_join_code", {
+  const { data: redeemGymBData } = await clientC.rpc("redeem_join_code", {
     p_code: gymBCode,
   });
-  check("Member C redeems gym B code", !redeemGymBError, redeemGymBError?.message);
+  const redeemGymBJson = redeemGymBData && typeof redeemGymBData === 'object' ? redeemGymBData : null;
+  check("Member C redeems gym B code", redeemGymBJson && 'ok' in redeemGymBJson && redeemGymBJson.ok === true);
 
   // Check C's gym A membership is now removed
   const { data: memberCGymAAfter } = await adminClient
@@ -367,10 +373,11 @@ async function runTests() {
 
   // TEST: Staff code redemption
   console.log("TEST: Staff code redemption");
-  const { error: redeemStaffError } = await clientD.rpc("redeem_join_code", {
+  const { data: redeemStaffData } = await clientD.rpc("redeem_join_code", {
     p_code: staffCode,
   });
-  check("Member D redeems staff code", !redeemStaffError, redeemStaffError?.message);
+  const redeemStaffJson = redeemStaffData && typeof redeemStaffData === 'object' ? redeemStaffData : null;
+  check("Member D redeems staff code", redeemStaffJson && 'ok' in redeemStaffJson && redeemStaffJson.ok === true);
 
   const { data: memberDGymA } = await adminClient
     .from("gym_memberships")
@@ -417,8 +424,21 @@ async function runTests() {
       clientI.rpc("redeem_join_code", { p_code: attemptCode }),
     ]);
 
-    const successCount = [resultH.error, resultI.error].filter(e => !e).length;
+    const resultHJson = resultH.data && typeof resultH.data === 'object' ? resultH.data : null;
+    const resultIJson = resultI.data && typeof resultI.data === 'object' ? resultI.data : null;
+    const successCount = [resultHJson, resultIJson].filter(r => r && 'ok' in r && r.ok === true).length;
     if (successCount !== 1) {
+      allCorrect = false;
+      break;
+    }
+
+    // Verify use_count is exactly 1
+    const { data: codeUsage } = await adminClient
+      .from("gym_join_codes")
+      .select("use_count")
+      .eq("code", attemptCode)
+      .single();
+    if (codeUsage?.use_count !== 1) {
       allCorrect = false;
       break;
     }
@@ -445,12 +465,16 @@ async function runTests() {
   const { data: previewExpired } = await clientC.rpc("preview_join_code", {
     p_code: expiredCode,
   });
-  check("Preview returns 0 rows for expired code", previewExpired?.length === 0);
+  const previewExpiredJson = previewExpired && typeof previewExpired === 'object' ? previewExpired : null;
+  check("Preview returns ok:false for expired code", previewExpiredJson && 'ok' in previewExpiredJson && previewExpiredJson.ok === false);
+  check("Preview returns reason:invalid for expired code", previewExpiredJson && 'reason' in previewExpiredJson && previewExpiredJson.reason === 'invalid');
 
-  const { error: redeemExpiredError } = await clientC.rpc("redeem_join_code", {
+  const { data: redeemExpiredData } = await clientC.rpc("redeem_join_code", {
     p_code: expiredCode,
   });
-  check("Redeem expired code fails", !!redeemExpiredError);
+  const redeemExpiredJson = redeemExpiredData && typeof redeemExpiredData === 'object' ? redeemExpiredData : null;
+  check("Redeem expired code returns ok:false", redeemExpiredJson && 'ok' in redeemExpiredJson && redeemExpiredJson.ok === false);
+  check("Redeem expired code returns reason:expired", redeemExpiredJson && 'reason' in redeemExpiredJson && redeemExpiredJson.reason === 'expired');
   console.log();
 
   // TEST: Revoked code
@@ -470,12 +494,16 @@ async function runTests() {
   const { data: previewRevoked } = await clientC.rpc("preview_join_code", {
     p_code: revokeCode,
   });
-  check("Preview returns 0 rows for revoked code", previewRevoked?.length === 0);
+  const previewRevokedJson = previewRevoked && typeof previewRevoked === 'object' ? previewRevoked : null;
+  check("Preview returns ok:false for revoked code", previewRevokedJson && 'ok' in previewRevokedJson && previewRevokedJson.ok === false);
+  check("Preview returns reason:invalid for revoked code", previewRevokedJson && 'reason' in previewRevokedJson && previewRevokedJson.reason === 'invalid');
 
-  const { error: redeemRevokedError } = await clientC.rpc("redeem_join_code", {
+  const { data: redeemRevokedData } = await clientC.rpc("redeem_join_code", {
     p_code: revokeCode,
   });
-  check("Redeem revoked code fails", !!redeemRevokedError);
+  const redeemRevokedJson = redeemRevokedData && typeof redeemRevokedData === 'object' ? redeemRevokedData : null;
+  check("Redeem revoked code returns ok:false", redeemRevokedJson && 'ok' in redeemRevokedJson && redeemRevokedJson.ok === false);
+  check("Redeem revoked code returns reason:revoked", redeemRevokedJson && 'reason' in redeemRevokedJson && redeemRevokedJson.reason === 'revoked');
   console.log();
 
   // TEST: Owner redeeming code for their own gym (idempotent no-op, use_count unchanged)
@@ -496,10 +524,11 @@ async function runTests() {
   const initialUseCount = beforeRedeem?.use_count ?? 0;
 
   // Owner A redeems code for gym A (where they're already owner)
-  const { error: ownerRedeemError } = await clientA.rpc("redeem_join_code", {
+  const { data: ownerRedeemData } = await clientA.rpc("redeem_join_code", {
     p_code: ownerCode,
   });
-  check("Owner A can redeem code for own gym (idempotent)", !ownerRedeemError, ownerRedeemError?.message);
+  const ownerRedeemJson = ownerRedeemData && typeof ownerRedeemData === 'object' ? ownerRedeemData : null;
+  check("Owner A can redeem code for own gym (idempotent)", ownerRedeemJson && 'ok' in ownerRedeemJson && ownerRedeemJson.ok === true);
 
   // Check use_count is unchanged (idempotent no-op)
   const { data: afterRedeem } = await adminClient
@@ -558,10 +587,12 @@ async function runTests() {
   });
   const gymBMemberCode = gymBMemberCodeData?.[0]?.code;
 
-  const { error: userHRedeemError } = await clientH.rpc("redeem_join_code", {
+  // User H redeems code for gym B
+  const { data: userHRedeemData } = await clientH.rpc("redeem_join_code", {
     p_code: gymBMemberCode,
   });
-  check("Owner of default gym can redeem code for gym B", !userHRedeemError, userHRedeemError?.message);
+  const userHRedeemJson = userHRedeemData && typeof userHRedeemData === 'object' ? userHRedeemData : null;
+  check("Owner of default gym can redeem code for gym B", userHRedeemJson && 'ok' in userHRedeemJson && userHRedeemJson.ok === true);
 
   // Check user H is member of gym B
   const { data: userHGymB } = await adminClient
@@ -585,10 +616,11 @@ async function runTests() {
   // TEST: Staff redeeming code for another gym
   console.log("TEST: Staff of gym A redeeming code for gym B");
   // Staff E redeems code for gym B (already have staff role in gym A)
-  const { error: staffERedeemError } = await clientE.rpc("redeem_join_code", {
+  const { data: staffERedeemData } = await clientE.rpc("redeem_join_code", {
     p_code: gymBMemberCode,
   });
-  check("Staff E can redeem code for gym B", !staffERedeemError, staffERedeemError?.message);
+  const staffERedeemJson = staffERedeemData && typeof staffERedeemData === 'object' ? staffERedeemData : null;
+  check("Staff E can redeem code for gym B", staffERedeemJson && 'ok' in staffERedeemJson && staffERedeemJson.ok === true);
 
   // Check staff E is member of gym B
   const { data: staffEGymB } = await adminClient
@@ -624,10 +656,11 @@ async function runTests() {
   const useCountBefore = beforeUseCount?.use_count ?? 0;
   
   // Owner A redeems member code for their own gym (should be no-op)
-  const { error: ownerARedeemOwnError } = await clientA.rpc("redeem_join_code", {
+  const { data: ownerARedeemOwnData } = await clientA.rpc("redeem_join_code", {
     p_code: memberCode,
   });
-  check("Owner A can call redeem on their own gym code (no-op)", !ownerARedeemOwnError, ownerARedeemOwnError?.message);
+  const ownerARedeemOwnJson = ownerARedeemOwnData && typeof ownerARedeemOwnData === 'object' ? ownerARedeemOwnData : null;
+  check("Owner A can call redeem on their own gym code (no-op)", ownerARedeemOwnJson && 'ok' in ownerARedeemOwnJson && ownerARedeemOwnJson.ok === true);
   
   // Check use_count is UNCHANGED (no-op should not consume a use)
   const { data: afterUseCount } = await adminClient
@@ -738,13 +771,17 @@ async function runTests() {
   }
   
   // 10th attempt should still work (threshold is >= 10)
-  const { error: attempt10 } = await clientThrottle.rpc("preview_join_code", { p_code: "INVALID" });
-  check("10th miss still works (not throttled yet)", !attempt10 || !attempt10.message?.includes("Too many"));
+  const { data: attempt10Data } = await clientThrottle.rpc("preview_join_code", { p_code: "INVALID" });
+  const attempt10Json = attempt10Data && typeof attempt10Data === 'object' ? attempt10Data : null;
+  check("10th miss still works (not throttled yet)", 
+    attempt10Json && 'ok' in attempt10Json && attempt10Json.ok === false && 
+    'reason' in attempt10Json && attempt10Json.reason === 'invalid');
   
   // 11th attempt should be throttled
-  const { error: attempt11 } = await clientThrottle.rpc("preview_join_code", { p_code: "INVALID" });
-  check("11th miss is throttled", !!attempt11);
-  check("Throttle error message", !!attempt11 && (attempt11.message?.includes("Too many") || attempt11.code === "GJC10"));
+  const { data: attempt11Data } = await clientThrottle.rpc("preview_join_code", { p_code: "INVALID" });
+  const attempt11Json = attempt11Data && typeof attempt11Data === 'object' ? attempt11Data : null;
+  check("11th miss is throttled", attempt11Json && 'ok' in attempt11Json && attempt11Json.ok === false);
+  check("Throttle returns reason:throttled", attempt11Json && 'reason' in attempt11Json && attempt11Json.reason === 'throttled');
   console.log();
 
   // TEST: Successful redemptions don't count toward throttle
@@ -777,8 +814,9 @@ async function runTests() {
   }
   
   // Next attempt should still work (successes don't count)
-  const { error: successAfter20 } = await clientSuccess.rpc("redeem_join_code", { p_code: successCode });
-  check("20 successes don't throttle", !successAfter20);
+  const { data: successAfter20Data } = await clientSuccess.rpc("redeem_join_code", { p_code: successCode });
+  const successAfter20Json = successAfter20Data && typeof successAfter20Data === 'object' ? successAfter20Data : null;
+  check("20 successes don't throttle", successAfter20Json && 'ok' in successAfter20Json && successAfter20Json.ok === true);
   console.log();
 
   // TEST: Code format CHECK constraint (using admin to bypass RLS)
