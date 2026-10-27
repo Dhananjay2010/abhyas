@@ -125,7 +125,7 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     const t = text(html);
     check("U3 body weight 82.1 kg", /82\.1 kg/.test(t));
     check("U3 volume 3,100 kg", /3,100 kg/.test(t));
-    check("U3 strength 120.25 kg (120.33 rounds to nearest 0.25)", /120\.25 kg/.test(t));
+    check("U3 strength 120.33 kg (2-dp precision, not grid-snapped)", /120\.33 kg/.test(t));
     check("U3 no lb", !/\d ?lb\b/.test(t + arias(html)));
   }
 

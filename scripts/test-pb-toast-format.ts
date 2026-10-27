@@ -2,7 +2,7 @@
  * Test PB toast e1RM formatting (coordinator addition).
  *
  * PB toast must show e1RM with same precision as rest of app:
- * - 1 decimal place with trailing .0 dropped (54.58 -> 54.6, not 55)
+ * - Up to 2 decimal places with trailing zeros dropped (M2)
  * - Respects user's units preference (kg or lb)
  * - Consistent with History and Progress formatting
  */
@@ -12,10 +12,10 @@ import type { PersonalBest } from "../src/lib/program/progression";
 
 console.log("Test PB toast e1RM formatting\n");
 
-// Test 1: Metric - 1 decimal place, trailing .0 dropped
+// Test 1: Metric - 2 decimal places, trailing zeros dropped
 const pb1: PersonalBest = { kind: "e1rm", value: 54.58 };
 const result1 = describePersonalBest(pb1, "metric");
-const expected1 = "Best estimated one-rep max yet — 54.5 kg";
+const expected1 = "Best estimated one-rep max yet — 54.58 kg";
 if (result1 !== expected1) {
   console.error(`✗ Metric (54.58 kg): expected "${expected1}", got "${result1}"`);
   process.exit(1);

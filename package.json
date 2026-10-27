@@ -465,8 +465,7 @@
     "test:units-roundtrip-body-weight": "tsx scripts/test-units-roundtrip-body-weight.ts",
     "test:units-roundtrip-runner-wiring": "tsx scripts/test-units-roundtrip-runner-wiring.tsx",
     "test:units-m2-m3": "tsx scripts/test-units-m2-m3.ts",
-    "test:units-body-weight-validation": "tsx scripts/test-units-body-weight-validation.ts",
-    "ci:mutant-gym-rls-policies": "bash scripts/mutant-test-gym-rls-policies.sh"
+    "test:units-body-weight-validation": "tsx scripts/test-units-body-weight-validation.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

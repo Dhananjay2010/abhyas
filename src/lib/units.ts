@@ -146,8 +146,8 @@ export function formatWeight(
     return includeLabel ? `${formatted} lb` : formatted;
   }
 
-  // Metric: round to 0.25 kg grid for set weights
-  const rounded = Math.round(kg * 4) / 4;
+  // Metric: round to 2 decimal places, trim trailing zeros
+  const rounded = Math.round(kg * 100) / 100;
   const formatted = rounded.toFixed(2).replace(/\.?0+$/, "");
   return includeLabel ? `${formatted} kg` : formatted;
 }
@@ -267,8 +267,8 @@ export function formatTopSet(weightKg: number, units: UnitsPreference = "metric"
   if (units === "imperial") {
     weight = roundLbToHalf(kgToLb(weightKg));
   } else {
-    // Metric: round to 0.25 kg grid to clean up off-grid lb-derived values
-    weight = Math.round(weightKg * 4) / 4;
+    // Metric: round to 2 decimal places
+    weight = Math.round(weightKg * 100) / 100;
   }
   
   // Format: up to 2 decimals with trailing zeros trimmed
@@ -636,10 +636,8 @@ export function formatLoad(kg: number | null | undefined, units: UnitsPreference
     return `${formatted} ${label}`;
   }
   
-  // Metric: round to 0.25 kg grid to clean up off-grid lb-derived values
-  // (e.g. 71.44 → 71.5, while 16.25, 52.5, 40 stay as-is)
-  const rounded = Math.round(kg * 4) / 4;
-  // Format to 2 decimals with trailing zeros trimmed
+  // Metric: round to 2 decimal places, trim trailing zeros
+  const rounded = Math.round(kg * 100) / 100;
   const formatted = rounded.toFixed(2).replace(/\.?0+$/, "");
   return `${formatted} ${label}`;
 }
@@ -908,9 +906,9 @@ export function computeRunnerWeightPrefill(
   if (!shouldPrefillWeight || defaultWeightKg === null) return "";
   
   if (units === "metric") {
-    // Metric: round to 0.25 kg grid to match formatLoad display
+    // Metric: round to 2 decimal places to match formatLoad display
     // (so prefill agrees with the working-weight line above it)
-    const rounded = Math.round(defaultWeightKg * 4) / 4;
+    const rounded = Math.round(defaultWeightKg * 100) / 100;
     // Format to 2 decimals with trailing zeros trimmed
     return rounded.toFixed(2).replace(/\.?0+$/, "");
   }

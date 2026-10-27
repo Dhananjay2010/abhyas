@@ -18,7 +18,7 @@ import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { formatLoad, computeRunnerWeightPrefill, weightKgToSubmit, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
+import { formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, weightKgToSubmit, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { shouldShowFinishRetry, runEndEarly } from "@/lib/session/finish-flow";
 import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
@@ -803,10 +803,10 @@ export function SessionRunner({
   const nextSetNumber = setsDone + 1;
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
-  // For stored weights: use the raw kg so runner prefill matches History display.
+  // For imperial: snap prescription to lb grid so prefill matches working weight line.
   const lastWeight =
     [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ??
-    current.suggestedWeightKg;
+    snapPrescribedWeight(current.suggestedWeightKg, settings.units);
 
   /**
    * What the reps field starts on — and, for the first set, nothing.
@@ -997,7 +997,10 @@ export function SessionRunner({
         {current.workingWeightKg !== null && (
           <p className="mt-2 text-sm text-muted" data-testid="working-weight-line">
             Working weight {formatLoad(
-              current.suggestedWeightKg ?? current.workingWeightKg,
+              snapPrescribedWeight(
+                current.suggestedWeightKg ?? current.workingWeightKg,
+                settings.units
+              ),
               settings.units
             )}
           </p>

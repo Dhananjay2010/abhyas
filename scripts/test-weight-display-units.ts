@@ -68,13 +68,13 @@ function check(label: string, ok: boolean, detail = "") {
   const { buildStrengthChartsFromDescendingRows } = await import("../src/lib/progress/strength-charts");
   const { formatWeight } = await import("../src/lib/units");
 
-  // 50.00 kg then 54.58 kg (44.25×7). formatWeight: 54.5 kg / 120.5 lb (120.33 raw)
+  // 50.00 kg then 54.58 kg (44.25×7). formatWeight: 54.58 kg / 120.5 lb (120.33 raw)
   const rows = [
     { exercise_id: "e1", exercise_name: "Bench", local_date: "2026-10-20", best_e1rm: 54.58, top_weight_kg: 44.25 },
     { exercise_id: "e1", exercise_name: "Bench", local_date: "2026-10-13", best_e1rm: 50, top_weight_kg: 42.5 },
   ];
 
-  for (const [units, latest, older, raw] of [["metric", "54.5 kg", "50 kg", "54.58"], ["imperial", "120.5 lb", "110 lb", "120.33"]] as const) {
+  for (const [units, latest, older, raw] of [["metric", "54.58 kg", "50 kg", "54.58"], ["imperial", "120.5 lb", "110 lb", "120.33"]] as const) {
     console.log(`\n1. Strength e1RM LineChart, ${units}`);
     const [chart] = buildStrengthChartsFromDescendingRows(rows, (d) => d, units);
     const r = render(React.createElement(LineChart, { points: chart.points, unit: chart.unitLabel, weightUnits: chart.units, title: "Bench (est. 1RM)", height: 110 }));
@@ -97,7 +97,7 @@ function check(label: string, ok: boolean, detail = "") {
 
   console.log("\n2. Real ProgressPage passes the member's unit to the strength chart");
   const { default: ProgressPage } = await import("../src/app/progress/page");
-  for (const [units, latest, raw] of [["metric", "54.5 kg", "54.58"], ["imperial", "120.5 lb", "120.33"]] as const) {
+  for (const [units, latest, raw] of [["metric", "54.58 kg", "54.58"], ["imperial", "120.5 lb", "120.33"]] as const) {
     fake = {
       tables: { exercise_strength_history: rows },
       single: { profiles: { timezone: "UTC", onboarding_completed_at: "2026-01-01", units, primary_track: "weights" } },
