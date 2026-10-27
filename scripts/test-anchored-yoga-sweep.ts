@@ -21,9 +21,7 @@
  */
 
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
-import catalogue from "./fixtures/catalogue.json";
-
-const catalogueTyped = catalogue as unknown as CandidateExercise[];
+import catalogueData from "./fixtures/catalogue.json";
 
 function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
   return {
@@ -39,7 +37,7 @@ function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
     hasAllEquipment: true,
     equipmentIds: [],
     currentInjuryRegions: [],
-    catalogue: catalogueTyped,
+    catalogue: catalogueData,
     ...overrides,
   };
 }

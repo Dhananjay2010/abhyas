@@ -232,48 +232,59 @@ async function main() {
     console.log(`  ✓ Tomorrow date is ${result.localDate} (from targetLocalDate, not wall-clock)`);
   }
 
-  // Test 4: Two sessions on same date, query by id returns correct one
-  console.log("\n4. Multiple sessions same date: query by id returns correct one");
+  // Test 4: Query by session id, not by date arithmetic
+  console.log("\n4. Session id lookup: finds right session, not newest on computed date");
   {
+    // Two sessions on consecutive days. Query for Monday's session with Wednesday target.
+    // With sessionId: finds Monday session directly (did A)
+    // Without sessionId (mutant c): calculates today = Wed - 1 = Tue, finds Tuesday session (did B)
     const client = buildClient({
       sessions: [
         {
-          id: "sess-4a",
+          id: "sess-mon",
           user_id: "user-1",
-          program_day_id: "pd-a", // Morning session: did A
+          program_day_id: "pd-a", // Did A on Monday
+          actual_type: "weights",
+          local_date: "2026-10-26", // Monday
+          status: "completed",
+          created_at: "2026-10-26T10:00:00Z",
+        },
+        {
+          id: "sess-tue",
+          user_id: "user-1",
+          program_day_id: "pd-b", // Did B on Tuesday (rest-day swap)
           actual_type: "weights",
           local_date: "2026-10-27", // Tuesday
           status: "completed",
-          created_at: "2026-10-27T08:00:00Z",
-        },
-        {
-          id: "sess-4b",
-          user_id: "user-1",
-          program_day_id: "pd-c", // Evening session: did C (different day)
-          actual_type: "weights",
-          local_date: "2026-10-27", // Same Tuesday
-          status: "completed",
-          created_at: "2026-10-27T18:00:00Z",
+          created_at: "2026-10-27T10:00:00Z",
         },
       ],
     });
 
-    // Query by sess-4a (did A on Tue) → tomorrow should rotate from A
-    const targetLocalDate1 = addDays("2026-10-27", 1); // Wed
-    const now = new Date("2026-10-27T20:00:00Z");
-    const result1 = await nextDayPlan(client, "UTC", targetLocalDate1, { sessionId: "sess-4a", now });
-    assert.ok(result1, "Should return a plan");
-    // Wed is scheduled B, A → B rotation (no collision)
-    assert.strictEqual(result1.plannedLabel, "Full Body B", "After A, next is B");
+    // Compute tomorrow for Monday's session (should be Tue = Mon + 1)
+    const targetLocalDateMon = addDays("2026-10-26", 1); // Tuesday
+    const now = new Date("2026-10-27T15:00:00Z");
     
-    // Query by sess-4b (did C on Tue) → tomorrow should rotate from C
-    const result2 = await nextDayPlan(client, "UTC", targetLocalDate1, { sessionId: "sess-4b", now });
-    assert.ok(result2, "Should return a plan");
-    // Wed is scheduled B, but C → A rotation collides with B, so should give B
-    // (Wed scheduled B matches next-up rotation slot, no collision)
-    assert.strictEqual(result2.plannedLabel, "Full Body B", "After C, next is A, but Wed is B");
-
-    console.log(`  ✓ Different sessions on same date → different rotations`);
+    // Query for Monday's session
+    const resultMon = await nextDayPlan(client, "UTC", targetLocalDateMon, { sessionId: "sess-mon", now });
+    assert.ok(resultMon, "Should return plan for Monday session");
+    assert.strictEqual(resultMon.localDate, "2026-10-27", "Monday's tomorrow should be Tue");
+    assert.strictEqual(resultMon.plannedLabel, "Rest", "Tuesday is rest day");
+    assert.strictEqual(resultMon.collisionResolved, false, "No collision for Mon A → Tue rest");
+    
+    // Query for Tuesday's session (did B, rest-day swap)
+    const targetLocalDateTue = addDays("2026-10-27", 1); // Wednesday
+    const resultTue = await nextDayPlan(client, "UTC", targetLocalDateTue, { sessionId: "sess-tue", now });
+    assert.ok(resultTue, "Should return plan for Tuesday session");
+    assert.strictEqual(resultTue.localDate, "2026-10-28", "Tuesday's tomorrow should be Wed");
+    assert.strictEqual(resultTue.plannedLabel, "Full Body C", "Wed should be C (collision resolved)");
+    assert.strictEqual(resultTue.collisionResolved, true, "Collision: swapped to B, Wed scheduled B → C");
+    
+    // MUTANT (c) test: if we remove sessionId filtering, querying for Monday's session
+    // with targetLocalDateTue would calculate today = Wed - 1 = Tue, find Tuesday's session,
+    // and return collision-resolved plan instead of rest day.
+    
+    console.log(`  ✓ Monday (A → rest) and Tuesday (B → C) return different plans`);
   }
 
   // Test 5: Abandoned in_progress from earlier day doesn't affect today
