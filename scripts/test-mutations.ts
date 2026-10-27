@@ -44,7 +44,7 @@ const mutants: Mutant[] = [
   
   // 2b. Past-knee lunge filter
   {
-    name: "Disable past-knee lunge filter",
+    name: "Disable past-knee lunge filter (allow unsafe lunges for past knee)",
     file: "src/lib/program/generate.ts",
     pattern: /if \(hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES\.has\(ex\.slug\)\) \{/,
     mutate: 'if (!hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {',
@@ -70,14 +70,15 @@ const mutants: Mutant[] = [
   },
 
   
-  // 5a2. High-impact filter in alternatives
+  // 5a2. High-impact filter in alternatives (equivalent: isEligible already blocks in plan generation)
   {
     name: "Drop knee high-impact filter in alternatives (swaps)",
     file: "src/lib/program/alternatives.ts",
     pattern: /\/\/ 6b\. PR #73: Knee injuries exclude high-impact lower-body moves\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.impact === "high"\) \{/,
-    mutate: '// 6b. PR #73: Knee injuries exclude high-impact lower-body moves\n    if (!(ctx.anyKneeInjury ?? false) && candidate.impact === "high") {',
+    mutate: '// 6b. PR #73: Knee injuries exclude high-impact lower-body moves\n    if (false && candidate.impact === "high") {',
     tests: ["test:swap-mutations"],
     equivalent: true,
+    notes: "True drop (if false): 0 swap-list diffs across 483,912 lists (no-injury + all injury profiles). Inversion would change 11,949 no-injury lists.",
   },
 
   // 5b. Drop past-knee 4-list restriction in swaps (alternatives.ts)
@@ -173,7 +174,7 @@ const mutants: Mutant[] = [
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
   },
   
-  // Sissy squat ban in isEligible (defense-in-depth with tag check)
+  // Sissy squat ban in isEligible (PRIMARY barrier for past-knee plans)
   {
     name: "Remove sissy-squat ban in isEligible (plan generation for past-knee)",
     file: "src/lib/program/generate.ts",
@@ -182,7 +183,7 @@ const mutants: Mutant[] = [
     tests: ["test:sissy-squat-ban"],
   },
   
-  // Sissy squat ban in rankAlternatives (defense-in-depth with tag check)
+  // Sissy squat ban in rankAlternatives (BACKSTOP: isEligible is the primary barrier for past-knee)
   {
     name: "Remove sissy-squat ban in rankAlternatives (swap generation)",
     file: "src/lib/program/alternatives.ts",
@@ -190,6 +191,7 @@ const mutants: Mutant[] = [
     mutate: '// MUTANT: Removed sissy ban from swaps',
     tests: ["test:sissy-squat-ban"],
     equivalent: true,
+    notes: "isEligible already excludes sissy squats for ANY knee injury during plan generation, so candidates never include them for ranking.",
   },
   
   // PR #73 Run 20: M3 protection - never drop the only pull on knee-injured full-body days
@@ -234,28 +236,21 @@ function hasStackTrace(output: string): boolean {
 function hasSpecificKillMarker(output: string): boolean {
   // Check for line-anchored specific assertion failure markers
   // Line-anchored patterns (start of line after optional whitespace):
-  // - "✗ N test(s) failed" — test-knee-safety-matrix, test-knee-swaps
-  // - "❌ N test(s) failed" — test-swap-mutations, test-owner-decision-mutants
-  // - "Summary: N passed, M failed" — test-knee-swaps, test-swap-mutations, test-swap-context
+  // - "✗ N test(s) failed" — test-knee-safety-matrix
+  // - "Summary: N passed, M failed" (M ≥ 1) — test-knee-swaps, test-swap-mutations, test-swap-context
   // - "✗ FAIL" / "❌ FAIL" — generic test failure markers
   // - "FAILED:" — generic assertion prefix
   // Bare substring "FAIL" anywhere is forbidden (too broad)
   
   const lineAnchored = [
-    /^✗\s+\d+\s+test\(s\)\s+failed/m,          // "✗ 15 test(s) failed"
-    /^❌\s+\d+\s+test\(s\)\s+failed/m,          // "❌ 3 test(s) failed"
-    /^Summary:.*\s+(\d+)\s+failed/m,            // "Summary: 32 passed, 1 failed"
-    /^✗\s+FAIL/m,                               // "✗ FAIL: ..."
-    /^❌\s+FAIL/m,                               // "❌ FAIL: ..."
-    /^FAILED:/m,                                 // "FAILED: assertion"
+    /^✗\s+\d+\s+test\(s\)\s+failed/m,            // "✗ 15 test(s) failed"
+    /^Summary:.*\s+[1-9]\d*\s+failed/m,          // "Summary: 32 passed, 1 failed" (require ≥1 failure)
+    /^✗\s+FAIL/m,                                 // "✗ FAIL: ..."
+    /^❌\s+FAIL/m,                                 // "❌ FAIL: ..."
+    /^FAILED:/m,                                   // "FAILED: assertion"
   ];
   
-  if (lineAnchored.some((re) => re.test(output))) return true;
-  
-  // AssertionError (from assert module) can appear mid-line
-  if (output.includes("AssertionError")) return true;
-  
-  return false;
+  return lineAnchored.some((re) => re.test(output));
 }
 
 function stripBothNpmHeaders(output: string): string {
@@ -325,14 +320,14 @@ function selfTestCrashDetection(): void {
       expectCrash: false,
     },
     {
-      name: "test-swap-mutations pattern ❌ N test(s) failed = KILLED",
-      error: { stdout: "❌ 3 test(s) failed\n", stderr: "", status: 1 },
-      expectCrash: false,
-    },
-    {
       name: "test-knee-swaps pattern Summary: N passed, M failed = KILLED",
       error: { stdout: "Summary: 32 passed, 1 failed\n", stderr: "", status: 1 },
       expectCrash: false,
+    },
+    {
+      name: "Summary with 0 failed despite exit 1 = CRASH",
+      error: { stdout: "Summary: 5 passed, 0 failed\n", stderr: "", status: 1 },
+      expectCrash: true,
     },
     {
       name: "Bare FAIL without marker = CRASH",
@@ -343,11 +338,6 @@ function selfTestCrashDetection(): void {
       name: "node:internal = CRASH",
       error: { stdout: "", stderr: "node:internal/process\n", status: 1 },
       expectCrash: true,
-    },
-    {
-      name: "AssertionError marker = KILLED",
-      error: { stdout: "AssertionError: expected true\n", stderr: "", status: 1 },
-      expectCrash: false,
     },
     {
       name: "Generic error without marker = CRASH",
