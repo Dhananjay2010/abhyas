@@ -28,6 +28,7 @@ export interface RedeemJoinCodeSuccess {
 export interface RedeemJoinCodeFailure {
   ok: false;
   reason: "invalid" | "expired" | "revoked" | "exhausted" | "throttled" | "already_member";
+  gym_name?: string;
 }
 
 export type RedeemJoinCodeResult = RedeemJoinCodeSuccess | RedeemJoinCodeFailure;
@@ -88,10 +89,14 @@ export function parseRedeemJoinCodeResult(data: unknown): RedeemJoinCodeResult |
   if (data.ok === false) {
     const validReasons = ["invalid", "expired", "revoked", "exhausted", "throttled", "already_member"];
     if (typeof data.reason === "string" && validReasons.includes(data.reason)) {
-      return {
+      const result: RedeemJoinCodeFailure = {
         ok: false,
         reason: data.reason as "invalid" | "expired" | "revoked" | "exhausted" | "throttled" | "already_member",
       };
+      if (typeof data.gym_name === "string") {
+        result.gym_name = data.gym_name;
+      }
+      return result;
     }
     return null;
   }
