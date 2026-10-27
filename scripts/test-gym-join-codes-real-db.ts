@@ -319,13 +319,13 @@ async function runTests() {
   });
   check("Member C can redeem again (idempotent)", !redeemAgainError);
 
-  // Check use_count incremented only once more
+  // Check use_count NOT incremented (idempotent redeem doesn't consume)
   const { data: codeAfterRedeem } = await adminClient
     .from("gym_join_codes")
     .select("use_count")
     .eq("code", memberCode)
     .single();
-  check("Code use_count is 2 after two redeems (idempotent doesn't consume)", codeAfterRedeem?.use_count === 2);
+  check("Code use_count is 1 after two redeems (idempotent doesn't consume)", codeAfterRedeem?.use_count === 1);
   console.log();
 
   // TEST: One-active-member-gym invariant
@@ -387,15 +387,18 @@ async function runTests() {
   const limitedCode = limitedCodeData?.[0]?.code;
 
   // Create two more users
+  const emailMemberF = `gym-member-codes-f-${Date.now()}@example.com`;
+  const emailMemberG = `gym-member-codes-g-${Date.now()}@example.com`;
+  
   const { data: userFData } = await adminClient.auth.admin.createUser({
-    email: `gym-member-codes-f-${Date.now()}@example.com`,
+    email: emailMemberF,
     password: "test-password-ghi",
     email_confirm: true,
   });
   const userIdF = userFData.user?.id;
 
   const { data: userGData } = await adminClient.auth.admin.createUser({
-    email: `gym-member-codes-g-${Date.now()}@example.com`,
+    email: emailMemberG,
     password: "test-password-jkl",
     email_confirm: true,
   });
@@ -404,11 +407,11 @@ async function runTests() {
   const clientF = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const clientG = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   await clientF.auth.signInWithPassword({ 
-    email: `gym-member-codes-f-${Date.now()}@example.com`, 
+    email: emailMemberF, 
     password: "test-password-ghi" 
   });
   await clientG.auth.signInWithPassword({ 
-    email: `gym-member-codes-g-${Date.now()}@example.com`, 
+    email: emailMemberG, 
     password: "test-password-jkl" 
   });
 
