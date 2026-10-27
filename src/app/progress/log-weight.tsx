@@ -3,13 +3,10 @@
 import { useState, useTransition } from "react";
 import { logBodyWeight } from "./actions";
 import { 
-  formatWeight, 
-  parseWeight, 
-  weightLabel, 
-  BODY_WEIGHT_LB_MIN,
-  BODY_WEIGHT_LB_MAX,
-  WEIGHT_KG_MIN,
-  WEIGHT_KG_MAX,
+  formatBodyWeight, 
+  parseBodyWeight, 
+  weightLabel,
+  getBodyWeightRangeMessage,
   type UnitsPreference 
 } from "@/lib/units";
 
@@ -24,7 +21,7 @@ export function LogWeight({
 }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(
-    current !== null ? formatWeight(current, units, false) : ""
+    current !== null ? formatBodyWeight(current, units, false) : ""
   );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +43,7 @@ export function LogWeight({
         <input
           type="number"
           inputMode="decimal"
-          step={units === "imperial" ? "0.5" : "0.1"}
+          step="0.1"
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -58,13 +55,9 @@ export function LogWeight({
           onClick={() =>
             startTransition(async () => {
               setError(null);
-              const weightKg = parseWeight(value, units);
+              const weightKg = parseBodyWeight(value, units);
               if (weightKg === null) {
-                setError(
-                  units === "imperial"
-                    ? `Weight should be between ${BODY_WEIGHT_LB_MIN} and ${BODY_WEIGHT_LB_MAX} lb`
-                    : `Weight should be between ${WEIGHT_KG_MIN} and ${WEIGHT_KG_MAX} kg`
-                );
+                setError(getBodyWeightRangeMessage(units));
                 return;
               }
               const r = await logAction(weightKg);
