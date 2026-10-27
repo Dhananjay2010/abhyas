@@ -179,8 +179,8 @@ export function SessionRunner({
   now = Date.now,
 }: {
   sessionId: string;
-  sessionStatus: Database["public"]["Enums"]["session_status"];
-  userId: string;
+  sessionStatus?: Database["public"]["Enums"]["session_status"];
+  userId?: string;
   isDeload: boolean;
   week: number;
   warmupAlreadyDone: boolean;
@@ -198,7 +198,6 @@ export function SessionRunner({
   onExit?: () => void;
   addEventListener?: (type: string, handler: () => void) => void;
   removeEventListener?: (type: string, handler: () => void) => void;
-  timer?: RunnerTimer;
   now?: () => number;
   
 }) {
@@ -270,7 +269,7 @@ export function SessionRunner({
   });
 
   const [controller] = useState(() => {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined" || !userId || !sessionStatus) return null;
     return createPendingSetController({
       storage: window.localStorage,
       logSet: actions.logSet,
@@ -959,8 +958,61 @@ export function SessionRunner({
     weightKg: number | null,
     durationSeconds: number | null = null,
   ) {
+    // If controller is not initialized (userId not provided), fall back to direct logSet
     if (!controller) {
-      setError("Controller not initialized");
+      const displayedEx = exercises.find((e) => e.displayedExerciseId === displayedExerciseId);
+      if (!displayedEx) return;
+      
+      const nextSetNumber = Math.max(0, ...displayedEx.sets.map((s) => s.setNumber)) + 1;
+      
+      await createConcurrentGuard(async () => {
+        setBusy(true);
+        try {
+          const result = await actions.logSet({
+            sessionExerciseId: displayedEx.id,
+            setNumber: nextSetNumber,
+            reps,
+            weightKg,
+            durationSeconds,
+          });
+          
+          if (result.ok) {
+            if ("reason" in result && result.reason === "set_exists") {
+              const conflictResult: ConflictResult = { ok: false, reason: "set_exists", savedSets: result.savedSets };
+              const resolution = resolveSetConflict(exercises, displayedEx.id, exerciseIndex, conflictResult);
+              setExercises((prev) => resolveSetConflict(prev, displayedEx.id, exerciseIndex, conflictResult).exercises);
+              setExerciseIndex(resolution.nextExerciseIndex);
+              setMessage(resolution.message);
+              setError(null);
+              return;
+            }
+            
+            setError(null);
+            setMessage(null);
+            setExercises((prev) =>
+              prev.map((e) =>
+                e.id === displayedEx.id
+                  ? {
+                      ...e,
+                      sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
+                    }
+                  : e,
+              ),
+            );
+            
+            const current = exercises[exerciseIndex];
+            if (settings.restAutostart && nextSetNumber < current.plannedSets) {
+              startRest(restSeconds);
+            }
+          } else {
+            setError(result.error);
+          }
+        } catch (err) {
+          setError(runnerErrorMessage(err));
+        } finally {
+          setBusy(false);
+        }
+      }, busyRef)();
       return;
     }
 
