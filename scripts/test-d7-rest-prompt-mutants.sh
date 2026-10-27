@@ -72,12 +72,15 @@ run_mutant() {
     
     # Only count as kill if:
     # - Test exited non-zero
-    # - Output contains "FAIL" (assertion failure)
+    # - Output contains "FAIL" or "✗" (assertion failure markers)
     # - NOT a "Missing script" or crash error
     if [ $exit_code -ne 0 ]; then
-      if echo "$output" | grep -q "FAIL"; then
-        killer="$t"
-        break
+      if echo "$output" | grep -qE "(FAIL|✗|failed|check\(s\) failed)"; then
+        # Make sure it's not "Missing script"
+        if ! echo "$output" | grep -q "Missing script"; then
+          killer="$t"
+          break
+        fi
       fi
     fi
   done
@@ -109,7 +112,7 @@ echo "────────────────────────�
 echo "Baseline checks..."
 for test in "$T" "$T_RESOLVE" "$T_SERVER" "$T_MED_A" "$T_FETCH" "$T_ERROR"; do
   if ! npm run -s "$test" >/dev/null 2>&1; then
-    echo "FATAL: baseline $test fails"
+    echo "FATAL: baseline $test fails (exit code $?)"
     exit 1
   fi
 done

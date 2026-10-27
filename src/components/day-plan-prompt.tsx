@@ -184,18 +184,19 @@ export function DayPlanPrompt({
             className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
           >
             <p>{error}</p>
-            <button
-              onClick={() => {
-                setError(null);
-                // LOW fix: Retry actually retries the save
-                if (lastAttempt) {
-                  choose(lastAttempt.plan, lastAttempt.describedAs);
-                }
-              }}
-              className="mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-sm text-brand underline underline-offset-2"
-            >
-              Retry
-            </button>
+            {isRetryable && (
+              <button
+                onClick={() => {
+                  setError(null);
+                  if (lastAttempt) {
+                    choose(lastAttempt.plan, lastAttempt.describedAs);
+                  }
+                }}
+                className="mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-sm text-brand underline underline-offset-2"
+              >
+                Retry
+              </button>
+            )}
           </div>
         )}
       </section>
