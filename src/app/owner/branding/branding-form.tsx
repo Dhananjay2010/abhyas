@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { updateBranding, type BrandingResult } from "./actions";
+import { accessibleTextColor } from "@/lib/contrast";
+import { branding } from "@/lib/branding";
 
 type BrandingFormProps = {
   gymId: string;
@@ -67,20 +69,10 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
   
   // Compute accessible text color for preview when a valid color is entered
   // Use simple contrast: if sum of RGB > 382 (roughly half of max 765), use black, else white
-  const getTextColor = (bgColor: string): string => {
-    if (!bgColor || !bgColor.match(/^#[0-9A-Fa-f]{6}$/)) {
-      return "#1a1000"; // default accentFg from branding
-    }
-    const r = parseInt(bgColor.slice(1, 3), 16);
-    const g = parseInt(bgColor.slice(3, 5), 16);
-    const b = parseInt(bgColor.slice(5, 7), 16);
-    // Simple luminance check: if bright background, use dark text
-    return (r + g + b > 382) ? "#000000" : "#ffffff";
-  };
   
-  const previewTextColor = primaryColor && primaryColor.match(/^#[0-9A-Fa-f]{6}$/) 
-    ? getTextColor(primaryColor) 
-    : "#1a1000";
+  const previewTextColor = primaryColor && primaryColor.match(/^#[0-9A-Fa-f]{6}$/)
+    ? accessibleTextColor(primaryColor)
+    : branding.colors.accentFg;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">

@@ -489,7 +489,7 @@
     "test:gym-join-code-type-guards": "tsx scripts/test-gym-join-code-type-guards.ts",
     "test:gym-join-code-messages": "tsx scripts/test-gym-join-code-messages.ts",
     "test:owner-branding-access": "tsx scripts/test-owner-branding-access.ts",
-    "test:owner-no-hardcoded-colors": "tsx scripts/test-owner-no-hardcoded-colors.ts",
+    "test:owner-no-hardcoded-colors": "bash scripts/test-owner-no-hardcoded-colors.sh",
     "test:branding-validation": "tsx scripts/test-branding-validation.ts",
     "test:branding-arg-builder": "tsx scripts/test-branding-arg-builder.ts",
     "test:branding-contrast": "tsx scripts/test-branding-contrast.ts",
