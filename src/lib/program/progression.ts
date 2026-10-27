@@ -707,9 +707,8 @@ export function evaluateProgression(input: {
           next = bells[targetIndex];
         }
       } else {
-        // Standard equipment: floor-snap to grid before adding increment
+        // Standard equipment: add increment then round to grid, ensuring we never go below lifted weight
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
-        const snappedFrom = Math.floor(from / gridStep) * gridStep;
         
         const step = isBodyweightWithAddedWeight ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";
@@ -737,8 +736,15 @@ export function evaluateProgression(input: {
           jump = step;
         }
         
-        // Add jump to snapped weight
-        next = snappedFrom + jump;
+        // Add jump to current weight
+        const rawNext = from + jump;
+        
+        // Round to equipment grid, but ensure we never suggest below the lifted weight
+        const ceilToGrid = Math.ceil(rawNext / gridStep) * gridStep;
+        const floorToGrid = Math.floor(rawNext / gridStep) * gridStep;
+        
+        // Use ceil if it's at or above from, otherwise use the raw value (shouldn't happen with positive jump)
+        next = ceilToGrid >= from ? ceilToGrid : Math.max(floorToGrid, from);
       }
     } else {
       // No equipment info: use standard increment, doubled when easy (preserve old behavior)

@@ -289,11 +289,11 @@ console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
-  check("Increase from 12kg dumbbell lands on loadable value", decision.nextWorkingWeightKg === 12.5, `got ${decision.nextWorkingWeightKg}`);
+  check("Increase from 12kg dumbbell lands on loadable value", decision.nextWorkingWeightKg === 15);
   
   // suggestedWeight just returns that value
-  const w = suggestedWeight({ currentWorkingWeightKg: 12.5 }, false, CURL, ["dumbbell"]);
-  check("  suggestedWeight returns 12.5 (loadable)", w === 12.5);
+  const w = suggestedWeight({ currentWorkingWeightKg: 15 }, false, CURL, ["dumbbell"]);
+  check("  suggestedWeight returns 15 (loadable)", w === 15);
 }
 
 // Test that decreases land on grid (via two-miss)
