@@ -16,7 +16,6 @@ console.log("=== L2 Behavioral: Join Code Redemption & UI ===\n");
 async function main() {
   const React = await import("react");
   const { render, cleanup } = await import("@testing-library/react");
-  const userEvent = (await import("@testing-library/user-event")).default;
 
   // Test 1: JoinConfirmation per-role copy
   console.log("TEST 1: JoinConfirmation per-role copy");
@@ -93,16 +92,12 @@ async function main() {
   console.log("TEST 2: Button re-enables after redemption error");
   {
     const { JoinConfirmation } = await import("@/app/join/[code]/join-confirmation");
-    const { useRouter } = await import("next/navigation");
+    const nextNav = await import("next/navigation");
 
-    let pushCalled = false;
-    const mockPush = async (path: string) => { pushCalled = true; };
-    (useRouter as any) = () => ({ push: mockPush });
+    const mockPush = async (_path: string) => { /* no-op */ };
+    (nextNav.useRouter as unknown as () => { push: typeof mockPush }) = () => ({ push: mockPush });
 
-    // Mock redeemJoinCode to return error
-    const mockRedeemError = async () => ({ ok: false as const, error: "Code expired" });
-    
-    const { container, getByText } = render(
+    const { getByText } = render(
       React.createElement(JoinConfirmation, {
         code: "EXPIREDCODE",
         gymName: "Test Gym",

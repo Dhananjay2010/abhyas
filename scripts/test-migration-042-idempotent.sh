@@ -35,7 +35,7 @@ echo "Creating test gym, owner and join code..."
 GYM_ID=$(uuidgen)
 OWNER_ID=$(uuidgen)
 CODE_ID=$(uuidgen)
-JOIN_CODE="IDEM042TST"
+JOIN_CODE="ED3M042TST"
 
 psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" <<SQL
 -- Insert test gym
