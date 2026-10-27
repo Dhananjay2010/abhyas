@@ -262,10 +262,11 @@ async function runTests() {
     name: "Staff Gym",
   });
   if (staffGymError) throw new Error(`Failed to insert staff gym: ${staffGymError.message}`);
-  await adminClient.from("gym_memberships").insert([
+  const { error: staffMembershipsError } = await adminClient.from("gym_memberships").insert([
     { gym_id: gymStaff, user_id: owner.userId, role: "owner", status: "active" },
     { gym_id: gymStaff, user_id: staffOwnGym.userId, role: "staff", status: "active" },
   ]);
+  if (staffMembershipsError) throw new Error(`Failed to insert staff memberships: ${staffMembershipsError.message}`);
 
   const { data: staffGymCodeData, error: staffGymCodeError } = await owner.client.rpc("create_join_code", {
     p_gym_id: gymStaff,

@@ -1,5 +1,6 @@
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
+import { join } from "node:path";
 import { formatJoinCodeDate } from "../src/lib/format-join-code-date";
 
 console.log("=== TEST: formatJoinCodeDate ===\n");
@@ -11,9 +12,12 @@ console.log("TEST: Same output regardless of server TZ (process.env.TZ)");
 // The formatter should produce the same output regardless of what process.env.TZ is set to
 // We spawn child processes with different TZ values to prove TZ doesn't affect results
 
+// Resolve tsx from local node_modules to avoid PATH dependency
+const tsxPath = join(__dirname, "..", "node_modules", ".bin", "tsx");
+
 function formatInChildProcess(isoDate: string, targetTimezone: string, processTZ: string): string {
   const result = spawnSync(
-    "tsx",
+    tsxPath,
     ["scripts/test-format-join-code-date-child.ts", isoDate, targetTimezone],
     {
       env: { ...process.env, TZ: processTZ },
@@ -22,7 +26,7 @@ function formatInChildProcess(isoDate: string, targetTimezone: string, processTZ
   );
   
   if (result.status !== 0) {
-    throw new Error(`Child process failed: ${result.stderr}`);
+    throw new Error(`Child process failed (status ${result.status}): ${result.stderr}`);
   }
   
   return result.stdout.trim();

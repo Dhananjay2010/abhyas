@@ -104,6 +104,19 @@ if (successResult.ok) {
 }
 console.log("✓ success result returns success with gym name");
 
+// Test parse failure (invalid response structure)
+const malformedData = { some: "random", data: true };
+const parseFailureResult = processRedeemResult(malformedData);
+assert.strictEqual(parseFailureResult.ok, false, "FAIL: invalid data should have ok=false");
+if (!parseFailureResult.ok) {
+  assert.strictEqual(
+    parseFailureResult.error,
+    "Invalid response from server",
+    "FAIL: invalid data should return parse failure message"
+  );
+}
+console.log("✓ invalid response structure returns parse failure message");
+
 console.log("\n=== TEST: Preview result mapping ===\n");
 
 // Test preview failure messages (used in join page)

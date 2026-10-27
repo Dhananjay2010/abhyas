@@ -42,7 +42,7 @@ export function JoinConfirmation({
     setError(null);
 
     try {
-      const result = await redeemJoinCode(code, gymName);
+      const result = await redeemJoinCode(code);
 
       if (result.ok) {
         router.push("/today");

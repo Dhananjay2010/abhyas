@@ -15,7 +15,7 @@ end $$;
 
 -- Create the merged permissive policy
 -- Allows: owner of the gym OR staff of the gym (staff can only see member codes)
--- Wrapped helper calls with (select ...) for initplan fix
+-- Helper calls wrapped in (select ...) subqueries
 do $$
 begin
   drop policy if exists gym_join_codes_select on public.gym_join_codes;

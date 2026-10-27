@@ -51,7 +51,11 @@ console.log("  ✓ code with remaining uses is active");
 
 const unlimitedCode = createCode({ max_uses: null, use_count: 100 });
 assert.strictEqual(isCodeActive(unlimitedCode), true, "FAIL: unlimited code should be active regardless of use_count");
-console.log("  ✓ unlimited code is active regardless of use_count\n");
+console.log("  ✓ unlimited code is active regardless of use_count");
+
+const expiresNowCode = createCode({ expires_at: new Date().toISOString() });
+assert.strictEqual(isCodeActive(expiresNowCode), false, "FAIL: code that expires exactly now should be inactive");
+console.log("  ✓ code that expires exactly now is inactive\n");
 
 console.log("TEST: splitJoinCodes");
 

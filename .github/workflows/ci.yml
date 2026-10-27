@@ -47,6 +47,9 @@ jobs:
       - name: Test DB reset guard (mutant tests)
         run: npm run ci:mutant-db-reset-guard
 
+      - name: Test join code wiring (mutant tests)
+        run: npm run ci:mutant-join-code-wiring
+
       - name: Test built service worker output
         run: npm run test:sw-built-output
         env:

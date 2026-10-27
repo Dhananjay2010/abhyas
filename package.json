@@ -502,7 +502,9 @@
     "test:gym-join-code-actions-mapper": "tsx scripts/test-gym-join-code-actions-mapper.ts",
     "test:gym-join-code-gating": "tsx scripts/test-gym-join-code-gating.ts",
     "test:format-join-code-date": "tsx scripts/test-format-join-code-date.ts",
-    "test:split-join-codes": "tsx scripts/test-split-join-codes.ts"
+    "test:split-join-codes": "tsx scripts/test-split-join-codes.ts",
+    "test:gym-join-code-wiring": "tsx scripts/test-gym-join-code-wiring.ts",
+    "ci:mutant-join-code-wiring": "bash scripts/mutant-test-gym-join-code-wiring.sh"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
