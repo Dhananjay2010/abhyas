@@ -14,6 +14,7 @@ import {
 import { buildProgressionInput } from "@/lib/session/build-progression-input";
 import { progressionFeedback } from "@/lib/session/progression-feedback";
 import { getProfileUnits } from "@/lib/get-profile-units";
+import type { UnitsPreference } from "@/lib/units";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
@@ -196,11 +197,19 @@ export async function finishExercise(input: {
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
 
-async function applyProgression(
+/**
+ * Build progression feedback for a session exercise.
+ * Extracted helper for testing: takes an injected profile loader.
+ * 
+ * @param getUnits - Function to load user's units preference
+ * @returns null if no feedback (daily menu mode, no data with per-set logging off)
+ */
+export async function buildProgressionFeedbackForUser(
   supabase: ServerClient,
   userId: string,
   sessionExerciseId: string,
   feel: SetFeel | null,
+  getUnits: (client: ServerClient, uid: string) => Promise<UnitsPreference>,
 ): Promise<ProgressionFeedback | null> {
   const [settingsRes, units] = await Promise.all([
     supabase
@@ -208,7 +217,7 @@ async function applyProgression(
       .select("planning_mode, per_set_logging")
       .eq("user_id", userId)
       .maybeSingle(),
-    getProfileUnits(supabase, userId),
+    getUnits(supabase, userId),
   ]);
 
   const settings = settingsRes.data;
@@ -296,6 +305,15 @@ async function applyProgression(
     message: decision.message,
     personalBest,
   };
+}
+
+async function applyProgression(
+  supabase: ServerClient,
+  userId: string,
+  sessionExerciseId: string,
+  feel: SetFeel | null,
+): Promise<ProgressionFeedback | null> {
+  return buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel, getProfileUnits);
 }
 
 /** Swap the exercise in the active program for the next link in its chain. */
