@@ -147,6 +147,7 @@ async function main() {
       fetchSessionExercises: async () => [
         {
           session_id: "sess-active",
+          rest_seconds: 75,
           session_sets: [
             {
               id: "set-1",

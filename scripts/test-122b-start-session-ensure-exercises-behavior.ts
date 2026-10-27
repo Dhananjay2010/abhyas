@@ -13,28 +13,28 @@
  *   npx tsx scripts/test-122b-start-session-ensure-exercises-behavior.ts
  */
 
-let passed = 0;
-let failed = 0;
+let passed122b = 0;
+let failed122b = 0;
 
-function assertEquals<T>(actual: T, expected: T, message: string) {
+function assertEquals122b<T>(actual: T, expected: T, message: string) {
   if (actual === expected) {
     console.log(`  ok   ${message}`);
-    passed++;
+    passed122b++;
   } else {
     console.error(`❌ ${message}`);
     console.error(`   Expected: ${JSON.stringify(expected)}`);
     console.error(`   Actual:   ${JSON.stringify(actual)}`);
-    failed++;
+    failed122b++;
   }
 }
 
-function assertTrue(condition: boolean, message: string) {
+function assertTrue122b(condition: boolean, message: string) {
   if (condition) {
     console.log(`  ok   ${message}`);
-    passed++;
+    passed122b++;
   } else {
     console.error(`❌ ${message}`);
-    failed++;
+    failed122b++;
   }
 }
 
@@ -88,14 +88,14 @@ console.log("1. Missing exercises are created");
   
   // Check if exercises exist
   const existingResult = mock.from("session_exercises").select().eq("session_id", sessionId);
-  assertEquals(existingResult.data.length, 0, "no exercises exist initially");
+  assertEquals122b(existingResult.data.length, 0, "no exercises exist initially");
   
   // Insert missing exercises (what ensureSessionExercises does)
   mock.from("session_exercises").insert(exercisesToCreate);
   
   // Verify they were created
   const afterResult = mock.from("session_exercises").select().eq("session_id", sessionId);
-  assertEquals(afterResult.data.length, 2, "exercises were created");
+  assertEquals122b(afterResult.data.length, 2, "exercises were created");
 }
 
 console.log("\n2. Existing exercises are left intact");
@@ -112,14 +112,14 @@ console.log("\n2. Existing exercises are left intact");
   
   // Check before
   const beforeResult = mock.from("session_exercises").select().eq("session_id", sessionId);
-  assertEquals(beforeResult.data.length, 1, "one exercise exists");
-  assertEquals(beforeResult.data[0].status, "completed", "exercise status is completed");
+  assertEquals122b(beforeResult.data.length, 1, "one exercise exists");
+  assertEquals122b(beforeResult.data[0].status, "completed", "exercise status is completed");
   
   // If we try to ensure again, it should not duplicate or change existing ones
   // (In real code, this would check first, then only insert missing ones)
   const afterResult = mock.from("session_exercises").select().eq("session_id", sessionId);
-  assertEquals(afterResult.data.length, 1, "still one exercise (idempotent)");
-  assertEquals(afterResult.data[0].status, "completed", "status unchanged");
+  assertEquals122b(afterResult.data.length, 1, "still one exercise (idempotent)");
+  assertEquals122b(afterResult.data[0].status, "completed", "status unchanged");
 }
 
 console.log("\n3. Idempotency: Can be called multiple times safely");
@@ -134,17 +134,17 @@ console.log("\n3. Idempotency: Can be called multiple times safely");
   // First call - creates exercises
   mock.from("session_exercises").insert(exercisesToCreate);
   const firstResult = mock.from("session_exercises").select().eq("session_id", sessionId);
-  assertEquals(firstResult.data.length, 1, "first call creates exercise");
+  assertEquals122b(firstResult.data.length, 1, "first call creates exercise");
   
   // Second call - should not duplicate
   // (In real code, it checks first and skips if already exists)
   const secondResult = mock.from("session_exercises").select().eq("session_id", sessionId);
-  assertEquals(secondResult.data.length, 1, "second call doesn't duplicate");
+  assertEquals122b(secondResult.data.length, 1, "second call doesn't duplicate");
 }
 
-console.log(`\n✅ Passed: ${passed}`);
-if (failed > 0) {
-  console.log(`❌ Failed: ${failed}`);
+console.log(`\n✅ Passed: ${passed122b}`);
+if (failed122b > 0) {
+  console.log(`❌ Failed: ${failed122b}`);
   process.exit(1);
 }
 console.log("\n✨ All #122b ensure exercises behavioral tests passed!");
