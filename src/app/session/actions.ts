@@ -12,23 +12,15 @@ import {
   evaluateProgression,
 } from "@/lib/program/progression";
 import { buildProgressionInput } from "@/lib/session/build-progression-input";
-import { applyDeload } from "@/lib/program/prescription";
-import { cycleWeekFor } from "@/lib/program/block-range";
-import type { ProgressionFeedback } from "@/lib/session/finish-exercise";
-import type { SummaryNote } from "@/lib/session/load-session-summary";
-import { startSessionCore } from "@/lib/session/start-session-core";
-import { updateSessionCore } from "@/lib/session/update-session-core";
+import { abandonSessionCore } from "@/lib/session/abandon-session";
+import { startSessionFullCore } from "@/lib/session/start-session-full-core";
+import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
 import { planDayCore, type PlanDayClient } from "@/lib/session/plan-day-core";
-import { pickReusableSession } from "@/lib/session/reusable-session";
-import { isoWeekday, localDateString } from "@/lib/dates";
+import { localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
-import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
-import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
-import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
-import { abandonSessionAction, finishSessionAction, finishExerciseAction as finishExerciseActionWrapper } from "@/lib/session/session-action-wrappers";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligible-swap-list";
@@ -36,6 +28,7 @@ import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligib
 export type { SwapResult };
 
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
+import type { SummaryNote } from "@/lib/session/load-session-summary";
 import { queryActiveProgramDay } from "@/lib/session/query-active-program-day";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -63,20 +56,6 @@ async function requireUser() {
 }
 
 /**
- * The metric to stamp on a session exercise, from an embedded `exercises` row.
- *
- * PostgREST types a to-one embed as either an object or an array depending on
- * how it infers the relationship, and the shape is not worth arguing with at
- * four call sites. `reps` is the safe default: it is the column default too,
- * and it is what every exercise was before `metric` existed.
- */
-function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metric"] {
-  const row = Array.isArray(embedded) ? embedded[0] : embedded;
-  const m = (row as { metric?: string } | null | undefined)?.metric;
-  return m === "seconds" ? "seconds" : "reps";
-}
-
-/**
  * Start (or resume) today's session.
  *
  * Resuming matters: people lock their phone mid-workout. If a session for today
@@ -84,189 +63,13 @@ function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metr
  * wiping the sets already logged.
  */
 export async function startSession(): Promise<Result<{ sessionId: string }>> {
-  const rateLimit = await checkActionRateLimit<{ sessionId: string }>("session");
-  if (rateLimit) return rateLimit;
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<{ sessionId: string }>;
   
   const { supabase, user } = await requireUser();
 
-  // ---- wave 1 -------------------------------------------------------------
-  // This action used to run seven round trips one after another, and it is the
-  // one the user waits on with their finger still on the button: the elapsed
-  // timer starts when the session row is inserted, so every second spent here
-  // is a second already gone by the time the runner appears on screen.
-  //
-  // Two of those dependencies were only apparent. The open-session lookup was
-  // filtered by today's local date, which needs the timezone from the profile;
-  // it now fetches open sessions regardless of date and matches the date in
-  // code, of which there is at most a handful. And the day lookup needed the
-  // active program's id, so the program is fetched with all seven of its days
-  // embedded and the right one is picked once the timezone is known.
-  const [profileRes, openRes, settingsRes] = await Promise.all([
-    supabase.from("profiles").select("timezone, primary_track").eq("id", user.id).single(),
-    supabase
-      .from("sessions")
-      // `skipped` is in here so that an attempt ended early can be picked up
-      // again -- see the reuse logic below.
-      .select("id, status, local_date, actual_type, started_at")
-      .in("status", ["planned", "in_progress", "skipped"])
-      .order("local_date", { ascending: false })
-      // Newest first within a date, so that where an account carries more than
-      // one abandoned row for today -- which only pre-fix data can -- the most
-      // recent attempt is the one resumed, rather than whichever row the
-      // database happened to hand back first.
-      .order("created_at", { ascending: false })
-      .limit(10),
-    supabase.from("user_settings").select("resume_session").eq("user_id", user.id).maybeSingle(),
-  ]);
-
-  const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
-  const today = localDateString(timezone);
-  const resumeEnabled = settingsRes.data?.resume_session ?? true;
-
-  const todayRows = (openRes.data ?? []).filter((s) => s.local_date === today);
-  const existing = pickReusableSession(todayRows, resumeEnabled);
-
-  if (existing) {
-    // A session row can exist with no exercises attached -- an abandoned first
-    // attempt, or a row created by a yoga or breathing session earlier today.
-    // Returning it as-is used to strand the user on "this session has no
-    // exercises" with no way forward, permanently, because this branch would
-    // keep returning the same empty shell.
-    /*
-      This is the update path. The session exists with status 'skipped' or
-      status 'completed' and started_at: null (unstarted). The user pressed
-      "Start" from the Today page.
-
-      Stamped on a first start, and again when a deliberately abandoned
-      session is restarted. The session clock is wall time since
-      `started_at`, so carrying the old stamp across a quit at 7am and a
-      restart at 1pm would record a six-hour workout. Resuming an
-      `in_progress` session keeps its stamp, because that is the
-      phone-locked-mid-set case the clock is meant to survive.
-    */
-    const updatePayload = {
-      status: "in_progress" as const,
-      ...(existing.started_at === null || existing.status === "skipped"
-        ? { started_at: new Date().toISOString() }
-        : {}),
-    };
-
-    const [updateResult] = await Promise.all([
-      updateSessionCore(supabase, existing.id, user.id, today, updatePayload),
-      ensureSessionExercises(supabase, user.id, existing.id),
-    ]);
-
-    if (!updateResult.ok) {
-      return { ok: false, error: updateResult.error };
-    }
-
-    return { ok: true, data: { sessionId: updateResult.sessionId } };
-  }
-
-  // Ensure we have a current block before creating a session (fixes E-5: stale tab bug)
-  const rolloverResult = await ensureCurrentBlock(supabase, user.id, today);
-  if (rolloverResult.status === "none") {
-    return { ok: false, error: "You have no active training block." };
-  }
-  if (rolloverResult.status === "error") {
-    return { ok: false, error: rolloverResult.error };
-  }
-
-  // From the local date already computed above, not a second read of the clock:
-  // deriving them separately let the weekday and the date disagree across a
-  // midnight boundary.
-  const dayIndex = isoWeekday(today);
-
-  const loadResult = await loadStartProgram(
-    createLoadStartProgramDeps(supabase),
-    rolloverResult.programId,
-    dayIndex
-  );
-  if (!loadResult.ok) return { ok: false, error: loadResult.error };
-
-  const { program, day } = loadResult;
-
-  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, today);
-  const isDeloadWeek = week === program.deload_week;
-
-  // ---- wave 2 -------------------------------------------------------------
-  // Case C: Idempotent session start - check for existing in_progress session first
-  const { data: existingInProgressSessions } = await supabase
-    .from("sessions")
-    .select("id, status, local_date, actual_type")
-    .eq("user_id", user.id)
-    .eq("local_date", today)
-    .eq("status", "in_progress");
-
-  if (existingInProgressSessions && existingInProgressSessions.length > 0) {
-    // An in_progress session already exists for this user + date, return it (idempotent)
-    return { ok: true, data: { sessionId: existingInProgressSessions[0].id } };
-  }
-
-  // No existing in_progress session, create a new one and read the plan
-  const [insertResult, plannedRes] = await Promise.all([
-    startSessionCore(supabase, user.id, {
-      user_id: user.id,
-      program_id: program.id,
-      program_day_id: day.id,
-      local_date: today,
-      week_in_block: week,
-      is_deload: isDeloadWeek,
-      planned_type: day.day_type,
-      actual_type: day.day_type,
-      status: "in_progress",
-      started_at: new Date().toISOString(),
-    }),
-    supabase
-      .from("program_day_exercises")
-      // The exercise's metric comes along so the session can record the unit it
-      // was run in -- see `session_exercises.metric` and SPEC section 7.
-      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
-      .eq("program_day_id", day.id)
-      .order("order_index"),
-  ]);
-
-  if (!insertResult.ok) {
-    if ("existingSessionId" in insertResult && insertResult.existingSessionId) {
-      return { ok: true, data: { sessionId: insertResult.existingSessionId } };
-    }
-    return { ok: false, error: insertResult.error };
-  }
-
-  const planned = plannedRes.data;
-  if (planned && planned.length > 0) {
-    const { error } = await supabase.from("session_exercises").insert(
-      planned.map((p) => {
-        // Week 4 of a block cuts volume; the weight suggestion is reduced
-        // separately when the session is rendered.
-        const dose = isDeloadWeek
-          ? applyDeload({
-              sets: p.target_sets,
-              repsMin: p.target_reps_min,
-              repsMax: p.target_reps_max,
-              restSeconds: p.rest_seconds,
-            })
-          : {
-              sets: p.target_sets,
-              repsMin: p.target_reps_min,
-              repsMax: p.target_reps_max,
-              restSeconds: p.rest_seconds,
-            };
-        return {
-          session_id: insertResult.sessionId,
-          user_id: user.id, // corrected by the definer trigger
-          exercise_id: p.exercise_id,
-          order_index: p.order_index,
-          planned_sets: dose.sets,
-          planned_reps_min: dose.repsMin,
-          planned_reps_max: dose.repsMax,
-          rest_seconds: dose.restSeconds,
-          metric: metricOf(p.exercises),
-        };
-      }),
-    );
-    if (error) return { ok: false, error: error.message };
-  }
+  const result = await startSessionFullCore(buildStartSessionFullDeps(supabase, user.id, Date.now()));
+  if (!result.ok) return { ok: false, error: result.error };
 
   // Deliberately NOT revalidating. This action is invoked from a button on
   // Today, and revalidating a path re-renders it — so `revalidatePath("/today")`
@@ -281,7 +84,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   // if they quit. The worst case is that returning to Today within the client
   // cache's window shows "Start session" instead of "Resume session" — and
   // pressing it finds this very session and resumes it.
-  return { ok: true, data: { sessionId: insertResult.sessionId } };
+  return { ok: true, data: { sessionId: result.sessionId } };
 }
 
 export async function markWarmupDone(sessionId: string): Promise<Result> {
@@ -362,6 +165,8 @@ export async function deleteSet(
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+
 export type { ProgressionFeedback, SummaryNote };
 
 /**
@@ -374,31 +179,17 @@ export type { ProgressionFeedback, SummaryNote };
  * completed/skipped applies progression. Concurrent or repeated calls return
  * success without double-applying.
  */
-/**
- * Testable action body for finishExercise.
- * Extracted for testing the wiring from action to core.
- */
 export async function finishExercise(input: {
   sessionExerciseId: string;
   feel: SetFeel | null;
   skipped?: boolean;
 }): Promise<Result<ProgressionFeedback | null>> {
-  const rateLimit = await checkActionRateLimit<ProgressionFeedback | null>("session");
-  if (rateLimit) return rateLimit;
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<ProgressionFeedback | null>;
   
   const { supabase, user } = await requireUser();
-  
-  type ServerClient = typeof supabase;
-  async function applyProgressionForAction(
-    supabase: ServerClient,
-    userId: string,
-    sessionExerciseId: string,
-    feel: SetFeel | null,
-  ): Promise<ProgressionFeedback | null> {
-    return await applyProgression(supabase, userId, sessionExerciseId, feel);
-  }
-  
-  return await finishExerciseActionWrapper(supabase, user.id, input, applyProgressionForAction);
+
+  return finishExerciseCore(supabase, user.id, input, { applyProgression });
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
@@ -529,25 +320,31 @@ async function upgradeVariation(
     .eq("exercise_id", currentExerciseId);
 }
 
-/**
- * Testable action body for finishSession.
- * Extracted for testing the wiring from action to core.
- */
 export async function finishSession(input: {
   sessionId: string;
   durationSeconds: number;
   cooldownCompleted: boolean;
-}): Promise<Result<{ status: "completed" | "skipped"; durationSeconds: number | null }>> {
-  const rateLimit = await checkActionRateLimit<{ status: "completed" | "skipped"; durationSeconds: number | null }>("session");
+}): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
   
   const { supabase } = await requireUser();
+  const { error } = await supabase
+    .from("sessions")
+    .update({
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      duration_seconds: input.durationSeconds,
+      cooldown_completed: input.cooldownCompleted,
+    })
+    .eq("id", input.sessionId);
+  if (error) return { ok: false, error: error.message };
 
   // Deliberately NOT revalidating here. Revalidating refreshes the session
   // route, whose "completed -> redirect to /today" guard then fires before the
   // client can show the summary, so the user never saw their totals or what
   // progression changed. Today is refreshed when they leave the summary.
-  return await finishSessionAction(supabase, input);
+  return { ok: true };
 }
 
 /**
@@ -563,11 +360,6 @@ export async function finishSession(input: {
  * skipped. The tradeoff: user cannot resume after early end if they had sets.
  * Alternative would be a new status like "partial" that's resumable but counts.
  */
-
-/**
- * Testable action body for abandonSession.
- * Extracted for testing the wiring from action to core.
- */
 export async function abandonSession(
   sessionId: string,
   elapsedSeconds: number,
@@ -576,7 +368,7 @@ export async function abandonSession(
   if (rateLimit) return rateLimit;
 
   const { supabase } = await requireUser();
-  const result = await abandonSessionAction(supabase, sessionId, elapsedSeconds);
+  const result = await abandonSessionCore(supabase, sessionId, elapsedSeconds);
   if (result.ok) revalidateTrainingData();
   return result;
 }
@@ -636,8 +428,8 @@ export type Alternative = {
 export async function findAlternatives(
   sessionExerciseId: string,
 ): Promise<Result<Alternative[]>> {
-  const rateLimit = await checkActionRateLimit<Alternative[]>("session");
-  if (rateLimit) return rateLimit;
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<Alternative[]>;
   
   const { supabase, user } = await requireUser();
 
