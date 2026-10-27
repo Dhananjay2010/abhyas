@@ -57,15 +57,19 @@ alter table public.gym_domains add constraint gym_domains_host_lowercase
 -- - Each label <= 63 chars (DNS maximum per label)
 -- - No scheme, no port, no path, no trailing dot
 -- - Each label: starts and ends with alphanumeric, hyphens only in middle
--- Allows: example.com, sub.example.com, multi.level.sub.example.com
+-- - TLD (last label) must contain at least one letter (no all-numeric TLD)
+-- Allows: example.com, sub.example.com, multi.level.sub.example.com, xn--bcher-kva.example
 -- Blocks: https://example.com, example.com:3000, example.com/, example.com.
 -- Blocks: .example.com (leading dot), example..com (consecutive dots)
 -- Blocks: -example.com, example-.com (labels starting/ending with hyphen)
 -- Blocks: a 64-char label, a 254-char host
+-- Blocks: 1.2.3.4, 192.168.1.1 (all-numeric TLD)
 alter table public.gym_domains add constraint gym_domains_host_format 
   check (
     char_length(host) <= 253
-    and host ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
+    -- Each label is <= 63 chars: [a-z0-9] followed by 0-61 [a-z0-9-] followed by [a-z0-9]
+    -- TLD (last label) must contain at least one letter (not all-numeric)
+    and host ~ '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]*[a-z][a-z0-9]*([a-z0-9-]{0,60}[a-z0-9])?$'
   );
 
 -- Index for gym_id lookups (e.g. listing all domains for a gym)

@@ -497,7 +497,7 @@ async function runTests() {
       "multi.level.sub.example.com",
       "xn--bcher-kva.example",                       // punycode IDN
       "a".repeat(63) + ".example.com",               // 63-char label (exactly at limit)
-      "a".repeat(240) + ".com",                      // 244-char host (under 253 limit)
+      "a".repeat(63) + "." + "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(48) + ".com", // 249-char host (under 253 limit)
       "a1.example.com",                              // alphanumeric
       "1a.example.com",                              // starts with digit, contains letter
     ];
