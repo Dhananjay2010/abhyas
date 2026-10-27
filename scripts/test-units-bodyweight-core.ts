@@ -10,7 +10,7 @@
  * DB constraint: 25 ≤ weight_kg ≤ 300, maps to friendly unit-aware message
  */
 
-import { logBodyWeightCore } from "@/lib/progress/log-bodyweight-core";
+import { logBodyWeightCore, createBodyWeightDbOps } from "@/lib/progress/log-bodyweight-core";
 import { parseWeight } from "@/lib/units";
 import { createFakeDb } from "./helpers/fake-postgrest";
 
@@ -88,7 +88,8 @@ function createFakeDbWithConstraint() {
     
     if (kg55_5lb === null) throw new Error("parseWeight rejected 55.5 lb");
     
-    const result = await logBodyWeightCore(fake.client, "user-1", kg55_5lb, "America/New_York");
+    const db = createBodyWeightDbOps(fake.client, "user-1");
+    const result = await logBodyWeightCore(db, kg55_5lb, "America/New_York");
     check("Imperial 55.5 lb: logBodyWeightCore accepted", result.ok === true, result.ok ? "" : `error: ${result.error}`);
     
     const rows = fake.tables.body_metrics.filter((r: Record<string, unknown>) => r.user_id === "user-1");
@@ -113,7 +114,8 @@ function createFakeDbWithConstraint() {
     
     if (kg661lb === null) throw new Error("parseWeight rejected 661 lb");
     
-    const result = await logBodyWeightCore(fake.client, "user-1", kg661lb, "America/New_York");
+    const db = createBodyWeightDbOps(fake.client, "user-1");
+    const result = await logBodyWeightCore(db, kg661lb, "America/New_York");
     check("Imperial 661 lb: logBodyWeightCore accepted", result.ok === true, result.ok ? "" : `error: ${result.error}`);
     
     const rows = fake.tables.body_metrics.filter((r: Record<string, unknown>) => r.user_id === "user-1");
@@ -149,7 +151,8 @@ function createFakeDbWithConstraint() {
     // Force a value that somehow bypasses validateBodyWeightKg but hits DB constraint
     // (This shouldn't happen in practice, but tests the error mapping)
     // Use 24.9 kg which is below the DB constraint of 25 kg
-    const result = await logBodyWeightCore(fake.client, "user-1", 24.9, "America/New_York");
+    const db = createBodyWeightDbOps(fake.client, "user-1");
+    const result = await logBodyWeightCore(db, 24.9, "America/New_York");
     
     check("DB constraint error: rejected", result.ok === false);
     check("DB constraint error: contains 'lb'", result.ok === false && result.error.includes("lb"), result.ok ? "" : result.error);
@@ -168,7 +171,8 @@ function createFakeDbWithConstraint() {
       },
     });
     
-    const result = await logBodyWeightCore(fake.client, "user-1", 25, "Europe/London");
+    const db = createBodyWeightDbOps(fake.client, "user-1");
+    const result = await logBodyWeightCore(db, 25, "Europe/London");
     
     check("Metric 25 kg: accepted", result.ok === true, result.ok ? "" : `error: ${result.error}`);
     
@@ -187,7 +191,8 @@ function createFakeDbWithConstraint() {
       },
     });
     
-    const result = await logBodyWeightCore(fake.client, "user-1", 24.9, "Europe/London");
+    const db = createBodyWeightDbOps(fake.client, "user-1");
+    const result = await logBodyWeightCore(db, 24.9, "Europe/London");
     
     check("Metric 24.9 kg: rejected", result.ok === false);
     check("Metric 24.9 kg: error contains 'kg'", result.ok === false && result.error.includes("kg"));
@@ -208,7 +213,8 @@ function createFakeDbWithConstraint() {
       },
     });
     
-    const result = await logBodyWeightCore(fake.client, "user-1", 300, "Europe/London");
+    const db = createBodyWeightDbOps(fake.client, "user-1");
+    const result = await logBodyWeightCore(db, 300, "Europe/London");
     
     check("Metric 300 kg: accepted", result.ok === true, result.ok ? "" : `error: ${result.error}`);
     
@@ -227,7 +233,8 @@ function createFakeDbWithConstraint() {
       },
     });
     
-    const result = await logBodyWeightCore(fake.client, "user-1", 300.1, "Europe/London");
+    const db = createBodyWeightDbOps(fake.client, "user-1");
+    const result = await logBodyWeightCore(db, 300.1, "Europe/London");
     
     check("Metric 300.1 kg: rejected", result.ok === false);
     check("Metric 300.1 kg: error contains 'kg'", result.ok === false && result.error.includes("kg"));
