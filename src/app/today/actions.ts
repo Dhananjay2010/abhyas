@@ -3,10 +3,7 @@
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
-import { buildRebuildPlanDeps } from "@/lib/program/rebuild-plan-deps";
-import { rebuildPlanCore } from "@/lib/program/rebuild-plan-core";
-import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { localDateString } from "@/lib/dates";
+import { buildPlanLogic } from "@/lib/program/build-plan-logic";
 
 export type BuildPlanResult = { ok: true } | { ok: false; error: string };
 
@@ -28,34 +25,9 @@ export async function buildPlan(): Promise<BuildPlanResult> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  // Get user's timezone to compute today
-  const profileRes = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", user.id)
-    .single();
-  
-  if (profileRes.error || !profileRes.data) {
-    return { ok: false, error: "Failed to load profile" };
-  }
-  
-  const timezone = resolveTimezoneWithProfile(profileRes.data.timezone);
-  const today = localDateString(timezone);
+  const result = await buildPlanLogic(supabase, user.id);
+  if (!result.ok) return result;
 
-  const deps = buildRebuildPlanDeps(supabase, user.id, today);
-  
-  try {
-    const result = await rebuildPlanCore(deps);
-    if (!result.ok) {
-      return { ok: false, error: result.error };
-    }
-
-    revalidateTrainingData();
-    return { ok: true };
-  } catch (error) {
-    return { 
-      ok: false, 
-      error: error instanceof Error ? error.message : "An error occurred during rebuild" 
-    };
-  }
+  revalidateTrainingData();
+  return { ok: true };
 }
