@@ -109,7 +109,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
       startedAt={new Date().toISOString()}
       isStale={false}
       warmup={[]}
-      cooldown={[{ id: "c1", name: "Hamstring stretch", slug: "hamstring-stretch", type: "stretch", target_regions: ["lower_back"], target_muscles: ["hamstrings"], instructions: [""], duration_seconds: 30 }]}
+      cooldown={[{ id: "c1", name: "Hamstring stretch", slug: "hamstring-stretch", type: "stretch", target_regions: ["lower_back"], target_muscles: ["hamstrings"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
       exercises={[exercise1]}
       settings={settings}
       actions={actions1}
@@ -179,7 +179,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
       startedAt={new Date().toISOString()}
       isStale={false}
       warmup={[]}
-      cooldown={[{ id: "c2", name: "Quad stretch", slug: "quad-stretch", type: "stretch", target_regions: ["lower_back"], target_muscles: ["quads"], instructions: [""], duration_seconds: 30, cue: null }]}
+      cooldown={[{ id: "c2", name: "Quad stretch", slug: "quad-stretch", type: "stretch", target_regions: ["lower_back"], target_muscles: ["quads"], instructions: [""], duration_seconds: 30 }]}
       exercises={[exercise2]}
       settings={settings}
       actions={actions2}
@@ -252,7 +252,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
       startedAt={new Date().toISOString()}
       isStale={false}
       warmup={[]}
-      cooldown={[{ id: "c3", name: "Hip stretch", slug: "hip-stretch", type: "stretch", target_regions: ["hip"], target_muscles: ["hip_flexors"], instructions: [""], duration_seconds: 30, cue: null }]}
+      cooldown={[{ id: "c3", name: "Hip stretch", slug: "hip-stretch", type: "stretch", target_regions: ["hip"], target_muscles: ["hip_flexors"], instructions: [""], duration_seconds: 30 }]}
       exercises={[exercise3]}
       settings={settings}
       actions={actions3}
