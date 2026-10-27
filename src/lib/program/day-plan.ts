@@ -29,6 +29,149 @@ export function labelForDayType(dayType: DayType, fallback: string | null): stri
   return OVERRIDE_LABEL[dayType] ?? fallback ?? "Today";
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// resolveTodayProgramDay: core + wrapper (for mutant viii)
+// ────────────────────────────────────────────────────────────────────────────
+
+type ProgramDayForResolve = {
+  id: string;
+  day_index: number;
+  day_type: Database["public"]["Enums"]["day_type"];
+  label: string | null;
+};
+
+export type ResolveTodayCoreDeps = {
+  getAllProgramDays: () => Promise<ProgramDayForResolve[]>;
+  getYesterdaySession: () => Promise<{
+    programDayId: string | null;
+    actualType: string;
+  } | null>;
+  getTodayIndex: () => number;
+  getYesterdayIndex: () => number;
+};
+
+export function resolveTodayProgramDayCore(
+  deps: ResolveTodayCoreDeps
+): Promise<{ programDayId: string; dayType: Database["public"]["Enums"]["day_type"]; label: string | null } | null> {
+  return (async () => {
+    const todayIndex = deps.getTodayIndex();
+    const yesterdayIndex = deps.getYesterdayIndex();
+
+    const [days, yesterdaySession] = await Promise.all([
+      deps.getAllProgramDays(),
+      deps.getYesterdaySession(),
+    ]);
+
+    const scheduledToday = days.find((d) => d.day_index === todayIndex);
+
+    if (!scheduledToday) return null;
+
+    if (!yesterdaySession) {
+      return {
+        programDayId: scheduledToday.id,
+        dayType: scheduledToday.day_type,
+        label: scheduledToday.label,
+      };
+    }
+
+    const scheduledYesterday = days.find((d) => d.day_index === yesterdayIndex);
+    const yesterdayWasSwap = wasSwapDay({
+      completedProgramDayId: yesterdaySession.programDayId,
+      scheduledProgramDayId: scheduledYesterday?.id ?? null,
+      completedActualType: yesterdaySession.actualType,
+    });
+
+    if (yesterdayWasSwap && yesterdaySession.programDayId === scheduledToday.id) {
+      const rotation = days.filter(
+        (d) => d.day_type === "weights" || d.day_type === "bodyweight"
+      );
+
+      const resolved = resolveTomorrowAfterSwap({
+        todayWasSwap: yesterdayWasSwap,
+        doneProgramDayId: yesterdaySession.programDayId,
+        scheduledTomorrow: {
+          programDayId: scheduledToday.id,
+          label: scheduledToday.label ?? "",
+        },
+        rotation,
+      });
+
+      if (resolved) {
+        const resolvedDay = days.find((d) => d.id === resolved.programDayId);
+        if (resolvedDay) {
+          return {
+            programDayId: resolvedDay.id,
+            dayType: resolvedDay.day_type,
+            label: resolvedDay.label,
+          };
+        }
+      }
+    }
+
+    return {
+      programDayId: scheduledToday.id,
+      dayType: scheduledToday.day_type,
+      label: scheduledToday.label,
+    };
+  })();
+}
+
+/**
+ * Resolve today's program day, applying post-swap collision resolution.
+ * 
+ * Used by both Today page display AND start-session to ensure they agree.
+ */
+export async function resolveTodayProgramDay({
+  supabase,
+  programId,
+  localToday,
+  userId,
+}: {
+  supabase: Client;
+  programId: string;
+  localToday: string;
+  userId: string;
+}): Promise<{ programDayId: string; dayType: Database["public"]["Enums"]["day_type"]; label: string | null } | null> {
+  const todayIndex = isoWeekday(localToday);
+  const yesterday = addDays(localToday, -1);
+  const yesterdayIndex = isoWeekday(yesterday);
+
+  const deps: ResolveTodayCoreDeps = {
+    async getAllProgramDays() {
+      const { data } = await supabase
+        .from("program_days")
+        .select("id, day_index, day_type, label")
+        .eq("program_id", programId)
+        .eq("status", "active")
+        .order("day_index");
+      return data ?? [];
+    },
+
+    async getYesterdaySession() {
+      const { data } = await supabase
+        .from("sessions")
+        .select("program_day_id, actual_type")
+        .eq("user_id", userId)
+        .eq("local_date", yesterday)
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data
+        ? {
+            programDayId: data.program_day_id,
+            actualType: data.actual_type ?? "",
+          }
+        : null;
+    },
+
+    getTodayIndex: () => todayIndex,
+    getYesterdayIndex: () => yesterdayIndex,
+  };
+
+  return await resolveTodayProgramDayCore(deps);
+}
+
 /**
  * The days the "swap the day" prompt can offer.
  *
@@ -36,10 +179,19 @@ export function labelForDayType(dayType: DayType, fallback: string | null): stri
  * upper/lower split has two days called "Upper", and offering both would ask
  * the user a question they cannot answer. Yoga, breathing and rest are added
  * by the prompt itself, since they need no program day.
+ * 
+ * Marks the "next up" workout based on the most recently completed session,
+ * so rest-day swaps can preselect the recommended next workout in the rotation.
  */
 export async function plannableDays(
   supabase: Client,
   programId: string,
+  options?: {
+    /** When provided, marks the next workout in rotation after this date's session */
+    afterDate?: string;
+    /** User ID for filtering sessions (required when afterDate is provided) */
+    userId?: string;
+  }
 ): Promise<PlannableDay[]> {
   const { data } = await supabase
     .from("program_days")
@@ -48,16 +200,139 @@ export async function plannableDays(
     .eq("status", "active")
     .order("day_index");
 
+  const trainingDays = (data ?? []).filter(
+    d => d.day_type === "weights" || d.day_type === "bodyweight"
+  );
+  
+  // Find which workout is "next up" based on the most recently completed session
+  let nextUpId: string | null = null;
+  
+  if (options?.afterDate && options?.userId && trainingDays.length > 0) {
+    const { data: recentSession } = await supabase
+      .from("sessions")
+      .select("program_day_id")
+      .eq("user_id", options.userId)
+      .eq("status", "completed")
+      .in("actual_type", ["weights", "bodyweight"])
+      .lte("local_date", options.afterDate)
+      .order("local_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (recentSession?.program_day_id) {
+      const completedIndex = trainingDays.findIndex(d => d.id === recentSession.program_day_id);
+      if (completedIndex >= 0) {
+        // Next workout in rotation (wraps around)
+        const nextDay = trainingDays[(completedIndex + 1) % trainingDays.length];
+        nextUpId = nextDay.id;
+      }
+    } else {
+      // No completed sessions yet: next up is the first day in the rotation
+      nextUpId = trainingDays[0]?.id ?? null;
+    }
+  }
+
   const seen = new Set<string>();
   const out: PlannableDay[] = [];
-  for (const d of data ?? []) {
-    if (d.day_type !== "weights" && d.day_type !== "bodyweight") continue;
+  for (const d of trainingDays) {
     const label = d.label ?? "Training";
     if (seen.has(label)) continue;
     seen.add(label);
-    out.push({ programDayId: d.id, label, dayType: d.day_type });
+    out.push({ 
+      programDayId: d.id, 
+      label, 
+      dayType: d.day_type,
+      nextUp: d.id === nextUpId
+    });
   }
   return out;
+}
+
+type ProgramDay = {
+  id: string;
+  label: string | null;
+  day_type: string;
+  day_index: number;
+};
+
+/**
+ * Resolve tomorrow's workout after a rest-day swap collision.
+ * 
+ * When today was a swap AND tomorrow's scheduled workout equals what was just done,
+ * serve the next in rotation to avoid back-to-back repeats.
+ */
+export function resolveTomorrowAfterSwap({
+  todayWasSwap,
+  doneProgramDayId,
+  scheduledTomorrow,
+  rotation,
+}: {
+  /** True if today's completed session was a swap (different from scheduled) */
+  todayWasSwap: boolean;
+  /** The program_day_id that was completed today */
+  doneProgramDayId: string | null;
+  /** Tomorrow's resolved program day (what the schedule says) */
+  scheduledTomorrow: { programDayId: string; label: string } | null;
+  /** All training days in the rotation, sorted by day_index */
+  rotation: ProgramDay[];
+}): { programDayId: string; label: string } | null {
+  // No collision if not a swap
+  if (!todayWasSwap) return null;
+  
+  // No collision if tomorrow is Rest or no scheduled day
+  if (!scheduledTomorrow) return null;
+  
+  // No collision if tomorrow is different from what was done today
+  if (doneProgramDayId !== scheduledTomorrow.programDayId) return null;
+  
+  // Collision detected: find next in rotation
+  const currentIndex = rotation.findIndex(d => d.id === doneProgramDayId);
+  if (currentIndex < 0) return null;
+  
+  const nextIndex = (currentIndex + 1) % rotation.length;
+  const nextDay = rotation[nextIndex];
+  
+  if (!nextDay) return null;
+  
+  return {
+    programDayId: nextDay.id,
+    label: nextDay.label ?? scheduledTomorrow.label,
+  };
+}
+
+/**
+ * Determine if today was a swap day.
+ * 
+ * A swap occurs when:
+ * - The completed session's program_day_id differs from the scheduled day, OR
+ * - Today was scheduled Rest but a workout was done
+ */
+export function wasSwapDay({
+  completedProgramDayId,
+  scheduledProgramDayId,
+  completedActualType,
+}: {
+  /** The program_day_id of the completed session */
+  completedProgramDayId: string | null;
+  /** The scheduled program_day_id for today (null for Rest days) */
+  scheduledProgramDayId: string | null;
+  /** The actual_type of the completed session */
+  completedActualType: string;
+}): boolean {
+  // Not a swap if no workout was completed
+  if (!completedProgramDayId) return false;
+  
+  // Not a swap if not a strength workout
+  if (completedActualType !== "weights" && completedActualType !== "bodyweight") {
+    return false;
+  }
+  
+  // Swap if scheduled Rest but did a workout
+  if (scheduledProgramDayId === null) return true;
+  
+  // Swap if different program day
+  return completedProgramDayId !== scheduledProgramDayId;
 }
 
 /**
@@ -146,35 +421,195 @@ export async function resolveDay(
 export type NextDayPlan = {
   localDate: string;
   plannedLabel: string;
+  /** The resolved program_day_id for tomorrow (null for Rest) */
+  programDayId: string | null;
   days: PlannableDay[];
+  collisionResolved: boolean;
 };
+
+// ────────────────────────────────────────────────────────────────────────────
+// nextDayPlan: core + wrapper (for mutant vii)
+// ────────────────────────────────────────────────────────────────────────────
+
+type ProgramDayForCore = {
+  id: string;
+  day_index: number;
+  day_type: DayType;
+  label: string | null;
+};
+
+export type NextDayPlanCoreDeps = {
+  getTodayCompletedSession: () => Promise<{
+    programDayId: string | null;
+    actualType: string;
+  } | null>;
+  getAllProgramDays: () => Promise<ProgramDayForCore[]>;
+  getResolvedTomorrow: () => Promise<ResolvedDay | null>;
+  getPlannableDays: () => Promise<PlannableDay[]>;
+  getTodayDayIndex: () => number;
+  getToday: () => string;
+  getTomorrow: () => string;
+};
+
+export async function nextDayPlanCore(
+  deps: NextDayPlanCoreDeps
+): Promise<NextDayPlan | null> {
+  const tomorrow = deps.getTomorrow();
+  const todayDayIndex = deps.getTodayDayIndex();
+
+  const [todaySession, allProgramDays, resolved, days] = await Promise.all([
+    deps.getTodayCompletedSession(),
+    deps.getAllProgramDays(),
+    deps.getResolvedTomorrow(),
+    deps.getPlannableDays(),
+  ]);
+
+  const scheduledToday = allProgramDays.find((d) => d.day_index === todayDayIndex);
+
+  const todayWasSwap = todaySession
+    ? wasSwapDay({
+        completedProgramDayId: todaySession.programDayId,
+        scheduledProgramDayId: scheduledToday?.id ?? null,
+        completedActualType: todaySession.actualType,
+      })
+    : false;
+
+  const rotation = allProgramDays.filter(
+    (d) => d.day_type === "weights" || d.day_type === "bodyweight"
+  );
+
+  const resolvedProgramDayId = resolved?.programDayId ?? null;
+
+  const collision =
+    todayWasSwap && resolvedProgramDayId
+      ? resolveTomorrowAfterSwap({
+          todayWasSwap: true,
+          doneProgramDayId: todaySession?.programDayId ?? null,
+          scheduledTomorrow: {
+            programDayId: resolvedProgramDayId,
+            label: resolved?.label ?? "",
+          },
+          rotation,
+        })
+      : null;
+
+  if (collision) {
+    return {
+      localDate: tomorrow,
+      plannedLabel: collision.label ?? "Unknown",
+      programDayId: collision.programDayId,
+      days,
+      collisionResolved: true,
+    };
+  }
+
+  return {
+    localDate: tomorrow,
+    plannedLabel: resolved?.label ?? "Rest",
+    programDayId: resolvedProgramDayId,
+    days,
+    collisionResolved: false,
+  };
+}
 
 /**
  * Everything the end-of-session prompt needs about tomorrow.
  *
  * Returns null when there is no active block, which is the one case where
  * asking "what about tomorrow?" has no answer to offer.
+ * 
+ * Post-swap collision handling: if today's completed session was a swap AND
+ * tomorrow's scheduled workout is the same program day just done, serve the
+ * next workout in the rotation instead.
+ * 
+ * MED-1 fix: when targetLocalDate is provided (precomputed as session.local_date + 1),
+ * use it as tomorrow. This ensures a session finishing after midnight still plans
+ * the correct next day. Pass sessionId to query the specific session by id.
+ * Pass now to pin the wall-clock for testing.
+ * 
+ * Signature matches PR #166 for trivial merge.
  */
 export async function nextDayPlan(
   supabase: Client,
   timezone: string,
+  targetLocalDate?: string,
+  options?: { sessionId?: string; now?: Date },
 ): Promise<NextDayPlan | null> {
   const { data: program } = await supabase
     .from("programs")
-    .select("id")
+    .select("id, user_id, split_type")
     .eq("status", "active")
     .maybeSingle();
   if (!program) return null;
 
-  const tomorrow = addDays(localDateString(timezone), 1);
-  const [resolved, days] = await Promise.all([
-    resolveDay(supabase, program.id, tomorrow),
-    plannableDays(supabase, program.id),
-  ]);
+  // MED-1: when targetLocalDate is provided (session summary), use it as tomorrow.
+  // Otherwise compute tomorrow from wall-clock today (Today page).
+  // Pin clock via options.now for testing.
+  const wallClockNow = options?.now ?? new Date();
+  const today = targetLocalDate ? addDays(targetLocalDate, -1) : localDateString(timezone, wallClockNow);
+  const tomorrow = targetLocalDate ?? addDays(today, 1);
+  const userId = program.user_id;
+  const todayDayIndex = isoWeekday(today);
 
-  return {
-    localDate: tomorrow,
-    plannedLabel: resolved?.label ?? "Rest",
-    days,
+  const deps: NextDayPlanCoreDeps = {
+    async getTodayCompletedSession() {
+      // MED-1: check both completed and in_progress sessions. When computing the
+      // prompt during a session (before finish), the session is in_progress but
+      // will be completed by the time the user acts on the prompt. Treating it as
+      // "today's session" prevents planning a repeat after a rest-day swap.
+      // When sessionId is provided, query by id. Otherwise use newest on date.
+      if (options?.sessionId) {
+        const { data } = await supabase
+          .from("sessions")
+          .select("id, program_day_id, actual_type, local_date")
+          .eq("id", options.sessionId)
+          .eq("user_id", userId)
+          .in("status", ["completed", "in_progress"])
+          .maybeSingle();
+        return data
+          ? { programDayId: data.program_day_id, actualType: data.actual_type ?? "" }
+          : null;
+      }
+      
+      const { data } = await supabase
+        .from("sessions")
+        .select("id, program_day_id, actual_type")
+        .eq("user_id", userId)
+        .eq("local_date", today)
+        .in("status", ["completed", "in_progress"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data
+        ? { programDayId: data.program_day_id, actualType: data.actual_type ?? "" }
+        : null;
+    },
+
+    async getAllProgramDays() {
+      const { data } = await supabase
+        .from("program_days")
+        .select("id, label, day_index, day_type")
+        .eq("program_id", program.id)
+        .eq("status", "active")
+        .order("day_index");
+      return data ?? [];
+    },
+
+    async getResolvedTomorrow() {
+      return await resolveDay(supabase, program.id, tomorrow);
+    },
+
+    async getPlannableDays() {
+      return await plannableDays(supabase, program.id, {
+        afterDate: today,
+        userId,
+      });
+    },
+
+    getTodayDayIndex: () => todayDayIndex,
+    getToday: () => today,
+    getTomorrow: () => tomorrow,
   };
+
+  return await nextDayPlanCore(deps);
 }

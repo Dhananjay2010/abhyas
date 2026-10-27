@@ -65,7 +65,14 @@ export type StartSessionFullDeps = {
     | { status: "error"; error: string }
   >;
   
+  resolveTodayDay?: (programId: string, today: string) => Promise<{ programDayId: string; dayType: Database["public"]["Enums"]["day_type"]; label: string | null } | null>;
+  
   loadProgram: (programId: string, dayIndex: number) => Promise<
+    | { ok: true; program: { id: string; started_on: string; deload_week: number; week_offset: number }; dayId: string; dayType: Database["public"]["Enums"]["day_type"] }
+    | { ok: false; error: string }
+  >;
+  
+  loadProgramDay?: (programId: string, programDayId: string) => Promise<
     | { ok: true; program: { id: string; started_on: string; deload_week: number; week_offset: number }; dayId: string; dayType: Database["public"]["Enums"]["day_type"] }
     | { ok: false; error: string }
   >;
@@ -145,7 +152,20 @@ export async function startSessionFullCore(
 
   const dayIndex = isoWeekday(today);
 
-  const loadResult = await deps.loadProgram(rolloverResult.programId, dayIndex);
+  // Resolve today's program day (includes post-swap collision resolution)
+  const resolvedDay = deps.resolveTodayDay
+    ? await deps.resolveTodayDay(rolloverResult.programId, today)
+    : null;
+  
+  let loadResult;
+  if (resolvedDay && deps.loadProgramDay) {
+    // Use resolved program day (post-swap collision aware)
+    loadResult = await deps.loadProgramDay(rolloverResult.programId, resolvedDay.programDayId);
+  } else {
+    // Fallback to day-index based loading
+    loadResult = await deps.loadProgram(rolloverResult.programId, dayIndex);
+  }
+  
   if (!loadResult.ok) return { ok: false, error: loadResult.error };
 
   const { program, dayId, dayType } = loadResult;
