@@ -11,10 +11,6 @@ import "./helpers/setup-jsdom";
 import React from "react";
 import { render, fireEvent, waitFor } from "@testing-library/react";
 import { OnboardingFlow, type InitialState, type OnboardingActions } from "../src/app/onboarding/onboarding-flow.tsx";
-import type { Database } from "../src/lib/database.types";
-
-type BodyRegion = Database["public"]["Enums"]["body_region"];
-type InjurySeverity = Database["public"]["Enums"]["injury_severity"];
 
 let failures = 0;
 
