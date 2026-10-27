@@ -232,13 +232,30 @@ function hasStackTrace(output: string): boolean {
 }
 
 function hasSpecificKillMarker(output: string): boolean {
-  // Check for specific assertion failure markers (not bare 'FAIL')
-  return (
-    output.includes("✗ FAIL") ||
-    output.includes("❌ FAIL") ||
-    output.includes("FAILED:") ||
-    output.includes("AssertionError")
-  );
+  // Check for line-anchored specific assertion failure markers
+  // Line-anchored patterns (start of line after optional whitespace):
+  // - "✗ N test(s) failed" — test-knee-safety-matrix, test-knee-swaps
+  // - "❌ N test(s) failed" — test-swap-mutations, test-owner-decision-mutants
+  // - "Summary: N passed, M failed" — test-knee-swaps, test-swap-mutations, test-swap-context
+  // - "✗ FAIL" / "❌ FAIL" — generic test failure markers
+  // - "FAILED:" — generic assertion prefix
+  // Bare substring "FAIL" anywhere is forbidden (too broad)
+  
+  const lineAnchored = [
+    /^✗\s+\d+\s+test\(s\)\s+failed/m,          // "✗ 15 test(s) failed"
+    /^❌\s+\d+\s+test\(s\)\s+failed/m,          // "❌ 3 test(s) failed"
+    /^Summary:.*\s+(\d+)\s+failed/m,            // "Summary: 32 passed, 1 failed"
+    /^✗\s+FAIL/m,                               // "✗ FAIL: ..."
+    /^❌\s+FAIL/m,                               // "❌ FAIL: ..."
+    /^FAILED:/m,                                 // "FAILED: assertion"
+  ];
+  
+  if (lineAnchored.some((re) => re.test(output))) return true;
+  
+  // AssertionError (from assert module) can appear mid-line
+  if (output.includes("AssertionError")) return true;
+  
+  return false;
 }
 
 function stripBothNpmHeaders(output: string): string {
@@ -300,6 +317,21 @@ function selfTestCrashDetection(): void {
     {
       name: "Specific marker FAILED: = KILLED",
       error: { stdout: "FAILED: 3 tests\n", stderr: "", status: 1 },
+      expectCrash: false,
+    },
+    {
+      name: "test-knee-safety-matrix pattern ✗ N test(s) failed = KILLED",
+      error: { stdout: "✗ 15 test(s) failed\n", stderr: "", status: 1 },
+      expectCrash: false,
+    },
+    {
+      name: "test-swap-mutations pattern ❌ N test(s) failed = KILLED",
+      error: { stdout: "❌ 3 test(s) failed\n", stderr: "", status: 1 },
+      expectCrash: false,
+    },
+    {
+      name: "test-knee-swaps pattern Summary: N passed, M failed = KILLED",
+      error: { stdout: "Summary: 32 passed, 1 failed\n", stderr: "", status: 1 },
       expectCrash: false,
     },
     {
