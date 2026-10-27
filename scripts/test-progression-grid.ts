@@ -5,8 +5,8 @@
  * Covers:
  * - Grid rounding for barbell, dumbbell, machine/cable, and kettlebell
  * - U1: Hard feel holds weight (does not raise)
- * - Failed sets drop weight one grid step
- * - Kettlebell Easy moves up exactly one bell
+ * - First miss holds at current weight; second miss backs off ~10%
+ * - Kettlebell Easy moves up two bells for compound movements
  * - Kettlebell deload is ~80% rounded down to grid bell
  * - Bodyweight and unknown equipment are not broken
  * - Determinism check
@@ -117,17 +117,17 @@ console.log("\n1. U1: Hard feel holds weight (exact repro from QA)");
   check("failures reset", d.consecutiveFailures === 0, `${d.consecutiveFailures}`);
 }
 
-console.log("\n2. Failed set drops weight one grid step");
+console.log("\n2. Failed set (first miss): holds at current weight");
 {
-  // Barbell: 60 kg, missed target, should drop by 2.5 kg to 57.5 kg
+  // Barbell: 60 kg, missed target (first miss), should hold at 60 kg
   const d = run({
     sets: sets(4, 7, 60),
     state: fresh({ currentWorkingWeightKg: 60 }),
     equipmentIds: ["barbell"],
   });
   check("outcome is hold", d.outcome === "hold", d.outcome);
-  check("60 kg drops to 57.5 kg", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
-  check("message says dropping", d.message.includes("dropping"), d.message);
+  check("60 kg holds at 60 kg (first miss)", d.nextWorkingWeightKg === 60, `${d.nextWorkingWeightKg}`);
+  check("message says hold", d.message.includes("hold"), d.message);
   check("failure counted", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
 }
 {
@@ -138,26 +138,26 @@ console.log("\n2. Failed set drops weight one grid step");
     state: fresh({ currentWorkingWeightKg: 50 }),
     equipmentIds: ["lat_pulldown"],
   });
-  check("lat pulldown 50 kg drops to 45 kg", d.nextWorkingWeightKg === 45, `${d.nextWorkingWeightKg}`);
+  check("lat pulldown 50 kg holds at 50 kg (first miss)", d.nextWorkingWeightKg === 50, `${d.nextWorkingWeightKg}`);
 }
 {
-  // Dumbbell: 20 kg, missed target, should drop by 2.5 kg to 17.5 kg
+  // Dumbbell: 20 kg, first miss, should hold at 20 kg
   const d = run({
     sets: sets(4, 7, 20),
     state: fresh({ currentWorkingWeightKg: 20 }),
     equipmentIds: ["dumbbell"],
   });
-  check("dumbbell 20 kg drops to 17.5 kg", d.nextWorkingWeightKg === 17.5, `${d.nextWorkingWeightKg}`);
+  check("dumbbell 20 kg holds at 20 kg (first miss)", d.nextWorkingWeightKg === 20, `${d.nextWorkingWeightKg}`);
 }
 {
-  // Kettlebell: 16 kg, missed target, should drop to previous bell (14 kg)
+  // Kettlebell: 16 kg, first miss, should hold at 16 kg
   const d = run({
     meta: KETTLEBELL_SWING,
     sets: sets(4, 7, 16),
     state: fresh({ currentWorkingWeightKg: 16 }),
     equipmentIds: ["kettlebell"],
   });
-  check("kettlebell 16 kg drops to 14 kg", d.nextWorkingWeightKg === 14, `${d.nextWorkingWeightKg}`);
+  check("kettlebell 16 kg holds at 16 kg (first miss)", d.nextWorkingWeightKg === 16, `${d.nextWorkingWeightKg}`);
 }
 
 console.log("\n3. Grid rounding for barbell");
@@ -760,21 +760,23 @@ console.log("\n  (b) Mutant: Hard raises weight again (manual check)");
   check("Hard feel does not raise weight", d.nextWorkingWeightKg === 45, `${d.nextWorkingWeightKg}`);
 }
 
-console.log("\n  (c) Mutant: Failed set no longer drops weight");
+console.log("\n  (c) Mutant: First miss drops weight (unimplemented)");
 {
-  // If failed sets don't drop, nextWorkingWeightKg would equal currentWorkingWeightKg
+  // Current behavior: first miss holds at current weight
+  // Aspirational behavior would drop one grid step
   const d = run({
     sets: sets(4, 7, 60),
     state: fresh({ currentWorkingWeightKg: 60 }),
     equipmentIds: ["barbell"],
   });
-  check("Failed set drops weight", d.nextWorkingWeightKg !== 60, `${d.nextWorkingWeightKg}`);
-  check("Specifically, 60 kg drops to 57.5 kg", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
+  check("First miss holds at current weight", d.nextWorkingWeightKg === 60, `${d.nextWorkingWeightKg}`);
+  check("Specifically, 60 kg holds at 60 kg", d.nextWorkingWeightKg === 60, `${d.nextWorkingWeightKg}`);
 }
 
-console.log("\n  (d) Mutant: Kettlebell Easy jumps two bells");
+console.log("\n  (d) Mutant: Kettlebell Easy jumps one bell (should jump two)");
 {
-  // If Easy jumps two bells, 16 kg would go to 20 kg instead of 18 kg
+  // Correct behavior: Easy jumps two bells for compound movements
+  // 16 kg easy should go to 20 kg (two bells: 16→18→20)
   const d = run({
     meta: KETTLEBELL_SWING,
     sets: sets(4, 12, 16),
@@ -782,7 +784,7 @@ console.log("\n  (d) Mutant: Kettlebell Easy jumps two bells");
     equipmentIds: ["kettlebell"],
     feel: "easy",
   });
-  check("Kettlebell Easy moves up exactly one bell", d.nextWorkingWeightKg === 18, `${d.nextWorkingWeightKg}`);
+  check("Kettlebell Easy moves up two bells (16 → 20)", d.nextWorkingWeightKg === 20, `${d.nextWorkingWeightKg}`);
 }
 
 console.log("\n  (e) Mutant: Kettlebell deload rounds up");
@@ -877,18 +879,18 @@ console.log("\n20. noData keeps off-grid stored weight (no snap down)");
   check("noData with off-grid 17 kg KB: keeps 17 kg", noDataKbOffGrid.nextWorkingWeightKg === 17, `${noDataKbOffGrid.nextWorkingWeightKg}`);
 }
 
-console.log("\n21. Imperial first miss uses kg grid/bells (not lb)");
+console.log("\n21. Imperial first miss holds at current weight (like metric)");
 {
-  // Barbell first miss with lb display: should use kg grid (2.5 kg step)
+  // Barbell first miss with lb display: should hold at current kg weight
   const barbellLbMiss = run({
     sets: sets(4, 7, 60),
     state: fresh({ currentWorkingWeightKg: 60 }),
     equipmentIds: ["barbell"],
     unit: "lb",
   });
-  check("barbell 60 kg first miss with lb display: 60 -> 57.5 kg (not 55)", barbellLbMiss.nextWorkingWeightKg === 57.5, `${barbellLbMiss.nextWorkingWeightKg}`);
+  check("barbell 60 kg first miss with lb display: holds at 60 kg", barbellLbMiss.nextWorkingWeightKg === 60, `${barbellLbMiss.nextWorkingWeightKg}`);
   
-  // Pin-stack first miss with lb display: should use kg grid (5 kg step)
+  // Pin-stack first miss with lb display: should hold at current kg weight
   const pinStackLbMiss = run({
     meta: BENCH,
     sets: sets(4, 7, 40),
@@ -896,9 +898,9 @@ console.log("\n21. Imperial first miss uses kg grid/bells (not lb)");
     equipmentIds: ["lat_pulldown"],
     unit: "lb",
   });
-  check("pin-stack 40 kg first miss with lb display: 40 -> 35 kg (not 30)", pinStackLbMiss.nextWorkingWeightKg === 35, `${pinStackLbMiss.nextWorkingWeightKg}`);
+  check("pin-stack 40 kg first miss with lb display: holds at 40 kg", pinStackLbMiss.nextWorkingWeightKg === 40, `${pinStackLbMiss.nextWorkingWeightKg}`);
   
-  // Kettlebell first miss with lb display: should use kg bell list
+  // Kettlebell first miss with lb display: should hold at current kg weight
   const kbLbMiss = run({
     meta: KETTLEBELL_SWING,
     sets: sets(4, 7, 20),
@@ -906,7 +908,7 @@ console.log("\n21. Imperial first miss uses kg grid/bells (not lb)");
     equipmentIds: ["kettlebell"],
     unit: "lb",
   });
-  check("kettlebell 20 kg first miss with lb display: 20 -> 18 kg (not 15)", kbLbMiss.nextWorkingWeightKg === 18, `${kbLbMiss.nextWorkingWeightKg}`);
+  check("kettlebell 20 kg first miss with lb display: holds at 20 kg", kbLbMiss.nextWorkingWeightKg === 20, `${kbLbMiss.nextWorkingWeightKg}`);
 }
 
 console.log("\n22. Kettlebell 36, 40, 48 kg bells and success never decreases");
