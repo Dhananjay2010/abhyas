@@ -13,25 +13,31 @@ const today = "2026-10-15";
 
 // Test 1: new block 1 → today
 {
-  const result = decideBlockStartedOn({ blockNumber: 1, today });
+  const result = decideBlockStartedOn({ blockNumber: 1, isRebuild: false, today });
   assert.equal(result, today, "new block 1 must anchor to today");
 }
 
-// Test 2: block 2 (rollover) → undefined
+// Test 2: rebuild block 1 → undefined
 {
-  const result = decideBlockStartedOn({ blockNumber: 2, today });
+  const result = decideBlockStartedOn({ blockNumber: 1, isRebuild: true, today });
+  assert.equal(result, undefined, "rebuild block 1 must not anchor");
+}
+
+// Test 3: block 2 (rollover) → undefined
+{
+  const result = decideBlockStartedOn({ blockNumber: 2, isRebuild: false, today });
   assert.equal(result, undefined, "block 2 must not anchor");
 }
 
-// Test 3: block 3 (rollover) → undefined
+// Test 4: block 3 (rollover) → undefined
 {
-  const result = decideBlockStartedOn({ blockNumber: 3, today });
+  const result = decideBlockStartedOn({ blockNumber: 3, isRebuild: false, today });
   assert.equal(result, undefined, "block 3 must not anchor");
 }
 
-// Test 4: block 10 (rollover) → undefined
+// Test 5: block 10 (rollover) → undefined
 {
-  const result = decideBlockStartedOn({ blockNumber: 10, today });
+  const result = decideBlockStartedOn({ blockNumber: 10, isRebuild: false, today });
   assert.equal(result, undefined, "block 10 must not anchor");
 }
 
