@@ -348,7 +348,7 @@ console.log("\n9. Re-derivation: stored failures=1 from in-range session isn't a
   check("Real miss after reset: failures = 1", afterReset.consecutiveFailures === 1);
   check("Real miss after reset: outcome hold (not backed_off)", afterReset.outcome === "hold", 
     afterReset.outcome);
-  check("Real miss after reset: first-miss drop to 37.5", afterReset.nextWorkingWeightKg === 37.5, 
+  check("Real miss after reset: first miss holds at 40", afterReset.nextWorkingWeightKg === 40, 
     `${afterReset.nextWorkingWeightKg}`);
 }
 
