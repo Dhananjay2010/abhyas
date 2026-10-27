@@ -650,7 +650,6 @@ async function runTests() {
         keys.every((k, i) => k === expectedKeys[i]),
         `Expected: [${expectedKeys.join(", ")}], Got: [${keys.join(", ")}]`
       );
-    }
   }
   console.log();
 
