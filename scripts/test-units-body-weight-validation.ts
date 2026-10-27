@@ -5,15 +5,7 @@
  * L-b: Onboarding and Progress use the same parser (parseBodyWeight) and show identical errors
  */
 
-import { JSDOM } from "jsdom";
-
-const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true });
-const g = globalThis as Record<string, unknown>;
-for (const k of ["window","document","HTMLElement","Node","navigator","MouseEvent","Event","getComputedStyle"]) {
-  Object.defineProperty(g, k, { value: (dom.window as unknown as Record<string, unknown>)[k] ?? dom.window, writable: true, configurable: true });
-}
-g.IS_REACT_ACT_ENVIRONMENT = true;
-g.self = dom.window;
+import "./helpers/setup-jsdom";
 
 import { 
   parseBodyWeight,
@@ -83,8 +75,9 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
 
 (async () => {
   const React = await import("react");
-  const { render, fireEvent, act } = await import("@testing-library/react");
-  const { OnboardingBodyWeightInput } = await import("../src/components/onboarding/body-weight-input");
+  const { render, fireEvent, waitFor } = await import("@testing-library/react");
+  const { LogWeight } = await import("../src/app/progress/log-weight");
+  const { OnboardingFlow } = await import("../src/app/onboarding/onboarding-flow");
 
   const parityTestCases: Array<{ 
     value: string; 
@@ -97,7 +90,6 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
     { value: "661", units: "imperial", shouldAccept: true, desc: "imperial upper bound (661 lb)" },
     { value: "661.1", units: "imperial", shouldAccept: false, desc: "imperial just above upper (661.1 lb)" },
     { value: "", units: "imperial", shouldAccept: false, desc: "empty string (imperial)" },
-    // Note: "abc" can't be tested because type="number" inputs reject non-numeric characters
     { value: "24.9", units: "metric", shouldAccept: false, desc: "metric just below lower (24.9 kg)" },
     { value: "25", units: "metric", shouldAccept: true, desc: "metric lower bound (25 kg)" },
     { value: "300", units: "metric", shouldAccept: true, desc: "metric upper bound (300 kg)" },
@@ -105,56 +97,147 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
   ];
 
   for (const { value, units, shouldAccept, desc } of parityTestCases) {
-    // Test Onboarding body weight input component
-    let onboardingError: string | null = null;
-    let onboardingAccepted = false;
+    // Test Progress LogWeight component
+    let progressAccepted = false;
+    let progressError: string | null = null;
 
-    const { container: onboardingContainer, unmount: onboardingUnmount } = render(
-      React.createElement(OnboardingBodyWeightInput, {
+    const { container: progressContainer, unmount: progressUnmount } = render(
+      React.createElement(LogWeight, {
+        current: null,
         units,
-        value: "",
-        onChange: (v: string) => {},
-        onBlur: () => {},
-        onValidSubmit: (kg: number) => {
-          onboardingAccepted = true;
+        logAction: async (kg: number) => {
+          progressAccepted = true;
+          return { ok: true as const };
         }
       })
     );
 
-    await act(async () => {
-      const input = onboardingContainer.querySelector("input") as HTMLInputElement;
-      if (input) {
-        fireEvent.change(input, { target: { value } });
-        fireEvent.blur(input);
-      }
+    const openButton = progressContainer.querySelector("button");
+    if (openButton) fireEvent.click(openButton);
+
+    await waitFor(() => {
+      const input = progressContainer.querySelector<HTMLInputElement>("input[type='number']");
+      return input !== null;
     });
 
-    const onboardingErrorEl = onboardingContainer.querySelector("[role='alert']");
-    onboardingError = onboardingErrorEl ? onboardingErrorEl.textContent : null;
-    onboardingAccepted = value !== "" && parseBodyWeight(value, units) !== null;
+    const progressInput = progressContainer.querySelector<HTMLInputElement>("input[type='number']");
+    if (progressInput) {
+      fireEvent.change(progressInput, { target: { value } });
+      
+      const submitButton = progressContainer.querySelector("button[type='button']");
+      if (submitButton && submitButton.textContent?.includes("Log")) {
+        fireEvent.click(submitButton);
+      }
+    }
 
-    onboardingUnmount();
+    await waitFor(() => {
+      const errorEl = progressContainer.querySelector("[role='alert']");
+      progressError = errorEl ? errorEl.textContent : null;
+      return true;
+    });
+
+    progressUnmount();
 
     check(
-      `Onboarding ${desc}: ${shouldAccept ? "accepts" : "rejects with error"}`,
-      onboardingAccepted === shouldAccept,
-      `accepted=${onboardingAccepted}, expected=${shouldAccept}`
+      `Progress ${desc}: ${shouldAccept ? "accepts" : "rejects with error"}`,
+      progressAccepted === shouldAccept && (shouldAccept || progressError !== null),
+      `accepted=${progressAccepted}, hasError=${progressError !== null}, expected=${shouldAccept}`
     );
 
     if (!shouldAccept && value !== "") {
       const expectedError = getBodyWeightRangeMessage(units);
       check(
-        `Onboarding ${desc}: shows correct error`,
+        `Progress ${desc}: shows correct error message`,
+        progressError === expectedError,
+        `error="${progressError}", expected="${expectedError}"`
+      );
+    }
+
+    // Test Onboarding body-weight input (from OnboardingFlow at "about" step)
+    let onboardingAccepted = false;
+    let onboardingError: string | null = null;
+
+    const mockActions = {
+      acceptDisclaimer: async () => ({ ok: true as const }),
+      saveAboutYou: async (data: { dateOfBirth: string; sex: string; heightCm: number; weightKg: number }) => {
+        onboardingAccepted = true;
+        return { ok: true as const };
+      },
+      saveProfileFields: async () => ({ ok: true as const }),
+      saveEquipment: async () => ({ ok: true as const }),
+      saveInjuries: async () => ({ ok: true as const }),
+      saveSessionLength: async () => ({ ok: true as const }),
+      completeOnboarding: async () => ({ ok: true as const }),
+    };
+
+    const initialState = {
+      current: "about" as const,
+      disclaimerAccepted: true,
+      dateOfBirth: "1990-01-01",
+      sex: "male" as const,
+      heightCm: null,
+      weightKg: null,
+      units,
+      goal: null,
+      level: null,
+      primaryTrack: null,
+      daysPerWeek: null,
+      sessionMinutes: null,
+      yogaDaysPerWeek: 0,
+      hasAllEquipment: false,
+      equipmentIds: [],
+      injuries: [],
+    };
+
+    const { container: onboardingContainer, unmount: onboardingUnmount } = render(
+      React.createElement(OnboardingFlow, {
+        initial: initialState,
+        equipment: [],
+        actions: mockActions,
+      })
+    );
+
+    await waitFor(() => {
+      const input = onboardingContainer.querySelector<HTMLInputElement>("input[type='number']");
+      return input !== null;
+    });
+
+    const onboardingWeightInput = onboardingContainer.querySelector<HTMLInputElement>("input[type='number']");
+    if (onboardingWeightInput) {
+      fireEvent.change(onboardingWeightInput, { target: { value } });
+      fireEvent.blur(onboardingWeightInput);
+    }
+
+    await waitFor(() => {
+      const errorEl = onboardingContainer.querySelector("p.text-danger");
+      onboardingError = errorEl ? errorEl.textContent : null;
+      return true;
+    });
+
+    onboardingUnmount();
+
+    check(
+      `Onboarding ${desc}: ${shouldAccept ? "no error shown" : "shows error"}`,
+      shouldAccept ? onboardingError === null : onboardingError !== null,
+      `error="${onboardingError}", shouldAccept=${shouldAccept}`
+    );
+
+    if (!shouldAccept && value !== "") {
+      const expectedError = getBodyWeightRangeMessage(units);
+      check(
+        `Onboarding ${desc}: shows correct error message`,
         onboardingError === expectedError,
         `error="${onboardingError}", expected="${expectedError}"`
       );
     }
   }
 
-  console.log("\n=== Mutant test: onboarding reverts to parseWeight ===\n");
-  console.log("If onboarding's body weight input switched from parseBodyWeight to parseWeight,");
-  console.log("the 'imperial just below lower (55.4 lb)' test above would fail because parseWeight");
-  console.log("accepts any positive number, while parseBodyWeight enforces 55.5-661 lb bounds.\n");
+  console.log("\n=== Mutant tests ===\n");
+  console.log("Mutant: onboarding parseBodyWeight → parseWeight");
+  console.log("Expected: 'Onboarding imperial just below lower (55.4 lb): shows error' would fail\n");
+  
+  console.log("Mutant: progress parseBodyWeight → parseWeight");
+  console.log("Expected: 'Progress imperial just below lower (55.4 lb): rejects with error' would fail\n");
 
   console.log("");
 
@@ -165,4 +248,7 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
     console.log(`✗ ${failed} of ${passed + failed} tests failed\n`);
     process.exit(1);
   }
-})().catch(e => { console.log("Test error:", e?.stack ?? e); process.exit(2); });
+})().catch(e => { 
+  console.error("Test error:", e?.stack ?? e); 
+  process.exit(2); 
+});

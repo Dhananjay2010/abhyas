@@ -45,7 +45,7 @@ import {
 } from "./actions";
 import { branding } from "@/lib/branding";
 import {
-  formatWeight,
+  formatBodyWeight,
   formatHeight,
   parseBodyWeight,
   parseHeight,
@@ -142,7 +142,7 @@ export function OnboardingFlow({
   );
   const [heightTouched, setHeightTouched] = useState(false);
   const [weightKg, setWeightKg] = useState(
-    initial.weightKg ? formatWeight(initial.weightKg, units, false) : ""
+    initial.weightKg ? formatBodyWeight(initial.weightKg, units, false) : ""
   );
   const [weightTouched, setWeightTouched] = useState(false);
   const [goal, setGoal] = useState<Goal | null>(initial.goal);
