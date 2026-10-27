@@ -20,7 +20,9 @@ import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { displayToKg, formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
-import { shouldShowFinishRetry } from "@/lib/session/finish-flow";
+import { shouldShowFinishRetry, runEndEarly } from "@/lib/session/finish-flow";
+import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
+import { focusTrap } from "@/lib/focus-trap";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
 import { applySwapTarget } from "@/lib/session/apply-swap-target";
@@ -49,7 +51,7 @@ import { loadPendingSets } from "@/lib/session/pending-set-retry";
 import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
 import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
-import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
+import { shouldShowCooldownForPending } from "@/lib/session/session-finish-decisions";
 import { resolveSetConflict, type ConflictResult } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
@@ -276,6 +278,10 @@ export function SessionRunner({
   const [needsFinishRetry, setNeedsFinishRetry] = useState(false);
   const [lastCooldownCompleted, setLastCooldownCompleted] = useState<boolean>(true);
   const [savedDurationSeconds, setSavedDurationSeconds] = useState<number | null>(null);
+  const endEarlyTriggerRef = useRef<HTMLButtonElement>(null);
+  const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
+  const endingRef = useRef(false);
+  const [ending, setEnding] = useState(false);
 
   // Pending set controller for retry functionality (PR #113)
   const [pendingSetState, setPendingSetState] = useState<PendingSetState>({
@@ -1559,15 +1565,43 @@ export function SessionRunner({
               Skip this exercise
             </GhostButton>
           )}
+          {confirming === "end_early" && (
+            <EndEarlyConfirm
+              totalSetsDone={totalSetsDone}
+              totalSetsPlanned={totalSetsPlanned}
+              triggerRef={endEarlyTriggerRef}
+              offlineError={endEarlyOfflineError}
+              onClearOfflineError={() => setEndEarlyOfflineError(false)}
+              onCancel={() => {
+                setConfirming(null);
+                setEndEarlyOfflineError(false);
+              }}
+              onConfirm={async () => {
+                const ended = await runEndEarly(
+                  {
+                    abandonSession: actions.abandonSession,
+                    stopElapsed,
+                    resumeElapsed,
+                    setError,
+                    navigateToToday: () => router.push("/today"),
+                  },
+                  {
+                    sessionId,
+                    setConfirming: (v) => setConfirming(v),
+                    setOfflineError: setEndEarlyOfflineError,
+                    endingRef,
+                    setEnding,
+                  },
+                );
+                if (ended) restPersistence.clear();
+              }}
+              disabled={ending}
+            />
+          )}
           <GhostButton
-            disabled={isEndEarlyDisabled(busy, pendingSetState.pending.length)}
-            onClick={async () => {
-              if (await run(() => actions.abandonSession(sessionId, elapsed))) {
-                restPersistence.clear();
-                if (onExit) onExit();
-                else router.push("/today");
-              }
-            }}
+            buttonRef={endEarlyTriggerRef}
+            disabled={busy}
+            onClick={() => setConfirming("end_early")}
           >
             End session early
           </GhostButton>
@@ -1920,6 +1954,133 @@ export function Shell({
   );
 }
 
+/**
+ * Confirmation dialog for ending a session early.
+ *
+ * - Escape key support via cancel event
+ * - focus trap with Tab/Shift+Tab cycling
+ * - focus management: initial focus on "Keep going", returns to trigger on close
+ * - offline error handling: shows error and clears on 'online' event
+ */
+function EndEarlyConfirm({
+  totalSetsDone,
+  totalSetsPlanned,
+  triggerRef,
+  offlineError,
+  onClearOfflineError,
+  onCancel,
+  onConfirm,
+  disabled = false,
+}: {
+  totalSetsDone: number;
+  totalSetsPlanned: number;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
+  offlineError: boolean;
+  onClearOfflineError: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+  disabled?: boolean;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const keepGoingRef = useRef<HTMLButtonElement>(null);
+  const endSessionRef = useRef<HTMLButtonElement>(null);
+  const onCancelRef = useRef(onCancel);
+  const onConfirmRef = useRef(onConfirm);
+
+  useEffect(() => {
+    onCancelRef.current = onCancel;
+    onConfirmRef.current = onConfirm;
+  });
+
+  useEffect(() => {
+    const handleOnline = () => {
+      onClearOfflineError();
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [onClearOfflineError]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    dialog.showModal();
+
+    const trap = focusTrap({
+      element: dialog,
+      onEscape: () => onCancelRef.current(),
+      returnFocusTo: triggerRef.current,
+      initialFocus: true,
+    });
+
+    const handleCancel = (e: Event) => {
+      e.preventDefault();
+      onCancelRef.current();
+    };
+
+    dialog.addEventListener("cancel", handleCancel);
+
+    return () => {
+      dialog.removeEventListener("cancel", handleCancel);
+      trap.release();
+      dialog.close();
+    };
+  }, [triggerRef]);
+
+  const handleKeepGoing = () => {
+    onCancelRef.current();
+  };
+
+  const handleEndSession = () => {
+    onConfirmRef.current();
+  };
+
+  const hasNoSets = totalSetsDone === 0;
+  const titleText = endEarlyConfirmTitle(totalSetsDone, totalSetsPlanned);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="end-early-title"
+      aria-describedby="end-early-desc"
+      className="max-w-[390px] rounded-xl border border-border bg-surface-2 px-4 py-4 backdrop:bg-bg/80"
+    >
+      <p id="end-early-title" className="text-sm font-medium">
+        {titleText}
+      </p>
+      <p id="end-early-desc" className="mt-2 text-sm text-muted">
+        {hasNoSets
+          ? "You can start it again from Today."
+          : "The session can\u2019t be resumed once ended."}
+      </p>
+      {offlineError && (
+        <p role="alert" className="mt-3 text-sm text-danger">
+          You&apos;re offline. Your session wasn&apos;t ended – try again when you&apos;re back
+          online.
+        </p>
+      )}
+      <div className="mt-4 flex gap-3">
+        <button
+          ref={keepGoingRef}
+          onClick={handleKeepGoing}
+          className="flex-1 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover min-h-11"
+        >
+          Keep going
+        </button>
+        <button
+          ref={endSessionRef}
+          disabled={disabled}
+          onClick={handleEndSession}
+          className="flex-1 rounded-lg bg-surface px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-surface-2 disabled:opacity-60 min-h-11"
+        >
+          End now
+        </button>
+      </div>
+    </dialog>
+  );
+}
+
 function BigButton({
   children,
   onClick,
@@ -1944,13 +2105,16 @@ function GhostButton({
   children,
   onClick,
   disabled = false,
+  buttonRef,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  buttonRef?: React.RefObject<HTMLButtonElement | null>;
 }) {
   return (
     <button
+      ref={buttonRef}
       onClick={onClick}
       disabled={disabled}
       className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-60"
