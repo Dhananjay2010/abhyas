@@ -9,9 +9,7 @@
 
 function hasStackTrace(output: string): boolean {
   return (
-    output.includes("Error:") ||
-    output.includes("at ") ||
-    /^\s+at\s+/m.test(output) // Stack frame pattern
+    /^\s+at\s+/m.test(output) // Stack frame pattern (line starts with whitespace + "at ")
   );
 }
 
