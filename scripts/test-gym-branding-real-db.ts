@@ -525,7 +525,7 @@ async function runTests() {
     check("SQLSTATE 23514 (check_violation)", badPrimary?.code === "23514");
     check(
       "Constraint name: gyms_primary_color_hex",
-      badPrimary?.message?.includes("gyms_primary_color_hex")
+      !!badPrimary?.message?.includes("gyms_primary_color_hex")
     );
 
     // Invalid accent_color (not 6-digit hex)
@@ -537,7 +537,7 @@ async function runTests() {
     check("SQLSTATE 23514 (check_violation)", badAccent?.code === "23514");
     check(
       "Constraint name: gyms_accent_color_hex",
-      badAccent?.message?.includes("gyms_accent_color_hex")
+      !!badAccent?.message?.includes("gyms_accent_color_hex")
     );
 
     // Invalid logo_url (javascript: protocol)
@@ -549,7 +549,7 @@ async function runTests() {
     check("SQLSTATE 23514 (check_violation)", badLogo1?.code === "23514");
     check(
       "Constraint name: gyms_logo_url_format",
-      badLogo1?.message?.includes("gyms_logo_url_format")
+      !!badLogo1?.message?.includes("gyms_logo_url_format")
     );
 
     // Invalid logo_url (http: instead of https:)
@@ -561,7 +561,7 @@ async function runTests() {
     check("SQLSTATE 23514 (check_violation)", badLogo2?.code === "23514");
     check(
       "Constraint name: gyms_logo_url_format",
-      badLogo2?.message?.includes("gyms_logo_url_format")
+      !!badLogo2?.message?.includes("gyms_logo_url_format")
     );
   }
   console.log();
