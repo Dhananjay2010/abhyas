@@ -818,21 +818,71 @@ async function runTests() {
     p_code: highUsesCode,
   });
   check("successUser redeem returns data", !!alreadyMemberData);
-  const parsedAlreadyMember = alreadyMemberData as { ok: boolean; reason?: string };
-  check("successUser redeem already_member reason", parsedAlreadyMember.ok === false && parsedAlreadyMember.reason === "already_member");
+  const parsedAlreadyMember = parseRedeemJoinCodeResult(alreadyMemberData);
+  check("successUser redeem already_member reason", 
+    parsedAlreadyMember !== null && !parsedAlreadyMember.ok && parsedAlreadyMember.reason === "already_member");
+  check("successUser redeem already_member includes gym_name",
+    parsedAlreadyMember !== null && !parsedAlreadyMember.ok && parsedAlreadyMember.gym_name === "Test Gym");
 
-  // Verify the error message contains the gym name via actions.ts path
-  // (The action calls preview_join_code which is SECURITY DEFINER and retrieves gym_name)
-  // successUser.client should be authenticated with the same user
-  // But actions.ts requires server-side auth, so let's verify via direct RPC that gym_name is available
-  const { data: previewForName } = await successUser.client.rpc("preview_join_code", {
-    p_code: highUsesCode,
-  });
-  const parsedPreview = parsePreviewJoinCodeResult(previewForName);
-  check("preview_join_code returns gym_name for ordinary user",
-    !!(parsedPreview?.ok && parsedPreview.gym_name === "Test Gym"),
-    parsedPreview?.ok ? `Got gym_name: ${(parsedPreview as { gym_name?: string }).gym_name}` : "Preview failed"
-  );
+  // Verify user-facing copy via lib function
+  const { processRedeemResult } = await import("@/lib/redeem-join-code-errors");
+  const userFacingResult = processRedeemResult(alreadyMemberData);
+  check("User-facing error includes 'Test Gym'",
+    !userFacingResult.ok && userFacingResult.error.includes("Test Gym"));
+  
+  // Test N failed redeems = N misses (no double-recording)
+  console.log("\nTEST: N failed redeems = N misses (no double-recording)");
+  const missTestUser = await createTestUser("miss-test");
+  const beforeMissCount = await adminClient
+    .from("gym_join_code_attempts")
+    .select("*", { count: "exact" })
+    .eq("user_id", missTestUser.userId);
+  check("missTestUser starts with 0 attempts", beforeMissCount.count === 0);
+  
+  // Make 3 failed redeem calls (invalid codes)
+  for (let i = 0; i < 3; i++) {
+    await missTestUser.client.rpc("redeem_join_code", { p_code: "INVALID" + i });
+  }
+  
+  const afterMissCount = await adminClient
+    .from("gym_join_code_attempts")
+    .select("*", { count: "exact" })
+    .eq("user_id", missTestUser.userId);
+  check("3 failed redeems = exactly 3 attempts recorded", afterMissCount.count === 3);
+  
+  await adminClient.from("gym_join_code_attempts").delete().eq("user_id", missTestUser.userId);
+  await adminClient.auth.admin.deleteUser(missTestUser.userId);
+  console.log();
+
+  // Test throttle: 10 misses allowed, 10th returns real reason, 11th is throttled
+  console.log("\nTEST: Throttle allows exactly 10 misses");
+  const throttleTestUser = await createTestUser("throttle-test");
+  
+  // Make 10 failed redeem calls (invalid codes)
+  let tenthResult = null;
+  for (let i = 0; i < 10; i++) {
+    const { data } = await throttleTestUser.client.rpc("redeem_join_code", { p_code: "INVALID" + i });
+    if (i === 9) tenthResult = data;
+  }
+  
+  const tenthParsed = parseRedeemJoinCodeResult(tenthResult);
+  check("10th attempt returns real reason (invalid, not throttled)",
+    tenthParsed !== null && !tenthParsed.ok && tenthParsed.reason === "invalid");
+  
+  // 11th attempt should be throttled
+  const { data: eleventhData } = await throttleTestUser.client.rpc("redeem_join_code", { p_code: "INVALID10" });
+  const eleventhParsed = parseRedeemJoinCodeResult(eleventhData);
+  check("11th attempt is throttled",
+    eleventhParsed !== null && !eleventhParsed.ok && eleventhParsed.reason === "throttled");
+  
+  const throttleCount = await adminClient
+    .from("gym_join_code_attempts")
+    .select("*", { count: "exact" })
+    .eq("user_id", throttleTestUser.userId);
+  check("10 failed attempts recorded (11th not recorded)", throttleCount.count === 10);
+  
+  await adminClient.from("gym_join_code_attempts").delete().eq("user_id", throttleTestUser.userId);
+  await adminClient.auth.admin.deleteUser(throttleTestUser.userId);
   console.log();
 
   // Cleanup

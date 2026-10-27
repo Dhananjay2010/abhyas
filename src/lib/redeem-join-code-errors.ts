@@ -36,12 +36,9 @@ export function mapDbErrorToMessage(error: { code?: string; message?: string }):
 
 /**
  * Processes a redeem join code RPC result and maps it to a user-facing result.
- * Takes the gym name from the server to provide personalized error messages.
+ * Uses gym_name from the server result (already_member includes it, success includes it).
  */
-export function processRedeemResult(
-  data: unknown,
-  gymName?: string
-): RedeemCodeResult {
+export function processRedeemResult(data: unknown): RedeemCodeResult {
   const result = parseRedeemJoinCodeResult(data);
   
   if (!result) {
@@ -49,7 +46,8 @@ export function processRedeemResult(
   }
   
   if (!result.ok) {
-    const errorMessage = mapRedeemResultToMessage(result, gymName);
+    const serverGymName = result.gym_name;
+    const errorMessage = mapRedeemResultToMessage(result, serverGymName);
     return { ok: false, error: errorMessage };
   }
 

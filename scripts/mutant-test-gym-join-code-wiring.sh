@@ -69,7 +69,7 @@ run_mutant() {
     FAIL_COUNT=$((FAIL_COUNT + 1))
   else
     # Test failed - check if it failed for the right reason
-    if echo "$output" | grep -q "$expected_error"; then
+    if echo "$output" | grep -qF "$expected_error"; then
       echo "  ✓ PASS: Mutant killed (test caught the mutation)"
       PASS_COUNT=$((PASS_COUNT + 1))
     else
@@ -86,51 +86,51 @@ run_mutant() {
   echo
 }
 
-# W1: processRedeemResult drops gymName
+# W1: processRedeemResult ignores server gym_name
 run_mutant \
-  "(W1) processRedeemResult without gymName" \
-  "Call processRedeemResult with only one argument" \
-  "sed 's/processRedeemResult(data, gymName)/processRedeemResult(data)/' \"src/app/join/[code]/actions.ts\"" \
-  "src/app/join/[code]/actions.ts" \
-  "already_member error must include gym name"
+  "(W1) processRedeemResult ignores server gym_name" \
+  "Replace gym_name with undefined in mapRedeemResultToMessage call" \
+  "sed 's/mapRedeemResultToMessage(result, serverGymName)/mapRedeemResultToMessage(result, undefined)/' \"src/lib/redeem-join-code-errors.ts\"" \
+  "src/lib/redeem-join-code-errors.ts" \
+  "processRedeemResult must use server gym_name from already_member result"
 
-# W2: actions.ts skips preview_join_code RPC
+# W2: actions.ts skips processRedeemResult
 run_mutant \
-  "(W2) actions.ts skips preview RPC" \
-  "Remove preview_join_code RPC call" \
-  "sed 's/\.rpc(\"preview_join_code\"/\.rpc(\"redeem_join_code\"/' \"src/app/join/[code]/actions.ts\"" \
+  "(W2) actions.ts skips processRedeemResult" \
+  "Replace processRedeemResult call with inline object" \
+  "sed 's/return processRedeemResult(data);/return { ok: true };/' \"src/app/join/[code]/actions.ts\"" \
   "src/app/join/[code]/actions.ts" \
-  "actions.ts must call preview_join_code RPC"
+  "actions.ts must call processRedeemResult with RPC data"
 
-# W3: gating ignores code's role
+# W3: gating uses fixed role instead of codeRole
 run_mutant \
   "(W3) gating uses fixed role" \
-  "Replace codeRole variable with constant" \
-  "sed 's/determineJoinGating(\"member\", \"owner\")/determineJoinGating(\"owner\", \"owner\")/' \"src/lib/gym-join-code-gating.ts\"" \
+  "Replace codeRole with constant in roleOrder lookup" \
+  "sed 's/roleOrder\\[codeRole\\]/roleOrder[\"member\"]/' \"src/lib/gym-join-code-gating.ts\"" \
   "src/lib/gym-join-code-gating.ts" \
-  "member code should allow owner to join"
+  "FAIL: member can redeem owner code"
 
 # W4: join page skips mapPreviewResultToMessage
 run_mutant \
-  "(W4) join page hard-codes error" \
-  "Remove mapPreviewResultToMessage import" \
-  "sed 's/import.*mapPreviewResultToMessage.*from/#&/' \"src/app/join/[code]/page.tsx\"" \
+  "(W4) join page removes mapPreviewResultToMessage import" \
+  "Comment out mapPreviewResultToMessage import" \
+  "sed '/^import.*mapPreviewResultToMessage/s/^/\\/\\/ /' \"src/app/join/[code]/page.tsx\"" \
   "src/app/join/[code]/page.tsx" \
-  "page must import mapPreviewResultToMessage"
+  "join page must import mapPreviewResultToMessage"
 
-# W5: splitJoinCodes returns all as active
+# W5: splitJoinCodes flips <= to < (expiry boundary mutant)
 run_mutant \
-  "(W5) splitJoinCodes broken" \
-  "Make splitJoinCodes return wrong split" \
-  "sed 's/const split = splitJoinCodes(codes, now);/const split = splitJoinCodes(codes, now); split.active.push(...split.inactive); split.inactive = [];/' \"scripts/test-gym-join-code-wiring.ts\"" \
-  "scripts/test-gym-join-code-wiring.ts" \
-  "should have 2 inactive codes"
+  "(W5) splitJoinCodes changes <= to <" \
+  "Change expires_at <= now to expires_at < now" \
+  "sed 's/expires_at) <= now/expires_at) < now/' \"src/lib/split-join-codes.ts\"" \
+  "src/lib/split-join-codes.ts" \
+  "code expiring exactly now must be inactive (kills <= to < mutant)"
 
-# W6: invites list skips splitJoinCodes
+# W6: invites list removes splitJoinCodes import
 run_mutant \
-  "(W6) invites list skips split" \
-  "Remove splitJoinCodes import" \
-  "sed 's/import.*splitJoinCodes.*from/#&/' \"src/app/owner/invites/invites-list.tsx\"" \
+  "(W6) invites list removes splitJoinCodes import" \
+  "Comment out splitJoinCodes import" \
+  "sed '/^import.*splitJoinCodes/s/^/\\/\\/ /' \"src/app/owner/invites/invites-list.tsx\"" \
   "src/app/owner/invites/invites-list.tsx" \
   "invites list must import splitJoinCodes"
 

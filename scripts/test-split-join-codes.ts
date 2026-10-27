@@ -111,18 +111,4 @@ assert.strictEqual(allInactive.active.length, 0, "FAIL: should have 0 active");
 assert.strictEqual(allInactive.inactive.length, 2, "FAIL: should have 2 inactive");
 console.log("  ✓ all inactive codes produce only inactive array\n");
 
-console.log("TEST: expiry boundary mutant (flips <= to <)");
-// This mutant test verifies that changing <= to < would be caught
-// If the implementation used < instead of <=, a code expiring exactly now would be active
-const mutantFixedNow = new Date("2024-01-15T12:00:00.000Z");
-const mutantExpiresNowCode = createCode({ expires_at: mutantFixedNow.toISOString() });
-
-// With <= (correct): code expiring exactly now is inactive
-assert.strictEqual(
-  isCodeActive(mutantExpiresNowCode, mutantFixedNow),
-  false,
-  "FAIL: Mutant M1 survived - code expiring exactly now should be inactive"
-);
-console.log("  ✓ M1: Mutant killed (flipping <= to < would make test fail)\n");
-
 console.log("✅ All split-join-codes tests passed");

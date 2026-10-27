@@ -6,37 +6,43 @@ console.log("=== TEST: Gym join code actions-to-mapper wiring ===\n");
 
 // Test processRedeemResult which is used by redeemJoinCode action
 
-// Test that gym name is passed through to mapper for already_member
-const alreadyMemberData = {
+// Test that gym name from server is used in already_member message
+const alreadyMemberDataWithGym = {
   ok: false,
   reason: "already_member",
+  gym_name: "PowerHouse Gym",
 };
 
-const resultWithGym = processRedeemResult(alreadyMemberData, "PowerHouse Gym");
+const resultWithGym = processRedeemResult(alreadyMemberDataWithGym);
 assert.strictEqual(resultWithGym.ok, false, "FAIL: already_member result should have ok=false");
 if (!resultWithGym.ok) {
   assert.strictEqual(
     resultWithGym.error,
     "You're already in PowerHouse Gym",
-    "FAIL: already_member with gym name should show personalized message"
+    "FAIL: already_member with gym_name should show personalized message"
   );
 }
 console.log("✓ already_member with gym name shows: 'You're already in PowerHouse Gym'");
 
-const resultWithoutGym = processRedeemResult(alreadyMemberData);
+const alreadyMemberDataWithoutGym = {
+  ok: false,
+  reason: "already_member",
+};
+
+const resultWithoutGym = processRedeemResult(alreadyMemberDataWithoutGym);
 assert.strictEqual(resultWithoutGym.ok, false, "FAIL: already_member result should have ok=false");
 if (!resultWithoutGym.ok) {
   assert.strictEqual(
     resultWithoutGym.error,
     "You're already a member of this gym",
-    "FAIL: already_member without gym name should show generic message"
+    "FAIL: already_member without gym_name should show generic message"
   );
 }
 console.log("✓ already_member without gym name shows generic message");
 
 // Test other failure reasons still work
 const invalidData = { ok: false, reason: "invalid" };
-const invalidResult = processRedeemResult(invalidData, "Any Gym");
+const invalidResult = processRedeemResult(invalidData);
 assert.strictEqual(invalidResult.ok, false, "FAIL: invalid result should have ok=false");
 if (!invalidResult.ok) {
   assert.strictEqual(
@@ -97,7 +103,7 @@ console.log("✓ throttled result returns correct message");
 
 // Test success case
 const successData = { ok: true, gym_id: "123", gym_name: "Test Gym" };
-const successResult = processRedeemResult(successData, "Test Gym");
+const successResult = processRedeemResult(successData);
 assert.strictEqual(successResult.ok, true, "FAIL: success result should have ok=true");
 if (successResult.ok) {
   assert.strictEqual(successResult.gymName, "Test Gym", "FAIL: success should return gym name");
