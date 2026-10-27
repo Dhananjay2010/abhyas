@@ -120,7 +120,7 @@ test_mutant "UN2 (describePersonalBest without units)" \
 test_mutant "L4B-4a (helper ignores getUnits result)" \
   "src/app/session/actions.ts" \
   "    units," \
-  "    \"metric\"," || true
+  "    'metric'," || true
 
 # L4B-4b: applyProgression passes () => 'metric' instead of getProfileUnits
 # Removed: applyProgression is not directly testable without full finishExerciseSession path.

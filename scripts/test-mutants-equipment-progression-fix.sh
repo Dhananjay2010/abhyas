@@ -448,16 +448,16 @@ test_mutant "L4B-3: drop equipmentIds from progression input" l4b_drop_equipment
 # L4B-4: Drop units parameter (pass units via buildProgressionFeedbackForUser)
 l4b_drop_units() {
   local file="src/app/session/actions.ts"
-  # Find where getUnits callback is passed in buildProgressionFeedbackForUser
-  local search='getUnits(supabase, userId);'
-  local count=$(grep -c "$search" "$file" || true)
-  if [ "$count" -lt 1 ]; then
-    echo "ERROR: Pattern '$search' not found in $file" >&2
+  # Mutate the last argument (getProfileUnits) passed to buildProgressionFeedbackForUser
+  local search='buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel, getProfileUnits);'
+  local count=$(grep -Fc "$search" "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: Pattern not found (found $count times)" >&2
     return 1
   fi
-  # Mutate: hardcode metric instead of calling getUnits
-  sed -i "s|getUnits(supabase, userId);|async () => 'metric' as UnitsPreference;|g" "$file"
-  if ! grep -q "async () => 'metric' as UnitsPreference;" "$file"; then
+  # Replace getProfileUnits with async () => 'metric'
+  sed -i "s|buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel, getProfileUnits);|buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel, async () => 'metric' as UnitsPreference);|" "$file"
+  if ! grep -q "async () => 'metric' as UnitsPreference" "$file"; then
     echo "ERROR: L4B-4 mutation did not apply" >&2
     return 1
   fi

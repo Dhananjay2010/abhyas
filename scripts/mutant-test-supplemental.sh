@@ -38,7 +38,7 @@ test_mutant() {
     const content = fs.readFileSync('src/lib/program/progression.ts', 'utf8');
     const search = process.argv[1];
     const replace = process.argv[2];
-    const newContent = content.replace(search, replace);
+    const newContent = content.split(search).join(replace);
     if (newContent === content) {
       console.error('ERROR: Pattern not found');
       process.exit(1);
@@ -89,50 +89,26 @@ test_mutant() {
 
 # H5: bar and band floor at 0
 test_mutant "H5 (floor = gridStep)" \
-  "          const floor = isBodyweightEquipment ? 0 : gridStep;" \
-  "          const floor = gridStep;" \
+  "const floor = isBodyweightEquipment ? 0 : gridStep;" \
+  "const floor = gridStep;" \
   "npm run test:zero-weight-real-path" || true
 
 # Z1: zero-weight message wording
 test_mutant "Z1 (zero message wording)" \
   "dropping to bodyweight to build up again" \
   "back to just your bodyweight to build up again" \
-  "npm run test:units-progression-messages" || true
+  "npm run test:zero-weight-real-path" || true
 
-# H2: never-raise hold resets counter
+# H2: never-raise hold resets counter (2 occurrences, using replaceAll)
 test_mutant "H2 (never-raise hold resets counter)" \
-  "      return {
-        ...carried,
-        outcome: \"hold\",
-        nextWorkingWeightKg: currentWeight,
-        nextTargetReps: repsMax,
-        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
-        weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss
-        message: failures >= 3
-          ? \"Missed the target again but no lighter loadable weight fits within 10% — holding to build back up.\"
-          : \"Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up.\",
-      };" \
-  "      return {
-        ...carried,
-        outcome: \"hold\",
-        nextWorkingWeightKg: currentWeight,
-        nextTargetReps: repsMax,
-        consecutiveFailures: 0, // Keep counter so third miss triggers step-down
-        weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss
-        message: failures >= 3
-          ? \"Missed the target again but no lighter loadable weight fits within 10% — holding to build back up.\"
-          : \"Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up.\",
-      };" \
+  "consecutiveFailures: failures, // Keep counter so third miss triggers step-down" \
+  "consecutiveFailures: 0, // MUTANT: reset counter" \
   "npm run test:hold-preserves-counter" || true
 
 # H6: two-miss hold drops wafs (reduced === current hold)
 test_mutant "H6 (two-miss hold drops wafs)" \
-  "        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
-        weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss
-        message: holdMessage," \
-  "        consecutiveFailures: failures, // Keep counter so third miss triggers step-down
-        weightAtFailureStartKg: null, // M1: preserve for third miss
-        message: holdMessage," \
+  "weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss" \
+  "weightAtFailureStartKg: null, // M1: preserve for third miss" \
   "npm run test:hold-preserves-wafs" || true
 
 echo
