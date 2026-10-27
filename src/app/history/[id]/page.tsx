@@ -114,9 +114,11 @@ export default async function SessionDetailPage({
   
   // Item 9: Duration - use stored duration_seconds, or compute from sets if NULL
   // L-4: Use chronologically latest set, not highest set_number
+  // QA LOW A: Filter to working sets before computing duration (drop warm-ups)
+  const workingSets = (sets ?? []).filter(s => !s.is_warmup_set);
   const durationSeconds = computeDetailDuration(
     { duration_seconds: session.duration_seconds, started_at: session.started_at },
-    sets ?? []
+    workingSets
   );
   const minutes = durationSeconds !== null ? Math.round(durationSeconds / 60) : null;
   

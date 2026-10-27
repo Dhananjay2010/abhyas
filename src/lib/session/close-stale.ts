@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { resolveStaleFinish, type StaleFinishInput } from "./stale-duration";
+import { resolveStaleFinishExtended, type StaleFinishInputExtended } from "./stale-duration";
 import { buildCloseStaleDeps, supabaseCloseStaleQueries } from "./close-stale-deps";
 import type { CloseStaleDeps } from "./close-stale-deps";
 import { secondsSinceIso, isoFromMs } from "@/lib/dates";
@@ -197,6 +197,7 @@ export async function closeStaleSessionsCore(
   const workingSetCounts = new Map<string, number>();
   const firstSetCompletedAt = new Map<string, string | null>();
   const lastSetCompletedAt = new Map<string, string | null>();
+  const lastSetRestSeconds = new Map<string, number | null>();
 
   for (const row of rows) {
     const sets = row.session_sets ?? [];
@@ -229,6 +230,7 @@ export async function closeStaleSessionsCore(
         const existing = lastSetCompletedAt.get(row.session_id);
         if (!existing || latestSet.completed_at > existing) {
           lastSetCompletedAt.set(row.session_id, latestSet.completed_at);
+          lastSetRestSeconds.set(row.session_id, row.rest_seconds);
         }
       }
     }
@@ -275,19 +277,25 @@ export async function closeStaleSessionsCore(
       if (!startedAt) return false;
 
       const workingSetCount = workingSetCounts.get(id) ?? 0;
-      const input: StaleFinishInput = {
+      const input: StaleFinishInputExtended = {
         startedAt,
         lastSetCompletedAt: lastSetCompletedAt.get(id) ?? null,
         workingSetCount,
+        restSeconds: lastSetRestSeconds.get(id) ?? null,
       };
 
-      const finish = resolveStaleFinish(input);
+      const finish = resolveStaleFinishExtended(input);
       
       // Cap duration at 6 hours (21600 seconds) to prevent unrealistic values
-      const cappedDuration = Math.min(finish.durationSeconds, STALE_INACTIVITY_THRESHOLD_SECONDS);
+      const cappedDuration = finish.durationSeconds !== null 
+        ? Math.min(finish.durationSeconds, STALE_INACTIVITY_THRESHOLD_SECONDS)
+        : null;
+      
+      // If timestamps are invalid, use now for completed_at (never leave user stuck)
+      const finalEndedAt = finish.endedAt ?? isoFromMs(nowMs);
       
       try {
-        const updated = await deps.markSessionDone(id, finish.status, finish.endedAt, cappedDuration);
+        const updated = await deps.markSessionDone(id, finish.status, finalEndedAt, cappedDuration);
         // Only count as credited if the update succeeded AND status is completed
         return updated && finish.status === "completed";
       } catch (error) {
@@ -318,30 +326,34 @@ export async function closeStaleSessionsCore(
           return false;
         }
         // Has sets - use first set as start, last set as end
-        const input: StaleFinishInput = {
+        const input: StaleFinishInputExtended = {
           startedAt: firstSetTime,
           lastSetCompletedAt: lastSetTime ?? firstSetTime,
           workingSetCount: 0,
+          restSeconds: lastSetRestSeconds.get(id) ?? null,
         };
-        const finish = resolveStaleFinish(input);
+        const finish = resolveStaleFinishExtended(input);
+        const finalEndedAt = finish.endedAt ?? isoFromMs(nowMs);
         try {
-          await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
+          await deps.markSessionDone(id, finish.status, finalEndedAt, finish.durationSeconds);
         } catch (error) {
           console.error(`Failed to mark abandoned session ${id} as done:`, error);
         }
         return false;
       }
 
-      const input: StaleFinishInput = {
+      const input: StaleFinishInputExtended = {
         startedAt: session.started_at,
         lastSetCompletedAt: null,
         workingSetCount: 0,
+        restSeconds: undefined,
       };
 
-      const finish = resolveStaleFinish(input);
+      const finish = resolveStaleFinishExtended(input);
+      const finalEndedAt = finish.endedAt ?? isoFromMs(nowMs);
       
       try {
-        await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
+        await deps.markSessionDone(id, finish.status, finalEndedAt, finish.durationSeconds);
       } catch (error) {
         console.error(`Failed to mark abandoned session ${id} as done:`, error);
       }
