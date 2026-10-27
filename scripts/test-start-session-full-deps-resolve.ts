@@ -19,6 +19,7 @@ import type { Database } from "../src/lib/database.types";
 // - Collision: today's scheduled day was completed yesterday via swap
 // - Should rotate to "day-wednesday-legs" (weights, different label)
 function makeFakeSupabaseWithCollision(): SupabaseClient<Database> {
+  // @ts-expect-error - Test fake with minimal implementation
   return {
     from: (table: string) => {
       if (table === "program_days") {
@@ -77,6 +78,7 @@ function makeFakeSupabaseWithCollision(): SupabaseClient<Database> {
 }
 
 function makeFakeSupabaseNoCollision(): SupabaseClient<Database> {
+  // @ts-expect-error - Test fake with minimal implementation
   return {
     from: (table: string) => {
       if (table === "program_days") {
