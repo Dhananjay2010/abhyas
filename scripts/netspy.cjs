@@ -1,0 +1,73 @@
+// Preload module: log and block outbound TCP connects, fetch, and log child_process spawns
+// Usage: node --require ./scripts/netspy.cjs script.ts
+// Set NETSPY_LOG env var to specify log file (defaults to /tmp/netspy.log)
+
+const fs = require('fs');
+const net = require('net');
+const cp = require('child_process');
+
+const LOG = process.env.NETSPY_LOG || '/tmp/netspy.log';
+
+function record(kind, value) {
+  try {
+    fs.appendFileSync(LOG, `${process.pid} ${kind} ${value}\n`);
+  } catch (err) {
+    // Ignore write errors
+  }
+}
+
+const originalConnect = net.Socket.prototype.connect;
+net.Socket.prototype.connect = function netspyConnect(...args) {
+  let options = args[0];
+  
+  // Normalize to first arg if array
+  if (Array.isArray(options)) {
+    options = options[0];
+  }
+  
+  // Build connection description
+  const description =
+    typeof options === 'object'
+      ? options.path || `${options.host || ''}:${options.port || ''}`
+      : String(options) + ':' + (args[1] || '');
+  
+  // Allow Unix domain sockets (tsx/esbuild IPC) but block TCP
+  if (typeof options === 'object' && options.path) {
+    return originalConnect.apply(this, args);
+  }
+  
+  record('CONNECT', description);
+  
+  const error = new Error('netspy blocked TCP connect: ' + description);
+  process.nextTick(() => this.destroy(error));
+  
+  return this;
+};
+
+if (globalThis.fetch) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async function netspyFetch(url, ...rest) {
+    const urlString = String((url && url.url) || url);
+    record('FETCH', urlString);
+    throw new Error('netspy blocked fetch: ' + urlString);
+  };
+}
+
+const spawnMethods = ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync'];
+
+for (const method of spawnMethods) {
+  const original = cp[method];
+  
+  cp[method] = function netspySpawn(command, ...rest) {
+    const cmdString = Array.isArray(rest[0])
+      ? command + ' ' + rest[0].join(' ')
+      : String(command);
+    
+    // Log non-esbuild spawns
+    if (!/esbuild/.test(cmdString)) {
+      record('SPAWN', cmdString.slice(0, 200));
+    }
+    
+    return original.call(this, command, ...rest);
+  };
+}

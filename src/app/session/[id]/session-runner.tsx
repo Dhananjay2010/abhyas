@@ -274,7 +274,7 @@ export function SessionRunner({
       .then((result) => {
         if (cancelled) return;
         if (result.ok) {
-          setProgressNotes(result.data);
+
           setSummaryLoaded(true);
         } else {
           setSummaryError(true);
