@@ -615,6 +615,60 @@ export type Database = {
         }
         Relationships: []
       }
+      gym_join_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          gym_id: string
+          id: string
+          max_uses: number | null
+          revoked_at: string | null
+          role: Database["public"]["Enums"]["gym_role"]
+          use_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          gym_id: string
+          id?: string
+          max_uses?: number | null
+          revoked_at?: string | null
+          role: Database["public"]["Enums"]["gym_role"]
+          use_count?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          gym_id?: string
+          id?: string
+          max_uses?: number | null
+          revoked_at?: string | null
+          role?: Database["public"]["Enums"]["gym_role"]
+          use_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_join_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gym_join_codes_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1504,6 +1558,43 @@ export type Database = {
           check_gym_id: string
         }
         Returns: boolean
+      }
+      preview_join_code: {
+        Args: {
+          p_code: string
+        }
+        Returns: {
+          gym_name: string
+          gym_slug: string
+          role: Database["public"]["Enums"]["gym_role"]
+        }[]
+      }
+      redeem_join_code: {
+        Args: {
+          p_code: string
+        }
+        Returns: {
+          gym_id: string
+          gym_name: string
+        }[]
+      }
+      create_join_code: {
+        Args: {
+          p_gym_id: string
+          p_role: Database["public"]["Enums"]["gym_role"]
+          p_expires_at?: string
+          p_max_uses?: number
+        }
+        Returns: {
+          id: string
+          code: string
+        }[]
+      }
+      revoke_join_code: {
+        Args: {
+          p_id: string
+        }
+        Returns: undefined
       }
       rebuild_block: {
         Args: {
