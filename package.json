@@ -589,7 +589,8 @@
     "test:runtime-branding-resolver": "tsx scripts/test-runtime-branding-resolver.ts",
     "test:runtime-brand-3-tier": "tsx scripts/test-runtime-brand-3-tier.ts",
     "test:brand-contrast-oklch": "tsx scripts/test-brand-contrast-oklch.ts",
-    "test:host-wins-notice": "tsx scripts/test-host-wins-notice.tsx"
+    "test:host-wins-notice": "tsx scripts/test-host-wins-notice.ts",
+    "test:member-gym": "tsx scripts/test-member-gym.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
