@@ -348,9 +348,9 @@ run_mutant "Q4. Never mind tap target too small (py-2)" "$COMPONENT" \
 
 
 
-run_mutant "N5. planDay ignores resolved date (uses today instead)" "$CORE" \
-  '  const sessionsResult = await client.findDaySessions(input.localDate);' \
-  '  const sessionsResult = await client.findDaySessions(input.today);' "$T_SERVER"
+run_mutant "N5. planDay ignores resolved date (uses today instead)" "src/lib/session/plan-day-core.ts" \
+  '      local_date: input.localDate,' \
+  '      local_date: input.today,' "$T_SERVER"
 
 
 run_mutant "N10. SessionRunner passes localDate instead of sessionId" "$COMPONENT" \
