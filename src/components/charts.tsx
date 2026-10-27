@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { formatValueExact } from "@/lib/progress/format-chart-value";
 import { formatWeight, type UnitsPreference } from "@/lib/units";
+import { formatVolumeLifted } from "@/lib/session/format-volume-lifted";
 
 /**
  * Small inline-SVG charts.
@@ -24,6 +25,16 @@ export type Point = {
 };
 
 const PAD = { top: 10, right: 8, bottom: 20, left: 34 };
+
+function SinglePoint({ point, fmt, hint }: { point: Point; fmt: (v: number) => string; hint: string }) {
+  return (
+    <div data-testid="single-point">
+      <p className="text-2xl font-bold tabular-nums">{fmt(point.value)}</p>
+      <p className="mt-1 text-xs text-muted">{point.label}</p>
+      <p className="mt-2 text-xs text-muted">{hint}</p>
+    </div>
+  );
+}
 
 function niceBounds(values: number[]): [number, number] {
   const min = Math.min(...values);
@@ -80,12 +91,14 @@ export function LineChart({
   unit = "",
   title,
   height = 140,
+  singlePointHint = "Log another session to see a trend",
   weightUnits,
 }: {
   points: Point[];
   unit?: string;
   title: string;
   height?: number;
+  singlePointHint?: string;
   /**
    * Set when the values are weights in kg: every readout (headline, tooltip,
    * table, axis) then goes through the shared formatWeight in these units,
@@ -104,19 +117,7 @@ export function LineChart({
     return <EmptyChart title={title} />;
   }
   if (points.length === 1) {
-    return (
-      <div>
-        <p className="text-2xl font-bold tabular-nums">
-          {fmt(points[0].value)}
-        </p>
-        <p className="mt-1 text-xs text-muted">
-          {points[0].label}
-        </p>
-        <p className="mt-2 text-xs text-muted">
-          Log more sessions to see a trend.
-        </p>
-      </div>
-    );
+    return <SinglePoint point={points[0]} fmt={fmt} hint={singlePointHint} />;
   }
 
   const [lo, hi] = niceBounds(points.map((p) => p.value));
@@ -254,16 +255,30 @@ export function BarChart({
   unit = "",
   title,
   height = 140,
+  singlePointHint = "Log another session to see a trend",
+  volumeUnits,
 }: {
   points: Point[];
   unit?: string;
   title: string;
   height?: number;
+  singlePointHint?: string;
+  /**
+   * Set when the values are volumes in kg: every readout (single point,
+   * headline, table, axis, aria) then goes through the shared
+   * formatVolumeLifted in these units, e.g. 5,291 lb / 2,400 kg, and `unit`
+   * is ignored.
+   */
+  volumeUnits?: UnitsPreference;
 }) {
+  const fmt = (v: number) => (volumeUnits ? formatVolumeLifted(v, volumeUnits) : formatValueExact(v, unit));
+  const fmtAxis = (v: number) =>
+    volumeUnits ? formatVolumeLifted(v, volumeUnits).replace(/ (kg|lb)$/, "") : Math.round(v).toLocaleString("en-US");
   const [active, setActive] = useState<number | null>(null);
   const width = 320;
 
   if (points.length === 0) return <EmptyChart title={title} />;
+  if (points.length === 1) return <SinglePoint point={points[0]} fmt={fmt} hint={singlePointHint} />;
 
   const max = Math.max(...points.map((p) => p.value), 1);
   const innerW = width - PAD.left - PAD.right;
@@ -290,7 +305,7 @@ export function BarChart({
         viewBox={`0 0 ${width} ${height}`}
         className="w-full touch-none"
         role="img"
-        aria-label={`${title}. ${points.length} ${points.length === 1 ? "session" : "sessions"}, most recent ${formatValueExact(lastNonDeload.value, unit)}${allDeloads ? ' (deload)' : ''}.`}
+        aria-label={`${title}. ${points.length} ${points.length === 1 ? "session" : "sessions"}, most recent ${fmt(lastNonDeload.value)}${allDeloads ? ' (deload)' : ''}.`}
         onPointerDown={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           const px = ((e.clientX - rect.left) / rect.width) * width;
@@ -308,7 +323,7 @@ export function BarChart({
           strokeWidth="1"
         />
         <text x="2" y={PAD.top + 4} fontSize="9" fill="var(--color-muted)">
-          {Math.round(max).toLocaleString("en-US")}
+          {fmtAxis(max)}
         </text>
 
         {points.map((p, i) => {
@@ -342,17 +357,11 @@ export function BarChart({
       </svg>
 
       <p className="mt-1 text-sm tabular-nums">
-        <span className="font-semibold">{formatValueExact(points[shown].value, unit)}</span>{" "}
+        <span className="font-semibold">{fmt(points[shown].value)}</span>{" "}
         <span className="text-muted">· {points[shown].label}{allDeloads ? ' (deload)' : ''}</span>
       </p>
 
-      {points.length === 1 && (
-        <p className="mt-2 text-xs text-muted">
-          Log more sessions to see a trend.
-        </p>
-      )}
-
-      <ValueTable points={points} fmt={(v) => formatValueExact(v, unit)} caption={title} />
+      <ValueTable points={points} fmt={fmt} caption={title} />
     </div>
   );
 }
