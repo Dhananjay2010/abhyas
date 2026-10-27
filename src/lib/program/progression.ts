@@ -162,16 +162,8 @@ export function addedWeightStep(meta: ExerciseMeta, equipmentIds?: string[]): nu
   const patternStep = meta.mechanic === "isolation" ? 1.25 :
     LOWER_BODY.has(meta.movementPattern) ? 2.5 : 1.25;
   
-  // If equipment is specified and contains loadable equipment, 
-  // ensure we never go below the equipment grid
-  if (equipmentIds && equipmentIds.length > 0) {
-    const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
-    if (hasLoadable) {
-      const equipGrid = equipmentGridStep(equipmentIds, 'kg');
-      return Math.max(patternStep, equipGrid);
-    }
-  }
-  
+  // For bodyweight exercises with added weight, always use the pattern-based step
+  // Equipment grid rounding is applied separately after adding the increment
   return patternStep;
 }
 
