@@ -14,6 +14,10 @@ export type UserGymMembership = {
 /**
  * Get the gym ID and name for the user's active membership.
  * Returns null if the user has no active gym membership.
+ * 
+ * For users with multiple active memberships (owners/staff):
+ * - Prefers role 'member' over 'owner'/'staff'
+ * - Then prefers oldest joined_at (first membership)
  */
 export async function getUserGymMembership(
   supabase: SupabaseClient<Database>,
@@ -24,6 +28,8 @@ export async function getUserGymMembership(
     .select(
       `
       gym_id,
+      role,
+      joined_at,
       gyms (
         name
       )
@@ -31,16 +37,20 @@ export async function getUserGymMembership(
     )
     .eq("user_id", userId)
     .eq("status", "active")
-    .single();
+    .order("joined_at", { ascending: true });
 
-  if (error || !data) {
+  if (error || !data || data.length === 0) {
     return null;
   }
 
-  const gym = Array.isArray(data.gyms) ? data.gyms[0] : data.gyms;
+  // Prefer role 'member', then oldest joined_at
+  const memberRole = data.find((m) => m.role === "member");
+  const membership = memberRole ?? data[0];
+
+  const gym = Array.isArray(membership.gyms) ? membership.gyms[0] : membership.gyms;
 
   return {
-    gymId: data.gym_id,
+    gymId: membership.gym_id,
     gymName: gym?.name ?? "Unknown Gym",
   };
 }

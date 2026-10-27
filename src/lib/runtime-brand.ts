@@ -19,13 +19,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
 /**
- * RPC return type for resolve_gym_by_host (includes verified field)
+ * RPC return type for resolve_gym_by_host (migration 037).
+ * Returns only gym_id, gym_slug, gym_name.
+ * The SQL already filters d.verified = true, so verified is not in the result.
  */
 type ResolveGymByHostResult = {
   gym_id: string;
   gym_slug: string;
   gym_name: string;
-  verified: boolean;
 };
 
 /**
@@ -36,7 +37,6 @@ function isResolveGymByHostResult(row: unknown): row is ResolveGymByHostResult {
   if (!('gym_id' in row) || typeof row.gym_id !== 'string') return false;
   if (!('gym_slug' in row) || typeof row.gym_slug !== 'string') return false;
   if (!('gym_name' in row) || typeof row.gym_name !== 'string') return false;
-  if (!('verified' in row) || typeof row.verified !== 'boolean') return false;
   return true;
 }
 
@@ -93,7 +93,7 @@ export async function resolveBrand(
           
           if (!isResolveGymByHostResult(row)) {
             console.error("Invalid RPC response format:", row);
-          } else if (row.verified && row.gym_id) {
+          } else if (row.gym_id) {
             const gymBrand = await fetchGymBrand(row.gym_id);
             const brand = mergeBrand(base, gymBrand);
 
