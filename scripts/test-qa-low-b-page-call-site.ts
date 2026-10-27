@@ -17,12 +17,11 @@ import { JSDOM } from "jsdom";
 import { isValidElement } from "react";
 
 const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true });
-const g = globalThis as Record<string, unknown>;
 for (const k of ["window", "document", "HTMLElement", "Node", "navigator", "MouseEvent", "Event", "getComputedStyle"]) {
-  Object.defineProperty(g, k, { value: (dom.window as unknown as Record<string, unknown>)[k] ?? dom.window, writable: true, configurable: true });
+  Object.defineProperty(globalThis, k, { value: Reflect.get(dom.window, k) ?? dom.window, writable: true, configurable: true });
 }
-g.IS_REACT_ACT_ENVIRONMENT = true;
-g.self = dom.window;
+Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
+Reflect.set(globalThis, "self", dom.window);
 
 type FakeData = { tables: Record<string, unknown[]>; single: Record<string, unknown>; rpc: Record<string, unknown> };
 let fake: FakeData = { tables: {}, single: {}, rpc: {} };
@@ -145,11 +144,22 @@ function check(label: string, ok: boolean, detail = "") {
   // (The final warm-up at 10:23:00 should be filtered out)
   check("Time is 20m (1200s from working sets only)", timeStat?.value === "20m", timeStat?.value ?? "missing");
 
-  console.log("\n2. Last set is warm-up: mutant passing .slice(-1) would give null duration");
-  // The last set at 10:23:00 is a warm-up
-  // If buildSessionDuration receives only that set, it filters it out and returns null (renders as "—")
-  // This case already proves the mutant fails: time is "20m", not "—"
-  check("With all sets, time is 20m (not — from last warm-up only)", timeStat?.value === "20m", `got ${timeStat?.value}`);
+  console.log("\n2. Last set in array order is NOT the latest: page must pass every set");
+  // Working set completed 10:40 comes first; the final array entry is an earlier working set (10:15).
+  // All sets -> latest working completion 10:40 -> 40m. Only the last set (.slice(-1)) -> 15m.
+  const case1Sets = fake.tables.session_sets;
+  fake.tables.session_sets = [
+    { session_exercise_id: "se1", set_number: 1, reps: 10, weight_kg: "60", duration_seconds: null, is_warmup_set: false, completed_at: "2026-10-27T10:40:00Z", logged_at: null },
+    { session_exercise_id: "se1", set_number: 2, reps: 10, weight_kg: "60", duration_seconds: null, is_warmup_set: false, completed_at: "2026-10-27T10:15:00Z", logged_at: null },
+  ];
+  const pageCase2 = await SessionDetailPage({ params: Promise.resolve({ id: sid }) });
+  if (!isValidElement(pageCase2)) throw new Error("Page did not return a React element");
+  const dCase2 = new JSDOM(renderToStaticMarkup(pageCase2)).window.document;
+  const timeCase2 = [...dCase2.querySelectorAll("dt")]
+    .map((dt) => ({ label: dt.textContent?.trim() ?? "", value: dt.nextElementSibling?.textContent?.trim() ?? "" }))
+    .find((s) => s.label === "Time");
+  check("Time is 40m (latest of all sets, not the last array entry)", timeCase2?.value === "40m", timeCase2?.value ?? "missing");
+  fake.tables.session_sets = case1Sets;
 
   console.log("\n3. Sanity: Session with stored duration_seconds");
   const prevSession = fake.single.sessions;
