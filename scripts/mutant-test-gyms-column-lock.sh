@@ -27,7 +27,7 @@ fi
 # In CI, default SUPABASE_DB_URL if not set
 if [ "${CI:-}" = "true" ] && [ -z "${SUPABASE_DB_URL:-}" ]; then
   export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54322/postgres"
-  echo "CI: Using default SUPABASE_DB_URL: $SUPABASE_DB_URL"
+  echo "CI: Using default SUPABASE_DB_URL"
   echo
 fi
 
@@ -46,6 +46,7 @@ fi
 FAILED=0
 SURVIVORS=()
 SKIPPED=()
+TOTAL_MUTANTS=18
 
 echo "Running baseline tests..."
 BASELINE_OUTPUT=$(mktemp)
@@ -80,52 +81,68 @@ run_mutant() {
   local description="$2"
   local sed_pattern="$3"
   local expected_fail="$4"
+  local undo_sql="${5:-}"
   
   echo "Testing mutant: $name"
   echo "  $description"
   
-  # Build mutated migration with sed
-  local mutated_migration=$(mktemp)
-  if ! sed "$sed_pattern" "supabase/migrations/20261025000043_gyms_column_lock.sql" > "$mutated_migration"; then
-    echo "  ❌ FAIL: sed command failed"
-    SKIPPED+=("$name: sed failed")
-    FAILED=$((FAILED + 1))
-    rm -f "$mutated_migration"
-    return 1
-  fi
-  
-  # Verify sed changed something
-  if cmp -s "supabase/migrations/20261025000043_gyms_column_lock.sql" "$mutated_migration"; then
-    echo "  ❌ FAIL: sed produced no change (mutation ineffective)"
-    SKIPPED+=("$name: no change")
-    FAILED=$((FAILED + 1))
-    rm -f "$mutated_migration"
-    return 1
-  fi
-  
   # Reset database
   local reset_output=$(mktemp)
   if ! eval "$RESET_CMD" > "$reset_output" 2>&1; then
-    echo "  ❌ FAIL: db reset failed (skip doesn't exit 0)"
+    echo "  ❌ FAIL: db reset failed"
     SKIPPED+=("$name: db reset failed")
     FAILED=$((FAILED + 1))
-    rm -f "$reset_output" "$mutated_migration"
+    rm -f "$reset_output"
     return 1
   fi
   rm -f "$reset_output"
   
-  # Apply mutated migration via psql
-  local mutation_output=$(mktemp)
-  if ! psql "$SUPABASE_DB_URL" -f "$mutated_migration" > "$mutation_output" 2>&1; then
-    echo "  ❌ FAIL: mutation SQL failed (skip doesn't exit 0)"
-    echo "  psql error:"
-    cat "$mutation_output" | sed 's/^/    /'
-    SKIPPED+=("$name: mutation failed")
-    FAILED=$((FAILED + 1))
+  # If there's undo SQL (for removal mutants), apply it after reset
+  if [ -n "$undo_sql" ]; then
+    local undo_output=$(mktemp)
+    if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -c "$undo_sql" > "$undo_output" 2>&1; then
+      echo "  ❌ FAIL: undo SQL failed"
+      echo "  psql error:"
+      cat "$undo_output" | sed 's/^/    /'
+      SKIPPED+=("$name: undo failed")
+      FAILED=$((FAILED + 1))
+      rm -f "$undo_output"
+      return 1
+    fi
+    rm -f "$undo_output"
+  else
+    # Build mutated migration with sed
+    local mutated_migration=$(mktemp)
+    if ! sed "$sed_pattern" "supabase/migrations/20261025000043_gyms_column_lock.sql" > "$mutated_migration"; then
+      echo "  ❌ FAIL: sed command failed"
+      SKIPPED+=("$name: sed failed")
+      FAILED=$((FAILED + 1))
+      rm -f "$mutated_migration"
+      return 1
+    fi
+    
+    # Verify sed changed something
+    if cmp -s "supabase/migrations/20261025000043_gyms_column_lock.sql" "$mutated_migration"; then
+      echo "  ❌ FAIL: sed produced no change (mutation ineffective)"
+      SKIPPED+=("$name: no change")
+      FAILED=$((FAILED + 1))
+      rm -f "$mutated_migration"
+      return 1
+    fi
+    
+    # Apply mutated migration via psql
+    local mutation_output=$(mktemp)
+    if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -f "$mutated_migration" > "$mutation_output" 2>&1; then
+      echo "  ❌ FAIL: mutation SQL failed"
+      echo "  psql error:"
+      cat "$mutation_output" | sed 's/^/    /'
+      SKIPPED+=("$name: mutation failed")
+      FAILED=$((FAILED + 1))
+      rm -f "$mutation_output" "$mutated_migration"
+      return 1
+    fi
     rm -f "$mutation_output" "$mutated_migration"
-    return 1
   fi
-  rm -f "$mutation_output" "$mutated_migration"
   
   # Run tests and capture output
   local test_output=$(mktemp)
@@ -139,9 +156,9 @@ run_mutant() {
     return 1
   fi
   
-  # Check for expected failure message
+  # Check for expected failure message (test prints "FAIL <label>" with no colon)
   if grep -qF "$expected_fail" "$test_output"; then
-    echo "  ✅ KILLED by expected assertion: $expected_fail"
+    echo "  ✅ KILLED by expected assertion"
   else
     echo "  ❌ FAIL: killed but not by expected assertion"
     echo "  Expected: $expected_fail"
@@ -161,103 +178,134 @@ run_mutant() {
 run_mutant \
   "(a) remove trigger" \
   "Drop the gyms_brand_only_update trigger" \
-  '/^drop trigger if exists gyms_brand_only_update/,/^create trigger gyms_brand_only_update/d' \
-  "FAIL: Update slug blocked"
+  "" \
+  "FAIL Update slug blocked" \
+  "DROP TRIGGER IF EXISTS gyms_brand_only_update ON public.gyms;"
 
 # Mutant (b): Add slug to brand columns allow-list
 run_mutant \
   "(b) add slug to allow-list" \
   "Allow slug updates by adding it to v_brand_columns" \
   "s/v_brand_columns text\[\] := array\['display_name', 'logo_url', 'primary_color', 'accent_color'\];/v_brand_columns text[] := array['display_name', 'logo_url', 'primary_color', 'accent_color', 'slug'];/" \
-  "FAIL: Update slug blocked"
+  "FAIL Update slug blocked"
 
 # Mutant (c): Remove service_role from privileged bypass
 run_mutant \
   "(c) drop service_role from bypass" \
   "Block service_role from updating protected columns" \
   "s/if current_user in ('service_role', 'postgres')/if current_user in ('postgres')/" \
-  "FAIL: service_role can update timezone"
+  "FAIL service_role can update timezone"
 
 # Mutant (d): Change current_user to session_user (different bypass check)
 run_mutant \
   "(d) session_user instead of current_user" \
   "Use session_user instead of current_user for bypass" \
   "s/if current_user in ('service_role', 'postgres')/if session_user in ('service_role', 'postgres')/" \
-  "FAIL: Update slug blocked"
+  "FAIL service_role can update timezone"
 
 # Mutant (e): Add name to brand columns allow-list
 run_mutant \
   "(e) add name to allow-list" \
   "Allow name updates by adding it to v_brand_columns" \
   "s/v_brand_columns text\[\] := array\['display_name', 'logo_url', 'primary_color', 'accent_color'\];/v_brand_columns text[] := array['display_name', 'logo_url', 'primary_color', 'accent_color', 'name'];/" \
-  "FAIL: Update name blocked"
+  "FAIL Update name blocked"
 
 # Mutant (f): Add created_at to brand columns allow-list
 run_mutant \
   "(f) add created_at to allow-list" \
   "Allow created_at updates by adding it to v_brand_columns" \
   "s/v_brand_columns text\[\] := array\['display_name', 'logo_url', 'primary_color', 'accent_color'\];/v_brand_columns text[] := array['display_name', 'logo_url', 'primary_color', 'accent_color', 'created_at'];/" \
-  "FAIL: Update created_at blocked"
+  "FAIL Update created_at blocked"
 
 # Mutant (g): Remove display_name length constraint
 run_mutant \
   "(g) remove display_name length CHECK" \
   "Drop gyms_display_name_length constraint check" \
-  '/gyms_display_name_length/,/end \$\$/d' \
-  "FAIL: display_name over 100 chars rejected"
+  "" \
+  "FAIL display_name over 100 chars rejected" \
+  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_display_name_length;"
 
 # Mutant (h): Remove logo_url length constraint
 run_mutant \
   "(h) remove logo_url length CHECK" \
   "Drop gyms_logo_url_length constraint check" \
-  '/gyms_logo_url_length/,/end \$\$/d' \
-  "FAIL: logo_url over 2048 chars rejected"
+  "" \
+  "FAIL logo_url over 2048 chars rejected" \
+  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_length;"
 
-# Mutant (i): Allow 3-digit hex (#RGB) in RPC
+# Mutant (i): TABLE CHECK Allow 3-digit hex (#RGB) - owner direct UPDATE with only primary invalid
 run_mutant \
-  "(i) allow #RGB in set_gym_branding" \
-  "Change primary_color validation to allow 3-digit hex" \
-  "s/if p_primary_color !\~ '\^#\[0-9A-Fa-f\]{6}\$'/if p_primary_color !~ '^#[0-9A-Fa-f]{3,6}\$'/" \
-  "FAIL: Set primary #RGB rejected"
+  "(i) allow #RGB in TABLE CHECK" \
+  "Change gyms table primary_color CHECK to allow 3-digit hex" \
+  "s/primary_color ~ '\^#\[0-9A-Fa-f\]{6}\\\$'/primary_color ~ '^#[0-9A-Fa-f]{3,6}\$'/" \
+  "FAIL #RGB rejected"
 
-# Mutant (j): Unanchored primary_color end in RPC
+# Mutant (j): TABLE CHECK Unanchored primary_color end
 run_mutant \
-  "(j) unanchored primary_color end" \
-  "Remove $ anchor from primary_color validation" \
-  "s/if p_primary_color !\~ '\^#\[0-9A-Fa-f\]{6}\$'/if p_primary_color !~ '^#[0-9A-Fa-f]{6}'/" \
-  "FAIL: Hex with trailing rejected"
+  "(j) unanchored primary_color end in TABLE CHECK" \
+  "Remove \$ anchor from primary_color CHECK" \
+  "s/primary_color ~ '\^#\[0-9A-Fa-f\]{6}\\\$'/primary_color ~ '^#[0-9A-Fa-f]{6}'/" \
+  "FAIL Hex with trailing rejected"
 
-# Mutant (k): Unanchored accent_color end in RPC
+# Mutant (k): TABLE CHECK Unanchored accent_color end
 run_mutant \
-  "(k) unanchored accent_color end" \
-  "Remove $ anchor from accent_color validation" \
-  "s/if p_accent_color !\~ '\^#\[0-9A-Fa-f\]{6}\$'/if p_accent_color !~ '^#[0-9A-Fa-f]{6}'/" \
-  "FAIL: Hex with trailing rejected"
+  "(k) unanchored accent_color end in TABLE CHECK" \
+  "Remove \$ anchor from accent_color CHECK" \
+  "s/accent_color ~ '\^#\[0-9A-Fa-f\]{6}\\\$'/accent_color ~ '^#[0-9A-Fa-f]{6}'/" \
+  "FAIL Hex with trailing rejected"
 
 # Mutant (l): Drop postgres from bypass
 run_mutant \
   "(l) drop postgres from bypass" \
   "Block postgres from updating protected columns" \
   "s/if current_user in ('service_role', 'postgres')/if current_user in ('service_role')/" \
-  "FAIL: postgres direct update works"
+  "FAIL postgres direct update works"
 
 # Mutant (m): Compare only slug (ignores other non-brand changes)
 run_mutant \
   "(m) compare only slug" \
   "Narrow comparison to only slug instead of all non-brand columns" \
   "s/v_old_filtered := to_jsonb(OLD) - v_brand_columns;/v_old_filtered := jsonb_build_object('slug', OLD.slug);/; s/v_new_filtered := to_jsonb(NEW) - v_brand_columns;/v_new_filtered := jsonb_build_object('slug', NEW.slug);/" \
-  "FAIL: Update name blocked"
+  "FAIL Update name blocked"
 
-# Mutant (n): Add future column and block its update
+# Mutant (n): Future column - add temp column and verify trigger blocks its update
 run_mutant \
   "(n) future column blocked" \
   "Add a temp column and verify trigger blocks its update" \
   '1i-- Add temporary future column\nALTER TABLE public.gyms ADD COLUMN IF NOT EXISTS temp_future_col text;\n' \
-  "FAIL: Future column update blocked"
+  "FAIL Future column update blocked"
+
+# QA MED-2 mutants: Loosen CHECK constraints
+# Mutant (o): Unanchor logo regex start
+run_mutant \
+  "(o) unanchored logo start" \
+  "Remove ^ anchor from logo CHECK (allows leading space)" \
+  "s/logo_url ~ '\^https:\\/\\//logo_url ~ 'https:\\/\\/'/; s/logo_url ~ '\^\\/storage/logo_url ~ '\\/storage/" \
+  "FAIL Logo with leading space rejected"
+
+# Mutant (p): Case-insensitive logo regex
+run_mutant \
+  "(p) case-insensitive logo" \
+  "Use ~* for logo CHECK (allows HTTPS://)" \
+  "s/logo_url ~ '\^https:/logo_url ~* '^https:/; s/logo_url ~ '\^\\/storage/logo_url ~* '^\\/storage/" \
+  "FAIL Uppercase HTTPS:// rejected"
+
+# Mutant (q): Loosen path traversal check
+run_mutant \
+  "(q) loosen .. check" \
+  "Remove .. path traversal check from logo" \
+  "s/logo_url !\~ '\\\\\\\\\\.\\\\\\\\.'/true/" \
+  "FAIL .. path traversal rejected"
+
+# Mutant (r): Remove control character check
+run_mutant \
+  "(r) allow control chars" \
+  "Remove control character check from logo" \
+  "s/logo_url !\~ '\\\[\\\x00-\\\x1F\\\x7F\\\]'/true/" \
+  "FAIL Newline in logo rejected"
 
 echo
 echo "=== Mutant Test Summary ==="
-TOTAL_MUTANTS=14
 KILLED=$((TOTAL_MUTANTS - FAILED))
 echo "Total mutants: $TOTAL_MUTANTS"
 echo "Killed: $KILLED"

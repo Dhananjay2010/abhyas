@@ -123,33 +123,54 @@ function testAccessibleTextColorLogic() {
   console.log("  ✓ Text color selection logic correct");
 }
 
-function testPrimaryColorContrastWarning() {
+async function testPrimaryColorContrastWarning() {
   console.log("\n▶ Testing primary color 3:1 contrast warning (QA Bot LOW-1)...");
 
-  // App background from branding defaults
-  const appBg = branding.colors.bg; // #0A0C0E
+  // Import the actual function used by the form
+  const brandingValidation = await import("../src/lib/gym/branding-validation");
+  const { primaryContrastWarning } = brandingValidation;
 
   // Test case: #1E40AF should trigger warning (< 3:1)
   const darkBlue = "#1E40AF";
-  const darkBlueRatio = contrastRatio(darkBlue, appBg);
-  console.log(`  ${darkBlue} vs app bg: ${darkBlueRatio.toFixed(2)}:1`);
+  const darkBlueWarning = primaryContrastWarning(darkBlue);
   assert(
-    darkBlueRatio < 3.0,
-    `${darkBlue} should trigger warning (< 3:1), got ${darkBlueRatio.toFixed(2)}:1`
+    darkBlueWarning !== null,
+    `${darkBlue} should trigger warning, got null`
   );
-  console.log(`  ✓ ${darkBlue} triggers warning (${darkBlueRatio.toFixed(2)}:1 < 3:1)`);
+  assert(
+    darkBlueWarning === "This colour is too dark for the app background, so members will see a lighter shade.",
+    `${darkBlue} warning message incorrect`
+  );
+  console.log(`  ✓ ${darkBlue} triggers warning`);
 
   // Test case: bright color should NOT trigger warning (>= 3:1)
   const brightOrange = "#FF9A2E";
-  const brightRatio = contrastRatio(brightOrange, appBg);
-  console.log(`  ${brightOrange} vs app bg: ${brightRatio.toFixed(2)}:1`);
+  const brightWarning = primaryContrastWarning(brightOrange);
   assert(
-    brightRatio >= 3.0,
-    `${brightOrange} should not trigger warning (>= 3:1), got ${brightRatio.toFixed(2)}:1`
+    brightWarning === null,
+    `${brightOrange} should not trigger warning, got: ${brightWarning}`
   );
-  console.log(`  ✓ ${brightOrange} does not trigger warning (${brightRatio.toFixed(2)}:1 >= 3:1)`);
+  console.log(`  ✓ ${brightOrange} does not trigger warning`);
 
-  console.log("  ✓ Warning shown for < 3:1, not shown for >= 3:1");
+  // Test case: invalid hex should return null
+  const invalid = "#FFF";
+  const invalidWarning = primaryContrastWarning(invalid);
+  assert(
+    invalidWarning === null,
+    `Invalid hex should return null, got: ${invalidWarning}`
+  );
+  console.log(`  ✓ Invalid hex returns null`);
+
+  // Test case: empty string should return null
+  const empty = "";
+  const emptyWarning = primaryContrastWarning(empty);
+  assert(
+    emptyWarning === null,
+    `Empty string should return null, got: ${emptyWarning}`
+  );
+  console.log(`  ✓ Empty string returns null`);
+
+  console.log("  ✓ primaryContrastWarning function tested (exact code used by form)");
 }
 
 async function testPre040RpcMock() {

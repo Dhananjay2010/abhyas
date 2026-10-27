@@ -501,7 +501,7 @@ async function runTests() {
       .select("name")
       .eq("id", gymIdA)
       .single();
-    check("Gym name unchanged after blocked update", unchangedGym?.name === "Test Gym A", 
+    check("Gym name unchanged after blocked update", unchangedGym?.name === "Gym A", 
       `got: ${unchangedGym?.name}`);
     
     // Owner CAN update brand columns like display_name
@@ -824,7 +824,7 @@ async function runTests() {
     const { data: ownerResult, error: ownerError } = await clientA
       .rpc("get_owned_gym_name");
     check("Owner A can call get_owned_gym_name()", !ownerError, ownerError?.message);
-    check("Owner A gets their own gym name", ownerResult === "Test Gym A");
+    check("Owner A gets their own gym name", ownerResult === "Gym A");
 
     // Member MC calls get_owned_gym_name() - should get null (MC is not an owner)
     const { data: memberResult, error: memberError } = await clientMemberC

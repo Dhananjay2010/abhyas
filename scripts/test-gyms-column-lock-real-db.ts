@@ -271,6 +271,13 @@ async function runTests() {
   // TEST: Owner is refused when updating id (GJC12)
   console.log("TEST: Owner blocked from updating id (GJC12)");
   {
+    // Get current id before attempt
+    const { data: beforeId } = await clientOwner
+      .from("gyms")
+      .select("id")
+      .eq("id", gymId)
+      .single();
+    
     const newId = randomUUID();
     const { error } = await clientOwner
       .from("gyms")
@@ -280,18 +287,41 @@ async function runTests() {
     check("Error code is GJC12", error?.code === "GJC12");
     check("Error message mentions non-brand", 
       !!error?.message?.toLowerCase().includes("non-brand"));
+    
+    // Verify id unchanged
+    const { data: afterId } = await clientOwner
+      .from("gyms")
+      .select("id")
+      .eq("id", gymId)
+      .single();
+    check("Id unchanged after blocked update", afterId?.id === beforeId?.id);
   }
   console.log();
 
   // TEST: Owner blocked from updating slug
   console.log("TEST: Owner blocked from updating slug (GJC12)");
   {
+    // Get current slug before attempt
+    const { data: beforeSlug } = await clientOwner
+      .from("gyms")
+      .select("slug")
+      .eq("id", gymId)
+      .single();
+    
     const { error } = await clientOwner
       .from("gyms")
       .update({ slug: "hacked-slug" })
       .eq("id", gymId);
     check("Update slug blocked", !!error);
     check("Error code is GJC12", error?.code === "GJC12");
+    
+    // Verify slug unchanged
+    const { data: afterSlug } = await clientOwner
+      .from("gyms")
+      .select("slug")
+      .eq("id", gymId)
+      .single();
+    check("Slug unchanged after blocked update", afterSlug?.slug === beforeSlug?.slug);
   }
   console.log();
 
@@ -325,24 +355,54 @@ async function runTests() {
   // TEST: Owner blocked from updating timezone
   console.log("TEST: Owner blocked from updating timezone (GJC12)");
   {
+    // Get current timezone before attempt
+    const { data: beforeTz } = await clientOwner
+      .from("gyms")
+      .select("timezone")
+      .eq("id", gymId)
+      .single();
+    
     const { error } = await clientOwner
       .from("gyms")
       .update({ timezone: "Asia/Tokyo" })
       .eq("id", gymId);
     check("Update timezone blocked", !!error);
     check("Error code is GJC12", error?.code === "GJC12");
+    
+    // Verify timezone unchanged
+    const { data: afterTz } = await clientOwner
+      .from("gyms")
+      .select("timezone")
+      .eq("id", gymId)
+      .single();
+    check("Timezone unchanged after blocked update", afterTz?.timezone === beforeTz?.timezone);
   }
   console.log();
 
   // TEST: Owner blocked from updating created_at
   console.log("TEST: Owner blocked from updating created_at (GJC12)");
   {
+    // Get current created_at before attempt
+    const { data: beforeCreated } = await clientOwner
+      .from("gyms")
+      .select("created_at")
+      .eq("id", gymId)
+      .single();
+    
     const { error } = await clientOwner
       .from("gyms")
       .update({ created_at: new Date().toISOString() })
       .eq("id", gymId);
     check("Update created_at blocked", !!error);
     check("Error code is GJC12", error?.code === "GJC12");
+    
+    // Verify created_at unchanged
+    const { data: afterCreated } = await clientOwner
+      .from("gyms")
+      .select("created_at")
+      .eq("id", gymId)
+      .single();
+    check("created_at unchanged after blocked update", afterCreated?.created_at === beforeCreated?.created_at);
   }
   console.log();
 
@@ -381,19 +441,60 @@ async function runTests() {
   // TEST: postgres direct update also bypasses trigger (mutant (l))
   console.log("TEST: postgres direct update works");
   {
-    // We can't easily connect as postgres from here, but we've verified the trigger checks current_user
-    // This test is more about documenting the expected behavior
-    // The mutant script (l) will verify this by dropping postgres from the bypass list
-    check("postgres direct update works", true, "(verified by mutant test)");
+    // Use psql to update as postgres (superuser bypass)
+    const childProcess = await import("child_process");
+    const { execSync } = childProcess;
+    const dbUrl = process.env.SUPABASE_DB_URL || "postgresql://postgres:postgres@localhost:54322/postgres";
+    
+    try {
+      // Update timezone as postgres
+      execSync(`psql -v ON_ERROR_STOP=1 "${dbUrl}" -c "UPDATE public.gyms SET timezone = 'America/Denver' WHERE id = '${gymId}';"`, {
+        encoding: 'utf-8',
+        stdio: 'pipe'
+      });
+      
+      // Read back to verify
+      const { data: afterPg } = await adminClient
+        .from("gyms")
+        .select("timezone")
+        .eq("id", gymId)
+        .single();
+      check("postgres direct update works", afterPg?.timezone === "America/Denver");
+    } catch (err) {
+      check("postgres direct update works", false, `psql failed: ${err}`);
+    }
   }
   console.log();
   
   // TEST: Future column update blocked (mutant (n))
   console.log("TEST: Future column update blocked");
   {
-    // This test is complex to run inline since we can't easily ALTER TABLE
-    // The mutant script (n) will verify this by adding a temp column and testing the block
-    check("Future column update blocked", true, "(verified by mutant test (n))");
+    // Check if temp_future_col exists (added by mutant (n))
+    const childProcess2 = await import("child_process");
+    const { execSync } = childProcess2;
+    const dbUrl = process.env.SUPABASE_DB_URL || "postgresql://postgres:postgres@localhost:54322/postgres";
+    
+    try {
+      const colCheck = execSync(`psql -v ON_ERROR_STOP=1 "${dbUrl}" -tA -c "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='gyms' AND column_name='temp_future_col');"`, {
+        encoding: 'utf-8',
+        stdio: 'pipe'
+      }).trim();
+      
+      if (colCheck === 't') {
+        // Column exists (mutant is active), try to update it
+        const updateData: Record<string, unknown> = { temp_future_col: "hacked" };
+        const { error } = await clientOwner
+          .from("gyms")
+          .update(updateData)
+          .eq("id", gymId);
+        check("Future column update blocked", !!error && error.code === "GJC12");
+      } else {
+        // Column doesn't exist (normal case), mutant will add it and test
+        check("Future column update blocked", true, "(will be verified when mutant (n) adds column)");
+      }
+    } catch (err) {
+      check("Future column update blocked", false, `psql failed: ${err}`);
+    }
   }
   console.log();
 
@@ -433,21 +534,20 @@ async function runTests() {
     check("Constraint name: gyms_logo_url_format",
       !!logo2?.message?.includes("gyms_logo_url_format"));
 
-    // #RGB (3-digit hex)
+    // #RGB (3-digit hex) - test primary only
     const { error: color1 } = await clientOwner
       .from("gyms")
       .update({ 
         primary_color: "#fff",
-        accent_color: "#000"
+        accent_color: "#000000"
       })
       .eq("id", gymId);
     check("#RGB rejected", !!color1);
     check("SQLSTATE 23514", color1?.code === "23514");
-    check("Constraint name contains gyms_primary_color_hex or gyms_accent_color_hex",
-      !!color1?.message?.includes("gyms_primary_color_hex") || 
-      !!color1?.message?.includes("gyms_accent_color_hex"));
+    check("Constraint name: gyms_primary_color_hex",
+      !!color1?.message?.includes("gyms_primary_color_hex"));
 
-    // Hex with trailing ;}
+    // Hex with trailing ;} - test primary only
     const { error: color2 } = await clientOwner
       .from("gyms")
       .update({ 
@@ -455,7 +555,7 @@ async function runTests() {
         accent_color: "#000000"
       })
       .eq("id", gymId);
-    check("Hex with trailing ;} rejected", !!color2);
+    check("Hex with trailing rejected", !!color2);
     check("SQLSTATE 23514", color2?.code === "23514");
 
     // 8-digit hex (RGBA)
@@ -532,6 +632,16 @@ async function runTests() {
     
     const { error: gym2Error } = await adminClient.from("gyms").delete().eq("id", otherGymId);
     check("Other gym deleted", !gym2Error, gym2Error?.message);
+  }
+  
+  // Clean up test gyms
+  console.log("Cleaning up test gyms...");
+  {
+    const { error: gym1Error } = await adminClient.from("gyms").delete().eq("id", gymId);
+    if (gym1Error) console.log(`Warning: Failed to delete test gym: ${gym1Error.message}`);
+    
+    const { error: gym2Error } = await adminClient.from("gyms").delete().eq("id", otherGymId);
+    if (gym2Error) console.log(`Warning: Failed to delete other gym: ${gym2Error.message}`);
   }
   
   // Clean up test users

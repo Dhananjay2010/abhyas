@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { updateBranding, type BrandingResult } from "./actions";
 import { accessibleTextColor } from "@/lib/contrast";
 import { branding } from "@/lib/branding";
+import { primaryContrastWarning } from "@/lib/gym/branding-validation";
 
 type BrandingFormProps = {
   gymId: string;
@@ -24,7 +25,6 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
   const [accentColor, setAccentColor] = useState(initial.accentColor);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [warnings, setWarnings] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -63,55 +63,8 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
     });
   };
 
-  // Check for low contrast warning (non-blocking)
-  const checkPrimaryContrast = (color: string) => {
-    if (!color || !color.match(/^#[0-9A-Fa-f]{6}$/)) {
-      setWarnings((prev) => {
-        const next = { ...prev };
-        delete next.primaryColor;
-        return next;
-      });
-      return;
-    }
-
-    const appBackground = branding.colors.bg;
-    
-    // Calculate contrast ratio using WCAG formula
-    const ratio = (() => {
-      const hex1 = color;
-      const hex2 = appBackground;
-      
-      const hexToLum = (hex: string): number => {
-        const r = parseInt(hex.slice(1, 3), 16) / 255;
-        const g = parseInt(hex.slice(3, 5), 16) / 255;
-        const b = parseInt(hex.slice(5, 7), 16) / 255;
-        
-        const toLinear = (c: number) => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-        
-        return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
-      };
-      
-      const L1 = hexToLum(hex1);
-      const L2 = hexToLum(hex2);
-      const lighter = Math.max(L1, L2);
-      const darker = Math.min(L1, L2);
-      
-      return (lighter + 0.05) / (darker + 0.05);
-    })();
-
-    if (ratio < 3.0) {
-      setWarnings((prev) => ({
-        ...prev,
-        primaryColor: "This colour is too dark for the app background, so members will see a lighter shade.",
-      }));
-    } else {
-      setWarnings((prev) => {
-        const next = { ...prev };
-        delete next.primaryColor;
-        return next;
-      });
-    }
-  };
+  // Compute contrast warning as a derived value (shows warning on load too)
+  const contrastWarning = primaryContrastWarning(primaryColor);
 
   // Preview colors (use user input or brand defaults - orange when cleared)
   // LOW-3: Cleared preview should show default brand (orange), not grey/black
@@ -217,22 +170,14 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
               type="color"
               id="primaryColorPicker"
               value={previewPrimary}
-              onChange={(e) => {
-                const newColor = e.target.value.toUpperCase();
-                setPrimaryColor(newColor);
-                checkPrimaryContrast(newColor);
-              }}
+              onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
               className="h-12 w-16 rounded-lg border border-border bg-surface-2 cursor-pointer"
             />
             <input
               type="text"
               id="primaryColor"
               value={primaryColor}
-              onChange={(e) => {
-                const newColor = e.target.value.toUpperCase();
-                setPrimaryColor(newColor);
-                checkPrimaryContrast(newColor);
-              }}
+              onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
               placeholder="#FF9A2E"
               className="flex-1 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent"
             />
@@ -243,8 +188,8 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
           {errors.primaryColor && (
             <p className="mt-1 text-xs text-danger">{errors.primaryColor}</p>
           )}
-          {warnings.primaryColor && !errors.primaryColor && (
-            <p className="mt-1 text-xs text-warning">{warnings.primaryColor}</p>
+          {contrastWarning && !errors.primaryColor && (
+            <p className="mt-1 text-xs text-warning">{contrastWarning}</p>
           )}
         </div>
 
