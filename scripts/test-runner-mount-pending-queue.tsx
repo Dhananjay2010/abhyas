@@ -52,10 +52,11 @@ Object.defineProperty(window, 'localStorage', {
   fakeStorage.clear();
   
   const logSetCalls: Array<{ sessionExerciseId: string; setNumber: number }> = [];
-  let replayCalled = false;
+  const replayCalled = false;
   
   const fakeActions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     logSet: async (input: any) => {
       logSetCalls.push({
         sessionExerciseId: input.sessionExerciseId,
