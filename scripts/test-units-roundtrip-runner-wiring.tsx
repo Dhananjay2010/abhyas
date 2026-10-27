@@ -48,15 +48,20 @@ const testCases = [
       markWarmupDone: async () => ({ ok: true }),
       logSet: async (data) => {
         capturedWeightKg = data.weightKg;
-        return { ok: true };
+        return { ok: true as const };
       },
-      deleteSet: async () => ({ ok: true }),
-      finishExercise: async () =>
-        ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-      finishSession: async () => ({ ok: true }),
-      abandonSession: async () => ({ ok: true }),
-      planDay: async () => ({ ok: true }),
-      refreshAfterSession: async () => ({ ok: true }),
+      deleteSet: async () => ({ ok: true as const }),
+      finishExercise: async () => ({
+        ok: true as const,
+        data: { outcome: "hold", message: "", personalBest: null },
+      }),
+      finishSession: async () => ({
+        ok: true as const,
+        data: { status: "completed" as const, durationSeconds: null },
+      }),
+      abandonSession: async () => ({ ok: true as const }),
+      planDay: async () => ({ ok: true as const }),
+      refreshAfterSession: async () => ({ ok: true as const }),
       swapExercise: async () => ({ 
         ok: true, 
         data: { 
