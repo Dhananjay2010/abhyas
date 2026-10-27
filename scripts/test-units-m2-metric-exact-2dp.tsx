@@ -65,7 +65,14 @@ check("Prefill shows 40 (no decimals)", prefill4 === "40", `got "${prefill4}"`);
 
 console.log("");
 
-// Test case 5: Off-grid values stay exact: 71.44 kg, 35.15 kg, 62.37 kg
+// Test case 5: Trailing zeros trimmed: 77.40 -> 77.4
+const kg5 = 77.40;
+const formatted5 = formatWeight(kg5, "metric");
+check("formatWeight shows 77.4 kg (trailing zero trimmed)", formatted5 === "77.4 kg", `got "${formatted5}"`);
+
+console.log("");
+
+// Test case 6: Off-grid values stay exact: 71.44 kg, 35.15 kg, 62.37 kg
 const offGrid = [
   { kg: 71.44, expected: "71.44 kg" },
   { kg: 35.15, expected: "35.15 kg" },

@@ -103,7 +103,8 @@ console.log("\n=== OnboardingFlow weight prefill preservation ===\n");
 
       // Fill other required fields (task: remove if-guards so missing field fails)
       const dobFieldset = r.container.querySelector("fieldset");
-      const dobInputs = Array.from(dobFieldset!.querySelectorAll<HTMLInputElement>("input"));
+      if (!dobFieldset) throw new Error("DOB fieldset not found");
+      const dobInputs = Array.from(dobFieldset.querySelectorAll<HTMLInputElement>("input"));
       if (dobInputs.length < 3) throw new Error("DOB inputs not found");
       fireEvent.change(dobInputs[0], { target: { value: "15" } }); // day
       fireEvent.change(dobInputs[1], { target: { value: "01" } }); // month
@@ -228,7 +229,8 @@ console.log("\n=== OnboardingFlow weight prefill preservation ===\n");
 
       // Fill other required fields (task: remove if-guards so missing field fails)
       const dobFieldset2 = r2.container.querySelector("fieldset");
-      const dobInputs2 = Array.from(dobFieldset2!.querySelectorAll<HTMLInputElement>("input"));
+      if (!dobFieldset2) throw new Error("DOB fieldset not found");
+      const dobInputs2 = Array.from(dobFieldset2.querySelectorAll<HTMLInputElement>("input"));
       if (dobInputs2.length < 3) throw new Error("DOB inputs not found");
       fireEvent.change(dobInputs2[0], { target: { value: "15" } }); // day
       fireEvent.change(dobInputs2[1], { target: { value: "01" } }); // month

@@ -457,9 +457,12 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
   // Test 4: Logged weight 62.75 kg → rounded to nearest 138.5 lb
   console.log("\nTest 4: Logged weight 62.75 kg (rounded to 138.5 lb, not floored)");
   {
+    let capturedWeightKg: number | null = null;
+    
     const actions: SessionActions = {
       markWarmupDone: async () => ({ ok: true }),
-      logSet: async () => {
+      logSet: async (data) => {
+        capturedWeightKg = data.weightKg;
         return { ok: true as const };
       },
       deleteSet: async () => ({ ok: true as const }),
@@ -516,12 +519,13 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
       repsMin: 6,
       repsMax: 8,
       restSeconds: 180,
-      workingWeightKg: 62.5,
-      suggestedWeightKg: 62.5,
-      previousCompletedWeightKg: null,
+      workingWeightKg: 62.75,
+      suggestedWeightKg: 62.75,
+      // M1: held weight (not an increase), so uses nearest rounding
+      previousCompletedWeightKg: 62.75,
       status: "pending",
       feel: null,
-      sets: [{ setNumber: 1, weightKg: 62.75, reps: 7, durationSeconds: null }], // Logged set!
+      sets: [],  // No sets logged yet; we'll log one unedited
       isBodyweight: false,
     };
 
@@ -541,8 +545,9 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     );
 
     await waitFor(() => {
-      const setNumber = r.container.textContent?.includes("Set 2");
-      if (!setNumber) throw new Error("Set 2 not rendered");
+      const hasExerciseName = r.container.textContent?.includes("Bench Press");
+      const hasSet1 = r.container.textContent?.includes("Set 1");
+      if (!hasExerciseName || !hasSet1) throw new Error("Exercise or Set 1 not rendered");
     }, { timeout: 5000 });
 
     const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
@@ -550,13 +555,43 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     );
     if (!weightInput) throw new Error("Weight input not found");
 
-    check("Logged weight prefill shows 138.5 (rounded to nearest, not floored)", weightInput.value === "138.5",
+    check("Prefill shows 138.5 (rounded to nearest, not floored)", weightInput.value === "138.5",
       `got "${weightInput.value}"`);
     
-    // Task fix: Assert the exact kg from the logged set in the exercise definition
-    check("Test 4: Exercise has logged set with exact 62.75 kg", 
-      exercise.sets[0]?.weightKg === 62.75,
-      `got ${exercise.sets[0]?.weightKg}`);
+    // Find reps input and fill it
+    const repsInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.includes("Reps")
+    );
+    if (!repsInput) throw new Error("Reps input not found");
+
+    await act(async () => {
+      fireEvent.change(repsInput, { target: { value: "8" } });
+    });
+
+    // Wait for the Log Set button to become enabled
+    await waitFor(() => {
+      const btn = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+      if (!btn) throw new Error("Log Set button not found");
+      if (btn.disabled) throw new Error("Log Set button still disabled");
+    }, { timeout: 5000 });
+
+    const logSetButton = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+    if (!logSetButton) throw new Error("Log Set button not found");
+
+    capturedWeightKg = null;
+    await act(async () => {
+      fireEvent.click(logSetButton);
+    });
+
+    // Give React time to process the click
+    await waitFor(() => {
+      if (capturedWeightKg === null) throw new Error("logSet not called yet");
+    }, { timeout: 1000 });
+    
+    // Task fix: Assert what the runner actually submitted via logSet, not the fixture
+    check("Test 4: logSet submitted exact 62.75 kg unedited", 
+      capturedWeightKg === 62.75,
+      capturedWeightKg === null ? "logSet not called" : `got ${capturedWeightKg}`);
 
     r.unmount();
   }

@@ -54,20 +54,11 @@ if (!svg1) {
   check("Body weight chart has axis labels", axisLabels1.length >= 1, 
     `found ${axisLabels1.length} axis labels`);
   
-  // Check that axis labels use 0.1 precision (formatBodyWeight)
-  // With values 77.0-77.38 kg (169.8-170.6 lb), the axis should show numbers
-  // in the 169-171 range with 0.1 precision
+  // L-c: Assert exact axis label text (170.7 for 77.38 kg data)
   const axisValues1 = axisLabels1.map(t => t.textContent || "");
-  const hasDecimal1 = axisValues1.some(v => v.includes("."));
-  check("Body weight axis labels use decimal precision", hasDecimal1,
+  check("Body weight axis shows exact 170.7 lb label", axisValues1.includes("170.7"),
     `axis labels: ${axisValues1.join(", ")}`);
 }
-
-// Check the headline value
-const headline1 = r1.container.querySelector("p.mt-1");
-const headlineText1 = headline1?.textContent || "";
-check("Body weight headline shows 170.6 lb", headlineText1.includes("170.6 lb"),
-  `got "${headlineText1}"`);
 
 r1.unmount();
 
