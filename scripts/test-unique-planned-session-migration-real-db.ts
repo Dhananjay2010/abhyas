@@ -123,9 +123,9 @@ async function main() {
   const caseG2 = "00000000-0000-0000-0000-000000000002"; // newer, empty, lower uuid
 
   // Case (h): three planned rows, middle one with children
-  const caseH1 = "h0000000-0000-0000-0000-000000000001";
-  const caseH2 = "h0000000-0000-0000-0000-000000000002";
-  const caseH3 = "h0000000-0000-0000-0000-000000000003";
+  const caseH1 = "80000000-0000-0000-0000-000000000001";
+  const caseH2 = "80000000-0000-0000-0000-000000000002";
+  const caseH3 = "80000000-0000-0000-0000-000000000003";
 
   const { error: sessError } = await adminClient.from("sessions").insert([
     // Case (a): pure dup
@@ -181,7 +181,7 @@ async function main() {
     // Case (g): G1 has exercise
     { id: "ge000000-0000-0000-0000-000000000001", session_id: caseG1, user_id: userId, exercise_id: exerciseId, order_index: 0, status: "pending", planned_sets: 3 },
     // Case (h): H2 (middle) has exercise
-    { id: "he000000-0000-0000-0000-000000000002", session_id: caseH2, user_id: userId, exercise_id: exerciseId, order_index: 0, status: "pending", planned_sets: 3 },
+    { id: "8e000000-0000-0000-0000-000000000002", session_id: caseH2, user_id: userId, exercise_id: exerciseId, order_index: 0, status: "pending", planned_sets: 3 },
   ]);
   if (exError) throw new Error(`Failed to insert session_exercises: ${exError.message}`);
 
