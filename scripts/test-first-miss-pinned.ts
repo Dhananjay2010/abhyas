@@ -95,6 +95,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
   });
   check("Dumbbell 6 kg first miss → holds at 6 kg", d.nextWorkingWeightKg === 6 && d.consecutiveFailures === 1);
   check("  message indicates hold", d.message.includes("Staying at this weight"), `got: ${d.message}`);
+  check("  M1 counter set to 6 kg (Decision G)", d.weightAtFailureStartKg === 6);
 }
 
 // Dumbbell 12 → holds
@@ -108,6 +109,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
   });
   check("Dumbbell 12 kg first miss → holds at 12 kg", d.nextWorkingWeightKg === 12 && d.consecutiveFailures === 1);
   check("  message indicates hold", d.message.includes("Staying at this weight"), `got: ${d.message}`);
+  check("  M1 counter set to 12 kg (Decision G)", d.weightAtFailureStartKg === 12);
 }
 
 // Dumbbell 5 → holds (smallest loadable, or below increment)
@@ -136,6 +138,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
   check(`Dumbbell 7.5 kg first miss → holds (cut would be ${(cutPct * 100).toFixed(1)}% > 20%)`, 
     d.nextWorkingWeightKg === 7.5 && d.consecutiveFailures === 1);
   check("  message is standard hold", d.message.includes("Staying at this weight"));
+  check("  M1 counter set to 7.5 kg (Decision G)", d.weightAtFailureStartKg === 7.5);
 }
 
 console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");

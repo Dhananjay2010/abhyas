@@ -243,85 +243,66 @@ MUTATE_SCRIPT
   return 0
 }
 
-# Mutant (a): Remove 20% guard
+# Mutant (a): First miss steps down instead of holding
 run_mutant \
-  "(a) remove 20% guard" \
-  "Change cutFraction > THRESHOLD to cutFraction > 99" \
-  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {" \
-  "if (cutFraction > 99) {"
+  "(a) first miss steps down" \
+  "Decision F: first miss should ALWAYS hold, not step down" \
+  "  // First miss: always hold at current weight (coordinator decision F)
+  const nextWeight = currentWeight;" \
+  "  // First miss: always hold at current weight (coordinator decision F)
+  const nextWeight = Math.max(0, (currentWeight ?? 0) * 0.9);"
 
-# Mutant (b): Threshold 0.20 → 0.5
-run_mutant \
-  "(b) threshold 0.20 → 0.5" \
-  "Change FIRST_MISS_HOLD_THRESHOLD from 0.20 to 0.50" \
-  "export const FIRST_MISS_HOLD_THRESHOLD = 0.20;" \
-  "export const FIRST_MISS_HOLD_THRESHOLD = 0.50;"
+# Mutant (b): EQUIVALENT - old threshold test, now Decision F always holds
+echo "Testing mutant: (b) threshold test"
+echo "  ≡ EQUIVALENT: Decision F first miss always holds (no threshold)"
 
-# Mutant (c): > to >=
-run_mutant \
-  "(c) > to >=" \
-  "Change cutFraction > THRESHOLD to >=" \
-  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {" \
-  "if (cutFraction >= FIRST_MISS_HOLD_THRESHOLD) {"
+# Mutant (c): EQUIVALENT - old > to >= test, now Decision F has no cutFraction check
+echo "Testing mutant: (c) > to >="
+echo "  ≡ EQUIVALENT: Decision F first miss always holds (no cutFraction check)"
 
-# Mutant (d): Guard inverted (always hold)
-run_mutant \
-  "(d) guard inverted" \
-  "Invert the guard condition" \
-  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {" \
-  "if (cutFraction < FIRST_MISS_HOLD_THRESHOLD) {"
+# Mutant (d): EQUIVALENT - old guard inversion test, now Decision F has no guard
+echo "Testing mutant: (d) guard inverted"
+echo "  ≡ EQUIVALENT: Decision F first miss always holds (no guard condition)"
 
-# Mutant (e): consecutiveFailures not incremented (first-miss case only)
+# Mutant (e): M1 counter not set on first miss (Decision G)
 run_mutant \
-  "(e) failure counter not incremented" \
+  "(e) M1 counter not set" \
+  "Don't set weightAtFailureStartKg on first miss (Decision G violation)" \
+  "  // M1: Store pre-miss weight when failures goes from 0 to 1
+  const newWeightAtFailureStart = state.consecutiveFailures === 0 && currentWeight !== null
+    ? currentWeight
+    : state.weightAtFailureStartKg;" \
+  "  // M1: Store pre-miss weight when failures goes from 0 to 1
+  const newWeightAtFailureStart = state.weightAtFailureStartKg;"
+
+# Mutant (f): Second consecutive miss holds instead of stepping down (Decision F)
+run_mutant \
+  "(f) second miss holds" \
+  "Second consecutive miss should step down, not hold (Decision F)" \
+  "  if (failures >= 2 && currentWeight !== null && currentWeight > 0) {" \
+  "  if (failures >= 99 && currentWeight !== null && currentWeight > 0) {"
+
+# Mutant (g): consecutiveFailures not incremented on first miss
+run_mutant \
+  "(g) failure counter not incremented" \
   "Don't increment consecutiveFailures on first miss" \
-  "  return {
-    ...carried,
-    outcome: \"hold\",
-    nextWorkingWeightKg: nextWeight,
-    consecutiveFailures: failures," \
-  "  return {
-    ...carried,
-    outcome: \"hold\",
-    nextWorkingWeightKg: nextWeight,
-    consecutiveFailures: 0,"
+  "    consecutiveFailures: failures,
+    weightAtFailureStartKg: newWeightAtFailureStart, // M1: store pre-miss weight
+    message," \
+  "    consecutiveFailures: 0,
+    weightAtFailureStartKg: newWeightAtFailureStart, // M1: store pre-miss weight
+    message,"
 
-# Mutant (f): kettlebell strictly-below (first-miss path only)
+# Mutant (h): First miss returns wrong weight (not current)
 run_mutant \
-  "(f) kettlebell strictly-below" \
-  "Allow kettlebell to equal or be below current (not strictly below)" \
-  "      let found = currentWeight;  // Default to hold
-      for (let i = bells.length - 1; i >= 0; i--) {
-        if (bells[i] < currentWeight - epsilon) {" \
-  "      let found = currentWeight;  // Default to hold
-      for (let i = bells.length - 1; i >= 0; i--) {
-        if (bells[i] <= currentWeight) {"
-
-# Mutant (g): first-miss >= two-miss guard
-run_mutant \
-  "(g) hold when candidate < two-miss" \
-  "Don't hold when candidate < two-miss" \
-  "    // Rule 2: if candidate < two-miss result, hold instead
-    if (candidateWeight !== currentWeight) {
-      const twoMissFloor = computeTwoMissResult(currentWeight);
-      if (candidateWeight < twoMissFloor) {
-        candidateWeight = currentWeight;
-      }
-    }" \
-  "    // Rule 2: if candidate < two-miss result, hold instead
-    if (candidateWeight !== currentWeight) {
-      const twoMissFloor = computeTwoMissResult(currentWeight);
-      if (candidateWeight < twoMissFloor) {
-        candidateWeight = candidateWeight;
-      }
-    }"
-
-# Mutant (h): first-miss hold snap
-run_mutant \
-  "(h) hold snaps weight" \
-  "Snap hold weight to grid instead of returning exact current" \
-  "    nextWorkingWeightKg: nextWeight," \
-  "    nextWorkingWeightKg: nextWeight !== null ? Math.floor(nextWeight / 2.5) * 2.5 : nextWeight,"
+  "(h) first miss wrong weight" \
+  "First miss should return exact currentWeight" \
+  "    nextWorkingWeightKg: nextWeight,
+    consecutiveFailures: failures,
+    weightAtFailureStartKg: newWeightAtFailureStart, // M1: store pre-miss weight" \
+  "    nextWorkingWeightKg: nextWeight !== null ? Math.floor(nextWeight / 2.5) * 2.5 : nextWeight,
+    consecutiveFailures: failures,
+    weightAtFailureStartKg: newWeightAtFailureStart, // M1: store pre-miss weight"
 
 # Mutant (i): hard-feel hold
 run_mutant \
@@ -340,21 +321,15 @@ run_mutant \
 echo "Testing mutant: (j) 1.5-step rule"
 echo "  ⚠️  DELETED: Rule is unreachable (strictly-below ensures at most 1-step drop)"
 
-# Mutant (k): standard equipment strictly-below
-run_mutant \
-  "(k) standard equipment strictly-below" \
-  "Round instead of floor for strictly-below" \
-  "      const stepsBelow = Math.floor((currentWeight - epsilon) / gridStep);" \
-  "      const stepsBelow = Math.round(currentWeight / gridStep);"
+# Mutant (k): EQUIVALENT - old strictly-below test for first-miss equipment logic
+echo "Testing mutant: (k) standard equipment strictly-below"
+echo "  ≡ EQUIVALENT: Decision F first miss always holds at exact weight (no equipment-specific drop)"
 
-# Mutant (l): threshold 0.20 → 0.25
-run_mutant \
-  "(l) threshold 0.20 → 0.25" \
-  "Change threshold to 0.25 (25%)" \
-  "export const FIRST_MISS_HOLD_THRESHOLD = 0.20;" \
-  "export const FIRST_MISS_HOLD_THRESHOLD = 0.25;"
+# Mutant (l): EQUIVALENT - old threshold 0.20 → 0.25 test
+echo "Testing mutant: (l) threshold 0.20 → 0.25"
+echo "  ≡ EQUIVALENT: Decision F first miss always holds (no threshold)"
 
-# Mutant (m): snap down instead of snap up in helper
+# Mutant (m): snap down instead of snap up in two-miss helper
 run_mutant \
   "(m) snap down in helper" \
   "Snap down instead of up in two-miss helper" \
@@ -373,11 +348,13 @@ echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
 TOTAL=12
-KILLED=$((TOTAL - FAILED - ${#SKIPPED[@]}))
+EQUIVALENT=5  # (b), (c), (d), (k), (l) - old threshold/guard tests, now obsolete under Decision F
+KILLED=$((TOTAL - FAILED - ${#SKIPPED[@]} - EQUIVALENT))
 echo "Total mutants:                   $TOTAL"
 echo "Killed:                          $KILLED"
 echo "Survived:                        $FAILED"
 echo "Skipped:                         ${#SKIPPED[@]}"
+echo "Equivalent (Decision F):         $EQUIVALENT"
 echo "========================================="
 
 if [ ${#SURVIVORS[@]} -gt 0 ]; then
