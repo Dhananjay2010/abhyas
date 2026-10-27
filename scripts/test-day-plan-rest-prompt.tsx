@@ -524,6 +524,27 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     unmount();
   }
 
+  console.log("\nCase 20: sessionId used (not localDate) when sessionId provided");
+  {
+    const mock = mockPlanDay();
+    const { container: c, unmount } = render(
+      <DayPlanPrompt
+        sessionId="s-789"
+        dayLabel="Tomorrow"
+        plannedLabel="Rest"
+        days={TRAINING_DAYS}
+        heading="What about tomorrow?"
+        onPlan={mock.fn}
+      />
+    );
+
+    await click(button(c, /^Keep rest$/), "Keep rest");
+    
+    check("sessionId provided", mock.calls[0]?.sessionId === "s-789");
+    check("localDate NOT provided", mock.calls[0]?.localDate === undefined);
+    unmount();
+  }
+
   if (failures > 0) {
     console.log(`\n✗ ${failures} check(s) failed`);
     process.exit(1);

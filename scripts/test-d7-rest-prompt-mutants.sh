@@ -125,17 +125,16 @@ run_mutant "7. Keep rest action: call with rest instead of keep" "$COMPONENT" \
               Keep rest' "$T"
 
 run_mutant "8. Training days list in new UI: add Yoga button" "$COMPONENT" \
-  '            ))}
-            <button
-              disabled={pending}
-              onClick={() => setChoosing(false)}' \
-  '            ))}
-            <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+  '            {days.some((d) => d.dayType === "yoga") ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
+            <button' \
+  '            <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
               Yoga
             </Choice>
-            <button
-              disabled={pending}
-              onClick={() => setChoosing(false)}' "$T"
+            <button' "$T"
 
 run_mutant "9. Rest day detection: case-sensitive (accept 'Rest' but not 'rest')" "$COMPONENT" \
   'const isRestDay = plannedLabel.toLowerCase() === "rest";' \
@@ -146,32 +145,56 @@ run_mutant "10. Tomorrow detection: case-sensitive check is strict" "$COMPONENT"
   'const isTomorrowLabel = dayLabel.toLowerCase() === "tomorrow";' "$T"
 
 run_mutant "R1. Wrong sessionId sent to onPlan" "$COMPONENT" \
-  'const r = await onPlan({ sessionId, plan });' \
-  'const r = await onPlan({ sessionId: "mutant-wrong-id", plan });' "$T"
+  '        const r = await onPlan(input as { sessionId: string; plan: DayPlan });' \
+  '        const r = await onPlan({ sessionId: "mutant-wrong-id", plan } as { sessionId: string; plan: DayPlan });' "$T"
 
 run_mutant "R3. Never mind persists a change (writes keep)" "$COMPONENT" \
-  '              onClick={() => setChoosing(false)}
-              className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+  '            <button
+              disabled={pending}
+              onClick={() => setChoosing(false)}
+              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>' \
-  '              onClick={() => choose({ kind: "keep" }, plannedLabel)}
-              className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+            </button>
+          </div>
+        )}
+
+        {error && (' \
+  '            <button
+              disabled={pending}
+              onClick={() => choose({ kind: "keep" }, "a rest day")}
+              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>' "$T"
+            </button>
+          </div>
+        )}
+
+        {error && (' "$T"
 
 run_mutant "R4. Never mind does nothing (stays choosing)" "$COMPONENT" \
-  '              onClick={() => setChoosing(false)}
-              className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+  '            <button
+              disabled={pending}
+              onClick={() => setChoosing(false)}
+              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>' \
-  '              onClick={() => setChoosing(true)}
-              className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+            </button>
+          </div>
+        )}
+
+        {error && (' \
+  '            <button
+              disabled={pending}
+              onClick={() => setChoosing(true)}
+              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>' "$T"
+            </button>
+          </div>
+        )}
+
+        {error && (' "$T"
 
 run_mutant "R5. Keep rest settles with wrong label" "$COMPONENT" \
   'const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
@@ -190,7 +213,8 @@ run_mutant "R6. Keep rest not disabled while pending" "$COMPONENT" \
             </Choice>' "$T"
 
 run_mutant "R6b. Training choices not disabled while pending (rest branch)" "$COMPONENT" \
-  '                <Choice
+  '              days.map((d) => (
+                <Choice
                   key={d.programDayId}
                   wide
                   disabled={pending}
@@ -202,8 +226,9 @@ run_mutant "R6b. Training choices not disabled while pending (rest branch)" "$CO
                 </Choice>
               ))
             )}
-            <button' \
-  '                <Choice
+            {days.some' \
+  '              days.map((d) => (
+                <Choice
                   key={d.programDayId}
                   wide
                   disabled={false}
@@ -215,7 +240,7 @@ run_mutant "R6b. Training choices not disabled while pending (rest branch)" "$CO
                 </Choice>
               ))
             )}
-            <button' "$T"
+            {days.some' "$T"
 
 run_mutant "R7. Error not shown in rest branch" "$COMPONENT" \
   '        {error && (
@@ -270,31 +295,59 @@ run_mutant "R7. Error not shown in rest branch" "$COMPONENT" \
   return (' "$T"
 
 run_mutant "R8. Failed plan still settles (ignore r.ok)" "$COMPONENT" \
-  '        const r = await onPlan({ sessionId, plan });
+  '        const r = await onPlan(input as { sessionId: string; plan: DayPlan });
         if (!r.ok) {
           setError(r.error);
           return;
         }
         setChoosing(false);
-        setSettled(describedAs);' \
-  '        const r = await onPlan({ sessionId, plan });
+        setSettled(describedAs);
+        // Show brief confirmation' \
+  '        const r = await onPlan(input as { sessionId: string; plan: DayPlan });
         if (!r.ok) {
           setError(r.error);
         }
         setChoosing(false);
-        setSettled(describedAs);' "$T"
+        setSettled(describedAs);
+        // Show brief confirmation' "$T"
 
 run_mutant "R11. Training choice sends wrong programDayId (rest branch)" "$COMPONENT" \
-  '                  onClick={() =>
+  '              days.map((d) => (
+                <Choice
+                  key={d.programDayId}
+                  wide
+                  disabled={pending}
+                  onClick={() =>
                     choose({ kind: "training", programDayId: d.programDayId }, d.label)
-                  }' \
-  '                  onClick={() =>
+                  }
+                >
+                  {d.label}
+                </Choice>
+              ))
+            )}
+            {days.some' \
+  '              days.map((d) => (
+                <Choice
+                  key={d.programDayId}
+                  wide
+                  disabled={pending}
+                  onClick={() =>
                     choose({ kind: "training", programDayId: days[0].programDayId }, d.label)
-                  }' "$T"
+                  }
+                >
+                  {d.label}
+                </Choice>
+              ))
+            )}
+            {days.some' "$T"
 
 run_mutant "M1. Server uses current date instead of session.local_date + 1" "$ACTION" \
-  '  const targetDate = addDays(session.local_date, 1);' \
-  '  const targetDate = today;' "$T"
+  '    // Compute target date = session'\''s local_date + 1 day
+    const { addDays } = await import("@/lib/dates");
+    targetDate = addDays(session.local_date, 1);' \
+  '    // Compute target date = session'\''s local_date + 1 day
+    const { addDays } = await import("@/lib/dates");
+    targetDate = today;' "$T"
 
 run_mutant "Q1. Yoga not added when already in block" "$COMPONENT" \
   '            {days.some((d) => d.dayType === "yoga") ? null : (
