@@ -1429,7 +1429,7 @@ export function SessionRunner({
 
         {allSetsDone && (
           <div className="mt-8">
-            {sessionExpired && (
+            {sessionExpired && getPendingUiMode(pendingSetState) !== "expired" && (
               <div className="mb-4">
                 <SessionExpiredPrompt />
               </div>
