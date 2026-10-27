@@ -58,7 +58,7 @@ type LogSetCall = {
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () =>
       ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true }),
     refreshAfterSession: async () => ({ ok: true }),
@@ -189,7 +189,7 @@ type LogSetCall = {
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () =>
       ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true }),
     refreshAfterSession: async () => ({ ok: true }),
@@ -320,7 +320,7 @@ type LogSetCall = {
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () =>
       ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true }),
     refreshAfterSession: async () => ({ ok: true }),
@@ -461,7 +461,7 @@ type LogSetCall = {
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () =>
       ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true }),
     refreshAfterSession: async () => ({ ok: true }),
@@ -592,7 +592,7 @@ type LogSetCall = {
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () =>
       ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: async () => ({ ok: true }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     planDay: async () => ({ ok: true }),
     refreshAfterSession: async () => ({ ok: true }),
