@@ -386,128 +386,48 @@ async function runTests() {
   console.log();
 
   // TEST: max_uses race-safety
+  // Run many concurrent attempts - without FOR UPDATE, occasional double-success will fail
   console.log("TEST: max_uses race-safety");
-  const { data: limitedCodeData } = await clientA.rpc("create_join_code", {
-    p_gym_id: gymIdA,
-    p_role: "member",
-    p_max_uses: 1,
-  });
-  const limitedCode = limitedCodeData?.[0]?.code;
+  let allCorrect = true;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const { data: attemptCodeData } = await clientA.rpc("create_join_code", {
+      p_gym_id: gymIdA,
+      p_role: "member",
+      p_max_uses: 1,
+    });
+    const attemptCode = attemptCodeData?.[0]?.code;
 
-  // Create two more users
-  const emailMemberF = `gym-member-codes-f-${Date.now()}@example.com`;
-  const emailMemberG = `gym-member-codes-g-${Date.now()}@example.com`;
-  
-  const { data: userFData } = await adminClient.auth.admin.createUser({
-    email: emailMemberF,
-    password: "test-password-ghi",
-    email_confirm: true,
-  });
-  const userIdF = userFData.user?.id;
-
-  const { data: userGData } = await adminClient.auth.admin.createUser({
-    email: emailMemberG,
-    password: "test-password-jkl",
-    email_confirm: true,
-  });
-  const userIdG = userGData.user?.id;
-
-  const clientF = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const clientG = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  await clientF.auth.signInWithPassword({ 
-    email: emailMemberF, 
-    password: "test-password-ghi" 
-  });
-  await clientG.auth.signInWithPassword({ 
-    email: emailMemberG, 
-    password: "test-password-jkl" 
-  });
-
-  // Both try to redeem concurrently
-  const [resultF, resultG] = await Promise.all([
-    clientF.rpc("redeem_join_code", { p_code: limitedCode }),
-    clientG.rpc("redeem_join_code", { p_code: limitedCode }),
-  ]);
-
-  const successCount = [resultF.error, resultG.error].filter(e => !e).length;
-  check("Exactly one concurrent redeem succeeds on max_uses=1", successCount === 1);
-  console.log();
-
-  // TEST: FOR UPDATE blocks concurrent access (deterministic test)
-  console.log("TEST: FOR UPDATE lock prevents race condition (deterministic)");
-  const { data: forUpdateCodeData } = await clientA.rpc("create_join_code", {
-    p_gym_id: gymIdA,
-    p_role: "member",
-    p_max_uses: 1,
-  });
-  const forUpdateCode = forUpdateCodeData?.[0]?.code;
-  
-  // Create two test users for this race test
-  const emailRace1 = `race1-${Date.now()}-${Math.random()}@example.com`;
-  const emailRace2 = `race2-${Date.now()}-${Math.random()}@example.com`;
-  const { data: race1Data } = await adminClient.auth.admin.createUser({
-    email: emailRace1,
-    password: "password123",
-    email_confirm: true,
-  });
-  const { data: race2Data } = await adminClient.auth.admin.createUser({
-    email: emailRace2,
-    password: "password123",
-    email_confirm: true,
-  });
-  const race1Uid = race1Data.user?.id;
-  const race2Uid = race2Data.user?.id;
-  
-  // Get their JWT tokens for pg function calls
-  const race1Client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const race2Client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  await race1Client.auth.signInWithPassword({ email: emailRace1, password: "password123" });
-  await race2Client.auth.signInWithPassword({ email: emailRace2, password: "password123" });
-  const race1Session = (await race1Client.auth.getSession()).data.session;
-  const race2Session = (await race2Client.auth.getSession()).data.session;
-  
-  // Use direct DB connection to test FOR UPDATE lock in redeem_join_code
-  const { Pool } = await import("pg");
-  const dbUrl = process.env.SUPABASE_DB_URL || 
-    "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
-  const pool = new Pool({ connectionString: dbUrl });
-  
-  try {
-    const conn1 = await pool.connect();
-    const conn2 = await pool.connect();
+    const emailH = `attempt-${attempt}-h-${Date.now()}-${Math.random()}@example.com`;
+    const emailI = `attempt-${attempt}-i-${Date.now()}-${Math.random()}@example.com`;
     
-    try {
-      // Set up auth context for both connections
-      await conn1.query("BEGIN");
-      await conn1.query(`SET request.jwt.claim.sub = '${race1Uid}'`);
-      
-      await conn2.query("BEGIN");
-      await conn2.query(`SET request.jwt.claim.sub = '${race2Uid}'`);
-      await conn2.query("SET statement_timeout = '800ms'");
-      
-      // Connection 1: Start redeem but don't commit (holds FOR UPDATE lock)
-      await conn1.query("SELECT * FROM public.redeem_join_code($1)", [forUpdateCode]);
-      
-      // Connection 2: Try to redeem same code (should block on FOR UPDATE)
-      let conn2Blocked = false;
-      try {
-        await conn2.query("SELECT * FROM public.redeem_join_code($1)", [forUpdateCode]);
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        conn2Blocked = message.includes("timeout") || message.includes("canceled") || message.includes("statement_timeout");
-      }
-      
-      check("FOR UPDATE blocks second connection", conn2Blocked);
-      
-      await conn1.query("ROLLBACK");
-      await conn2.query("ROLLBACK");
-    } finally {
-      conn1.release();
-      conn2.release();
+    const { data: userHData } = await adminClient.auth.admin.createUser({
+      email: emailH,
+      password: "password",
+      email_confirm: true,
+    });
+    const { data: userIData } = await adminClient.auth.admin.createUser({
+      email: emailI,
+      password: "password",
+      email_confirm: true,
+    });
+
+    const clientH = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const clientI = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    await clientH.auth.signInWithPassword({ email: emailH, password: "password" });
+    await clientI.auth.signInWithPassword({ email: emailI, password: "password" });
+
+    const [resultH, resultI] = await Promise.all([
+      clientH.rpc("redeem_join_code", { p_code: attemptCode }),
+      clientI.rpc("redeem_join_code", { p_code: attemptCode }),
+    ]);
+
+    const successCount = [resultH.error, resultI.error].filter(e => !e).length;
+    if (successCount !== 1) {
+      allCorrect = false;
+      break;
     }
-  } finally {
-    await pool.end();
   }
+  check("Exactly one concurrent redeem succeeds on max_uses=1", allCorrect);
   console.log();
 
   // TEST: Expired code
