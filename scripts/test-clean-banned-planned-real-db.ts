@@ -493,8 +493,101 @@ async function runTests() {
   const afterExHash = hashJSON(afterExercises);
   const afterSetsHash = hashJSON(afterSets);
 
-  check("Session exercises unchanged", beforeExHash === afterExHash);
-  check("Session sets unchanged", beforeSetsHash === afterSetsHash);
+  check("Session exercises unchanged (in_progress)", beforeExHash === afterExHash);
+  check("Session sets unchanged (in_progress)", beforeSetsHash === afterSetsHash);
+
+  // TEST 6: Completed session also unchanged
+  console.log("\nTest 6: Completed session exercises/sets checksums unchanged\n");
+
+  const sessionIdCompleted = randomUUID();
+  const { error: sessionCompletedError } = await adminClient.from("sessions").insert({
+    id: sessionIdCompleted,
+    user_id: userIdA,
+    program_day_id: dayIdA,
+    status: "completed",
+    actual_type: "weights",
+    local_date: new Date().toISOString().split("T")[0],
+  });
+
+  if (sessionCompletedError) {
+    console.error("❌ Failed to insert completed session:", sessionCompletedError);
+    return false;
+  }
+
+  const sessionExIdCompleted = randomUUID();
+  const { error: sessionExCompletedError } = await adminClient.from("session_exercises").insert({
+    id: sessionExIdCompleted,
+    session_id: sessionIdCompleted,
+    user_id: userIdA,
+    exercise_id: replacementExercise.id,
+    order_index: 0,
+    planned_sets: 3,
+    planned_reps_min: 8,
+    planned_reps_max: 12,
+    rest_seconds: 120,
+    metric: "reps",
+  });
+
+  if (sessionExCompletedError) {
+    console.error("❌ Failed to insert completed session exercise:", sessionExCompletedError);
+    return false;
+  }
+
+  const setIdCompleted = randomUUID();
+  const { error: setCompletedError } = await adminClient.from("session_sets").insert({
+    id: setIdCompleted,
+    session_exercise_id: sessionExIdCompleted,
+    user_id: userIdA,
+    set_number: 1,
+    reps: 10,
+    weight_kg: 100,
+  });
+
+  if (setCompletedError) {
+    console.error("❌ Failed to insert completed session set:", setCompletedError);
+    return false;
+  }
+
+  // Capture before checksums for completed session
+  const { data: beforeExercisesCompleted } = await adminClient
+    .from("session_exercises")
+    .select("*")
+    .eq("session_id", sessionIdCompleted)
+    .order("order_index");
+
+  const { data: beforeSetsCompleted } = await adminClient
+    .from("session_sets")
+    .select("*")
+    .eq("session_exercise_id", sessionExIdCompleted)
+    .order("set_number");
+
+  check("Before exercises snapshot non-empty (completed)", (beforeExercisesCompleted?.length ?? 0) > 0, `count=${beforeExercisesCompleted?.length}`);
+  check("Before sets snapshot non-empty (completed)", (beforeSetsCompleted?.length ?? 0) > 0, `count=${beforeSetsCompleted?.length}`);
+
+  const beforeExHashCompleted = hashJSON(beforeExercisesCompleted);
+  const beforeSetsHashCompleted = hashJSON(beforeSetsCompleted);
+
+  // Clean again (shouldn't affect completed session data)
+  await cleanBannedPlannedExercises(clientA, userIdA);
+
+  // Capture after checksums for completed session
+  const { data: afterExercisesCompleted } = await adminClient
+    .from("session_exercises")
+    .select("*")
+    .eq("session_id", sessionIdCompleted)
+    .order("order_index");
+
+  const { data: afterSetsCompleted } = await adminClient
+    .from("session_sets")
+    .select("*")
+    .eq("session_exercise_id", sessionExIdCompleted)
+    .order("set_number");
+
+  const afterExHashCompleted = hashJSON(afterExercisesCompleted);
+  const afterSetsHashCompleted = hashJSON(afterSetsCompleted);
+
+  check("Session exercises unchanged (completed)", beforeExHashCompleted === afterExHashCompleted);
+  check("Session sets unchanged (completed)", beforeSetsHashCompleted === afterSetsHashCompleted);
 
   // Clean up
   console.log("\nCleaning up test data...\n");
