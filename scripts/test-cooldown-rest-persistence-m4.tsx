@@ -411,7 +411,7 @@ console.log("\n📋 Test: M4 - Cool-down rest persistence (4 paths)\n");
       startedAt={new Date(FIXED_TIME).toISOString()}
       isStale={false}
       warmup={[]}
-      cooldown={[{ id: "c3", name: "Calf stretch", slug: "calf-stretch", type: "stretch", phase: "stretch", target_regions: ["calves"], target_muscles: ["calves"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
+      cooldown={[{ id: "c3", name: "Calf stretch", slug: "calf-stretch", type: "stretch", phase: "stretch", target_regions: ["ankle"], target_muscles: ["calves"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
       exercises={[exercise3]}
       settings={settings}
       actions={actions3}
