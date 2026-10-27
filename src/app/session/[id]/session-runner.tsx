@@ -156,11 +156,6 @@ export type RunnerTimer = {
   clearTimeout: (id: number | NodeJS.Timeout) => void;
 };
 
-const REAL_TIMER: RunnerTimer = {
-  setTimeout: (callback: () => void, ms: number) => setTimeout(callback, ms),
-  clearTimeout: (id: number | NodeJS.Timeout) => clearTimeout(id),
-};
-
 
 export function SessionRunner({
   sessionId,
@@ -177,7 +172,6 @@ export function SessionRunner({
   tomorrow,
   units = "metric",
   actions = REAL_ACTIONS,
-  timer,
   onExit,
   addEventListener: addEventListenerProp,
   removeEventListener: removeEventListenerProp,
