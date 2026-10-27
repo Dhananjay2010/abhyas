@@ -126,6 +126,36 @@ const MUTANTS: Mutant[] = [
     tests: ["test:med2-comparison"],
     equivalent: false,
   },
+  
+  // M15: Add unused Day-5 entry to allow-list
+  {
+    name: "M15: Add unused Day-5 entry to allow-list",
+    file: "scripts/test-med2-comparison.ts",
+    original: '    { type: \'exercise\', exercise: \'Cable Crunch\', becomes: \'Crunches\', reason: \'single-leg-leg-extension exclusion reshuffle (APP-approved: abs only, sets and minutes unchanged)\' },\n  ]],',
+    mutated: '    { type: \'exercise\', exercise: \'Cable Crunch\', becomes: \'Crunches\', reason: \'single-leg-leg-extension exclusion reshuffle (APP-approved: abs only, sets and minutes unchanged)\' },\n    { type: \'exercise\', exercise: \'Wall Sit\', becomes: \'Leg Extensions\', reason: \'MUTANT-UNUSED\' },\n  ]],',
+    tests: ["test:med2-comparison"],
+    equivalent: false,
+  },
+  
+  // M16: Day-2 fixture minutes = 999 (should fail when drift minutes check is enforced)
+  {
+    name: "M16: Day-2 fixture estMinutes = 999",
+    file: "scripts/fixtures/med2-baseline-main.json",
+    original: '    "dayIndex": 2,\n    "label": "Lower",\n    "focus": "lower",\n    "lowerBodySets": 23,\n    "totalSets": 27,\n    "estMinutes": 70,',
+    mutated: '    "dayIndex": 2,\n    "label": "Lower",\n    "focus": "lower",\n    "lowerBodySets": 23,\n    "totalSets": 27,\n    "estMinutes": 999,',
+    tests: ["test:med2-comparison"],
+    equivalent: false,
+  },
+  
+  // M17: Day-5 order swap (swap exercises to break position check)
+  {
+    name: "M17: Day-5 exercises order swap",
+    file: "scripts/fixtures/med2-baseline-main.json",
+    original: '        "name": "Barbell Squat",\n        "slug": "barbell-squat",\n        "targetSets": 4,\n        "movementPattern": "squat"\n      },\n      {\n        "name": "Barbell Deadlift",',
+    mutated: '        "name": "Barbell Deadlift",\n        "slug": "barbell-deadlift",\n        "targetSets": 5,\n        "movementPattern": "hinge"\n      },\n      {\n        "name": "Barbell Squat",',
+    tests: ["test:med2-comparison"],
+    equivalent: false,
+  },
 ];
 
 let killed = 0;

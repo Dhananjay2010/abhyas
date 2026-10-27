@@ -87,13 +87,13 @@ const baseline: BaselineDay[] = JSON.parse(
 
 // Known RNG drifts from owner decision exclusions
 type AllowedChange = 
-  | { type: 'fixturedrift'; exercise: string; baselineSets: number; codeSets: number }
+  | { type: 'fixturedrift'; exercise: string; baselineSets: number; codeSets: number; baselineMinutes: number; codeMinutes: number }
   | { type: 'exercise'; exercise: string; becomes: string; reason: string };
 
 const ALLOWED_CHANGES: Map<number, AllowedChange[]> = new Map([
   [2, [
     // Fixture drift: Calf 5→4 is pre-existing between main's fixture and code
-    { type: 'fixturedrift', exercise: 'Barbell Seated Calf Raise', baselineSets: 5, codeSets: 4 },
+    { type: 'fixturedrift', exercise: 'Barbell Seated Calf Raise', baselineSets: 5, codeSets: 4, baselineMinutes: 70, codeMinutes: 68 },
   ]],
   [5, [
     // single-leg-leg-extension exclusion reshuffle (APP-approved: abs only, sets and minutes unchanged)
@@ -151,9 +151,9 @@ for (const day of lowerDays) {
   const dayAllowedChanges = ALLOWED_CHANGES.get(day.dayIndex) || [];
   
   // Check totals (accounting for fixture drift)
-  const totalSetsDrift = dayAllowedChanges.find(c => 
+  const totalSetsDrift = dayAllowedChanges.find((c): c is Extract<AllowedChange, { type: 'fixturedrift' }> => 
     c.type === 'fixturedrift'
-  ) as { type: 'fixturedrift'; exercise: string; baselineSets: number; codeSets: number } | undefined;
+  );
   
   const expectedTotalSets = totalSetsDrift 
     ? baselineDay.totalSets - totalSetsDrift.baselineSets + totalSetsDrift.codeSets
@@ -166,8 +166,16 @@ for (const day of lowerDays) {
     : baselineDay.lowerBodySets;
   
   const expectedMinutes = totalSetsDrift
-    ? estMinutes  // Don't check minutes when there's a set drift (minutes will naturally differ)
+    ? totalSetsDrift.codeMinutes
     : baselineDay.estMinutes;
+  
+  // When there's a fixture drift, verify the fixture's baseline values match the drift spec
+  if (totalSetsDrift) {
+    if (baselineDay.estMinutes !== totalSetsDrift.baselineMinutes) {
+      console.log(`  ✗ FIXTURE DRIFT MISMATCH: Baseline fixture has ${baselineDay.estMinutes} minutes, drift spec says ${totalSetsDrift.baselineMinutes}`);
+      failures++;
+    }
+  }
   
   if (totalSets !== expectedTotalSets) {
     console.log(`  ✗ Total sets: ${totalSets} vs expected ${expectedTotalSets}`);
@@ -197,9 +205,9 @@ for (const day of lowerDays) {
     const baseEx = baselineDay.exercises[i];
     
     // Check if there's an allowed exercise swap
-    const exerciseSwap = dayAllowedChanges.find(c =>
+    const exerciseSwap = dayAllowedChanges.find((c): c is Extract<AllowedChange, { type: 'exercise' }> =>
       c.type === 'exercise' && c.exercise === baseEx.name
-    ) as { type: 'exercise'; exercise: string; becomes: string; reason: string } | undefined;
+    );
     
     const expectedName = exerciseSwap ? exerciseSwap.becomes : baseEx.name;
     
@@ -239,9 +247,9 @@ for (const day of lowerDays) {
       }
       
       // Check sets (accounting for fixture drift)
-      const setsDrift = dayAllowedChanges.find(c =>
+      const setsDrift = dayAllowedChanges.find((c): c is Extract<AllowedChange, { type: 'fixturedrift' }> =>
         c.type === 'fixturedrift' && c.exercise === prEx.name
-      ) as { type: 'fixturedrift'; exercise: string; baselineSets: number; codeSets: number } | undefined;
+      );
       
       if (setsDrift) {
         const key = `${day.dayIndex}-${i}-drift-${setsDrift.exercise}`;
@@ -290,6 +298,28 @@ for (const baselineDay of baseline) {
   } else {
     console.log(`  ✓ Day ${baselineDay.dayIndex} (${baselineDay.label}) present and checked`);
   }
+}
+
+console.log("");
+
+// Verify all allowed changes were used
+console.log("─".repeat(80));
+console.log("Allow-list verification:");
+
+const totalAllowedChanges = Array.from(ALLOWED_CHANGES.values()).flat().length;
+if (allowedChangesUsed.size !== totalAllowedChanges) {
+  console.log(`  ✗ UNUSED ENTRIES: Expected ${totalAllowedChanges} allow-list entries to be used, got ${allowedChangesUsed.size}`);
+  console.log(`  Used: [${Array.from(allowedChangesUsed).sort().join(", ")}]`);
+  failures++;
+} else {
+  console.log(`  ✓ All ${totalAllowedChanges} allow-list entries were checked`);
+}
+
+if (totalAllowedChanges !== 2) {
+  console.log(`  ✗ WRONG COUNT: Expected exactly 2 allow-list entries, got ${totalAllowedChanges}`);
+  failures++;
+} else {
+  console.log(`  ✓ Exactly 2 allow-list entries present`);
 }
 
 console.log("");
