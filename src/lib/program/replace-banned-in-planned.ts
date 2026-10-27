@@ -56,7 +56,7 @@ export function replaceBannedInPlanned(
   planned: PlannedExercise[],
   catalogue: CandidateExercise[],
   generatorInput: GeneratorInput,
-  _sessionExerciseIdSeed: string, // Reserved for deterministic tie-breaking in future
+  sessionExerciseIdSeed: string,
 ): PlannedExercise[] {
   const hasPastKnee = (generatorInput.anyKneeInjury ?? false) && generatorInput.currentInjuryRegions.length === 0;
   const hasAnyKnee = generatorInput.anyKneeInjury ?? false;
@@ -96,7 +96,6 @@ export function replaceBannedInPlanned(
       .filter(e => !alreadyUsed.has(e.id))
       .filter(e => isEligible(e, generatorInput));
     
-    // mechanic can be compound, isolation, or null - treat null as compound
     const wantCompound = exercise.mechanic !== "isolation";
     const scoreFn = (e: CandidateExercise) => 
       score(e, wantCompound, generatorInput.level, generatorInput.primaryTrack);
