@@ -149,7 +149,7 @@ async function runTests() {
   console.log(`✓ Created test user B: ${userIdB}\n`);
 
   // Set up user A with profile and knee injury
-  await adminClient.from("profiles").update({
+  const { error: profileAError } = await adminClient.from("profiles").update({
     goal: "strength",
     level: "intermediate",
     primary_track: "weights",
@@ -158,16 +158,26 @@ async function runTests() {
     has_all_equipment: true,
   }).eq("id", userIdA);
 
-  await adminClient.from("user_injuries").insert({
+  if (profileAError) {
+    console.error("❌ Failed to update profile A:", profileAError);
+    return false;
+  }
+
+  const { error: injuryAError } = await adminClient.from("user_injuries").insert({
     user_id: userIdA,
     body_region: "knee",
     severity: "current",
   });
 
+  if (injuryAError) {
+    console.error("❌ Failed to insert injury A:", injuryAError);
+    return false;
+  }
+
   console.log(`✓ Set user A profile with current knee injury\n`);
 
   // Set up user B with profile, no injury
-  await adminClient.from("profiles").update({
+  const { error: profileBError } = await adminClient.from("profiles").update({
     goal: "muscle_gain",
     level: "beginner",
     primary_track: "weights",
@@ -176,13 +186,18 @@ async function runTests() {
     has_all_equipment: true,
   }).eq("id", userIdB);
 
+  if (profileBError) {
+    console.error("❌ Failed to update profile B:", profileBError);
+    return false;
+  }
+
   console.log(`✓ Set user B profile with no injury\n`);
 
   // Create dirty program for user A (with banned exercise)
   const programIdA = randomUUID();
   const dayIdA = randomUUID();
 
-  await adminClient.from("programs").insert({
+  const { error: progAError } = await adminClient.from("programs").insert({
     id: programIdA,
     user_id: userIdA,
     block_number: 1,
@@ -190,7 +205,12 @@ async function runTests() {
     started_on: new Date().toISOString().split("T")[0],
   });
 
-  await adminClient.from("program_days").insert({
+  if (progAError) {
+    console.error("❌ Failed to insert program A:", progAError);
+    return false;
+  }
+
+  const { error: dayAError } = await adminClient.from("program_days").insert({
     id: dayIdA,
     program_id: programIdA,
     user_id: userIdA,
@@ -199,8 +219,13 @@ async function runTests() {
     status: "active",
   });
 
+  if (dayAError) {
+    console.error("❌ Failed to insert day A:", dayAError);
+    return false;
+  }
+
   const plannedIdA = randomUUID();
-  await adminClient.from("program_day_exercises").insert({
+  const { error: plannedAError } = await adminClient.from("program_day_exercises").insert({
     id: plannedIdA,
     program_day_id: dayIdA,
     user_id: userIdA,
@@ -212,13 +237,18 @@ async function runTests() {
     rest_seconds: 120,
   });
 
+  if (plannedAError) {
+    console.error("❌ Failed to insert planned A:", plannedAError);
+    return false;
+  }
+
   console.log(`✓ Created dirty program for user A (contains ${bannedSlug})\n`);
 
   // Create dirty program for user B (same banned exercise, different user)
   const programIdB = randomUUID();
   const dayIdB = randomUUID();
 
-  await adminClient.from("programs").insert({
+  const { error: progBError } = await adminClient.from("programs").insert({
     id: programIdB,
     user_id: userIdB,
     block_number: 1,
@@ -226,7 +256,12 @@ async function runTests() {
     started_on: new Date().toISOString().split("T")[0],
   });
 
-  await adminClient.from("program_days").insert({
+  if (progBError) {
+    console.error("❌ Failed to insert program B:", progBError);
+    return false;
+  }
+
+  const { error: dayBError } = await adminClient.from("program_days").insert({
     id: dayIdB,
     program_id: programIdB,
     user_id: userIdB,
@@ -235,8 +270,13 @@ async function runTests() {
     status: "active",
   });
 
+  if (dayBError) {
+    console.error("❌ Failed to insert day B:", dayBError);
+    return false;
+  }
+
   const plannedIdB = randomUUID();
-  await adminClient.from("program_day_exercises").insert({
+  const { error: plannedBError } = await adminClient.from("program_day_exercises").insert({
     id: plannedIdB,
     program_day_id: dayIdB,
     user_id: userIdB,
@@ -247,6 +287,11 @@ async function runTests() {
     target_reps_max: 10,
     rest_seconds: 180,
   });
+
+  if (plannedBError) {
+    console.error("❌ Failed to insert planned B:", plannedBError);
+    return false;
+  }
 
   console.log(`✓ Created program for user B (contains ${bannedSlug})\n`);
 
@@ -362,16 +407,22 @@ async function runTests() {
 
   // Create a session for user A
   const sessionIdA = randomUUID();
-  await adminClient.from("sessions").insert({
+  const { error: sessionAError } = await adminClient.from("sessions").insert({
     id: sessionIdA,
     user_id: userIdA,
     program_day_id: dayIdA,
     status: "in_progress",
     actual_type: "weights",
+    local_date: new Date().toISOString().split("T")[0],
   });
 
+  if (sessionAError) {
+    console.error("❌ Failed to insert session A:", sessionAError);
+    return false;
+  }
+
   const sessionExIdA = randomUUID();
-  await adminClient.from("session_exercises").insert({
+  const { error: sessionExAError } = await adminClient.from("session_exercises").insert({
     id: sessionExIdA,
     session_id: sessionIdA,
     user_id: userIdA,
@@ -384,15 +435,25 @@ async function runTests() {
     metric: "reps",
   });
 
+  if (sessionExAError) {
+    console.error("❌ Failed to insert session exercise A:", sessionExAError);
+    return false;
+  }
+
   const setIdA = randomUUID();
-  await adminClient.from("session_sets").insert({
+  const { error: setAError } = await adminClient.from("session_sets").insert({
     id: setIdA,
     session_exercise_id: sessionExIdA,
     user_id: userIdA,
-    set_index: 0,
+    set_number: 1,
     reps: 10,
-    weight: 100,
+    weight_kg: 100,
   });
+
+  if (setAError) {
+    console.error("❌ Failed to insert set A:", setAError);
+    return false;
+  }
 
   // Capture before checksums
   const { data: beforeExercises } = await adminClient
@@ -405,7 +466,10 @@ async function runTests() {
     .from("session_sets")
     .select("*")
     .eq("session_exercise_id", sessionExIdA)
-    .order("set_index");
+    .order("set_number");
+
+  check("Before exercises snapshot non-empty", (beforeExercises?.length ?? 0) > 0, `count=${beforeExercises?.length}`);
+  check("Before sets snapshot non-empty", (beforeSets?.length ?? 0) > 0, `count=${beforeSets?.length}`);
 
   const beforeExHash = hashJSON(beforeExercises);
   const beforeSetsHash = hashJSON(beforeSets);
@@ -424,7 +488,7 @@ async function runTests() {
     .from("session_sets")
     .select("*")
     .eq("session_exercise_id", sessionExIdA)
-    .order("set_index");
+    .order("set_number");
 
   const afterExHash = hashJSON(afterExercises);
   const afterSetsHash = hashJSON(afterSets);
