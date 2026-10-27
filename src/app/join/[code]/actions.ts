@@ -9,7 +9,7 @@ export type RedeemCodeResult =
 
 export async function redeemJoinCode(code: string): Promise<RedeemCodeResult> {
   const rateLimit = await checkActionRateLimit("default");
-  if (rateLimit) return rateLimit;
+  if (rateLimit) return { ok: false, error: rateLimit.error };
 
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };

@@ -21,7 +21,7 @@ export async function createJoinCode(
   role: GymRole
 ): Promise<CreateCodeResult> {
   const rateLimit = await checkActionRateLimit("default");
-  if (rateLimit) return rateLimit;
+  if (rateLimit) return { ok: false, error: rateLimit.error };
 
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
@@ -29,8 +29,8 @@ export async function createJoinCode(
   const { data, error } = await supabase.rpc("create_join_code", {
     p_gym_id: gymId,
     p_role: role,
-    p_expires_at: null,
-    p_max_uses: null,
+    p_expires_at: undefined,
+    p_max_uses: undefined,
   });
 
   if (error) return { ok: false, error: error.message };
@@ -50,7 +50,7 @@ export async function createJoinCode(
 
 export async function revokeJoinCode(codeId: string): Promise<RevokeCodeResult> {
   const rateLimit = await checkActionRateLimit("default");
-  if (rateLimit) return rateLimit;
+  if (rateLimit) return { ok: false, error: rateLimit.error };
 
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
