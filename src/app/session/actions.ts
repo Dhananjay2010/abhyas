@@ -117,7 +117,6 @@ export async function logSet(input: {
   
   return await logSetWithAuth(
     {
-      resolveAuth,
       getAuthedClient,
       checkLogSetInput,
       validateSessionForLogSet,

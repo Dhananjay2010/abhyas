@@ -1,17 +1,15 @@
 /**
  * Core logSet logic with dependency injection for testability.
  * 
- * Extracts auth resolution and expired-result handling so tests can drive
- * the real code path without server action machinery.
+ * Uses the real resolveAuth, but injects other dependencies like getAuthedClient
+ * so tests can drive the real auth-resolution code path.
  */
 
 import { resolveAuth } from "./auth-result";
-import { SESSION_EXPIRED_CODE } from "@/lib/auth/session-expired";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
-export type LogSetDeps = {
-  resolveAuth: typeof resolveAuth;
+export type LogSetCoreDeps = {
   getAuthedClient: () => Promise<{
     supabase: SupabaseClient<Database>;
     user: { id: string } | null;
@@ -62,20 +60,20 @@ export type LogSetResult =
   | { ok: false; reason: "set_exists"; savedSets: any[] };
 
 /**
- * Dependency-injected logSet core. Handles auth resolution and SESSION_EXPIRED.
- * The real server action calls this; tests inject fakes.
+ * Dependency-injected logSet core. Uses REAL resolveAuth for SESSION_EXPIRED handling.
+ * Tests inject fake getAuthedClient/checkLogSetInput/logSetCore but drive real auth resolution.
  */
 export async function logSetWithAuth(
-  deps: LogSetDeps,
+  deps: LogSetCoreDeps,
   input: LogSetInput
 ): Promise<LogSetResult> {
-  return await deps.resolveAuth(
+  return await resolveAuth(
     async () => {
       const { supabase, user } = await deps.getAuthedClient();
       return { user, supabase };
     },
     async ({ user, supabase }) => {
-      if (!user) return { ok: false, error: "Generic error" }; // MUTANT: break expired branch
+      if (!user) throw new Error("Not signed in");
 
       const invalid = await deps.checkLogSetInput(supabase, user.id, {
         reps: input.reps,
