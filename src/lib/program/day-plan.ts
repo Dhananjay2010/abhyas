@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { addDays, isoWeekday, localDateString } from "@/lib/dates";
+import { isoWeekday } from "@/lib/dates";
 import type { PlannableDay } from "@/app/session/actions";
 
 type Client = SupabaseClient<Database>;
