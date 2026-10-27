@@ -109,24 +109,46 @@ class FakeSupabase {
           eq: (col: string, val: unknown) => {
             const filtered = this.sessions.filter((s) => {
               if (col === "user_id") return s.user_id === val;
-              if (col === "local_date") return s.local_date === val;
               return true;
             });
             return {
-              eq: (col2: string, val2: unknown) => ({
-                order: () => ({
-                  limit: () => ({
-                    maybeSingle: async () => {
-                      const match = filtered.find((s) => {
-                        if (col2 === "local_date") return s.local_date === String(val2);
-                        if (col2 === "status") return s.status === val2;
-                        return true;
-                      });
-                      return { data: match ?? null, error: null };
-                    },
+              eq: (col2: string, val2: unknown) => {
+                const filtered2 = filtered.filter((s) => {
+                  if (col2 === "local_date") return s.local_date === String(val2);
+                  if (col2 === "status") return s.status === val2;
+                  return true;
+                });
+                return {
+                  eq: (col3: string, val3: unknown) => {
+                    const filtered3 = filtered2.filter((s) => {
+                      if (col3 === "status") return s.status === val3;
+                      return true;
+                    });
+                    return {
+                      order: () => ({
+                        limit: () => ({
+                          maybeSingle: async () => {
+                            const sorted = [...filtered3].sort(
+                              (a, b) => b.created_at.localeCompare(a.created_at)
+                            );
+                            return { data: sorted[0] ?? null, error: null };
+                          },
+                        }),
+                      }),
+                    };
+                  },
+                  order: () => ({
+                    limit: () => ({
+                      maybeSingle: async () => {
+                        const sorted = [...filtered2].sort(
+                          (a, b) => b.created_at.localeCompare(a.created_at)
+                        );
+                        return { data: sorted[0] ?? null, error: null };
+                      },
+                    }),
                   }),
-                }),
-              }),
+                };
+              },
               order: () => ({
                 limit: () => ({
                   maybeSingle: async () => {
