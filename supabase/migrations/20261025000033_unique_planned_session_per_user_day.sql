@@ -52,12 +52,16 @@ BEGIN
     FROM ranked r
     WHERE r.rn > 1
       AND r.id NOT IN (SELECT id FROM to_skip)
+  ),
+  deleted AS (
+    DELETE FROM public.sessions
+    WHERE id IN (SELECT id FROM to_delete)
+    RETURNING id
   )
-  DELETE FROM public.sessions
-  WHERE id IN (SELECT id FROM to_delete);
-  
-  GET DIAGNOSTICS deleted_count = ROW_COUNT;
-  SELECT COUNT(*) INTO skipped_count FROM skipped;
+  SELECT 
+    (SELECT COUNT(*) FROM deleted) AS del_count,
+    (SELECT COUNT(*) FROM skipped) AS skip_count
+  INTO deleted_count, skipped_count;
   
   IF deleted_count > 0 OR skipped_count > 0 THEN
     RAISE NOTICE 'Dedupe: deleted % childless duplicate(s), skipped % data-bearing duplicate(s)', deleted_count, skipped_count;
