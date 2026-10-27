@@ -321,7 +321,7 @@ export function resolveTomorrowAfterSwap({
   scheduledTomorrow: { programDayId: string; label: string } | null;
   /** All training days in the rotation, sorted by day_index */
   rotation: ProgramDay[];
-}): { programDayId: string; label: string } | null {
+}): { programDayId: string; label: string; dayType: DayType } | null {
   // No collision if not a swap
   if (!todayWasSwap) return null;
   
@@ -350,6 +350,7 @@ export function resolveTomorrowAfterSwap({
   return {
     programDayId: nextDay.id,
     label: nextDay.label ?? scheduledTomorrow.label,
+    dayType: nextDay.day_type,
   };
 }
 
@@ -475,6 +476,7 @@ export type NextDayPlan = {
   plannedLabel: string;
   /** The resolved program_day_id for tomorrow (null for Rest) */
   programDayId: string | null;
+  dayType: DayType;
   days: PlannableDay[];
   collisionResolved: boolean;
 };
@@ -550,6 +552,7 @@ export async function nextDayPlanCore(
       localDate: tomorrow,
       plannedLabel: collision.label ?? "Unknown",
       programDayId: collision.programDayId,
+      dayType: collision.dayType,
       days,
       collisionResolved: true,
     };
@@ -559,6 +562,7 @@ export async function nextDayPlanCore(
     localDate: tomorrow,
     plannedLabel: resolved?.label ?? "Rest",
     programDayId: resolvedProgramDayId,
+    dayType: resolved?.dayType ?? "rest",
     days,
     collisionResolved: false,
   };

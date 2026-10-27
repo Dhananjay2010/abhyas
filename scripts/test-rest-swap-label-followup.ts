@@ -380,40 +380,30 @@ async function main() {
   console.log("LOW-1: Swap to B, then yoga same day → tomorrow still recognizes B\n");
 
   {
-    console.log("5. Tue swap B, then yoga Tue → Wed resolves C (not B)");
+    console.log("5. Mon swap A→B + yoga Mon, Wed scheduled B → Wed resolves C (not B)");
+
+    const { resolveTodayProgramDay } = await import("../src/lib/program/day-plan");
 
     const client = buildClient({
+      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
       programDays: days3Full,
       sessions: [
-        { id: "s1", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
-        { id: "s2", user_id: "u1", program_day_id: "B", actual_type: "yoga", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T18:00:00Z" },
+        { id: "s-mon-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T09:00:00Z" },
+        { id: "s-mon-yoga", user_id: "u1", program_day_id: null, actual_type: "yoga", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T18:00:00Z" },
       ],
     });
 
-    // Wed Today: should see yoga (newest), but filter to weights → find B
-    const wedResolve = await resolveTodayProgramDayCore({
-      getAllProgramDays: async () => days3Full,
-      getYesterdaySession: async () => {
-        const { data } = await client
-          .from("sessions")
-          .select("program_day_id, actual_type")
-          .eq("user_id", "u1")
-          .eq("local_date", "2026-10-27")
-          .eq("status", "completed")
-          .in("actual_type", ["weights", "bodyweight"])
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        return data ? { programDayId: data.program_day_id, actualType: data.actual_type ?? "" } : null;
-      },
-      getTodayIndex: () => 3,
-      getYesterdayIndex: () => 2,
+    const wedResolve = await resolveTodayProgramDay({
+      supabase: client,
+      programId: "prog-1",
+      localToday: "2026-10-29",
+      userId: "u1",
     });
 
     assert.ok(wedResolve, "Should resolve Wed");
-    assert.strictEqual(wedResolve.label, "Full Body C", "Wed should serve C (B swapped Tue, yoga ignored)");
+    assert.strictEqual(wedResolve.label, "Full Body C", "Wed should serve C (Mon A→B swap detected, Wed B scheduled is collision, resolve to C); dropping .in('actual_type', ['weights','bodyweight']) at line 167 picks yoga null from Mon, no swap detected, Wed serves scheduled B");
 
-    console.log("  ✓ Wed serves C (yoga ignored, B recognized as swap)\n");
+    console.log("  ✓ Wed serves C (Mon swap detected via actual_type filter, collision resolved)\n");
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -551,55 +541,52 @@ async function main() {
   const { nextDayPlan } = await import("../src/lib/program/day-plan");
 
   {
-    console.log("10. nextDayPlan with sessionId: Tue rest→B swap + yoga → Wed detects swap, resolves collision to C (not B)");
+    console.log("10. nextDayPlan with yoga sessionId (program_day_id=A): A nextUp vs C nextUp");
+
+    const client = buildClient({
+      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
+      programDays: days3Full,
+      sessions: [
+        { id: "s-mon-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
+        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T09:00:00Z" },
+        { id: "s-tue-yoga", user_id: "u1", program_day_id: "A", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
+        { id: "s-wed-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
+      ],
+    });
+
+    const resultYoga = await nextDayPlan(client, "America/New_York", "2026-10-28", { sessionId: "s-tue-yoga" });
+    const aDayYoga = resultYoga.days.find(d => d.label === "Full Body A");
+    const bDayYoga = resultYoga.days.find(d => d.label === "Full Body B");
+    assert.ok(aDayYoga, "Should have A");
+    assert.ok(bDayYoga, "Should have B");
+    assert.strictEqual(aDayYoga.nextUp, true, "With yoga sessionId (program_day_id A): A has nextUp (yoga filtered to null via .in('actual_type') at line 620, nextUpLabel defaults to A); dropping filter returns yoga A, nextUpLabel becomes B (after A), A.nextUp becomes false, B.nextUp becomes true");
+    assert.strictEqual(bDayYoga.nextUp, false, "With yoga sessionId: B does NOT have nextUp (filtered null gives A); dropping filter gives yoga A, nextUp moves to B");
+
+    console.log("  ✓ nextDayPlan with yoga sessionId: actual_type filter changes nextUp badge (getTodayCompletedSession sessionId branch)\n");
+  }
+
+  {
+    console.log("11. nextDayPlan without sessionId: Tue B + yoga later → Wed C nextUp badge");
 
     const client = buildClient({
       programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
       programDays: days3Full,
       sessions: [
         { id: "s-mon-a", user_id: "u1", program_day_id: "A", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
-        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T10:00:00Z" },
-        { id: "s-tue-yoga", user_id: "u1", program_day_id: "A", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
-        { id: "s-wed-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
+        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T09:00:00Z" },
+        { id: "s-tue-yoga", user_id: "u1", program_day_id: null, actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
+        { id: "s-wed-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
       ],
     });
 
-    const result = await nextDayPlan(client, "America/New_York", "2026-10-28", { sessionId: "s-tue-b" });
+    const result = await nextDayPlan(client, "America/New_York", "2026-10-28");
 
     assert.ok(result, "Should return next day plan");
-    assert.strictEqual(result.plannedLabel, "Full Body C", "Wed should serve C (collision: Tue B swap, Wed B scheduled); dropping actual_type would pick yoga A, miss swap detection, wrongly serve B");
+    const cDay = result.days.find(d => d.label === "Full Body C");
+    assert.ok(cDay, "Should have C in plannable days");
+    assert.strictEqual(cDay.nextUp, true, "C should have nextUp badge (Tue weights B picked via .in('actual_type') at line 633, nextUpLabel = C after B); dropping filter picks newer yoga null, no program_day_id, nextUpLabel defaults to A, C.nextUp becomes false");
 
-    console.log("  ✓ nextDayPlan with sessionId filters yoga (getTodayCompletedSession sessionId branch)\n");
-  }
-
-  {
-    console.log("11. Stub honors actual_type filter: query for weights on date with both weights and yoga");
-
-    const client = buildClient({
-      sessions: [
-        { id: "s-weights", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T10:00:00Z" },
-        { id: "s-yoga", user_id: "u1", program_day_id: "A", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
-      ],
-      programDays: [],
-    });
-
-    // Query with actual_type filter
-    const { data: filtered } = await client
-      .from("sessions")
-      .select("id, program_day_id, actual_type")
-      .eq("user_id", "u1")
-      .eq("local_date", "2026-10-28")
-      .in("status", ["completed"])
-      .in("actual_type", ["weights", "bodyweight"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    assert.ok(filtered, "Should return a session");
-    assert.strictEqual(filtered.id, "s-weights", "Should return weights session (not yoga); dropping .in('actual_type') would return yoga and fail");
-    assert.strictEqual(filtered.program_day_id, "B", "Should have program_day_id B");
-
-    console.log("  ✓ Stub filters actual_type correctly (getTodayCompletedSession no-sessionId branch)\n");
+    console.log("  ✓ nextDayPlan without sessionId: actual_type filter picks weights over yoga (getTodayCompletedSession no-sessionId branch)\n");
   }
 
   // ──────────────────────────────────────────────────────────────────────────

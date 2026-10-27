@@ -84,7 +84,35 @@ async function main() {
   }
 
   {
-    console.log("3. Today missed-yesterday (null id, showRestOption true) still shows Rest");
+    console.log("3. Tomorrow is yoga → all three buttons (Keep it, Swap, Rest)");
+
+    const { container } = render(
+      <DayPlanPrompt
+        localDate="2026-10-30"
+        dayLabel="Tomorrow"
+        plannedLabel="Yoga"
+        programDayId={null}
+        days={[]}
+        heading="What about tomorrow?"
+        onPlan={async () => ({ ok: true })}
+        tomorrowIsRest={false}
+      />
+    );
+
+    const buttons = Array.from(container.querySelectorAll("button"));
+    const keepButton = buttons.find(btn => btn.textContent === "Keep it");
+    const swapButton = buttons.find(btn => btn.textContent === "Swap the day");
+    const restButton = buttons.find(btn => btn.textContent === "Rest");
+
+    assert.ok(keepButton, "Should have 'Keep it' button");
+    assert.ok(swapButton, "Should have 'Swap the day' button");
+    assert.ok(restButton, "Should have 'Rest' button (yoga is not rest)");
+
+    console.log("  ✓ All three buttons present (tomorrow is yoga, not rest)\n");
+  }
+
+  {
+    console.log("4. Today missed-yesterday (null id, showRestOption true) still shows Rest");
 
     const { container } = render(
       <DayPlanPrompt
@@ -112,7 +140,7 @@ async function main() {
   console.log("LOW: Never mind button is 44px min height\n");
 
   {
-    console.log("4. Never mind button has min-h-11 (44px)");
+    console.log("5. Never mind button has min-h-11 (44px)");
 
     const { container } = render(
       <DayPlanPrompt
