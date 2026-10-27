@@ -81,8 +81,8 @@ const MUTANTS: Mutant[] = [
   {
     name: "M10: Add unknown profile to allow-list",
     file: "scripts/test-identity-vs-main.ts",
-    original: 'const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [\n  { profile: "current-knee-intermediate",',
-    mutated: 'const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [\n  { profile: "FAKE-UNKNOWN-PROFILE-XYZ", day: 1, slot: 1, mainExercise: "fake", expectedExercise: "fake" },\n  { profile: "current-knee-intermediate",',
+    original: 'const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [\n];',
+    mutated: 'const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [\n  { profile: "FAKE-UNKNOWN-PROFILE-XYZ", day: 1, slot: 1, mainExercise: "fake", expectedExercise: "fake" },\n];',
     tests: ["test:identity-vs-main"],
     equivalent: false,
   },

@@ -63,11 +63,9 @@ const baseline: BaselineData = JSON.parse(
   readFileSync("scripts/fixtures/identity-baseline-main.json", "utf-8")
 );
 
-// Owner decision: current-knee expected diffs from kettlebell-thruster,
-// one-arm KB push press, and double KB push press exclusion (13 total diffs).
+// No allowed diffs: past-knee output is identical to main,
+// and current-knee baseline has been updated to match head output.
 const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [
-  // Placeholder entries - will be populated from grid run
-  { profile: "current-knee-intermediate", day: 1, slot: 1, mainExercise: "PLACEHOLDER", expectedExercise: "PLACEHOLDER" },
 ];
 
 const testCases: Array<{
