@@ -123,12 +123,19 @@ function applyFilters<T extends Record<string, unknown>>(data: T[], params: URLS
 function buildClient(scenario: {
   sessions: Session[];
   programDays: ProgramDay[];
+  programs?: Array<{ id: string; user_id: string; split_type: string; status: string }>;
+  planned_days?: Array<{ user_id: string; local_date: string; program_day_id: string; override_kind: string }>;
 }): ReturnType<typeof createClient<Database>> {
   const stubFetch: typeof fetch = async (input, init) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
     const accept = new Headers(init?.headers).get("accept") ?? "";
     const path = url.pathname;
     const params = url.searchParams;
+
+    if (path.includes("/programs")) {
+      const filtered = applyFilters(scenario.programs ?? [], params);
+      return rows(filtered, accept);
+    }
 
     if (path.includes("/program_days")) {
       const filtered = applyFilters(scenario.programDays, params);
@@ -137,6 +144,11 @@ function buildClient(scenario: {
 
     if (path.includes("/sessions")) {
       const filtered = applyFilters(scenario.sessions, params);
+      return rows(filtered, accept);
+    }
+
+    if (path.includes("/planned_days")) {
+      const filtered = applyFilters(scenario.planned_days ?? [], params);
       return rows(filtered, accept);
     }
 
@@ -490,6 +502,120 @@ async function main() {
     assert.ok(yogaDays.includes(2), "Tuesday (day 2) should be yoga (sign-up day)");
 
     console.log(`  ✓ Yoga-only plan anchored: yoga on days ${yogaDays.join(", ")} (includes Tuesday 2)\n`);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // LOW-1 comprehensive: All three actual_type filter points
+  // ──────────────────────────────────────────────────────────────────────────
+  console.log("LOW-1 comprehensive: actual_type filters in nextDayPlan\n");
+
+  const { nextDayPlan } = await import("../src/lib/program/day-plan");
+
+  {
+    console.log("10. nextDayPlan with sessionId: Tue swap B + yoga → Wed resolves C");
+
+    const client = buildClient({
+      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
+      programDays: days3Full,
+      sessions: [
+        { id: "s-mon-a", user_id: "u1", program_day_id: "A", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
+        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T10:00:00Z" },
+        { id: "s-tue-yoga", user_id: "u1", program_day_id: "B", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
+      ],
+      planned_days: [
+        { user_id: "u1", local_date: "2026-10-29", program_day_id: "C", override_kind: "keep" },
+      ],
+    });
+
+    const result = await nextDayPlan(client, "America/New_York", "2026-10-29", { sessionId: "s-tue-b" });
+
+    assert.ok(result, "Should return next day plan");
+    assert.strictEqual(result.plannedLabel, "Full Body C", "Wed should serve C (yoga ignored via sessionId branch)");
+
+    console.log("  ✓ nextDayPlan with sessionId filters yoga (sessionId branch)\n");
+  }
+
+  {
+    console.log("11. nextDayPlan without sessionId: Tue swap B + yoga → Wed resolves C");
+
+    const client = buildClient({
+      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
+      programDays: days3Full,
+      sessions: [
+        { id: "s-mon-a", user_id: "u1", program_day_id: "A", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
+        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T10:00:00Z" },
+        { id: "s-tue-yoga", user_id: "u1", program_day_id: "B", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
+      ],
+      planned_days: [
+        { user_id: "u1", local_date: "2026-10-29", program_day_id: "C", override_kind: "keep" },
+      ],
+    });
+
+    const result = await nextDayPlan(client, "America/New_York", "2026-10-29");
+
+    assert.ok(result, "Should return next day plan");
+    assert.strictEqual(result.plannedLabel, "Full Body C", "Wed should serve C (yoga ignored via no-sessionId branch)");
+
+    console.log("  ✓ nextDayPlan without sessionId filters yoga (no-sessionId branch)\n");
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // MED-B comprehensive: plannableDays with currentSessionId
+  // ──────────────────────────────────────────────────────────────────────────
+  console.log("MED-B comprehensive: plannableDays currentSessionId scoping\n");
+
+  {
+    console.log("12. plannableDays with currentSessionId: uses exact session (not latest)");
+
+    const client = buildClient({
+      programDays: days3Full,
+      sessions: [
+        { id: "s-b-first", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T10:00:00Z" },
+        { id: "s-c-later", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T14:00:00Z" },
+      ],
+    });
+
+    // With currentSessionId pointing to B, nextUp should be C
+    const plannable = await plannableDays(client, "prog-1", {
+      afterDate: "2026-10-28",
+      userId: "u1",
+      currentSessionId: "s-b-first",
+    });
+
+    const cDay = plannable.find(d => d.label === "Full Body C");
+    const aDay = plannable.find(d => d.label === "Full Body A");
+
+    assert.ok(cDay, "Should have Full Body C");
+    assert.ok(aDay, "Should have Full Body A");
+    assert.strictEqual(cDay.nextUp, true, "C should have nextUp (after B via currentSessionId)");
+    assert.strictEqual(aDay.nextUp, false, "A should NOT have nextUp (latest is C, but we want B's next)");
+
+    console.log("  ✓ plannableDays uses currentSessionId (not latest session)\n");
+  }
+
+  {
+    console.log("13. nextDayPlan passes currentSessionId to plannableDays");
+
+    const client = buildClient({
+      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
+      programDays: days3Full,
+      sessions: [
+        { id: "s-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T10:00:00Z" },
+        { id: "s-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T14:00:00Z" },
+      ],
+      planned_days: [
+        { user_id: "u1", local_date: "2026-10-29", program_day_id: "C", override_kind: "keep" },
+      ],
+    });
+
+    const result = await nextDayPlan(client, "America/New_York", "2026-10-29", { sessionId: "s-b" });
+
+    assert.ok(result, "Should return next day plan");
+    const cDay = result.days.find(d => d.label === "Full Body C");
+    assert.ok(cDay, "Should have C in plannable days");
+    assert.strictEqual(cDay.nextUp, true, "C should have nextUp badge (after B session)");
+
+    console.log("  ✓ nextDayPlan passes sessionId to plannableDays correctly\n");
   }
 
   console.log("✓ All rest-swap label followup tests passed\n");

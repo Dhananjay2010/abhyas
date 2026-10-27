@@ -232,20 +232,33 @@ export async function plannableDays(
   let nextUpLabel: string | null = null;
   
   if (options?.afterDate && options?.userId && trainingDays.length > 0) {
-    // When computing from the summary, check both completed and in_progress (for currentSessionId)
-    const statuses = options.currentSessionId ? ["completed", "in_progress"] as const : ["completed"] as const;
+    let recentSession: { id: string; program_day_id: string } | null = null;
     
-    const { data: recentSession } = await supabase
-      .from("sessions")
-      .select("id, program_day_id")
-      .eq("user_id", options.userId)
-      .in("status", statuses)
-      .in("actual_type", ["weights", "bodyweight"])
-      .lte("local_date", options.afterDate)
-      .order("local_date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    if (options.currentSessionId) {
+      // MED-B: When currentSessionId is provided, use that exact session
+      const { data } = await supabase
+        .from("sessions")
+        .select("id, program_day_id")
+        .eq("id", options.currentSessionId)
+        .eq("user_id", options.userId)
+        .in("actual_type", ["weights", "bodyweight"])
+        .maybeSingle();
+      recentSession = data;
+    } else {
+      // Otherwise, find the most recent completed session
+      const { data } = await supabase
+        .from("sessions")
+        .select("id, program_day_id")
+        .eq("user_id", options.userId)
+        .eq("status", "completed")
+        .in("actual_type", ["weights", "bodyweight"])
+        .lte("local_date", options.afterDate)
+        .order("local_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      recentSession = data;
+    }
     
     if (recentSession?.program_day_id) {
       const completedIndex = trainingDays.findIndex(d => d.id === recentSession.program_day_id);
