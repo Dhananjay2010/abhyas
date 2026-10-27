@@ -100,7 +100,7 @@ function baseExercise(id: string, name: string) {
   };
 }
 
-const defaultActions = {
+const defaultActions: SessionActions = {
   markWarmupDone: async () => ({ ok: true }),
   logSet: async () => ({ ok: true }),
   deleteSet: async () => ({ ok: true }),
@@ -112,7 +112,7 @@ const defaultActions = {
   refreshAfterSession: async () => ({ ok: true }),
   planDay: async () => ({ ok: true }),
   getSessionSummary: async () => ({ ok: true, data: [] }),
-} as const;
+};
 
 async function main() {
   // Test 1: Failed to fetch shows friendly message
