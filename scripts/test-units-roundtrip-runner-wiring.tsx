@@ -548,6 +548,180 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
 
     check("Logged weight prefill shows 138.5 (rounded to nearest, not floored)", weightInput.value === "138.5",
       `got "${weightInput.value}"`);
+    
+    // Also verify capturedWeightKg is defined (avoid lint warning)
+    check("Test 4: capturedWeightKg captured", capturedWeightKg !== undefined,
+      `capturedWeightKg was ${capturedWeightKg}`);
+
+    r.unmount();
+  }
+
+  // Test 4b: Flow test - set 1 logged unedited 40 kg, set 2 prefills 88 lb and saves 40 kg when unedited
+  console.log("\nTest 4b: Flow test - prescription 40kg→88lb, log unedited, then set 2 also submits 40kg");
+  {
+    const capturedWeights: number[] = [];
+    
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async (data) => {
+        if (data.weightKg !== null) capturedWeights.push(data.weightKg);
+        return { ok: true as const };
+      },
+      deleteSet: async () => ({ ok: true as const }),
+      finishExercise: async () => ({
+        ok: true as const,
+        data: { outcome: "hold", message: "", personalBest: null },
+      }),
+      finishSession: async () => ({
+        ok: true as const,
+        data: { status: "completed" as const, durationSeconds: null },
+      }),
+      abandonSession: async () => ({ ok: true as const }),
+      planDay: async () => ({ ok: true as const }),
+      refreshAfterSession: async () => ({ ok: true as const }),
+      swapExercise: async () => ({ 
+        ok: true, 
+        data: { 
+          workoutSessionExerciseId: "", 
+          exerciseId: "",
+          metric: "reps" as const,
+          repsMin: null,
+          repsMax: null,
+          equipmentIds: [],
+          weightPrefill: null,
+          workingWeightKg: null,
+          currentTargetReps: null,
+          isBodyweight: false,
+        } 
+      }),
+      findAlternatives: async () => ({ ok: true as const, data: [] }),
+      getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    };
+
+    const settings = {
+      perSetLogging: true,
+      restAutostart: false,
+      restSound: false,
+      restVibrate: false,
+      restOverrideSeconds: null,
+      cooldownEnabled: false,
+      units: "imperial" as const,
+    };
+
+    const exercise: RunnerExercise = {
+      id: "ex1",
+      exerciseId: "row",
+      name: "Row",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["lats"],
+      plannedSets: 3,
+      plannedRepsMin: 6,
+      plannedRepsMax: 8,
+      repsMin: 6,
+      repsMax: 8,
+      restSeconds: 180,
+      workingWeightKg: 40,
+      suggestedWeightKg: 40,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false,
+    };
+
+    const r = render(
+      <SessionRunner
+        sessionId="s1"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[exercise]}
+        settings={settings}
+        actions={actions}
+      />,
+    );
+
+    await waitFor(() => {
+      const workingWeightLine = r.container.querySelector("[data-testid='working-weight-line']");
+      if (!workingWeightLine) throw new Error("Working weight line not found");
+    }, { timeout: 5000 });
+
+    // Log set 1 unedited (88 lb shown, 40 kg submitted)
+    const repsInput1 = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.includes("Reps")
+    );
+    if (!repsInput1) throw new Error("Reps input not found");
+
+    await act(async () => {
+      fireEvent.change(repsInput1, { target: { value: "7" } });
+    });
+
+    await waitFor(() => {
+      const btn = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+      if (!btn) throw new Error("Log Set button not found");
+      if (btn.disabled) throw new Error("Log Set button still disabled");
+    }, { timeout: 5000 });
+
+    const logSetButton1 = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+    if (!logSetButton1) throw new Error("Log Set button not found");
+
+    await act(async () => {
+      fireEvent.click(logSetButton1);
+    });
+
+    await waitFor(() => {
+      if (capturedWeights.length < 1) throw new Error("Set 1 not logged yet");
+    }, { timeout: 1000 });
+
+    check("Flow: Set 1 submits 40 kg", capturedWeights[0] === 40,
+      `got ${capturedWeights[0]}`);
+
+    // Now wait for Set 2 to render
+    await waitFor(() => {
+      const setNumber = r.container.textContent?.includes("Set 2");
+      if (!setNumber) throw new Error("Set 2 not rendered");
+    }, { timeout: 5000 });
+
+    const weightInput2 = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
+    );
+    if (!weightInput2) throw new Error("Weight input for set 2 not found");
+
+    check("Flow: Set 2 prefills 88 lb (from logged set 1)", weightInput2.value === "88",
+      `got "${weightInput2.value}"`);
+
+    // Log set 2 unedited
+    const repsInput2 = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.includes("Reps")
+    );
+    if (!repsInput2) throw new Error("Reps input for set 2 not found");
+
+    await act(async () => {
+      fireEvent.change(repsInput2, { target: { value: "7" } });
+    });
+
+    await waitFor(() => {
+      const btn = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+      if (!btn) throw new Error("Log Set button not found");
+      if (btn.disabled) throw new Error("Log Set button still disabled");
+    }, { timeout: 5000 });
+
+    const logSetButton2 = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+    if (!logSetButton2) throw new Error("Log Set button not found");
+
+    await act(async () => {
+      fireEvent.click(logSetButton2);
+    });
+
+    await waitFor(() => {
+      if (capturedWeights.length < 2) throw new Error("Set 2 not logged yet");
+    }, { timeout: 1000 });
+
+    check("Flow: Set 2 also submits 40 kg (unedited)", capturedWeights[1] === 40,
+      `got ${capturedWeights[1]}`);
 
     r.unmount();
   }
