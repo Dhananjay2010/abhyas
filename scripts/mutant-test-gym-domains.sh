@@ -60,15 +60,20 @@ SURVIVORS=()
 SKIPPED=()
 
 echo "Running baseline tests..."
+baseline_output=$(mktemp)
 if ! supabase db reset > /dev/null 2>&1; then
   echo "❌ Baseline: db reset failed" >&2
   exit 1
 fi
 
-if ! REAL_DB=1 npm run test:gym-domains-real-db > /dev/null 2>&1; then
+if ! REAL_DB=1 npm run test:gym-domains-real-db > "$baseline_output" 2>&1; then
   echo "❌ Baseline tests failed. Fix the code before running mutant tests." >&2
+  echo "Error output:" >&2
+  cat "$baseline_output" >&2
+  rm -f "$baseline_output"
   exit 1
 fi
+rm -f "$baseline_output"
 echo "✓ Baseline tests pass"
 echo
 
