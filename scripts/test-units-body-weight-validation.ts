@@ -194,12 +194,11 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
     }
 
     // Test Onboarding body-weight input (from OnboardingFlow at "about" step)
-    let onboardingError: string | null = null;
     let onboardingCapturedKg: number | null = null;
 
     const mockActions = {
       acceptDisclaimer: async () => ({ ok: true as const }),
-      saveAboutYou: async (data: { weightKg: number; heightCm: number; sex: string }) => {
+      saveAboutYou: async (data: { weightKg: number; heightCm: number; sex: string; dateOfBirth: string }) => {
         onboardingCapturedKg = data.weightKg;
         return { ok: true as const };
       },
@@ -211,11 +210,10 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
     };
 
     const initialState = {
-      current: "about" as const,
       displayName: null,
       disclaimerAccepted: true,
-      dateOfBirth: "1990-01-01",
-      sex: "male" as const,
+      dateOfBirth: null,
+      sex: null,
       heightCm: null,
       weightKg: null,
       units,
@@ -239,40 +237,82 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
     );
 
     await waitFor(() => {
-      const input = onboardingContainer.querySelector<HTMLInputElement>("input[type='number']");
-      if (!input) throw new Error("Onboarding input not found");
-    });
+      const weightInput = Array.from(onboardingContainer.querySelectorAll<HTMLInputElement>("input[type='number']"))
+        .find(i => {
+          const label = i.closest("label")?.textContent || "";
+          const field = i.closest("div")?.querySelector("span")?.textContent || "";
+          return label.includes("Weight") || field.includes("Weight");
+        });
+      if (!weightInput) throw new Error("Onboarding weight input not found");
+    }, { timeout: 5000 });
 
-    const onboardingWeightInput = onboardingContainer.querySelector<HTMLInputElement>("input[type='number']");
-    if (!onboardingWeightInput) throw new Error("Onboarding input not found after waitFor");
+    const onboardingWeightInput = Array.from(onboardingContainer.querySelectorAll<HTMLInputElement>("input[type='number']"))
+      .find(i => {
+        const label = i.closest("label")?.textContent || "";
+        const field = i.closest("div")?.querySelector("span")?.textContent || "";
+        return label.includes("Weight") || field.includes("Weight");
+      });
+    if (!onboardingWeightInput) throw new Error("Onboarding weight input not found after waitFor");
     
     fireEvent.change(onboardingWeightInput, { target: { value } });
     fireEvent.blur(onboardingWeightInput);
 
-    await waitFor(() => {
-      const errorEl = onboardingContainer.querySelector("p.text-danger");
-      onboardingError = errorEl ? errorEl.textContent : null;
-      return true;
-    });
-
-    onboardingUnmount();
-
-    check(
-      `Onboarding ${desc}: ${shouldAccept ? "no error shown" : "shows error"}`,
-      value === "" ? onboardingError === null : (shouldAccept ? onboardingError === null : onboardingError !== null),
-      `error="${onboardingError}", shouldAccept=${shouldAccept}`
-    );
-
-    if (!shouldAccept && value !== "") {
-      const expectedError = getBodyWeightRangeMessage(units);
-      check(
-        `Onboarding ${desc}: shows correct error message`,
-        onboardingError === expectedError,
-        `error="${onboardingError}", expected="${expectedError}"`
-      );
-    }
+    // Check for error display
+    await waitFor(() => true, { timeout: 200 }).catch(() => {});
+    
+    const onboardingErrorEl = onboardingContainer.querySelector("p.text-danger");
+    const onboardingError = onboardingErrorEl ? onboardingErrorEl.textContent : null;
 
     if (shouldAccept && expectedKg !== undefined) {
+      // Fill other required fields for valid cases
+      // Fill DOB: separate day/month/year inputs
+      const dobFieldset = onboardingContainer.querySelector("fieldset");
+      if (dobFieldset) {
+        const dobInputs = Array.from(dobFieldset.querySelectorAll<HTMLInputElement>("input"));
+        if (dobInputs.length >= 3) {
+          // DD/MM/YYYY
+          fireEvent.change(dobInputs[0], { target: { value: "15" } }); // day
+          fireEvent.change(dobInputs[1], { target: { value: "01" } }); // month
+          fireEvent.change(dobInputs[2], { target: { value: "1990" } }); // year
+        }
+      }
+
+      // Select Male
+      const buttons = Array.from(onboardingContainer.querySelectorAll("button"));
+      const maleButton = buttons.find(b => b.textContent?.includes("Male"));
+      if (maleButton) {
+        fireEvent.click(maleButton);
+      }
+
+      // Fill height
+      const textInputs = Array.from(onboardingContainer.querySelectorAll<HTMLInputElement>("input[type='text']"));
+      const heightInput = textInputs.find(i => {
+        const label = i.closest("label")?.textContent || "";
+        const field = i.closest("div")?.querySelector("span")?.textContent || "";
+        return label.includes("Height") || field.includes("Height");
+      });
+      if (heightInput) {
+        const heightValue = units === "imperial" ? "5'9\"" : "175";
+        fireEvent.change(heightInput, { target: { value: heightValue } });
+        fireEvent.blur(heightInput);
+      }
+
+      // Wait for validation
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Find and click Continue
+      const continueButtons = buttons.filter(b => b.textContent === "Continue");
+      const enabledContinue = continueButtons.find(b => !b.hasAttribute("disabled"));
+      
+      if (enabledContinue) {
+        fireEvent.click(enabledContinue);
+
+        // Wait for saveAboutYou to be called
+        await waitFor(() => {
+          if (onboardingCapturedKg === null) throw new Error("saveAboutYou not called");
+        }, { timeout: 2000 });
+      }
+
       const tolerance = 0.1;
       const kgMatch = onboardingCapturedKg !== null && Math.abs(onboardingCapturedKg - expectedKg) < tolerance;
       check(
@@ -280,7 +320,25 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
         kgMatch,
         `got ${onboardingCapturedKg}, expected ${expectedKg}`
       );
+    } else {
+      // For invalid cases, just check error message
+      check(
+        `Onboarding ${desc}: ${shouldAccept ? "no error shown" : "shows error"}`,
+        value === "" ? onboardingError === null : (shouldAccept ? onboardingError === null : onboardingError !== null),
+        `error="${onboardingError}", shouldAccept=${shouldAccept}`
+      );
+
+      if (!shouldAccept && value !== "") {
+        const expectedError = getBodyWeightRangeMessage(units);
+        check(
+          `Onboarding ${desc}: shows correct error message`,
+          onboardingError === expectedError,
+          `error="${onboardingError}", expected="${expectedError}"`
+        );
+      }
     }
+
+    onboardingUnmount();
   }
 
   console.log("");
