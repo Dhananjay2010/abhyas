@@ -174,7 +174,7 @@ for test in $USER_CREATING_TESTS; do
   fi
   
   # Skip if in allowlist
-  if echo "$ALLOWLIST" | grep -q "^$test$"; then
+  if echo "$ALLOWLIST" | grep -q "^$test[[:space:]]"; then
     continue
   fi
   

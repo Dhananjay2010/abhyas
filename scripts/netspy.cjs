@@ -75,7 +75,7 @@ for (const method of spawnMethods) {
     
     // Log spawns, but skip tsx/esbuild internals and npm registry calls
     // Don't skip node_modules/.bin/ scripts (e.g. supabase CLI)
-    const isTsxEsbuildInternal = /\/tsx-|\/esbuild-|^npm (install|ci|run|exec)/i.test(cmdString);
+    const isTsxEsbuildInternal = /\/tsx[-\/]|@esbuild\/|^npm (install|ci|run|exec)|^sh -c tsx /i.test(cmdString);
     if (!isTsxEsbuildInternal) {
       record('SPAWN', cmdString.slice(0, 200));
     }
