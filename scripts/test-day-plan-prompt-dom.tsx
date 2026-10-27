@@ -77,7 +77,6 @@ async function main() {
     );
 
     // Find and click "Swap the day" button
-    const swapButton = container.querySelector('button');
     const swapButtons = Array.from(container.querySelectorAll("button"));
     const swapBtn = swapButtons.find(b => b.textContent === "Swap the day");
     assert.ok(swapBtn, "Should find Swap the day button");

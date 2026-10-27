@@ -495,15 +495,7 @@ async function main() {
   {
     // Setup: Mon Push1, Tue Pull1 done. Wed rest-day (day 3) swap to Push (Push1).
     // Thu is scheduled Push2 (day 4). Since Push was done Wed, Thu should serve Pull (next after Push).
-
-    const client = buildClient({
-      programDays: days6PPL,
-      sessions: [
-        { id: "s-push-mon", user_id: "u1", program_day_id: "Push1", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
-        { id: "s-pull-tue", user_id: "u1", program_day_id: "Pull1", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T10:00:00Z" },
-        { id: "s-push-wed", user_id: "u1", program_day_id: "Push1", actual_type: "weights", local_date: "2026-10-29", status: "completed", created_at: "2026-10-29T14:00:00Z" },
-      ],
-    });
+    // Direct collision check without client (tests resolveTodayProgramDayCore logic)
 
     // Thu Today: resolve (Wed was Push swap, Thu scheduled Push2)
     const thuResolve = await resolveTodayProgramDayCore({
