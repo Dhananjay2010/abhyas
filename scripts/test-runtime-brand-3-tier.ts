@@ -86,7 +86,7 @@ async function main() {
           gym_id: 'gym-b-id',
           gym_slug: 'gold-coast-iron',
           gym_name: 'Gold Coast Iron',
-          verified: true,
+          // Note: verified field removed (migration 037 shape)
         },
       ],
     });
@@ -101,16 +101,18 @@ async function main() {
     
     const mockFetchGymBrand = async (gymId: string): Promise<Partial<Brand>> => {
       if (gymId === 'gym-b-id') {
-        return {
+        const partialBrand: Partial<Brand> = {
           name: 'Gold Coast Iron',
           colors: { accent: '#F59E0B', accentFg: '#000000' },
-        } as Partial<Brand>;
+        };
+        return partialBrand;
       }
       if (gymId === 'gym-a-id') {
-        return {
+        const partialBrand: Partial<Brand> = {
           name: 'Iron Temple',
           colors: { accent: '#1E40AF', accentFg: '#ffffff' },
-        } as Partial<Brand>;
+        };
+        return partialBrand;
       }
       return {};
     };
@@ -138,10 +140,11 @@ async function main() {
     
     const mockFetchGymBrand = async (gymId: string): Promise<Partial<Brand>> => {
       if (gymId === 'iron-temple-id') {
-        return {
+        const partialBrand: Partial<Brand> = {
           name: 'Iron Temple',
           colors: { accent: '#1E40AF', accentFg: '#ffffff' },
-        } as Partial<Brand>;
+        };
+        return partialBrand;
       }
       return {};
     };
@@ -164,7 +167,7 @@ async function main() {
           gym_id: 'gym-b-id',
           gym_slug: 'gold-coast-iron',
           gym_name: 'Gold Coast Iron',
-          verified: true,
+          // Note: verified field removed (migration 037 shape)
         },
       ],
     });
@@ -179,10 +182,12 @@ async function main() {
     
     const mockFetchGymBrand = async (gymId: string): Promise<Partial<Brand>> => {
       if (gymId === 'gym-b-id') {
-        return { name: 'Gold Coast Iron', colors: { accent: '#F59E0B' } } as Partial<Brand>;
+        const partialBrand: Partial<Brand> = { name: 'Gold Coast Iron', colors: { accent: '#F59E0B' } };
+        return partialBrand;
       }
       if (gymId === 'iron-temple-id') {
-        return { name: 'Iron Temple', colors: { accent: '#1E40AF' } } as Partial<Brand>;
+        const partialBrand: Partial<Brand> = { name: 'Iron Temple', colors: { accent: '#1E40AF' } };
+        return partialBrand;
       }
       return {};
     };
