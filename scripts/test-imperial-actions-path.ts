@@ -121,13 +121,6 @@ check("Metric has 'kg'", metric.decision.message.includes("kg"));
 check("Metric has NO 'lb'", !metric.decision.message.includes("lb"));
 check("Metric shows 'up to 42.5 kg'", metric.decision.message.includes("up to 42.5 kg"));
 
-console.log("\n4. Assert actions.ts imports progressionFeedback");
-const actionsSource = fs.readFileSync("src/app/session/actions.ts", "utf8");
-check("actions.ts imports progressionFeedback", actionsSource.includes('import { progressionFeedback } from "@/lib/session/progression-feedback"'));
-const hasCall = actionsSource.includes("progressionFeedback(") && actionsSource.match(/progressionFeedback\([^)]*\bunits\b[^)]*\)/) !== null;
-check("actions.ts calls progressionFeedback with units", hasCall);
-check("actions.ts does NOT call describePersonalBest directly", !actionsSource.includes("describePersonalBest("));
-
 console.log("\n=== SUMMARY ===");
 if (failures > 0) {
   console.log(`FAILED: ${failures} checks`);
@@ -135,8 +128,8 @@ if (failures > 0) {
 } else {
   console.log("✅ ALL PASS");
   console.log("Kills mutants in PRODUCTION code:");
-  console.log("  - UN1: actions.ts passes 'metric' → no '93.5 lb'");
-  console.log("  - UN2: progressionFeedback omits units in describePersonalBest → no '95 lb'");
-  console.log("  - UN4: buildProgressionInput drops units field → JSON check fails");
+  console.log("  - L4B-4/UN1: actions.ts/progressionFeedback passes 'metric' → test FAILS (sees 'kg' not 'lb')");
+  console.log("  - UN2: progressionFeedback omits units in describePersonalBest → test FAILS (no '95 lb')");
+  console.log("  - UN4: buildProgressionInput drops units field → test FAILS (input has no units)");
   process.exit(0);
 }

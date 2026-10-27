@@ -137,24 +137,30 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
   check("  message indicates cut > 20%", d.message.includes("cut more than 20%"));
 }
 
-// M2: Imperial tests removed (imperial support removed)
-// console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
-//
-// // Same cases in imperial (stored as kg, displayed as lb)
-// {
-//   const d = run({
-//     equipmentIds: ["dumbbell"],
-//     meta: CURL,
-//     state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 0 }),
-//   });
-//   check("Dumbbell 6 kg (13.2 lb) first miss → 5 kg (11 lb)", 
-//     d.nextWorkingWeightKg === 5 && d.message.includes("11 lb"));
-// }
-//
-// {
-//   const d = run({
-//     equipmentIds: ["dumbbell"],
-//     meta: CURL,
+console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
+
+// Same cases in imperial (stored as kg, displayed as lb)
+{
+  const d = run({
+    equipmentIds: ["dumbbell"],
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 0 }),
+    units: "imperial",
+  });
+  check("Dumbbell 6 kg (13.2 lb) first miss → 5 kg (11 lb)", 
+    d.nextWorkingWeightKg === 5 && d.message.includes("11 lb"));
+}
+
+{
+  const d = run({
+    equipmentIds: ["dumbbell"],
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 8, consecutiveFailures: 0 }),
+    units: "imperial",
+  });
+  check("Dumbbell 8 kg (17.6 lb) first miss → 7.5 kg (16.5 lb)",
+    d.nextWorkingWeightKg === 7.5 && d.message.includes("16.5 lb"));
+}
 //     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
 //   });
 //   check("Dumbbell 12 kg (26.5 lb) first miss → 10 kg (22 lb)", 
