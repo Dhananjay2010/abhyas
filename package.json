@@ -556,7 +556,8 @@
     "test:require-weight-loaded": "tsx scripts/test-require-weight-loaded.tsx",
     "test:runner-mount-pending-queue": "tsx scripts/test-runner-mount-pending-queue.tsx",
     "test:logset-session-expired": "tsx scripts/test-logset-session-expired.ts",
-    "test:session-runner-expired-banner": "tsx scripts/test-session-runner-expired-banner.tsx"
+    "test:session-runner-expired-banner": "tsx scripts/test-session-runner-expired-banner.tsx",
+    "test:units-runner-render": "tsx scripts/test-units-runner-render.tsx"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
