@@ -454,6 +454,90 @@ console.log("\n4. Skip button: finishSession succeeds - rest persistence cleared
   cleanup();
 }
 
+console.log("\n5. Skip with empty pending queue: finishSession fails - rest persistence NOT cleared");
+{
+  const SESSION_ID = "test-session-5";
+  const restKey = `abhyas:rest:${SESSION_ID}`;
+  
+  // Clear and pre-seed storage
+  fakeStorage.data.clear();
+  fakeStorage.setItem(restKey, JSON.stringify({
+    sessionId: SESSION_ID,
+    sessionExerciseId: "ex-completed-5",
+    restEndsAt: now + 90000,
+  }));
+  // No pending sets in localStorage - empty queue scenario
+
+  let finishAttempts = 0;
+  const actions: SessionActions = {
+    markWarmupDone: ok,
+    logSet: async () => ({ ok: true as const }),
+    deleteSet: ok,
+    finishExercise: async () => ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: async () => {
+      finishAttempts++;
+      return { ok: false, error: "Network error" };
+    },
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => ({ ok: true as const, data: {
+      metric: "reps" as const,
+      repsMin: 8,
+      repsMax: 12,
+      equipmentIds: [],
+      weightPrefill: null,
+      workingWeightKg: null,
+      currentTargetReps: null,
+      isBodyweight: false,
+    }}),
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+  };
+
+  render(
+    <SessionRunner
+      sessionId={SESSION_ID}
+      sessionStatus="in_progress"
+      userId="test-user-5"
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(now).toISOString()}
+      isStale={false}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[makeExercise("ex-completed-5", "Squat", "completed")]}
+      settings={settings}
+      actions={actions}
+    />
+  );
+
+  await act(async () => {
+    await waitFor(() => {
+      const btn = screen.queryByText(/Skip/i);
+      if (!btn) throw new Error("Waiting for Skip button");
+    }, { timeout: 2000 });
+  });
+
+  const skipButton = screen.getByText(/Skip/i);
+
+  assertEqualsCd1(!!skipButton, true, "Skip button present");
+  assertEqualsCd1(fakeStorage.data.has(restKey), true, "rest persistence exists before finish");
+
+  await act(async () => {
+    skipButton.click();
+    await waitFor(() => {
+      if (finishAttempts === 0) throw new Error("waiting for finishSession");
+    }, { timeout: 1000 });
+  });
+
+  assertEqualsCd1(finishAttempts, 1, "finishSession was called on Skip with empty queue");
+  assertEqualsCd1(fakeStorage.data.has(restKey), true, "rest persistence NOT cleared after failed finish (empty queue path)");
+  
+  cleanup();
+}
+
 console.log(`\n✅ Passed: ${passedCd1}`);
 if (failedCd1 > 0) {
   console.log(`❌ Failed: ${failedCd1}`);
