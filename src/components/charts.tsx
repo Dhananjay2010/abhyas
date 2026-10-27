@@ -117,7 +117,8 @@ export function LineChart({
   };
   const fmtAxis = (v: number) => {
     if (!weightUnits) return Math.round(v).toLocaleString("en-US");
-    return isBodyWeight ? formatBodyWeight(v, weightUnits, false, "0") : formatWeight(v, weightUnits, false, "0");
+    // Axis labels always use 0.5 lb rounding (formatWeight), even for body weight
+    return formatWeight(v, weightUnits, false, "0");
   };
   const id = useId();
   const [active, setActive] = useState<number | null>(null);

@@ -15,7 +15,7 @@
  */
 
 import "./helpers/setup-jsdom";
-import { render, waitFor, fireEvent } from "@testing-library/react";
+import { render, waitFor, fireEvent, act } from "@testing-library/react";
 import {
   SessionRunner,
   type RunnerExercise,
@@ -103,9 +103,7 @@ const testCases = [
       suggestedWeightKg: kg,
       status: "pending",
       feel: null,
-      sets: [
-        { setNumber: 1, reps: 7, weightKg: kg, durationSeconds: null }
-      ],
+      sets: [],
       isBodyweight: false,
     };
 
@@ -128,6 +126,9 @@ const testCases = [
       if (!r.container.textContent?.includes("Bench Press"))
         throw new Error("Exercise not loaded");
     });
+
+    // Wait for component to sync (markSynced is called after 4s timeout)
+    await new Promise(resolve => setTimeout(resolve, 4500));
 
     // Check working weight line using data-testid for precision
     const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
@@ -174,8 +175,11 @@ const testCases = [
       continue;
     }
     
-    // Set reps input value
-    fireEvent.change(repsInput, { target: { value: "7" } });
+    // Change reps value and wait for state update
+    await act(async () => {
+      fireEvent.change(repsInput, { target: { value: "7" } });
+      await new Promise(resolve => setTimeout(resolve, 200));
+    });
     
     // Find Log Set button by data-testid
     const logSetButton = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
@@ -186,30 +190,21 @@ const testCases = [
       continue;
     }
     
-    // Try clicking the button even if disabled (for testing purposes)
-    // The button may be disabled in test env due to form validation timing issues
-    // but we can still verify that when clicked, it would submit the right value
+    // Try to click the button
     capturedWeightKg = null;
-    fireEvent.click(logSetButton);
+    await act(async () => {
+      fireEvent.click(logSetButton);
+      await new Promise(resolve => setTimeout(resolve, 200));
+    });
     
-    // If the click didn't work due to disabled state, directly test the submission logic
-    if (capturedWeightKg === null) {
-      // Test that weightKgToSubmit returns the original kg when prefill is unchanged
-      const { weightKgToSubmit } = await import("../src/lib/units");
-      const submittedKg = weightKgToSubmit(expectedPrefill, expectedPrefill, kg, "imperial");
-      check(
-        `${desc}: weightKgToSubmit preserves original ${kg} kg (unedited prefill)`,
-        submittedKg === kg,
-        `expected ${kg}, got ${submittedKg}`
-      );
-    } else {
-      // Button click worked - verify the submitted value
-      check(
-        `${desc}: Log Set submits original ${kg} kg exactly`,
-        capturedWeightKg === kg,
-        `expected ${kg}, got ${capturedWeightKg}`
-      );
-    }
+    // Verify the button click worked and submitted the correct value
+    check(
+      `${desc}: Log Set button click submits original ${kg} kg exactly`,
+      capturedWeightKg === kg,
+      capturedWeightKg === null 
+        ? "button click did not trigger logSet (test env limitation with async React state)"
+        : `expected ${kg}, got ${capturedWeightKg}`
+    );
     
     r.unmount();
   }

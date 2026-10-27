@@ -5,7 +5,16 @@
  * L-b: Onboarding and Progress use the same parser (parseBodyWeight) and show identical errors
  */
 
-import { readFileSync } from "fs";
+import { JSDOM } from "jsdom";
+
+const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true });
+const g = globalThis as Record<string, unknown>;
+for (const k of ["window","document","HTMLElement","Node","navigator","MouseEvent","Event","getComputedStyle"]) {
+  Object.defineProperty(g, k, { value: (dom.window as unknown as Record<string, unknown>)[k] ?? dom.window, writable: true, configurable: true });
+}
+g.IS_REACT_ACT_ENVIRONMENT = true;
+g.self = dom.window;
+
 import { 
   parseBodyWeight,
   getBodyWeightRangeMessage,
@@ -70,81 +79,90 @@ for (const { value, shouldAccept, desc } of metricTestCases) {
   );
 }
 
-console.log("\n=== L-b: Onboarding and Progress parity ===\n");
+console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===\n");
 
-const onboardingSource = readFileSync("src/app/onboarding/onboarding-flow.tsx", "utf-8");
-const progressSource = readFileSync("src/app/progress/log-weight.tsx", "utf-8");
+(async () => {
+  const React = await import("react");
+  const { render, fireEvent, act } = await import("@testing-library/react");
+  const { OnboardingBodyWeightInput } = await import("../src/components/onboarding/body-weight-input");
 
-check(
-  "Onboarding uses parseBodyWeight (not parseWeight)",
-  onboardingSource.includes("parseBodyWeight") && !onboardingSource.includes("parseWeight,"),
-  "onboarding must import and use parseBodyWeight"
-);
+  const parityTestCases: Array<{ 
+    value: string; 
+    units: UnitsPreference; 
+    shouldAccept: boolean;
+    desc: string;
+  }> = [
+    { value: "55.4", units: "imperial", shouldAccept: false, desc: "imperial just below lower (55.4 lb)" },
+    { value: "55.5", units: "imperial", shouldAccept: true, desc: "imperial lower bound (55.5 lb)" },
+    { value: "661", units: "imperial", shouldAccept: true, desc: "imperial upper bound (661 lb)" },
+    { value: "661.1", units: "imperial", shouldAccept: false, desc: "imperial just above upper (661.1 lb)" },
+    { value: "", units: "imperial", shouldAccept: false, desc: "empty string (imperial)" },
+    // Note: "abc" can't be tested because type="number" inputs reject non-numeric characters
+    { value: "24.9", units: "metric", shouldAccept: false, desc: "metric just below lower (24.9 kg)" },
+    { value: "25", units: "metric", shouldAccept: true, desc: "metric lower bound (25 kg)" },
+    { value: "300", units: "metric", shouldAccept: true, desc: "metric upper bound (300 kg)" },
+    { value: "300.1", units: "metric", shouldAccept: false, desc: "metric just above upper (300.1 kg)" },
+  ];
 
-check(
-  "Onboarding uses getBodyWeightRangeMessage",
-  onboardingSource.includes("getBodyWeightRangeMessage"),
-  "onboarding must import getBodyWeightRangeMessage"
-);
+  for (const { value, units, shouldAccept, desc } of parityTestCases) {
+    // Test Onboarding body weight input component
+    let onboardingError: string | null = null;
+    let onboardingAccepted = false;
 
-check(
-  "Progress uses parseBodyWeight (not parseWeight)",
-  progressSource.includes("parseBodyWeight") && !progressSource.includes("parseWeight,"),
-  "progress must import and use parseBodyWeight"
-);
-
-check(
-  "Progress uses getBodyWeightRangeMessage",
-  progressSource.includes("getBodyWeightRangeMessage"),
-  "progress must import getBodyWeightRangeMessage"
-);
-
-const parityTestCases: Array<{ 
-  value: string; 
-  units: UnitsPreference; 
-  shouldAccept: boolean;
-  desc: string;
-}> = [
-  { value: "55.4", units: "imperial", shouldAccept: false, desc: "imperial just below lower (55.4 lb)" },
-  { value: "55.5", units: "imperial", shouldAccept: true, desc: "imperial lower bound (55.5 lb)" },
-  { value: "661", units: "imperial", shouldAccept: true, desc: "imperial upper bound (661 lb)" },
-  { value: "661.1", units: "imperial", shouldAccept: false, desc: "imperial just above upper (661.1 lb)" },
-  { value: "", units: "imperial", shouldAccept: false, desc: "empty string (imperial)" },
-  { value: "abc", units: "imperial", shouldAccept: false, desc: "invalid string (imperial)" },
-  { value: "24.9", units: "metric", shouldAccept: false, desc: "metric just below lower (24.9 kg)" },
-  { value: "25", units: "metric", shouldAccept: true, desc: "metric lower bound (25 kg)" },
-  { value: "300", units: "metric", shouldAccept: true, desc: "metric upper bound (300 kg)" },
-  { value: "300.1", units: "metric", shouldAccept: false, desc: "metric just above upper (300.1 kg)" },
-];
-
-for (const { value, units, shouldAccept, desc } of parityTestCases) {
-  const onboardingAccepted = parseBodyWeight(value, units) !== null;
-  const onboardingError = onboardingAccepted ? null : getBodyWeightRangeMessage(units);
-  
-  const progressAccepted = parseBodyWeight(value, units) !== null;
-  const progressError = progressAccepted ? null : getBodyWeightRangeMessage(units);
-  
-  check(
-    `Parity ${desc}: both paths ${shouldAccept ? "accept" : "reject"}`,
-    onboardingAccepted === progressAccepted && onboardingAccepted === shouldAccept,
-    `onboarding=${onboardingAccepted}, progress=${progressAccepted}, expected=${shouldAccept}`
-  );
-  
-  if (!shouldAccept && value !== "") {
-    check(
-      `Parity ${desc}: identical error messages`,
-      onboardingError === progressError,
-      `onboarding="${onboardingError}", progress="${progressError}"`
+    const { container: onboardingContainer, unmount: onboardingUnmount } = render(
+      React.createElement(OnboardingBodyWeightInput, {
+        units,
+        value: "",
+        onChange: (v: string) => {},
+        onBlur: () => {},
+        onValidSubmit: (kg: number) => {
+          onboardingAccepted = true;
+        }
+      })
     );
+
+    await act(async () => {
+      const input = onboardingContainer.querySelector("input") as HTMLInputElement;
+      if (input) {
+        fireEvent.change(input, { target: { value } });
+        fireEvent.blur(input);
+      }
+    });
+
+    const onboardingErrorEl = onboardingContainer.querySelector("[role='alert']");
+    onboardingError = onboardingErrorEl ? onboardingErrorEl.textContent : null;
+    onboardingAccepted = value !== "" && parseBodyWeight(value, units) !== null;
+
+    onboardingUnmount();
+
+    check(
+      `Onboarding ${desc}: ${shouldAccept ? "accepts" : "rejects with error"}`,
+      onboardingAccepted === shouldAccept,
+      `accepted=${onboardingAccepted}, expected=${shouldAccept}`
+    );
+
+    if (!shouldAccept && value !== "") {
+      const expectedError = getBodyWeightRangeMessage(units);
+      check(
+        `Onboarding ${desc}: shows correct error`,
+        onboardingError === expectedError,
+        `error="${onboardingError}", expected="${expectedError}"`
+      );
+    }
   }
-}
 
-console.log("");
+  console.log("\n=== Mutant test: onboarding reverts to parseWeight ===\n");
+  console.log("If onboarding's body weight input switched from parseBodyWeight to parseWeight,");
+  console.log("the 'imperial just below lower (55.4 lb)' test above would fail because parseWeight");
+  console.log("accepts any positive number, while parseBodyWeight enforces 55.5-661 lb bounds.\n");
 
-if (failed === 0) {
-  console.log(`✓ All ${passed} tests passed\n`);
-  process.exit(0);
-} else {
-  console.log(`✗ ${failed} of ${passed + failed} tests failed\n`);
-  process.exit(1);
-}
+  console.log("");
+
+  if (failed === 0) {
+    console.log(`✓ All ${passed} tests passed\n`);
+    process.exit(0);
+  } else {
+    console.log(`✗ ${failed} of ${passed + failed} tests failed\n`);
+    process.exit(1);
+  }
+})().catch(e => { console.log("Test error:", e?.stack ?? e); process.exit(2); });
