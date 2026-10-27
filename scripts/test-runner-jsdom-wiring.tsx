@@ -40,7 +40,8 @@ function createFakeTimer(): {
   return {
     timer: {
       setTimeout: (callback: () => void): TimerHandle => {
-        const id: TimerHandle = nextId++;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const id: TimerHandle = nextId++ as any;
         callbacks.set(id, callback);
         return id;
       },

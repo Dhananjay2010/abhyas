@@ -128,6 +128,9 @@ export type RunnerTimer = {
   clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => void;
 };
 
+/** Injectable timer handle for testing; defaults to real setTimeout return type. */
+export type TimerHandle = ReturnType<typeof globalThis.setTimeout>;
+
 const REAL_TIMER: RunnerTimer = {
   setTimeout: (cb, ms) => globalThis.setTimeout(cb, ms),
   clearTimeout: (id) => globalThis.clearTimeout(id),
@@ -564,8 +567,10 @@ export function SessionRunner({
               const result = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true }),
               );
-              if (result?.ok && result.data?.durationSeconds !== undefined) {
-                setSavedDuration(result.data.durationSeconds);
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              if (result?.ok && (result as any).data?.durationSeconds !== undefined) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                setSavedDuration((result as any).data.durationSeconds);
               } else {
                 setSavedDuration(frozen);
               }
@@ -582,8 +587,10 @@ export function SessionRunner({
               const result = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false }),
               );
-              if (result?.ok && result.data?.durationSeconds !== undefined) {
-                setSavedDuration(result.data.durationSeconds);
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              if (result?.ok && (result as any).data?.durationSeconds !== undefined) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                setSavedDuration((result as any).data.durationSeconds);
               } else {
                 setSavedDuration(frozen);
               }
@@ -925,8 +932,10 @@ export function SessionRunner({
         const result = await run(() =>
           actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false }),
         );
-        if (result?.ok && result.data?.durationSeconds !== undefined) {
-          setSavedDuration(result.data.durationSeconds);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (result?.ok && (result as any).data?.durationSeconds !== undefined) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setSavedDuration((result as any).data.durationSeconds);
         } else {
           setSavedDuration(frozen);
         }

@@ -13,6 +13,7 @@ import {
 } from "@/lib/program/progression";
 import { buildProgressionInput } from "@/lib/session/build-progression-input";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
+import { makeAbandonSessionDeps } from "@/lib/session/abandon-session-deps";
 import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
 import { planDayCore, type PlanDayClient } from "@/lib/session/plan-day-core";
@@ -166,6 +167,7 @@ export async function deleteSet(
 }
 
 import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+import { makeFinishExerciseDeps } from "@/lib/session/finish-exercise-deps";
 
 export type { ProgressionFeedback, SummaryNote };
 
@@ -188,8 +190,9 @@ export async function finishExercise(input: {
   if (rateLimit) return rateLimit as Result<ProgressionFeedback | null>;
   
   const { supabase, user } = await requireUser();
+  const deps = makeFinishExerciseDeps(supabase, applyProgression);
 
-  return finishExerciseCore(supabase, user.id, input, { applyProgression });
+  return finishExerciseCore(deps, user.id, input);
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
@@ -368,7 +371,8 @@ export async function abandonSession(
   if (rateLimit) return rateLimit;
 
   const { supabase } = await requireUser();
-  const result = await abandonSessionCore(supabase, sessionId, elapsedSeconds);
+  const deps = makeAbandonSessionDeps(supabase);
+  const result = await abandonSessionCore(deps, sessionId, elapsedSeconds);
   if (result.ok) revalidateTrainingData();
   return result;
 }
