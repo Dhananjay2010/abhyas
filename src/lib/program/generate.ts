@@ -1175,8 +1175,9 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           .filter(e => {
             if (!allowedSlugs.has(e.slug)) return false;
             if (!e.primary_muscles.includes("quads")) return false;
-            // MUTANT: Disabled wall-sit reuse
-            if (usedInBlock.has(e.id)) return false;
+            // For current-knee, allow wall-sit reuse; for past-knee, check usedInBlock
+            if (!hasCurrentKneeLocal && usedInBlock.has(e.id)) return false;
+            if (hasCurrentKneeLocal && e.slug !== "wall-sit" && usedInBlock.has(e.id)) return false;
             
             return isEligible(e, input);
           })
