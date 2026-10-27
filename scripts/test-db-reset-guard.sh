@@ -196,6 +196,9 @@ check_refuse "DB URL port mismatch" "must match config.toml" \
 check_refuse "Multi-host URL" "multiple hosts" \
   bash -c 'ALLOW_DB_RESET=1 SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333,other:5432/postgres" SUPABASE_URL="http://localhost:54334" NEXT_PUBLIC_SUPABASE_URL="http://localhost:54334"; source scripts/lib-db-reset-guard.sh; check_db_reset_guard_bash explain "'"$TMPDIR/custom-config.toml"'"'
 
+check_refuse "SUPABASE_DB_URL unset" "SUPABASE_DB_URL is required" \
+  bash -c 'ALLOW_DB_RESET=1 unset SUPABASE_DB_URL; SUPABASE_URL="http://localhost:54334" NEXT_PUBLIC_SUPABASE_URL="http://localhost:54334"; source scripts/lib-db-reset-guard.sh; check_db_reset_guard_bash explain "'"$TMPDIR/custom-config.toml"'"'
+
 check_refuse "SUPABASE_URL unset" "SUPABASE_URL is required" \
   bash -c 'ALLOW_DB_RESET=1 SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" unset SUPABASE_URL; source scripts/lib-db-reset-guard.sh; check_db_reset_guard_bash explain "'"$TMPDIR/custom-config.toml"'"'
 
@@ -429,6 +432,13 @@ try {
 
   checkRefuse("Multi-host URL", "multiple hosts", () => {
     process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333,other:5432/postgres";
+    const result = checkDbResetGuard(customConfig);
+    process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+    return result;
+  });
+
+  checkRefuse("SUPABASE_DB_URL unset", "SUPABASE_DB_URL is required", () => {
+    delete process.env.SUPABASE_DB_URL;
     const result = checkDbResetGuard(customConfig);
     process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
     return result;

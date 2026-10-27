@@ -11,7 +11,7 @@ echo
 
 KILLED=0
 SURVIVED=0
-MUTANTS_TOTAL=43
+MUTANTS_TOTAL=57
 
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
@@ -29,6 +29,21 @@ EOF
 
 cat > "$TMPDIR/custom-config.toml" << 'EOF'
 project_id = "TestGym"
+
+[db]
+port = 54333
+
+[api]
+port = 54334
+EOF
+
+cat > "$TMPDIR/garbage-config.toml" << 'EOF'
+This is not valid TOML!
+[broken
+EOF
+
+cat > "$TMPDIR/env-ref-config.toml" << 'EOF'
+project_id = "env(PROJECT_ID)"
 
 [db]
 port = 54333
@@ -302,6 +317,68 @@ test_refuse_ts "TS NEXT_PUBLIC mismatch refused" "$TMPDIR/custom-config.toml" \
 echo "Check 43: TS - Multi-host URLs not allowed"
 test_refuse_ts "TS Multi-host refused" "$TMPDIR/custom-config.toml" \
   'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333,other:5432/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 44: SUPABASE_WORKDIR not allowed (bash)"
+test_refuse_bash "SUPABASE_WORKDIR refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_WORKDIR=/tmp" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54334"
+
+echo "Check 45: Unknown SUPABASE_* key not allowed (bash)"
+test_refuse_bash "Unknown SUPABASE_* refused" \
+  "ALLOW_DB_RESET=1" "SUPABASE_ACCESS_TOKEN=secret" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54334"
+
+echo "Check 46: SUPABASE_DB_URL must be set (bash)"
+test_refuse_bash "SUPABASE_DB_URL unset refused" \
+  "ALLOW_DB_RESET=1" \
+  "SUPABASE_URL=http://localhost:54334" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54334"
+
+echo "Check 47: SUPABASE_URL must be set (bash)"
+test_refuse_bash "SUPABASE_URL unset refused" \
+  "ALLOW_DB_RESET=1" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54334"
+
+echo "Check 48: NEXT_PUBLIC_SUPABASE_URL must be set (bash)"
+test_refuse_bash "NEXT_PUBLIC unset refused" \
+  "ALLOW_DB_RESET=1" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
+
+echo "Check 49: TS - SUPABASE_WORKDIR not allowed"
+test_refuse_ts "TS SUPABASE_WORKDIR refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_WORKDIR = "/tmp"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 50: TS - Unknown SUPABASE_* key not allowed"
+test_refuse_ts "TS Unknown SUPABASE_* refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_ACCESS_TOKEN = "secret"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 51: TS - SUPABASE_DB_URL must be set"
+test_refuse_ts "TS SUPABASE_DB_URL unset refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; delete process.env.SUPABASE_DB_URL; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 52: TS - SUPABASE_URL must be set"
+test_refuse_ts "TS SUPABASE_URL unset refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; delete process.env.SUPABASE_URL; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 53: TS - NEXT_PUBLIC_SUPABASE_URL must be set"
+test_refuse_ts "TS NEXT_PUBLIC unset refused" "$TMPDIR/custom-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; delete process.env.NEXT_PUBLIC_SUPABASE_URL;'
+
+echo "Check 54: TS - Config file must exist"
+test_refuse_ts "TS missing config refused" "/nonexistent/config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 55: TS - Config must be valid TOML"
+test_refuse_ts "TS garbage config refused" "$TMPDIR/garbage-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
+
+echo "Check 56: Default API port 54321 not allowed (bash)"
+test_refuse_bash "API port 54321 refused" \
+  "ALLOW_DB_RESET=1" \
+  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54321" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321"
+
+echo "Check 57: TS - project_id with env() not allowed"
+test_refuse_ts "TS project_id env() refused" "$TMPDIR/env-ref-config.toml" \
+  'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
 
 echo
 echo "=== MUTANT TEST RESULTS ==="
