@@ -158,7 +158,7 @@ export function incrementFor(meta: ExerciseMeta, equipmentIds?: string[]): numbe
  * When equipmentIds is provided AND contains loadable equipment, returns the larger 
  * of the pattern-based step and the equipment grid to ensure proper snapping.
  */
-export function addedWeightStep(meta: ExerciseMeta, equipmentIds?: string[]): number {
+export function addedWeightStep(meta: ExerciseMeta): number {
   const patternStep = meta.mechanic === "isolation" ? 1.25 :
     LOWER_BODY.has(meta.movementPattern) ? 2.5 : 1.25;
   
@@ -700,7 +700,7 @@ export function evaluateProgression(input: {
         }
       } else {
         // Standard equipment: add increment then round to grid if equipment is loadable
-        const step = isBodyweightWithAddedWeight ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
+        const step = isBodyweightWithAddedWeight ? addedWeightStep(meta) : incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";
         
         // #120 APP decision: easy doubles the BASE increment, then the doubled value is capped at grid
@@ -747,8 +747,7 @@ export function evaluateProgression(input: {
       }
     } else {
       // No equipment info: use standard increment, doubled when easy (preserve old behavior)
-      // Pass equipmentIds to incrementFor/addedWeightStep to respect equipment grid even in fallback
-      const step = isBodyweightWithAddedWeight ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
+      const step = isBodyweightWithAddedWeight ? addedWeightStep(meta) : incrementFor(meta, equipmentIds);
       const jump = isBodyweightWithAddedWeight || feel !== "easy" ? step : step * 2;
       const rawNext = from + jump;
       next = roundToGrid(rawNext, equipmentIds, undefined, step, 'up');
@@ -1152,7 +1151,7 @@ export function suggestedWeight(
   
   // Deload: about 70% of working weight, on a loadable increment.
   // Bodyweight exercises with added weight use their own smaller steps.
-  const step = meta.isBodyweight && w > 0 ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
+  const step = meta.isBodyweight && w > 0 ? addedWeightStep(meta) : incrementFor(meta, equipmentIds);
   
   // For kettlebells, skip rounding to step and go directly to bell grid
   const isKettlebell = equipmentIds?.includes('kettlebell');
