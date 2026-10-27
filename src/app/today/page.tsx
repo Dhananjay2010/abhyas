@@ -26,6 +26,7 @@ import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
 import { StrengthDoneBanner } from "./strength-done-banner";
 import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
 import { deriveTodayView } from "@/lib/today/derive-today-view";
+import { CleanupTrigger } from "./cleanup-trigger";
 
 export const dynamic = "force-dynamic";
 
@@ -179,6 +180,7 @@ export default async function TodayPage() {
   let days = daysRes.data;
   
   // Clean banned exercises in-memory for knee users (no DB writes during render)
+  let cleanupNeeded = false;
   try {
     const injuries = injuriesRes.data;
     const hasKneeInjury = injuries?.some(inj => inj.body_region === "knee");
@@ -232,6 +234,9 @@ export default async function TodayPage() {
           if (!result.changed) {
             return day;
           }
+          
+          // Mark that cleanup is needed
+          cleanupNeeded = true;
           
           const cleanedExercises = day.program_day_exercises.map((ex: DayExercise, i: number) => {
             const cleanedId = result.rows[i].exercise_id;
@@ -853,6 +858,7 @@ export default async function TodayPage() {
         <SignOutForm label="Sign out" userId={user.id} />
       </div>
 
+      <CleanupTrigger shouldClean={cleanupNeeded} />
     </main>
   );
 }
