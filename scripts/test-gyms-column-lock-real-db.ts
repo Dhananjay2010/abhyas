@@ -469,31 +469,30 @@ async function runTests() {
   // TEST: Future column update blocked (mutant (n))
   console.log("TEST: Future column update blocked");
   {
-    // Check if temp_future_col exists (added by mutant (n))
+    // Always create temp_future_col to test trigger blocks it
     const childProcess2 = await import("child_process");
     const { execSync } = childProcess2;
     const dbUrl = process.env.SUPABASE_DB_URL || "postgresql://postgres:postgres@localhost:54322/postgres";
     
     try {
-      const colCheck = execSync(`psql -v ON_ERROR_STOP=1 "${dbUrl}" -tA -c "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='gyms' AND column_name='temp_future_col');"`, {
+      // Add the column
+      execSync(`psql -v ON_ERROR_STOP=1 "${dbUrl}" -c "ALTER TABLE public.gyms ADD COLUMN IF NOT EXISTS temp_future_col text;"`, {
         encoding: 'utf-8',
         stdio: 'pipe'
-      }).trim();
+      });
       
-      if (colCheck === 't') {
-        // Column exists (mutant is active), try to update it
-        const updateData: Record<string, unknown> = { temp_future_col: "hacked" };
-        const { error } = await clientOwner
-          .from("gyms")
-          .update(updateData)
-          .eq("id", gymId);
-        check("Future column update blocked", !!error && error.code === "GJC12");
-      } else {
-        // Column doesn't exist (normal case), mutant will add it and test
-        check("Future column update blocked", true, "(will be verified when mutant (n) adds column)");
-      }
+      // Try to update it as owner (should be blocked by trigger)
+      execSync(`psql -v ON_ERROR_STOP=1 "${dbUrl}" -c "SET ROLE authenticated; SELECT set_config('request.jwt.claims', jsonb_build_object('sub', '${userIdOwner}', 'role', 'authenticated')::text, false); UPDATE public.gyms SET temp_future_col = 'hacked' WHERE id = '${gymId}';"`, {
+        encoding: 'utf-8',
+        stdio: 'pipe'
+      });
+      
+      // If we get here, the update succeeded (should not happen)
+      check("Future column update blocked", false, "Update succeeded when it should have been blocked");
     } catch (err) {
-      check("Future column update blocked", false, `psql failed: ${err}`);
+      // Expected: trigger should block with GJC12
+      const errStr = String(err);
+      check("Future column update blocked", errStr.includes("GJC12"), `Error: ${errStr.substring(0, 100)}`);
     }
   }
   console.log();
@@ -555,8 +554,19 @@ async function runTests() {
         accent_color: "#000000"
       })
       .eq("id", gymId);
-    check("Hex with trailing rejected", !!color2);
+    check("Primary hex with trailing rejected", !!color2);
     check("SQLSTATE 23514", color2?.code === "23514");
+
+    // Hex with trailing ;} - test accent only
+    const { error: color2a} = await clientOwner
+      .from("gyms")
+      .update({ 
+        primary_color: "#FF9A2E",
+        accent_color: "#000000;}"
+      })
+      .eq("id", gymId);
+    check("Accent hex with trailing rejected", !!color2a);
+    check("SQLSTATE 23514", color2a?.code === "23514");
 
     // 8-digit hex (RGBA)
     const { error: color3 } = await clientOwner
@@ -634,6 +644,22 @@ async function runTests() {
     check("Other gym deleted", !gym2Error, gym2Error?.message);
   }
   
+  // Clean up temp column
+  console.log("Cleaning up temp column...");
+  {
+    try {
+      const childProcess3 = await import("child_process");
+      const { execSync: execSync3 } = childProcess3;
+      const dbUrl = process.env.SUPABASE_DB_URL || "postgresql://postgres:postgres@localhost:54322/postgres";
+      execSync3(`psql "${dbUrl}" -c "ALTER TABLE public.gyms DROP COLUMN IF EXISTS temp_future_col;"`, {
+        encoding: 'utf-8',
+        stdio: 'pipe'
+      });
+    } catch (err) {
+      console.log(`Warning: Failed to drop temp column: ${err}`);
+    }
+  }
+
   // Clean up test gyms
   console.log("Cleaning up test gyms...");
   {

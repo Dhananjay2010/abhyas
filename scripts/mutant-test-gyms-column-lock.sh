@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 # Mutant test script for gyms column lock (migration 043)
 # Tests that removing key constraints causes test failures
@@ -251,7 +251,7 @@ run_mutant \
   "(j) unanchored primary_color end in TABLE CHECK" \
   "Remove \$ anchor from primary_color CHECK (040 constraint)" \
   "" \
-  "FAIL Hex with trailing rejected" \
+  "FAIL Primary hex with trailing rejected" \
   "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_primary_color_hex;
    ALTER TABLE public.gyms ADD CONSTRAINT gyms_primary_color_hex CHECK (primary_color IS NULL OR primary_color ~ '^#[0-9A-Fa-f]{6}');"
 
@@ -260,7 +260,7 @@ run_mutant \
   "(k) unanchored accent_color end in TABLE CHECK" \
   "Remove \$ anchor from accent_color CHECK (040 constraint)" \
   "" \
-  "FAIL Hex with trailing rejected" \
+  "FAIL Accent hex with trailing rejected" \
   "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_accent_color_hex;
    ALTER TABLE public.gyms ADD CONSTRAINT gyms_accent_color_hex CHECK (accent_color IS NULL OR accent_color ~ '^#[0-9A-Fa-f]{6}');"
 
@@ -281,9 +281,10 @@ run_mutant \
 # Mutant (n): Future column - add temp column AND change trigger to explicit column list
 run_mutant \
   "(n) future column blocked" \
-  "Add temp column and change trigger to explicit list (so future columns slip through)" \
-  "1i-- Add temporary future column and change trigger to explicit list\nALTER TABLE public.gyms ADD COLUMN IF NOT EXISTS temp_future_col text;\n\n; s/v_old_filtered := to_jsonb(OLD) - v_brand_columns;/v_old_filtered := jsonb_build_object('id', OLD.id, 'slug', OLD.slug, 'name', OLD.name, 'timezone', OLD.timezone, 'created_at', OLD.created_at);/; s/v_new_filtered := to_jsonb(NEW) - v_brand_columns;/v_new_filtered := jsonb_build_object('id', NEW.id, 'slug', NEW.slug, 'name', NEW.name, 'timezone', NEW.timezone, 'created_at', NEW.created_at);/" \
-  "FAIL Future column update blocked"
+  "Add temp column via undo SQL, change trigger comparison to explicit list with sed" \
+  "s/v_old_filtered := to_jsonb(OLD) - v_brand_columns;/v_old_filtered := jsonb_build_object('id', OLD.id, 'slug', OLD.slug, 'name', OLD.name, 'timezone', OLD.timezone, 'created_at', OLD.created_at);/; s/v_new_filtered := to_jsonb(NEW) - v_brand_columns;/v_new_filtered := jsonb_build_object('id', NEW.id, 'slug', NEW.slug, 'name', NEW.name, 'timezone', NEW.timezone, 'created_at', NEW.created_at);/" \
+  "FAIL Future column update blocked" \
+  "ALTER TABLE public.gyms ADD COLUMN IF NOT EXISTS temp_future_col text;"
 
 # QA MED-2 mutants: Loosen 040 CHECK constraints
 # Mutant (o): Unanchor logo regex start
