@@ -750,8 +750,34 @@ export function SessionRunner({
         </ul>
         <div className="mt-10 space-y-3">
           <BigButton
-            disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
+            disabled={busy}
             onClick={async () => {
+              // If there are pending sets, try to replay them first
+              if (pendingSetState.pending.length > 0 && controller) {
+                await controller.replay();
+                // After replay, check if queue is now empty
+                const deps = createPendingSetDeps(nowFn);
+                const remaining = loadPendingSets(window.localStorage, userId, sessionId, deps);
+                if (remaining.length === 0) {
+                  // Queue is empty, finish session in the same tap
+                  const frozen = stopElapsed();
+                  setLastCooldownCompleted(true);
+                  const result = await run(() =>
+                    actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
+                  );
+                  restPersistence.clear();
+                  if (result && result.ok) {
+                    setSavedDurationSeconds(result.data.durationSeconds);
+                    setPhase("done");
+                  } else {
+                    resumeElapsed();
+                  }
+                  setNeedsFinishRetry(shouldShowFinishRetry(!!result, true));
+                }
+                // If queue is not empty (offline/expired/error), stay on cool-down with notice
+                return;
+              }
+              // No pending sets, finish immediately
               const frozen = stopElapsed();
               setLastCooldownCompleted(true);
               const result = await run(() =>
