@@ -16,8 +16,6 @@ import { loadPreviousCompletedWeights } from "@/lib/session/load-previous-weight
 
 export const dynamic = "force-dynamic";
 
-type Muscle = Database["public"]["Enums"]["muscle"];
-
 export default async function SessionPage({
   params,
 }: {

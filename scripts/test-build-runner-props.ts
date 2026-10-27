@@ -90,7 +90,7 @@ const exercise = buildRunnerExercise({
       id: "ex-1",
       name: "Bench Press",
       cue: null,
-      movement_pattern: "horizontal_push",
+      movement_pattern: "horizontal_press",
       primary_muscles: ["chest"],
       equipment_ids: ["barbell"],
     },

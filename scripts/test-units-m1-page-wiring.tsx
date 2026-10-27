@@ -50,7 +50,7 @@ console.log("\n=== M1 Page Wiring: previousCompletedWeightKg flows to runner ===
           id: "bench-press",
           name: "Bench Press",
           cue: null,
-          movement_pattern: "horizontal_push",
+          movement_pattern: "horizontal_press",
           primary_muscles: ["chest"],
           equipment_ids: ["barbell"],
         },
