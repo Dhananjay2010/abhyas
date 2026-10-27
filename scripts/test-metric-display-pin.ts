@@ -3,7 +3,7 @@ import { evaluateProgression, type ExerciseMeta } from "../src/lib/program/progr
 
 const BODYWEIGHT: ExerciseMeta = {
   mechanic: "compound",
-  movementPattern: "squat",
+  movementPattern: "vertical_pull", // Upper-body
   metric: "reps",
   isBodyweight: true,
   progressionChain: null,
