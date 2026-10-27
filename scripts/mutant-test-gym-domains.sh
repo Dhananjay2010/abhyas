@@ -17,6 +17,31 @@ if [ "${REAL_DB:-}" != "1" ]; then
   exit 0
 fi
 
+# DB reset guard: refuse unless CI=true OR ALLOW_DB_RESET=1 + non-default config
+if [ "${CI:-}" != "true" ]; then
+  if [ "${ALLOW_DB_RESET:-}" != "1" ]; then
+    echo "❌ This script runs 'supabase db reset' which destroys local data."
+    echo "   Run in CI, or set ALLOW_DB_RESET=1 with a non-default project/port."
+    exit 1
+  fi
+  
+  # Check for non-default project id or DB port
+  project_id=$(grep '^project_id' supabase/config.toml 2>/dev/null | head -1 | sed 's/.*"\(.*\)".*/\1/' || echo "Fitness")
+  db_url="${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/postgres}"
+  
+  # Extract port from DB URL (default is 54322)
+  db_port=$(echo "$db_url" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
+  
+  if [ "$project_id" = "Fitness" ] && [ "$db_port" = "54322" ]; then
+    echo "❌ ALLOW_DB_RESET=1 requires a non-default project id or DB port."
+    echo "   Current: project_id='$project_id', db_port='$db_port'"
+    echo "   Change project_id in supabase/config.toml or set SUPABASE_DB_URL."
+    exit 1
+  fi
+  
+  echo "✓ ALLOW_DB_RESET=1 with non-default config (project_id='$project_id', db_port='$db_port')"
+fi
+
 # Check we're in the repo root
 if [ ! -f "package.json" ]; then
   echo "❌ ERROR: Must run from repo root" >&2
