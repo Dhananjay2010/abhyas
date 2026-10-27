@@ -17,9 +17,9 @@ fi
 
 # Source guard and check
 source "$(dirname "$0")/lib-db-reset-guard.sh"
-if ! check_db_reset_guard_bash check; then
+if ! check_db_reset_guard_bash check "supabase/config.toml"; then
   echo "❌ DB reset guard check failed:"
-  check_db_reset_guard_bash explain
+  check_db_reset_guard_bash explain "supabase/config.toml"
   exit 1
 fi
 
