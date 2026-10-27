@@ -19,10 +19,10 @@ import type { Database } from "../src/lib/database.types";
 // - Collision: today's scheduled day was completed yesterday via swap
 // - Should rotate to "day-wednesday-legs" (weights, different label)
 function makeFakeSupabaseWithCollision() {
-  const stubFetch = async (url: string | URL | Request): Promise<Response> => {
-    const urlStr = url.toString();
+  const stubFetch: typeof fetch = async (input) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     
-    if (urlStr.includes("/program_days")) {
+    if (url.includes("/program_days")) {
       return new Response(JSON.stringify([
         { id: "day-monday-rest", day_index: 1, day_type: "rest", label: null },
         { id: "day-tuesday-push", day_index: 2, day_type: "weights", label: "Push" },
@@ -31,7 +31,7 @@ function makeFakeSupabaseWithCollision() {
       ]), { status: 200, headers: { "content-type": "application/json" } });
     }
     
-    if (urlStr.includes("/sessions")) {
+    if (url.includes("/sessions")) {
       return new Response(JSON.stringify([
         { program_day_id: "day-tuesday-push", actual_type: "weights" },
       ]), { status: 200, headers: { "content-type": "application/json" } });
@@ -41,21 +41,21 @@ function makeFakeSupabaseWithCollision() {
   };
   
   return createClient<Database>("http://stub.local", "anon", {
-    global: { fetch: stubFetch as typeof fetch },
+    global: { fetch: stubFetch },
   });
 }
 
 function makeFakeSupabaseNoCollision() {
-  const stubFetch = async (url: string | URL | Request): Promise<Response> => {
-    const urlStr = url.toString();
+  const stubFetch: typeof fetch = async (input) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     
-    if (urlStr.includes("/program_days")) {
+    if (url.includes("/program_days")) {
       return new Response(JSON.stringify([
         { id: "day-monday-push", day_index: 1, day_type: "weights", label: "Push" },
       ]), { status: 200, headers: { "content-type": "application/json" } });
     }
     
-    if (urlStr.includes("/sessions")) {
+    if (url.includes("/sessions")) {
       return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
     }
     
@@ -63,7 +63,7 @@ function makeFakeSupabaseNoCollision() {
   };
   
   return createClient<Database>("http://stub.local", "anon", {
-    global: { fetch: stubFetch as typeof fetch },
+    global: { fetch: stubFetch },
   });
 }
 
