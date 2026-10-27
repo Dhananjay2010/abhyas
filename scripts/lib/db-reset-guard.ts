@@ -4,18 +4,17 @@
  * Mutant test scripts run `supabase db reset` against the local stack, which on
  * a shared box wipes everyone's data. This guard refuses to run unless:
  * 
- * - CI=true (always allow in CI), OR
- * - ALLOW_DB_RESET=1 AND (non-default project_id OR non-default port)
+ * - REAL_DB=1 (explicitly opt-in to real DB operations) AND
+ * - (CI=true OR (ALLOW_DB_RESET=1 AND non-default host:port in SUPABASE_URL AND non-default project_id))
  * 
  * Call this at the top of any script that resets a database or deletes users.
+ * 
+ * FAIL-CLOSED: REAL_DB=1 required, plus CI or (non-default port AND project_id).
  */
 
-import { execSync } from "child_process";
-import * as fs from "fs";
-import * as path from "path";
-
 const DEFAULT_PROJECT_ID = "Fitness";
-const DEFAULT_DB_PORT = "54322";
+const DEFAULT_HOSTS = ["127.0.0.1", "localhost"];
+const DEFAULT_PORT = "54321";
 
 export interface GuardResult {
   allowed: boolean;
@@ -23,16 +22,63 @@ export interface GuardResult {
 }
 
 /**
+ * Parse host and port from SUPABASE_URL.
+ * Returns null if URL is invalid or doesn't contain port.
+ */
+export function parseSupabaseUrl(url: string | undefined): { host: string; port: string } | null {
+  if (!url) return null;
+  
+  try {
+    const parsed = new URL(url);
+    if (!parsed.port) return null;
+    return { host: parsed.hostname, port: parsed.port };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parse project_id from supabase/config.toml content.
+ * This is a pure function for testing.
+ */
+export function parseProjectId(configContent: string | null): string {
+  if (!configContent) return DEFAULT_PROJECT_ID;
+  
+  const match = configContent.match(/^project_id\s*=\s*"([^"]+)"/m);
+  if (match && match[1]) {
+    return match[1];
+  }
+  
+  return DEFAULT_PROJECT_ID;
+}
+
+/**
  * Check if database reset is allowed in the current environment.
+ * Pure check-only function - does not invoke supabase, psql, or any DB.
  * 
+ * @param realDb - REAL_DB env var
+ * @param supabaseUrl - SUPABASE_URL env var
+ * @param configContent - content of supabase/config.toml (or null if not readable)
  * @returns GuardResult with allowed status and reason
  */
-export function checkDbResetAllowed(): GuardResult {
-  // Always allow in CI
+export function checkDbResetAllowed(
+  realDb: string | undefined,
+  supabaseUrl: string | undefined,
+  configContent: string | null
+): GuardResult {
+  // Require REAL_DB=1 explicitly (NO-OP by default)
+  if (realDb !== "1") {
+    return {
+      allowed: false,
+      reason: "REAL_DB=1 not set (NO-OP by default, skipping DB operations)",
+    };
+  }
+
+  // Always allow in CI when REAL_DB=1
   if (process.env.CI === "true") {
     return {
       allowed: true,
-      reason: "CI environment detected (CI=true)",
+      reason: "REAL_DB=1 with CI environment (CI=true)",
     };
   }
 
@@ -40,121 +86,41 @@ export function checkDbResetAllowed(): GuardResult {
   if (process.env.ALLOW_DB_RESET !== "1") {
     return {
       allowed: false,
-      reason: "ALLOW_DB_RESET=1 not set. Set ALLOW_DB_RESET=1 together with a non-default Supabase project or port.",
+      reason: "ALLOW_DB_RESET=1 not set. Set ALLOW_DB_RESET=1 with non-default SUPABASE_URL host:port AND project_id.",
     };
   }
 
-  // ALLOW_DB_RESET=1 is set, check for non-default configuration
-  const projectId = getSupabaseProjectId();
-  const dbPort = getSupabaseDbPort();
-
-  if (projectId !== DEFAULT_PROJECT_ID) {
+  // Parse SUPABASE_URL
+  const parsed = parseSupabaseUrl(supabaseUrl);
+  if (!parsed) {
     return {
-      allowed: true,
-      reason: `ALLOW_DB_RESET=1 with non-default project_id: ${projectId}`,
+      allowed: false,
+      reason: "SUPABASE_URL missing, invalid, or has no port",
     };
   }
 
-  if (dbPort !== DEFAULT_DB_PORT) {
+  // Check host and port
+  const isDefaultHost = DEFAULT_HOSTS.includes(parsed.host);
+  const isDefaultPort = parsed.port === DEFAULT_PORT;
+  
+  if (isDefaultHost || isDefaultPort) {
     return {
-      allowed: true,
-      reason: `ALLOW_DB_RESET=1 with non-default DB port: ${dbPort}`,
+      allowed: false,
+      reason: `SUPABASE_URL uses default host/port (${parsed.host}:${parsed.port}). Expected non-default host AND port.`,
+    };
+  }
+
+  // Check project_id
+  const projectId = parseProjectId(configContent);
+  if (projectId === DEFAULT_PROJECT_ID) {
+    return {
+      allowed: false,
+      reason: `Using default project_id (${DEFAULT_PROJECT_ID}). Expected non-default project_id.`,
     };
   }
 
   return {
-    allowed: false,
-    reason: `ALLOW_DB_RESET=1 set, but using default project_id (${DEFAULT_PROJECT_ID}) and default port (${DEFAULT_DB_PORT}). Use a non-default configuration to reset the database.`,
+    allowed: true,
+    reason: `REAL_DB=1 with ALLOW_DB_RESET=1 and non-default config: ${parsed.host}:${parsed.port}, project_id=${projectId}`,
   };
-}
-
-/**
- * Get the Supabase project ID from config.toml.
- */
-function getSupabaseProjectId(): string {
-  try {
-    const configPath = path.join(process.cwd(), "supabase", "config.toml");
-    const configContent = fs.readFileSync(configPath, "utf8");
-    
-    // Extract project_id from config.toml
-    const match = configContent.match(/^project_id\s*=\s*"([^"]+)"/m);
-    if (match && match[1]) {
-      return match[1];
-    }
-  } catch (error) {
-    // If we can't read the config, assume default
-  }
-  
-  return DEFAULT_PROJECT_ID;
-}
-
-/**
- * Get the Supabase database port from config.toml or supabase status.
- */
-function getSupabaseDbPort(): string {
-  try {
-    // Try to get the port from supabase status
-    const statusOutput = execSync("supabase status --output json 2>/dev/null", {
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    
-    const status = JSON.parse(statusOutput);
-    const dbUrl = status.DB_URL || "";
-    
-    // Extract port from URL like postgresql://postgres:postgres@localhost:54322/postgres
-    const portMatch = dbUrl.match(/:(\d+)\//);
-    if (portMatch && portMatch[1]) {
-      return portMatch[1];
-    }
-  } catch (error) {
-    // If supabase status fails, try config.toml
-    try {
-      const configPath = path.join(process.cwd(), "supabase", "config.toml");
-      const configContent = fs.readFileSync(configPath, "utf8");
-      
-      // Look for port under [db] section specifically
-      // Find [db] section and extract port from it
-      const dbSectionStart = configContent.indexOf("[db]");
-      if (dbSectionStart !== -1) {
-        const nextSectionStart = configContent.indexOf("[", dbSectionStart + 1);
-        const dbSection = nextSectionStart === -1 
-          ? configContent.slice(dbSectionStart)
-          : configContent.slice(dbSectionStart, nextSectionStart);
-        
-        const portMatch = dbSection.match(/^\s*port\s*=\s*(\d+)/m);
-        if (portMatch && portMatch[1]) {
-          return portMatch[1];
-        }
-      }
-    } catch {
-      // Fall through to default
-    }
-  }
-  
-  return DEFAULT_DB_PORT;
-}
-
-/**
- * Enforce the database reset guard. Exits with code 1 if not allowed.
- * 
- * Call this at the top of scripts that reset databases or delete users.
- */
-export function enforceDbResetGuard(): void {
-  const result = checkDbResetAllowed();
-  
-  if (!result.allowed) {
-    console.error("❌ Database reset not allowed");
-    console.error(`   Reason: ${result.reason}`);
-    console.error();
-    console.error("   To allow database reset:");
-    console.error("   1. In CI: CI=true is automatically set");
-    console.error("   2. Locally: Set ALLOW_DB_RESET=1 with a non-default Supabase configuration");
-    console.error("      - Use a different project_id in supabase/config.toml, OR");
-    console.error("      - Run supabase on a non-default port");
-    console.error();
-    process.exit(1);
-  }
-  
-  console.log(`✓ Database reset allowed: ${result.reason}`);
 }

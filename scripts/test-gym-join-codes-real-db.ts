@@ -14,9 +14,17 @@
  * 
  * Run: supabase start && REAL_DB=1 npm run test:gym-join-codes-real-db
  * 
- * In CI: REAL_DB=1 is set to require a running database (fails if unavailable).
- * Locally: skips gracefully if REAL_DB=1 is not set.
+ * NO-OP BY DEFAULT: Skips (exit 0) unless REAL_DB=1 is set.
+ * In CI: REAL_DB=1 is set in database-seed-test job.
  */
+
+// NO-OP by default: skip unless REAL_DB=1
+if (process.env.REAL_DB !== "1") {
+  console.log("⏭️  Skipping gym join codes real-DB tests (REAL_DB=1 not set)");
+  console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance");
+  console.log();
+  process.exit(0);
+}
 
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
@@ -423,6 +431,59 @@ async function runTests() {
 
   const successCount = [resultF.error, resultG.error].filter(e => !e).length;
   check("Exactly one concurrent redeem succeeds on max_uses=1", successCount === 1);
+  console.log();
+
+  // TEST: FOR UPDATE blocks concurrent access (deterministic test)
+  console.log("TEST: FOR UPDATE lock prevents race condition (deterministic)");
+  const { data: forUpdateCodeData } = await clientA.rpc("create_join_code", {
+    p_gym_id: gymIdA,
+    p_role: "member",
+    p_max_uses: 1,
+  });
+  const forUpdateCode = forUpdateCodeData?.[0]?.code;
+  const forUpdateCodeId = forUpdateCodeData?.[0]?.id;
+  
+  // Use direct DB connection to test FOR UPDATE lock
+  const { Pool } = await import("pg");
+  const dbUrl = process.env.SUPABASE_DB_URL || 
+    "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+  const pool = new Pool({ connectionString: dbUrl });
+  
+  try {
+    const conn1 = await pool.connect();
+    const conn2 = await pool.connect();
+    
+    try {
+      // Connection 1: Start transaction and lock the row
+      await conn1.query("BEGIN");
+      await conn1.query(
+        "SELECT * FROM gym_join_codes WHERE id = $1 FOR UPDATE",
+        [forUpdateCodeId]
+      );
+      
+      // Connection 2: Try to lock with short timeout (should timeout or wait)
+      await conn2.query("SET statement_timeout = '500ms'");
+      let conn2Blocked = false;
+      try {
+        await conn2.query(
+          "SELECT * FROM gym_join_codes WHERE id = $1 FOR UPDATE",
+          [forUpdateCodeId]
+        );
+      } catch (err: any) {
+        // Should timeout or block
+        conn2Blocked = err.message?.includes("timeout") || err.message?.includes("canceled");
+      }
+      
+      check("FOR UPDATE blocks second connection", conn2Blocked);
+      
+      await conn1.query("ROLLBACK");
+    } finally {
+      conn1.release();
+      conn2.release();
+    }
+  } finally {
+    await pool.end();
+  }
   console.log();
 
   // TEST: Expired code
