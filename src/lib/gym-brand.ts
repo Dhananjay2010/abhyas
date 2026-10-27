@@ -77,6 +77,23 @@ type GymBrandRow = {
 };
 
 /**
+ * Type guard for GymBrandRow
+ */
+function isGymBrandRow(row: unknown): row is GymBrandRow {
+  if (!row || typeof row !== 'object') return false;
+  const r = row as Record<string, unknown>;
+  return (
+    typeof r.name === 'string' &&
+    typeof r.slug === 'string' &&
+    (r.timezone === null || typeof r.timezone === 'string') &&
+    (r.display_name === null || typeof r.display_name === 'string') &&
+    (r.logo_url === null || typeof r.logo_url === 'string') &&
+    (r.primary_color === null || typeof r.primary_color === 'string') &&
+    (r.accent_color === null || typeof r.accent_color === 'string')
+  );
+}
+
+/**
  * Get public brand fields for a gym (internal implementation).
  *
  * Returns a Partial<Brand> with fields from the database:
@@ -117,7 +134,10 @@ async function getGymBrandInternal(gymId: string): Promise<Partial<Brand>> {
     return {};
   }
 
-  const row = data[0] as GymBrandRow;
+  const row = data[0];
+  if (!isGymBrandRow(row)) {
+    throw new Error(`Invalid gym brand row structure for gym ${gymId}`);
+  }
   const brand: Partial<Brand> = {};
 
   // Map name to both name and shortName if it's reasonable

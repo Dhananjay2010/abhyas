@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test: migration 040 is idempotent
 # Verifies that migration 040 can be re-applied cleanly on an already-migrated database.
-# This test runs only in CI on a dedicated stack.
+# This test runs only in CI on a dedicated stack where all migrations are already applied.
 
 set -euo pipefail
 
@@ -37,7 +37,7 @@ fi
 if [ "${CI:-}" != "true" ]; then
   if [ -z "${SUPABASE_DB_URL:-}" ]; then
     echo "❌ SUPABASE_DB_URL must be set outside CI"
-    echo "   This prevents accidental resets of the shared local DB"
+    echo "   This prevents accidental operations on the shared local DB"
     exit 1
   fi
   DB_URL="$SUPABASE_DB_URL"
@@ -54,39 +54,148 @@ fi
 
 echo "✓ Database connection: ${DB_URL%%\?*}"
 
-# Step 1: Reset database to apply all migrations including 040
-echo ""
-echo "Step 1: Applying all migrations (including 040)..."
-supabase db reset --db-url "$DB_URL"
+# In CI, the stack already has all migrations applied by earlier steps.
+# We don't reset - we just verify that 040 can be re-applied twice.
 
-# Verify 040 columns exist after first application
+# In CI, the stack already has all migrations applied by earlier steps.
+# We don't reset - we just verify that 040 can be re-applied twice.
+
+# Step 1: Capture current state before re-applying 040
 echo ""
-echo "Step 2: Verifying 040 columns exist..."
-COLUMN_CHECK=$(psql "$DB_URL" -t -c "
-  SELECT count(*) FROM information_schema.columns 
-  WHERE table_schema = 'public' 
-    AND table_name = 'gyms' 
-    AND column_name IN ('display_name', 'logo_url', 'primary_color', 'accent_color');
+echo "Step 1: Capturing current state..."
+
+# Check if any test gyms have branding data
+GYMS_WITH_BRANDING=$(psql "$DB_URL" -t -c "
+  SELECT count(*) FROM public.gyms 
+  WHERE display_name IS NOT NULL 
+     OR logo_url IS NOT NULL 
+     OR primary_color IS NOT NULL 
+     OR accent_color IS NOT NULL;
 " | xargs || echo "0")
 
-if [ "$COLUMN_CHECK" != "4" ]; then
-  echo "❌ Migration 040 columns not found after first application"
-  exit 1
-fi
-echo "✓ Migration 040 columns exist"
+echo "Gyms with branding data: $GYMS_WITH_BRANDING"
 
-# Step 3: Apply migration 040 again (idempotency test)
+# Capture set_gym_branding grants before re-applying
+SET_GRANTS_BEFORE=$(psql "$DB_URL" -t -c "
+  SELECT array_agg(grantee::text ORDER BY grantee::text)::text
+  FROM information_schema.routine_privileges
+  WHERE routine_schema = 'public'
+    AND routine_name = 'set_gym_branding'
+    AND privilege_type = 'EXECUTE';
+" | xargs || echo "")
+
+echo "set_gym_branding grants before: $SET_GRANTS_BEFORE"
+
+# Capture get_gym_brand grants before re-applying
+GET_GRANTS_BEFORE=$(psql "$DB_URL" -t -c "
+  SELECT array_agg(grantee::text ORDER BY grantee::text)::text
+  FROM information_schema.routine_privileges
+  WHERE routine_schema = 'public'
+    AND routine_name = 'get_gym_brand'
+    AND privilege_type = 'EXECUTE';
+" | xargs || echo "")
+
+echo "get_gym_brand grants before: $GET_GRANTS_BEFORE"
+
+# Step 2: Apply migration 040 (first re-application)
 echo ""
-echo "Step 3: Re-applying migration 040 (idempotency test)..."
+echo "Step 2: Re-applying migration 040 (first time)..."
 if ! psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000040_gym_branding.sql > /dev/null 2>&1; then
-  echo "❌ Migration 040 failed on re-application (not idempotent)"
+  echo "❌ Migration 040 failed on first re-application (not idempotent)"
   exit 1
 fi
-echo "✓ Migration 040 can be re-applied without errors"
+echo "✓ Migration 040 re-applied successfully (first time)"
 
-# Step 4: Verify get_gym_brand returns 7 columns
+# Step 3: Verify grants unchanged after first re-application
 echo ""
-echo "Step 4: Verifying get_gym_brand signature..."
+echo "Step 3: Verifying grants unchanged after first re-application..."
+
+SET_GRANTS_AFTER=$(psql "$DB_URL" -t -c "
+  SELECT array_agg(grantee::text ORDER BY grantee::text)::text
+  FROM information_schema.routine_privileges
+  WHERE routine_schema = 'public'
+    AND routine_name = 'set_gym_branding'
+    AND privilege_type = 'EXECUTE';
+" | xargs || echo "")
+
+if [ "$SET_GRANTS_BEFORE" != "$SET_GRANTS_AFTER" ]; then
+  echo "❌ set_gym_branding grants changed"
+  echo "   Before: $SET_GRANTS_BEFORE"
+  echo "   After:  $SET_GRANTS_AFTER"
+  exit 1
+fi
+echo "✓ set_gym_branding grants unchanged"
+
+GET_GRANTS_AFTER=$(psql "$DB_URL" -t -c "
+  SELECT array_agg(grantee::text ORDER BY grantee::text)::text
+  FROM information_schema.routine_privileges
+  WHERE routine_schema = 'public'
+    AND routine_name = 'get_gym_brand'
+    AND privilege_type = 'EXECUTE';
+" | xargs || echo "")
+
+if [ "$GET_GRANTS_BEFORE" != "$GET_GRANTS_AFTER" ]; then
+  echo "❌ get_gym_brand grants changed"
+  echo "   Before: $GET_GRANTS_BEFORE"
+  echo "   After:  $GET_GRANTS_AFTER"
+  exit 1
+fi
+echo "✓ get_gym_brand grants unchanged"
+
+# Step 4: Verify CHECK constraints still exist
+echo ""
+echo "Step 4: Verifying CHECK constraints..."
+for constraint in gyms_primary_color_hex gyms_accent_color_hex gyms_logo_url_format; do
+  EXISTS=$(psql "$DB_URL" -t -c "
+    SELECT count(*) 
+    FROM information_schema.table_constraints 
+    WHERE constraint_schema = 'public' 
+      AND table_name = 'gyms' 
+      AND constraint_name = '$constraint'
+      AND constraint_type = 'CHECK';
+  " | xargs || echo "0")
+  
+  if [ "$EXISTS" != "1" ]; then
+    echo "❌ CHECK constraint $constraint not found after first re-application"
+    exit 1
+  fi
+done
+echo "✓ All CHECK constraints still exist"
+
+# Step 5: Verify existing branding data survived
+echo ""
+echo "Step 5: Verifying existing branding data survived..."
+
+GYMS_WITH_BRANDING_AFTER=$(psql "$DB_URL" -t -c "
+  SELECT count(*) FROM public.gyms 
+  WHERE display_name IS NOT NULL 
+     OR logo_url IS NOT NULL 
+     OR primary_color IS NOT NULL 
+     OR accent_color IS NOT NULL;
+" | xargs || echo "0")
+
+if [ "$GYMS_WITH_BRANDING" != "$GYMS_WITH_BRANDING_AFTER" ]; then
+  echo "❌ Branding data changed"
+  echo "   Before: $GYMS_WITH_BRANDING gyms"
+  echo "   After:  $GYMS_WITH_BRANDING_AFTER gyms"
+  exit 1
+fi
+echo "✓ Existing branding data survived (count unchanged: $GYMS_WITH_BRANDING gyms)"
+
+# Step 6: Apply migration 040 again (second re-application)
+echo ""
+echo "Step 6: Re-applying migration 040 (second time)..."
+if ! psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000040_gym_branding.sql > /dev/null 2>&1; then
+  echo "❌ Migration 040 failed on second re-application (not idempotent)"
+  exit 1
+fi
+echo "✓ Migration 040 re-applied successfully (second time)"
+
+# Step 7: Final verification
+echo ""
+echo "Step 7: Final verification..."
+
+# Verify get_gym_brand returns 7 columns
 RETURN_TYPE=$(psql "$DB_URL" -t -c "
   SELECT pg_get_function_result(oid) 
   FROM pg_proc 
@@ -101,11 +210,9 @@ if [[ ! "$RETURN_TYPE" =~ "display_name" ]] || [[ ! "$RETURN_TYPE" =~ "primary_c
   echo "   Got: $RETURN_TYPE"
   exit 1
 fi
-echo "✓ get_gym_brand returns brand columns"
+echo "✓ get_gym_brand returns correct columns"
 
-# Step 5: Verify set_gym_branding exists
-echo ""
-echo "Step 5: Verifying set_gym_branding signature..."
+# Verify set_gym_branding exists
 BRANDING_FUNC=$(psql "$DB_URL" -t -c "
   SELECT proname 
   FROM pg_proc 
@@ -120,29 +227,8 @@ if [ "$BRANDING_FUNC" != "set_gym_branding" ]; then
 fi
 echo "✓ set_gym_branding function exists"
 
-# Step 6: Verify CHECK constraints exist
-echo ""
-echo "Step 6: Verifying CHECK constraints..."
-for constraint in gyms_primary_color_hex gyms_accent_color_hex gyms_logo_url_format; do
-  EXISTS=$(psql "$DB_URL" -t -c "
-    SELECT count(*) 
-    FROM information_schema.table_constraints 
-    WHERE constraint_schema = 'public' 
-      AND table_name = 'gyms' 
-      AND constraint_name = '$constraint'
-      AND constraint_type = 'CHECK';
-  " | xargs || echo "0")
-  
-  if [ "$EXISTS" != "1" ]; then
-    echo "❌ CHECK constraint $constraint not found"
-    exit 1
-  fi
-  echo "✓ CHECK constraint $constraint exists"
-done
-
 echo ""
 echo "✅ All migration 040 idempotency tests passed"
-echo "   - Migration 040 can be re-applied on an already-migrated database"
-echo "   - get_gym_brand returns brand columns"
-echo "   - set_gym_branding function exists"
-echo "   - CHECK constraints are in place"
+echo "   - Migration 040 can be re-applied twice on an already-migrated database"
+echo "   - Functions, grants, and CHECK constraints remain unchanged"
+echo "   - Existing branding data survives re-application"
