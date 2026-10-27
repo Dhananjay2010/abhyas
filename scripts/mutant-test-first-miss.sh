@@ -63,6 +63,26 @@ echo "✓ Baseline pass"
 KILLED=0
 SURVIVORS=()
 
+restore_from_backup() {
+  # Check backup integrity before restore
+  local backup_size
+  backup_size=$(stat -f%z "$BACKUP" 2>/dev/null || stat -c%s "$BACKUP" 2>/dev/null || echo 0)
+  
+  if [ "$backup_size" -lt 1000 ]; then
+    echo "❌ FATAL: Backup corrupted (size $backup_size)" >&2
+    exit 1
+  fi
+  
+  local backup_sha
+  backup_sha=$(sha256sum "$BACKUP" 2>/dev/null | cut -d' ' -f1)
+  if [ "$backup_sha" != "$ORIG_SHA" ]; then
+    echo "❌ FATAL: Backup corrupted (SHA mismatch)" >&2
+    exit 1
+  fi
+  
+  cp "$BACKUP" "$FILE"
+}
+
 test_mutant() {
   local name="$1"
   local old="$2"
@@ -75,7 +95,7 @@ test_mutant() {
   
   # Compile check
   if ! eval "$COMPILE_CMD" > /dev/null 2>&1; then
-    cp "$BACKUP" "$FILE"
+    restore_from_backup
     echo "  ✓ KILLED (doesn't compile)"
     KILLED=$((KILLED + 1))
     return
@@ -91,7 +111,7 @@ test_mutant() {
   fi
   
   # Restore
-  cp "$BACKUP" "$FILE"
+  restore_from_backup
 }
 
 # Test core Decision F mutations
