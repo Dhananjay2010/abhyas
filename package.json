@@ -410,6 +410,7 @@
     "test:gym-tenant-rls-real-db": "tsx scripts/test-gym-tenant-rls-real-db.ts",
     "test:gym-owner-guards-sql": "tsx scripts/test-gym-owner-guards-sql.ts",
     "ci:mutant-gym-rls-policies": "bash scripts/mutant-test-gym-rls-policies.sh",
+    "ci:mutant-db-reset-guard": "bash scripts/mutant-test-db-reset-guard.sh",
     "test:history-empty-states": "tsx scripts/test-history-empty-states.ts",
     "test:progress-empty-state": "tsx scripts/test-progress-empty-state.ts",
     "test:progress-units": "tsx scripts/test-progress-units.tsx",

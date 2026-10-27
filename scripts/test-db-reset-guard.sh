@@ -344,6 +344,43 @@ else
 fi
 echo
 
+echo "TEST: Bash guard - Remote host refuses (non-loopback check)"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@10.1.2.3:54333/postgres" SUPABASE_URL="http://10.1.2.3:54334"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "Remote host 10.1.2.3 refuses (loopback check)" "1" "0"
+else
+  check "Remote host 10.1.2.3 refuses (loopback check)" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - Port mismatch refuses (URL port != config [db] port)"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54335/postgres" SUPABASE_URL="http://localhost:54334"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "Port 54335 != config 54333 refuses (port-match check)" "1" "0"
+else
+  check "Port 54335 != config 54333 refuses (port-match check)" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - CI=1 (not true) refuses"
+CI="1" ALLOW_DB_RESET="0" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_URL="http://localhost:54334"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "CI=1 (not 'true') refuses" "1" "0"
+else
+  check "CI=1 (not 'true') refuses" "1" "1"
+fi
+unset CI
+echo
+
+echo "TEST: Bash guard - [::1] IPv6 loopback on non-default port allows"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@[::1]:54333/postgres" SUPABASE_URL="http://[::1]:54334"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "[::1]:54333 loopback allows (IPv6)" "0" "0"
+else
+  check "[::1]:54333 loopback allows (IPv6)" "0" "1"
+fi
+echo
+
 echo "TEST: TypeScript guard - Run via tsx"
 # Test the TypeScript guard
 npx tsx << 'TSTEST'
@@ -533,6 +570,61 @@ try {
   process.env.ALLOW_DB_RESET = "1";
   process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
   check("env() in project_id refuses", false, checkDbResetGuard(envConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - Missing config file refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  const missingConfig = join(tmpDir, "does-not-exist.toml");
+  check("Missing config file refuses", false, checkDbResetGuard(missingConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - Garbage config refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  const garbageConfig = join(tmpDir, "garbage.toml");
+  writeFileSync(garbageConfig, "{ invalid TOML syntax [ } ]");
+  check("Garbage config refuses", false, checkDbResetGuard(garbageConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - Missing SUPABASE_DB_URL refuses");
+  delete process.env.SUPABASE_DB_URL;
+  process.env.ALLOW_DB_RESET = "1";
+  check("Missing SUPABASE_DB_URL refuses", false, checkDbResetGuard(customConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - Remote host refuses (non-loopback check)");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@192.168.1.100:54333/postgres";
+  process.env.SUPABASE_URL = "http://192.168.1.100:54334";
+  check("Remote host 192.168.1.100 refuses (loopback check)", false, checkDbResetGuard(customConfig).allow);
+  delete process.env.SUPABASE_URL;
+  console.log();
+
+  console.log("TypeScript guard - Port mismatch refuses (URL port != config [db] port)");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54399/postgres";
+  process.env.SUPABASE_URL = "http://localhost:54334";
+  check("Port 54399 != config 54333 refuses (port-match check)", false, checkDbResetGuard(customConfig).allow);
+  delete process.env.SUPABASE_URL;
+  console.log();
+
+  console.log("TypeScript guard - CI=1 (not 'true') refuses");
+  process.env.CI = "1";
+  process.env.ALLOW_DB_RESET = "0";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  process.env.SUPABASE_URL = "http://localhost:54334";
+  check("CI=1 (not 'true') refuses", false, checkDbResetGuard(customConfig).allow);
+  delete process.env.CI;
+  delete process.env.SUPABASE_URL;
+  console.log();
+
+  console.log("TypeScript guard - [::1] IPv6 loopback on non-default port allows");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@[::1]:54333/postgres";
+  process.env.SUPABASE_URL = "http://[::1]:54334";
+  check("[::1]:54333 loopback allows (IPv6)", true, checkDbResetGuard(customConfig).allow);
+  delete process.env.SUPABASE_URL;
   console.log();
 
   console.log("TypeScript guard - Non-default allows");

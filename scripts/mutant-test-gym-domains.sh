@@ -86,7 +86,7 @@ run_mutant() {
   
   # Reset database
   # In CI with local URL, use plain reset. Outside CI or with custom URL, use --db-url.
-  if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" =~ localhost:54322 ]]; then
+  if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
     if ! supabase db reset > /dev/null 2>&1; then
       echo "  ❌ SKIPPED: db reset failed"
       SKIPPED+=("$name: db reset failed")

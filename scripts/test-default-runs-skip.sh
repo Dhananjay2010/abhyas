@@ -132,14 +132,14 @@ unique-planned-session-migration-real-db"
 
 # Allowlist: Tests discovered by grep but exempt from in-chain REAL_DB requirement
 # Each entry MUST have a reason comment explaining the gate/exemption
-ALLOWLIST="block-range-db
-block-range-db-followup
-delete-set
-e1rm-formula-db
-ended-early-real-db
-seed-validity
-skipped-session-shapes
-swap-guard-real-db"
+ALLOWLIST="block-range-db           # runs in dedicated CI job with fresh postgres service, not default stack
+block-range-db-followup  # sequel to block-range-db, same dedicated postgres service
+delete-set               # minimal real-DB test, already gated by REAL_DB=1 in-chain
+e1rm-formula-db          # dedicated e1RM test, gated by REAL_DB=1 in-chain
+ended-early-real-db      # real-DB integration test, gated by REAL_DB=1 in-chain
+seed-validity            # runs inline in CI job after seed, validates seed correctness
+skipped-session-shapes   # minimal real-DB test, already gated by REAL_DB=1 in-chain
+swap-guard-real-db"      # real-DB integration test, gated by REAL_DB=1 in-chain
 
 # Manual-only tests: discovered but NOT in chain (warn but don't fail)
 MANUAL_ONLY_ALLOWLIST="first-build-ended-on
@@ -283,6 +283,20 @@ else
   echo "✓ Positive control: connect to :54322 logged and blocked"
 fi
 
+# Test 3: Spawn should be logged (curl or /usr/bin/psql)
+node --require "$SCRIPT_DIR/netspy.cjs" -e "
+  const { spawnSync } = require('child_process');
+  spawnSync('curl', ['--version']);
+  spawnSync('/usr/bin/psql', ['--version']);
+" 2>/dev/null || true
+
+if ! grep -q "SPAWN" "$CONTROL_LOG"; then
+  echo "✗ Positive control failed: spawn (curl or psql) not logged"
+  FAILURES=$((FAILURES + 1))
+else
+  echo "✓ Positive control: spawn (curl and psql) logged"
+fi
+
 echo
 
 # Test each REAL_DB-gated test (expected to skip)
@@ -348,6 +362,19 @@ for test_name in $EXPECTED_TESTS; do
     continue
   fi
   
+  # Check for spawns (curl, psql, docker, etc.)
+  SPAWN_COUNT=0
+  if [ -f "$NETSPY_LOG" ]; then
+    SPAWN_COUNT=$(grep -c "SPAWN" "$NETSPY_LOG" 2>/dev/null | tr -d '\n' || echo "0")
+  fi
+  
+  if [ "$SPAWN_COUNT" -gt 0 ] 2>/dev/null; then
+    echo "  ✗ Made $SPAWN_COUNT spawn call(s):"
+    grep "SPAWN" "$NETSPY_LOG" | head -5
+    FAILURES=$((FAILURES + 1))
+    continue
+  fi
+  
   # Check for CLI calls
   if [ -s "$CLI_LOG" ]; then
     echo "  ✗ Made CLI calls:"
@@ -356,7 +383,7 @@ for test_name in $EXPECTED_TESTS; do
     continue
   fi
   
-  echo "  ✓ Skipped with 0 fetches, 0 connects, 0 CLI calls"
+  echo "  ✓ Skipped with 0 fetches, 0 connects, 0 spawns, 0 CLI calls"
 done
 
 echo

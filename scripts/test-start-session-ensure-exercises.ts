@@ -19,6 +19,12 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { randomUUID } from "crypto";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
+import { checkRealDbTest } from "./lib-db-reset-guard";
+
+if (!checkRealDbTest("./supabase/config.toml").allow) {
+  console.error("❌ REAL_DB=1 guard refused (see above reason)");
+  process.exit(1);
+}
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://localhost:54321";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
