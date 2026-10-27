@@ -329,7 +329,7 @@ async function runTests() {
     }
   }
 
-  console.log("TEST: Mid-block rebuild preserves completed status");
+  console.log("TEST: Mid-block rebuild supersedes old block");
   {
     const scenarioStartFailures = testsFailed;
     // Create test user
@@ -421,8 +421,8 @@ async function runTests() {
 
     assert(result.ok === true, "Mid-block rebuild succeeded");
 
-    // After rebuild: original block should still be 'active' (not superseded or completed)
-    // because ends_on hasn't passed yet
+    // After rebuild: original block should be 'superseded'
+    // (rebuild always creates a new block and supersedes the old one)
     const { data: afterData } = await adminClient
       .from("programs")
       .select("status, ends_on")
