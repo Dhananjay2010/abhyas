@@ -91,8 +91,6 @@ const fakeTimer: RunnerTimer = {
     render(
       <SessionRunner
         sessionId="session-f3"
-        sessionStatus="in_progress"
-        userId="user-f3"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
@@ -183,8 +181,6 @@ const fakeTimer: RunnerTimer = {
     render(
       <SessionRunner
         sessionId="session-f3-2"
-        sessionStatus="in_progress"
-        userId="user-f3-2"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}

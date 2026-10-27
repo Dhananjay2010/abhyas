@@ -118,8 +118,6 @@ console.log("Test swap-after-logging bug fix:\n");
   const { container: c1, unmount: unmount1 } = render(
     <SessionRunner
       sessionId="s1"
-      sessionStatus="in_progress"
-      userId="test-user-1"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -229,8 +227,6 @@ console.log("Test swap-after-logging bug fix:\n");
   const { container: c2, unmount: unmount2 } = render(
     <SessionRunner
       sessionId="s2"
-      sessionStatus="in_progress"
-      userId="test-user-2"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}

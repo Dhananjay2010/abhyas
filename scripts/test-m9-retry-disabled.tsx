@@ -154,8 +154,6 @@ async function testM9() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      sessionStatus="in_progress"
-      userId={userId}
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}

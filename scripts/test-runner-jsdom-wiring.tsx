@@ -104,8 +104,6 @@ console.log("1. Stale session clock capped at 0:00 (f1d-runner, f1e-helper)");
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-stale",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -194,8 +192,6 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-retry",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -323,8 +319,6 @@ console.log("\n3. Double-click busyRef guard: action called exactly once (9, 9b,
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-doubleclick",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -438,8 +432,6 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-offline",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -578,8 +570,6 @@ console.log("\n5. Failed end early preserves rest timer in storage (rest-on-fail
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-fail",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -704,8 +694,6 @@ console.log("\n6. Cool-down Done sends cooldownCompleted=true (w-cooldown)");
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-cooldown",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -831,8 +819,6 @@ console.log("\n7. End early confirm with set counts, sends frozen elapsed, navig
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-endearly",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -981,8 +967,6 @@ console.log("\n8. Done sends frozen elapsed time (f1, f2)");
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-frozen",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -1086,8 +1070,6 @@ console.log("\n9. Double confirm on end early calls abandonSession twice (endear
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-double-confirm",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -1198,8 +1180,6 @@ console.log("\n10. Clock resumes after failed end early (endearly-resume)");
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-resume-clock",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -1312,8 +1292,6 @@ console.log("\n11. Clock stops, resumes, and freezes when stale (stale-lifecycle
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-stale-lifecycle",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -1409,8 +1387,6 @@ console.log("\n12. MEDIUM-1: Stale finish summary shows saved duration (medium1-
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "session-stale-summary",
-        sessionStatus: "in_progress" as const,
-        userId: "test-user",
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,

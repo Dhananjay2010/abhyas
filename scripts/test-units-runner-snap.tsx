@@ -97,8 +97,6 @@ function check(label: string, pass: boolean, detail = "") {
   const r = render(
     <SessionRunner
       sessionId="s1"
-      sessionStatus="in_progress"
-      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -173,8 +171,6 @@ function check(label: string, pass: boolean, detail = "") {
   const r100 = render(
     <SessionRunner
       sessionId="s2"
-      sessionStatus="in_progress"
-      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}

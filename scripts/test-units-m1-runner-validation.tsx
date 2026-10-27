@@ -115,8 +115,6 @@ type LogSetCall = {
   const r600 = render(
     <SessionRunner
       sessionId="s1"
-      sessionStatus="in_progress"
-      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -248,8 +246,6 @@ type LogSetCall = {
   const r1000 = render(
     <SessionRunner
       sessionId="s2"
-      sessionStatus="in_progress"
-      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -388,8 +384,6 @@ type LogSetCall = {
   const rPrefilled = render(
     <SessionRunner
       sessionId="s3"
-      sessionStatus="in_progress"
-      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -524,8 +518,6 @@ type LogSetCall = {
   const rMetric500 = render(
     <SessionRunner
       sessionId="s4"
-      sessionStatus="in_progress"
-      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -657,8 +649,6 @@ type LogSetCall = {
   const rMetric501 = render(
     <SessionRunner
       sessionId="s5"
-      sessionStatus="in_progress"
-      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
