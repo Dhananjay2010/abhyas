@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Mutant test script for gyms column lock (migration 043)
 # Tests that removing key constraints causes test failures
-# All mutants are built by sed over the real migration file
+# Mutants (a-h, m-n) built by sed over 043; (i-k, o-r) undo 040 CHECKs after reset
 
 echo "=== Mutant Testing: Gyms Column Lock (Migration 043) ==="
 echo
@@ -46,6 +46,7 @@ fi
 FAILED=0
 SURVIVORS=()
 SKIPPED=()
+KILLED=0
 TOTAL_MUTANTS=18
 
 echo "Running baseline tests..."
@@ -89,7 +90,7 @@ run_mutant() {
   # Reset database
   local reset_output=$(mktemp)
   if ! eval "$RESET_CMD" > "$reset_output" 2>&1; then
-    echo "  ❌ FAIL: db reset failed"
+    echo "  ❌ SKIP: db reset failed"
     SKIPPED+=("$name: db reset failed")
     FAILED=$((FAILED + 1))
     rm -f "$reset_output"
@@ -97,11 +98,12 @@ run_mutant() {
   fi
   rm -f "$reset_output"
   
-  # If there's undo SQL (for removal mutants), apply it after reset
+  # Apply mutation
   if [ -n "$undo_sql" ]; then
+    # Undo SQL after reset (for removal/replacement mutants)
     local undo_output=$(mktemp)
     if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -c "$undo_sql" > "$undo_output" 2>&1; then
-      echo "  ❌ FAIL: undo SQL failed"
+      echo "  ❌ SKIP: undo SQL failed"
       echo "  psql error:"
       cat "$undo_output" | sed 's/^/    /'
       SKIPPED+=("$name: undo failed")
@@ -114,7 +116,7 @@ run_mutant() {
     # Build mutated migration with sed
     local mutated_migration=$(mktemp)
     if ! sed "$sed_pattern" "supabase/migrations/20261025000043_gyms_column_lock.sql" > "$mutated_migration"; then
-      echo "  ❌ FAIL: sed command failed"
+      echo "  ❌ SKIP: sed command failed"
       SKIPPED+=("$name: sed failed")
       FAILED=$((FAILED + 1))
       rm -f "$mutated_migration"
@@ -123,7 +125,7 @@ run_mutant() {
     
     # Verify sed changed something
     if cmp -s "supabase/migrations/20261025000043_gyms_column_lock.sql" "$mutated_migration"; then
-      echo "  ❌ FAIL: sed produced no change (mutation ineffective)"
+      echo "  ❌ SKIP: sed produced no change (mutation ineffective)"
       SKIPPED+=("$name: no change")
       FAILED=$((FAILED + 1))
       rm -f "$mutated_migration"
@@ -133,7 +135,7 @@ run_mutant() {
     # Apply mutated migration via psql
     local mutation_output=$(mktemp)
     if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -f "$mutated_migration" > "$mutation_output" 2>&1; then
-      echo "  ❌ FAIL: mutation SQL failed"
+      echo "  ❌ SKIP: mutation SQL failed"
       echo "  psql error:"
       cat "$mutation_output" | sed 's/^/    /'
       SKIPPED+=("$name: mutation failed")
@@ -159,8 +161,9 @@ run_mutant() {
   # Check for expected failure message (test prints "FAIL <label>" with no colon)
   if grep -qF "$expected_fail" "$test_output"; then
     echo "  ✅ KILLED by expected assertion"
+    KILLED=$((KILLED + 1))
   else
-    echo "  ❌ FAIL: killed but not by expected assertion"
+    echo "  ❌ SKIP: killed but not by expected assertion"
     echo "  Expected: $expected_fail"
     echo "  Actual FAIL lines:"
     grep "FAIL" "$test_output" | head -3 | sed 's/^/    /' || echo "    (no FAIL lines found)"
@@ -233,26 +236,33 @@ run_mutant \
   "FAIL logo_url over 2048 chars rejected" \
   "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_length;"
 
-# Mutant (i): TABLE CHECK Allow 3-digit hex (#RGB) - owner direct UPDATE with only primary invalid
+# Mutants (i-k, o-r): These CHECKs live in 040, so undo them after reset
+# (i): Allow 3-digit hex (#RGB) in primary_color TABLE CHECK
 run_mutant \
   "(i) allow #RGB in TABLE CHECK" \
-  "Change gyms table primary_color CHECK to allow 3-digit hex" \
-  "s/primary_color ~ '\^#\[0-9A-Fa-f\]{6}\\\$'/primary_color ~ '^#[0-9A-Fa-f]{3,6}\$'/" \
-  "FAIL #RGB rejected"
+  "Change gyms table primary_color CHECK to allow 3-digit hex (040 constraint)" \
+  "" \
+  "FAIL #RGB rejected" \
+  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_primary_color_hex;
+   ALTER TABLE public.gyms ADD CONSTRAINT gyms_primary_color_hex CHECK (primary_color IS NULL OR primary_color ~ '^#[0-9A-Fa-f]{3,6}\$');"
 
-# Mutant (j): TABLE CHECK Unanchored primary_color end
+# (j): TABLE CHECK Unanchored primary_color end
 run_mutant \
   "(j) unanchored primary_color end in TABLE CHECK" \
-  "Remove \$ anchor from primary_color CHECK" \
-  "s/primary_color ~ '\^#\[0-9A-Fa-f\]{6}\\\$'/primary_color ~ '^#[0-9A-Fa-f]{6}'/" \
-  "FAIL Hex with trailing rejected"
+  "Remove \$ anchor from primary_color CHECK (040 constraint)" \
+  "" \
+  "FAIL Hex with trailing rejected" \
+  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_primary_color_hex;
+   ALTER TABLE public.gyms ADD CONSTRAINT gyms_primary_color_hex CHECK (primary_color IS NULL OR primary_color ~ '^#[0-9A-Fa-f]{6}');"
 
-# Mutant (k): TABLE CHECK Unanchored accent_color end
+# (k): TABLE CHECK Unanchored accent_color end
 run_mutant \
   "(k) unanchored accent_color end in TABLE CHECK" \
-  "Remove \$ anchor from accent_color CHECK" \
-  "s/accent_color ~ '\^#\[0-9A-Fa-f\]{6}\\\$'/accent_color ~ '^#[0-9A-Fa-f]{6}'/" \
-  "FAIL Hex with trailing rejected"
+  "Remove \$ anchor from accent_color CHECK (040 constraint)" \
+  "" \
+  "FAIL Hex with trailing rejected" \
+  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_accent_color_hex;
+   ALTER TABLE public.gyms ADD CONSTRAINT gyms_accent_color_hex CHECK (accent_color IS NULL OR accent_color ~ '^#[0-9A-Fa-f]{6}');"
 
 # Mutant (l): Drop postgres from bypass
 run_mutant \
@@ -268,49 +278,72 @@ run_mutant \
   "s/v_old_filtered := to_jsonb(OLD) - v_brand_columns;/v_old_filtered := jsonb_build_object('slug', OLD.slug);/; s/v_new_filtered := to_jsonb(NEW) - v_brand_columns;/v_new_filtered := jsonb_build_object('slug', NEW.slug);/" \
   "FAIL Update name blocked"
 
-# Mutant (n): Future column - add temp column and verify trigger blocks its update
+# Mutant (n): Future column - add temp column AND change trigger to explicit column list
 run_mutant \
   "(n) future column blocked" \
-  "Add a temp column and verify trigger blocks its update" \
-  '1i-- Add temporary future column\nALTER TABLE public.gyms ADD COLUMN IF NOT EXISTS temp_future_col text;\n' \
+  "Add temp column and change trigger to explicit list (so future columns slip through)" \
+  "1i-- Add temporary future column and change trigger to explicit list\nALTER TABLE public.gyms ADD COLUMN IF NOT EXISTS temp_future_col text;\n\n; s/v_old_filtered := to_jsonb(OLD) - v_brand_columns;/v_old_filtered := jsonb_build_object('id', OLD.id, 'slug', OLD.slug, 'name', OLD.name, 'timezone', OLD.timezone, 'created_at', OLD.created_at);/; s/v_new_filtered := to_jsonb(NEW) - v_brand_columns;/v_new_filtered := jsonb_build_object('id', NEW.id, 'slug', NEW.slug, 'name', NEW.name, 'timezone', NEW.timezone, 'created_at', NEW.created_at);/" \
   "FAIL Future column update blocked"
 
-# QA MED-2 mutants: Loosen CHECK constraints
+# QA MED-2 mutants: Loosen 040 CHECK constraints
 # Mutant (o): Unanchor logo regex start
 run_mutant \
   "(o) unanchored logo start" \
-  "Remove ^ anchor from logo CHECK (allows leading space)" \
-  "s/logo_url ~ '\^https:\\/\\//logo_url ~ 'https:\\/\\/'/; s/logo_url ~ '\^\\/storage/logo_url ~ '\\/storage/" \
-  "FAIL Logo with leading space rejected"
+  "Remove ^ anchor from logo CHECK (allows leading space, 040 constraint)" \
+  "" \
+  "FAIL Logo with leading space rejected" \
+  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;
+   ALTER TABLE public.gyms ADD CONSTRAINT gyms_logo_url_format CHECK (
+     logo_url IS NULL 
+     OR (logo_url ~ 'https://.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]' AND logo_url !~ E'\\\\.\\\\.') 
+     OR (logo_url ~ '/storage/.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]' AND logo_url !~ E'\\\\.\\\\.') 
+   );"
 
 # Mutant (p): Case-insensitive logo regex
 run_mutant \
   "(p) case-insensitive logo" \
-  "Use ~* for logo CHECK (allows HTTPS://)" \
-  "s/logo_url ~ '\^https:/logo_url ~* '^https:/; s/logo_url ~ '\^\\/storage/logo_url ~* '^\\/storage/" \
-  "FAIL Uppercase HTTPS:// rejected"
+  "Use ~* for logo CHECK (allows HTTPS://, 040 constraint)" \
+  "" \
+  "FAIL Uppercase HTTPS:// rejected" \
+  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;
+   ALTER TABLE public.gyms ADD CONSTRAINT gyms_logo_url_format CHECK (
+     logo_url IS NULL 
+     OR (logo_url ~* '^https://.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]' AND logo_url !~ E'\\\\.\\\\.') 
+     OR (logo_url ~* '^/storage/.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]' AND logo_url !~ E'\\\\.\\\\.') 
+   );"
 
 # Mutant (q): Loosen path traversal check
 run_mutant \
   "(q) loosen .. check" \
-  "Remove .. path traversal check from logo" \
-  "s/logo_url !\~ '\\\\\\\\\\.\\\\\\\\.'/true/" \
-  "FAIL .. path traversal rejected"
+  "Remove .. path traversal check from logo (040 constraint)" \
+  "" \
+  "FAIL .. path traversal rejected" \
+  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;
+   ALTER TABLE public.gyms ADD CONSTRAINT gyms_logo_url_format CHECK (
+     logo_url IS NULL 
+     OR (logo_url ~ '^https://.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]')
+     OR (logo_url ~ '^/storage/.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]')
+   );"
 
 # Mutant (r): Remove control character check
 run_mutant \
   "(r) allow control chars" \
-  "Remove control character check from logo" \
-  "s/logo_url !\~ '\\\[\\\x00-\\\x1F\\\x7F\\\]'/true/" \
-  "FAIL Newline in logo rejected"
+  "Remove control character check from logo (040 constraint)" \
+  "" \
+  "FAIL Newline in logo rejected" \
+  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;
+   ALTER TABLE public.gyms ADD CONSTRAINT gyms_logo_url_format CHECK (
+     logo_url IS NULL 
+     OR (logo_url ~ '^https://.+' AND logo_url !~ E'\\\\.\\\\.') 
+     OR (logo_url ~ '^/storage/.+' AND logo_url !~ E'\\\\.\\\\.') 
+   );"
 
 echo
 echo "=== Mutant Test Summary ==="
-KILLED=$((TOTAL_MUTANTS - FAILED))
 echo "Total mutants: $TOTAL_MUTANTS"
 echo "Killed: $KILLED"
 echo "Survived: ${#SURVIVORS[@]}"
-echo "Skipped (failed to run): $((FAILED - ${#SURVIVORS[@]}))"
+echo "Skipped (failed to run or wrong assertion): $((FAILED - ${#SURVIVORS[@]}))"
 echo
 
 if [ ${#SURVIVORS[@]} -gt 0 ]; then
