@@ -14,7 +14,7 @@
 
 import "./helpers/setup-jsdom";
 
-import { render, act, screen, cleanup } from "@testing-library/react";
+import { render, act, screen, cleanup, waitFor } from "@testing-library/react";
 import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 import { savePendingSet, loadPendingSets } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
@@ -842,7 +842,14 @@ async function test9b() {
     />
   );
   
-  await act(async () => {});
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+  
+  // Wait for pending state to load
+  await waitFor(() => {
+    if (!screen.queryByText(/waiting to save/)) throw new Error("Pending notice not shown");
+  }, { timeout: 2000 });
   
   // Assert cooldown Done and Skip buttons
   // Done button now always says "Done" (the pending count is shown in the notice)
@@ -851,7 +858,9 @@ async function test9b() {
   const skipCooldownButton = buttons.find(b => b.textContent?.includes("Skip cool-down"));
   
   assert(!!doneButton, "9b: Done button exists");
-  assert(doneButton !== undefined && 'disabled' in doneButton && Boolean(doneButton.disabled), "9b: Done button is disabled while sets are pending");
+  console.log("  DEBUG: doneButton.disabled =", doneButton.disabled, "typeof =", typeof doneButton.disabled);
+  console.log("  DEBUG: doneButton attributes:", Array.from(doneButton.attributes || []).map((a: any) => a.name + "=" + a.value));
+  assert(doneButton !== undefined && Boolean(doneButton.disabled), "9b: Done button is disabled while sets are pending");
   
   // Verify the notice shows the pending count
   const pendingNotice = screen.queryByText(/1 set waiting to save/i);

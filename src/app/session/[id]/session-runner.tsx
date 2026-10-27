@@ -763,7 +763,7 @@ export function SessionRunner({
         </ul>
         <div className="mt-10 space-y-3">
           <BigButton
-            disabled={busy}
+            disabled={busy || pendingSetState.pending.length > 0}
             onClick={async () => {
               // If there are pending sets, try to replay them first
               if (pendingSetState.pending.length > 0 && controller) {
