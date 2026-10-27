@@ -28,15 +28,6 @@ function assertEquals122b<T>(actual: T, expected: T, message: string) {
   }
 }
 
-function assertTrue122b(condition: boolean, message: string) {
-  if (condition) {
-    console.log(`  ok   ${message}`);
-    passed122b++;
-  } else {
-    console.error(`❌ ${message}`);
-    failed122b++;
-  }
-}
 
 // Mock Supabase client for behavioral testing
 type ExerciseRow = {
@@ -55,7 +46,7 @@ function createMockSupabase() {
     from: (table: string) => ({
       select: () => ({
         eq: (col: string, val: string) => ({
-          data: exercises.filter(e => (e as any)[col] === val),
+          data: exercises.filter(e => (e as Record<string, unknown>)[col] === val),
           error: null,
         }),
       }),

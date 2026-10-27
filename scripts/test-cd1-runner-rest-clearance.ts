@@ -25,15 +25,6 @@ function assertEqualsCd1<T>(actual: T, expected: T, message: string) {
   }
 }
 
-function assertTrueCd1(condition: boolean, message: string) {
-  if (condition) {
-    console.log(`  ok   ${message}`);
-    passedCd1++;
-  } else {
-    console.error(`❌ ${message}`);
-    failedCd1++;
-  }
-}
 
 // Simulate the cool-down handler behavior
 type RestPersistence = {
