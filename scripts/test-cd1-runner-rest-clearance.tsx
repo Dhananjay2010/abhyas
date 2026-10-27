@@ -4,7 +4,7 @@
  * 
  * Tests real SessionRunner component with jsdom and typed fakes.
  * 
- *   npx tsx scripts/test-cd1-runner-rest-clearance.ts
+ *   npx tsx scripts/test-cd1-runner-rest-clearance.tsx
  */
 
 import "./helpers/setup-jsdom";
@@ -16,6 +16,32 @@ import {
   type RunnerSettings,
 } from "../src/app/session/[id]/session-runner";
 import type { StorageAdapter } from "../src/lib/session/rest-timer-persistence";
+
+function createFakeStorage(): StorageAdapter & { data: Map<string, string> } {
+  const data = new Map<string, string>();
+  return {
+    data,
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => { data.set(key, value); },
+    removeItem: (key: string) => { data.delete(key); },
+  };
+}
+
+// Set up fake sessionStorage BEFORE main()
+const fakeStorage = createFakeStorage();
+Object.defineProperty(global, "sessionStorage", {
+  value: fakeStorage,
+  writable: true,
+  configurable: true,
+});
+
+if (typeof window !== "undefined") {
+  Object.defineProperty(window, "sessionStorage", {
+    value: fakeStorage,
+    writable: true,
+    configurable: true,
+  });
+}
 
 const SESSION_ID = "test-session";
 let passedCd1 = 0;
@@ -70,41 +96,18 @@ const settings: RunnerSettings = {
   units: "metric" as const,
 };
 
-function createFakeStorage(): StorageAdapter & { data: Map<string, string> } {
-  const data = new Map<string, string>();
-  return {
-    data,
-    getItem: (key: string) => data.get(key) ?? null,
-    setItem: (key: string, value: string) => { data.set(key, value); },
-    removeItem: (key: string) => { data.delete(key); },
-  };
-}
-
-// Set up fake sessionStorage
-const fakeStorage = createFakeStorage();
-Object.defineProperty(global, "sessionStorage", {
-  value: fakeStorage,
-  writable: true,
-  configurable: true,
-});
-
-if (typeof window !== "undefined") {
-  Object.defineProperty(window, "sessionStorage", {
-    value: fakeStorage,
-    writable: true,
-    configurable: true,
-  });
-}
-
 (async function main() {
 console.log("\ncd1: Rest persistence cleared only after finishSession succeeds\n");
 
+const restKey = `abhyas:rest:${SESSION_ID}`;
+
 console.log("1. finishSession fails - rest persistence NOT cleared");
 {
-  const restKey = `abhyas:rest:${SESSION_ID}`;
+  // Clear and pre-seed storage
+  fakeStorage.data.clear();
   fakeStorage.setItem(restKey, JSON.stringify({
     sessionId: SESSION_ID,
-    currentExerciseId: "ex-completed-1",
+    sessionExerciseId: "ex-completed-1",
     restEndsAt: Date.now() + 90000,
   }));
 
@@ -166,13 +169,11 @@ console.log("1. finishSession fails - rest persistence NOT cleared");
 
 console.log("\n2. finishSession succeeds - rest persistence cleared");
 {
-  // Clear any leftover storage from previous test
+  // Clear and pre-seed storage
   fakeStorage.data.clear();
-  
-  const restKey = `abhyas:rest:${SESSION_ID}`;
   fakeStorage.setItem(restKey, JSON.stringify({
     sessionId: SESSION_ID,
-    currentExerciseId: "ex-completed-2",
+    sessionExerciseId: "ex-completed-2",
     restEndsAt: Date.now() + 90000,
   }));
 
@@ -240,11 +241,6 @@ console.log("\n2. finishSession succeeds - rest persistence cleared");
   }
 
   assertEqualsCd1(finishAttempts, 1, "finishSession was called");
-  
-  // Debug: print storage keys
-  console.log(`  DEBUG: Storage keys after successful finish: ${Array.from(fakeStorage.data.keys()).join(", ")}`);
-  console.log(`  DEBUG: Rest key value: ${fakeStorage.data.get(restKey)}`);
-  
   assertEqualsCd1(fakeStorage.data.has(restKey), false, "rest persistence cleared after successful finish");
 }
 
