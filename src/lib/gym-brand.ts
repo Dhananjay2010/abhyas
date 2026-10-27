@@ -9,6 +9,27 @@ import type { Brand } from "@/lib/branding";
 import { validateTimezone, branding } from "@/lib/branding";
 
 /**
+ * Neutral unbranded fallback for when the database is unreachable
+ * on a custom domain (not the app's own domain).
+ * 
+ * Used as a last-resort fallback when:
+ * - The RPC call errors (database outage, network issue)
+ * - The host is NOT the app's own domain (not localhost, not *.vercel.app, not NEXT_PUBLIC_SITE_URL)
+ * 
+ * This prevents gym members from seeing another brand on their gym's domain during an outage.
+ * Never cached. Uses neutral greys and generic name.
+ */
+export const neutralBrand: Brand = {
+  id: "neutral",
+  name: "Fitness",
+  shortName: "Fitness",
+  timezone: branding.timezone,
+  primaryColor: "#6b7280", // neutral grey-500
+  backgroundColor: "#f9fafb", // neutral grey-50
+  textColor: "#111827", // neutral grey-900
+};
+
+/**
  * Return the cache tag string for a gym's brand.
  * Use this tag with updateTag(gymBrandTag(gymId)) when the gym's branding is updated.
  * (Next.js 16: updateTag is the preferred API from server actions)
@@ -85,7 +106,8 @@ async function getGymBrandInternal(gymId: string): Promise<Partial<Brand>> {
  * Get public brand fields for a gym.
  *
  * Cached with Next.js unstable_cache using the gym-brand:<gymId> tag.
- * On RPC errors, falls back to the default brand for that request only (error not cached).
+ * On RPC errors, falls back to the neutral brand for that request only (error not cached).
+ * The neutral brand prevents gym members from seeing another brand during an outage.
  * Cache expires after 600s (not-found results aren't cached forever).
  * 
  * To invalidate: updateTag(gymBrandTag(gymId)) from a server action.
@@ -103,9 +125,10 @@ export async function getGymBrand(gymId: string): Promise<Partial<Brand>> {
   try {
     return await cachedFn();
   } catch (error) {
-    // RPC error: fall back to default brand for this request only
+    // RPC error during outage: fall back to neutral brand for this request only
     // The error is not cached, so a later success will return the real brand
-    console.error(`getGymBrand error for ${gymId}, falling back to default:`, error);
-    return branding;
+    // Neutral brand prevents gym members from seeing another brand on their domain
+    console.error(`getGymBrand error for ${gymId}, falling back to neutral brand:`, error);
+    return neutralBrand;
   }
 }
