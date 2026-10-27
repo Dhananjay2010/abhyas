@@ -27,9 +27,14 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
 
 let failures = 0;
-function check(label: string, ok: boolean, detail = "") {
-  if (!ok) failures++;
-  console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
+function check(label: string, ok: boolean, detail = "", actual?: unknown) {
+  if (!ok) {
+    failures++;
+    const actualStr = actual !== undefined ? ` -- got: ${JSON.stringify(actual)}` : detail ? `  -- ${detail}` : "";
+    console.log(`  FAIL ${label}${actualStr}`);
+  } else {
+    console.log(`  ok   ${label}${detail ? `  -- ${detail}` : ""}`);
+  }
 }
 
 async function runTests() {
@@ -684,7 +689,7 @@ async function runTests() {
   }
   
   // Mutant: search_path dropped
-  // Check that all SECURITY DEFINER functions have search_path='' exactly
+  // Check that all SECURITY DEFINER functions have search_path="" exactly
   const { data: definerFuncs } = await adminClient.rpc("execute_sql", {
     query: `
       SELECT proname, proconfig
@@ -696,12 +701,13 @@ async function runTests() {
   
   if (definerFuncs && definerFuncs.length > 0) {
     const allHaveSearchPath = definerFuncs.every(f => 
-      f.proconfig !== null && f.proconfig.some(c => c === "search_path=")
+      f.proconfig !== null && f.proconfig.some(c => c === 'search_path=""')
     );
-    check("All SECURITY DEFINER functions have search_path='' (kills search_path mutant)", 
-      allHaveSearchPath && definerFuncs.length === 6);
+    check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", 
+      allHaveSearchPath && definerFuncs.length === 6,
+      "", definerFuncs.length === 6 ? definerFuncs.map(f => ({name: f.proname, config: f.proconfig})) : `Found ${definerFuncs.length} functions`);
   } else {
-    check("All SECURITY DEFINER functions have search_path='' (kills search_path mutant)", false, "Could not query pg_proc");
+    check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", false, "Could not query pg_proc");
   }
   console.log();
 

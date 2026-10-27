@@ -38,9 +38,14 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
 
 let failures = 0;
-function check(label: string, ok: boolean, detail = "") {
-  if (!ok) failures++;
-  console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
+function check(label: string, ok: boolean, detail = "", actual?: unknown) {
+  if (!ok) {
+    failures++;
+    const actualStr = actual !== undefined ? ` -- got: ${JSON.stringify(actual)}` : detail ? `  -- ${detail}` : "";
+    console.log(`  FAIL ${label}${actualStr}`);
+  } else {
+    console.log(`  ok   ${label}${detail ? `  -- ${detail}` : ""}`);
+  }
 }
 
 async function testDatabaseConnection() {
@@ -326,7 +331,10 @@ async function runTests() {
     p_code: memberCode,
   });
   const redeemAgainJson = redeemAgainData && typeof redeemAgainData === 'object' ? redeemAgainData : null;
-  check("Member C can redeem again (idempotent)", redeemAgainJson && 'ok' in redeemAgainJson && redeemAgainJson.ok === true);
+  check("Member C redeeming again returns already_member", 
+    redeemAgainJson && 'ok' in redeemAgainJson && redeemAgainJson.ok === false && 
+    'reason' in redeemAgainJson && redeemAgainJson.reason === 'already_member',
+    "", redeemAgainJson);
 
   // Check use_count NOT incremented (idempotent redeem doesn't consume)
   const { data: codeAfterRedeem } = await adminClient
@@ -528,7 +536,10 @@ async function runTests() {
     p_code: ownerCode,
   });
   const ownerRedeemJson = ownerRedeemData && typeof ownerRedeemData === 'object' ? ownerRedeemData : null;
-  check("Owner A can redeem code for own gym (idempotent)", ownerRedeemJson && 'ok' in ownerRedeemJson && ownerRedeemJson.ok === true);
+  check("Owner redeeming own gym returns already_member", 
+    ownerRedeemJson && 'ok' in ownerRedeemJson && ownerRedeemJson.ok === false &&
+    'reason' in ownerRedeemJson && ownerRedeemJson.reason === 'already_member',
+    "", ownerRedeemJson);
 
   // Check use_count is unchanged (idempotent no-op)
   const { data: afterRedeem } = await adminClient
@@ -660,7 +671,10 @@ async function runTests() {
     p_code: memberCode,
   });
   const ownerARedeemOwnJson = ownerARedeemOwnData && typeof ownerARedeemOwnData === 'object' ? ownerARedeemOwnData : null;
-  check("Owner A can call redeem on their own gym code (no-op)", ownerARedeemOwnJson && 'ok' in ownerARedeemOwnJson && ownerARedeemOwnJson.ok === true);
+  check("Owner redeeming own gym member code returns already_member", 
+    ownerARedeemOwnJson && 'ok' in ownerARedeemOwnJson && ownerARedeemOwnJson.ok === false &&
+    'reason' in ownerARedeemOwnJson && ownerARedeemOwnJson.reason === 'already_member',
+    "", ownerARedeemOwnJson);
   
   // Check use_count is UNCHANGED (no-op should not consume a use)
   const { data: afterUseCount } = await adminClient
@@ -784,8 +798,8 @@ async function runTests() {
   check("Throttle returns reason:throttled", attempt11Json && 'reason' in attempt11Json && attempt11Json.reason === 'throttled');
   console.log();
 
-  // TEST: Successful redemptions don't count toward throttle
-  console.log("TEST: Successes don't trigger throttle");
+  // TEST: Successful redemptions and already_member don't count toward throttle
+  console.log("TEST: Successes and already_member don't trigger throttle");
   // Create a fresh user for success test
   const emailSuccess = `test-success-${Date.now()}-${Math.random()}@example.com`;
   const { data: authUserSuccess } = await adminClient.auth.admin.createUser({
@@ -799,6 +813,13 @@ async function runTests() {
     password: "password123",
   });
   
+  // Deactivate default gym membership
+  await adminClient
+    .from("gym_memberships")
+    .update({ status: "removed" })
+    .eq("user_id", authUserSuccess.user?.id)
+    .eq("gym_id", defaultGym?.id);
+  
   // Create a code with high max_uses for successful redeems
   const { data: successCodeData } = await clientA.rpc("create_join_code", {
     p_gym_id: gymIdA,
@@ -807,16 +828,30 @@ async function runTests() {
   });
   const successCode = successCodeData?.[0]?.code;
   
-  // Make 20 successful redeems (should NOT throttle, only misses count)
-  // First redeem joins the gym, subsequent ones are idempotent (already a member)
-  for (let i = 0; i < 20; i++) {
+  // First redeem joins the gym (success)
+  const { data: firstRedeem } = await clientSuccess.rpc("redeem_join_code", { p_code: successCode });
+  const firstRedeemJson = firstRedeem && typeof firstRedeem === 'object' ? firstRedeem : null;
+  check("First redeem succeeds", firstRedeemJson && 'ok' in firstRedeemJson && firstRedeemJson.ok === true, "", firstRedeemJson);
+  
+  // Next 19 redeems return already_member (should NOT throttle, only misses count)
+  for (let i = 1; i < 20; i++) {
     await clientSuccess.rpc("redeem_join_code", { p_code: successCode });
   }
   
-  // Next attempt should still work (successes don't count)
+  // Check that no attempts were recorded (neither success nor already_member count as misses)
+  const { data: successAttempts } = await adminClient
+    .from("gym_join_code_attempts")
+    .select("*")
+    .eq("user_id", authUserSuccess.user?.id);
+  check("Successes and already_member don't record attempts", successAttempts?.length === 0, "", successAttempts?.length);
+  
+  // 21st attempt should still work (returns already_member, not throttled)
   const { data: successAfter20Data } = await clientSuccess.rpc("redeem_join_code", { p_code: successCode });
   const successAfter20Json = successAfter20Data && typeof successAfter20Data === 'object' ? successAfter20Data : null;
-  check("20 successes don't throttle", successAfter20Json && 'ok' in successAfter20Json && successAfter20Json.ok === true);
+  check("20+ already_member don't throttle", 
+    successAfter20Json && 'ok' in successAfter20Json && successAfter20Json.ok === false &&
+    'reason' in successAfter20Json && successAfter20Json.reason === 'already_member',
+    "", successAfter20Json);
   console.log();
 
   // TEST: Code format CHECK constraint (using admin to bypass RLS)
