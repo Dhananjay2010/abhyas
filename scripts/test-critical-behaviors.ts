@@ -131,7 +131,7 @@ async function testReplayDoesntClearBeforeConfirm() {
 
   let callCount = 0;
   let resolveLogSet: () => void;
-  const logSetPromise = new Promise<{ ok: boolean; error?: string; code?: string }>((resolve) => {
+  const logSetPromise = new Promise<{ ok: true } | { ok: false; error: string; code?: string }>((resolve) => {
     resolveLogSet = () => resolve({ ok: true });
   });
 

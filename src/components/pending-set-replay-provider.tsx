@@ -32,7 +32,8 @@ export function PendingSetReplayProviderView({
 
     // Listen to auth state changes
     const subscription = onAuthStateChange((_event, session) => {
-      setUserId(session?.user?.id ?? null);
+      const sessionObj = session as { user?: { id: string } | null } | null;
+      setUserId(sessionObj?.user?.id ?? null);
     });
 
     return () => {
