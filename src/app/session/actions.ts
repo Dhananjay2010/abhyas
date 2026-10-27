@@ -12,8 +12,6 @@ import {
   evaluateProgression,
 } from "@/lib/program/progression";
 import { buildProgressionInput } from "@/lib/session/build-progression-input";
-import { abandonSessionCore } from "@/lib/session/abandon-session";
-import { makeAbandonSessionDeps } from "@/lib/session/abandon-session-deps";
 import { startSessionFullCore } from "@/lib/session/start-session-full-core";
 import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps";
 import { planDayCore, type PlanDayClient } from "@/lib/session/plan-day-core";
@@ -362,8 +360,7 @@ export async function abandonSession(
   if (rateLimit) return rateLimit;
 
   const { supabase } = await requireUser();
-  const deps = makeAbandonSessionDeps(supabase);
-  const result = await abandonSessionCore(deps, sessionId, elapsedSeconds);
+  const result = await abandonSessionAction(supabase, sessionId, elapsedSeconds);
   if (result.ok) revalidateTrainingData();
   return result;
 }

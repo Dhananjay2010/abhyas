@@ -21,7 +21,7 @@ import "./helpers/setup-jsdom";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
-import { SessionRunner, type SessionActions, type RunnerTimer, type TimerHandle } from "../src/app/session/[id]/session-runner";
+import { SessionRunner, type SessionActions, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 
 let failures = 0;
 
@@ -34,23 +34,23 @@ function createFakeTimer(): {
   timer: RunnerTimer;
   advance: () => void;
 } {
-  const callbacks = new Map<TimerHandle, () => void>();
-  let nextId = 1;
+  const callbacks = new Map<ReturnType<typeof globalThis.setTimeout>, () => void>();
 
   return {
     timer: {
-      setTimeout: (callback: () => void): TimerHandle => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const id: TimerHandle = nextId++ as any;
+      setTimeout: (callback: () => void): ReturnType<typeof globalThis.setTimeout> => {
+        const id = globalThis.setTimeout(() => {}, 999999999);
         callbacks.set(id, callback);
         return id;
       },
-      clearTimeout: (id: TimerHandle): void => {
+      clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>): void => {
+        globalThis.clearTimeout(id);
         callbacks.delete(id);
       },
     },
     advance: () => {
       const pending = Array.from(callbacks.values());
+      callbacks.forEach((_, id) => globalThis.clearTimeout(id));
       callbacks.clear();
       pending.forEach(cb => cb());
     },
