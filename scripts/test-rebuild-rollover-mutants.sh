@@ -120,7 +120,7 @@ cp "$BACKUP_CORE" "$REBUILD_CORE"
 # Mutant 2: Revert progressStartDate to just first block date
 echo ""
 echo "Mutant 2: Revert progressStartDate to only use first block date"
-echo "Expected: test-rebuild-rollover-progress-real-db.ts should fail"
+echo "Expected: Unit test should fail"
 echo ""
 
 cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
@@ -150,22 +150,17 @@ if diff -q "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE" > /dev/null 2>&1; the
   exit 1
 fi
 
-if REAL_DB=1 npx tsx scripts/test-rebuild-rollover-progress-real-db.ts > /tmp/mutant2.log 2>&1; then
-  echo "✗ SURVIVED: Mutant 2 (test passes with only first block date)"
+if npx tsx scripts/test-rebuild-rollover-progress.ts > /tmp/mutant2.log 2>&1; then
+  echo "✗ SURVIVED: Mutant 2 (unit test passes with only first block date)"
   cat /tmp/mutant2.log
   SURVIVED=$((SURVIVED + 1))
 else
-  if grep -q "⏭️.*Skipping" /tmp/mutant2.log; then
-    echo "✗ FAIL: Mutant test was skipped, not actually run"
-    cat /tmp/mutant2.log
-    exit 1
-  fi
   if ! grep -q "❌ FAIL" /tmp/mutant2.log; then
     echo "✗ FAIL: Mutant 2 killed by crash, not assertion"
     cat /tmp/mutant2.log
     exit 1
   fi
-  echo "✓ Mutant 2 killed (test fails without session date consideration)"
+  echo "✓ Mutant 2 killed (unit test fails without session date consideration)"
   KILLED=$((KILLED + 1))
 fi
 
@@ -175,7 +170,7 @@ cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
 # Mutant 3: Revert buildDayRecords min() logic to ?? fallback
 echo ""
 echo "Mutant 3: Revert buildDayRecords to use ?? instead of min()"
-echo "Expected: test-rebuild-rollover-progress-real-db.ts should fail"
+echo "Expected: Unit test should fail"
 echo ""
 
 cp "$BACKUP_STREAKS" "$STREAKS_FILE"
@@ -191,22 +186,17 @@ if diff -q "$BACKUP_STREAKS" "$STREAKS_FILE" > /dev/null 2>&1; then
   exit 1
 fi
 
-if REAL_DB=1 npx tsx scripts/test-rebuild-rollover-progress-real-db.ts > /tmp/mutant3.log 2>&1; then
-  echo "✗ SURVIVED: Mutant 3 (test passes with ?? fallback)"
+if npx tsx scripts/test-rebuild-rollover-progress.ts > /tmp/mutant3.log 2>&1; then
+  echo "✗ SURVIVED: Mutant 3 (unit test passes with ?? fallback)"
   cat /tmp/mutant3.log
   SURVIVED=$((SURVIVED + 1))
 else
-  if grep -q "⏭️.*Skipping" /tmp/mutant3.log; then
-    echo "✗ FAIL: Mutant test was skipped, not actually run"
-    cat /tmp/mutant3.log
-    exit 1
-  fi
   if ! grep -q "❌ FAIL" /tmp/mutant3.log; then
     echo "✗ FAIL: Mutant 3 killed by crash, not assertion"
     cat /tmp/mutant3.log
     exit 1
   fi
-  echo "✓ Mutant 3 killed (test fails without min() logic)"
+  echo "✓ Mutant 3 killed (unit test fails without min() logic)"
   KILLED=$((KILLED + 1))
 fi
 

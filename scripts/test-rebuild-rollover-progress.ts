@@ -100,6 +100,71 @@ async function runUnitTests() {
     console.log("  PASS: breathing/rest/skipped session unit test\n");
   }
 
+  console.log("TEST: Mutant 2 killer - progressStartDate with pre-block session");
+  {
+    // Fixture: A completed session on 2026-10-05, but block doesn't start until 2026-10-15
+    // Expected: progressStartDate returns 2026-10-05 (the earlier session date)
+    // Mutant 2 (only return block start) would incorrectly return 2026-10-15
+    const result = progressStartDate({
+      programs: [{ startedOn: "2026-10-15" }],
+      completedSessions: [
+        { local_date: "2026-10-05", actual_type: "weights", status: "completed", working_set_count: 3 },
+        { local_date: "2026-10-16", actual_type: "weights", status: "completed", working_set_count: 3 },
+        { local_date: "2026-10-18", actual_type: "weights", status: "completed", working_set_count: 3 },
+      ],
+    });
+
+    assert(result === "2026-10-05", "progressStartDate returns pre-block session date (not block start)", `got ${result}`);
+    console.log("  PASS: Mutant 2 killer\n");
+  }
+
+  console.log("TEST: Mutant 3 killer - buildDayRecords with effectiveStart AFTER firstBlockStart");
+  {
+    // Fixture: effectiveStart is 2026-10-15 (passed override), but first block starts 2026-10-05 (earlier)
+    // Expected: Days trained starts from 2026-10-05 (the EARLIER date, firstBlockStart)
+    // Mutant 3 (?? fallback) would incorrectly use effectiveStart (2026-10-15), cutting off early block days
+    //
+    // Expected values (worked out on paper):
+    // - firstBlockStart: 2026-10-05 (block starts early)
+    // - effectiveStart: 2026-10-15 (override, later than block)
+    // - first (start point): 2026-10-05 (min of the two - should pick block start)
+    // - Days with completed sessions: 2026-10-06, 2026-10-16, 2026-10-18 = 3 sessions
+    // - The early block day (2026-10-06) should appear in dayRecords
+    // - Mutant 3 would start from 2026-10-15, cutting off 2026-10-06
+
+    const dayRecords = buildDayRecords({
+      programs: [
+        { id: "p1", startedOn: "2026-10-05", endsOn: "2026-11-01", endedOn: null },
+      ],
+      dayTypesByProgram: {},
+      completedSessions: [
+        { local_date: "2026-10-06", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+        { local_date: "2026-10-16", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+        { local_date: "2026-10-18", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+      ],
+      today: "2026-10-20",
+      effectiveStart: "2026-10-15",
+    });
+
+    const earlyBlockDay = dayRecords.find((d) => d.localDate === "2026-10-06");
+    assert(earlyBlockDay !== undefined, "Early block day (2026-10-06) included in dayRecords", `got ${earlyBlockDay ? "found" : "missing"}`);
+    assert(earlyBlockDay?.completed === true, "Early block day marked completed", `got ${earlyBlockDay?.completed}`);
+    assert(earlyBlockDay?.actualSessionType === "weights", "Early block day has correct actual session type", `got ${earlyBlockDay?.actualSessionType}`);
+
+    const laterDay1 = dayRecords.find((d) => d.localDate === "2026-10-16");
+    assert(laterDay1 !== undefined, "Later day (2026-10-16) included", `got ${laterDay1 ? "found" : "missing"}`);
+    assert(laterDay1?.completed === true, "Later day marked completed", `got ${laterDay1?.completed}`);
+
+    const streaks = computeStreaks(dayRecords, "2026-10-20");
+    assert(streaks.totalSessions === 3, "Total sessions includes early block day", `got ${streaks.totalSessions}`);
+
+    // Verify that the date range starts from firstBlockStart (2026-10-05), not effectiveStart (2026-10-15)
+    const earliestDate = dayRecords.reduce((min, d) => d.localDate < min ? d.localDate : min, dayRecords[0]?.localDate ?? "9999-99-99");
+    assert(earliestDate === "2026-10-05", "Day records start from firstBlockStart (min of block and effectiveStart)", `got ${earliestDate}`);
+
+    console.log("  PASS: Mutant 3 killer\n");
+  }
+
   console.log("TEST: Unit test - rebuildPlanCore call order and error handling");
   {
     const callLog: string[] = [];
