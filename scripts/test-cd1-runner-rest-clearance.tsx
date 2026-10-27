@@ -44,7 +44,7 @@ if (typeof window !== "undefined") {
 }
 
 // Mock Date.now to control time
-let now = 1000000;
+const now = 1000000;
 Date.now = () => now;
 
 let passedCd1 = 0;
@@ -144,7 +144,7 @@ console.log("1. Done button: finishSession fails - rest persistence NOT cleared"
     findAlternatives: async () => ({ ok: true as const, data: [] }),
   };
 
-  const { container } = render(
+  render(
     <SessionRunner
       sessionId={SESSION_ID}
       isDeload={false}
@@ -229,7 +229,7 @@ console.log("\n2. Done button: finishSession succeeds - rest persistence cleared
     findAlternatives: async () => ({ ok: true as const, data: [] }),
   };
 
-  const { container } = render(
+  render(
     <SessionRunner
       sessionId={SESSION_ID}
       isDeload={false}
@@ -309,7 +309,7 @@ console.log("\n3. Skip button: finishSession fails - rest persistence NOT cleare
     findAlternatives: async () => ({ ok: true as const, data: [] }),
   };
 
-  const { container } = render(
+  render(
     <SessionRunner
       sessionId={SESSION_ID}
       isDeload={false}
@@ -394,7 +394,7 @@ console.log("\n4. Skip button: finishSession succeeds - rest persistence cleared
     findAlternatives: async () => ({ ok: true as const, data: [] }),
   };
 
-  const { container } = render(
+  render(
     <SessionRunner
       sessionId={SESSION_ID}
       isDeload={false}
