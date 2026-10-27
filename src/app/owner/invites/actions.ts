@@ -21,7 +21,7 @@ export async function createJoinCode(
   role: GymRole
 ): Promise<CreateCodeResult> {
   const rateLimit = await checkActionRateLimit("default");
-  if (rateLimit) return { ok: false, error: rateLimit.error };
+  if (rateLimit && !rateLimit.ok) return { ok: false, error: rateLimit.error };
 
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
@@ -50,7 +50,7 @@ export async function createJoinCode(
 
 export async function revokeJoinCode(codeId: string): Promise<RevokeCodeResult> {
   const rateLimit = await checkActionRateLimit("default");
-  if (rateLimit) return { ok: false, error: rateLimit.error };
+  if (rateLimit && !rateLimit.ok) return { ok: false, error: rateLimit.error };
 
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
