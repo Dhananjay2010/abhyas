@@ -124,6 +124,7 @@ async function testM9() {
       feel: null,
       sets: [],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   

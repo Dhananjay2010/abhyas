@@ -76,6 +76,7 @@ const fakeTimer: RunnerTimer = {
         { setNumber: 3, reps: 10, weightKg: 50, durationSeconds: null },
       ],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     }];
     
     const settings: RunnerSettings = {
@@ -168,6 +169,7 @@ const fakeTimer: RunnerTimer = {
         { setNumber: 3, reps: 10, weightKg: 50, durationSeconds: null },
       ],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     }];
     
     const settings: RunnerSettings = {

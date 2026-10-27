@@ -89,6 +89,8 @@ const bodyweightExercise: RunnerExercise = {
 const r1 = render(
   <SessionRunner
     sessionId="s1"
+    sessionStatus="in_progress"
+    userId="u1"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -147,6 +149,8 @@ const regularExercise: RunnerExercise = {
 const r2 = render(
   <SessionRunner
     sessionId="s2"
+    sessionStatus="in_progress"
+    userId="u2"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
