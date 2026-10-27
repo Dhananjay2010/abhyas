@@ -69,7 +69,7 @@ test_mutant() {
   
   # Run test and capture output
   local output
-  if [[ "$name" == "L4B-4a"* ]] || [[ "$name" == "UN1"* ]]; then
+  if [[ "$name" == "UN1"* ]]; then
     output=$(npm run test:actions-imperial-behavioral-l4b4 2>&1)
   else
     output=$(npm run test:imperial-actions-path 2>&1)
