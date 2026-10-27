@@ -76,26 +76,26 @@ while IFS= read -r line; do
   fi
 done <<< "$all_matches"
 
+# Store result for later
+TEST_RESULT=0
 if [ ${#violations[@]} -eq 0 ]; then
   echo "✅ All color literals are in allowed contexts (placeholder, value, error messages, comments)"
-  exit 0
+else
+  echo "❌ Found color literals outside allowed contexts:"
+  printf '%s\n' "${violations[@]}"
+  echo ""
+  echo "Color literals are only allowed in:"
+  echo "  - placeholder attributes"
+  echo "  - value attributes (user input)"
+  echo "  - error messages and error codes"
+  echo "  - comments"
+  echo ""
+  echo "For preview/UI colors, use CSS custom properties:"
+  echo "  - var(--color-accent)"
+  echo "  - var(--color-accent-hover)"
+  echo "  - var(--color-accent-fg)"
+  TEST_RESULT=1
 fi
-
-echo "❌ Found color literals outside allowed contexts:"
-printf '%s\n' "${violations[@]}"
-echo ""
-echo "Color literals are only allowed in:"
-echo "  - placeholder attributes"
-echo "  - value attributes (user input)"
-echo "  - error messages and error codes"
-echo "  - comments"
-echo ""
-echo "For preview/UI colors, use CSS custom properties:"
-echo "  - var(--color-accent)"
-echo "  - var(--color-accent-hover)"
-echo "  - var(--color-accent-fg)"
-exit 1
-}
 
 # Self-test: Verify the test can actually detect violations
 echo
@@ -168,7 +168,7 @@ fi
 
 # Verify specific patterns were caught
 if [ "$SELF_TEST_PASSED" = true ]; then
-  must_detect=('#FF0000' 'bg-\[#FF0000\]' '#f00' 'rgb(' 'hsl(')
+  must_detect=('#FF0000' 'bg-[#FF0000]' '#f00' 'rgb(' 'hsl(')
   for pattern in "${must_detect[@]}"; do
     found=false
     for violation in "${violations_found[@]}"; do
@@ -190,3 +190,5 @@ else
   echo "❌ Self-test failed: detection logic is broken"
   exit 1
 fi
+
+exit $TEST_RESULT
