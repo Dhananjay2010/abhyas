@@ -3,7 +3,7 @@
  * Extracted for testing to ensure rounding is applied correctly.
  */
 
-import { kgToDisplay, roundLbToHalf, type UnitsPreference } from "@/lib/units";
+import { kgToDisplay, type UnitsPreference } from "@/lib/units";
 import type { Point } from "@/components/charts";
 
 type VolumeRow = {
