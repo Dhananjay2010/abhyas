@@ -13,7 +13,7 @@ import "./helpers/setup-jsdom";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
-import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerTimer } from "../src/app/session/[id]/session-runner";
+import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerTimer, type TimerHandle } from "../src/app/session/[id]/session-runner";
 import type { SetConflictResult } from "../src/app/session/actions";
 import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
 
@@ -37,12 +37,12 @@ function createFakeTimer() {
       const handle = globalThis.setTimeout(() => {}, 999999999);
       realHandles.push(handle);
       callbacks.push(callback);
-      return handle;
+      return handle as TimerHandle;
     },
-    clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => {
-      const index = realHandles.indexOf(id);
+    clearTimeout: (id: TimerHandle) => {
+      const index = realHandles.indexOf(id as ReturnType<typeof globalThis.setTimeout>);
       if (index >= 0) {
-        globalThis.clearTimeout(id);
+        globalThis.clearTimeout(id as ReturnType<typeof globalThis.setTimeout>);
         callbacks[index] = () => {};
       }
     },
@@ -110,7 +110,7 @@ const defaultActions: SessionActions = {
   logSet: async () => ({ ok: true }),
   deleteSet: async () => ({ ok: true }),
   finishExercise: async () => ({ ok: true, data: null }),
-  finishSession: async () => ({ ok: true }),
+  finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 555 } }),
   abandonSession: async () => ({ ok: true }),
   findAlternatives: async () => ({ ok: true, data: [] }),
   swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
@@ -446,7 +446,7 @@ await (async () => {
   const fakeTimer = createFakeTimer();
   let clearCalled = false;
   const originalClear = fakeTimer.timer.clearTimeout;
-  fakeTimer.timer.clearTimeout = (id: ReturnType<typeof globalThis.setTimeout>) => {
+  fakeTimer.timer.clearTimeout = (id: TimerHandle) => {
     clearCalled = true;
     originalClear(id);
   };

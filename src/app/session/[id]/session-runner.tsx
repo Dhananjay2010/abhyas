@@ -7,7 +7,6 @@ import type { WarmupItem } from "@/lib/program/warmup";
 import {
   formatClock,
   useBeeper,
-  useElapsed,
   useWakeLock,
   vibrate,
   useVibrationSupported,
@@ -21,6 +20,9 @@ import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { displayToKg, formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
+import { shouldShowFinishRetry, runEndEarly } from "@/lib/session/finish-flow";
+import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
+import { focusTrap } from "@/lib/focus-trap";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
 import { applySwapTarget } from "@/lib/session/apply-swap-target";
@@ -77,8 +79,8 @@ const REAL_ACTIONS: SessionActions = {
   getSessionSummary,
 };
 
-type Feel = Database["public"]["Enums"]["set_feel"];
-type Muscle = Database["public"]["Enums"]["muscle"];
+export type Feel = Database["public"]["Enums"]["set_feel"];
+export type Muscle = Database["public"]["Enums"]["muscle"];
 
 export type LoggedSet = {
   setNumber: number;
@@ -123,13 +125,13 @@ export type RunnerSettings = {
   units: "metric" | "imperial";
 };
 
-export type RunnerTimer = {
-  setTimeout: (callback: () => void, ms: number) => ReturnType<typeof globalThis.setTimeout>;
-  clearTimeout: (id: ReturnType<typeof globalThis.setTimeout>) => void;
-};
+/** Injectable timer for testing; defaults to real setTimeout. */
+export type TimerHandle = ReturnType<typeof globalThis.setTimeout> | number;
 
-/** Injectable timer handle for testing; defaults to real setTimeout return type. */
-export type TimerHandle = ReturnType<typeof globalThis.setTimeout>;
+export type RunnerTimer = {
+  setTimeout: (callback: () => void, ms: number) => TimerHandle;
+  clearTimeout: (id: TimerHandle) => void;
+};
 
 const REAL_TIMER: RunnerTimer = {
   setTimeout: (cb, ms) => globalThis.setTimeout(cb, ms),
@@ -182,11 +184,9 @@ export function SessionRunner({
   onExit?: () => void;
 }) {
   const router = useRouter();
-  const timerImpl = timer ?? REAL_TIMER;
   const rawElapsed = useElapsedWithClock(startedAt, nowFn ?? Date.now);
   const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
   const elapsed = frozenElapsed ?? displayElapsed(rawElapsed, isStale);
-  const [savedDuration, setSavedDuration] = useState<number | null>(null);
   
   const stopElapsed = useCallback(() => {
     const current = rawElapsed;
@@ -197,6 +197,8 @@ export function SessionRunner({
   const resumeElapsed = useCallback(() => {
     setFrozenElapsed(null);
   }, []);
+  
+  const timerImpl = timer ?? REAL_TIMER;
   
   const beeper = useBeeper(settings.restSound);
   
@@ -218,6 +220,8 @@ export function SessionRunner({
   }, []);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [needsFinishRetry, setNeedsFinishRetry] = useState(false);
+  const [lastCooldownCompleted, setLastCooldownCompleted] = useState<boolean>(true);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [alternativesForExerciseId, setAlternativesForExerciseId] = useState<string | null>(null);
   // FIX (a): Load summary from DB on phase transition, not client state
@@ -225,6 +229,11 @@ export function SessionRunner({
   const [summaryError, setSummaryError] = useState(false);
   const [summaryAttempt, setSummaryAttempt] = useState(0);
   const [summaryLoaded, setSummaryLoaded] = useState(false);
+  const [savedDurationSeconds, setSavedDurationSeconds] = useState<number | null>(null);
+  const endEarlyTriggerRef = useRef<HTMLButtonElement>(null);
+  const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
+  const endingRef = useRef(false);
+  const [ending, setEnding] = useState(false);
   const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [bannerContent, setBannerContent] = useState<{ name: string; message: string } | null>(null);
   // "What changed for next time": exactly the banner messages finishExercise
@@ -444,19 +453,23 @@ export function SessionRunner({
    * that button lives in the header. Neither loses logged sets, which is why
    * both ask rather than block.
    */
-  const [confirming, setConfirming] = useState<"skip" | null>(null);
+  const [confirming, setConfirming] = useState<"skip" | "end_early" | null>(null);
 
-  async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>): Promise<T | null> {
+  async function run<T extends { ok: boolean; error?: string }>(
+    fn: () => Promise<T>
+  ): Promise<T | null> {
     if (busyRef.current) return null;
     busyRef.current = true;
     setBusy(true);
     try {
       const r = await fn();
-      if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
-      else setError(null);
-      return r;
+      if (!r.ok) {
+        setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
+      } else {
+        setError(null);
+      }
+      return r.ok ? r : null;
     } catch (err) {
-      // h2: Catch network errors (offline, timeout, etc)
       setError(runnerErrorMessage(err));
       return null;
     } finally {
@@ -564,38 +577,58 @@ export function SessionRunner({
             disabled={busy}
             onClick={async () => {
               const frozen = stopElapsed();
+              setLastCooldownCompleted(true);
               const result = await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true }),
+                actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
               );
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              if (result?.ok && (result as any).data?.durationSeconds !== undefined) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setSavedDuration((result as any).data.durationSeconds);
-              } else {
-                setSavedDuration(frozen);
-              }
               restPersistence.clear();
-              setPhase("done");
+              if (result && result.ok) {
+                setSavedDurationSeconds(result.data.durationSeconds);
+                setPhase("done");
+              } else {
+                resumeElapsed();
+              }
+              setNeedsFinishRetry(shouldShowFinishRetry(!!result, true));
             }}
           >
             Done
           </BigButton>
+          {needsFinishRetry && error && (
+            <BigButton
+              disabled={busy}
+              onClick={async () => {
+                const frozen = stopElapsed();
+                const result = await run(() =>
+                  actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: lastCooldownCompleted })
+                );
+                if (result && result.ok) {
+                  setSavedDurationSeconds(result.data.durationSeconds);
+                  setPhase("done");
+                } else {
+                  resumeElapsed();
+                }
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result, lastCooldownCompleted));
+              }}
+            >
+              Try again
+            </BigButton>
+          )}
           <GhostButton
             disabled={busy}
             onClick={async () => {
               const frozen = stopElapsed();
+              setLastCooldownCompleted(false);
               const result = await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false }),
+                actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
               );
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              if (result?.ok && (result as any).data?.durationSeconds !== undefined) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setSavedDuration((result as any).data.durationSeconds);
-              } else {
-                setSavedDuration(frozen);
-              }
               restPersistence.clear();
-              setPhase("done");
+              if (result && result.ok) {
+                setSavedDurationSeconds(result.data.durationSeconds);
+                setPhase("done");
+              } else {
+                resumeElapsed();
+              }
+              setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
             }}
           >
             Skip cool-down
@@ -615,15 +648,12 @@ export function SessionRunner({
       (n, e) => n + e.sets.reduce((m, s) => m + (s.reps ?? 0) * (s.weightKg ?? 0), 0),
       0,
     );
-    
-    // MEDIUM-1: Use summaryDurationSeconds to show stale-capped duration, not raw elapsed
     const summaryDuration = summaryDurationSeconds({
-      savedDurationSeconds: savedDuration ?? elapsed,
-      elapsedSeconds: rawElapsed,
+      savedDurationSeconds,
+      elapsedSeconds: elapsed,
       isStale,
       nowMs: (nowFn ?? Date.now)(),
     });
-    
     return (
       <Shell
         title="Session complete"
@@ -929,17 +959,17 @@ export function SessionRunner({
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
         const frozen = stopElapsed();
+        setLastCooldownCompleted(false);
         const result = await run(() =>
-          actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false }),
+          actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
         );
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (result?.ok && (result as any).data?.durationSeconds !== undefined) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setSavedDuration((result as any).data.durationSeconds);
+        if (result && result.ok) {
+          setSavedDurationSeconds(result.data?.durationSeconds ?? null);
+          setPhase("done");
         } else {
-          setSavedDuration(frozen);
+          resumeElapsed();
         }
-        setPhase("done");
+        setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
       }
     } else {
       setExerciseIndex(next);
@@ -1252,19 +1282,67 @@ export function SessionRunner({
               Skip this exercise
             </GhostButton>
           )}
+          {confirming === "end_early" && (
+            <EndEarlyConfirm
+              totalSetsDone={totalSetsDone}
+              totalSetsPlanned={totalSetsPlanned}
+              triggerRef={endEarlyTriggerRef}
+              offlineError={endEarlyOfflineError}
+              onClearOfflineError={() => setEndEarlyOfflineError(false)}
+              onCancel={() => {
+                setConfirming(null);
+                setEndEarlyOfflineError(false);
+              }}
+              onConfirm={async () => {
+                const ended = await runEndEarly(
+                  {
+                    abandonSession: actions.abandonSession,
+                    stopElapsed,
+                    resumeElapsed,
+                    setError,
+                    navigateToToday: () => router.push("/today"),
+                  },
+                  {
+                    sessionId,
+                    setConfirming: (v) => setConfirming(v),
+                    setOfflineError: setEndEarlyOfflineError,
+                    endingRef,
+                    setEnding,
+                  },
+                );
+                if (ended) restPersistence.clear();
+              }}
+              disabled={ending}
+            />
+          )}
           <GhostButton
+            buttonRef={endEarlyTriggerRef}
             disabled={busy}
-            onClick={async () => {
-              const result = await run(() => actions.abandonSession(sessionId, elapsed));
-              if (result?.ok) {
-                restPersistence.clear();
-                if (onExit) onExit();
-                else router.push("/today");
-              }
-            }}
+            onClick={() => setConfirming("end_early")}
           >
             End session early
           </GhostButton>
+          {!settings.cooldownEnabled && needsFinishRetry && error && (
+            <BigButton
+              disabled={busy}
+              onClick={async () => {
+                const frozen = stopElapsed();
+                setLastCooldownCompleted(false);
+                const result = await run(() =>
+                  actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
+                );
+                if (result && result.ok) {
+                  setSavedDurationSeconds(result.data.durationSeconds);
+                  setPhase("done");
+                } else {
+                  resumeElapsed();
+                }
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
+              }}
+            >
+              Try again
+            </BigButton>
+          )}
         </div>
 
         <p className="mt-8 text-center text-xs text-muted">
@@ -1617,13 +1695,16 @@ function GhostButton({
   children,
   onClick,
   disabled = false,
+  buttonRef,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  buttonRef?: React.RefObject<HTMLButtonElement | null>;
 }) {
   return (
     <button
+      ref={buttonRef}
       onClick={onClick}
       disabled={disabled}
       className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-60"
@@ -1672,4 +1753,133 @@ export function CapabilityNote({
   if (vibrateEnabled && !vibrationSupported) bits.push("vibration unsupported here");
 
   return <p className="mt-4 text-center text-[11px] text-muted/70">{bits.join(" · ")}</p>;
+}
+
+/**
+ * Confirmation dialog for ending a session early.
+ *
+ * Uses a native <dialog> element opened with showModal() for proper a11y:
+ * - modal semantics with backdrop
+ * - Escape key support via cancel event
+ * - focus trap with Tab/Shift+Tab cycling
+ * - focus management: initial focus on "Keep going", returns to trigger on close
+ * - offline error handling: shows error and clears on 'online' event
+ */
+function EndEarlyConfirm({
+  totalSetsDone,
+  totalSetsPlanned,
+  triggerRef,
+  offlineError,
+  onClearOfflineError,
+  onCancel,
+  onConfirm,
+  disabled = false,
+}: {
+  totalSetsDone: number;
+  totalSetsPlanned: number;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
+  offlineError: boolean;
+  onClearOfflineError: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+  disabled?: boolean;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const keepGoingRef = useRef<HTMLButtonElement>(null);
+  const endSessionRef = useRef<HTMLButtonElement>(null);
+  const onCancelRef = useRef(onCancel);
+  const onConfirmRef = useRef(onConfirm);
+
+  useEffect(() => {
+    onCancelRef.current = onCancel;
+    onConfirmRef.current = onConfirm;
+  });
+
+  useEffect(() => {
+    const handleOnline = () => {
+      onClearOfflineError();
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [onClearOfflineError]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    dialog.showModal();
+
+    const trap = focusTrap({
+      element: dialog,
+      onEscape: () => onCancelRef.current(),
+      returnFocusTo: triggerRef.current,
+      initialFocus: true,
+    });
+
+    const handleCancel = (e: Event) => {
+      e.preventDefault();
+      onCancelRef.current();
+    };
+
+    dialog.addEventListener("cancel", handleCancel);
+
+    return () => {
+      dialog.removeEventListener("cancel", handleCancel);
+      trap.release();
+      dialog.close();
+    };
+  }, [triggerRef]);
+
+  const handleKeepGoing = () => {
+    onCancelRef.current();
+  };
+
+  const handleEndSession = () => {
+    onConfirmRef.current();
+  };
+
+  const hasNoSets = totalSetsDone === 0;
+  const titleText = endEarlyConfirmTitle(totalSetsDone, totalSetsPlanned);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="end-early-title"
+      aria-describedby="end-early-desc"
+      className="max-w-[390px] rounded-xl border border-border bg-surface-2 px-4 py-4 backdrop:bg-bg/80"
+    >
+      <p id="end-early-title" className="text-sm font-medium">
+        {titleText}
+      </p>
+      <p id="end-early-desc" className="mt-2 text-sm text-muted">
+        {hasNoSets
+          ? "You can start it again from Today."
+          : "The session can\u2019t be resumed once ended."}
+      </p>
+      {offlineError && (
+        <p role="alert" className="mt-3 text-sm text-danger">
+          You&apos;re offline. Your session wasn&apos;t ended – try again when you&apos;re back
+          online.
+        </p>
+      )}
+      <div className="mt-4 flex gap-3">
+        <button
+          ref={keepGoingRef}
+          onClick={handleKeepGoing}
+          className="flex-1 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover min-h-11"
+        >
+          Keep going
+        </button>
+        <button
+          ref={endSessionRef}
+          disabled={disabled}
+          onClick={handleEndSession}
+          className="flex-1 rounded-lg bg-surface px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-surface-2 disabled:opacity-60 min-h-11"
+        >
+          End now
+        </button>
+      </div>
+    </dialog>
+  );
 }

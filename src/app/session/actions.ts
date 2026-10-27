@@ -22,6 +22,7 @@ import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
+import { finishSessionAction, abandonSessionAction } from "@/lib/session/session-action-wrappers";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligible-swap-list";
@@ -327,27 +328,17 @@ export async function finishSession(input: {
   sessionId: string;
   durationSeconds: number;
   cooldownCompleted: boolean;
-}): Promise<Result> {
-  const rateLimit = await checkActionRateLimit("session");
+}): Promise<Result<{ status: "completed" | "skipped"; durationSeconds: number | null }>> {
+  const rateLimit = await checkActionRateLimit<{ status: "completed" | "skipped"; durationSeconds: number | null }>("session");
   if (rateLimit) return rateLimit;
   
   const { supabase } = await requireUser();
-  const { error } = await supabase
-    .from("sessions")
-    .update({
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      duration_seconds: input.durationSeconds,
-      cooldown_completed: input.cooldownCompleted,
-    })
-    .eq("id", input.sessionId);
-  if (error) return { ok: false, error: error.message };
 
   // Deliberately NOT revalidating here. Revalidating refreshes the session
   // route, whose "completed -> redirect to /today" guard then fires before the
   // client can show the summary, so the user never saw their totals or what
   // progression changed. Today is refreshed when they leave the summary.
-  return { ok: true };
+  return await finishSessionAction(supabase, input);
 }
 
 /**
