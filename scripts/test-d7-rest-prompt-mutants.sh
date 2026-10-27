@@ -251,7 +251,7 @@ run_mutant "R6. Keep rest not disabled while pending" "$COMPONENT" \
             </Choice>' "$T"
 
 run_mutant "R6b. Training choices not disabled while pending (rest branch)" "$COMPONENT" \
-  '              days.map((d) => (
+  '              sortedDays.map((d) => (
                 <Choice
                   key={d.programDayId}
                   wide
@@ -260,12 +260,9 @@ run_mutant "R6b. Training choices not disabled while pending (rest branch)" "$CO
                     choose({ kind: "training", programDayId: d.programDayId }, d.label)
                   }
                 >
-                  {d.label}
-                </Choice>
-              ))
-            )}
-            {days.some' \
-  '              days.map((d) => (
+                  <div className="flex items-center justify-between">
+                    <span>{d.label}</span>' \
+  '              sortedDays.map((d) => (
                 <Choice
                   key={d.programDayId}
                   wide
@@ -274,11 +271,8 @@ run_mutant "R6b. Training choices not disabled while pending (rest branch)" "$CO
                     choose({ kind: "training", programDayId: d.programDayId }, d.label)
                   }
                 >
-                  {d.label}
-                </Choice>
-              ))
-            )}
-            {days.some' "$T"
+                  <div className="flex items-center justify-between">
+                    <span>{d.label}</span>' "$T"
 
 run_mutant "R7. Error not shown in rest branch" "$COMPONENT" \
   '        {error && (
@@ -364,7 +358,7 @@ run_mutant "R8. Failed plan still settles (ignore r.ok)" "$COMPONENT" \
         }, 1200);' "$T"
 
 run_mutant "R11. Training choice sends wrong programDayId (rest branch)" "$COMPONENT" \
-  '              days.map((d) => (
+  '              sortedDays.map((d) => (
                 <Choice
                   key={d.programDayId}
                   wide
@@ -373,12 +367,9 @@ run_mutant "R11. Training choice sends wrong programDayId (rest branch)" "$COMPO
                     choose({ kind: "training", programDayId: d.programDayId }, d.label)
                   }
                 >
-                  {d.label}
-                </Choice>
-              ))
-            )}
-            {days.some' \
-  '              days.map((d) => (
+                  <div className="flex items-center justify-between">
+                    <span>{d.label}</span>' \
+  '              sortedDays.map((d) => (
                 <Choice
                   key={d.programDayId}
                   wide
@@ -387,11 +378,8 @@ run_mutant "R11. Training choice sends wrong programDayId (rest branch)" "$COMPO
                     choose({ kind: "training", programDayId: days[0].programDayId }, d.label)
                   }
                 >
-                  {d.label}
-                </Choice>
-              ))
-            )}
-            {days.some' "$T"
+                  <div className="flex items-center justify-between">
+                    <span>{d.label}</span>' "$T"
 
 run_mutant "Q1. Yoga not added when already in block" "$COMPONENT" \
   '            {days.some((d) => d.dayType === "yoga") || days.length === 0 ? null : (
@@ -495,12 +483,59 @@ run_mutant "PG1. page.tsx shows session.local_date + 1 without the MED-4 clamp" 
   '    ? planTargetDate(session.local_date, "0000-01-01")' "$T_PAGE"
 
 run_mutant "PG2. page.tsx omits sessionTargetDate (wall-clock tomorrow)" "$PAGE" \
-  'const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate);' \
-  'const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate && undefined);' "$T_PAGE"
+  'const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate, {' \
+  'const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate && undefined, {' "$T_PAGE"
 
-run_mutant "DP1. nextDayPlan ignores targetLocalDate" "$DAYPLAN" \
-  'const tomorrow = targetLocalDate ?? sessionPlanTargetDate(localDateString(timezone));' \
-  'const tomorrow = sessionPlanTargetDate(localDateString(timezone)) ?? targetLocalDate;' "$T_PAGE"
+run_mutant "SID1. page.tsx drops sessionId from nextDayPlan (#165 swap check)" "$PAGE" \
+  '  const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate, {
+    sessionId: session.id,
+  });' \
+  '  const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate, {});' "$T_PAGE"
+
+run_mutant "DP1. nextDayPlan ignores targetLocalDate (wall-clock tomorrow)" "$DAYPLAN" \
+  '  const today = targetLocalDate ? addDays(targetLocalDate, -1) : localDateString(timezone, wallClockNow);
+  const tomorrow = targetLocalDate ?? addDays(today, 1);' \
+  '  const today = localDateString(timezone, wallClockNow);
+  const tomorrow = addDays(today, 1);' "$T_PAGE"
+
+# #165 obligations in the Tomorrow+rest branch
+run_mutant "NX1. Rest branch lists days unsorted (no Next-up first)" "$COMPONENT" \
+  '              sortedDays.map((d) => (
+                <Choice
+                  key={d.programDayId}
+                  wide
+                  disabled={pending}
+                  onClick={() =>
+                    choose({ kind: "training", programDayId: d.programDayId }, d.label)
+                  }
+                >
+                  <div className="flex items-center justify-between">
+                    <span>{d.label}</span>' \
+  '              days.map((d) => (
+                <Choice
+                  key={d.programDayId}
+                  wide
+                  disabled={pending}
+                  onClick={() =>
+                    choose({ kind: "training", programDayId: d.programDayId }, d.label)
+                  }
+                >
+                  <div className="flex items-center justify-between">
+                    <span>{d.label}</span>' "$T"
+
+run_mutant "NX2. Rest branch drops the Next-up badge" "$COMPONENT" \
+  '                    <span>{d.label}</span>
+                    {d.nextUp && (
+                      <span className="rounded bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent">
+                        Next up
+                      </span>
+                    )}' \
+  '                    <span>{d.label}</span>
+                    {false && d.nextUp && (
+                      <span className="rounded bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent">
+                        Next up
+                      </span>
+                    )}' "$T"
 
 echo ""
 echo "──────────────────────────────────────────────────────────"

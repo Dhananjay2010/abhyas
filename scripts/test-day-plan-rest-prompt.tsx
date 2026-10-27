@@ -87,6 +87,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -109,6 +110,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     const mock = mockPlanDay();
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -131,6 +133,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     const mock = mockPlanDay();
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-456"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -156,6 +159,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     const mock = mockPlanDay();
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -179,6 +183,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -200,6 +205,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -223,6 +229,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     let resolve: (v: { ok: true }) => void = () => {};
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -238,7 +245,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     );
 
     await act(async () => {
-      fireEvent.click(button(c, /^Keep rest$/)!);
+      { const b = button(c, /^Keep rest$/); if (b) fireEvent.click(b); else check("button present: Keep rest", false); }
       await new Promise((r) => setTimeout(r, 5));
     });
     
@@ -246,7 +253,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     check("Train anyway disabled while pending", button(c, /^Train anyway$/)?.disabled === true);
     
     await act(async () => {
-      fireEvent.click(button(c, /^Keep rest$/)!);
+      { const b = button(c, /^Keep rest$/); if (b) fireEvent.click(b); else check("button present: Keep rest", false); }
       await new Promise((r) => setTimeout(r, 5));
     });
     
@@ -265,6 +272,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     let resolve: (v: { ok: true }) => void = () => {};
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -281,7 +289,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     await click(button(c, /^Train anyway$/), "Train anyway");
     
     await act(async () => {
-      fireEvent.click(button(c, /^Upper$/)!);
+      { const b = button(c, /^Upper$/); if (b) fireEvent.click(b); else check("button present: Upper", false); }
       await new Promise((r) => setTimeout(r, 5));
     });
     
@@ -302,6 +310,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     const { container: c, unmount } = render(
       <Boundary>
         <DayPlanPrompt
+          programDayId={null}
           sessionId="s-123"
           dayLabel="Tomorrow"
           plannedLabel="Rest"
@@ -328,6 +337,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Upper"
@@ -349,6 +359,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Today"
         plannedLabel="Rest"
@@ -371,6 +382,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -392,6 +404,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="rest"
@@ -410,6 +423,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="tomorrow"
         plannedLabel="Rest"
@@ -430,6 +444,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -451,6 +466,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -470,6 +486,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -493,6 +510,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -517,6 +535,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-123"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -538,6 +557,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     const mock = mockPlanDay();
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-789"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -563,6 +583,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     const mock = mockPlanDay();
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-med-a-c"
         dayLabel="Tomorrow"
         plannedLabel="Upper"
@@ -596,6 +617,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     const mock = mockPlanDay();
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-med-a-gf"
         dayLabel="Tomorrow"
         plannedLabel="Full Body B"
@@ -617,6 +639,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-confirm"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -642,6 +665,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     const mock = mockPlanDay();
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-priority"
         localDate="2026-10-30"
         dayLabel="Tomorrow"
@@ -664,6 +688,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     const calls: unknown[] = [];
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-r7"
         dayLabel="Tomorrow"
         plannedLabel="Rest"
@@ -687,6 +712,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     const calls: Array<{ sessionId?: string; plan: DayPlan }> = [];
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-r7b"
         dayLabel="Tomorrow"
         plannedLabel="Upper"
@@ -711,6 +737,7 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
   {
     const { container: c, unmount } = render(
       <DayPlanPrompt
+        programDayId={null}
         sessionId="s-done"
         dayLabel="Tomorrow"
         plannedLabel="Upper"
@@ -722,6 +749,55 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     await click(button(c, /^Keep it$/), "Keep it");
     check("alert shows 'That day is already done.'", c.querySelector('[role="alert"]')?.textContent?.includes("That day is already done.") ?? false);
     check("no Retry", !button(c, /^Retry$/));
+    unmount();
+  }
+
+  console.log("\nCase 32: #165 Next up in the rest branch - nextUp day listed first with the only badge");
+  {
+    const mock = mockPlanDay();
+    const DAYS_WITH_NEXT: PlannableDay[] = [
+      { programDayId: "fb-a", label: "Full Body A", dayType: "weights", nextUp: false },
+      { programDayId: "fb-b", label: "Full Body B", dayType: "weights", nextUp: true },
+      { programDayId: "fb-c", label: "Full Body C", dayType: "weights", nextUp: false },
+    ];
+    const { container: c, unmount } = render(
+      <DayPlanPrompt
+        programDayId={null}
+        sessionId="s-next"
+        dayLabel="Tomorrow"
+        plannedLabel="Rest"
+        days={DAYS_WITH_NEXT}
+        heading="What about tomorrow?"
+        onPlan={mock.fn}
+      />
+    );
+    await click(button(c, /^Train anyway$/), "Train anyway");
+    const choices = [...c.querySelectorAll("button")].map((b) => b.textContent?.trim() ?? "").filter((t) => t.startsWith("Full Body"));
+    check("order: Full Body B (next up) first, then A, C", JSON.stringify(choices) === JSON.stringify(["Full Body BNext up", "Full Body A", "Full Body C"]), JSON.stringify(choices));
+    const badges = [...c.querySelectorAll("span")].filter((s) => s.textContent?.trim() === "Next up");
+    check("exactly one Next up badge", badges.length === 1, String(badges.length));
+    check("badge sits on Full Body B", badges[0]?.closest("button")?.textContent?.includes("Full Body B") ?? false, badges[0]?.closest("button")?.textContent ?? "none");
+    await click(button(c, /^Full Body BNext up$/), "Full Body B");
+    check("tapping it sends fb-b", mock.calls[0]?.plan.kind === "training" && (mock.calls[0]?.plan as { programDayId?: string }).programDayId === "fb-b", JSON.stringify(mock.calls[0]));
+    unmount();
+  }
+
+  console.log("\nCase 33: rest branch with no nextUp keeps program order, no badge");
+  {
+    const { container: c, unmount } = render(
+      <DayPlanPrompt
+        programDayId={null}
+        sessionId="s-nonext"
+        dayLabel="Tomorrow"
+        plannedLabel="Rest"
+        days={TRAINING_DAYS}
+        heading="What about tomorrow?"
+      />
+    );
+    await click(button(c, /^Train anyway$/), "Train anyway");
+    const choices = [...c.querySelectorAll("button")].map((b) => b.textContent?.trim() ?? "").filter((t) => t === "Upper" || t === "Lower");
+    check("order: Upper, Lower", JSON.stringify(choices) === '["Upper","Lower"]', JSON.stringify(choices));
+    check("no badge", !(c.textContent ?? "").includes("Next up"));
     unmount();
   }
 

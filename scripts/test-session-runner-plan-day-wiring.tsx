@@ -58,7 +58,7 @@ async function flush() {
 const btn = (c: HTMLElement, re: RegExp) =>
   [...c.querySelectorAll("button")].find((b) => re.test(b.textContent?.trim() ?? ""));
 
-async function runCase(plannedLabel: string, answer: RegExp) {
+async function runCase(plannedLabel: string, answer: RegExp, programDayId: string | null = null, expectPlan: DayPlan = { kind: "keep" }) {
   const calls: PlanCall[] = [];
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
@@ -94,6 +94,8 @@ async function runCase(plannedLabel: string, answer: RegExp) {
         tomorrow: {
           localDate: "2026-10-31", // deliberately NOT what the server would resolve
           plannedLabel,
+          programDayId,
+          collisionResolved: programDayId !== null,
           days: [{ programDayId: "pd-upper", label: "Upper", dayType: "weights" }],
         },
         actions,
@@ -118,7 +120,7 @@ async function runCase(plannedLabel: string, answer: RegExp) {
   check("planDay called exactly once", calls.length === 1, JSON.stringify(calls));
   check("planDay gets the session id", calls[0]?.sessionId === "sess-runner-1", JSON.stringify(calls[0]));
   check("planDay does NOT get tomorrow.localDate", calls[0] !== undefined && !("localDate" in calls[0]) , JSON.stringify(calls[0]));
-  check("plan is keep", calls[0]?.plan?.kind === "keep", JSON.stringify(calls[0]?.plan));
+  check(`plan is ${JSON.stringify(expectPlan)}`, JSON.stringify(calls[0]?.plan) === JSON.stringify(expectPlan), JSON.stringify(calls[0]?.plan));
 
   await act(async () => { root.unmount(); });
   container.remove();
@@ -129,6 +131,8 @@ async function runCase(plannedLabel: string, answer: RegExp) {
   await runCase("Rest", /^Keep rest$/);
   console.log("\nR2: tomorrow is Upper -> Keep it");
   await runCase("Upper", /^Keep it$/);
+  console.log("\nR3: #165 collision-resolved tomorrow (Lower, pd-lower) -> Keep it sends that day, still by sessionId");
+  await runCase("Lower", /^Keep it$/, "pd-lower", { kind: "training", programDayId: "pd-lower" });
 
   if (failures > 0) {
     console.log(`\n❌ ${failures} check(s) failed`);

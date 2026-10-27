@@ -138,7 +138,7 @@ export function DayPlanPrompt({
   const showNewRestUI = isRestDay && isTomorrowLabel;
 
   if (showNewRestUI) {
-    // For rest branch, show days in program order (no sorting needed - no nextUp prop)
+    // Rest branch: same order and "Next up" badge as the swap list (#165).
     return (
       <section className="mt-8">
         <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">{heading}</h2>
@@ -162,7 +162,7 @@ export function DayPlanPrompt({
                 No training days in this block.
               </p>
             ) : (
-              days.map((d) => (
+              sortedDays.map((d) => (
                 <Choice
                   key={d.programDayId}
                   wide
@@ -171,7 +171,14 @@ export function DayPlanPrompt({
                     choose({ kind: "training", programDayId: d.programDayId }, d.label)
                   }
                 >
-                  {d.label}
+                  <div className="flex items-center justify-between">
+                    <span>{d.label}</span>
+                    {d.nextUp && (
+                      <span className="rounded bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent">
+                        Next up
+                      </span>
+                    )}
+                  </div>
                 </Choice>
               ))
             )}
