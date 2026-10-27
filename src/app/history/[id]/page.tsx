@@ -13,7 +13,6 @@ import { countWorkingSets } from "@/lib/session/count-sets";
 import { formatVolume, formatWeight, getUnitsPreference } from "@/lib/units";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
-import { formatDurationMinutes } from "@/lib/history/compute-duration";
 import { computeDetailPageDuration } from "@/lib/history/compute-detail-page-duration";
 
 export const dynamic = "force-dynamic";

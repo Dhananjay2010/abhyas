@@ -11,7 +11,7 @@
  */
 
 import { closeStaleSessionsCore } from "../src/lib/session/close-stale";
-import type { CloseStaleDeps, SessionExerciseRow } from "../src/lib/session/close-stale-deps";
+import type { CloseStaleDeps } from "../src/lib/session/close-stale-deps";
 import { finishSessionCore } from "../src/lib/session/finish-session";
 import type { FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 
@@ -56,7 +56,7 @@ console.log("1. close-stale adds rest_seconds to duration");
   const updateCalls: Array<{ id: string; status: string; completed_at: string; duration_seconds: number | null }> = [];
   
   const deps: CloseStaleDeps = {
-    async fetchSessionExercises(sessionIds) {
+    async fetchSessionExercises() {
       return [
         {
           session_id: "stale-1",
