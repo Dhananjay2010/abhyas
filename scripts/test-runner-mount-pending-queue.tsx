@@ -52,7 +52,6 @@ Object.defineProperty(window, 'localStorage', {
   fakeStorage.clear();
   
   const logSetCalls: Array<{ sessionExerciseId: string; setNumber: number }> = [];
-  const replayCalled = false;
   
   const fakeActions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
@@ -122,7 +121,7 @@ Object.defineProperty(window, 'localStorage', {
   assert(queueBefore !== null, "Queue seeded in storage");
   
   // Mount the runner
-  const { container } = render(
+  render(
     <SessionRunner
       sessionId="s1"
       sessionStatus="in_progress"
@@ -158,11 +157,6 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {
     await new Promise(resolve => setTimeout(resolve, 100));
   });
-  
-  // Check that the pending count is visible in the UI
-  const text = container.textContent || "";
-  // The runner should show something about pending sets or session expired
-  // Since we're in_progress with pending sets, they should be replayed
   
   // Verify logSet was called for both pending sets (replay happened)
   assert(logSetCalls.length === 2, "Replay triggered: logSet called for 2 pending sets");

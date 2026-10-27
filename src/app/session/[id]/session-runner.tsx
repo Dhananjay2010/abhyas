@@ -48,7 +48,7 @@ import {
 } from "@/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { loadPendingSets } from "@/lib/session/pending-set-retry";
-import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
+import { getFinishButtonText } from "@/lib/session/finish-guard";
 import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
 import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";

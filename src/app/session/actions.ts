@@ -18,9 +18,7 @@ import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps
 import { planDayCore } from "@/lib/session/plan-day-core";
 import { createPlanDayDbOps } from "@/lib/session/make-plan-day-client";
 import { localDateString } from "@/lib/dates";
-import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
-import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { finishSessionAction, abandonSessionAction } from "@/lib/session/session-action-wrappers";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";

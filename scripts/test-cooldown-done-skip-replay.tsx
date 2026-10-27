@@ -349,32 +349,6 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
   // ===== Test 4: Done with pending, replay succeeds but finish fails - rest NOT cleared =====
   console.log("=== Test 4: Done with pending, replay succeeds, finish fails - rest NOT cleared ===\n");
 
-  const exercise4 = makeExercise("ex-4", "pullup", "Pull-ups", 1);
-
-  let logSetCalls4 = 0;
-  let finishCalls4 = 0;
-  const restCleared: boolean[] = [];
-  
-  const mockRestPersistence = {
-    clear: () => {
-      restCleared.push(true);
-    },
-  };
-
-  const actions4: SessionActions = {
-    ...actions1,
-    logSet: async () => {
-      logSetCalls4++;
-      await Promise.resolve();
-      return { ok: true };
-    },
-    finishSession: async () => {
-      finishCalls4++;
-      await Promise.resolve();
-      // Simulate finish failure
-      return { ok: false, error: "Network error" };
-    },
-  } as unknown as SessionActions;
 
   // This test would need to mock restPersistence, which isn't easily accessible in the test
   // For now, document the expected behavior:
