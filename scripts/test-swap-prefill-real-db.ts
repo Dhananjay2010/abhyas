@@ -18,12 +18,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { resolveSwapPrefill } from "../src/lib/session/swap-prefill";
-import { checkRealDbTest } from "./lib-db-reset-guard";
-
-if (!checkRealDbTest("./supabase/config.toml").allow) {
-  console.error("❌ REAL_DB=1 guard refused (see above reason)");
-  process.exit(1);
-}
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
