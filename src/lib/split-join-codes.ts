@@ -14,9 +14,9 @@ export interface SplitJoinCodes {
 /**
  * Determines if a join code is active (not revoked, expired, or exhausted).
  */
-export function isCodeActive(code: JoinCode): boolean {
+export function isCodeActive(code: JoinCode, now: Date = new Date()): boolean {
   if (code.revoked_at) return false;
-  if (code.expires_at && new Date(code.expires_at) <= new Date()) return false;
+  if (code.expires_at && new Date(code.expires_at) <= now) return false;
   if (code.max_uses !== null && code.use_count >= code.max_uses) return false;
   return true;
 }
@@ -25,12 +25,12 @@ export function isCodeActive(code: JoinCode): boolean {
  * Splits join codes into active and inactive lists.
  * Inactive codes are those that are revoked, expired, or exhausted.
  */
-export function splitJoinCodes(codes: JoinCode[]): SplitJoinCodes {
+export function splitJoinCodes(codes: JoinCode[], now: Date = new Date()): SplitJoinCodes {
   const active: JoinCode[] = [];
   const inactive: JoinCode[] = [];
   
   for (const code of codes) {
-    if (isCodeActive(code)) {
+    if (isCodeActive(code, now)) {
       active.push(code);
     } else {
       inactive.push(code);

@@ -809,6 +809,32 @@ async function runTests() {
   }
   console.log();
 
+  // Test already_member personalized error (LOW 6)
+  console.log("\n=== Test already_member personalized error (LOW 6) ===");
+  
+  // successUser is already a member of gymId via highUsesCode
+  // Now successUser tries to redeem again - should get already_member with gym name
+  const { data: alreadyMemberData } = await successUser.client.rpc("redeem_join_code", {
+    p_code: highUsesCode,
+  });
+  check("successUser redeem returns data", !!alreadyMemberData);
+  const parsedAlreadyMember = alreadyMemberData as { ok: boolean; reason?: string };
+  check("successUser redeem already_member reason", parsedAlreadyMember.ok === false && parsedAlreadyMember.reason === "already_member");
+
+  // Verify the error message contains the gym name via actions.ts path
+  // (The action calls preview_join_code which is SECURITY DEFINER and retrieves gym_name)
+  // successUser.client should be authenticated with the same user
+  // But actions.ts requires server-side auth, so let's verify via direct RPC that gym_name is available
+  const { data: previewForName } = await successUser.client.rpc("preview_join_code", {
+    p_code: highUsesCode,
+  });
+  const parsedPreview = parsePreviewJoinCodeResult(previewForName);
+  check("preview_join_code returns gym_name for ordinary user",
+    !!(parsedPreview?.ok && parsedPreview.gym_name === "Test Gym"),
+    parsedPreview?.ok ? `Got gym_name: ${(parsedPreview as { gym_name?: string }).gym_name}` : "Preview failed"
+  );
+  console.log();
+
   // Cleanup
   console.log("Cleaning up...");
   await adminClient.from("gym_join_codes").delete().eq("gym_id", gymId);

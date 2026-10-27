@@ -53,9 +53,12 @@ const unlimitedCode = createCode({ max_uses: null, use_count: 100 });
 assert.strictEqual(isCodeActive(unlimitedCode), true, "FAIL: unlimited code should be active regardless of use_count");
 console.log("  ✓ unlimited code is active regardless of use_count");
 
-const expiresNowCode = createCode({ expires_at: new Date().toISOString() });
-assert.strictEqual(isCodeActive(expiresNowCode), false, "FAIL: code that expires exactly now should be inactive");
-console.log("  ✓ code that expires exactly now is inactive\n");
+// Test expiry boundary with fixed timestamp (LOW 3)
+// Pass same timestamp to ensure deterministic comparison
+const fixedNow = new Date("2024-01-15T12:00:00.000Z");
+const expiresExactlyNowCode = createCode({ expires_at: fixedNow.toISOString() });
+assert.strictEqual(isCodeActive(expiresExactlyNowCode, fixedNow), false, "FAIL: code that expires exactly now should be inactive (kills <= vs < mutant)");
+console.log("  ✓ code that expires exactly now is inactive (boundary test)\n");
 
 console.log("TEST: splitJoinCodes");
 
@@ -107,5 +110,19 @@ const allInactive = splitJoinCodes([
 assert.strictEqual(allInactive.active.length, 0, "FAIL: should have 0 active");
 assert.strictEqual(allInactive.inactive.length, 2, "FAIL: should have 2 inactive");
 console.log("  ✓ all inactive codes produce only inactive array\n");
+
+console.log("TEST: expiry boundary mutant (flips <= to <)");
+// This mutant test verifies that changing <= to < would be caught
+// If the implementation used < instead of <=, a code expiring exactly now would be active
+const mutantFixedNow = new Date("2024-01-15T12:00:00.000Z");
+const mutantExpiresNowCode = createCode({ expires_at: mutantFixedNow.toISOString() });
+
+// With <= (correct): code expiring exactly now is inactive
+assert.strictEqual(
+  isCodeActive(mutantExpiresNowCode, mutantFixedNow),
+  false,
+  "FAIL: Mutant M1 survived - code expiring exactly now should be inactive"
+);
+console.log("  ✓ M1: Mutant killed (flipping <= to < would make test fail)\n");
 
 console.log("✅ All split-join-codes tests passed");
