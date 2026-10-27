@@ -11,7 +11,7 @@
 
 import { planDayCore, type PlanDayClient } from "../src/lib/session/plan-day-core";
 import { resolvePlanTargetDate, type ResolvePlanTargetDateDeps } from "../src/lib/session/resolve-plan-target-date";
-import { friendlyPlanDayError } from "../src/app/session/actions";
+import { friendlyPlanDayError } from "../src/lib/session/friendly-plan-day-error";
 import type { DayPlan } from "../src/app/session/actions";
 
 let failures = 0;

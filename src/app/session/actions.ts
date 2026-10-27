@@ -50,6 +50,8 @@ export type SetConflictResult = {
   }>;
 };
 
+import { friendlyPlanDayError } from "@/lib/session/friendly-plan-day-error";
+
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");
@@ -581,24 +583,6 @@ export type PlannableDay = {
   label: string;
   dayType: Database["public"]["Enums"]["day_type"];
 };
-
-/**
- * Map planDayCore errors to friendly user-facing copy.
- * 
- * Some errors are already user-friendly (e.g. "That day has already been trained").
- * Others are raw database errors that need to be mapped to generic friendly text.
- */
-export function friendlyPlanDayError(error: string): string {
-  return error === "That day has already been trained."
-    ? error
-    : error === "That day has a session in progress."
-    ? error
-    : error === "That day has already been and gone."
-    ? error
-    : error === "No active program found."
-    ? error
-    : "Couldn't save your choice. Please try again.";
-}
 
 /**
  * Plan one day.
