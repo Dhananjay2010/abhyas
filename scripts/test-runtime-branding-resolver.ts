@@ -33,39 +33,41 @@ type FetchCall = {
 function createStubFetch(responses: Record<string, unknown>) {
   const calls: FetchCall[] = [];
   
-  return {
-    fetch: async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      const url = typeof input === 'string' ? input : input.toString();
-      const method = init?.method || 'GET';
-      const body = init?.body ? init.body.toString() : undefined;
-      
-      calls.push({ url, method, body });
-      
-      // Supabase RPC calls go to /rest/v1/rpc/{function_name}
-      const rpcMatch = url.match(/\/rpc\/([^?]+)/);
-      if (!rpcMatch) {
-        return new Response(JSON.stringify({ error: 'Not an RPC call' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-      
-      const rpcName = rpcMatch[1];
-      
-      // Return the stubbed response
-      const response = responses[rpcName];
-      if (response === undefined) {
-        return new Response(JSON.stringify({ error: `RPC ${rpcName} not stubbed` }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-      
-      return new Response(JSON.stringify(response), {
-        status: 200,
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    const method = init?.method || 'GET';
+    const body = init?.body ? init.body.toString() : undefined;
+    
+    calls.push({ url, method, body });
+    
+    // Supabase RPC calls go to /rest/v1/rpc/{function_name}
+    const rpcMatch = url.match(/\/rpc\/([^?]+)/);
+    if (!rpcMatch) {
+      return new Response(JSON.stringify({ error: 'Not an RPC call' }), {
+        status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
-    },
+    }
+    
+    const rpcName = rpcMatch[1];
+    
+    // Return the stubbed response
+    const response = responses[rpcName];
+    if (response === undefined) {
+      return new Response(JSON.stringify({ error: `RPC ${rpcName} not stubbed` }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    
+    return new Response(JSON.stringify(response), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  
+  return {
+    fetch: fetchImpl,
     calls,
   };
 }
@@ -82,7 +84,7 @@ async function main() {
       'test-anon-key',
       {
         auth: { persistSession: false, autoRefreshToken: false },
-        global: { fetch: stub.fetch as typeof fetch },
+        global: { fetch: stub.fetch },
       }
     );
     
@@ -151,7 +153,7 @@ async function main() {
       'test-anon-key',
       {
         auth: { persistSession: false, autoRefreshToken: false },
-        global: { fetch: stub.fetch as typeof fetch },
+        global: { fetch: stub.fetch },
       }
     );
     
@@ -182,7 +184,7 @@ async function main() {
       'test-anon-key',
       {
         auth: { persistSession: false, autoRefreshToken: false },
-        global: { fetch: stub.fetch as typeof fetch },
+        global: { fetch: stub.fetch },
       }
     );
     
@@ -215,7 +217,7 @@ async function main() {
       'test-anon-key',
       {
         auth: { persistSession: false, autoRefreshToken: false },
-        global: { fetch: stub.fetch as typeof fetch },
+        global: { fetch: stub.fetch },
       }
     );
     
@@ -270,7 +272,7 @@ async function main() {
         'test-anon-key',
         {
           auth: { persistSession: false, autoRefreshToken: false },
-          global: { fetch: stub.fetch as typeof fetch },
+          global: { fetch: stub.fetch },
         }
       );
       
@@ -317,7 +319,7 @@ async function main() {
         'test-anon-key',
         {
           auth: { persistSession: false, autoRefreshToken: false },
-          global: { fetch: stub.fetch as typeof fetch },
+          global: { fetch: stub.fetch },
         }
       );
       
@@ -337,7 +339,7 @@ async function main() {
       'test-anon-key',
       {
         auth: { persistSession: false, autoRefreshToken: false },
-        global: { fetch: stub.fetch as typeof fetch },
+        global: { fetch: stub.fetch },
       }
     );
     
@@ -390,7 +392,7 @@ async function main() {
       'test-anon-key',
       {
         auth: { persistSession: false, autoRefreshToken: false },
-        global: { fetch: stub.fetch as typeof fetch },
+        global: { fetch: stub.fetch },
       }
     );
     

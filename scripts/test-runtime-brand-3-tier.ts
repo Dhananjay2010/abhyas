@@ -23,21 +23,24 @@ function check(label: string, ok: boolean, detail = "") {
 function createStubFetch(data: Record<string, unknown[]>) {
   const calls: Array<{ url: string; body: unknown }> = [];
   
+  const fetchImpl: typeof fetch = async (url, init) => {
+    const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
+    const bodyStr = init?.body;
+    const body = bodyStr && typeof bodyStr === 'string' ? JSON.parse(bodyStr) : {};
+    calls.push({ url: urlStr, body });
+    
+    const funcName = body.name || '';
+    const responseData = data[funcName] || [];
+    
+    return new Response(JSON.stringify({ data: responseData }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  
   return {
     calls,
-    fetch: async (url: string | URL | Request, init?: RequestInit) => {
-      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url;
-      const body = init?.body ? JSON.parse(init.body as string) : {};
-      calls.push({ url: urlStr, body });
-      
-      const funcName = body.name || '';
-      const responseData = data[funcName] || [];
-      
-      return new Response(JSON.stringify({ data: responseData }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
+    fetch: fetchImpl,
   };
 }
 
@@ -50,7 +53,7 @@ async function main() {
       'test-anon-key',
       {
         auth: { persistSession: false, autoRefreshToken: false },
-        global: { fetch: stub.fetch as typeof fetch },
+        global: { fetch: stub.fetch },
       }
     );
     
@@ -76,45 +79,8 @@ async function main() {
 
   console.log("TEST: Tier 2 (member fallback) - unmapped host, signed-in member");
   {
-    const gymId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    const userId = 'user123';
-    
-    // Empty resolve_gym_by_host means unmapped host
-    const stub = createStubFetch({
-      resolve_gym_by_host: [],
-      '/auth/v1/user': [{ id: userId }],
-      '/rest/v1/gym_memberships': [
-        {
-          gym_id: gymId,
-          user_id: userId,
-          status: 'active',
-          gyms: { name: 'Iron Temple' },
-        },
-      ],
-    });
-    
-    const mockFetchBrand = async () => ({
-      name: 'Iron Temple',
-      colors: {
-        accent: '#1E40AF',
-        accentHover: '#F59E0B',
-        accentFg: '#ffffff',
-        bg: branding.colors.bg,
-        surface: branding.colors.surface,
-        surface2: branding.colors.surface2,
-        border: branding.colors.border,
-        fg: branding.colors.fg,
-        muted: branding.colors.muted,
-        success: branding.colors.success,
-        warning: branding.colors.warning,
-        warningFg: branding.colors.warningFg,
-        danger: branding.colors.danger,
-        chart: branding.colors.chart,
-      },
-    });
-    
-    // Note: Real membership lookup would require proper supabase mock,
-    // so this test documents the intended behavior
+    // Note: Real membership lookup requires proper supabase auth mock.
+    // This test documents the intended behavior.
     check("Member fallback tier exists", true);
   }
   console.log();

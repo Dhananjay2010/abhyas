@@ -28,6 +28,18 @@ type ResolveGymByHostResult = {
 };
 
 /**
+ * Type guard for resolve_gym_by_host RPC result
+ */
+function isResolveGymByHostResult(row: unknown): row is ResolveGymByHostResult {
+  if (typeof row !== 'object' || row === null) return false;
+  if (!('gym_id' in row) || typeof row.gym_id !== 'string') return false;
+  if (!('gym_slug' in row) || typeof row.gym_slug !== 'string') return false;
+  if (!('gym_name' in row) || typeof row.gym_name !== 'string') return false;
+  if (!('verified' in row) || typeof row.verified !== 'boolean') return false;
+  return true;
+}
+
+/**
  * Resolution result for branding.
  * Tracks which tier resolved the brand (for host-wins notice).
  */
@@ -76,16 +88,18 @@ export async function resolveBrand(
         });
 
         if (!error && data && data.length > 0) {
-          const resolution = data[0] as ResolveGymByHostResult;
-
-          if (resolution.verified && resolution.gym_id) {
-            const gymBrand = await fetchGymBrand(resolution.gym_id);
+          const row = data[0];
+          
+          if (!isResolveGymByHostResult(row)) {
+            console.error("Invalid RPC response format:", row);
+          } else if (row.verified && row.gym_id) {
+            const gymBrand = await fetchGymBrand(row.gym_id);
             const brand = mergeBrand(base, gymBrand);
 
             return {
               brand,
-              gymId: resolution.gym_id,
-              gymName: resolution.gym_name || null,
+              gymId: row.gym_id,
+              gymName: row.gym_name || null,
               tier: "host",
             };
           }
