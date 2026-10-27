@@ -1059,55 +1059,8 @@ export function evaluateProgression(input: {
     };
   }
 
-  // First miss: drop one equipment grid step with equipment, hold without
+  // First miss: always hold at current weight (second miss will back off ~10%)
   let nextWeight = currentWeight;
-  
-  if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
-    const isKettlebell = equipmentIds.includes('kettlebell');
-    let candidateWeight: number;
-    
-    if (isKettlebell) {
-      // Kettlebell: find the largest bell STRICTLY below current
-      const bells = KETTLEBELL_WEIGHTS_KG;
-      const epsilon = 0.001;
-      let found = currentWeight;  // Default to hold
-      for (let i = bells.length - 1; i >= 0; i--) {
-        if (bells[i] < currentWeight - epsilon) {
-          found = bells[i];
-          break;
-        }
-      }
-      candidateWeight = found;
-    } else {
-      // Standard equipment: find the largest grid point STRICTLY below current
-      const gridStep = equipmentGridStep(equipmentIds, 'kg');
-      const epsilon = 0.001;
-      const stepsBelow = Math.floor((currentWeight - epsilon) / gridStep);
-      candidateWeight = stepsBelow * gridStep;
-      // At or below the smallest loadable step: hold
-      if (candidateWeight <= gridStep) {
-        candidateWeight = currentWeight;
-      }
-    }
-    
-    // Rule 1: if cut > 20%, hold instead
-    if (candidateWeight !== currentWeight) {
-      const cutFraction = (currentWeight - candidateWeight) / currentWeight;
-      if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {
-        candidateWeight = currentWeight;
-      }
-    }
-    
-    // Rule 2: if candidate < two-miss result, hold instead
-    if (candidateWeight !== currentWeight) {
-      const twoMissFloor = computeTwoMissResult(currentWeight);
-      if (candidateWeight < twoMissFloor) {
-        candidateWeight = currentWeight;
-      }
-    }
-    
-    nextWeight = candidateWeight;
-  }
 
   // M1: Store pre-miss weight when failures goes from 0 to 1
   const newWeightAtFailureStart = state.consecutiveFailures === 0 && currentWeight !== null
