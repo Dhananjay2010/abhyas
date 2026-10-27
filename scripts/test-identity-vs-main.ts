@@ -175,7 +175,8 @@ for (const testCase of testCases) {
         
         if (allowedIdx >= 0) {
           allowedDiffsUsed.add(allowedIdx);
-          foundDiffs.push({ day: i + 1, slot: j + 1, got: ex.name ?? "", expected: expEx.name ?? "", gotSets: ex.targetSets, expSets: expEx.targetSets });
+          // Don't add gotSets/expSets to foundDiffs - just verify they match
+          foundDiffs.push({ day: i + 1, slot: j + 1, got: ex.name ?? "", expected: expEx.name ?? "" });
           
           // Verify set counts match for allow-listed exercises
           if (ex.targetSets !== expEx.targetSets) {

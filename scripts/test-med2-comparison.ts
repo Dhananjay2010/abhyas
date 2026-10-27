@@ -169,7 +169,7 @@ for (const day of lowerDays) {
       }
       
       // Enforce the 3-exercise change list exactly
-      const prExercises = exercises.map(e => ({ name: e.name, slug: e.exData?.slug, sets: e.targetSets }));
+      const prExercises = exercises.map(e => ({ name: e.name, slug: e.exData?.slug ?? "", sets: e.targetSets }));
       const mainExercises = baselineDay.exercises;
       
       // Check each expected change occurred
@@ -208,11 +208,11 @@ for (const day of lowerDays) {
       // Verify no other exercises changed (beyond the 3 listed changes)
       const changedExerciseNames = new Set<string>();
       for (const change of ALLOWED_DAY5_DIFF.exerciseChanges) {
-        if ('exercise' in change) {
+        if ('exercise' in change && change.exercise) {
           changedExerciseNames.add(change.exercise);
-        } else {
-          changedExerciseNames.add(change.mainExercise);
-          changedExerciseNames.add(change.expectedExercise);
+        } else if ('mainExercise' in change && 'expectedExercise' in change) {
+          if (change.mainExercise) changedExerciseNames.add(change.mainExercise);
+          if (change.expectedExercise) changedExerciseNames.add(change.expectedExercise);
         }
       }
       

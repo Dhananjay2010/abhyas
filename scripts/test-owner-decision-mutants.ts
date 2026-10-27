@@ -93,13 +93,11 @@ for (const mutant of MUTANTS) {
           cwd: process.cwd(),
         });
       } catch (error: unknown) {
-        const stdout = typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "";
-        const stderr = typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "";
-        const status = typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : 1;
-        const output = stdout + stderr;
+        const output = (typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "") +
+                       (typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "");
         
         // Use shared crash detection
-        if (isCrash(output, status)) {
+        if (isCrash(error)) {
           console.log(`  💥 CRASH: ${test} crashed`);
           if (output) {
             console.log(`  Output preview: ${output.substring(0, 200)}`);
