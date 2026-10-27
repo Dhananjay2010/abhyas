@@ -5,24 +5,27 @@
  */
 import { evaluateProgression, type ExerciseMeta } from "../src/lib/program/progression.js";
 import { execSync } from "child_process";
+import fs from "fs";
 
 // Get main's progression.ts
 const mainProgression = execSync("git show origin/main:src/lib/program/progression.ts").toString();
-const fs = require("fs");
 fs.writeFileSync("/tmp/main-progression.ts", mainProgression);
 
 // Temporarily replace with main's version
 const currentProgression = fs.readFileSync("src/lib/program/progression.ts", "utf8");
 fs.writeFileSync("src/lib/program/progression.ts", mainProgression);
 
-// Import main's version
-delete require.cache[require.resolve("../src/lib/program/progression.js")];
-const mainEval = require("../src/lib/program/progression.js").evaluateProgression;
+// Dynamic import for main's version
+const mainModule = await import("../src/lib/program/progression.js");
+const mainEval = mainModule.evaluateProgression;
 
 // Restore current version
 fs.writeFileSync("src/lib/program/progression.ts", currentProgression);
-delete require.cache[require.resolve("../src/lib/program/progression.js")];
-const currentEval = require("../src/lib/program/progression.js").evaluateProgression;
+
+// Re-import current version
+delete (await import("../src/lib/program/progression.js"));
+const currentModule = await import("../src/lib/program/progression.js?" + Date.now());
+const currentEval = currentModule.evaluateProgression;
 
 const COMPOUND: ExerciseMeta = {
   mechanic: "compound",
