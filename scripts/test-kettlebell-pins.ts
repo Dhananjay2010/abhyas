@@ -12,13 +12,13 @@ const COMPOUND: ExerciseMeta = {
 
 const tests = [
   { weight: 8, feel: "right" as const, expected: 10 },
-  { weight: 8, feel: "easy" as const, expected: 12 },
+  { weight: 8, feel: "easy" as const, expected: 10 }, // #120: easy moves 1 bell, not 2
   { weight: 16, feel: "right" as const, expected: 18 },
-  { weight: 16, feel: "easy" as const, expected: 20 },
+  { weight: 16, feel: "easy" as const, expected: 18 }, // #120: easy moves 1 bell, not 2
   { weight: 24, feel: "right" as const, expected: 28 },
-  { weight: 24, feel: "easy" as const, expected: 32 },
+  { weight: 24, feel: "easy" as const, expected: 28 }, // #120: easy moves 1 bell, not 2
   { weight: 32, feel: "right" as const, expected: 36 },
-  { weight: 32, feel: "easy" as const, expected: 40 },
+  { weight: 32, feel: "easy" as const, expected: 36 }, // #120: easy moves 1 bell, not 2
   { weight: 48, feel: "right" as const, expected: 48 }, // Top bell, should hold
   { weight: 48, feel: "easy" as const, expected: 48 }, // Top bell, should hold
 ];
@@ -49,11 +49,13 @@ for (const t of tests) {
                     t.weight === 48 && t.feel === "right" ? "N/A (top)" :
                     t.weight === 48 && t.feel === "easy" ? "N/A (top)" : 0;
   
+  const note = t.feel === "easy" ? " (#120: easy = 1 bell with equipment, not 2)" : "";
+  
   if (result.nextWorkingWeightKg !== t.expected) {
-    console.log(`FAIL kettlebell ${t.weight} ${t.feel}: expected ${t.expected}, got ${result.nextWorkingWeightKg} (main: ${mainValue})`);
+    console.log(`FAIL kettlebell ${t.weight} ${t.feel}: expected ${t.expected}, got ${result.nextWorkingWeightKg} (main: ${mainValue})${note}`);
     failures++;
   } else {
-    console.log(`ok   kettlebell ${t.weight} ${t.feel}: ${result.nextWorkingWeightKg} kg (main: ${mainValue})`);
+    console.log(`ok   kettlebell ${t.weight} ${t.feel}: ${result.nextWorkingWeightKg} kg (main: ${mainValue})${note}`);
   }
 }
 
