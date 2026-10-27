@@ -51,8 +51,8 @@ export type BrandResolution = {
   gymId: string | null;
   /** Gym name (null if base) */
   gymName: string | null;
-  /** Resolution tier: 'host', 'member', or 'base' */
-  tier: "host" | "member" | "base";
+  /** Resolution tier: 'host', 'member', 'base', or 'neutral' */
+  tier: "host" | "member" | "base" | "neutral";
 };
 
 /**
