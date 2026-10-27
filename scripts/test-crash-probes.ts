@@ -27,10 +27,12 @@ function runProbe(name: string, code: string): { exitCode: number; hasStackTrace
     });
     return { exitCode: 0, hasStackTrace: false, output };
   } catch (error: unknown) {
-    const err = error as { stdout?: string; stderr?: string; status?: number };
-    const output = (err.stdout || "") + (err.stderr || "");
+    const stdout = typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "";
+    const stderr = typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "";
+    const status = typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : 1;
+    const output = stdout + stderr;
     const hasStackTrace = output.includes("    at ") || /^\s+at\s+/m.test(output);
-    return { exitCode: err.status || 1, hasStackTrace, output };
+    return { exitCode: status, hasStackTrace, output };
   } finally {
     try {
       unlinkSync(probeFile);

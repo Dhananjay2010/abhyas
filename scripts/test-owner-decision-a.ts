@@ -65,7 +65,7 @@ const pastKneeInput: Partial<GeneratorInput> = {
 };
 
 const pastKneeEligible = catalogue.filter((ex) =>
-  isEligible(ex, pastKneeInput as GeneratorInput)
+  isEligible(ex, pastKneeInput)
 );
 
 const pastKneeSlugs = new Set(pastKneeEligible.map((ex) => ex.slug));
@@ -101,7 +101,7 @@ const currentKneeInput: Partial<GeneratorInput> = {
 };
 
 const currentKneeEligible = catalogue.filter((ex) =>
-  isEligible(ex, currentKneeInput as GeneratorInput)
+  isEligible(ex, currentKneeInput)
 );
 
 const currentKneeSlugs = new Set(currentKneeEligible.map((ex) => ex.slug));

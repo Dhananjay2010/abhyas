@@ -11,9 +11,9 @@
 import { writeFileSync, readFileSync } from "node:fs";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
-const catalogue = JSON.parse(
+const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as CandidateExercise[];
+);
 
 const pastKneeInput: GeneratorInput = {
   userId: "test-user-past-knee",

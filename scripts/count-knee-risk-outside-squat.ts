@@ -9,9 +9,9 @@ import { isKneeRiskForKneeUser } from "../src/lib/program/knee-safety";
 import { isExcludedForPastKnee } from "../src/lib/program/past-knee";
 import { KNEE_PROFILES, makeGeneratorInput } from "./knee-volume-grid";
 
-const catalogue = JSON.parse(
+const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as CandidateExercise[];
+);
 
 const catalogueById = new Map(catalogue.map(ex => [ex.id, ex]));
 

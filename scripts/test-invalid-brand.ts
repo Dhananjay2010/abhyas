@@ -37,8 +37,9 @@ function testInvalidBrandFails() {
       { encoding: "utf-8", stdio: "pipe" }
     );
   } catch (error: unknown) {
-    const err = error as { stderr?: Buffer; stdout?: Buffer };
-    const output = err.stderr?.toString() || err.stdout?.toString() || "";
+    const stderr = typeof error === "object" && error !== null && "stderr" in error && error.stderr instanceof Buffer ? error.stderr : Buffer.from("");
+    const stdout = typeof error === "object" && error !== null && "stdout" in error && error.stdout instanceof Buffer ? error.stdout : Buffer.from("");
+    const output = stderr.toString() || stdout.toString() || "";
     assert(
       output.includes("Valid brand ids:"),
       "Error message should list valid brand ids"
@@ -62,10 +63,12 @@ function testValidBrandsLoad() {
     );
     console.log("  ✓ Default brand loads successfully");
   } catch (error) {
-    const e = error as { stderr?: Buffer; stdout?: Buffer; message?: string };
+    const stderr = typeof error === "object" && error !== null && "stderr" in error && error.stderr instanceof Buffer ? error.stderr : Buffer.from("");
+    const stdout = typeof error === "object" && error !== null && "stdout" in error && error.stdout instanceof Buffer ? error.stdout : Buffer.from("");
+    const message = typeof error === "object" && error !== null && "message" in error && typeof error.message === "string" ? error.message : "";
     console.error("    Default brand test failed:");
-    console.error("    stdout:", e.stdout?.toString() || "(empty)");
-    console.error("    stderr:", e.stderr?.toString() || "(empty)");
+    console.error("    stdout:", stdout.toString() || "(empty)");
+    console.error("    stderr:", stderr.toString() || "(empty)");
     throw new Error("Default brand should load successfully");
   }
 
@@ -77,10 +80,12 @@ function testValidBrandsLoad() {
     );
     console.log("  ✓ Example brand loads successfully");
   } catch (error) {
-    const e = error as { stderr?: Buffer; stdout?: Buffer; message?: string };
+    const stderr = typeof error === "object" && error !== null && "stderr" in error && error.stderr instanceof Buffer ? error.stderr : Buffer.from("");
+    const stdout = typeof error === "object" && error !== null && "stdout" in error && error.stdout instanceof Buffer ? error.stdout : Buffer.from("");
+    const message = typeof error === "object" && error !== null && "message" in error && typeof error.message === "string" ? error.message : "";
     console.error("    Example brand test failed:");
-    console.error("    stdout:", e.stdout?.toString() || "(empty)");
-    console.error("    stderr:", e.stderr?.toString() || "(empty)");
+    console.error("    stdout:", stdout.toString() || "(empty)");
+    console.error("    stderr:", stderr.toString() || "(empty)");
     throw new Error("Example brand should load successfully");
   }
 }

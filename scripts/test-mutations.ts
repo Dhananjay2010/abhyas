@@ -285,9 +285,11 @@ function runMutation(mutant: Mutant): void {
     for (const test of tests) {
       try {
         execSync(`npm run ${test}`, { stdio: "pipe", encoding: "utf8" });
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Check if this is a crash (uncaught exception with stack trace) or test failure
-        const output = (error.stdout || "") + (error.stderr || "");
+        const output = 
+          (typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "") +
+          (typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "");
         if (hasStackTrace(output)) {
           console.log(`  💥 CRASH: Uncaught exception in ${test}`);
           console.log(`  Output: ${output.substring(0, 200)}...`);

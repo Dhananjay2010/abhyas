@@ -127,8 +127,9 @@ for (const mutant of MUTANTS) {
           cwd: process.cwd(),
         });
       } catch (error: unknown) {
-        const err = error as { stdout?: string; stderr?: string };
-        const output = err.stdout || err.stderr || "";
+        const stdout = typeof error === "object" && error !== null && "stdout" in error && typeof error.stdout === "string" ? error.stdout : "";
+        const stderr = typeof error === "object" && error !== null && "stderr" in error && typeof error.stderr === "string" ? error.stderr : "";
+        const output = stdout || stderr || "";
         if (output.includes("Error:") || output.includes("at ")) {
           // Stack trace detected - this is a crash
           console.log(`  💥 CRASH: ${test} crashed with error`);
