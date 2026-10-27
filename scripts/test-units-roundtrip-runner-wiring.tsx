@@ -142,6 +142,13 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
       fireEvent.change(repsInput, { target: { value: "7" } });
     });
 
+    // Wait for the Log Set button to become enabled
+    await waitFor(() => {
+      const btn = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+      if (!btn) throw new Error("Log Set button not found");
+      if (btn.disabled) throw new Error("Log Set button still disabled");
+    }, { timeout: 5000 });
+
     const logSetButton = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
     if (!logSetButton) throw new Error("Log Set button not found");
 
@@ -276,6 +283,13 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
       fireEvent.change(repsInput, { target: { value: "7" } });
     });
 
+    // Wait for the Log Set button to become enabled
+    await waitFor(() => {
+      const btn = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+      if (!btn) throw new Error("Log Set button not found");
+      if (btn.disabled) throw new Error("Log Set button still disabled");
+    }, { timeout: 5000 });
+
     const logSetButton = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
     if (!logSetButton) throw new Error("Log Set button not found");
 
@@ -408,6 +422,13 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     await act(async () => {
       fireEvent.change(repsInput, { target: { value: "7" } });
     });
+
+    // Wait for the Log Set button to become enabled
+    await waitFor(() => {
+      const btn = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+      if (!btn) throw new Error("Log Set button not found");
+      if (btn.disabled) throw new Error("Log Set button still disabled");
+    }, { timeout: 5000 });
 
     const logSetButton = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
     if (!logSetButton) throw new Error("Log Set button not found");
@@ -642,6 +663,13 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     await act(async () => {
       fireEvent.change(repsInput, { target: { value: "7" } });
     });
+
+    // Wait for the Log Set button to become enabled
+    await waitFor(() => {
+      const btn = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+      if (!btn) throw new Error("Log Set button not found");
+      if (btn.disabled) throw new Error("Log Set button still disabled");
+    }, { timeout: 5000 });
 
     const logSetButton = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
     if (!logSetButton) throw new Error("Log Set button not found");

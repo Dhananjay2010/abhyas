@@ -803,11 +803,10 @@ export function SessionRunner({
   const nextSetNumber = setsDone + 1;
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
-  // For imperial: snap prescription to lb grid so prefill matches working weight line.
   const hasLoggedWeightThisExercise = current.sets.some((s) => s.weightKg !== null);
   const lastWeight =
     [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ??
-    snapPrescribedWeight(current.suggestedWeightKg, settings.units);
+    current.suggestedWeightKg;
 
   /**
    * What the reps field starts on — and, for the first set, nothing.
