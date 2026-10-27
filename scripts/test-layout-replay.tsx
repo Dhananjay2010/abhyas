@@ -314,14 +314,23 @@ async function testAuthStateChangeSwitchUser() {
   await act(async () => {
     await Promise.resolve();
   });
+  
+  // Additional wait for replay to complete
+  await act(async () => {
+    await Promise.resolve();
+  });
 
-  // Provider should now show user2's pending sets
-  // Note: Due to hasReplayed state persisting across userId changes in PendingSetReplay,
-  // the component doesn't fully re-run replay when userId changes. This test verifies that
-  // pending sets are still shown after the switch, which catches the M8 mutant if it prevents
-  // userId from changing at all (though the assertion is weaker than ideal).
+  // Provider should now show user2's pending sets (2 sets) and NOT user1's (1 set)
+  // With the hasReplayed fix, switching userId triggers a new replay for user2
   elements = screen.queryAllByText(/couldn't be saved|discard/i);
-  assert(elements.length > 0, "Provider switches to user2's pending sets");
+  assert(elements.length > 0, "Provider shows pending sets after switch");
+  
+  const text = document.body.textContent || "";
+  const hasUser2Data = text.includes("2 sets");
+  const hasUser1Data = text.includes("1 set");
+  
+  assert(hasUser2Data, `Shows user2's 2 sets after switch (got: ${text}). M8 mutant: without proper userId reset, replay wouldn't run for user2.`);
+  assert(!hasUser1Data, "Does NOT show user1's 1 set after switching to user2");
 
   cleanup();
   fakeStorage.clear();

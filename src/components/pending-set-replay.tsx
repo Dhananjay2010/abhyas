@@ -32,6 +32,12 @@ export function PendingSetReplay({
   const [closedSessions, setClosedSessions] = useState<{ sessionId: string; count: number }[]>([]);
 
   useEffect(() => {
+    // Reset replay state when userId changes
+    setHasReplayed(false);
+    setClosedSessions([]);
+  }, [userId]);
+
+  useEffect(() => {
     if (hasReplayed) return;
 
     async function replay() {
