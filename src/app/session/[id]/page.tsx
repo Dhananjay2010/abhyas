@@ -184,12 +184,15 @@ export default async function SessionPage({
   // and what tomorrow already is. MED-A + MED-4: "tomorrow" = session.local_date
   // + 1 (even after midnight), or user-local today + 1 for a stale session, so
   // a past day is never offered. Same helper as the planDay action, so the
-  // displayed plan and the saved date always match.
+  // displayed plan and the saved date always match. #165: pass session.id so
+  // the post-swap collision check reads this exact session.
   const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
   const sessionTargetDate = session.local_date
     ? planTargetDate(session.local_date, localDateString(timezone))
     : undefined;
-  const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate);
+  const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate, {
+    sessionId: session.id,
+  });
 
   // Compute isStale on the server to avoid requiring timezone in client components
   const isStale = session.started_at

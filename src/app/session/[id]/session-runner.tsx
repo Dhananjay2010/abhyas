@@ -946,6 +946,7 @@ export function SessionRunner({
             sessionId={sessionId}
             dayLabel="Tomorrow"
             plannedLabel={tomorrow.plannedLabel}
+            programDayId={tomorrow.programDayId}
             days={tomorrow.days}
             heading="What about tomorrow?"
             onPlan={actions.planDay}
