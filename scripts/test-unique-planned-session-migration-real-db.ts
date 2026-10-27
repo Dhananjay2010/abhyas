@@ -153,8 +153,8 @@ async function main() {
     { id: caseE2, user_id: userId, program_id: programId, program_day_id: programDayId, local_date: "2026-11-26", status: "planned", planned_type: "weights", week_in_block: 1, is_deload: false, created_at: baseTime },
     
     // Case (f): dropped row has breathing_log
-    { id: caseF1, user_id: userId, program_id: programId, program_day_id: programDayId, local_date: "2026-11-27", status: "planned", planned_type: "breathing", week_in_block: 1, is_deload: false, created_at: baseTime },
-    { id: caseF2, user_id: userId, program_id: programId, program_day_id: programDayId, local_date: "2026-11-27", status: "planned", planned_type: "breathing", week_in_block: 1, is_deload: false, created_at: laterTime },
+    { id: caseF1, user_id: userId, program_id: programId, program_day_id: programDayId, local_date: "2026-11-27", status: "planned", planned_type: "meditation", week_in_block: 1, is_deload: false, created_at: baseTime },
+    { id: caseF2, user_id: userId, program_id: programId, program_day_id: programDayId, local_date: "2026-11-27", status: "planned", planned_type: "meditation", week_in_block: 1, is_deload: false, created_at: laterTime },
     
     // Case (g): lowest uuid is NEWER, older has exercise
     { id: caseG1, user_id: userId, program_id: programId, program_day_id: programDayId, local_date: "2026-11-28", status: "planned", planned_type: "weights", week_in_block: 1, is_deload: false, created_at: baseTime },
@@ -183,19 +183,23 @@ async function main() {
 
   await adminClient.from("session_sets").insert([
     // Case (b): B2 has sets
-    { session_exercise_id: "be000000-0000-0000-0000-000000000002", set_number: 1, reps: 10, weight_kg: 100, is_warmup_set: false },
+    { user_id: userId, session_exercise_id: "be000000-0000-0000-0000-000000000002", set_number: 1, reps: 10, weight_kg: 100, is_warmup_set: false },
     // Case (c): both have sets
-    { session_exercise_id: "ce000000-0000-0000-0000-000000000001", set_number: 1, reps: 10, weight_kg: 100, is_warmup_set: false },
-    { session_exercise_id: "ce000000-0000-0000-0000-000000000002", set_number: 1, reps: 10, weight_kg: 100, is_warmup_set: false },
+    { user_id: userId, session_exercise_id: "ce000000-0000-0000-0000-000000000001", set_number: 1, reps: 10, weight_kg: 100, is_warmup_set: false },
+    { user_id: userId, session_exercise_id: "ce000000-0000-0000-0000-000000000002", set_number: 1, reps: 10, weight_kg: 100, is_warmup_set: false },
   ]);
 
   // Add breathing_log for case (f)
   await adminClient.from("breathing_logs").insert({
     session_id: caseF2,
     user_id: userId,
-    practice: "box_breathing",
-    cycles: 5,
-    seconds_per_cycle: 16,
+    pattern_name: "Box Breathing",
+    breaths: 20,
+    cycles_completed: 5,
+    planned_cycles: 5,
+    seconds: 80,
+    guidance: "inhale",
+    ended_early: false,
   });
 
   // Count children before migration
@@ -382,8 +386,8 @@ async function main() {
 
   console.log("\nCase (e): different dates");
   check("Both planned rows kept", 
-    sessions?.some(s => s.id === caseE1 && s.status === "planned") &&
-    sessions?.some(s => s.id === caseE2 && s.status === "planned")
+    Boolean(sessions?.some(s => s.id === caseE1 && s.status === "planned") &&
+    sessions?.some(s => s.id === caseE2 && s.status === "planned"))
   );
 
   console.log("\nCase (f): dropped row has breathing_log");
