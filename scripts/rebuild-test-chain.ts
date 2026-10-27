@@ -1,4 +1,18 @@
 #!/usr/bin/env tsx
+/**
+ * DANGER: This script rewrites package.json!
+ * DO NOT RUN unless explicitly instructed.
+ * Guarded to prevent accidental execution.
+ */
+
+// Guard: require explicit confirmation
+if (!process.env.ALLOW_REBUILD_TEST_CHAIN) {
+  console.error('ERROR: This script rewrites package.json and should not be run accidentally.');
+  console.error('If you really need to rebuild the test chain, run:');
+  console.error('  ALLOW_REBUILD_TEST_CHAIN=1 npx tsx scripts/rebuild-test-chain.ts');
+  process.exit(1);
+}
+
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 

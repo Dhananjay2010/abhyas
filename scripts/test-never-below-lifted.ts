@@ -161,6 +161,27 @@ console.log("\n=== Never-Below-Lifted Invariant ===\n");
   check("7.3 kg medicine ball: next >= 7.3", d.nextWorkingWeightKg! >= 7.3, `got ${d.nextWorkingWeightKg}`);
 }
 
+// Test 7: Edge case that requires max() - very small off-grid weight
+{
+  // 2.3 kg + 1.25 = 3.55, floor(3.55/2.5) = floor(1.42) = 1, 1*2.5 = 2.5
+  // Without max(), would suggest 2.5 kg > 2.3 kg (OK in this case)
+  // But with stored weight lower, mode could be higher
+  const d = evaluateProgression({
+    sets: [{ reps: 12, weightKg: 3.7 }, { reps: 12, weightKg: 3.7 }, { reps: 12, weightKg: 3.7 }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: CURL,
+    state: { currentWorkingWeightKg: 2.5, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null },
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  
+  check("3.7 kg (off-grid): next >= 3.7", d.nextWorkingWeightKg! >= 3.7, `got ${d.nextWorkingWeightKg}`);
+}
+
 // Test 7: At max kettlebell - should hold, not drop
 {
   const MAX_BELL = 48; // Largest kettlebell
