@@ -680,67 +680,84 @@ async function runTests() {
     
     // Mutant: random() instead of gen_random_bytes
     // Check the function body contains gen_random_bytes and not random()
-    const funcDefResult = await pgClient.query(
-      "SELECT pg_get_functiondef('public.generate_join_code'::regprocedure) AS def"
-    );
-    
-    function parseFunctionDef(row: unknown): { def: string } | null {
-      if (row === null || typeof row !== "object") return null;
-      const r = row as Record<string, unknown>;
-      if (typeof r.def !== "string") return null;
-      return { def: r.def };
-    }
-    
-    if (funcDefResult.rows.length > 0) {
-      const parsed = parseFunctionDef(funcDefResult.rows[0]);
-      if (parsed) {
-        const hasGenRandomBytes = parsed.def.includes('gen_random_bytes');
-        const hasRandom = parsed.def.includes('random()');
-        check("generate_join_code uses gen_random_bytes (kills random() mutant)", hasGenRandomBytes);
-        check("generate_join_code does not use random()", !hasRandom);
-      } else {
-        check("generate_join_code uses gen_random_bytes (kills random() mutant)", false, "Could not parse function definition");
-        check("generate_join_code does not use random()", false, "Could not parse function definition");
+    try {
+      const funcDefResult = await pgClient.query(`
+        SELECT p.oid, pg_get_functiondef(p.oid) AS def
+        FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.proname = 'generate_join_code'
+      `);
+      
+      function parseFunctionDef(row: unknown): { oid: number; def: string } | null {
+        if (row === null || typeof row !== "object") return null;
+        const r = row as Record<string, unknown>;
+        if (typeof r.oid !== "number" && typeof r.oid !== "string") return null;
+        if (typeof r.def !== "string") return null;
+        return { oid: typeof r.oid === "string" ? parseInt(r.oid, 10) : r.oid, def: r.def };
       }
-    } else {
-      check("generate_join_code uses gen_random_bytes (kills random() mutant)", false, "No function definition returned");
-      check("generate_join_code does not use random()", false, "No function definition returned");
+      
+      if (funcDefResult.rows.length === 1) {
+        const parsed = parseFunctionDef(funcDefResult.rows[0]);
+        if (parsed) {
+          const hasGenRandomBytes = parsed.def.includes('gen_random_bytes');
+          const hasRandom = parsed.def.includes('random()');
+          check("generate_join_code uses gen_random_bytes (kills random() mutant)", hasGenRandomBytes);
+          check("generate_join_code does not use random()", !hasRandom);
+        } else {
+          check("generate_join_code uses gen_random_bytes (kills random() mutant)", false, "Could not parse function definition");
+          check("generate_join_code does not use random()", false, "Could not parse function definition");
+        }
+      } else {
+        check("generate_join_code uses gen_random_bytes (kills random() mutant)", false, `Expected 1 function, found ${funcDefResult.rows.length}`);
+        check("generate_join_code does not use random()", false, `Expected 1 function, found ${funcDefResult.rows.length}`);
+      }
+    } catch (funcDefError) {
+      const errorMsg = funcDefError instanceof Error ? funcDefError.message : String(funcDefError);
+      check("generate_join_code uses gen_random_bytes (kills random() mutant)", false, errorMsg);
+      check("generate_join_code does not use random()", false, errorMsg);
     }
     
     // Mutant: search_path dropped
     // Check that all SECURITY DEFINER functions have search_path="" exactly
-    const definerFuncsResult = await pgClient.query(`
-      SELECT proname, proconfig
-      FROM pg_proc
-      WHERE proname IN ('preview_join_code', 'redeem_join_code', 'create_join_code', 'revoke_join_code', 'check_join_code_throttle', 'record_join_code_miss')
-        AND prosecdef = true
-    `);
-    
-    function parseDefinerFunc(row: unknown): { proname: string; proconfig: string[] | null } | null {
-      if (row === null || typeof row !== "object") return null;
-      const r = row as Record<string, unknown>;
-      if (typeof r.proname !== "string") return null;
-      if (r.proconfig === null) return { proname: r.proname, proconfig: null };
-      if (!Array.isArray(r.proconfig)) return null;
-      if (!r.proconfig.every((c): c is string => typeof c === "string")) return null;
-      return { proname: r.proname, proconfig: r.proconfig };
-    }
-    
-    const definerFuncs: Array<{ proname: string; proconfig: string[] | null }> = [];
-    for (const row of definerFuncsResult.rows) {
-      const parsed = parseDefinerFunc(row);
-      if (parsed) definerFuncs.push(parsed);
-    }
-    
-    if (definerFuncs.length > 0) {
-      const allHaveSearchPath = definerFuncs.every(f => 
-        f.proconfig !== null && f.proconfig.some(c => c === 'search_path=""')
-      );
-      check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", 
-        allHaveSearchPath && definerFuncs.length === 6,
-        "", definerFuncs.length === 6 ? definerFuncs.map(f => ({name: f.proname, config: f.proconfig})) : `Found ${definerFuncs.length} functions`);
-    } else {
-      check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", false, "No SECURITY DEFINER functions found");
+    try {
+      const definerFuncsResult = await pgClient.query(`
+        SELECT p.proname, p.proconfig
+        FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public'
+          AND p.proname IN ('preview_join_code', 'redeem_join_code', 'create_join_code', 'revoke_join_code', 'check_join_code_throttle', 'record_join_code_miss')
+          AND p.prosecdef = true
+      `);
+      
+      function parseDefinerFunc(row: unknown): { proname: string; proconfig: string[] | null } | null {
+        if (row === null || typeof row !== "object") return null;
+        const r = row as Record<string, unknown>;
+        if (typeof r.proname !== "string") return null;
+        if (r.proconfig === null) return { proname: r.proname, proconfig: null };
+        if (!Array.isArray(r.proconfig)) return null;
+        if (!r.proconfig.every((c): c is string => typeof c === "string")) return null;
+        return { proname: r.proname, proconfig: r.proconfig };
+      }
+      
+      const definerFuncs: Array<{ proname: string; proconfig: string[] | null }> = [];
+      for (const row of definerFuncsResult.rows) {
+        const parsed = parseDefinerFunc(row);
+        if (parsed) definerFuncs.push(parsed);
+      }
+      
+      if (definerFuncs.length === 6) {
+        const allHaveSearchPath = definerFuncs.every(f => 
+          f.proconfig !== null && f.proconfig.some(c => c === 'search_path=""')
+        );
+        check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", 
+          allHaveSearchPath,
+          "", definerFuncs.map(f => ({name: f.proname, config: f.proconfig})));
+      } else {
+        check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", false, `Expected 6 functions, found ${definerFuncs.length}`);
+      }
+    } catch (definerError) {
+      const errorMsg = definerError instanceof Error ? definerError.message : String(definerError);
+      check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", false, errorMsg);
     }
   } finally {
     await pgClient.end();
