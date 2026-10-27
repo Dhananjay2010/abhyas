@@ -384,3 +384,39 @@ do $$
 exception when undefined_function then
   null;
 end $$;
+
+-- ============================================================
+-- SUPABASE ADVISOR FIXES (idempotent policy updates)
+-- ============================================================
+-- These fix Supabase advisor warnings from migrations 034-036:
+-- (1) Wrap auth.uid() in subquery to avoid optimization issues
+-- (2) Merge permissive SELECT policies on gym_memberships into one
+
+-- Fix gyms_member_select: wrap auth.uid() in subquery
+do $$
+begin
+  drop policy if exists gyms_member_select on gyms;
+  create policy gyms_member_select on gyms
+    for select to authenticated
+    using (
+      exists (
+        select 1 
+        from gym_memberships 
+        where gym_memberships.gym_id = gyms.id
+          and gym_memberships.user_id = (select auth.uid())
+          and gym_memberships.status = 'active'
+      )
+    );
+end $$;
+
+-- Merge gym_memberships SELECT policies into one
+-- Old: gym_memberships_own_select (user_id = auth.uid()) + gym_memberships_staff_select (is_gym_staff)
+-- New: one policy allowing both conditions (OR semantics)
+do $$
+begin
+  drop policy if exists gym_memberships_own_select on gym_memberships;
+  drop policy if exists gym_memberships_staff_select on gym_memberships;
+  create policy gym_memberships_select on gym_memberships
+    for select to authenticated
+    using (user_id = (select auth.uid()) or public.is_gym_staff(gym_id));
+end $$;

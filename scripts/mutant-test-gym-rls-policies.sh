@@ -123,17 +123,11 @@ run_mutant \
   "Remove the policy allowing members to see their gym" \
   "drop policy if exists gyms_member_select on public.gyms;"
 
-# Mutant (d): Remove gym_memberships own SELECT
+# Mutant (d): Remove merged gym_memberships SELECT policy
 run_mutant \
-  "(d) remove gym_memberships own SELECT" \
-  "Remove the policy allowing users to see their own memberships" \
-  "drop policy if exists gym_memberships_own_select on public.gym_memberships;"
-
-# Mutant (e): Remove gym_memberships staff SELECT
-run_mutant \
-  "(e) remove gym_memberships staff SELECT" \
-  "Remove the policy allowing staff to see all memberships" \
-  "drop policy if exists gym_memberships_staff_select on public.gym_memberships;"
+  "(d) remove gym_memberships SELECT policy" \
+  "Remove the merged policy allowing users to see their own memberships OR staff to see all" \
+  "drop policy if exists gym_memberships_select on public.gym_memberships;"
 
 # Mutant (f): Remove gym owner UPDATE
 run_mutant \
@@ -199,8 +193,8 @@ echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-echo "Total mutants:                   15"
-echo "Killed:                          $((15 - FAILED - ${#SKIPPED[@]}))"
+echo "Total mutants:                   14"
+echo "Killed:                          $((14 - FAILED - ${#SKIPPED[@]}))"
 echo "Survived:                        $FAILED"
 echo "Skipped:                         ${#SKIPPED[@]}"
 echo "========================================="
