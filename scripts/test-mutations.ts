@@ -231,19 +231,23 @@ function hasStackTrace(output: string): boolean {
   );
 }
 
-function hasAssertionMarker(output: string): boolean {
-  // Check for assertion failure markers
+function hasSpecificKillMarker(output: string): boolean {
+  // Check for specific assertion failure markers (not bare 'FAIL')
   return (
-    output.includes("✗") ||
-    output.includes("❌") ||
-    output.includes("FAIL") ||
+    output.includes("✗ FAIL") ||
+    output.includes("❌ FAIL") ||
+    output.includes("FAILED:") ||
     output.includes("AssertionError")
   );
 }
 
-function stripNpmHeaders(output: string): string {
-  // Remove npm run header lines like "> pkg@version script"
-  return output.replace(/^>\s+[^@]+@[^\s]+\s+[^\n]+\n/gm, "");
+function stripBothNpmHeaders(output: string): string {
+  // Remove BOTH npm header lines:
+  // 1. "> pkg@version script"
+  // 2. "> command"
+  return output
+    .replace(/^>\s+[^@\n]+@[^\s]+\s+[^\n]+\n/gm, "")  // "> pkg@ver script"
+    .replace(/^>\s+[^\n]+\n/gm, "");                   // "> command"
 }
 
 function isCrash(error: unknown): boolean {
@@ -252,24 +256,88 @@ function isCrash(error: unknown): boolean {
   const status = typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : 1;
   const output = stdout + stderr;
   
-  // If there's an assertion marker, it's a clean kill (not a crash)
-  if (hasAssertionMarker(output)) return false;
-  
-  // Strip npm headers before checking for empty output
-  const cleanOutput = stripNpmHeaders(output).trim();
-  
-  // Crash indicators:
-  // 1. Stack trace present (without assertion marker)
+  // Rule 1: Definite crash indicators take precedence
+  // - Stack trace
   if (hasStackTrace(output)) return true;
   
-  // 2. Silent exit after stripping npm headers
+  // - Uncaught exception / node:internal
+  if (output.includes("triggerUncaughtException") || output.includes("node:internal")) return true;
+  
+  // - Empty output after stripping BOTH npm headers (truly silent exit)
+  const cleanOutput = stripBothNpmHeaders(output).trim();
   if (status !== 0 && cleanOutput.length === 0) return true;
   
-  // 3. Uncaught exception patterns
-  if (output.includes("Uncaught") || output.includes("unhandled")) return true;
+  // Rule 2: Specific kill markers indicate KILLED (not crash)
+  if (hasSpecificKillMarker(output)) return false;
   
-  // Otherwise it's a clean test failure (killed)
-  return false;
+  // Rule 3: Anything else with non-zero exit = CRASH
+  return true;
+}
+
+// Self-test: verify crash detection logic
+function selfTestCrashDetection(): void {
+  const cases: Array<{ name: string; error: { stdout: string; stderr: string; status: number }; expectCrash: boolean }> = [
+    {
+      name: "Stack trace even with ✗ FAIL = CRASH",
+      error: { stdout: "✗ FAIL: test\n    at Object.<anonymous>\n", stderr: "", status: 1 },
+      expectCrash: true,
+    },
+    {
+      name: "Silent exit (only npm headers) = CRASH",
+      error: { stdout: "> abhyas@0.1.0 test\n> tsx test.ts\n", stderr: "", status: 1 },
+      expectCrash: true,
+    },
+    {
+      name: "Specific marker ✗ FAIL (no stack) = KILLED",
+      error: { stdout: "✗ FAIL: assertion failed\n", stderr: "", status: 1 },
+      expectCrash: false,
+    },
+    {
+      name: "Specific marker ❌ FAIL = KILLED",
+      error: { stdout: "❌ FAIL: check failed\n", stderr: "", status: 1 },
+      expectCrash: false,
+    },
+    {
+      name: "Specific marker FAILED: = KILLED",
+      error: { stdout: "FAILED: 3 tests\n", stderr: "", status: 1 },
+      expectCrash: false,
+    },
+    {
+      name: "Bare FAIL without marker = CRASH",
+      error: { stdout: "FAIL to load\n", stderr: "", status: 1 },
+      expectCrash: true,
+    },
+    {
+      name: "node:internal = CRASH",
+      error: { stdout: "", stderr: "node:internal/process\n", status: 1 },
+      expectCrash: true,
+    },
+    {
+      name: "AssertionError marker = KILLED",
+      error: { stdout: "AssertionError: expected true\n", stderr: "", status: 1 },
+      expectCrash: false,
+    },
+    {
+      name: "Generic error without marker = CRASH",
+      error: { stdout: "Error: something went wrong\n", stderr: "", status: 1 },
+      expectCrash: true,
+    },
+  ];
+  
+  let failures = 0;
+  for (const testCase of cases) {
+    const result = isCrash(testCase.error);
+    if (result !== testCase.expectCrash) {
+      console.error(`✗ Self-test failed: ${testCase.name}`);
+      console.error(`  Expected crash=${testCase.expectCrash}, got crash=${result}`);
+      failures++;
+    }
+  }
+  
+  if (failures > 0) {
+    console.error(`\n❌ ${failures} self-test(s) failed`);
+    process.exit(1);
+  }
 }
 
 function runMutation(mutant: Mutant): void {
@@ -372,6 +440,9 @@ function runMutation(mutant: Mutant): void {
     }
   }
 }
+
+// Run crash detection self-test
+selfTestCrashDetection();
 
 console.log("Knee Safety Mutation Testing");
 console.log("─".repeat(60));

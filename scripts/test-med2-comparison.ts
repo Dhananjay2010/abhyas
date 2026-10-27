@@ -3,6 +3,16 @@
  * MED-2 Comparison: Assert per-day lower-body set totals and estimated minutes
  * for past-knee users on main vs this PR for Lower and Full Body days.
  * Must stay close to main (within one set, two minutes).
+ * 
+ * Baseline: scripts/fixtures/med2-baseline-main.json
+ * 
+ * Owner decision (a): Day 5 baseline updated for jammer exclusion RNG shift.
+ * Landmine jammer exclusion (G-3) removes 2 exercises from candidate pool,
+ * causing RNG stream shift that changes 3 exercises on Day 5:
+ *   - Barbell Seated Calf Raise: 3 sets → 4 sets
+ *   - Wall Sit (4 sets) → Leg Extensions (4 sets)
+ *   - Cable Crunch (4 sets) → Cable Seated Crunch (4 sets)
+ * Result: 72 minutes → 68 minutes, 25 sets → 26 sets, 21 lower → 22 lower
  */
 
 import { readFileSync } from "fs";
