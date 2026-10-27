@@ -96,6 +96,36 @@ const MUTANTS: Mutant[] = [
     tests: ["test:past-knee-single-leg-ext"],
     equivalent: false,
   },
+  
+  // M12: Break per-exercise set count (fixture mutation)
+  {
+    name: "M12: Break Barbell Squat set count in fixture",
+    file: "scripts/fixtures/med2-baseline-main.json",
+    original: '        "name": "Barbell Squat",\n        "slug": "barbell-squat",\n        "targetSets": 4,',
+    mutated: '        "name": "Barbell Squat",\n        "slug": "barbell-squat",\n        "targetSets": 999,',
+    tests: ["test:med2-comparison"],
+    equivalent: false,
+  },
+  
+  // M13: Break exercise name/order (fixture mutation)
+  {
+    name: "M13: Break exercise name in fixture",
+    file: "scripts/fixtures/med2-baseline-main.json",
+    original: '        "name": "Barbell Deadlift",',
+    mutated: '        "name": "MUTANT-FAKE-EXERCISE",',
+    tests: ["test:med2-comparison"],
+    equivalent: false,
+  },
+  
+  // M14: Remove all-days check by removing Day 5 from fixture
+  {
+    name: "M14: Remove Day 5 from fixture",
+    file: "scripts/fixtures/med2-baseline-main.json",
+    original: '  {\n    "dayIndex": 5,',
+    mutated: '  {\n    "dayIndex": 888,',
+    tests: ["test:med2-comparison"],
+    equivalent: false,
+  },
 ];
 
 let killed = 0;

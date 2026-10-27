@@ -62,8 +62,9 @@ const SESSION_IDS = ["a", "b", "c"];
 const squatExercises = catalogue.filter(e => e.movement_pattern === "squat");
 
 // Allowed exercise types for past-knee squat swaps
-const QUAD_ISOLATION = new Set(["leg-extensions", "single-leg-leg-extension", "wall-sit", "spanish-squat"]);
-const QUAD_ISOLATION_ORDER = ["leg-extensions", "single-leg-leg-extension", "wall-sit", "spanish-squat"];
+// Owner decision: single-leg-leg-extension excluded for past-knee users
+const QUAD_ISOLATION = new Set(["leg-extensions", "wall-sit", "spanish-squat"]);
+const QUAD_ISOLATION_ORDER = ["leg-extensions", "wall-sit", "spanish-squat"];
 
 console.log("=== Past-Knee Squat Swap List Lengths ===\n");
 console.log(`Testing ${INJURY_SETS.length} injury sets × ${EQUIPMENT_PROFILES.length} equipment profiles × ${LEVELS.length} levels × ${TRACKS.length} tracks × ${squatExercises.length} squat exercises × ${SESSION_IDS.length} session ids`);

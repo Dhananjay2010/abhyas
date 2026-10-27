@@ -88,7 +88,7 @@ const baseline: BaselineDay[] = JSON.parse(
 // Known RNG drifts from owner decision exclusions
 type AllowedChange = 
   | { type: 'fixturedrift'; exercise: string; baselineSets: number; codeSets: number }
-  | { type: 'exercise'; exercise: string; becomes: string };
+  | { type: 'exercise'; exercise: string; becomes: string; reason: string };
 
 const ALLOWED_CHANGES: Map<number, AllowedChange[]> = new Map([
   [2, [
@@ -96,8 +96,8 @@ const ALLOWED_CHANGES: Map<number, AllowedChange[]> = new Map([
     { type: 'fixturedrift', exercise: 'Barbell Seated Calf Raise', baselineSets: 5, codeSets: 4 },
   ]],
   [5, [
-    // RNG shift from owner decision exclusions: Cable Crunch→Crunches
-    { type: 'exercise', exercise: 'Cable Crunch', becomes: 'Crunches' },
+    // single-leg-leg-extension exclusion reshuffle (APP-approved: abs only, sets and minutes unchanged)
+    { type: 'exercise', exercise: 'Cable Crunch', becomes: 'Crunches', reason: 'single-leg-leg-extension exclusion reshuffle (APP-approved: abs only, sets and minutes unchanged)' },
   ]],
 ]);
 
@@ -199,7 +199,7 @@ for (const day of lowerDays) {
     // Check if there's an allowed exercise swap
     const exerciseSwap = dayAllowedChanges.find(c =>
       c.type === 'exercise' && c.exercise === baseEx.name
-    ) as { type: 'exercise'; exercise: string; becomes: string } | undefined;
+    ) as { type: 'exercise'; exercise: string; becomes: string; reason: string } | undefined;
     
     const expectedName = exerciseSwap ? exerciseSwap.becomes : baseEx.name;
     
@@ -208,6 +208,32 @@ for (const day of lowerDays) {
       failures++;
     } else {
       if (exerciseSwap) {
+        // Assert exact match for APP-approved changes
+        if (day.dayIndex === 5 && i === 5) {
+          // Day 5 slot 6 must be exactly Crunches with 4 sets
+          if (prEx.name !== 'Crunches') {
+            console.log(`  ✗ STALE CHANGE: Day 5 slot 6 should be Crunches, got ${prEx.name}`);
+            failures++;
+          }
+          if (prEx.targetSets !== 4) {
+            console.log(`  ✗ STALE CHANGE: Day 5 Crunches should have 4 sets, got ${prEx.targetSets}`);
+            failures++;
+          }
+          // Day 5 totals must be exactly 72/25/21
+          if (totalSets !== 25) {
+            console.log(`  ✗ STALE CHANGE: Day 5 should have 25 total sets, got ${totalSets}`);
+            failures++;
+          }
+          if (lowerBodySets !== 21) {
+            console.log(`  ✗ STALE CHANGE: Day 5 should have 21 lower sets, got ${lowerBodySets}`);
+            failures++;
+          }
+          if (estMinutes !== 72) {
+            console.log(`  ✗ STALE CHANGE: Day 5 should be 72 minutes, got ${estMinutes}`);
+            failures++;
+          }
+        }
+        
         const key = `${day.dayIndex}-${i}-${exerciseSwap.exercise}-${exerciseSwap.becomes}`;
         allowedChangesUsed.add(key);
       }
