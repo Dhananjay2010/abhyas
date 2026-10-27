@@ -11,6 +11,7 @@ import { buildRunnerExercise } from "@/lib/session/build-runner-exercises";
 import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
 import { getUnitsPreference } from "@/lib/units";
+import { loadPreviousCompletedWeights } from "@/lib/session/load-previous-weights";
 
 export const dynamic = "force-dynamic";
 
@@ -98,63 +99,12 @@ export default async function SessionPage({
     (progressRes.data ?? []).map((p) => [p.exercise_id, p]),
   );
 
-  // M1: Fetch actual logged weight from most recent completed session for each exercise
-  // This is the weight the user actually LIFTED last time, not current_working_weight_kg
+  // M1: Fetch actual weight from most recent completed session for each exercise
   const exerciseIds = rows
     .map((r) => (r.exercises as { id: string } | null)?.id)
     .filter((id): id is string => id !== null && id !== undefined);
   
-  const previousWeightByExercise = new Map<string, number>();
-  
-  if (exerciseIds.length > 0) {
-    // Query for most recent completed session that contains each exercise
-    const previousWeightsRes = await supabase
-      .from("session_exercises")
-      .select(`
-        exercise_id,
-        session_sets!inner(weight_kg, is_warmup_set),
-        sessions!inner(status, started_at)
-      `)
-      .eq("user_id", user.id)
-      .eq("sessions.status", "completed")
-      .in("exercise_id", exerciseIds)
-      .order("sessions.started_at", { ascending: false })
-      .limit(100);
-
-    if (previousWeightsRes.data) {
-      // Group by exercise_id and take the most recent working set weight for each
-      const byExercise = new Map<string, Array<{ weight_kg: number | null; started_at: string }>>();
-      
-      for (const row of previousWeightsRes.data) {
-        const exerciseId = row.exercise_id;
-        const session = row.sessions as unknown as { started_at: string; status: string } | null;
-        const sets = row.session_sets as unknown as Array<{ weight_kg: number | null; is_warmup_set: boolean }>;
-        
-        if (!exerciseId || !session || !sets) continue;
-        
-        // Get max working set weight from this session
-        const workingWeights = sets
-          .filter((s) => !s.is_warmup_set && s.weight_kg !== null && s.weight_kg > 0)
-          .map((s) => s.weight_kg as number);
-        
-        if (workingWeights.length === 0) continue;
-        
-        const maxWeight = Math.max(...workingWeights);
-        const existing = byExercise.get(exerciseId) ?? [];
-        existing.push({ weight_kg: maxWeight, started_at: session.started_at });
-        byExercise.set(exerciseId, existing);
-      }
-      
-      // Take the most recent weight for each exercise
-      for (const [exerciseId, entries] of byExercise.entries()) {
-        entries.sort((a, b) => b.started_at.localeCompare(a.started_at));
-        const weight = entries[0].weight_kg;
-        if (weight !== null && weight > 0) {
-          previousWeightByExercise.set(exerciseId, weight);
-        }
-      }
-    }
-  }
+  const previousWeightByExercise = await loadPreviousCompletedWeights(supabase, user.id, exerciseIds);
 
   /*
     Daily menu means no working-weight memory.
