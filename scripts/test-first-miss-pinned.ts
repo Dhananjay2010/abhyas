@@ -686,6 +686,37 @@ console.log("\n=== HARD-FEEL HOLD ===");
   check("Hard feel: stored 55, lifted 60 → holds at stored 55 (kills mutant i)", d.nextWorkingWeightKg === 55 && d.outcome === "hold");
 }
 
+// Kettlebell progression test: exactly on bell, progress to next (kills mutant k')
+{
+  const KETTLEBELL_SWING: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "hip_hinge",
+    isBodyweight: false,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  
+  const d = evaluateProgression({
+    sets: [
+      { reps: 12, weightKg: 20 },
+      { reps: 12, weightKg: 20 },
+      { reps: 12, weightKg: 20 },
+      { reps: 12, weightKg: 20 },
+    ],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: KETTLEBELL_SWING,
+    state: { currentWorkingWeightKg: 20, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: 20, bestReps: 12, bestE1rm: null, totalSessions: 1, weightAtFailureStartKg: null },
+    isDeload: false,
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  check("Kettlebell 20 kg success → 22 kg (kills mutant k')", d.nextWorkingWeightKg === 22 && d.outcome === "progressed");
+}
+
 console.log("\n=== IN-RANGE HOLD (4×10 in 8-12) ===");
 // Test that in-range sessions hold weight and reset failures
 {
