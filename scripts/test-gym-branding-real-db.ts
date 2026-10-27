@@ -198,6 +198,102 @@ async function runTests() {
     });
     check("Member added to gym", !error, error?.message);
   }
+
+  // Create staff user for additional testing
+  const emailStaff = `gym-staff-branding-${Date.now()}@example.com`;
+  const passwordStaff = "test-password-789";
+  let userIdStaff: string | null = null;
+
+  {
+    const { data, error } = await adminClient.auth.admin.createUser({
+      email: emailStaff,
+      password: passwordStaff,
+      email_confirm: true,
+    });
+    if (error || !data.user) {
+      console.error("Failed to create staff:", error);
+      return false;
+    }
+    userIdStaff = data.user.id;
+    console.log(`✓ Created staff: ${userIdStaff}`);
+  }
+
+  // Add staff to gym
+  {
+    const { error } = await adminClient.from("gym_memberships").insert({
+      gym_id: gymId,
+      user_id: userIdStaff,
+      role: "staff",
+      status: "active",
+    });
+    check("Staff added to gym", !error, error?.message);
+  }
+
+  const clientStaff = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  {
+    const { error } = await clientStaff.auth.signInWithPassword({
+      email: emailStaff,
+      password: passwordStaff,
+    });
+    if (error) {
+      console.error("Failed to sign in staff:", error);
+      return false;
+    }
+  }
+
+  // Create another gym and owner for cross-gym testing
+  const emailOtherOwner = `other-gym-owner-${Date.now()}@example.com`;
+  const passwordOtherOwner = "test-password-abc";
+  let userIdOtherOwner: string | null = null;
+  const otherGymId = randomUUID();
+
+  {
+    const { data, error } = await adminClient.auth.admin.createUser({
+      email: emailOtherOwner,
+      password: passwordOtherOwner,
+      email_confirm: true,
+    });
+    if (error || !data.user) {
+      console.error("Failed to create other owner:", error);
+      return false;
+    }
+    userIdOtherOwner = data.user.id;
+    console.log(`✓ Created other owner: ${userIdOtherOwner}`);
+  }
+
+  {
+    const { error } = await adminClient.from("gyms").insert({
+      id: otherGymId,
+      slug: `other-gym-${Date.now()}`,
+      name: "Other Gym",
+      timezone: "Europe/London",
+    });
+    check("Other gym created", !error, error?.message);
+  }
+
+  {
+    const { error } = await adminClient.from("gym_memberships").insert({
+      gym_id: otherGymId,
+      user_id: userIdOtherOwner,
+      role: "owner",
+      status: "active",
+    });
+    check("Other owner added to other gym", !error, error?.message);
+  }
+
+  const clientOtherOwner = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  {
+    const { error } = await clientOtherOwner.auth.signInWithPassword({
+      email: emailOtherOwner,
+      password: passwordOtherOwner,
+    });
+    if (error) {
+      console.error("Failed to sign in other owner:", error);
+      return false;
+    }
+  }
+
+  console.log("✓ All test users signed in\n");
   console.log();
 
   // TEST: Owner can set branding
@@ -245,6 +341,34 @@ async function runTests() {
       p_accent_color: "#00FF00",
     });
     check("Member cannot call set_gym_branding", !!error && error.code === "BRND1");
+  }
+  console.log();
+
+  // TEST: Staff cannot set branding
+  console.log("TEST: Staff cannot set branding");
+  {
+    const { error } = await clientStaff.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "Staff Hacked",
+      p_logo_url: "https://evil.com/logo.png",
+      p_primary_color: "#FF0000",
+      p_accent_color: "#00FF00",
+    });
+    check("Staff cannot call set_gym_branding", !!error && error.code === "BRND1");
+  }
+  console.log();
+
+  // TEST: Another gym's owner cannot set this gym's branding
+  console.log("TEST: Another gym's owner cannot set this gym's branding");
+  {
+    const { error } = await clientOtherOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "Other Owner Hacked",
+      p_logo_url: "https://evil.com/logo.png",
+      p_primary_color: "#FF0000",
+      p_accent_color: "#00FF00",
+    });
+    check("Other gym owner cannot update this gym", !!error && error.code === "BRND1");
   }
   console.log();
 
@@ -339,18 +463,38 @@ async function runTests() {
   console.log();
 
   // TEST: Direct table update is blocked by RLS
-  console.log("TEST: Member cannot directly update gyms table");
+  console.log("TEST: Owner cannot directly update gyms table");
   {
-    const { data, error } = await clientMember
+    // First, get current values to verify unchanged
+    const { data: before } = await clientOwner
+      .from("gyms")
+      .select("primary_color, accent_color")
+      .eq("id", gymId)
+      .single();
+
+    const { data, error } = await clientOwner
       .from("gyms")
       .update({ primary_color: "#FF0000" })
       .eq("id", gymId)
       .select();
     const blocked = !error && (!data || data.length === 0);
     check(
-      "Member cannot update gyms table",
+      "Owner cannot update gyms table directly",
       blocked,
       blocked ? undefined : `${data?.length || 0} rows updated (expected 0)`
+    );
+
+    // Verify values actually unchanged
+    const { data: after } = await clientOwner
+      .from("gyms")
+      .select("primary_color, accent_color")
+      .eq("id", gymId)
+      .single();
+    
+    check(
+      "Values unchanged by attempted direct update",
+      JSON.stringify(before) === JSON.stringify(after),
+      `Before: ${JSON.stringify(before)}, After: ${JSON.stringify(after)}`
     );
   }
   console.log();
@@ -396,6 +540,8 @@ async function runTests() {
   console.log("Cleaning up test users...");
   if (userIdOwner) await adminClient.auth.admin.deleteUser(userIdOwner);
   if (userIdMember) await adminClient.auth.admin.deleteUser(userIdMember);
+  if (userIdStaff) await adminClient.auth.admin.deleteUser(userIdStaff);
+  if (userIdOtherOwner) await adminClient.auth.admin.deleteUser(userIdOtherOwner);
   console.log("✓ Test users cleaned up\n");
 
   if (failures > 0) {
