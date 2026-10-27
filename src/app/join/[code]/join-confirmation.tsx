@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { redeemJoinCode } from "./actions";
 import type { Database } from "@/lib/database.types";
+import { determineJoinGating } from "@/lib/gym-join-code-gating";
 
 type GymRole = Database["public"]["Enums"]["gym_role"];
 
@@ -31,12 +32,10 @@ export function JoinConfirmation({
   const [error, setError] = useState<string | null>(null);
 
   // Determine if user is already in code's gym at same or higher role
-  const roleOrder = { owner: 3, staff: 2, member: 1 };
-  const alreadyInAtSameOrHigher = codeGymRole && 
-    (roleOrder[codeGymRole] ?? 0) >= (roleOrder[role] ?? 0);
-  
-  // Determine if this is a member->staff upgrade case
-  const isMemberUpgradeToStaff = codeGymRole === "member" && role === "staff";
+  const { alreadyInAtSameOrHigher, isMemberUpgradeToStaff } = determineJoinGating(
+    codeGymRole,
+    role
+  );
 
   const handleConfirm = async () => {
     setRedeeming(true);
@@ -49,8 +48,10 @@ export function JoinConfirmation({
         router.push("/today");
       } else {
         setError(result.error);
+        setRedeeming(false);
       }
-    } finally {
+    } catch {
+      setError("An unexpected error occurred. Please try again.");
       setRedeeming(false);
     }
   };
