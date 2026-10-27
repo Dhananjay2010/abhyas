@@ -115,15 +115,15 @@ async function runTests() {
     const userId = authData.user.id;
     assert(!!userId, "Created test user");
 
-    // Create profile
-    const { error: profileError } = await adminClient.from("profiles").insert({
+    // Ensure profile exists (trigger creates it, but set required fields)
+    const { error: profileError } = await adminClient.from("profiles").upsert({
       id: userId,
       timezone: "America/Los_Angeles",
       onboarding_completed_at: new Date().toISOString(),
     });
 
     if (profileError) {
-      console.error("❌ Failed to create profile:", profileError);
+      console.error("❌ Failed to upsert profile:", profileError);
       process.exit(1);
     }
 
@@ -313,8 +313,8 @@ async function runTests() {
 
     const userId = authData.user.id;
 
-    // Create profile
-    await adminClient.from("profiles").insert({
+    // Ensure profile exists (trigger creates it, but set required fields)
+    await adminClient.from("profiles").upsert({
       id: userId,
       timezone: "America/Los_Angeles",
       onboarding_completed_at: new Date().toISOString(),
