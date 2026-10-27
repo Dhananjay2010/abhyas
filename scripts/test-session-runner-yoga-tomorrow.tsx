@@ -28,7 +28,7 @@ async function main() {
       name: "Squat",
       cue: null,
       metric: "reps" as const,
-      primaryMuscles: ["quads"] as const,
+      primaryMuscles: ["quads" as const],
       plannedSets: 3,
       plannedRepsMin: 8,
       plannedRepsMax: 12,
@@ -37,15 +37,14 @@ async function main() {
       restSeconds: 120,
       workingWeightKg: 100,
       suggestedWeightKg: null,
-      status: "done" as const,
+      status: "completed" as const,
       feel: null,
       sets: [
         {
           setNumber: 1,
-          target: { kind: "reps" as const, low: 8, high: 12 },
-          logged: { reps: 10, load: 100, feel: "good" as const },
-          rest: { target: 120, used: 120 },
-          status: "done" as const,
+          reps: 10,
+          weightKg: 100,
+          durationSeconds: null,
         },
       ],
       isBodyweight: false,
@@ -60,6 +59,7 @@ async function main() {
     restVibrate: true,
     restOverrideSeconds: null,
     cooldownEnabled: true,
+    units: "metric" as const,
   };
 
   const fakeActions: SessionActions = {
