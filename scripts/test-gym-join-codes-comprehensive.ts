@@ -9,6 +9,13 @@
  * Run: supabase start && REAL_DB=1 npx tsx scripts/test-gym-join-codes-comprehensive.ts
  */
 
+// Skip unless REAL_DB=1
+if (process.env.REAL_DB !== "1") {
+  console.log("\n⏭️  Skipping comprehensive tests (REAL_DB=1 not set)");
+  console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance\n");
+  process.exit(0);
+}
+
 import { checkRealDbTest } from "./lib-db-reset-guard.js";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
@@ -673,11 +680,6 @@ async function runTests() {
   const { error: genError } = await outsider.client.rpc("generate_join_code", {});
   check("generate_join_code denied", !!genError && genError.code === "42501");
 
-  const { error: checkError } = await outsider.client.rpc("check_join_code_throttle", {
-    p_user_id: outsider.userId,
-  });
-  check("check_join_code_throttle denied", !!checkError && checkError.code === "42501");
-
   const { error: recordError } = await outsider.client.rpc("record_join_code_miss", {
     p_user_id: outsider.userId,
   });
@@ -732,14 +734,23 @@ async function runTests() {
     // Mutant: search_path dropped
     // Check that all SECURITY DEFINER functions have search_path="" exactly
     try {
+      // Expected SECURITY DEFINER functions (check_join_code_throttle was removed)
+      const expectedDefinerFuncs = [
+        'preview_join_code',
+        'redeem_join_code', 
+        'create_join_code',
+        'revoke_join_code',
+        'record_join_code_miss'
+      ];
+      
       const definerFuncsResult = await pgClient.query(`
         SELECT p.proname, p.proconfig
         FROM pg_catalog.pg_proc p
         JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'public'
-          AND p.proname IN ('preview_join_code', 'redeem_join_code', 'create_join_code', 'revoke_join_code', 'check_join_code_throttle', 'record_join_code_miss')
+          AND p.proname = ANY($1::text[])
           AND p.prosecdef = true
-      `);
+      `, [expectedDefinerFuncs]);
       
       function parseDefinerFunc(row: unknown): { proname: string; proconfig: string[] | null } | null {
         if (row === null || typeof row !== "object") return null;
@@ -757,16 +768,34 @@ async function runTests() {
         if (parsed) definerFuncs.push(parsed);
       }
       
-      if (definerFuncs.length === 6) {
+      // Check we found all expected functions
+      const foundNames = new Set(definerFuncs.map(f => f.proname));
+      const missingFuncs = expectedDefinerFuncs.filter(name => !foundNames.has(name));
+      
+      if (missingFuncs.length > 0) {
+        check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", 
+          false, 
+          `Missing functions: ${missingFuncs.join(', ')}`);
+      } else {
+        // Check each has search_path=""
         const allHaveSearchPath = definerFuncs.every(f => 
           f.proconfig !== null && f.proconfig.some(c => c === 'search_path=""')
         );
         check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", 
           allHaveSearchPath,
           "", definerFuncs.map(f => ({name: f.proname, config: f.proconfig})));
-      } else {
-        check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", false, `Expected 6 functions, found ${definerFuncs.length}`);
       }
+      
+      // Assert that check_join_code_throttle does NOT exist (removed dead code)
+      const deadFuncResult = await pgClient.query(`
+        SELECT p.proname
+        FROM pg_catalog.pg_proc p
+        JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public'
+          AND p.proname = 'check_join_code_throttle'
+      `);
+      check("check_join_code_throttle does not exist (dead code removed)", deadFuncResult.rows.length === 0);
+      
     } catch (definerError) {
       const errorMsg = definerError instanceof Error ? definerError.message : String(definerError);
       check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", false, errorMsg);

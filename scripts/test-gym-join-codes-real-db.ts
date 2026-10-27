@@ -18,6 +18,13 @@
  * In CI: REAL_DB=1 is set in database-seed-test job, CI=true bypasses guard.
  */
 
+// Skip unless REAL_DB=1
+if (process.env.REAL_DB !== "1") {
+  console.log("\n⏭️  Skipping gym join codes real-DB tests (REAL_DB=1 not set)");
+  console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance\n");
+  process.exit(0);
+}
+
 import { checkRealDbTest } from "./lib-db-reset-guard.js";
 
 // Check guard first
