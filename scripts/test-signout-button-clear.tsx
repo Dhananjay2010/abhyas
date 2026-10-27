@@ -50,8 +50,7 @@ Object.defineProperty(window, 'localStorage', {
   console.log("\n📋 Test: SignOutButton H1 compatibility\n");
   
   const FIXED_TIME = new Date('2026-10-25T12:00:00Z').getTime();
-  const fakeDeps: PendingSetDeps = {
-    nowFn: () => FIXED_TIME,
+  const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME,
   };
   
   const replaceCalls: string[] = [];
@@ -85,7 +84,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u1"
       signOut={signOutSuccess}
       logSet={logSetSuccess}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -127,7 +126,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u2"
       signOut={signOutSuccess}
       logSet={logSetSuccess}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -171,7 +170,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u3"
       signOut={signOutSuccess}
       logSet={logSetFail}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -235,7 +234,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u4"
       signOut={signOutExpired}
       logSet={logSetFail}  // Replay fails so we get warning
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -297,7 +296,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u5"
       signOut={signOutThrow}
       logSet={logSetFail}  // Replay fails so we get warning
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -354,7 +353,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u6"
       signOut={signOutOkFalse}
       logSet={logSetFail}  // Replay fails so we get warning
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -418,7 +417,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u7"
       signOut={signOutExpired2}
       logSet={logSetFail}  // Replay fails so we get warning
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   

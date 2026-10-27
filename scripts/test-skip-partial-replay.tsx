@@ -54,7 +54,7 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 const FIXED_TIME = new Date('2026-10-26T12:00:00Z').getTime();
-const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
+const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
 const fakeTimer: RunnerTimer = {
   setTimeout: (callback: () => void) => { callback(); return setTimeout(() => {}, 999999); },
   clearTimeout: () => {},
@@ -126,7 +126,7 @@ const settings: RunnerSettings = {
     finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => {
       finishSessionCallCount++;
-      return { ok: true };
+      return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
     },
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),

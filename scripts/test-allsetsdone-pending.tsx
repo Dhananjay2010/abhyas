@@ -47,7 +47,7 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 const FIXED_TIME = new Date('2026-10-26T12:00:00Z').getTime();
-const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
+const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
 const fakeTimer: RunnerTimer = {
   setTimeout: (callback: () => void) => { callback(); return setTimeout(() => {}, 999999); },
   clearTimeout: () => {},

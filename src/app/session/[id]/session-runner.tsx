@@ -13,16 +13,13 @@ import {
 } from "@/lib/session/device";
 import { useElapsedWithClock } from "@/lib/session/use-elapsed-with-clock";
 import { displayElapsed } from "@/lib/session/display-elapsed";
-import { summaryDurationSeconds } from "@/lib/session/summary-duration";
 import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { displayToKg, formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
-import { shouldShowFinishRetry, runEndEarly } from "@/lib/session/finish-flow";
-import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
-import { focusTrap } from "@/lib/focus-trap";
+import { shouldShowFinishRetry } from "@/lib/session/finish-flow";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
 import { applySwapTarget } from "@/lib/session/apply-swap-target";
@@ -278,10 +275,6 @@ export function SessionRunner({
   const [needsFinishRetry, setNeedsFinishRetry] = useState(false);
   const [lastCooldownCompleted, setLastCooldownCompleted] = useState<boolean>(true);
   const [savedDurationSeconds, setSavedDurationSeconds] = useState<number | null>(null);
-  const endEarlyTriggerRef = useRef<HTMLButtonElement>(null);
-  const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
-  const endingRef = useRef(false);
-  const [ending, setEnding] = useState(false);
 
   // Pending set controller for retry functionality (PR #113)
   const [pendingSetState, setPendingSetState] = useState<PendingSetState>({

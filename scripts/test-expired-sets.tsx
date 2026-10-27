@@ -89,7 +89,7 @@ Object.defineProperty(window, 'localStorage', {
     <PendingSetReplay
       userId="u1"
       logSet={logSetSuccess}
-      nowFn={new Date(NOW)}
+      now={new Date(NOW)}
     />
   );
   
@@ -126,7 +126,7 @@ Object.defineProperty(window, 'localStorage', {
     <PendingSetReplay
       userId="u2"
       logSet={logSetSuccess}
-      nowFn={new Date(NOW)}
+      now={new Date(NOW)}
     />
   );
   

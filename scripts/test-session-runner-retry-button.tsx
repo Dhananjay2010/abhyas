@@ -63,8 +63,7 @@ Object.defineProperty(window, 'localStorage', {
   configurable: true
 });
 
-const fakeDeps: PendingSetDeps = {
-  nowFn: () => FIXED_TIME,
+const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME,
 };
 
 const fakeTimer: RunnerTimer = {

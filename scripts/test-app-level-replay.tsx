@@ -48,7 +48,7 @@ Object.defineProperty(window, 'localStorage', {
   console.log("\n📋 Test: App-level replay on sign-in (Issue #3)\n");
   
   const FIXED_TIME = new Date('2026-10-26T12:00:00Z').getTime();
-  const deps: PendingSetDeps = { nowFn: () => FIXED_TIME };
+  const deps: PendingSetDeps = { now: () => FIXED_TIME };
   
   // ========================================================================
   // Test 1: Sign out anyway → new sign-in → replay posts the sets
@@ -92,7 +92,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u1"
       getSessionStatus={getSessionStatus}
       logSet={logSetSuccess}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -139,7 +139,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u2"
       getSessionStatus={getSessionStatusEnded}
       logSet={logSetSuccess}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -201,7 +201,7 @@ Object.defineProperty(window, 'localStorage', {
       userId="u3"
       getSessionStatus={getSessionStatusEnded}
       logSet={logSetSuccess}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   

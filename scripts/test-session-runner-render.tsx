@@ -75,8 +75,7 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 // Fake deps with fixed time
-const fakeDeps: PendingSetDeps = {
-  nowFn: () => FIXED_TIME,
+const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME,
 };
 
 // Deferred: a controllable promise for tests
@@ -872,7 +871,7 @@ async function testN11() {
   console.log("\n📋 Test N11: Cool-down doesn't finish session with pending sets");
   
   let finishSessionCalled = false;
-  const finishDeferred = createDeferred<{ ok: true }>();
+  const finishDeferred = createDeferred<{ ok: true; data: { status: "completed" | "skipped"; durationSeconds: number | null } }>();
   const replayDeferred = createDeferred<{ ok: true }>();
   
   const actions: SessionActions = {

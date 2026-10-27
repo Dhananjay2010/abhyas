@@ -91,7 +91,7 @@ async function testExpiredSetsAreSurfaced() {
         userId={userId}
         getSessionStatus={mockGetSessionStatus}
         logSet={mockLogSet}
-        nowFn={new Date(FIXED_TIME)}
+        now={new Date(FIXED_TIME)}
         storage={fakeStorage}
       />
     );
@@ -159,7 +159,7 @@ async function testEndedSessionIsSurfaced() {
         userId={userId}
         getSessionStatus={mockGetSessionStatus}
         logSet={mockLogSet}
-        nowFn={new Date(FIXED_TIME)}
+        now={new Date(FIXED_TIME)}
         storage={fakeStorage}
       />
     );

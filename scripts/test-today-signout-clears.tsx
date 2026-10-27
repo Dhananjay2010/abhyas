@@ -45,7 +45,7 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 const FIXED_TIME = new Date('2026-10-26T12:00:00Z').getTime();
-const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
+const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
 
 (async () => {
   console.log("\n📋 Test: SignOutForm H1 compatibility\n");
@@ -82,7 +82,7 @@ const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
       userId="u1"
       signOut={signOutSuccess}
       logSet={logSetSuccess}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -124,7 +124,7 @@ const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
       userId="u2"
       signOut={signOutSuccess}
       logSet={logSetSuccess}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -169,7 +169,7 @@ const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
       userId="u3"
       signOut={signOutSuccess}
       logSet={logSetFail}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -234,7 +234,7 @@ const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
       userId="u4"
       signOut={signOutExpired}
       logSet={logSetFail}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -297,7 +297,7 @@ const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
       userId="u5"
       signOut={signOutThrow}
       logSet={logSetFail}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -355,7 +355,7 @@ const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
       userId="u6"
       signOut={signOutOkFalse}
       logSet={logSetFail}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
@@ -420,7 +420,7 @@ const fakeDeps: PendingSetDeps = { nowFn: () => FIXED_TIME };
       userId="u7"
       signOut={signOutExpired2}
       logSet={logSetFail}
-      nowFn={new Date(FIXED_TIME)}
+      now={new Date(FIXED_TIME)}
     />
   );
   
