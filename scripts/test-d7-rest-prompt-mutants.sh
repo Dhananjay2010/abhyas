@@ -147,8 +147,8 @@ run_mutant "10. Tomorrow detection: case-sensitive check is strict" "$COMPONENT"
   'const isTomorrowLabel = dayLabel.toLowerCase() === "tomorrow";' "$T"
 
 run_mutant "R1. Wrong sessionId sent to onPlan" "$COMPONENT" \
-  '        const r = await onPlan(input as { sessionId: string; plan: DayPlan });' \
-  '        const r = await onPlan({ sessionId: "mutant-wrong-id", plan } as { sessionId: string; plan: DayPlan });' "$T"
+  '        const r = await onPlan(input);' \
+  '        const r = await onPlan({ sessionId: "mutant-wrong-id", plan } as never);' "$T"
 
 run_mutant "R3. Never mind persists a change (writes keep)" "$COMPONENT" \
   '            <button
@@ -297,21 +297,23 @@ run_mutant "R7. Error not shown in rest branch" "$COMPONENT" \
   return (' "$T"
 
 run_mutant "R8. Failed plan still settles (ignore r.ok)" "$COMPONENT" \
-  '        const r = await onPlan(input as { sessionId: string; plan: DayPlan });
+  '        const r = await onPlan(input);
         if (!r.ok) {
           setError(r.error);
           return;
         }
         setChoosing(false);
         setSettled(describedAs);
-        // Show brief confirmation' \
-  '        const r = await onPlan(input as { sessionId: string; plan: DayPlan });
+        // Today reads the override on the server, so it has to re-render.
+        router.refresh();' \
+  '        const r = await onPlan(input);
         if (!r.ok) {
           setError(r.error);
         }
         setChoosing(false);
         setSettled(describedAs);
-        // Show brief confirmation' "$T"
+        // Today reads the override on the server, so it has to re-render.
+        router.refresh();' "$T"
 
 run_mutant "R11. Training choice sends wrong programDayId (rest branch)" "$COMPONENT" \
   '              days.map((d) => (
@@ -350,7 +352,7 @@ run_mutant "M1. Server uses current date instead of session.local_date + 1" "$RE
     return { ok: true, data: targetDate };' "$T_RESOLVE"
 
 run_mutant "Q1. Yoga not added when already in block" "$COMPONENT" \
-  '            {days.some((d) => d.dayType === "yoga") ? null : (
+  '            {days.some((d) => d.dayType === "yoga") || days.length === 0 ? null : (
               <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
                 Yoga
               </Choice>
@@ -358,22 +360,6 @@ run_mutant "Q1. Yoga not added when already in block" "$COMPONENT" \
   '            <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
               Yoga
             </Choice>' "$T"
-
-run_mutant "Q2. Keep rest confirmation missing" "$COMPONENT" \
-  '        if (plan.kind === "keep" && (describedAs.toLowerCase() === "rest" || describedAs === "a rest day")) {
-          setConfirmation("Rest day kept");
-        } else if (plan.kind === "training") {' \
-  '        if (false && plan.kind === "keep" && (describedAs.toLowerCase() === "rest" || describedAs === "a rest day")) {
-          setConfirmation("Rest day kept");
-        } else if (plan.kind === "training") {' "$T"
-
-run_mutant "Q3. Training confirmation missing label" "$COMPONENT" \
-  '        } else if (plan.kind === "training") {
-          setConfirmation(`Saved: training ${describedAs}`);
-        } else {' \
-  '        } else if (plan.kind === "training") {
-          setConfirmation(`Saved`);
-        } else {' "$T"
 
 run_mutant "Q4. Never mind tap target too small (py-2)" "$COMPONENT" \
   '              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
@@ -394,7 +380,8 @@ run_mutant "Q4. Never mind tap target too small (py-2)" "$COMPONENT" \
         {error && (' "$T"
 
 run_mutant "N4. Raw DB error passes through to user" "$ACTION" \
-  '    const friendlyError = result.error === "That day has already been trained."
+  '    // Map all database/system errors to friendly copy using exact match
+    const friendlyError = result.error === "That day has already been trained."
       ? result.error
       : result.error === "That day has a session in progress."
       ? result.error
@@ -403,7 +390,8 @@ run_mutant "N4. Raw DB error passes through to user" "$ACTION" \
       : result.error === "No active program found."
       ? result.error
       : "Couldn'\''t save your choice. Please try again.";' \
-  '    const friendlyError = result.error;' "$T"
+  '    // Map all database/system errors to friendly copy using exact match
+    const friendlyError = result.error;' "$T"
 
 run_mutant "N5. planDay ignores resolved date (uses today instead)" "$ACTION" \
   '  const result = await planDayCore(client, {
@@ -437,18 +425,24 @@ run_mutant "N6. Session lookup not scoped by user_id" "$ACTION" \
 run_mutant "N7. Resolver error falls back to today (no friendly error)" "$RESOLVE" \
   '  if (result.error) {
     return { ok: false, error: "Could not load session." };
-  }' \
+  }
+
+  if (!result.localDate) {' \
   '  if (result.error) {
     return { ok: true, data: new Date().toISOString().slice(0, 10) };
-  }' "$T_RESOLVE"
+  }
+
+  if (!result.localDate) {' "$T_RESOLVE"
 
 run_mutant "N10. SessionRunner passes localDate instead of sessionId" "$COMPONENT" \
-  '        const input = sessionId 
+  '        // Type-safe construction without cast
+        const input = sessionId 
           ? { sessionId, plan }
           : localDate
           ? { localDate, plan }
           : { plan } as never;' \
-  '        const input = localDate 
+  '        // Type-safe construction without cast
+        const input = localDate 
           ? { localDate, plan }
           : sessionId
           ? { sessionId, plan }
