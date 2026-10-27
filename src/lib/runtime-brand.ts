@@ -62,14 +62,14 @@ export type BrandResolution = {
  * 
  * @param supabase Supabase client
  * @param host Hostname from the request (null for no host)
- * @param userId User ID if signed in (null for anon)
+ * @param memberGym Member's gym info (null if no membership)
  * @param base Base brand to use as fallback
  * @param fetchGymBrand Optional fetcher for gym brand (for testing)
  */
 export async function resolveBrand(
   supabase: SupabaseClient<Database>,
   host: string | null,
-  userId: string | null,
+  memberGym: { gymId: string; gymName: string } | null,
   base: Brand,
   fetchGymBrand: (gymId: string) => Promise<Partial<Brand>> = getGymBrand
 ): Promise<BrandResolution> {
@@ -112,21 +112,17 @@ export async function resolveBrand(
   }
 
   // Tier 2: User's active gym membership
-  if (userId) {
+  if (memberGym) {
     try {
-      const membership = await getUserGymMembership(supabase, userId);
+      const gymBrand = await fetchGymBrand(memberGym.gymId);
+      const brand = mergeBrand(base, gymBrand);
 
-      if (membership) {
-        const gymBrand = await fetchGymBrand(membership.gymId);
-        const brand = mergeBrand(base, gymBrand);
-
-        return {
-          brand,
-          gymId: membership.gymId,
-          gymName: membership.gymName,
-          tier: "member",
-        };
-      }
+      return {
+        brand,
+        gymId: memberGym.gymId,
+        gymName: memberGym.gymName,
+        tier: "member",
+      };
     } catch (err) {
       console.error("Member gym resolution error:", err);
     }
@@ -154,7 +150,9 @@ export const getRequestBrandResolution = cache(async (): Promise<BrandResolution
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id ?? null;
   
-  return resolveBrand(supabase, host, userId, branding);
+  const memberGym = userId ? await getUserGymMembership(supabase, userId) : null;
+  
+  return resolveBrand(supabase, host, memberGym, branding);
 });
 
 /**

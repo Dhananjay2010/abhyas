@@ -29,6 +29,18 @@ function createStubFetch(data: Record<string, unknown[]>) {
     const body = bodyStr && typeof bodyStr === 'string' ? JSON.parse(bodyStr) : {};
     calls.push({ url: urlStr, body });
     
+    // Check if this is a Supabase RPC call
+    if (urlStr.includes('/rest/v1/rpc/')) {
+      const funcName = urlStr.split('/rest/v1/rpc/')[1]?.split('?')[0] || '';
+      const responseData = data[funcName] || [];
+      
+      return new Response(JSON.stringify(responseData), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Fallback for other calls
     const funcName = body.name || '';
     const responseData = data[funcName] || [];
     
@@ -66,45 +78,141 @@ async function main() {
   }
   console.log();
 
-  console.log("TEST: Tier 1 (host wins) - verified domain");
+  console.log("TEST: Tier 1 (host wins) - verified domain with member of different gym");
   {
-    // Note: Full tier 1 testing requires proper RPC mocking.
-    // This test documents the intended behavior.
-    // See test-runtime-branding-resolver.ts for RPC-level tests.
-    check("Host wins tier exists", true);
-    check("Uses resolve_gym_by_host RPC", true);
-    check("Only verified domains accepted", true);
+    const stub = createStubFetch({
+      resolve_gym_by_host: [
+        {
+          gym_id: 'gym-b-id',
+          gym_slug: 'gold-coast-iron',
+          gym_name: 'Gold Coast Iron',
+          verified: true,
+        },
+      ],
+    });
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch },
+      }
+    );
+    
+    const mockFetchGymBrand = async (gymId: string) => {
+      if (gymId === 'gym-b-id') {
+        return {
+          name: 'Gold Coast Iron',
+          colors: { accent: '#F59E0B', accentFg: '#000000' },
+        };
+      }
+      if (gymId === 'gym-a-id') {
+        return {
+          name: 'Iron Temple',
+          colors: { accent: '#1E40AF', accentFg: '#ffffff' },
+        };
+      }
+      return {};
+    };
+    
+    const memberGym = { gymId: 'gym-a-id', gymName: 'Iron Temple' };
+    const result = await resolveBrand(supabase, 'goldcoastiron.com', memberGym, branding, mockFetchGymBrand);
+    
+    check("Tier is 'host' (not member)", result.tier === "host");
+    check("Gym ID is gym-b-id (host wins)", result.gymId === 'gym-b-id');
+    check("Gym name is Gold Coast Iron", result.gymName === 'Gold Coast Iron');
   }
   console.log();
 
-  console.log("TEST: Tier 2 (member fallback) - unmapped host, signed-in member");
+  console.log("TEST: Tier 2 (member fallback) - unmapped host, member of Iron Temple");
   {
-    // Note: Real membership lookup requires proper supabase auth mock.
-    // This test documents the intended behavior.
-    check("Member fallback tier exists", true);
+    const stub = createStubFetch({});
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch },
+      }
+    );
+    
+    const mockFetchGymBrand = async (gymId: string) => {
+      if (gymId === 'iron-temple-id') {
+        return {
+          name: 'Iron Temple',
+          colors: { accent: '#1E40AF', accentFg: '#ffffff' },
+        };
+      }
+      return {};
+    };
+    
+    const memberGym = { gymId: 'iron-temple-id', gymName: 'Iron Temple' };
+    const result = await resolveBrand(supabase, 'localhost', memberGym, branding, mockFetchGymBrand);
+    
+    check("Tier is 'member'", result.tier === "member");
+    check("Gym ID is iron-temple-id", result.gymId === 'iron-temple-id');
+    check("Gym name is Iron Temple", result.gymName === 'Iron Temple');
+    check("Brand name is Iron Temple", result.brand.name === 'Iron Temple');
   }
   console.log();
 
-  console.log("TEST: Contrast guard - low contrast accent falls back");
+  console.log("TEST: Member gym on mapped host - host still wins");
+  {
+    const stub = createStubFetch({
+      resolve_gym_by_host: [
+        {
+          gym_id: 'gym-b-id',
+          gym_slug: 'gold-coast-iron',
+          gym_name: 'Gold Coast Iron',
+          verified: true,
+        },
+      ],
+    });
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch },
+      }
+    );
+    
+    const mockFetchGymBrand = async (gymId: string) => {
+      if (gymId === 'gym-b-id') {
+        return { name: 'Gold Coast Iron', colors: { accent: '#F59E0B' } };
+      }
+      if (gymId === 'iron-temple-id') {
+        return { name: 'Iron Temple', colors: { accent: '#1E40AF' } };
+      }
+      return {};
+    };
+    
+    const memberGym = { gymId: 'iron-temple-id', gymName: 'Iron Temple' };
+    const result = await resolveBrand(supabase, 'goldcoastiron.com', memberGym, branding, mockFetchGymBrand);
+    
+    check("Tier is 'host'", result.tier === "host");
+    check("Gym ID is gym-b-id (not iron-temple-id)", result.gymId === 'gym-b-id');
+    check("Brand name is Gold Coast Iron (not Iron Temple)", result.brand.name === 'Gold Coast Iron');
+  }
+  console.log();
+
+  console.log("TEST: Contrast guard - OKLCH lightness adjustment");
   {
     const appBg = branding.colors.bg;  // #0a0c0e
-    const veryLow = '#0A0A0A';          // ~1.01:1 contrast
-    const lowBlue = '#1E40AF';          // ~2.25:1 contrast (< 3:1, rejected)
+    const lowBlue = '#1E40AF';          // ~2.25:1 contrast (< 3:1)
     const goodAmber = '#F59E0B';        // ~9.12:1 contrast (>= 3:1, accepted)
     
-    const ratio1 = contrastRatio(veryLow, appBg);
     const ratio2 = contrastRatio(lowBlue, appBg);
     const ratio3 = contrastRatio(goodAmber, appBg);
     
-    check("Very low contrast < 3:1", ratio1 < 3.0);
     check("Dark blue < 3:1", ratio2 < 3.0);
     check("Amber >= 3:1", ratio3 >= 3.0);
     
-    // Test mergeBrand applies guard
-    const badPartial = {
+    // Test mergeBrand applies OKLCH adjustment
+    const lowPartial = {
       colors: {
-        accent: veryLow,
-        accentHover: veryLow,
+        accent: lowBlue,
+        accentHover: lowBlue,
         accentFg: '#ffffff',
         bg: branding.colors.bg,
         surface: branding.colors.surface,
@@ -120,10 +228,13 @@ async function main() {
       },
     };
     
-    const merged = mergeBrand(branding, badPartial);
-    check("Very low contrast rejected", merged.colors.accent === branding.colors.accent);
+    const merged = mergeBrand(branding, lowPartial);
+    check("Low contrast adjusted (not original)", merged.colors.accent !== lowBlue);
+    check("Adjusted has >= 3:1 contrast", contrastRatio(merged.colors.accent, appBg) >= 3.0);
+    const adjustedFg = merged.colors.accentFg;
+    check("accentFg has >= 4.5:1 against adjusted", contrastRatio(adjustedFg, merged.colors.accent) >= 4.5);
     
-    // Test good contrast accepted
+    // Test good contrast accepted as-is
     const goodPartial = {
       colors: {
         accent: goodAmber,
@@ -144,7 +255,7 @@ async function main() {
     };
     
     const merged2 = mergeBrand(branding, goodPartial);
-    check("Good contrast accepted", merged2.colors.accent === goodAmber);
+    check("Good contrast accepted as-is", merged2.colors.accent === goodAmber);
   }
   console.log();
 
