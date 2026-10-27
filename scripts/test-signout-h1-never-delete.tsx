@@ -309,9 +309,9 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     unmountD();
     
     // ========================================================================
-    // Test (e): "Sign out anyway" → queue unchanged
+    // Test (e): "Sign out anyway" → queue CLEARED (Item 1)
     // ========================================================================
-    console.log(`\nTest (e) ${name}: 'Sign out anyway' keeps queue\n`);
+    console.log(`\nTest (e) ${name}: 'Sign out anyway' clears queue (Item 1)\n`);
     
     fakeStorage.clear();
     savePendingSet(fakeStorage, "u5", "session-5", {
@@ -357,8 +357,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     assert(signOutCalls === 1, `(e) ${name}: signOut called`);
     
     const queueAfterE = fakeStorage.getItem(storageKey("u5"));
-    assert(queueAfterE !== null, `(e) ${name}: u5 queue kept`);
-    assert(queueAfterE === queueBeforeE, `(e) ${name}: u5 queue byte-identical`);
+    assert(queueAfterE === null, `(e) ${name}: u5 queue CLEARED by 'Sign out anyway' (Item 1)`);
     
     unmountE();
   }

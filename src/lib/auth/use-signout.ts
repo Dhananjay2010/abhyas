@@ -99,7 +99,8 @@ export function useSignOut({
       // Check if this is an expired session error
       if (isSessionExpired(err)) {
         // Session is already expired, sign out locally and navigate
-        // KEEP the queue - it's keyed by userId and will replay on next sign-in
+        // Queue is already cleared by handleSignOutAnyway (Item 1)
+        // Normal sign-out paths keep the queue for replay on next sign-in
         try {
           const res = await fetch("/auth/signout", {
             method: "POST",
