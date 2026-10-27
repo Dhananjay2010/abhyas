@@ -71,23 +71,18 @@ function buildInput(profile: TestProfile): GeneratorInput {
   return {
     userId: `identity-test-${profile.id}`,
     blockNumber: 1,
-    sex: "male",
-    age: 30,
-    level: profile.level,
     goal: "muscle_gain",
-    sessionDurationMinutes: 45,
-    injuryHistory: profile.injuries.map((inj) => ({
-      region: inj.region as GeneratorInput["injuryHistory"][number]["region"],
-      severity: inj.severity as GeneratorInput["injuryHistory"][number]["severity"],
-    })),
+    level: profile.level,
+    primaryTrack: profile.equipment === "bodyweight" ? "bodyweight" : "weights" as const,
+    daysPerWeek: 3,
+    yogaDaysPerWeek: 0,
+    age: 30,
+    bmi: null,
+    hasAllEquipment: profile.equipment === "all",
+    equipmentIds: profile.equipment === "all" ? [] : profile.equipment === "dumbbell" ? ["dumbbell"] : [],
     currentInjuryRegions,
     anyKneeInjury,
-    bmi: null,
-    availableEquipment: profile.equipment === "all" ? null : profile.equipment === "dumbbell" ? ["dumbbell"] : [],
-    sessionSeed: 1,
-    daysPerWeek: 3,
-    primaryTrack: profile.equipment === "bodyweight" ? "bodyweight" : "weights" as const,
-    strengthTrack: false,
+    preferredSessionMinutes: 60,
     catalogue,
   };
 }
@@ -106,7 +101,7 @@ for (const profile of profiles) {
   const input = buildInput(profile);
   
   // Test 1: generateProgram
-  const program = generateProgram(input, catalogue);
+  const program = generateProgram(input);
   const programHash = hashData(program);
   totalProgramsChecked++;
   
@@ -118,7 +113,7 @@ for (const profile of profiles) {
       
       const swapListInput: EligibleSwapListInput = {
         currentExercise: exercise,
-        sessionExerciseId: `${profile.id}-${day.sessionId}-${ex.orderIndex}`,
+        sessionExerciseId: `${profile.id}-${day.dayIndex}-${ex.orderIndex}`,
         generatorInput: input,
         pool: catalogue,
         alreadyInSession: new Set([exercise.id]),

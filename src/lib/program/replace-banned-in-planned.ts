@@ -42,7 +42,7 @@ export function shouldReplaceBannedExercise(
   hasAnyKnee: boolean,
 ): boolean {
   // MUTANT: Skip jammer check
-  if (hasPastKnee && PAST_KNEE_BANNED.has(exerciseSlug)) return true;
+  // MUTANT: Skip past-knee check
   return false;
 }
 
@@ -56,7 +56,7 @@ export function replaceBannedInPlanned(
   planned: PlannedExercise[],
   catalogue: CandidateExercise[],
   generatorInput: GeneratorInput,
-  sessionExerciseIdSeed: string,
+  _sessionExerciseIdSeed: string, // Reserved for deterministic tie-breaking in future
 ): PlannedExercise[] {
   const hasPastKnee = (generatorInput.anyKneeInjury ?? false) && generatorInput.currentInjuryRegions.length === 0;
   const hasAnyKnee = generatorInput.anyKneeInjury ?? false;
@@ -65,7 +65,6 @@ export function replaceBannedInPlanned(
   if (!hasAnyKnee) return planned;
   
   const catalogueById = new Map(catalogue.map(e => [e.id, e]));
-  const catalogueBySlug = new Map(catalogue.map(e => [e.slug, e]));
   
   const result: PlannedExercise[] = [];
   const alreadyUsed = new Set<string>();
