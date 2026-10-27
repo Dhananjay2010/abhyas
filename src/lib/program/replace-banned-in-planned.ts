@@ -97,6 +97,7 @@ export function replaceBannedInPlanned(
       .filter(e => !alreadyUsed.has(e.id))
       .filter(e => isEligible(e, generatorInput));
     
+    // mechanic can be compound, isolation, or null - treat null as compound
     const wantCompound = exercise.mechanic !== "isolation";
     const scoreFn = (e: CandidateExercise) => 
       score(e, wantCompound, generatorInput.level, generatorInput.primaryTrack);
