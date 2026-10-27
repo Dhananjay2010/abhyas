@@ -4,44 +4,49 @@ import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { NewVersionHint } from "@/components/new-version-hint";
-import { branding, getBrandCssVariables } from "@/lib/branding";
+import { branding } from "@/lib/branding";
+import { getRequestBrand, getBrandCssVariablesForBrand } from "@/lib/runtime-brand";
 import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 import { InProgressBar } from "@/components/in-progress-bar";
 import { PendingSetReplayProvider } from "@/components/pending-set-replay-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(branding.siteUrl),
-  title: branding.name,
-  description: branding.description,
-  applicationName: branding.name,
-  appleWebApp: {
-    capable: true,
-    title: branding.shortName,
-    statusBarStyle: "black-translucent",
-  },
-  icons: {
-    icon: [
-      { url: branding.icons.favicon, sizes: "32x32" },
-      { url: branding.icons.icon192, sizes: "192x192", type: "image/png" },
-      { url: branding.icons.icon512, sizes: "512x512", type: "image/png" },
-    ],
-    apple: {
-      url: branding.icons.appleTouchIcon,
-      sizes: "180x180",
-      type: "image/png",
-    },
-  },
-  manifest: "/manifest.webmanifest",
-  openGraph: {
-    type: "website",
-    siteName: branding.name,
-    title: branding.name,
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getRequestBrand();
+  
+  return {
+    metadataBase: new URL(branding.siteUrl),
+    title: brand.name,
     description: branding.description,
-    url: branding.siteUrl,
-  },
-};
+    applicationName: brand.name,
+    appleWebApp: {
+      capable: true,
+      title: brand.shortName,
+      statusBarStyle: "black-translucent",
+    },
+    icons: {
+      icon: [
+        { url: branding.icons.favicon, sizes: "32x32" },
+        { url: branding.icons.icon192, sizes: "192x192", type: "image/png" },
+        { url: branding.icons.icon512, sizes: "512x512", type: "image/png" },
+      ],
+      apple: {
+        url: branding.icons.appleTouchIcon,
+        sizes: "180x180",
+        type: "image/png",
+      },
+    },
+    manifest: "/manifest.webmanifest",
+    openGraph: {
+      type: "website",
+      siteName: brand.name,
+      title: brand.name,
+      description: branding.description,
+      url: branding.siteUrl,
+    },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: branding.colors.bg,
@@ -51,12 +56,13 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   // Inject brand CSS variables on the server to avoid flash of default theme.
-  // NEXT_PUBLIC_BRAND is build-time, so no hydration mismatch.
-  const brandCssVars = getBrandCssVariables(branding);
+  // Runtime brand is resolved from the request host.
+  const brand = await getRequestBrand();
+  const brandCssVars = getBrandCssVariablesForBrand(brand);
 
   return (
     <html lang="en" className={inter.variable}>
