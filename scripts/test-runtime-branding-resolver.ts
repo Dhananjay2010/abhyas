@@ -344,7 +344,6 @@ async function main() {
       );
       
       const resolution = await resolveBrand(supabase, 'gym.example.com:443', null, branding, mockFetchBrand, false);
-    const result = resolution.brand;
       check("Host with port resolves", resolution.gymId === gymId);
       check("Tier is 'host'", resolution.tier === "host");
       
@@ -431,6 +430,170 @@ async function main() {
     const result = resolution.brand;
     check("primary_color becomes accent", result.colors.accent === '#ff0000');
     check("accent_color becomes accentHover", result.colors.accentHover === '#cc0000');
+  }
+  console.log();
+
+  console.log("TEST: MUTANT M1 - RPC returns {gym_id, gym_slug, gym_name} only (no verified field)");
+  {
+    const gymId = 'gym-m1-id';
+    const stub = createStubFetch({
+      resolve_gym_by_host: [{ gym_id: gymId, gym_slug: 'test-gym', gym_name: 'Test Gym' }],
+    });
+    
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch },
+      }
+    );
+    
+    const mockFetchBrand = async (): Promise<Partial<Brand>> => ({ name: 'Test Gym', colors: { ...branding.colors, accent: '#10B981' } });
+    
+    const resolution = await resolveBrand(supabase, 'mapped.example.com', null, branding, mockFetchBrand, false);
+    
+    check("M1: Resolution succeeds with migration 037 shape", resolution.gymId === gymId);
+    check("M1: Tier is host", resolution.tier === "host");
+    check("M1: Brand name from gym", resolution.brand.name === 'Test Gym');
+  }
+  console.log();
+
+  console.log("TEST: MUTANT M3 - Port normalization (assert RPC param strips port)");
+  {
+    const gymId = 'gym-m3-id';
+    const stub = createStubFetch({
+      resolve_gym_by_host: [{ gym_id: gymId, gym_slug: 'port-gym', gym_name: 'Port Gym' }],
+    });
+    
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch },
+      }
+    );
+    
+    const mockFetchBrand = async (): Promise<Partial<Brand>> => ({ name: 'Port Gym', colors: { ...branding.colors, accent: '#3B82F6' } });
+    
+    const resolution = await resolveBrand(supabase, 'gym.example.com:3000', null, branding, mockFetchBrand, false);
+    
+    check("M3: Resolution succeeds", resolution.gymId === gymId);
+    
+    const resolveCall = stub.calls.find(c => c.url.includes('/rpc/resolve_gym_by_host'));
+    const pHost = resolveCall?.body ? JSON.parse(resolveCall.body).p_host : null;
+    check("M3: p_host has port :3000 stripped", pHost === 'gym.example.com');
+  }
+  console.log();
+
+  console.log("TEST: MUTANT M12 - Host RPC error returns neutralBrand (not member/base)");
+  {
+    const stub = createStubFetch({
+      resolve_gym_by_host: { error: 'Database error' } as any,
+    });
+    
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch },
+      }
+    );
+    
+    const mockFetchBrand = async (): Promise<Partial<Brand>> => ({ name: 'Member Gym', colors: { ...branding.colors, accent: '#EF4444' } });
+    const memberGym = { gymId: 'member-gym-id', gymName: 'Member Gym' };
+    
+    const resolution = await resolveBrand(supabase, 'error.example.com', memberGym, branding, mockFetchBrand, false);
+    
+    check("M12: Tier is neutral (not member)", resolution.tier === "neutral");
+    check("M12: Brand name is neutral", resolution.brand.name.includes("neutral") || resolution.brand.name === branding.name);
+    check("M12: Accent is neutral grey", resolution.brand.colors.accent === '#6B7280');
+  }
+  console.log();
+
+  console.log("TEST: Skip tier 1 - Host present wins over member");
+  {
+    const hostGymId = 'host-gym-id';
+    const memberGymId = 'member-gym-id';
+    const stub = createStubFetch({
+      resolve_gym_by_host: [{ gym_id: hostGymId, gym_slug: 'host-gym', gym_name: 'Host Gym' }],
+    });
+    
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch },
+      }
+    );
+    
+    const mockFetchBrand = async (id: string): Promise<Partial<Brand>> => {
+      if (id === hostGymId) return { name: 'Host Gym', colors: { ...branding.colors, accent: '#8B5CF6' } };
+      return { name: 'Member Gym', colors: { ...branding.colors, accent: '#EF4444' } };
+    };
+    
+    const memberGym = { gymId: memberGymId, gymName: 'Member Gym' };
+    const resolution = await resolveBrand(supabase, 'host.example.com', memberGym, branding, mockFetchBrand, false);
+    
+    check("Skip-tier-1: Tier is host (not member)", resolution.tier === "host");
+    check("Skip-tier-1: Gym ID is host gym", resolution.gymId === hostGymId);
+    check("Skip-tier-1: Brand from host (not member)", resolution.brand.name === 'Host Gym');
+  }
+  console.log();
+
+  console.log("TEST: Member-over-host ordering - Member tier tried before base");
+  {
+    const memberGymId = 'member-only-id';
+    const stub = createStubFetch({
+      resolve_gym_by_host: [],
+    });
+    
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch },
+      }
+    );
+    
+    const mockFetchBrand = async (): Promise<Partial<Brand>> => ({ name: 'Member Only Gym', colors: { ...branding.colors, accent: '#F59E0B' } });
+    const memberGym = { gymId: memberGymId, gymName: 'Member Only Gym' };
+    
+    const resolution = await resolveBrand(supabase, 'unmapped.example.com', memberGym, branding, mockFetchBrand, false);
+    
+    check("Member-over-host: Tier is member (not base)", resolution.tier === "member");
+    check("Member-over-host: Gym ID from membership", resolution.gymId === memberGymId);
+    check("Member-over-host: Brand from member gym", resolution.brand.name === 'Member Only Gym');
+  }
+  console.log();
+
+  console.log("TEST: Drop guard - Malformed RPC row falls through to next tier");
+  {
+    const memberGymId = 'fallback-gym-id';
+    const stub = createStubFetch({
+      resolve_gym_by_host: [{ gym_id: null, gym_slug: 'malformed', gym_name: null } as any],
+    });
+    
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch },
+      }
+    );
+    
+    const mockFetchBrand = async (): Promise<Partial<Brand>> => ({ name: 'Fallback Gym', colors: { ...branding.colors, accent: '#14B8A6' } });
+    const memberGym = { gymId: memberGymId, gymName: 'Fallback Gym' };
+    
+    const resolution = await resolveBrand(supabase, 'malformed.example.com', memberGym, branding, mockFetchBrand, false);
+    
+    check("Drop-guard: Falls through to member tier", resolution.tier === "member");
+    check("Drop-guard: Uses member gym (not malformed)", resolution.gymId === memberGymId);
   }
   console.log();
 

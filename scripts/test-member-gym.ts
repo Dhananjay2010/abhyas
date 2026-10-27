@@ -230,6 +230,81 @@ async function main() {
   }
   console.log();
 
+  console.log("TEST: MUTANT M4 - user_id filter assertion (assert eq.<uid> in URL)");
+  {
+    const userId = 'test-user-m4';
+    const gymId = 'user-gym-m4';
+    
+    const stub = createStubFetch({
+      gym_memberships: [{
+        gym_id: gymId,
+        role: 'member',
+        joined_at: '2024-01-01T00:00:00Z',
+        gyms: { name: 'User Gym M4' },
+      }],
+    });
+    
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch },
+      }
+    );
+    
+    const membership = await getUserGymMembership(supabase, userId);
+    
+    check("M4: Returns membership", membership !== null);
+    check("M4: Correct gym ID", membership?.gymId === gymId);
+    
+    // Assert the query URL contains user_id=eq.{userId}
+    const queryCall = stub.calls.find(c => c.url.includes('gym_memberships'));
+    const hasUserFilter = queryCall?.url.includes(`user_id=eq.${userId}`) ?? false;
+    check("M4: Query includes user_id=eq filter", hasUserFilter, queryCall?.url || 'no call');
+  }
+  console.log();
+
+  console.log("TEST: MUTANT M5 - Multi-membership: deterministic pick, no error");
+  {
+    const userId = 'multi-user-m5';
+    const olderGymId = 'gym-older-m5';
+    const newerGymId = 'gym-newer-m5';
+    
+    const stub = createStubFetch({
+      gym_memberships: [
+        {
+          gym_id: newerGymId,
+          role: 'staff',
+          joined_at: '2024-06-01T00:00:00Z',
+          gyms: { name: 'Newer Staff Gym' },
+        },
+        {
+          gym_id: olderGymId,
+          role: 'member',
+          joined_at: '2024-01-01T00:00:00Z',
+          gyms: { name: 'Older Member Gym' },
+        },
+      ],
+    });
+    
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch },
+      }
+    );
+    
+    const membership = await getUserGymMembership(supabase, userId);
+    
+    check("M5: Returns a membership (no error)", membership !== null);
+    check("M5: Prefers member role over staff", membership?.gymId === olderGymId);
+    check("M5: Returns correct gym name", membership?.gymName === 'Older Member Gym');
+  }
+  console.log();
+
   if (failures > 0) {
     console.error(`\n❌ ${failures} test(s) failed`);
     process.exit(1);
