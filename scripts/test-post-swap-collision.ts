@@ -1,119 +1,119 @@
 /**
- * Test: Post-swap collision resolution behavior
+ * Test: Post-swap collision resolution
  * 
- * Tests the core logic that after a swap where tomorrow's scheduled day 
- * equals the day just done, the system serves the next in rotation.
+ * Tests the resolveTomorrowAfterSwap function that prevents back-to-back repeats
+ * when a rest-day swap collides with tomorrow's scheduled workout.
  * 
  * Run: npx tsx scripts/test-post-swap-collision.ts
  */
 
 import { strict as assert } from "node:assert";
+import { resolveTomorrowAfterSwap } from "../src/lib/program/day-plan";
 
 console.log("Test: Post-swap collision resolution\n");
 
-/**
- * Core collision resolution logic extracted for testing.
- * When today was a swap AND tomorrow would repeat the same workout,
- * serve the next one in the rotation instead.
- */
-function resolvePostSwapCollision({
-  wasSwap,
-  todayProgramDayId,
-  tomorrowProgramDayId,
-  trainingDays,
-}: {
-  wasSwap: boolean;
-  todayProgramDayId: string;
-  tomorrowProgramDayId: string | null;
-  trainingDays: Array<{ id: string; label: string }>;
-}): { shouldResolve: boolean; nextLabel?: string } {
-  if (!wasSwap) return { shouldResolve: false };
-  if (todayProgramDayId !== tomorrowProgramDayId) return { shouldResolve: false };
-  
-  const currentIndex = trainingDays.findIndex(d => d.id === todayProgramDayId);
-  if (currentIndex < 0) return { shouldResolve: false };
-  
-  const nextIndex = (currentIndex + 1) % trainingDays.length;
-  const nextDay = trainingDays[nextIndex];
-  
-  return { shouldResolve: true, nextLabel: nextDay.label };
-}
+type ProgramDay = {
+  id: string;
+  label: string | null;
+  day_type: string;
+  day_index: number;
+};
 
 console.log("1. Swap with collision: serves next in rotation");
 {
-  const trainingDays = [
-    { id: "upper-1", label: "Upper" },
-    { id: "lower-1", label: "Lower" },
+  const rotation: ProgramDay[] = [
+    { id: "upper-1", label: "Upper", day_type: "weights", day_index: 1 },
+    { id: "lower-1", label: "Lower", day_type: "weights", day_index: 2 },
   ];
 
-  const result = resolvePostSwapCollision({
-    wasSwap: true,
-    todayProgramDayId: "lower-1",
-    tomorrowProgramDayId: "lower-1", // collision!
-    trainingDays,
+  const result = resolveTomorrowAfterSwap({
+    todayWasSwap: true,
+    doneProgramDayId: "lower-1",
+    scheduledTomorrow: { programDayId: "lower-1", label: "Lower" },
+    rotation,
   });
 
-  assert.ok(result.shouldResolve, "Should resolve collision");
-  assert.equal(result.nextLabel, "Upper", "Next in rotation is Upper");
+  assert.ok(result, "Should resolve collision");
+  assert.equal(result.label, "Upper", "Next in rotation is Upper");
+  assert.ok(result.collisionResolved, "Should mark as resolved");
   console.log("  ✓ Collision resolved: serves Upper");
 }
 
 console.log("\n2. Normal day (no swap): no collision resolution");
 {
-  const trainingDays = [
-    { id: "day-a", label: "Full Body A" },
-    { id: "day-b", label: "Full Body B" },
+  const rotation: ProgramDay[] = [
+    { id: "day-a", label: "Full Body A", day_type: "weights", day_index: 1 },
+    { id: "day-b", label: "Full Body B", day_type: "weights", day_index: 3 },
   ];
 
-  const result = resolvePostSwapCollision({
-    wasSwap: false,
-    todayProgramDayId: "day-a",
-    tomorrowProgramDayId: "day-a",
-    trainingDays,
+  const result = resolveTomorrowAfterSwap({
+    todayWasSwap: false,
+    doneProgramDayId: "day-a",
+    scheduledTomorrow: { programDayId: "day-a", label: "Full Body A" },
+    rotation,
   });
 
-  assert.ok(!result.shouldResolve, "Should not resolve (not a swap)");
+  assert.ok(!result, "Should not resolve (not a swap)");
   console.log("  ✓ No swap: no collision resolution");
 }
 
 console.log("\n3. Swap to different workout: no collision");
 {
-  const trainingDays = [
-    { id: "day-a", label: "Full Body A" },
-    { id: "day-b", label: "Full Body B" },
-    { id: "day-c", label: "Full Body C" },
+  const rotation: ProgramDay[] = [
+    { id: "day-a", label: "Full Body A", day_type: "weights", day_index: 1 },
+    { id: "day-b", label: "Full Body B", day_type: "weights", day_index: 3 },
+    { id: "day-c", label: "Full Body C", day_type: "weights", day_index: 5 },
   ];
 
-  const result = resolvePostSwapCollision({
-    wasSwap: true,
-    todayProgramDayId: "day-c",
-    tomorrowProgramDayId: null, // Rest day tomorrow
-    trainingDays,
+  const result = resolveTomorrowAfterSwap({
+    todayWasSwap: true,
+    doneProgramDayId: "day-c",
+    scheduledTomorrow: null, // Rest day tomorrow
+    rotation,
   });
 
-  assert.ok(!result.shouldResolve, "Should not resolve (different tomorrow)");
+  assert.ok(!result, "Should not resolve (different tomorrow)");
   console.log("  ✓ Swap to different workout: no collision");
 }
 
 console.log("\n4. Wraps around rotation");
 {
-  const trainingDays = [
-    { id: "day-a", label: "Full Body A" },
-    { id: "day-b", label: "Full Body B" },
-    { id: "day-c", label: "Full Body C" },
+  const rotation: ProgramDay[] = [
+    { id: "day-a", label: "Full Body A", day_type: "weights", day_index: 1 },
+    { id: "day-b", label: "Full Body B", day_type: "weights", day_index: 3 },
+    { id: "day-c", label: "Full Body C", day_type: "weights", day_index: 5 },
   ];
 
   // Did day-c (last), tomorrow is also day-c
-  const result = resolvePostSwapCollision({
-    wasSwap: true,
-    todayProgramDayId: "day-c",
-    tomorrowProgramDayId: "day-c",
-    trainingDays,
+  const result = resolveTomorrowAfterSwap({
+    todayWasSwap: true,
+    doneProgramDayId: "day-c",
+    scheduledTomorrow: { programDayId: "day-c", label: "Full Body C" },
+    rotation,
   });
 
-  assert.ok(result.shouldResolve, "Should resolve collision");
-  assert.equal(result.nextLabel, "Full Body A", "Wraps to first");
+  assert.ok(result, "Should resolve collision");
+  assert.equal(result.label, "Full Body A", "Wraps to first");
+  assert.ok(result.collisionResolved, "Should mark as resolved");
   console.log("  ✓ Wraps around: day-c → day-a");
+}
+
+console.log("\n5. Swap but tomorrow is different day: no collision");
+{
+  const rotation: ProgramDay[] = [
+    { id: "day-a", label: "Full Body A", day_type: "weights", day_index: 1 },
+    { id: "day-b", label: "Full Body B", day_type: "weights", day_index: 3 },
+  ];
+
+  const result = resolveTomorrowAfterSwap({
+    todayWasSwap: true,
+    doneProgramDayId: "day-a",
+    scheduledTomorrow: { programDayId: "day-b", label: "Full Body B" },
+    rotation,
+  });
+
+  assert.ok(!result, "Should not resolve (tomorrow is different)");
+  console.log("  ✓ Swap with different tomorrow: no collision");
 }
 
 console.log("\n✅ All post-swap collision resolution tests passed");

@@ -102,13 +102,14 @@ async function main() {
     const swapButton = Array.from(container.querySelectorAll('button'))
       .find(b => b.textContent?.includes("Swap the day"));
     
-    await userEvent.click(swapButton!);
+    assert.ok(swapButton, "Should have 'Swap the day' button");
+    
+    await userEvent.click(swapButton);
 
     // Check that only Full Body A has "Next up"
     const fullBodyAButton = Array.from(container.querySelectorAll('button'))
       .find(b => b.textContent?.includes("Full Body A"));
     const fullBodyBButton = Array.from(container.querySelectorAll('button'))
-      .find(b => b.textContent?.includes("Full Body B"));
     const fullBodyCButton = Array.from(container.querySelectorAll('button'))
       .find(b => b.textContent?.includes("Full Body C"));
 
@@ -145,7 +146,9 @@ async function main() {
     const swapButton = Array.from(container.querySelectorAll('button'))
       .find(b => b.textContent?.includes("Swap the day"));
     
-    await userEvent.click(swapButton!);
+    assert.ok(swapButton, "Should have 'Swap the day' button");
+    
+    await userEvent.click(swapButton);
 
     const workoutButtons = Array.from(container.querySelectorAll('button'))
       .filter(b => {

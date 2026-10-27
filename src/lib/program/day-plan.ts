@@ -106,6 +106,56 @@ export async function plannableDays(
   return out;
 }
 
+type ProgramDay = {
+  id: string;
+  label: string | null;
+  day_type: string;
+  day_index: number;
+};
+
+/**
+ * Resolve tomorrow's workout after a rest-day swap collision.
+ * 
+ * When today was a swap AND tomorrow's scheduled workout equals what was just done,
+ * serve the next in rotation to avoid back-to-back repeats.
+ */
+export function resolveTomorrowAfterSwap({
+  todayWasSwap,
+  doneProgramDayId,
+  scheduledTomorrow,
+  rotation,
+}: {
+  /** True if today's completed session was a swap (different from scheduled) */
+  todayWasSwap: boolean;
+  /** The program_day_id that was completed today */
+  doneProgramDayId: string | null;
+  /** Tomorrow's resolved program day (what the schedule says) */
+  scheduledTomorrow: { programDayId: string; label: string } | null;
+  /** All training days in the rotation, sorted by day_index */
+  rotation: ProgramDay[];
+}): { label: string; collisionResolved: boolean } | null {
+  // No collision if not a swap
+  if (!todayWasSwap) return null;
+  
+  // No collision if tomorrow is Rest or no scheduled day
+  if (!scheduledTomorrow) return null;
+  
+  // No collision if tomorrow is different from what was done today
+  if (doneProgramDayId !== scheduledTomorrow.programDayId) return null;
+  
+  // Collision detected: find next in rotation
+  const currentIndex = rotation.findIndex(d => d.id === doneProgramDayId);
+  if (currentIndex < 0) return null;
+  
+  const nextIndex = (currentIndex + 1) % rotation.length;
+  const nextDay = rotation[nextIndex];
+  
+  return {
+    label: nextDay?.label ?? scheduledTomorrow.label,
+    collisionResolved: true,
+  };
+}
+
 /**
  * What a date is, preferring a planned override over the block's weekday.
  *
@@ -258,23 +308,23 @@ export async function nextDayPlan(
       .order("day_index"),
   ]);
 
-  // If today was a swap and tomorrow would repeat the just-done workout, serve next in rotation
-  if (wasSwap && resolved && todaySession?.program_day_id === resolved.programDayId) {
-    const trainingDays = allProgramDays.data
+  // Resolve post-swap collision
+  const collision = resolveTomorrowAfterSwap({
+    todayWasSwap: wasSwap,
+    doneProgramDayId: todaySession?.program_day_id ?? null,
+    scheduledTomorrow: resolved ? { programDayId: resolved.programDayId, label: resolved.label } : null,
+    rotation: allProgramDays.data
       ?.filter(d => d.day_type === "weights" || d.day_type === "bodyweight")
-      .sort((a, b) => a.day_index - b.day_index) ?? [];
-    
-    const currentIndex = trainingDays.findIndex(d => d.id === todaySession.program_day_id);
-    if (currentIndex >= 0) {
-      const nextIndex = (currentIndex + 1) % trainingDays.length;
-      const nextDay = trainingDays[nextIndex];
-      return {
-        localDate: tomorrow,
-        plannedLabel: nextDay?.label ?? resolved.label,
-        days,
-        _collisionResolved: true,
-      };
-    }
+      .sort((a, b) => a.day_index - b.day_index) ?? [],
+  });
+
+  if (collision) {
+    return {
+      localDate: tomorrow,
+      plannedLabel: collision.label,
+      days,
+      _collisionResolved: collision.collisionResolved,
+    };
   }
 
   return {

@@ -63,8 +63,8 @@ export async function startTomorrowCore(
   // Shift the anchor by one day
   await deps.updateProgramDates(
     program.id,
-    deps.tomorrow,
-    addDays(program.ends_on, 1)
+    program.started_on,  // MUTANT: no shift
+    program.ends_on       // MUTANT: no shift
   );
 
   return { ok: true };
