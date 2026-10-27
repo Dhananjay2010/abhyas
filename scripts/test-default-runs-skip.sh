@@ -18,27 +18,37 @@ echo
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 
+# Create a unique log file per test run
+CALL_LOG=$(mktemp "$TMPDIR/db-calls.XXXXXX.log")
+
 # Create stub binaries that record calls
-cat > "$TMPDIR/supabase" << 'STUB'
+cat > "$TMPDIR/supabase" << STUB
 #!/usr/bin/env bash
-echo "supabase $*" >> /tmp/metatest-db-calls.log
+echo "supabase \$*" >> "$CALL_LOG"
 exit 1
 STUB
 
-cat > "$TMPDIR/psql" << 'STUB'
+cat > "$TMPDIR/psql" << STUB
 #!/usr/bin/env bash
-echo "psql $*" >> /tmp/metatest-db-calls.log
+echo "psql \$*" >> "$CALL_LOG"
 exit 1
 STUB
 
-chmod +x "$TMPDIR/supabase" "$TMPDIR/psql"
+cat > "$TMPDIR/node" << STUB
+#!/usr/bin/env bash
+# Pass through to real node, but log fetch calls
+if [[ "\$*" == *"fetch"* ]]; then
+  echo "fetch \$*" >> "$CALL_LOG"
+  exit 1
+fi
+# For other node calls, use the real node
+exec "$(which node)" "\$@"
+STUB
+
+chmod +x "$TMPDIR/supabase" "$TMPDIR/psql" "$TMPDIR/node"
 
 # Prepend stub dir to PATH
 export PATH="$TMPDIR:$PATH"
-
-# Clear call log
-rm -f /tmp/metatest-db-calls.log
-touch /tmp/metatest-db-calls.log
 
 # Ensure REAL_DB is unset and default SUPABASE_URL
 unset REAL_DB
@@ -56,17 +66,17 @@ echo "$OUTPUT" | grep -q "Skipping" && echo "✓ test:gym-domains-real-db skippe
 }
 
 # Check call log is empty
-if [ -s /tmp/metatest-db-calls.log ]; then
+if [ -s "$CALL_LOG" ]; then
   echo "✗ DB calls were made:"
-  cat /tmp/metatest-db-calls.log
+  cat "$CALL_LOG"
   exit 1
 fi
 echo "✓ Zero DB calls made"
 
 echo
 echo "Running test:gym-tenant-rls-real-db with REAL_DB unset..."
-rm -f /tmp/metatest-db-calls.log
-touch /tmp/metatest-db-calls.log
+rm -f "$CALL_LOG"
+touch "$CALL_LOG"
 
 OUTPUT2=$(npm run test:gym-tenant-rls-real-db 2>&1 || true)
 
@@ -77,17 +87,17 @@ echo "$OUTPUT2" | grep -q "Skipping" && echo "✓ test:gym-tenant-rls-real-db sk
 }
 
 # Check call log is empty
-if [ -s /tmp/metatest-db-calls.log ]; then
+if [ -s "$CALL_LOG" ]; then
   echo "✗ DB calls were made:"
-  cat /tmp/metatest-db-calls.log
+  cat "$CALL_LOG"
   exit 1
 fi
 echo "✓ Zero DB calls made"
 
 echo
 echo "Running test:gym-owner-guards-sql with REAL_DB unset..."
-rm -f /tmp/metatest-db-calls.log
-touch /tmp/metatest-db-calls.log
+rm -f "$CALL_LOG"
+touch "$CALL_LOG"
 
 OUTPUT3=$(npm run test:gym-owner-guards-sql 2>&1 || true)
 
@@ -98,9 +108,9 @@ echo "$OUTPUT3" | grep -q "Skipping" && echo "✓ test:gym-owner-guards-sql skip
 }
 
 # Check call log is empty
-if [ -s /tmp/metatest-db-calls.log ]; then
+if [ -s "$CALL_LOG" ]; then
   echo "✗ DB calls were made:"
-  cat /tmp/metatest-db-calls.log
+  cat "$CALL_LOG"
   exit 1
 fi
 echo "✓ Zero DB calls made"

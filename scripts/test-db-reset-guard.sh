@@ -46,6 +46,30 @@ project_id = "TestGym"
 port = 54333
 EOF
 
+# Config with single-quoted project_id
+cat > "$TMPDIR/single-quote-config.toml" << 'EOF'
+project_id = 'TestGym'
+
+[db]
+port = 54333
+EOF
+
+# Config with comment after project_id
+cat > "$TMPDIR/comment-config.toml" << 'EOF'
+project_id = "TestGym" # "Fitness"
+
+[db]
+port = 54333
+EOF
+
+# Config with env() in project_id
+cat > "$TMPDIR/env-config.toml" << 'EOF'
+project_id = "env(PROJ)"
+
+[db]
+port = 54333
+EOF
+
 echo "TEST: Bash guard - CI=true always allows"
 CI=true ALLOW_DB_RESET=0 SUPABASE_DB_URL="" SUPABASE_PROJECT_ID="Fitness"
 if check_db_reset_guard_bash check "$TMPDIR/default-config.toml"; then
@@ -57,7 +81,10 @@ unset CI
 echo
 
 echo "TEST: Bash guard - Missing ALLOW_DB_RESET refuses"
-ALLOW_DB_RESET="" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_PROJECT_ID="TestGym"
+unset ALLOW_DB_RESET
+unset SUPABASE_PROJECT_ID
+unset SUPABASE_DB_PORT
+SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
 if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
   check "No ALLOW_DB_RESET refuses" "1" "0"
 else
@@ -65,8 +92,69 @@ else
 fi
 echo
 
+echo "TEST: Bash guard - SUPABASE_PROJECT_ID env var refuses"
+ALLOW_DB_RESET="1" SUPABASE_PROJECT_ID="TestGym" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+unset SUPABASE_DB_PORT
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "SUPABASE_PROJECT_ID env var refuses" "1" "0"
+else
+  check "SUPABASE_PROJECT_ID env var refuses" "1" "1"
+fi
+unset SUPABASE_PROJECT_ID
+echo
+
+echo "TEST: Bash guard - SUPABASE_DB_PORT env var refuses"
+ALLOW_DB_RESET="1" SUPABASE_DB_PORT="54333" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "SUPABASE_DB_PORT env var refuses" "1" "0"
+else
+  check "SUPABASE_DB_PORT env var refuses" "1" "1"
+fi
+unset SUPABASE_DB_PORT
+echo
+
+echo "TEST: Bash guard - PGHOST env var refuses"
+ALLOW_DB_RESET="1" PGHOST="localhost" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "PGHOST env var refuses" "1" "0"
+else
+  check "PGHOST env var refuses" "1" "1"
+fi
+unset PGHOST
+echo
+
+echo "TEST: Bash guard - PGPORT env var refuses"
+ALLOW_DB_RESET="1" PGPORT="54333" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "PGPORT env var refuses" "1" "0"
+else
+  check "PGPORT env var refuses" "1" "1"
+fi
+unset PGPORT
+echo
+
+echo "TEST: Bash guard - PGSERVICE env var refuses"
+ALLOW_DB_RESET="1" PGSERVICE="myservice" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "PGSERVICE env var refuses" "1" "0"
+else
+  check "PGSERVICE env var refuses" "1" "1"
+fi
+unset PGSERVICE
+echo
+
+echo "TEST: Bash guard - PGHOSTADDR env var refuses"
+ALLOW_DB_RESET="1" PGHOSTADDR="127.0.0.1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "PGHOSTADDR env var refuses" "1" "0"
+else
+  check "PGHOSTADDR env var refuses" "1" "1"
+fi
+unset PGHOSTADDR
+echo
+
 echo "TEST: Bash guard - Default port in config refuses"
-ALLOW_DB_RESET="1" SUPABASE_PROJECT_ID="NonDefault"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54322/postgres"
 if check_db_reset_guard_bash check "$TMPDIR/default-config.toml"; then
   check "Default port refuses (config.toml port=54322)" "1" "0"
 else
@@ -75,7 +163,7 @@ fi
 echo
 
 echo "TEST: Bash guard - Default project_id in config refuses"
-ALLOW_DB_RESET="1" SUPABASE_PROJECT_ID="SomethingElse"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
 cat > "$TMPDIR/test1-config.toml" << 'EOF'
 project_id = "Fitness"
 
@@ -89,36 +177,113 @@ else
 fi
 echo
 
-echo "TEST: Bash guard - SUPABASE_PROJECT_ID env var is IGNORED (no bypass)"
-# This is the bypass scenario: user sets SUPABASE_PROJECT_ID=TestGym in env,
-# but config.toml has Fitness. Guard must refuse based on config.toml.
-ALLOW_DB_RESET="1" SUPABASE_PROJECT_ID="TestGym" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54322/postgres"
-if check_db_reset_guard_bash check "$TMPDIR/default-config.toml"; then
-  check "SUPABASE_PROJECT_ID=TestGym env ignored, config has Fitness -> refuses" "1" "0"
+echo "TEST: Bash guard - SUPABASE_DB_URL with ?port= query param refuses"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres?port=54322"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "URL with ?port= refuses" "1" "0"
 else
-  check "SUPABASE_PROJECT_ID=TestGym env ignored, config has Fitness -> refuses" "1" "1"
+  check "URL with ?port= refuses" "1" "1"
 fi
 echo
 
-echo "TEST: Bash guard - SUPABASE_DB_URL port must match config.toml port"
-# Another bypass: user sets SUPABASE_DB_URL to :54333, but config.toml has port 54322
-# Guard must refuse because they don't match (reset will hit 54322, but user thinks it's 54333)
-ALLOW_DB_RESET="1" SUPABASE_PROJECT_ID="Ignored" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
-cat > "$TMPDIR/test2-config.toml" << 'EOF'
+echo "TEST: Bash guard - SUPABASE_DB_URL with ?host= query param refuses"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres?host=other"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "URL with ?host= refuses" "1" "0"
+else
+  check "URL with ?host= refuses" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - SUPABASE_DB_URL with &hostaddr= query param refuses"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres?foo=bar&hostaddr=1.2.3.4"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "URL with &hostaddr= refuses" "1" "0"
+else
+  check "URL with &hostaddr= refuses" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - SUPABASE_DB_URL with ?service= query param refuses"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres?service=mydb"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "URL with ?service= refuses" "1" "0"
+else
+  check "URL with ?service= refuses" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - Multi-host SUPABASE_DB_URL refuses"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333,other:5432/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "Multi-host URL refuses" "1" "0"
+else
+  check "Multi-host URL refuses" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - [::1]:54322 refuses (IPv6 loopback on default port)"
+ALLOW_DB_RESET="1"
+cat > "$TMPDIR/test-ipv6.toml" << 'EOF'
 project_id = "TestGym"
 
 [db]
 port = 54322
 EOF
-if check_db_reset_guard_bash check "$TMPDIR/test2-config.toml"; then
-  check "SUPABASE_DB_URL port mismatch refuses (URL=54333, config=54322)" "1" "0"
+SUPABASE_DB_URL="postgresql://postgres:postgres@[::1]:54322/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/test-ipv6.toml"; then
+  check "[::1]:54322 refuses (default port)" "1" "0"
 else
-  check "SUPABASE_DB_URL port mismatch refuses (URL=54333, config=54322)" "1" "1"
+  check "[::1]:54322 refuses (default port)" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - 127.0.0.2:54322 refuses (loopback subnet on default port)"
+SUPABASE_DB_URL="postgresql://postgres:postgres@127.0.0.2:54322/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/test-ipv6.toml"; then
+  check "127.0.0.2:54322 refuses (default port)" "1" "0"
+else
+  check "127.0.0.2:54322 refuses (default port)" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - 0.0.0.0:54322 refuses (unspecified addr on default port)"
+SUPABASE_DB_URL="postgresql://postgres:postgres@0.0.0.0:54322/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/test-ipv6.toml"; then
+  check "0.0.0.0:54322 refuses (default port)" "1" "0"
+else
+  check "0.0.0.0:54322 refuses (default port)" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - Single-quoted project_id parsed correctly"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/single-quote-config.toml"; then
+  check "Single-quoted project_id allows" "0" "0"
+else
+  check "Single-quoted project_id allows" "0" "1"
+fi
+echo
+
+echo "TEST: Bash guard - Comment after project_id parsed correctly"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/comment-config.toml"; then
+  check "Comment after project_id allows" "0" "0"
+else
+  check "Comment after project_id allows" "0" "1"
+fi
+echo
+
+echo "TEST: Bash guard - env() in project_id refuses"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/env-config.toml"; then
+  check "env() in project_id refuses" "1" "0"
+else
+  check "env() in project_id refuses" "1" "1"
 fi
 echo
 
 echo "TEST: Bash guard - Non-default config with matching URL allows"
-unset SUPABASE_PROJECT_ID
 ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
 if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
   check "Non-default allows (config port=54333, URL port=54333)" "0" "0"
@@ -128,7 +293,7 @@ fi
 echo
 
 echo "TEST: Bash guard - Missing config file refuses"
-ALLOW_DB_RESET="1"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
 if check_db_reset_guard_bash check "$TMPDIR/nonexistent.toml"; then
   check "Missing config file refuses" "1" "0"
 else
@@ -137,7 +302,6 @@ fi
 echo
 
 echo "TEST: Bash guard - SUPABASE_DB_URL unset refuses (outside CI)"
-# Critical: prevents scripts from defaulting to :54322 and hitting shared DB
 unset SUPABASE_DB_URL
 ALLOW_DB_RESET="1"
 if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
@@ -148,7 +312,6 @@ fi
 echo
 
 echo "TEST: Bash guard - Config with [db.pooler] port doesn't pick wrong port"
-# Ensure we only read port from [db] section, not later sections like [db.pooler]
 cat > "$TMPDIR/pooler-config.toml" << 'EOF'
 project_id = "TestGym"
 
@@ -158,7 +321,6 @@ port = 54333
 [db.pooler]
 port = 54329
 EOF
-unset SUPABASE_PROJECT_ID
 ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
 if check_db_reset_guard_bash check "$TMPDIR/pooler-config.toml"; then
   check "Pooler port ignored, [db] port used (54333)" "0" "0"
@@ -171,6 +333,8 @@ echo "TEST: TypeScript guard - Run via tsx"
 # Test the TypeScript guard
 npx tsx << 'TSTEST'
 import { checkDbResetGuard, checkRealDbTest } from "./scripts/lib-db-reset-guard";
+import { mkdtempSync, writeFileSync, rmSync } from "fs";
+import { join } from "path";
 
 let failures = 0;
 
@@ -183,63 +347,197 @@ function check(label: string, expected: boolean, actual: boolean) {
   }
 }
 
-console.log("TypeScript guard - CI=true allows");
-process.env.CI = "true";
-process.env.ALLOW_DB_RESET = "0";
-process.env.SUPABASE_URL = "http://127.0.0.1:54321";
-process.env.SUPABASE_PROJECT_ID = "Fitness";
-check("CI=true allows", true, checkDbResetGuard().allow);
-console.log();
+// Create temp configs
+const tmpDir = mkdtempSync("/tmp/tstest-");
+const customConfig = join(tmpDir, "custom.toml");
+const defaultConfig = join(tmpDir, "default.toml");
+const singleQuoteConfig = join(tmpDir, "single-quote.toml");
+const commentConfig = join(tmpDir, "comment.toml");
+const envConfig = join(tmpDir, "env.toml");
 
-console.log("TypeScript guard - Missing ALLOW_DB_RESET refuses");
-delete process.env.CI;
-delete process.env.ALLOW_DB_RESET;
-process.env.SUPABASE_URL = "http://localhost:54333";
-process.env.SUPABASE_PROJECT_ID = "TestGym";
-check("No ALLOW_DB_RESET refuses", false, checkDbResetGuard().allow);
-console.log();
+writeFileSync(customConfig, 'project_id = "TestGym"\n\n[db]\nport = 54333\n');
+writeFileSync(defaultConfig, 'project_id = "Fitness"\n\n[db]\nport = 54322\n');
+writeFileSync(singleQuoteConfig, "project_id = 'TestGym'\n\n[db]\nport = 54333\n");
+writeFileSync(commentConfig, 'project_id = "TestGym" # "Fitness"\n\n[db]\nport = 54333\n');
+writeFileSync(envConfig, 'project_id = "env(PROJ)"\n\n[db]\nport = 54333\n');
 
-console.log("TypeScript guard - Default host/port refuses (localhost:54321)");
-process.env.ALLOW_DB_RESET = "1";
-process.env.SUPABASE_URL = "http://localhost:54321";
-process.env.SUPABASE_PROJECT_ID = "NonDefault";
-check("Default localhost:54321 refuses", false, checkDbResetGuard().allow);
-console.log();
+try {
+  console.log("TypeScript guard - CI=true allows");
+  process.env.CI = "true";
+  process.env.ALLOW_DB_RESET = "0";
+  delete process.env.SUPABASE_PROJECT_ID;
+  delete process.env.SUPABASE_DB_PORT;
+  delete process.env.PGHOST;
+  delete process.env.PGPORT;
+  delete process.env.PGSERVICE;
+  delete process.env.PGHOSTADDR;
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54322/postgres";
+  check("CI=true allows", true, checkDbResetGuard(defaultConfig).allow);
+  console.log();
 
-console.log("TypeScript guard - Default host/port refuses (127.0.0.1:54321)");
-process.env.ALLOW_DB_RESET = "1";
-process.env.SUPABASE_URL = "http://127.0.0.1:54321";
-process.env.SUPABASE_PROJECT_ID = "NonDefault";
-check("Default 127.0.0.1:54321 refuses", false, checkDbResetGuard().allow);
-console.log();
+  console.log("TypeScript guard - Missing ALLOW_DB_RESET refuses");
+  delete process.env.CI;
+  delete process.env.ALLOW_DB_RESET;
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  check("No ALLOW_DB_RESET refuses", false, checkDbResetGuard(customConfig).allow);
+  console.log();
 
-console.log("TypeScript guard - Default project refuses");
-process.env.ALLOW_DB_RESET = "1";
-process.env.SUPABASE_URL = "http://localhost:54333";
-process.env.SUPABASE_PROJECT_ID = "Fitness";
-check("Default project refuses", false, checkDbResetGuard().allow);
-console.log();
+  console.log("TypeScript guard - SUPABASE_PROJECT_ID env var refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_PROJECT_ID = "TestGym";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  check("SUPABASE_PROJECT_ID env var refuses", false, checkDbResetGuard(customConfig).allow);
+  delete process.env.SUPABASE_PROJECT_ID;
+  console.log();
 
-console.log("TypeScript guard - Non-default allows");
-process.env.ALLOW_DB_RESET = "1";
-process.env.SUPABASE_URL = "http://localhost:54333";
-process.env.SUPABASE_PROJECT_ID = "TestGym";
-check("Non-default allows", true, checkDbResetGuard().allow);
-console.log();
+  console.log("TypeScript guard - SUPABASE_DB_PORT env var refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_PORT = "54333";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  check("SUPABASE_DB_PORT env var refuses", false, checkDbResetGuard(customConfig).allow);
+  delete process.env.SUPABASE_DB_PORT;
+  console.log();
 
-console.log("TypeScript guard - REAL_DB=1 required");
-delete process.env.REAL_DB;
-check("REAL_DB unset refuses", false, checkRealDbTest().allow);
-process.env.REAL_DB = "1";
-process.env.CI = "true";
-check("REAL_DB=1 + CI allows", true, checkRealDbTest().allow);
-console.log();
+  console.log("TypeScript guard - PGHOST env var refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.PGHOST = "localhost";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  check("PGHOST env var refuses", false, checkDbResetGuard(customConfig).allow);
+  delete process.env.PGHOST;
+  console.log();
 
-if (failures > 0) {
-  console.error(`\n❌ ${failures} TypeScript test(s) failed\n`);
-  process.exit(1);
+  console.log("TypeScript guard - PGPORT env var refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.PGPORT = "54333";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  check("PGPORT env var refuses", false, checkDbResetGuard(customConfig).allow);
+  delete process.env.PGPORT;
+  console.log();
+
+  console.log("TypeScript guard - PGSERVICE env var refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.PGSERVICE = "myservice";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  check("PGSERVICE env var refuses", false, checkDbResetGuard(customConfig).allow);
+  delete process.env.PGSERVICE;
+  console.log();
+
+  console.log("TypeScript guard - PGHOSTADDR env var refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.PGHOSTADDR = "127.0.0.1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  check("PGHOSTADDR env var refuses", false, checkDbResetGuard(customConfig).allow);
+  delete process.env.PGHOSTADDR;
+  console.log();
+
+  console.log("TypeScript guard - Default host/port refuses (localhost:54322)");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54322/postgres";
+  check("Default localhost:54322 refuses", false, checkDbResetGuard(defaultConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - Default host/port refuses (127.0.0.1:54322)");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+  check("Default 127.0.0.1:54322 refuses", false, checkDbResetGuard(defaultConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - Default project refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  const defaultProjConfig = join(tmpDir, "default-proj.toml");
+  writeFileSync(defaultProjConfig, 'project_id = "Fitness"\n\n[db]\nport = 54333\n');
+  check("Default project refuses", false, checkDbResetGuard(defaultProjConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - URL with ?port= query param refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres?port=54322";
+  check("URL with ?port= refuses", false, checkDbResetGuard(customConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - URL with &host= query param refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres?foo=bar&host=other";
+  check("URL with &host= refuses", false, checkDbResetGuard(customConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - URL with ?hostaddr= query param refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres?hostaddr=1.2.3.4";
+  check("URL with ?hostaddr= refuses", false, checkDbResetGuard(customConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - URL with ?service= query param refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres?service=mydb";
+  check("URL with ?service= refuses", false, checkDbResetGuard(customConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - Multi-host URL refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333,other:5432/postgres";
+  check("Multi-host URL refuses", false, checkDbResetGuard(customConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - [::1]:54322 refuses (IPv6 loopback on default port)");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@[::1]:54322/postgres";
+  check("[::1]:54322 refuses", false, checkDbResetGuard(defaultConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - 127.0.0.2:54322 refuses (loopback subnet on default port)");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@127.0.0.2:54322/postgres";
+  check("127.0.0.2:54322 refuses", false, checkDbResetGuard(defaultConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - 0.0.0.0:54322 refuses (unspecified addr on default port)");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@0.0.0.0:54322/postgres";
+  check("0.0.0.0:54322 refuses", false, checkDbResetGuard(defaultConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - Single-quoted project_id parsed correctly");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  check("Single-quoted project_id allows", true, checkDbResetGuard(singleQuoteConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - Comment after project_id parsed correctly");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  check("Comment after project_id allows", true, checkDbResetGuard(commentConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - env() in project_id refuses");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  check("env() in project_id refuses", false, checkDbResetGuard(envConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - Non-default allows");
+  process.env.ALLOW_DB_RESET = "1";
+  process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  check("Non-default allows", true, checkDbResetGuard(customConfig).allow);
+  console.log();
+
+  console.log("TypeScript guard - REAL_DB=1 required");
+  delete process.env.REAL_DB;
+  check("REAL_DB unset refuses", false, checkRealDbTest(customConfig).allow);
+  process.env.REAL_DB = "1";
+  process.env.CI = "true";
+  check("REAL_DB=1 + CI allows", true, checkRealDbTest(customConfig).allow);
+  console.log();
+
+  if (failures > 0) {
+    console.error(`\n❌ ${failures} TypeScript test(s) failed\n`);
+    process.exit(1);
+  }
+  console.log("✅ All TypeScript tests passed\n");
+} finally {
+  rmSync(tmpDir, { recursive: true, force: true });
 }
-console.log("✅ All TypeScript tests passed\n");
 TSTEST
 echo
 

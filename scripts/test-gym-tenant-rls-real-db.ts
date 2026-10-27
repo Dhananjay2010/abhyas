@@ -58,8 +58,9 @@ async function runTests() {
   const guardResult = checkRealDbTest();
   
   if (!guardResult.allow) {
-    console.log(`\n⏭️  Skipping real DB tests: ${guardResult.reason}\n`);
-    return true;
+    console.error(`\n❌ REAL_DB=1 but guard refused: ${guardResult.reason}`);
+    console.error("   Fix the environment to run these tests\n");
+    return false;
   }
   
   console.log(`✓ Guard check passed: ${guardResult.reason}\n`);
