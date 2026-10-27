@@ -160,7 +160,7 @@ async function main() {
 
     check("Miss: outcome hold (first miss)", decision.outcome === "hold", decision.outcome);
     check("Miss: failures=1", decision.consecutiveFailures === 1, `${decision.consecutiveFailures}`);
-    check("Miss: weight drops to 57.5 (first miss)", decision.nextWorkingWeightKg === 57.5, `${decision.nextWorkingWeightKg}`);
+    check("Miss: weight holds at 60 (first miss always holds)", decision.nextWorkingWeightKg === 60, `${decision.nextWorkingWeightKg}`);
     check("Builder: equipmentIds present", "equipmentIds" in input && input.equipmentIds?.length === 1, `${JSON.stringify(input.equipmentIds)}`);
     check("Builder: unit defaults to kg", input.unit === "kg", `${input.unit}`);
   }

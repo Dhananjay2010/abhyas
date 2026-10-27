@@ -1,6 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import { KETTLEBELL_WEIGHTS_KG, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, MEDICINE_BALL_MIN_KG, type WeightUnit } from "@/lib/session/equipment-grid";
-import { formatWeight, type UnitsPreference } from "@/lib/units";
+import { formatWeight, formatPrescribedWeight, type UnitsPreference } from "@/lib/units";
 import { resolveTarget } from "../session/display-target";
 
 type Enums = Database["public"]["Enums"];
@@ -466,6 +466,11 @@ export function evaluateProgression(input: {
   const displayWeight = (kg: number, fallbackUnit: WeightUnit = "kg") => (unit ?? fallbackUnit) === "lb" 
     ? formatWeight(kg, "imperial", true, "0 lb")
     : `${kg} kg`;
+  
+  // For prescribed increases: rounds DOWN in imperial (conservative)
+  const displayPrescribedWeight = (kg: number) => unit === "lb"
+    ? formatPrescribedWeight(kg, "imperial")
+    : formatPrescribedWeight(kg, "metric");
 
   // Get resolved target (what the display shows) for write-back
   const resolvedTargetForBase = resolveTarget({
@@ -699,29 +704,14 @@ export function evaluateProgression(input: {
           next = bells[targetIndex];
         }
       } else {
-        // Standard equipment: add increment then round to grid if equipment is loadable
+        // Standard equipment: add increment then floor-snap to grid
         const step = isBodyweightWithAddedWeight ? addedWeightStep(meta) : incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";
         
-        // #120 APP decision: easy doubles the BASE increment, then the doubled value is capped at grid
-        // For pin-stack (5 kg grid): base 2.5 kg * 2 = 5 kg, max(5, 5) = 5 kg (not 5 * 2 = 10)
+        // Easy doubles the equipment-aware increment (including grid constraints)
         let jump: number;
-        if (feel === "easy" && isCompound && !isBodyweightWithAddedWeight) {
-          const baseMechanicIncrement = meta.mechanic === "isolation" ? 1.25 : 
-            LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;
-          const doubled = baseMechanicIncrement * 2;
-          // Cap the doubled increment at the equipment grid
-          if (equipmentIds && equipmentIds.length > 0) {
-            const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
-            if (hasLoadable) {
-              const equipGrid = equipmentGridStep(equipmentIds, 'kg');
-              jump = Math.max(doubled, equipGrid);
-            } else {
-              jump = doubled;
-            }
-          } else {
-            jump = doubled;
-          }
+        if (feel === "easy" && !isBodyweightWithAddedWeight) {
+          jump = step * 2;
         } else {
           jump = step;
         }
@@ -733,15 +723,12 @@ export function evaluateProgression(input: {
         const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
         
         if (hasLoadable) {
-          // Loadable equipment: round to equipment grid, ensuring we never suggest below lifted weight
+          // Loadable equipment: floor-snap to grid (never exceeds one-increment cap)
           const gridStep = equipmentGridStep(equipmentIds, 'kg');
-          const ceilToGrid = Math.ceil(rawNext / gridStep) * gridStep;
-          const floorToGrid = Math.floor(rawNext / gridStep) * gridStep;
-          
-          // Use ceil if it's at or above from, otherwise use floor but ensure >= from
-          next = ceilToGrid >= from ? ceilToGrid : Math.max(floorToGrid, from);
+          // Add epsilon to handle floating-point edge cases on exact grid points
+          next = Math.max(Math.floor((rawNext / gridStep) + 1e-9) * gridStep, from);
         } else {
-          // Non-loadable equipment (e.g., dip_bars): use raw calculated value, but ensure >= from
+          // Non-loadable equipment: use raw calculated value, but ensure >= from
           next = Math.max(rawNext, from);
         }
       }
@@ -768,11 +755,27 @@ export function evaluateProgression(input: {
       };
     }
 
+    // Coordinator decision A: if displayed weight equals lifted weight, show hold
+    // (prevents confusing "up to X" messages for tiny jumps like 47.49→47.5 both showing "104.5 lb")
+    if (displayWeight(next, unit) === displayWeight(from, unit)) {
+      return {
+        ...carried,
+        outcome: "hold",
+        nextWorkingWeightKg: next, // Use next (on-grid) for storage, but message says "hold"
+        nextTargetReps: repsMax,
+        consecutiveFailures: 0,
+        weightAtFailureStartKg: null,
+        message: isTimed
+          ? "Held to the top of the range — ready for the next step."
+          : "All sets at the top of the range — ready for the next step.",
+      };
+    }
+
     // Bodyweight without stored working weight: no kg target in message
     // MSG2: Pin message for bodyweight with added weight progressing from 0 or null
     if (meta.isBodyweight && (state.currentWorkingWeightKg === null || state.currentWorkingWeightKg === 0)) {
       const message = next > 0
-        ? `All sets at the top of the range — ready to add ${displayWeight(next)}.`
+        ? `All sets at the top of the range — ready to add ${displayPrescribedWeight(next)}.`
         : "All sets at the top of the range — ready for the next step.";
       
       return {
@@ -795,8 +798,8 @@ export function evaluateProgression(input: {
       weightAtFailureStartKg: null, // M1: clear on success
       message:
         feel === "easy" && !isBodyweightWithAddedWeight
-          ? `All sets at the top and it felt easy — up to ${displayWeight(next)}.`
-          : `All sets at the top of the range — up to ${displayWeight(next)}.`,
+          ? `All sets at the top and it felt easy — up to ${displayPrescribedWeight(next)}.`
+          : `All sets at the top of the range — up to ${displayPrescribedWeight(next)}.`,
     };
   }
 
@@ -807,9 +810,9 @@ export function evaluateProgression(input: {
   // all at top) sessions hold the weight and reset consecutiveFailures to 0.
   // "Hard" feel never causes a deload or counts as a miss on its own (SPEC: '"hard" holds it').
   if (inRange) {
-    // HOLD: Use most common working-set weight (mode); otherwise fall back to stored weight or heaviest.
+    // HOLD: Use stored weight if available; otherwise fall back to heaviest logged working-set weight.
     // For true bodyweight (no weights logged), keep null.
-    const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));
+    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
     return {
       ...carried,
       outcome: "hold",
@@ -819,16 +822,14 @@ export function evaluateProgression(input: {
       weightAtFailureStartKg: null, // M1: clear on in-range hold
       message: isTimed
         ? "Staying at this hold length until every set reaches the top of the range."
-        : currentWeight === null
-          ? "Staying here until every set reaches the top of the range."
-          : `Staying at ${displayWeight(currentWeight)} until every set reaches the top of the range.`,
+        : "Staying at this weight until every set reaches the top of the range.",
     };
   }
 
   // MISS: sets incomplete, or any set's reps below repsMin. Increment consecutiveFailures.
   // Cap at 3 to prevent infinite growth at minimum weights
   const failures = Math.min(state.consecutiveFailures + 1, 3);
-  const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));
+  const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
 
   /**
    * Shared helper: compute what the two-miss back-off would return.
@@ -1051,54 +1052,8 @@ export function evaluateProgression(input: {
     };
   }
 
-  // First miss: drop one equipment grid step with equipment, hold without
-  let nextWeight = currentWeight;
-  if (currentWeight !== null && currentWeight > 0 && equipmentIds) {
-    const isKettlebell = equipmentIds.includes('kettlebell');
-    let candidateWeight: number;
-    
-    if (isKettlebell) {
-      // Kettlebell: find the largest bell STRICTLY below current
-      const bells = KETTLEBELL_WEIGHTS_KG;
-      const epsilon = 0.001;
-      let found = currentWeight;  // Default to hold
-      for (let i = bells.length - 1; i >= 0; i--) {
-        if (bells[i] < currentWeight - epsilon) {
-          found = bells[i];
-          break;
-        }
-      }
-      candidateWeight = found;
-    } else {
-      // Standard equipment: find the largest grid point STRICTLY below current
-      const gridStep = equipmentGridStep(equipmentIds, 'kg');
-      const epsilon = 0.001;
-      const stepsBelow = Math.floor((currentWeight - epsilon) / gridStep);
-      candidateWeight = stepsBelow * gridStep;
-      // At or below the smallest loadable step: hold
-      if (candidateWeight <= gridStep) {
-        candidateWeight = currentWeight;
-      }
-    }
-    
-    // Rule 1: if cut > 20%, hold instead
-    if (candidateWeight !== currentWeight) {
-      const cutFraction = (currentWeight - candidateWeight) / currentWeight;
-      if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {
-        candidateWeight = currentWeight;
-      }
-    }
-    
-    // Rule 2: if candidate < two-miss result, hold instead
-    if (candidateWeight !== currentWeight) {
-      const twoMissFloor = computeTwoMissResult(currentWeight);
-      if (candidateWeight < twoMissFloor) {
-        candidateWeight = currentWeight;
-      }
-    }
-    
-    nextWeight = candidateWeight;
-  }
+  // First miss: always hold at current weight (coordinator decision F)
+  const nextWeight = currentWeight;
 
   // M1: Store pre-miss weight when failures goes from 0 to 1
   const newWeightAtFailureStart = state.consecutiveFailures === 0 && currentWeight !== null
