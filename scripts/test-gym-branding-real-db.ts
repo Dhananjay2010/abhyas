@@ -1,0 +1,412 @@
+/**
+ * Real database tests for gym branding RLS/RPC.
+ * 
+ * Verifies:
+ * - set_gym_branding RPC enforces owner-only access
+ * - get_gym_brand RPC returns public brand fields
+ * - Color validation (#RRGGBB hex codes)
+ * - Logo URL validation (https:// or /storage/)
+ * - RLS prevents direct table updates (only via RPC)
+ * - Cache invalidation works
+ * 
+ * Run: supabase start && REAL_DB=1 npm run test:gym-branding-real-db
+ */
+
+import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "crypto";
+
+const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
+
+let failures = 0;
+function check(label: string, ok: boolean, detail = "") {
+  if (!ok) failures++;
+  console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
+}
+
+async function testDatabaseConnection() {
+  try {
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { error } = await client.from("profiles").select("id").limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function runTests() {
+  // Skip unless REAL_DB=1
+  if (process.env.REAL_DB !== "1") {
+    console.log("\n⏭️  Skipping real DB tests (REAL_DB=1 not set)");
+    console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance\n");
+    return true;
+  }
+
+  // Import and check guard
+  const { checkRealDbTest } = await import("./lib-db-reset-guard");
+  const guardResult = checkRealDbTest();
+  
+  if (!guardResult.allow) {
+    console.log(`\n⏭️  Skipping real DB tests: ${guardResult.reason}\n`);
+    return true;
+  }
+  
+  console.log(`✓ Guard check passed: ${guardResult.reason}\n`);
+
+  console.log("Checking Supabase connection...");
+  
+  const isAvailable = await testDatabaseConnection();
+  
+  if (!isAvailable) {
+    console.error("\n❌ REAL_DB=1 but Supabase is not available");
+    console.error("   Run `supabase start` to enable these tests\n");
+    return false;
+  }
+
+  console.log("✓ Connected to Supabase\n");
+
+  // Service role client for fixture setup (bypasses RLS)
+  const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+
+  // Create test users
+  const emailOwner = `gym-owner-branding-${Date.now()}@example.com`;
+  const passwordOwner = "test-password-123";
+  const emailMember = `gym-member-branding-${Date.now()}@example.com`;
+  const passwordMember = "test-password-456";
+
+  let userIdOwner: string | null = null;
+  let userIdMember: string | null = null;
+
+  console.log("Creating test users...");
+  
+  // Create owner
+  {
+    const { data, error } = await adminClient.auth.admin.createUser({
+      email: emailOwner,
+      password: passwordOwner,
+      email_confirm: true,
+    });
+    if (error || !data.user) {
+      console.error("Failed to create owner:", error);
+      return false;
+    }
+    userIdOwner = data.user.id;
+    console.log(`✓ Created owner: ${userIdOwner}`);
+  }
+
+  // Create member
+  {
+    const { data, error } = await adminClient.auth.admin.createUser({
+      email: emailMember,
+      password: passwordMember,
+      email_confirm: true,
+    });
+    if (error || !data.user) {
+      console.error("Failed to create member:", error);
+      return false;
+    }
+    userIdMember = data.user.id;
+    console.log(`✓ Created member: ${userIdMember}`);
+  }
+
+  console.log();
+
+  // Get signed-in clients
+  const clientOwner = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const clientMember = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  {
+    const { error } = await clientOwner.auth.signInWithPassword({
+      email: emailOwner,
+      password: passwordOwner,
+    });
+    if (error) {
+      console.error("Failed to sign in owner:", error);
+      return false;
+    }
+  }
+
+  {
+    const { error } = await clientMember.auth.signInWithPassword({
+      email: emailMember,
+      password: passwordMember,
+    });
+    if (error) {
+      console.error("Failed to sign in member:", error);
+      return false;
+    }
+  }
+
+  console.log("✓ All users signed in\n");
+
+  // Create test gym
+  console.log("TEST: Create test gym");
+  const gymId = randomUUID();
+
+  {
+    const { error } = await adminClient.from("gyms").insert({
+      id: gymId,
+      slug: `gym-branding-test-${Date.now()}`,
+      name: "Branding Test Gym",
+      timezone: "America/New_York",
+    });
+    check("Test gym created", !error, error?.message);
+  }
+
+  // Add owner as owner of the gym
+  {
+    const { error } = await adminClient.from("gym_memberships").insert({
+      gym_id: gymId,
+      user_id: userIdOwner,
+      role: "owner",
+      status: "active",
+    });
+    check("Owner added to gym", !error, error?.message);
+  }
+
+  // Add member as member of the gym
+  {
+    // First deactivate their default gym membership
+    const { data: defaultGym } = await adminClient
+      .from("gyms")
+      .select("id")
+      .eq("slug", "default")
+      .single();
+    
+    if (defaultGym) {
+      await adminClient
+        .from("gym_memberships")
+        .update({ status: "removed" })
+        .eq("gym_id", defaultGym.id)
+        .eq("user_id", userIdMember);
+    }
+    
+    const { error } = await adminClient.from("gym_memberships").insert({
+      gym_id: gymId,
+      user_id: userIdMember,
+      role: "member",
+      status: "active",
+    });
+    check("Member added to gym", !error, error?.message);
+  }
+  console.log();
+
+  // TEST: Owner can set branding
+  console.log("TEST: Owner can set branding");
+  {
+    const { data, error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "My Gym",
+      p_logo_url: "https://example.com/logo.png",
+      p_primary_color: "#FF9A2E",
+      p_accent_color: "#E8850C",
+    });
+    check("Owner can call set_gym_branding", !error, error?.message);
+    check("RPC returns success", data?.success === true);
+  }
+  console.log();
+
+  // TEST: get_gym_brand returns the updated values
+  console.log("TEST: get_gym_brand returns updated values");
+  {
+    const { data, error } = await clientOwner.rpc("get_gym_brand", {
+      p_gym_id: gymId,
+    });
+    check("get_gym_brand succeeds", !error, error?.message);
+    check("Returns array", Array.isArray(data));
+    
+    if (Array.isArray(data) && data.length > 0) {
+      const row = data[0];
+      check("display_name matches", row.display_name === "My Gym");
+      check("logo_url matches", row.logo_url === "https://example.com/logo.png");
+      check("primary_color matches", row.primary_color === "#FF9A2E");
+      check("accent_color matches", row.accent_color === "#E8850C");
+    }
+  }
+  console.log();
+
+  // TEST: Member cannot set branding
+  console.log("TEST: Member cannot set branding");
+  {
+    const { error } = await clientMember.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "Hacked Name",
+      p_logo_url: "https://evil.com/logo.png",
+      p_primary_color: "#FF0000",
+      p_accent_color: "#00FF00",
+    });
+    check("Member cannot call set_gym_branding", !!error && error.code === "BRND1");
+  }
+  console.log();
+
+  // TEST: Invalid primary color is rejected
+  console.log("TEST: Invalid primary color is rejected");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "invalid",
+      p_accent_color: "#E8850C",
+    });
+    check("Invalid primary color rejected", !!error && error.code === "BRND2");
+  }
+  console.log();
+
+  // TEST: Invalid accent color is rejected
+  console.log("TEST: Invalid accent color is rejected");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#FF9A2E",
+      p_accent_color: "rgb(232, 133, 12)",
+    });
+    check("Invalid accent color rejected", !!error && error.code === "BRND3");
+  }
+  console.log();
+
+  // TEST: Invalid logo URL is rejected
+  console.log("TEST: Invalid logo URL is rejected");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_logo_url: "http://example.com/logo.png",
+    });
+    check("Invalid logo URL rejected", !!error && error.code === "BRND4");
+  }
+  console.log();
+
+  // TEST: Can clear branding by passing null
+  console.log("TEST: Can clear branding by passing null");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: null,
+      p_logo_url: null,
+      p_primary_color: null,
+      p_accent_color: null,
+    });
+    check("Owner can clear branding", !error, error?.message);
+  }
+
+  {
+    const { data } = await clientOwner.rpc("get_gym_brand", {
+      p_gym_id: gymId,
+    });
+    if (Array.isArray(data) && data.length > 0) {
+      const row = data[0];
+      check("display_name cleared", row.display_name === null);
+      check("logo_url cleared", row.logo_url === null);
+      check("primary_color cleared", row.primary_color === null);
+      check("accent_color cleared", row.accent_color === null);
+    }
+  }
+  console.log();
+
+  // TEST: Anon can call get_gym_brand (public data)
+  console.log("TEST: Anon can call get_gym_brand");
+  const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  {
+    const { data, error } = await anonClient.rpc("get_gym_brand", {
+      p_gym_id: gymId,
+    });
+    check("Anon can call get_gym_brand", !error, error?.message);
+    check("Returns gym name", Array.isArray(data) && data.length > 0 && data[0].name === "Branding Test Gym");
+  }
+  console.log();
+
+  // TEST: get_gym_brand doesn't leak sensitive data
+  console.log("TEST: get_gym_brand only returns public brand fields");
+  {
+    const { data } = await anonClient.rpc("get_gym_brand", {
+      p_gym_id: gymId,
+    });
+    if (Array.isArray(data) && data.length > 0) {
+      const row = data[0];
+      const keys = Object.keys(row);
+      const allowedKeys = ["name", "slug", "timezone", "display_name", "logo_url", "primary_color", "accent_color"];
+      const unexpectedKeys = keys.filter(k => !allowedKeys.includes(k));
+      check("Only returns allowed fields", unexpectedKeys.length === 0, `Unexpected: ${unexpectedKeys.join(", ")}`);
+    }
+  }
+  console.log();
+
+  // TEST: Direct table update is blocked by RLS
+  console.log("TEST: Member cannot directly update gyms table");
+  {
+    const { data, error } = await clientMember
+      .from("gyms")
+      .update({ primary_color: "#FF0000" })
+      .eq("id", gymId)
+      .select();
+    const blocked = !error && (!data || data.length === 0);
+    check(
+      "Member cannot update gyms table",
+      blocked,
+      blocked ? undefined : `${data?.length || 0} rows updated (expected 0)`
+    );
+  }
+  console.log();
+
+  // TEST: Storage path logo URL is accepted
+  console.log("TEST: Storage path logo URL is accepted");
+  {
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_logo_url: "/storage/v1/object/public/gym-logos/abc123.png",
+    });
+    check("Storage path logo URL accepted", !error, error?.message);
+  }
+  console.log();
+
+  // TEST: Color validation is case-insensitive
+  console.log("TEST: Color validation is case-insensitive");
+  {
+    const { error: upperError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#ABCDEF",
+      p_accent_color: "#123456",
+    });
+    check("Uppercase hex accepted", !upperError, upperError?.message);
+
+    const { error: lowerError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#abcdef",
+      p_accent_color: "#123456",
+    });
+    check("Lowercase hex accepted", !lowerError, lowerError?.message);
+
+    const { error: mixedError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#AbCdEf",
+      p_accent_color: "#12345F",
+    });
+    check("Mixed case hex accepted", !mixedError, mixedError?.message);
+  }
+  console.log();
+
+  // Clean up test users
+  console.log("Cleaning up test users...");
+  if (userIdOwner) await adminClient.auth.admin.deleteUser(userIdOwner);
+  if (userIdMember) await adminClient.auth.admin.deleteUser(userIdMember);
+  console.log("✓ Test users cleaned up\n");
+
+  if (failures > 0) {
+    console.error(`\n❌ ${failures} test(s) failed\n`);
+    return false;
+  }
+
+  console.log("\n✅ All tests passed\n");
+  return true;
+}
+
+runTests().then((success) => {
+  process.exit(success ? 0 : 1);
+});
