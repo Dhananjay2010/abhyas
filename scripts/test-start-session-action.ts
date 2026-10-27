@@ -663,12 +663,25 @@ async function testFreshSessionResumed() {
     const { startSession } = await import("@/app/session/actions");
     const result = await startSession();
 
+    // #122a: Assert positive behavior - session is resumed correctly
     if (!result.ok) {
       throw new Error(`Fresh test failed: expected ok=true, got error: ${result.error}`);
     }
 
     if (result.data?.sessionId !== "fresh-session-id") {
       throw new Error(`Fresh test failed: expected sessionId=fresh-session-id, got ${result.data?.sessionId}`);
+    }
+
+    // Verify the expected request sequence
+    const todayInProgressQuery = requests.find(r => 
+      r.method === "GET" && 
+      r.url.includes("/sessions") && 
+      r.url.includes(`local_date=eq.${TODAY}`) && 
+      r.url.includes("status=eq.in_progress")
+    );
+
+    if (!todayInProgressQuery) {
+      throw new Error(`Fresh test failed: expected query for today's in_progress sessions`);
     }
 
     const openSessionsQuery = requests.find(r => 
@@ -682,6 +695,16 @@ async function testFreshSessionResumed() {
       throw new Error(`Fresh test failed: expected open-sessions query (status=in.(planned,...)) to be made during stale-close step`);
     }
 
+    // Verify no session INSERT (should resume, not create)
+    const insertRequests = requests.filter(r => 
+      r.method === "POST" && r.url.includes("/sessions")
+    );
+
+    if (insertRequests.length > 0) {
+      throw new Error(`Fresh test failed: expected NO session INSERT (should resume), but ${insertRequests.length} were made`);
+    }
+
+    // Verify no close PATCH (session is fresh, should not be closed)
     const closePatchRequests = requests.filter(r => {
       if (r.method !== "PATCH" || !r.url.includes("/sessions") || r.url.includes("session_exercises")) {
         return false;
@@ -695,7 +718,18 @@ async function testFreshSessionResumed() {
       throw new Error(`Fresh test failed: expected no close PATCH for fresh cross-midnight session, but ${closePatchRequests.length} were sent`);
     }
 
-    console.log("✓ Fresh session: <6h old cross-midnight session is resumed without closing");
+    // Verify the session was fetched from DB (resumed, not created)
+    const sessionFetchQueries = requests.filter(r => 
+      r.method === "GET" && 
+      r.url.includes("/sessions") && 
+      !r.url.includes("session_exercises")
+    );
+
+    if (sessionFetchQueries.length === 0) {
+      throw new Error(`Fresh test failed: expected session to be fetched from database`);
+    }
+
+    console.log("✓ Fresh session: <6h old cross-midnight session is resumed without closing (positive behavior verified)");
   } finally {
     restoreClock();
   }
