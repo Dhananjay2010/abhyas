@@ -1,14 +1,14 @@
 #!/usr/bin/env tsx
 /**
- * S6/S7: Runner working weight line and prefill must show stored weights at nearest 0.5 lb.
+ * S6/S7: Runner working weight line and prefill must show prescriptions floored to 0.5 lb.
  * 
  * RENDERS the real SessionRunner to test that:
- * - S6: Visible "Working weight" line shows rounded value (nearest 0.5 lb)
+ * - S6: Visible "Working weight" line shows floored value (prescription)
  * - S7: Weight input prefill value matches working weight line
  * 
  * For a 62.5 kg prescription with imperial units:
  * Raw: 62.5 kg → 137.7890... lb
- * Rounded to nearest 0.5 lb: 138 lb
+ * Floored to 0.5 lb: 137.5 lb
  */
 
 import "./helpers/setup-jsdom";
