@@ -400,7 +400,8 @@
     "test:rng-stability-snapshots": "tsx scripts/test-rng-stability-snapshots.ts",
     "test:med2-time-fill-cap": "tsx scripts/test-med2-time-fill-cap.ts",
     "test:knee-contraindicated": "tsx scripts/test-knee-contraindicated.ts",
-    "test:owner-decision-a": "tsx scripts/test-owner-decision-a.ts"
+    "test:owner-decision-a": "tsx scripts/test-owner-decision-a.ts",
+    "test:rankalternatives-defense": "tsx scripts/test-rankalternatives-defense.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
