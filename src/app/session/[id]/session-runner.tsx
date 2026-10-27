@@ -807,6 +807,12 @@ export function SessionRunner({
   const lastWeight =
     [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ??
     current.suggestedWeightKg;
+  // M1/L1: isPrescription is true only when suggestedWeightKg differs from workingWeightKg,
+  // indicating a prescribed increase. A held weight (same kg as last time) uses nearest rounding.
+  const isPrescribedIncrease = !hasLoggedWeightThisExercise && 
+    current.suggestedWeightKg !== null && 
+    current.workingWeightKg !== null &&
+    Math.abs(current.suggestedWeightKg - current.workingWeightKg) > 0.01;
 
   /**
    * What the reps field starts on — and, for the first set, nothing.
@@ -996,10 +1002,15 @@ export function SessionRunner({
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
           <p className="mt-2 text-sm text-muted" data-testid="working-weight-line">
-            Working weight {formatPrescribedWeight(
-              current.suggestedWeightKg ?? current.workingWeightKg,
-              settings.units
-            )}
+            Working weight {isPrescribedIncrease
+              ? formatPrescribedWeight(
+                  current.suggestedWeightKg ?? current.workingWeightKg,
+                  settings.units
+                )
+              : formatLoad(
+                  current.suggestedWeightKg ?? current.workingWeightKg,
+                  settings.units
+                )}
           </p>
         )}
         {isDeload && (
@@ -1100,7 +1111,7 @@ export function SessionRunner({
             metric={current.metric}
             targetSeconds={current.repsMax}
             defaultWeight={lastWeight}
-            isPrescription={!hasLoggedWeightThisExercise}
+            isPrescription={isPrescribedIncrease}
             defaultReps={defaultReps}
             setNumber={nextSetNumber}
             isBodyweight={current.isBodyweight}

@@ -2,9 +2,12 @@
 /**
  * M1 Wiring test: Runner prescription flooring and logged-weight rounding.
  * 
+ * M1/L1 update: A held or unchanged weight shows the NEAREST 0.5 lb.
+ * Only a PRESCRIBED INCREASE rounds down.
+ * 
  * Tests that session-runner.tsx handles prescriptions and logged weights correctly:
- * - Prescriptions (no logged sets): FLOOR to 0.5 lb (62.5 kg → 137.5 lb, not 138 lb)
- * - Logged weights: round to NEAREST 0.5 lb (62.75 kg → 138.5 lb)
+ * - Held weights (workingWeightKg = suggestedWeightKg): round to NEAREST 0.5 lb (62.5 kg → 138 lb)
+ * - Logged weights from previous sets: round to NEAREST 0.5 lb (62.75 kg → 138.5 lb)
  * - Unedited submit: preserves exact original kg
  * - Edited submit: converts typed display value
  */
@@ -27,8 +30,8 @@ function check(label: string, pass: boolean, detail = "") {
 console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight rounding ===\n");
 
 (async () => {
-  // Test 1: Prescription 62.5 kg → floored 137.5 lb, submits exact 62.5 kg
-  console.log("\nTest 1: Prescription 62.5 kg (floored to 137.5 lb)");
+  // Test 1: Held weight 62.5 kg → nearest 138 lb, submits exact 62.5 kg (M1/L1)
+  console.log("\nTest 1: Held weight 62.5 kg (rounded to 138 lb, not floored)");
   {
     let capturedWeightKg: number | null = null;
     
@@ -122,7 +125,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
 
     const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
     const workingWeightText = workingWeightLine?.textContent || "";
-    check("Working weight line shows 137.5 lb (floored)", workingWeightText.includes("137.5 lb"),
+    check("Working weight line shows 138 lb (nearest, not floored)", workingWeightText.includes("138 lb"),
       `found: "${workingWeightText}"`);
 
     const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
@@ -130,7 +133,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     );
     if (!weightInput) throw new Error("Weight input not found");
 
-    check("Prefill shows 137.5 (floored)", weightInput.value === "137.5",
+    check("Prefill shows 138 (nearest, not floored)", weightInput.value === "138",
       `got "${weightInput.value}"`);
 
     const repsInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
@@ -162,14 +165,14 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
       if (capturedWeightKg === null) throw new Error("logSet not called yet");
     }, { timeout: 1000 });
 
-    check("Unedited prescription submits exact 62.5 kg", capturedWeightKg === 62.5,
+    check("Unedited held weight submits exact 62.5 kg", capturedWeightKg === 62.5,
       capturedWeightKg === null ? "logSet not called" : `got ${capturedWeightKg}`);
 
     r.unmount();
   }
 
-  // Test 2: Prescription 72.5 kg → floored 159.5 lb, submits exact 72.5 kg
-  console.log("\nTest 2: Prescription 72.5 kg (floored to 159.5 lb)");
+  // Test 2: Held weight 72.5 kg → nearest 160 lb, submits exact 72.5 kg (M1/L1)
+  console.log("\nTest 2: Held weight 72.5 kg (rounded to 160 lb, not floored)");
   {
     let capturedWeightKg: number | null = null;
     
@@ -263,7 +266,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
 
     const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
     const workingWeightText = workingWeightLine?.textContent || "";
-    check("Working weight line shows 159.5 lb (floored)", workingWeightText.includes("159.5 lb"),
+    check("Working weight line shows 160 lb (nearest, not floored)", workingWeightText.includes("160 lb"),
       `found: "${workingWeightText}"`);
 
     const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
@@ -271,7 +274,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     );
     if (!weightInput) throw new Error("Weight input not found");
 
-    check("Prefill shows 159.5 (floored)", weightInput.value === "159.5",
+    check("Prefill shows 160 (nearest, not floored)", weightInput.value === "160",
       `got "${weightInput.value}"`);
 
     const repsInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
@@ -302,14 +305,14 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
       if (capturedWeightKg === null) throw new Error("logSet not called yet");
     }, { timeout: 1000 });
 
-    check("Unedited prescription submits exact 72.5 kg", capturedWeightKg === 72.5,
+    check("Unedited held weight submits exact 72.5 kg", capturedWeightKg === 72.5,
       capturedWeightKg === null ? "logSet not called" : `got ${capturedWeightKg}`);
 
     r.unmount();
   }
 
-  // Test 3: Prescription 40 kg → floored 88 lb, submits exact 40 kg
-  console.log("\nTest 3: Prescription 40 kg (floored to 88 lb)");
+  // Test 3: Held weight 40 kg → nearest 88 lb, submits exact 40 kg (M1/L1)
+  console.log("\nTest 3: Held weight 40 kg (rounded to 88 lb)");
   {
     let capturedWeightKg: number | null = null;
     
@@ -403,7 +406,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
 
     const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
     const workingWeightText = workingWeightLine?.textContent || "";
-    check("Working weight line shows 88 lb (floored)", workingWeightText.includes("88 lb"),
+    check("Working weight line shows 88 lb (nearest)", workingWeightText.includes("88 lb"),
       `found: "${workingWeightText}"`);
 
     const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
@@ -411,7 +414,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     );
     if (!weightInput) throw new Error("Weight input not found");
 
-    check("Prefill shows 88 (floored)", weightInput.value === "88",
+    check("Prefill shows 88 (nearest)", weightInput.value === "88",
       `got "${weightInput.value}"`);
 
     const repsInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
@@ -442,7 +445,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
       if (capturedWeightKg === null) throw new Error("logSet not called yet");
     }, { timeout: 1000 });
 
-    check("Unedited prescription submits exact 40 kg", capturedWeightKg === 40,
+    check("Unedited held weight submits exact 40 kg", capturedWeightKg === 40,
       capturedWeightKg === null ? "logSet not called" : `got ${capturedWeightKg}`);
 
     r.unmount();
@@ -451,8 +454,6 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
   // Test 4: Logged weight 62.75 kg → rounded to nearest 138.5 lb
   console.log("\nTest 4: Logged weight 62.75 kg (rounded to 138.5 lb, not floored)");
   {
-    let capturedWeightKg: number | null = null;
-    
     const actions: SessionActions = {
       markWarmupDone: async () => ({ ok: true }),
       logSet: async (data) => {
@@ -549,15 +550,16 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     check("Logged weight prefill shows 138.5 (rounded to nearest, not floored)", weightInput.value === "138.5",
       `got "${weightInput.value}"`);
     
-    // Also verify capturedWeightKg is defined (avoid lint warning)
-    check("Test 4: capturedWeightKg captured", capturedWeightKg !== undefined,
-      `capturedWeightKg was ${capturedWeightKg}`);
+    // Task fix: Assert the exact kg from the logged set in the exercise definition
+    check("Test 4: Exercise has logged set with exact 62.75 kg", 
+      exercise.sets[0]?.weightKg === 62.75,
+      `got ${exercise.sets[0]?.weightKg}`);
 
     r.unmount();
   }
 
   // Test 4b: Flow test - set 1 logged unedited 40 kg, set 2 prefills 88 lb and saves 40 kg when unedited
-  console.log("\nTest 4b: Flow test - prescription 40kg→88lb, log unedited, then set 2 also submits 40kg");
+  console.log("\nTest 4b: Flow test - held 40kg→88lb, log unedited, then set 2 also submits 40kg");
   {
     const capturedWeights: number[] = [];
     

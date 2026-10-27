@@ -117,7 +117,11 @@ export function LineChart({
   };
   const fmtAxis = (v: number) => {
     if (!weightUnits) return Math.round(v).toLocaleString("en-US");
-    // Axis labels always use 0.5 lb rounding (formatWeight), even for body weight
+    // L-c: Axis labels use the same precision as values
+    // For body weight, use 0.1 precision; for regular weight, use 0.5 lb rounding
+    if (isBodyWeight) {
+      return formatBodyWeight(v, weightUnits, false, "0");
+    }
     return formatWeight(v, weightUnits, false, "0");
   };
   const id = useId();
