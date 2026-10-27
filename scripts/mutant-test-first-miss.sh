@@ -78,28 +78,7 @@ mutate_exact() {
   local old="$1"
   local new="$2"
   
-  node -e "
-const fs = require('fs');
-const content = fs.readFileSync('$FILE', 'utf8');
-const search = process.argv[1];
-const replace = process.argv[2];
-
-// Escape regex special chars for counting
-const escaped = search.replace(/[.*+?^${}()|[\]\\\\]/g, '\\\\$&');
-const count = (content.match(new RegExp(escaped, 'g')) || []).length;
-
-if (count === 0) {
-  console.error('ERROR: Pattern not found');
-  process.exit(1);
-}
-if (count > 1) {
-  console.error('ERROR: Pattern occurs ' + count + ' times, need exactly 1');
-  process.exit(1);
-}
-
-const newContent = content.replace(search, replace);
-fs.writeFileSync('$FILE', newContent, 'utf8');
-" "$old" "$new"
+  node scripts/mutate-helper.js "$FILE" "$old" "$new"
 }
 
 test_mutant() {
