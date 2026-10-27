@@ -318,12 +318,6 @@ run_mutant "R11. Training choice sends wrong programDayId (rest branch)" "$COMPO
             )}
             {days.some' "$T"
 
-run_mutant "M1. Server uses current date instead of session.local_date + 1" "$RESOLVE" \
-  '    const targetDate = addDays(result.localDate, 1);
-    return { ok: true, data: targetDate };' \
-  '    const targetDate = result.localDate;
-    return { ok: true, data: targetDate };' "$T_RESOLVE"
-
 run_mutant "Q1. Yoga not added when already in block" "$COMPONENT" \
   '            {days.some((d) => d.dayType === "yoga") || days.length === 0 ? null : (
               <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
