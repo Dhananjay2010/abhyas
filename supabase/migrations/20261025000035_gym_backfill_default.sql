@@ -1,0 +1,104 @@
+-- Gym backfill: create default gym and add existing users as members
+-- Also adds an AFTER INSERT trigger on profiles to add new signups to the default gym.
+
+-- ============================================================
+-- CREATE DEFAULT GYM
+-- ============================================================
+
+-- Create the default gym matching NEXT_PUBLIC_BRAND's default brand.
+-- Mapping: src/lib/branding.ts defines the default brand with:
+--   - id: "default" → maps to gyms.slug = 'default'
+--   - name: "Abhyas" → maps to gyms.name = 'Abhyas'
+--   - timezone: falls back to browser → gyms.timezone = NULL (no explicit timezone)
+-- The default gym has no owner by design. The coordinator will assign an owner
+-- on production after the migration is applied.
+insert into gyms (slug, name, timezone)
+values ('default', 'Abhyas', NULL)
+on conflict (slug) do nothing;
+
+-- ============================================================
+-- BACKFILL EXISTING USERS
+-- ============================================================
+
+-- Add every existing user as an active member of the default gym
+do $$
+declare
+  default_gym_id uuid;
+begin
+  select id into default_gym_id from gyms where slug = 'default';
+  
+  if default_gym_id is null then
+    raise exception 'Default gym not found';
+  end if;
+  
+  insert into gym_memberships (gym_id, user_id, role, status, joined_at)
+  select 
+    default_gym_id,
+    auth.users.id,
+    'member',
+    'active',
+    coalesce(auth.users.created_at, now())
+  from auth.users
+  where not exists (
+    select 1 
+    from gym_memberships 
+    where gym_memberships.user_id = auth.users.id
+      and gym_memberships.gym_id = default_gym_id
+  )
+  on conflict (gym_id, user_id) do nothing;
+end $$;
+
+-- ============================================================
+-- TRIGGER: Auto-add new signups to default gym
+-- ============================================================
+
+-- This trigger adds new signups to the default gym automatically.
+-- It catches and logs its own errors so signup never fails if this fails.
+create or replace function public.add_new_user_to_default_gym()
+returns trigger language plpgsql security definer set search_path = '' as $fn$
+declare
+  default_gym_id uuid;
+begin
+  -- Find the default gym (matches NEXT_PUBLIC_BRAND default brand: id='default', name='Abhyas')
+  select id into default_gym_id from public.gyms where slug = 'default';
+  
+  if default_gym_id is null then
+    -- Log error but don't fail signup
+    raise warning 'Default gym not found, skipping gym membership for user %', new.id;
+    return new;
+  end if;
+  
+  -- Add the user to the default gym
+  begin
+    insert into public.gym_memberships (gym_id, user_id, role, status, joined_at)
+    values (default_gym_id, new.id, 'member', 'active', now())
+    on conflict (gym_id, user_id) do nothing;
+  exception when others then
+    -- Log error but don't fail signup
+    raise warning 'Failed to add user % to default gym: %', new.id, sqlerrm;
+  end;
+  
+  return new;
+end;
+$fn$;
+
+-- Revoke all access (internal trigger function)
+do $$
+begin
+  revoke execute on function public.add_new_user_to_default_gym() from public, anon, authenticated;
+exception when undefined_function then
+  null;
+end $$;
+
+-- Create the trigger if it doesn't exist
+do $$
+begin
+  if not exists (
+    select 1 from pg_trigger 
+    where tgname = 'add_new_user_to_default_gym_trigger'
+  ) then
+    create trigger add_new_user_to_default_gym_trigger
+      after insert on public.profiles
+      for each row execute function public.add_new_user_to_default_gym();
+  end if;
+end $$;
