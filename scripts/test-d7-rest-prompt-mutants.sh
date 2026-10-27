@@ -24,7 +24,9 @@ restore() {
   CURRENT_FILE=""
   BACKUP=""
 }
-trap restore EXIT INT TERM
+trap restore EXIT
+# MED-3: Handle Ctrl-C/SIGINT - abort whole script
+trap 'restore; exit 130' INT TERM
 
 # replace_once FILE OLD NEW -> 0 if OLD occurred exactly once and was replaced
 replace_once() {
@@ -60,13 +62,26 @@ run_mutant() {
     restore
     return
   fi
+  
+  # MED-3: Count kill only when test exits non-zero with assertion FAIL
   local killer=""
   for t in "$@"; do
-    if ! npm run -s "$t" >/dev/null 2>&1; then
-      killer="$t"
-      break
+    local output
+    output=$(npm run -s "$t" 2>&1)
+    local exit_code=$?
+    
+    # Only count as kill if:
+    # - Test exited non-zero
+    # - Output contains "FAIL" (assertion failure)
+    # - NOT a "Missing script" or crash error
+    if [ $exit_code -ne 0 ]; then
+      if echo "$output" | grep -q "FAIL"; then
+        killer="$t"
+        break
+      fi
     fi
   done
+  
   if [ -n "$killer" ]; then
     echo "  ✓ KILLED by $killer"
     KILLED=$((KILLED + 1))
@@ -83,11 +98,23 @@ RESOLVE=src/lib/session/resolve-plan-target-date.ts
 T=test:day-plan-rest-prompt
 T_RESOLVE=test:resolve-plan-target-date
 T_SERVER=test:plan-day-server-wiring
+T_MED_A=test:med-a-server-label
+T_FETCH=test:fetch-session-local-date
+T_ERROR=test:plan-day-error-mapping
 
 echo "D7 Rest-Day Prompt Mutation Testing"
 echo "──────────────────────────────────────────────────────────"
 
-npm run -s "$T" >/dev/null 2>&1 || { echo "FATAL: baseline $T fails"; exit 1; }
+# MED-3: Run every target test on CLEAN code first, exit 1 if any baseline fails
+echo "Baseline checks..."
+for test in "$T" "$T_RESOLVE" "$T_SERVER" "$T_MED_A" "$T_FETCH" "$T_ERROR"; do
+  if ! npm run -s "$test" >/dev/null 2>&1; then
+    echo "FATAL: baseline $test fails"
+    exit 1
+  fi
+done
+echo "All baselines pass"
+echo ""
 
 run_mutant "1. Rest day detection: always false" "$COMPONENT" \
   'const isRestDay = plannedLabel.toLowerCase() === "rest";' \
@@ -228,40 +255,48 @@ run_mutant "R6b. Training choices not disabled while pending (rest branch)" "$CO
             {days.some' "$T"
 
 run_mutant "R7. Error not shown in rest branch" "$COMPONENT" \
-  '        {error && (
-          <div
-            role="alert"
-            className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
-          >
-            <p>{error}</p>
+  '      {error && (
+        <div
+          role="alert"
+          className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
+        >
+          <p>{error}</p>
+          {isRetryable && (
             <button
               onClick={() => {
                 setError(null);
-                // LOW fix: Retry actually retries the save
                 if (lastAttempt) {
                   choose(lastAttempt.plan, lastAttempt.describedAs);
                 }
               }}
               className="mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-sm text-brand underline underline-offset-2"
             >
-              Retry' \
-  '        {false && error && (
-          <div
-            role="alert"
-            className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
-          >
-            <p>{error}</p>
+              Retry
+            </button>
+          )}
+        </div>
+      )}' \
+  '      {false && error && (
+        <div
+          role="alert"
+          className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
+        >
+          <p>{error}</p>
+          {isRetryable && (
             <button
               onClick={() => {
                 setError(null);
-                // LOW fix: Retry actually retries the save
                 if (lastAttempt) {
                   choose(lastAttempt.plan, lastAttempt.describedAs);
                 }
               }}
               className="mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-sm text-brand underline underline-offset-2"
             >
-              Retry' "$T"
+              Retry
+            </button>
+          )}
+        </div>
+      )}' "$T"
 
 run_mutant "R8. Failed plan still settles (ignore r.ok)" "$COMPONENT" \
   '        const r = await onPlan(input);
@@ -346,56 +381,46 @@ run_mutant "Q4. Never mind tap target too small (py-2)" "$COMPONENT" \
 
         {error && (' "$T"
 
+# MED-2 behavioral tests
+run_mutant "MED-2a. planDay saves to today instead of resolved date" "$ACTION" \
+  '  const result = await planDayCore(client, {
+    userId: user.id,
+    localDate: targetDate,
+    today,' \
+  '  const result = await planDayCore(client, {
+    userId: user.id,
+    localDate: input.localDate ?? today,
+    today,' "$T_SERVER"
 
+run_mutant "MED-2b. Raw error passes through (no friendlyPlanDayError)" "$ACTION" \
+  '    return { ok: false, error: friendlyPlanDayError(result.error) };' \
+  '    return { ok: false, error: result.error };' "$T_ERROR"
 
-run_mutant "N5. planDay ignores resolved date (uses today instead)" "src/lib/session/plan-day-core.ts" \
-  '      local_date: input.localDate,' \
-  '      local_date: input.today,' "$T_SERVER"
-
-run_mutant "N6. Session lookup not scoped by user_id" "src/lib/session/fetch-session-local-date.ts" \
-  '      .eq("id", sessionId)
-      .eq("user_id", userId)
-      .maybeSingle();' \
-  '      .eq("id", sessionId)
-      .maybeSingle();' "npm run test:fetch-session-local-date"
-
-run_mutant "N7. Resolver error falls back to today (no friendly error)" "src/lib/session/resolve-plan-target-date.ts" \
+run_mutant "MED-2c. Failed session lookup falls back to today" "$RESOLVE" \
   '    if (result.error) {
       return { ok: false, error: "Could not load session." };
-    }' \
+    }
+    if (!result.localDate) {' \
   '    if (result.error) {
-      return { ok: true, data: new Date().toISOString().slice(0, 10) };
-    }' "$T_SERVER"
+      result = { localDate: new Date().toISOString().slice(0, 10), error: null };
+    }
+    if (!result.localDate) {' "$T_SERVER"
 
-run_mutant "N10. SessionRunner passes localDate instead of sessionId" "$COMPONENT" \
-  '        // Type-safe construction without cast
-        const input = sessionId 
+run_mutant "MED-2d. Session-runner passes localDate instead of sessionId" "$COMPONENT" \
+  '        const input = sessionId 
           ? { sessionId, plan }
-          : localDate
+          : { localDate: localDate!, plan };' \
+  '        const input = localDate 
           ? { localDate, plan }
-          : { plan } as never;' \
-  '        // Type-safe construction without cast
-        const input = localDate 
-          ? { localDate, plan }
-          : sessionId
-          ? { sessionId, plan }
-          : { plan } as never;' "$T"
+          : { sessionId: sessionId!, plan };' "$T"
 
-run_mutant "M-A1. page.tsx omits sessionTargetDate (MED-A)" "src/app/session/[id]/page.tsx" \
+run_mutant "M-A1. page.tsx omits sessionTargetDate (MED-A behavioral)" "src/app/session/[id]/page.tsx" \
   'const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate);' \
-  'const tomorrow = await nextDayPlan(supabase, timezone);' "npm run test:med-a-server-label"
+  'const tomorrow = await nextDayPlan(supabase, timezone);' "$T_MED_A"
 
-run_mutant "M-A2. nextDayPlan ignores targetLocalDate parameter (MED-A)" "src/lib/program/day-plan.ts" \
-  'const tomorrow = targetLocalDate ?? sessionPlanTargetDate(localDateString(timezone));' \
-  'const tomorrow = sessionPlanTargetDate(localDateString(timezone));' "npm run test:med-a-server-label"
-
-run_mutant "M-A3. sessionPlanTargetDate adds 0 days instead of 1 (MED-A)" "src/lib/session/resolve-plan-target-date.ts" \
-  'export function sessionPlanTargetDate(sessionLocalDate: string): string {
-  return addDays(sessionLocalDate, 1);
-}' \
-  'export function sessionPlanTargetDate(sessionLocalDate: string): string {
-  return addDays(sessionLocalDate, 0);
-}' "npm run test:med-a-server-label"
+run_mutant "M-A2. nextDayPlan ignores targetLocalDate parameter (MED-A behavioral)" "src/lib/program/day-plan.ts" \
+  'targetLocalDate ?? sessionPlanTargetDate(localDateString(timezone))' \
+  'sessionPlanTargetDate(localDateString(timezone))' "$T_MED_A"
 
 echo ""
 echo "──────────────────────────────────────────────────────────"

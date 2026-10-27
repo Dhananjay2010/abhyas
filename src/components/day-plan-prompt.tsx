@@ -51,17 +51,30 @@ export function DayPlanPrompt({
   const [error, setError] = useState<string | null>(null);
   const [lastAttempt, setLastAttempt] = useState<{ plan: DayPlan; describedAs: string } | null>(null);
 
+  // LOW-7: Non-retryable errors (core errors that won't change on retry)
+  const NON_RETRYABLE_ERRORS = [
+    "That day isn't in your block.",
+    "That session has already started.",
+    "Cannot save: missing session or date.",
+  ];
+
+  const isRetryable = error && !NON_RETRYABLE_ERRORS.some(msg => error.includes(msg));
+
   function choose(plan: DayPlan, describedAs: string) {
     setError(null);
     setLastAttempt({ plan, describedAs });
     startTransition(async () => {
       try {
-        // Type-safe construction without cast
+        // Require either sessionId OR localDate
+        if (!sessionId && !localDate) {
+          setError("Cannot save: missing session or date.");
+          return;
+        }
+
         const input = sessionId 
           ? { sessionId, plan }
-          : localDate
-          ? { localDate, plan }
-          : { plan } as never; // Should never happen - component requires one or the other
+          : { localDate: localDate!, plan };
+
         const r = await onPlan(input);
         if (!r.ok) {
           setError(r.error);
@@ -251,18 +264,19 @@ export function DayPlanPrompt({
           className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           <p>{error}</p>
-          <button
-            onClick={() => {
-              setError(null);
-              // LOW fix: Retry actually retries the save
-              if (lastAttempt) {
-                choose(lastAttempt.plan, lastAttempt.describedAs);
-              }
-            }}
-            className="mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-sm text-brand underline underline-offset-2"
-          >
-            Retry
-          </button>
+          {isRetryable && (
+            <button
+              onClick={() => {
+                setError(null);
+                if (lastAttempt) {
+                  choose(lastAttempt.plan, lastAttempt.describedAs);
+                }
+              }}
+              className="mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-sm text-brand underline underline-offset-2"
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
     </section>

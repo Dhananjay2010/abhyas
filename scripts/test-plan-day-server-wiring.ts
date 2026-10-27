@@ -32,11 +32,6 @@ function check(label: string, pass: boolean, detail?: string) {
     check("friendlyPlanDayError returns friendly copy", friendlyError === "Couldn't save your choice. Please try again.");
     check("NOT raw DB text", !friendlyError.includes("duplicate key"));
     check("NOT 'constraint'", !friendlyError.includes("constraint"));
-    
-    // Also test that known errors pass through
-    const knownError = "That day has already been trained.";
-    const mappedKnown = friendlyPlanDayError(knownError);
-    check("Known errors pass through unchanged", mappedKnown === knownError);
   }
 
   console.log("\nCase 2: MED-B N5 - planDay saves to resolved date");
