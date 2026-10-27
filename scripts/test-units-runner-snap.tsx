@@ -1,14 +1,14 @@
 #!/usr/bin/env tsx
 /**
- * S6/S7: Runner working weight line and prefill must use snapped values.
+ * S6/S7: Runner working weight line and prefill must show prescriptions floored to 0.5 lb.
  * 
  * RENDERS the real SessionRunner to test that:
- * - S6: Visible "Working weight" line shows "137.5 lb" (not 138 or 137.8)
- * - S7: Weight input prefill value is 137.5 (not 138 or 137.8)
+ * - S6: Visible "Working weight" line shows floored value (prescription)
+ * - S7: Weight input prefill value matches working weight line
  * 
  * For a 62.5 kg prescription with imperial units:
  * Raw: 62.5 kg → 137.7890... lb
- * Snapped: 137.5 lb
+ * Floored to 0.5 lb: 137.5 lb
  */
 
 import "./helpers/setup-jsdom";
@@ -123,8 +123,8 @@ function check(label: string, pass: boolean, detail = "") {
     // Extract the line containing "Working weight" and check for "137.5 lb"
     const lines = text.split(/\n|(?=Working weight)/);
     const workingWeightLine = lines.find(l => l.includes("Working weight"));
-    const hasSnappedValue = workingWeightLine?.includes("137.5") && workingWeightLine?.includes("lb");
-    check("S6: Working weight line shows '137.5 lb'", hasSnappedValue ?? false, workingWeightLine ? `got: "${workingWeightLine}"` : "line not found");
+    const hasRoundedValue = workingWeightLine?.includes("137.5") && workingWeightLine?.includes("lb");
+    check("S6: Working weight line shows '137.5 lb'", hasRoundedValue ?? false, workingWeightLine ? `got: "${workingWeightLine}"` : "line not found");
   }
 
   // S7: Check weight input prefill value
@@ -143,7 +143,7 @@ function check(label: string, pass: boolean, detail = "") {
   check("S7: Weight input value is exactly 137.5", prefillValue === 137.5, `got ${prefillValue}`);
 
   // ============================================================
-  // Additional test: 100 kg → 220 lb
+  // Additional test: 100 kg → 220.5 lb
   // ============================================================
   console.log("\nImperial: 100 kg prescription");
 
@@ -190,8 +190,8 @@ function check(label: string, pass: boolean, detail = "") {
 
   const text100 = r100.container.textContent || "";
   const workingWeightLine100 = text100.split(/\n|(?=Working weight)/).find(l => l.includes("Working weight"));
-  const hasSnappedValue100 = workingWeightLine100?.includes("220") && workingWeightLine100?.includes("lb");
-  check("100 kg: Working weight line shows '220 lb'", hasSnappedValue100 ?? false, workingWeightLine100 ? `got: "${workingWeightLine100}"` : "");
+  const hasRoundedValue100 = workingWeightLine100?.includes("220") && workingWeightLine100?.includes("lb") && !workingWeightLine100?.includes("220.");
+  check("100 kg: Working weight line shows '220 lb'", hasRoundedValue100 ?? false, workingWeightLine100 ? `got: "${workingWeightLine100}"` : "");
 
   const weightInput100 = [...r100.container.querySelectorAll<HTMLInputElement>("input")].find(
     (i) => {
