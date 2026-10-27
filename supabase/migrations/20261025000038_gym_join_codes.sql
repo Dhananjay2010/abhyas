@@ -434,7 +434,7 @@ begin
     exception when unique_violation then
       v_attempts := v_attempts + 1;
       if v_attempts >= v_max_attempts then
-        raise exception 'Failed to generate unique code after % attempts', v_max_attempts using errcode = 'GJC01';
+        raise exception using message = format('Failed to generate unique code after %s attempts', v_max_attempts), errcode = 'GJC01';
       end if;
       -- Continue loop to retry
     end;
