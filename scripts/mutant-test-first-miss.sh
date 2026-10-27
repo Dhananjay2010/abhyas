@@ -28,6 +28,15 @@ ORIG_SHA=$(sha256sum "$BACKUP" | cut -d' ' -f1)
 
 cleanup() {
   if [ -f "$BACKUP" ]; then
+    # Check if backup exists and has reasonable size
+    local backup_size
+    backup_size=$(stat -f%z "$BACKUP" 2>/dev/null || stat -c%s "$BACKUP" 2>/dev/null || echo 0)
+    
+    if [ "$backup_size" -lt 1000 ]; then
+      echo "❌ FATAL: Backup too small ($backup_size bytes)" >&2
+      exit 1
+    fi
+    
     # Verify backup integrity before restore
     local backup_sha
     backup_sha=$(sha256sum "$BACKUP" 2>/dev/null | cut -d' ' -f1)
