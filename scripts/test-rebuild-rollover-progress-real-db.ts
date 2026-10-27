@@ -166,7 +166,7 @@ async function runTests() {
       id: dayId1,
       program_id: blockId1,
       user_id: userId,
-      day_index: 0,
+      day_index: 1,
       day_type: "weights",
       label: "Upper A",
     });
@@ -354,7 +354,7 @@ async function runTests() {
       id: dayId,
       program_id: blockId,
       user_id: userId,
-      day_index: 0,
+      day_index: 1,
       day_type: "weights",
       label: "Upper A",
     });

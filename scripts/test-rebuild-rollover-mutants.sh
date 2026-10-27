@@ -155,8 +155,10 @@ echo "Expected: test-rebuild-rollover-progress-real-db.ts should fail"
 echo ""
 
 cp "$BACKUP_STREAKS" "$STREAKS_FILE"
-# Replace the min logic with just ?? fallback
-sed -i '/Fix pd-b: Use the EARLIER of effectiveStart/,/first = effectiveStart ?? firstBlockStart;/c\
+# Replace the min logic with just ?? fallback (remove the if/else that picks the earlier date)
+sed -i '/Fix pd-b: Use the EARLIER of effectiveStart/,/^  }$/c\
+  // Fix pd-b: Use the EARLIER of effectiveStart and firstBlockStart\
+  // so a later effectiveStart can never cut off block days\
   const first = effectiveStart ?? firstBlockStart;' "$STREAKS_FILE"
 
 # Verify the mutation applied  
