@@ -13,9 +13,19 @@ import { branding, type Brand } from "@/lib/branding";
 import { createClient } from "@/lib/supabase/server";
 import { getGymBrand } from "@/lib/gym-brand";
 import { getUserGymMembership } from "@/lib/gym/member-gym";
-import { accessibleTextColor, contrastRatio } from "@/lib/contrast";
+import { contrastRatio } from "@/lib/contrast";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+
+/**
+ * RPC return type for resolve_gym_by_host (includes verified field)
+ */
+type ResolveGymByHostResult = {
+  gym_id: string;
+  gym_slug: string;
+  gym_name: string;
+  verified: boolean;
+};
 
 /**
  * Resolution result for branding.
@@ -66,7 +76,7 @@ export async function resolveBrand(
         });
 
         if (!error && data && data.length > 0) {
-          const resolution = data[0];
+          const resolution = data[0] as ResolveGymByHostResult;
 
           if (resolution.verified && resolution.gym_id) {
             const gymBrand = await fetchGymBrand(resolution.gym_id);
