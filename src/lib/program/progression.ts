@@ -699,18 +699,18 @@ export function evaluateProgression(input: {
           next = bells[targetIndex];
         }
       } else {
-        // Standard equipment: add increment then round UP to grid
-        // The cap is ONE INCREMENT (5kg lower-body compound, 2.5kg upper-body compound),
-        // which may span multiple grid steps. 'Easy' feel doubles the increment.
+        // Standard equipment: snap to grid if off-grid, then add increment
+        // incrementFor already returns max(mechanicIncrement, gridStep), ensuring loadable values
+        const gridStep = equipmentGridStep(equipmentIds, 'kg');
+        const snappedFrom = Math.floor((from + 0.001) / gridStep) * gridStep;
+        
         const step = isBodyweightWithAddedWeight ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";
-        // #120: incrementFor caps at grid step, but easy STILL doubles that capped increment
+        // #120 APP decision: easy STILL doubles the increment for compound movements
         const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? step * 2 : step;
         
-        // Add jump, then round to grid
-        const rawNext = from + jump;
-        const gridStep = equipmentGridStep(equipmentIds, 'kg');
-        next = roundToGrid(rawNext, equipmentIds, unit, gridStep, 'up');
+        // Add jump to snapped weight
+        next = snappedFrom + jump;
       }
     } else {
       // No equipment info: use standard increment, doubled when easy (preserve old behavior)
