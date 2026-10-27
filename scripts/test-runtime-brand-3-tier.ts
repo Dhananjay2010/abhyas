@@ -4,7 +4,7 @@
  * Tests the complete resolution order with member fallback and contrast guard.
  */
 
-import { branding } from "../src/lib/branding";
+import { branding, type Brand } from "../src/lib/branding";
 import { resolveBrand, mergeBrand } from "../src/lib/runtime-brand";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
@@ -99,18 +99,18 @@ async function main() {
       }
     );
     
-    const mockFetchGymBrand = async (gymId: string) => {
+    const mockFetchGymBrand = async (gymId: string): Promise<Partial<Brand>> => {
       if (gymId === 'gym-b-id') {
         return {
           name: 'Gold Coast Iron',
           colors: { accent: '#F59E0B', accentFg: '#000000' },
-        };
+        } as Partial<Brand>;
       }
       if (gymId === 'gym-a-id') {
         return {
           name: 'Iron Temple',
           colors: { accent: '#1E40AF', accentFg: '#ffffff' },
-        };
+        } as Partial<Brand>;
       }
       return {};
     };
@@ -136,12 +136,12 @@ async function main() {
       }
     );
     
-    const mockFetchGymBrand = async (gymId: string) => {
+    const mockFetchGymBrand = async (gymId: string): Promise<Partial<Brand>> => {
       if (gymId === 'iron-temple-id') {
         return {
           name: 'Iron Temple',
           colors: { accent: '#1E40AF', accentFg: '#ffffff' },
-        };
+        } as Partial<Brand>;
       }
       return {};
     };
@@ -177,12 +177,12 @@ async function main() {
       }
     );
     
-    const mockFetchGymBrand = async (gymId: string) => {
+    const mockFetchGymBrand = async (gymId: string): Promise<Partial<Brand>> => {
       if (gymId === 'gym-b-id') {
-        return { name: 'Gold Coast Iron', colors: { accent: '#F59E0B' } };
+        return { name: 'Gold Coast Iron', colors: { accent: '#F59E0B' } } as Partial<Brand>;
       }
       if (gymId === 'iron-temple-id') {
-        return { name: 'Iron Temple', colors: { accent: '#1E40AF' } };
+        return { name: 'Iron Temple', colors: { accent: '#1E40AF' } } as Partial<Brand>;
       }
       return {};
     };
