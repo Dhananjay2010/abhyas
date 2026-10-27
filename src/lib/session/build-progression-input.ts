@@ -12,6 +12,7 @@
 
 import type { Database } from "../../lib/database.types";
 import type { ExerciseMeta, ProgressState } from "../program/progression";
+import type { WeightUnit } from "./equipment-grid";
 import { progressionInputsFromExercise } from "./progression-inputs";
 
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -47,6 +48,7 @@ export type ExerciseProgressRow = {
   best_reps: number | null;
   best_e1rm: string | number | null;
   total_sessions: number;
+  weight_at_failure_start_kg: string | number | null;
 } | null;
 
 export type SessionRow = {
@@ -92,6 +94,10 @@ export function buildProgressionInput(
     bestE1rm:
       progress?.best_e1rm === null || progress === null ? null : Number(progress.best_e1rm),
     totalSessions: progress?.total_sessions ?? 0,
+    weightAtFailureStartKg:
+      progress?.weight_at_failure_start_kg === null || progress === null
+        ? null
+        : Number(progress.weight_at_failure_start_kg),
   };
 
   return {
@@ -107,7 +113,7 @@ export function buildProgressionInput(
     meta,
     state,
     isDeload: session.is_deload ?? false,
-    unit: units === "imperial" ? "lb" : "kg",
+    unit: (units === "imperial" ? "lb" : "kg") as WeightUnit,
     ...progressionInputsFromExercise(ex),
   };
 }

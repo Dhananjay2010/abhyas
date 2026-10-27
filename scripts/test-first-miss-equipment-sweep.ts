@@ -79,6 +79,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestReps: 12,
   bestE1rm: 84,
   totalSessions: 3,
+  weightAtFailureStartKg: null,
   ...over,
 });
 
@@ -217,7 +218,7 @@ for (const { ids, unit } of EQUIPMENTS) {
         }
 
         // Test suggested weight for holds
-        const suggested = suggestedWeight(state, false, meta, ids, unit);
+        const suggested = suggestedWeight(state, false, meta, ids);
         if (firstMissResult.outcome === "hold" && suggested !== null && Math.abs(suggested - weight) > 0.001) {
           console.log(
             `HOLD MISMATCH: ${ids[0]} ${weight} ${unit} outcome=hold but suggested=${suggested}`

@@ -53,7 +53,7 @@ const metricSuccess = evaluateProgression({
     weightAtFailureStartKg: null,
   },
   isDeload: false,
-  units: "metric",
+  unit: "kg",
 });
 
 console.log("Metric success:");
@@ -83,7 +83,7 @@ const imperialSuccess = evaluateProgression({
     weightAtFailureStartKg: null,
   },
   isDeload: false,
-  units: "imperial",
+  unit: "lb",
 });
 
 console.log("Imperial success:");
@@ -113,7 +113,7 @@ const metricMiss = evaluateProgression({
     weightAtFailureStartKg: null,
   },
   isDeload: false,
-  units: "metric",
+  unit: "kg",
 });
 
 console.log("Metric miss (first miss, drops weight):");
@@ -141,7 +141,7 @@ const imperialMiss = evaluateProgression({
     weightAtFailureStartKg: null,
   },
   isDeload: false,
-  units: "imperial",
+  unit: "lb",
 });
 
 console.log("Imperial miss:");
@@ -172,7 +172,7 @@ const metricHold = evaluateProgression({
   },
   isDeload: false,
   equipmentIds: ["dumbbell"],
-  units: "metric",
+  unit: "kg",
 });
 
 console.log("Metric hold (smallest step):");
@@ -205,7 +205,7 @@ const metricThirdMiss = evaluateProgression({
   },
   isDeload: false,
   equipmentIds: ["dumbbell"],
-  units: "metric",
+  unit: "kg",
 });
 
 console.log("Metric third-miss step-down:");
@@ -231,7 +231,7 @@ const imperialThirdMiss = evaluateProgression({
   },
   isDeload: false,
   equipmentIds: ["dumbbell"],
-  units: "imperial",
+  unit: "lb",
 });
 
 console.log("Imperial third-miss step-down:");
@@ -263,7 +263,7 @@ const barMetric = evaluateProgression({
   },
   isDeload: false,
   equipmentIds: ["pull_up_bar"],
-  units: "metric",
+  unit: "kg",
 });
 
 console.log("Pull-up bar (metric) third miss to 0:");
@@ -294,7 +294,7 @@ const barImperial = evaluateProgression({
   },
   isDeload: false,
   equipmentIds: ["pull_up_bar"],
-  units: "imperial",
+  unit: "lb",
 });
 
 console.log("Pull-up bar (imperial) third miss to 0:");
@@ -324,7 +324,7 @@ const bandMetric = evaluateProgression({
   },
   isDeload: false,
   equipmentIds: ["resistance_band"],
-  units: "metric",
+  unit: "kg",
 });
 
 console.log("Resistance band (metric) third miss to 0:");
@@ -354,7 +354,7 @@ const bandImperial = evaluateProgression({
   },
   isDeload: false,
   equipmentIds: ["resistance_band"],
-  units: "imperial",
+  unit: "lb",
 });
 
 console.log("Resistance band (imperial) third miss to 0:");

@@ -55,7 +55,7 @@ const equipResult = evaluateProgression({
   state: fresh,
   isDeload: false,
   equipmentIds: ["barbell"],
-  units: "imperial",
+  unit: "lb",
 });
 
 check("Equipment message contains 'lb'", equipResult.message.includes("lb"), `message: "${equipResult.message}"`);
@@ -73,7 +73,7 @@ const missResult = evaluateProgression({
   state: fresh,
   isDeload: false,
   equipmentIds: ["barbell"],
-  units: "imperial",
+  unit: "lb",
 });
 
 check("First-miss message contains 'lb'", missResult.message.includes("lb"), `message: "${missResult.message}"`);
@@ -91,7 +91,7 @@ const twoMissResult = evaluateProgression({
   state: { ...fresh, currentWorkingWeightKg: 37.5, consecutiveFailures: 1, weightAtFailureStartKg: 40 },
   isDeload: false,
   equipmentIds: ["barbell"],
-  units: "imperial",
+  unit: "lb",
 });
 
 check("Two-miss message contains 'lb'", twoMissResult.message.includes("lb"), `message: "${twoMissResult.message}"`);
@@ -109,7 +109,7 @@ const thirdMissResult = evaluateProgression({
   state: { ...fresh, currentWorkingWeightKg: 35, consecutiveFailures: 2, weightAtFailureStartKg: 40 },
   isDeload: false,
   equipmentIds: ["barbell"],
-  units: "imperial",
+  unit: "lb",
 });
 
 check("Third-miss message contains 'lb'", thirdMissResult.message.includes("lb"), `message: "${thirdMissResult.message}"`);

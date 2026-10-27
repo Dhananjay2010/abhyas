@@ -59,6 +59,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestReps: 12,
   bestE1rm: 84,
   totalSessions: 3,
+  weightAtFailureStartKg: null,
   ...over,
 });
 
@@ -277,7 +278,7 @@ console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
   check("Increase from 12kg dumbbell lands on loadable value", decision.nextWorkingWeightKg === 15);
   
   // suggestedWeight just returns that value
-  const w = suggestedWeight({ currentWorkingWeightKg: 15 }, false, CURL, ["dumbbell"], "kg");
+  const w = suggestedWeight({ currentWorkingWeightKg: 15 }, false, CURL, ["dumbbell"]);
   check("  suggestedWeight returns 15 (loadable)", w === 15);
 }
 
@@ -295,28 +296,28 @@ console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
   check("Decrease from 13.75kg isolation returns computed value", decision.nextWorkingWeightKg !== null);
   
   // suggestedWeight returns as-is (might be off-grid, acceptable)
-  const w = suggestedWeight({ currentWorkingWeightKg: decision.nextWorkingWeightKg! }, false, CURL, ["dumbbell"], "kg");
+  const w = suggestedWeight({ currentWorkingWeightKg: decision.nextWorkingWeightKg! }, false, CURL, ["dumbbell"]);
   check("  suggestedWeight returns as-is", w === decision.nextWorkingWeightKg);
 }
 
 // Test holds return exact
 {
-  const w1 = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL, ["dumbbell"], "kg");
+  const w1 = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL, ["dumbbell"]);
   check("Hold at 12kg returns 12 exact", w1 === 12);
   
-  const w2 = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, ["barbell"], "kg");
+  const w2 = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, ["barbell"]);
   check("Hold at 13.75kg returns 13.75 exact", w2 === 13.75);
 }
 
 console.log("\n=== suggestedWeight: No Equipment (unchanged) ===");
 
 {
-  const w = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL, undefined, undefined);
+  const w = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL, undefined);
   check("suggestedWeight no-equipment: 12 kg → 12 kg (same as main)", w === 12);
 }
 
 {
-  const w = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, undefined, undefined);
+  const w = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, undefined);
   check("suggestedWeight no-equipment: 13.75 kg → 13.75 kg (same as main)", w === 13.75);
 }
 

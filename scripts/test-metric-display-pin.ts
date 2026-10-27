@@ -20,7 +20,7 @@ const result = evaluateProgression({
   state: {currentWorkingWeightKg: 5, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: 5, bestReps: 12, bestE1rm: null, totalSessions: 5, weightAtFailureStartKg: null},
   isDeload: false,
   equipmentIds: undefined,
-  units: "metric",
+  unit: "kg",
 });
 
 console.log('Next weight:', result.nextWorkingWeightKg);

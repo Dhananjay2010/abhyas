@@ -79,6 +79,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestReps: 12,
   bestE1rm: 84,
   totalSessions: 3,
+  weightAtFailureStartKg: null,
   ...over,
 });
 
@@ -269,7 +270,7 @@ console.log("\n7. Kettlebell deload rounds to grid bell at or below 70%");
     true,
     KETTLEBELL_SWING,
     ["kettlebell"],
-    "kg"
+
   );
   check("20 kg deload -> 14 kg", deload === 14, `${deload}`);
 }
@@ -280,7 +281,7 @@ console.log("\n7. Kettlebell deload rounds to grid bell at or below 70%");
     true,
     KETTLEBELL_SWING,
     ["kettlebell"],
-    "kg"
+
   );
   check("24 kg deload -> 16 kg", deload === 16, `${deload}`);
 }
@@ -291,7 +292,7 @@ console.log("\n7. Kettlebell deload rounds to grid bell at or below 70%");
     true,
     KETTLEBELL_SWING,
     ["kettlebell"],
-    "kg"
+
   );
   check("32 kg deload -> 20 kg", deload === 20, `${deload}`);
 }
@@ -302,7 +303,7 @@ console.log("\n7. Kettlebell deload rounds to grid bell at or below 70%");
     true,
     KETTLEBELL_SWING,
     ["kettlebell"],
-    "kg"
+
   );
   check("16 kg deload -> 10 kg", deload === 10, `${deload}`);
 }
@@ -313,7 +314,7 @@ console.log("\n7. Kettlebell deload rounds to grid bell at or below 70%");
     true,
     KETTLEBELL_SWING,
     ["kettlebell"],
-    "kg"
+
   );
   check("10 kg deload -> 6 kg (never goes up)", deload === 6, `${deload}`);
 }
@@ -713,7 +714,7 @@ console.log("\n15. MINIMUM GUARD TESTS");
     true,
     { ...BENCH, mechanic: "isolation" },
     ["barbell"],
-    "kg"
+
   );
   check("barbell isolation 2.5 kg deload stays at 2.5 kg", deload !== null && deload >= 2.5, `${deload}`);
 }
@@ -792,7 +793,7 @@ console.log("\n  (e) Mutant: Kettlebell deload rounds up");
     true,
     KETTLEBELL_SWING,
     ["kettlebell"],
-    "kg"
+
   );
   check("Kettlebell deload rounds down to 16 kg", deload === 16, `${deload}`);
 }
@@ -984,15 +985,15 @@ console.log("\n23. Back-off: 90% rounded to 2.5 kg grid, never more than one inc
 console.log("\n24. Suggestion never raises weight");
 {
   // Deload suggestion for 1 kg: 1 * 0.7 = 0.7, should not raise to 2.5
-  const deloadSugg1 = suggestedWeight({ currentWorkingWeightKg: 1 }, true, CURL, ["dumbbell"], "kg");
+  const deloadSugg1 = suggestedWeight({ currentWorkingWeightKg: 1 }, true, CURL, ["dumbbell"]);
   check("deload suggestion for 1 kg: stays <= 1 kg (not 2.5)", deloadSugg1 !== null && deloadSugg1 <= 1, `${deloadSugg1}`);
   
   // Non-deload suggestion for 1 kg: should not raise to 2.5
-  const nonDeloadSugg1 = suggestedWeight({ currentWorkingWeightKg: 1 }, false, CURL, ["dumbbell"], "kg");
+  const nonDeloadSugg1 = suggestedWeight({ currentWorkingWeightKg: 1 }, false, CURL, ["dumbbell"]);
   check("non-deload suggestion for 1 kg: stays <= 1 kg (not 2.5)", nonDeloadSugg1 !== null && nonDeloadSugg1 <= 1, `${nonDeloadSugg1}`);
   
   // Kettlebell deload suggestion for 2 kg: 2 * 0.7 = 1.4, should not raise to 4
-  const kbDeloadSugg2 = suggestedWeight({ currentWorkingWeightKg: 2 }, true, KETTLEBELL_SWING, ["kettlebell"], "kg");
+  const kbDeloadSugg2 = suggestedWeight({ currentWorkingWeightKg: 2 }, true, KETTLEBELL_SWING, ["kettlebell"]);
   check("KB deload suggestion for 2 kg: stays <= 2 kg (not 4)", kbDeloadSugg2 !== null && kbDeloadSugg2 <= 2, `${kbDeloadSugg2}`);
 }
 

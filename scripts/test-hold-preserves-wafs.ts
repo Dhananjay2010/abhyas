@@ -117,7 +117,7 @@ const result = evaluateProgression({
   },
   isDeload: false,
   equipmentIds: ["resistance_band"],
-  units: "metric",
+  unit: "kg",
 });
 
 console.log(`  Message: "${result.message}"`);
@@ -152,7 +152,7 @@ const result2 = evaluateProgression({
   },
   isDeload: false,
   equipmentIds: ["resistance_band"],
-  units: "metric",
+  unit: "kg",
 });
 
 console.log(`  Message: "${result2.message}"`);

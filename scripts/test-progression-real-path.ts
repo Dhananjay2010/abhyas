@@ -80,6 +80,7 @@ async function main() {
       best_reps: 12,
       best_e1rm: "56",
       total_sessions: 1,
+    weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -145,6 +146,7 @@ async function main() {
       best_reps: 12,
       best_e1rm: "84",
       total_sessions: 2,
+    weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -197,6 +199,7 @@ async function main() {
       best_reps: 12,
       best_e1rm: "84",
       total_sessions: 5,
+    weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -247,6 +250,7 @@ async function main() {
       best_reps: 12,
       best_e1rm: "84",
       total_sessions: 3,
+    weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -296,6 +300,7 @@ async function main() {
       best_reps: 12,
       best_e1rm: null,
       total_sessions: 3,
+    weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -347,6 +352,7 @@ async function main() {
       best_reps: 12,
       best_e1rm: null,
       total_sessions: 3,
+    weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -396,6 +402,7 @@ async function main() {
       best_reps: 45,
       best_e1rm: null,
       total_sessions: 2,
+    weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {

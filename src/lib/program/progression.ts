@@ -160,9 +160,14 @@ export function addedWeightStep(meta: ExerciseMeta, equipmentIds?: string[]): nu
   // If equipment is specified and contains loadable equipment, 
   // ensure we never go below the equipment grid
   if (equipmentIds && equipmentIds.length > 0) {
-    const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
+    // For dip_bars, treat as if dip_belt is being used for loading
+    const effectiveIds = equipmentIds.includes('dip_bars') 
+      ? [...equipmentIds.filter(id => id !== 'dip_bars'), 'dip_belt']
+      : equipmentIds;
+    
+    const hasLoadable = effectiveIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
     if (hasLoadable) {
-      const equipGrid = equipmentGridStep(equipmentIds, 'kg');
+      const equipGrid = equipmentGridStep(effectiveIds, 'kg');
       return Math.max(patternStep, equipGrid);
     }
   }

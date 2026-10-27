@@ -98,6 +98,7 @@ console.log("\n2. Existing user (prior=50) 4×10 in 8-12 → keeps stored weight
     best_reps: 12,
     best_e1rm: "84",
     total_sessions: 5,
+    weight_at_failure_start_kg: null,
   };
 
   const session: SessionRow = {

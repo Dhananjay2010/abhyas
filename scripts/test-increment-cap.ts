@@ -79,7 +79,7 @@ console.log("=== One-Increment Cap (kills C1 and CAP-1) ===\n");
     },
     isDeload: false,
     equipmentIds: ["barbell"],
-    units: "metric",
+    unit: "kg",
   });
   
   check("Squat 40 kg (right) → exactly 45 kg", result.nextWorkingWeightKg === 45, `got ${result.nextWorkingWeightKg}`);
@@ -110,7 +110,7 @@ console.log("=== One-Increment Cap (kills C1 and CAP-1) ===\n");
     },
     isDeload: false,
     equipmentIds: ["barbell"],
-    units: "metric",
+    unit: "kg",
   });
   
   check("Squat 40 kg (easy) → exactly 50 kg", result.nextWorkingWeightKg === 50, `got ${result.nextWorkingWeightKg}`);
@@ -141,7 +141,7 @@ console.log("=== One-Increment Cap (kills C1 and CAP-1) ===\n");
     },
     isDeload: false,
     equipmentIds: ["barbell"],
-    units: "metric",
+    unit: "kg",
   });
   
   check("Bench 40 kg (right) → exactly 42.5 kg", result.nextWorkingWeightKg === 42.5, `got ${result.nextWorkingWeightKg}`);
@@ -172,7 +172,7 @@ console.log("=== One-Increment Cap (kills C1 and CAP-1) ===\n");
     },
     isDeload: false,
     equipmentIds: ["barbell"],
-    units: "metric",
+    unit: "kg",
   });
   
   check("Bench 40 kg (easy) → exactly 45 kg", result.nextWorkingWeightKg === 45, `got ${result.nextWorkingWeightKg}`);
@@ -203,7 +203,7 @@ console.log("=== One-Increment Cap (kills C1 and CAP-1) ===\n");
     },
     isDeload: false,
     equipmentIds: ["dumbbell"],
-    units: "metric",
+    unit: "kg",
   });
   
   check("Dumbbell 20 kg (right) → exactly 22.5 kg", result.nextWorkingWeightKg === 22.5, `got ${result.nextWorkingWeightKg}`);
@@ -235,7 +235,7 @@ console.log("=== One-Increment Cap (kills C1 and CAP-1) ===\n");
     },
     isDeload: false,
     equipmentIds: ["dumbbell"],
-    units: "metric",
+    unit: "kg",
   });
   
   check("Dumbbell 20 kg (easy isolation) → exactly 22.5 kg", result.nextWorkingWeightKg === 22.5, `got ${result.nextWorkingWeightKg}`);
@@ -266,7 +266,7 @@ console.log("=== One-Increment Cap (kills C1 and CAP-1) ===\n");
     },
     isDeload: false,
     equipmentIds: ["leg_curl"],
-    units: "metric",
+    unit: "kg",
   });
   
   check("Leg curl machine isolation 40 kg → exactly 45 kg (gridStep 5kg wins)", result.nextWorkingWeightKg === 45, `got ${result.nextWorkingWeightKg}`);

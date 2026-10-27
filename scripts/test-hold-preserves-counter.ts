@@ -107,7 +107,7 @@ const result = evaluateProgression({
   },
   isDeload: false,
   equipmentIds: ["barbell"],
-  units: "metric",
+  unit: "kg",
 });
 
 console.log(`  Message: "${result.message}"`);

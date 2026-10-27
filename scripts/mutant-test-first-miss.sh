@@ -306,7 +306,6 @@ run_mutant \
       const twoMissFloor = computeTwoMissResult(currentWeight);
       if (candidateWeight < twoMissFloor) {
         candidateWeight = currentWeight;
-        holdReason = 'twomiss';
       }
     }" \
   "    // Rule 2: if candidate < two-miss result, hold instead
@@ -329,10 +328,10 @@ run_mutant \
   "(i) hard-feel doesn't hold" \
   "Change hard-feel check to right (never holds early)" \
   '    // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    const currentWeight = baseWeight ?? (heaviest > 0 ? heaviest : null);
+    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds) {' \
   '    // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    const currentWeight = baseWeight ?? (heaviest > 0 ? heaviest : null);
+    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
     if (feel === "right" && currentWeight !== null && currentWeight > 0 && equipmentIds) {'
 
 # Mutant (j): 1.5-step rule - DELETED

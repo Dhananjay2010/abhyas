@@ -73,7 +73,7 @@ for (const t of tests) {
     },
     isDeload: false,
     equipmentIds: t.equipmentIds,
-    units: "metric",
+    unit: "kg",
   });
   
   if (result.nextWorkingWeightKg !== t.expected) {
