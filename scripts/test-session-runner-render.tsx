@@ -759,7 +759,7 @@ async function test9b() {
   console.log("\n📋 Test 9b: L3 - Done/Skip buttons enabled, replay pending sets then finish");
   
   let logSetCallCount = 0;
-  let finishSessionCalled = false;
+  let finishSessionCalled: boolean = false;
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
@@ -867,8 +867,8 @@ async function test9b() {
   }
   
   // L3: Both buttons should be enabled (symmetric behavior)
-  assert((doneButton as HTMLButtonElement).disabled === false, "9b: L3 - Done button is ENABLED (replays pending sets before finishing)");
-  assert((skipCooldownButton as HTMLButtonElement).disabled === false, "9b: L3 - Skip cool-down button is ENABLED (symmetric with Done)");
+  assert(!(doneButton as HTMLButtonElement).disabled, "9b: L3 - Done button is ENABLED (replays pending sets before finishing)");
+  assert(!(skipCooldownButton as HTMLButtonElement).disabled, "9b: L3 - Skip cool-down button is ENABLED (symmetric with Done)");
   
   // Click Done button - it should replay pending sets then finish
   await act(async () => {
@@ -882,7 +882,7 @@ async function test9b() {
   
   // Assert replay happened and then finish was called
   assert(logSetCallCount === 1, `9b: L3 - logSet called once during replay (got ${logSetCallCount})`);
-  assert(finishSessionCalled === true, "9b: L3 - finishSession called after replay");
+  assert(finishSessionCalled, "9b: L3 - finishSession called after replay");
   
   cleanup();
   fakeStorage.clear();
