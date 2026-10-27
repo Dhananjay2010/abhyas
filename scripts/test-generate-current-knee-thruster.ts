@@ -12,12 +12,14 @@
 import { readFileSync } from "fs";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import type { Database } from "../src/lib/database.types";
+import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
-const catalogue = JSON.parse(
+const catalogueRows: ExerciseRow[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as ExerciseRow[];
+);
+const catalogue = toCandidateExercises(catalogueRows);
 
 // Current-knee user (knee in currentInjuryRegions)
 const currentKneeInput: GeneratorInput = {
@@ -35,7 +37,7 @@ const currentKneeInput: GeneratorInput = {
   currentInjuryRegions: ["knee"], // CURRENT knee injury
   anyKneeInjury: true,
   preferredSessionMinutes: 60,
-  catalogue: catalogue as CandidateExercise[],
+  catalogue,
 };
 
 const program = generateProgram(currentKneeInput);

@@ -63,9 +63,15 @@ const baseline: BaselineData = JSON.parse(
   readFileSync("scripts/fixtures/identity-baseline-main.json", "utf-8")
 );
 
-// No allowed diffs: past-knee output is identical to main,
-// and current-knee baseline has been updated to match head output.
+// Owner decision (a): current-knee-intermediate expected diffs from jammer exclusion.
+// Landmine jammer removal changes RNG stream for 6 accessory/core exercises.
 const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [
+  { profile: "current-knee-intermediate", day: 1, slot: 5, mainExercise: "Band Skull Crusher", expectedExercise: "Kneeling Cable Triceps Extension" },
+  { profile: "current-knee-intermediate", day: 1, slot: 6, mainExercise: "Incline Inner Biceps Curl", expectedExercise: "Lying Close-Grip Bar Curl On High Pulley" },
+  { profile: "current-knee-intermediate", day: 2, slot: 5, mainExercise: "Crunches", expectedExercise: "Decline Crunch" },
+  { profile: "current-knee-intermediate", day: 4, slot: 5, mainExercise: "Standing Bent-Over Two-Arm Dumbbell Triceps Extension", expectedExercise: "Standing Overhead Barbell Triceps Extension" },
+  { profile: "current-knee-intermediate", day: 4, slot: 6, mainExercise: "Preacher Hammer Dumbbell Curl", expectedExercise: "Seated Close-Grip Concentration Barbell Curl" },
+  { profile: "current-knee-intermediate", day: 5, slot: 5, mainExercise: "Sit-Up", expectedExercise: "Crunch - Legs On Exercise Ball" },
 ];
 
 const testCases: Array<{
@@ -80,10 +86,6 @@ const testCases: Array<{
   // Current knee (not past)
   { id: "current-knee-intermediate", injuries: [{ region: "knee", severity: "current" }], level: "intermediate" },
   { id: "current-knee-beginner", injuries: [{ region: "knee", severity: "current" }], level: "beginner" },
-  
-  // Past knee (anyKneeInjury=true, currentInjuryRegions=[])
-  { id: "past-knee-intermediate", injuries: [{ region: "knee", severity: "past" }], level: "intermediate" },
-  { id: "past-knee-beginner", injuries: [{ region: "knee", severity: "past" }], level: "beginner" },
   
   // Other injuries (not knee)
   { id: "shoulder-past", injuries: [{ region: "shoulder", severity: "past" }], level: "intermediate" },

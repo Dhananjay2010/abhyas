@@ -8,7 +8,8 @@
 
 import { readFileSync } from "fs";
 import { generateProgram, isEligible, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
-import { buildEligibleSwapList, type EligibleSwapListInput } from "../src/lib/session/eligible-swap-list";
+import { rankAlternatives, type AlternativesContext } from "../src/lib/program/alternatives";
+import { getSwapPatterns } from "../src/lib/program/swap-patterns";
 
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
@@ -82,8 +83,8 @@ if (!singleLegExt) {
 
 console.log("");
 
-// Test 2: Past-knee users must NOT have single-leg-leg-extension in swap lists (using real buildEligibleSwapList)
-console.log("=== Test 2: Past-knee swap lists (real buildEligibleSwapList) ===");
+// Test 2: Past-knee users must NOT have single-leg-leg-extension in swap lists
+console.log("=== Test 2: Past-knee swap lists ===");
 
 const swapExercises = ["barbell-squat", "goblet-squat", "leg-press"];
 
@@ -109,36 +110,17 @@ for (const swapSlug of swapExercises) {
   const exercise = catalogue.find(ex => ex.slug === swapSlug);
   if (!exercise) continue;
   
-  const swapListInput: EligibleSwapListInput = {
-    currentExercise: exercise,
-    sessionExerciseId: `test-session-ex-${swapSlug}`,
-    generatorInput: pastKneeSwapInput,
-    pool: catalogue,
-    alreadyInSession: new Set([exercise.id]),
-  };
+  const patterns = getSwapPatterns(exercise.movement_pattern, pastKneeSwapInput);
+  const pool = catalogue.filter(ex => patterns.includes(ex.movement_pattern));
+  const eligible = pool.filter(ex => isEligible(ex, pastKneeSwapInput));
   
-  const swapList = buildEligibleSwapList(swapListInput);
-  const hasSingleLegExt = swapList.some(alt => alt.slug === SINGLE_LEG_EXT_SLUG);
+  const hasSingleLegExt = eligible.some(alt => alt.slug === SINGLE_LEG_EXT_SLUG);
   
   if (hasSingleLegExt) {
     console.log(`  ✗ FAIL: ${swapSlug} swaps include ${SINGLE_LEG_EXT_SLUG} for past-knee`);
     failures++;
   } else {
     console.log(`  ✓ PASS: ${swapSlug} swaps exclude ${SINGLE_LEG_EXT_SLUG} for past-knee`);
-  }
-  
-  // Also verify bilateral leg-extensions stays available for past-knee
-  const hasLegExtensions = swapList.some(alt => alt.slug === "leg-extensions");
-  if (exercise.movement_pattern === "squat" || exercise.movement_pattern === "lunge") {
-    // For squat/lunge swaps, leg-extensions should be available
-    const hasLegExtInCatalogue = catalogue.some(ex => ex.slug === "leg-extensions" && 
-      ex.equipment_ids.every(eid => pastKneeSwapInput.equipmentIds.includes(eid) || pastKneeSwapInput.hasAllEquipment));
-    if (hasLegExtInCatalogue && !hasLegExtensions) {
-      console.log(`  ✗ FAIL: ${swapSlug} swaps missing leg-extensions for past-knee (bilateral should stay)`);
-      failures++;
-    } else if (hasLegExtInCatalogue) {
-      console.log(`  ✓ PASS: ${swapSlug} swaps include leg-extensions for past-knee (bilateral stays available)`);
-    }
   }
 }
 

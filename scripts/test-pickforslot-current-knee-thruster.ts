@@ -12,14 +12,16 @@ import { readFileSync } from "fs";
 import type { CandidateExercise, GeneratorInput } from "../src/lib/program/generate";
 import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly } from "../src/lib/program/past-knee";
 import type { Database } from "../src/lib/database.types";
+import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
-const catalogue = JSON.parse(
+const catalogueRows: ExerciseRow[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as ExerciseRow[];
+);
+const catalogue = toCandidateExercises(catalogueRows);
 
-const thruster = catalogue.find(e => e.slug === "kettlebell-thruster") as CandidateExercise;
+const thruster = catalogue.find(e => e.slug === "kettlebell-thruster");
 if (!thruster) {
   console.error("✗ FAIL: kettlebell-thruster not found in catalogue");
   process.exit(1);
@@ -29,12 +31,17 @@ if (!thruster) {
 const hasCurrentKnee = true; // Current knee user
 const hasPastKnee = false;
 
-// Check if thruster would be filtered out
-const filteredOut = hasCurrentKnee && (isExcludedForPastKnee(thruster) || isExcludedForCurrentKneeOnly(thruster));
+// Test the filter conditions
+const isPastKneeExcluded = isExcludedForPastKnee(thruster);
+const isCurrentKneeOnlyExcluded = isExcludedForCurrentKneeOnly(thruster);
 
-if (!filteredOut) {
-  console.error("✗ FAIL: kettlebell-thruster NOT filtered out for current-knee user in pickForSlot logic");
+const wouldBeFiltered = hasCurrentKnee && (isPastKneeExcluded || isCurrentKneeOnlyExcluded);
+
+if (!wouldBeFiltered) {
+  console.error("✗ FAIL: kettlebell-thruster not filtered for current-knee user");
+  console.error(`  isPastKneeExcluded: ${isPastKneeExcluded}`);
+  console.error(`  isCurrentKneeOnlyExcluded: ${isCurrentKneeOnlyExcluded}`);
   process.exit(1);
 }
 
-console.log("✓ PASS: kettlebell-thruster filtered out in pickForSlot for current-knee user");
+console.log("✓ PASS: kettlebell-thruster filtered for current-knee user");

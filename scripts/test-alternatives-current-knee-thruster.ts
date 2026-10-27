@@ -7,12 +7,14 @@
 import { readFileSync } from "fs";
 import { rankAlternatives } from "../src/lib/program/alternatives";
 import type { Database } from "../src/lib/database.types";
+import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
-const catalogue = JSON.parse(
+const catalogueRows: ExerciseRow[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as ExerciseRow[];
+);
+const catalogue = toCandidateExercises(catalogueRows);
 
 const thruster = catalogue.find(e => e.slug === "kettlebell-thruster");
 if (!thruster) {

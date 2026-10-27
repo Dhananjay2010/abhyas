@@ -81,8 +81,8 @@ const MUTANTS: Mutant[] = [
   {
     name: "M10: Add unknown profile to allow-list",
     file: "scripts/test-identity-vs-main.ts",
-    original: 'const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [\n];',
-    mutated: 'const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [\n  { profile: "FAKE-UNKNOWN-PROFILE-XYZ", day: 1, slot: 1, mainExercise: "fake", expectedExercise: "fake" },\n];',
+    original: 'const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [\n  { profile: "current-knee-intermediate",',
+    mutated: 'const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [\n  { profile: "FAKE-UNKNOWN-PROFILE-XYZ", day: 1, slot: 1, mainExercise: "fake", expectedExercise: "fake" },\n  { profile: "current-knee-intermediate",',
     tests: ["test:identity-vs-main"],
     equivalent: false,
   },
@@ -127,12 +127,12 @@ const MUTANTS: Mutant[] = [
     equivalent: false,
   },
   
-  // M15: Add unused entry to empty allow-list (should be caught)
+  // M15: Add unused Day-5 entry to allow-list
   {
-    name: "M15: Add unused entry to empty allow-list",
+    name: "M15: Add unused Day-5 entry to allow-list",
     file: "scripts/test-med2-comparison.ts",
-    original: 'const ALLOWED_CHANGES: Map<number, AllowedChange[]> = new Map([\n  // Empty: no drift from main 0dadd8bc\n]);',
-    mutated: 'const ALLOWED_CHANGES: Map<number, AllowedChange[]> = new Map([\n  // MUTANT: Add unused entry\n  [5, [\n    { type: \'exercise\', exercise: \'Wall Sit\', becomes: \'Leg Extensions\', reason: \'MUTANT-UNUSED\' },\n  ]],\n]);',
+    original: '    { type: \'exercise\', exercise: \'Cable Crunch\', becomes: \'Crunches\', reason: \'single-leg-leg-extension exclusion reshuffle (APP-approved: abs only, sets and minutes unchanged)\' },\n  ]],',
+    mutated: '    { type: \'exercise\', exercise: \'Cable Crunch\', becomes: \'Crunches\', reason: \'single-leg-leg-extension exclusion reshuffle (APP-approved: abs only, sets and minutes unchanged)\' },\n    { type: \'exercise\', exercise: \'Wall Sit\', becomes: \'Leg Extensions\', reason: \'MUTANT-UNUSED\' },\n  ]],',
     tests: ["test:med2-comparison"],
     equivalent: false,
   },
@@ -141,18 +141,18 @@ const MUTANTS: Mutant[] = [
   {
     name: "M16: Day-2 fixture estMinutes = 999",
     file: "scripts/fixtures/med2-baseline-main.json",
-    original: '    "dayIndex": 2,\n    "label": "Lower",\n    "focus": "lower",\n    "lowerBodySets": 22,\n    "totalSets": 26,\n    "estMinutes": 68,',
-    mutated: '    "dayIndex": 2,\n    "label": "Lower",\n    "focus": "lower",\n    "lowerBodySets": 22,\n    "totalSets": 26,\n    "estMinutes": 999,',
+    original: '    "dayIndex": 2,\n    "label": "Lower",\n    "focus": "lower",\n    "lowerBodySets": 23,\n    "totalSets": 27,\n    "estMinutes": 70,',
+    mutated: '    "dayIndex": 2,\n    "label": "Lower",\n    "focus": "lower",\n    "lowerBodySets": 23,\n    "totalSets": 27,\n    "estMinutes": 999,',
     tests: ["test:med2-comparison"],
     equivalent: false,
   },
   
-  // M17: Day-5 exercises order swap (swap exercises to break position check)
+  // M17: Day-5 order swap (swap exercises to break position check)
   {
     name: "M17: Day-5 exercises order swap",
     file: "scripts/fixtures/med2-baseline-main.json",
-    original: '      {\n        "name": "Barbell Squat",\n        "slug": "barbell-squat",\n        "targetSets": 4,\n        "movementPattern": "squat",\n        "targetRepsMin": 8,\n        "targetRepsMax": 12,\n        "restSeconds": 90\n      },\n      {\n        "name": "Barbell Deadlift",',
-    mutated: '      {\n        "name": "Barbell Deadlift",\n        "slug": "barbell-deadlift",\n        "targetSets": 5,\n        "movementPattern": "hinge",\n        "targetRepsMin": 8,\n        "targetRepsMax": 12,\n        "restSeconds": 90\n      },\n      {\n        "name": "Barbell Squat",',
+    original: '        "name": "Barbell Squat",\n        "slug": "barbell-squat",\n        "targetSets": 4,\n        "movementPattern": "squat"\n      },\n      {\n        "name": "Barbell Deadlift",',
+    mutated: '        "name": "Barbell Deadlift",\n        "slug": "barbell-deadlift",\n        "targetSets": 5,\n        "movementPattern": "hinge"\n      },\n      {\n        "name": "Barbell Squat",',
     tests: ["test:med2-comparison"],
     equivalent: false,
   },

@@ -11,12 +11,14 @@ import { readFileSync } from "fs";
 import { replaceBannedInPlanned, type PlannedExercise } from "../src/lib/program/replace-banned-in-planned";
 import type { CandidateExercise, GeneratorInput } from "../src/lib/program/generate";
 import type { Database } from "../src/lib/database.types";
+import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
-const catalogue = JSON.parse(
+const catalogueRows: ExerciseRow[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-) as ExerciseRow[];
+);
+const catalogue = toCandidateExercises(catalogueRows);
 
 const thruster = catalogue.find(e => e.slug === "kettlebell-thruster");
 if (!thruster) {
@@ -51,10 +53,10 @@ const input: GeneratorInput = {
   equipmentIds: ["barbell", "dumbbell", "kettlebell"],
   currentInjuryRegions: ["knee"], // Current knee injury
   anyKneeInjury: true,
-  catalogue: catalogue as CandidateExercise[],
+  catalogue,
 };
 
-const result = replaceBannedInPlanned(planned, catalogue as CandidateExercise[], input);
+const result = replaceBannedInPlanned(planned, catalogue, input);
 
 // Check that kettlebell-thruster was replaced
 const thrusterKept = result.rows.some(r => r.exercise_id === thruster.id);

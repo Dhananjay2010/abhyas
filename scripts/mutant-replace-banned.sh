@@ -222,9 +222,9 @@ run_mutant_test \
 run_mutant_test \
   "M8: ensure-session-exercises call site removed" \
   "src/lib/session/ensure-session-exercises.ts" \
-  'const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId);' \
+  'const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId, equipmentIds);' \
   '// MUTANT: applyBannedCleanup call removed; const cleaned = plannedForCleaning;' \
-  "npx tsx scripts/test-replace-banned-in-planned.ts"
+  "npx tsx scripts/test-ensure-session-exercises-deload.ts"
 
 # Mutant 9: generate.ts:828 reverted to past-only
 GEN_FILE="src/lib/program/generate.ts"

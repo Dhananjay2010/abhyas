@@ -181,7 +181,7 @@ export default async function TodayPage() {
   let days = daysRes.data;
   
   // Clean banned exercises in-memory for knee users (no DB writes during render)
-  let cleanupNeeded = false;
+  const cleanupResults: { changed: boolean }[] = [];
   try {
     const injuries = injuriesRes.data;
     const hasKneeInjury = injuries?.some(inj => inj.body_region === "knee");
@@ -236,8 +236,8 @@ export default async function TodayPage() {
             return day;
           }
           
-          // Mark that cleanup is needed
-          cleanupNeeded = true;
+          // Track cleanup results
+          cleanupResults.push({ changed: result.changed });
           
           const cleanedExercises = day.program_day_exercises.map((ex: DayExercise, i: number) => {
             const cleanedId = result.rows[i].exercise_id;
@@ -859,7 +859,7 @@ export default async function TodayPage() {
         <SignOutForm label="Sign out" userId={user.id} />
       </div>
 
-      <CleanupTrigger shouldClean={cleanupNeeded} />
+      <CleanupTrigger shouldClean={cleanupResults.some(r => r.changed)} />
     </main>
   );
 }
