@@ -417,6 +417,7 @@
     "test:history-empty-mutants": "bash scripts/test-history-empty-mutants.sh",
     "test:progress-empty-mutants": "bash scripts/test-progress-empty-mutants.sh",
     "test:rebuild-rollover-progress": "tsx scripts/test-rebuild-rollover-progress.ts",
+    "test:rebuild-rollover-progress-real-db": "tsx scripts/test-rebuild-rollover-progress-real-db.ts",
     "test:rebuild-rollover-mutants": "bash scripts/test-rebuild-rollover-mutants.sh"
   },
   "dependencies": {
