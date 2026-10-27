@@ -471,6 +471,7 @@
     "test:gym-domains-3-cases": "tsx scripts/test-gym-domains-3-cases.ts",
     "test:db-reset-guard": "bash scripts/test-db-reset-guard.sh",
     "test:default-runs-skip": "bash scripts/test-default-runs-skip.sh",
+    "ci:mutant-gym-domains": "bash scripts/mutant-test-gym-domains.sh",
     "test:units-roundtrip-property": "tsx scripts/test-units-roundtrip-property.ts",
     "test:units-roundtrip-runner-prefill": "tsx scripts/test-units-roundtrip-runner-prefill.ts",
     "test:units-roundtrip-history-list-detail": "tsx scripts/test-units-roundtrip-history-list-detail.ts",
