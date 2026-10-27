@@ -1,7 +1,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signOutAction } from "@/lib/auth/signout";
-import { replayAllPendingSetsForUser } from "@/lib/session/pending-set-retry";
+import { replayAllPendingSetsForUser, clearAllPendingSetsForUser } from "@/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { clearPendingChanges } from "@/lib/auth/pending-changes";
 import { isSessionExpired } from "@/lib/auth/session-expired";
@@ -83,7 +83,10 @@ export function useSignOut({
     startTransition(async () => {
       setError(null);
       setShowWarning(false);
-      // Sign out without clearing the queue
+      // Clear this user's pending queue before signing out
+      if (typeof window !== "undefined") {
+        clearAllPendingSetsForUser(window.localStorage, userId);
+      }
       await performSignOut();
     });
   }

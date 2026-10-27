@@ -3,6 +3,7 @@
 import { signOutAction } from "@/lib/auth/signout";
 import { logSet } from "@/app/session/actions";
 import { useSignOut } from "@/lib/auth/use-signout";
+import { useState } from "react";
 
 export type SignOutFormViewProps = {
   label: string;
@@ -25,7 +26,45 @@ export function SignOutFormView({
   handleSyncNow,
   handleSignOutAnyway,
 }: SignOutFormViewProps) {
+  const [showConfirm, setShowConfirm] = useState(false);
+
   if (showWarning) {
+    if (showConfirm) {
+      return (
+        <div>
+          <div className="rounded-xl border border-border bg-surface-2 p-4">
+            <p className="text-sm text-fg mb-3">
+              Sign out anyway? Sets that haven&apos;t saved yet on this device will be lost.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowConfirm(false)}
+                disabled={pending}
+                className="flex-1 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirm(false);
+                  handleSignOutAnyway();
+                }}
+                disabled={pending}
+                className="flex-1 rounded-lg border border-border bg-danger px-4 py-2 text-sm font-medium text-danger-fg transition-colors hover:bg-danger-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {pending ? "Signing out..." : "Sign out anyway"}
+              </button>
+            </div>
+          </div>
+          {error && (
+            <p className="mt-2 text-sm text-danger" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div>
         <div className="rounded-xl border border-border bg-surface-2 p-4">
@@ -43,7 +82,7 @@ export function SignOutFormView({
               {pending ? "Syncing..." : "Sync now"}
             </button>
             <button
-              onClick={handleSignOutAnyway}
+              onClick={() => setShowConfirm(true)}
               disabled={pending}
               className="flex-1 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed"
             >
