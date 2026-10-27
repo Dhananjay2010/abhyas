@@ -60,7 +60,7 @@ function makeFakeDeps(resolvedDayId: string | null): StartSessionFullDeps {
     },
     
     findInProgressToday: async () => [],
-    buildStaleDeps: (openSessions, today, nowMs) => ({
+    buildStaleDeps: (_openSessions, today) => ({
       today,
       readOpenSessions: async () => [],
       closeStaleSessions: async () => 0,
