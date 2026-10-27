@@ -393,6 +393,7 @@ jobs:
           REAL_DB=1 npm run test:gym-join-codes-comprehensive
           REAL_DB=1 npm run ci:mutant-gym-join-codes
           REAL_DB=1 npm run test:clean-banned-planned-real-db
+          npm run ci:mutant-replace-banned
         env:
           REAL_DB: "1"
 
