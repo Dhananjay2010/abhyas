@@ -40,7 +40,7 @@ const tests: Array<{name: string, meta: ExerciseMeta, weight: number, feel: "eas
     meta: {mechanic: "isolation", movementPattern: "calf", metric: "reps", isBodyweight: false, progressionChain: null, progressionRank: null},
     weight: 40,
     feel: "easy",
-    expected: 42.5,
+    expected: 45, // easy doubles equipment increment: 2.5 * 2 = 5, so 40 + 5 = 45
     equipmentIds: ["barbell"]
   },
   {
