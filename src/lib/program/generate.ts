@@ -377,7 +377,6 @@ export const KNEE_SAFE_LUNGE_EXERCISES: ReadonlySet<string> = new Set([
  */
 export const PAST_KNEE_LUNGE_EXERCISES: ReadonlySet<string> = new Set([
   'leg-extensions',
-  'single-leg-leg-extension',
   'wall-sit',
   'spanish-squat',
 ]);
@@ -495,6 +494,11 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
   const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
   if (hasPastKnee && ex.slug === "calf-press-on-the-leg-press-machine") {
+    return false;
+  }
+  
+  // Owner decision: Single-Leg Leg Extension excluded for past-knee only
+  if (hasPastKnee && ex.slug === "single-leg-leg-extension") {
     return false;
   }
 
