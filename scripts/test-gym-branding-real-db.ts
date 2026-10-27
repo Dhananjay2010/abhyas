@@ -513,8 +513,122 @@ async function runTests() {
   }
   console.log();
 
-  // TEST: Storage path logo URL is accepted
-  console.log("TEST: Storage path logo URL is accepted");
+  // TEST: Direct UPDATE with invalid brand values rejected by CHECK constraints
+  console.log("TEST: Direct UPDATE with invalid brand values rejected by CHECK");
+  {
+    // Invalid primary_color (not 6-digit hex)
+    const { error: badPrimary } = await clientOwner
+      .from("gyms")
+      .update({ primary_color: "invalid" })
+      .eq("id", gymId);
+    check("Invalid primary_color rejected", !!badPrimary);
+    check("SQLSTATE 23514 (check_violation)", badPrimary?.code === "23514");
+    check(
+      "Constraint name: gyms_primary_color_hex",
+      badPrimary?.message?.includes("gyms_primary_color_hex")
+    );
+
+    // Invalid accent_color (not 6-digit hex)
+    const { error: badAccent } = await clientOwner
+      .from("gyms")
+      .update({ accent_color: "rgb(255,0,0)" })
+      .eq("id", gymId);
+    check("Invalid accent_color rejected", !!badAccent);
+    check("SQLSTATE 23514 (check_violation)", badAccent?.code === "23514");
+    check(
+      "Constraint name: gyms_accent_color_hex",
+      badAccent?.message?.includes("gyms_accent_color_hex")
+    );
+
+    // Invalid logo_url (javascript: protocol)
+    const { error: badLogo1 } = await clientOwner
+      .from("gyms")
+      .update({ logo_url: "javascript:alert(1)" })
+      .eq("id", gymId);
+    check("javascript: logo_url rejected", !!badLogo1);
+    check("SQLSTATE 23514 (check_violation)", badLogo1?.code === "23514");
+    check(
+      "Constraint name: gyms_logo_url_format",
+      badLogo1?.message?.includes("gyms_logo_url_format")
+    );
+
+    // Invalid logo_url (http: instead of https:)
+    const { error: badLogo2 } = await clientOwner
+      .from("gyms")
+      .update({ logo_url: "http://example.com/logo.png" })
+      .eq("id", gymId);
+    check("http: logo_url rejected", !!badLogo2);
+    check("SQLSTATE 23514 (check_violation)", badLogo2?.code === "23514");
+    check(
+      "Constraint name: gyms_logo_url_format",
+      badLogo2?.message?.includes("gyms_logo_url_format")
+    );
+  }
+  console.log();
+
+  // TEST: Non-owner member cannot UPDATE brand fields
+  console.log("TEST: Non-owner member cannot UPDATE brand fields");
+  {
+    const { data, error } = await clientMember
+      .from("gyms")
+      .update({ primary_color: "#FF0000" })
+      .eq("id", gymId)
+      .select();
+    check("Member UPDATE affects 0 rows", !error && (!data || data.length === 0));
+  }
+  console.log();
+
+  // TEST: Staff cannot UPDATE brand fields
+  console.log("TEST: Staff cannot UPDATE brand fields");
+  {
+    const { data, error } = await clientStaff
+      .from("gyms")
+      .update({ display_name: "Staff Hacked" })
+      .eq("id", gymId)
+      .select();
+    check("Staff UPDATE affects 0 rows", !error && (!data || data.length === 0));
+  }
+  console.log();
+
+  // TEST: Another gym's owner cannot UPDATE this gym's brand fields
+  console.log("TEST: Another gym's owner cannot UPDATE this gym's brand fields");
+  {
+    const { data, error } = await clientOtherOwner
+      .from("gyms")
+      .update({ logo_url: "https://evil.com/logo.png" })
+      .eq("id", gymId)
+      .select();
+    check("Other owner UPDATE affects 0 rows", !error && (!data || data.length === 0));
+  }
+  console.log();
+
+  // TEST: get_gym_brand returns exactly 7 columns
+  console.log("TEST: get_gym_brand returns exactly 7 columns");
+  {
+    const { data, error } = await anonClient.rpc("get_gym_brand", {
+      p_gym_id: gymId,
+    });
+    check("get_gym_brand succeeds", !error, error?.message);
+    if (data && data[0]) {
+      const keys = Object.keys(data[0]).sort();
+      const expectedKeys = [
+        "name",
+        "slug",
+        "timezone",
+        "display_name",
+        "logo_url",
+        "primary_color",
+        "accent_color",
+      ].sort();
+      check(
+        "Exact 7-column set",
+        keys.length === 7 &&
+        keys.every((k, i) => k === expectedKeys[i]),
+        `Expected: [${expectedKeys.join(", ")}], Got: [${keys.join(", ")}]`
+      );
+    }
+  }
+  console.log();
   {
     const { error } = await clientOwner.rpc("set_gym_branding", {
       p_gym_id: gymId,
