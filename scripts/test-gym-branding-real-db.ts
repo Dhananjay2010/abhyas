@@ -435,10 +435,8 @@ async function runTests() {
     const { data: afterDisplayClear } = await clientOwner.rpc("get_gym_brand", {
       p_gym_id: gymId,
     });
-    if (afterDisplayClear && afterDisplayClear[0]) {
-      check("display_name cleared", afterDisplayClear[0].display_name === null);
-      check("logo_url unchanged", afterDisplayClear[0].logo_url === "https://example.com/test.png");
-    }
+    check("display_name cleared", afterDisplayClear && afterDisplayClear[0] && afterDisplayClear[0].display_name === null, `got ${afterDisplayClear?.[0]?.display_name}`);
+    check("logo_url unchanged", afterDisplayClear && afterDisplayClear[0] && afterDisplayClear[0].logo_url === "https://example.com/test.png", `got ${afterDisplayClear?.[0]?.logo_url}`);
 
     // Clear logo_url
     const { error: clearLogoError } = await clientOwner.rpc("set_gym_branding", {
@@ -450,9 +448,7 @@ async function runTests() {
     const { data: afterLogoClear } = await clientOwner.rpc("get_gym_brand", {
       p_gym_id: gymId,
     });
-    if (afterLogoClear && afterLogoClear[0]) {
-      check("logo_url cleared", afterLogoClear[0].logo_url === null);
-    }
+    check("logo_url cleared", afterLogoClear && afterLogoClear[0] && afterLogoClear[0].logo_url === null, `got ${afterLogoClear?.[0]?.logo_url}`);
 
     // Clear both colors at once
     const { error: clearColorsError } = await clientOwner.rpc("set_gym_branding", {
@@ -464,10 +460,8 @@ async function runTests() {
     const { data: afterColorsClear } = await clientOwner.rpc("get_gym_brand", {
       p_gym_id: gymId,
     });
-    if (afterColorsClear && afterColorsClear[0]) {
-      check("primary_color cleared", afterColorsClear[0].primary_color === null);
-      check("accent_color cleared", afterColorsClear[0].accent_color === null);
-    }
+    check("primary_color cleared", afterColorsClear && afterColorsClear[0] && afterColorsClear[0].primary_color === null, `got ${afterColorsClear?.[0]?.primary_color}`);
+    check("accent_color cleared", afterColorsClear && afterColorsClear[0] && afterColorsClear[0].accent_color === null, `got ${afterColorsClear?.[0]?.accent_color}`);
 
     // Verify neutralBrand fallback works with all null fields
     check("neutralBrand fallback after clearing", 
@@ -639,9 +633,9 @@ async function runTests() {
       p_gym_id: gymId,
     });
     check("get_gym_brand succeeds", !error, error?.message);
-    if (data && data[0]) {
-      const keys = Object.keys(data[0]).sort();
-      const expectedKeys = [
+    check("get_gym_brand returns data", !!data && data.length > 0 && !!data[0]);
+    const keys = Object.keys(data[0]).sort();
+    const expectedKeys = [
         "name",
         "slug",
         "timezone",

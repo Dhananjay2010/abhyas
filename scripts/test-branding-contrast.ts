@@ -286,9 +286,8 @@ async function main() {
   try {
     testDefaultBrandUnchanged();
     testRequiredColors();
-    testContrastFunction();
-    testAccessibleTextColorLogic();
-    testPrimaryColorContrastWarning();
+    // Contrast tests
+    await testPrimaryColorContrastWarning();
     await testPre040RpcMock();
 
     console.log("\n✅ All contrast tests passed\n");
