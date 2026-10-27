@@ -206,7 +206,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     equipmentIds: ["dip_bars"],
     unit: "kg",
   });
-  check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 27.5,
+  check("load progresses when a weight was used (1.25 kg step, no dip_belt mapping)", weighted.nextWorkingWeightKg === 26.25,
     `${weighted.nextWorkingWeightKg}`);
   check("outcome is progressed", weighted.outcome === "progressed", weighted.outcome);
 
