@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Meta-test: Prove that test:gym-domains-real-db and test:gym-tenant-rls-real-db
-# are NO-OP by default (REAL_DB unset, default SUPABASE_URL).
+# Meta-test: Prove that test:gym-domains-real-db, test:gym-tenant-rls-real-db,
+# and test:gym-owner-guards-sql are NO-OP by default (REAL_DB unset, default SUPABASE_URL).
 # 
 # This test:
 # 1. Stubs supabase and psql on PATH (record calls)
@@ -73,6 +73,27 @@ OUTPUT2=$(npm run test:gym-tenant-rls-real-db 2>&1 || true)
 echo "$OUTPUT2" | grep -q "Skipping" && echo "✓ test:gym-tenant-rls-real-db skipped" || {
   echo "✗ test:gym-tenant-rls-real-db did not skip"
   echo "Output: $OUTPUT2"
+  exit 1
+}
+
+# Check call log is empty
+if [ -s /tmp/metatest-db-calls.log ]; then
+  echo "✗ DB calls were made:"
+  cat /tmp/metatest-db-calls.log
+  exit 1
+fi
+echo "✓ Zero DB calls made"
+
+echo
+echo "Running test:gym-owner-guards-sql with REAL_DB unset..."
+rm -f /tmp/metatest-db-calls.log
+touch /tmp/metatest-db-calls.log
+
+OUTPUT3=$(npm run test:gym-owner-guards-sql 2>&1 || true)
+
+echo "$OUTPUT3" | grep -q "Skipping" && echo "✓ test:gym-owner-guards-sql skipped" || {
+  echo "✗ test:gym-owner-guards-sql did not skip"
+  echo "Output: $OUTPUT3"
   exit 1
 }
 

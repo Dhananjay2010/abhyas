@@ -471,6 +471,7 @@ async function runTests() {
 
     // Test bare hostname constraint: no port, no scheme, no path, no trailing dot
     // Also test length limits: max 253 chars total, max 63 chars per label
+    // Test TLD rules: must be [a-z]{2,63} OR xn--[a-z0-9-]{1,59}
     const invalidHosts = [
       "gym.com:3000",                                // port
       "https://gym.com",                             // scheme
@@ -486,6 +487,8 @@ async function runTests() {
       "a".repeat(63) + "." + "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(58) + ".com", // 254-char host (max is 253): 63+1+63+1+63+1+58+1+3 = 254
       "1.2.3.4",                                     // IPv4 literal (all-numeric TLD)
       "192.168.1.1",                                 // IPv4 literal
+      "gym.123",                                     // numeric TLD (rejected by [a-z]{2,63} rule)
+      "123.456",                                     // all-digit host (no letters anywhere)
       "bücher.example",                              // raw unicode (not punycode)
       "example .com",                                // space
     ];
@@ -507,6 +510,7 @@ async function runTests() {
       "my-app.example.com",
       "multi.level.sub.example.com",
       "xn--bcher-kva.example",                       // punycode IDN
+      "gym.xn--p1ai",                                // punycode TLD (xn--p1ai = .рф)
       "a".repeat(63) + ".example.com",               // 63-char label (exactly at limit)
       "a".repeat(63) + "." + "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(57) + ".com", // 253-char host (exactly at limit): 63+1+63+1+63+1+57+1+3 = 253
       "a1.example.com",                              // alphanumeric

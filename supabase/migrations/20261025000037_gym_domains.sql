@@ -23,16 +23,15 @@ declare
 begin
   -- Only run cleanup check if table exists and has data
   if exists (select from information_schema.tables where table_schema = 'public' and table_name = 'gym_domains') then
-    -- Collect rows that violate the new format (use same checks as the constraint below)
+    -- Collect rows that violate the new format (use same regex as CHECK constraint)
     for bad_row in
       select host, gym_id, verified
       from public.gym_domains
       where 
-        -- Violates length or format constraints
+        -- Violates length or format constraints (same as CHECK constraint below)
         not (
           char_length(host) <= 253
-          and host ~ '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)$'
-          and (host !~ '\.[0-9]+$' or host ~ '\.xn--')
+          and host ~ '^(([a-z0-9]|[a-z0-9][a-z0-9-]{0,61}[a-z0-9])\.)*([a-z]{2,63}|xn--[a-z0-9-]{1,59})$'
         )
         -- Or not lowercase
         or host <> lower(host)
@@ -59,24 +58,26 @@ alter table public.gym_domains add constraint gym_domains_host_lowercase
 
 -- Host must be a bare hostname with length limits:
 -- - Total length <= 253 chars (DNS maximum)
--- - Each label <= 63 chars (DNS maximum per label)
+-- - Each non-TLD label <= 63 chars (DNS maximum per label)
+-- - TLD (last label) must be either:
+--   - 2-63 letters ([a-z]{2,63})
+--   - OR punycode (xn--[a-z0-9-]{1,59}) for IDN
 -- - No scheme, no port, no path, no trailing dot
 -- - Each label: starts and ends with alphanumeric, hyphens only in middle
--- - TLD (last label) must either start with 'xn--' (punycode/IDN) or contain at least one letter (blocks IPv4 literals like 1.2.3.4)
--- Allows: example.com, sub.example.com, multi.level.sub.example.com, xn--bcher-kva.example, gym.xn--p1ai, .भारत (as xn--h2brj9c)
+-- Allows: example.com, sub.example.com, multi.level.sub.example.com, gym.xn--p1ai, .भारत (as xn--h2brj9c)
 -- Blocks: https://example.com, example.com:3000, example.com/, example.com.
 -- Blocks: .example.com (leading dot), example..com (consecutive dots)
 -- Blocks: -example.com, example-.com (labels starting/ending with hyphen)
 -- Blocks: a 64-char label, a 254-char host
 -- Blocks: 1.2.3.4, 192.168.1.1 (all-numeric TLD)
+-- Blocks: gym.123 (all-digit TLD), 123.456 (all-digit host)
 alter table public.gym_domains add constraint gym_domains_host_format 
   check (
     char_length(host) <= 253
-    -- Each label (including TLD): 1-63 chars, alphanumeric + hyphens, no leading/trailing hyphen
-    -- Pattern: single char [a-z0-9], or 2+ chars [a-z0-9]...[a-z0-9] with [a-z0-9-] in middle (max 61 middle chars for total 63)
-    and host ~ '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)$'
-    -- TLD must not be all-numeric (must contain letter) OR must be punycode (starts with xn--)
-    and (host !~ '\.[0-9]+$' or host ~ '\.xn--')
+    -- Hostname pattern: optional subdomain labels + TLD
+    -- Each non-TLD label: 1-63 chars, [a-z0-9] at start/end, [a-z0-9-] in middle
+    -- TLD: [a-z]{2,63} (2+ letters) OR xn--[a-z0-9-]{1,59} (punycode, total max 63)
+    and host ~ '^(([a-z0-9]|[a-z0-9][a-z0-9-]{0,61}[a-z0-9])\.)*([a-z]{2,63}|xn--[a-z0-9-]{1,59})$'
   );
 
 -- Index for gym_id lookups (e.g. listing all domains for a gym)
