@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/database.types";
+import { formatJoinCodeDate } from "@/lib/format-join-code-date";
 
 type JoinCode = Database["public"]["Tables"]["gym_join_codes"]["Row"];
 
@@ -13,10 +14,11 @@ export function formatJoinCodeExpiry(code: JoinCode, timezone: string): string |
   if (code.expires_at) {
     const expiry = new Date(code.expires_at);
     const now = new Date();
+    const formattedDate = formatJoinCodeDate(expiry, timezone);
     if (expiry <= now) {
-      return `Expired ${expiry.toLocaleDateString(undefined, { timeZone: timezone })}`;
+      return `Expired ${formattedDate}`;
     }
-    return `Expires ${expiry.toLocaleDateString(undefined, { timeZone: timezone })}`;
+    return `Expires ${formattedDate}`;
   }
   return null;
 }

@@ -75,11 +75,12 @@ async function runTests() {
 
   // Create test gym
   const gymId = randomUUID();
-  await adminClient.from("gyms").insert({
+  const { error: gymError } = await adminClient.from("gyms").insert({
     id: gymId,
     slug: `test-gym-${timestamp}`,
     name: "Test Gym",
   });
+  if (gymError) throw new Error(`Failed to insert test gym: ${gymError.message}`);
 
   // Add roles
   // Note: The member user is already active in the default gym (signup trigger),
@@ -255,15 +256,17 @@ async function runTests() {
   console.log("TEST: Staff redeeming own gym's member code stays staff");
   const staffOwnGym = await createTestUser("staff-own");
   const gymStaff = randomUUID();
-  await adminClient.from("gyms").insert({
+  const { error: staffGymError } = await adminClient.from("gyms").insert({
     id: gymStaff,
     slug: `staff-gym-${timestamp}`,
     name: "Staff Gym",
   });
-  await adminClient.from("gym_memberships").insert([
+  if (staffGymError) throw new Error(`Failed to insert staff gym: ${staffGymError.message}`);
+  const { error: staffMembershipsError } = await adminClient.from("gym_memberships").insert([
     { gym_id: gymStaff, user_id: owner.userId, role: "owner", status: "active" },
     { gym_id: gymStaff, user_id: staffOwnGym.userId, role: "staff", status: "active" },
   ]);
+  if (staffMembershipsError) throw new Error(`Failed to insert staff memberships: ${staffMembershipsError.message}`);
 
   const { data: staffGymCodeData, error: staffGymCodeError } = await owner.client.rpc("create_join_code", {
     p_gym_id: gymStaff,
@@ -315,11 +318,12 @@ async function runTests() {
   const staffOwnGym2 = await createTestUser("staff-owngym2");
   const memberOwnGym = await createTestUser("member-owngym");
   
-  await adminClient.from("gyms").insert({
+  const { error: ownGymError } = await adminClient.from("gyms").insert({
     id: ownGymTest,
     slug: `owngym-test-${timestamp}`,
     name: "Own Gym Test",
   });
+  if (ownGymError) throw new Error(`Failed to insert own gym test: ${ownGymError.message}`);
   
   // Deactivate default memberships for staff and member
   if (defaultGym) {
@@ -803,6 +807,82 @@ async function runTests() {
   } finally {
     await pgClient.end();
   }
+  console.log();
+
+  // Test already_member personalized error (LOW 6)
+  console.log("\n=== Test already_member personalized error (LOW 6) ===");
+  
+  // successUser is already a member of gymId via highUsesCode
+  // Now successUser tries to redeem again - should get already_member with gym name
+  const { data: alreadyMemberData } = await successUser.client.rpc("redeem_join_code", {
+    p_code: highUsesCode,
+  });
+  check("successUser redeem returns data", !!alreadyMemberData);
+  const parsedAlreadyMember = parseRedeemJoinCodeResult(alreadyMemberData);
+  check("successUser redeem already_member reason", 
+    parsedAlreadyMember !== null && !parsedAlreadyMember.ok && parsedAlreadyMember.reason === "already_member");
+  check("successUser redeem already_member includes gym_name",
+    parsedAlreadyMember !== null && !parsedAlreadyMember.ok && parsedAlreadyMember.gym_name === "Test Gym");
+
+  // Verify user-facing copy via lib function
+  const { processRedeemResult } = await import("@/lib/redeem-join-code-errors");
+  const userFacingResult = processRedeemResult(alreadyMemberData);
+  check("User-facing error includes 'Test Gym'",
+    !userFacingResult.ok && userFacingResult.error.includes("Test Gym"));
+  
+  // Test N failed redeems = N misses (no double-recording)
+  console.log("\nTEST: N failed redeems = N misses (no double-recording)");
+  const missTestUser = await createTestUser("miss-test");
+  const beforeMissCount = await adminClient
+    .from("gym_join_code_attempts")
+    .select("*", { count: "exact" })
+    .eq("user_id", missTestUser.userId);
+  check("missTestUser starts with 0 attempts", beforeMissCount.count === 0);
+  
+  // Make 3 failed redeem calls (invalid codes)
+  for (let i = 0; i < 3; i++) {
+    await missTestUser.client.rpc("redeem_join_code", { p_code: "INVALID" + i });
+  }
+  
+  const afterMissCount = await adminClient
+    .from("gym_join_code_attempts")
+    .select("*", { count: "exact" })
+    .eq("user_id", missTestUser.userId);
+  check("3 failed redeems = exactly 3 attempts recorded", afterMissCount.count === 3);
+  
+  await adminClient.from("gym_join_code_attempts").delete().eq("user_id", missTestUser.userId);
+  await adminClient.auth.admin.deleteUser(missTestUser.userId);
+  console.log();
+
+  // Test throttle: 10 misses allowed, 10th returns real reason, 11th is throttled
+  console.log("\nTEST: Throttle allows exactly 10 misses");
+  const throttleTestUser = await createTestUser("throttle-test");
+  
+  // Make 10 failed redeem calls (invalid codes)
+  let tenthResult = null;
+  for (let i = 0; i < 10; i++) {
+    const { data } = await throttleTestUser.client.rpc("redeem_join_code", { p_code: "INVALID" + i });
+    if (i === 9) tenthResult = data;
+  }
+  
+  const tenthParsed = parseRedeemJoinCodeResult(tenthResult);
+  check("10th attempt returns real reason (invalid, not throttled)",
+    tenthParsed !== null && !tenthParsed.ok && tenthParsed.reason === "invalid");
+  
+  // 11th attempt should be throttled
+  const { data: eleventhData } = await throttleTestUser.client.rpc("redeem_join_code", { p_code: "INVALID10" });
+  const eleventhParsed = parseRedeemJoinCodeResult(eleventhData);
+  check("11th attempt is throttled",
+    eleventhParsed !== null && !eleventhParsed.ok && eleventhParsed.reason === "throttled");
+  
+  const throttleCount = await adminClient
+    .from("gym_join_code_attempts")
+    .select("*", { count: "exact" })
+    .eq("user_id", throttleTestUser.userId);
+  check("10 failed attempts recorded (11th not recorded)", throttleCount.count === 10);
+  
+  await adminClient.from("gym_join_code_attempts").delete().eq("user_id", throttleTestUser.userId);
+  await adminClient.auth.admin.deleteUser(throttleTestUser.userId);
   console.log();
 
   // Cleanup
