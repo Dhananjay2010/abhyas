@@ -673,11 +673,10 @@ export function evaluateProgression(input: {
       const isKettlebell = equipmentIds.includes('kettlebell');
       
       if (isKettlebell) {
-        // Kettlebell: move up by bell count (1 bell for 'right', 2 bells for 'easy')
-        // Never skip bells or invent weights above the top bell
+        // Kettlebell: move up one bell (never skip bells, bell spacing is already optimized)
+        // Easy = Right for kettlebells (one bell progression is appropriate)
         const bells = KETTLEBELL_WEIGHTS_KG;
-        const isCompound = meta.mechanic === "compound";
-        const bellsToMove = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? 2 : 1;
+        const bellsToMove = 1;
         
         // Find current position in bell list
         const epsilon = 0.001;
@@ -724,17 +723,42 @@ export function evaluateProgression(input: {
         
         const step = isBodyweightWithAddedWeight ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";
-        // #120 APP decision: easy STILL doubles the increment for compound movements
-        const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? step * 2 : step;
+        const isKettlebell = equipmentIds?.includes('kettlebell');
+        
+        // #120 APP decision: easy doubles the BASE increment, then the doubled value is capped at grid
+        // For pin-stack (5 kg grid): base 2.5 kg * 2 = 5 kg, max(5, 5) = 5 kg (not 5 * 2 = 10)
+        // Exception: Kettlebells never double - bell spacing is already optimized, so Easy = Right (one bell)
+        let jump: number;
+        if (feel === "easy" && isCompound && !isBodyweightWithAddedWeight && !isKettlebell) {
+          const baseMechanicIncrement = meta.mechanic === "isolation" ? 1.25 : 
+            LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;
+          const doubled = baseMechanicIncrement * 2;
+          // Cap the doubled increment at the equipment grid
+          if (equipmentIds && equipmentIds.length > 0) {
+            const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
+            if (hasLoadable) {
+              const equipGrid = equipmentGridStep(equipmentIds, 'kg');
+              jump = Math.max(doubled, equipGrid);
+            } else {
+              jump = doubled;
+            }
+          } else {
+            jump = doubled;
+          }
+        } else {
+          jump = step;
+        }
         
         // Add jump to snapped weight
         next = snappedFrom + jump;
       }
     } else {
       // No equipment info: use standard increment, doubled when easy (preserve old behavior)
+      // Exception: Kettlebells never double - bell spacing is already optimized
       // Pass equipmentIds to incrementFor/addedWeightStep to respect equipment grid even in fallback
+      const isKettlebell = equipmentIds?.includes('kettlebell');
       const step = isBodyweightWithAddedWeight ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
-      const jump = isBodyweightWithAddedWeight || feel !== "easy" ? step : step * 2;
+      const jump = isBodyweightWithAddedWeight || feel !== "easy" || isKettlebell ? step : step * 2;
       const rawNext = from + jump;
       next = roundToGrid(rawNext, equipmentIds, undefined, step, 'up');
     }
