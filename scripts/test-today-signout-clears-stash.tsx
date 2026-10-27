@@ -62,3 +62,4 @@ function runTest() {
 }
 
 runTest();
+scripts/test-today-signout-clears-stash.tsx

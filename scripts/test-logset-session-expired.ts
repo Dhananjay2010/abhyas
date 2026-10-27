@@ -9,6 +9,8 @@
 
 import { logSetWithAuth, type LogSetCoreDeps } from "../src/lib/session/log-set-with-auth";
 import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../src/lib/database.types";
 
 let passed = 0;
 
@@ -30,7 +32,7 @@ async function testExpiredAuth() {
   
   const deps: LogSetCoreDeps = {
     getAuthedClient: async () => ({
-      supabase: null as any,
+      supabase: null as unknown as SupabaseClient<Database>,
       user: null, // Expired: no user
     }),
     checkLogSetInput: async () => {
@@ -75,7 +77,19 @@ async function testValidAuth() {
   
   const deps: LogSetCoreDeps = {
     getAuthedClient: async () => ({
-      supabase: { from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) }) }) } as any,
+      supabase: {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({ data: null }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      } as unknown as SupabaseClient<Database>,
       user: { id: "user123" },
     }),
     checkLogSetInput: async () => null,
