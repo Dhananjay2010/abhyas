@@ -461,7 +461,7 @@
     "test:warmup-exclusion": "tsx scripts/test-warmup-exclusion.ts",
     "test:plan-day-dedupe-keeps-lowest-id": "tsx scripts/test-plan-day-dedupe-keeps-lowest-id.ts",
     "test:actions-adapter-wiring": "tsx scripts/test-actions-adapter-wiring.ts",
-    "test:adapter-23505-handling": "tsx scripts/test-adapter-23505-handling-real-db.ts",
+    "test:adapter-23505-handling": "tsx scripts/test-adapter-23505-handling.ts",
     "test:constraint-error-mapping": "tsx scripts/test-constraint-error-mapping.ts",
     "test:log-weight-render": "tsx scripts/test-log-weight-render.tsx",
     "test:unique-planned-session-migration-real-db": "tsx scripts/test-unique-planned-session-migration-real-db.ts"
