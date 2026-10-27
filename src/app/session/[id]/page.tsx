@@ -148,7 +148,10 @@ export default async function SessionPage({
       // Take the most recent weight for each exercise
       for (const [exerciseId, entries] of byExercise.entries()) {
         entries.sort((a, b) => b.started_at.localeCompare(a.started_at));
-        previousWeightByExercise.set(exerciseId, entries[0].weight_kg);
+        const weight = entries[0].weight_kg;
+        if (weight !== null && weight > 0) {
+          previousWeightByExercise.set(exerciseId, weight);
+        }
       }
     }
   }

@@ -14,7 +14,7 @@ console.log("Case 1: Increase 60 kg → 62.5 kg");
   const sessionExercise: SessionExerciseInput = {
     id: "se1", planned_sets: 3, planned_reps_min: 6, planned_reps_max: 8,
     rest_seconds: 180, status: "pending", feel: null, metric: "reps",
-    exercises: { id: "ex1", name: "Bench", cue: null, movement_pattern: "horizontal_push",
+    exercises: { id: "ex1", name: "Bench", cue: null, movement_pattern: "horizontal_press",
       primary_muscles: ["chest"], equipment_ids: ["barbell"] },
     session_sets: []
   };
@@ -33,7 +33,7 @@ console.log("\nCase 2: Held 62.5 kg → 62.5 kg");
   const sessionExercise: SessionExerciseInput = {
     id: "se2", planned_sets: 3, planned_reps_min: 6, planned_reps_max: 8,
     rest_seconds: 180, status: "pending", feel: null, metric: "reps",
-    exercises: { id: "ex2", name: "Squat", cue: null, movement_pattern: "knee_dominant",
+    exercises: { id: "ex2", name: "Squat", cue: null, movement_pattern: "squat",
       primary_muscles: ["quads"], equipment_ids: ["barbell"] },
     session_sets: []
   };
