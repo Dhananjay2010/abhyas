@@ -34,7 +34,7 @@ function assert(condition: boolean, message: string) {
 const FIXED_TIME = new Date('2026-10-26T12:00:00Z').getTime();
 
 const fakeTimer = {
-  setTimeout: (callback: () => void) => { callback(); return 0; },
+  setTimeout: (callback: () => void) => { callback(); return 0 as unknown as ReturnType<typeof globalThis.setTimeout>; },
   clearTimeout: () => {},
 };
 

@@ -58,7 +58,7 @@ const FIXED_TIME = new Date('2020-01-01T10:00:00Z').getTime();
 
 const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
 const fakeTimer = {
-  setTimeout: (callback: () => void) => { callback(); return 0; },
+  setTimeout: (callback: () => void) => { callback(); return 0 as unknown as ReturnType<typeof globalThis.setTimeout>; },
   clearTimeout: () => {},
 };
 

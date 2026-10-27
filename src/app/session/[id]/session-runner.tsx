@@ -151,11 +151,6 @@ const FEELS: { value: Feel; label: string }[] = [
   { value: "hard", label: "Hard" },
 ];
 
-export type RunnerTimer = {
-  setTimeout: (callback: () => void, ms: number) => number | NodeJS.Timeout;
-  clearTimeout: (id: number | NodeJS.Timeout) => void;
-};
-
 
 export function SessionRunner({
   sessionId,

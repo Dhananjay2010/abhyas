@@ -71,7 +71,7 @@ const fakeDeps: PendingSetDeps = {
 const fakeTimer = {
   setTimeout: (callback: () => void) => {
     callback();
-    return 0;
+    return 0 as unknown as ReturnType<typeof globalThis.setTimeout>;
   },
   clearTimeout: () => {},
 };
