@@ -5,7 +5,7 @@ set -euo pipefail
 FILE="${MUTANT_TARGET_FILE:-src/lib/program/progression.ts}"
 BASELINE_CMD="${MUTANT_BASELINE_CMD:-npm run test:first-miss-pinned}"
 COMPILE_CMD="${MUTANT_COMPILE_CMD:-npx tsc --noEmit}"
-MUTANT_TEST_CMD="${MUTANT_TEST_CMD:-npm run test:first-miss-pinned}"
+MUTANT_TEST_CMD="${MUTANT_TEST_CMD:-npm run test:first-miss-pinned && npm run test:never-below-lifted && npm run test:easy-doubling-pins}"
 
 # Shared isCrash function
 isCrash() {
@@ -151,24 +151,38 @@ test_mutant "counter-not-set" \
   "const newWeightAtFailureStart = state.weightAtFailureStartKg;"
 
 test_mutant "failures-not-incremented" \
-  "consecutiveFailures: failures," \
-  "consecutiveFailures: 0,"
+  "    outcome: \"hold\",
+    nextWorkingWeightKg: nextWeight,
+    consecutiveFailures: failures," \
+  "    outcome: \"hold\",
+    nextWorkingWeightKg: nextWeight,
+    consecutiveFailures: 0,"
 
 test_mutant "second-miss-holds" \
   "if (failures >= 2 && currentWeight !== null && currentWeight > 0) {" \
   "if (failures >= 99 && currentWeight !== null && currentWeight > 0) {"
 
 test_mutant "hard-feel-wrong-baseline" \
-  "const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);" \
-  "const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));"
+  "  const failures = Math.min(state.consecutiveFailures + 1, 3);
+  const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);" \
+  "  const failures = Math.min(state.consecutiveFailures + 1, 3);
+  const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));"
 
 test_mutant "message-altered" \
   ": \"Staying at this weight until every set reaches the top of the range.\";" \
   ": \"Holding at this weight.\";"
 
 test_mutant "easy-no-double" \
-  "feel === \"easy\" && !isBodyweightWithAddedWeight" \
-  "false"
+  "        if (feel === \"easy\" && !isBodyweightWithAddedWeight) {
+          jump = hasLoadable ? Math.max(2 * mechanicIncrement, gridStep) : 2 * mechanicIncrement;
+        } else {
+          jump = step;
+        }" \
+  "        if (false) {
+          jump = hasLoadable ? Math.max(2 * mechanicIncrement, gridStep) : 2 * mechanicIncrement;
+        } else {
+          jump = step;
+        }"
 
 test_mutant "grid-step-ignored" \
   "step = hasLoadable ? Math.max(patternStep, gridStep) : patternStep;" \
@@ -183,16 +197,12 @@ test_mutant "floor-snap-ceil" \
   "next = Math.max(Math.ceil((rawNext / gridStep) + 1e-9) * gridStep, from);"
 
 test_mutant "mechanic-wrong" \
-  "const mechanicIncrement = meta.mechanic === \"isolation\" ? 1.25 :" \
-  "const mechanicIncrement = meta.mechanic === \"isolation\" ? 2.5 :"
-
-test_mutant "kettlebell-max-wrong" \
-  "if (from > bells[bells.length - 1]) {
-            currentIndex = bells.length - 1; // At or above max bell
-          } else {
-            currentIndex = 0; // Below first bell
-          }" \
-  "currentIndex = 0;"
+  "        // Easy doubles the MECHANIC increment (before grid constraints)
+        const mechanicIncrement = meta.mechanic === \"isolation\" ? 1.25 : 
+          LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;" \
+  "        // Easy doubles the MECHANIC increment (before grid constraints)
+        const mechanicIncrement = meta.mechanic === \"isolation\" ? 2.5 : 
+          LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;"
 
 echo
 echo "========================================"
