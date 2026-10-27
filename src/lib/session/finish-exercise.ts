@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/database.types";
+import type { FinishExerciseDeps } from "./finish-exercise-deps";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 
@@ -12,23 +13,6 @@ export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string };
 
-// Minimal Supabase client interface needed by the core function.
-// Uses `any` to avoid type conflicts with the actual Supabase client.
-export interface SupabaseClient {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  from: (table: string) => any;
-}
-
-export interface FinishExerciseDeps {
-  applyProgression: (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    supabase: any,
-    userId: string,
-    sessionExerciseId: string,
-    feel: SetFeel | null,
-  ) => Promise<ProgressionFeedback | null>;
-}
-
 /**
  * Core idempotent exercise completion logic.
  *
@@ -37,14 +21,13 @@ export interface FinishExerciseDeps {
  * or repeated calls return success without double-applying.
  */
 export async function finishExerciseCore(
-  supabase: SupabaseClient,
+  deps: FinishExerciseDeps,
   userId: string,
   input: {
     sessionExerciseId: string;
     feel: SetFeel | null;
     skipped?: boolean;
   },
-  deps: FinishExerciseDeps,
 ): Promise<Result<ProgressionFeedback | null>> {
   /*
     Conditional update: only transition rows that are not already finished.
@@ -63,26 +46,21 @@ export async function finishExerciseCore(
     wrong behavior for an idempotent action — a retry or double-tap would fail
     rather than succeed quietly. So we use the array form and check its length.
   */
-  const { data, error } = await supabase
-    .from("session_exercises")
-    .update({
-      status: input.skipped ? "skipped" : "completed",
-      feel: input.feel,
-      completed_at: new Date().toISOString(),
-    })
-    .eq("id", input.sessionExerciseId)
-    .not("status", "in", "(completed,skipped)")
-    .select("id");
+  const { data, error } = await deps.updateExercise(input.sessionExerciseId, {
+    status: input.skipped ? "skipped" : "completed",
+    feel: input.feel,
+    completed_at: new Date().toISOString(),
+  });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error };
 
   // No row returned: the exercise was already finished by a prior call.
-  if (!data || data.length === 0) {
+  if (!data) {
     return { ok: true, data: null };
   }
 
   if (input.skipped) return { ok: true, data: null };
 
-  const feedback = await deps.applyProgression(supabase, userId, input.sessionExerciseId, input.feel);
+  const feedback = await deps.applyProgression(userId, input.sessionExerciseId, input.feel);
   return { ok: true, data: feedback };
 }
