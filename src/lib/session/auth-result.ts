@@ -20,12 +20,12 @@ export async function resolveAuth<TAuth, TResult>(
   try {
     const auth = await authFn();
     if (!auth.user) {
-      return { ok: false, error: "Not signed in", code: SESSION_EXPIRED_CODE };
+      return { ok: false, error: "Not signed in", code: "WRONG_CODE" }; // MUTANT
     }
     return await action(auth);
   } catch (err) {
     if (err instanceof Error && err.message === "Not signed in") {
-      return { ok: false, error: "Not signed in", code: SESSION_EXPIRED_CODE };
+      return { ok: false, error: "Not signed in", code: "WRONG_CODE" }; // MUTANT
     }
     throw err;
   }

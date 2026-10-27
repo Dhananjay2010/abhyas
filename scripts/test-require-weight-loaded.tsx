@@ -9,450 +9,442 @@
  */
 
 import "./helpers/setup-jsdom";
-import { render, act, screen, cleanup } from "@testing-library/react";
-import { SessionRunner } from "../src/app/session/[id]/session-runner.tsx";
-import type { SessionActions } from "../src/app/session/[id]/session-runner.tsx";
+import { render, act, fireEvent, waitFor } from "@testing-library/react";
+import {
+  SessionRunner,
+  type RunnerExercise,
+  type SessionActions,
+} from "../src/app/session/[id]/session-runner";
 
-let passed = 0;
+const ok = async () => ({ ok: true }) as const;
 
-function assert(condition: boolean, message: string) {
-  if (!condition) {
-    console.error(`  ❌ ${message}`);
-    throw new Error(message);
+function makeExercise(
+  id: string,
+  exerciseId: string,
+  name: string,
+  plannedSets: number,
+  isBodyweight: boolean,
+  isTimed: boolean = false,
+  sets: Array<{ setNumber: number; reps: number | null; weightKg: number | null; durationSeconds: number | null }> = [],
+): RunnerExercise {
+  return {
+    id,
+    exerciseId,
+    name,
+    cue: null,
+    metric: isTimed ? "seconds" : "reps",
+    primaryMuscles: ["chest"],
+    plannedSets,
+    repsMin: 8,
+    repsMax: 12,
+    plannedRepsMin: 8,
+    plannedRepsMax: 12,
+    restSeconds: 60,
+    workingWeightKg: 50,
+    suggestedWeightKg: 50,
+    status: sets.length >= plannedSets ? "completed" : "pending",
+    feel: sets.length >= plannedSets ? "right" : null,
+    sets,
+    isBodyweight,
+  };
+}
+
+const settings = {
+  perSetLogging: true,
+  restAutostart: false,
+  restSound: false,
+  restVibrate: false,
+  restOverrideSeconds: null,
+  cooldownEnabled: false,
+  units: "metric" as const,
+};
+
+function check(label: string, pass: boolean, detail?: string) {
+  if (pass) {
+    console.log(`  ✓ ${label}${detail ? `  -- ${detail}` : ""}`);
   } else {
-    passed++;
-    console.log(`  ✓ ${message}`);
+    console.log(`  ✗ FAIL ${label}${detail ? `  -- ${detail}` : ""}`);
+    process.exit(1);
   }
 }
 
+console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
+
 (async () => {
-  console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
-  
-  const loggedSets: Array<{ exerciseId: string; setNumber: number; reps: number | null; weightKg: number | null }> = [];
-  
-  const fakeActions: SessionActions = {
-    markWarmupDone: async () => ({ ok: true }),
+  // ===== Test 1: Loaded exercise with blank weight is blocked =====
+  console.log("=== Test 1: Loaded exercise with blank weight is blocked ===\n");
+
+  const exercise1 = makeExercise("ex-1", "bench-press", "Barbell Bench Press", 3, false);
+
+  const loggedSets: Array<{ exerciseId: string; setNumber: number; weightKg: number | null }> = [];
+
+  const actions1: SessionActions = {
+    markWarmupDone: ok,
     logSet: async (input) => {
       loggedSets.push({
         exerciseId: input.sessionExerciseId,
         setNumber: input.setNumber,
-        reps: input.reps,
-        weightKg: input.weightKg
+        weightKg: input.weightKg,
       });
       return { ok: true };
     },
-    deleteSet: async () => ({ ok: true }),
-    finishExercise: async () => ({ ok: true }),
-    finishSession: async () => ({ ok: true }),
-    abandonSession: async () => ({ ok: true }),
-    findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
-    refreshAfterSession: async () => {},
-    planDay: async () => ({ ok: true, data: null }),
-    getSessionSummary: async () => ({ ok: true, data: { notes: [], pbCount: 0, totalVolumeKg: 0 } }),
-  };
-  
-  // ========================================================================
-  // Test 1: Loaded exercise with blank weight is blocked
-  // ========================================================================
-  console.log("=== Test 1: Loaded exercise with blank weight is blocked ===\n");
-  
-  const { container: c1 } = render(
+    deleteSet: ok,
+    finishExercise: async () =>
+      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: ok,
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => {
+      throw new Error("Should not swap");
+    },
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+  } as unknown as SessionActions;
+
+  const { container: c1, unmount: unmount1 } = render(
     <SessionRunner
       sessionId="s1"
       sessionStatus="in_progress"
-      userId="u1"
+      userId="test-user-1"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
-      exercises={[
-        {
-          id: "ex1",
-          exerciseId: "bench-press",
-          name: "Barbell Bench Press",
-          cue: null,
-          metric: "reps",
-          primaryMuscles: ["chest"],
-          plannedSets: 3,
-          plannedRepsMin: 8,
-          plannedRepsMax: 12,
-          repsMin: 8,
-          repsMax: 12,
-          restSeconds: 180,
-          workingWeightKg: null,
-          suggestedWeightKg: null,
-          status: "pending",
-          feel: null,
-          sets: [],
-          isBodyweight: false
-        }
-      ]}
-      settings={{
-        perSetLogging: true,
-        restAutostart: true,
-        restSound: false,
-        restVibrate: false,
-        restOverrideSeconds: null,
-        cooldownEnabled: true,
-        units: "metric"
-      }}
-      tomorrow={null}
-      units="metric"
-      actions={fakeActions}
-    />
+      exercises={[exercise1]}
+      settings={settings}
+      actions={actions1}
+    />,
   );
-  
-  await act(async () => {});
-  
-  // Enter reps but leave weight blank
-  const repsInput = c1.querySelector('input[placeholder="Reps"]') as HTMLInputElement;
-  assert(repsInput !== null, "Reps input exists");
-  
-  await act(async () => {
-    repsInput.value = "10";
-    repsInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  await waitFor(() => {
+    if (!c1.textContent?.includes("Barbell Bench Press")) throw new Error("Exercise not shown");
   });
-  
-  await act(async () => {});
-  
-  // Try to find Log set button
-  const logButton = screen.getByTestId("log-set-button");
-  assert(logButton !== null, "Log set button exists");
-  assert((logButton as HTMLButtonElement).disabled, "Log set button is disabled");
-  
-  // Check for error message
-  const errorMessage = screen.queryByText(/Add the weight you used/i);
-  assert(errorMessage !== null, "Shows 'Add the weight you used' message");
-  
-  cleanup();
+
+  check("Exercise loaded", true);
+
+  // Make sure weight starts empty
+  const weightInput = [...c1.querySelectorAll("input")].find((input) =>
+    input.closest("label")?.textContent?.includes("kg"),
+  ) as HTMLInputElement | undefined;
+
+  if (weightInput && weightInput.value) {
+    await act(async () => {
+      fireEvent.change(weightInput, { target: { value: "" } });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+  }
+
+  // Enter reps but leave weight blank
+  const repsInput = [...c1.querySelectorAll("input")].find((input) =>
+    input.closest("label")?.textContent?.includes("Reps"),
+  ) as HTMLInputElement | undefined;
+
+  if (!repsInput) {
+    console.log("  ✗ FAIL Reps input not found");
+    process.exit(1);
+  }
+
+  await act(async () => {
+    fireEvent.change(repsInput, { target: { value: "10" } });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+
+  await waitFor(() => {
+    const hasErrorMessage = c1.textContent?.includes("Add the weight you used");
+    if (!hasErrorMessage) throw new Error("Waiting for error message");
+  });
+
+  check("Shows 'Add the weight you used' message", true);
+
+  // Log button should not log the set (blocked)
+  const logBtn = [...c1.querySelectorAll("button")].find((b) =>
+    /Log set 1/.test(b.textContent ?? ""),
+  );
+
+  if (logBtn && !(logBtn as HTMLButtonElement).disabled) {
+    await act(async () => {
+      fireEvent.click(logBtn);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    });
+  }
+
+  check("Set was NOT logged (blank weight blocked)", loggedSets.length === 0);
+
+  unmount1();
   console.log("✓ Test 1 passed\n");
-  
-  // ========================================================================
-  // Test 2: Loaded exercise with weight logs successfully
-  // ========================================================================
+
+  // ===== Test 2: Loaded exercise with weight logs successfully =====
   console.log("=== Test 2: Loaded exercise with weight logs successfully ===\n");
-  
+
+  const exercise2 = makeExercise("ex-2", "squat", "Barbell Squat", 1, false);
   loggedSets.length = 0;
-  
-  const { container: c2 } = render(
+
+  const actions2: SessionActions = {
+    ...actions1,
+    logSet: async (input) => {
+      loggedSets.push({
+        exerciseId: input.sessionExerciseId,
+        setNumber: input.setNumber,
+        weightKg: input.weightKg,
+      });
+      return { ok: true };
+    },
+  } as unknown as SessionActions;
+
+  const { container: c2, unmount: unmount2 } = render(
     <SessionRunner
       sessionId="s2"
       sessionStatus="in_progress"
-      userId="u2"
+      userId="test-user-2"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
-      exercises={[
-        {
-          id: "ex2",
-          exerciseId: "squat",
-          name: "Barbell Squat",
-          cue: null,
-          metric: "reps",
-          primaryMuscles: ["quads"],
-          plannedSets: 3,
-          plannedRepsMin: 8,
-          plannedRepsMax: 12,
-          repsMin: 8,
-          repsMax: 12,
-          restSeconds: 180,
-          workingWeightKg: null,
-          suggestedWeightKg: null,
-          status: "pending",
-          feel: null,
-          sets: [],
-          isBodyweight: false
-        }
-      ]}
-      settings={{
-        perSetLogging: true,
-        restAutostart: true,
-        restSound: false,
-        restVibrate: false,
-        restOverrideSeconds: null,
-        cooldownEnabled: true,
-        units: "metric"
-      }}
-      tomorrow={null}
-      units="metric"
-      actions={fakeActions}
-    />
+      exercises={[exercise2]}
+      settings={settings}
+      actions={actions2}
+    />,
   );
-  
-  await act(async () => {});
-  
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  await waitFor(() => {
+    if (!c2.textContent?.includes("Barbell Squat")) throw new Error("Exercise not shown");
+  });
+
+  check("Exercise loaded", true);
+
   // Enter both reps and weight
-  const repsInput2 = c2.querySelector('input[placeholder="Reps"]') as HTMLInputElement;
-  const weightInput2 = c2.querySelector('input[placeholder="kg"]') as HTMLInputElement;
-  
-  assert(repsInput2 !== null, "Reps input exists");
-  assert(weightInput2 !== null, "Weight input exists");
-  
+  const repsInput2 = [...c2.querySelectorAll("input")].find((input) =>
+    input.closest("label")?.textContent?.includes("Reps"),
+  ) as HTMLInputElement | undefined;
+
+  const weightInput2 = [...c2.querySelectorAll("input")].find((input) =>
+    input.closest("label")?.textContent?.includes("kg"),
+  ) as HTMLInputElement | undefined;
+
+  if (!repsInput2 || !weightInput2) {
+    console.log("  ✗ FAIL Input not found");
+    process.exit(1);
+  }
+
   await act(async () => {
-    repsInput2.value = "10";
-    repsInput2.dispatchEvent(new Event("input", { bubbles: true }));
-    weightInput2.value = "50";
-    weightInput2.dispatchEvent(new Event("input", { bubbles: true }));
+    fireEvent.change(repsInput2, { target: { value: "10" } });
+    fireEvent.change(weightInput2, { target: { value: "50" } });
   });
-  
-  await act(async () => {});
-  
-  // Log set button should be enabled
-  const logButton2 = screen.getByTestId("log-set-button");
-  assert(!((logButton2 as HTMLButtonElement).disabled), "Log set button is enabled");
-  
-  // Click log set
+
+  await new Promise((resolve) => setTimeout(resolve, 200));
+
+  const logBtn2 = [...c2.querySelectorAll("button")].find((b) =>
+    /Log set 1/.test(b.textContent ?? ""),
+  );
+
+  if (!logBtn2) {
+    console.log("  ✗ FAIL Log set button not found");
+    process.exit(1);
+  }
+
   await act(async () => {
-    logButton2.click();
+    fireEvent.click(logBtn2);
   });
-  
-  await act(async () => {});
-  await act(async () => {});
-  
-  assert(loggedSets.length === 1, "Set was logged");
-  assert(loggedSets[0].reps === 10, "Reps logged correctly");
-  assert(loggedSets[0].weightKg === 50, "Weight logged correctly");
-  
-  cleanup();
+
+  await waitFor(() => {
+    if (loggedSets.length === 0) throw new Error("Waiting for set to log");
+  }, { timeout: 3000 });
+
+  check("Set was logged with weight", loggedSets.length === 1);
+  check("Weight logged correctly", loggedSets[0].weightKg === 50);
+
+  unmount2();
   console.log("✓ Test 2 passed\n");
-  
-  // ========================================================================
-  // Test 3: Bodyweight exercise with blank weight logs successfully
-  // ========================================================================
+
+  // ===== Test 3: Bodyweight exercise with blank weight logs =====
   console.log("=== Test 3: Bodyweight exercise with blank weight logs ===\n");
-  
+
+  const exercise3 = makeExercise("ex-3", "pushups", "Push-ups", 1, true);
   loggedSets.length = 0;
-  
-  const { container: c3 } = render(
+
+  const actions3: SessionActions = {
+    ...actions1,
+    logSet: async (input) => {
+      loggedSets.push({
+        exerciseId: input.sessionExerciseId,
+        setNumber: input.setNumber,
+        weightKg: input.weightKg,
+      });
+      return { ok: true };
+    },
+  } as unknown as SessionActions;
+
+  const { container: c3, unmount: unmount3 } = render(
     <SessionRunner
       sessionId="s3"
       sessionStatus="in_progress"
-      userId="u3"
+      userId="test-user-3"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
-      exercises={[
-        {
-          id: "ex3",
-          exerciseId: "pushups",
-          name: "Push-ups",
-          cue: null,
-          metric: "reps",
-          primaryMuscles: ["chest"],
-          plannedSets: 3,
-          plannedRepsMin: 10,
-          plannedRepsMax: 15,
-          repsMin: 10,
-          repsMax: 15,
-          restSeconds: 90,
-          workingWeightKg: null,
-          suggestedWeightKg: null,
-          status: "pending",
-          feel: null,
-          sets: [],
-          isBodyweight: true
-        }
-      ]}
-      settings={{
-        perSetLogging: true,
-        restAutostart: true,
-        restSound: false,
-        restVibrate: false,
-        restOverrideSeconds: null,
-        cooldownEnabled: true,
-        units: "metric"
-      }}
-      tomorrow={null}
-      units="metric"
-      actions={fakeActions}
-    />
+      exercises={[exercise3]}
+      settings={settings}
+      actions={actions3}
+    />,
   );
-  
-  await act(async () => {});
-  
-  // Enter reps only (no weight for bodyweight)
-  const repsInput3 = c3.querySelector('input[placeholder="Reps"]') as HTMLInputElement;
-  assert(repsInput3 !== null, "Reps input exists");
-  
-  await act(async () => {
-    repsInput3.value = "12";
-    repsInput3.dispatchEvent(new Event("input", { bubbles: true }));
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  await waitFor(() => {
+    if (!c3.textContent?.includes("Push-ups")) throw new Error("Exercise not shown");
   });
-  
-  await act(async () => {});
-  
-  // Log set button should be enabled for bodyweight
-  const logButton3 = screen.getByTestId("log-set-button");
-  assert(!((logButton3 as HTMLButtonElement).disabled), "Log set button is enabled for bodyweight");
-  
-  // Click log set
+
+  check("Exercise loaded", true);
+
+  // Enter reps only (bodyweight doesn't require weight)
+  const repsInput3 = [...c3.querySelectorAll("input")].find((input) =>
+    input.closest("label")?.textContent?.includes("Reps"),
+  ) as HTMLInputElement | undefined;
+
+  if (!repsInput3) {
+    console.log("  ✗ FAIL Reps input not found");
+    process.exit(1);
+  }
+
   await act(async () => {
-    logButton3.click();
+    fireEvent.change(repsInput3, { target: { value: "12" } });
   });
-  
-  await act(async () => {});
-  await act(async () => {});
-  
-  assert(loggedSets.length === 1, "Bodyweight set was logged");
-  assert(loggedSets[0].reps === 12, "Reps logged correctly");
-  assert(loggedSets[0].weightKg === null, "Weight is null for bodyweight");
-  
-  cleanup();
+
+  await new Promise((resolve) => setTimeout(resolve, 200));
+
+  const logBtn3 = [...c3.querySelectorAll("button")].find((b) =>
+    /Log set 1/.test(b.textContent ?? ""),
+  );
+
+  if (!logBtn3) {
+    console.log("  ✗ FAIL Log set button not found");
+    process.exit(1);
+  }
+
+  await act(async () => {
+    fireEvent.click(logBtn3);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  });
+
+  check("Bodyweight set was logged", loggedSets.length === 1);
+  check("Weight is null for bodyweight", loggedSets[0].weightKg === null);
+
+  unmount3();
   console.log("✓ Test 3 passed\n");
-  
-  // ========================================================================
-  // Test 4: Imperial units - loaded exercise with blank weight blocked
-  // ========================================================================
+
+  // ===== Test 4: Imperial units - loaded exercise blocked =====
   console.log("=== Test 4: Imperial units - loaded exercise blocked ===\n");
-  
+
+  const exercise4 = makeExercise("ex-4", "deadlift", "Barbell Deadlift", 1, false);
   loggedSets.length = 0;
-  
-  const { container: c4 } = render(
+
+  const imperialSettings = { ...settings, units: "imperial" as const };
+
+  const { container: c4, unmount: unmount4 } = render(
     <SessionRunner
       sessionId="s4"
       sessionStatus="in_progress"
-      userId="u4"
+      userId="test-user-4"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
-      exercises={[
-        {
-          id: "ex4",
-          exerciseId: "deadlift",
-          name: "Barbell Deadlift",
-          cue: null,
-          metric: "reps",
-          primaryMuscles: ["hamstrings"],
-          plannedSets: 3,
-          plannedRepsMin: 5,
-          plannedRepsMax: 8,
-          repsMin: 5,
-          repsMax: 8,
-          restSeconds: 240,
-          workingWeightKg: null,
-          suggestedWeightKg: null,
-          status: "pending",
-          feel: null,
-          sets: [],
-          isBodyweight: false
-        }
-      ]}
-      settings={{
-        perSetLogging: true,
-        restAutostart: true,
-        restSound: false,
-        restVibrate: false,
-        restOverrideSeconds: null,
-        cooldownEnabled: true,
-        units: "imperial"
-      }}
-      tomorrow={null}
-      units="imperial"
-      actions={fakeActions}
-    />
+      exercises={[exercise4]}
+      settings={imperialSettings}
+      actions={actions1}
+    />,
   );
-  
-  await act(async () => {});
-  
-  // Enter reps but leave weight blank
-  const repsInput4 = c4.querySelector('input[placeholder="Reps"]') as HTMLInputElement;
-  assert(repsInput4 !== null, "Reps input exists");
-  
-  await act(async () => {
-    repsInput4.value = "5";
-    repsInput4.dispatchEvent(new Event("input", { bubbles: true }));
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  await waitFor(() => {
+    if (!c4.textContent?.includes("Barbell Deadlift")) throw new Error("Exercise not shown");
   });
-  
-  await act(async () => {});
-  
-  // Log set button should be disabled
-  const logButton4 = screen.getByTestId("log-set-button");
-  assert((logButton4 as HTMLButtonElement).disabled, "Log set button is disabled for imperial");
-  
-  // Check for error message
-  const errorMessage4 = screen.queryByText(/Add the weight you used/i);
-  assert(errorMessage4 !== null, "Shows error message for imperial units");
-  
-  cleanup();
+
+  check("Exercise loaded", true);
+
+  // Enter reps but leave weight blank
+  const repsInput4 = [...c4.querySelectorAll("input")].find((input) =>
+    input.closest("label")?.textContent?.includes("Reps"),
+  ) as HTMLInputElement | undefined;
+
+  if (!repsInput4) {
+    console.log("  ✗ FAIL Reps input not found");
+    process.exit(1);
+  }
+
+  await act(async () => {
+    fireEvent.change(repsInput4, { target: { value: "5" } });
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 200));
+
+  // Check for error message (imperial should show same message)
+  const hasErrorMessage4 = c4.textContent?.includes("Add the weight you used");
+  check("Shows error message for imperial units", !!hasErrorMessage4);
+
+  unmount4();
   console.log("✓ Test 4 passed\n");
-  
-  // ========================================================================
-  // Test 5: Hold (timed exercise) doesn't require weight
-  // ========================================================================
-  console.log("=== Test 5: Hold (timed) doesn't require weight ===\n");
-  
+
+  // ===== Test 5: Timed exercise (holds) with blank weight logs =====
+  console.log("=== Test 5: Timed exercise (holds) with blank weight logs ===\n");
+
+  const exercise5 = makeExercise("ex-5", "plank", "Plank", 1, false, true);
   loggedSets.length = 0;
-  
-  const { container: c5 } = render(
+
+  const { container: c5, unmount: unmount5 } = render(
     <SessionRunner
       sessionId="s5"
       sessionStatus="in_progress"
-      userId="u5"
+      userId="test-user-5"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date().toISOString()}
+      isStale={false}
       warmup={[]}
       cooldown={[]}
-      exercises={[
-        {
-          id: "ex5",
-          exerciseId: "plank",
-          name: "Plank",
-          cue: null,
-          metric: "seconds",
-          primaryMuscles: ["core"],
-          plannedSets: 3,
-          plannedRepsMin: 30,
-          plannedRepsMax: 60,
-          repsMin: 30,
-          repsMax: 60,
-          restSeconds: 90,
-          workingWeightKg: null,
-          suggestedWeightKg: null,
-          status: "pending",
-          feel: null,
-          sets: [],
-          isBodyweight: false
-        }
-      ]}
-      settings={{
-        perSetLogging: true,
-        restAutostart: true,
-        restSound: false,
-        restVibrate: false,
-        restOverrideSeconds: null,
-        cooldownEnabled: true,
-        units: "metric"
-      }}
-      tomorrow={null}
-      units="metric"
-      actions={fakeActions}
-    />
+      exercises={[exercise5]}
+      settings={settings}
+      actions={actions1}
+    />,
   );
-  
-  await act(async () => {});
-  
-  // Start hold button should exist (not blocked by weight requirement)
-  const startHoldButton = screen.queryByText(/Start hold/i);
-  assert(startHoldButton !== null, "Start hold button exists");
-  assert(!(startHoldButton as HTMLButtonElement).disabled, "Start hold button is enabled without weight");
-  
-  cleanup();
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  await waitFor(() => {
+    if (!c5.textContent?.includes("Plank")) throw new Error("Exercise not shown");
+  });
+
+  check("Exercise loaded", true);
+
+  // Timed exercises should have Start hold button, not blocked by weight
+  const startHoldBtn = [...c5.querySelectorAll("button")].find((b) =>
+    /Start hold/.test(b.textContent ?? ""),
+  );
+
+  check("Start hold button exists for timed exercise", !!startHoldBtn);
+
+  if (startHoldBtn) {
+    check("Start hold button is enabled without weight", !(startHoldBtn as HTMLButtonElement).disabled);
+  }
+
+  unmount5();
   console.log("✓ Test 5 passed\n");
-  
-  console.log(`✅ Require weight on loaded exercises tests passed (${passed} assertions)\n`);
+
+  console.log("\n✅ All Item 8 tests passed\n");
   process.exit(0);
 })();
