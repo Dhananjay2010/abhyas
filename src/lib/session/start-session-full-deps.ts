@@ -195,6 +195,7 @@ export function buildStartSessionFullDeps(
       }
 
       const plannedForCleaning = exercises.map(e => ({
+        id: `temp-${e.exercise_id}`,
         exercise_id: e.exercise_id,
         order_index: e.order_index,
         target_sets: e.target_sets,

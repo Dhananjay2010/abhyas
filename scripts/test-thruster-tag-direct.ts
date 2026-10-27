@@ -11,6 +11,7 @@
  */
 
 import { readFileSync } from "fs";
+import type { Database } from "../src/lib/database.types";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
