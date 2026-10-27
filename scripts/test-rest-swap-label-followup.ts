@@ -521,9 +521,7 @@ async function main() {
         { id: "s-mon-a", user_id: "u1", program_day_id: "A", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
         { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T10:00:00Z" },
         { id: "s-tue-yoga", user_id: "u1", program_day_id: "B", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
-      ],
-      planned_days: [
-        { user_id: "u1", local_date: "2026-10-29", program_day_id: "C", override_kind: "keep" },
+        { id: "s-wed-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
       ],
     });
 
@@ -545,9 +543,7 @@ async function main() {
         { id: "s-mon-a", user_id: "u1", program_day_id: "A", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
         { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T10:00:00Z" },
         { id: "s-tue-yoga", user_id: "u1", program_day_id: "B", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
-      ],
-      planned_days: [
-        { user_id: "u1", local_date: "2026-10-29", program_day_id: "C", override_kind: "keep" },
+        { id: "s-wed-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
       ],
     });
 
@@ -602,9 +598,7 @@ async function main() {
       sessions: [
         { id: "s-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T10:00:00Z" },
         { id: "s-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T14:00:00Z" },
-      ],
-      planned_days: [
-        { user_id: "u1", local_date: "2026-10-29", program_day_id: "C", override_kind: "keep" },
+        { id: "s-tomorrow", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
       ],
     });
 
