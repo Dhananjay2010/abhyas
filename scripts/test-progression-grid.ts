@@ -772,9 +772,10 @@ console.log("\n  (c) Mutant: Failed set no longer drops weight");
   check("Specifically, 60 kg drops to 57.5 kg", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
 }
 
-console.log("\n  (d) Mutant: Kettlebell Easy jumps two bells");
+console.log("\n  (d) Mutant: Kettlebell Easy jumps one bell (should jump two)");
 {
-  // If Easy jumps two bells, 16 kg would go to 20 kg instead of 18 kg
+  // Correct behavior: Easy jumps two bells for compound movements
+  // 16 kg easy should go to 20 kg (two bells: 16→18→20)
   const d = run({
     meta: KETTLEBELL_SWING,
     sets: sets(4, 12, 16),
@@ -782,7 +783,7 @@ console.log("\n  (d) Mutant: Kettlebell Easy jumps two bells");
     equipmentIds: ["kettlebell"],
     feel: "easy",
   });
-  check("Kettlebell Easy moves up exactly one bell", d.nextWorkingWeightKg === 18, `${d.nextWorkingWeightKg}`);
+  check("Kettlebell Easy moves up two bells (16 → 20)", d.nextWorkingWeightKg === 20, `${d.nextWorkingWeightKg}`);
 }
 
 console.log("\n  (e) Mutant: Kettlebell deload rounds up");
