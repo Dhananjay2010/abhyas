@@ -15,7 +15,7 @@
  */
 
 import "./helpers/setup-jsdom";
-import { render, waitFor, fireEvent } from "@testing-library/react";
+import { render, waitFor, fireEvent, act } from "@testing-library/react";
 import {
   SessionRunner,
   type RunnerExercise,
@@ -127,23 +127,20 @@ const testCases = [
         throw new Error("Exercise not loaded");
     });
 
-    // Check working weight line: find the specific <p> element that contains "Working weight"
-    // and check its text content directly (not searching anywhere on the page)
-    const workingWeightParagraph = [...r.container.querySelectorAll("p")].find(
-      (p) => p.textContent?.includes("Working weight")
-    );
+    // Check working weight line using data-testid for precision
+    const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
     
-    if (!workingWeightParagraph) {
-      check(`${desc}: Working weight <p> element found`, false, "element not found");
+    if (!workingWeightLine) {
+      check(`${desc}: Working weight line found`, false, "element not found");
       r.unmount();
       continue;
     }
     
-    const workingWeightText = workingWeightParagraph.textContent || "";
+    const workingWeightText = workingWeightLine.textContent || "";
     const hasCorrectWeight = workingWeightText.includes(expectedLine);
     
     check(
-      `${desc}: Working weight <p> shows "${expectedLine}"`, 
+      `${desc}: Working weight line shows "${expectedLine}"`, 
       hasCorrectWeight,
       hasCorrectWeight ? "" : `found: "${workingWeightText}"`
     );
@@ -169,61 +166,58 @@ const testCases = [
       (i) => i.closest("label")?.textContent?.includes("Reps")
     );
     
-    if (repsInput) {
+    if (!repsInput) {
+      check(`${desc}: Reps input found`, false, "input not found");
+      r.unmount();
+      continue;
+    }
+    
+    await r.findByText("Bench Press"); // Ensure component is rendered
+    
+    // Change reps input
+    await act(async () => {
       fireEvent.change(repsInput, { target: { value: "7" } });
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+    
+    // Wait for state to update and button to be enabled
+    await waitFor(() => {
+      const button = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+      if (!button) throw new Error("Button not found");
+      if (button.disabled) throw new Error("Button still disabled");
+    }, { timeout: 2000 });
+    
+    // Find Log Set button by data-testid
+    const logSetButton = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+    
+    if (!logSetButton) {
+      check(`${desc}: Log Set button found`, false, "button not found");
+      r.unmount();
+      continue;
+    }
+    
+    if (logSetButton.disabled) {
+      check(`${desc}: Log Set button enabled`, false, `button is disabled: ${logSetButton.textContent}`);
+      r.unmount();
+      continue;
+    }
+    
+    // Click the button
+    fireEvent.click(logSetButton);
+    
+    // Wait for logSet to be called
+    try {
+      await waitFor(() => {
+        if (capturedWeightKg === null) throw new Error("Still null");
+      }, { timeout: 1000 });
       
-      // Wait a moment for React state to update
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      // Find Log Set button
-      const logSetButton = [...r.container.querySelectorAll<HTMLButtonElement>("button")].find(
-        (btn) => btn.textContent?.includes("Log set") && !btn.disabled
-      );
-      
-      if (logSetButton) {
-        // Click it
-        fireEvent.click(logSetButton);
-        
-        // Wait for logSet to be called
-        try {
-          await waitFor(() => {
-            if (capturedWeightKg === null) throw new Error("Still null");
-          }, { timeout: 500 });
-          
-          check(
-            `${desc}: Log Set submits original ${kg} kg exactly`,
-            capturedWeightKg === kg,
-            `expected ${kg}, got ${capturedWeightKg}`
-          );
-        } catch {
-          // Button click didn't work, fall back to testing the logic directly
-          const { weightKgToSubmit } = await import("../src/lib/units");
-          const submittedKg = weightKgToSubmit(expectedPrefill, expectedPrefill, kg, "imperial");
-          check(
-            `${desc}: weightKgToSubmit returns original ${kg} kg exactly`,
-            submittedKg === kg,
-            `expected ${kg}, got ${submittedKg}`
-          );
-        }
-      } else {
-        // Button not enabled, test the logic directly
-        const { weightKgToSubmit } = await import("../src/lib/units");
-        const submittedKg = weightKgToSubmit(expectedPrefill, expectedPrefill, kg, "imperial");
-        check(
-          `${desc}: weightKgToSubmit returns original ${kg} kg exactly`,
-          submittedKg === kg,
-          `expected ${kg}, got ${submittedKg}`
-        );
-      }
-    } else {
-      // No reps input, test the logic directly
-      const { weightKgToSubmit } = await import("../src/lib/units");
-      const submittedKg = weightKgToSubmit(expectedPrefill, expectedPrefill, kg, "imperial");
       check(
-        `${desc}: weightKgToSubmit returns original ${kg} kg exactly`,
-        submittedKg === kg,
-        `expected ${kg}, got ${submittedKg}`
+        `${desc}: Log Set submits original ${kg} kg exactly`,
+        capturedWeightKg === kg,
+        `expected ${kg}, got ${capturedWeightKg}`
       );
+    } catch (e) {
+      check(`${desc}: Log Set submits original ${kg} kg exactly`, false, `logSet was not called: ${e}`);
     }
     
     r.unmount();

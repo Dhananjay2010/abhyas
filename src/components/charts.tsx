@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { formatValueExact } from "@/lib/progress/format-chart-value";
-import { formatWeight, type UnitsPreference } from "@/lib/units";
+import { formatWeight, formatBodyWeight, type UnitsPreference } from "@/lib/units";
 import { formatVolumeLifted } from "@/lib/session/format-volume-lifted";
 
 /**
@@ -93,6 +93,7 @@ export function LineChart({
   height = 140,
   singlePointHint = "Log another session to see a trend",
   weightUnits,
+  isBodyWeight = false,
 }: {
   points: Point[];
   unit?: string;
@@ -105,10 +106,19 @@ export function LineChart({
    * e.g. 120.5 lb / 54.6 kg, and `unit` is ignored.
    */
   weightUnits?: UnitsPreference;
+  /**
+   * Set to true for body weight charts to use 0.1 precision instead of 0.25 kg grid.
+   */
+  isBodyWeight?: boolean;
 }) {
-  const fmt = (v: number) => (weightUnits ? formatWeight(v, weightUnits) : formatValueExact(v, unit));
-  const fmtAxis = (v: number) =>
-    weightUnits ? formatWeight(v, weightUnits, false, "0") : Math.round(v).toLocaleString("en-US");
+  const fmt = (v: number) => {
+    if (!weightUnits) return formatValueExact(v, unit);
+    return isBodyWeight ? formatBodyWeight(v, weightUnits) : formatWeight(v, weightUnits);
+  };
+  const fmtAxis = (v: number) => {
+    if (!weightUnits) return Math.round(v).toLocaleString("en-US");
+    return isBodyWeight ? formatBodyWeight(v, weightUnits, false, "0") : formatWeight(v, weightUnits, false, "0");
+  };
   const id = useId();
   const [active, setActive] = useState<number | null>(null);
   const width = 320;

@@ -911,7 +911,7 @@ export function SessionRunner({
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 text-sm text-muted" data-testid="working-weight-line">
             Working weight {formatLoad(
               current.suggestedWeightKg ?? current.workingWeightKg,
               settings.units
@@ -1427,6 +1427,7 @@ function SetEntry({
               ? onLog(null, weightKg, Number(reps))
               : onLog(reps === "" ? null : Number(reps), weightKg);
           }}
+          data-testid="log-set-button"
         >
           Log set {setNumber}
         </BigButton>
@@ -1539,16 +1540,18 @@ function BigButton({
   children,
   onClick,
   disabled = false,
+  ...props
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
-}) {
+} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       className="w-full rounded-xl bg-accent px-6 py-5 text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-60"
+      {...props}
     >
       {children}
     </button>

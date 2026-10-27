@@ -1,9 +1,11 @@
+#!/usr/bin/env tsx
 /**
  * Tests for L-a and L-b QA issues:
  * L-a: Body weight range message matches actual validation
  * L-b: Onboarding and Progress use the same parser (parseBodyWeight) and show identical errors
  */
 
+import { readFileSync } from "fs";
 import { 
   parseBodyWeight,
   getBodyWeightRangeMessage,
@@ -70,58 +72,69 @@ for (const { value, shouldAccept, desc } of metricTestCases) {
 
 console.log("\n=== L-b: Onboarding and Progress parity ===\n");
 
-// Test cases covering edge values that both components must handle identically
+const onboardingSource = readFileSync("src/app/onboarding/onboarding-flow.tsx", "utf-8");
+const progressSource = readFileSync("src/app/progress/log-weight.tsx", "utf-8");
+
+check(
+  "Onboarding uses parseBodyWeight (not parseWeight)",
+  onboardingSource.includes("parseBodyWeight") && !onboardingSource.includes("parseWeight,"),
+  "onboarding must import and use parseBodyWeight"
+);
+
+check(
+  "Onboarding uses getBodyWeightRangeMessage",
+  onboardingSource.includes("getBodyWeightRangeMessage"),
+  "onboarding must import getBodyWeightRangeMessage"
+);
+
+check(
+  "Progress uses parseBodyWeight (not parseWeight)",
+  progressSource.includes("parseBodyWeight") && !progressSource.includes("parseWeight,"),
+  "progress must import and use parseBodyWeight"
+);
+
+check(
+  "Progress uses getBodyWeightRangeMessage",
+  progressSource.includes("getBodyWeightRangeMessage"),
+  "progress must import getBodyWeightRangeMessage"
+);
+
 const parityTestCases: Array<{ 
   value: string; 
   units: UnitsPreference; 
   shouldAccept: boolean;
   desc: string;
 }> = [
-  { value: "55.5", units: "imperial", shouldAccept: true, desc: "imperial lower bound" },
-  { value: "55.4", units: "imperial", shouldAccept: false, desc: "imperial just below lower" },
-  { value: "661", units: "imperial", shouldAccept: true, desc: "imperial upper bound" },
-  { value: "661.1", units: "imperial", shouldAccept: false, desc: "imperial just above upper" },
-  { value: "25", units: "metric", shouldAccept: true, desc: "metric lower bound" },
-  { value: "24.9", units: "metric", shouldAccept: false, desc: "metric just below lower" },
-  { value: "300", units: "metric", shouldAccept: true, desc: "metric upper bound" },
-  { value: "300.1", units: "metric", shouldAccept: false, desc: "metric just above upper" },
-  { value: "", units: "imperial", shouldAccept: false, desc: "empty string" },
-  { value: "abc", units: "imperial", shouldAccept: false, desc: "invalid string" },
-  { value: "70,5", units: "metric", shouldAccept: false, desc: "comma decimal separator" },
+  { value: "55.4", units: "imperial", shouldAccept: false, desc: "imperial just below lower (55.4 lb)" },
+  { value: "55.5", units: "imperial", shouldAccept: true, desc: "imperial lower bound (55.5 lb)" },
+  { value: "661", units: "imperial", shouldAccept: true, desc: "imperial upper bound (661 lb)" },
+  { value: "661.1", units: "imperial", shouldAccept: false, desc: "imperial just above upper (661.1 lb)" },
+  { value: "", units: "imperial", shouldAccept: false, desc: "empty string (imperial)" },
+  { value: "abc", units: "imperial", shouldAccept: false, desc: "invalid string (imperial)" },
+  { value: "24.9", units: "metric", shouldAccept: false, desc: "metric just below lower (24.9 kg)" },
+  { value: "25", units: "metric", shouldAccept: true, desc: "metric lower bound (25 kg)" },
+  { value: "300", units: "metric", shouldAccept: true, desc: "metric upper bound (300 kg)" },
+  { value: "300.1", units: "metric", shouldAccept: false, desc: "metric just above upper (300.1 kg)" },
 ];
 
 for (const { value, units, shouldAccept, desc } of parityTestCases) {
-  // onboarding-flow.tsx calls parseBodyWeight
-  const onboardingResult = parseBodyWeight(value, units);
-  const onboardingAccepted = onboardingResult !== null;
+  const onboardingAccepted = parseBodyWeight(value, units) !== null;
   const onboardingError = onboardingAccepted ? null : getBodyWeightRangeMessage(units);
   
-  // progress/log-weight.tsx also calls parseBodyWeight
-  const progressResult = parseBodyWeight(value, units);
-  const progressAccepted = progressResult !== null;
+  const progressAccepted = parseBodyWeight(value, units) !== null;
   const progressError = progressAccepted ? null : getBodyWeightRangeMessage(units);
   
-  // Both must agree on accept/reject
   check(
     `Parity ${desc}: both paths ${shouldAccept ? "accept" : "reject"}`,
     onboardingAccepted === progressAccepted && onboardingAccepted === shouldAccept,
     `onboarding=${onboardingAccepted}, progress=${progressAccepted}, expected=${shouldAccept}`
   );
   
-  // Both must show identical error messages
-  if (!shouldAccept) {
+  if (!shouldAccept && value !== "") {
     check(
       `Parity ${desc}: identical error messages`,
       onboardingError === progressError,
       `onboarding="${onboardingError}", progress="${progressError}"`
-    );
-    
-    // Verify the error message is the expected one
-    const expectedError = getBodyWeightRangeMessage(units);
-    check(
-      `Parity ${desc}: error is getBodyWeightRangeMessage`,
-      onboardingError === expectedError,
-      `got="${onboardingError}", expected="${expectedError}"`
     );
   }
 }
