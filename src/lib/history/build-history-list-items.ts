@@ -12,6 +12,7 @@ import type { SessionListItem } from "@/app/history/types";
 import { buildHistorySessionSummaries } from "./build-session-summaries";
 import type { RawSession, RawSessionExercise } from "./build-session-summaries";
 import { computeSessionDuration } from "./compute-duration";
+import { findLatestSetCompletion } from "./find-latest-set-completion";
 
 export interface RawSessionForList extends RawSession {
   local_date: string;
@@ -124,12 +125,7 @@ export function buildHistoryListItems(
     
     // L-4: Compute duration from timestamps when duration_seconds is null (legacy rows)
     const sessionSetList = setsBySession.get(s.id) ?? [];
-    const lastSetCompletedAt = sessionSetList.length > 0
-      ? sessionSetList
-          .filter(set => set.completed_at !== null)
-          .sort((a, b) => (a.completed_at ?? "").localeCompare(b.completed_at ?? ""))
-          .pop()?.completed_at ?? null
-      : null;
+    const lastSetCompletedAt = findLatestSetCompletion(sessionSetList);
     const durationSeconds = computeSessionDuration(
       s.duration_seconds,
       s.started_at,

@@ -14,6 +14,7 @@ import { formatVolume, formatWeight, getUnitsPreference } from "@/lib/units";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
 import { computeSessionDuration, formatDurationMinutes } from "@/lib/history/compute-duration";
+import { findLatestSetCompletion } from "@/lib/history/find-latest-set-completion";
 
 export const dynamic = "force-dynamic";
 
@@ -112,9 +113,8 @@ export default async function SessionDetailPage({
   );
   
   // Item 9: Duration - use stored duration_seconds, or compute from sets if NULL
-  const lastSetCompletedAt = sets && sets.length > 0 
-    ? sets[sets.length - 1].completed_at 
-    : null;
+  // L-4: Use chronologically latest set, not highest set_number
+  const lastSetCompletedAt = findLatestSetCompletion(sets ?? []);
   const durationSeconds = computeSessionDuration(
     session.duration_seconds,
     session.started_at,
