@@ -17,15 +17,13 @@ function hasSpecificKillMarker(output: string): boolean {
   // Check for line-anchored specific assertion failure markers
   // Line-anchored patterns (start of line after optional whitespace):
   // - "✗ N test(s) failed" — test-knee-safety-matrix
-  // - "❌ N test(s) failed" — test-owner-decision-mutants
   // - "Summary: N passed, M failed" (M ≥ 1) — test-knee-swaps, test-swap-mutations, test-swap-context
   // - "✗ FAIL" / "❌ FAIL" — generic test failure markers
-  // - "FAILED:" — generic assertion prefix
+  // - "FAILED:" — generic assertion prefix (test-owner-decision-mutants, others)
   // Bare substring "FAIL" anywhere is forbidden (too broad)
   
   const lineAnchored = [
     /^✗\s+\d+\s+test\(s\)\s+failed/m,            // "✗ 15 test(s) failed"
-    /^❌\s+\d+\s+test\(s\)\s+failed/m,            // "❌ 3 test(s) failed"
     /^Summary:.*\s+[1-9]\d*\s+failed/m,          // "Summary: 32 passed, 1 failed" (require ≥1 failure)
     /^✗\s+FAIL/m,                                 // "✗ FAIL: ..."
     /^❌\s+FAIL/m,                                 // "❌ FAIL: ..."
@@ -99,11 +97,6 @@ export function selfTestCrashDetection(): void {
     {
       name: "test-knee-safety-matrix pattern ✗ N test(s) failed = KILLED",
       error: { stdout: "✗ 15 test(s) failed\n", stderr: "", status: 1 },
-      expectCrash: false,
-    },
-    {
-      name: "test-owner-decision-mutants pattern ❌ N test(s) failed = KILLED",
-      error: { stdout: "❌ 3 test(s) failed\n", stderr: "", status: 1 },
       expectCrash: false,
     },
     {

@@ -23,13 +23,20 @@ const THREE_EXCLUDED_SLUGS = new Set([
   "single-arm-linear-jammer",
 ]);
 
-// Derive jammer slugs from PAST_KNEE_EXCLUDED_SLUGS
+// Hard-coded jammer slugs (not derived from source to avoid circular testing)
+const TWO_JAMMER_SLUGS = new Set([
+  "landmine-linear-jammer",
+  "single-arm-linear-jammer",
+]);
+
+// Separately verify that getPastKneeExcludedSlugs() contains our expected slugs
 const PAST_KNEE_EXCLUDED = getPastKneeExcludedSlugs();
-const TWO_JAMMER_SLUGS = new Set(
-  [...PAST_KNEE_EXCLUDED].filter(slug => 
-    slug.includes("jammer")
-  )
-);
+for (const slug of THREE_EXCLUDED_SLUGS) {
+  if (!PAST_KNEE_EXCLUDED.has(slug)) {
+    console.error(`✗ FATAL: getPastKneeExcludedSlugs() missing expected slug: ${slug}`);
+    process.exit(1);
+  }
+}
 
 // Fixtures: main's eligible sets (captured from main c3662dce)
 const MAIN_PAST_KNEE_ELIGIBLE = new Set([

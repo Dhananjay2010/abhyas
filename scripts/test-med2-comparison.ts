@@ -167,6 +167,74 @@ for (const day of lowerDays) {
         console.log(`  ✗ Lower-body sets: ${lowerBodySets} (expected ${ALLOWED_DAY5_DIFF.lowerBodySets.expected}, main was ${ALLOWED_DAY5_DIFF.lowerBodySets.main})`);
         failures++;
       }
+      
+      // Enforce the 3-exercise change list exactly
+      const prExercises = exercises.map(e => ({ name: e.name, slug: e.exData?.slug, sets: e.targetSets }));
+      const mainExercises = baselineDay.exercises;
+      
+      // Check each expected change occurred
+      for (const change of ALLOWED_DAY5_DIFF.exerciseChanges) {
+        if ('exercise' in change) {
+          // Set count change: "Barbell Seated Calf Raise" 3→4
+          const prEx = prExercises.find(e => e.name === change.exercise);
+          const mainEx = mainExercises.find(e => e.name === change.exercise);
+          if (!prEx || prEx.sets !== change.expectedSets) {
+            console.log(`  ✗ Expected ${change.exercise} to have ${change.expectedSets} sets, got ${prEx?.sets ?? 'not found'}`);
+            failures++;
+          } else if (!mainEx || mainEx.targetSets !== change.mainSets) {
+            console.log(`  ✗ Baseline ${change.exercise} should have ${change.mainSets} sets, got ${mainEx?.targetSets ?? 'not found'}`);
+            failures++;
+          }
+        } else {
+          // Exercise swap: "Wall Sit" → "Leg Extensions"
+          const prHas = prExercises.some(e => e.name === change.expectedExercise);
+          const mainHas = mainExercises.some(e => e.name === change.mainExercise);
+          if (!prHas) {
+            console.log(`  ✗ Expected exercise "${change.expectedExercise}" not found in PR`);
+            failures++;
+          }
+          if (!mainHas) {
+            console.log(`  ✗ Main exercise "${change.mainExercise}" not found in baseline`);
+            failures++;
+          }
+          // Verify the swapped-out exercise is gone
+          if (prExercises.some(e => e.name === change.mainExercise)) {
+            console.log(`  ✗ Main exercise "${change.mainExercise}" should be replaced but still present`);
+            failures++;
+          }
+        }
+      }
+      
+      // Verify no other exercises changed (beyond the 3 listed changes)
+      const changedExerciseNames = new Set<string>();
+      for (const change of ALLOWED_DAY5_DIFF.exerciseChanges) {
+        if ('exercise' in change) {
+          changedExerciseNames.add(change.exercise);
+        } else {
+          changedExerciseNames.add(change.mainExercise);
+          changedExerciseNames.add(change.expectedExercise);
+        }
+      }
+      
+      for (const mainEx of mainExercises) {
+        if (changedExerciseNames.has(mainEx.name)) continue;
+        const prEx = prExercises.find(e => e.name === mainEx.name);
+        if (!prEx) {
+          console.log(`  ✗ Unlisted change: "${mainEx.name}" removed (not in allow-list)`);
+          failures++;
+        } else if (prEx.sets !== mainEx.targetSets) {
+          console.log(`  ✗ Unlisted change: "${mainEx.name}" sets changed ${mainEx.targetSets}→${prEx.sets} (not in allow-list)`);
+          failures++;
+        }
+      }
+      
+      for (const prEx of prExercises) {
+        if (changedExerciseNames.has(prEx.name)) continue;
+        if (!mainExercises.some(e => e.name === prEx.name)) {
+          console.log(`  ✗ Unlisted change: "${prEx.name}" added (not in allow-list)`);
+          failures++;
+        }
+      }
     } else {
       // Other days: check tolerance
       const setDiff = Math.abs(lowerBodySets - baselineDay.lowerBodySets);

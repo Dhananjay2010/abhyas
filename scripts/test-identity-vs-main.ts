@@ -175,7 +175,13 @@ for (const testCase of testCases) {
         
         if (allowedIdx >= 0) {
           allowedDiffsUsed.add(allowedIdx);
-          foundDiffs.push({ day: i + 1, slot: j + 1, got: ex.name ?? "", expected: expEx.name ?? "" });
+          foundDiffs.push({ day: i + 1, slot: j + 1, got: ex.name ?? "", expected: expEx.name ?? "", gotSets: ex.targetSets, expSets: expEx.targetSets });
+          
+          // Verify set counts match for allow-listed exercises
+          if (ex.targetSets !== expEx.targetSets) {
+            fail(`Day ${i+1} ex ${j+1}: ${ex.name ?? "unknown"} has ${ex.targetSets} sets vs main ${expEx.name ?? "unknown"} ${expEx.targetSets} sets (allow-listed exercises must have same set counts)`);
+            programMatch = false;
+          }
         } else {
           fail(`Day ${i+1} ex ${j+1}: ${ex.name ?? "unknown"} (${ex.targetSets} sets) vs ${expEx.name ?? "unknown"} (${expEx.targetSets} sets) [not on allow-list]`);
           programMatch = false;

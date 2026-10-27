@@ -6,6 +6,7 @@
 
 import { execSync } from "child_process";
 import { readFileSync, writeFileSync } from "fs";
+import { isCrash } from "./lib/mutant-classify";
 
 interface Mutant {
   name: string;
@@ -97,29 +98,18 @@ for (const mutant of MUTANTS) {
         const status = typeof error === "object" && error !== null && "status" in error && typeof error.status === "number" ? error.status : 1;
         const output = stdout + stderr;
         
-        // Crash detection: string throw, stack trace, or silent exit(1) without assertion
-        const hasStackTrace = output.includes("    at ") || /^\s+at\s+/m.test(output) || output.includes("Error:");
-        const hasAssertion = output.includes("✗ FAIL") || output.includes("❌ FAILED");
-        const isSilentExit = status !== 0 && !output.trim();
-        
-        if (hasStackTrace || isSilentExit) {
-          // This is a crash, not a kill
-          console.log(`  💥 CRASH: ${test} crashed (${hasStackTrace ? 'stack trace' : 'silent exit'})`);
+        // Use shared crash detection
+        if (isCrash(output, status)) {
+          console.log(`  💥 CRASH: ${test} crashed`);
           if (output) {
             console.log(`  Output preview: ${output.substring(0, 200)}`);
           }
           crashed++;
           testFailed = "crash";
           break;
-        } else if (hasAssertion) {
+        } else {
           // Normal test failure with assertion
           testFailed = true;
-        } else {
-          // Non-zero exit without clear signal - treat as crash
-          console.log(`  💥 CRASH: ${test} exited ${status} without clear assertion`);
-          crashed++;
-          testFailed = "crash";
-          break;
         }
       }
     }
