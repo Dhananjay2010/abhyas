@@ -18,17 +18,17 @@ type ActionResult<T = unknown> =
  * 
  * @example
  * ```ts
- * export async function expensiveAction(): Promise<ActionResult> {
- *   const rateLimit = await checkActionRateLimit("expensive");
+ * export async function expensiveAction(): Promise<ActionResult<MyData>> {
+ *   const rateLimit = await checkActionRateLimit<MyData>("expensive");
  *   if (rateLimit) return rateLimit;
  *   
  *   // action implementation
  * }
  * ```
  */
-export async function checkActionRateLimit(
+export async function checkActionRateLimit<T = undefined>(
   type: RateLimitType = "default",
-): Promise<ActionResult | null> {
+): Promise<ActionResult<T> | null> {
   const headersList = await headers();
   const ip = getClientIpFromHeaders(headersList);
 
