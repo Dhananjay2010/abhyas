@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
-import { logBodyWeightCore, type LogBodyWeightResult } from "@/lib/progress/log-bodyweight-core";
+import { logBodyWeightCore, createBodyWeightDbOps, type LogBodyWeightResult } from "@/lib/progress/log-bodyweight-core";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 export type LogWeightResult = LogBodyWeightResult;
@@ -23,7 +23,8 @@ export async function logBodyWeight(weightKg: number): Promise<LogWeightResult> 
     .single();
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   
-  const result = await logBodyWeightCore(supabase, user.id, weightKg, timezone);
+  const db = createBodyWeightDbOps(supabase, user.id);
+  const result = await logBodyWeightCore(db, weightKg, timezone);
   
   if (result.ok) {
     revalidatePath("/progress");
