@@ -78,7 +78,8 @@ function check(label: string, pass: boolean, detail = "") {
     restSeconds: 180,
     workingWeightKg: 62.5,
     suggestedWeightKg: 62.5,
-      previousCompletedWeightKg: null,
+    // M1: Make this an increase (60 -> 62.5) so it floors to 137.5 lb
+    previousCompletedWeightKg: 60,
     status: "pending",
     feel: null,
     sets: [],
@@ -163,7 +164,8 @@ function check(label: string, pass: boolean, detail = "") {
     restSeconds: 180,
     workingWeightKg: 100,
     suggestedWeightKg: 100,
-      previousCompletedWeightKg: null,
+    // M1: Make this an increase (97.5 -> 100) so it floors to 220 lb
+    previousCompletedWeightKg: 97.5,
     status: "pending",
     feel: null,
     sets: [],

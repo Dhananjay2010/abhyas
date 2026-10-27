@@ -81,8 +81,8 @@ test_mutant_pinned U4 "SinglePoint ignores fmt (raw kg value)" literal "$C" \
   '{fmt(point.value)}</p>' '{formatValueExact(point.value, "kg")}</p>' "U1 "
 test_mutant_pinned U5 "BarChart fmt ignores volumeUnits" literal "$C" \
   '(volumeUnits ? formatVolumeLifted(v, volumeUnits) : formatValueExact(v, unit))' 'formatValueExact(v, unit)' "volume"
-test_mutant_pinned U6 "LineChart axis ignores weightUnits" literal "$C" \
-  'return formatWeight(v, weightUnits, false, "0");' 'return Math.round(v).toLocaleString("en-US");' "U2 axis"
+test_mutant_pinned U6 "LineChart axis ignores weightUnits (body weight)" literal "$C" \
+  'return formatBodyWeight(v, weightUnits, false, "0");' 'return Math.round(v).toLocaleString("en-US");' "U2 axis"
 test_mutant_pinned U7 "BarChart axis ignores volumeUnits" literal "$C" \
   '{fmtAxis(max)}' '{Math.round(max).toLocaleString("en-US")}' "U2 axis"
 test_mutant_pinned U8 "value table prints raw numbers" literal "$C" \
