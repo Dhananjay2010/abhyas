@@ -171,7 +171,82 @@ async function runTests() {
     check("keeps user signed in", !signedOut);
   }
 
-  console.log("\n7. Error mapping (pure function)");
+  console.log("\n7. OWN01 support contact resolution (3 branches)");
+  {
+    // Import branding to test the 3 branches
+    const { branding } = await import("../src/lib/branding");
+    
+    // Test OWN01 includes support contact
+    const msgOWN01 = mapDeletionError({ 
+      code: "OWN01", 
+      message: "You own Gym ABC. Transfer ownership before deleting your account." 
+    });
+    check(
+      "OWN01 error shows gym name",
+      msgOWN01.includes("Gym ABC")
+    );
+    check(
+      "OWN01 error mentions transfer ownership",
+      msgOWN01.includes("Transfer ownership")
+    );
+    check(
+      "OWN01 error includes 'For assistance'",
+      msgOWN01.includes("For assistance")
+    );
+    
+    // Branch 1: Brand has supportEmail (highest priority)
+    if (branding.supportEmail) {
+      check(
+        "OWN01 uses Brand.supportEmail when set",
+        msgOWN01.includes(branding.supportEmail)
+      );
+      check(
+        "OWN01 format: 'contact <email>'",
+        msgOWN01.includes(`contact ${branding.supportEmail}`)
+      );
+    }
+    // Branch 2: NEXT_PUBLIC_SUPPORT_EMAIL is set (medium priority)
+    else if (process.env.NEXT_PUBLIC_SUPPORT_EMAIL) {
+      check(
+        "OWN01 uses NEXT_PUBLIC_SUPPORT_EMAIL when Brand.supportEmail not set",
+        msgOWN01.includes(process.env.NEXT_PUBLIC_SUPPORT_EMAIL)
+      );
+      check(
+        "OWN01 format: 'contact <email>'",
+        msgOWN01.includes(`contact ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}`)
+      );
+    }
+    // Branch 3: Neither is set (lowest priority fallback)
+    else {
+      check(
+        "OWN01 uses fallback wording when no email configured",
+        msgOWN01.includes("contact your gym's administrator")
+      );
+      check(
+        "OWN01 does NOT include hardcoded email when unconfigured",
+        !msgOWN01.includes("@")
+      );
+    }
+    
+    // Verify all branches produce well-formed messages
+    check(
+      "OWN01 always includes 'contact' in some form",
+      msgOWN01.toLowerCase().includes("contact")
+    );
+    
+    const msgOWN01NoMessage = mapDeletionError({ code: "OWN01" });
+    check(
+      "OWN01 without message shows fallback",
+      msgOWN01NoMessage.includes("own a gym") && msgOWN01NoMessage.includes("Transfer ownership")
+    );
+    check(
+      "OWN01 fallback also includes support contact",
+      msgOWN01NoMessage.includes("For assistance")
+    );
+
+  }
+
+  console.log("\n8. Other error codes");
   {
     const msg42883 = mapDeletionError({ code: "42883" });
     check(

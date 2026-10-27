@@ -562,6 +562,62 @@ export type Database = {
         }
         Relationships: []
       }
+      gym_memberships: {
+        Row: {
+          gym_id: string
+          joined_at: string
+          role: Database["public"]["Enums"]["gym_role"]
+          status: string
+          user_id: string
+        }
+        Insert: {
+          gym_id: string
+          joined_at?: string
+          role: Database["public"]["Enums"]["gym_role"]
+          status?: string
+          user_id: string
+        }
+        Update: {
+          gym_id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["gym_role"]
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_memberships_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gyms: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          timezone: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          timezone?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          timezone?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1436,6 +1492,22 @@ export type Database = {
           days_completed: number
         }[]
       }
+      get_owned_gym_name: {
+        Args: Record<PropertyKey, never>
+        Returns: string | null
+      }
+      is_gym_owner: {
+        Args: {
+          check_gym_id: string
+        }
+        Returns: boolean
+      }
+      is_gym_staff: {
+        Args: {
+          check_gym_id: string
+        }
+        Returns: boolean
+      }
       rebuild_block: {
         Args: {
           p_today: string
@@ -1512,6 +1584,7 @@ export type Database = {
         | "flexibility_stress"
       fitness_level: "beginner" | "intermediate" | "expert"
       force_type: "push" | "pull" | "static"
+      gym_role: "owner" | "staff" | "member"
       impact_level: "low" | "medium" | "high"
       injury_severity: "current" | "past"
       mechanic_type: "compound" | "isolation"
@@ -1749,6 +1822,7 @@ export const Constants = {
       ],
       fitness_level: ["beginner", "intermediate", "expert"],
       force_type: ["push", "pull", "static"],
+      gym_role: ["owner", "staff", "member"],
       impact_level: ["low", "medium", "high"],
       injury_severity: ["current", "past"],
       mechanic_type: ["compound", "isolation"],
