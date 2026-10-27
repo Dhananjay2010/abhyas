@@ -10,7 +10,7 @@
  * - First miss always holds (decision F)
  */
 
-import { evaluateProgression } from "../src/lib/program/progression.js";
+import { evaluateProgression, type ExerciseMeta } from "../src/lib/program/progression.js";
 
 let failures = 0;
 
@@ -23,7 +23,7 @@ function check(desc: string, pass: boolean, detail = "") {
   }
 }
 
-const PRESS = {
+const PRESS: ExerciseMeta = {
   mechanic: "compound",
   metric: "reps",
   movementPattern: "vertical_press",
@@ -32,7 +32,7 @@ const PRESS = {
   progressionRank: null,
 };
 
-const CURL = {
+const CURL: ExerciseMeta = {
   mechanic: "isolation",
   metric: "reps",
   movementPattern: "biceps",
@@ -67,7 +67,7 @@ console.log("1. Military Press 45.36 kg with stored 40 kg (QA bug fix)");
   });
   
   check("  right: next = 47.5 kg (mode 45.36 + 2.5, floor-snap)", rightDecision.nextWorkingWeightKg === 47.5, `got ${rightDecision.nextWorkingWeightKg}`);
-  check("  right: cap satisfied (47.5 - 45.36 = 2.14 ≤ 2.5)", rightDecision.nextWorkingWeightKg - 45.36 <= 2.5);
+  check("  right: cap satisfied (47.5 - 45.36 = 2.14 ≤ 2.5)", (rightDecision.nextWorkingWeightKg ?? 0) - 45.36 <= 2.5);
   
   const easyDecision = evaluateProgression({
     sets,
@@ -83,7 +83,7 @@ console.log("1. Military Press 45.36 kg with stored 40 kg (QA bug fix)");
   });
   
   check("  easy: next = 50 kg (mode 45.36 + 5, floor-snap)", easyDecision.nextWorkingWeightKg === 50, `got ${easyDecision.nextWorkingWeightKg}`);
-  check("  easy: cap satisfied (50 - 45.36 = 4.64 ≤ 5)", easyDecision.nextWorkingWeightKg - 45.36 <= 5);
+  check("  easy: cap satisfied (50 - 45.36 = 4.64 ≤ 5)", (easyDecision.nextWorkingWeightKg ?? 0) - 45.36 <= 5);
 }
 
 // Test 2: Imperial round-down for increases

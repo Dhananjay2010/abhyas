@@ -83,7 +83,8 @@ const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) =>
 
 console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 
-// Dumbbell 6 → 5 (drops one step)
+// Decision F: First miss ALWAYS holds at current weight
+// Dumbbell 6 → holds
 {
   const d = run({
     sets: sets(4, 7, 6),
@@ -92,11 +93,11 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 0 }),
   });
-  check("Dumbbell 6 kg first miss → 5 kg", d.nextWorkingWeightKg === 5 && d.consecutiveFailures === 1);
-  check("  message indicates drop", d.message.includes("dropping to 5 kg"));
+  check("Dumbbell 6 kg first miss → holds at 6 kg", d.nextWorkingWeightKg === 6 && d.consecutiveFailures === 1);
+  check("  message indicates hold", d.message.includes("Staying at this weight"), `got: ${d.message}`);
 }
 
-// Dumbbell 12 → 10 (drops one step)
+// Dumbbell 12 → holds
 {
   const d = run({
     sets: sets(4, 7, 12),
@@ -105,8 +106,8 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
-  check("Dumbbell 12 kg first miss → 10 kg", d.nextWorkingWeightKg === 10 && d.consecutiveFailures === 1);
-  check("  message indicates drop", d.message.includes("dropping to 10 kg"));
+  check("Dumbbell 12 kg first miss → holds at 12 kg", d.nextWorkingWeightKg === 12 && d.consecutiveFailures === 1);
+  check("  message indicates hold", d.message.includes("Staying at this weight"), `got: ${d.message}`);
 }
 
 // Dumbbell 5 → holds (smallest loadable, or below increment)
@@ -119,7 +120,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
     state: fresh({ currentWorkingWeightKg: 5, consecutiveFailures: 0 }),
   });
   check("Dumbbell 5 kg first miss → holds at 5 kg", d.nextWorkingWeightKg === 5 && d.consecutiveFailures === 1);
-  check("  message indicates smallest step", d.message.includes("smallest available step"));
+  check("  message is standard hold", d.message.includes("Staying at this weight"));
 }
 
 // Dumbbell 7.5 → holds (33% cut triggers 20% threshold)
@@ -134,12 +135,13 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
   const cutPct = (7.5 - 5) / 7.5;
   check(`Dumbbell 7.5 kg first miss → holds (cut would be ${(cutPct * 100).toFixed(1)}% > 20%)`, 
     d.nextWorkingWeightKg === 7.5 && d.consecutiveFailures === 1);
-  check("  message indicates smallest step", d.message.includes("smallest available step"));
+  check("  message is standard hold", d.message.includes("Staying at this weight"));
 }
 
 console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
 
 // Same cases in imperial (stored as kg, displayed as lb)
+// Decision F: First miss ALWAYS holds
 {
   const d = run({
     sets: sets(4, 7, 6),
@@ -148,8 +150,8 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 0 }),
   });
-  check("Dumbbell 6 kg (13.2 lb) first miss → 5 kg (11 lb)", 
-    d.nextWorkingWeightKg === 5 && d.message.includes("11 lb"));
+  check("Dumbbell 6 kg (13.2 lb) first miss → holds at 6 kg", 
+    d.nextWorkingWeightKg === 6 && d.message.includes("Staying at this weight"), `weight: ${d.nextWorkingWeightKg}, message: ${d.message}`);
 }
 
 {
@@ -160,8 +162,8 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
-  check("Dumbbell 12 kg (26.5 lb) first miss → 10 kg (22 lb)", 
-    d.nextWorkingWeightKg === 10 && d.message.includes("22 lb"));
+  check("Dumbbell 12 kg (26.5 lb) first miss → holds at 12 kg", 
+    d.nextWorkingWeightKg === 12 && d.message.includes("Staying at this weight"), `weight: ${d.nextWorkingWeightKg}, message: ${d.message}`);
 }
 
 {
@@ -173,7 +175,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
     state: fresh({ currentWorkingWeightKg: 5, consecutiveFailures: 0 }),
   });
   check("Dumbbell 5 kg (11 lb) first miss → holds at 5 kg", 
-    d.nextWorkingWeightKg === 5 && d.message.includes("smallest available step"));
+    d.nextWorkingWeightKg === 5 && d.message.includes("Staying at this weight"));
 }
 
 {
@@ -185,7 +187,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
     state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 0 }),
   });
   check("Dumbbell 7.5 kg (16.5 lb) first miss → holds at 7.5 kg", 
-    d.nextWorkingWeightKg === 7.5 && d.message.includes("smallest available step"));
+    d.nextWorkingWeightKg === 7.5 && d.message.includes("Staying at this weight"));
 }
 
 console.log("\n=== First-Miss: Leg Extension & Med Ball ===");
@@ -289,11 +291,11 @@ console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
-  check("Increase from 12kg dumbbell lands on loadable value", decision.nextWorkingWeightKg === 15);
+  check("Increase from 12kg dumbbell lands on loadable value", decision.nextWorkingWeightKg === 12.5, `got ${decision.nextWorkingWeightKg}`);
   
   // suggestedWeight just returns that value
-  const w = suggestedWeight({ currentWorkingWeightKg: 15 }, false, CURL, ["dumbbell"]);
-  check("  suggestedWeight returns 15 (loadable)", w === 15);
+  const w = suggestedWeight({ currentWorkingWeightKg: 12.5 }, false, CURL, ["dumbbell"]);
+  check("  suggestedWeight returns 12.5 (loadable)", w === 12.5);
 }
 
 // Test that decreases land on grid (via two-miss)
@@ -489,9 +491,9 @@ console.log("\n=== Mutant-Killing Tests ===");
   check("12.5kg dumbbell first miss → hold (10kg < two-miss floor)", d.nextWorkingWeightKg === 12.5);
 }
 
-// Exact 20% boundary without two-miss floor interference
+// Decision F: First miss always holds
 {
-  // Barbell compound 12.5kg -> 10kg is exactly 20%
+  // Barbell compound 12.5kg first miss -> holds
   const d = run({
     sets: sets(4, 7, 12.5),
     equipmentIds: ["barbell"],
@@ -499,13 +501,12 @@ console.log("\n=== Mutant-Killing Tests ===");
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
   });
-  check("12.5kg barbell compound exact 20% cut: drops to 10kg (> not >=)", d.nextWorkingWeightKg === 10);
+  check("12.5kg barbell compound first miss: holds at 12.5kg", d.nextWorkingWeightKg === 12.5);
 }
 
-// (f) Kill kettlebell <= mutant: ensure strictly-below
+// Decision F: First miss always holds
 {
-  // Kettlebell at 16 kg. Next bell down is 14 kg. If we allow <=, it would stay at 16.
-  // With <, it must go to 14.
+  // Kettlebell at 16 kg. First miss holds.
   const d = run({
     sets: sets(4, 7, 16),
     equipmentIds: ["kettlebell"],
@@ -513,10 +514,10 @@ console.log("\n=== Mutant-Killing Tests ===");
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 16, consecutiveFailures: 0 }),
   });
-  check("Kettlebell 16 kg first miss: must drop to 14 kg (strictly below)", d.nextWorkingWeightKg === 14);
+  check("Kettlebell 16 kg first miss: holds at 16 kg", d.nextWorkingWeightKg === 16);
 }
 
-// More kettlebell strictly-below tests
+// Decision F: First miss always holds
 {
   const d = run({
     sets: sets(4, 7, 12),
@@ -525,7 +526,7 @@ console.log("\n=== Mutant-Killing Tests ===");
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
-  check("Kettlebell 12 kg first miss: must drop to 10 kg (strictly below)", d.nextWorkingWeightKg === 10);
+  check("Kettlebell 12 kg first miss: holds at 12 kg", d.nextWorkingWeightKg === 12);
 }
 
 {
@@ -536,7 +537,7 @@ console.log("\n=== Mutant-Killing Tests ===");
     meta: BENCH,
     state: fresh({ currentWorkingWeightKg: 24, consecutiveFailures: 0 }),
   });
-  check("Kettlebell 24 kg first miss: must drop to 20 kg (strictly below)", d.nextWorkingWeightKg === 20);
+  check("Kettlebell 24 kg first miss: holds at 24 kg", d.nextWorkingWeightKg === 24);
 }
 
 // (g) Kill invariant clamp removal: test case where first-miss < two-miss without clamp

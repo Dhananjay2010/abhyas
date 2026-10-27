@@ -1066,11 +1066,7 @@ export function evaluateProgression(input: {
     ? "Staying at this hold length until every set reaches the top of the range."
     : currentWeight === null
       ? "Staying here until every set reaches the top of the range."
-      : nextWeight !== null && nextWeight !== currentWeight
-        ? `Missed the target — dropping to ${displayWeight(nextWeight)}.`
-        : equipmentIds && currentWeight !== null && currentWeight > 0
-          ? `Missed the target but holding at ${displayWeight(currentWeight)} — it is the smallest available step.`
-          : `Staying at ${displayWeight(currentWeight)} until every set reaches the top of the range.`;
+      : "Staying at this weight until every set reaches the top of the range.";
   
   return {
     ...carried,
