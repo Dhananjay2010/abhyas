@@ -78,6 +78,17 @@ port = 54322
 port = 54321
 EOF
 
+# Config with default API port only (for testing SUPABASE_URL default port check)
+cat > "$TMPDIR/default-api-config.toml" << 'EOF'
+project_id = "TestGym"
+
+[db]
+port = 54333
+
+[api]
+port = 54321
+EOF
+
 # GOOD_ENV for non-CI allow cases
 export ALLOW_DB_RESET="1"
 export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
@@ -201,7 +212,7 @@ check_refuse "SUPABASE_URL port mismatch" "must match config.toml" \
   bash -c 'ALLOW_DB_RESET=1 SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_URL="http://localhost:8080" NEXT_PUBLIC_SUPABASE_URL="http://localhost:8080"; source scripts/lib-db-reset-guard.sh; check_db_reset_guard_bash explain "'"$TMPDIR/custom-config.toml"'"'
 
 check_refuse "SUPABASE_URL default port 54321" "default 54321" \
-  bash -c 'ALLOW_DB_RESET=1 SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54322/postgres" SUPABASE_URL="http://localhost:54321" NEXT_PUBLIC_SUPABASE_URL="http://localhost:54321"; source scripts/lib-db-reset-guard.sh; check_db_reset_guard_bash explain "'"$TMPDIR/custom-config.toml"'"'
+  bash -c 'ALLOW_DB_RESET=1 SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_URL="http://localhost:54321" NEXT_PUBLIC_SUPABASE_URL="http://localhost:54321"; source scripts/lib-db-reset-guard.sh; check_db_reset_guard_bash explain "'"$TMPDIR/default-api-config.toml"'"'
 
 check_refuse "NEXT_PUBLIC_SUPABASE_URL unset" "NEXT_PUBLIC_SUPABASE_URL is required" \
   bash -c 'ALLOW_DB_RESET=1 SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_URL="http://localhost:54334" unset NEXT_PUBLIC_SUPABASE_URL; source scripts/lib-db-reset-guard.sh; check_db_reset_guard_bash explain "'"$TMPDIR/custom-config.toml"'"'
@@ -209,9 +220,16 @@ check_refuse "NEXT_PUBLIC_SUPABASE_URL unset" "NEXT_PUBLIC_SUPABASE_URL is requi
 check_refuse "NEXT_PUBLIC_SUPABASE_URL mismatch" "must match SUPABASE_URL" \
   bash -c 'ALLOW_DB_RESET=1 SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_URL="http://localhost:54334" NEXT_PUBLIC_SUPABASE_URL="http://localhost:54399"; source scripts/lib-db-reset-guard.sh; check_db_reset_guard_bash explain "'"$TMPDIR/custom-config.toml"'"'
 
-# URL normalization tests
-check_refuse "NEXT_PUBLIC 127.0.0.1 vs SUPABASE_URL localhost (normalized)" "0" \
-  bash -c 'ALLOW_DB_RESET=1 SUPABASE_DB_URL="postgresql://postgres:postgres@127.0.0.1:54333/postgres" SUPABASE_URL="http://localhost:54334" NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:54334"; source scripts/lib-db-reset-guard.sh; if check_db_reset_guard_bash check "'"$TMPDIR/custom-config.toml"'"; then echo "0"; else echo "1"; fi'
+# URL normalization test (localhost vs 127.0.0.1 should match and ALLOW)
+echo
+echo "TEST: URL normalization - localhost vs 127.0.0.1 should match"
+ALLOW_DB_RESET=1 SUPABASE_DB_URL="postgresql://postgres:postgres@127.0.0.1:54333/postgres" SUPABASE_URL="http://localhost:54334" NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:54334"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "localhost vs 127.0.0.1 normalized allows" "0" "0"
+else
+  check "localhost vs 127.0.0.1 normalized allows" "0" "1"
+fi
+echo
 
 echo
 echo "TEST: TypeScript guard via tsx"
@@ -248,6 +266,10 @@ function checkRefuse(label: string, reasonSubstring: string, fn: () => { allow: 
 const tmpDir = mkdtempSync("/tmp/tstest-");
 const customConfig = join(tmpDir, "custom.toml");
 writeFileSync(customConfig, 'project_id = "TestGym"\n\n[db]\nport = 54333\n\n[api]\nport = 54334\n');
+const defaultConfig = join(tmpDir, "default.toml");
+writeFileSync(defaultConfig, 'project_id = "TestGym"\n\n[db]\nport = 54322\n\n[api]\nport = 54321\n');
+const defaultApiConfig = join(tmpDir, "default-api.toml");
+writeFileSync(defaultApiConfig, 'project_id = "TestGym"\n\n[db]\nport = 54333\n\n[api]\nport = 54321\n');
 
 try {
   console.log("TypeScript guard - Positive control (GOOD_ENV allows)");
@@ -359,7 +381,7 @@ try {
     process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54322/postgres";
     process.env.SUPABASE_URL = "http://localhost:54321";
     process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
-    const result = checkDbResetGuard(customConfig);
+    const result = checkDbResetGuard(defaultConfig);
     process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
     process.env.SUPABASE_URL = "http://localhost:54334";
     process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";
@@ -456,9 +478,11 @@ try {
   });
 
   checkRefuse("SUPABASE_URL default port 54321", "default 54321", () => {
+    process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
     process.env.SUPABASE_URL = "http://localhost:54321";
     process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
-    const result = checkDbResetGuard(customConfig);
+    const result = checkDbResetGuard(defaultApiConfig);
+    process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
     process.env.SUPABASE_URL = "http://localhost:54334";
     process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";
     return result;
