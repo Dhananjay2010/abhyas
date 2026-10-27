@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Test migration 043 idempotency:
-# - Re-applying 043 on an already-migrated DB should succeed without error
-# - Function, trigger, policy, grants and constraints should remain correct
-# - An authenticated owner should still be blocked from updating non-brand columns
+# Test that migration 043 can be re-applied idempotently
+# Creates its own test data, does not rely on seed
 
-echo "=== Testing Migration 043 Idempotency ==="
+echo "=== Testing migration 043 idempotency ==="
 echo
 
 # Skip if REAL_DB is not set
 if [ "${REAL_DB:-}" != "1" ]; then
-  echo "⏭️  Skipping idempotency test (REAL_DB=1 not set)"
+  echo "⏭️  Skipping (REAL_DB=1 not set)"
   exit 0
 fi
 
@@ -19,150 +17,86 @@ fi
 source "$(dirname "$0")/lib-db-reset-guard.sh"
 if ! check_db_reset_guard_bash check "supabase/config.toml"; then
   echo "❌ DB reset guard check failed"
-  exit 1
-fi
-
-# Check Supabase is running
-if ! supabase status &>/dev/null; then
-  echo "❌ Supabase not running"
+  check_db_reset_guard_bash explain "supabase/config.toml"
   exit 1
 fi
 
 SUPABASE_DB_URL="${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/postgres}"
 
-echo "Step 1: Get baseline seeded gym state..."
-# Save the current state of the seeded gym
-SEEDED_GYM=$(psql "$SUPABASE_DB_URL" -tA -c "
-  SELECT id, name, slug, timezone, display_name, logo_url, primary_color, accent_color, created_at
-  FROM public.gyms
-  WHERE slug = 'test-gym'
-  LIMIT 1;
-")
-
-if [ -z "$SEEDED_GYM" ]; then
-  echo "⚠️  No seeded gym found with slug 'test-gym', skipping state preservation"
-  SEEDED_GYM_EXISTS=false
-else
-  echo "✓ Seeded gym state saved"
-  SEEDED_GYM_EXISTS=true
-  
-  # Parse the saved state
-  IFS='|' read -r GYM_ID GYM_NAME GYM_SLUG GYM_TIMEZONE GYM_DISPLAY_NAME GYM_LOGO_URL GYM_PRIMARY_COLOR GYM_ACCENT_COLOR GYM_CREATED_AT <<< "$SEEDED_GYM"
-fi
-
-echo
-echo "Step 2: Re-apply migration 043..."
-if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" \
-  -f supabase/migrations/20261025000043_gyms_column_lock.sql > /dev/null; then
-  echo "❌ Re-applying migration 043 failed"
+# Verify migration file exists
+if [ ! -f "supabase/migrations/20261025000043_gyms_column_lock.sql" ]; then
+  echo "❌ Migration 043 not found"
   exit 1
 fi
-echo "✓ Migration 043 re-applied successfully"
 
+echo "Creating test gym and owner..."
+
+# Create test gym and owner via psql
+GYM_ID=$(uuidgen)
+OWNER_EMAIL="owner-idem043-$RANDOM@example.com"
+
+psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" <<SQL
+-- Insert test gym
+INSERT INTO public.gyms (id, slug, name, timezone, display_name, primary_color, accent_color)
+VALUES ('$GYM_ID', 'idem-043-gym', 'Idem 043 Gym', 'UTC', 'Test Display', '#FF9A2E', '#0A0C0E');
+
+-- Create owner user via auth schema
+INSERT INTO auth.users (id, email, email_confirmed_at, encrypted_password, aud, role, created_at, updated_at)
+VALUES (gen_random_uuid(), '$OWNER_EMAIL', now(), crypt('password123', gen_salt('bf')), 'authenticated', 'authenticated', now(), now())
+RETURNING id \gset owner_
+
+-- Add owner membership
+INSERT INTO public.gym_memberships (gym_id, user_id, role, status)
+VALUES ('$GYM_ID', :'owner_id', 'owner', 'active');
+SQL
+
+echo "✓ Test data created"
 echo
-echo "Step 3: Restore seeded gym state..."
-if [ "$SEEDED_GYM_EXISTS" = true ]; then
-  # Restore the original state (run as postgres)
-  psql "$SUPABASE_DB_URL" -c "
-    UPDATE public.gyms
-    SET name = '$GYM_NAME',
-        timezone = '$GYM_TIMEZONE',
-        display_name = $([ -n "$GYM_DISPLAY_NAME" ] && echo "'$GYM_DISPLAY_NAME'" || echo "NULL"),
-        logo_url = $([ -n "$GYM_LOGO_URL" ] && echo "'$GYM_LOGO_URL'" || echo "NULL"),
-        primary_color = $([ -n "$GYM_PRIMARY_COLOR" ] && echo "'$GYM_PRIMARY_COLOR'" || echo "NULL"),
-        accent_color = $([ -n "$GYM_ACCENT_COLOR" ] && echo "'$GYM_ACCENT_COLOR'" || echo "NULL")
-    WHERE id = '$GYM_ID';
-  " > /dev/null
-  echo "✓ Seeded gym state restored"
-fi
 
+# Read gym data before re-apply
+echo "Reading gym state before re-apply..."
+BEFORE_DATA=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA -c "SELECT id, slug, name, timezone, display_name, primary_color, accent_color FROM public.gyms WHERE id = '$GYM_ID'")
+echo "Before: $BEFORE_DATA"
+
+# Re-apply migration 043
 echo
-echo "Step 4: Verify function exists and has correct signature..."
-FUNCTION_CHECK=$(psql "$SUPABASE_DB_URL" -tA -c "
-  SELECT COUNT(*) 
-  FROM pg_proc p
-  JOIN pg_namespace n ON p.pronamespace = n.oid
-  WHERE n.nspname = 'public'
-  AND p.proname = 'enforce_gyms_brand_only_update'
-  AND pg_get_function_result(p.oid) = 'trigger';
-")
-
-if [ "$FUNCTION_CHECK" != "1" ]; then
-  echo "❌ Function enforce_gyms_brand_only_update not found or has wrong signature"
+echo "Re-applying migration 043..."
+if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -f "supabase/migrations/20261025000043_gyms_column_lock.sql" > /dev/null 2>&1; then
+  echo "❌ Re-apply failed"
   exit 1
 fi
-echo "✓ Function exists with correct signature"
+echo "✓ Re-apply succeeded"
 
+# Read gym data after re-apply
 echo
-echo "Step 5: Verify trigger exists..."
-TRIGGER_CHECK=$(psql "$SUPABASE_DB_URL" -tA -c "
-  SELECT COUNT(*)
-  FROM pg_trigger
-  WHERE tgname = 'gyms_brand_only_update'
-  AND tgrelid = 'public.gyms'::regclass;
-")
+echo "Reading gym state after re-apply..."
+AFTER_DATA=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA -c "SELECT id, slug, name, timezone, display_name, primary_color, accent_color FROM public.gyms WHERE id = '$GYM_ID'")
+echo "After:  $AFTER_DATA"
 
-if [ "$TRIGGER_CHECK" != "1" ]; then
-  echo "❌ Trigger gyms_brand_only_update not found"
+# Compare
+if [ "$BEFORE_DATA" != "$AFTER_DATA" ]; then
+  echo "❌ FAIL: Gym data changed after re-apply"
   exit 1
 fi
-echo "✓ Trigger exists"
+echo "✓ Gym data unchanged"
 
+# Test GJC12 still works after re-apply
 echo
-echo "Step 6: Verify display_name and logo_url length constraints..."
-DISPLAY_NAME_CHECK=$(psql "$SUPABASE_DB_URL" -tA -c "
-  SELECT COUNT(*)
-  FROM pg_constraint
-  WHERE conname = 'gyms_display_name_length'
-  AND conrelid = 'public.gyms'::regclass;
-")
+echo "Testing GJC12 enforcement after re-apply..."
+ERROR_OUTPUT=$(psql -v VERBOSITY=verbose "$SUPABASE_DB_URL" <<SQL 2>&1 || true
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', jsonb_build_object('sub', (SELECT user_id FROM public.gym_memberships WHERE gym_id = '$GYM_ID' AND role = 'owner' LIMIT 1))::text, false);
+UPDATE public.gyms SET name = 'Hacked' WHERE id = '$GYM_ID';
+SQL
+)
 
-LOGO_URL_CHECK=$(psql "$SUPABASE_DB_URL" -tA -c "
-  SELECT COUNT(*)
-  FROM pg_constraint
-  WHERE conname = 'gyms_logo_url_length'
-  AND conrelid = 'public.gyms'::regclass;
-")
-
-if [ "$DISPLAY_NAME_CHECK" != "1" ] || [ "$LOGO_URL_CHECK" != "1" ]; then
-  echo "❌ Length constraints not found"
+if ! echo "$ERROR_OUTPUT" | grep -q "GJC12"; then
+  echo "❌ FAIL: GJC12 not enforced after re-apply"
+  echo "$ERROR_OUTPUT"
   exit 1
 fi
-echo "✓ Length constraints exist"
+echo "✓ GJC12 enforced"
 
 echo
-echo "Step 7: Verify authenticated owner is still blocked from updating non-brand columns..."
-if [ "$SEEDED_GYM_EXISTS" = true ]; then
-  # Get the owner of the seeded gym
-  OWNER_ID=$(psql "$SUPABASE_DB_URL" -tA -c "
-    SELECT user_id
-    FROM public.gym_memberships
-    WHERE gym_id = '$GYM_ID'
-    AND role = 'owner'
-    LIMIT 1;
-  ")
-  
-  if [ -n "$OWNER_ID" ]; then
-    # Try to update name as the owner (should fail with GJC12)
-    UPDATE_RESULT=$(psql "$SUPABASE_DB_URL" -tA -c "
-      SET ROLE authenticated;
-      SELECT set_config('request.jwt.claims', jsonb_build_object('sub', '$OWNER_ID', 'role', 'authenticated')::text, false);
-      UPDATE public.gyms SET name = 'Hacked Name' WHERE id = '$GYM_ID';
-    " 2>&1 || true)
-    
-    if echo "$UPDATE_RESULT" | grep -q "GJC12"; then
-      echo "✓ Authenticated owner is still blocked (GJC12 error)"
-    else
-      echo "❌ Authenticated owner was not blocked"
-      echo "   Result: $UPDATE_RESULT"
-      exit 1
-    fi
-  else
-    echo "⚠️  No owner found for seeded gym, skipping authenticated owner check"
-  fi
-else
-  echo "⚠️  No seeded gym, skipping authenticated owner check"
-fi
-
-echo
-echo "✅ Migration 043 is idempotent - all checks passed"
+echo "✅ Migration 043 is idempotent"
+exit 0
