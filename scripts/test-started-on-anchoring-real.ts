@@ -25,7 +25,7 @@ const catalogue: CandidateExercise[] = [
     movement_pattern: "squat",
     mechanic: "compound",
     metric: "reps",
-    primary_muscles: ["quadriceps" as const],
+    primary_muscles: ["glutes" as const],
     equipment_ids: ["eq-barbell"],
     level_min: "beginner",
     contraindicated_regions: [],
@@ -49,9 +49,8 @@ function makeFakeSupabase(overrides: {
   lastBlockNumber?: number | null;
   activeBlock?: { block_number: number; started_on: string } | null;
 }) {
-  const profile: Database["public"]["Tables"]["profiles"]["Row"] = {
+  const profile = {
     id: "user-123",
-    email: "test@example.com",
     goal: "muscle_gain",
     level: "intermediate",
     primary_track: "weights",
