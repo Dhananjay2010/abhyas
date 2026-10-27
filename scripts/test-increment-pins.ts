@@ -19,6 +19,15 @@ const BENCH: ExerciseMeta = {
   progressionRank: null,
 };
 
+const ISOLATION: ExerciseMeta = {
+  mechanic: "isolation",
+  movementPattern: "horizontal_press",
+  metric: "reps",
+  isBodyweight: false,
+  progressionChain: null,
+  progressionRank: null,
+};
+
 type Test = {
   name: string;
   meta: ExerciseMeta;
@@ -36,10 +45,18 @@ const tests: Test[] = [
   // Upper-body compound: 2.5kg increment
   { name: "barbell bench 40 right", meta: BENCH, weight: 40, feel: "right", equipmentIds: ["barbell"], expected: 42.5 },
   { name: "barbell bench 40 easy", meta: BENCH, weight: 40, feel: "easy", equipmentIds: ["barbell"], expected: 45 },
+  { name: "barbell bench 60 right", meta: BENCH, weight: 60, feel: "right", equipmentIds: ["barbell"], expected: 62.5 },
+  { name: "barbell bench 60 easy", meta: BENCH, weight: 60, feel: "easy", equipmentIds: ["barbell"], expected: 65 },
   
   // Dumbbell upper: 2.5kg increment (dumbbell has 2.5kg grid)
   { name: "dumbbell 20 right", meta: BENCH, weight: 20, feel: "right", equipmentIds: ["dumbbell"], expected: 22.5 },
   { name: "dumbbell 20 easy", meta: BENCH, weight: 20, feel: "easy", equipmentIds: ["dumbbell"], expected: 25 },
+  
+  // Medicine ball: 1kg grid step always
+  { name: "medicine_ball 4 right", meta: BENCH, weight: 4, feel: "right", equipmentIds: ["medicine_ball"], expected: 5 },
+  
+  // Isolation: floor-snap like compound (not round-to-nearest)
+  { name: "barbell isolation 72.35 right", meta: ISOLATION, weight: 72.35, feel: "right", equipmentIds: ["barbell"], expected: 72.5 },
   
   // Off-grid upper: 72.35 right → floor to 70, add 2.5 = 72.5
   { name: "barbell bench 72.35 right", meta: BENCH, weight: 72.35, feel: "right", equipmentIds: ["barbell"], expected: 72.5 },

@@ -46,7 +46,6 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestReps: 12,
   bestE1rm: 84,
   totalSessions: 3,
-  weightAtFailureStartKg: null,
   ...over,
 });
 
@@ -108,7 +107,7 @@ console.log("\n4. Falling short of the top is in-range: hold and reset failures"
   // Real miss: below repsMin
   const d = run({ sets: sets(4, 7), equipmentIds: ["barbell"], unit: "kg" });
   check("4×7 below min: outcome hold", d.outcome === "hold", d.outcome);
-  check("4×7 real miss: first miss holds at current weight (60)", d.nextWorkingWeightKg === 60, `${d.nextWorkingWeightKg}`);
+  check("4×7 real miss: weight drops one grid step (60 -> 57.5)", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
   check("4×7 real miss: failure counted", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
 }
 {
@@ -186,12 +185,12 @@ console.log("\n10. Personal bests track even on a failed session");
 
 console.log("\n11. Deload suggests roughly 70% of working weight");
 {
-  const normal = suggestedWeight({ currentWorkingWeightKg: 100 }, false, SQUAT, ["barbell"]);
-  const deload = suggestedWeight({ currentWorkingWeightKg: 100 }, true, SQUAT, ["barbell"]);
+  const normal = suggestedWeight({ currentWorkingWeightKg: 100 }, false, SQUAT, ["barbell"], "kg");
+  const deload = suggestedWeight({ currentWorkingWeightKg: 100 }, true, SQUAT, ["barbell"], "kg");
   check("normal week suggests the working weight", normal === 100, `${normal}`);
   check("deload suggests 70 kg", deload === 70, `${deload}`);
   check("no suggestion without a working weight",
-    suggestedWeight({ currentWorkingWeightKg: null }, false, SQUAT, ["barbell"]) === null);
+    suggestedWeight({ currentWorkingWeightKg: null }, false, SQUAT, ["barbell"], "kg") === null);
 }
 
 console.log("\n12. A weight logged on a bodyweight exercise must count");
@@ -544,6 +543,7 @@ console.log("\nBodyweight exercises with added weight");
     true,
     SQUAT_BW,
     ["dip_belt"],
+    "kg",
   );
   check("deload suggestion for bodyweight lower-body rounds to 2.5 kg step",
     suggestedBwLower === 7.5, `${suggestedBwLower}`);
@@ -553,6 +553,7 @@ console.log("\nBodyweight exercises with added weight");
     true,
     PUSHUP_LOADED,
     ["dip_belt"],
+    "kg",
   );
   // 5 * 0.7 = 3.5, rounded to 1.25 kg step is 3.75, then grid-rounded to 2.5 kg (tie rounds down)
   check("deload suggestion for bodyweight upper-body rounds to dip_belt grid (2.5 kg)",

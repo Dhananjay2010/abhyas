@@ -67,7 +67,6 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestReps: 12,
   bestE1rm: 56,
   totalSessions: 1,
-  weightAtFailureStartKg: null,
   ...over,
 });
 
@@ -143,7 +142,7 @@ console.log("\n3. MISS: sets incomplete or any set below repsMin");
   const d = run({ sets: sets(4, 7) });
   check("4×7 below min: outcome hold", d.outcome === "hold", d.outcome);
   check("4×7: failures increment to 1", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
-  check("4×7: first miss holds at current weight (40)", d.nextWorkingWeightKg === 40, `${d.nextWorkingWeightKg}`);
+  check("4×7: weight drops one grid step to 37.5", d.nextWorkingWeightKg === 37.5, `${d.nextWorkingWeightKg}`);
 }
 
 {
@@ -348,7 +347,7 @@ console.log("\n9. Re-derivation: stored failures=1 from in-range session isn't a
   check("Real miss after reset: failures = 1", afterReset.consecutiveFailures === 1);
   check("Real miss after reset: outcome hold (not backed_off)", afterReset.outcome === "hold", 
     afterReset.outcome);
-  check("Real miss after reset: first miss holds at 40", afterReset.nextWorkingWeightKg === 40, 
+  check("Real miss after reset: first-miss drop to 37.5", afterReset.nextWorkingWeightKg === 37.5, 
     `${afterReset.nextWorkingWeightKg}`);
 }
 

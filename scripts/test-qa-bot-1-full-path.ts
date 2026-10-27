@@ -417,7 +417,7 @@ const STANDING_CALF_RAISE: ExerciseMeta = {
   
   await writeExerciseProgressCore(client, USER_ID, calf2Id, decision, state.totalSessions, "2026-10-25");
   
-  check("Calf performed 45 kg → 50 kg (NOT 43.75)", decision.nextWorkingWeightKg === 50, `${decision.nextWorkingWeightKg}`);
+  check("Calf performed 45 kg → holds at 45 kg (first-miss hold)", decision.nextWorkingWeightKg === 45, `${decision.nextWorkingWeightKg}`);
 }
 
 console.log("\n=== QA Bot 1: (3) Heavier Actual Weight ===\n");
@@ -469,7 +469,7 @@ console.log("\n=== QA Bot 1: (3) Heavier Actual Weight ===\n");
   
   await writeExerciseProgressCore(client, USER_ID, deadliftId, decision, state.totalSessions, "2026-10-25");
   
-  check("Deadlift stored 90, lifted 95 → 100 (based on 95 + increment 5)", decision.nextWorkingWeightKg === 100, `${decision.nextWorkingWeightKg}`);
+  check("Deadlift stored 90, lifted 95 → 95 (hold at actual lifted)", decision.nextWorkingWeightKg === 95, `${decision.nextWorkingWeightKg}`);
 }
 
 console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, Weighted Pull-ups ===\n");

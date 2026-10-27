@@ -113,6 +113,7 @@ const metricMiss = evaluateProgression({
     weightAtFailureStartKg: null,
   },
   isDeload: false,
+  equipmentIds: ['barbell'],
   unit: "kg",
 });
 
@@ -141,6 +142,7 @@ const imperialMiss = evaluateProgression({
     weightAtFailureStartKg: null,
   },
   isDeload: false,
+  equipmentIds: ['barbell'],
   unit: "lb",
 });
 

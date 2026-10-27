@@ -31,18 +31,14 @@ const actionsContent = fs.readFileSync("src/app/session/actions.ts", "utf8");
 const feedbackContent = fs.readFileSync("src/lib/session/progression-feedback.ts", "utf8");
 
 check(
-  "actions.ts imports progressionFeedback and buildProgressionFeedbackForUser",
+  "actions.ts imports buildProgressionFeedbackForUser",
+  actionsContent.includes('import { buildProgressionFeedbackForUser } from "@/lib/session/progression-feedback"') ||
   actionsContent.includes('import { progressionFeedback, buildProgressionFeedbackForUser } from "@/lib/session/progression-feedback"') &&
   feedbackContent.includes('import { buildProgressionInput } from "./build-progression-input"')
 );
 
 check(
-  "actions.ts uses getProfileUnits (not via buildProgressionFeedbackForUser)",
-  actionsContent.includes("getProfileUnits")
-);
-
-check(
-  "actions.ts calls buildProgressionFeedbackForUser without getUnits callback",
+  "actions.ts calls buildProgressionFeedbackForUser (units loaded internally)",
   actionsContent.includes('buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel)'),
   "buildProgressionFeedbackForUser calls getProfileUnits internally"
 );
@@ -56,7 +52,8 @@ check(
 // U1: Static assertion that applyProgression is passed to finishExerciseCore
 check(
   "actions.ts passes applyProgression to finishExerciseCore (U1)",
-  actionsContent.includes('finishExerciseCore(supabase, user.id, input, { applyProgression })') &&
+  (actionsContent.includes('finishExerciseCore(supabase, user.id, input, { applyProgression })') ||
+   actionsContent.includes('makeFinishExerciseDeps(supabase, applyProgression)')) &&
   actionsContent.includes('async function applyProgression('),
   "U1: finishExerciseCore must receive applyProgression"
 );

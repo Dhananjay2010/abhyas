@@ -58,6 +58,7 @@ function testStuckWeight(
       state,
       isDeload: false,
       equipmentIds,
+      unit: "kg",
     });
 
     console.log(`  Miss ${missNum}: ${decision.nextWorkingWeightKg} kg, counter=${decision.consecutiveFailures}, outcome=${decision.outcome}`);

@@ -83,12 +83,8 @@ async function runTests() {
     check("Next > stored", (decision.nextWorkingWeightKg ?? 0) > 72.35);
     check("Outcome is progressed", decision.outcome === "progressed");
     
-    if (!input.equipmentIds || input.equipmentIds.length === 0) {
-      throw new Error("MUTANT: equipmentIds dropped from input");
-    }
-    if (("units" in input ? input.units : "metric") !== "metric") {
-      throw new Error("MUTANT: units dropped from input");
-    }
+    check("Equipment passed", !!input.equipmentIds && input.equipmentIds.length > 0, "equipmentIds present");
+    check("Units is metric", input.unit === "kg", `got ${input.unit}`);
   }
 
   console.log("\n2. Dumbbell 71.44 kg → 72.5 kg");
@@ -146,12 +142,8 @@ async function runTests() {
     check("Next > stored", (decision.nextWorkingWeightKg ?? 0) > 71.44);
     check("Outcome is progressed", decision.outcome === "progressed");
     
-    if (!input.equipmentIds || input.equipmentIds.length === 0) {
-      throw new Error("MUTANT: equipmentIds dropped");
-    }
-    if (("units" in input ? input.units : "metric") !== "metric") {
-      throw new Error("MUTANT: units dropped or set incorrectly");
-    }
+    check("Equipment passed", !!input.equipmentIds && input.equipmentIds.length > 0, "equipmentIds present");
+    check("Units is metric", input.unit === "kg", `got ${input.unit}`);
   }
 
   console.log("\n3. Barbell imperial 72.3 kg (159.4 lb) → 72.5 kg (159.8 lb)");
@@ -209,12 +201,8 @@ async function runTests() {
     check("Jump <= 2.5 kg", (decision.nextWorkingWeightKg ?? 0) - 72.3 <= 2.5);
     check("Outcome is progressed", decision.outcome === "progressed");
     
-    if (!input.equipmentIds || input.equipmentIds.length === 0) {
-      throw new Error("MUTANT: equipmentIds dropped");
-    }
-    if (("units" in input ? input.units : "metric") !== "imperial") {
-      throw new Error("MUTANT: units dropped or set incorrectly");
-    }
+    check("Equipment passed", !!input.equipmentIds && input.equipmentIds.length > 0, "equipmentIds present");
+    check("Units is imperial", input.unit === "lb", `got ${input.unit}`);
   }
 
   console.log("\n4. Dumbbell imperial 65.77 kg (145 lb) → 67.5 kg (148.8 lb)");
@@ -272,12 +260,8 @@ async function runTests() {
     check("Jump <= 2.5 kg", (decision.nextWorkingWeightKg ?? 0) - 65.77 <= 2.5);
     check("Outcome is progressed", decision.outcome === "progressed");
     
-    if (!input.equipmentIds || input.equipmentIds.length === 0) {
-      throw new Error("MUTANT: equipmentIds dropped");
-    }
-    if (("units" in input ? input.units : "metric") !== "imperial") {
-      throw new Error("MUTANT: units dropped or set incorrectly");
-    }
+    check("Equipment passed", !!input.equipmentIds && input.equipmentIds.length > 0, "equipmentIds present");
+    check("Units is imperial", input.unit === "lb", `got ${input.unit}`);
   }
 
   console.log("\n5. Property check: next - stored <= one step, next on grid");

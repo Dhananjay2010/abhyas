@@ -135,6 +135,11 @@ export function incrementFor(meta: ExerciseMeta, equipmentIds?: string[]): numbe
   // If equipment is specified and contains loadable equipment, 
   // ensure we never go below the equipment grid
   if (equipmentIds && equipmentIds.length > 0) {
+    // Medicine ball: always use the 1 kg grid step, not the mechanic increment
+    if (equipmentIds.includes('medicine_ball')) {
+      return equipmentGridStep(equipmentIds, 'kg');
+    }
+    
     const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
     if (hasLoadable) {
       const equipGrid = equipmentGridStep(equipmentIds, 'kg');
@@ -160,15 +165,9 @@ export function addedWeightStep(meta: ExerciseMeta, equipmentIds?: string[]): nu
   // If equipment is specified and contains loadable equipment, 
   // ensure we never go below the equipment grid
   if (equipmentIds && equipmentIds.length > 0) {
-    // For dip_bars/pull_up_bar, treat as dip_belt when adding weight to bodyweight exercises
-    // (you perform the exercise on the bars, but add weight with a dip_belt)
-    const effectiveIds = equipmentIds.some(id => id === 'dip_bars' || id === 'pull_up_bar')
-      ? [...equipmentIds.filter(id => id !== 'dip_bars' && id !== 'pull_up_bar'), 'dip_belt']
-      : equipmentIds;
-    
-    const hasLoadable = effectiveIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
+    const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
     if (hasLoadable) {
-      const equipGrid = equipmentGridStep(effectiveIds, 'kg');
+      const equipGrid = equipmentGridStep(equipmentIds, 'kg');
       return Math.max(patternStep, equipGrid);
     }
   }
@@ -705,23 +704,9 @@ export function evaluateProgression(input: {
           next = bells[targetIndex];
         }
       } else {
-        // Standard equipment: round to grid if off-grid, then add increment
-        // Isolation: round to nearest (within 0.5 kg), Compound: floor-snap
+        // Standard equipment: floor-snap to grid before adding increment
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
-        const isIsolation = meta.mechanic === "isolation";
-        
-        let snappedFrom: number;
-        if (isIsolation) {
-          // Isolation: round to nearest grid point if within 0.5 kg
-          const steps = from / gridStep;
-          const lowerSteps = Math.floor(steps);
-          const upperSteps = Math.ceil(steps);
-          const upperWeight = upperSteps * gridStep;
-          snappedFrom = (upperWeight - from <= 0.5) ? upperWeight : lowerSteps * gridStep;
-        } else {
-          // Compound: floor-snap to grid
-          snappedFrom = Math.floor(from / gridStep) * gridStep;
-        }
+        const snappedFrom = Math.floor(from / gridStep) * gridStep;
         
         const step = isBodyweightWithAddedWeight ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";

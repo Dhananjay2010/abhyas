@@ -38,24 +38,13 @@ for (const t of tests) {
     unit: "kg",
   });
   
-  const mainValue = t.weight === 8 && t.feel === "right" ? 15 :
-                    t.weight === 8 && t.feel === "easy" ? 20 :
-                    t.weight === 16 && t.feel === "right" ? 20 :
-                    t.weight === 16 && t.feel === "easy" ? 25 :
-                    t.weight === 24 && t.feel === "right" ? 30 :
-                    t.weight === 24 && t.feel === "easy" ? 35 :
-                    t.weight === 32 && t.feel === "right" ? 35 :
-                    t.weight === 32 && t.feel === "easy" ? 40 :
-                    t.weight === 48 && t.feel === "right" ? "N/A (top)" :
-                    t.weight === 48 && t.feel === "easy" ? "N/A (top)" : 0;
-  
-  const note = t.feel === "easy" ? " (#120: easy = 2 bells, not skipping any)" : " (PR uses real bells, main invented non-existent weights)";
+  const note = t.feel === "easy" ? " (easy = 2 bells)" : "";
   
   if (result.nextWorkingWeightKg !== t.expected) {
-    console.log(`FAIL kettlebell ${t.weight} ${t.feel}: expected ${t.expected}, got ${result.nextWorkingWeightKg} (main: ${mainValue})${note}`);
+    console.log(`FAIL kettlebell ${t.weight} ${t.feel}: expected ${t.expected}, got ${result.nextWorkingWeightKg}${note}`);
     failures++;
   } else {
-    console.log(`ok   kettlebell ${t.weight} ${t.feel}: ${result.nextWorkingWeightKg} kg (main: ${mainValue})${note}`);
+    console.log(`ok   kettlebell ${t.weight} ${t.feel}: ${result.nextWorkingWeightKg} kg${note}`);
   }
 }
 
