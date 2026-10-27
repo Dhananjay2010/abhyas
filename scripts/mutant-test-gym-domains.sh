@@ -23,10 +23,11 @@ if ! check_db_reset_guard_bash check; then
   exit 1
 fi
 
-# Require SUPABASE_DB_URL for explicit targeting
+# Default SUPABASE_DB_URL if not set (standard Supabase local stack)
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
-  echo "❌ SUPABASE_DB_URL must be set for mutant tests"
-  exit 1
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54322/postgres"
+  echo "Using default SUPABASE_DB_URL: $SUPABASE_DB_URL"
+  echo
 fi
 
 # Check we're in the repo root
