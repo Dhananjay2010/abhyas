@@ -82,13 +82,13 @@ test_mutant_pinned U4 "SinglePoint ignores fmt (raw kg value)" literal "$C" \
 test_mutant_pinned U5 "BarChart fmt ignores volumeUnits" literal "$C" \
   '(volumeUnits ? formatVolumeLifted(v, volumeUnits) : formatValueExact(v, unit))' 'formatValueExact(v, unit)' "volume"
 test_mutant_pinned U6 "LineChart axis ignores weightUnits" literal "$C" \
-  'weightUnits ? formatWeight(v, weightUnits, false, "0") : Math.round(v)' 'Math.round(v)' "U2 axis"
+  'return formatWeight(v, weightUnits, false, "0");' 'return Math.round(v).toLocaleString("en-US");' "U2 axis"
 test_mutant_pinned U7 "BarChart axis ignores volumeUnits" literal "$C" \
   '{fmtAxis(max)}' '{Math.round(max).toLocaleString("en-US")}' "U2 axis"
 test_mutant_pinned U8 "value table prints raw numbers" literal "$C" \
   '{fmt(p.value)}' '{String(p.value)}' "U4 "
 test_mutant_pinned U9 "lb not snapped (raw conversion, 2 dp)" literal "$C" \
-  '(weightUnits ? formatWeight(v, weightUnits) : formatValueExact(v, unit))' '(weightUnits === "imperial" ? formatValueExact(v * 2.20462, "lb") : weightUnits ? formatWeight(v, weightUnits) : formatValueExact(v, unit))' "snapped|179\\.5|181 lb|265\\.5"
+  'return isBodyWeight ? formatBodyWeight(v, weightUnits) : formatWeight(v, weightUnits);' 'return weightUnits === "imperial" ? Math.round(v * 220.462) / 100 : (isBodyWeight ? formatBodyWeight(v, weightUnits) : formatWeight(v, weightUnits));' "snapped|179\\.5|181 lb|265\\.5"
 
 pin_self_test "$P" 'singlePointHint="Weigh in on another day to see a trend"' 'singlePointHint="x"'
 crash_self_test "$P" 'const showSessionsEmpty = !hasSessionData && !anyLoadError;'

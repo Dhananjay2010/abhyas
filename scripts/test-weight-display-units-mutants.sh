@@ -40,11 +40,11 @@ echo "✓ Baseline passed"
 run() { local name="$1" file="$2" old="$3" new="$4"; restore; mutate "$file" "$old" "$new"; classify "$name" || exit 1; }
 
 run U1_readout_bypass src/components/charts.tsx \
-  'const fmt = (v: number) => (weightUnits ? formatWeight(v, weightUnits) : formatValueExact(v, unit));' \
-  'const fmt = (v: number) => formatValueExact(v, unit);'
+  'return isBodyWeight ? formatBodyWeight(v, weightUnits) : formatWeight(v, weightUnits);' \
+  'return formatValueExact(v, unit);'
 run U2_axis_bypass src/components/charts.tsx \
-  'weightUnits ? formatWeight(v, weightUnits, false, "0") : Math.round(v).toLocaleString("en-US");' \
-  'Math.round(v).toLocaleString("en-US");'
+  'return formatWeight(v, weightUnits, false, "0");' \
+  'return Math.round(v).toLocaleString("en-US");'
 run U3_table_bypass src/components/charts.tsx \
   '<ValueTable points={points} fmt={fmt} caption={title} />' \
   '<ValueTable points={points} fmt={(v) => formatValueExact(v, unit)} caption={title} />'
