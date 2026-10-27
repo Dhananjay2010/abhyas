@@ -521,11 +521,16 @@ export async function nextDayPlanCore(
  * Post-swap collision handling: if today's completed session was a swap AND
  * tomorrow's scheduled workout is the same program day just done, serve the
  * next workout in the rotation instead.
+ * 
+ * MED-1 fix: when called from a session summary (sessionLocalDate provided),
+ * compute tomorrow = sessionLocalDate + 1 so a session finishing after midnight
+ * still plans the correct next day, and check today's swap using sessionLocalDate
+ * not wall-clock time.
  */
 export async function nextDayPlan(
   supabase: Client,
   timezone: string,
-  options?: { userId?: string },
+  options?: { userId?: string; sessionLocalDate?: string },
 ): Promise<NextDayPlan | null> {
   const { data: program } = await supabase
     .from("programs")
@@ -534,19 +539,25 @@ export async function nextDayPlan(
     .maybeSingle();
   if (!program) return null;
 
-  const today = localDateString(timezone);
+  // MED-1: when sessionLocalDate is provided (session summary), use it to compute
+  // tomorrow and check today's swap. Otherwise use wall-clock today (Today page).
+  const today = options?.sessionLocalDate ?? localDateString(timezone);
   const tomorrow = addDays(today, 1);
   const userId = options?.userId ?? program.user_id;
   const todayDayIndex = isoWeekday(today);
 
   const deps: NextDayPlanCoreDeps = {
     async getTodayCompletedSession() {
+      // MED-1: check both completed and in_progress sessions. When computing the
+      // prompt during a session (before finish), the session is in_progress but
+      // will be completed by the time the user acts on the prompt. Treating it as
+      // "today's session" prevents planning a repeat after a rest-day swap.
       const { data } = await supabase
         .from("sessions")
         .select("id, program_day_id, actual_type")
         .eq("user_id", userId)
         .eq("local_date", today)
-        .eq("status", "completed")
+        .in("status", ["completed", "in_progress"])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();

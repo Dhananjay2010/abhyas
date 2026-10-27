@@ -948,13 +948,15 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
   
   // NEW plans (block 1) anchor to started_on so the first training day is the sign-up day.
   // EXISTING plans (block 2+) keep the original weekday mapping for schedule continuity.
+  // HIGH-1 fix: use daysPerWeek (all scheduled days) not trainingDays (strength only)
+  // so yoga-inclusive plans don't drop training days.
   let activeIdx = input.blockNumber === 1 && input.startedOn
-    ? activeDayIndicesAnchored(input.startedOn, trainingDays)
+    ? activeDayIndicesAnchored(input.startedOn, input.daysPerWeek)
     : activeDayIndices(input.daysPerWeek);
   
   // For anchored plans, reorder activeIdx in chronological order from start weekday
   // so the first template aligns with the sign-up day
-  if (input.blockNumber === 1 && input.startedOn && trainingDays > 0) {
+  if (input.blockNumber === 1 && input.startedOn && input.daysPerWeek > 0) {
     const startWeekday = isoWeekday(input.startedOn);
     const startIdx = activeIdx.indexOf(startWeekday);
     if (startIdx > 0) {

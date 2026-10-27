@@ -178,10 +178,14 @@ export default async function SessionPage({
   };
 
   // "What about tomorrow?" needs the block's own days to offer as alternatives,
-  // and what tomorrow already is. Read after the session itself so a slow
-  // answer here can never delay the screen the user is waiting on.
+  // and what tomorrow already is. MED-1 fix: pass session.local_date so tomorrow
+  // is computed from the session's recorded date (local_date + 1), not wall-clock
+  // time. This ensures a session finishing after midnight still plans the correct
+  // next day, and the swap check uses the session's date.
   const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
-  const tomorrow = await nextDayPlan(supabase, timezone);
+  const tomorrow = await nextDayPlan(supabase, timezone, {
+    sessionLocalDate: session.local_date ?? undefined,
+  });
 
   // Compute isStale on the server to avoid requiring timezone in client components
   const isStale = session.started_at
