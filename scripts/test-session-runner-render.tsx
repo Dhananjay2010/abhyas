@@ -202,7 +202,7 @@ async function test1b1d() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -316,7 +316,7 @@ async function testN7() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -354,7 +354,7 @@ async function testN7() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -450,7 +450,7 @@ async function test7b7c() {
     render(
       <SessionRunner
         sessionId={sessionId}
-        userId={userId}
+        userId="test-user"
         sessionStatus="in_progress"
         isDeload={false}
         week={1}
@@ -545,7 +545,7 @@ async function test7b7c() {
     render(
       <SessionRunner
         sessionId={sessionId}
-        userId={userId}
+        userId="test-user"
         sessionStatus="in_progress"
         isDeload={false}
         week={1}
@@ -679,7 +679,7 @@ async function test8d8e() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -824,7 +824,7 @@ async function test9b() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -944,7 +944,7 @@ async function testN11() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -1053,7 +1053,7 @@ async function testN12() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -1144,7 +1144,7 @@ async function testConflict() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -1268,7 +1268,7 @@ async function testDoubleTap() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -1369,7 +1369,7 @@ async function testFailedSubmit() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -1485,7 +1485,7 @@ async function testN7sCompletedSession() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -1596,7 +1596,7 @@ async function testRetryButton() {
   render(
     <SessionRunner
       sessionId={sessionId}
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false}
       week={1}
@@ -1699,7 +1699,7 @@ async function testItem2b() {
   render(
     <SessionRunner 
       sessionId="s-proof" 
-      userId={userId}
+      userId="test-user"
       sessionStatus="in_progress"
       isDeload={false} 
       week={1} 
