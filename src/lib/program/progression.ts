@@ -699,10 +699,23 @@ export function evaluateProgression(input: {
           next = bells[targetIndex];
         }
       } else {
-        // Standard equipment: snap to grid if off-grid, then add increment
-        // incrementFor already returns max(mechanicIncrement, gridStep), ensuring loadable values
+        // Standard equipment: round to grid if off-grid, then add increment
+        // Isolation: round to nearest (within 0.5 kg), Compound: floor-snap
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
-        const snappedFrom = Math.floor((from + 0.001) / gridStep) * gridStep;
+        const isIsolation = meta.mechanic === "isolation";
+        
+        let snappedFrom: number;
+        if (isIsolation) {
+          // Isolation: round to nearest grid point if within 0.5 kg
+          const steps = from / gridStep;
+          const lowerSteps = Math.floor(steps);
+          const upperSteps = Math.ceil(steps);
+          const upperWeight = upperSteps * gridStep;
+          snappedFrom = (upperWeight - from <= 0.5) ? upperWeight : lowerSteps * gridStep;
+        } else {
+          // Compound: floor-snap to grid
+          snappedFrom = Math.floor(from / gridStep) * gridStep;
+        }
         
         const step = isBodyweightWithAddedWeight ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";
