@@ -24,6 +24,7 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
   const [accentColor, setAccentColor] = useState(initial.accentColor);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [warnings, setWarnings] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -62,10 +63,60 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
     });
   };
 
-  // Preview colors (use user input or brand defaults)
-  // LOW-10: Color input doesn't support CSS vars, so use brand.colors hex values directly
-  const previewPrimary = primaryColor || branding.colors.muted;
-  const previewAccent = accentColor || branding.colors.border;
+  // Check for low contrast warning (non-blocking)
+  const checkPrimaryContrast = (color: string) => {
+    if (!color || !color.match(/^#[0-9A-Fa-f]{6}$/)) {
+      setWarnings((prev) => {
+        const next = { ...prev };
+        delete next.primaryColor;
+        return next;
+      });
+      return;
+    }
+
+    const appBackground = branding.colors.bg;
+    
+    // Calculate contrast ratio using WCAG formula
+    const ratio = (() => {
+      const hex1 = color;
+      const hex2 = appBackground;
+      
+      const hexToLum = (hex: string): number => {
+        const r = parseInt(hex.slice(1, 3), 16) / 255;
+        const g = parseInt(hex.slice(3, 5), 16) / 255;
+        const b = parseInt(hex.slice(5, 7), 16) / 255;
+        
+        const toLinear = (c: number) => c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        
+        return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+      };
+      
+      const L1 = hexToLum(hex1);
+      const L2 = hexToLum(hex2);
+      const lighter = Math.max(L1, L2);
+      const darker = Math.min(L1, L2);
+      
+      return (lighter + 0.05) / (darker + 0.05);
+    })();
+
+    if (ratio < 3.0) {
+      setWarnings((prev) => ({
+        ...prev,
+        primaryColor: "This colour is too dark for the app background, so members will see a lighter shade.",
+      }));
+    } else {
+      setWarnings((prev) => {
+        const next = { ...prev };
+        delete next.primaryColor;
+        return next;
+      });
+    }
+  };
+
+  // Preview colors (use user input or brand defaults - orange when cleared)
+  // LOW-3: Cleared preview should show default brand (orange), not grey/black
+  const previewPrimary = primaryColor || branding.colors.accent;
+  const previewAccent = accentColor || branding.colors.accentHover;
   
   // Compute accessible text color for preview when a valid color is entered
   // Use simple contrast: if sum of RGB > 382 (roughly half of max 765), use black, else white
@@ -137,6 +188,7 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
           value={logoUrl}
           onChange={(e) => setLogoUrl(e.target.value)}
           placeholder="https://example.com/logo.png"
+          maxLength={2048}
           className="w-full rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent"
         />
         <p className="mt-1 text-xs text-muted">
@@ -165,14 +217,22 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
               type="color"
               id="primaryColorPicker"
               value={previewPrimary}
-              onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                const newColor = e.target.value.toUpperCase();
+                setPrimaryColor(newColor);
+                checkPrimaryContrast(newColor);
+              }}
               className="h-12 w-16 rounded-lg border border-border bg-surface-2 cursor-pointer"
             />
             <input
               type="text"
               id="primaryColor"
               value={primaryColor}
-              onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                const newColor = e.target.value.toUpperCase();
+                setPrimaryColor(newColor);
+                checkPrimaryContrast(newColor);
+              }}
               placeholder="#FF9A2E"
               className="flex-1 rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent"
             />
@@ -182,6 +242,9 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
           </p>
           {errors.primaryColor && (
             <p className="mt-1 text-xs text-danger">{errors.primaryColor}</p>
+          )}
+          {warnings.primaryColor && !errors.primaryColor && (
+            <p className="mt-1 text-xs text-warning">{warnings.primaryColor}</p>
           )}
         </div>
 
@@ -232,10 +295,10 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
             })()
           }
         >
-          {/* Preview button using CSS variables with hover */}
+          {/* Preview button using CSS variables with hover showing accent color */}
           <button
             type="button"
-            className="w-full rounded-lg px-6 py-3 text-sm font-semibold transition-colors hover:brightness-90"
+            className="w-full rounded-lg px-6 py-3 text-sm font-semibold transition-colors hover:bg-[var(--color-accent-hover)]"
             style={{
               backgroundColor: "var(--color-accent)",
               color: "var(--color-accent-fg)",

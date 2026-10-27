@@ -23,8 +23,14 @@ export function isValidLogoUrl(url: string): boolean {
   if (trimmed.includes("..")) return false;
   
   // Reject control characters (ASCII 0-31, 127)
-  // eslint-disable-next-line no-control-regex
-  if (/[\x00-\x1F\x7F]/.test(trimmed)) return false;
+  // Check each character code instead of regex
+  for (let i = 0; i < trimmed.length; i++) {
+    const code = trimmed.charCodeAt(i);
+    if ((code >= 0x00 && code <= 0x1F) || code === 0x7F) {
+      return false;
+    }
+  }
+  
   
   return (trimmed.startsWith("https://") && trimmed.length > 8) || 
          (trimmed.startsWith("/storage/") && trimmed.length > 9);

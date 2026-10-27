@@ -123,6 +123,35 @@ function testAccessibleTextColorLogic() {
   console.log("  ✓ Text color selection logic correct");
 }
 
+function testPrimaryColorContrastWarning() {
+  console.log("\n▶ Testing primary color 3:1 contrast warning (QA Bot LOW-1)...");
+
+  // App background from branding defaults
+  const appBg = branding.colors.bg; // #0A0C0E
+
+  // Test case: #1E40AF should trigger warning (< 3:1)
+  const darkBlue = "#1E40AF";
+  const darkBlueRatio = contrastRatio(darkBlue, appBg);
+  console.log(`  ${darkBlue} vs app bg: ${darkBlueRatio.toFixed(2)}:1`);
+  assert(
+    darkBlueRatio < 3.0,
+    `${darkBlue} should trigger warning (< 3:1), got ${darkBlueRatio.toFixed(2)}:1`
+  );
+  console.log(`  ✓ ${darkBlue} triggers warning (${darkBlueRatio.toFixed(2)}:1 < 3:1)`);
+
+  // Test case: bright color should NOT trigger warning (>= 3:1)
+  const brightOrange = "#FF9A2E";
+  const brightRatio = contrastRatio(brightOrange, appBg);
+  console.log(`  ${brightOrange} vs app bg: ${brightRatio.toFixed(2)}:1`);
+  assert(
+    brightRatio >= 3.0,
+    `${brightOrange} should not trigger warning (>= 3:1), got ${brightRatio.toFixed(2)}:1`
+  );
+  console.log(`  ✓ ${brightOrange} does not trigger warning (${brightRatio.toFixed(2)}:1 >= 3:1)`);
+
+  console.log("  ✓ Warning shown for < 3:1, not shown for >= 3:1");
+}
+
 async function testPre040RpcMock() {
   console.log("\n▶ Testing pre-040 RPC response (name, slug, timezone only)...");
 
@@ -238,6 +267,7 @@ async function main() {
     testRequiredColors();
     testContrastFunction();
     testAccessibleTextColorLogic();
+    testPrimaryColorContrastWarning();
     await testPre040RpcMock();
 
     console.log("\n✅ All contrast tests passed\n");

@@ -396,6 +396,9 @@ jobs:
           REAL_DB=1 npm run ci:migration-040-idempotent
           REAL_DB=1 npm run test:gym-branding-real-db
           REAL_DB=1 npm run ci:mutant-gym-branding
+          REAL_DB=1 npm run ci:migration-043-idempotent
+          REAL_DB=1 npm run test:gyms-column-lock-real-db
+          REAL_DB=1 npm run ci:mutant-gyms-column-lock
         env:
           REAL_DB: "1"
 

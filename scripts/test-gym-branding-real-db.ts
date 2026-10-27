@@ -838,11 +838,33 @@ async function runTests() {
 
   console.log("TEST: NULL in p_clear rejected (LOW-1)");
   {
+    // Build array with NULL element without type assertion
+    const clearArray: (string | null)[] = [null, "display_name"];
     const { error } = await clientOwner.rpc("set_gym_branding", {
       p_gym_id: gymId,
-      p_clear: [null, "display_name"] as any,
+      p_clear: clearArray,
     });
     check("NULL in p_clear rejected", !!error && error.code === "BRND6");
+  }
+  console.log();
+
+  console.log("TEST: Low-contrast primary accepted (LOW-1 non-blocking)");
+  {
+    // #1E40AF has < 3:1 contrast vs #0A0C0E but should save (warning in UI, not rejection)
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#1E40AF",
+      p_accent_color: "#3B82F6",
+    });
+    check("Low-contrast #1E40AF accepted", !error, error?.message);
+    
+    // Read back to verify it saved
+    const { data: gymData } = await clientOwner
+      .from("gyms")
+      .select("primary_color")
+      .eq("id", gymId)
+      .single();
+    check("#1E40AF persisted", gymData?.primary_color === "#1E40AF");
   }
   console.log();
 

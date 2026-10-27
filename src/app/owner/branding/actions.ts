@@ -55,12 +55,47 @@ export async function updateBranding(
       };
     }
 
-    if (formData.logoUrl && !isValidLogoUrl(formData.logoUrl)) {
-      return {
-        success: false,
-        error: "Logo URL must start with https:// or /storage/",
-        field: "logoUrl",
-      };
+    if (formData.logoUrl) {
+      const trimmed = formData.logoUrl.trim();
+      
+      // Check length first
+      if (trimmed.length > 2048) {
+        return {
+          success: false,
+          error: "Logo URL cannot exceed 2048 characters",
+          field: "logoUrl",
+        };
+      }
+      
+      // Check for path traversal (..)
+      if (trimmed.includes("..")) {
+        return {
+          success: false,
+          error: "Path traversal (..) is not allowed in logo URL",
+          field: "logoUrl",
+        };
+      }
+      
+      // Check for control characters
+      for (let i = 0; i < trimmed.length; i++) {
+        const code = trimmed.charCodeAt(i);
+        if ((code >= 0x00 && code <= 0x1F) || code === 0x7F) {
+          return {
+            success: false,
+            error: "Logo URL cannot contain control characters",
+            field: "logoUrl",
+          };
+        }
+      }
+      
+      // Finally check protocol
+      if (!isValidLogoUrl(trimmed)) {
+        return {
+          success: false,
+          error: "Logo URL must start with https:// or /storage/",
+          field: "logoUrl",
+        };
+      }
     }
 
     // Both colors must be set together or both empty

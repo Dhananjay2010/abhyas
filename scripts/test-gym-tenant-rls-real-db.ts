@@ -484,22 +484,41 @@ async function runTests() {
   }
   console.log();
 
-  // RLS TEST: Owner A can update gym A
-  console.log("TEST: Owner A can update gym A");
+  // RLS TEST: Owner A can update gym A (brand columns only, migration 043)
+  console.log("TEST: Owner A can update gym A (brand columns only)");
   {
-    const { error } = await clientA
+    // Migration 043 blocks non-brand column updates
+    const { error: nameError } = await clientA
       .from("gyms")
       .update({ name: "Gym A Updated" })
       .eq("id", gymIdA);
-    check("Owner A can update gym A", !error, error?.message);
+    check("Owner A blocked from updating name", !!nameError && nameError.code === "GJC12", 
+      `Expected GJC12, got: ${nameError?.code}`);
     
-    // Read back to verify the change actually persisted
-    const { data: updatedGym } = await clientA
+    // Verify name is unchanged
+    const { data: unchangedGym } = await clientA
       .from("gyms")
       .select("name")
       .eq("id", gymIdA)
       .single();
-    check("Gym name actually changed", updatedGym?.name === "Gym A Updated", `got: ${updatedGym?.name}`);
+    check("Gym name unchanged after blocked update", unchangedGym?.name === "Test Gym A", 
+      `got: ${unchangedGym?.name}`);
+    
+    // Owner CAN update brand columns like display_name
+    const { error: displayError } = await clientA
+      .from("gyms")
+      .update({ display_name: "Gym A Display" })
+      .eq("id", gymIdA);
+    check("Owner A can update display_name", !displayError, displayError?.message);
+    
+    // Read back to verify the change actually persisted
+    const { data: updatedGym } = await clientA
+      .from("gyms")
+      .select("display_name")
+      .eq("id", gymIdA)
+      .single();
+    check("Gym display_name actually changed", updatedGym?.display_name === "Gym A Display", 
+      `got: ${updatedGym?.display_name}`);
   }
   console.log();
 
@@ -805,7 +824,7 @@ async function runTests() {
     const { data: ownerResult, error: ownerError } = await clientA
       .rpc("get_owned_gym_name");
     check("Owner A can call get_owned_gym_name()", !ownerError, ownerError?.message);
-    check("Owner A gets their own gym name", ownerResult === "Gym A Updated");
+    check("Owner A gets their own gym name", ownerResult === "Test Gym A");
 
     // Member MC calls get_owned_gym_name() - should get null (MC is not an owner)
     const { data: memberResult, error: memberError } = await clientMemberC
