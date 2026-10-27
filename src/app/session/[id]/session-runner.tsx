@@ -13,6 +13,7 @@ import {
 } from "@/lib/session/device";
 import { useElapsedWithClock } from "@/lib/session/use-elapsed-with-clock";
 import { displayElapsed } from "@/lib/session/display-elapsed";
+import { summaryDurationSeconds } from "@/lib/session/summary-duration";
 import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
@@ -762,6 +763,26 @@ export function SessionRunner({
           >
             {getFinishButtonText()}
           </BigButton>
+          {needsFinishRetry && error && (
+            <BigButton
+              disabled={busy}
+              onClick={async () => {
+                const frozen = stopElapsed();
+                const result = await run(() =>
+                  actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: lastCooldownCompleted })
+                );
+                if (result && result.ok) {
+                  setSavedDurationSeconds(result.data.durationSeconds);
+                  setPhase("done");
+                } else {
+                  resumeElapsed();
+                }
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result, lastCooldownCompleted));
+              }}
+            >
+              Try again
+            </BigButton>
+          )}
           <GhostButton
             disabled={busy}
             onClick={async () => {
@@ -823,11 +844,17 @@ export function SessionRunner({
       (n, e) => n + e.sets.reduce((m, s) => m + (s.reps ?? 0) * (s.weightKg ?? 0), 0),
       0,
     );
+    const summaryDuration = summaryDurationSeconds({
+      savedDurationSeconds,
+      elapsedSeconds: elapsed,
+      isStale,
+      nowMs: (nowFn ?? Date.now)(),
+    });
     return (
       <Shell
         title="Session complete"
         subtitle={null}
-        elapsed={elapsed}
+        elapsed={summaryDuration}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
@@ -835,7 +862,7 @@ export function SessionRunner({
         confirmExit={false}
       >
         <div className="space-y-3">
-          <Stat label="Time" value={formatClock(elapsed)} />
+          <Stat label="Time" value={formatClock(summaryDuration)} />
           <Stat label="Sets logged" value={`${totalSetsDone}`} />
           {volume > 0 && <Stat label="Total volume" value={formatVolumeLifted(volume, units)} />}
           <Stat
@@ -1544,6 +1571,27 @@ export function SessionRunner({
           >
             End session early
           </GhostButton>
+          {!settings.cooldownEnabled && needsFinishRetry && error && (
+            <BigButton
+              disabled={busy}
+              onClick={async () => {
+                const frozen = stopElapsed();
+                setLastCooldownCompleted(false);
+                const result = await run(() =>
+                  actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
+                );
+                if (result && result.ok) {
+                  setSavedDurationSeconds(result.data.durationSeconds);
+                  setPhase("done");
+                } else {
+                  resumeElapsed();
+                }
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
+              }}
+            >
+              Try again
+            </BigButton>
+          )}
         </div>
 
         <p className="mt-8 text-center text-xs text-muted">
