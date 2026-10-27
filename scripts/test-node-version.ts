@@ -2,18 +2,6 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import semver from 'semver';
 
-// Local narrow type declarations for semver (no @types/semver dependency)
-type SemVerVersion = { version: string; major: number; minor: number; patch: number };
-
-declare module 'semver' {
-  export function validRange(range: string): string | null;
-  export function subset(range1: string, range2: string): boolean;
-  export function coerce(version: string): SemVerVersion | null;
-  export function lt(v1: string | SemVerVersion, v2: string): boolean;
-  export function satisfies(version: string, range: string, options?: { includePrerelease?: boolean }): boolean;
-  export function parse(version: string): SemVerVersion | null;
-}
-
 /**
  * Validates that engines.node and .nvmrc meet project requirements.
  * 
