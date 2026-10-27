@@ -78,9 +78,7 @@ async function testExpiredSetsAreSurfaced() {
   };
   fakeStorage.setItem(`pending-sets:${userId}`, JSON.stringify(oldFormatData));
   
-  let logSetCalled = false;
   const mockLogSet = async () => {
-    logSetCalled = true;
     return { ok: true } as const;
   };
 
