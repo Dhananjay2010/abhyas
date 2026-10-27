@@ -60,6 +60,14 @@ function createStubFetch(responses: Record<string, unknown>) {
       });
     }
     
+    // Special handling for error responses
+    if (response && typeof response === 'object' && 'error' in response && typeof response.error === 'string') {
+      return new Response(JSON.stringify({ error: response.error }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -508,7 +516,7 @@ async function main() {
     const resolution = await resolveBrand(supabase, 'error.example.com', memberGym, branding, mockFetchBrand, false);
     
     check("M12: Tier is neutral on host RPC error", resolution.tier === "neutral");
-    check("M12: Uses neutralBrand", resolution.brand.colors.accent === '#6B7280');
+    check("M12: Uses neutralBrand", resolution.brand.colors.accent.toLowerCase() === '#6b7280');
     check("M12: Not showing member gym", resolution.gymId === null);
   }
   console.log();

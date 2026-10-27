@@ -69,30 +69,31 @@ async function resolveHostToBranding(
   useCache: boolean = true
 ): Promise<{ gymId: string; gymName: string | null } | null> {
   const resolveFn = async () => {
-    try {
-      const { data, error } = await supabase.rpc("resolve_gym_by_host", {
-        p_host: normalizedHost,
-      });
+    const { data, error } = await supabase.rpc("resolve_gym_by_host", {
+      p_host: normalizedHost,
+    });
 
-      if (!error && data && data.length > 0) {
-        const row = data[0];
-        
-        if (!isResolveGymByHostResult(row)) {
-          return null;
-        }
-        
-        if (row.gym_id) {
-          return {
-            gymId: row.gym_id,
-            gymName: row.gym_name || null,
-          };
-        }
+    // RPC error - throw to signal database issue
+    if (error) {
+      throw new Error(`Host RPC error: ${error.message}`);
+    }
+
+    if (data && data.length > 0) {
+      const row = data[0];
+      
+      if (!isResolveGymByHostResult(row)) {
+        return null;
       }
       
-      return null;
-    } catch {
-      return null;
+      if (row.gym_id) {
+        return {
+          gymId: row.gym_id,
+          gymName: row.gym_name || null,
+        };
+      }
     }
+    
+    return null;
   };
   
   if (!useCache) {
@@ -142,30 +143,41 @@ export async function resolveBrand(
       normalizedHost.endsWith(".vercel.app");
 
     if (!isUnmapped) {
-      const hostResult = await resolveHostToBranding(supabase, normalizedHost, useCache);
-      
-      if (hostResult) {
-        try {
-          const gymBrand = await fetchGymBrand(hostResult.gymId);
-          const brand = mergeBrand(base, gymBrand);
+      try {
+        const hostResult = await resolveHostToBranding(supabase, normalizedHost, useCache);
+        
+        if (hostResult) {
+          try {
+            const gymBrand = await fetchGymBrand(hostResult.gymId);
+            const brand = mergeBrand(base, gymBrand);
 
-          return {
-            brand,
-            gymId: hostResult.gymId,
-            gymName: hostResult.gymName,
-            tier: "host",
-          };
-        } catch {
-          // On gym brand fetch error, use neutral brand for custom domain
-          // (prevents showing another gym's brand during outage)
-          const brand = mergeBrand(base, neutralBrand);
-          return {
-            brand,
-            gymId: null,
-            gymName: null,
-            tier: "neutral",
-          };
+            return {
+              brand,
+              gymId: hostResult.gymId,
+              gymName: hostResult.gymName,
+              tier: "host",
+            };
+          } catch {
+            // Gym brand fetch error - use neutral brand
+            const brand = mergeBrand(base, neutralBrand);
+            return {
+              brand,
+              gymId: null,
+              gymName: null,
+              tier: "neutral",
+            };
+          }
         }
+      } catch {
+        // Host RPC error on custom domain - use neutral brand
+        // (prevents showing another gym's brand during outage)
+        const brand = mergeBrand(base, neutralBrand);
+        return {
+          brand,
+          gymId: null,
+          gymName: null,
+          tier: "neutral",
+        };
       }
     }
   }
