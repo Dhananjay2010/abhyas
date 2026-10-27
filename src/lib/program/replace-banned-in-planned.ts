@@ -1,33 +1,18 @@
 /**
  * Replace banned exercises in planned sessions for knee-injured users.
  * 
- * Applies to NOT-YET-STARTED planned sessions only (no logged sets, no completed days).
- * Logged sets, completed days, and in-progress sessions are never touched.
+ * Applies to program_day_exercises only (weekly templates).
+ * Logged sets and completed sessions are never touched.
  * 
- * Banned exercises:
- * - single-leg-leg-extension (past-knee only)
- * - calf-press-on-the-leg-press-machine (past-knee only)  
- * - landmine-linear-jammer (ANY knee)
- * - single-arm-linear-jammer (ANY knee)
+ * Banned exercises come from shared knee-tier lists in past-knee.ts.
  */
 
 import type { CandidateExercise, GeneratorInput } from "@/lib/program/generate";
-import { isEligible, score, hashString } from "@/lib/program/generate";
-import { rankAlternatives } from "@/lib/program/alternatives";
-import { getSwapPatterns } from "@/lib/program/swap-patterns";
-import { buildSwapContext } from "@/lib/program/swap-context";
-
-const PAST_KNEE_BANNED = new Set([
-  "single-leg-leg-extension",
-  "calf-press-on-the-leg-press-machine",
-]);
-
-const ANY_KNEE_BANNED = new Set([
-  "landmine-linear-jammer",
-  "single-arm-linear-jammer",
-]);
+import { buildEligibleSwapList } from "@/lib/session/eligible-swap-list";
+import { getKneeBannedSlugs, type KneeTier } from "@/lib/program/past-knee";
 
 export type PlannedExercise = {
+  id: string;
   exercise_id: string;
   order_index: number;
   target_sets: number | null;
@@ -36,38 +21,61 @@ export type PlannedExercise = {
   rest_seconds: number | null;
 };
 
+export type ReplacementResult = {
+  rows: PlannedExercise[];
+  changed: boolean;
+};
+
+function determineKneeTier(
+  anyKneeInjury: boolean | undefined,
+  currentInjuryRegions: string[],
+): KneeTier | null {
+  if (!anyKneeInjury) return null;
+  
+  const hasCurrentKnee = currentInjuryRegions.includes("knee");
+  return hasCurrentKnee ? "current" : "past";
+}
+
 export function shouldReplaceBannedExercise(
   exerciseSlug: string,
-  hasPastKnee: boolean,
-  hasAnyKnee: boolean,
+  tier: KneeTier | null,
 ): boolean {
-  // MUTANT: Skip jammer check
-  // MUTANT: Skip past-knee check
-  return false;
+  if (!tier) return false;
+  
+  const bannedSlugs = getKneeBannedSlugs(tier);
+  return bannedSlugs.has(exerciseSlug);
 }
 
 /**
  * Replace banned exercises in a planned exercise list.
- * Returns a new list with banned exercises replaced by safe alternatives.
+ * Returns new rows and a changed flag.
  * Non-knee users and non-banned exercises pass through unchanged.
- * Deterministic: same exercise + profile → same replacement.
+ * Deterministic: same exercise + profile + seed → same replacement.
  */
 export function replaceBannedInPlanned(
   planned: PlannedExercise[],
   catalogue: CandidateExercise[],
   generatorInput: GeneratorInput,
-  sessionExerciseIdSeed: string,
-): PlannedExercise[] {
-  const hasPastKnee = (generatorInput.anyKneeInjury ?? false) && generatorInput.currentInjuryRegions.length === 0;
-  const hasAnyKnee = generatorInput.anyKneeInjury ?? false;
+): ReplacementResult {
+  const tier = determineKneeTier(
+    generatorInput.anyKneeInjury,
+    generatorInput.currentInjuryRegions,
+  );
   
-  // No knee injury: pass through unchanged
-  if (!hasAnyKnee) return planned;
+  if (!tier) {
+    return { rows: planned, changed: false };
+  }
   
   const catalogueById = new Map(catalogue.map(e => [e.id, e]));
+  const alreadyInSession = new Set(
+    planned
+      .map(ex => catalogueById.get(ex.exercise_id))
+      .filter((e): e is CandidateExercise => !!e)
+      .map(e => e.id)
+  );
   
+  let changed = false;
   const result: PlannedExercise[] = [];
-  const alreadyUsed = new Set<string>();
   
   for (const ex of planned) {
     const exercise = catalogueById.get(ex.exercise_id);
@@ -76,46 +84,34 @@ export function replaceBannedInPlanned(
       continue;
     }
     
-    alreadyUsed.add(exercise.id);
-    
-    const needsReplacement = shouldReplaceBannedExercise(
-      exercise.slug,
-      hasPastKnee,
-      hasAnyKnee,
-    );
+    const needsReplacement = shouldReplaceBannedExercise(exercise.slug, tier);
     
     if (!needsReplacement) {
       result.push(ex);
       continue;
     }
     
-    // Find replacement using same logic as generator/swaps
-    const patterns = getSwapPatterns(exercise.movement_pattern, generatorInput);
-    const patternMatches = catalogue.filter(e => patterns.includes(e.movement_pattern));
-    const eligible = patternMatches
-      .filter(e => !alreadyUsed.has(e.id))
-      .filter(e => isEligible(e, generatorInput));
+    const swapList = buildEligibleSwapList({
+      currentExercise: exercise,
+      sessionExerciseId: ex.id,
+      generatorInput,
+      pool: catalogue,
+      alreadyInSession,
+    });
     
-    const wantCompound = exercise.mechanic !== "isolation";
-    const scoreFn = (e: CandidateExercise) => 
-      score(e, wantCompound, generatorInput.level, generatorInput.primaryTrack);
-    const tieBreakFn = (slug: string) => Math.random();
-    
-    const swapContext = buildSwapContext(generatorInput, scoreFn, tieBreakFn);
-    const ranked = rankAlternatives(exercise, eligible, swapContext);
-    
-    if (ranked.length > 0) {
-      const replacement = ranked[0];
-      alreadyUsed.add(replacement.id);
+    if (swapList.length > 0) {
+      const replacement = swapList[0];
+      alreadyInSession.delete(exercise.id);
+      alreadyInSession.add(replacement.id);
       result.push({
         ...ex,
         exercise_id: replacement.id,
       });
+      changed = true;
     } else {
-      // No replacement found: keep the banned exercise (safety: don't break the day)
       result.push(ex);
     }
   }
   
-  return result;
+  return { rows: result, changed };
 }

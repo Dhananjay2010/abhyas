@@ -94,11 +94,7 @@ type AllowedChange =
   | { type: 'exercise'; exercise: string; becomes: string; reason: string };
 
 const ALLOWED_CHANGES: Map<number, AllowedChange[]> = new Map([
-  [2, [
-    // NO fixture drift - main's code already generates calf=4, 22 lower, 26 total, 68 minutes
-    // This entry exists to document that the baseline is byte-identical to main's code
-    { type: 'fixturedrift', exercise: 'Barbell Seated Calf Raise', baselineSets: 4, codeSets: 4, baselineMinutes: 68, codeMinutes: 68 },
-  ]],
+  // Empty: no drift from main 0dadd8bc
 ]);
 
 console.log("Baseline from origin/main:");
@@ -335,11 +331,11 @@ if (allowedChangesUsed.size !== totalAllowedChanges) {
   console.log(`  ✓ All ${totalAllowedChanges} allow-list entries were checked`);
 }
 
-if (totalAllowedChanges !== 1) {
-  console.log(`  ✗ WRONG COUNT: Expected exactly 1 allow-list entry, got ${totalAllowedChanges}`);
+if (totalAllowedChanges !== 0) {
+  console.log(`  ✗ WRONG COUNT: Expected 0 allow-list entries, got ${totalAllowedChanges}`);
   failures++;
 } else {
-  console.log(`  ✓ Exactly 1 allow-list entry present`);
+  console.log(`  ✓ Allow-list is empty (no drift)`);
 }
 
 console.log("");

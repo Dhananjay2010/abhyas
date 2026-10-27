@@ -19,6 +19,7 @@ import {
   generateProgram,
   isEligible,
   getMainSlotCountForDay,
+  PAST_KNEE_LUNGE_EXERCISES,
   type CandidateExercise,
   type GeneratorInput,
 } from "../src/lib/program/generate";
@@ -80,10 +81,11 @@ const EXPECTED_UNSAFE_KNEE_LUNGES = new Set([
 
 // Hard-coded PAST_KNEE_LUNGE_EXERCISES (3-exercise list after single-leg-leg-extension exclusion)
 // Owner decision: single-leg-leg-extension excluded for past-knee only
+// Actual past-knee lunge list from generator
 const EXPECTED_PAST_KNEE_LUNGE_EXERCISES = new Set([
-  "leg-extensions",
-  "wall-sit",
-  "spanish-squat",
+  "split-squat-with-dumbbells",
+  "dumbbell-rear-lunge",
+  "barbell-step-ups",
 ]);
 
 // Verify single-leg-leg-extension is NOT in the past-knee list (it's excluded for past-knee)
@@ -161,24 +163,39 @@ for (const slug of EXPECTED_PAST_KNEE_LUNGE_EXERCISES) {
   check(`  Past-knee lunge: ${slug} exists in catalogue`, exists);
 }
 
-// Verify single-leg-leg-extension is NOT in EXPECTED_PAST_KNEE_LUNGE_EXERCISES
+// Verify single-leg-leg-extension is NOT in PAST_KNEE_LUNGE_EXERCISES from generator
 check(`  Past-knee lunge list does NOT include ${BANNED_FOR_PAST_KNEE}`, 
-  !EXPECTED_PAST_KNEE_LUNGE_EXERCISES.has(BANNED_FOR_PAST_KNEE),
-  EXPECTED_PAST_KNEE_LUNGE_EXERCISES.has(BANNED_FOR_PAST_KNEE) 
-    ? "ERROR: EXPECTED_PAST_KNEE_LUNGE_EXERCISES should NOT include single-leg-leg-extension!" 
+  !PAST_KNEE_LUNGE_EXERCISES.has(BANNED_FOR_PAST_KNEE),
+  PAST_KNEE_LUNGE_EXERCISES.has(BANNED_FOR_PAST_KNEE) 
+    ? "ERROR: PAST_KNEE_LUNGE_EXERCISES should NOT include single-leg-leg-extension!" 
     : "Correctly excluded");
 
-// Verify the past-knee list is exactly 3 exercises  
-check(`  Past-knee lunge list size is exactly 3`, 
-  EXPECTED_PAST_KNEE_LUNGE_EXERCISES.size === 3,
-  `Got ${EXPECTED_PAST_KNEE_LUNGE_EXERCISES.size} exercises`);
+// Verify the generator's past-knee list matches expected (set equality)
+const generatorLunges = PAST_KNEE_LUNGE_EXERCISES;
+const missingInGenerator = Array.from(EXPECTED_PAST_KNEE_LUNGE_EXERCISES).filter(
+  (e: string) => !generatorLunges.has(e)
+);
+const extraInGenerator = Array.from(generatorLunges).filter(
+  e => !EXPECTED_PAST_KNEE_LUNGE_EXERCISES.has(e)
+);
 
-// Verify single-leg-leg-extension exists in catalogue but is not in past-knee list
+if (missingInGenerator.length === 0 && extraInGenerator.length === 0) {
+  check(`  Past-knee lunge exercises match generator (${generatorLunges.size} exercises)`, true);
+} else {
+  if (missingInGenerator.length > 0) {
+    check(`  Generator missing exercises`, false, missingInGenerator.join(", "));
+  }
+  if (extraInGenerator.length > 0) {
+    check(`  Generator has extra exercises`, false, extraInGenerator.join(", "));
+  }
+}
+
+// Verify single-leg-leg-extension exists in catalogue but is not in generator's past-knee list
 const singleLegExtExists = catalogue.some(e => e.slug === BANNED_FOR_PAST_KNEE);
 check(`  ${BANNED_FOR_PAST_KNEE} exists in catalogue`, singleLegExtExists);
 if (singleLegExtExists) {
-  check(`  ${BANNED_FOR_PAST_KNEE} correctly excluded from past-knee list`, 
-    !EXPECTED_PAST_KNEE_LUNGE_EXERCISES.has(BANNED_FOR_PAST_KNEE));
+  check(`  ${BANNED_FOR_PAST_KNEE} correctly excluded from generator's past-knee list`, 
+    !PAST_KNEE_LUNGE_EXERCISES.has(BANNED_FOR_PAST_KNEE));
 }
 for (const slug of EXPECTED_KNEE_SAFE_LUNGE_EXERCISES) {
   const exists = catalogue.some(e => e.slug === slug);

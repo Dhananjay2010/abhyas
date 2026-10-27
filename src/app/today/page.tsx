@@ -10,6 +10,7 @@ import { addDays, isoWeekday, localDateString } from "@/lib/dates";
 import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
+import type { CandidateExercise } from "@/lib/program/generate";
 import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
@@ -164,13 +165,13 @@ export default async function TodayPage() {
     .from("program_days")
     // One string literal: Supabase infers the row type from it, and a
     // concatenation degrades the result to GenericStringError.
-    .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
+    .select("id, day_index, day_type, focus, label, program_day_exercises(id, exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
     .eq("status", "active")
     .eq("program_id", program.id)
     .order("day_index")
     .order("order_index", { referencedTable: "program_day_exercises" });
 
-  const days = daysRes.data;
+  let days = daysRes.data;
   // Derived from the user's own local date rather than re-reading the clock,
   // so the weekday and the date can never disagree at a midnight boundary.
   const todayIndex = isoWeekday(localToday);
