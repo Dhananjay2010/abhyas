@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Simplified mutant test for Decision F
+# Mutant test for Decision F with proper mutation handling
 FILE="${MUTANT_TARGET_FILE:-src/lib/program/progression.ts}"
 BASELINE_CMD="${MUTANT_BASELINE_CMD:-npm run test:first-miss-pinned}"
 COMPILE_CMD="${MUTANT_COMPILE_CMD:-npx tsc --noEmit}"
 MUTANT_TEST_CMD="${MUTANT_TEST_CMD:-npm run test:first-miss-pinned}"
 
-BACKUP=$(mktemp)
+# Shared isCrash function
+isCrash() {
+  local exit_code=$1
+  # Exit codes indicating runtime crash (not test failure):
+  # 134: SIGABRT, 137: SIGKILL, 139: SIGSEGV
+  if [ "$exit_code" -eq 134 ] || [ "$exit_code" -eq 137 ] || [ "$exit_code" -eq 139 ]; then
+    return 0
+  fi
+  return 1
+}
 
-# Verify backup creation
+BACKUP=$(mktemp)
 if [ ! -f "$BACKUP" ]; then
   echo "❌ ERROR: Failed to create backup" >&2
   exit 1
@@ -17,7 +26,6 @@ fi
 
 cp "$FILE" "$BACKUP"
 
-# Verify backup is valid
 if [ ! -s "$BACKUP" ]; then
   echo "❌ ERROR: Backup is empty" >&2
   rm -f "$BACKUP"
@@ -26,47 +34,9 @@ fi
 
 ORIG_SHA=$(sha256sum "$BACKUP" | cut -d' ' -f1)
 
-cleanup() {
-  if [ -f "$BACKUP" ]; then
-    # Check if backup exists and has reasonable size
-    local backup_size
-    backup_size=$(stat -f%z "$BACKUP" 2>/dev/null || stat -c%s "$BACKUP" 2>/dev/null || echo 0)
-    
-    if [ "$backup_size" -lt 1000 ]; then
-      echo "❌ FATAL: Backup too small ($backup_size bytes)" >&2
-      exit 1
-    fi
-    
-    # Verify backup integrity before restore
-    local backup_sha
-    backup_sha=$(sha256sum "$BACKUP" 2>/dev/null | cut -d' ' -f1)
-    if [ "$backup_sha" != "$ORIG_SHA" ]; then
-      echo "❌ FATAL: Backup corrupted" >&2
-      exit 1
-    fi
-    cp "$BACKUP" "$FILE"
-    rm -f "$BACKUP"
-  fi
-}
-trap cleanup EXIT
-
-echo "=== Mutant Testing: Decision F Core ===
-"
-
-# Baseline
-if ! eval "$BASELINE_CMD" > /dev/null 2>&1; then
-  echo "❌ Baseline failed"
-  exit 1
-fi
-echo "✓ Baseline pass"
-
-KILLED=0
-SURVIVORS=()
-
 restore_from_backup() {
-  # Check backup integrity before restore
   local backup_size
-  backup_size=$(stat -f%z "$BACKUP" 2>/dev/null || stat -c%s "$BACKUP" 2>/dev/null || echo 0)
+  backup_size=$(stat -c%s "$BACKUP" 2>/dev/null || stat -f%z "$BACKUP" 2>/dev/null || echo 0)
   
   if [ "$backup_size" -lt 1000 ]; then
     echo "❌ FATAL: Backup corrupted (size $backup_size)" >&2
@@ -83,6 +53,55 @@ restore_from_backup() {
   cp "$BACKUP" "$FILE"
 }
 
+cleanup() {
+  restore_from_backup
+  rm -f "$BACKUP"
+}
+trap cleanup EXIT
+
+echo "=== Mutant Testing: Decision F ==="
+echo
+
+# Baseline
+if ! eval "$BASELINE_CMD" > /dev/null 2>&1; then
+  echo "❌ Baseline failed"
+  exit 1
+fi
+echo "✓ Baseline pass"
+
+KILLED=0
+SURVIVORS=()
+SKIPPED=()
+
+# Node-based exact-match replacer
+mutate_exact() {
+  local old="$1"
+  local new="$2"
+  
+  node -e "
+const fs = require('fs');
+const content = fs.readFileSync('$FILE', 'utf8');
+const search = process.argv[1];
+const replace = process.argv[2];
+
+// Escape regex special chars for counting
+const escaped = search.replace(/[.*+?^${}()|[\]\\\\]/g, '\\\\$&');
+const count = (content.match(new RegExp(escaped, 'g')) || []).length;
+
+if (count === 0) {
+  console.error('ERROR: Pattern not found');
+  process.exit(1);
+}
+if (count > 1) {
+  console.error('ERROR: Pattern occurs ' + count + ' times, need exactly 1');
+  process.exit(1);
+}
+
+const newContent = content.replace(search, replace);
+fs.writeFileSync('$FILE', newContent, 'utf8');
+" "$old" "$new"
+}
+
 test_mutant() {
   local name="$1"
   local old="$2"
@@ -91,51 +110,134 @@ test_mutant() {
   echo "Testing: $name"
   
   # Apply mutation
-  sed -i "s|$old|$new|g" "$FILE"
-  
-  # Compile check
-  if ! eval "$COMPILE_CMD" > /dev/null 2>&1; then
-    restore_from_backup
-    echo "  ✓ KILLED (doesn't compile)"
-    KILLED=$((KILLED + 1))
+  if ! mutate_exact "$old" "$new" 2>/dev/null; then
+    echo "  ⊘ SKIP: Pattern not found or ambiguous"
+    SKIPPED+=("$name")
     return
   fi
   
-  # Test
-  if eval "$MUTANT_TEST_CMD" > /dev/null 2>&1; then
+  # Verify file changed
+  local mutated_sha
+  mutated_sha=$(sha256sum "$FILE" 2>/dev/null | cut -d' ' -f1)
+  if [ "$mutated_sha" = "$ORIG_SHA" ]; then
+    echo "  ⊘ SKIP: File unchanged"
+    SKIPPED+=("$name")
+    restore_from_backup
+    return
+  fi
+  
+  # Compile check
+  local compile_exit=0
+  eval "$COMPILE_CMD" > /dev/null 2>&1 || compile_exit=$?
+  
+  if [ $compile_exit -ne 0 ]; then
+    if isCrash $compile_exit; then
+      echo "  ⊘ SKIP: Compile crashed"
+      SKIPPED+=("$name")
+    else
+      echo "  ⊘ SKIP: Does not compile"
+      SKIPPED+=("$name")
+    fi
+    restore_from_backup
+    return
+  fi
+  
+  # Run tests
+  local test_exit=0
+  eval "$MUTANT_TEST_CMD" > /dev/null 2>&1 || test_exit=$?
+  
+  if [ $test_exit -eq 0 ]; then
     echo "  ❌ SURVIVED"
     SURVIVORS+=("$name")
+  elif isCrash $test_exit; then
+    echo "  ⊘ SKIP: Test crashed"
+    SKIPPED+=("$name")
   else
     echo "  ✅ KILLED"
     KILLED=$((KILLED + 1))
   fi
   
-  # Restore
   restore_from_backup
 }
 
-# Test core Decision F mutations
-test_mutant "first-miss-drops" "const nextWeight = currentWeight;" "const nextWeight = currentWeight * 0.9;"
-test_mutant "counter-not-set" "consecutiveFailures === 0 && currentWeight !== null" "false && currentWeight !== null"
-test_mutant "failures-not-incremented" "consecutiveFailures: failures," "consecutiveFailures: 0,"
-test_mutant "second-miss-holds" "if (failures >= 2 && currentWeight !== null" "if (failures >= 99 && currentWeight !== null"
-test_mutant "hard-feel-wrong-baseline" "const currentWeight = state.currentWorkingWeightKg" "const currentWeight = mode > 0 ? mode : state.currentWorkingWeightKg"
-test_mutant "message-altered" "Staying at this weight until every set reaches the top of the range" "Holding at this weight"
-test_mutant "easy-no-double" "feel === \"easy\" && !isBodyweightWithAddedWeight" "false && !isBodyweightWithAddedWeight"
-test_mutant "grid-step-ignored" "Math.max(patternStep, gridStep)" "patternStep"
-test_mutant "snap-down" "Math.ceil(target / gridStep)" "Math.floor(target / gridStep)"
-test_mutant "floor-snap-ceil" "Math.floor((rawNext / gridStep)" "Math.ceil((rawNext / gridStep)"
-test_mutant "mechanic-wrong" "meta.mechanic === \"isolation\" ? 1.25" "meta.mechanic === \"isolation\" ? 2.5"
+# Test mutations
+test_mutant "first-miss-drops" \
+  "const nextWeight = currentWeight;" \
+  "const nextWeight = (currentWeight ?? 0) * 0.9;"
 
-echo "
-========================================
-Killed: $KILLED
-Survived: ${#SURVIVORS[@]}
-========================================"
+test_mutant "counter-not-set" \
+  "const newWeightAtFailureStart = state.consecutiveFailures === 0 && currentWeight !== null
+    ? currentWeight
+    : state.weightAtFailureStartKg;" \
+  "const newWeightAtFailureStart = state.weightAtFailureStartKg;"
+
+test_mutant "failures-not-incremented" \
+  "consecutiveFailures: failures," \
+  "consecutiveFailures: 0,"
+
+test_mutant "second-miss-holds" \
+  "if (failures >= 2 && currentWeight !== null && currentWeight > 0) {" \
+  "if (failures >= 99 && currentWeight !== null && currentWeight > 0) {"
+
+test_mutant "hard-feel-wrong-baseline" \
+  "const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);" \
+  "const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));"
+
+test_mutant "message-altered" \
+  ": \"Staying at this weight until every set reaches the top of the range.\";" \
+  ": \"Holding at this weight.\";"
+
+test_mutant "easy-no-double" \
+  "feel === \"easy\" && !isBodyweightWithAddedWeight" \
+  "false"
+
+test_mutant "grid-step-ignored" \
+  "step = hasLoadable ? Math.max(patternStep, gridStep) : patternStep;" \
+  "step = patternStep;"
+
+test_mutant "snap-down" \
+  "const snappedUp = Math.ceil(target / gridStep) * gridStep;" \
+  "const snappedUp = Math.floor(target / gridStep) * gridStep;"
+
+test_mutant "floor-snap-ceil" \
+  "next = Math.max(Math.floor((rawNext / gridStep) + 1e-9) * gridStep, from);" \
+  "next = Math.max(Math.ceil((rawNext / gridStep) + 1e-9) * gridStep, from);"
+
+test_mutant "mechanic-wrong" \
+  "const mechanicIncrement = meta.mechanic === \"isolation\" ? 1.25 :" \
+  "const mechanicIncrement = meta.mechanic === \"isolation\" ? 2.5 :"
+
+test_mutant "kettlebell-max-wrong" \
+  "if (from > bells[bells.length - 1]) {
+            currentIndex = bells.length - 1; // At or above max bell
+          } else {
+            currentIndex = 0; // Below first bell
+          }" \
+  "currentIndex = 0;"
+
+echo
+echo "========================================"
+echo "Killed: $KILLED"
+echo "Survived: ${#SURVIVORS[@]}"
+echo "Skipped: ${#SKIPPED[@]}"
+echo "========================================"
 
 if [ ${#SURVIVORS[@]} -gt 0 ]; then
-  echo "Survivors: ${SURVIVORS[@]}"
+  echo "Survivors: ${SURVIVORS[*]}"
+fi
+
+if [ ${#SKIPPED[@]} -gt 0 ]; then
+  echo "Skipped: ${SKIPPED[*]}"
+fi
+
+if [ "$KILLED" -lt 10 ]; then
+  echo "❌ FAIL: Need at least 10 killed, got $KILLED"
   exit 1
 fi
 
-echo "✅ All mutants killed"
+if [ ${#SURVIVORS[@]} -gt 0 ] || [ ${#SKIPPED[@]} -gt 0 ]; then
+  echo "❌ FAIL: ${#SURVIVORS[@]} survivor(s), ${#SKIPPED[@]} skip(s)"
+  exit 1
+fi
+
+echo "✅ PASS: All mutants killed"
