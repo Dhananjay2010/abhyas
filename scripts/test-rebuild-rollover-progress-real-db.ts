@@ -14,6 +14,7 @@ import { randomUUID } from "crypto";
 import type { Database } from "../src/lib/database.types.js";
 import { rebuildPlanCore } from "../src/lib/program/rebuild-plan-core.js";
 import { buildRebuildPlanDeps } from "../src/lib/program/rebuild-plan-deps.js";
+import { checkRealDbTest } from "./lib-db-reset-guard.js";
 
 // Skip unless REAL_DB=1
 if (process.env.REAL_DB !== "1") {
@@ -21,6 +22,15 @@ if (process.env.REAL_DB !== "1") {
   console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance\n");
   process.exit(0);
 }
+
+// Check guard
+const guardResult = checkRealDbTest();
+if (!guardResult.allow) {
+  console.log(`\n⏭️  Skipping real DB tests: ${guardResult.reason}\n`);
+  process.exit(0);
+}
+
+console.log(`✓ Guard check passed: ${guardResult.reason}\n`);
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||

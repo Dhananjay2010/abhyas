@@ -11,6 +11,23 @@ import { strict as assert } from "assert";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 import { loadProgramDays } from "../src/lib/progress/load-program-days";
+import { checkRealDbTest } from "./lib-db-reset-guard";
+
+// Skip unless REAL_DB=1
+if (process.env.REAL_DB !== "1") {
+  console.log("\n⏭️  Skipping real DB tests (REAL_DB=1 not set)");
+  console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance\n");
+  process.exit(0);
+}
+
+// Check guard
+const guardResult = checkRealDbTest();
+if (!guardResult.allow) {
+  console.log(`\n⏭️  Skipping real DB tests: ${guardResult.reason}\n`);
+  process.exit(0);
+}
+
+console.log(`✓ Guard check passed: ${guardResult.reason}\n`);
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -43,8 +60,8 @@ async function main() {
   console.log(`Created test user: ${userId}`);
 
   try {
-    // Create profile
-    await supabase.from("profiles").insert({
+    // Ensure profile exists (trigger creates it, but set required fields)
+    await supabase.from("profiles").upsert({
       id: userId,
       onboarding_completed_at: new Date().toISOString(),
       timezone: "America/New_York",
