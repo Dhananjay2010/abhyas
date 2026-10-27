@@ -28,14 +28,14 @@ export function PendingSetReplay({
   now?: Date;
   storage?: Storage;
 }) {
-  const [hasReplayed, setHasReplayed] = useState(false);
+  const [replayState, setReplayState] = useState<{ userId: string; hasReplayed: boolean }>({ 
+    userId, 
+    hasReplayed: false 
+  });
   const [closedSessions, setClosedSessions] = useState<{ sessionId: string; count: number }[]>([]);
 
-  useEffect(() => {
-    // Reset replay state when userId changes
-    setHasReplayed(false);
-    setClosedSessions([]);
-  }, [userId]);
+  // Derive hasReplayed from state and userId
+  const hasReplayed = replayState.userId === userId && replayState.hasReplayed;
 
   useEffect(() => {
     if (hasReplayed) return;
@@ -101,7 +101,7 @@ export function PendingSetReplay({
       }
       
       setClosedSessions(closedSessionsFound);
-      setHasReplayed(true);
+      setReplayState({ userId, hasReplayed: true });
     }
 
     replay();
