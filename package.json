@@ -415,7 +415,17 @@
     "test:progress-units": "tsx scripts/test-progress-units.tsx",
     "test:history-page-counts": "tsx scripts/test-history-page-counts.ts",
     "test:history-empty-mutants": "bash scripts/test-history-empty-mutants.sh",
-    "test:progress-empty-mutants": "bash scripts/test-progress-empty-mutants.sh"
+    "test:progress-empty-mutants": "bash scripts/test-progress-empty-mutants.sh",
+    "test:demo-path-anchoring": "tsx scripts/test-anchored-indices.ts",
+    "test:demo-path-new-plan-behavior": "tsx scripts/test-new-plan-behavior.ts",
+    "test:should-offer-start-tomorrow": "tsx scripts/test-should-offer-start-tomorrow.ts",
+    "test:start-tomorrow-core": "tsx scripts/test-start-tomorrow-core.ts",
+    "test:rest-day-swap-preselect-dom": "tsx scripts/test-rest-day-swap-preselect-dom.tsx",
+    "test:post-swap-collision": "tsx scripts/test-post-swap-collision.ts",
+    "test:existing-plan-schedule-unchanged": "tsx scripts/test-existing-plan-schedule-unchanged.ts",
+    "test:today-plan-loader": "tsx scripts/test-today-plan-loader.ts",
+    "test:next-day-plan-core": "tsx scripts/test-next-day-plan-core.ts",
+    "test:start-session-today-resolve": "tsx scripts/test-start-session-today-resolve.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
