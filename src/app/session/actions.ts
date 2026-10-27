@@ -109,50 +109,22 @@ export async function logSet(input: {
 }): Promise<Result | SetConflictResult> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
+
+  const { logSetWithAuth } = await import("@/lib/session/log-set-with-auth");
+  const { checkLogSetInput } = await import("@/lib/session/check-log-set-input");
+  const { buildLogSetValidationDeps, validateSessionForLogSet } = await import("@/lib/session/log-set-validation");
+  const { logSetCore } = await import("@/lib/session/log-set-core");
   
-  return await resolveAuth(
-    async () => {
-      const { supabase, user } = await getAuthedClient();
-      return { user, supabase };
+  return await logSetWithAuth(
+    {
+      resolveAuth,
+      getAuthedClient,
+      checkLogSetInput,
+      validateSessionForLogSet,
+      buildLogSetValidationDeps,
+      logSetCore,
     },
-    async ({ user, supabase }) => {
-      if (!user) throw new Error("Not signed in");
-      
-      const { checkLogSetInput } = await import("@/lib/session/check-log-set-input");
-      const invalid = await checkLogSetInput(supabase, user.id, {
-        reps: input.reps,
-        weightKg: input.weightKg,
-        durationSeconds: input.durationSeconds,
-      });
-      if (invalid) return { ok: false, error: invalid };
-
-      // Reject writes to sessions that are no longer in_progress or don't exist
-      // For ended sessions, allow idempotent retry if the exact set already exists
-      const validationDeps = buildLogSetValidationDeps(supabase);
-      const durationSeconds = input.durationSeconds ?? null;
-      const validationResult = await validateSessionForLogSet(
-        validationDeps, 
-        input.sessionExerciseId,
-        {
-          setNumber: input.setNumber,
-          reps: input.reps,
-          weightKg: input.weightKg,
-          durationSeconds,
-        }
-      );
-  
-      if (!validationResult.ok) {
-        return validationResult;
-      }
-
-      return logSetCore(supabase, user.id, {
-        sessionExerciseId: input.sessionExerciseId,
-        setNumber: input.setNumber,
-        reps: input.reps,
-        weightKg: input.weightKg,
-        durationSeconds,
-      });
-    }
+    input
   );
 }
 
