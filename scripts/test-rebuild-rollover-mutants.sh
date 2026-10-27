@@ -25,13 +25,11 @@ if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
   exit 1
 fi
 
-ACTIONS_FILE="src/app/today/actions.ts"
 REBUILD_CORE="src/lib/program/rebuild-plan-core.ts"
 PROGRESS_START_FILE="src/lib/progress/progress-start-date.ts"
 STREAKS_FILE="src/lib/progress/streaks.ts"
 ROLLOVER_FILE="src/lib/program/rollover.ts"
 TMP=$(mktemp -d)
-BACKUP_ACTIONS="$TMP/actions.ts"
 BACKUP_CORE="$TMP/rebuild-plan-core.ts"
 BACKUP_PROGRESS_START="$TMP/progress-start-date.ts"
 BACKUP_STREAKS="$TMP/streaks.ts"
@@ -42,7 +40,6 @@ echo "============================================================"
 echo ""
 
 # Backup originals
-cp "$ACTIONS_FILE" "$BACKUP_ACTIONS"
 cp "$REBUILD_CORE" "$BACKUP_CORE"
 cp "$PROGRESS_START_FILE" "$BACKUP_PROGRESS_START"
 cp "$STREAKS_FILE" "$BACKUP_STREAKS"
@@ -54,7 +51,6 @@ cleanup() {
   fi
   cleanup_done=1
   echo "Restoring original files..."
-  cp "$BACKUP_ACTIONS" "$ACTIONS_FILE"
   cp "$BACKUP_CORE" "$REBUILD_CORE"
   cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
   cp "$BACKUP_STREAKS" "$STREAKS_FILE"
@@ -97,26 +93,28 @@ if ! grep -q 'const rollover = { status: "none" as const }; // await deps.ensure
   exit 1
 fi
 
-if REAL_DB=1 npx tsx scripts/test-rebuild-rollover-progress-real-db.ts > /tmp/mutant1.log 2>&1; then
+MUTANT1_LOG=$(mktemp)
+if REAL_DB=1 npx tsx scripts/test-rebuild-rollover-progress-real-db.ts > "$MUTANT1_LOG" 2>&1; then
   echo "✗ SURVIVED: Mutant 1 (test passes without rollover)"
-  cat /tmp/mutant1.log
+  cat "$MUTANT1_LOG"
   SURVIVED=$((SURVIVED + 1))
 else
   # Check that test actually ran (not skipped)
-  if grep -q "⏭️.*Skipping" /tmp/mutant1.log; then
+  if grep -q "⏭️.*Skipping" "$MUTANT1_LOG"; then
     echo "✗ FAIL: Mutant test was skipped, not actually run"
-    cat /tmp/mutant1.log
+    cat "$MUTANT1_LOG"
     exit 1
   fi
   # Check that an assertion killed it
-  if ! grep -q "❌ FAIL" /tmp/mutant1.log; then
+  if ! grep -q "❌ FAIL" "$MUTANT1_LOG"; then
     echo "✗ FAIL: Mutant 1 killed by crash, not assertion"
-    cat /tmp/mutant1.log
+    cat "$MUTANT1_LOG"
     exit 1
   fi
   echo "✓ Mutant 1 killed (test fails without rollover)"
   KILLED=$((KILLED + 1))
 fi
+rm -f "$MUTANT1_LOG"
 
 # Restore for next mutant
 cp "$BACKUP_CORE" "$REBUILD_CORE"
@@ -154,19 +152,21 @@ if diff -q "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE" > /dev/null 2>&1; the
   exit 1
 fi
 
-if npx tsx scripts/test-rebuild-rollover-progress.ts > /tmp/mutant2.log 2>&1; then
+MUTANT2_LOG=$(mktemp)
+if npx tsx scripts/test-rebuild-rollover-progress.ts > "$MUTANT2_LOG" 2>&1; then
   echo "✗ SURVIVED: Mutant 2 (unit test passes with only first block date)"
-  cat /tmp/mutant2.log
+  cat "$MUTANT2_LOG"
   SURVIVED=$((SURVIVED + 1))
 else
-  if ! grep -q "❌ FAIL" /tmp/mutant2.log; then
+  if ! grep -q "❌ FAIL" "$MUTANT2_LOG"; then
     echo "✗ FAIL: Mutant 2 killed by crash, not assertion"
-    cat /tmp/mutant2.log
+    cat "$MUTANT2_LOG"
     exit 1
   fi
   echo "✓ Mutant 2 killed (unit test fails without session date consideration)"
   KILLED=$((KILLED + 1))
 fi
+rm -f "$MUTANT2_LOG"
 
 # Restore for next mutant
 cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
@@ -190,19 +190,21 @@ if diff -q "$BACKUP_STREAKS" "$STREAKS_FILE" > /dev/null 2>&1; then
   exit 1
 fi
 
-if npx tsx scripts/test-rebuild-rollover-progress.ts > /tmp/mutant3.log 2>&1; then
+MUTANT3_LOG=$(mktemp)
+if npx tsx scripts/test-rebuild-rollover-progress.ts > "$MUTANT3_LOG" 2>&1; then
   echo "✗ SURVIVED: Mutant 3 (unit test passes with ?? fallback)"
-  cat /tmp/mutant3.log
+  cat "$MUTANT3_LOG"
   SURVIVED=$((SURVIVED + 1))
 else
-  if ! grep -q "❌ FAIL" /tmp/mutant3.log; then
+  if ! grep -q "❌ FAIL" "$MUTANT3_LOG"; then
     echo "✗ FAIL: Mutant 3 killed by crash, not assertion"
-    cat /tmp/mutant3.log
+    cat "$MUTANT3_LOG"
     exit 1
   fi
   echo "✓ Mutant 3 killed (unit test fails without min() logic)"
   KILLED=$((KILLED + 1))
 fi
+rm -f "$MUTANT3_LOG"
 
 # Restore
 cp "$BACKUP_STREAKS" "$STREAKS_FILE"
@@ -223,19 +225,21 @@ if diff -q "$BACKUP_CORE" "$REBUILD_CORE" > /dev/null 2>&1; then
   exit 1
 fi
 
-if npx tsx scripts/test-rebuild-rollover-progress.ts > /tmp/mutant4.log 2>&1; then
+MUTANT4_LOG=$(mktemp)
+if npx tsx scripts/test-rebuild-rollover-progress.ts > "$MUTANT4_LOG" 2>&1; then
   echo "✗ SURVIVED: Mutant 4 (unit test passes with commented call)"
-  cat /tmp/mutant4.log
+  cat "$MUTANT4_LOG"
   SURVIVED=$((SURVIVED + 1))
 else
-  if ! grep -q "❌ FAIL" /tmp/mutant4.log; then
+  if ! grep -q "❌ FAIL" "$MUTANT4_LOG"; then
     echo "✗ FAIL: Mutant 4 killed by crash, not assertion"
-    cat /tmp/mutant4.log
+    cat "$MUTANT4_LOG"
     exit 1
   fi
   echo "✓ Mutant 4 killed (unit test fails with commented call)"
   KILLED=$((KILLED + 1))
 fi
+rm -f "$MUTANT4_LOG"
 
 # Restore
 cp "$BACKUP_CORE" "$REBUILD_CORE"
@@ -258,19 +262,21 @@ if diff -q "$BACKUP_ROLLOVER" "$ROLLOVER_FILE" > /dev/null 2>&1; then
   exit 1
 fi
 
-if npx tsx scripts/test-rebuild-rollover-progress.ts > /tmp/mutant5.log 2>&1; then
+MUTANT5_LOG=$(mktemp)
+if npx tsx scripts/test-rebuild-rollover-progress.ts > "$MUTANT5_LOG" 2>&1; then
   echo "✗ SURVIVED: Mutant 5 (unit test passes with > instead of >=)"
-  cat /tmp/mutant5.log
+  cat "$MUTANT5_LOG"
   SURVIVED=$((SURVIVED + 1))
 else
-  if ! grep -q "❌ FAIL" /tmp/mutant5.log; then
+  if ! grep -q "❌ FAIL" "$MUTANT5_LOG"; then
     echo "✗ FAIL: Mutant 5 killed by crash, not assertion"
-    cat /tmp/mutant5.log
+    cat "$MUTANT5_LOG"
     exit 1
   fi
   echo "✓ Mutant 5 killed (unit test fails with > instead of >=)"
   KILLED=$((KILLED + 1))
 fi
+rm -f "$MUTANT5_LOG"
 
 # Restore
 cp "$BACKUP_ROLLOVER" "$ROLLOVER_FILE"
@@ -282,7 +288,6 @@ echo "============================================================"
 echo ""
 
 cleanup_done=1
-cp "$BACKUP_ACTIONS" "$ACTIONS_FILE"
 cp "$BACKUP_CORE" "$REBUILD_CORE"
 cp "$BACKUP_PROGRESS_START" "$PROGRESS_START_FILE"
 cp "$BACKUP_STREAKS" "$STREAKS_FILE"
