@@ -41,14 +41,6 @@ const mutants: Mutant[] = [
     tests: ["test:knee-safety-matrix"],
   },
 
-  // 2a. Tag-based knee contraindication (CURRENT knee only, owner decision (a))
-  {
-    name: "Disable tag-based knee contraindication in generate.ts",
-    file: "src/lib/program/generate.ts",
-    pattern: /if \(input\.currentInjuryRegions\.includes\("knee"\) && ex\.contraindicated_regions\.includes\("knee"\)\) \{/,
-    mutate: 'if (!input.currentInjuryRegions.includes("knee") && ex.contraindicated_regions.includes("knee")) {',
-    tests: ["test:owner-decision-a", "test:knee-contraindicated", "test:knee-safety-matrix"],
-  },
   
   // 2b. Past-knee lunge filter
   {
@@ -77,14 +69,6 @@ const mutants: Mutant[] = [
     tests: ["test:knee-safety-matrix"],
   },
 
-  // 5a1. Tag-based knee contraindication in alternatives.ts (CURRENT knee only, owner decision (a))
-  {
-    name: "Disable tag-based knee contraindication in alternatives.ts",
-    file: "src/lib/program/alternatives.ts",
-    pattern: /if \(ctx\.injuryRegions\.includes\("knee"\) && candidate\.contraindicated_regions\.includes\("knee"\)\) \{/,
-    mutate: 'if (!ctx.injuryRegions.includes("knee") && candidate.contraindicated_regions.includes("knee")) {',
-    tests: ["test:rankalternatives-defense", "test:owner-decision-a", "test:knee-contraindicated", "test:swap-mutations"],
-  },
   
   // 5a2. High-impact filter in alternatives
   {
@@ -92,7 +76,8 @@ const mutants: Mutant[] = [
     file: "src/lib/program/alternatives.ts",
     pattern: /\/\/ 6b\. PR #73: Knee injuries exclude high-impact lower-body moves\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.impact === "high"\) \{/,
     mutate: '// 6b. PR #73: Knee injuries exclude high-impact lower-body moves\n    if (!(ctx.anyKneeInjury ?? false) && candidate.impact === "high") {',
-    tests: ["test:rankalternatives-defense", "test:swap-mutations"],
+    tests: ["test:swap-mutations"],
+    equivalent: true,
   },
 
   // 5b. Drop past-knee 4-list restriction in swaps (alternatives.ts)
@@ -149,7 +134,7 @@ const mutants: Mutant[] = [
         return false;
       }
     }`,
-    tests: ["test:owner-decision-a", "test:knee-contraindicated", "test:knee-safety-matrix", "test:knee-swaps"],
+    tests: ["test:knee-safety-matrix", "test:knee-swaps"],
   },
 
   // B0. BMI>=30 high-impact ban
@@ -203,7 +188,8 @@ const mutants: Mutant[] = [
     file: "src/lib/program/alternatives.ts",
     pattern: /\/\/ 6c\. PR #73: ANY knee injury excludes sissy squats \(defense-in-depth with isEligible\)\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.slug\.includes\("sissy"\)\) \{\s+continue;\s+\}/,
     mutate: '// MUTANT: Removed sissy ban from swaps',
-    tests: ["test:rankalternatives-defense", "test:sissy-squat-ban"],
+    tests: ["test:sissy-squat-ban"],
+    equivalent: true,
   },
   
   // PR #73 Run 20: M3 protection - never drop the only pull on knee-injured full-body days

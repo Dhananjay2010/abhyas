@@ -333,11 +333,6 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
-    // 8b. Knee-contraindicated exercises excluded for CURRENT knee injury only (owner decision (a))
-    if (ctx.injuryRegions.includes("knee") && candidate.contraindicated_regions.includes("knee")) {
-      continue;
-    }
-    
     // G-3: Landmine jammers excluded for ANY knee injury (leg-driven presses)
     if ((ctx.anyKneeInjury ?? false) && (candidate.slug === "landmine-linear-jammer" || candidate.slug === "single-arm-linear-jammer")) {
       continue;
