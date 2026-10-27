@@ -7,7 +7,7 @@
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
-(globalThis as Record<string, unknown>).AsyncLocalStorage = AsyncLocalStorage;
+Reflect.set(globalThis, "AsyncLocalStorage", AsyncLocalStorage);
 
 import { accessibleTextColor, contrastRatio, meetsWCAG_AA } from "../src/lib/contrast";
 import { branding } from "../src/lib/branding";
@@ -134,7 +134,7 @@ async function testPre040RpcMock() {
   type Entry = { body: string; revalidate: number; tags: string[] };
   const store = new Map<string, Entry>();
 
-  (globalThis as Record<string, unknown>).__incrementalCache = {
+  Reflect.set(globalThis, "__incrementalCache", {
     isOnDemandRevalidate: false,
     generateSimpleCacheKey: async (k: string) => k,
     get: async (key: string) => {
@@ -145,18 +145,22 @@ async function testPre040RpcMock() {
       const e = { body: v.data.body, revalidate: v.revalidate, tags: ctx.tags };
       store.set(key, e);
     },
-  };
+  });
 
   // Mock fetch to return pre-040 RPC response (no brand fields)
   const realFetch = globalThis.fetch;
   let pre040Called = false;
   let customColorsCalled = false;
 
-  (globalThis as Record<string, unknown>).fetch = async (url: string | URL | Request, init?: RequestInit) => {
+  const mockFetch = async (url: string | URL | Request, init?: RequestInit) => {
     const u = String(url);
     if (!u.includes("/rest/v1/rpc/get_gym_brand")) return realFetch(url, init);
 
-    const id = JSON.parse((init as RequestInit & { body: string }).body).p_gym_id;
+    const body = init?.body;
+    if (typeof body !== "string") {
+      throw new Error("Expected string body in fetch init");
+    }
+    const id = JSON.parse(body).p_gym_id;
 
     if (id === "pre040") {
       pre040Called = true;
@@ -186,6 +190,8 @@ async function testPre040RpcMock() {
 
     return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
   };
+
+  Reflect.set(globalThis, "fetch", mockFetch);
 
   const { getGymBrand } = await import("../src/lib/gym-brand");
 
@@ -218,7 +224,7 @@ async function testPre040RpcMock() {
   }
 
   // Restore
-  (globalThis as Record<string, unknown>).fetch = realFetch;
+  Reflect.set(globalThis, "fetch", realFetch);
 
   console.log("  ✓ Pre-040 RPC response compatibility verified");
 }

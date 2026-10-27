@@ -15,6 +15,17 @@ function assert(condition: boolean, message: string): void {
   }
 }
 
+/**
+ * Helper to extract p_clear array from args.
+ * Throws if p_clear is undefined (TS narrows after this).
+ */
+function requireClear(args: ReturnType<typeof buildBrandingArgs>): string[] {
+  if (args.p_clear === undefined) {
+    throw new Error("p_clear is missing");
+  }
+  return args.p_clear;
+}
+
 function testAllFieldsSet() {
   console.log("\n▶ Testing all fields set...");
 
@@ -55,11 +66,13 @@ function testAllFieldsEmpty() {
   assert(args.p_primary_color === undefined, "primary_color should be undefined");
   assert(args.p_accent_color === undefined, "accent_color should be undefined");
   assert(Array.isArray(args.p_clear), "p_clear should be an array");
-  assert(args.p_clear!.length === 4, "p_clear should have 4 entries");
-  assert(args.p_clear!.includes("display_name"), "p_clear should include display_name");
-  assert(args.p_clear!.includes("logo_url"), "p_clear should include logo_url");
-  assert(args.p_clear!.includes("primary_color"), "p_clear should include primary_color");
-  assert(args.p_clear!.includes("accent_color"), "p_clear should include accent_color");
+  
+  const clear = requireClear(args);
+  assert(clear.length === 4, "p_clear should have 4 entries");
+  assert(clear.includes("display_name"), "p_clear should include display_name");
+  assert(clear.includes("logo_url"), "p_clear should include logo_url");
+  assert(clear.includes("primary_color"), "p_clear should include primary_color");
+  assert(clear.includes("accent_color"), "p_clear should include accent_color");
 
   console.log("  ✓ All fields cleared correctly");
 }
@@ -81,8 +94,10 @@ function testClearDisplayNameOnly() {
   assert(args.p_primary_color === "#FF9A2E", "primary_color should be set");
   assert(args.p_accent_color === "#E8850C", "accent_color should be set");
   assert(Array.isArray(args.p_clear), "p_clear should be an array");
-  assert(args.p_clear!.length === 1, "p_clear should have 1 entry");
-  assert(args.p_clear![0] === "display_name", "p_clear should include display_name");
+  
+  const clear = requireClear(args);
+  assert(clear.length === 1, "p_clear should have 1 entry");
+  assert(clear[0] === "display_name", "p_clear should include display_name");
 
   console.log("  ✓ display_name cleared correctly");
 }
@@ -104,8 +119,10 @@ function testClearLogoOnly() {
   assert(args.p_primary_color === "#FF9A2E", "primary_color should be set");
   assert(args.p_accent_color === "#E8850C", "accent_color should be set");
   assert(Array.isArray(args.p_clear), "p_clear should be an array");
-  assert(args.p_clear!.length === 1, "p_clear should have 1 entry");
-  assert(args.p_clear![0] === "logo_url", "p_clear should include logo_url");
+  
+  const clear = requireClear(args);
+  assert(clear.length === 1, "p_clear should have 1 entry");
+  assert(clear[0] === "logo_url", "p_clear should include logo_url");
 
   console.log("  ✓ logo_url cleared correctly");
 }
@@ -127,9 +144,11 @@ function testClearColorsOnly() {
   assert(args.p_primary_color === undefined, "primary_color should be undefined");
   assert(args.p_accent_color === undefined, "accent_color should be undefined");
   assert(Array.isArray(args.p_clear), "p_clear should be an array");
-  assert(args.p_clear!.length === 2, "p_clear should have 2 entries");
-  assert(args.p_clear!.includes("primary_color"), "p_clear should include primary_color");
-  assert(args.p_clear!.includes("accent_color"), "p_clear should include accent_color");
+  
+  const clear = requireClear(args);
+  assert(clear.length === 2, "p_clear should have 2 entries");
+  assert(clear.includes("primary_color"), "p_clear should include primary_color");
+  assert(clear.includes("accent_color"), "p_clear should include accent_color");
 
   console.log("  ✓ Both colors cleared correctly");
 }
@@ -147,11 +166,13 @@ function testWhitespaceOnlyTreatedAsEmpty() {
   const args = buildBrandingArgs("gym-123", input);
 
   assert(Array.isArray(args.p_clear), "p_clear should be an array");
-  assert(args.p_clear!.length === 4, "p_clear should have 4 entries for all whitespace fields");
-  assert(args.p_clear!.includes("display_name"), "p_clear should include display_name");
-  assert(args.p_clear!.includes("logo_url"), "p_clear should include logo_url");
-  assert(args.p_clear!.includes("primary_color"), "p_clear should include primary_color");
-  assert(args.p_clear!.includes("accent_color"), "p_clear should include accent_color");
+  
+  const clear = requireClear(args);
+  assert(clear.length === 4, "p_clear should have 4 entries for all whitespace fields");
+  assert(clear.includes("display_name"), "p_clear should include display_name");
+  assert(clear.includes("logo_url"), "p_clear should include logo_url");
+  assert(clear.includes("primary_color"), "p_clear should include primary_color");
+  assert(clear.includes("accent_color"), "p_clear should include accent_color");
 
   console.log("  ✓ Whitespace-only values treated as empty");
 }

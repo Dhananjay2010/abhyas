@@ -228,13 +228,16 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
         <h3 className="text-sm font-semibold text-muted">Live Preview</h3>
         <div
           className="space-y-3"
-          style={{
-            // Set CSS custom properties for preview (same names as main theming)
-            // @ts-expect-error - CSS custom properties are not in React.CSSProperties
-            "--color-accent": previewPrimary,
-            "--color-accent-hover": previewAccent,
-            "--color-accent-fg": previewTextColor,
-          }}
+          style={
+            (() => {
+              const previewStyle: React.CSSProperties & Record<`--${string}`, string> = {
+                "--color-accent": previewPrimary,
+                "--color-accent-hover": previewAccent,
+                "--color-accent-fg": previewTextColor,
+              };
+              return previewStyle;
+            })()
+          }
         >
           {/* Preview button using CSS variables with hover */}
           <button
