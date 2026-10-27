@@ -121,6 +121,14 @@ export async function updateBranding(
       if (error.code === "BRND7") {
         return { success: false, error: "Both colors must be set or cleared together" };
       }
+      // LOW-3: Map 22023 (invalid_parameter_value) for display_name validation
+      if (error.code === "22023") {
+        return {
+          success: false,
+          error: "Display name must be between 1 and 100 characters",
+          field: "displayName",
+        };
+      }
 
       // Generic fallback (do not expose raw error.message to user)
       console.error("Branding update error:", error);

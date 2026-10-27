@@ -21,6 +21,7 @@ export async function checkGymOwnership(
   userId: string,
 ): Promise<GymOwnership> {
   // Query gym_memberships for owner role
+  // LOW-11: Use limit(1) instead of single() to avoid error when user owns multiple gyms
   const { data, error } = await supabase
     .from("gym_memberships")
     .select(
@@ -37,9 +38,10 @@ export async function checkGymOwnership(
     .eq("user_id", userId)
     .eq("role", "owner")
     .eq("status", "active")
-    .single();
+    .order("joined_at", { ascending: true })
+    .limit(1);
 
-  if (error || !data) {
+  if (error || !data || data.length === 0) {
     return {
       isOwner: false,
       gymId: null,
@@ -48,11 +50,12 @@ export async function checkGymOwnership(
     };
   }
 
-  const gym = Array.isArray(data.gyms) ? data.gyms[0] : data.gyms;
+  const row = data[0];
+  const gym = Array.isArray(row.gyms) ? row.gyms[0] : row.gyms;
 
   return {
     isOwner: true,
-    gymId: data.gym_id,
+    gymId: row.gym_id,
     gymName: gym?.name ?? null,
     gymSlug: gym?.slug ?? null,
   };
