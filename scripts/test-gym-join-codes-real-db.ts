@@ -748,6 +748,33 @@ async function runTests() {
   check("20 successes don't throttle", !successAfter20);
   console.log();
 
+  // TEST: Code format CHECK constraint (using admin to bypass RLS)
+  console.log("TEST: Code format CHECK constraint");
+  const { error: invalidFormatError } = await adminClient
+    .from("gym_join_codes")
+    .insert({
+      gym_id: gymIdA,
+      code: "INVALID", // Only 7 chars, should fail format check
+      role: "member",
+      created_by: userIdA,
+    });
+  check("Invalid format code rejected", !!invalidFormatError);
+  check("Format error mentions constraint or check",
+    invalidFormatError?.message?.includes("code_format") || 
+    invalidFormatError?.message?.includes("check constraint") ||
+    invalidFormatError?.message?.toLowerCase().includes("violates"));
+  
+  const { error: ambiguousCharError } = await adminClient
+    .from("gym_join_codes")
+    .insert({
+      gym_id: gymIdA,
+      code: "ABCDEF01IO", // Contains ambiguous chars (0, 1, I, O)
+      role: "member",
+      created_by: userIdA,
+    });
+  check("Ambiguous char code rejected", !!ambiguousCharError);
+  console.log();
+
   // Clean up (delete only test data, NOT users)
   console.log("Cleaning up test data...");
   
