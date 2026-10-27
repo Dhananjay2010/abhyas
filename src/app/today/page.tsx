@@ -9,6 +9,7 @@ import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { addDays, isoWeekday, localDateString, localHour } from "@/lib/dates";
 import { labelForDayType, plannableDays, resolveTodayProgramDay } from "@/lib/program/day-plan";
+import { loadTodayPlan } from "@/lib/today/load-today-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
@@ -176,21 +177,27 @@ export default async function TodayPage() {
   // Derived from the user's own local date rather than re-reading the clock,
   // so the weekday and the date can never disagree at a midnight boundary.
   const todayIndex = isoWeekday(localToday);
-  let scheduled = days?.find((d) => d.day_index === todayIndex);
   
   // Apply post-swap collision resolution via shared resolver
-  if (program && scheduled) {
-    const resolved = await resolveTodayProgramDay({
-      supabase,
-      programId: program.id,
+  let scheduled = days?.find((d) => d.day_index === todayIndex);
+  if (program && days) {
+    const todayPlan = await loadTodayPlan(
+      {
+        getProgramDays: async () => days,
+        resolveTodayDay: async (programId, localToday) => {
+          return await resolveTodayProgramDay({
+            supabase,
+            programId,
+            localToday,
+            userId: user.id,
+          });
+        },
+      },
+      program.id,
       localToday,
-      userId: user.id,
-    });
-    
-    if (resolved && resolved.programDayId !== scheduled.id) {
-      // Collision detected: replace scheduled with resolved day
-      scheduled = days?.find(d => d.id === resolved.programDayId) ?? scheduled;
-    }
+      todayIndex
+    );
+    scheduled = todayPlan.resolved;
   }
 
   // Session state already loaded before wave 2, with allSessions and todaySessions
