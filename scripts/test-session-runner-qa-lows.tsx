@@ -145,6 +145,8 @@ console.log("1. L4: logSet throws SESSION_EXPIRED → friendly error message sho
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "sess-1",
+        userId: "test-user",
+        sessionStatus: "in_progress" as const,
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -236,6 +238,8 @@ console.log("\n2. L1: conflict on last set → feel prompt appears");
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "sess-2",
+        userId: "test-user",
+        sessionStatus: "in_progress" as const,
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -326,6 +330,8 @@ console.log("\n3. L1: picking feel after conflict advances to next exercise");
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "sess-3",
+        userId: "test-user",
+        sessionStatus: "in_progress" as const,
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -410,6 +416,8 @@ await (async () => {
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "sess-timer-test",
+        userId: "test-user",
+        sessionStatus: "in_progress" as const,
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,
@@ -457,6 +465,8 @@ await (async () => {
     root.render(
       React.createElement(SessionRunner, {
         sessionId: "sess-unmount-test",
+        userId: "test-user",
+        sessionStatus: "in_progress" as const,
         isDeload: false,
         week: 1,
         warmupAlreadyDone: true,

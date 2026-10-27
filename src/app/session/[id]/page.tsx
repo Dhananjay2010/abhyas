@@ -10,6 +10,7 @@ import { isUuid } from "@/lib/ids";
 import { buildRunnerExercise } from "@/lib/session/build-runner-exercises";
 import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
+import { buildRunnerProps } from "@/lib/session/build-runner-props";
 import { getUnitsPreference } from "@/lib/units";
 import { loadPreviousCompletedWeights } from "@/lib/session/load-previous-weights";
 
@@ -205,8 +206,12 @@ export default async function SessionPage({
       })
     : false;
 
+  // N6/N6s: Extract userId and sessionStatus via tested helper
+  const runnerProps = buildRunnerProps(session, user);
+
   return (
     <SessionRunner
+      {...runnerProps}
       sessionId={session.id}
       isDeload={session.is_deload}
       week={session.week_in_block ?? 1}

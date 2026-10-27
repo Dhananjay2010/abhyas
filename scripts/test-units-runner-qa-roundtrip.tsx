@@ -102,6 +102,8 @@ for (const lbValue of testValues) {
   const r = render(
     <SessionRunner
       sessionId={`test-${lbValue}`}
+      sessionStatus="in_progress"
+      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}

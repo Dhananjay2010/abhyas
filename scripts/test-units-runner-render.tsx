@@ -113,6 +113,8 @@ type LogSetCall = {
   const rImperial = render(
     <SessionRunner
       sessionId="s1"
+      sessionStatus="in_progress"
+      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -282,6 +284,8 @@ type LogSetCall = {
   const r625 = render(
     <SessionRunner
       sessionId="s625"
+      sessionStatus="in_progress"
+      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -387,6 +391,8 @@ type LogSetCall = {
   const r6123 = render(
     <SessionRunner
       sessionId="s6123"
+      sessionStatus="in_progress"
+      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -502,6 +508,8 @@ type LogSetCall = {
   const rMetric = render(
     <SessionRunner
       sessionId="s2"
+      sessionStatus="in_progress"
+      userId="test-user"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
