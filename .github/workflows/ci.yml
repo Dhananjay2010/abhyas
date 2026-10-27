@@ -388,12 +388,16 @@ jobs:
           REAL_DB=1 npm run test:gym-tenant-rls-real-db
           REAL_DB=1 npm run test:gym-owner-guards-sql
           REAL_DB=1 npm run ci:mutant-gym-rls-policies
+          REAL_DB=1 npm run test:gym-domains-real-db
           REAL_DB=1 npm run ci:mutant-gym-domains
           REAL_DB=1 npm run test:gym-join-codes-real-db
           REAL_DB=1 npm run test:gym-join-codes-comprehensive
           REAL_DB=1 npm run ci:mutant-gym-join-codes
           REAL_DB=1 npm run test:clean-banned-planned-real-db
           npm run ci:mutant-replace-banned
+          REAL_DB=1 npm run ci:migration-040-idempotent
+          REAL_DB=1 npm run test:gym-branding-real-db
+          REAL_DB=1 npm run ci:mutant-gym-branding
         env:
           REAL_DB: "1"
 
