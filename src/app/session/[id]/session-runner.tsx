@@ -1757,14 +1757,21 @@ function SetEntry({
   // without asking for numbers; here it means the user has not said yet.
   // L-3 round-trip: use weightKgToSubmit to preserve original kg when unchanged.
   const weightKg = weightKgToSubmit(weight, initialPrefill, defaultWeight, units);
+  
+  // Item 8: For loaded (non-bodyweight) exercises, require weight
+  const isWeightRequired = !isBodyweight && !isTimed;
+  const weightMissing = isWeightRequired && (weight === "" || weightKg === null);
+  
   const invalid =
-    reps === ""
-      ? isTimed
-        ? "Hold it, or enter the seconds you held."
-        : "Enter the reps you did."
-      : isTimed
-        ? validateSet(null, weightKg, Number(reps), units)
-        : validateSet(Number(reps), weightKg, undefined, units);
+    weightMissing
+      ? "Add the weight you used."
+      : reps === ""
+        ? isTimed
+          ? "Hold it, or enter the seconds you held."
+          : "Enter the reps you did."
+        : isTimed
+          ? validateSet(null, weightKg, Number(reps), units)
+          : validateSet(Number(reps), weightKg, undefined, units);
 
   if (!perSetLogging) {
     return (
