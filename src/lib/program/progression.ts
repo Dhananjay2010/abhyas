@@ -1060,7 +1060,7 @@ export function evaluateProgression(input: {
   }
 
   // First miss: always hold at current weight (second miss will back off ~10%)
-  let nextWeight = currentWeight;
+  const nextWeight = currentWeight;
 
   // M1: Store pre-miss weight when failures goes from 0 to 1
   const newWeightAtFailureStart = state.consecutiveFailures === 0 && currentWeight !== null
