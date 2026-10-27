@@ -441,9 +441,32 @@ async function runTests() {
     p_max_uses: 1,
   });
   const forUpdateCode = forUpdateCodeData?.[0]?.code;
-  const forUpdateCodeId = forUpdateCodeData?.[0]?.id;
   
-  // Use direct DB connection to test FOR UPDATE lock
+  // Create two test users for this race test
+  const emailRace1 = `race1-${Date.now()}-${Math.random()}@example.com`;
+  const emailRace2 = `race2-${Date.now()}-${Math.random()}@example.com`;
+  const { data: race1Data } = await adminClient.auth.admin.createUser({
+    email: emailRace1,
+    password: "password123",
+    email_confirm: true,
+  });
+  const { data: race2Data } = await adminClient.auth.admin.createUser({
+    email: emailRace2,
+    password: "password123",
+    email_confirm: true,
+  });
+  const race1Uid = race1Data.user?.id;
+  const race2Uid = race2Data.user?.id;
+  
+  // Get their JWT tokens for pg function calls
+  const race1Client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const race2Client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  await race1Client.auth.signInWithPassword({ email: emailRace1, password: "password123" });
+  await race2Client.auth.signInWithPassword({ email: emailRace2, password: "password123" });
+  const race1Session = (await race1Client.auth.getSession()).data.session;
+  const race2Session = (await race2Client.auth.getSession()).data.session;
+  
+  // Use direct DB connection to test FOR UPDATE lock in redeem_join_code
   const { Pool } = await import("pg");
   const dbUrl = process.env.SUPABASE_DB_URL || 
     "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
@@ -454,30 +477,30 @@ async function runTests() {
     const conn2 = await pool.connect();
     
     try {
-      // Connection 1: Start transaction and lock the row
+      // Set up auth context for both connections
       await conn1.query("BEGIN");
-      await conn1.query(
-        "SELECT * FROM gym_join_codes WHERE id = $1 FOR UPDATE",
-        [forUpdateCodeId]
-      );
+      await conn1.query(`SET request.jwt.claim.sub = '${race1Uid}'`);
       
-      // Connection 2: Try to lock with short timeout (should timeout or wait)
-      await conn2.query("SET statement_timeout = '500ms'");
+      await conn2.query("BEGIN");
+      await conn2.query(`SET request.jwt.claim.sub = '${race2Uid}'`);
+      await conn2.query("SET statement_timeout = '800ms'");
+      
+      // Connection 1: Start redeem but don't commit (holds FOR UPDATE lock)
+      await conn1.query("SELECT * FROM public.redeem_join_code($1)", [forUpdateCode]);
+      
+      // Connection 2: Try to redeem same code (should block on FOR UPDATE)
       let conn2Blocked = false;
       try {
-        await conn2.query(
-          "SELECT * FROM gym_join_codes WHERE id = $1 FOR UPDATE",
-          [forUpdateCodeId]
-        );
+        await conn2.query("SELECT * FROM public.redeem_join_code($1)", [forUpdateCode]);
       } catch (err: unknown) {
-        // Should timeout or block
         const message = err instanceof Error ? err.message : String(err);
-        conn2Blocked = message.includes("timeout") || message.includes("canceled");
+        conn2Blocked = message.includes("timeout") || message.includes("canceled") || message.includes("statement_timeout");
       }
       
       check("FOR UPDATE blocks second connection", conn2Blocked);
       
       await conn1.query("ROLLBACK");
+      await conn2.query("ROLLBACK");
     } finally {
       conn1.release();
       conn2.release();
@@ -715,8 +738,13 @@ async function runTests() {
     p_code: memberCode,
   });
   check("Anon redeem fails", !!anonRedeemError);
-  check("Anon error is permission denied or not authenticated", 
-    !!anonRedeemError && (anonRedeemError.message?.includes("Not authenticated") || anonRedeemError.message?.includes("permission denied")));
+  // Must be permission denied (no EXECUTE grant), NOT "Not authenticated" (would mean GRANT exists)
+  check("Anon error is permission denied (no EXECUTE grant)", 
+    !!anonRedeemError && (
+      anonRedeemError.message?.toLowerCase().includes("permission denied") || 
+      anonRedeemError.code === "42501" ||
+      anonRedeemError.message?.includes("insufficient_privilege")
+    ));
 
   const { error: anonPreviewError } = await anonClient.rpc("preview_join_code", {
     p_code: memberCode,
@@ -818,13 +846,22 @@ async function runTests() {
     password: "password123",
   });
   
-  // Make 20 successful previews (should NOT throttle, only misses count)
+  // Create a code with high max_uses for successful redeems
+  const { data: successCodeData } = await clientA.rpc("create_join_code", {
+    p_gym_id: gymIdA,
+    p_role: "member",
+    p_max_uses: 100,
+  });
+  const successCode = successCodeData?.[0]?.code;
+  
+  // Make 20 successful redeems (should NOT throttle, only misses count)
+  // First redeem joins the gym, subsequent ones are idempotent (already a member)
   for (let i = 0; i < 20; i++) {
-    await clientSuccess.rpc("preview_join_code", { p_code: memberCode });
+    await clientSuccess.rpc("redeem_join_code", { p_code: successCode });
   }
   
   // Next attempt should still work (successes don't count)
-  const { error: successAfter20 } = await clientSuccess.rpc("preview_join_code", { p_code: memberCode });
+  const { error: successAfter20 } = await clientSuccess.rpc("redeem_join_code", { p_code: successCode });
   check("20 successes don't throttle", !successAfter20);
   console.log();
 
