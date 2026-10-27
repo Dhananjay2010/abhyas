@@ -80,7 +80,7 @@ console.log("\n=== Imperial Units in Progression Messages ===\n");
   check("Hold: shows 50 lb", d.message.includes("50 lb"), d.message);
 }
 
-// Test 3: Miss/drop message with imperial
+// Test 3: First miss holds with standard message (Decision F)
 {
   const d = evaluateProgression({
     sets: [{ reps: 7, weightKg: 36.29 }, { reps: 7, weightKg: 36.29 }, { reps: 7, weightKg: 36.29 }],
@@ -95,8 +95,8 @@ console.log("\n=== Imperial Units in Progression Messages ===\n");
     unit: "lb",
   });
   
-  check("Miss: 36.29 kg (80 lb) first miss → includes 'lb'", d.message.includes("lb"), d.message);
-  check("Miss: no 'kg' in message", !d.message.includes("kg"));
+  check("Miss: 36.29 kg (80 lb) first miss → exact main wording", d.message === "Staying at this weight until every set reaches the top of the range.", d.message);
+  check("Miss: holds at 36.29 kg", d.nextWorkingWeightKg === 36.29, `${d.nextWorkingWeightKg}`);
 }
 
 // Test 4: PB description includes unit

@@ -141,6 +141,30 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
   check("  M1 counter set to 7.5 kg (Decision G)", d.weightAtFailureStartKg === 7.5);
 }
 
+// Mutant (b'): Stored 60, lifted 4x7@62.5 → should hold at stored 60, not mode 62.5
+{
+  const d = evaluateProgression({
+    sets: [
+      { reps: 7, weightKg: 62.5 },
+      { reps: 7, weightKg: 62.5 },
+      { reps: 7, weightKg: 62.5 },
+      { reps: 7, weightKg: 62.5 },
+    ],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: BENCH,
+    state: fresh({ currentWorkingWeightKg: 60, consecutiveFailures: 0 }),
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  check("Stored 60, lifted 62.5 miss → holds at stored 60 (kills mutant b')", d.nextWorkingWeightKg === 60 && d.consecutiveFailures === 1);
+  check("  M1 counter set to 60 kg", d.weightAtFailureStartKg === 60);
+  check("  message indicates hold", d.message.includes("Staying at this weight"), `got: ${d.message}`);
+}
+
 console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
 
 // Same cases in imperial (stored as kg, displayed as lb)

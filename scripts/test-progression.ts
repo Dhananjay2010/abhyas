@@ -108,8 +108,16 @@ console.log("\n4. Falling short of the top is in-range: hold and reset failures"
   // Real miss: below repsMin
   const d = run({ sets: sets(4, 7), equipmentIds: ["barbell"], unit: "kg" });
   check("4×7 below min: outcome hold", d.outcome === "hold", d.outcome);
-  check("4×7 real miss: weight drops one grid step (60 -> 57.5)", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
+  check("4×7 real miss: weight holds at 60 (APP decision F)", d.nextWorkingWeightKg === 60, `${d.nextWorkingWeightKg}`); // APP decision F
   check("4×7 real miss: failure counted", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
+  check("4×7 first miss: message matches F", d.message === "Staying at this weight until every set reaches the top of the range.", `${d.message}`); // APP decision F
+}
+{
+  // Second consecutive miss: steps down
+  const d = run({ sets: sets(4, 7), state: fresh({ consecutiveFailures: 1, weightAtFailureStartKg: 60 }), equipmentIds: ["barbell"], unit: "kg" });
+  check("4×7 second miss: outcome backed_off", d.outcome === "backed_off", d.outcome);
+  check("4×7 second miss: weight drops to 52.5", d.nextWorkingWeightKg === 52.5, `${d.nextWorkingWeightKg}`);
+  check("4×7 second miss: failures reset to 0", d.consecutiveFailures === 0, `${d.consecutiveFailures}`);
 }
 {
   const d = run({ sets: sets(3, 12) });

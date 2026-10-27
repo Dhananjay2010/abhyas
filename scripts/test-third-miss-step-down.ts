@@ -1,103 +1,182 @@
 #!/usr/bin/env tsx
 /**
- * Reproduces QA Bot 3 HIGH issue #1: third-miss step-down unreachable.
+ * Test: Full third-miss sequence (Decision F)
  * 
- * Tests realistic scenarios where:
- * 1. First miss drops one step
- * 2. Second miss 10% reduction results in a hold (no lighter weight within 10%)
- * 3. Third miss should drop one more step to break through
+ * Decision F changes the progression sequence:
+ * - Miss 1: holds at current weight, counter = 1, failure-start = current
+ * - Miss 2: backs off ~10%, counter = 0, failure-start = null
+ * - Miss 3: holds at new weight, counter = 1, failure-start = new weight
+ * - Miss 4: backs off again ~10%
  */
 
 import { evaluateProgression, type ExerciseMeta, type ProgressState, type LoggedSet } from "@/lib/program/progression";
 
 let failures = 0;
 
-function testStuckWeight(
-  name: string,
-  equipmentIds: string[],
-  startWeight: number,
-  expectedMiss3Weight: number
-) {
-  console.log(`\n=== ${name}: ${startWeight} kg ===`);
+function check(desc: string, pass: boolean, detail = ""): void {
+  if (!pass) {
+    console.log(`  ❌ FAIL ${desc}${detail ? ` -- ${detail}` : ""}`);
+    failures++;
+  } else {
+    console.log(`  ✓ ${desc}`);
+  }
+}
 
-  const meta: ExerciseMeta = {
-    mechanic: "compound",
-    movementPattern: "horizontal_press",
-    metric: "reps",
-    isBodyweight: false,
-    progressionChain: null,
-    progressionRank: null,
-  };
+const meta: ExerciseMeta = {
+  mechanic: "compound",
+  movementPattern: "horizontal_press",
+  metric: "reps",
+  isBodyweight: false,
+  progressionChain: null,
+  progressionRank: null,
+};
 
-  let state: ProgressState = {
-    currentWorkingWeightKg: startWeight,
-    currentTargetReps: 10,
+const missingSets: LoggedSet[] = [
+  { reps: 5, weightKg: 60 },
+  { reps: 4, weightKg: 60 },
+  { reps: 3, weightKg: 60 },
+];
+
+console.log("\n=== Full Third-Miss Sequence (Decision F) ===\n");
+
+// Miss 1: holds at 60 kg
+{
+  const state: ProgressState = {
+    currentWorkingWeightKg: 60,
+    currentTargetReps: 12,
     consecutiveFailures: 0,
-    bestWeightKg: startWeight,
-    bestReps: 10,
+    bestWeightKg: 60,
+    bestReps: 12,
     bestE1rm: null,
     totalSessions: 1,
     weightAtFailureStartKg: null,
   };
-
-  const missingSets: LoggedSet[] = [
-    { reps: 5, weightKg: startWeight },
-    { reps: 4, weightKg: startWeight },
-    { reps: 3, weightKg: startWeight },
-  ];
-
-  // Run 3 consecutive misses
-  for (let missNum = 1; missNum <= 3; missNum++) {
-    const decision = evaluateProgression({
-      sets: missingSets.map(s => ({ ...s, weightKg: state.currentWorkingWeightKg })),
-      plannedSets: 3,
-      repsMin: 8,
-      repsMax: 12,
-      feel: null,
-      meta,
-      state,
-      isDeload: false,
-      equipmentIds,
-      unit: "kg",
-    });
-
-    console.log(`  Miss ${missNum}: ${decision.nextWorkingWeightKg} kg, counter=${decision.consecutiveFailures}, outcome=${decision.outcome}`);
-
-    if (missNum === 3) {
-      if (decision.nextWorkingWeightKg !== expectedMiss3Weight) {
-        console.log(`    ❌ FAIL: Expected ${expectedMiss3Weight} kg, got ${decision.nextWorkingWeightKg} kg`);
-        failures++;
-      } else {
-        console.log(`    ✓ PASS`);
-      }
-    }
-
-    // Feed back the output state
-    state = {
-      ...state,
-      currentWorkingWeightKg: decision.nextWorkingWeightKg,
-      consecutiveFailures: decision.consecutiveFailures,
-      weightAtFailureStartKg: decision.weightAtFailureStartKg,
-    };
-  }
+  
+  const d = evaluateProgression({
+    sets: missingSets,
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta,
+    state,
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  
+  console.log("Miss 1:");
+  check("holds at 60 kg", d.nextWorkingWeightKg === 60, `got ${d.nextWorkingWeightKg}`);
+  check("outcome is hold", d.outcome === "hold", d.outcome);
+  check("counter = 1", d.consecutiveFailures === 1, `got ${d.consecutiveFailures}`);
+  check("failure-start = 60", d.weightAtFailureStartKg === 60, `got ${d.weightAtFailureStartKg}`);
+  check("message: Staying at this weight", d.message === "Staying at this weight until every set reaches the top of the range.", d.message);
 }
 
-// Realistic scenarios where third-miss should trigger
+// Miss 2: backs off to 52.5 kg
+{
+  const state: ProgressState = {
+    currentWorkingWeightKg: 60,
+    currentTargetReps: 12,
+    consecutiveFailures: 1,
+    bestWeightKg: 60,
+    bestReps: 12,
+    bestE1rm: null,
+    totalSessions: 2,
+    weightAtFailureStartKg: 60,
+  };
+  
+  const d = evaluateProgression({
+    sets: missingSets.map(s => ({ ...s, weightKg: 60 })),
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta,
+    state,
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  
+  console.log("\nMiss 2:");
+  check("backs off to 52.5 kg", d.nextWorkingWeightKg === 52.5, `got ${d.nextWorkingWeightKg}`);
+  check("outcome is backed_off", d.outcome === "backed_off", d.outcome);
+  check("counter = 0", d.consecutiveFailures === 0, `got ${d.consecutiveFailures}`);
+  check("failure-start = null", d.weightAtFailureStartKg === null, `got ${d.weightAtFailureStartKg}`);
+  check("message includes 52.5 kg", d.message.includes("52.5"), d.message);
+}
 
-// Barbell 20 kg: first miss drops to 17.5, second miss 10% of 20 = 18 snaps to 17.5 (hold), third miss should drop to 15
-testStuckWeight("Barbell", ["barbell"], 20, 15);
+// Miss 3: holds at 52.5 kg
+{
+  const state: ProgressState = {
+    currentWorkingWeightKg: 52.5,
+    currentTargetReps: 12,
+    consecutiveFailures: 0,
+    bestWeightKg: 60,
+    bestReps: 12,
+    bestE1rm: null,
+    totalSessions: 3,
+    weightAtFailureStartKg: null,
+  };
+  
+  const d = evaluateProgression({
+    sets: missingSets.map(s => ({ ...s, weightKg: 52.5 })),
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta,
+    state,
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  
+  console.log("\nMiss 3:");
+  check("holds at 52.5 kg", d.nextWorkingWeightKg === 52.5, `got ${d.nextWorkingWeightKg}`);
+  check("outcome is hold", d.outcome === "hold", d.outcome);
+  check("counter = 1", d.consecutiveFailures === 1, `got ${d.consecutiveFailures}`);
+  check("failure-start = 52.5", d.weightAtFailureStartKg === 52.5, `got ${d.weightAtFailureStartKg}`);
+  check("message: Staying at this weight", d.message === "Staying at this weight until every set reaches the top of the range.", d.message);
+}
 
-// Machine 12.5 kg: first miss to 10, second miss holds at 10, third miss to 5 (5 kg pin-stack steps)
-testStuckWeight("Machine", ["machine_generic"], 12.5, 5);
-
-// Kettlebell 14 kg: first miss holds at 14 (Rule 2), second miss holds at 14, third miss to 12
-testStuckWeight("Kettlebell", ["kettlebell"], 14, 12);
-
-// Kettlebell 6 kg: first miss to 4, second miss 10% of 6 = 5.4 snaps to 4 (hold), third miss holds at 4 (minimum)
-testStuckWeight("Kettlebell", ["kettlebell"], 6, 4);
+// Miss 4: backs off to 45 kg
+{
+  const state: ProgressState = {
+    currentWorkingWeightKg: 52.5,
+    currentTargetReps: 12,
+    consecutiveFailures: 1,
+    bestWeightKg: 60,
+    bestReps: 12,
+    bestE1rm: null,
+    totalSessions: 4,
+    weightAtFailureStartKg: 52.5,
+  };
+  
+  const d = evaluateProgression({
+    sets: missingSets.map(s => ({ ...s, weightKg: 52.5 })),
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: null,
+    meta,
+    state,
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  
+  console.log("\nMiss 4:");
+  check("backs off to 45 kg", d.nextWorkingWeightKg === 45, `got ${d.nextWorkingWeightKg}`);
+  check("outcome is backed_off", d.outcome === "backed_off", d.outcome);
+  check("counter = 0", d.consecutiveFailures === 0, `got ${d.consecutiveFailures}`);
+  check("failure-start = null", d.weightAtFailureStartKg === null, `got ${d.weightAtFailureStartKg}`);
+  check("message includes 45", d.message.includes("45"), d.message);
+}
 
 if (failures === 0) {
-  console.log("\n✅ All third-miss tests passed");
+  console.log("\n✅ All third-miss sequence tests passed");
   process.exit(0);
 } else {
   console.log(`\n❌ ${failures} failure(s)`);

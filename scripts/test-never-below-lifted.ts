@@ -182,7 +182,71 @@ console.log("\n=== Never-Below-Lifted Invariant ===\n");
   check("3.7 kg (off-grid): next >= 3.7", d.nextWorkingWeightKg! >= 3.7, `got ${d.nextWorkingWeightKg}`);
 }
 
-// Test 7: At max kettlebell - should hold, not drop
+// Test 8: Off-grid dip belt case where step is below grid (item 6 requirement)
+{
+  // dip_belt with bodyweight + added weight: stored 5.1, lifted 5.1, 'right'
+  // addedWeightStep for upper-body = 1.25 kg, but dip_belt is loadable (2.5 kg grid)
+  // Should use max(1.25, 2.5) = 2.5 kg step → 5.1 + 2.5 = 7.6, floor to 7.5
+  const d = evaluateProgression({
+    sets: [{ reps: 12, weightKg: 5.1 }, { reps: 12, weightKg: 5.1 }, { reps: 12, weightKg: 5.1 }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: {
+      mechanic: "compound" as const,
+      metric: "reps" as const,
+      movementPattern: "vertical_press" as const,
+      isBodyweight: true,
+      progressionChain: null,
+      progressionRank: null,
+    },
+    state: { currentWorkingWeightKg: 5.1, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null },
+    isDeload: false,
+    equipmentIds: ["dip_belt"],
+    unit: "kg",
+  });
+  
+  check("5.1 kg dip_belt 'right': next >= 5.1", d.nextWorkingWeightKg! >= 5.1, `got ${d.nextWorkingWeightKg}`);
+  check("5.1 kg dip_belt 'right': expected 7.5 kg", d.nextWorkingWeightKg === 7.5, `got ${d.nextWorkingWeightKg}`);
+}
+
+// Test 9: 45.36 kg Military Press with exact pins (item 6 requirement)
+{
+  // 45.36 kg 'right' → 47.5 kg (45.36 + 2.5, floor-snap)
+  const dRight = evaluateProgression({
+    sets: [{ reps: 12, weightKg: 45.36 }, { reps: 12, weightKg: 45.36 }, { reps: 12, weightKg: 45.36 }, { reps: 12, weightKg: 45.36 }],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: PRESS,
+    state: { currentWorkingWeightKg: 45.36, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null },
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "lb",
+  });
+  
+  check("45.36 kg 'right': exact pin at 47.5 kg", dRight.nextWorkingWeightKg === 47.5, `got ${dRight.nextWorkingWeightKg}`);
+  
+  // 45.36 kg 'easy' → 50 kg (45.36 + 5, floor-snap, easy doubles mechanic 2.5)
+  const dEasy = evaluateProgression({
+    sets: [{ reps: 12, weightKg: 45.36 }, { reps: 12, weightKg: 45.36 }, { reps: 12, weightKg: 45.36 }, { reps: 12, weightKg: 45.36 }],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "easy",
+    meta: PRESS,
+    state: { currentWorkingWeightKg: 45.36, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null },
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "lb",
+  });
+  
+  check("45.36 kg 'easy': exact pin at 50 kg", dEasy.nextWorkingWeightKg === 50, `got ${dEasy.nextWorkingWeightKg}`);
+}
+
+// Test 10: At max kettlebell - should hold, not drop
 {
   const MAX_BELL = 48; // Largest kettlebell
   const d = evaluateProgression({

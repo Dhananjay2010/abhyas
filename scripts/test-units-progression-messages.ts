@@ -117,10 +117,11 @@ const metricMiss = evaluateProgression({
   unit: "kg",
 });
 
-console.log("Metric miss (first miss, drops weight):");
+console.log("Metric miss (first miss, holds at current weight - Decision F):");
 console.log(`  Message: "${metricMiss.message}"`);
 console.log(`  Next weight: ${metricMiss.nextWorkingWeightKg} kg`);
-check("metric miss message includes 'kg'", metricMiss.message.includes("kg"), metricMiss.message);
+check("metric miss message: exact main wording", metricMiss.message === "Staying at this weight until every set reaches the top of the range.", metricMiss.message);
+check("metric miss holds at 40 kg", metricMiss.nextWorkingWeightKg === 40, `${metricMiss.nextWorkingWeightKg}`);
 console.log();
 
 // Test 4: Imperial miss message
@@ -146,11 +147,11 @@ const imperialMiss = evaluateProgression({
   unit: "lb",
 });
 
-console.log("Imperial miss:");
+console.log("Imperial miss (first miss, holds at current weight - Decision F):");
 console.log(`  Message: "${imperialMiss.message}"`);
 console.log(`  Next weight: ${imperialMiss.nextWorkingWeightKg} kg (internal storage)`);
-check("imperial miss message includes 'lb'", imperialMiss.message.includes("lb"), imperialMiss.message);
-check("imperial miss message does not include 'kg'", !imperialMiss.message.includes("kg"), imperialMiss.message);
+check("imperial miss message: exact main wording", imperialMiss.message === "Staying at this weight until every set reaches the top of the range.", imperialMiss.message);
+check("imperial miss holds at 40 kg", imperialMiss.nextWorkingWeightKg === 40, `${imperialMiss.nextWorkingWeightKg}`);
 console.log();
 
 // Test 5: Dumbbell hold at smallest step (2.5 kg)

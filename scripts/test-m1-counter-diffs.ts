@@ -177,6 +177,65 @@ console.log("");
   check("In-range hold: failures reset to 0", result.consecutiveFailures === 0);
 }
 
+// Test 6: First miss with equipment (barbell) → counter set (item 9 requirement)
+{
+  const result = evaluateProgression({
+    sets: sets(4, 7, 60),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: BENCH,
+    state: {
+      currentWorkingWeightKg: 60,
+      currentTargetReps: 12,
+      consecutiveFailures: 0,
+      bestWeightKg: 60,
+      bestReps: 12,
+      bestE1rm: 84,
+      totalSessions: 3,
+      weightAtFailureStartKg: null,
+    },
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  
+  check("First miss with barbell: holds at 60", result.nextWorkingWeightKg === 60);
+  check("First miss with barbell: counter set to 60", result.weightAtFailureStartKg === 60);
+  check("First miss with barbell: failures = 1", result.consecutiveFailures === 1);
+}
+
+// Test 7: Stored ≠ lifted case (item 9 requirement)
+{
+  // Stored 55 kg, but user lifted 4×7@60 kg (miss) → should hold at lifted 60, counter set to 60
+  const result = evaluateProgression({
+    sets: sets(4, 7, 60),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: BENCH,
+    state: {
+      currentWorkingWeightKg: 55, // stored weight differs from lifted
+      currentTargetReps: 12,
+      consecutiveFailures: 0,
+      bestWeightKg: 55,
+      bestReps: 12,
+      bestE1rm: 77,
+      totalSessions: 3,
+      weightAtFailureStartKg: null,
+    },
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  
+  check("Stored 55, lifted 60 miss: holds at mode 60", result.nextWorkingWeightKg === 60);
+  check("Stored 55, lifted 60 miss: counter set to 60", result.weightAtFailureStartKg === 60);
+  check("Stored 55, lifted 60 miss: failures = 1", result.consecutiveFailures === 1);
+}
+
 console.log("");
 if (failures > 0) {
   console.log(`❌ ${failures} assertion(s) failed`);

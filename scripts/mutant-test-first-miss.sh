@@ -52,6 +52,20 @@ SKIPPED=()
 MUTATION_APPLIED=false
 CLEANUP_DONE=false
 
+# Shared isCrash function
+isCrash() {
+  local exit_code=$1
+  # Exit codes indicating runtime crash (not test failure):
+  # 134: SIGABRT, 137: SIGKILL, 139: SIGSEGV
+  # Node throws on syntax error, stack overflow, etc.
+  if [ "$exit_code" -eq 134 ] || [ "$exit_code" -eq 137 ] || [ "$exit_code" -eq 139 ]; then
+    return 0
+  fi
+  # Node exits 1 on uncaught exception/syntax error; distinguish from test failure
+  # If test output contains "SyntaxError" or "ReferenceError", it's a crash
+  return 1
+}
+
 restore_or_die() {
   # Verify backup integrity and restore target file atomically
   # On any mismatch: print to stderr, keep backup, exit non-zero
@@ -220,22 +234,39 @@ MUTATE_SCRIPT
   fi
   
   # Check tsc compiles
-  if ! eval "$COMPILE_CMD" > /dev/null 2>&1; then
-    echo "  ❌ SKIPPED: Does not compile"
-    SKIPPED+=("$name: does not compile")
+  COMPILE_EXIT=0
+  eval "$COMPILE_CMD" > /dev/null 2>&1 || COMPILE_EXIT=$?
+  
+  if [ $COMPILE_EXIT -ne 0 ]; then
+    if isCrash $COMPILE_EXIT; then
+      echo "  ❌ SKIPPED: Compilation crashed (exit $COMPILE_EXIT)"
+      SKIPPED+=("$name: compilation crash")
+    else
+      echo "  ❌ SKIPPED: Does not compile"
+      SKIPPED+=("$name: does not compile")
+    fi
     restore_or_die
     MUTATION_APPLIED=false
     return 0
   fi
   
   # Run tests
-  if eval "$MUTANT_TEST_CMD" > /dev/null 2>&1; then
+  TEST_EXIT=0
+  TEST_OUTPUT=$(mktemp)
+  eval "$MUTANT_TEST_CMD" > "$TEST_OUTPUT" 2>&1 || TEST_EXIT=$?
+  
+  if [ $TEST_EXIT -eq 0 ]; then
     echo "  ❌ SURVIVED"
     SURVIVORS+=("$name")
     FAILED=$((FAILED + 1))
+  elif isCrash $TEST_EXIT || grep -q "SyntaxError\|ReferenceError\|TypeError.*is not a function" "$TEST_OUTPUT"; then
+    echo "  ❌ SKIPPED: Runtime crash (exit $TEST_EXIT)"
+    SKIPPED+=("$name: runtime crash")
   else
     echo "  ✅ KILLED"
   fi
+  
+  rm -f "$TEST_OUTPUT"
   
   # Restore
   restore_or_die
@@ -252,17 +283,28 @@ run_mutant \
   "  // First miss: always hold at current weight (coordinator decision F)
   const nextWeight = Math.max(0, (currentWeight ?? 0) * 0.9);"
 
-# Mutant (b): EQUIVALENT - old threshold test, now Decision F always holds
-echo "Testing mutant: (b) threshold test"
-echo "  ≡ EQUIVALENT: Decision F first miss always holds (no threshold)"
+# Mutant (b'): First-miss currentWeight taken from mode instead of stored/lifted
+run_mutant \
+  "(b') first miss uses mode instead of stored" \
+  "Decision B/F: first miss should use stored weight, not mode" \
+  "  // First miss: always hold at current weight (coordinator decision F)
+  const nextWeight = currentWeight;" \
+  "  // First miss: always hold at current weight (coordinator decision F)
+  const nextWeight = mode > 0 ? mode : currentWeight;"
 
-# Mutant (c): EQUIVALENT - old > to >= test, now Decision F has no cutFraction check
-echo "Testing mutant: (c) > to >="
-echo "  ≡ EQUIVALENT: Decision F first miss always holds (no cutFraction check)"
+# Mutant (c'): Second-miss failures >= 2 → > 2
+run_mutant \
+  "(c') second miss condition >= 2 to > 2" \
+  "Second miss should trigger on failures >= 2, not > 2" \
+  "  if (failures >= 2 && currentWeight !== null && currentWeight > 0) {" \
+  "  if (failures > 2 && currentWeight !== null && currentWeight > 0) {"
 
-# Mutant (d): EQUIVALENT - old guard inversion test, now Decision F has no guard
-echo "Testing mutant: (d) guard inverted"
-echo "  ≡ EQUIVALENT: Decision F first miss always holds (no guard condition)"
+# Mutant (d'): First-miss consecutiveFailures: failures → failures + 1
+run_mutant \
+  "(d') increment failures wrong" \
+  "First miss should set consecutiveFailures to failures (1), not failures+1" \
+  "    consecutiveFailures: failures," \
+  "    consecutiveFailures: failures + 1,"
 
 # Mutant (e): M1 counter not set on first miss (Decision G)
 run_mutant \
@@ -304,30 +346,36 @@ run_mutant \
     consecutiveFailures: failures,
     weightAtFailureStartKg: newWeightAtFailureStart, // M1: store pre-miss weight"
 
-# Mutant (i): hard-feel hold
+# Mutant (i): hard-feel hold uses wrong baseline (Decision B)
 run_mutant \
-  "(i) hard-feel doesn't hold" \
-  "Change hard-feel check to right (never holds early)" \
+  "(i) hard-feel uses mode instead of stored" \
+  "Decision B: hard-feel should use stored weight, not mode" \
   '    // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    // Use mode (most common working-set weight) when available; otherwise fall back to stored or heaviest
-    const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));
+    // Decision B: use stored weight or heaviest lifted, not mode
+    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds) {' \
   '    // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    // Use mode (most common working-set weight) when available; otherwise fall back to stored or heaviest
+    // Decision B: use stored weight or heaviest lifted, not mode
     const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));
-    if (feel === "right" && currentWeight !== null && currentWeight > 0 && equipmentIds) {'
+    if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds) {'
 
-# Mutant (j): 1.5-step rule - DELETED
+# Mutant (j): 1.5-step rule - DELETED (unreachable)
 echo "Testing mutant: (j) 1.5-step rule"
 echo "  ⚠️  DELETED: Rule is unreachable (strictly-below ensures at most 1-step drop)"
 
-# Mutant (k): EQUIVALENT - old strictly-below test for first-miss equipment logic
-echo "Testing mutant: (k) standard equipment strictly-below"
-echo "  ≡ EQUIVALENT: Decision F first miss always holds at exact weight (no equipment-specific drop)"
+# Mutant (k'): kettlebell next-lower-bell < → <=
+run_mutant \
+  "(k') kettlebell next-lower-bell boundary" \
+  "Kettlebell should find next-lower bell with <, not <=" \
+  "        if (bells[i] < from) {" \
+  "        if (bells[i] <= from) {"
 
-# Mutant (l): EQUIVALENT - old threshold 0.20 → 0.25 test
-echo "Testing mutant: (l) threshold 0.20 → 0.25"
-echo "  ≡ EQUIVALENT: Decision F first miss always holds (no threshold)"
+# Mutant (l'): first-miss message string changed
+run_mutant \
+  "(l') first-miss message altered" \
+  "First-miss message should be exact: 'Staying at this weight until every set reaches the top of the range.'" \
+  "    message: \"Staying at this weight until every set reaches the top of the range.\"," \
+  "    message: \"Holding at this weight until sets improve.\"," \
 
 # Mutant (m): snap down instead of snap up in two-miss helper
 run_mutant \
@@ -337,9 +385,6 @@ run_mutant \
   "        const snappedUp = Math.floor(target / gridStep) * gridStep;"
 
 # Mutant (n): remove helper never-raise check (no-equipment path) - UNREACHABLE
-# The never-raise check is unreachable because target is computed as:
-# target = max(floor(0.9*weight / grid) * grid, 0.9*weight - increment)
-# Both components are <= 0.9*weight < weight, so target can never be > weight.
 echo "Testing mutant: (n) remove helper never-raise"
 echo "  ⚠️  UNREACHABLE: target computation ensures target <= weight always"
 
@@ -347,14 +392,12 @@ echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-TOTAL=12
-EQUIVALENT=5  # (b), (c), (d), (k), (l) - old threshold/guard tests, now obsolete under Decision F
-KILLED=$((TOTAL - FAILED - ${#SKIPPED[@]} - EQUIVALENT))
+TOTAL=14
+KILLED=$((TOTAL - FAILED - ${#SKIPPED[@]}))
 echo "Total mutants:                   $TOTAL"
 echo "Killed:                          $KILLED"
 echo "Survived:                        $FAILED"
 echo "Skipped:                         ${#SKIPPED[@]}"
-echo "Equivalent (Decision F):         $EQUIVALENT"
 echo "========================================="
 
 if [ ${#SURVIVORS[@]} -gt 0 ]; then

@@ -575,8 +575,8 @@ export function evaluateProgression(input: {
 
   if (succeeded) {
     // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    // Use mode (most common working-set weight) when available; otherwise fall back to stored or heaviest
-    const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));
+    // Decision B: use stored weight or heaviest lifted, not mode
+    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds) {
       // Hold at current weight (don't snap down)
       return {
@@ -704,14 +704,26 @@ export function evaluateProgression(input: {
           next = bells[targetIndex];
         }
       } else {
-        // Standard equipment: add increment then floor-snap to grid
-        const step = isBodyweightWithAddedWeight ? addedWeightStep(meta) : incrementFor(meta, equipmentIds);
-        const isCompound = meta.mechanic === "compound";
+        // Standard equipment: calculate step
+        const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
+        const gridStep = hasLoadable ? equipmentGridStep(equipmentIds, 'kg') : 0;
         
-        // Easy doubles the equipment-aware increment (including grid constraints)
+        let step: number;
+        if (isBodyweightWithAddedWeight) {
+          // Added weight: use pattern-based step, but respect grid for loadable equipment
+          const patternStep = addedWeightStep(meta);
+          step = hasLoadable ? Math.max(patternStep, gridStep) : patternStep;
+        } else {
+          // Weighted exercise: use mechanic/pattern increment
+          step = incrementFor(meta, equipmentIds);
+        }
+        
+        // Easy doubles the MECHANIC increment (before grid constraints)
+        const mechanicIncrement = meta.mechanic === "isolation" ? 1.25 : 
+          LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;
         let jump: number;
         if (feel === "easy" && !isBodyweightWithAddedWeight) {
-          jump = step * 2;
+          jump = hasLoadable ? Math.max(2 * mechanicIncrement, gridStep) : 2 * mechanicIncrement;
         } else {
           jump = step;
         }
@@ -719,12 +731,8 @@ export function evaluateProgression(input: {
         // Add jump to current weight
         const rawNext = from + jump;
         
-        // Check if equipment is loadable - only round to grid for loadable equipment
-        const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
-        
         if (hasLoadable) {
           // Loadable equipment: floor-snap to grid (never exceeds one-increment cap)
-          const gridStep = equipmentGridStep(equipmentIds, 'kg');
           // Add epsilon to handle floating-point edge cases on exact grid points
           next = Math.max(Math.floor((rawNext / gridStep) + 1e-9) * gridStep, from);
         } else {
