@@ -688,8 +688,11 @@ export function evaluateProgression(input: {
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
         const snappedFrom = Math.floor(from / gridStep) * gridStep;
         
-        // Add exactly one step
-        next = snappedFrom + gridStep;
+        // Add one step (or double increment for 'easy' feel on compound exercises only)
+        const mechanicInc = incrementFor(meta, equipmentIds);
+        const easyJump = Math.ceil((2 * mechanicInc) / gridStep) * gridStep;
+        const isCompound = meta.mechanic === "compound";
+        next = snappedFrom + (feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? Math.max(gridStep, easyJump) : gridStep);
       }
     } else {
       // No equipment info: use standard increment, doubled when easy (preserve old behavior)
