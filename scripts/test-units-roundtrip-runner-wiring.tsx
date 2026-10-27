@@ -132,8 +132,11 @@ const testCases = [
         throw new Error("Exercise not loaded");
     });
 
-    // Wait for component to sync (markSynced is called after 4s timeout)
-    await new Promise(resolve => setTimeout(resolve, 4500));
+    // Wait for component to sync and mark synced
+    await waitFor(() => {
+      const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
+      return workingWeightLine !== null;
+    }, { timeout: 5000 });
 
     // Check working weight line using data-testid for precision
     const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
@@ -180,10 +183,9 @@ const testCases = [
       continue;
     }
     
-    // Change reps value and wait for state update
-    await act(async () => {
+    // Change reps value
+    act(() => {
       fireEvent.change(repsInput, { target: { value: "7" } });
-      await new Promise(resolve => setTimeout(resolve, 200));
     });
     
     // Find Log Set button by data-testid
@@ -195,11 +197,10 @@ const testCases = [
       continue;
     }
     
-    // Try to click the button
+    // Click the button
     capturedWeightKg = null;
-    await act(async () => {
+    act(() => {
       fireEvent.click(logSetButton);
-      await new Promise(resolve => setTimeout(resolve, 200));
     });
     
     // Verify the button click worked and submitted the correct value
@@ -221,4 +222,7 @@ const testCases = [
     console.log(`\n✗ ${failures} test(s) failed\n`);
     process.exit(1);
   }
-})();
+})().catch(e => { 
+  console.error(e); 
+  process.exit(1); 
+});
