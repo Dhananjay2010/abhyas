@@ -660,7 +660,7 @@ export function formatPrescribedWeight(kg: number | null | undefined, units: Uni
   if (units === "imperial") {
     // Floor to 0.5 lb for display (conservative, matches snapPrescribedWeight)
     const lb = kgToLb(kg);
-    const floored = Math.floor(lb * 2) / 2;
+    const floored = Math.floor(lb * 2 + SNAP_LB_EPSILON) / 2;
     const formatted = floored % 1 === 0 ? floored.toFixed(0) : floored.toFixed(1);
     return `${formatted} ${label}`;
   }
@@ -948,8 +948,8 @@ export function computeRunnerWeightPrefill(
   const lb = kgToLb(defaultWeightKg);
   
   if (isPrescription) {
-    // Prescriptions: FLOOR to 0.5 lb (conservative)
-    const floored = Math.floor(lb * 2) / 2;
+    // Prescriptions: FLOOR to 0.5 lb (conservative, with epsilon for round-trip precision)
+    const floored = Math.floor(lb * 2 + SNAP_LB_EPSILON) / 2;
     return String(floored);
   } else {
     // Logged weights: round to NEAREST 0.5 lb to match History display
