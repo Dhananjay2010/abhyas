@@ -615,6 +615,86 @@ export type Database = {
         }
         Relationships: []
       }
+      gym_join_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          gym_id: string
+          id: string
+          max_uses: number | null
+          revoked_at: string | null
+          role: Database["public"]["Enums"]["gym_role"]
+          use_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          gym_id: string
+          id?: string
+          max_uses?: number | null
+          revoked_at?: string | null
+          role: Database["public"]["Enums"]["gym_role"]
+          use_count?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          gym_id?: string
+          id?: string
+          max_uses?: number | null
+          revoked_at?: string | null
+          role?: Database["public"]["Enums"]["gym_role"]
+          use_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_join_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gym_join_codes_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gym_join_code_attempts: {
+        Row: {
+          attempted_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          attempted_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_join_code_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1514,6 +1594,52 @@ export type Database = {
           check_gym_id: string
         }
         Returns: boolean
+      }
+      preview_join_code: {
+        Args: {
+          p_code: string
+        }
+        Returns: Json
+      }
+      redeem_join_code: {
+        Args: {
+          p_code: string
+        }
+        Returns: Json
+      }
+      check_join_code_throttle: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      generate_join_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      record_join_code_miss: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      create_join_code: {
+        Args: {
+          p_gym_id: string
+          p_role: Database["public"]["Enums"]["gym_role"]
+          p_expires_at?: string
+          p_max_uses?: number
+        }
+        Returns: {
+          id: string
+          code: string
+        }[]
+      }
+      revoke_join_code: {
+        Args: {
+          p_id: string
+        }
+        Returns: undefined
       }
       rebuild_block: {
         Args: {

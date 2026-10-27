@@ -333,6 +333,11 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
+    // G-3: Landmine jammers excluded for ANY knee injury (leg-driven presses)
+    if ((ctx.anyKneeInjury ?? false) && (candidate.slug === "landmine-linear-jammer" || candidate.slug === "single-arm-linear-jammer")) {
+      continue;
+    }
+    
     // 9. Equipment check: all-of semantics
     if (ctx.availableEquipment !== null && candidate.equipment_ids.length > 0) {
       const equipment = ctx.availableEquipment;
