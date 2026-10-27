@@ -67,6 +67,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestReps: 12,
   bestE1rm: 56,
   totalSessions: 1,
+  weightAtFailureStartKg: null,
   ...over,
 });
 

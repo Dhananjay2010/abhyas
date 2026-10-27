@@ -79,6 +79,7 @@ async function main() {
       bestReps: 12,
       bestE1rm: 56,
       totalSessions: 1,
+      weightAtFailureStartKg: null,
     };
 
     const decision1 = evaluateProgression({
@@ -124,6 +125,7 @@ async function main() {
       bestReps: 12,
       bestE1rm: 56,
       totalSessions: 2,
+      weightAtFailureStartKg: null,
     };
 
     const decision2 = evaluateProgression({
@@ -170,6 +172,7 @@ async function main() {
       bestReps: 12,
       bestE1rm: 84,
       totalSessions: 2,
+      weightAtFailureStartKg: null,
     };
 
     const decision1 = evaluateProgression({
@@ -213,6 +216,7 @@ async function main() {
       bestReps: written1?.best_reps ?? 12,
       bestE1rm: written1?.best_e1rm ?? 84,
       totalSessions: written1?.total_sessions ?? 3,
+      weightAtFailureStartKg: null,
     };
 
     check("State 2 loaded: failures=1", state2.consecutiveFailures === 1);
@@ -262,6 +266,7 @@ async function main() {
       bestReps: 12,
       bestE1rm: 56,
       totalSessions: 1,
+      weightAtFailureStartKg: null,
     };
 
     const decision1 = evaluateProgression({
@@ -298,6 +303,7 @@ async function main() {
       bestReps: written1?.best_reps ?? 12,
       bestE1rm: written1?.best_e1rm ?? 56,
       totalSessions: written1?.total_sessions ?? 2,
+      weightAtFailureStartKg: null,
     };
 
     // Second session: 4×10 (in-range)
@@ -343,6 +349,7 @@ async function main() {
       bestReps: null,
       bestE1rm: null,
       totalSessions: 0,
+      weightAtFailureStartKg: null,
     };
 
     const decision1 = evaluateProgression({
@@ -385,6 +392,7 @@ async function main() {
       bestReps: written1?.best_reps ?? 10,
       bestE1rm: written1?.best_e1rm ?? 53.33,
       totalSessions: written1?.total_sessions ?? 1,
+      weightAtFailureStartKg: null,
     };
 
     const decision2 = evaluateProgression({
