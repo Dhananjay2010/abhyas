@@ -9,9 +9,10 @@
 
 import { headers } from "next/headers";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { branding, type Brand } from "@/lib/branding";
 import { createClient } from "@/lib/supabase/server";
-import { getGymBrand } from "@/lib/gym-brand";
+import { getGymBrand, neutralBrand } from "@/lib/gym-brand";
 import { getUserGymMembership } from "@/lib/gym/member-gym";
 import { contrastRatio, accessibleTextColor } from "@/lib/contrast";
 import { ensureMinContrast } from "@/lib/brand-contrast";
@@ -55,6 +56,64 @@ export type BrandResolution = {
 };
 
 /**
+ * Resolve gym ID from host domain (optionally cached).
+ * 
+ * @param supabase Supabase client
+ * @param normalizedHost Normalized host (lowercase, port stripped)
+ * @param useCache Whether to use unstable_cache (requires Next.js runtime)
+ * @returns Gym resolution result or null
+ */
+async function resolveHostToBranding(
+  supabase: SupabaseClient<Database>,
+  normalizedHost: string,
+  useCache: boolean = true
+): Promise<{ gymId: string; gymName: string | null } | null> {
+  const resolveFn = async () => {
+    try {
+      const { data, error } = await supabase.rpc("resolve_gym_by_host", {
+        p_host: normalizedHost,
+      });
+
+      if (!error && data && data.length > 0) {
+        const row = data[0];
+        
+        if (!isResolveGymByHostResult(row)) {
+          console.error("Invalid RPC response format:", row);
+          return null;
+        }
+        
+        if (row.gym_id) {
+          return {
+            gymId: row.gym_id,
+            gymName: row.gym_name || null,
+          };
+        }
+      }
+      
+      return null;
+    } catch (err) {
+      console.error("Host resolution error:", err);
+      return null;
+    }
+  };
+  
+  if (!useCache) {
+    return resolveFn();
+  }
+  
+  const cachedFn = unstable_cache(
+    resolveFn,
+    [`gym-host-${normalizedHost}`],
+    {
+      tags: [`gym-host:${normalizedHost}`],
+      revalidate: 600, // 10 minutes
+    }
+  );
+  
+  return cachedFn();
+}
+
+/**
  * Resolve brand following the 3-tier resolution order:
  * 1. Host-mapped verified gym (host wins)
  * 2. User's active gym membership (member fallback)
@@ -65,13 +124,15 @@ export type BrandResolution = {
  * @param memberGym Member's gym info (null if no membership)
  * @param base Base brand to use as fallback
  * @param fetchGymBrand Optional fetcher for gym brand (for testing)
+ * @param useCache Whether to use unstable_cache for host lookup (default true, false for tests)
  */
 export async function resolveBrand(
   supabase: SupabaseClient<Database>,
   host: string | null,
   memberGym: { gymId: string; gymName: string } | null,
   base: Brand,
-  fetchGymBrand: (gymId: string) => Promise<Partial<Brand>> = getGymBrand
+  fetchGymBrand: (gymId: string) => Promise<Partial<Brand>> = getGymBrand,
+  useCache: boolean = true
 ): Promise<BrandResolution> {
   // Tier 1: Host-mapped verified gym
   if (host) {
@@ -83,30 +144,31 @@ export async function resolveBrand(
       normalizedHost.endsWith(".vercel.app");
 
     if (!isUnmapped) {
-      try {
-        const { data, error } = await supabase.rpc("resolve_gym_by_host", {
-          p_host: normalizedHost,
-        });
+      const hostResult = await resolveHostToBranding(supabase, normalizedHost, useCache);
+      
+      if (hostResult) {
+        try {
+          const gymBrand = await fetchGymBrand(hostResult.gymId);
+          const brand = mergeBrand(base, gymBrand);
 
-        if (!error && data && data.length > 0) {
-          const row = data[0];
-          
-          if (!isResolveGymByHostResult(row)) {
-            console.error("Invalid RPC response format:", row);
-          } else if (row.gym_id) {
-            const gymBrand = await fetchGymBrand(row.gym_id);
-            const brand = mergeBrand(base, gymBrand);
-
-            return {
-              brand,
-              gymId: row.gym_id,
-              gymName: row.gym_name || null,
-              tier: "host",
-            };
-          }
+          return {
+            brand,
+            gymId: hostResult.gymId,
+            gymName: hostResult.gymName,
+            tier: "host",
+          };
+        } catch (err) {
+          console.error("Failed to fetch gym brand for host:", err);
+          // On gym brand fetch error, use neutral brand for custom domain
+          // (prevents showing another gym's brand during outage)
+          const brand = mergeBrand(base, neutralBrand);
+          return {
+            brand,
+            gymId: null,
+            gymName: null,
+            tier: "base",
+          };
         }
-      } catch (err) {
-        console.error("Host resolution error:", err);
       }
     }
   }

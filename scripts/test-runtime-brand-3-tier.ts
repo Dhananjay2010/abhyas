@@ -70,7 +70,7 @@ async function main() {
     );
     
     const mockFetch = async () => ({ name: 'Should not be called' });
-    const result = await resolveBrand(supabase, null, null, branding, mockFetch);
+    const result = await resolveBrand(supabase, null, null, branding, mockFetch, false);
     
     check("Tier is 'base'", result.tier === "base");
     check("Brand is base", JSON.stringify(result.brand) === JSON.stringify(branding));
@@ -118,7 +118,7 @@ async function main() {
     };
     
     const memberGym = { gymId: 'gym-a-id', gymName: 'Iron Temple' };
-    const result = await resolveBrand(supabase, 'goldcoastiron.com', memberGym, branding, mockFetchGymBrand);
+    const result = await resolveBrand(supabase, 'goldcoastiron.com', memberGym, branding, mockFetchGymBrand, false);
     
     check("Tier is 'host' (not member)", result.tier === "host");
     check("Gym ID is gym-b-id (host wins)", result.gymId === 'gym-b-id');
@@ -150,7 +150,7 @@ async function main() {
     };
     
     const memberGym = { gymId: 'iron-temple-id', gymName: 'Iron Temple' };
-    const result = await resolveBrand(supabase, 'localhost', memberGym, branding, mockFetchGymBrand);
+    const result = await resolveBrand(supabase, 'localhost', memberGym, branding, mockFetchGymBrand, false);
     
     check("Tier is 'member'", result.tier === "member");
     check("Gym ID is iron-temple-id", result.gymId === 'iron-temple-id');
@@ -193,7 +193,7 @@ async function main() {
     };
     
     const memberGym = { gymId: 'iron-temple-id', gymName: 'Iron Temple' };
-    const result = await resolveBrand(supabase, 'goldcoastiron.com', memberGym, branding, mockFetchGymBrand);
+    const result = await resolveBrand(supabase, 'goldcoastiron.com', memberGym, branding, mockFetchGymBrand, false);
     
     check("Tier is 'host'", result.tier === "host");
     check("Gym ID is gym-b-id (not iron-temple-id)", result.gymId === 'gym-b-id');

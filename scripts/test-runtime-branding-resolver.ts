@@ -89,7 +89,7 @@ async function main() {
     );
     
     const mockFetchBrand = async () => ({ name: 'Should not be called' });
-    const resolution = await resolveBrand(supabase, 'unmapped.example.com', null, branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, 'unmapped.example.com', null, branding, mockFetchBrand, false);
     const result = resolution.brand;
     
     check("Tier is 'base'", resolution.tier === "base");
@@ -157,7 +157,7 @@ async function main() {
       }
     );
     
-    const resolution = await resolveBrand(supabase, 'fitcore.example.com', null, branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, 'fitcore.example.com', null, branding, mockFetchBrand, false);
     const result = resolution.brand;
     
     check("Tier is 'host'", resolution.tier === "host");
@@ -206,7 +206,7 @@ async function main() {
       return {};
     };
     
-    const resolution = await resolveBrand(supabase, 'unverified.example.com', null, branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, 'unverified.example.com', null, branding, mockFetchBrand, false);
     const result = resolution.brand;
     
     check("Result identical to base", JSON.stringify(result) === JSON.stringify(branding));
@@ -234,7 +234,7 @@ async function main() {
     );
     
     const mockFetchBrand = async () => ({ name: 'Should not be called' });
-    const resolution = await resolveBrand(supabase, 'error.example.com', null, branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, 'error.example.com', null, branding, mockFetchBrand, false);
     const result = resolution.brand;
     
     check("Result identical to base on error", JSON.stringify(result) === JSON.stringify(branding));
@@ -288,7 +288,7 @@ async function main() {
         }
       );
       
-      const resolution = await resolveBrand(supabase, 'GYM.EXAMPLE.COM', null, branding, mockFetchBrand);
+      const resolution = await resolveBrand(supabase, 'GYM.EXAMPLE.COM', null, branding, mockFetchBrand, false);
     const result = resolution.brand;
       check("Uppercase host resolves", resolution.gymId === gymId);
       check("Tier is 'host'", resolution.tier === "host");
@@ -344,7 +344,7 @@ async function main() {
         }
       );
       
-      const resolution = await resolveBrand(supabase, 'gym.example.com:443', null, branding, mockFetchBrand);
+      const resolution = await resolveBrand(supabase, 'gym.example.com:443', null, branding, mockFetchBrand, false);
     const result = resolution.brand;
       check("Host with port resolves", resolution.gymId === gymId);
       check("Tier is 'host'", resolution.tier === "host");
@@ -376,7 +376,7 @@ async function main() {
     );
     
     const mockFetchBrand = async () => ({ name: 'Should not be called' });
-    const resolution = await resolveBrand(supabase, null, null, branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, null, null, branding, mockFetchBrand, false);
     const result = resolution.brand;
     
     check("Null host returns base", JSON.stringify(result) === JSON.stringify(branding));
@@ -428,7 +428,7 @@ async function main() {
       }
     );
     
-    const resolution = await resolveBrand(supabase, 'test.example.com', null, branding, mockFetchBrand);
+    const resolution = await resolveBrand(supabase, 'test.example.com', null, branding, mockFetchBrand, false);
     const result = resolution.brand;
     check("primary_color becomes accent", result.colors.accent === '#ff0000');
     check("accent_color becomes accentHover", result.colors.accentHover === '#cc0000');
