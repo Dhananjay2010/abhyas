@@ -45,7 +45,7 @@ export default async function OwnerInvitesPage() {
         Invite members and staff to your gym
       </p>
 
-      <InvitesList gymId={ownedGym.id} gymName={ownedGym.name} initialCodes={codes ?? []} timezone={timezone} />
+      <InvitesList gymId={ownedGym.id} initialCodes={codes ?? []} timezone={timezone} />
     </main>
   );
 }

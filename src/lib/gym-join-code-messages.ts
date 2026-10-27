@@ -1,5 +1,9 @@
 import type { RedeemJoinCodeResult } from "./gym-join-code-types";
 
+function assertNever(x: never): never {
+  throw new Error(`Unexpected value: ${JSON.stringify(x)}`);
+}
+
 /**
  * Maps a redeem join code result to a user-facing error message.
  * Returns empty string for success, specific message for each failure reason.
@@ -34,6 +38,5 @@ export function mapRedeemResultToMessage(result: RedeemJoinCodeResult, gymName?:
   }
   
   // Exhaustive check: if we reach here, TypeScript will error on a new reason
-  const _exhaustive: never = reason;
-  return "An error occurred. Please try again";
+  return assertNever(reason);
 }

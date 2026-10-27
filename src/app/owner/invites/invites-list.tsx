@@ -10,12 +10,11 @@ type GymRole = Database["public"]["Enums"]["gym_role"];
 
 interface InvitesListProps {
   gymId: string;
-  gymName: string;
   initialCodes: JoinCode[];
   timezone: string;
 }
 
-export function InvitesList({ gymId, gymName, initialCodes, timezone }: InvitesListProps) {
+export function InvitesList({ gymId, initialCodes, timezone }: InvitesListProps) {
   const [codes, setCodes] = useState<JoinCode[]>(initialCodes);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);

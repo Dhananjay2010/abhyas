@@ -1,7 +1,7 @@
 "use server";
 
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { parseRedeemJoinCodeResult, type RedeemJoinCodeResult } from "@/lib/gym-join-code-types";
+import { parseRedeemJoinCodeResult } from "@/lib/gym-join-code-types";
 import { mapRedeemResultToMessage } from "@/lib/gym-join-code-messages";
 
 export type RedeemCodeResult = 

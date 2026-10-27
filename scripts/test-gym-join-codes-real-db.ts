@@ -411,12 +411,12 @@ async function runTests() {
     const emailH = `attempt-${attempt}-h-${Date.now()}-${Math.random()}@example.com`;
     const emailI = `attempt-${attempt}-i-${Date.now()}-${Math.random()}@example.com`;
     
-    const { data: userHData } = await adminClient.auth.admin.createUser({
+    await adminClient.auth.admin.createUser({
       email: emailH,
       password: "password",
       email_confirm: true,
     });
-    const { data: userIData } = await adminClient.auth.admin.createUser({
+    await adminClient.auth.admin.createUser({
       email: emailI,
       password: "password",
       email_confirm: true,
@@ -768,7 +768,7 @@ async function runTests() {
   console.log("TEST: Throttle triggers at 10 misses");
   // Create a fresh user for throttle test
   const emailThrottle = `test-throttle-${Date.now()}-${Math.random()}@example.com`;
-  const { data: authUserThrottle } = await adminClient.auth.admin.createUser({
+  await adminClient.auth.admin.createUser({
     email: emailThrottle,
     password: "password123",
     email_confirm: true,
