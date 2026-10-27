@@ -9,8 +9,38 @@ import { getRequestBrand, getBrandCssVariablesForBrand } from "@/lib/runtime-bra
 import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 import { InProgressBar } from "@/components/in-progress-bar";
 import { PendingSetReplayProvider } from "@/components/pending-set-replay-provider";
+import { HostWinsNotice } from "@/components/host-wins-notice";
+import { createClient } from "@/lib/supabase/server";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+
+async function getHostWinsNoticeProps(): Promise<{ userGymName: string | null; hostGymName: string | null }> {
+  const supabase = await createClient();
+  const brand = await getRequestBrand();
+  
+  // Get user's gym
+  const { data: { user } } = await supabase.auth.getUser();
+  let userGymName: string | null = null;
+  
+  if (user) {
+    const { data: membership } = await supabase
+      .from("gym_memberships")
+      .select(`gyms (name)`)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .single();
+    
+    if (membership) {
+      const gym = Array.isArray(membership.gyms) ? membership.gyms[0] : membership.gyms;
+      userGymName = gym?.name ?? null;
+    }
+  }
+  
+  // Host gym name comes from the brand
+  const hostGymName = brand.id !== 'default' && brand.name !== branding.name ? brand.name : null;
+  
+  return { userGymName, hostGymName };
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getRequestBrand();
@@ -63,6 +93,7 @@ export default async function RootLayout({
   // Runtime brand is resolved from the request host.
   const brand = await getRequestBrand();
   const brandCssVars = getBrandCssVariablesForBrand(brand);
+  const noticeProps = await getHostWinsNoticeProps();
 
   return (
     <html lang="en" className={inter.variable}>
@@ -78,6 +109,7 @@ export default async function RootLayout({
           <ServiceWorkerRegistration />
           <NewVersionHint />
           <PendingSetReplayProvider />
+          <HostWinsNotice {...noticeProps} />
           {children}
           {/*
             L1: Client-side in-progress session indicator that fetches on mount

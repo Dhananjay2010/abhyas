@@ -339,6 +339,55 @@ async function main() {
   }
   console.log();
 
+  console.log("TEST: accent_color maps to accentHover (per gym-brand.ts)");
+  {
+    const gymId = '12345678-1234-1234-1234-123456789abc';
+    
+    const stub = createStubFetch({
+      resolve_gym_by_host: [
+        {
+          gym_id: gymId,
+          gym_slug: 'test',
+          gym_name: 'Test Gym',
+        },
+      ],
+    });
+    
+    const mockFetchBrand = async (): Promise<Partial<Brand>> => ({
+      name: 'Test Gym',
+      colors: {
+        accent: '#ff0000',        // primary_color
+        accentHover: '#cc0000',   // accent_color
+        accentFg: '#000000',
+        bg: branding.colors.bg,
+        surface: branding.colors.surface,
+        surface2: branding.colors.surface2,
+        border: branding.colors.border,
+        fg: branding.colors.fg,
+        muted: branding.colors.muted,
+        success: branding.colors.success,
+        warning: branding.colors.warning,
+        warningFg: branding.colors.warningFg,
+        danger: branding.colors.danger,
+        chart: branding.colors.chart,
+      },
+    });
+    
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stub.fetch as typeof fetch },
+      }
+    );
+    
+    const result = await resolveBrandForHost(supabase, 'test.example.com', branding, mockFetchBrand);
+    check("primary_color becomes accent", result.colors.accent === '#ff0000');
+    check("accent_color becomes accentHover", result.colors.accentHover === '#cc0000');
+  }
+  console.log();
+
   if (failures > 0) {
     console.error(`\n❌ ${failures} test(s) failed\n`);
     process.exit(1);
