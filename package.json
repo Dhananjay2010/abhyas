@@ -449,7 +449,9 @@
     "test:stale-runner-clock-guard": "tsx scripts/test-stale-runner-clock-guard.ts",
     "test:warmup-exclusion": "tsx scripts/test-warmup-exclusion.ts",
     "test:history-ended-early-setcount-render": "tsx scripts/test-history-ended-early-setcount-render.tsx",
-    "test:l4-detail-duration": "tsx scripts/test-l4-detail-duration.ts"
+    "test:l4-detail-duration": "tsx scripts/test-l4-detail-duration.ts",
+    "test:gym-tenant-rls-real-db": "tsx scripts/test-gym-tenant-rls-real-db.ts",
+    "test:gym-owner-guards-sql": "tsx scripts/test-gym-owner-guards-sql.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
