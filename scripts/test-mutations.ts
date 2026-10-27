@@ -47,7 +47,7 @@ const mutants: Mutant[] = [
     file: "src/lib/program/generate.ts",
     pattern: /if \(input\.currentInjuryRegions\.includes\("knee"\) && ex\.contraindicated_regions\.includes\("knee"\)\) \{/,
     mutate: 'if (!input.currentInjuryRegions.includes("knee") && ex.contraindicated_regions.includes("knee")) {',
-    tests: ["test:knee-contraindicated", "test:knee-safety-matrix"],
+    tests: ["test:owner-decision-a", "test:knee-contraindicated", "test:knee-safety-matrix"],
   },
   
   // 2b. Past-knee lunge filter
@@ -83,7 +83,7 @@ const mutants: Mutant[] = [
     file: "src/lib/program/alternatives.ts",
     pattern: /if \(ctx\.injuryRegions\.includes\("knee"\) && candidate\.contraindicated_regions\.includes\("knee"\)\) \{/,
     mutate: 'if (!ctx.injuryRegions.includes("knee") && candidate.contraindicated_regions.includes("knee")) {',
-    tests: ["test:knee-contraindicated", "test:swap-mutations"],
+    tests: ["test:owner-decision-a", "test:knee-contraindicated", "test:swap-mutations"],
   },
   
   // 5a2. High-impact filter in alternatives
