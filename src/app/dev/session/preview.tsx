@@ -122,6 +122,7 @@ const TOMORROW = {
   localDate: "2999-01-02",
   plannedLabel: "Legs",
   programDayId: "d3",
+  dayType: "weights" as const,
   collisionResolved: false,
   days: [
     { programDayId: "d1", label: "Push", dayType: "weights" as const },

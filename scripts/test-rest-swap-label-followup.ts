@@ -39,7 +39,7 @@ type ProgramDay = {
 type Session = {
   id: string;
   user_id: string;
-  program_day_id: string;
+  program_day_id: string | null;
   actual_type: string | null;
   local_date: string;
   status: string;
@@ -564,6 +564,7 @@ async function main() {
     });
 
     const resultYoga = await nextDayPlan(client, "America/New_York", "2026-10-28", { sessionId: "s-tue-yoga" });
+    assert.ok(resultYoga, "Should return result");
     const aDayYoga = resultYoga.days.find(d => d.label === "Full Body A");
     const bDayYoga = resultYoga.days.find(d => d.label === "Full Body B");
     assert.ok(aDayYoga, "Should have A");

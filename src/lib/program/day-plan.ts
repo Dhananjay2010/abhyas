@@ -350,7 +350,7 @@ export function resolveTomorrowAfterSwap({
   return {
     programDayId: nextDay.id,
     label: nextDay.label ?? scheduledTomorrow.label,
-    dayType: nextDay.day_type,
+    dayType: nextDay.day_type as DayType,
   };
 }
 
