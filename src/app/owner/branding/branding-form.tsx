@@ -216,7 +216,7 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
             className="w-full rounded-lg px-6 py-3 text-sm font-semibold transition-colors"
             style={{
               backgroundColor: "var(--color-accent)",
-              color: "#ffffff",
+              color: "var(--color-accent-fg)",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = "var(--color-accent-hover)";
