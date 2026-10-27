@@ -49,6 +49,25 @@ export function resolveSetConflict<T extends ExerciseForConflict>(
     e.id === currentExerciseId ? ({ ...e, sets: conflict.savedSets } as T) : e,
   );
 
+  // Find the current exercise after the update
+  const currentExercise = updatedExercises[currentExerciseIndex];
+
+  // If the current exercise is now complete (all sets done) and still pending,
+  // stay on it to show the feel prompt. Previously this jumped to the next exercise,
+  // which skipped the feel and left the exercise pending. If it's already completed
+  // (status="completed"), it was finished in another tab and we should advance.
+  if (
+    currentExercise &&
+    currentExercise.sets.length >= currentExercise.plannedSets &&
+    currentExercise.status === "pending"
+  ) {
+    return {
+      exercises: updatedExercises,
+      nextExerciseIndex: currentExerciseIndex,
+      message: "That set was already saved. Showing your latest sets.",
+    };
+  }
+
   // Find next unfinished exercise (pending and not fully logged)
   const nextUnfinishedIndex = updatedExercises.findIndex(
     (e, i) => i >= currentExerciseIndex && e.status === "pending" && e.sets.length < e.plannedSets,
