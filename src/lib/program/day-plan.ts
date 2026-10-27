@@ -36,7 +36,7 @@ export function labelForDayType(dayType: DayType, fallback: string | null): stri
 type ProgramDayForResolve = {
   id: string;
   day_index: number;
-  day_type: string;
+  day_type: Database["public"]["Enums"]["day_type"];
   label: string | null;
 };
 
@@ -52,7 +52,7 @@ export type ResolveTodayCoreDeps = {
 
 export function resolveTodayProgramDayCore(
   deps: ResolveTodayCoreDeps
-): Promise<{ programDayId: string; dayType: string; label: string | null } | null> {
+): Promise<{ programDayId: string; dayType: Database["public"]["Enums"]["day_type"]; label: string | null } | null> {
   return (async () => {
     const todayIndex = deps.getTodayIndex();
     const yesterdayIndex = deps.getYesterdayIndex();
@@ -131,7 +131,7 @@ export async function resolveTodayProgramDay({
   programId: string;
   localToday: string;
   userId: string;
-}): Promise<{ programDayId: string; dayType: string; label: string | null } | null> {
+}): Promise<{ programDayId: string; dayType: Database["public"]["Enums"]["day_type"]; label: string | null } | null> {
   const todayIndex = isoWeekday(localToday);
   const yesterday = addDays(localToday, -1);
   const yesterdayIndex = isoWeekday(yesterday);
@@ -454,7 +454,6 @@ export type NextDayPlanCoreDeps = {
 export async function nextDayPlanCore(
   deps: NextDayPlanCoreDeps
 ): Promise<NextDayPlan | null> {
-  const today = deps.getToday();
   const tomorrow = deps.getTomorrow();
   const todayDayIndex = deps.getTodayDayIndex();
 

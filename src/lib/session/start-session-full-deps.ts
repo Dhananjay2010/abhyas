@@ -81,7 +81,7 @@ export function buildStartSessionFullDeps(
         localToday: today,
         userId,
       });
-      return result as { programDayId: string; dayType: Database["public"]["Enums"]["day_type"]; label: string | null } | null;
+      return result;
     },
 
     async loadProgram(programId, dayIndex) {

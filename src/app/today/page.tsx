@@ -4,10 +4,9 @@ import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
 import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
 import { SignOutForm } from "./signout-form";
-import { StartTomorrowLink } from "./start-tomorrow-link";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { addDays, isoWeekday, localDateString, localHour } from "@/lib/dates";
+import { addDays, isoWeekday, localDateString } from "@/lib/dates";
 import { labelForDayType, plannableDays, resolveTodayProgramDay } from "@/lib/program/day-plan";
 import { loadTodayPlan } from "@/lib/today/load-today-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
@@ -26,7 +25,6 @@ import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
 import { StrengthDoneBanner } from "./strength-done-banner";
 import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
 import { deriveTodayView } from "@/lib/today/derive-today-view";
-import { shouldOfferStartTomorrow } from "@/lib/program/should-offer-start-tomorrow";
 
 export const dynamic = "force-dynamic";
 
@@ -645,14 +643,6 @@ export default async function TodayPage() {
                 <StartSessionButton
                   label={strengthOpen?.started_at ? "Resume session" : "Start session"}
                 />
-                {/* "Or start tomorrow" link for brand-new plans on their first day */}
-                {shouldOfferStartTomorrow({
-                  isFirstDay: program.block_number === 1 && program.started_on === localToday,
-                  sessionStarted: todaySessions.filter(s => s.status === "in_progress" || s.status === "completed").length > 0,
-                  localHour: localHour(timezone),
-                }) && !strengthOpen && (
-                  <StartTomorrowLink />
-                )}
               </>
             );
           })()}

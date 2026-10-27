@@ -1416,6 +1416,10 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     if (avoidHighSpinalLoad && (entry.focus === "lower" || entry.focus === "full" || entry.focus === "legs") && (input.hasAllEquipment || input.equipmentIds.length > 0)) {
       const hinges = pickedExercises.filter(p => p.ex.movement_pattern === "hinge");
       const hasHighSpinalHinge = hinges.some(p => p.ex.spinal_load === "high");
+      const hasSafeLoadedHinge = hinges.some(p => 
+        p.ex.spinal_load !== "high" &&
+        p.ex.equipment_ids.some(id => id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine")
+      );
       
       // If we have a high-spinal hinge, try to replace it
       if (hasHighSpinalHinge) {
