@@ -193,11 +193,6 @@ export async function resolveTodayProgramDay({
  * 
  * Marks the "next up" workout based on the most recently completed session,
  * so rest-day swaps can preselect the recommended next workout in the rotation.
- * 
- * MED-B: When computing the badge from the summary (while the current session
- * is still in_progress), pass currentSessionId to treat that session as
- * completed for next-up computation, preventing the just-finished workout
- * from being badged as "Next up".
  */
 export async function plannableDays(
   supabase: Client,
@@ -207,8 +202,6 @@ export async function plannableDays(
     afterDate?: string;
     /** User ID for filtering sessions (required when afterDate is provided) */
     userId?: string;
-    /** When provided, treat this in_progress session as completed for next-up computation */
-    currentSessionId?: string;
   }
 ): Promise<PlannableDay[]> {
   const { data } = await supabase
@@ -226,39 +219,22 @@ export async function plannableDays(
   // MED-1 fix: Track by label (not id) so the badge lands on the kept row
   // after deduplication. In 4-day Upper/Lower, the nextUp might be "Upper" (id U2),
   // but deduplication keeps the first "Upper" (id U1), so we mark by label.
-  // MED-B fix: When currentSessionId is provided (post-workout summary), treat
-  // that in_progress session as completed so the badge lands on the NEXT workout,
-  // not the one just finished.
   let nextUpLabel: string | null = null;
   
   if (options?.afterDate && options?.userId && trainingDays.length > 0) {
-    let recentSession: { id: string; program_day_id: string | null } | null = null;
+    const { data } = await supabase
+      .from("sessions")
+      .select("id, program_day_id")
+      .eq("user_id", options.userId)
+      .eq("status", "completed")
+      .in("actual_type", ["weights", "bodyweight"])
+      .lte("local_date", options.afterDate)
+      .order("local_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
     
-    if (options.currentSessionId) {
-      // MED-B: When currentSessionId is provided, use that exact session
-      const { data } = await supabase
-        .from("sessions")
-        .select("id, program_day_id")
-        .eq("id", options.currentSessionId)
-        .eq("user_id", options.userId)
-        .in("actual_type", ["weights", "bodyweight"])
-        .maybeSingle();
-      recentSession = data;
-    } else {
-      // Otherwise, find the most recent completed session
-      const { data } = await supabase
-        .from("sessions")
-        .select("id, program_day_id")
-        .eq("user_id", options.userId)
-        .eq("status", "completed")
-        .in("actual_type", ["weights", "bodyweight"])
-        .lte("local_date", options.afterDate)
-        .order("local_date", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      recentSession = data;
-    }
+    const recentSession = data;
     
     if (recentSession?.program_day_id) {
       const completedIndex = trainingDays.findIndex(d => d.id === recentSession.program_day_id);
@@ -661,7 +637,6 @@ export async function nextDayPlan(
       return await plannableDays(supabase, program.id, {
         afterDate: today,
         userId,
-        currentSessionId: options?.sessionId,
       });
     },
 

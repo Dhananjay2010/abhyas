@@ -380,105 +380,36 @@ async function main() {
   console.log("LOW-1: Swap to B, then yoga same day → tomorrow still recognizes B\n");
 
   {
-    console.log("5. Tue swap B, then yoga Tue → Wed resolves C (not B)");
+    console.log("5. Tue: rest day, did weights B at 09:00 + yoga at 18:00; Wed (day 3): resolves C");
+
+    const { resolveTodayProgramDay } = await import("../src/lib/program/day-plan");
 
     const client = buildClient({
+      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
       programDays: days3Full,
       sessions: [
-        { id: "s1", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
-        { id: "s2", user_id: "u1", program_day_id: "B", actual_type: "yoga", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T18:00:00Z" },
+        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T09:00:00Z" },
+        { id: "s-tue-yoga", user_id: "u1", program_day_id: null, actual_type: "yoga", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T18:00:00Z" },
       ],
     });
 
-    const wedResolve = await resolveTodayProgramDayCore({
-      getAllProgramDays: async () => days3Full,
-      getYesterdaySession: async () => {
-        const { data } = await client
-          .from("sessions")
-          .select("program_day_id, actual_type")
-          .eq("user_id", "u1")
-          .eq("local_date", "2026-10-27")
-          .eq("status", "completed")
-          .in("actual_type", ["weights", "bodyweight"])
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        return data ? { programDayId: data.program_day_id, actualType: data.actual_type ?? "" } : null;
-      },
-      getTodayIndex: () => 3,
-      getYesterdayIndex: () => 2,
+    const wedResolve = await resolveTodayProgramDay({
+      supabase: client,
+      programId: "prog-1",
+      localToday: "2026-10-28",
+      userId: "u1",
     });
 
     assert.ok(wedResolve, "Should resolve Wed");
-    assert.strictEqual(wedResolve.label, "Full Body C", "Wed should serve C (B swapped Tue, yoga ignored)");
+    assert.strictEqual(wedResolve.label, "Full Body C", "Wed (day 3) should serve C: Tue (rest day) did B (swap), Wed plan B (collision) → resolve to C; dropping .in('actual_type',...) at line 167 picks newer yoga null, no swap detected, Wed serves scheduled B");
 
-    console.log("  ✓ Wed serves C (yoga ignored, B recognized as swap)\n");
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // MED-B: Summary's 'Swap the day' list badges the NEXT workout, not the one just finished
-  // ──────────────────────────────────────────────────────────────────────────
-  console.log("MED-B: Summary badge on NEXT workout (not just finished)\n");
-
-  {
-    console.log("6. 3-day: finish C → plannableDays badges A (not C)");
-
-    const client = buildClient({
-      programDays: days3Full,
-      sessions: [
-        { id: "s-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "in_progress", created_at: "2026-10-29T10:00:00Z" },
-      ],
-    });
-
-    // During C's summary, compute plannableDays with currentSessionId
-    const plannable = await plannableDays(client, "prog-1", {
-      afterDate: "2026-10-29",
-      userId: "u1",
-      currentSessionId: "s-c",
-    });
-
-    const aDay = plannable.find(d => d.label === "Full Body A");
-    const cDay = plannable.find(d => d.label === "Full Body C");
-
-    assert.ok(aDay, "Should have Full Body A");
-    assert.ok(cDay, "Should have Full Body C");
-    assert.strictEqual(aDay.nextUp, true, "A should have nextUp badge (after C)");
-    assert.strictEqual(cDay.nextUp, false, "C should NOT have nextUp badge (just finished)");
-
-    console.log("  ✓ A badged, C not badged (C just finished)\n");
-  }
-
-  {
-    console.log("7. 6-day PPL: finish Pull → plannableDays badges Legs (not Pull)");
-
-    const client = buildClient({
-      programDays: days6PPL,
-      sessions: [
-        { id: "s-pull", user_id: "u1", program_day_id: "Pull1", actual_type: "weights", local_date: "2026-10-29", status: "in_progress", created_at: "2026-10-29T10:00:00Z" },
-      ],
-    });
-
-    const plannable = await plannableDays(client, "prog-1", {
-      afterDate: "2026-10-29",
-      userId: "u1",
-      currentSessionId: "s-pull",
-    });
-
-    const pullDay = plannable.find(d => d.label === "Pull");
-    const legsDay = plannable.find(d => d.label === "Legs");
-
-    assert.ok(pullDay, "Should have Pull");
-    assert.ok(legsDay, "Should have Legs");
-    assert.strictEqual(legsDay.nextUp, true, "Legs should have nextUp badge (after Pull)");
-    assert.strictEqual(pullDay.nextUp, false, "Pull should NOT have nextUp badge (just finished)");
-
-    console.log("  ✓ Legs badged, Pull not badged (Pull just finished)\n");
+    console.log("  ✓ Wed serves C (Tue swap B detected via actual_type filter, Wed collision resolved)\n");
   }
 
   // ──────────────────────────────────────────────────────────────────────────
   // MED-A: 6-day PPL after skipped days
   // ──────────────────────────────────────────────────────────────────────────
-  console.log("8. 6-day PPL after skipped days: Wed swap Push → Thu resolves Pull (not Push repeat)");
+  console.log("6. 6-day PPL after skipped days: Wed swap Push → Thu resolves Pull (not Push repeat)");
 
   {
     // Setup: Mon Push1, Tue Pull1 done. Wed rest-day (day 3) swap to Push (Push1).
@@ -598,63 +529,6 @@ async function main() {
     assert.strictEqual(cDay.nextUp, false, "C should NOT have nextUp badge (issue with fixtures or stub - needs debugging)");
 
     console.log("  ✓ nextDayPlan without sessionId: actual_type filter picks weights over yoga (getTodayCompletedSession no-sessionId branch)\n");
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // MED-B comprehensive: plannableDays with currentSessionId
-  // ──────────────────────────────────────────────────────────────────────────
-  console.log("MED-B comprehensive: plannableDays currentSessionId scoping\n");
-
-  {
-    console.log("12. plannableDays with currentSessionId: uses exact session (not latest completed)");
-
-    const client = buildClient({
-      programDays: days3Full,
-      sessions: [
-        { id: "s-b-first", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T10:00:00Z" },
-        { id: "s-c-later", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T14:00:00Z" },
-      ],
-    });
-
-    // With currentSessionId pointing to B, nextUp should be C (after B)
-    const plannable = await plannableDays(client, "prog-1", {
-      afterDate: "2026-10-28",
-      userId: "u1",
-      currentSessionId: "s-b-first",
-    });
-
-    const cDay = plannable.find(d => d.label === "Full Body C");
-    const aDay = plannable.find(d => d.label === "Full Body A");
-
-    assert.ok(cDay, "Should have Full Body C");
-    assert.ok(aDay, "Should have Full Body A");
-    assert.strictEqual(cDay.nextUp, true, "C should have nextUp (after B via .eq('id', currentSessionId)); dropping .eq would pick latest C and wrongly badge A");
-    assert.strictEqual(aDay.nextUp, false, "A should NOT have nextUp");
-
-    console.log("  ✓ plannableDays uses .eq('id', currentSessionId) not broad query\n");
-  }
-
-  {
-    console.log("13. nextDayPlan passes currentSessionId to plannableDays");
-
-    const client = buildClient({
-      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
-      programDays: days3Full,
-      sessions: [
-        { id: "s-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T10:00:00Z" },
-        { id: "s-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T14:00:00Z" },
-        { id: "s-tomorrow", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
-      ],
-    });
-
-    const result = await nextDayPlan(client, "America/New_York", "2026-10-29", { sessionId: "s-b" });
-
-    assert.ok(result, "Should return next day plan");
-    const cDay = result.days.find(d => d.label === "Full Body C");
-    assert.ok(cDay, "Should have C in plannable days");
-    assert.strictEqual(cDay.nextUp, true, "C should have nextUp badge (after B session)");
-
-    console.log("  ✓ nextDayPlan passes sessionId to plannableDays correctly\n");
   }
 
   console.log("✓ All rest-swap label followup tests passed\n");
