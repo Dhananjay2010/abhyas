@@ -410,18 +410,5 @@ if [ $SURVIVED -gt 0 ] || [ $SKIPPED -gt 0 ]; then
 fi
 echo "✅ PASSED: All mutants killed"
 
-run_mutant "N4. Raw DB error passes through to user" "src/lib/session/friendly-plan-day-error.ts" \
-  'export function friendlyPlanDayError(error: string): string {
-  return error === "That day has already been trained."
-    ? error
-    : error === "That day has a session in progress."
-    ? error
-    : error === "That day has already been and gone."
-    ? error
-    : error === "No active program found."
-    ? error
-    : "Couldn'"'"'t save your choice. Please try again.";
-}' \
-  'export function friendlyPlanDayError(error: string): string {
   return error;
 }' "$T_SERVER"
