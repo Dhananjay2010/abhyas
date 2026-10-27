@@ -13,6 +13,7 @@ import { checkRealDbTest } from "./lib-db-reset-guard.js";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { parsePreviewJoinCodeResult, parseRedeemJoinCodeResult, parseCreateJoinCodeResult } from "../src/lib/gym-join-code-types.js";
+import { Client } from "pg";
 
 const guardDecision = checkRealDbTest();
 if (!guardDecision.allow) {
@@ -25,6 +26,7 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
+const SUPABASE_DB_URL = process.env.SUPABASE_DB_URL || "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "", actual?: unknown) {
@@ -671,43 +673,77 @@ async function runTests() {
   console.log();
 
   console.log("TEST: Mutant killers - gen_random_bytes, search_path");
-  // Mutant: random() instead of gen_random_bytes
-  // Check the function body contains gen_random_bytes and not random()
-  const { data: genFuncDef } = await adminClient.rpc("execute_sql", {
-    query: "SELECT pg_get_functiondef('public.generate_join_code'::regprocedure) AS def",
-  }) as { data: Array<{ def: string }> | null };
-  
-  if (genFuncDef && genFuncDef.length > 0) {
-    const funcDef = genFuncDef[0].def;
-    const hasGenRandomBytes = funcDef.includes('gen_random_bytes');
-    const hasRandom = funcDef.includes('random()');
-    check("generate_join_code uses gen_random_bytes (kills random() mutant)", hasGenRandomBytes);
-    check("generate_join_code does not use random()", !hasRandom);
-  } else {
-    check("generate_join_code uses gen_random_bytes (kills random() mutant)", false, "Could not query pg_get_functiondef");
-    check("generate_join_code does not use random()", false, "Could not query pg_get_functiondef");
-  }
-  
-  // Mutant: search_path dropped
-  // Check that all SECURITY DEFINER functions have search_path="" exactly
-  const { data: definerFuncs } = await adminClient.rpc("execute_sql", {
-    query: `
+  // Catalog queries must go over a direct Postgres connection (PostgREST does not expose pg_catalog)
+  const pgClient = new Client({ connectionString: SUPABASE_DB_URL });
+  try {
+    await pgClient.connect();
+    
+    // Mutant: random() instead of gen_random_bytes
+    // Check the function body contains gen_random_bytes and not random()
+    const funcDefResult = await pgClient.query(
+      "SELECT pg_get_functiondef('public.generate_join_code'::regprocedure) AS def"
+    );
+    
+    function parseFunctionDef(row: unknown): { def: string } | null {
+      if (row === null || typeof row !== "object") return null;
+      const r = row as Record<string, unknown>;
+      if (typeof r.def !== "string") return null;
+      return { def: r.def };
+    }
+    
+    if (funcDefResult.rows.length > 0) {
+      const parsed = parseFunctionDef(funcDefResult.rows[0]);
+      if (parsed) {
+        const hasGenRandomBytes = parsed.def.includes('gen_random_bytes');
+        const hasRandom = parsed.def.includes('random()');
+        check("generate_join_code uses gen_random_bytes (kills random() mutant)", hasGenRandomBytes);
+        check("generate_join_code does not use random()", !hasRandom);
+      } else {
+        check("generate_join_code uses gen_random_bytes (kills random() mutant)", false, "Could not parse function definition");
+        check("generate_join_code does not use random()", false, "Could not parse function definition");
+      }
+    } else {
+      check("generate_join_code uses gen_random_bytes (kills random() mutant)", false, "No function definition returned");
+      check("generate_join_code does not use random()", false, "No function definition returned");
+    }
+    
+    // Mutant: search_path dropped
+    // Check that all SECURITY DEFINER functions have search_path="" exactly
+    const definerFuncsResult = await pgClient.query(`
       SELECT proname, proconfig
       FROM pg_proc
       WHERE proname IN ('preview_join_code', 'redeem_join_code', 'create_join_code', 'revoke_join_code', 'check_join_code_throttle', 'record_join_code_miss')
         AND prosecdef = true
-    `,
-  }) as { data: Array<{ proname: string; proconfig: string[] | null }> | null };
-  
-  if (definerFuncs && definerFuncs.length > 0) {
-    const allHaveSearchPath = definerFuncs.every(f => 
-      f.proconfig !== null && f.proconfig.some(c => c === 'search_path=""')
-    );
-    check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", 
-      allHaveSearchPath && definerFuncs.length === 6,
-      "", definerFuncs.length === 6 ? definerFuncs.map(f => ({name: f.proname, config: f.proconfig})) : `Found ${definerFuncs.length} functions`);
-  } else {
-    check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", false, "Could not query pg_proc");
+    `);
+    
+    function parseDefinerFunc(row: unknown): { proname: string; proconfig: string[] | null } | null {
+      if (row === null || typeof row !== "object") return null;
+      const r = row as Record<string, unknown>;
+      if (typeof r.proname !== "string") return null;
+      if (r.proconfig === null) return { proname: r.proname, proconfig: null };
+      if (!Array.isArray(r.proconfig)) return null;
+      if (!r.proconfig.every((c): c is string => typeof c === "string")) return null;
+      return { proname: r.proname, proconfig: r.proconfig };
+    }
+    
+    const definerFuncs: Array<{ proname: string; proconfig: string[] | null }> = [];
+    for (const row of definerFuncsResult.rows) {
+      const parsed = parseDefinerFunc(row);
+      if (parsed) definerFuncs.push(parsed);
+    }
+    
+    if (definerFuncs.length > 0) {
+      const allHaveSearchPath = definerFuncs.every(f => 
+        f.proconfig !== null && f.proconfig.some(c => c === 'search_path=""')
+      );
+      check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", 
+        allHaveSearchPath && definerFuncs.length === 6,
+        "", definerFuncs.length === 6 ? definerFuncs.map(f => ({name: f.proname, config: f.proconfig})) : `Found ${definerFuncs.length} functions`);
+    } else {
+      check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", false, "No SECURITY DEFINER functions found");
+    }
+  } finally {
+    await pgClient.end();
   }
   console.log();
 
