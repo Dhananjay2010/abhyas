@@ -94,8 +94,8 @@ console.log("");
 
 let totalProgramsChecked = 0;
 let totalSwapListsChecked = 0;
-let programDiffs = 0;
-let swapListDiffs = 0;
+const programDiffs = 0;
+const swapListDiffs = 0;
 
 for (const profile of profiles) {
   const input = buildInput(profile);
