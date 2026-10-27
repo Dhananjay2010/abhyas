@@ -12,6 +12,7 @@
 
 import type { Database } from "../../lib/database.types";
 import type { ExerciseMeta, ProgressState } from "../program/progression";
+import { progressionInputsFromExercise } from "./progression-inputs";
 
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
@@ -60,6 +61,7 @@ export function buildProgressionInput(
   progress: ExerciseProgressRow,
   session: SessionRow,
   feel: "easy" | "right" | "hard" | null,
+  units: "metric" | "imperial" = "metric",
 ) {
   const ex = sessionExercise.exercises;
   if (!ex) {
@@ -105,7 +107,7 @@ export function buildProgressionInput(
     meta,
     state,
     isDeload: session.is_deload ?? false,
-    // equipmentIds and unit intentionally omitted to match main's behavior
-    // (first-miss equipment drops are wired in #120, not this PR)
+    unit: units === "imperial" ? "lb" : "kg",
+    ...progressionInputsFromExercise(ex),
   };
 }

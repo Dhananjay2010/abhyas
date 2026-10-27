@@ -92,7 +92,7 @@ console.log("1. Test imperial path (40 kg → 42.5 kg = 93.5 lb)");
 const imperial = progressionFeedback(sessionExercise, successSets, progress, session, "right", "imperial");
 
 // UN4: Check input has units field
-check("Input has units: 'imperial'", JSON.stringify(imperial.input).includes('"units":"imperial"'), JSON.stringify(imperial.input));
+check("Input has units: 'imperial'", JSON.stringify(imperial.input).includes('"unit":"lb"'), JSON.stringify(imperial.input));
 
 // UN1: Check progression message uses imperial (not metric)
 console.log(`  Message: "${imperial.decision.message}"`);
