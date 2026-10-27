@@ -187,73 +187,78 @@ export default async function TodayPage() {
       const { replaceBannedInPlanned } = await import("@/lib/program/replace-banned-in-planned");
       
       const catalogue = catalogueRes.data as CandidateExercise[];
-      const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
+      const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries || []);
       
-      const generatorInput = {
-        userId: user.id,
-        blockNumber: 1,
-        goal: profile.goal,
-        level: profile.level,
-        primaryTrack: profile.primary_track,
-        daysPerWeek: profile.days_per_week,
-        yogaDaysPerWeek: profile.yoga_days_per_week,
-        age: null,
-        bmi: null,
-        hasAllEquipment: profile.has_all_equipment,
-        equipmentIds: [],
-        currentInjuryRegions,
-        anyKneeInjury,
-        catalogue,
-      };
-      
-      days = days.map(day => {
-        if (!day.program_day_exercises || day.program_day_exercises.length === 0) {
-          return day;
-        }
+      if (!profile.goal || !profile.level || !profile.primary_track || 
+          profile.days_per_week === null || profile.yoga_days_per_week === null) {
+        // Skip if profile incomplete
+      } else {
+        const generatorInput = {
+          userId: user.id,
+          blockNumber: 1,
+          goal: profile.goal,
+          level: profile.level,
+          primaryTrack: profile.primary_track,
+          daysPerWeek: profile.days_per_week,
+          yogaDaysPerWeek: profile.yoga_days_per_week,
+          age: null,
+          bmi: null,
+          hasAllEquipment: profile.has_all_equipment,
+          equipmentIds: [],
+          currentInjuryRegions,
+          anyKneeInjury,
+          catalogue,
+        };
         
-        type DayExercise = typeof day.program_day_exercises[number];
-        const planned = day.program_day_exercises.map((ex: DayExercise) => ({
-          id: ex.id,
-          exercise_id: ex.exercise_id,
-          order_index: ex.order_index,
-          target_sets: ex.target_sets,
-          target_reps_min: ex.target_reps_min,
-          target_reps_max: ex.target_reps_max,
-          rest_seconds: ex.rest_seconds,
-        }));
-        
-        const result = replaceBannedInPlanned(planned, catalogue, generatorInput);
-        
-        if (!result.changed) {
-          return day;
-        }
-        
-        const cleanedExercises = day.program_day_exercises.map((ex: DayExercise, i: number) => {
-          const cleanedId = result.rows[i].exercise_id;
-          if (ex.exercise_id === cleanedId) {
-            return ex;
+        days = days.map(day => {
+          if (!day.program_day_exercises || day.program_day_exercises.length === 0) {
+            return day;
           }
           
-          const newExercise = catalogue.find(e => e.id === cleanedId);
-          if (!newExercise) return ex;
+          type DayExercise = typeof day.program_day_exercises[number];
+          const planned = day.program_day_exercises.map((ex: DayExercise) => ({
+            id: ex.id,
+            exercise_id: ex.exercise_id,
+            order_index: ex.order_index,
+            target_sets: ex.target_sets,
+            target_reps_min: ex.target_reps_min,
+            target_reps_max: ex.target_reps_max,
+            rest_seconds: ex.rest_seconds,
+          }));
+          
+          const result = replaceBannedInPlanned(planned, catalogue, generatorInput);
+          
+          if (!result.changed) {
+            return day;
+          }
+          
+          const cleanedExercises = day.program_day_exercises.map((ex: DayExercise, i: number) => {
+            const cleanedId = result.rows[i].exercise_id;
+            if (ex.exercise_id === cleanedId) {
+              return ex;
+            }
+            
+            const newExercise = catalogue.find(e => e.id === cleanedId);
+            if (!newExercise) return ex;
+            
+            return {
+              ...ex,
+              exercise_id: cleanedId,
+              exercises: {
+                name: newExercise.name,
+                cue: null,
+                movement_pattern: newExercise.movement_pattern,
+                metric: newExercise.metric,
+              },
+            };
+          });
           
           return {
-            ...ex,
-            exercise_id: cleanedId,
-            exercises: {
-              name: newExercise.name,
-              cue: null,
-              movement_pattern: newExercise.movement_pattern,
-              metric: newExercise.metric,
-            },
+            ...day,
+            program_day_exercises: cleanedExercises,
           };
         });
-        
-        return {
-          ...day,
-          program_day_exercises: cleanedExercises,
-        };
-      });
+      }
     }
   } catch (error) {
     // Non-knee users or error: continue with original days

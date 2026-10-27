@@ -40,11 +40,11 @@ export type CleanBannedResult = { ok: true; cleaned: number } | { ok: false; err
  * Called as a Server Action when user needs immediate cleanup.
  */
 export async function cleanBannedExercises(): Promise<CleanBannedResult> {
-  const rateLimit = await checkActionRateLimit("expensive");
-  if (rateLimit) return rateLimit;
-  
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+  
+  const rateLimit = await checkActionRateLimit("expensive");
+  if (rateLimit && !rateLimit.ok) return rateLimit;
 
   const result = await cleanBannedPlannedExercises(supabase, user.id);
   if (result.errors.length > 0) {

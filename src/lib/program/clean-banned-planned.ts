@@ -21,7 +21,7 @@ export async function cleanBannedPlannedExercises(
   try {
     // Load user data
     const [profileRes, injuriesRes, catalogueRes, programRes] = await Promise.all([
-      supabase.from("profiles").select("goal, level, primary_track, days_per_week, yoga_days_per_week, has_all_equipment").eq("id", userId).single(),
+      supabase.from("profiles").select("goal, level, primary_track, days_per_week, yoga_days_per_week, has_all_equipment").eq("id", userId).maybeSingle(),
       supabase.from("user_injuries").select("body_region, severity"),
       supabase.from("exercises").select("id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category").eq("is_active", true),
       supabase.from("programs").select("id").eq("user_id", userId).eq("status", "active").maybeSingle(),
@@ -41,6 +41,12 @@ export async function cleanBannedPlannedExercises(
       return { cleaned: 0, errors: [] };
     }
     
+    if (!profile.goal || !profile.level || !profile.primary_track || 
+        profile.days_per_week === null || profile.days_per_week === undefined ||
+        profile.yoga_days_per_week === null || profile.yoga_days_per_week === undefined) {
+      return { cleaned: 0, errors: ["Incomplete profile"] };
+    }
+    
     const generatorInput: GeneratorInput = {
       userId,
       blockNumber: 1,
@@ -51,7 +57,7 @@ export async function cleanBannedPlannedExercises(
       yogaDaysPerWeek: profile.yoga_days_per_week,
       age: null,
       bmi: null,
-      hasAllEquipment: profile.has_all_equipment,
+      hasAllEquipment: profile.has_all_equipment ?? true,
       equipmentIds: [],
       currentInjuryRegions,
       anyKneeInjury,
