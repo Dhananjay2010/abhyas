@@ -183,20 +183,16 @@ async function main() {
     console.log(`  session_sets: ${setsBefore}`);
     console.log(`  breathing_logs: ${breathingBefore}\n`);
 
-    // Execute migration SQL (strip any BEGIN/COMMIT, we're already in a transaction)
+    // Execute migration SQL
     const migrationSql = readFileSync("supabase/migrations/20261025000033_unique_planned_session_per_user_day.sql", "utf8");
-    const sqlBody = migrationSql
-      .replace(/^-- .*$/gm, "") // Remove comments
-      .replace(/^\s*$/gm, "")    // Remove empty lines
-      .trim();
     
-    // Extract just the DO block and CREATE INDEX
-    const doBlockMatch = sqlBody.match(/DO \$\$[\s\S]*?END \$\$;/);
-    const createIndexMatch = sqlBody.match(/CREATE UNIQUE INDEX[\s\S]*?;/);
+    // Split into DO block and CREATE INDEX
+    const parts = migrationSql.split(/(?=CREATE UNIQUE INDEX)/);
+    const doBlock = parts[0];
+    const createIndex = parts[1] || "";
     
-    if (doBlockMatch) {
-      await client.query(doBlockMatch[0]);
-    }
+    // Execute DO block (this does the dedupe)
+    await client.query(doBlock);
 
     // Count children after migration
     const exercisesAfter = (await client.query("SELECT COUNT(*) FROM session_exercises WHERE user_id = $1", [userId])).rows[0].count;
@@ -277,8 +273,8 @@ async function main() {
     check("Newest childless row deleted", !sessions.some(s => s.id === caseH3));
 
     console.log("\nIndex creation:");
-    if (createIndexMatch) {
-      await client.query(createIndexMatch[0]);
+    if (createIndex) {
+      await client.query(createIndex);
     }
     
     // Try to insert duplicate planned
