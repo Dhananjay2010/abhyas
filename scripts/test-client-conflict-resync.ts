@@ -64,8 +64,8 @@ async function main() {
     assertEqualClient(resolution.message, "That set was already saved. Showing your latest sets.");
   });
 
-  // Test 2: Advances to next unfinished exercise
-  await testClientConflict("Advances to next unfinished exercise", () => {
+  // Test 2: Stays on current exercise when all planned sets are done (L1 fix)
+  await testClientConflict("Stays on current when all sets done (for feel prompt)", () => {
     const exercises: TestExercise[] = [
       { id: "ex-1", name: "Bench", sets: [{ setNumber: 1, reps: 12, weightKg: 30, durationSeconds: null }], status: "pending", plannedSets: 1 },
       { id: "ex-2", name: "Row", sets: [], status: "pending", plannedSets: 3 },
@@ -79,7 +79,8 @@ async function main() {
 
     const resolution = resolveSetConflict(exercises, "ex-1", 0, conflict);
 
-    assertEqualClient(resolution.nextExerciseIndex, 1, "Should advance to exercise 2");
+    // L1 fix: when all sets are done, stay on current exercise to show feel prompt
+    assertEqualClient(resolution.nextExerciseIndex, 0, "Should stay on current exercise for feel prompt");
   });
 
   // Test 3: Stays on current if it's still unfinished
