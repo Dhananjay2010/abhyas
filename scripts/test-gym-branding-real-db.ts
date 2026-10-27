@@ -50,12 +50,12 @@ async function runTests() {
   const guardResult = checkRealDbTest();
   
   if (!guardResult.allow) {
-    // LOW-5: If REAL_DB=1 but guard refuses, this is a configuration error - fail the test
+    // If REAL_DB=1 but guard refuses, this is a configuration error - fail the test
     if (process.env.REAL_DB === "1") {
       console.error(`\n❌ REAL_DB=1 but guard check failed: ${guardResult.reason}\n`);
       return false;
     }
-    // If REAL_DB is not set, skip is OK
+    // If REAL_DB is not set, skip
     console.log(`\n⏭️  Skipping real DB tests: ${guardResult.reason}\n`);
     return true;
   }
@@ -506,7 +506,7 @@ async function runTests() {
     // it means anon was granted execute permission (mutant b survived)
     if (error && error.code === "BRND1") {
       console.error("  ✗ SECURITY: Anon got past permission check! Got BRND1 instead of permission denied.");
-      process.exit(1);
+      return false;
     }
   }
   console.log();
@@ -521,7 +521,7 @@ async function runTests() {
     // If this fails with permission denied, mutant (h) survived
     if (error && (error.message?.includes("permission denied") || error.code === "42501")) {
       console.error("  ✗ SECURITY: get_gym_brand missing public GRANT! Anon got permission denied.");
-      process.exit(1);
+      return false;
     }
     check("Returns gym name", Array.isArray(data) && data.length > 0 && data[0].name === "Branding Test Gym");
   }
@@ -801,10 +801,9 @@ async function runTests() {
     const { data } = await clientOwner.rpc("get_gym_brand", {
       p_gym_id: gymId,
     });
-    if (data && data[0]) {
-      check("Clear won over set (primary)", data[0].primary_color === null);
-      check("Clear won over set (accent)", data[0].accent_color === null);
-    }
+    check("Clear won over set returns data", !!data && data.length > 0);
+    check("Clear won over set (primary)", data[0].primary_color === null);
+    check("Clear won over set (accent)", data[0].accent_color === null);
   }
   console.log();
 
@@ -930,9 +929,8 @@ async function runTests() {
     const { data } = await clientOwner.rpc("get_gym_brand", {
       p_gym_id: gymId,
     });
-    if (data && data[0]) {
-      check("Clear won over set for display_name", data[0].display_name === null);
-    }
+    check("Clear won over set returns data", !!data && data.length > 0);
+    check("Clear won over set for display_name", data[0].display_name === null);
   }
   console.log();
 

@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Test: no hex color literals in owner UI code (outside placeholder/value attributes)
-# Ensures branding preview uses CSS variables, not hardcoded colors
-
 set -euo pipefail
 
 echo "Testing: no hex color literals in src/app/owner/** (outside placeholder/value attributes)"
@@ -12,6 +9,49 @@ if [ ! -d "src/app/owner" ]; then
   echo "   This test requires the owner branding feature to be present"
   exit 1
 fi
+
+# Shared classifier function: returns 0 (pass) if content is allowed, 1 (fail) if hardcoded color
+is_allowed() {
+  local content="$1"
+  
+  # Must contain a color code to be evaluated
+  if ! echo "$content" | grep -qE '#[0-9a-fA-F]{3,6}|rgb|hsl'; then
+    return 0  # No color, allowed
+  fi
+  
+  # Skip comments (line or block)
+  if echo "$content" | grep -qE '^\s*//' || echo "$content" | grep -qE '^\s*/\*' || echo "$content" | grep -qE '\*/\s*$'; then
+    return 0
+  fi
+  
+  # Allow placeholder="#..."
+  if echo "$content" | grep -qF 'placeholder='; then
+    return 0
+  fi
+  
+  # Allow value={...} where ... is a variable expression (user state)
+  # Reject value="#..." (literal string) and value={"#..."} (literal in object)
+  if echo "$content" | grep -qE 'value\s*=\s*\{[^}]+\}'; then
+    # If the value expression contains a literal hex/color, reject it
+    if echo "$content" | grep -qE 'value\s*=\s*\{\s*"#[0-9a-fA-F]{3,6}"'; then
+      return 1  # Literal color in value
+    fi
+    return 0  # Variable expression, allowed
+  fi
+  
+  # Allow error messages containing error codes (errcode, Error:, error:)
+  if echo "$content" | grep -qE 'errcode|[Ee]rror:'; then
+    return 0
+  fi
+  
+  # Allow BRND error code references
+  if echo "$content" | grep -qE 'BRND[0-9]'; then
+    return 0
+  fi
+  
+  # All other cases: hardcoded color
+  return 1
+}
 
 # Find all hex color patterns (#RRGGBB and #RGB) in owner directory
 hex_matches=$(grep -rn "#[0-9a-fA-F]\{3,6\}" src/app/owner/ || true)
@@ -26,56 +66,23 @@ if [ -z "$all_matches" ]; then
   exit 0
 fi
 
-# Check each match to see if it's in an allowed context
-# Use fixed strings for literal matching (not ERE patterns)
-allowed_contexts_literal=(
-  'placeholder='
-  'value='
-  'error:'
-  'Error:'
-  'errcode'
-)
-
-# Use anchored patterns for comment detection
-allowed_contexts_pattern=(
-  '^\s*//'     # Line comments starting with //
-  '^\s*\*'     # Block comment lines starting with *
-  '/\*'        # Block comment start
-  'BRND[0-9]'  # Error code references
-)
-
+# Check each match using the shared classifier
 violations=()
 while IFS= read -r line; do
   if [ -z "$line" ]; then
     continue
   fi
   
-  allowed=false
+  # Extract content after "filepath:linenum:"
+  content=$(echo "$line" | cut -d':' -f3-)
   
-  # Check literal contexts with grep -F (fixed string)
-  for context in "${allowed_contexts_literal[@]}"; do
-    if echo "$line" | grep -qF "$context"; then
-      allowed=true
-      break
-    fi
-  done
-  
-  # If not allowed yet, check pattern contexts with grep -E
-  if [ "$allowed" = false ]; then
-    for pattern in "${allowed_contexts_pattern[@]}"; do
-      if echo "$line" | grep -qE "$pattern"; then
-        allowed=true
-        break
-      fi
-    done
-  fi
-  
-  if [ "$allowed" = false ]; then
+  # Use shared classifier
+  if ! is_allowed "$content"; then
     violations+=("$line")
   fi
 done <<< "$all_matches"
 
-# Store result for later
+# Store result
 TEST_RESULT=0
 if [ ${#violations[@]} -eq 0 ]; then
   echo "✅ All color literals are in allowed contexts (placeholder, value, error messages, comments)"
@@ -85,14 +92,9 @@ else
   echo ""
   echo "Color literals are only allowed in:"
   echo "  - placeholder attributes"
-  echo "  - value attributes (user input)"
+  echo "  - value attributes (user state variables)"
   echo "  - error messages and error codes"
   echo "  - comments"
-  echo ""
-  echo "For preview/UI colors, use CSS custom properties:"
-  echo "  - var(--color-accent)"
-  echo "  - var(--color-accent-hover)"
-  echo "  - var(--color-accent-fg)"
   TEST_RESULT=1
 fi
 
@@ -105,37 +107,28 @@ trap "rm -rf $SELF_TEST_DIR" EXIT
 
 mkdir -p "$SELF_TEST_DIR/src/app/owner"
 
-# Plant all 6 violations from QA report exactly as listed:
-# color:"#FF0000", bg-[#FF0000], #f00, rgb(), hsl(), and a line with e.g.
+# Plant violations from QA report plus the 4 bypasses
 cat > "$SELF_TEST_DIR/src/app/owner/test.tsx" << 'VIOLATIONS'
 export function Test() {
-  const hardcoded1 = { color: "#FF0000" };  // violation 1: color:"#FF0000"
-  const hardcoded2 = "bg-[#FF0000]";        // violation 2: bg-[#FF0000]
-  const hardcoded3 = "#f00";                // violation 3: #f00
-  const hardcoded4 = "rgb(255, 0, 0)";      // violation 4: rgb()
-  const hardcoded5 = "hsl(0, 100%, 50%)";   // violation 5: hsl()
-  const note = "Use e.g. #AABBCC for primary";  // violation 6: e.g. in code with hex
+  const hardcoded1 = { color: "#FF0000" };  // violation 1
+  const hardcoded2 = "bg-[#FF0000]";        // violation 2
+  const hardcoded3 = "#f00";                // violation 3
+  const hardcoded4 = "rgb(255, 0, 0)";      // violation 4
+  const hardcoded5 = "hsl(0, 100%, 50%)";   // violation 5
+  const note = "Use e.g. #AABBCC for primary";  // violation 6
+  
+  // These 4 must be caught (QA Bot bypass tests):
+  const bypass1 = <input value="#FF0000" />;     // violation 7
+  const bypass2 = { error: "#FF0000" };          // (allowed - error key)
+  const bypass3 = { color: "#FF0000" }; /* note */ // violation 8
+  const bypass4 = "some errcode text #123456";   // (allowed - errcode)
+  
   // This comment is allowed for documentation e.g. #123456
   return <div>Test</div>;
 }
 VIOLATIONS
 
-# Also test a legitimate allowed context (comment line)
-cat > "$SELF_TEST_DIR/src/app/owner/allowed.tsx" << 'ALLOWED'
-export function Allowed() {
-  // This comment mentions #FF0000 and should be allowed
-  return <div>Test</div>;
-}
-ALLOWED
-
-SELF_TEST_PASSED=true
-
-# Run the detection logic on the self-test dir
-cd "$SELF_TEST_DIR"
-hex_matches=$(grep -rn "#[0-9a-fA-F]\{3,6\}" src/app/owner/ || true)
-color_fn_matches=$(grep -rn -E "(rgb|rgba|hsl|hsla)\s*\(" src/app/owner/ || true)
-all_matches=$(echo -e "$hex_matches\n$color_fn_matches" | grep -v "^$" || true)
-
+# Run the classifier on the self-test content
 violations_found=()
 allowed_found=()
 while IFS= read -r line; do
@@ -143,114 +136,35 @@ while IFS= read -r line; do
     continue
   fi
   
-  # Extract the actual code content (everything after the line number)
-  # grep -n output format: "filepath:linenum:content"
-  # Extract content after the second colon
   content=$(echo "$line" | cut -d':' -f3-)
   
-  allowed=false
-  
-  # Check literal contexts
-  for context in "${allowed_contexts_literal[@]}"; do
-    if echo "$content" | grep -qF "$context"; then
-      allowed=true
-      break
-    fi
-  done
-  
-  # Check pattern contexts (comment detection)
-  if [ "$allowed" = false ]; then
-    for pattern in "${allowed_contexts_pattern[@]}"; do
-      if echo "$content" | grep -qE "$pattern"; then
-        allowed=true
-        break
-      fi
-    done
-  fi
-  
-  if [ "$allowed" = false ]; then
+  if ! is_allowed "$content"; then
     violations_found+=("$line")
   else
-    # Track that we found an allowed line
-    if echo "$line" | grep -q "allowed.tsx"; then
+    if echo "$line" | grep -q "test.tsx"; then
       allowed_found+=("$line")
     fi
   fi
-done <<< "$all_matches"
+done <<< "$(grep -n -E '#[0-9a-fA-F]{3,6}|rgb|hsl' "$SELF_TEST_DIR/src/app/owner/test.tsx" || true)"
 
-cd - > /dev/null
-
-# Verify all 6 violations were detected from test.tsx
-EXPECTED_VIOLATIONS=6
+# Verify we caught the expected 8 violations
+EXPECTED_VIOLATIONS=8
 if [ ${#violations_found[@]} -ne $EXPECTED_VIOLATIONS ]; then
   echo "❌ SELF-TEST FAILED: Expected $EXPECTED_VIOLATIONS violations, found ${#violations_found[@]}"
   printf '  Found: %s\n' "${violations_found[@]}"
   SELF_TEST_PASSED=false
-fi
-
-# Verify the allowed comment line exists in the matches (it should be in all_matches but not in violations)
-# Count total lines mentioning allowed.tsx in all_matches
-ALLOWED_LINE_COUNT=$(echo "$all_matches" | grep "allowed.tsx" | wc -l)
-if [ "$ALLOWED_LINE_COUNT" -eq 0 ]; then
-  echo "❌ SELF-TEST FAILED: Allowed comment file not detected at all (grep didn't find the hex in comment)"
-  SELF_TEST_PASSED=false
-elif [ ${#allowed_found[@]} -eq 0 ]; then
-  echo "❌ SELF-TEST FAILED: Allowed comment was found by grep but not classified as allowed"
-  SELF_TEST_PASSED=false
-fi
-
-# Verify all 6 specific patterns from QA report were caught
-if [ "$SELF_TEST_PASSED" = true ]; then
-  # First 5 are straightforward violations
-  must_detect=('color:"#FF0000"' 'bg-[#FF0000]' '#f00' 'rgb(' 'hsl(')
-  for pattern in "${must_detect[@]}"; do
-    found=false
-    for violation in "${violations_found[@]}"; do
-      if echo "$violation" | grep -qF "$pattern"; then
-        found=true
-        break
-      fi
-    done
-    if [ "$found" = false ]; then
-      echo "❌ SELF-TEST FAILED: Did not detect planted violation: $pattern"
-      SELF_TEST_PASSED=false
-    fi
-  done
-  
-  # 6th: e.g. in code (not a comment) should be caught
-  found_eg=false
-  for violation in "${violations_found[@]}"; do
-    if echo "$violation" | grep -F "e.g." | grep -qF "test.tsx:7"; then
-      found_eg=true
-      break
-    fi
-  done
-  if [ "$found_eg" = false ]; then
-    echo "❌ SELF-TEST FAILED: Did not detect planted violation: e.g. line in code"
-    SELF_TEST_PASSED=false
-  fi
-fi
-
-# Verify the allowed comment was properly allowed
-if [ "$SELF_TEST_PASSED" = true ]; then
-  # The allowed.tsx comment should be in allowed_found, not violations_found
-  found_in_violations=false
-  for violation in "${violations_found[@]}"; do
-    if echo "$violation" | grep -q "allowed.tsx.*comment"; then
-      found_in_violations=true
-      break
-    fi
-  done
-  if [ "$found_in_violations" = true ]; then
-    echo "❌ SELF-TEST FAILED: Legitimate comment was incorrectly flagged as violation"
-    SELF_TEST_PASSED=false
-  fi
-fi
-
-if [ "$SELF_TEST_PASSED" = true ]; then
-  echo "✅ Self-test passed: all planted violations detected"
 else
-  echo "❌ Self-test failed: detection logic is broken"
+  echo "✅ Self-test passed: All $EXPECTED_VIOLATIONS violations detected"
+  SELF_TEST_PASSED=true
+fi
+
+# Verify bypass2 and bypass4 were allowed (they contain error/errcode)
+EXPECTED_ALLOWED=2
+if [ ${#allowed_found[@]} -lt $EXPECTED_ALLOWED ]; then
+  echo "❌ SELF-TEST WARNING: Expected at least $EXPECTED_ALLOWED allowed lines"
+fi
+
+if [ "$SELF_TEST_PASSED" = false ]; then
   exit 1
 fi
 

@@ -236,15 +236,14 @@ run_mutant \
   "FAIL logo_url over 2048 chars rejected" \
   "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_length;"
 
-# Mutants (i-k, o-r): These CHECKs live in 040, so undo them after reset
+# Mutants (i-k, o-r): These CHECKs live in 040, so build loosenings from 040's real text
 # (i): Allow 3-digit hex (#RGB) in primary_color TABLE CHECK
 run_mutant \
   "(i) allow #RGB in TABLE CHECK" \
   "Change gyms table primary_color CHECK to allow 3-digit hex (040 constraint)" \
   "" \
   "FAIL #RGB rejected" \
-  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_primary_color_hex;
-   ALTER TABLE public.gyms ADD CONSTRAINT gyms_primary_color_hex CHECK (primary_color IS NULL OR primary_color ~ '^#[0-9A-Fa-f]{3,6}\$');"
+  "$(sed -n '/add constraint gyms_primary_color_hex/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/{6}/{3,6}/' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_primary_color_hex;\n/')"
 
 # (j): TABLE CHECK Unanchored primary_color end
 run_mutant \
@@ -252,8 +251,7 @@ run_mutant \
   "Remove \$ anchor from primary_color CHECK (040 constraint)" \
   "" \
   "FAIL Primary hex with trailing rejected" \
-  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_primary_color_hex;
-   ALTER TABLE public.gyms ADD CONSTRAINT gyms_primary_color_hex CHECK (primary_color IS NULL OR primary_color ~ '^#[0-9A-Fa-f]{6}');"
+  "$(sed -n '/add constraint gyms_primary_color_hex/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/\$'\''//' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_primary_color_hex;\n/')"
 
 # (k): TABLE CHECK Unanchored accent_color end
 run_mutant \
@@ -261,8 +259,7 @@ run_mutant \
   "Remove \$ anchor from accent_color CHECK (040 constraint)" \
   "" \
   "FAIL Accent hex with trailing rejected" \
-  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_accent_color_hex;
-   ALTER TABLE public.gyms ADD CONSTRAINT gyms_accent_color_hex CHECK (accent_color IS NULL OR accent_color ~ '^#[0-9A-Fa-f]{6}');"
+  "$(sed -n '/add constraint gyms_accent_color_hex/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/\$'\''//' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_accent_color_hex;\n/')"
 
 # Mutant (l): Drop postgres from bypass
 run_mutant \
@@ -293,12 +290,7 @@ run_mutant \
   "Remove ^ anchor from logo CHECK (allows leading space, 040 constraint)" \
   "" \
   "FAIL Logo with leading space rejected" \
-  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;
-   ALTER TABLE public.gyms ADD CONSTRAINT gyms_logo_url_format CHECK (
-     logo_url IS NULL 
-     OR (logo_url ~ 'https://.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]' AND logo_url !~ E'\\\\.\\\\.') 
-     OR (logo_url ~ '/storage/.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]' AND logo_url !~ E'\\\\.\\\\.') 
-   );"
+  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/\^https/https/; s/\^\/storage/\/storage/' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
 
 # Mutant (p): Case-insensitive logo regex
 run_mutant \
@@ -306,12 +298,7 @@ run_mutant \
   "Use ~* for logo CHECK (allows HTTPS://, 040 constraint)" \
   "" \
   "FAIL Uppercase HTTPS:// rejected" \
-  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;
-   ALTER TABLE public.gyms ADD CONSTRAINT gyms_logo_url_format CHECK (
-     logo_url IS NULL 
-     OR (logo_url ~* '^https://.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]' AND logo_url !~ E'\\\\.\\\\.') 
-     OR (logo_url ~* '^/storage/.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]' AND logo_url !~ E'\\\\.\\\\.') 
-   );"
+  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/ ~ / ~* /g' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
 
 # Mutant (q): Loosen path traversal check
 run_mutant \
@@ -319,12 +306,7 @@ run_mutant \
   "Remove .. path traversal check from logo (040 constraint)" \
   "" \
   "FAIL .. path traversal rejected" \
-  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;
-   ALTER TABLE public.gyms ADD CONSTRAINT gyms_logo_url_format CHECK (
-     logo_url IS NULL 
-     OR (logo_url ~ '^https://.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]')
-     OR (logo_url ~ '^/storage/.+' AND logo_url !~ E'[\\\\x00-\\\\x1F\\\\x7F]')
-   );"
+  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed '/\\.\\./ d' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
 
 # Mutant (r): Remove control character check
 run_mutant \
@@ -332,12 +314,7 @@ run_mutant \
   "Remove control character check from logo (040 constraint)" \
   "" \
   "FAIL Newline in logo rejected" \
-  "ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;
-   ALTER TABLE public.gyms ADD CONSTRAINT gyms_logo_url_format CHECK (
-     logo_url IS NULL 
-     OR (logo_url ~ '^https://.+' AND logo_url !~ E'\\\\.\\\\.') 
-     OR (logo_url ~ '^/storage/.+' AND logo_url !~ E'\\\\.\\\\.') 
-   );"
+  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed '/\\x00-\\x1F\\x7F/ d' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
 
 echo
 echo "=== Mutant Test Summary ==="

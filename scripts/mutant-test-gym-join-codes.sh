@@ -163,9 +163,9 @@ run_mutant_migration_file() {
   
   # Reset DB again so later CI steps see the real migration 042
   if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
-    npx supabase@2.122.0 db reset > /dev/null 2>&1 || true
+    npx supabase@2.122.0 db reset > /dev/null 2>&1 || { echo "❌ Post-(o) reset failed"; exit 1; }
   else
-    npx supabase@2.122.0 db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1 || true
+    npx supabase@2.122.0 db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1 || { echo "❌ Post-(o) reset failed"; exit 1; }
   fi
   
   if [ "$test1_passed" = true ] && [ "$test2_passed" = true ]; then

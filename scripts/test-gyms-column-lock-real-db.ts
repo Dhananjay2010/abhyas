@@ -644,6 +644,42 @@ async function runTests() {
     check("Other gym deleted", !gym2Error, gym2Error?.message);
   }
   
+  // TEST: Multi-gym owner (LOW-11)
+  console.log("TEST: Multi-gym owner can't change other gym");
+  {
+    // Make ownerA also an owner of otherGym
+    const { error: addMembershipError } = await adminClient
+      .from("gym_memberships")
+      .insert({
+        gym_id: otherGymId,
+        user_id: userIdOwner,
+        role: "owner"
+      });
+    check("ownerA added to gym B", !addMembershipError, addMembershipError?.message);
+    
+    // Set distinct display_name for each gym
+    await adminClient.from("gyms").update({ display_name: "Gym A Display" }).eq("id", gymId);
+    await adminClient.from("gyms").update({ display_name: "Gym B Display" }).eq("id", otherGymId);
+    
+    // ownerA tries to update gym B's name (should be blocked by RLS)
+    const { error: crossUpdateError, data: crossData } = await clientOwner
+      .from("gyms")
+      .update({ name: "Hacked Gym B" })
+      .eq("id", otherGymId)
+      .select();
+    
+    // RLS should block it (0 rows affected, not a GJC12 error)
+    check("ownerA can't UPDATE gym B (RLS blocks)", !crossUpdateError && (!crossData || crossData.length === 0));
+    
+    // Verify both gyms kept their own values
+    const { data: gymAAfter } = await adminClient.from("gyms").select("display_name").eq("id", gymId).single();
+    const { data: gymBAfter } = await adminClient.from("gyms").select("display_name").eq("id", otherGymId).single();
+    
+    check("Gym A kept its display_name", gymAAfter?.display_name === "Gym A Display");
+    check("Gym B kept its display_name", gymBAfter?.display_name === "Gym B Display");
+  }
+  console.log();
+
   // Clean up temp column
   console.log("Cleaning up temp column...");
   {
