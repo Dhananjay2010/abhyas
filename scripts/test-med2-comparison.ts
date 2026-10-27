@@ -1,8 +1,19 @@
 #!/usr/bin/env npx tsx
 /**
- * MED-2 Comparison: Assert per-day lower-body set totals and estimated minutes
- * for past-knee users on main vs this PR for Lower and Full Body days.
- * Must stay close to main (within one set, two minutes).
+ * MED-2 Comparison: Verify owner decision exclusions don't cause unexpected RNG shifts
+ * 
+ * Baseline: scripts/fixtures/med2-baseline-main.json (byte-identical to origin/main)
+ * 
+ * Owner decisions in this PR:
+ * - Landmine jammers excluded for ANY knee (G-3)
+ * - Calf-press excluded for past-knee only (QA Bot 1)  
+ * - Single-leg-leg-extension excluded for past-knee only (new owner decision)
+ * 
+ * These exclusions shift the RNG stream. We verify the shifts are limited to:
+ * 1. Day 2: Calf 5→4 (pre-existing fixture drift between main's fixture and main's code)
+ * 2. Day 5: Cable Crunch→Crunches (RNG shift from exclusions)
+ * 
+ * All other exercises, their order, sets, totals, and minutes must match the baseline.
  */
 
 import { readFileSync } from "fs";
@@ -40,7 +51,7 @@ const pastKneeInput: GeneratorInput = {
 
 const result = generateProgram(pastKneeInput);
 
-console.log("MED-2 Comparison: Past-Knee Lower/Full Body Days");
+console.log("MED-2 Comparison: Owner Decision RNG Impact");
 console.log("─".repeat(80));
 console.log("Session length: 75 min (time-fill active)");
 console.log("");
@@ -74,6 +85,22 @@ const baseline: BaselineDay[] = JSON.parse(
   readFileSync("scripts/fixtures/med2-baseline-main.json", "utf-8")
 );
 
+// Known RNG drifts from owner decision exclusions
+type AllowedChange = 
+  | { type: 'fixturedrift'; exercise: string; baselineSets: number; codeSets: number; baselineMinutes: number; codeMinutes: number }
+  | { type: 'exercise'; exercise: string; becomes: string; reason: string };
+
+const ALLOWED_CHANGES: Map<number, AllowedChange[]> = new Map([
+  [2, [
+    // Fixture drift: Calf 5→4 is pre-existing between main's fixture and code
+    { type: 'fixturedrift', exercise: 'Barbell Seated Calf Raise', baselineSets: 5, codeSets: 4, baselineMinutes: 70, codeMinutes: 68 },
+  ]],
+  [5, [
+    // single-leg-leg-extension exclusion reshuffle (APP-approved: abs only, sets and minutes unchanged)
+    { type: 'exercise', exercise: 'Cable Crunch', becomes: 'Crunches', reason: 'single-leg-leg-extension exclusion reshuffle (APP-approved: abs only, sets and minutes unchanged)' },
+  ]],
+]);
+
 console.log("Baseline from origin/main:");
 baseline.forEach(day => {
   console.log(`  Day ${day.dayIndex} (${day.label}): ${day.lowerBodySets} lower sets, ${day.estMinutes} min`);
@@ -81,6 +108,7 @@ baseline.forEach(day => {
 console.log("");
 
 let failures = 0;
+const allowedChangesUsed = new Set<string>();
 
 for (const day of lowerDays) {
   if (day.dayType === "rest") continue;
@@ -114,42 +142,200 @@ for (const day of lowerDays) {
   
   // Check against baseline
   const baselineDay = baseline.find(b => b.dayIndex === day.dayIndex);
-  if (baselineDay) {
-    const setDiff = Math.abs(lowerBodySets - baselineDay.lowerBodySets);
-    const minuteDiff = Math.abs(estMinutes - baselineDay.estMinutes);
+  if (!baselineDay) {
+    console.log(`  ✗ MISSING: Day ${day.dayIndex} not found in baseline`);
+    failures++;
+    continue;
+  }
+  
+  const dayAllowedChanges = ALLOWED_CHANGES.get(day.dayIndex) || [];
+  
+  // Check totals (accounting for fixture drift)
+  const totalSetsDrift = dayAllowedChanges.find((c): c is Extract<AllowedChange, { type: 'fixturedrift' }> => 
+    c.type === 'fixturedrift'
+  );
+  
+  const expectedTotalSets = totalSetsDrift 
+    ? baselineDay.totalSets - totalSetsDrift.baselineSets + totalSetsDrift.codeSets
+    : baselineDay.totalSets;
+  
+  const expectedLowerSets = totalSetsDrift && lowerBodyPatterns.has(
+    baselineDay.exercises.find(e => e.name === totalSetsDrift.exercise)?.movementPattern || ''
+  )
+    ? baselineDay.lowerBodySets - totalSetsDrift.baselineSets + totalSetsDrift.codeSets
+    : baselineDay.lowerBodySets;
+  
+  const expectedMinutes = totalSetsDrift
+    ? totalSetsDrift.codeMinutes
+    : baselineDay.estMinutes;
+  
+  // When there's a fixture drift, verify the fixture's baseline values match the drift spec
+  if (totalSetsDrift) {
+    if (baselineDay.estMinutes !== totalSetsDrift.baselineMinutes) {
+      console.log(`  ✗ FIXTURE DRIFT MISMATCH: Baseline fixture has ${baselineDay.estMinutes} minutes, drift spec says ${totalSetsDrift.baselineMinutes}`);
+      failures++;
+    }
+  }
+  
+  if (totalSets !== expectedTotalSets) {
+    console.log(`  ✗ Total sets: ${totalSets} vs expected ${expectedTotalSets}`);
+    failures++;
+  }
+  
+  if (lowerBodySets !== expectedLowerSets) {
+    console.log(`  ✗ Lower-body sets: ${lowerBodySets} vs expected ${expectedLowerSets}`);
+    failures++;
+  }
+  
+  if (estMinutes !== expectedMinutes) {
+    console.log(`  ✗ Estimated minutes: ${estMinutes} vs expected ${expectedMinutes}`);
+    failures++;
+  }
+  
+  // Check exercise count
+  if (exercises.length !== baselineDay.exercises.length) {
+    console.log(`  ✗ Exercise count: ${exercises.length} vs baseline ${baselineDay.exercises.length}`);
+    failures++;
+    continue;
+  }
+  
+  // Check each exercise: name, order, and sets
+  for (let i = 0; i < exercises.length; i++) {
+    const prEx = exercises[i];
+    const baseEx = baselineDay.exercises[i];
     
-    if (setDiff > 1) {
-      console.log(`  ✗ Lower-body sets differ by ${setDiff} (baseline: ${baselineDay.lowerBodySets}, got: ${lowerBodySets})`);
+    // Check if there's an allowed exercise swap
+    const exerciseSwap = dayAllowedChanges.find((c): c is Extract<AllowedChange, { type: 'exercise' }> =>
+      c.type === 'exercise' && c.exercise === baseEx.name
+    );
+    
+    const expectedName = exerciseSwap ? exerciseSwap.becomes : baseEx.name;
+    
+    if (prEx.name !== expectedName) {
+      console.log(`  ✗ Exercise ${i + 1}: "${prEx.name}" vs expected "${expectedName}"`);
       failures++;
     } else {
-      console.log(`  ✓ Lower-body sets within ±1 of baseline (${lowerBodySets} vs ${baselineDay.lowerBodySets})`);
+      if (exerciseSwap) {
+        // Assert exact match for APP-approved changes
+        if (day.dayIndex === 5 && i === 5) {
+          // Day 5 slot 6 must be exactly Crunches with 4 sets
+          if (prEx.name !== 'Crunches') {
+            console.log(`  ✗ STALE CHANGE: Day 5 slot 6 should be Crunches, got ${prEx.name}`);
+            failures++;
+          }
+          if (prEx.targetSets !== 4) {
+            console.log(`  ✗ STALE CHANGE: Day 5 Crunches should have 4 sets, got ${prEx.targetSets}`);
+            failures++;
+          }
+          // Day 5 totals must be exactly 72/25/21
+          if (totalSets !== 25) {
+            console.log(`  ✗ STALE CHANGE: Day 5 should have 25 total sets, got ${totalSets}`);
+            failures++;
+          }
+          if (lowerBodySets !== 21) {
+            console.log(`  ✗ STALE CHANGE: Day 5 should have 21 lower sets, got ${lowerBodySets}`);
+            failures++;
+          }
+          if (estMinutes !== 72) {
+            console.log(`  ✗ STALE CHANGE: Day 5 should be 72 minutes, got ${estMinutes}`);
+            failures++;
+          }
+        }
+        
+        const key = `${day.dayIndex}-${i}-${exerciseSwap.exercise}-${exerciseSwap.becomes}`;
+        allowedChangesUsed.add(key);
+      }
+      
+      // Check sets (accounting for fixture drift)
+      const setsDrift = dayAllowedChanges.find((c): c is Extract<AllowedChange, { type: 'fixturedrift' }> =>
+        c.type === 'fixturedrift' && c.exercise === prEx.name
+      );
+      
+      if (setsDrift) {
+        const key = `${day.dayIndex}-${i}-drift-${setsDrift.exercise}`;
+        allowedChangesUsed.add(key);
+        
+        if (baseEx.targetSets !== setsDrift.baselineSets) {
+          console.log(`  ✗ Fixture drift: baseline ${setsDrift.exercise} should have ${setsDrift.baselineSets} sets, got ${baseEx.targetSets}`);
+          failures++;
+        }
+        if (prEx.targetSets !== setsDrift.codeSets) {
+          console.log(`  ✗ Fixture drift: code ${setsDrift.exercise} should produce ${setsDrift.codeSets} sets, got ${prEx.targetSets}`);
+          failures++;
+        }
+      } else if (prEx.targetSets !== baseEx.targetSets) {
+        console.log(`  ✗ Exercise ${i + 1} "${prEx.name}": ${prEx.targetSets} sets vs baseline ${baseEx.targetSets} sets`);
+        failures++;
+      }
     }
-    
-    if (minuteDiff > 2) {
-      console.log(`  ✗ Estimated minutes differ by ${minuteDiff} (baseline: ${baselineDay.estMinutes}, got: ${estMinutes})`);
-      failures++;
-    } else {
-      console.log(`  ✓ Estimated minutes within ±2 of baseline (${estMinutes} vs ${baselineDay.estMinutes})`);
-    }
-    console.log("");
+  }
+  
+  if (failures === 0) {
+    console.log(`  ✓ Day ${day.dayIndex} matches baseline (with allowed drifts)`);
+  }
+  
+  console.log("");
+}
+
+// Assert all baseline days are present in PR output
+console.log("─".repeat(80));
+console.log("Baseline day verification:");
+
+for (const baselineDay of baseline) {
+  const prDay = lowerDays.find(d => d.dayIndex === baselineDay.dayIndex);
+  if (!prDay) {
+    console.log(`  ✗ MISSING: Baseline day ${baselineDay.dayIndex} (${baselineDay.label}) not found in PR output`);
+    failures++;
+    continue;
+  }
+  
+  // Check that focus/type didn't change unexpectedly
+  const prFocus = prDay.focus;
+  const mainFocus = baselineDay.focus;
+  if (prFocus !== mainFocus) {
+    console.log(`  ✗ TYPE CHANGE: Day ${baselineDay.dayIndex} changed from ${mainFocus} to ${prFocus}`);
+    failures++;
+  } else {
+    console.log(`  ✓ Day ${baselineDay.dayIndex} (${baselineDay.label}) present and checked`);
   }
 }
 
+console.log("");
+
+// Verify all allowed changes were used
+console.log("─".repeat(80));
+console.log("Allow-list verification:");
+
+const totalAllowedChanges = Array.from(ALLOWED_CHANGES.values()).flat().length;
+if (allowedChangesUsed.size !== totalAllowedChanges) {
+  console.log(`  ✗ UNUSED ENTRIES: Expected ${totalAllowedChanges} allow-list entries to be used, got ${allowedChangesUsed.size}`);
+  console.log(`  Used: [${Array.from(allowedChangesUsed).sort().join(", ")}]`);
+  failures++;
+} else {
+  console.log(`  ✓ All ${totalAllowedChanges} allow-list entries were checked`);
+}
+
+if (totalAllowedChanges !== 2) {
+  console.log(`  ✗ WRONG COUNT: Expected exactly 2 allow-list entries, got ${totalAllowedChanges}`);
+  failures++;
+} else {
+  console.log(`  ✓ Exactly 2 allow-list entries present`);
+}
+
+console.log("");
+
 console.log("─".repeat(80));
 console.log("\nRequirements:");
-console.log("  - Lower-body set totals must be within 1 set of main");
-console.log("  - Session times must be within 2 minutes of main");
-console.log("  - Hip-dominant exercises (hinge) should have more sets than knee-risk squats");
-console.log("\nStrategy 3 hinge switch:");
-console.log("  ✓ Respects user's equipment (filtered by isEligible)");
-console.log("  ✓ Never duplicates exercises (checked by usedInBlock)");
-console.log("  ✓ Prioritizes glute/hamstring primary muscles for hip-dominant work");
+console.log("  - Match baseline from origin/main (byte-identical fixture)");
+console.log("  - Allow explicit RNG drifts from owner decision exclusions");
+console.log("  - Day 2: Calf 5→4 (pre-existing fixture drift)");
+console.log("  - Day 5: Cable Crunch→Crunches (RNG shift from exclusions)");
 
 console.log("\n" + "─".repeat(80));
 if (failures === 0) {
-  console.log("✓ MED-2 comparison passed - all metrics within tolerance");
+  console.log("✓ MED-2 comparison passed");
   process.exit(0);
 } else {
-  console.log(`✗ MED-2 comparison failed - ${failures} metrics out of tolerance`);
+  console.log(`✗ FAIL: MED-2 comparison - ${failures} discrepanc${failures === 1 ? 'y' : 'ies'}`);
   process.exit(1);
 }
