@@ -130,7 +130,8 @@ export function ensureMinContrast(
   const step = 0.01;
   const maxL = 1.0;
   
-  let { L, C, H } = oklch;
+  let { L } = oklch;
+  const { C, H } = oklch;
   
   while (L < maxL) {
     L += step;
