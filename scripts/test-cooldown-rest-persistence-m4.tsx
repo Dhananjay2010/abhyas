@@ -1,14 +1,14 @@
 #!/usr/bin/env tsx
 /**
- * Test: M4 - Cool-down rest persistence (runtime tests)
+ * Test: M4 - Cool-down rest persistence (runtime tests with real SessionRunner)
  * 
- * Verifies the 4 cool-down Done/Skip finish paths:
- * 1. Done with pending sets: replay succeeds, finish succeeds → rest cleared
- * 2. Done with pending sets: replay succeeds, finish fails → rest NOT cleared
- * 3. Skip with pending sets: replay succeeds, finish succeeds → rest cleared
- * 4. Skip with pending sets: replay succeeds, finish fails → rest NOT cleared
+ * Covers all 4 cool-down finish paths:
+ * 1. Done with pending: replay succeeds, finish succeeds → rest cleared
+ * 2. Done with pending: replay succeeds, finish fails → rest NOT cleared
+ * 3. Skip with pending: replay succeeds, finish succeeds → rest cleared
+ * 4. Skip with pending: replay succeeds, finish fails → rest NOT cleared
  * 
- * Moving restPersistence.clear() before result.ok check must fail these tests.
+ * Moving restPersistence.clear() before result.ok check must fail paths 2 & 4.
  */
 
 import "./helpers/setup-jsdom";
@@ -116,11 +116,11 @@ function check(label: string, pass: boolean, detail?: string) {
   }
 }
 
-console.log("\n📋 Test: M4 - Cool-down rest persistence (runtime)\n");
+console.log("\n📋 Test: M4 - Cool-down rest persistence (4 paths)\n");
 
 (async () => {
-  // ===== Test 1: Done with pending, replay succeeds, finish succeeds → rest cleared =====
-  console.log("=== Test 1: Done + pending + replay OK + finish OK → rest cleared ===\n");
+  // ===== Path 1: Done + pending + replay OK + finish OK → rest cleared =====
+  console.log("=== Path 1: Done + pending + replay OK + finish OK → rest cleared ===\n");
 
   const exercise1 = makeExercise("ex-1", "squat", "Squat", 1, [
     { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null },
@@ -193,7 +193,6 @@ console.log("\n📋 Test: M4 - Cool-down rest persistence (runtime)\n");
     />,
   );
 
-  // Wait for sync and cooldown to load
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 4500));
   });
@@ -204,23 +203,21 @@ console.log("\n📋 Test: M4 - Cool-down rest persistence (runtime)\n");
 
   check("Cool-down loaded", true);
 
-  // Check rest persistence exists before clicking Done
   const restKeyBefore = `abhyas:rest:${sessionId1}`;
   const restBefore = fakeStorage.getItem(restKeyBefore);
   check("Rest persistence exists before Done", restBefore !== null);
 
-  // Click Done
-  const doneButton = [...c1.querySelectorAll("button")].find((b) =>
+  const doneButton1 = [...c1.querySelectorAll("button")].find((b) =>
     /Done/.test(b.textContent ?? ""),
   );
 
-  if (!doneButton) {
+  if (!doneButton1) {
     console.log("  ✗ FAIL Done button not found");
     process.exit(1);
   }
 
   await act(async () => {
-    fireEvent.click(doneButton);
+    fireEvent.click(doneButton1);
   });
 
   await act(async () => {
@@ -230,15 +227,14 @@ console.log("\n📋 Test: M4 - Cool-down rest persistence (runtime)\n");
   check("logSet called (replay)", logSetCalls1 === 1);
   check("finishSession called", finishCalls1 === 1);
   
-  // Check rest persistence cleared after successful finish
   const restAfter = fakeStorage.getItem(restKeyBefore);
-  check("M4: Rest persistence cleared after successful finish", restAfter === null);
+  check("M4 Path 1: Rest persistence cleared after successful finish", restAfter === null);
 
   unmount1();
-  console.log("✓ Test 1 passed\n");
+  console.log("✓ Path 1 passed\n");
 
-  // ===== Test 2: Done with pending, replay succeeds, finish FAILS → rest NOT cleared =====
-  console.log("=== Test 2: Done + pending + replay OK + finish FAIL → rest NOT cleared ===\n");
+  // ===== Path 2: Done + pending + replay OK + finish FAIL → rest NOT cleared =====
+  console.log("=== Path 2: Done + pending + replay OK + finish FAIL → rest NOT cleared ===\n");
 
   const exercise2 = makeExercise("ex-2", "bench", "Bench Press", 1, [
     { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null },
@@ -276,7 +272,6 @@ console.log("\n📋 Test: M4 - Cool-down rest persistence (runtime)\n");
 
   fakeStorage.clear();
   
-  // Add pending set
   savePendingSet(fakeStorage, userId2, sessionId2, {
     sessionExerciseId: "ex-2",
     setNumber: 2,
@@ -286,7 +281,6 @@ console.log("\n📋 Test: M4 - Cool-down rest persistence (runtime)\n");
     clientId: "pending-m4-2"
   }, fakeDeps);
 
-  // Set rest persistence
   const restKey2 = `abhyas:rest:${sessionId2}`;
   fakeStorage.setItem(restKey2, JSON.stringify({
     sessionId: sessionId2,
@@ -322,11 +316,9 @@ console.log("\n📋 Test: M4 - Cool-down rest persistence (runtime)\n");
 
   check("Cool-down loaded", true);
 
-  // Check rest persistence exists before clicking Done
   const restBefore2 = fakeStorage.getItem(restKey2);
   check("Rest persistence exists before Done", restBefore2 !== null);
 
-  // Click Done
   const doneButton2 = [...c2.querySelectorAll("button")].find((b) =>
     /Done/.test(b.textContent ?? ""),
   );
@@ -347,15 +339,238 @@ console.log("\n📋 Test: M4 - Cool-down rest persistence (runtime)\n");
   check("logSet called (replay)", logSetCalls2 === 1);
   check("finishSession called (failed)", finishCalls2 === 1);
   
-  // Check rest persistence STILL EXISTS after failed finish
   const restAfter2 = fakeStorage.getItem(restKey2);
-  check("M4: Rest persistence KEPT after failed finish", restAfter2 !== null);
+  check("M4 Path 2: Rest persistence KEPT after failed finish", restAfter2 !== null);
 
   unmount2();
-  console.log("✓ Test 2 passed\n");
+  console.log("✓ Path 2 passed\n");
 
-  console.log("\n✅ All M4 tests passed\n");
-  console.log("These tests verify that restPersistence.clear() is inside the 'if (result && result.ok)' block.");
-  console.log("Moving it before the check would cause Test 2 to fail (rest would be cleared on failure).\n");
+  // ===== Path 3: Skip + pending + replay OK + finish OK → rest cleared =====
+  console.log("=== Path 3: Skip + pending + replay OK + finish OK → rest cleared ===\n");
+
+  const exercise3 = makeExercise("ex-3", "deadlift", "Deadlift", 1, [
+    { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null },
+  ]);
+
+  let logSetCalls3 = 0;
+  let finishCalls3 = 0;
+  const actions3: SessionActions = {
+    markWarmupDone: ok,
+    logSet: async () => {
+      logSetCalls3++;
+      await Promise.resolve();
+      return { ok: true };
+    },
+    deleteSet: ok,
+    finishExercise: async () =>
+      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: async () => {
+      finishCalls3++;
+      await Promise.resolve();
+      return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
+    },
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => {
+      throw new Error("Should not swap");
+    },
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+  } as unknown as SessionActions;
+
+  const userId3 = "test-user-m4-3";
+  const sessionId3 = "session-m4-3";
+
+  fakeStorage.clear();
+  
+  savePendingSet(fakeStorage, userId3, sessionId3, {
+    sessionExerciseId: "ex-3",
+    setNumber: 2,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-m4-3"
+  }, fakeDeps);
+
+  const restKey3 = `abhyas:rest:${sessionId3}`;
+  fakeStorage.setItem(restKey3, JSON.stringify({
+    sessionId: sessionId3,
+    sessionExerciseId: "ex-3",
+    restEndsAt: Date.now() + 60000
+  }));
+
+  const { container: c3, unmount: unmount3 } = render(
+    <SessionRunner
+      sessionId={sessionId3}
+      sessionStatus="in_progress"
+      userId={userId3}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      isStale={false}
+      warmup={[]}
+      cooldown={[{ id: "c3", name: "Calf stretch", slug: "calf-stretch", type: "stretch", phase: "stretch", target_regions: ["calves"], target_muscles: ["calves"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
+      exercises={[exercise3]}
+      settings={settings}
+      actions={actions3}
+    />,
+  );
+
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 4500));
+  });
+
+  await waitFor(() => {
+    if (!c3.textContent?.includes("Cool-down")) throw new Error("Cool-down not shown");
+  });
+
+  check("Cool-down loaded", true);
+
+  const restBefore3 = fakeStorage.getItem(restKey3);
+  check("Rest persistence exists before Skip", restBefore3 !== null);
+
+  const skipButton3 = [...c3.querySelectorAll("button")].find((b) =>
+    /Skip/.test(b.textContent ?? ""),
+  );
+
+  if (!skipButton3) {
+    console.log("  ✗ FAIL Skip button not found");
+    process.exit(1);
+  }
+
+  await act(async () => {
+    fireEvent.click(skipButton3);
+  });
+
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+
+  check("logSet called (replay)", logSetCalls3 === 1);
+  check("finishSession called", finishCalls3 === 1);
+  
+  const restAfter3 = fakeStorage.getItem(restKey3);
+  check("M4 Path 3: Rest persistence cleared after successful Skip finish", restAfter3 === null);
+
+  unmount3();
+  console.log("✓ Path 3 passed\n");
+
+  // ===== Path 4: Skip + pending + replay OK + finish FAIL → rest NOT cleared =====
+  console.log("=== Path 4: Skip + pending + replay OK + finish FAIL → rest NOT cleared ===\n");
+
+  const exercise4 = makeExercise("ex-4", "press", "Overhead Press", 1, [
+    { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null },
+  ]);
+
+  let logSetCalls4 = 0;
+  let finishCalls4 = 0;
+  const actions4: SessionActions = {
+    markWarmupDone: ok,
+    logSet: async () => {
+      logSetCalls4++;
+      await Promise.resolve();
+      return { ok: true };
+    },
+    deleteSet: ok,
+    finishExercise: async () =>
+      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: async () => {
+      finishCalls4++;
+      await Promise.resolve();
+      return { ok: false, error: "Network error" };
+    },
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => {
+      throw new Error("Should not swap");
+    },
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+  } as unknown as SessionActions;
+
+  const userId4 = "test-user-m4-4";
+  const sessionId4 = "session-m4-4";
+
+  fakeStorage.clear();
+  
+  savePendingSet(fakeStorage, userId4, sessionId4, {
+    sessionExerciseId: "ex-4",
+    setNumber: 2,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-m4-4"
+  }, fakeDeps);
+
+  const restKey4 = `abhyas:rest:${sessionId4}`;
+  fakeStorage.setItem(restKey4, JSON.stringify({
+    sessionId: sessionId4,
+    sessionExerciseId: "ex-4",
+    restEndsAt: Date.now() + 50000
+  }));
+
+  const { container: c4, unmount: unmount4 } = render(
+    <SessionRunner
+      sessionId={sessionId4}
+      sessionStatus="in_progress"
+      userId={userId4}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      isStale={false}
+      warmup={[]}
+      cooldown={[{ id: "c4", name: "Hip stretch", slug: "hip-stretch", type: "stretch", phase: "stretch", target_regions: ["hip"], target_muscles: ["hip_flexors"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
+      exercises={[exercise4]}
+      settings={settings}
+      actions={actions4}
+    />,
+  );
+
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 4500));
+  });
+
+  await waitFor(() => {
+    if (!c4.textContent?.includes("Cool-down")) throw new Error("Cool-down not shown");
+  });
+
+  check("Cool-down loaded", true);
+
+  const restBefore4 = fakeStorage.getItem(restKey4);
+  check("Rest persistence exists before Skip", restBefore4 !== null);
+
+  const skipButton4 = [...c4.querySelectorAll("button")].find((b) =>
+    /Skip/.test(b.textContent ?? ""),
+  );
+
+  if (!skipButton4) {
+    console.log("  ✗ FAIL Skip button not found");
+    process.exit(1);
+  }
+
+  await act(async () => {
+    fireEvent.click(skipButton4);
+  });
+
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+
+  check("logSet called (replay)", logSetCalls4 === 1);
+  check("finishSession called (failed)", finishCalls4 === 1);
+  
+  const restAfter4 = fakeStorage.getItem(restKey4);
+  check("M4 Path 4: Rest persistence KEPT after failed Skip finish", restAfter4 !== null);
+
+  unmount4();
+  console.log("✓ Path 4 passed\n");
+
+  console.log("\n✅ All M4 tests passed (4 paths)\n");
+  console.log("Paths 2 & 4 verify restPersistence.clear() is inside 'if (result && result.ok)' block.");
+  console.log("Moving it before the check would cause Paths 2 & 4 to fail.\n");
   process.exit(0);
 })();

@@ -17,6 +17,7 @@ import "./helpers/setup-jsdom";
 import { render, act, screen, cleanup, waitFor, fireEvent } from "@testing-library/react";
 import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 import { savePendingSet, loadPendingSets } from "../src/lib/session/pending-set-retry";
+import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 let passed = 0;
@@ -754,7 +755,7 @@ async function test8d8e() {
   fakeStorage.clear();
 }
 
-// Test 9b: Done/Skip buttons disabled while pending
+// Test 9b: L3 - Done/Skip buttons enabled, replay pending sets then finish
 async function test9b() {
   console.log("\n📋 Test 9b: L3 - Done/Skip buttons enabled, replay pending sets then finish");
   
@@ -867,7 +868,7 @@ async function test9b() {
   }
   
   // L3: Both buttons should be enabled (symmetric behavior)
-  assert(!(doneButton as HTMLButtonElement).disabled, "9b: L3 - Done button is ENABLED (replays pending sets before finishing)");
+  assert(!(doneButton as HTMLButtonElement).disabled, "9b: L3 - Done button is ENABLED while sets are pending");
   assert(!(skipCooldownButton as HTMLButtonElement).disabled, "9b: L3 - Skip cool-down button is ENABLED (symmetric with Done)");
   
   // Click Done button - it should replay pending sets then finish
@@ -880,9 +881,14 @@ async function test9b() {
     await new Promise((resolve) => setTimeout(resolve, 100));
   });
   
-  // Assert replay happened and then finish was called
+  // Assert replay happened and queue was emptied before finish
   assert(logSetCallCount === 1, `9b: L3 - logSet called once during replay (got ${logSetCallCount})`);
-  assert(finishSessionCalled, "9b: L3 - finishSession called after replay");
+  
+  const deps = createPendingSetDeps(() => FIXED_TIME);
+  const pendingAfter = loadPendingSets(fakeStorage, userId, sessionId, deps);
+  assert(pendingAfter.length === 0, `9b: L3 - queue emptied after replay (got ${pendingAfter.length} remaining)`);
+  
+  assert(finishSessionCalled, "9b: L3 - finishSession called after replay cleared queue");
   
   cleanup();
   fakeStorage.clear();
