@@ -100,8 +100,6 @@ const freshExercise: RunnerExercise = {
 const rFresh = render(
   <SessionRunner
     sessionId="fresh"
-      sessionStatus="in_progress"
-      userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -160,8 +158,6 @@ const resumeExercise: RunnerExercise = {
 const rResume = render(
   <SessionRunner
     sessionId="resume"
-      sessionStatus="in_progress"
-      userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -225,8 +221,6 @@ const deloadExercise: RunnerExercise = {
 const rDeload = render(
   <SessionRunner
     sessionId="deload"
-      sessionStatus="in_progress"
-      userId="test-user"
     isDeload={true}
     week={4}
     warmupAlreadyDone={true}
@@ -285,8 +279,6 @@ const bodyweightExercise: RunnerExercise = {
 const rBW = render(
   <SessionRunner
     sessionId="bw"
-      sessionStatus="in_progress"
-      userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -350,8 +342,6 @@ const metricExercise: RunnerExercise = {
 const rMetric = render(
   <SessionRunner
     sessionId="metric"
-      sessionStatus="in_progress"
-      userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
