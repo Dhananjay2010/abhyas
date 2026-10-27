@@ -113,7 +113,7 @@ console.log("1. finishSession fails - rest persistence NOT cleared");
 
   let finishAttempts = 0;
   const ok = async () => ({ ok: true }) as const;
-  const actions: SessionActions = {
+  const actions = {
     markWarmupDone: ok,
     logSet: async () => ({ ok: true as const }),
     deleteSet: ok,
@@ -126,9 +126,9 @@ console.log("1. finishSession fails - rest persistence NOT cleared");
     abandonSession: ok,
     planDay: ok,
     refreshAfterSession: async () => ({ ok: true as const }),
-    swapExercise: async () => ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], isBodyweight: false } }),
+    swapExercise: async () => ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
     findAlternatives: async () => ({ ok: true as const, data: [] }),
-  };
+  } as unknown as SessionActions;
 
   const { container } = render(
     <SessionRunner
@@ -142,7 +142,6 @@ console.log("1. finishSession fails - rest persistence NOT cleared");
       cooldown={[]}
       exercises={[makeExercise("ex-completed-1", "Bench Press", "completed")]}
       settings={settings}
-      tomorrow={"2026-10-28"}
       actions={actions}
     />
   );
@@ -179,12 +178,12 @@ console.log("\n2. finishSession succeeds - rest persistence cleared");
 
   let finishAttempts = 0;
   const ok = async () => ({ ok: true }) as const;
-  const actions: SessionActions = {
+  const actions = {
     markWarmupDone: ok,
     logSet: async () => ({ ok: true as const }),
     deleteSet: ok,
     finishExercise: async () => ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: async (params) => {
+    finishSession: async (params: { sessionId: string; durationSeconds: number; cooldownCompleted: boolean }) => {
       finishAttempts++;
       return {
         ok: true,
@@ -198,9 +197,9 @@ console.log("\n2. finishSession succeeds - rest persistence cleared");
     abandonSession: ok,
     planDay: ok,
     refreshAfterSession: async () => ({ ok: true as const }),
-    swapExercise: async () => ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], isBodyweight: false } }),
+    swapExercise: async () => ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
     findAlternatives: async () => ({ ok: true as const, data: [] }),
-  };
+  } as unknown as SessionActions;
 
   const { container } = render(
     <SessionRunner
@@ -214,7 +213,6 @@ console.log("\n2. finishSession succeeds - rest persistence cleared");
       cooldown={[]}
       exercises={[makeExercise("ex-completed-2", "Squat", "completed")]}
       settings={settings}
-      tomorrow={"2026-10-28"}
       actions={actions}
     />
   );
