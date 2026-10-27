@@ -80,47 +80,40 @@ function mergeBrand(base: Brand, gym: Partial<Brand>): Brand {
 }
 
 /**
- * Resolve gym from request host (internal, not cached).
- * Returns gym_id if a verified domain mapping exists, null otherwise.
+ * Resolve brand for a given host (pure-ish, testable).
+ * Takes a Supabase client, host, and a brand fetcher function.
+ * Returns the merged brand.
  */
-async function resolveGymFromHost(): Promise<string | null> {
+export async function resolveBrandForHost(
+  supabase: ReturnType<typeof createSupabaseClient<Database>>,
+  host: string | null,
+  base: Brand,
+  fetchGymBrand: (gymId: string) => Promise<Partial<Brand>> = getGymBrand
+): Promise<Brand> {
+  if (!host) {
+    return base;
+  }
+
   try {
-    const headersList = await headers();
-    const host = headersList.get('host');
-    
-    if (!host) {
-      return null;
-    }
-
-    // Create an anon client (no cookies, no session)
-    const supabase = createSupabaseClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
-      },
-    );
-
-    const { data, error } = await supabase.rpc("resolve_gym_by_host", {
+    const { data: hostData, error: hostError } = await supabase.rpc("resolve_gym_by_host", {
       p_host: host,
     });
 
-    if (error || !data || data.length === 0) {
-      return null;
+    if (hostError || !hostData || hostData.length === 0) {
+      return base;
     }
 
-    const row = data[0];
+    const row = hostData[0];
     if (!isResolveGymResult(row)) {
-      return null;
+      return base;
     }
 
-    return row.gym_id;
+    const gymId = row.gym_id;
+    const gymBrand = await fetchGymBrand(gymId);
+    return mergeBrand(base, gymBrand);
   } catch {
     // On error, fall back to base brand
-    return null;
+    return base;
   }
 }
 
@@ -133,20 +126,22 @@ async function resolveGymFromHost(): Promise<string | null> {
  * (byte-identical to today).
  */
 export const getRequestBrand = cache(async (): Promise<Brand> => {
-  const gymId = await resolveGymFromHost();
+  const headersList = await headers();
+  const host = headersList.get('host');
 
-  if (!gymId) {
-    // Unmapped host: return base brand
-    return branding;
-  }
+  // Create an anon client (no cookies, no session)
+  const supabase = createSupabaseClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    },
+  );
 
-  try {
-    const gymBrand = await getGymBrand(gymId);
-    return mergeBrand(branding, gymBrand);
-  } catch {
-    // On error, fall back to base brand
-    return branding;
-  }
+  return resolveBrandForHost(supabase, host, branding);
 });
 
 /**
