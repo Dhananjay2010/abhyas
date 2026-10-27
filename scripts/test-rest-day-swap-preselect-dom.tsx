@@ -110,6 +110,7 @@ async function main() {
     const fullBodyAButton = Array.from(container.querySelectorAll('button'))
       .find(b => b.textContent?.includes("Full Body A"));
     const fullBodyBButton = Array.from(container.querySelectorAll('button'))
+      .find(b => b.textContent?.includes("Full Body B"));
     const fullBodyCButton = Array.from(container.querySelectorAll('button'))
       .find(b => b.textContent?.includes("Full Body C"));
 

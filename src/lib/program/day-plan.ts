@@ -309,21 +309,26 @@ export async function nextDayPlan(
   ]);
 
   // Resolve post-swap collision
-  const collision = resolveTomorrowAfterSwap({
-    todayWasSwap: wasSwap,
-    doneProgramDayId: todaySession?.program_day_id ?? null,
-    scheduledTomorrow: resolved ? { programDayId: resolved.programDayId, label: resolved.label } : null,
-    rotation: allProgramDays.data
-      ?.filter(d => d.day_type === "weights" || d.day_type === "bodyweight")
-      .sort((a, b) => a.day_index - b.day_index) ?? [],
-  });
+  const collision = (wasSwap && resolved && resolved.programDayId) 
+    ? resolveTomorrowAfterSwap({
+        todayWasSwap: true,
+        doneProgramDayId: todaySession?.program_day_id ?? null,
+        scheduledTomorrow: { 
+          programDayId: resolved.programDayId, 
+          label: resolved.label 
+        },
+        rotation: (allProgramDays.data ?? [])
+          .filter(d => d.day_type === "weights" || d.day_type === "bodyweight")
+          .sort((a, b) => a.day_index - b.day_index),
+      })
+    : null;
 
   if (collision) {
     return {
       localDate: tomorrow,
       plannedLabel: collision.label,
       days,
-      _collisionResolved: collision.collisionResolved,
+      _collisionResolved: true,
     };
   }
 
