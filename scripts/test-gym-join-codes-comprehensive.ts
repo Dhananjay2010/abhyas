@@ -667,21 +667,24 @@ async function runTests() {
 
   console.log("TEST: Mutant killers - gen_random_bytes, search_path");
   // Mutant: random() instead of gen_random_bytes
-  // Generate many codes and check they all match the format (random() would fail the alphabet constraint)
-  const generatedCodes = [];
-  for (let i = 0; i < 10; i++) {
-    const { data: codeData } = await owner.client.rpc("create_join_code", {
-      p_gym_id: gymId,
-      p_role: "member",
-    });
-    const codeParsed = parseCreateJoinCodeResult(codeData);
-    if (codeParsed) generatedCodes.push(codeParsed.code);
+  // Check the function body contains gen_random_bytes and not random()
+  const { data: genFuncDef } = await adminClient.rpc("execute_sql", {
+    query: "SELECT pg_get_functiondef('public.generate_join_code'::regprocedure) AS def",
+  }) as { data: Array<{ def: string }> | null };
+  
+  if (genFuncDef && genFuncDef.length > 0) {
+    const funcDef = genFuncDef[0].def;
+    const hasGenRandomBytes = funcDef.includes('gen_random_bytes');
+    const hasRandom = funcDef.includes('random()');
+    check("generate_join_code uses gen_random_bytes (kills random() mutant)", hasGenRandomBytes);
+    check("generate_join_code does not use random()", !hasRandom);
+  } else {
+    check("generate_join_code uses gen_random_bytes (kills random() mutant)", false, "Could not query pg_get_functiondef");
+    check("generate_join_code does not use random()", false, "Could not query pg_get_functiondef");
   }
-  const allValidFormat = generatedCodes.every(c => /^[2-9A-HJ-NP-Z]{10}$/.test(c));
-  check("All generated codes match format (kills random() mutant)", allValidFormat && generatedCodes.length === 10);
   
   // Mutant: search_path dropped
-  // Check that all SECURITY DEFINER functions have search_path set in proconfig
+  // Check that all SECURITY DEFINER functions have search_path='' exactly
   const { data: definerFuncs } = await adminClient.rpc("execute_sql", {
     query: `
       SELECT proname, proconfig
@@ -693,12 +696,12 @@ async function runTests() {
   
   if (definerFuncs && definerFuncs.length > 0) {
     const allHaveSearchPath = definerFuncs.every(f => 
-      f.proconfig !== null && f.proconfig.some(c => c.includes("search_path"))
+      f.proconfig !== null && f.proconfig.some(c => c === "search_path=")
     );
-    check("All SECURITY DEFINER functions have search_path set (kills search_path mutant)", 
+    check("All SECURITY DEFINER functions have search_path='' (kills search_path mutant)", 
       allHaveSearchPath && definerFuncs.length === 6);
   } else {
-    check("All SECURITY DEFINER functions have search_path set (kills search_path mutant)", false, "Could not query pg_proc");
+    check("All SECURITY DEFINER functions have search_path='' (kills search_path mutant)", false, "Could not query pg_proc");
   }
   console.log();
 

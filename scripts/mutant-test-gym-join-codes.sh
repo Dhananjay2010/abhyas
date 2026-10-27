@@ -199,11 +199,17 @@ run_mutant \
   "Allow direct UPDATE bypassing revoke_join_code RPC" \
   "CREATE POLICY gym_join_codes_owner_update ON public.gym_join_codes FOR UPDATE TO authenticated USING (public.is_gym_owner(gym_id)) WITH CHECK (public.is_gym_owner(gym_id));"
 
+# Mutant (k): Replace gen_random_bytes with random() in generate_join_code
+run_mutant \
+  "(k) replace gen_random_bytes with random()" \
+  "Use random() instead of gen_random_bytes (weaker entropy)" \
+  "DROP FUNCTION IF EXISTS public.generate_join_code(); CREATE FUNCTION public.generate_join_code() RETURNS text LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS \$\$ DECLARE alphabet text := '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; alphabet_len int := 32; code_length int := 10; result text := ''; i int; byte_val int; BEGIN FOR i IN 1..code_length LOOP byte_val := floor(random() * alphabet_len)::int; result := result || substr(alphabet, byte_val + 1, 1); END LOOP; RETURN result; END; \$\$; REVOKE EXECUTE ON FUNCTION public.generate_join_code() FROM public, anon, authenticated; GRANT EXECUTE ON FUNCTION public.generate_join_code() TO postgres, service_role;"
+
 echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-TOTAL_MUTANTS=10
+TOTAL_MUTANTS=11
 echo "Total mutants:                   $TOTAL_MUTANTS"
 echo "Killed:                          $((TOTAL_MUTANTS - FAILED - ${#SKIPPED[@]}))"
 echo "Survived:                        $FAILED"
