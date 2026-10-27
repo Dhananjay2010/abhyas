@@ -25,12 +25,6 @@ Object.defineProperty(global, "window", { value: dom.window, writable: true, con
 Object.defineProperty(global, "document", { value: dom.window.document, writable: true, configurable: true });
 Object.defineProperty(global, "HTMLElement", { value: dom.window.HTMLElement, writable: true, configurable: true });
 
-// Polyfill attachEvent/detachEvent for React's input polyfill (IE-specific APIs)
-if (typeof (dom.window.HTMLElement.prototype as any).attachEvent === "undefined") {
-  (dom.window.HTMLElement.prototype as any).attachEvent = function() {};
-  (dom.window.HTMLElement.prototype as any).detachEvent = function() {};
-}
-
 // Note: jsdom 26 doesn't properly update document.activeElement on focus()
 // For regression testing, we verify auto-advance by checking that monthRef.current.focus() is called
 // in the component code when day field reaches 2 characters
