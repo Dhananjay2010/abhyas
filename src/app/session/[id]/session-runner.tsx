@@ -950,6 +950,7 @@ export function SessionRunner({
             days={tomorrow.days}
             heading="What about tomorrow?"
             onPlan={actions.planDay}
+            tomorrowIsRest={tomorrow.programDayId === null}
           />
         )}
 

@@ -24,6 +24,7 @@ export function DayPlanPrompt({
   heading,
   intro,
   showRestOption = true,
+  tomorrowIsRest = false,
   onPlan = planDay,
 }: {
   /** The day being planned, as a local `YYYY-MM-DD`. */
@@ -40,6 +41,8 @@ export function DayPlanPrompt({
   intro?: string;
   /** Whether to show the "Rest" option. Set to false when day is already Rest. */
   showRestOption?: boolean;
+  /** Whether the planned day is Rest (hide duplicate Rest button when true). */
+  tomorrowIsRest?: boolean;
   /** Injected so the prompt can be driven without a signed-in session. */
   onPlan?: typeof planDay;
 }) {
@@ -99,7 +102,7 @@ export function DayPlanPrompt({
       </p>
 
       {!choosing ? (
-        <div className={`mt-4 gap-2 ${showRestOption && programDayId ? "grid grid-cols-3" : "flex"}`}>
+        <div className={`mt-4 gap-2 ${showRestOption && !tomorrowIsRest ? "grid grid-cols-3" : "flex"}`}>
           <Choice
             disabled={pending}
             onClick={() =>
@@ -113,7 +116,7 @@ export function DayPlanPrompt({
           <Choice disabled={pending} onClick={() => setChoosing(true)}>
             Swap the day
           </Choice>
-          {showRestOption && programDayId && (
+          {showRestOption && !tomorrowIsRest && (
             <Choice disabled={pending} onClick={() => choose({ kind: "rest" }, "a rest day")}>
               Rest
             </Choice>
