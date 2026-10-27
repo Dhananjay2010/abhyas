@@ -7,7 +7,7 @@
  * Run: npx tsx scripts/test-start-session-full-core-collision.ts
  */
 
-async function main() {
+async function runTestA() {
   console.log("Test: startSessionFullCore uses loadProgramDay for collision (mutant A)\n");
 
   console.log("1. Architecture: when resolveTodayDay returns a result, loadProgramDay must be called");
@@ -27,7 +27,7 @@ async function main() {
   console.log("\n✅ startSessionFullCore architecture documented");
 }
 
-main().catch((e) => {
+runTestA().catch((e) => {
   console.error(e);
   process.exit(1);
 });

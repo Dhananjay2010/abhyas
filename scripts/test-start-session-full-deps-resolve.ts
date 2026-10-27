@@ -6,7 +6,7 @@
  * Run: npx tsx scripts/test-start-session-full-deps-resolve.ts
  */
 
-async function main() {
+async function runTestB() {
   console.log("Test: buildStartSessionFullDeps.resolveTodayDay passthrough (mutant B)\n");
 
   console.log("1. Architecture: resolveTodayDay must pass through the resolver result");
@@ -25,7 +25,7 @@ async function main() {
   console.log("\n✅ buildStartSessionFullDeps passthrough documented");
 }
 
-main().catch((e) => {
+runTestB().catch((e) => {
   console.error(e);
   process.exit(1);
 });
