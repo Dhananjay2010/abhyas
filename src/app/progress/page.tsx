@@ -1,16 +1,17 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { BarChart, LineChart, StatTile } from "@/components/charts";
+import { BarChart, LineChart, StatTile, type Point } from "@/components/charts";
 import { buildDayRecords, computeStreaks } from "@/lib/progress/streaks";
 import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-charts";
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
-import { getUnitsPreference, weightLabel } from "@/lib/units";
+import { getUnitsPreference } from "@/lib/units";
 import { formatVolumeLifted } from "@/lib/session/format-volume-lifted";
 import { LogWeight } from "./log-weight";
 import { loadProgramDays } from "@/lib/progress/load-program-days";
-import { buildVolumeChartPoints, buildBodyWeightChartPoints } from "@/lib/progress/chart-points";
+import { computeYogaStats } from "@/lib/progress/yoga-stats";
 
 export const dynamic = "force-dynamic";
 
@@ -171,7 +172,10 @@ export default async function ProgressPage() {
   // ---- charts ------------------------------------------------------------
   // Reverse data since it was fetched newest-first for h1 fix
   const weights = [...(weightsRes.data ?? [])].reverse();
-  const weightPoints = buildBodyWeightChartPoints(weights, units, shortDate);
+  const weightPoints: Point[] = weights.map((w) => ({
+    label: shortDate(w.recorded_on),
+    value: Number(w.weight_kg),
+  }));
   const latestWeight = weights.length ? Number(weights[weights.length - 1].weight_kg) : null;
 
   // View columns are typed nullable by Supabase's generator, so narrow first.
@@ -202,12 +206,13 @@ export default async function ProgressPage() {
   }
   
   // Volume chart with deload markers (change 7: headline skips deload sessions)
-  const volumePoints = buildVolumeChartPoints(
-    volumeRows.slice(-14),
-    units,
-    shortDate,
-    deloadDates
-  );
+  const volumePoints: Point[] = volumeRows
+    .slice(-14)
+    .map((v) => ({ 
+      label: shortDate(v.local_date), 
+      value: Number(v.volume_kg),
+      isDeload: deloadDates.has(v.local_date)
+    }));
   
   const strengthCharts = buildStrengthChartsFromDescendingRows(
     strengthRes.data ?? [],
@@ -217,7 +222,6 @@ export default async function ProgressPage() {
   ).slice(0, 6);
 
   // totalVolume now comes from progress_summary RPC (computed server-side)
-  const hasAnything = weights.length > 0 || volumeRows.length > 0;
 
   // ---- yoga/breathing stats (QA M-4) ------------------------------------
   // For yoga and breathing members, compute stats from completed sessions
@@ -229,7 +233,6 @@ export default async function ProgressPage() {
       console.error("Failed to load sessions for yoga stats:", sessionsRes.error);
     } else {
       try {
-        const { computeYogaStats } = await import("@/lib/progress/yoga-stats");
         // Filter to completed yoga or breathing sessions
         const yogaBreathingSessions = (sessionsRes.data ?? [])
           .filter((s) => 
@@ -251,11 +254,42 @@ export default async function ProgressPage() {
   // Check if member has any strength data (to decide whether to show volume/strength sections)
   const hasStrengthData = volumeRows.length > 0 || (strengthRes.data ?? []).length > 0;
 
+  // Empty state (K3, QA1 P3): same scope as History. Any completed session of a
+  // type History lists counts, whether or not it falls inside a current
+  // (non-superseded) program block. streaks.totalSessions is block-scoped, so a
+  // strength member whose yoga sessions predate the current plan used to see
+  // "No progress data yet" while History listed those sessions.
+  const HISTORY_TYPES = new Set(["weights", "bodyweight", "yoga", "meditation"]);
+  const hasAnyCompletedSession = (sessionsRes.data ?? []).some(
+    (s) => s.status === "completed" && HISTORY_TYPES.has(s.actual_type || "weights"),
+  );
+  const hasSessionData = hasAnyCompletedSession || hasStrengthData;
+  
+  const anyLoadError = progressQueryFailed || !!setCountsError || yogaStatsError
+    || !!weightsRes.error || !!volumeRes.error || !!strengthRes.error || !!sessionsRes.error;
+  
+  const showSessionsEmpty = !hasSessionData && !anyLoadError;
+
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <h1 className="text-3xl font-bold tracking-tight">Progress</h1>
 
-      <section className="mt-6 grid grid-cols-2 gap-3">
+      {showSessionsEmpty ? (
+        <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-12 text-center">
+          <p className="text-sm font-medium text-fg">No progress data yet</p>
+          <p className="mt-2 text-sm text-muted">
+            Complete your first session to start tracking your progress and see your stats here.
+          </p>
+          <Link
+            href="/today"
+            className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            Start today&apos;s workout
+          </Link>
+        </div>
+      ) : (
+        <>
+          <section className="mt-6 grid grid-cols-2 gap-3">
         {isYogaOrBreathing && yogaStats ? (
           <>
             <StatTile
@@ -332,7 +366,7 @@ export default async function ProgressPage() {
         )}
       </section>
       
-      {(progressQueryFailed || setCountsError || yogaStatsError) && (
+      {anyLoadError && (
         <p className="mt-3 rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-4 py-2 text-sm text-[var(--color-danger)]">
           Couldn&apos;t load some stats
         </p>
@@ -344,40 +378,13 @@ export default async function ProgressPage() {
         </p>
       )}
 
-      {!hasAnything && (
-        <p className="mt-8 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-          Your first workout starts your streak. Complete a session or log your weight and the charts will fill in here.
-        </p>
-      )}
-
-      <section className="mt-10">
-        <h2 className="text-sm font-semibold">Body weight</h2>
-        <p className="mb-3 text-xs text-muted">Weigh in weekly, same time of day.</p>
-        {weightPoints.length < 2 ? (
-          <p className="mb-4 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-            {weightPoints.length === 0
-              ? "Log your weight below to start tracking. Two data points will show a trend."
-              : "One entry logged. Add another to see your trend over time."}
-          </p>
-        ) : (
-          <LineChart points={weightPoints} unit={weightLabel(units)} title="Body weight" />
-        )}
-        <LogWeight current={latestWeight} units={units} />
-      </section>
-
-      {(!isYogaOrBreathing || hasStrengthData) && volumeRows.length > 0 && (
+      {(!isYogaOrBreathing || hasStrengthData) && volumePoints.length > 0 && (
         <section className="mt-10">
           <h2 className="text-sm font-semibold">Volume per session</h2>
           <p className="mb-3 text-xs text-muted">
             Reps × weight, totalled across the session.
           </p>
-          {volumePoints.length < 2 ? (
-            <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-              One session logged. Your trend will appear after your next workout.
-            </p>
-          ) : (
-            <BarChart points={volumePoints} unit={weightLabel(units)} title="Volume per session" />
-          )}
+          <BarChart points={volumePoints} unit="kg" volumeUnits={units} title="Volume per session" />
         </section>
       )}
 
@@ -389,24 +396,40 @@ export default async function ProgressPage() {
             axis would be unreadable here.
           </p>
           <div className="space-y-8">
-            {strengthCharts.map((e) => {
-              const showChart = e.points.length >= 2;
-              return (
-                <div key={e.name}>
-                  <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
-                  {showChart ? (
-                    <LineChart points={e.points} unit={e.unitLabel} weightUnits={e.units} title={`${e.name} (est. 1RM)`} height={110} />
-                  ) : (
-                    <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-                      One session logged. Your strength trend will appear after your next workout.
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+            {strengthCharts.map((e) => (
+              <div key={e.name}>
+                <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
+                <LineChart points={e.points} unit={e.unitLabel} weightUnits={e.units} title={`${e.name} (est. 1RM)`} height={110} />
+              </div>
+            ))}
           </div>
         </section>
       )}
+        </>
+      )}
+
+      <section className="mt-10">
+        <h2 className="text-sm font-semibold">Body weight</h2>
+        <p className="mb-3 text-xs text-muted">Weigh in weekly, same time of day.</p>
+        {weightsRes.error ? (
+          <p className="mb-4 rounded-xl border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-5 py-6 text-center text-sm text-[var(--color-danger)]">
+            Couldn&apos;t load your weight history. You can still log today&apos;s weight.
+          </p>
+        ) : weightPoints.length === 0 ? (
+          <p className="mb-4 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
+            Log your weight below to start tracking. Weigh-ins on two different days will show a trend.
+          </p>
+        ) : (
+          <LineChart 
+            points={weightPoints} 
+            unit="kg" 
+            weightUnits={units}
+            title="Body weight"
+            singlePointHint="Weigh in on another day to see a trend"
+          />
+        )}
+        <LogWeight current={latestWeight} units={units} />
+      </section>
 
     </main>
   );
