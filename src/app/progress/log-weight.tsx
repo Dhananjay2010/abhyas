@@ -5,11 +5,8 @@ import { logBodyWeight } from "./actions";
 import { 
   formatBodyWeight, 
   parseBodyWeight, 
-  weightLabel, 
-  BODY_WEIGHT_LB_MIN,
-  BODY_WEIGHT_LB_MAX,
-  WEIGHT_KG_MIN,
-  WEIGHT_KG_MAX,
+  weightLabel,
+  getBodyWeightRangeMessage,
   type UnitsPreference 
 } from "@/lib/units";
 
@@ -60,11 +57,7 @@ export function LogWeight({
               setError(null);
               const weightKg = parseBodyWeight(value, units);
               if (weightKg === null) {
-                setError(
-                  units === "imperial"
-                    ? `Weight should be between ${BODY_WEIGHT_LB_MIN} and ${BODY_WEIGHT_LB_MAX} lb`
-                    : `Weight should be between ${WEIGHT_KG_MIN} and ${WEIGHT_KG_MAX} kg`
-                );
+                setError(getBodyWeightRangeMessage(units));
                 return;
               }
               const r = await logAction(weightKg);

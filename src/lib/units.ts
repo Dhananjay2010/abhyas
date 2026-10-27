@@ -801,6 +801,20 @@ export function validateBodyWeightKg(kg: number | null, units: UnitsPreference):
 }
 
 /**
+ * Get body weight validation error message for display.
+ * Returns the error message to show when body weight is out of range.
+ * 
+ * @param units - User's units preference
+ * @returns Error message string with unit-specific bounds
+ */
+export function getBodyWeightRangeMessage(units: UnitsPreference): string {
+  if (units === "imperial") {
+    return `Weight should be between ${BODY_WEIGHT_LB_MIN} and ${BODY_WEIGHT_LB_MAX} lb`;
+  }
+  return `Weight should be between ${WEIGHT_KG_MIN} and ${WEIGHT_KG_MAX} kg`;
+}
+
+/**
  * Validate date of birth.
  * Checks for valid date format, realistic year range, and not in the future.
  *
