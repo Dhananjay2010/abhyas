@@ -167,6 +167,8 @@ async function resumedSummary(actions: SessionActions, units?: "metric" | "imper
   const r = render(
     <SessionRunner
       sessionId="s-resume"
+      sessionStatus="in_progress"
+      userId="user-resume"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -206,6 +208,8 @@ async function resumedSummary(actions: SessionActions, units?: "metric" | "imper
     const { container: c, unmount } = render(
       <SessionRunner
         sessionId="s1"
+      sessionStatus="in_progress"
+      userId="user-banner"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
@@ -258,6 +262,8 @@ async function resumedSummary(actions: SessionActions, units?: "metric" | "imper
     const { container: c, unmount } = render(
       <SessionRunner
         sessionId="s1b"
+      sessionStatus="in_progress"
+      userId="user-banner"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
@@ -289,6 +295,8 @@ async function resumedSummary(actions: SessionActions, units?: "metric" | "imper
     const { container: c, unmount } = render(
       <SessionRunner
         sessionId="s2"
+      sessionStatus="in_progress"
+      userId="user-banner"
         isDeload={true}
         week={4}
         warmupAlreadyDone={true}
