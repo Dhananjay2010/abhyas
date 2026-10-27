@@ -160,9 +160,15 @@ export function addedWeightStep(meta: ExerciseMeta, equipmentIds?: string[]): nu
   // If equipment is specified and contains loadable equipment, 
   // ensure we never go below the equipment grid
   if (equipmentIds && equipmentIds.length > 0) {
-    const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
+    // For dip_bars/pull_up_bar, treat as dip_belt when adding weight to bodyweight exercises
+    // (you perform the exercise on the bars, but add weight with a dip_belt)
+    const effectiveIds = equipmentIds.some(id => id === 'dip_bars' || id === 'pull_up_bar')
+      ? [...equipmentIds.filter(id => id !== 'dip_bars' && id !== 'pull_up_bar'), 'dip_belt']
+      : equipmentIds;
+    
+    const hasLoadable = effectiveIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
     if (hasLoadable) {
-      const equipGrid = equipmentGridStep(equipmentIds, 'kg');
+      const equipGrid = equipmentGridStep(effectiveIds, 'kg');
       return Math.max(patternStep, equipGrid);
     }
   }
