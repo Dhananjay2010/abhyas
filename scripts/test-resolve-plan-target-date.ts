@@ -145,6 +145,27 @@ function check(label: string, pass: boolean, detail?: string) {
     }
   }
 
+  console.log("\nCase 7: MED-B N6 - session lookup IS scoped by userId");
+  {
+    let capturedSessionId = "";
+    let capturedUserId = "";
+    const deps: ResolvePlanTargetDateDeps = {
+      async fetchSessionLocalDate(sessionId, userId) {
+        capturedSessionId = sessionId;
+        capturedUserId = userId;
+        return { localDate: "2026-10-27", error: null };
+      },
+    };
+
+    await resolvePlanTargetDate(deps, {
+      userId: "user-scoped",
+      sessionId: "session-123",
+    });
+
+    check("sessionId passed to fetch", capturedSessionId === "session-123");
+    check("userId passed to fetch (verifies scoping)", capturedUserId === "user-scoped");
+  }
+
   if (failures > 0) {
     console.log(`\n✗ ${failures} check(s) failed`);
     process.exit(1);

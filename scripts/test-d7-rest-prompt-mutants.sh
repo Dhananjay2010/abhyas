@@ -82,6 +82,7 @@ ACTION=src/app/session/actions.ts
 RESOLVE=src/lib/session/resolve-plan-target-date.ts
 T=test:day-plan-rest-prompt
 T_RESOLVE=test:resolve-plan-target-date
+T_SERVER=test:plan-day-server-wiring
 
 echo "D7 Rest-Day Prompt Mutation Testing"
 echo "──────────────────────────────────────────────────────────"
@@ -200,10 +201,10 @@ run_mutant "R4. Never mind does nothing (stays choosing)" "$COMPONENT" \
 
 run_mutant "R5. Keep rest settles with wrong label" "$COMPONENT" \
   'const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
-      ? "Tomorrow is a rest day."
+      ? `${dayLabel} is a rest day.`
       : `${dayLabel} is ${settled}.`;' \
   'const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
-      ? "Tomorrow is Upper."
+      ? `${dayLabel} is Upper.`
       : `${dayLabel} is ${settled}.`;' "$T"
 
 run_mutant "R6. Keep rest not disabled while pending" "$COMPONENT" \
@@ -254,22 +255,14 @@ run_mutant "R7. Error not shown in rest branch" "$COMPONENT" \
             <button
               onClick={() => {
                 setError(null);
-                if (settled) {
-                  setSettled(null);
-                  setChoosing(true);
+                // LOW fix: Retry actually retries the save
+                if (lastAttempt) {
+                  choose(lastAttempt.plan, lastAttempt.describedAs);
                 }
               }}
-              className="mt-2 text-sm underline underline-offset-2"
+              className="mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-sm text-brand underline underline-offset-2"
             >
-              Retry
-            </button>
-          </div>
-        )}
-      </section>
-    );
-  }
-
-  return (' \
+              Retry' \
   '        {false && error && (
           <div
             role="alert"
@@ -279,22 +272,14 @@ run_mutant "R7. Error not shown in rest branch" "$COMPONENT" \
             <button
               onClick={() => {
                 setError(null);
-                if (settled) {
-                  setSettled(null);
-                  setChoosing(true);
+                // LOW fix: Retry actually retries the save
+                if (lastAttempt) {
+                  choose(lastAttempt.plan, lastAttempt.describedAs);
                 }
               }}
-              className="mt-2 text-sm underline underline-offset-2"
+              className="mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-sm text-brand underline underline-offset-2"
             >
-              Retry
-            </button>
-          </div>
-        )}
-      </section>
-    );
-  }
-
-  return (' "$T"
+              Retry' "$T"
 
 run_mutant "R8. Failed plan still settles (ignore r.ok)" "$COMPONENT" \
   '        const r = await onPlan(input);
@@ -304,16 +289,22 @@ run_mutant "R8. Failed plan still settles (ignore r.ok)" "$COMPONENT" \
         }
         setChoosing(false);
         setSettled(describedAs);
-        // Today reads the override on the server, so it has to re-render.
-        router.refresh();' \
+        // Delay redirect so confirmation is visible for ~1.2s
+        setTimeout(() => {
+          // Today reads the override on the server, so it has to re-render.
+          router.refresh();
+        }, 1200);' \
   '        const r = await onPlan(input);
         if (!r.ok) {
           setError(r.error);
         }
         setChoosing(false);
         setSettled(describedAs);
-        // Today reads the override on the server, so it has to re-render.
-        router.refresh();' "$T"
+        // Delay redirect so confirmation is visible for ~1.2s
+        setTimeout(() => {
+          // Today reads the override on the server, so it has to re-render.
+          router.refresh();
+        }, 1200);' "$T"
 
 run_mutant "R11. Training choice sends wrong programDayId (rest branch)" "$COMPONENT" \
   '              days.map((d) => (
@@ -391,7 +382,7 @@ run_mutant "N4. Raw DB error passes through to user" "$ACTION" \
       ? result.error
       : "Couldn'\''t save your choice. Please try again.";' \
   '    // Map all database/system errors to friendly copy using exact match
-    const friendlyError = result.error;' "$T"
+    const friendlyError = result.error;' "$T_SERVER"
 
 run_mutant "N5. planDay ignores resolved date (uses today instead)" "$ACTION" \
   '  const result = await planDayCore(client, {
@@ -405,7 +396,7 @@ run_mutant "N5. planDay ignores resolved date (uses today instead)" "$ACTION" \
     localDate: today,
     today,
     plan: input.plan,
-  });' "$T_RESOLVE"
+  });' "$T_SERVER"
 
 run_mutant "N6. Session lookup not scoped by user_id" "$ACTION" \
   '      async fetchSessionLocalDate(sessionId, userId) {
@@ -420,19 +411,17 @@ run_mutant "N6. Session lookup not scoped by user_id" "$ACTION" \
           .from("sessions")
           .select("local_date")
           .eq("id", sessionId)
-          .maybeSingle();' "$T_RESOLVE"
+          .maybeSingle();' "$T_SERVER"
 
 run_mutant "N7. Resolver error falls back to today (no friendly error)" "$RESOLVE" \
-  '  if (result.error) {
-    return { ok: false, error: "Could not load session." };
-  }
-
-  if (!result.localDate) {' \
-  '  if (result.error) {
-    return { ok: true, data: new Date().toISOString().slice(0, 10) };
-  }
-
-  if (!result.localDate) {' "$T_RESOLVE"
+  '    if (result.error) {
+      return { ok: false, error: "Could not load session." };
+    }
+    if (!result.localDate) {' \
+  '    if (result.error) {
+      return { ok: true, data: new Date().toISOString().slice(0, 10) };
+    }
+    if (!result.localDate) {' "$T_SERVER"
 
 run_mutant "N10. SessionRunner passes localDate instead of sessionId" "$COMPONENT" \
   '        // Type-safe construction without cast

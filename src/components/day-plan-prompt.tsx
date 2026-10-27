@@ -69,8 +69,11 @@ export function DayPlanPrompt({
         }
         setChoosing(false);
         setSettled(describedAs);
-        // Today reads the override on the server, so it has to re-render.
-        router.refresh();
+        // Delay redirect so confirmation is visible for ~1.2s
+        setTimeout(() => {
+          // Today reads the override on the server, so it has to re-render.
+          router.refresh();
+        }, 1200);
       } catch (err) {
         // Network errors (offline, timeout, etc) must show friendly inline copy,
         // not reach the error boundary and wipe the post-session summary.
@@ -175,7 +178,7 @@ export function DayPlanPrompt({
                   choose(lastAttempt.plan, lastAttempt.describedAs);
                 }
               }}
-              className="mt-2 text-sm underline underline-offset-2"
+              className="mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-sm text-brand underline underline-offset-2"
             >
               Retry
             </button>
@@ -255,7 +258,7 @@ export function DayPlanPrompt({
                 choose(lastAttempt.plan, lastAttempt.describedAs);
               }
             }}
-            className="mt-2 text-sm underline underline-offset-2"
+            className="mt-2 inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-sm text-brand underline underline-offset-2"
           >
             Retry
           </button>

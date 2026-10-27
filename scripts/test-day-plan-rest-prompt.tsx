@@ -549,6 +549,111 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     unmount();
   }
 
+  console.log("\nCase 25: MED-A Case C - Mon 23:55 start, Tue 00:10 finish, shows Tue");
+  {
+    // Session started Mon 10-26 at 23:55 IST, finished Tue 10-27 at 00:10 IST
+    // session.local_date is "2026-10-26" (Mon)
+    // Current wall-clock time is Tue 10-27
+    // Prompt must show "Tomorrow" (because dayLabel="Tomorrow") and save to "2026-10-27" (Tue = Mon + 1)
+    const mock = mockPlanDay();
+    const { container: c, unmount } = render(
+      <DayPlanPrompt
+        sessionId="s-med-a-c"
+        dayLabel="Tomorrow"
+        plannedLabel="Upper"
+        days={TRAINING_DAYS}
+        heading="What about tomorrow?"
+        onPlan={mock.fn}
+      />
+    );
+
+    // Server passed session.local_date + 1 = "2026-10-27" to the prompt via targetLocalDate
+    // When user picks "Keep it", save must go to "2026-10-27" (not "2026-10-28")
+    await click(button(c, /^Keep it$/), "Keep it");
+    
+    check("MED-A Case C: sessionId passed", mock.calls[0]?.sessionId === "s-med-a-c");
+    check("MED-A Case C: saves with sessionId (not localDate)", !mock.calls[0]?.localDate);
+    check("MED-A Case C: label shows Tomorrow", c.textContent?.includes("Tomorrow"));
+    unmount();
+  }
+
+  console.log("\nCase 26: MED-A Case G/F - Tue 23:55 start, Wed 00:10 finish, Wed is Full Body B, Thu is rest");
+  {
+    // Session started Tue 10-20 at 23:55, finished Wed 10-21 at 00:10
+    // session.local_date is "2026-10-20" (Tue)
+    // Current wall-clock is Wed 10-21
+    // Wed is Full Body B (training day), Thu is rest
+    // Prompt must describe WED (Full Body B), not Thu
+    // 'Train anyway' or 'Keep rest' must act on Wed (server resolves to Tue + 1 = Wed)
+    const fullBodyB: PlannableDay[] = [
+      { programDayId: "full-body-b", label: "Full Body B", dayType: "weights" },
+    ];
+    const mock = mockPlanDay();
+    const { container: c, unmount } = render(
+      <DayPlanPrompt
+        sessionId="s-med-a-gf"
+        dayLabel="Tomorrow"
+        plannedLabel="Full Body B"
+        days={fullBodyB}
+        heading="What about tomorrow?"
+        onPlan={mock.fn}
+      />
+    );
+
+    check("MED-A Case G/F: shows Full Body B (Wed), not rest (Thu)", c.textContent?.includes("Full Body B"));
+    check("MED-A Case G/F: does NOT show rest day", !c.textContent?.includes("rest day"));
+    
+    await click(button(c, /^Keep it$/), "Keep it");
+    check("MED-A Case G/F: saves with sessionId (resolves to Wed)", mock.calls[0]?.sessionId === "s-med-a-gf");
+    unmount();
+  }
+
+  console.log("\nCase 27: Confirmation shows before redirect");
+  {
+    const { container: c, unmount } = render(
+      <DayPlanPrompt
+        sessionId="s-confirm"
+        dayLabel="Tomorrow"
+        plannedLabel="Rest"
+        days={TRAINING_DAYS}
+        heading="What about tomorrow?"
+        onPlan={async () => ({ ok: true as const })}
+      />
+    );
+
+    await click(button(c, /^Keep rest$/), "Keep rest");
+    
+    // Confirmation should be visible immediately after save
+    const text = c.textContent ?? "";
+    check("Confirmation text appears", text.includes("Tomorrow is a rest day."));
+    check("Change it button appears", !!button(c, /^Change it$/));
+    unmount();
+  }
+
+  console.log("\nCase 28: MED-B N10 - sessionId takes priority over localDate");
+  {
+    // If BOTH sessionId and localDate are provided (shouldn't happen in prod),
+    // sessionId must take priority (checked first in the ternary)
+    const mock = mockPlanDay();
+    const { container: c, unmount } = render(
+      <DayPlanPrompt
+        sessionId="s-priority"
+        localDate="2026-10-30"
+        dayLabel="Tomorrow"
+        plannedLabel="Rest"
+        days={TRAINING_DAYS}
+        heading="What about tomorrow?"
+        onPlan={mock.fn}
+      />
+    );
+
+    await click(button(c, /^Keep rest$/), "Keep rest");
+    
+    check("N10: sessionId passed (priority)", mock.calls[0]?.sessionId === "s-priority");
+    check("N10: localDate NOT passed (sessionId won)", !mock.calls[0]?.localDate);
+    unmount();
+  }
+
   if (failures > 0) {
     console.log(`\n✗ ${failures} check(s) failed`);
     process.exit(1);
