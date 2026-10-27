@@ -8,7 +8,7 @@ import { StartTomorrowLink } from "./start-tomorrow-link";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { addDays, isoWeekday, localDateString, localHour } from "@/lib/dates";
-import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
+import { labelForDayType, plannableDays, resolveTodayProgramDay } from "@/lib/program/day-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
@@ -178,49 +178,18 @@ export default async function TodayPage() {
   const todayIndex = isoWeekday(localToday);
   let scheduled = days?.find((d) => d.day_index === todayIndex);
   
-  // Post-swap collision resolution: if yesterday was a swap and today's
-  // scheduled day equals yesterday's completed day, resolve to next in rotation
-  const yesterdayDate = addDays(localToday, -1);
-  const yesterdayIdx = isoWeekday(yesterdayDate);
-  const [yesterdaySessionRes] = await Promise.all([
-    supabase
-      .from("sessions")
-      .select("program_day_id, actual_type")
-      .eq("user_id", user.id)
-      .eq("local_date", yesterdayDate)
-      .eq("status", "completed")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-  
-  const yesterdaySession = yesterdaySessionRes.data;
-  if (yesterdaySession && days && scheduled) {
-    const { wasSwapDay, resolveTomorrowAfterSwap } = await import("@/lib/program/day-plan");
-    const scheduledYesterday = days.find(d => d.day_index === yesterdayIdx);
-    
-    const yesterdayWasSwap = wasSwapDay({
-      completedProgramDayId: yesterdaySession.program_day_id,
-      scheduledProgramDayId: scheduledYesterday?.id ?? null,
-      completedActualType: yesterdaySession.actual_type ?? "",
+  // Apply post-swap collision resolution via shared resolver
+  if (program && scheduled) {
+    const resolved = await resolveTodayProgramDay({
+      supabase,
+      programId: program.id,
+      localToday,
+      userId: user.id,
     });
     
-    if (yesterdayWasSwap && yesterdaySession.program_day_id === scheduled.id) {
-      const rotation = days
-        .filter(d => d.day_type === "weights" || d.day_type === "bodyweight")
-        .sort((a, b) => a.day_index - b.day_index);
-      
-      const resolved = resolveTomorrowAfterSwap({
-        todayWasSwap: yesterdayWasSwap,
-        doneProgramDayId: yesterdaySession.program_day_id,
-        scheduledTomorrow: { programDayId: scheduled.id, label: scheduled.label ?? "" },
-        rotation,
-      });
-      
-      if (resolved) {
-        // Replace scheduled with the resolved next-in-rotation day
-        scheduled = days.find(d => d.id === resolved.programDayId) ?? scheduled;
-      }
+    if (resolved && resolved.programDayId !== scheduled.id) {
+      // Collision detected: replace scheduled with resolved day
+      scheduled = days?.find(d => d.id === resolved.programDayId) ?? scheduled;
     }
   }
 

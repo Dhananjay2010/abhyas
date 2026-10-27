@@ -6,7 +6,7 @@
  */
 
 import { strict as assert } from "assert";
-import { activeDayIndicesAnchored, activeDayIndices } from "../src/lib/program/splits";
+import { activeDayIndicesAnchored } from "../src/lib/program/splits";
 
 console.log("Test: activeDayIndicesAnchored\n");
 

@@ -30,6 +30,96 @@ export function labelForDayType(dayType: DayType, fallback: string | null): stri
 }
 
 /**
+ * Resolve today's program day, applying post-swap collision resolution.
+ * 
+ * Used by both Today page display AND start-session to ensure they agree.
+ */
+export async function resolveTodayProgramDay({
+  supabase,
+  programId,
+  localToday,
+  userId,
+}: {
+  supabase: Client;
+  programId: string;
+  localToday: string;
+  userId: string;
+}): Promise<{ programDayId: string; dayType: string; label: string | null } | null> {
+  const todayIndex = isoWeekday(localToday);
+  const yesterday = addDays(localToday, -1);
+  const yesterdayIndex = isoWeekday(yesterday);
+  
+  const [daysRes, yesterdaySessionRes] = await Promise.all([
+    supabase
+      .from("program_days")
+      .select("id, day_index, day_type, label")
+      .eq("program_id", programId)
+      .eq("status", "active")
+      .order("day_index"),
+    supabase
+      .from("sessions")
+      .select("program_day_id, actual_type")
+      .eq("user_id", userId)
+      .eq("local_date", yesterday)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  
+  const days = daysRes.data ?? [];
+  const scheduledToday = days.find(d => d.day_index === todayIndex);
+  
+  if (!scheduledToday) return null;
+  
+  const yesterdaySession = yesterdaySessionRes.data;
+  if (!yesterdaySession) {
+    return {
+      programDayId: scheduledToday.id,
+      dayType: scheduledToday.day_type,
+      label: scheduledToday.label,
+    };
+  }
+  
+  const scheduledYesterday = days.find(d => d.day_index === yesterdayIndex);
+  const yesterdayWasSwap = wasSwapDay({
+    completedProgramDayId: yesterdaySession.program_day_id,
+    scheduledProgramDayId: scheduledYesterday?.id ?? null,
+    completedActualType: yesterdaySession.actual_type ?? "",
+  });
+  
+  if (yesterdayWasSwap && yesterdaySession.program_day_id === scheduledToday.id) {
+    const rotation = days
+      .filter(d => d.day_type === "weights" || d.day_type === "bodyweight")
+      .sort((a, b) => a.day_index - b.day_index);
+    
+    const resolved = resolveTomorrowAfterSwap({
+      todayWasSwap: yesterdayWasSwap,
+      doneProgramDayId: yesterdaySession.program_day_id,
+      scheduledTomorrow: { programDayId: scheduledToday.id, label: scheduledToday.label ?? "" },
+      rotation,
+    });
+    
+    if (resolved) {
+      const resolvedDay = days.find(d => d.id === resolved.programDayId);
+      if (resolvedDay) {
+        return {
+          programDayId: resolvedDay.id,
+          dayType: resolvedDay.day_type,
+          label: resolvedDay.label,
+        };
+      }
+    }
+  }
+  
+  return {
+    programDayId: scheduledToday.id,
+    dayType: scheduledToday.day_type,
+    label: scheduledToday.label,
+  };
+}
+
+/**
  * The days the "swap the day" prompt can offer.
  *
  * Only the block's strength days, deduplicated by label: a four-day

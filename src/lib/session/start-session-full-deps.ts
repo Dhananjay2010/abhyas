@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "./load-start-program";
+import { resolveTodayProgramDay } from "@/lib/program/day-plan";
 import { startSessionCore } from "./start-session-core";
 import { updateSessionCore } from "./update-session-core";
 import { ensureSessionExercises } from "./ensure-session-exercises";
@@ -73,6 +74,16 @@ export function buildStartSessionFullDeps(
       return await ensureCurrentBlock(supabase, userId, today);
     },
 
+    async resolveTodayDay(programId, today) {
+      const result = await resolveTodayProgramDay({
+        supabase,
+        programId,
+        localToday: today,
+        userId,
+      });
+      return result as { programDayId: string; dayType: Database["public"]["Enums"]["day_type"]; label: string | null } | null;
+    },
+
     async loadProgram(programId, dayIndex) {
       const result = await loadStartProgram(
         createLoadStartProgramDeps(supabase),
@@ -85,6 +96,33 @@ export function buildStartSessionFullDeps(
         program: result.program,
         dayId: result.day.id,
         dayType: result.day.day_type,
+      };
+    },
+
+    async loadProgramDay(programId, programDayId) {
+      // Load program and find the specific day by ID
+      const { data: program, error } = await supabase
+        .from("programs")
+        .select("id, started_on, deload_week, week_offset, program_days(id, day_index, day_type, focus, label)")
+        .eq("program_days.status", "active")
+        .eq("id", programId)
+        .maybeSingle();
+      
+      if (error || !program) {
+        return { ok: false, error: "Could not load the training block." };
+      }
+      
+      const day = program.program_days.find((d: { id: string }) => d.id === programDayId);
+      
+      if (!day) {
+        return { ok: false, error: "No plan for today." };
+      }
+      
+      return {
+        ok: true,
+        program,
+        dayId: day.id,
+        dayType: day.day_type,
       };
     },
 
