@@ -14,6 +14,15 @@ import { setEquipmentItemCore } from "../src/lib/settings/equipment-core";
 import { setInjuryCore } from "../src/lib/settings/injury-core";
 import { replayPendingOps, type PendingChange } from "../src/lib/settings/restore-pending";
 
+// Skip unless REAL_DB=1
+if (process.env.REAL_DB !== "1") {
+  console.log("\n⏭️  Skipping real DB tests (REAL_DB=1 not set)");
+  console.log(
+    "   Set REAL_DB=1 to run these tests against a local Supabase instance\n",
+  );
+  process.exit(0);
+}
+
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

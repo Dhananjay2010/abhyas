@@ -52,36 +52,34 @@ console.log("1. Multiple sets - uses chronologically latest working set");
   assertEquals(duration, expectedDuration, "uses latest working set, not warm-up");
 }
 
-console.log("\n2. Passing only last set would fail - multiple sets needed");
+console.log("\n2. Multiple sets spanning 30 minutes - passing only last set would give 0");
 {
   const session = {
     duration_seconds: null,
     started_at: "2026-10-27T10:00:00Z",
   };
   
-  // Three working sets at different times
+  // Three working sets spanning 30 minutes total
   const sets = [
-    { completed_at: "2026-10-27T10:05:00Z", logged_at: null, is_warmup_set: false },
     { completed_at: "2026-10-27T10:10:00Z", logged_at: null, is_warmup_set: false },
-    { completed_at: "2026-10-27T10:15:00Z", logged_at: null, is_warmup_set: false },
+    { completed_at: "2026-10-27T10:20:00Z", logged_at: null, is_warmup_set: false },
+    { completed_at: "2026-10-27T10:30:00Z", logged_at: null, is_warmup_set: false },
   ];
   
-  // If we only passed the last set, we'd get 15 minutes
+  // Full duration: started_at (10:00) to last working set (10:30) = 30 minutes
   const fullDuration = computeDetailPageDuration(session, sets);
+  assertEquals(fullDuration, 30 * 60, "full duration is 30 minutes");
   
-  // But if someone only passed the last set, they'd get:
+  // Mutant check: if page.tsx only passed the last set, computeDetailPageDuration
+  // would use 10:30 as started_at (from the one set), giving duration = 0 (returned as null)
+  // This proves the page must pass ALL sets, not just the last one
   const lastSetOnly = [sets[2]];
-  const wrongDuration = computeDetailPageDuration(session, lastSetOnly);
-  
-  // The full duration should be 15 minutes
-  assertEquals(fullDuration, 15 * 60, "full duration is 15 minutes");
-  
-  // Passing only last set also gives 15 minutes (since it's the only set)
-  assertEquals(wrongDuration, 15 * 60, "last set only also gives 15 minutes (but wrong input)");
-  
-  // The test ensures we pass ALL sets, not just the last one
-  // If someone changed the page to only pass the last set, other tests would catch it
-  // because the chronological ordering would be wrong
+  const lastSetSession = {
+    duration_seconds: null,
+    started_at: "2026-10-27T10:30:00Z", // Same as the only set
+  };
+  const wrongDuration = computeDetailPageDuration(lastSetSession, lastSetOnly);
+  assertEquals(wrongDuration, null, "passing only last set with its time gives null duration (0 is invalid)");
 }
 
 console.log("\n3. Complex session: 5/5/2/2 Full Body with warm-ups");

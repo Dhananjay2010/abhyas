@@ -69,6 +69,7 @@ console.log("1. Update matches 0 rows - exercise statuses NOT updated");
             session_sets: [
               { id: "set1", is_warmup_set: false, completed_at: NOW },
             ],
+            status: "pending" as const, // Exercise is pending, not completed yet
           },
         ],
         error: null,
@@ -150,6 +151,7 @@ console.log("\n2. First call updates, second call matches 0 rows");
             session_sets: [
               { id: "set1", is_warmup_set: false, completed_at: NOW },
             ],
+            status: exerciseStatus, // Track exercise status
           },
         ],
         error: null,
@@ -246,6 +248,14 @@ console.log("\n3. Multiple exercises - statuses unchanged on 0-row update");
             session_sets: [
               { id: "set1", is_warmup_set: false, completed_at: NOW },
             ],
+            status: "pending" as const, // Exercise is pending
+          },
+          {
+            rest_seconds: null,
+            session_sets: [
+              { id: "set2", is_warmup_set: false, completed_at: NOW },
+            ],
+            status: "pending" as const, // Exercise is pending
           },
         ],
         error: null,
