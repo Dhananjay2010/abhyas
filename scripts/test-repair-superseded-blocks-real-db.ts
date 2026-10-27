@@ -63,12 +63,15 @@ async function testDatabaseConnection() {
 
 /**
  * Execute SQL file via psql
+ * @param filePath Path to SQL file
+ * @param tuplesOnly If true, use -tA flags (tuples only, unaligned) for detection queries
  */
-function executeSQLFile(filePath: string, expectOutput = false): string {
+function executeSQLFile(filePath: string, tuplesOnly = false): string {
   try {
+    const flags = tuplesOnly ? "-tA -v ON_ERROR_STOP=1" : "-v ON_ERROR_STOP=1";
     const result = execSync(
-      `psql "${dbUrl}" -v ON_ERROR_STOP=1 -f "${filePath}"`,
-      { encoding: "utf-8", stdio: expectOutput ? "pipe" : "inherit" }
+      `psql "${dbUrl}" ${flags} -f "${filePath}"`,
+      { encoding: "utf-8", stdio: "pipe" }
     );
     return result;
   } catch (error) {
@@ -448,26 +451,52 @@ async function runTests() {
       // Run detection SQL (should find user 1's broken block)
       console.log("\n  Running detection SQL (before repair)...");
       const detectPath = join(process.cwd(), "scripts/sql/detect-superseded-ended-blocks.sql");
-      const detectOutput = executeSQLFile(detectPath, true);
-      const detectLines = detectOutput.trim().split("\n").filter(l => l && !l.includes("---") && !l.includes("superseded_block_id"));
-      assert(detectLines.length >= 1, "Detection finds at least 1 broken block", `found ${detectLines.length} lines`);
+      const detectOutputBefore = executeSQLFile(detectPath, true);
+      assert(detectOutputBefore.includes(blockId1), 
+        "Detection finds user 1's broken block", 
+        `output does not contain ${blockId1}`);
+      assert(!detectOutputBefore.includes(blockId2), 
+        "Detection does NOT find user 2's legitimate mid-block rebuild", 
+        `output should not contain ${blockId2}`);
 
       // Run repair SQL (first time)
       console.log("\n  Running repair SQL (first time)...");
       const repairPath = join(process.cwd(), "scripts/sql/repair-superseded-ended-blocks.sql");
-      executeSQLFile(repairPath);
+      executeSQLFile(repairPath, false);
       assert(true, "Repair SQL executed successfully (first time)");
+
+      // Snapshot all programs for both users after first repair
+      const { data: programsAfterFirstRepair } = await adminClient
+        .from("programs")
+        .select("*")
+        .in("user_id", [userId, userId2])
+        .order("id");
 
       // Run repair SQL (second time, idempotency test)
       console.log("\n  Running repair SQL (second time, idempotency)...");
-      executeSQLFile(repairPath);
+      executeSQLFile(repairPath, false);
       assert(true, "Repair SQL executed successfully (second time, idempotent)");
+
+      // Snapshot all programs after second repair
+      const { data: programsAfterSecondRepair } = await adminClient
+        .from("programs")
+        .select("*")
+        .in("user_id", [userId, userId2])
+        .order("id");
+
+      // Assert second repair was a no-op (byte-identical)
+      assert(JSON.stringify(programsAfterFirstRepair) === JSON.stringify(programsAfterSecondRepair),
+        "Second repair run is a no-op (programs unchanged)");
 
       // Run detection SQL again (should find nothing)
       console.log("\n  Running detection SQL (after repair)...");
-      const detectOutput2 = executeSQLFile(detectPath, true);
-      const detectLines2 = detectOutput2.trim().split("\n").filter(l => l && !l.includes("---") && !l.includes("superseded_block_id"));
-      assert(detectLines2.length === 0, "Detection finds 0 broken blocks after repair", `found ${detectLines2.length} lines`);
+      const detectOutputAfter = executeSQLFile(detectPath, true);
+      assert(!detectOutputAfter.includes(blockId1), 
+        "Detection does NOT find user 1's block after repair", 
+        `output should not contain ${blockId1}`);
+      assert(!detectOutputAfter.includes(blockId2), 
+        "Detection does NOT find user 2's block after repair", 
+        `output should not contain ${blockId2}`);
 
       // Verify user 1: block 1 is now 'completed'
       const { data: block1After } = await adminClient
