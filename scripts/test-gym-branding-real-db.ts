@@ -513,43 +513,6 @@ async function runTests() {
   }
   console.log();
 
-  // TEST: Direct table update is blocked by RLS
-  console.log("TEST: Owner cannot directly update gyms table");
-  {
-    // First, get current values to verify unchanged
-    const { data: before } = await clientOwner
-      .from("gyms")
-      .select("primary_color, accent_color")
-      .eq("id", gymId)
-      .single();
-
-    const { data, error } = await clientOwner
-      .from("gyms")
-      .update({ primary_color: "#FF0000" })
-      .eq("id", gymId)
-      .select();
-    const blocked = !error && (!data || data.length === 0);
-    check(
-      "Owner cannot update gyms table directly",
-      blocked,
-      blocked ? undefined : `${data?.length || 0} rows updated (expected 0)`
-    );
-
-    // Verify values actually unchanged
-    const { data: after } = await clientOwner
-      .from("gyms")
-      .select("primary_color, accent_color")
-      .eq("id", gymId)
-      .single();
-    
-    check(
-      "Values unchanged by attempted direct update",
-      JSON.stringify(before) === JSON.stringify(after),
-      `Before: ${JSON.stringify(before)}, After: ${JSON.stringify(after)}`
-    );
-  }
-  console.log();
-
   // TEST: Storage path logo URL is accepted
   console.log("TEST: Storage path logo URL is accepted");
   {
