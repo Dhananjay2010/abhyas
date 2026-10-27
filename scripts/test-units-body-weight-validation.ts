@@ -105,7 +105,7 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
       React.createElement(LogWeight, {
         current: null,
         units,
-        logAction: async (kg: number) => {
+        logAction: async () => {
           progressAccepted = true;
           return { ok: true as const };
         }
@@ -168,13 +168,11 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
     }
 
     // Test Onboarding body-weight input (from OnboardingFlow at "about" step)
-    let onboardingAccepted = false;
     let onboardingError: string | null = null;
 
     const mockActions = {
       acceptDisclaimer: async () => ({ ok: true as const }),
-      saveAboutYou: async (data: { dateOfBirth: string; sex: string; heightCm: number; weightKg: number }) => {
-        onboardingAccepted = true;
+      saveAboutYou: async () => {
         return { ok: true as const };
       },
       saveProfileFields: async () => ({ ok: true as const }),
@@ -186,6 +184,7 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
 
     const initialState = {
       current: "about" as const,
+      displayName: null,
       disclaimerAccepted: true,
       dateOfBirth: "1990-01-01",
       sex: "male" as const,
