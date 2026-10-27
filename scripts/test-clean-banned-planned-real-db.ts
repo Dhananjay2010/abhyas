@@ -90,15 +90,20 @@ async function runTests() {
 
   console.log("Clean Banned Planned Tests\n");
 
-  // Get a banned exercise (e.g., barbell-back-squat for knee users)
-  const { data: catalogue } = await adminClient
+  // Get a banned exercise (kettlebell-thruster for current-knee users)
+  const { data: catalogue, error: catalogueError } = await adminClient
     .from("exercises")
     .select("id, slug")
     .eq("is_active", true);
 
-  const bannedSlug = "barbell-back-squat";
+  if (catalogueError) {
+    console.error("❌ Failed to load catalogue:", catalogueError);
+    return false;
+  }
+
+  const bannedSlug = "kettlebell-thruster";
   const bannedExercise = catalogue?.find((e) => e.slug === bannedSlug);
-  const replacementSlug = "goblet-squat";
+  const replacementSlug = "one-arm-kettlebell-push-press";
   const replacementExercise = catalogue?.find((e) => e.slug === replacementSlug);
 
   if (!bannedExercise || !replacementExercise) {
