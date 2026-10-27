@@ -8,7 +8,7 @@
  */
 
 import "./helpers/setup-jsdom";
-import { render, waitFor, act } from "@testing-library/react";
+import { render, waitFor, act, screen, cleanup } from "@testing-library/react";
 import {
   SessionRunner,
   type RunnerExercise,
@@ -43,7 +43,10 @@ if (typeof window !== "undefined") {
   });
 }
 
-const SESSION_ID = "test-session";
+// Mock Date.now to control time
+let now = 1000000;
+Date.now = () => now;
+
 let passedCd1 = 0;
 let failedCd1 = 0;
 
@@ -96,24 +99,26 @@ const settings: RunnerSettings = {
   units: "metric" as const,
 };
 
+const ok = async () => ({ ok: true }) as const;
+
 (async function main() {
 console.log("\ncd1: Rest persistence cleared only after finishSession succeeds\n");
 
-const restKey = `abhyas:rest:${SESSION_ID}`;
-
-console.log("1. finishSession fails - rest persistence NOT cleared");
+console.log("1. Done button: finishSession fails - rest persistence NOT cleared");
 {
+  const SESSION_ID = "test-session-1";
+  const restKey = `abhyas:rest:${SESSION_ID}`;
+  
   // Clear and pre-seed storage
   fakeStorage.data.clear();
   fakeStorage.setItem(restKey, JSON.stringify({
     sessionId: SESSION_ID,
     sessionExerciseId: "ex-completed-1",
-    restEndsAt: Date.now() + 90000,
+    restEndsAt: now + 90000,
   }));
 
   let finishAttempts = 0;
-  const ok = async () => ({ ok: true }) as const;
-  const actions = {
+  const actions: SessionActions = {
     markWarmupDone: ok,
     logSet: async () => ({ ok: true as const }),
     deleteSet: ok,
@@ -126,9 +131,18 @@ console.log("1. finishSession fails - rest persistence NOT cleared");
     abandonSession: ok,
     planDay: ok,
     refreshAfterSession: async () => ({ ok: true as const }),
-    swapExercise: async () => ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
+    swapExercise: async () => ({ ok: true as const, data: {
+      metric: "reps" as const,
+      repsMin: 8,
+      repsMax: 12,
+      equipmentIds: [],
+      weightPrefill: null,
+      workingWeightKg: null,
+      currentTargetReps: null,
+      isBodyweight: false,
+    }}),
     findAlternatives: async () => ({ ok: true as const, data: [] }),
-  } as unknown as SessionActions;
+  };
 
   const { container } = render(
     <SessionRunner
@@ -136,7 +150,7 @@ console.log("1. finishSession fails - rest persistence NOT cleared");
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
-      startedAt={new Date().toISOString()}
+      startedAt={new Date(now).toISOString()}
       isStale={false}
       warmup={[]}
       cooldown={[]}
@@ -146,39 +160,44 @@ console.log("1. finishSession fails - rest persistence NOT cleared");
     />
   );
 
-  await act(async () => { await waitFor(() => container.querySelector("button"), { timeout: 1000 }); });
+  await act(async () => {
+    await waitFor(() => {
+      const btn = screen.queryByText(/Done/i);
+      if (!btn) throw new Error("Waiting for Done button");
+    }, { timeout: 2000 });
+  });
 
-  const cooldownButton = Array.from(container.querySelectorAll("button")).find(
-    (btn) => btn.textContent?.includes("Done")
-  );
+  const cooldownButton = screen.getByText(/Done/i);
 
   assertEqualsCd1(!!cooldownButton, true, "Cool-down Done button present");
   assertEqualsCd1(fakeStorage.data.has(restKey), true, "rest persistence exists before finish");
 
-  if (cooldownButton) {
-    await act(async () => {
-      cooldownButton.click();
-      await new Promise(resolve => setTimeout(resolve, 100));
-    });
-  }
+  await act(async () => {
+    cooldownButton.click();
+    await waitFor(() => finishAttempts > 0, { timeout: 1000 });
+  });
 
   assertEqualsCd1(finishAttempts, 1, "finishSession was called");
   assertEqualsCd1(fakeStorage.data.has(restKey), true, "rest persistence NOT cleared after failed finish");
+  
+  cleanup();
 }
 
-console.log("\n2. finishSession succeeds - rest persistence cleared");
+console.log("\n2. Done button: finishSession succeeds - rest persistence cleared");
 {
+  const SESSION_ID = "test-session-2";
+  const restKey = `abhyas:rest:${SESSION_ID}`;
+  
   // Clear and pre-seed storage
   fakeStorage.data.clear();
   fakeStorage.setItem(restKey, JSON.stringify({
     sessionId: SESSION_ID,
     sessionExerciseId: "ex-completed-2",
-    restEndsAt: Date.now() + 90000,
+    restEndsAt: now + 90000,
   }));
 
   let finishAttempts = 0;
-  const ok = async () => ({ ok: true }) as const;
-  const actions = {
+  const actions: SessionActions = {
     markWarmupDone: ok,
     logSet: async () => ({ ok: true as const }),
     deleteSet: ok,
@@ -197,9 +216,18 @@ console.log("\n2. finishSession succeeds - rest persistence cleared");
     abandonSession: ok,
     planDay: ok,
     refreshAfterSession: async () => ({ ok: true as const }),
-    swapExercise: async () => ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
+    swapExercise: async () => ({ ok: true as const, data: {
+      metric: "reps" as const,
+      repsMin: 8,
+      repsMax: 12,
+      equipmentIds: [],
+      weightPrefill: null,
+      workingWeightKg: null,
+      currentTargetReps: null,
+      isBodyweight: false,
+    }}),
     findAlternatives: async () => ({ ok: true as const, data: [] }),
-  } as unknown as SessionActions;
+  };
 
   const { container } = render(
     <SessionRunner
@@ -207,7 +235,7 @@ console.log("\n2. finishSession succeeds - rest persistence cleared");
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
-      startedAt={new Date().toISOString()}
+      startedAt={new Date(now).toISOString()}
       isStale={false}
       warmup={[]}
       cooldown={[]}
@@ -217,29 +245,193 @@ console.log("\n2. finishSession succeeds - rest persistence cleared");
     />
   );
 
-  await act(async () => { await waitFor(() => container.querySelector("button"), { timeout: 1000 }); });
+  await act(async () => {
+    await waitFor(() => {
+      const btn = screen.queryByText(/Done/i);
+      if (!btn) throw new Error("Waiting for Done button");
+    }, { timeout: 2000 });
+  });
 
-  const cooldownButton = Array.from(container.querySelectorAll("button")).find(
-    (btn) => btn.textContent?.includes("Done")
-  );
+  const cooldownButton = screen.getByText(/Done/i);
 
   assertEqualsCd1(!!cooldownButton, true, "Cool-down Done button present");
   assertEqualsCd1(fakeStorage.data.has(restKey), true, "rest persistence exists before finish");
 
-  if (cooldownButton) {
-    await act(async () => {
-      cooldownButton.click();
-      await new Promise(resolve => setTimeout(resolve, 100));
-    });
-    
-    // Wait for state updates to complete
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 200));
-    });
-  }
+  await act(async () => {
+    cooldownButton.click();
+    await waitFor(() => finishAttempts > 0, { timeout: 1000 });
+    await waitFor(() => !fakeStorage.data.has(restKey), { timeout: 1000 });
+  });
 
   assertEqualsCd1(finishAttempts, 1, "finishSession was called");
   assertEqualsCd1(fakeStorage.data.has(restKey), false, "rest persistence cleared after successful finish");
+  
+  cleanup();
+}
+
+console.log("\n3. Skip button: finishSession fails - rest persistence NOT cleared");
+{
+  const SESSION_ID = "test-session-3";
+  const restKey = `abhyas:rest:${SESSION_ID}`;
+  
+  // Clear and pre-seed storage
+  fakeStorage.data.clear();
+  fakeStorage.setItem(restKey, JSON.stringify({
+    sessionId: SESSION_ID,
+    sessionExerciseId: "ex-completed-3",
+    restEndsAt: now + 90000,
+  }));
+
+  let finishAttempts = 0;
+  const actions: SessionActions = {
+    markWarmupDone: ok,
+    logSet: async () => ({ ok: true as const }),
+    deleteSet: ok,
+    finishExercise: async () => ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: async () => {
+      finishAttempts++;
+      return { ok: false, error: "Network error" };
+    },
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => ({ ok: true as const, data: {
+      metric: "reps" as const,
+      repsMin: 8,
+      repsMax: 12,
+      equipmentIds: [],
+      weightPrefill: null,
+      workingWeightKg: null,
+      currentTargetReps: null,
+      isBodyweight: false,
+    }}),
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+  };
+
+  const { container } = render(
+    <SessionRunner
+      sessionId={SESSION_ID}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(now).toISOString()}
+      isStale={false}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[makeExercise("ex-completed-3", "Deadlift", "completed")]}
+      settings={settings}
+      actions={actions}
+    />
+  );
+
+  await act(async () => {
+    await waitFor(() => {
+      const btn = screen.queryByText(/Skip/i);
+      if (!btn) throw new Error("Waiting for Skip button");
+    }, { timeout: 2000 });
+  });
+
+  const skipButton = screen.getByText(/Skip/i);
+
+  assertEqualsCd1(!!skipButton, true, "Skip cool-down button present");
+  assertEqualsCd1(fakeStorage.data.has(restKey), true, "rest persistence exists before finish");
+
+  await act(async () => {
+    skipButton.click();
+    await waitFor(() => finishAttempts > 0, { timeout: 1000 });
+  });
+
+  assertEqualsCd1(finishAttempts, 1, "finishSession was called");
+  assertEqualsCd1(fakeStorage.data.has(restKey), true, "rest persistence NOT cleared after failed finish");
+  
+  cleanup();
+}
+
+console.log("\n4. Skip button: finishSession succeeds - rest persistence cleared");
+{
+  const SESSION_ID = "test-session-4";
+  const restKey = `abhyas:rest:${SESSION_ID}`;
+  
+  // Clear and pre-seed storage
+  fakeStorage.data.clear();
+  fakeStorage.setItem(restKey, JSON.stringify({
+    sessionId: SESSION_ID,
+    sessionExerciseId: "ex-completed-4",
+    restEndsAt: now + 90000,
+  }));
+
+  let finishAttempts = 0;
+  const actions: SessionActions = {
+    markWarmupDone: ok,
+    logSet: async () => ({ ok: true as const }),
+    deleteSet: ok,
+    finishExercise: async () => ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: async (params: { sessionId: string; durationSeconds: number; cooldownCompleted: boolean }) => {
+      finishAttempts++;
+      return {
+        ok: true,
+        data: {
+          status: "completed" as const,
+          durationSeconds: params.durationSeconds,
+        },
+      };
+    },
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => ({ ok: true as const, data: {
+      metric: "reps" as const,
+      repsMin: 8,
+      repsMax: 12,
+      equipmentIds: [],
+      weightPrefill: null,
+      workingWeightKg: null,
+      currentTargetReps: null,
+      isBodyweight: false,
+    }}),
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+  };
+
+  const { container } = render(
+    <SessionRunner
+      sessionId={SESSION_ID}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(now).toISOString()}
+      isStale={false}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[makeExercise("ex-completed-4", "OHP", "completed")]}
+      settings={settings}
+      actions={actions}
+    />
+  );
+
+  await act(async () => {
+    await waitFor(() => {
+      const btn = screen.queryByText(/Skip/i);
+      if (!btn) throw new Error("Waiting for Skip button");
+    }, { timeout: 2000 });
+  });
+
+  const skipButton = screen.getByText(/Skip/i);
+
+  assertEqualsCd1(!!skipButton, true, "Skip cool-down button present");
+  assertEqualsCd1(fakeStorage.data.has(restKey), true, "rest persistence exists before finish");
+
+  await act(async () => {
+    skipButton.click();
+    await waitFor(() => finishAttempts > 0, { timeout: 1000 });
+    await waitFor(() => !fakeStorage.data.has(restKey), { timeout: 1000 });
+  });
+
+  assertEqualsCd1(finishAttempts, 1, "finishSession was called");
+  assertEqualsCd1(fakeStorage.data.has(restKey), false, "rest persistence cleared after successful finish");
+  
+  cleanup();
 }
 
 console.log(`\n✅ Passed: ${passedCd1}`);

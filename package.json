@@ -473,7 +473,7 @@
     "test:default-runs-skip": "bash scripts/test-default-runs-skip.sh",
     "ci:mutant-gym-domains": "bash scripts/mutant-test-gym-domains.sh",
     "test:l2-close-stale-rest-consistency": "tsx scripts/test-l2-close-stale-rest-consistency.ts",
-    "test:cd1-runner-rest-clearance": "tsx scripts/test-cd1-runner-rest-clearance.ts",
+    "test:cd1-runner-rest-clearance": "tsx scripts/test-cd1-runner-rest-clearance.tsx",
     "test:qa-finish-retry-zero-rows": "tsx scripts/test-qa-finish-retry-zero-rows.ts",
     "test:qa-low-a-warmup-duration-filter": "tsx scripts/test-qa-low-a-warmup-duration-filter.ts",
     "test:qa-low-b-detail-page-duration-call": "tsx scripts/test-qa-low-b-detail-page-duration-call.ts"
