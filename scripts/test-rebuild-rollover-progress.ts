@@ -270,11 +270,11 @@ async function runTests() {
 
       // Now: 2026-10-27, block 1 has ended (ends_on 2026-10-26 < 2026-10-27)
       // Call the REAL rebuild path via rebuildPlanCore
-      const { buildRebuildPlanDepsWithToday } = await import("../src/lib/program/rebuild-plan-deps.js");
+      const { buildRebuildPlanDeps } = await import("../src/lib/program/rebuild-plan-deps.js");
       const { rebuildPlanCore } = await import("../src/lib/program/rebuild-plan-core.js");
       
       const supabase = createTestSupabaseAdapter(pool, userId);
-      const deps = buildRebuildPlanDepsWithToday(supabase, userId, "2026-10-27");
+      const deps = buildRebuildPlanDeps(supabase, userId, "2026-10-27");
       const rebuildResult = await rebuildPlanCore(deps);
 
       assert(rebuildResult.ok, "Rebuild succeeded", rebuildResult.ok ? "" : rebuildResult.error);
@@ -453,11 +453,11 @@ async function runTests() {
       `, [blockId1, userId]);
 
       // Rebuild mid-block on 2026-10-15
-      const { buildRebuildPlanDepsWithToday } = await import("../src/lib/program/rebuild-plan-deps.js");
+      const { buildRebuildPlanDeps } = await import("../src/lib/program/rebuild-plan-deps.js");
       const { rebuildPlanCore } = await import("../src/lib/program/rebuild-plan-core.js");
       
       const supabase = createTestSupabaseAdapter(pool, userId);
-      const deps = buildRebuildPlanDepsWithToday(supabase, userId, "2026-10-15");
+      const deps = buildRebuildPlanDeps(supabase, userId, "2026-10-15");
       await rebuildPlanCore(deps);
 
       const { rows: activeBlocks } = await pool.query(
@@ -522,20 +522,44 @@ async function runTests() {
     {
       const { progressStartDate } = await import("../src/lib/progress/progress-start-date.js");
 
-      // Rest sessions don't count toward days trained, so they shouldn't affect start date
-      // Only actual training sessions matter
+      // Rest/breathing/skipped sessions don't count toward days trained, so they 
+      // shouldn't affect start date - progressStartDate now filters via countsTowardStreak
       const result1 = progressStartDate({
         programs: [{ startedOn: "2026-10-15" }],
         completedSessions: [
-          { local_date: "2026-10-05", actual_type: "rest", status: "completed", working_set_count: 0 },
-          { local_date: "2026-10-06", actual_type: "weights", status: "completed", working_set_count: 1 },
+          { local_date: "2026-10-05", actual_type: "rest" as const, status: "completed", working_set_count: 0 },
+          { local_date: "2026-10-06", actual_type: "weights" as const, status: "completed", working_set_count: 1 },
         ],
       });
 
-      // progressStartDate uses ALL sessions, but countsTowardStreak filters them later in buildDayRecords
-      assert(result1 === "2026-10-05", "progressStartDate includes all sessions", `got ${result1}`);
+      // progressStartDate now filters via countsTowardStreak, so only the weights session counts
+      assert(result1 === "2026-10-06", "progressStartDate filters to qualifying sessions", `got ${result1}`);
 
-      console.log("  PASS: breathing/rest session unit test\n");
+      // Test with breathing session dated earliest
+      const result2 = progressStartDate({
+        programs: [{ startedOn: "2026-10-20" }],
+        completedSessions: [
+          { local_date: "2026-10-01", actual_type: "meditation" as const, status: "completed", working_set_count: 0 },
+          { local_date: "2026-10-10", actual_type: "yoga" as const, status: "completed", working_set_count: 0 },
+        ],
+      });
+
+      // Breathing doesn't count, but yoga does - so yoga session is the first
+      assert(result2 === "2026-10-10", "Breathing session ignored, yoga session used", `got ${result2}`);
+
+      // Test with skipped session dated earliest
+      const result3 = progressStartDate({
+        programs: [{ startedOn: "2026-10-20" }],
+        completedSessions: [
+          { local_date: "2026-10-05", actual_type: "weights" as const, status: "skipped", working_set_count: 0 },
+          { local_date: "2026-10-15", actual_type: "weights" as const, status: "completed", working_set_count: 1 },
+        ],
+      });
+
+      // Skipped session doesn't count
+      assert(result3 === "2026-10-15", "Skipped session ignored", `got ${result3}`);
+
+      console.log("  PASS: breathing/rest/skipped session unit test\n");
     }
 
     await pool.end();

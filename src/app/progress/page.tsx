@@ -11,6 +11,7 @@ import { formatVolumeLifted } from "@/lib/session/format-volume-lifted";
 import { LogWeight } from "./log-weight";
 import { loadProgramDays } from "@/lib/progress/load-program-days";
 import { buildVolumeChartPoints, buildBodyWeightChartPoints } from "@/lib/progress/chart-points";
+import { progressStartDate } from "@/lib/progress/progress-start-date";
 
 export const dynamic = "force-dynamic";
 
@@ -162,7 +163,6 @@ export default async function ProgressPage() {
   // Fix pd-b: Start from the EARLIER of first non-superseded block's started_on
   // and first completed session's local_date, so sessions always count even if
   // an ended block was marked superseded instead of completed.
-  const { progressStartDate } = await import("@/lib/progress/progress-start-date");
   const effectiveStart = progressStartDate({
     programs,
     completedSessions,

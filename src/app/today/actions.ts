@@ -3,7 +3,7 @@
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
-import { buildRebuildPlanDepsWithToday } from "@/lib/program/rebuild-plan-deps";
+import { buildRebuildPlanDeps } from "@/lib/program/rebuild-plan-deps";
 import { rebuildPlanCore } from "@/lib/program/rebuild-plan-core";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { localDateString } from "@/lib/dates";
@@ -37,7 +37,7 @@ export async function buildPlan(): Promise<BuildPlanResult> {
   const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
   const today = localDateString(timezone);
 
-  const deps = buildRebuildPlanDepsWithToday(supabase, user.id, today);
+  const deps = buildRebuildPlanDeps(supabase, user.id, today);
   const result = await rebuildPlanCore(deps);
   if (!result.ok) {
     return { ok: false, error: result.error };
