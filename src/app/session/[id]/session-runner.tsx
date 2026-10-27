@@ -337,6 +337,13 @@ export function SessionRunner({
     }
   }, [controller]);
 
+  // Clear sessionExpired when pending sets are successfully replayed
+  useEffect(() => {
+    if (pendingSetState.expired === false && pendingSetState.pending.length === 0 && pendingSetState.replayed.length > 0) {
+      setSessionExpired(false);
+    }
+  }, [pendingSetState]);
+
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
   /*
