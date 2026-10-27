@@ -66,7 +66,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
     { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null },
   ]);
 
-  let finishCalls: Array<{ cooldownCompleted?: boolean }> = [];
+  const finishCalls: Array<{ cooldownCompleted?: boolean }> = [];
   const actions1: SessionActions = {
     markWarmupDone: ok,
     logSet: async () => ({ ok: true }),
@@ -179,7 +179,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
       startedAt={new Date().toISOString()}
       isStale={false}
       warmup={[]}
-      cooldown={[{ id: "c2", name: "Quad stretch", slug: "quad-stretch", type: "stretch", target_regions: ["lower_back"], target_muscles: ["quads"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
+      cooldown={[{ id: "c2", name: "Quad stretch", slug: "quad-stretch", type: "stretch", phase: "stretch", target_regions: ["lower_back"], target_muscles: ["quads"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
       exercises={[exercise2]}
       settings={settings}
       actions={actions2}
@@ -252,7 +252,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
       startedAt={new Date().toISOString()}
       isStale={false}
       warmup={[]}
-      cooldown={[{ id: "c3", name: "Hip stretch", slug: "hip-stretch", type: "stretch", target_regions: ["hip"], target_muscles: ["hip_flexors"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
+      cooldown={[{ id: "c3", name: "Hip stretch", slug: "hip-stretch", type: "stretch", phase: "stretch", target_regions: ["hip"], target_muscles: ["hip_flexors"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
       exercises={[exercise3]}
       settings={settings}
       actions={actions3}
