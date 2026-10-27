@@ -714,10 +714,10 @@ export function SessionRunner({
   const nextSetNumber = setsDone + 1;
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
-  // For imperial: snap prescription to lb grid so prefill matches working weight line.
+  // For stored weights: use the raw kg so runner prefill matches History display.
   const lastWeight =
     [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ??
-    snapPrescribedWeight(current.suggestedWeightKg, settings.units);
+    current.suggestedWeightKg;
 
   /**
    * What the reps field starts on — and, for the first set, nothing.
@@ -901,10 +901,7 @@ export function SessionRunner({
         {current.workingWeightKg !== null && (
           <p className="mt-2 text-sm text-muted">
             Working weight {formatLoad(
-              snapPrescribedWeight(
-                current.suggestedWeightKg ?? current.workingWeightKg,
-                settings.units
-              ),
+              current.suggestedWeightKg ?? current.workingWeightKg,
               settings.units
             )}
           </p>

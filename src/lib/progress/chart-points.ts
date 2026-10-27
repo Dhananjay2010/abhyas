@@ -45,7 +45,8 @@ export function buildBodyWeightChartPoints(
   return rows.map((w) => {
     const kg = Number(w.weight_kg);
     const displayValue = kgToDisplay(kg, units);
-    const value = units === "imperial" ? roundLbToHalf(displayValue) : displayValue;
+    // Round to 0.1 precision for body weight (both units)
+    const value = Math.round(displayValue * 10) / 10;
     return {
       label: shortDate(w.recorded_on),
       value,

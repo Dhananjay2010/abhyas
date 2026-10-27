@@ -47,7 +47,7 @@ import { branding } from "@/lib/branding";
 import {
   formatWeight,
   formatHeight,
-  parseWeight,
+  parseBodyWeight,
   parseHeight,
   weightLabel,
   heightLabel,
@@ -296,7 +296,7 @@ export function OnboardingFlow({
   if (current === "about") {
     // Parse height and weight from user input
     const heightCmValue = parseHeight(heightCm, units);
-    const weightKgValue = parseWeight(weightKg, units);
+    const weightKgValue = parseBodyWeight(weightKg, units);
     
     // Get today as ISO string for validation
     const today = new Date();

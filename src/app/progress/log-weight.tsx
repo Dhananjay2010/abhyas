@@ -2,7 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { logBodyWeight } from "./actions";
-import { formatBodyWeight, parseBodyWeight, weightLabel, type UnitsPreference } from "@/lib/units";
+import { 
+  formatBodyWeight, 
+  parseBodyWeight, 
+  weightLabel, 
+  BODY_WEIGHT_LB_MIN,
+  BODY_WEIGHT_LB_MAX,
+  WEIGHT_KG_MIN,
+  WEIGHT_KG_MAX,
+  type UnitsPreference 
+} from "@/lib/units";
 
 export function LogWeight({ 
   current,
@@ -53,8 +62,8 @@ export function LogWeight({
               if (weightKg === null) {
                 setError(
                   units === "imperial"
-                    ? "Weight should be between 55 and 661 lb"
-                    : "Weight should be between 25 and 300 kg"
+                    ? `Weight should be between ${BODY_WEIGHT_LB_MIN} and ${BODY_WEIGHT_LB_MAX} lb`
+                    : `Weight should be between ${WEIGHT_KG_MIN} and ${WEIGHT_KG_MAX} kg`
                 );
                 return;
               }

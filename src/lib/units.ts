@@ -146,9 +146,9 @@ export function formatWeight(
     return includeLabel ? `${formatted} lb` : formatted;
   }
 
-  // Metric: round to 1 decimal place
-  const rounded = Math.round(kg * 10) / 10;
-  const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+  // Metric: round to 0.25 kg grid for set weights
+  const rounded = Math.round(kg * 4) / 4;
+  const formatted = rounded.toFixed(2).replace(/\.?0+$/, "");
   return includeLabel ? `${formatted} kg` : formatted;
 }
 
