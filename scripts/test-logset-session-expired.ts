@@ -56,9 +56,13 @@ async function testExpiredAuth() {
   });
   
   assert("ok" in result && result.ok === false, "Result has ok: false");
-  assert("code" in result, "Result has code field");
-  assert(result.code === SESSION_EXPIRED_CODE, `Result code is SESSION_EXPIRED_CODE (${SESSION_EXPIRED_CODE})`);
-  assert(result.error === "Not signed in", "Result error message is 'Not signed in'");
+  if ("ok" in result && !result.ok && "code" in result) {
+    assert(true, "Result has code field");
+    assert(result.code === SESSION_EXPIRED_CODE, `Result code is SESSION_EXPIRED_CODE (${SESSION_EXPIRED_CODE})`);
+    assert(result.error === "Not signed in", "Result error message is 'Not signed in'");
+  } else {
+    throw new Error("Expected result with code field");
+  }
   
   console.log("✓ Test 1 passed\n");
 }

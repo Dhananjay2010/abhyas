@@ -123,7 +123,6 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
       exercises={[exercise1]}
       settings={settings}
       actions={actions1}
-      storage={fakeStorage}
     />,
   );
 
@@ -230,7 +229,6 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
       exercises={[exercise2]}
       settings={settings}
       actions={actions2}
-      storage={fakeStorage}
     />,
   );
 

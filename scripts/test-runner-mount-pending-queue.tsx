@@ -56,7 +56,7 @@ Object.defineProperty(window, 'localStorage', {
   
   const fakeActions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
-    logSet: async (input) => {
+    logSet: async (input: any) => {
       logSetCalls.push({
         sessionExerciseId: input.sessionExerciseId,
         setNumber: input.setNumber
@@ -68,11 +68,11 @@ Object.defineProperty(window, 'localStorage', {
     finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
-    swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
-    refreshAfterSession: async () => {},
-    planDay: async () => ({ ok: true, data: null }),
-    getSessionSummary: async () => ({ ok: true, data: { notes: [], pbCount: 0, totalVolumeKg: 0 } }),
-  };
+    swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
+    refreshAfterSession: async () => ({ ok: true } as const),
+    planDay: async () => ({ ok: true, data: null } as const),
+    getSessionSummary: async () => ({ ok: true, data: [] } as const),
+  } as unknown as SessionActions;
   
   const exercises: RunnerExercise[] = [
     {

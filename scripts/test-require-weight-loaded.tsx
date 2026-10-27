@@ -80,7 +80,7 @@ console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
 
   const actions1: SessionActions = {
     markWarmupDone: ok,
-    logSet: async (input) => {
+    logSet: async (input: { sessionExerciseId: string; setNumber: number; reps: number | null; weightKg: number | null }) => {
       loggedSets.push({
         exerciseId: input.sessionExerciseId,
         setNumber: input.setNumber,
@@ -186,7 +186,7 @@ console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
 
   const actions2: SessionActions = {
     ...actions1,
-    logSet: async (input) => {
+    logSet: async (input: { sessionExerciseId: string; setNumber: number; reps: number | null; weightKg: number | null }) => {
       loggedSets.push({
         exerciseId: input.sessionExerciseId,
         setNumber: input.setNumber,
@@ -273,7 +273,7 @@ console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
 
   const actions3: SessionActions = {
     ...actions1,
-    logSet: async (input) => {
+    logSet: async (input: { sessionExerciseId: string; setNumber: number; reps: number | null; weightKg: number | null }) => {
       loggedSets.push({
         exerciseId: input.sessionExerciseId,
         setNumber: input.setNumber,
