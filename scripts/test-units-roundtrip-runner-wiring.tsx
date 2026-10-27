@@ -103,6 +103,8 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     const r = render(
       <SessionRunner
         sessionId="s1"
+        userId="test-user"
+        sessionStatus="in_progress"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
@@ -244,6 +246,8 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     const r = render(
       <SessionRunner
         sessionId="s1"
+        userId="test-user"
+        sessionStatus="in_progress"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
@@ -384,6 +388,8 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     const r = render(
       <SessionRunner
         sessionId="s1"
+        userId="test-user"
+        sessionStatus="in_progress"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
@@ -524,6 +530,8 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     const r = render(
       <SessionRunner
         sessionId="s1"
+        userId="test-user"
+        sessionStatus="in_progress"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
@@ -632,6 +640,8 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     const r = render(
       <SessionRunner
         sessionId="s1"
+        userId="test-user"
+        sessionStatus="in_progress"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}
@@ -802,6 +812,8 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     const r = render(
       <SessionRunner
         sessionId="s1"
+        userId="test-user"
+        sessionStatus="in_progress"
         isDeload={false}
         week={1}
         warmupAlreadyDone={true}

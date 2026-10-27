@@ -105,7 +105,7 @@ export function DayPlanPrompt({
             onClick={() =>
               programDayId
                 ? choose({ kind: "training", programDayId }, plannedLabel)
-                : choose({ kind: "rest" }, plannedLabel)
+                : choose({ kind: "keep" }, plannedLabel)
             }
           >
             Keep it

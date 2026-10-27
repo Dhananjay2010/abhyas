@@ -11,8 +11,8 @@
  */
 
 import { strict as assert } from "node:assert";
-import { generateProgram, type GeneratorInput, type CandidateExercise } from "../src/lib/program/generate";
-import catalogueData from "./fixtures/catalogue.json";
+import { generateProgram, type GeneratorInput } from "../src/lib/program/generate";
+import { CATALOGUE, toCandidate } from "./helpers/swap-scenario";
 
 function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
   return {
@@ -28,7 +28,7 @@ function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
     hasAllEquipment: true,
     equipmentIds: [],
     currentInjuryRegions: [],
-    catalogue: catalogueData,
+    catalogue: CATALOGUE.map(toCandidate),
     startedOn: "2026-10-29", // Thursday
     ...overrides,
   };

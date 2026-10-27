@@ -1,89 +1,161 @@
 #!/usr/bin/env tsx
 /**
- * Test: Keep button after rest-day swap plans the resolved day (C), not scheduled day (B)
+ * Test: Keep button behavior with programDayId
  *
- * Behavioral test for MED-1 fix: when user swaps to B on a rest day (Tue), the prompt
- * shows "Tomorrow is C" and includes C's program_day_id. When user clicks "Keep it",
- * the planned session must use C's program_day_id (the resolved day after collision),
- * not B (the weekday-scheduled day).
+ * Behavioral test for MED-1 Keep button fix:
+ * - When programDayId is provided (collision resolved), Keep sends {kind:"training", programDayId}
+ * - When programDayId is null (no collision, Today page), Keep sends {kind:"keep"}
+ * - Keep NEVER sends {kind:"rest"}
  *
- * Before the fix, Keep sent {kind:"keep"} which planned the weekday-scheduled day.
- * After the fix, Keep sends {kind:"training", programDayId: resolvedId}.
- *
- * Mutant killed: reverting to {kind:"keep"} causes this test to fail with
- * "Expected program_day_id pd-c, got pd-b".
+ * Mutant killed: reverting Keep to always {kind:"keep"} causes collision-resolved
+ * case to fail with "Expected {kind:'training', programDayId:'pd-c'}, got {kind:'keep'}".
  */
 
+import "./helpers/setup-jsdom";
 import { strict as assert } from "node:assert";
 
+type PlanDay = { kind: string; programDayId?: string };
+type PlanInput = { localDate: string; plan: PlanDay };
+
 async function main() {
-  console.log("\nKeep button after rest-day swap: resolved day, not scheduled\n");
+  console.log("\nKeep button: collision-resolved vs Today page\n");
 
-  // Scenario: Block [A,B,C] on Mon/Wed/Fri
-  // - Mon A completed
-  // - Tue (rest day): user swaps to B, session in_progress
-  // - Tomorrow prompt shows "Tomorrow is Full Body C" (collision resolved)
-  // - programDayId in prompt should be "pd-c", not "pd-b"
-  //
-  // When user clicks "Keep it", it should plan C (pd-c), not B (pd-b)
+  const React = await import("react");
+  const { render, cleanup } = await import("@testing-library/react");
+  const userEvent = (await import("@testing-library/user-event")).default;
+  const { DayPlanPrompt } = await import("@/components/day-plan-prompt");
+  
+  // Test 1: Collision-resolved prompt (programDayId = 'pd-c')
+  console.log("1. Collision-resolved: Keep sends {kind:'training', programDayId}");
+  {
+    const calls: PlanDay[] = [];
+    const mockPlanDay = async (input: PlanInput): Promise<{ ok: true }> => {
+      calls.push(input.plan);
+      return { ok: true };
+    };
 
-  console.log("1. Rest-day swap: Tomorrow prompt includes resolved program_day_id");
-  
-  // Simulate the tomorrow object returned by nextDayPlan after collision resolution
-  const tomorrow = {
-    localDate: "2026-10-29", // Wednesday
-    plannedLabel: "Full Body C",
-    programDayId: "pd-c", // Resolved ID after collision (not pd-b)
-    days: [
-      { programDayId: "pd-a", label: "Full Body A", dayType: "weights" as const, nextUp: true },
-      { programDayId: "pd-b", label: "Full Body B", dayType: "weights" as const, nextUp: false },
-      { programDayId: "pd-c", label: "Full Body C", dayType: "weights" as const, nextUp: false },
-    ],
-    collisionResolved: true,
-  };
+    const { container } = render(
+      React.createElement(DayPlanPrompt, {
+        localDate: "2026-10-29",
+        dayLabel: "Tomorrow",
+        plannedLabel: "Full Body C",
+        programDayId: "pd-c",
+        days: [
+          { programDayId: "pd-a", label: "Full Body A", dayType: "weights" as const, nextUp: true },
+          { programDayId: "pd-b", label: "Full Body B", dayType: "weights" as const, nextUp: false },
+          { programDayId: "pd-c", label: "Full Body C", dayType: "weights" as const, nextUp: false },
+        ],
+        heading: "What about tomorrow?",
+        showRestOption: true,
+        onPlan: mockPlanDay,
+      })
+    );
 
-  assert.strictEqual(tomorrow.programDayId, "pd-c", "Tomorrow should have resolved programDayId pd-c");
-  assert.strictEqual(tomorrow.plannedLabel, "Full Body C", "Tomorrow label should be C");
-  assert.strictEqual(tomorrow.collisionResolved, true, "Collision should be resolved");
-  
-  console.log(`  ✓ Tomorrow is ${tomorrow.plannedLabel}, programDayId is ${tomorrow.programDayId}`);
+    const keepButton = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent?.includes("Keep it")
+    );
+    assert.ok(keepButton, "Should have Keep it button");
 
-  console.log("\n2. Keep button sends resolved programDayId, not scheduled day");
-  
-  // The DayPlanPrompt component should pass tomorrow.programDayId to the Keep button
-  // Before fix: onClick={() => choose({ kind: "keep" }, plannedLabel)}
-  // After fix:  onClick={() => choose({ kind: "training", programDayId }, plannedLabel)}
-  
-  // We can't easily test React components in Node without complex setup,
-  // but we can verify the data contract: if programDayId is "pd-c" and not null,
-  // the Keep button should send { kind: "training", programDayId: "pd-c" }
-  
-  const keepAction = tomorrow.programDayId
-    ? { kind: "training" as const, programDayId: tomorrow.programDayId }
-    : { kind: "rest" as const };
-  
-  assert.strictEqual(keepAction.kind, "training", "Keep should send training action");
-  assert.strictEqual(keepAction.programDayId, "pd-c", "Keep should send resolved programDayId pd-c");
-  
-  console.log(`  ✓ Keep button action: ${JSON.stringify(keepAction)}`);
+    await userEvent.click(keepButton);
 
-  console.log("\n3. Verify programDayId is NOT the scheduled weekday day");
-  
-  // Wednesday (day index 3) is scheduled for B (pd-b), but after collision
-  // resolution, tomorrow should be C (pd-c)
-  const scheduledWednesdayProgramDayId = "pd-b"; // Block schedule says Wed = B
-  
-  assert.notStrictEqual(
-    tomorrow.programDayId,
-    scheduledWednesdayProgramDayId,
-    "Resolved programDayId should NOT be the scheduled weekday day after collision"
-  );
-  
-  console.log(`  ✓ Resolved pd-c ≠ scheduled pd-b (collision resolved correctly)`);
+    assert.strictEqual(calls.length, 1, "Should have 1 call");
+    const plan = calls[0];
+    assert.strictEqual(plan.kind, "training", "Keep should send kind:training");
+    assert.strictEqual(plan.programDayId, "pd-c", "Keep should send resolved programDayId");
+
+    cleanup();
+    
+    console.log(`  ✓ Keep sent {kind:"training", programDayId:"pd-c"}`);
+  }
+
+  // Test 2: Today page (programDayId = null, no collision)
+  console.log("\n2. Today page (null programDayId): Keep sends {kind:'keep'}, NOT rest");
+  {
+    const calls: PlanDay[] = [];
+    const mockPlanDay = async (input: PlanInput): Promise<{ ok: true }> => {
+      calls.push(input.plan);
+      return { ok: true };
+    };
+
+    const { container } = render(
+      React.createElement(DayPlanPrompt, {
+        localDate: "2026-10-27",
+        dayLabel: "Today",
+        plannedLabel: "Full Body B",
+        programDayId: null,
+        days: [
+          { programDayId: "pd-a", label: "Full Body A", dayType: "weights" as const, nextUp: false },
+          { programDayId: "pd-b", label: "Full Body B", dayType: "weights" as const, nextUp: true },
+          { programDayId: "pd-c", label: "Full Body C", dayType: "weights" as const, nextUp: false },
+        ],
+        heading: "Or train today anyway",
+        showRestOption: false,
+        onPlan: mockPlanDay,
+      })
+    );
+
+    const keepButton = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent?.includes("Keep it")
+    );
+    assert.ok(keepButton, "Should have Keep it button");
+
+    await userEvent.click(keepButton);
+
+    assert.strictEqual(calls.length, 1, "Should have 1 call");
+    const plan = calls[0];
+    assert.strictEqual(plan.kind, "keep", "Keep should send kind:keep (not rest)");
+    assert.strictEqual(plan.programDayId, undefined, "Keep should not send programDayId");
+
+    cleanup();
+    
+    console.log(`  ✓ Keep sent {kind:"keep"}, not rest`);
+  }
+
+  // Test 3: Yoga day (programDayId = null)
+  console.log("\n3. Yoga day (null programDayId): Keep sends {kind:'keep'}, NOT rest");
+  {
+    const calls: PlanDay[] = [];
+    const mockPlanDay = async (input: PlanInput): Promise<{ ok: true }> => {
+      calls.push(input.plan);
+      return { ok: true };
+    };
+
+    const { container } = render(
+      React.createElement(DayPlanPrompt, {
+        localDate: "2026-10-28",
+        dayLabel: "Today",
+        plannedLabel: "Yoga",
+        programDayId: null,
+        days: [
+          { programDayId: "pd-a", label: "Full Body A", dayType: "weights" as const, nextUp: true },
+          { programDayId: "pd-b", label: "Full Body B", dayType: "weights" as const, nextUp: false },
+        ],
+        heading: "Or train today anyway",
+        showRestOption: false,
+        onPlan: mockPlanDay,
+      })
+    );
+
+    const keepButton = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent?.includes("Keep it")
+    );
+    assert.ok(keepButton, "Should have Keep it button");
+
+    await userEvent.click(keepButton);
+
+    assert.strictEqual(calls.length, 1, "Should have 1 call");
+    const plan = calls[0];
+    assert.strictEqual(plan.kind, "keep", "Keep should send kind:keep for yoga (not rest)");
+    assert.strictEqual(plan.programDayId, undefined, "Keep should not send programDayId");
+
+    cleanup();
+    
+    console.log(`  ✓ Yoga Keep sent {kind:"keep"}, not rest`);
+  }
 
   console.log("\n✓ All Keep button tests passed\n");
-  console.log("Mutant killed: reverting Keep button to {kind:'keep'} would plan");
-  console.log("the scheduled day (B) instead of the resolved day (C), failing this test.\n");
+  console.log("Mutant killed: reverting Keep to {kind:'keep'} when programDayId='pd-c'");
+  console.log("would fail test 1 with 'Expected kind:training, got kind:keep'\n");
 }
 
 main().catch((e) => {

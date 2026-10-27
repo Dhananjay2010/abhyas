@@ -122,13 +122,13 @@ for (const day of lowerFullDays) {
   );
 }
 
-// Verify PAST_KNEE_LUNGE_EXERCISES list
+// Verify PAST_KNEE_LUNGE_EXERCISES list (owner decision: single-leg-leg-extension excluded)
 console.log("");
 console.log(`PAST_KNEE_LUNGE_EXERCISES: ${Array.from(PAST_KNEE_LUNGE_EXERCISES).join(", ")}`);
 check(
-  "PAST_KNEE_LUNGE_EXERCISES has 4 exercises",
-  PAST_KNEE_LUNGE_EXERCISES.size === 4,
-  `Expected 4, got ${PAST_KNEE_LUNGE_EXERCISES.size}`
+  "PAST_KNEE_LUNGE_EXERCISES has 3 exercises",
+  PAST_KNEE_LUNGE_EXERCISES.size === 3,
+  `Expected 3, got ${PAST_KNEE_LUNGE_EXERCISES.size}`
 );
 
 console.log("");

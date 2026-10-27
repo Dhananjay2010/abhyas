@@ -153,6 +153,8 @@ const exercise0 = makeExercise("ex-0", "bench-press", "Bench Press", 4);
 const { container: c0, unmount: unmount0 } = render(
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -224,6 +226,8 @@ now += 10000;
 const { container: c0b, unmount: unmount0b } = render(
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -267,6 +271,8 @@ mockStorage.data.set(key, JSON.stringify({
 const { container: c1, unmount: unmount1 } = render(
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -298,6 +304,8 @@ const exercise2b = makeExercise("ex-2b", "curl", "Curl", 1);
 const { container: c2, unmount: unmount2 } = render(
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -426,6 +434,8 @@ mockStorage.data.set(key, JSON.stringify({
 const { container: c3, unmount: unmount3 } = render(
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -478,6 +488,8 @@ const exercise4 = makeExercise("ex-4", "row", "Row", 2);
 const { container: c4, unmount: unmount4 } = render(
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -618,6 +630,8 @@ const exercise4b = makeExercise("ex-4b", "deadlift", "Deadlift", 2);
 const { container: c4b, unmount: unmount4b } = render(
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -777,6 +791,8 @@ mockStorage.data.set(key, JSON.stringify({
 const { container: c5, unmount: unmount5 } = render(
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -826,6 +842,8 @@ mockStorage.data.set(key, JSON.stringify({
 const { container: c6, unmount: unmount6 } = render(
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -878,6 +896,8 @@ now = restEndsAt + 1000; // Past expiry
 const { container: c7, unmount: unmount7 } = render(
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -919,6 +939,8 @@ const { renderToString } = await import("react-dom/server");
 const serverHtml = renderToString(
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}
@@ -946,6 +968,8 @@ const root8 = hydrateRoot(
   container8,
   <SessionRunner
     sessionId={sessionId}
+    sessionStatus="in_progress"
+    userId="test-user"
     isDeload={false}
     week={1}
     warmupAlreadyDone={true}

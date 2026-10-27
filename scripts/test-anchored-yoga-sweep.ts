@@ -20,8 +20,8 @@
  * causes test:anchored-yoga-sweep to fail with "Expected N strength days, got M" for any yoga>0.
  */
 
-import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
-import catalogueData from "./fixtures/catalogue.json";
+import { generateProgram, type GeneratorInput } from "../src/lib/program/generate";
+import { CATALOGUE, toCandidate } from "./helpers/swap-scenario";
 
 function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
   return {
@@ -37,7 +37,7 @@ function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
     hasAllEquipment: true,
     equipmentIds: [],
     currentInjuryRegions: [],
-    catalogue: catalogueData,
+    catalogue: CATALOGUE.map(toCandidate),
     ...overrides,
   };
 }
