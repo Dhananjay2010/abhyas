@@ -3,26 +3,24 @@
 
 set -e
 
-# Skip whenever REAL_DB != 1 (regardless of CI)
-# The database-seed-test CI step always sets REAL_DB=1
-if [ "$REAL_DB" != "1" ]; then
-  echo "⏭️  Skipping mutant tests (REAL_DB=1 not set)"
-  echo "   These tests require a real database (run in database-seed-test CI job)"
-  exit 0
-fi
+# Mutant 1 requires REAL_DB; mutants 2-7 run against unit tests
+RUN_MUTANT_1=0
+if [ "$REAL_DB" = "1" ]; then
+  RUN_MUTANT_1=1
+  
+  # Source guard and check
+  source "$(dirname "$0")/lib-db-reset-guard.sh"
+  if ! check_db_reset_guard_bash check "supabase/config.toml"; then
+    echo "❌ DB reset guard check failed:"
+    check_db_reset_guard_bash explain "supabase/config.toml"
+    exit 1
+  fi
 
-# Source guard and check
-source "$(dirname "$0")/lib-db-reset-guard.sh"
-if ! check_db_reset_guard_bash check "supabase/config.toml"; then
-  echo "❌ DB reset guard check failed:"
-  check_db_reset_guard_bash explain "supabase/config.toml"
-  exit 1
-fi
-
-# Check SUPABASE_SERVICE_ROLE_KEY early - test script needs it
-if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-  echo "❌ FAIL: SUPABASE_SERVICE_ROLE_KEY not set (mutants would falsely appear killed)"
-  exit 1
+  # Check SUPABASE_SERVICE_ROLE_KEY early - test script needs it
+  if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+    echo "❌ FAIL: SUPABASE_SERVICE_ROLE_KEY not set (mutants would falsely appear killed)"
+    exit 1
+  fi
 fi
 
 REBUILD_CORE="src/lib/program/rebuild-plan-core.ts"
@@ -60,64 +58,69 @@ cleanup() {
 trap 'cleanup; exit 130' INT TERM
 trap cleanup EXIT
 
-# Baseline: Run unmutated tests first to ensure DB is working
-echo "Baseline: Running unmutated tests to verify database is accessible"
-echo ""
-
-if REAL_DB=1 npx tsx scripts/test-rebuild-rollover-progress-real-db.ts > /tmp/baseline.log 2>&1; then
-  echo "✓ Baseline test passed (database is accessible and test works)"
-else
-  echo "❌ FAIL: Baseline test failed (database may be down or test has a bug)"
-  cat /tmp/baseline.log
-  exit 1
-fi
-
-echo ""
-
 KILLED=0
 SURVIVED=0
 
-# Mutant 1: Stub ensureCurrentBlock to return "none" (skip rollover)
-echo "Mutant 1: Stub ensureCurrentBlock to return none (skip rollover)"
-echo "Expected: test-rebuild-rollover-progress-real-db.ts should fail"
-echo ""
+if [ "$RUN_MUTANT_1" = "1" ]; then
+  # Baseline: Run unmutated tests first to ensure DB is working
+  echo "Baseline: Running unmutated tests to verify database is accessible"
+  echo ""
 
-cp "$BACKUP_CORE" "$REBUILD_CORE"
-# Replace the ensureCurrentBlock call and comment out the error check
-sed -i 's/const rollover = await deps\.ensureCurrentBlock(activeBlock);/const rollover = { status: "none" as const }; \/\/ await deps.ensureCurrentBlock(activeBlock);/' "$REBUILD_CORE"
-sed -i '/if (rollover.status === "error") {/,/^  }$/s/^/\/\/ /' "$REBUILD_CORE"
+  if REAL_DB=1 npx tsx scripts/test-rebuild-rollover-progress-real-db.ts > /tmp/baseline.log 2>&1; then
+    echo "✓ Baseline test passed (database is accessible and test works)"
+  else
+    echo "❌ FAIL: Baseline test failed (database may be down or test has a bug)"
+    cat /tmp/baseline.log
+    exit 1
+  fi
 
-# Verify the mutation applied
-if ! grep -q 'const rollover = { status: "none" as const }; // await deps.ensureCurrentBlock' "$REBUILD_CORE"; then
-  echo "✗ FAIL: Mutant 1 did not apply (replacement not found)"
-  exit 1
-fi
+  echo ""
 
-MUTANT1_LOG=$(mktemp)
-if REAL_DB=1 npx tsx scripts/test-rebuild-rollover-progress-real-db.ts > "$MUTANT1_LOG" 2>&1; then
-  echo "✗ SURVIVED: Mutant 1 (test passes without rollover)"
-  cat "$MUTANT1_LOG"
-  SURVIVED=$((SURVIVED + 1))
+  # Mutant 1: Stub ensureCurrentBlock to return "none" (skip rollover)
+  echo "Mutant 1: Stub ensureCurrentBlock to return none (skip rollover)"
+  echo "Expected: test-rebuild-rollover-progress-real-db.ts should fail"
+  echo ""
+
+  cp "$BACKUP_CORE" "$REBUILD_CORE"
+  # Replace the ensureCurrentBlock call and comment out the error check
+  sed -i 's/const rollover = await deps\.ensureCurrentBlock(activeBlock);/const rollover = { status: "none" as const }; \/\/ await deps.ensureCurrentBlock(activeBlock);/' "$REBUILD_CORE"
+  sed -i '/if (rollover.status === "error") {/,/^  }$/s/^/\/\/ /' "$REBUILD_CORE"
+
+  # Verify the mutation applied
+  if ! grep -q 'const rollover = { status: "none" as const }; // await deps.ensureCurrentBlock' "$REBUILD_CORE"; then
+    echo "✗ FAIL: Mutant 1 did not apply (replacement not found)"
+    exit 1
+  fi
+
+  MUTANT1_LOG=$(mktemp)
+  if REAL_DB=1 npx tsx scripts/test-rebuild-rollover-progress-real-db.ts > "$MUTANT1_LOG" 2>&1; then
+    echo "✗ SURVIVED: Mutant 1 (test passes without rollover)"
+    cat "$MUTANT1_LOG"
+    SURVIVED=$((SURVIVED + 1))
+  else
+    # Check that test actually ran (not skipped)
+    if grep -q "⏭️.*Skipping" "$MUTANT1_LOG"; then
+      echo "✗ FAIL: Mutant test was skipped, not actually run"
+      cat "$MUTANT1_LOG"
+      exit 1
+    fi
+    # Check that an assertion killed it
+    if ! grep -q "❌ FAIL" "$MUTANT1_LOG"; then
+      echo "✗ FAIL: Mutant 1 killed by crash, not assertion"
+      cat "$MUTANT1_LOG"
+      exit 1
+    fi
+    echo "✓ Mutant 1 killed (test fails without rollover)"
+    KILLED=$((KILLED + 1))
+  fi
+  rm -f "$MUTANT1_LOG"
+
+  # Restore for next mutant
+  cp "$BACKUP_CORE" "$REBUILD_CORE"
 else
-  # Check that test actually ran (not skipped)
-  if grep -q "⏭️.*Skipping" "$MUTANT1_LOG"; then
-    echo "✗ FAIL: Mutant test was skipped, not actually run"
-    cat "$MUTANT1_LOG"
-    exit 1
-  fi
-  # Check that an assertion killed it
-  if ! grep -q "❌ FAIL" "$MUTANT1_LOG"; then
-    echo "✗ FAIL: Mutant 1 killed by crash, not assertion"
-    cat "$MUTANT1_LOG"
-    exit 1
-  fi
-  echo "✓ Mutant 1 killed (test fails without rollover)"
-  KILLED=$((KILLED + 1))
+  echo "⏭️  Skipping Mutant 1 (requires REAL_DB=1)"
+  echo ""
 fi
-rm -f "$MUTANT1_LOG"
-
-# Restore for next mutant
-cp "$BACKUP_CORE" "$REBUILD_CORE"
 
 # Mutant 2: Revert progressStartDate to just first block date
 echo ""
