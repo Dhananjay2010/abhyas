@@ -71,6 +71,46 @@ const settingsProps = buildSettingsProps(mockUser);
 assert(settingsProps.userId === mockUser.id, "N8: settings userId equals user.id");
 assert(settingsProps.userId === "user-456", "N8: settings userId is correct value");
 
+// Test Mutant I/J: buildRunnerExercise preserves previousCompletedWeightKg
+console.log("\n🧪 Test Mutant I/J: previousCompletedWeightKg flows through buildRunnerExercise\n");
+
+import { buildRunnerExercise } from "../src/lib/session/build-runner-exercises";
+
+const exercise = buildRunnerExercise({
+  row: {
+    id: "se-1",
+    planned_sets: 3,
+    planned_reps_min: 6,
+    planned_reps_max: 8,
+    rest_seconds: 180,
+    status: "pending",
+    feel: null,
+    metric: "reps",
+    exercises: {
+      id: "ex-1",
+      name: "Bench Press",
+      cue: null,
+      movement_pattern: "horizontal_push",
+      primary_muscles: ["chest"],
+      equipment_ids: ["barbell"],
+    },
+    session_sets: [],
+  },
+  progress: {
+    current_working_weight_kg: 60,
+    current_target_reps: 6,
+    previous_completed_weight_kg: 60,
+  },
+  remembersWeights: true,
+  isDeload: false,
+});
+
+assert(
+  exercise.previousCompletedWeightKg === 60,
+  "Mutant I/J: buildRunnerExercise preserves previousCompletedWeightKg from progress"
+);
+
 console.log(`\n✅ All assertions passed (${passed})`);
 console.log("\nMutations N6/N6s/N8 killed: Changing user.id or session.status breaks assertions");
+console.log("Mutations I/J killed: Dropping previousCompletedWeightKg breaks assertion");
 console.log("Break: Using wrong fields (e.g. session.user_id for userId) fails tests");

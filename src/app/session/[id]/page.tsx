@@ -102,8 +102,8 @@ export default async function SessionPage({
 
   // M1: Fetch actual weight from most recent completed session for each exercise
   const exerciseIds = rows
-    .map((r) => (r.exercises as { id: string } | null)?.id)
-    .filter((id): id is string => id !== null && id !== undefined);
+    .map((r) => r.exercises?.id)
+    .filter((id): id is string => typeof id === 'string');
   
   const previousWeightByExercise = await loadPreviousCompletedWeights(supabase, user.id, exerciseIds);
 
@@ -124,16 +124,8 @@ export default async function SessionPage({
   const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
 
   const exercises: RunnerExercise[] = rows.map((r) => {
-    const ex = r.exercises as unknown as {
-      id: string;
-      name: string;
-      cue: string | null;
-      movement_pattern: Database["public"]["Enums"]["movement_pattern"];
-      primary_muscles: Muscle[];
-      equipment_ids: string[];
-    };
-    const progress = remembersWeights ? progressByExercise.get(ex?.id ?? "") : undefined;
-    const previousWeight = previousWeightByExercise.get(ex?.id ?? "");
+    const progress = remembersWeights ? progressByExercise.get(r.exercises?.id ?? "") : undefined;
+    const previousWeight = previousWeightByExercise.get(r.exercises?.id ?? "");
     
     return buildRunnerExercise({
       row: r,

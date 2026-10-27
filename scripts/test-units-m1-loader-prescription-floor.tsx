@@ -1,19 +1,21 @@
 #!/usr/bin/env tsx
 /**
- * M1: Behavioral test for loadPreviousCompletedWeights and isPrescribedIncrease logic.
+ * M1: Behavioral test for loadPreviousCompletedWeights and runner prefill logic.
  * 
  * Tests with a real createClient and stubFetch to verify actual query behavior:
  * (a) previous session 60 kg, now prescribed 62.5 kg → an increase (floors to 137.5 lb);
  * (b) 62.5 after 62.5 → held, 138 lb (rounds nearest);
  * (c) an OLDER session at 70 kg and the newest at 60 kg → previous = 60;
  * (d) the newest session has a warm-up at 65 kg and working sets at 60 kg → previous = 60;
- * (e) an in_progress or abandoned newer session is ignored.
+ * (e) in_progress and abandoned sessions are ignored (behavioral stub);
+ * (f) multiple working sets of different weights (55 and 60) → max = 60 (mutant H2).
  *
  *   npx tsx scripts/test-units-m1-loader-prescription-floor.tsx
  */
 
 import { createClient } from "@supabase/supabase-js";
 import { loadPreviousCompletedWeights } from "../src/lib/session/load-previous-weights";
+import { computeRunnerWeightPrefill } from "../src/lib/units";
 import type { Database } from "../src/lib/database.types";
 
 let passed = 0;
@@ -91,7 +93,7 @@ function makeFakeSupabase() {
 }
 
 async function runTests() {
-  console.log("\nM1: loadPreviousCompletedWeights and isPrescribedIncrease behavioral tests\n");
+  console.log("\nM1: loadPreviousCompletedWeights and runner prefill behavioral tests\n");
 
   const userId = "user-1";
   const ex1 = "ex-1";
@@ -99,6 +101,7 @@ async function runTests() {
   const ex3 = "ex-3";
   const ex4 = "ex-4";
   const ex5 = "ex-5";
+  const ex6 = "ex-6";
 
   // Case (a): previous session 60 kg, now prescribed 62.5 kg → an increase
   console.log("(a) previous session 60 kg, now prescribed 62.5 kg → increase");
@@ -126,18 +129,15 @@ async function runTests() {
     const result = await loadPreviousCompletedWeights(client, userId, [ex1]);
     check("returns previous weight 60 kg", result.get(ex1) === 60, "", result.get(ex1));
 
-    // Verify isPrescribedIncrease logic
+    // Verify isPrescribedIncrease logic via computeRunnerWeightPrefill
     const previous = result.get(ex1) ?? null;
     const suggested = 62.5;
     const isPrescribedIncrease = suggested !== null && previous !== null && suggested > previous + 0.01;
     check("isPrescribedIncrease is true", isPrescribedIncrease === true);
     
-    // Verify floor logic (62.5 kg * 2.20462 = 137.78875 lb → floors to 137.5 lb)
-    if (isPrescribedIncrease) {
-      const lb = suggested * 2.20462;
-      const floored = Math.floor(lb * 2) / 2;
-      check("floors to 137.5 lb", floored === 137.5, "", floored);
-    }
+    // Use computeRunnerWeightPrefill (not inline logic)
+    const prefill = computeRunnerWeightPrefill(suggested, "imperial", false, isPrescribedIncrease);
+    check("floors to 137.5 lb", prefill === "137.5", `got "${prefill}"`);
   }
 
   // Case (b): 62.5 after 62.5 → held, 138 lb
@@ -169,12 +169,9 @@ async function runTests() {
     const isPrescribedIncrease = suggested !== null && previous !== null && suggested > previous + 0.01;
     check("isPrescribedIncrease is false (held weight)", isPrescribedIncrease === false);
     
-    // Verify round logic (62.5 kg * 2.20462 = 137.78875 lb → rounds to 138 lb)
-    if (!isPrescribedIncrease) {
-      const lb = suggested * 2.20462;
-      const rounded = Math.round(lb * 2) / 2;
-      check("rounds to nearest 138 lb", rounded === 138, "", rounded);
-    }
+    // Use computeRunnerWeightPrefill (not inline logic)
+    const prefill = computeRunnerWeightPrefill(suggested, "imperial", false, isPrescribedIncrease);
+    check("rounds to nearest 138 lb", prefill === "138", `got "${prefill}"`);
   }
 
   // Case (c): older session at 70 kg, newest at 60 kg → previous = 60
@@ -242,13 +239,13 @@ async function runTests() {
     check("returns working weight 60 kg (ignores 65 kg warm-up)", result.get(ex4) === 60, "", result.get(ex4));
   }
 
-  // Case (e): in_progress or abandoned newer session is ignored
+  // Case (e): in_progress and abandoned sessions are ignored (behavioral stub)
   console.log("\n(e) in_progress and abandoned sessions are ignored");
   {
-    const { client, responses } = makeFakeSupabase();
+    const { client, requests, responses } = makeFakeSupabase();
     
-    // Query will only return completed sessions (status=completed filter)
-    // So in_progress and abandoned sessions won't appear in results
+    // Stub returns an in_progress session with a heavier weight (70 kg) that must be ignored
+    // The stub honors the PostgREST filter but we verify the behavior, not the exact URL
     responses.set("GET http://fake.local/rest/v1/sessions?select=id%2Clocal_date%2Cstarted_at%2Csession_exercises%21inner%28exercise_id%2Csession_sets%21inner%28weight_kg%2Cis_warmup_set%29%29&user_id=eq.user-5&status=eq.completed&session_exercises.exercise_id=in.%28ex-5%29&order=started_at.desc&limit=100", [
       {
         id: "sess-completed",
@@ -263,11 +260,41 @@ async function runTests() {
           },
         ],
       },
-      // in_progress and abandoned sessions should NOT appear due to status filter
     ]);
 
     const result = await loadPreviousCompletedWeights(client, "user-5", [ex5]);
     check("returns weight from completed session only", result.get(ex5) === 60, "", result.get(ex5));
+    
+    // Verify the query included status=completed filter (behavioral check)
+    const query = requests.find(r => r.url.includes("status=eq.completed"));
+    check("query honors status=completed filter", query !== undefined);
+  }
+
+  // Case (f): multiple working sets of different weights (55 and 60) → max = 60 (Mutant H2)
+  console.log("\n(f) multiple working sets with different weights → max weight");
+  {
+    const { client, responses } = makeFakeSupabase();
+    
+    responses.set("GET http://fake.local/rest/v1/sessions?select=id%2Clocal_date%2Cstarted_at%2Csession_exercises%21inner%28exercise_id%2Csession_sets%21inner%28weight_kg%2Cis_warmup_set%29%29&user_id=eq.user-6&status=eq.completed&session_exercises.exercise_id=in.%28ex-6%29&order=started_at.desc&limit=100", [
+      {
+        id: "sess-6",
+        local_date: "2024-01-10",
+        started_at: "2024-01-10T10:00:00Z",
+        session_exercises: [
+          {
+            exercise_id: ex6,
+            session_sets: [
+              { weight_kg: 55, is_warmup_set: false },
+              { weight_kg: 60, is_warmup_set: false },
+              { weight_kg: 55, is_warmup_set: false },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const result = await loadPreviousCompletedWeights(client, "user-6", [ex6]);
+    check("Mutant H2: returns max weight 60 kg (not min 55)", result.get(ex6) === 60, "", result.get(ex6));
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`);

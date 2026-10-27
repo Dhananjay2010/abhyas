@@ -49,25 +49,32 @@ export async function loadPreviousCompletedWeights(
   const byExercise = new Map<string, Array<{ weight: number; started_at: string }>>();
   
   for (const session of data) {
-    const exercises = session.session_exercises as unknown as Array<{
-      exercise_id: string;
-      session_sets: Array<{ weight_kg: number | null; is_warmup_set: boolean }>;
-    }>;
+    const exercises = session.session_exercises;
+    if (!Array.isArray(exercises)) continue;
     
     for (const exercise of exercises) {
-      if (!exercise.exercise_id || !exercise.session_sets) continue;
+      if (!exercise || typeof exercise !== 'object') continue;
+      const ex = exercise as Record<string, unknown>;
+      
+      const exerciseId = ex.exercise_id;
+      if (typeof exerciseId !== 'string') continue;
+      
+      const sets = ex.session_sets;
+      if (!Array.isArray(sets)) continue;
       
       // Get max working-set weight (exclude warm-ups)
-      const workingWeights = exercise.session_sets
-        .filter((s) => !s.is_warmup_set && s.weight_kg !== null && s.weight_kg > 0)
-        .map((s) => s.weight_kg as number);
+      const workingWeights = sets
+        .filter((s): s is Record<string, unknown> => typeof s === 'object' && s !== null)
+        .filter((s) => s.is_warmup_set === false)
+        .map((s) => s.weight_kg)
+        .filter((w): w is number => typeof w === 'number' && w > 0);
       
       if (workingWeights.length === 0) continue;
       
       const maxWeight = Math.max(...workingWeights);
-      const existing = byExercise.get(exercise.exercise_id) ?? [];
+      const existing = byExercise.get(exerciseId) ?? [];
       existing.push({ weight: maxWeight, started_at: session.started_at ?? session.local_date });
-      byExercise.set(exercise.exercise_id, existing);
+      byExercise.set(exerciseId, existing);
     }
   }
   
