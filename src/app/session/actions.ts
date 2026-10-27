@@ -20,7 +20,6 @@ import { localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
-import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 import { finishSessionAction, abandonSessionAction } from "@/lib/session/session-action-wrappers";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
