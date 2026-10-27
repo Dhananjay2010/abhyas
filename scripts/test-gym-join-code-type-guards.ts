@@ -4,7 +4,7 @@
  * Run: npx tsx scripts/test-gym-join-code-type-guards.ts
  */
 
-import { parsePreviewJoinCodeResult, parseRedeemJoinCodeResult } from "../src/lib/gym-join-code-types.js";
+import { parsePreviewJoinCodeResult, parseRedeemJoinCodeResult, parseCreateJoinCodeResult } from "../src/lib/gym-join-code-types.js";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -87,6 +87,28 @@ check("Redeem ok=true missing fields", parseRedeemJoinCodeResult({ ok: true }) =
 check("Redeem ok=true missing gym_id", parseRedeemJoinCodeResult({ ok: true, gym_name: "Test" }) === null);
 check("Redeem ok=false invalid reason", parseRedeemJoinCodeResult({ ok: false, reason: "unknown" }) === null);
 check("Redeem ok=false missing reason", parseRedeemJoinCodeResult({ ok: false }) === null);
+
+console.log("\n=== Type Guard Tests: create_join_code ===\n");
+
+// Valid result (table with one row)
+const createSuccess = parseCreateJoinCodeResult([
+  { id: "123e4567-e89b-12d3-a456-426614174000", code: "ABCDEF2345" }
+]);
+check("Create success: non-null", createSuccess !== null);
+check("Create success: has id", createSuccess?.id === "123e4567-e89b-12d3-a456-426614174000");
+check("Create success: has code", createSuccess?.code === "ABCDEF2345");
+
+// Invalid inputs
+check("Create null input", parseCreateJoinCodeResult(null) === null);
+check("Create undefined input", parseCreateJoinCodeResult(undefined) === null);
+check("Create string input", parseCreateJoinCodeResult("invalid") === null);
+check("Create number input", parseCreateJoinCodeResult(42) === null);
+check("Create empty array", parseCreateJoinCodeResult([]) === null);
+check("Create empty object", parseCreateJoinCodeResult({}) === null);
+check("Create array of non-objects", parseCreateJoinCodeResult(["test"]) === null);
+check("Create array missing id", parseCreateJoinCodeResult([{ code: "TEST" }]) === null);
+check("Create array missing code", parseCreateJoinCodeResult([{ id: "123" }]) === null);
+check("Create array wrong types", parseCreateJoinCodeResult([{ id: 123, code: "TEST" }]) === null);
 
 console.log();
 

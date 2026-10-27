@@ -98,3 +98,28 @@ export function parseRedeemJoinCodeResult(data: unknown): RedeemJoinCodeResult |
   
   return null;
 }
+
+/**
+ * Parse create_join_code RPC result
+ * Returns table(id uuid, code text) which supabase-js returns as an array
+ */
+export interface CreateJoinCodeResult {
+  id: string;
+  code: string;
+}
+
+export function parseCreateJoinCodeResult(data: unknown): CreateJoinCodeResult | null {
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const first = data[0];
+  if (
+    isObject(first) &&
+    typeof first.id === "string" &&
+    typeof first.code === "string"
+  ) {
+    return {
+      id: first.id,
+      code: first.code,
+    };
+  }
+  return null;
+}

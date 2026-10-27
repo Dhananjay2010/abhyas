@@ -12,7 +12,7 @@
 import { checkRealDbTest } from "./lib-db-reset-guard.js";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
-import { parsePreviewJoinCodeResult, parseRedeemJoinCodeResult } from "../src/lib/gym-join-code-types.js";
+import { parsePreviewJoinCodeResult, parseRedeemJoinCodeResult, parseCreateJoinCodeResult } from "../src/lib/gym-join-code-types.js";
 
 const guardDecision = checkRealDbTest();
 if (!guardDecision.allow) {
@@ -30,20 +30,6 @@ let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
-}
-
-function parseCreateJoinCodeResult(data: unknown): { id: string; code: string } | null {
-  if (!Array.isArray(data) || data.length === 0) return null;
-  const first = data[0];
-  if (
-    typeof first === "object" &&
-    first !== null &&
-    typeof (first as Record<string, unknown>).id === "string" &&
-    typeof (first as Record<string, unknown>).code === "string"
-  ) {
-    return { id: (first as { id: string; code: string }).id, code: (first as { id: string; code: string }).code };
-  }
-  return null;
 }
 
 async function runTests() {
@@ -109,13 +95,20 @@ async function runTests() {
   console.log();
 
   // Create valid codes for throttle tests
-  const { data: memberCodeData } = await owner.client.rpc("create_join_code", {
+  const { data: memberCodeData, error: memberCodeError } = await owner.client.rpc("create_join_code", {
     p_gym_id: gymId,
     p_role: "member",
   });
+  if (memberCodeError) {
+    console.error("Failed to create member code:", memberCodeError);
+    throw new Error(`Failed to create member code: ${memberCodeError.message}`);
+  }
   const memberCodeParsed = parseCreateJoinCodeResult(memberCodeData);
-  const validCode = memberCodeParsed?.code;
-  if (!validCode) throw new Error("Failed to create valid code");
+  if (!memberCodeParsed) {
+    console.error("Failed to parse member code result. Raw data:", memberCodeData);
+    throw new Error(`Failed to parse member code result. Raw data: ${JSON.stringify(memberCodeData)}`);
+  }
+  const validCode = memberCodeParsed.code;
 
   console.log("TEST: Throttle with mixed preview/redeem calls");
   const throttleUser = await createTestUser("throttle");
@@ -160,14 +153,21 @@ async function runTests() {
 
   console.log("TEST: Successes don't count toward throttle");
   const successUser = await createTestUser("success");
-  const { data: highUsesCodeData } = await owner.client.rpc("create_join_code", {
+  const { data: highUsesCodeData, error: highUsesCodeError } = await owner.client.rpc("create_join_code", {
     p_gym_id: gymId,
     p_role: "member",
     p_max_uses: 50,
   });
+  if (highUsesCodeError) {
+    console.error("Failed to create high-uses code:", highUsesCodeError);
+    throw new Error(`Failed to create high-uses code: ${highUsesCodeError.message}`);
+  }
   const highUsesCodeParsed = parseCreateJoinCodeResult(highUsesCodeData);
-  const highUsesCode = highUsesCodeParsed?.code;
-  if (!highUsesCode) throw new Error("Failed to create high-uses code");
+  if (!highUsesCodeParsed) {
+    console.error("Failed to parse high-uses code result. Raw data:", highUsesCodeData);
+    throw new Error(`Failed to parse high-uses code result. Raw data: ${JSON.stringify(highUsesCodeData)}`);
+  }
+  const highUsesCode = highUsesCodeParsed.code;
 
   // Make 15 successful preview calls
   for (let i = 0; i < 15; i++) {
@@ -207,14 +207,21 @@ async function runTests() {
     { gym_id: gymStaff, user_id: staffOwnGym.userId, role: "staff", status: "active" },
   ]);
 
-  const { data: staffGymCodeData } = await owner.client.rpc("create_join_code", {
+  const { data: staffGymCodeData, error: staffGymCodeError } = await owner.client.rpc("create_join_code", {
     p_gym_id: gymStaff,
     p_role: "member",
   });
+  if (staffGymCodeError) {
+    console.error("Failed to create staff gym code:", staffGymCodeError);
+    throw new Error(`Failed to create staff gym code: ${staffGymCodeError.message}`);
+  }
   const staffGymCodeParsed = parseCreateJoinCodeResult(staffGymCodeData);
-  const staffGymCode = staffGymCodeParsed?.code;
-  const staffGymCodeId = staffGymCodeParsed?.id;
-  if (!staffGymCode || !staffGymCodeId) throw new Error("Failed to create staff gym code");
+  if (!staffGymCodeParsed) {
+    console.error("Failed to parse staff gym code result. Raw data:", staffGymCodeData);
+    throw new Error(`Failed to parse staff gym code result. Raw data: ${JSON.stringify(staffGymCodeData)}`);
+  }
+  const staffGymCode = staffGymCodeParsed.code;
+  const staffGymCodeId = staffGymCodeParsed.id;
 
   const { data: usesBefore } = await adminClient
     .from("gym_join_codes")
@@ -259,12 +266,20 @@ async function runTests() {
   console.log();
 
   console.log("TEST: gen_random_bytes produces valid codes");
-  const { data: manyCodesData } = await owner.client.rpc("create_join_code", {
+  const { data: manyCodesData, error: manyCodesError } = await owner.client.rpc("create_join_code", {
     p_gym_id: gymId,
     p_role: "member",
   });
+  if (manyCodesError) {
+    console.error("Failed to create test code:", manyCodesError);
+    throw new Error(`Failed to create test code: ${manyCodesError.message}`);
+  }
   const manyCodesParsed = parseCreateJoinCodeResult(manyCodesData);
-  const generatedCode = manyCodesParsed?.code || "";
+  if (!manyCodesParsed) {
+    console.error("Failed to parse test code result. Raw data:", manyCodesData);
+    throw new Error(`Failed to parse test code result. Raw data: ${JSON.stringify(manyCodesData)}`);
+  }
+  const generatedCode = manyCodesParsed.code;
   const isValid = /^[2-9A-HJ-NP-Z]{10}$/.test(generatedCode);
   check("Generated code matches format", isValid, `code=${generatedCode}`);
   check("No ambiguous chars (0,1,I,O)", !/(0|1|I|O)/.test(generatedCode));
