@@ -233,18 +233,11 @@ async function runUnitTests() {
     
     // Days trained should include all 3 pre-block sessions
     const dayRecords = buildDayRecords({
-      programs: [{ startedOn: "2026-10-15", status: "active" as const }],
-      sessions: completedSessions.map(s => ({
-        ...s,
-        program_id: "prog1",
-        id: "sess1",
-        user_id: "user1",
-        day_index: 1,
-        created_at: s.local_date,
-        updated_at: s.local_date,
-      })),
-      startDate: startDate!,
+      programs: [{ id: "prog1", startedOn: "2026-10-15", endsOn: "2026-11-15" }],
+      dayTypesByProgram: { "prog1": { 1: "weights", 2: "rest", 3: "weights" } },
+      completedSessions,
       today: "2026-10-15",
+      effectiveStart: startDate,
     });
     
     const completedDays = dayRecords.filter(d => d.completed);
@@ -252,7 +245,7 @@ async function runUnitTests() {
     
     // Best streak should include the pre-block sessions
     const streakResult = computeStreaks(dayRecords, "2026-10-15");
-    assert(streakResult.bestStreak >= 2, "Best streak includes pre-block sessions", `got ${streakResult.bestStreak}`);
+    assert(streakResult.longest >= 2, "Best streak includes pre-block sessions", `got ${streakResult.longest}`);
     
     console.log("  ✓ Progress page wiring verified\n");
   }
