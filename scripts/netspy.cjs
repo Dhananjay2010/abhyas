@@ -11,7 +11,7 @@ const LOG = process.env.NETSPY_LOG || '/tmp/netspy.log';
 function record(kind, value) {
   try {
     fs.appendFileSync(LOG, `${process.pid} ${kind} ${value}\n`);
-  } catch (err) {
+  } catch {
     // Ignore write errors
   }
 }
@@ -54,8 +54,7 @@ net.Socket.prototype.connect = function netspyConnect(...args) {
 };
 
 if (globalThis.fetch) {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async function netspyFetch(url, ...rest) {
+  globalThis.fetch = async function netspyFetch(url) {
     const urlString = String((url && url.url) || url);
     record('FETCH', urlString);
     throw new Error('netspy blocked fetch: ' + urlString);
@@ -74,9 +73,10 @@ for (const method of spawnMethods) {
       ? cmdBase + ' ' + rest[0].join(' ')
       : cmdBase;
     
-    // Log all spawns except tsx, esbuild, and npm self-spawns
-    const isInternal = /tsx|esbuild|npm/.test(cmdString) || cmdString.includes('node_modules');
-    if (!isInternal) {
+    // Log spawns, but skip tsx/esbuild internals and npm registry calls
+    // Don't skip node_modules/.bin/ scripts (e.g. supabase CLI)
+    const isTsxEsbuildInternal = /\/tsx-|\/esbuild-|^npm (install|ci|run|exec)/i.test(cmdString);
+    if (!isTsxEsbuildInternal) {
       record('SPAWN', cmdString.slice(0, 200));
     }
     

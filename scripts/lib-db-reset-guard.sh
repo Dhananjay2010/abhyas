@@ -13,6 +13,12 @@ check_db_reset_guard_bash() {
     return 0
   fi
   
+  # Rule 1b: CI set to non-"true" value is refused (e.g. CI=1)
+  if [ -n "${CI:-}" ]; then
+    [ "$mode" = "explain" ] && echo "REFUSE: CI is set to '${CI}' (only CI=true allows, not CI=1 or other values)"
+    return 1
+  fi
+  
   # Rule 2: ALLOW_DB_RESET must be set
   if [ "${ALLOW_DB_RESET:-}" != "1" ]; then
     [ "$mode" = "explain" ] && echo "REFUSE: ALLOW_DB_RESET not set to 1 (local DB reset requires explicit opt-in)"
@@ -147,6 +153,9 @@ check_db_reset_guard_bash() {
   
   # Rule 7: Refuse SUPABASE_DB_URL with query string, percent-encoding (MED-3)
   local db_url="$SUPABASE_DB_URL"
+  # Refuse query params or percent-encoding (MED-3)
+  # Note: This fails closed on legitimate uses like %-encoded passwords and ?sslmode=require
+  # Rationale: Query params and percent-encoding can bypass host/port checks via libpq overrides
   if [[ "$db_url" == *"?"* ]] || [[ "$db_url" == *"%"* ]]; then
     [ "$mode" = "explain" ] && echo "REFUSE: SUPABASE_DB_URL contains '?' or '%' (query params or percent-encoding not allowed)"
     return 1
@@ -213,7 +222,10 @@ check_db_reset_guard_bash() {
     return 1
   fi
   
-  local supabase_url="$SUPABASE_URL"
+  local supabase_url="$SUPABASE_URL"  
+  # Refuse SUPABASE_URL with query string or percent-encoding (MED-3)
+  # Note: This fails closed on legitimate uses like %-encoded paths
+  # Rationale: Query params and percent-encoding can bypass host/port validation
   if [[ "$supabase_url" == *"?"* ]] || [[ "$supabase_url" == *"%"* ]]; then
     [ "$mode" = "explain" ] && echo "REFUSE: SUPABASE_URL contains '?' or '%' (query params or percent-encoding not allowed)"
     return 1
@@ -263,18 +275,52 @@ check_db_reset_guard_bash() {
     return 1
   fi
   
-  # If NEXT_PUBLIC_SUPABASE_URL is set, it must match SUPABASE_URL
-  if [ -n "${NEXT_PUBLIC_SUPABASE_URL:-}" ]; then
-    local normalized_supabase="${SUPABASE_URL%/}"
-    local normalized_next_public="${NEXT_PUBLIC_SUPABASE_URL%/}"
-    
-    if [ "$normalized_next_public" != "$normalized_supabase" ]; then
-      [ "$mode" = "explain" ] && echo "REFUSE: NEXT_PUBLIC_SUPABASE_URL ($NEXT_PUBLIC_SUPABASE_URL) must match SUPABASE_URL ($SUPABASE_URL)"
-      return 1
-    fi
+  # NEXT_PUBLIC_SUPABASE_URL is required and must match SUPABASE_URL (normalized)
+  if [ -z "${NEXT_PUBLIC_SUPABASE_URL:-}" ]; then
+    [ "$mode" = "explain" ] && echo "REFUSE: NEXT_PUBLIC_SUPABASE_URL is required but unset"
+    return 1
   fi
   
-  [ "$mode" = "explain" ] && echo "ALLOW: ALLOW_DB_RESET=1 with non-default ports (db:$db_port, api:$api_port) and project_id ($project_id) in $config_path, SUPABASE_DB_URL=$url_hostname:$url_port, SUPABASE_URL=$api_hostname:$api_port_actual"
+  # Normalize both URLs for comparison (scheme, host, port, path)
+  local normalized_supabase normalized_next_public
+  normalized_supabase=$(node -e "
+    try {
+      const u = new URL('$SUPABASE_URL');
+      const host = u.hostname.toLowerCase();
+      // Normalize localhost and 127.0.0.1
+      const normalizedHost = (host === 'localhost' || host === '127.0.0.1' || /^127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\$/.test(host)) ? 'localhost' : host;
+      const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+      const path = u.pathname.replace(/\\/+\$/, ''); // strip trailing slashes
+      console.log(\`\${u.protocol}//\${normalizedHost}:\${port}\${path}\`);
+    } catch (e) {
+      console.log('INVALID');
+    }
+  " 2>/dev/null)
+  
+  normalized_next_public=$(node -e "
+    try {
+      const u = new URL('$NEXT_PUBLIC_SUPABASE_URL');
+      const host = u.hostname.toLowerCase();
+      const normalizedHost = (host === 'localhost' || host === '127.0.0.1' || /^127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\$/.test(host)) ? 'localhost' : host;
+      const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+      const path = u.pathname.replace(/\\/+\$/, '');
+      console.log(\`\${u.protocol}//\${normalizedHost}:\${port}\${path}\`);
+    } catch (e) {
+      console.log('INVALID');
+    }
+  " 2>/dev/null)
+  
+  if [ "$normalized_next_public" = "INVALID" ]; then
+    [ "$mode" = "explain" ] && echo "REFUSE: NEXT_PUBLIC_SUPABASE_URL is not a valid URL"
+    return 1
+  fi
+  
+  if [ "$normalized_supabase" != "$normalized_next_public" ]; then
+    [ "$mode" = "explain" ] && echo "REFUSE: NEXT_PUBLIC_SUPABASE_URL ($NEXT_PUBLIC_SUPABASE_URL) must match SUPABASE_URL ($SUPABASE_URL)"
+    return 1
+  fi
+  
+  [ "$mode" = "explain" ] && echo "ALLOW: ALLOW_DB_RESET=1 with non-default ports (db:$db_port, api:$api_port) and project_id ($project_id) in $config_path, SUPABASE_DB_URL=$url_hostname:$url_port, SUPABASE_URL=$api_hostname:$api_port_actual, NEXT_PUBLIC_SUPABASE_URL matches"
   return 0
 }
 

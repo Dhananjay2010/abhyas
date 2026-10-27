@@ -54,6 +54,14 @@ export function checkDbResetGuard(
   if (process.env.CI === "true") {
     return { allow: true, reason: "CI=true" };
   }
+  
+  // Rule 1b: CI set to non-"true" value is refused (e.g. CI=1)
+  if (process.env.CI) {
+    return {
+      allow: false,
+      reason: `CI is set to '${process.env.CI}' (only CI=true allows, not CI=1 or other values)`,
+    };
+  }
 
   // Rule 2: ALLOW_DB_RESET must be set
   if (process.env.ALLOW_DB_RESET !== "1") {
@@ -212,6 +220,8 @@ export function checkDbResetGuard(
   }
 
   // Rule 7: Refuse SUPABASE_DB_URL with query string or percent-encoding (MED-3)
+  // Note: This fails closed on legitimate uses like %-encoded passwords and ?sslmode=require
+  // Rationale: Query params and percent-encoding can bypass host/port checks via libpq overrides
   if (dbUrl.includes("?") || dbUrl.includes("%")) {
     return {
       allow: false,
@@ -276,7 +286,9 @@ export function checkDbResetGuard(
     };
   }
   
-  // Refuse SUPABASE_URL with query string or percent-encoding
+  // Refuse SUPABASE_URL with query string or percent-encoding (MED-3)
+  // Note: This fails closed on legitimate uses like %-encoded paths
+  // Rationale: Query params and percent-encoding can bypass host/port validation
   if (supabaseUrl.includes("?") || supabaseUrl.includes("%")) {
     return {
       allow: false,
@@ -322,24 +334,52 @@ export function checkDbResetGuard(
     };
   }
   
-  // If NEXT_PUBLIC_SUPABASE_URL is set, it must match SUPABASE_URL
+  // NEXT_PUBLIC_SUPABASE_URL is required and must match SUPABASE_URL (normalized)
   const nextPublicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (nextPublicUrl) {
-    // Normalize for comparison (strip trailing slashes)
-    const normalizedSupabase = supabaseUrl.replace(/\/+$/, "");
-    const normalizedNextPublic = nextPublicUrl.replace(/\/+$/, "");
-    
-    if (normalizedNextPublic !== normalizedSupabase) {
-      return {
-        allow: false,
-        reason: `NEXT_PUBLIC_SUPABASE_URL (${nextPublicUrl}) must match SUPABASE_URL (${supabaseUrl})`,
-      };
+  if (!nextPublicUrl) {
+    return {
+      allow: false,
+      reason: "NEXT_PUBLIC_SUPABASE_URL is required but unset",
+    };
+  }
+  
+  // Normalize both URLs for comparison
+  const normalizeUrl = (urlStr: string): string => {
+    try {
+      const u = new URL(urlStr);
+      // Normalize localhost and 127.0.0.1
+      let host = u.hostname.toLowerCase();
+      if (host === 'localhost' || host === '127.0.0.1' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) {
+        host = 'localhost';
+      }
+      const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+      const path = u.pathname.replace(/\/+$/, ''); // strip trailing slashes
+      return `${u.protocol}//${host}:${port}${path}`;
+    } catch {
+      return 'INVALID';
     }
+  };
+  
+  const normalizedSupabase = normalizeUrl(supabaseUrl);
+  const normalizedNextPublic = normalizeUrl(nextPublicUrl);
+  
+  if (normalizedNextPublic === 'INVALID') {
+    return {
+      allow: false,
+      reason: "NEXT_PUBLIC_SUPABASE_URL is not a valid URL",
+    };
+  }
+  
+  if (normalizedNextPublic !== normalizedSupabase) {
+    return {
+      allow: false,
+      reason: `NEXT_PUBLIC_SUPABASE_URL (${nextPublicUrl}) must match SUPABASE_URL (${supabaseUrl})`,
+    };
   }
 
   return {
     allow: true,
-    reason: `ALLOW_DB_RESET=1 with non-default port (${dbPort}) and project_id (${projectId}) in ${configPath}, SUPABASE_DB_URL=${urlHostname}:${urlPort}`,
+    reason: `ALLOW_DB_RESET=1 with non-default port (${dbPort}) and project_id (${projectId}) in ${configPath}, SUPABASE_DB_URL=${urlHostname}:${urlPort}, NEXT_PUBLIC_SUPABASE_URL matches`,
   };
 }
 
