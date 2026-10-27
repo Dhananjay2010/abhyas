@@ -80,6 +80,62 @@ export function DayPlanPrompt({
     );
   }
 
+  const isRestDay = plannedLabel.toLowerCase() === "rest";
+  const isTomorrowLabel = dayLabel === "Tomorrow";
+  const showNewRestUI = isRestDay && isTomorrowLabel;
+
+  if (showNewRestUI) {
+    return (
+      <section className="mt-8">
+        <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">{heading}</h2>
+        <p className="mt-2 text-sm text-muted">
+          {dayLabel}: rest day. Train anyway?
+        </p>
+
+        {!choosing ? (
+          <div className="mt-4 flex gap-2">
+            <Choice disabled={pending} onClick={() => setChoosing(true)}>
+              Train anyway
+            </Choice>
+            <Choice disabled={pending} onClick={() => choose({ kind: "keep" }, plannedLabel)}>
+              Keep rest
+            </Choice>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {days.map((d) => (
+              <Choice
+                key={d.programDayId}
+                wide
+                disabled={pending}
+                onClick={() =>
+                  choose({ kind: "training", programDayId: d.programDayId }, d.label)
+                }
+              >
+                {d.label}
+              </Choice>
+            ))}
+            <button
+              onClick={() => setChoosing(false)}
+              className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg"
+            >
+              Never mind
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <p
+            role="alert"
+            className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
+          >
+            {error}
+          </p>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="mt-8">
       <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">{heading}</h2>
