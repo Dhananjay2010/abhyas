@@ -5,9 +5,11 @@
  * Called from:
  * - ensure-session-exercises (backstop before session insert)
  * - Today Server Action (on-demand cleanup)
+ * 
+ * Note: No explicit server-only import to allow test imports of ensure-session-exercises.
+ * This file is only ever called from server contexts.
  */
 
-import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { replaceBannedInPlanned, type PlannedExercise } from "@/lib/program/replace-banned-in-planned";
