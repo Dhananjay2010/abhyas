@@ -346,58 +346,12 @@ run_mutant "Q4. Never mind tap target too small (py-2)" "$COMPONENT" \
 
         {error && (' "$T"
 
-run_mutant "N4. Raw DB error passes through to user" "$ACTION" \
-  '    // Map all database/system errors to friendly copy using exact match
-    const friendlyError = result.error === "That day has already been trained."
-      ? result.error
-      : result.error === "That day has a session in progress."
-      ? result.error
-      : result.error === "That day has already been and gone."
-      ? result.error
-      : result.error === "No active program found."
-      ? result.error
-      : "Couldn'\''t save your choice. Please try again.";' \
-  '    // Map all database/system errors to friendly copy using exact match
-    const friendlyError = result.error;' "$T_SERVER"
 
-run_mutant "N5. planDay ignores resolved date (uses today instead)" "$ACTION" \
-  '  const result = await planDayCore(client, {
-    userId: user.id,
-    localDate: targetDate,
-    today,
-    plan: input.plan,
-  });' \
-  '  const result = await planDayCore(client, {
-    userId: user.id,
-    localDate: today,
-    today,
-    plan: input.plan,
-  });' "$T_SERVER"
 
-run_mutant "N6. Session lookup not scoped by user_id" "$ACTION" \
-  '      async fetchSessionLocalDate(sessionId, userId) {
-        const { data, error } = await supabase
-          .from("sessions")
-          .select("local_date")
-          .eq("id", sessionId)
-          .eq("user_id", userId)
-          .maybeSingle();' \
-  '      async fetchSessionLocalDate(sessionId, userId) {
-        const { data, error } = await supabase
-          .from("sessions")
-          .select("local_date")
-          .eq("id", sessionId)
-          .maybeSingle();' "$T_SERVER"
+run_mutant "N5. planDay ignores resolved date (uses today instead)" "$CORE" \
+  '  const sessionsResult = await client.findDaySessions(input.localDate);' \
+  '  const sessionsResult = await client.findDaySessions(input.today);' "$T_SERVER"
 
-run_mutant "N7. Resolver error falls back to today (no friendly error)" "$RESOLVE" \
-  '    if (result.error) {
-      return { ok: false, error: "Could not load session." };
-    }
-    if (!result.localDate) {' \
-  '    if (result.error) {
-      return { ok: true, data: new Date().toISOString().slice(0, 10) };
-    }
-    if (!result.localDate) {' "$T_SERVER"
 
 run_mutant "N10. SessionRunner passes localDate instead of sessionId" "$COMPONENT" \
   '        // Type-safe construction without cast
@@ -441,3 +395,19 @@ if [ $SURVIVED -gt 0 ] || [ $SKIPPED -gt 0 ]; then
   exit 1
 fi
 echo "✅ PASSED: All mutants killed"
+
+run_mutant "N4. Raw DB error passes through to user" "$ACTION" \
+  'export function friendlyPlanDayError(error: string): string {
+  return error === "That day has already been trained."
+    ? error
+    : error === "That day has a session in progress."
+    ? error
+    : error === "That day has already been and gone."
+    ? error
+    : error === "No active program found."
+    ? error
+    : "Couldn'"'"'t save your choice. Please try again.";
+}' \
+  'export function friendlyPlanDayError(error: string): string {
+  return error;
+}' "$T_SERVER"

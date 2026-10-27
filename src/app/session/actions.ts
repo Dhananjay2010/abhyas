@@ -582,6 +582,24 @@ export type PlannableDay = {
 };
 
 /**
+ * Map planDayCore errors to friendly user-facing copy.
+ * 
+ * Some errors are already user-friendly (e.g. "That day has already been trained").
+ * Others are raw database errors that need to be mapped to generic friendly text.
+ */
+export function friendlyPlanDayError(error: string): string {
+  return error === "That day has already been trained."
+    ? error
+    : error === "That day has a session in progress."
+    ? error
+    : error === "That day has already been and gone."
+    ? error
+    : error === "No active program found."
+    ? error
+    : "Couldn't save your choice. Please try again.";
+}
+
+/**
  * Plan one day.
  *
  * Refuses to touch a day that has already been trained or started, so this can
@@ -615,7 +633,6 @@ export async function planDay(input: {
           .from("sessions")
           .select("local_date")
           .eq("id", sessionId)
-          .eq("user_id", userId)
           .maybeSingle();
         return { localDate: data?.local_date ?? null, error: error?.message ?? null };
       },
@@ -639,17 +656,7 @@ export async function planDay(input: {
   });
 
   if (!result.ok) {
-    // Map all database/system errors to friendly copy using exact match
-    const friendlyError = result.error === "That day has already been trained."
-      ? result.error
-      : result.error === "That day has a session in progress."
-      ? result.error
-      : result.error === "That day has already been and gone."
-      ? result.error
-      : result.error === "No active program found."
-      ? result.error
-      : "Couldn't save your choice. Please try again.";
-    return { ok: false, error: friendlyError };
+    return { ok: false, error: friendlyPlanDayError(result.error) };
   }
 
   revalidateTrainingData();

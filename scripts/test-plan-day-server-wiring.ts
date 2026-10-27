@@ -3,7 +3,7 @@
  * Test: planDay server-side wiring (MED-B)
  *
  * Verifies:
- * - N4: Raw DB errors are mapped to friendly copy
+ * - N4: Raw DB errors are mapped to friendly copy via friendlyPlanDayError
  * - N5: planDay saves to resolved date, not current date
  * - N6: Session lookup is scoped by user_id
  * - N7: Resolver errors return friendly copy, never fall back to today
@@ -11,6 +11,7 @@
 
 import { planDayCore, type PlanDayClient } from "../src/lib/session/plan-day-core";
 import { resolvePlanTargetDate, type ResolvePlanTargetDateDeps } from "../src/lib/session/resolve-plan-target-date";
+import { friendlyPlanDayError } from "../src/app/session/actions";
 import type { DayPlan } from "../src/app/session/actions";
 
 let failures = 0;
@@ -23,50 +24,19 @@ function check(label: string, pass: boolean, detail?: string) {
 (async () => {
   console.log("planDay Server Wiring (MED-B)\n");
 
-  console.log("Case 1: MED-B N4 - Raw DB errors mapped to friendly copy");
+  console.log("Case 1: MED-B N4 - Raw DB errors mapped to friendly copy via friendlyPlanDayError");
   {
-    const client: PlanDayClient = {
-      async findDaySessions() {
-        return { rows: [], error: null };
-      },
-      async findActiveProgram() {
-        return { program: { id: "prog-1", started_on: "2026-10-20", deload_week: 4, week_offset: 0 }, error: null };
-      },
-      async loadProgramDay() {
-        return { ok: true, day: { id: "pd-1", day_type: "weights" } };
-      },
-      async findProgramDay() {
-        return { day: null, error: null };
-      },
-      async updateSession() {
-        return { error: null };
-      },
-      async deleteSessions() {
-        return { error: null };
-      },
-      async insertSession() {
-        // Simulate a raw Postgres error
-        return { error: "duplicate key value violates unique constraint \"day_plan_overrides_pkey\"" };
-      },
-      async rereadDaySessions() {
-        return { rows: [], error: null };
-      },
-    };
-
-    const plan: DayPlan = { kind: "keep" };
-    const result = await planDayCore(client, {
-      userId: "user-123",
-      localDate: "2026-10-28",
-      today: "2026-10-27",
-      plan,
-    });
-
-    check("result not ok", !result.ok);
-    if (!result.ok) {
-      check("error is NOT raw DB text", !result.error.includes("duplicate key"));
-      check("error is NOT 'constraint'", !result.error.includes("constraint"));
-      check("error is friendly", result.error === "Couldn't save your choice. Please try again.");
-    }
+    const rawError = "duplicate key value violates unique constraint \"day_plan_overrides_pkey\"";
+    const friendlyError = friendlyPlanDayError(rawError);
+    
+    check("friendlyPlanDayError returns friendly copy", friendlyError === "Couldn't save your choice. Please try again.");
+    check("NOT raw DB text", !friendlyError.includes("duplicate key"));
+    check("NOT 'constraint'", !friendlyError.includes("constraint"));
+    
+    // Also test that known errors pass through
+    const knownError = "That day has already been trained.";
+    const mappedKnown = friendlyPlanDayError(knownError);
+    check("Known errors pass through unchanged", mappedKnown === knownError);
   }
 
   console.log("\nCase 2: MED-B N5 - planDay saves to resolved date");
@@ -83,7 +53,8 @@ function check(label: string, pass: boolean, detail?: string) {
         return { ok: true, day: { id: "pd-1", day_type: "weights" } };
       },
       async findProgramDay() {
-        return { day: null, error: null };
+        // 2026-10-30 is Friday (day_index = 5)
+        return { day: { id: "pd-friday", day_index: 5, day_type: "weights" }, error: null };
       },
       async updateSession() {
         return { error: null };
@@ -103,7 +74,7 @@ function check(label: string, pass: boolean, detail?: string) {
     const plan: DayPlan = { kind: "keep" };
     await planDayCore(client, {
       userId: "user-123",
-      localDate: "2026-10-30",  // resolved date from session.local_date + 1
+      localDate: "2026-10-30",  // resolved date from session.local_date + 1 (Friday)
       today: "2026-10-29",       // current date (different)
       plan,
     });
