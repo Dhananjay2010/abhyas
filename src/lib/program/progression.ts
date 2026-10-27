@@ -699,20 +699,18 @@ export function evaluateProgression(input: {
           next = bells[targetIndex];
         }
       } else {
-        // Standard equipment: snap DOWN to largest loadable value <= from, then add one increment.
+        // Standard equipment: add increment then round UP to grid
         // The cap is ONE INCREMENT (5kg lower-body compound, 2.5kg upper-body compound),
         // which may span multiple grid steps. 'Easy' feel doubles the increment.
-        const gridStep = equipmentGridStep(equipmentIds, 'kg');
-        const snappedFrom = Math.floor(from / gridStep) * gridStep;
-        
-        // Get the mechanic increment (5kg for lower-body compound, 2.5kg otherwise)
-        const increment = incrementFor(meta, equipmentIds);
+        const step = isBodyweightWithAddedWeight ? addedWeightStep(meta, equipmentIds) : incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";
         // #120: incrementFor caps at grid step, but easy STILL doubles that capped increment
-        const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? increment * 2 : increment;
+        const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? step * 2 : step;
         
-        // Add jump (incrementFor ensures jump >= gridStep for loadable equipment)
-        next = snappedFrom + jump;
+        // Add jump, then round to grid
+        const rawNext = from + jump;
+        const gridStep = equipmentGridStep(equipmentIds, 'kg');
+        next = roundToGrid(rawNext, equipmentIds, unit, gridStep, 'up');
       }
     } else {
       // No equipment info: use standard increment, doubled when easy (preserve old behavior)
@@ -1023,7 +1021,6 @@ export function evaluateProgression(input: {
 
   // First miss: drop one equipment grid step with equipment, hold without
   let nextWeight = currentWeight;
-  let holdReason: 'smallest' | 'cut20' | 'twomiss' | null = null;
   
   if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
     const isKettlebell = equipmentIds.includes('kettlebell');
@@ -1041,19 +1038,15 @@ export function evaluateProgression(input: {
         }
       }
       candidateWeight = found;
-      if (candidateWeight === currentWeight) {
-        holdReason = 'smallest';
-      }
     } else {
       // Standard equipment: find the largest grid point STRICTLY below current
       const gridStep = equipmentGridStep(equipmentIds, 'kg');
       const epsilon = 0.001;
       const stepsBelow = Math.floor((currentWeight - epsilon) / gridStep);
       candidateWeight = stepsBelow * gridStep;
-      if (candidateWeight === 0) {
-        // At smallest available step: hold and don't let other rules overwrite reason
+      // At or below the smallest loadable step: hold
+      if (candidateWeight <= gridStep) {
         candidateWeight = currentWeight;
-        holdReason = 'smallest';
       }
     }
     
@@ -1062,7 +1055,6 @@ export function evaluateProgression(input: {
       const cutFraction = (currentWeight - candidateWeight) / currentWeight;
       if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {
         candidateWeight = currentWeight;
-        holdReason = 'cut20';
       }
     }
     
@@ -1071,7 +1063,6 @@ export function evaluateProgression(input: {
       const twoMissFloor = computeTwoMissResult(currentWeight);
       if (candidateWeight < twoMissFloor) {
         candidateWeight = currentWeight;
-        holdReason = 'twomiss';
       }
     }
     
@@ -1089,15 +1080,9 @@ export function evaluateProgression(input: {
       ? "Staying here until every set reaches the top of the range."
       : nextWeight !== null && nextWeight !== currentWeight
         ? `Missed the target — dropping to ${displayWeight(nextWeight)}.`
-        : holdReason === 'smallest'
-          ? `Missed the target but holding at ${displayWeight(currentWeight)} — it is the smallest available step.`
-          : holdReason === 'cut20'
-            ? `Missed the target but holding at ${displayWeight(currentWeight)} — one step down would cut more than 20%.`
-            : holdReason === 'twomiss'
-              ? `Missed the target but holding at ${displayWeight(currentWeight)} — one step down would exceed the two-miss limit.`
-              : currentWeight === 0 || meta.isBodyweight
-                ? "Staying at this weight until every set reaches the top of the range."
-                : `Staying at ${displayWeight(currentWeight)} until every set reaches the top of the range.`;
+        : equipmentIds && unit && currentWeight !== null && currentWeight > 0
+          ? "Missed the target but holding at this weight — it is the smallest available step."
+          : "Staying at this weight until every set reaches the top of the range.";
   
   return {
     ...carried,
