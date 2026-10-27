@@ -930,7 +930,7 @@ export function evaluateProgression(input: {
         consecutiveFailures: 0,
         weightAtFailureStartKg: null, // M1: clear on two-miss back-off
         message: failures >= 3
-          ? "Missed the target again — back to bodyweight to build up again."
+          ? "Missed twice in a row — back to bodyweight to build up again."
           : "Missed twice in a row — back to bodyweight to build up again.",
       };
     }
@@ -1026,8 +1026,8 @@ export function evaluateProgression(input: {
     if (reduced === currentWeight) {
       const holdMessage = failures >= 3
         ? equipmentIds
-          ? "Missed the target again but no lighter loadable weight fits within 10% — holding to build back up."
-          : "Missed the target again but already at light weight — holding to build back up."
+          ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
+          : "Missed twice in a row but already at light weight — holding to build back up."
         : equipmentIds
           ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
           : "Missed twice in a row but already at light weight — holding to build back up.";
@@ -1053,7 +1053,7 @@ export function evaluateProgression(input: {
         consecutiveFailures: failures, // Keep counter so third miss triggers step-down
         weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss
         message: failures >= 3
-          ? "Missed the target again but no lighter loadable weight fits within 10% — holding to build back up."
+          ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
           : "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up.",
       };
     }
@@ -1066,7 +1066,7 @@ export function evaluateProgression(input: {
       consecutiveFailures: 0,
       weightAtFailureStartKg: null, // M1: clear on successful two-miss back-off
       message: failures >= 3
-        ? `Missed the target again — dropping to ${displayWeight(reduced)} to build back.`
+        ? `Missed twice in a row — dropping to ${displayWeight(reduced)} to build back.`
         : `Missed twice in a row — dropping to ${displayWeight(reduced)} to build back.`,
     };
   }

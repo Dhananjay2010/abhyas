@@ -93,7 +93,7 @@ for (const mechanic of MECHANICS) {
               state,
               isDeload: deload,
               equipmentIds: undefined,
-              unit: "kg",
+              unit: undefined,
             };
 
             const result = evaluateProgression(input);

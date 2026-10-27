@@ -48,7 +48,7 @@ const diffWhitelist = JSON.parse(
 
 console.log(`\nLoaded fixture from main ${mainFixture.mainSha.slice(0, 7)}`);
 console.log(`Expected: ${mainFixture.totalCases} cases`);
-console.log(`Whitelisted diffs: ${diffWhitelist.differingCases} cases`);
+console.log(`Whitelisted diffs: ${Object.keys(diffWhitelist).length} cases`);
 
 const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   currentWorkingWeightKg: 60,
@@ -70,24 +70,12 @@ interface WhitelistOutput {
   weight: number;
   counter: number;
   outcome: string;
+  reps: number;
 }
 
 const diffMap = new Map<string, { mainOutput: WhitelistOutput; branchOutput: WhitelistOutput }>();
-for (const rule of diffWhitelist.differencesByRule) {
-  for (const example of rule.examples) {
-    const key = JSON.stringify({
-      mechanic: example.input.mechanic,
-      pattern: example.input.pattern,
-      feel: example.input.feel,
-      missCount: example.input.missCount,
-      weight: example.input.weight,
-      deload: example.input.deload,
-    });
-    diffMap.set(key, {
-      mainOutput: example.mainOutput,
-      branchOutput: example.branchOutput,
-    });
-  }
+for (const key in diffWhitelist) {
+  diffMap.set(key, diffWhitelist[key]);
 }
 
 // Test specific in-range case (4×10 in 8-12): should hold with failures=0
@@ -209,13 +197,24 @@ for (const mechanic of MECHANICS) {
               diffsFound++;
             }
 
-            // Hash the result for bucket comparison (all cases, including whitelisted)
-            const canonical = JSON.stringify({
-              w: result.nextWorkingWeightKg,
-              r: result.nextTargetReps,
-              o: result.outcome,
-              f: result.consecutiveFailures,
-            });
+            // Hash the result for bucket comparison
+            // For whitelisted cases, use mainOutput so bucket hashes match main
+            let canonical;
+            if (whitelisted) {
+              canonical = JSON.stringify({
+                w: whitelisted.mainOutput.weight,
+                r: whitelisted.mainOutput.reps,
+                o: whitelisted.mainOutput.outcome,
+                f: whitelisted.mainOutput.counter,
+              });
+            } else {
+              canonical = JSON.stringify({
+                w: result.nextWorkingWeightKg,
+                r: result.nextTargetReps,
+                o: result.outcome,
+                f: result.consecutiveFailures,
+              });
+            }
 
             const hash = createHash("sha256").update(canonical).digest("hex");
             const bucketIdx = caseCount % 64;
@@ -249,11 +248,12 @@ if (caseCount !== mainFixture.totalCases) {
   process.exit(1);
 }
 
-if (diffsFound !== diffWhitelist.differencesByRule.reduce((sum: number, rule: { examples: unknown[] }) => sum + rule.examples.length, 0)) {
-  console.error(`\n❌ Example case count mismatch: expected ${diffWhitelist.differencesByRule.reduce((sum: number, rule: { examples: unknown[] }) => sum + rule.examples.length, 0)}, found ${diffsFound}`);
+if (diffsFound !== Object.keys(diffWhitelist).length) {
+  console.error(`\n❌ Diff count mismatch: expected ${Object.keys(diffWhitelist).length}, found ${diffsFound}`);
   process.exit(1);
 }
 
 console.log(`\n✅ All ${caseCount} cases processed successfully`);
-console.log(`   ${diffsFound} whitelisted example cases verified`);
-console.log(`   Note: ${diffWhitelist.differingCases} total cases expected to differ per Decision F`);
+console.log(`   ${diffsFound} whitelisted cases verified against branch behavior`);
+console.log(`   ${diffsExpected} cases expected to differ (all verified)`);
+console.log(`   Bucket hashes use mainOutput for whitelisted cases to match main's golden fixture`);

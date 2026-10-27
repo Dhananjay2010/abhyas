@@ -21,7 +21,7 @@ MUTATIONS_SKIPPED=0
 
 # Backup with trap
 BACKUP_DIR=$(mktemp -d)
-trap 'rm -rf "$BACKUP_DIR"; git checkout src/lib/program/progression.ts 2>/dev/null || true' EXIT
+trap 'cp "$BACKUP_DIR/progression.ts.orig" src/lib/program/progression.ts; rm -rf "$BACKUP_DIR"' EXIT
 
 cp src/lib/program/progression.ts "$BACKUP_DIR/progression.ts.orig"
 
@@ -134,8 +134,11 @@ echo ""
 if [ $MUTATIONS_SURVIVED -gt 0 ]; then
   echo "❌ FAIL: $MUTATIONS_SURVIVED mutant(s) survived"
   exit 1
+elif [ $MUTATIONS_SKIPPED -gt 0 ]; then
+  echo "❌ FAIL: $MUTATIONS_SKIPPED mutation(s) skipped or crashed (not legitimate kills)"
+  exit 1
 elif [ $MUTATIONS_KILLED -eq 0 ]; then
-  echo "❌ FAIL: No mutations were killed (all skipped or crashed)"
+  echo "❌ FAIL: No mutations were killed"
   exit 1
 else
   echo "✅ PASS: All $MUTATIONS_KILLED mutations killed"
