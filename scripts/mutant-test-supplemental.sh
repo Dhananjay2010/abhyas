@@ -72,22 +72,22 @@ test_mutant() {
   if [ $rc -ne 0 ]; then
     if echo "$output" | grep -qE "^\s+at |node:internal|triggerUncaughtException"; then
       echo "  💥 CRASHED"
-      cp "$BACKUP" "$PROG"
+      cp "$BACKUP" src/lib/program/progression.ts
       ((crashed++))
       return 1
     elif [ -z "$output" ]; then
       echo "  💥 CRASHED (empty output)"
-      cp "$BACKUP" "$PROG"
+      cp "$BACKUP" src/lib/program/progression.ts
       ((crashed++))
       return 1
     elif echo "$output" | grep -qE "FAIL|❌|AssertionError"; then
       echo "  ✅ KILLED"
-      cp "$BACKUP" "$PROG"
+      cp "$BACKUP" src/lib/program/progression.ts
       ((killed++))
       return 0
     else
       echo "  ❌ SURVIVED (no assertion marker)"
-      cp "$BACKUP" "$PROG"
+      cp "$BACKUP" src/lib/program/progression.ts
       ((survived++))
       return 1
     fi
@@ -95,7 +95,7 @@ test_mutant() {
   
   # Exit 0: mutant survived
   echo "  ❌ SURVIVED"
-  cp "$BACKUP" "$PROG"
+  cp "$BACKUP" src/lib/program/progression.ts
   ((survived++))
   return 1
 }

@@ -415,7 +415,15 @@
     "test:progress-units": "tsx scripts/test-progress-units.tsx",
     "test:history-page-counts": "tsx scripts/test-history-page-counts.ts",
     "test:history-empty-mutants": "bash scripts/test-history-empty-mutants.sh",
-    "test:progress-empty-mutants": "bash scripts/test-progress-empty-mutants.sh"
+    "test:progress-empty-mutants": "bash scripts/test-progress-empty-mutants.sh",
+    "test:imperial-actions-path": "tsx scripts/test-imperial-actions-path.ts",
+    "test:actions-imperial-behavioral-l4b4": "tsx scripts/test-actions-imperial-behavioral-l4b4.ts",
+    "test:units-progression-messages": "tsx scripts/test-units-progression-messages.ts",
+    "test:hold-preserves-counter": "tsx scripts/test-hold-preserves-counter.ts",
+    "test:hold-preserves-wafs": "tsx scripts/test-hold-preserves-wafs.ts",
+    "test:zero-weight-real-path": "tsx scripts/test-zero-weight-real-path.ts",
+    "test:increase-cap": "tsx scripts/test-increase-cap.ts",
+    "test:increment-cap": "tsx scripts/test-increment-cap.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
