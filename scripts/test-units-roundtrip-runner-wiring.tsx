@@ -1,17 +1,12 @@
 #!/usr/bin/env tsx
 /**
- * M1 Wiring test: Runner prefill and working weight must use stored kg directly (not floored).
+ * M1 Wiring test: Runner prescription flooring and logged-weight rounding.
  * 
- * Tests that session-runner.tsx's lastWeight calculation flows through correctly:
- * - lastWeight = suggestedWeightKg (NOT snapPrescribedWeight(suggestedWeightKg))
- * - This lastWeight is passed to computeRunnerWeightPrefill
- * - Result: stored weights display at nearest 0.5 lb, not floored
- * 
- * Critical test case: 62.75 kg
- * - Correct (nearest): 62.75 kg = 138.35 lb → 138.5 lb
- * - Mutant (floored):  62.75 kg = 138.35 lb → 138.0 lb
- * 
- * Kills mutant: session-runner.tsx line ~733 reverts lastWeight to snapPrescribedWeight
+ * Tests that session-runner.tsx handles prescriptions and logged weights correctly:
+ * - Prescriptions (no logged sets): FLOOR to 0.5 lb (62.5 kg → 137.5 lb, not 138 lb)
+ * - Logged weights: round to NEAREST 0.5 lb (62.75 kg → 138.5 lb)
+ * - Unedited submit: preserves exact original kg
+ * - Edited submit: converts typed display value
  */
 
 import "./helpers/setup-jsdom";
@@ -29,19 +24,12 @@ function check(label: string, pass: boolean, detail = "") {
   console.log(`  ${pass ? "✓" : "✗"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-console.log("\n=== M1 Runner Wiring: stored kg → nearest 0.5 lb (not floored) ===\n");
-
-const testCases = [
-  // Critical case: tests rounding vs flooring
-  { kg: 62.75, expectedPrefill: "138.5", expectedLine: "138.5 lb", desc: "62.75 kg (critical: rounds up, not down)" },
-  // Additional cases for coverage
-  { kg: 72.5, expectedPrefill: "160", expectedLine: "160 lb", desc: "72.5 kg" },
-  // QA demo rehearsal: 40 kg → 88 lb, unedited submit must save exactly 40 kg (not 39.92)
-  { kg: 40, expectedPrefill: "88", expectedLine: "88 lb", desc: "40 kg (QA: e1RM preservation)" },
-];
+console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight rounding ===\n");
 
 (async () => {
-  for (const { kg, expectedPrefill, expectedLine, desc } of testCases) {
+  // Test 1: Prescription 62.5 kg → floored 137.5 lb, submits exact 62.5 kg
+  console.log("\nTest 1: Prescription 62.5 kg (floored to 137.5 lb)");
+  {
     let capturedWeightKg: number | null = null;
     
     const actions: SessionActions = {
@@ -104,8 +92,8 @@ const testCases = [
       repsMin: 6,
       repsMax: 8,
       restSeconds: 180,
-      workingWeightKg: kg,
-      suggestedWeightKg: kg,
+      workingWeightKg: 62.5,
+      suggestedWeightKg: 62.5,
       status: "pending",
       feel: null,
       sets: [],
@@ -128,95 +116,557 @@ const testCases = [
     );
 
     await waitFor(() => {
-      if (!r.container.textContent?.includes("Bench Press"))
-        throw new Error("Exercise not loaded");
-    });
-
-    // Wait for component to sync and mark synced
-    await waitFor(() => {
-      const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
-      return workingWeightLine !== null;
+      const workingWeightLine = r.container.querySelector("[data-testid='working-weight-line']");
+      if (!workingWeightLine) throw new Error("Working weight line not found");
     }, { timeout: 5000 });
 
-    // Check working weight line using data-testid for precision
     const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
-    
-    if (!workingWeightLine) {
-      check(`${desc}: Working weight line found`, false, "element not found");
-      r.unmount();
-      continue;
-    }
-    
-    const workingWeightText = workingWeightLine.textContent || "";
-    const hasCorrectWeight = workingWeightText.includes(expectedLine);
-    
-    check(
-      `${desc}: Working weight line shows "${expectedLine}"`, 
-      hasCorrectWeight,
-      hasCorrectWeight ? "" : `found: "${workingWeightText}"`
-    );
-    
-    // Check weight input prefill
+    const workingWeightText = workingWeightLine?.textContent || "";
+    check("Working weight line shows 137.5 lb (floored)", workingWeightText.includes("137.5 lb"),
+      `found: "${workingWeightText}"`);
+
     const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
       (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
     );
+    if (!weightInput) throw new Error("Weight input not found");
 
-    if (!weightInput) {
-      check(`${desc}: Weight input found`, false, "input not found");
-      r.unmount();
-      continue;
-    }
+    check("Prefill shows 137.5 (floored)", weightInput.value === "137.5",
+      `got "${weightInput.value}"`);
 
-    const prefillValue = weightInput.value;
-    check(`${desc}: Weight input prefill is "${expectedPrefill}"`, prefillValue === expectedPrefill,
-      `expected "${expectedPrefill}", got "${prefillValue}"`);
-    
-    // Test unedited submit: press Log Set button and verify what logSet receives
-    // Fill in reps first (required for per-set logging)
     const repsInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
       (i) => i.closest("label")?.textContent?.includes("Reps")
     );
-    
-    if (!repsInput) {
-      check(`${desc}: Reps input found`, false, "input not found");
-      r.unmount();
-      continue;
-    }
-    
-    // Change reps value
-    act(() => {
+    if (!repsInput) throw new Error("Reps input not found");
+
+    await act(async () => {
       fireEvent.change(repsInput, { target: { value: "7" } });
     });
-    
-    // Find Log Set button by data-testid
+
     const logSetButton = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
-    
-    if (!logSetButton) {
-      check(`${desc}: Log Set button found`, false, "button not found");
-      r.unmount();
-      continue;
-    }
-    
-    // Click the button
+    if (!logSetButton) throw new Error("Log Set button not found");
+
     capturedWeightKg = null;
-    act(() => {
+    await act(async () => {
       fireEvent.click(logSetButton);
     });
+
+    // Give React time to process the click
+    await waitFor(() => {
+      if (capturedWeightKg === null) throw new Error("logSet not called yet");
+    }, { timeout: 1000 });
+
+    check("Unedited prescription submits exact 62.5 kg", capturedWeightKg === 62.5,
+      capturedWeightKg === null ? "logSet not called" : `got ${capturedWeightKg}`);
+
+    r.unmount();
+  }
+
+  // Test 2: Prescription 72.5 kg → floored 159.5 lb, submits exact 72.5 kg
+  console.log("\nTest 2: Prescription 72.5 kg (floored to 159.5 lb)");
+  {
+    let capturedWeightKg: number | null = null;
     
-    // Verify the button click worked and submitted the correct value
-    check(
-      `${desc}: Log Set button click submits original ${kg} kg exactly`,
-      capturedWeightKg === kg,
-      capturedWeightKg === null 
-        ? "button click did not trigger logSet (test env limitation with async React state)"
-        : `expected ${kg}, got ${capturedWeightKg}`
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async (data) => {
+        capturedWeightKg = data.weightKg;
+        return { ok: true as const };
+      },
+      deleteSet: async () => ({ ok: true as const }),
+      finishExercise: async () => ({
+        ok: true as const,
+        data: { outcome: "hold", message: "", personalBest: null },
+      }),
+      finishSession: async () => ({
+        ok: true as const,
+        data: { status: "completed" as const, durationSeconds: null },
+      }),
+      abandonSession: async () => ({ ok: true as const }),
+      planDay: async () => ({ ok: true as const }),
+      refreshAfterSession: async () => ({ ok: true as const }),
+      swapExercise: async () => ({ 
+        ok: true, 
+        data: { 
+          workoutSessionExerciseId: "", 
+          exerciseId: "",
+          metric: "reps" as const,
+          repsMin: null,
+          repsMax: null,
+          equipmentIds: [],
+          weightPrefill: null,
+          workingWeightKg: null,
+          currentTargetReps: null,
+          isBodyweight: false,
+        } 
+      }),
+      findAlternatives: async () => ({ ok: true as const, data: [] }),
+      getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    };
+
+    const settings = {
+      perSetLogging: true,
+      restAutostart: false,
+      restSound: false,
+      restVibrate: false,
+      restOverrideSeconds: null,
+      cooldownEnabled: false,
+      units: "imperial" as const,
+    };
+
+    const exercise: RunnerExercise = {
+      id: "ex1",
+      exerciseId: "squat",
+      name: "Squat",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["quads"],
+      plannedSets: 3,
+      plannedRepsMin: 6,
+      plannedRepsMax: 8,
+      repsMin: 6,
+      repsMax: 8,
+      restSeconds: 180,
+      workingWeightKg: 72.5,
+      suggestedWeightKg: 72.5,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false,
+    };
+
+    const r = render(
+      <SessionRunner
+        sessionId="s1"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[exercise]}
+        settings={settings}
+        actions={actions}
+      />,
     );
+
+    await waitFor(() => {
+      const workingWeightLine = r.container.querySelector("[data-testid='working-weight-line']");
+      if (!workingWeightLine) throw new Error("Working weight line not found");
+    }, { timeout: 5000 });
+
+    const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
+    const workingWeightText = workingWeightLine?.textContent || "";
+    check("Working weight line shows 159.5 lb (floored)", workingWeightText.includes("159.5 lb"),
+      `found: "${workingWeightText}"`);
+
+    const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
+    );
+    if (!weightInput) throw new Error("Weight input not found");
+
+    check("Prefill shows 159.5 (floored)", weightInput.value === "159.5",
+      `got "${weightInput.value}"`);
+
+    const repsInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.includes("Reps")
+    );
+    if (!repsInput) throw new Error("Reps input not found");
+
+    await act(async () => {
+      fireEvent.change(repsInput, { target: { value: "7" } });
+    });
+
+    const logSetButton = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+    if (!logSetButton) throw new Error("Log Set button not found");
+
+    capturedWeightKg = null;
+    await act(async () => {
+      fireEvent.click(logSetButton);
+    });
+
+    await waitFor(() => {
+      if (capturedWeightKg === null) throw new Error("logSet not called yet");
+    }, { timeout: 1000 });
+
+    check("Unedited prescription submits exact 72.5 kg", capturedWeightKg === 72.5,
+      capturedWeightKg === null ? "logSet not called" : `got ${capturedWeightKg}`);
+
+    r.unmount();
+  }
+
+  // Test 3: Prescription 40 kg → floored 88 lb, submits exact 40 kg
+  console.log("\nTest 3: Prescription 40 kg (floored to 88 lb)");
+  {
+    let capturedWeightKg: number | null = null;
     
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async (data) => {
+        capturedWeightKg = data.weightKg;
+        return { ok: true as const };
+      },
+      deleteSet: async () => ({ ok: true as const }),
+      finishExercise: async () => ({
+        ok: true as const,
+        data: { outcome: "hold", message: "", personalBest: null },
+      }),
+      finishSession: async () => ({
+        ok: true as const,
+        data: { status: "completed" as const, durationSeconds: null },
+      }),
+      abandonSession: async () => ({ ok: true as const }),
+      planDay: async () => ({ ok: true as const }),
+      refreshAfterSession: async () => ({ ok: true as const }),
+      swapExercise: async () => ({ 
+        ok: true, 
+        data: { 
+          workoutSessionExerciseId: "", 
+          exerciseId: "",
+          metric: "reps" as const,
+          repsMin: null,
+          repsMax: null,
+          equipmentIds: [],
+          weightPrefill: null,
+          workingWeightKg: null,
+          currentTargetReps: null,
+          isBodyweight: false,
+        } 
+      }),
+      findAlternatives: async () => ({ ok: true as const, data: [] }),
+      getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    };
+
+    const settings = {
+      perSetLogging: true,
+      restAutostart: false,
+      restSound: false,
+      restVibrate: false,
+      restOverrideSeconds: null,
+      cooldownEnabled: false,
+      units: "imperial" as const,
+    };
+
+    const exercise: RunnerExercise = {
+      id: "ex1",
+      exerciseId: "row",
+      name: "Row",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["back"],
+      plannedSets: 3,
+      plannedRepsMin: 6,
+      plannedRepsMax: 8,
+      repsMin: 6,
+      repsMax: 8,
+      restSeconds: 180,
+      workingWeightKg: 40,
+      suggestedWeightKg: 40,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false,
+    };
+
+    const r = render(
+      <SessionRunner
+        sessionId="s1"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[exercise]}
+        settings={settings}
+        actions={actions}
+      />,
+    );
+
+    await waitFor(() => {
+      const workingWeightLine = r.container.querySelector("[data-testid='working-weight-line']");
+      if (!workingWeightLine) throw new Error("Working weight line not found");
+    }, { timeout: 5000 });
+
+    const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
+    const workingWeightText = workingWeightLine?.textContent || "";
+    check("Working weight line shows 88 lb (floored)", workingWeightText.includes("88 lb"),
+      `found: "${workingWeightText}"`);
+
+    const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
+    );
+    if (!weightInput) throw new Error("Weight input not found");
+
+    check("Prefill shows 88 (floored)", weightInput.value === "88",
+      `got "${weightInput.value}"`);
+
+    const repsInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.includes("Reps")
+    );
+    if (!repsInput) throw new Error("Reps input not found");
+
+    await act(async () => {
+      fireEvent.change(repsInput, { target: { value: "7" } });
+    });
+
+    const logSetButton = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+    if (!logSetButton) throw new Error("Log Set button not found");
+
+    capturedWeightKg = null;
+    await act(async () => {
+      fireEvent.click(logSetButton);
+    });
+
+    await waitFor(() => {
+      if (capturedWeightKg === null) throw new Error("logSet not called yet");
+    }, { timeout: 1000 });
+
+    check("Unedited prescription submits exact 40 kg", capturedWeightKg === 40,
+      capturedWeightKg === null ? "logSet not called" : `got ${capturedWeightKg}`);
+
+    r.unmount();
+  }
+
+  // Test 4: Logged weight 62.75 kg → rounded to nearest 138.5 lb
+  console.log("\nTest 4: Logged weight 62.75 kg (rounded to 138.5 lb, not floored)");
+  {
+    let capturedWeightKg: number | null = null;
+    
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async (data) => {
+        capturedWeightKg = data.weightKg;
+        return { ok: true as const };
+      },
+      deleteSet: async () => ({ ok: true as const }),
+      finishExercise: async () => ({
+        ok: true as const,
+        data: { outcome: "hold", message: "", personalBest: null },
+      }),
+      finishSession: async () => ({
+        ok: true as const,
+        data: { status: "completed" as const, durationSeconds: null },
+      }),
+      abandonSession: async () => ({ ok: true as const }),
+      planDay: async () => ({ ok: true as const }),
+      refreshAfterSession: async () => ({ ok: true as const }),
+      swapExercise: async () => ({ 
+        ok: true, 
+        data: { 
+          workoutSessionExerciseId: "", 
+          exerciseId: "",
+          metric: "reps" as const,
+          repsMin: null,
+          repsMax: null,
+          equipmentIds: [],
+          weightPrefill: null,
+          workingWeightKg: null,
+          currentTargetReps: null,
+          isBodyweight: false,
+        } 
+      }),
+      findAlternatives: async () => ({ ok: true as const, data: [] }),
+      getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    };
+
+    const settings = {
+      perSetLogging: true,
+      restAutostart: false,
+      restSound: false,
+      restVibrate: false,
+      restOverrideSeconds: null,
+      cooldownEnabled: false,
+      units: "imperial" as const,
+    };
+
+    const exercise: RunnerExercise = {
+      id: "ex1",
+      exerciseId: "bench-press",
+      name: "Bench Press",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["chest"],
+      plannedSets: 3,
+      plannedRepsMin: 6,
+      plannedRepsMax: 8,
+      repsMin: 6,
+      repsMax: 8,
+      restSeconds: 180,
+      workingWeightKg: 62.5,
+      suggestedWeightKg: 62.5,
+      status: "pending",
+      feel: null,
+      sets: [{ weightKg: 62.75, reps: 7, durationSeconds: null }], // Logged set!
+      isBodyweight: false,
+    };
+
+    const r = render(
+      <SessionRunner
+        sessionId="s1"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[exercise]}
+        settings={settings}
+        actions={actions}
+      />,
+    );
+
+    await waitFor(() => {
+      const setNumber = r.container.textContent?.includes("Set 2");
+      if (!setNumber) throw new Error("Set 2 not rendered");
+    }, { timeout: 5000 });
+
+    const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
+    );
+    if (!weightInput) throw new Error("Weight input not found");
+
+    check("Logged weight prefill shows 138.5 (rounded to nearest, not floored)", weightInput.value === "138.5",
+      `got "${weightInput.value}"`);
+
+    r.unmount();
+  }
+
+  // Test 5: Edited weight converts typed value
+  console.log("\nTest 5: Edited weight converts typed display value");
+  {
+    let capturedWeightKg: number | null = null;
+    
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async (data) => {
+        capturedWeightKg = data.weightKg;
+        return { ok: true as const };
+      },
+      deleteSet: async () => ({ ok: true as const }),
+      finishExercise: async () => ({
+        ok: true as const,
+        data: { outcome: "hold", message: "", personalBest: null },
+      }),
+      finishSession: async () => ({
+        ok: true as const,
+        data: { status: "completed" as const, durationSeconds: null },
+      }),
+      abandonSession: async () => ({ ok: true as const }),
+      planDay: async () => ({ ok: true as const }),
+      refreshAfterSession: async () => ({ ok: true as const }),
+      swapExercise: async () => ({ 
+        ok: true, 
+        data: { 
+          workoutSessionExerciseId: "", 
+          exerciseId: "",
+          metric: "reps" as const,
+          repsMin: null,
+          repsMax: null,
+          equipmentIds: [],
+          weightPrefill: null,
+          workingWeightKg: null,
+          currentTargetReps: null,
+          isBodyweight: false,
+        } 
+      }),
+      findAlternatives: async () => ({ ok: true as const, data: [] }),
+      getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    };
+
+    const settings = {
+      perSetLogging: true,
+      restAutostart: false,
+      restSound: false,
+      restVibrate: false,
+      restOverrideSeconds: null,
+      cooldownEnabled: false,
+      units: "imperial" as const,
+    };
+
+    const exercise: RunnerExercise = {
+      id: "ex1",
+      exerciseId: "bench-press",
+      name: "Bench Press",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["chest"],
+      plannedSets: 3,
+      plannedRepsMin: 6,
+      plannedRepsMax: 8,
+      repsMin: 6,
+      repsMax: 8,
+      restSeconds: 180,
+      workingWeightKg: 62.5,
+      suggestedWeightKg: 62.5,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false,
+    };
+
+    const r = render(
+      <SessionRunner
+        sessionId="s1"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[exercise]}
+        settings={settings}
+        actions={actions}
+      />,
+    );
+
+    await waitFor(() => {
+      const workingWeightLine = r.container.querySelector("[data-testid='working-weight-line']");
+      if (!workingWeightLine) throw new Error("Working weight line not found");
+    }, { timeout: 5000 });
+
+    const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
+    );
+    if (!weightInput) throw new Error("Weight input not found");
+
+    // Edit the weight to 140 lb
+    await act(async () => {
+      fireEvent.change(weightInput, { target: { value: "140" } });
+    });
+
+    const repsInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.includes("Reps")
+    );
+    if (!repsInput) throw new Error("Reps input not found");
+
+    await act(async () => {
+      fireEvent.change(repsInput, { target: { value: "7" } });
+    });
+
+    const logSetButton = r.container.querySelector<HTMLButtonElement>("[data-testid='log-set-button']");
+    if (!logSetButton) throw new Error("Log Set button not found");
+
+    capturedWeightKg = null;
+    await act(async () => {
+      fireEvent.click(logSetButton);
+    });
+
+    await waitFor(() => {
+      if (capturedWeightKg === null) throw new Error("logSet not called yet");
+    }, { timeout: 1000 });
+
+    // 140 lb → 63.5029 kg, rounded to 0.5 lb grid = 140 lb → 63.5 kg
+    const expected = 63.5;
+    const tolerance = 0.1;
+    const withinTolerance = capturedWeightKg !== null && Math.abs(capturedWeightKg - expected) < tolerance;
+    check(`Edited 140 lb converts to ~${expected} kg`, withinTolerance,
+      capturedWeightKg === null ? "logSet not called" : `got ${capturedWeightKg}, expected ${expected}`);
+
     r.unmount();
   }
 
   if (failures === 0) {
-    console.log(`\n✓ All ${testCases.length * 3} wiring tests passed\n`);
+    console.log(`\n✓ All wiring tests passed\n`);
     process.exit(0);
   } else {
     console.log(`\n✗ ${failures} test(s) failed\n`);
