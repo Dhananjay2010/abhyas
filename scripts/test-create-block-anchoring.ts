@@ -31,7 +31,7 @@ const catalogue: CandidateExercise[] = JSON.parse(
 
 interface RecordedData {
   programDays: Array<{ day_index: number; day_type: DayType }>;
-  rpcCalls: Array<{ name: string; body: any }>;
+  rpcCalls: Array<{ name: string; body: unknown }>;
 }
 
 function buildRecordingClient(config: {
