@@ -478,7 +478,9 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     await new Promise((r) => setTimeout(r, 50));
     
     const text = c.textContent ?? "";
-    check("shows 'Rest day kept' confirmation", text.includes("Rest day kept"), text.slice(0, 120));
+    // LOW fix: No repetitive confirmation - only show settled state
+    check("shows settled state", text.includes("Tomorrow is a rest day"), text.slice(0, 120));
+    check("does NOT repeat with separate confirmation", !text.includes("Rest day kept"), text.slice(0, 120));
     unmount();
   }
 
@@ -500,7 +502,9 @@ class Boundary extends React.Component<{ children: React.ReactNode }, { err: str
     await new Promise((r) => setTimeout(r, 50));
     
     const text = c.textContent ?? "";
-    check("shows 'Saved: training Upper' confirmation", text.includes("Saved: training Upper"), text.slice(0, 150));
+    // LOW fix: No repetitive confirmation - only show settled state
+    check("shows settled state", text.includes("Tomorrow is Upper"), text.slice(0, 150));
+    check("does NOT repeat with separate confirmation", !text.includes("Saved: training"), text.slice(0, 150));
     unmount();
   }
 

@@ -154,10 +154,14 @@ export type NextDayPlan = {
  *
  * Returns null when there is no active block, which is the one case where
  * asking "what about tomorrow?" has no answer to offer.
+ *
+ * @param targetLocalDate - If provided, resolves this date instead of wall-clock tomorrow.
+ *                          Used to show the session's local_date + 1 even after midnight.
  */
 export async function nextDayPlan(
   supabase: Client,
   timezone: string,
+  targetLocalDate?: string,
 ): Promise<NextDayPlan | null> {
   const { data: program } = await supabase
     .from("programs")
@@ -166,7 +170,7 @@ export async function nextDayPlan(
     .maybeSingle();
   if (!program) return null;
 
-  const tomorrow = addDays(localDateString(timezone), 1);
+  const tomorrow = targetLocalDate ?? addDays(localDateString(timezone), 1);
   const [resolved, days] = await Promise.all([
     resolveDay(supabase, program.id, tomorrow),
     plannableDays(supabase, program.id),

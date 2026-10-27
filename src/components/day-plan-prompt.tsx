@@ -48,32 +48,27 @@ export function DayPlanPrompt({
   const [pending, startTransition] = useTransition();
   const [choosing, setChoosing] = useState(false);
   const [settled, setSettled] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastAttempt, setLastAttempt] = useState<{ plan: DayPlan; describedAs: string } | null>(null);
 
   function choose(plan: DayPlan, describedAs: string) {
     setError(null);
-    setConfirmation(null);
+    setLastAttempt({ plan, describedAs });
     startTransition(async () => {
       try {
+        // Type-safe construction without cast
         const input = sessionId 
           ? { sessionId, plan }
-          : { localDate: localDate!, plan };
-        const r = await onPlan(input as { sessionId: string; plan: DayPlan });
+          : localDate
+          ? { localDate, plan }
+          : { plan } as never; // Should never happen - component requires one or the other
+        const r = await onPlan(input);
         if (!r.ok) {
           setError(r.error);
           return;
         }
         setChoosing(false);
         setSettled(describedAs);
-        // Show brief confirmation
-        if (plan.kind === "keep" && (describedAs.toLowerCase() === "rest" || describedAs === "a rest day")) {
-          setConfirmation("Rest day kept");
-        } else if (plan.kind === "training") {
-          setConfirmation(`Saved: training ${describedAs}`);
-        } else {
-          setConfirmation(`Saved: ${describedAs}`);
-        }
         // Today reads the override on the server, so it has to re-render.
         router.refresh();
       } catch (err) {
@@ -88,24 +83,19 @@ export function DayPlanPrompt({
   }
 
   if (settled) {
+    // MED-C: Use dayLabel (context-dependent) instead of hardcoding "Tomorrow"
     const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
-      ? "Tomorrow is a rest day."
+      ? `${dayLabel} is a rest day.`
       : `${dayLabel} is ${settled}.`;
     return (
       <section className="mt-8 rounded-xl border border-success/30 bg-success/10 px-5 py-4">
         <p className="text-sm text-success">
           {settledCopy}
         </p>
-        {confirmation && (
-          <p className="mt-1 text-xs text-success/80">
-            {confirmation}
-          </p>
-        )}
         <button
           onClick={() => {
             setSettled(null);
             setChoosing(true);
-            setConfirmation(null);
           }}
           className="mt-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg"
         >
@@ -156,7 +146,7 @@ export function DayPlanPrompt({
                 </Choice>
               ))
             )}
-            {days.some((d) => d.dayType === "yoga") ? null : (
+            {days.some((d) => d.dayType === "yoga") || days.length === 0 ? null : (
               <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
                 Yoga
               </Choice>
@@ -180,9 +170,9 @@ export function DayPlanPrompt({
             <button
               onClick={() => {
                 setError(null);
-                if (settled) {
-                  setSettled(null);
-                  setChoosing(true);
+                // LOW fix: Retry actually retries the save
+                if (lastAttempt) {
+                  choose(lastAttempt.plan, lastAttempt.describedAs);
                 }
               }}
               className="mt-2 text-sm underline underline-offset-2"
@@ -260,9 +250,9 @@ export function DayPlanPrompt({
           <button
             onClick={() => {
               setError(null);
-              if (settled) {
-                setSettled(null);
-                setChoosing(true);
+              // LOW fix: Retry actually retries the save
+              if (lastAttempt) {
+                choose(lastAttempt.plan, lastAttempt.describedAs);
               }
             }}
             className="mt-2 text-sm underline underline-offset-2"

@@ -393,6 +393,67 @@ run_mutant "Q4. Never mind tap target too small (py-2)" "$COMPONENT" \
 
         {error && (' "$T"
 
+run_mutant "N4. Raw DB error passes through to user" "$ACTION" \
+  '    const friendlyError = result.error === "That day has already been trained."
+      ? result.error
+      : result.error === "That day has a session in progress."
+      ? result.error
+      : result.error === "That day has already been and gone."
+      ? result.error
+      : result.error === "No active program found."
+      ? result.error
+      : "Couldn'\''t save your choice. Please try again.";' \
+  '    const friendlyError = result.error;' "$T"
+
+run_mutant "N5. planDay ignores resolved date (uses today instead)" "$ACTION" \
+  '  const result = await planDayCore(client, {
+    userId: user.id,
+    localDate: targetDate,
+    today,
+    plan: input.plan,
+  });' \
+  '  const result = await planDayCore(client, {
+    userId: user.id,
+    localDate: today,
+    today,
+    plan: input.plan,
+  });' "$T_RESOLVE"
+
+run_mutant "N6. Session lookup not scoped by user_id" "$ACTION" \
+  '      async fetchSessionLocalDate(sessionId, userId) {
+        const { data, error } = await supabase
+          .from("sessions")
+          .select("local_date")
+          .eq("id", sessionId)
+          .eq("user_id", userId)
+          .maybeSingle();' \
+  '      async fetchSessionLocalDate(sessionId, userId) {
+        const { data, error } = await supabase
+          .from("sessions")
+          .select("local_date")
+          .eq("id", sessionId)
+          .maybeSingle();' "$T_RESOLVE"
+
+run_mutant "N7. Resolver error falls back to today (no friendly error)" "$RESOLVE" \
+  '  if (result.error) {
+    return { ok: false, error: "Could not load session." };
+  }' \
+  '  if (result.error) {
+    return { ok: true, data: new Date().toISOString().slice(0, 10) };
+  }' "$T_RESOLVE"
+
+run_mutant "N10. SessionRunner passes localDate instead of sessionId" "$COMPONENT" \
+  '        const input = sessionId 
+          ? { sessionId, plan }
+          : localDate
+          ? { localDate, plan }
+          : { plan } as never;' \
+  '        const input = localDate 
+          ? { localDate, plan }
+          : sessionId
+          ? { sessionId, plan }
+          : { plan } as never;' "$T"
+
 echo ""
 echo "──────────────────────────────────────────────────────────"
 echo "Mutants killed:   $KILLED"

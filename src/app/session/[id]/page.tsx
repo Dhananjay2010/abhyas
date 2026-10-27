@@ -4,6 +4,7 @@ import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warm
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isStaleSession } from "@/lib/session/is-stale-session";
+import { addDays } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
@@ -178,10 +179,12 @@ export default async function SessionPage({
   };
 
   // "What about tomorrow?" needs the block's own days to offer as alternatives,
-  // and what tomorrow already is. Read after the session itself so a slow
-  // answer here can never delay the screen the user is waiting on.
+  // and what tomorrow already is. MED-A: "tomorrow" = session.local_date + 1,
+  // computed server-side, even after midnight. This ensures displayed plan and
+  // saved date match.
   const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
-  const tomorrow = await nextDayPlan(supabase, timezone);
+  const sessionTargetDate = session.local_date ? addDays(session.local_date, 1) : undefined;
+  const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate);
 
   // Compute isStale on the server to avoid requiring timezone in client components
   const isStale = session.started_at

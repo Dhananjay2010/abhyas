@@ -639,7 +639,7 @@ export async function planDay(input: {
   });
 
   if (!result.ok) {
-    // Map all database/system errors to friendly copy
+    // Map all database/system errors to friendly copy using exact match
     const friendlyError = result.error === "That day has already been trained."
       ? result.error
       : result.error === "That day has a session in progress."
