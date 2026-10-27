@@ -629,6 +629,9 @@ async function runTests() {
     }
   }
   console.log();
+
+  // TEST: Storage path logo URL is accepted
+  console.log("TEST: Storage path logo URL is accepted");
   {
     const { error } = await clientOwner.rpc("set_gym_branding", {
       p_gym_id: gymId,
