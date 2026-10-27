@@ -14,7 +14,7 @@ import { formatVolume, formatWeight, getUnitsPreference } from "@/lib/units";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
 import { formatDurationMinutes } from "@/lib/history/compute-duration";
-import { computeDetailDuration } from "@/lib/history/compute-detail-duration";
+import { computeDetailPageDuration } from "@/lib/history/compute-detail-page-duration";
 
 export const dynamic = "force-dynamic";
 
@@ -114,11 +114,10 @@ export default async function SessionDetailPage({
   
   // Item 9: Duration - use stored duration_seconds, or compute from sets if NULL
   // L-4: Use chronologically latest set, not highest set_number
-  // QA LOW A: Filter to working sets before computing duration (drop warm-ups)
-  const workingSets = (sets ?? []).filter(s => !s.is_warmup_set);
-  const durationSeconds = computeDetailDuration(
+  // QA LOW A & B: Filter to working sets before computing duration (drop warm-ups)
+  const durationSeconds = computeDetailPageDuration(
     { duration_seconds: session.duration_seconds, started_at: session.started_at },
-    workingSets
+    sets ?? []
   );
   const minutes = durationSeconds !== null ? Math.round(durationSeconds / 60) : null;
   
