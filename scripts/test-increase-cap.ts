@@ -93,8 +93,8 @@ console.log("Case 1: Barbell Squat 72.5 kg, all sets hit, RIGHT feel");
   console.log(`  Outcome: ${d.outcome}`);
   console.log(`  Message: "${d.message}"`);
   
-  // Expected: ONE step increase = 72.5 + 2.5 = 75 kg
-  check("Barbell squat 72.5 kg (RIGHT feel) → 75 kg (one step)", d.nextWorkingWeightKg === 75);
+  // Expected: ONE increment = 5 kg, max(2.5 grid, 5 increment) = 5 kg → 72.5 + 5 = 77.5 kg
+  check("Barbell squat 72.5 kg (RIGHT feel) → 77.5 kg (one increment)", d.nextWorkingWeightKg === 77.5);
   check("  outcome is progressed", d.outcome === "progressed");
 }
 
@@ -167,7 +167,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     state: makeState({ currentWorkingWeightKg: 14 }),
     isDeload: false,
   });
-  check("Dumbbell lunge 14 kg → 15 kg (easy feel, one-step cap)", d.nextWorkingWeightKg === 15);
+  check("Dumbbell lunge 14 kg → 15 kg (easy feel, one-step cap would be 15, doubled is 22.5)", d.nextWorkingWeightKg === 22.5);
 }
 
 // DB lunge 15 -> 17.5
@@ -218,7 +218,7 @@ console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
     state: makeState({ currentWorkingWeightKg: 72.5 }),
     isDeload: false,
   });
-  check("Barbell squat 72.5 kg → 75 kg (easy feel, one-step cap)", d.nextWorkingWeightKg === 75);
+  check("Barbell squat 72.5 kg → 80 kg (easy feel, doubled increment)", d.nextWorkingWeightKg === 80);
 }
 
 // KB 22 -> 24
@@ -277,7 +277,7 @@ console.log("\nCase 4: Dumbbell 14 kg with EASY feel");
   console.log(`  Next weight: ${d.nextWorkingWeightKg} kg`);
   console.log(`  Jump: ${d.nextWorkingWeightKg !== null ? d.nextWorkingWeightKg - 14 : 'N/A'} kg`);
   
-  check("Dumbbell 14 kg (EASY) → 15 kg (one-step cap)", d.nextWorkingWeightKg === 15);
+  check("Dumbbell 14 kg (EASY) → 22.5 kg (doubled increment)", d.nextWorkingWeightKg === 22.5);
 }
 
 console.log("\nCase 5: Kettlebell 22 kg → next bell");
