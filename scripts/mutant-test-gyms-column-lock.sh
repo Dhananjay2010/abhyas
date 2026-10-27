@@ -98,21 +98,8 @@ run_mutant() {
   fi
   rm -f "$reset_output"
   
-  # Apply mutation
-  if [ -n "$undo_sql" ]; then
-    # Undo SQL after reset (for removal/replacement mutants)
-    local undo_output=$(mktemp)
-    if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -c "$undo_sql" > "$undo_output" 2>&1; then
-      echo "  ❌ SKIP: undo SQL failed"
-      echo "  psql error:"
-      cat "$undo_output" | sed 's/^/    /'
-      SKIPPED+=("$name: undo failed")
-      FAILED=$((FAILED + 1))
-      rm -f "$undo_output"
-      return 1
-    fi
-    rm -f "$undo_output"
-  else
+  # Apply mutation - either sed or undo SQL
+  if [ -n "$sed_pattern" ]; then
     # Build mutated migration with sed
     local mutated_migration=$(mktemp)
     if ! sed "$sed_pattern" "supabase/migrations/20261025000043_gyms_column_lock.sql" > "$mutated_migration"; then
@@ -146,6 +133,21 @@ run_mutant() {
     rm -f "$mutation_output" "$mutated_migration"
   fi
   
+  # Apply undo SQL if present (can be combined with sed)
+  if [ -n "$undo_sql" ]; then
+    local undo_output=$(mktemp)
+    if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -c "$undo_sql" > "$undo_output" 2>&1; then
+      echo "  ❌ SKIP: undo SQL failed"
+      echo "  psql error:"
+      cat "$undo_output" | sed 's/^/    /'
+      SKIPPED+=("$name: undo failed")
+      FAILED=$((FAILED + 1))
+      rm -f "$undo_output"
+      return 1
+    fi
+    rm -f "$undo_output"
+  fi
+  
   # Run tests and capture output
   local test_output=$(mktemp)
   if REAL_DB=1 npm run test:gyms-column-lock-real-db > "$test_output" 2>&1; then
@@ -158,7 +160,7 @@ run_mutant() {
     return 1
   fi
   
-  # Check for expected failure message (test prints "FAIL <label>" with no colon)
+  # Check for expected failure message
   if grep -qF "$expected_fail" "$test_output"; then
     echo "  ✅ KILLED by expected assertion"
     KILLED=$((KILLED + 1))
@@ -275,10 +277,10 @@ run_mutant \
   "s/v_old_filtered := to_jsonb(OLD) - v_brand_columns;/v_old_filtered := jsonb_build_object('slug', OLD.slug);/; s/v_new_filtered := to_jsonb(NEW) - v_brand_columns;/v_new_filtered := jsonb_build_object('slug', NEW.slug);/" \
   "FAIL Update name blocked"
 
-# Mutant (n): Future column - add temp column AND change trigger to explicit column list
+# Mutant (n): Future column - build explicit column list via sed, then add column via undo SQL
 run_mutant \
   "(n) future column blocked" \
-  "Add temp column via undo SQL, change trigger comparison to explicit list with sed" \
+  "Change trigger to explicit list (sed) + add temp column (undo SQL)" \
   "s/v_old_filtered := to_jsonb(OLD) - v_brand_columns;/v_old_filtered := jsonb_build_object('id', OLD.id, 'slug', OLD.slug, 'name', OLD.name, 'timezone', OLD.timezone, 'created_at', OLD.created_at);/; s/v_new_filtered := to_jsonb(NEW) - v_brand_columns;/v_new_filtered := jsonb_build_object('id', NEW.id, 'slug', NEW.slug, 'name', NEW.name, 'timezone', NEW.timezone, 'created_at', NEW.created_at);/" \
   "FAIL Future column update blocked" \
   "ALTER TABLE public.gyms ADD COLUMN IF NOT EXISTS temp_future_col text;"
@@ -300,21 +302,31 @@ run_mutant \
   "FAIL Uppercase HTTPS:// rejected" \
   "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/ ~ / ~* /g' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
 
-# Mutant (q): Loosen path traversal check
+# Mutant (q): Remove only .. path traversal checks (not control char checks)
 run_mutant \
   "(q) loosen .. check" \
   "Remove .. path traversal check from logo (040 constraint)" \
   "" \
   "FAIL .. path traversal rejected" \
-  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed '/\\.\\./ d' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
+  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/ and logo_url !~ '\''\\.\\.'\''//g' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
 
-# Mutant (r): Remove control character check
+# Mutant (r): Remove only control character checks (not .. checks)
 run_mutant \
   "(r) allow control chars" \
   "Remove control character check from logo (040 constraint)" \
   "" \
   "FAIL Newline in logo rejected" \
-  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed '/\\x00-\\x1F\\x7F/ d' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
+  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/ and logo_url !~ '\''\\[\\x00-\\x1F\\x7F\\]'\''//g' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
+
+# Reset DB after last mutant
+echo
+echo "Resetting database after all mutants..."
+RESET_OUTPUT=$(mktemp)
+if ! eval "$RESET_CMD" > "$RESET_OUTPUT" 2>&1; then
+  echo "⚠️  Warning: Final reset failed"
+  cat "$RESET_OUTPUT"
+fi
+rm -f "$RESET_OUTPUT"
 
 echo
 echo "=== Mutant Test Summary ==="
