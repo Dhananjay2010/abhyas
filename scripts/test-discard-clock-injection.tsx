@@ -96,7 +96,7 @@ async function testExpiredSetsAreSurfaced() {
 
   // Wait for replay to complete
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
 
   // Should show "couldn't be saved" message
@@ -117,7 +117,7 @@ async function testExpiredSetsAreSurfaced() {
 
   // Wait for state update
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
 
   // Verify sets cleared using injected clock
@@ -171,7 +171,7 @@ async function testEndedSessionIsSurfaced() {
 
   // Wait for replay to complete
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
 
   // Should show "workout ended" message
@@ -189,7 +189,7 @@ async function testEndedSessionIsSurfaced() {
 
   // Wait for clear
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
 
   // Verify cleared

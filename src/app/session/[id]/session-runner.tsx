@@ -507,6 +507,7 @@ export function SessionRunner({
   useEffect(() => {
     const currentId = current?.id;
     if (currentId && alternativesForExerciseId && alternativesForExerciseId !== currentId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: clearing stale UI state when the active exercise changes
       setAlternatives(null);
       setAlternativesForExerciseId(null);
       setLoadingAlternatives(false);
@@ -518,6 +519,7 @@ export function SessionRunner({
     if (alternativesForExerciseId && current?.id === alternativesForExerciseId) {
       const hasSets = current.sets.length > 0;
       if (hasSets) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: clearing stale UI state when sets are logged
         setAlternatives(null);
         setAlternativesForExerciseId(null);
         setLoadingAlternatives(false);
@@ -717,7 +719,7 @@ export function SessionRunner({
             disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
             onClick={async () => {
               await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: settings.cooldownEnabled }),
+                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
               );
               restPersistence.clear();
               setPhase("done");

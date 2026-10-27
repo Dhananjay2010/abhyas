@@ -12,7 +12,7 @@
 import "./helpers/setup-jsdom";
 import { render, screen, act } from "@testing-library/react";
 import { SessionRunner } from "../src/app/session/[id]/session-runner";
-import type { SessionActions, RunnerExercise, RunnerSettings } from "../src/app/session/[id]/session-runner";
+import type { SessionActions, RunnerTimer, RunnerExercise, RunnerSettings } from "../src/app/session/[id]/session-runner";
 
 let passed = 0;
 
@@ -27,8 +27,8 @@ function assert(condition: boolean, message: string) {
 }
 
 const FIXED_TIME = new Date('2026-10-26T12:00:00Z').getTime();
-const fakeTimer = {
-  setTimeout: (callback: () => void) => { callback(); return 0 as unknown as ReturnType<typeof globalThis.setTimeout>; },
+const fakeTimer: RunnerTimer = {
+  setTimeout: (callback: () => void) => { callback(); return setTimeout(() => {}, 999999); },
   clearTimeout: () => {},
 };
 

@@ -10,7 +10,7 @@
 import "./helpers/setup-jsdom";
 
 import { render, act, screen } from "@testing-library/react";
-import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings } from "../src/app/session/[id]/session-runner";
+import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 import { savePendingSet } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 
@@ -68,10 +68,10 @@ const fakeDeps: PendingSetDeps = {
   now: () => FIXED_TIME,
 };
 
-const fakeTimer = {
+const fakeTimer: RunnerTimer = {
   setTimeout: (callback: () => void) => {
     callback();
-    return 0 as unknown as ReturnType<typeof globalThis.setTimeout>;
+    return setTimeout(() => {}, 999999);
   },
   clearTimeout: () => {},
 };

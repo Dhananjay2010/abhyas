@@ -103,7 +103,7 @@ function createDeferred<T>(): Deferred<T> {
 const fakeTimer: RunnerTimer = {
   setTimeout: (callback: () => void) => {
     callback();
-    return 0 as unknown as ReturnType<typeof globalThis.setTimeout>;
+    return setTimeout(() => {}, 999999);
   },
   clearTimeout: () => {
     // no-op

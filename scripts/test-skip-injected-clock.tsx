@@ -18,7 +18,7 @@
 import "./helpers/setup-jsdom";
 import { render, screen, act } from "@testing-library/react";
 import { SessionRunner } from "../src/app/session/[id]/session-runner";
-import type { SessionActions, RunnerExercise, RunnerSettings } from "../src/app/session/[id]/session-runner";
+import type { SessionActions, RunnerTimer, RunnerExercise, RunnerSettings } from "../src/app/session/[id]/session-runner";
 import { savePendingSet } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 import type { Storage } from "../src/lib/session/pending-set-retry";
@@ -57,8 +57,8 @@ Object.defineProperty(window, 'localStorage', {
 const FIXED_TIME = new Date('2020-01-01T10:00:00Z').getTime();
 
 const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
-const fakeTimer = {
-  setTimeout: (callback: () => void) => { callback(); return 0 as unknown as ReturnType<typeof globalThis.setTimeout>; },
+const fakeTimer: RunnerTimer = {
+  setTimeout: (callback: () => void) => { callback(); return setTimeout(() => {}, 999999); },
   clearTimeout: () => {},
 };
 

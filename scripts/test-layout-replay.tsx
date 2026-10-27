@@ -69,6 +69,17 @@ async function testSignedInRendersReplay() {
   console.log("\n📋 Test: Signed in renders PendingSetReplay");
   
   fakeStorage.clear();
+  
+  // Seed storage with a pending set for user1
+  const deps = createPendingSetDeps(() => FIXED_TIME);
+  savePendingSet(fakeStorage, "user1", "session1", {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 60,
+    durationSeconds: null,
+    clientId: "ex1:1:123",
+  }, deps);
 
   const fakeGetUser = async () => ({ id: "user1" });
   const authCallbacks: ((event: string, session: unknown) => void)[] = [];
@@ -81,7 +92,7 @@ async function testSignedInRendersReplay() {
       },
     };
   };
-  const fakeGetSessionStatus = async () => "in_progress" as const;
+  const fakeGetSessionStatus = async () => "ended" as const;
 
   await act(async () => {
     render(
@@ -95,12 +106,12 @@ async function testSignedInRendersReplay() {
 
   // Wait for effect
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
 
-  // Provider should have rendered (PendingSetReplay is mounted but returns null with no closed sessions)
-  // We can't easily assert the component rendered, but we verified the code path
-  assert(authCallbacks.length > 0, "onAuthStateChange listener registered (mutant: missing listener must fail this)");
+  // Assert the replay UI renders with the pending set count
+  const elements = screen.queryAllByText(/couldn't be saved|discard/i);
+  assert(elements.length > 0, "Provider renders replay UI when signed in with pending sets");
 
   cleanup();
   fakeStorage.clear();
@@ -136,7 +147,7 @@ async function testSignedOutRendersNothing() {
 
   // Wait for effect
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
 
   // Should render nothing (returns null when !userId)
@@ -151,6 +162,17 @@ async function testAuthStateChangeSignOut() {
   console.log("\n📋 Test: onAuthStateChange sign-out clears provider");
   
   fakeStorage.clear();
+  
+  // Seed storage with a pending set for user1
+  const deps = createPendingSetDeps(() => FIXED_TIME);
+  savePendingSet(fakeStorage, "user1", "session1", {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 60,
+    durationSeconds: null,
+    clientId: "ex1:1:123",
+  }, deps);
 
   let currentUser: { id: string } | null = { id: "user1" };
   const fakeGetUser = async () => currentUser;
@@ -165,7 +187,7 @@ async function testAuthStateChangeSignOut() {
       },
     };
   };
-  const fakeGetSessionStatus = async () => "in_progress" as const;
+  const fakeGetSessionStatus = async () => "ended" as const;
 
   await act(async () => {
     render(
@@ -179,8 +201,12 @@ async function testAuthStateChangeSignOut() {
 
   // Wait for initial render
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
+  
+  // Assert replay UI is visible with pending set
+  let elements = screen.queryAllByText(/couldn't be saved|discard/i);
+  assert(elements.length > 0, "Provider renders replay UI initially");
 
   // Simulate sign-out
   currentUser = null;
@@ -190,11 +216,11 @@ async function testAuthStateChangeSignOut() {
 
   // Wait for state update
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
 
   // Should render nothing after sign-out
-  const elements = screen.queryAllByText(/couldn't be saved|discard/i);
+  elements = screen.queryAllByText(/couldn't be saved|discard/i);
   assert(elements.length === 0, "Provider cleared on sign-out");
 
   cleanup();
@@ -205,6 +231,26 @@ async function testAuthStateChangeSwitchUser() {
   console.log("\n📋 Test: onAuthStateChange switches userId");
   
   fakeStorage.clear();
+  
+  // Seed storage with pending sets for both users
+  const deps = createPendingSetDeps(() => FIXED_TIME);
+  savePendingSet(fakeStorage, "user1", "session1", {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 60,
+    durationSeconds: null,
+    clientId: "user1:ex1:1:123",
+  }, deps);
+  
+  savePendingSet(fakeStorage, "user2", "session2", {
+    sessionExerciseId: "ex2",
+    setNumber: 1,
+    reps: 12,
+    weightKg: 80,
+    durationSeconds: null,
+    clientId: "user2:ex2:1:456",
+  }, deps);
 
   let currentUser: { id: string } | null = { id: "user1" };
   const fakeGetUser = async () => currentUser;
@@ -219,7 +265,7 @@ async function testAuthStateChangeSwitchUser() {
       },
     };
   };
-  const fakeGetSessionStatus = async () => "in_progress" as const;
+  const fakeGetSessionStatus = async () => "ended" as const;
 
   await act(async () => {
     render(
@@ -231,10 +277,14 @@ async function testAuthStateChangeSwitchUser() {
     );
   });
 
-  // Wait for initial render
+  // Wait for initial render with user1
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
+  
+  // Assert user1's replay UI is visible
+  let elements = screen.queryAllByText(/couldn't be saved|discard/i);
+  assert(elements.length > 0, "Provider shows user1's pending sets");
 
   // Simulate sign-in as different user
   currentUser = { id: "user2" };
@@ -244,11 +294,12 @@ async function testAuthStateChangeSwitchUser() {
 
   // Wait for state update
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
 
-  // Provider should now use user2 (we can't easily assert userId changed, but we exercised the path)
-  assert(authCallbacks.length > 0, "Auth listener active for user switch");
+  // Provider should now show user2's pending sets
+  elements = screen.queryAllByText(/couldn't be saved|discard/i);
+  assert(elements.length > 0, "Provider switches to user2's pending sets");
 
   cleanup();
   fakeStorage.clear();
@@ -307,7 +358,7 @@ async function testGetSessionStatusForEndedSession() {
 
   // Wait for replay to complete
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await Promise.resolve();
   });
 
   // Should show "workout ended" message (surfaced via getSessionStatus)

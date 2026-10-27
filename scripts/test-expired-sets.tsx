@@ -94,11 +94,11 @@ Object.defineProperty(window, 'localStorage', {
   );
   
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await Promise.resolve();
   });
   
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await Promise.resolve();
   });
   
   assert(logSetCalls === 0, "No replay attempted for expired sets");
@@ -131,7 +131,7 @@ Object.defineProperty(window, 'localStorage', {
   );
   
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await Promise.resolve();
   });
   
   assert(fakeStorage.getItem(storageKey("u2")) !== null, "Sets exist before discard");
@@ -143,7 +143,7 @@ Object.defineProperty(window, 'localStorage', {
   });
   
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
   
   assert(fakeStorage.getItem(storageKey("u2")) === null, "Expired sets removed after discard");

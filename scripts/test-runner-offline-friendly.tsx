@@ -186,7 +186,7 @@ async function main() {
   });
 
   const text = container.textContent || "";
-  const hasFriendlyMessage = text.includes("Saved on this device") && text.includes("will sync when you're back online");
+  const hasFriendlyMessage = text.includes("You're offline") && text.includes("wasn't saved yet");
   const hasRawError = text.includes("Failed to fetch");
 
   assert(hasFriendlyMessage, "Shows friendly offline message");
@@ -267,7 +267,7 @@ await (async () => {
   });
 
   const text = container.textContent || "";
-  const hasFriendlyMessage = text.includes("Server error") && text.includes("retry automatically");
+  const hasFriendlyMessage = text.includes("Something went wrong on our side") && text.includes("wasn't saved");
   const hasRawError = text.includes("500") || text.includes("Internal Server Error");
 
   assert(hasFriendlyMessage, "Shows friendly 5xx message");
@@ -352,7 +352,7 @@ await (async () => {
   });
 
   let text = container.textContent || "";
-  assert(text.includes("Saved on this device"), "Error shows after first failure");
+  assert(text.includes("You're offline") && text.includes("wasn't saved yet"), "Error shows after first failure");
 
   // Fill in reps again
   await act(async () => {
@@ -374,7 +374,87 @@ await (async () => {
   });
 
   text = container.textContent || "";
-  assert(!text.includes("Saved on this device"), "Error cleared after successful save");
+  assert(!text.includes("You're offline") && !text.includes("wasn't saved yet"), "Error cleared after successful save");
+
+  root.unmount();
+  document.body.removeChild(container);
+})();
+
+// Test 4: run() error (finish/undo) shows honest friendly message (M6c mutant)
+console.log("\n4. run() error (finish) shows honest friendly message");
+await (async () => {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  
+  const fakeTimer = createFakeTimer();
+
+  const finishErrorActions: SessionActions = {
+    ...defaultActions,
+    finishExercise: async () => {
+      throw new Error("500 Internal Server Error");
+    },
+  };
+
+  const root = createRoot(container);
+  await act(async () => {
+    root.render(
+      React.createElement(SessionRunner, {
+        sessionId: "sess-finish-error",
+        userId: "user-finish",
+        sessionStatus: "in_progress" as const,
+        isDeload: false,
+        week: 1,
+        warmupAlreadyDone: true,
+        startedAt: new Date(FIXED_TIME).toISOString(),
+        warmup: [],
+        cooldown: [],
+        exercises: [baseExercise("ex1", "Bench Press")],
+        settings: {
+          perSetLogging: false,
+          restAutostart: false,
+          restSound: false,
+          restVibrate: false,
+          restOverrideSeconds: null,
+          cooldownEnabled: false,
+          units: "metric" as const,
+        },
+        actions: finishErrorActions,
+        now: () => FIXED_TIME,
+        timer: fakeTimer.timer,
+      })
+    );
+  });
+  
+  // Advance timer
+  await act(async () => {
+    fakeTimer.advance();
+  });
+  
+  // Fill reps
+  await act(async () => {
+    fillRepsInput(container, "10");
+  });
+
+  // Click finish button
+  await act(async () => {
+    const button = Array.from(document.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Finish")
+    );
+    if (button) {
+      button.click();
+    }
+  });
+
+  await act(async () => {
+    fakeTimer.advance();
+  });
+
+  const text = container.textContent || "";
+  const hasFriendlyMessage = text.includes("Something went wrong on our side") && text.includes("wasn't saved");
+  const hasRawError = text.includes("500") || text.includes("Internal Server Error");
+
+  assert(hasFriendlyMessage, "Shows friendly message for run() errors");
+  assert(!hasRawError, "Raw '500 Internal Server Error' NOT shown (mutant M6c: restore raw err.message must fail this)");
 
   root.unmount();
   document.body.removeChild(container);

@@ -3,7 +3,7 @@ import { isOfflineError } from "@/lib/offline-error";
 
 /**
  * Format error messages for the session runner.
- * Replaces raw SESSION_EXPIRED errors, offline errors, and 5xx errors with friendly messages.
+ * Replaces raw SESSION_EXPIRED errors and provides honest, actionable messages.
  */
 export function runnerErrorMessage(err: unknown): string {
   if (isSessionExpired(err)) {
@@ -11,13 +11,13 @@ export function runnerErrorMessage(err: unknown): string {
   }
   
   if (isOfflineError(err)) {
-    return "Saved on this device, will sync when you're back online";
+    return "You're offline. That set wasn't saved yet, tap Log set again when you're back online.";
   }
   
   if (err instanceof Error) {
-    // Check for 5xx server errors
-    if (err.message.match(/5\d{2}/) || err.message.toLowerCase().includes("internal server error")) {
-      return "Server error. Your data is saved, we'll retry automatically.";
+    // Check for explicit server errors
+    if (err.message === "Internal Server Error" || err.message.includes("500")) {
+      return "Something went wrong on our side. That set wasn't saved, please try again.";
     }
     return err.message;
   }

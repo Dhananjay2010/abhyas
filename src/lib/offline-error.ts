@@ -23,10 +23,10 @@
  */
 export function isOfflineError(
   error: Error | unknown,
-  online: boolean = typeof navigator !== "undefined" ? navigator.onLine : true
+  online: boolean = typeof navigator !== "undefined" && navigator.onLine !== undefined ? navigator.onLine : true
 ): boolean {
   // If the browser reports offline, it's offline
-  if (!online) {
+  if (online === false) {
     return true;
   }
 

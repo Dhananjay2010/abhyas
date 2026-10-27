@@ -98,11 +98,11 @@ Object.defineProperty(window, 'localStorage', {
   
   // Wait for replay to complete
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await Promise.resolve();
   });
   
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await Promise.resolve();
   });
   
   assert(logSetCalls === 2, "Both sets were replayed");
@@ -144,7 +144,7 @@ Object.defineProperty(window, 'localStorage', {
   );
   
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await Promise.resolve();
   });
   
   assert(logSetCalls === 0, "No replay attempted for closed session");
@@ -152,7 +152,7 @@ Object.defineProperty(window, 'localStorage', {
   
   // Check that warning is shown
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
   
   const warning = screen.queryByText(/couldn'?t be saved because that workout ended/i);
@@ -206,7 +206,7 @@ Object.defineProperty(window, 'localStorage', {
   );
   
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await Promise.resolve();
   });
   
   assert(fakeStorage.getItem(storageKey("u3")) !== null, "Queue still exists before discard");
@@ -218,7 +218,7 @@ Object.defineProperty(window, 'localStorage', {
   });
   
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await Promise.resolve();
   });
   
   // All sessions for u3 should be discarded
