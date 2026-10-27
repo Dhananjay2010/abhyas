@@ -3,10 +3,11 @@
 
 set -e
 
-# Check that we're in a real-DB test environment
-if [ "$REAL_DB" != "1" ] && [ -z "$CI" ]; then
-  echo "⏭️  Skipping mutant tests (not in DB test environment)"
-  echo "   Set REAL_DB=1 to run these tests"
+# Skip whenever REAL_DB != 1 (regardless of CI)
+# The database-seed-test CI step always sets REAL_DB=1
+if [ "$REAL_DB" != "1" ]; then
+  echo "⏭️  Skipping mutant tests (REAL_DB=1 not set)"
+  echo "   These tests require a real database (run in database-seed-test CI job)"
   exit 0
 fi
 
@@ -50,6 +51,20 @@ cleanup() {
 }
 trap 'cleanup; exit 130' INT TERM
 trap cleanup EXIT
+
+# Baseline: Run unmutated tests first to ensure DB is working
+echo "Baseline: Running unmutated tests to verify database is accessible"
+echo ""
+
+REAL_DB=1 npx tsx scripts/test-rebuild-rollover-progress-real-db.ts > /tmp/baseline.log 2>&1
+if [ $? -ne 0 ]; then
+  echo "❌ FAIL: Baseline test failed (database may be down or test has a bug)"
+  cat /tmp/baseline.log
+  exit 1
+fi
+
+echo "✓ Baseline test passed (database is accessible and test works)"
+echo ""
 
 # Mutant 1: Remove the ensureCurrentBlock call from rebuild core
 echo "Mutant 1: Remove ensureCurrentBlock call from rebuild-plan-core"
@@ -158,6 +173,34 @@ fi
 
 # Restore
 cp "$BACKUP_STREAKS" "$STREAKS_FILE"
+
+# Mutant 4: Remove ensureCurrentBlock from rebuildPlanCore (call order test)
+echo ""
+echo "Mutant 4: Remove ensureCurrentBlock call from rebuildPlanCore"
+echo "Expected: Unit test (test-rebuild-rollover-progress.ts) should fail"
+echo ""
+
+cp "$BACKUP_CORE" "$REBUILD_CORE"
+# Comment out the ensureCurrentBlock call and error check
+sed -i '/const rollover = await deps.ensureCurrentBlock/,/^  }$/s/^/\/\/ /' "$REBUILD_CORE"
+
+# Verify the mutation applied
+if diff -q "$BACKUP_CORE" "$REBUILD_CORE" > /dev/null 2>&1; then
+  echo "✗ FAIL: Mutant 4 did not apply (files are identical)"
+  exit 1
+fi
+
+npx tsx scripts/test-rebuild-rollover-progress.ts > /tmp/mutant4.log 2>&1
+if [ $? -eq 0 ]; then
+  echo "✗ FAIL: Mutant 4 survived (unit test passes with swapped order)"
+  cat /tmp/mutant4.log
+  exit 1
+else
+  echo "✓ Mutant 4 killed (unit test fails with swapped order)"
+fi
+
+# Restore
+cp "$BACKUP_CORE" "$REBUILD_CORE"
 
 echo ""
 echo "============================================================"

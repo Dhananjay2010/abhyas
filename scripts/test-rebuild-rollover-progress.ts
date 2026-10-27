@@ -102,6 +102,90 @@ async function runUnitTests() {
     console.log("  PASS: breathing/rest/skipped session unit test\n");
   }
 
+  console.log("TEST: Unit test - rebuildPlanCore call order and error handling");
+  {
+    const { rebuildPlanCore } = await import("../src/lib/program/rebuild-plan-core.js");
+
+    const callLog: string[] = [];
+
+    // Happy path: ensureCurrentBlock runs before createBlock
+    const happyDeps = {
+      userId: "test-user",
+      today: "2026-10-27",
+      fetchActiveBlock: async () => {
+        callLog.push("fetchActiveBlock");
+        return { id: "block1", ends_on: "2026-10-20" };
+      },
+      ensureCurrentBlock: async () => {
+        callLog.push("ensureCurrentBlock");
+        return { status: "current" as const, programId: "prog1" };
+      },
+      createBlock: async () => {
+        callLog.push("createBlock");
+        return { ok: true as const, programId: "prog2", blockNumber: 2 };
+      },
+    };
+
+    callLog.length = 0;
+    const happyResult = await rebuildPlanCore(happyDeps);
+    assert(happyResult.ok === true, "rebuildPlanCore succeeds with valid deps");
+    assert(callLog.length === 3, "All three functions called", `got ${callLog.length}`);
+    assert(callLog[0] === "fetchActiveBlock", "fetchActiveBlock called first", `got ${callLog[0]}`);
+    assert(callLog[1] === "ensureCurrentBlock", "ensureCurrentBlock called second", `got ${callLog[1]}`);
+    assert(callLog[2] === "createBlock", "createBlock called third (after ensureCurrentBlock)", `got ${callLog[2]}`);
+
+    // ensureCurrentBlock error: createBlock is never called
+    const rolloverErrorDeps = {
+      userId: "test-user",
+      today: "2026-10-27",
+      fetchActiveBlock: async () => {
+        callLog.push("fetchActiveBlock");
+        return { id: "block1", ends_on: "2026-10-20" };
+      },
+      ensureCurrentBlock: async () => {
+        callLog.push("ensureCurrentBlock");
+        return { status: "error" as const, error: "Rollover failed" };
+      },
+      createBlock: async () => {
+        callLog.push("createBlock");
+        return { ok: true as const, programId: "prog2", blockNumber: 2 };
+      },
+    };
+
+    callLog.length = 0;
+    const rolloverErrorResult = await rebuildPlanCore(rolloverErrorDeps);
+    assert(rolloverErrorResult.ok === false, "rebuildPlanCore returns error from ensureCurrentBlock");
+    assert(callLog.length === 2, "createBlock not called after ensureCurrentBlock error", `got ${callLog.length}, calls: ${callLog.join(", ")}`);
+    assert(callLog[0] === "fetchActiveBlock", "fetchActiveBlock called first", `got ${callLog[0]}`);
+    assert(callLog[1] === "ensureCurrentBlock", "ensureCurrentBlock called second", `got ${callLog[1]}`);
+
+    // createBlock error: error is passed back
+    const createErrorDeps = {
+      userId: "test-user",
+      today: "2026-10-27",
+      fetchActiveBlock: async () => {
+        callLog.push("fetchActiveBlock");
+        return { id: "block1", ends_on: "2026-10-20" };
+      },
+      ensureCurrentBlock: async () => {
+        callLog.push("ensureCurrentBlock");
+        return { status: "rolled_over" as const, programId: "prog1", blockNumber: 2 };
+      },
+      createBlock: async () => {
+        callLog.push("createBlock");
+        return { ok: false as const, error: "Create failed" };
+      },
+    };
+
+    callLog.length = 0;
+    const createErrorResult = await rebuildPlanCore(createErrorDeps);
+    assert(createErrorResult.ok === false, "rebuildPlanCore returns error from createBlock");
+    assert(callLog.length === 3, "All three functions called", `got ${callLog.length}`);
+    assert(callLog[2] === "createBlock", "createBlock called last", `got ${callLog[2]}`);
+
+    console.log("  PASS: rebuildPlanCore unit test\n");
+  }
+
   if (testsFailed === 0) {
     console.log("\n✅ ALL TESTS PASSED");
     process.exit(0);
