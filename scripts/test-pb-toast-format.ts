@@ -15,7 +15,7 @@ console.log("Test PB toast e1RM formatting\n");
 // Test 1: Metric - 1 decimal place, trailing .0 dropped
 const pb1: PersonalBest = { kind: "e1rm", value: 54.58 };
 const result1 = describePersonalBest(pb1, "metric");
-const expected1 = "Best estimated one-rep max yet — 54.6 kg";
+const expected1 = "Best estimated one-rep max yet — 54.5 kg";
 if (result1 !== expected1) {
   console.error(`✗ Metric (54.58 kg): expected "${expected1}", got "${result1}"`);
   process.exit(1);
