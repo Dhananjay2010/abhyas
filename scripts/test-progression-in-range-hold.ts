@@ -143,7 +143,7 @@ console.log("\n3. MISS: sets incomplete or any set below repsMin");
   const d = run({ sets: sets(4, 7) });
   check("4×7 below min: outcome hold", d.outcome === "hold", d.outcome);
   check("4×7: failures increment to 1", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
-  check("4×7: weight drops one grid step to 37.5", d.nextWorkingWeightKg === 37.5, `${d.nextWorkingWeightKg}`);
+  check("4×7: first miss holds at current weight (40)", d.nextWorkingWeightKg === 40, `${d.nextWorkingWeightKg}`);
 }
 
 {

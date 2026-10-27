@@ -108,7 +108,7 @@ console.log("\n4. Falling short of the top is in-range: hold and reset failures"
   // Real miss: below repsMin
   const d = run({ sets: sets(4, 7), equipmentIds: ["barbell"], unit: "kg" });
   check("4×7 below min: outcome hold", d.outcome === "hold", d.outcome);
-  check("4×7 real miss: weight drops one grid step (60 -> 57.5)", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
+  check("4×7 real miss: first miss holds at current weight (60)", d.nextWorkingWeightKg === 60, `${d.nextWorkingWeightKg}`);
   check("4×7 real miss: failure counted", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
 }
 {
