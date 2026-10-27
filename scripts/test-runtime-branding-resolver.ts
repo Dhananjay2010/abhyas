@@ -289,7 +289,6 @@ async function main() {
       );
       
       const resolution = await resolveBrand(supabase, 'GYM.EXAMPLE.COM', null, branding, mockFetchBrand, false);
-    const result = resolution.brand;
       check("Uppercase host resolves", resolution.gymId === gymId);
       check("Tier is 'host'", resolution.tier === "host");
       

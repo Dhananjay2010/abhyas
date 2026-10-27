@@ -10,7 +10,6 @@
  */
 
 import { branding } from "../src/lib/branding";
-import { mergeBrand } from "../src/lib/runtime-brand";
 import { getBrandCssVariables } from "../src/lib/branding";
 import { accessibleTextColor } from "../src/lib/contrast";
 
