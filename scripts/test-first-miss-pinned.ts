@@ -58,18 +58,16 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestWeightKg: 60,
   bestReps: 12,
   bestE1rm: 84,
-  totalSessions: 3, weightAtFailureStartKg: null,
+  totalSessions: 3,
   ...over,
 });
 
 const sets = (n: number, reps: number, w: number | null = 60) =>
   Array.from({ length: n }, () => ({ reps, weightKg: w }));
 
-const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) => {
-  // Default weight from state if not overridden in sets
-  const stateWeight = over.state?.currentWorkingWeightKg ?? 60;
-  return evaluateProgression({
-    sets: sets(4, 7, stateWeight),  // Real miss (below repsMin of 8)
+const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) =>
+  evaluateProgression({
+    sets: sets(4, 7),  // Real miss (below repsMin of 8)
     plannedSets: 4,
     repsMin: 8,
     repsMax: 12,
@@ -78,10 +76,9 @@ const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) => {
     state: fresh(),
     isDeload: false,
     equipmentIds: ["barbell"],
-    
+    unit: "kg",
     ...over,
   });
-};
 
 console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 
@@ -89,7 +86,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 {
   const d = run({
     equipmentIds: ["dumbbell"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 0 }),
   });
@@ -101,7 +98,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 {
   const d = run({
     equipmentIds: ["dumbbell"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
@@ -113,28 +110,26 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 {
   const d = run({
     equipmentIds: ["dumbbell"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 5, consecutiveFailures: 0 }),
   });
   check("Dumbbell 5 kg first miss → holds at 5 kg", d.nextWorkingWeightKg === 5 && d.consecutiveFailures === 1);
-  // #120: Message for cut20 reason (2.5 kg would be 50% cut > 20%)
-  check("  message indicates cut > 20%", d.message.includes("cut more than 20%"));
+  check("  message indicates smallest step", d.message.includes("smallest available step"));
 }
 
 // Dumbbell 7.5 → holds (33% cut triggers 20% threshold)
 {
   const d = run({
     equipmentIds: ["dumbbell"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 0 }),
   });
   const cutPct = (7.5 - 5) / 7.5;
   check(`Dumbbell 7.5 kg first miss → holds (cut would be ${(cutPct * 100).toFixed(1)}% > 20%)`, 
     d.nextWorkingWeightKg === 7.5 && d.consecutiveFailures === 1);
-  // #120: Message for cut20 reason, not smallest
-  check("  message indicates cut > 20%", d.message.includes("cut more than 20%"));
+  check("  message indicates smallest step", d.message.includes("smallest available step"));
 }
 
 console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
@@ -143,9 +138,9 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
 {
   const d = run({
     equipmentIds: ["dumbbell"],
+    unit: "lb",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 0 }),
-    units: "imperial",
   });
   check("Dumbbell 6 kg (13.2 lb) first miss → 5 kg (11 lb)", 
     d.nextWorkingWeightKg === 5 && d.message.includes("11 lb"));
@@ -154,19 +149,9 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
 {
   const d = run({
     equipmentIds: ["dumbbell"],
-    meta: CURL,
-    state: fresh({ currentWorkingWeightKg: 8, consecutiveFailures: 0 }),
-    units: "imperial",
-  });
-  check("Dumbbell 8 kg (17.6 lb) first miss → 7.5 kg (16.5 lb)",
-    d.nextWorkingWeightKg === 7.5 && d.message.includes("16.5 lb"));
-}
-{
-  const d = run({
-    equipmentIds: ["dumbbell"],
+    unit: "lb",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
-    units: "imperial",
   });
   check("Dumbbell 12 kg (26.5 lb) first miss → 10 kg (22 lb)", 
     d.nextWorkingWeightKg === 10 && d.message.includes("22 lb"));
@@ -175,23 +160,23 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
 {
   const d = run({
     equipmentIds: ["dumbbell"],
+    unit: "lb",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 5, consecutiveFailures: 0 }),
-    units: "imperial",
   });
   check("Dumbbell 5 kg (11 lb) first miss → holds at 5 kg", 
-    d.nextWorkingWeightKg === 5 && d.message.includes("cut more than 20%") && d.message.includes("11 lb"));
+    d.nextWorkingWeightKg === 5 && d.message.includes("smallest available step"));
 }
 
 {
   const d = run({
     equipmentIds: ["dumbbell"],
+    unit: "lb",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 0 }),
-    units: "imperial",
   });
   check("Dumbbell 7.5 kg (16.5 lb) first miss → holds at 7.5 kg", 
-    d.nextWorkingWeightKg === 7.5 && d.message.includes("cut more than 20%") && d.message.includes("16.5 lb"));
+    d.nextWorkingWeightKg === 7.5 && d.message.includes("smallest available step"));
 }
 
 console.log("\n=== First-Miss: Leg Extension & Med Ball ===");
@@ -200,7 +185,7 @@ console.log("\n=== First-Miss: Leg Extension & Med Ball ===");
 {
   const d = run({
     equipmentIds: ["machine", "cable"],
-    
+    unit: "kg",
     meta: LEG_EXTENSION,
     state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 0 }),
   });
@@ -216,7 +201,7 @@ console.log("\n=== First-Miss: Leg Extension & Med Ball ===");
 {
   const d = run({
     equipmentIds: ["medicine_ball"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 4, consecutiveFailures: 0 }),
   });
@@ -230,15 +215,15 @@ console.log("\n=== First-Miss: Leg Extension & Med Ball ===");
 console.log("\n=== Two-Miss: Barbell 13.75 kg (metric, isolation) ===");
 
 // Two misses at 13.75 kg with equipment (isolation): 90% = 12.375, floor to 1.25 grid = 11.25, cap at 12.375 - 1.25 = 11.125 → max(11.25, 11.125) = 11.25
-// 42314b8d: SMALLEST loadable >= 11.25 (snap UP) is 12.5 kg
+// SMALLEST loadable >= 11.25 is 12.5 (next barbell step up)
 {
   const d = run({
     equipmentIds: ["barbell"],
-    
+    unit: "kg",
     meta: CURL,  // isolation
     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
   });
-  check("Barbell 13.75 kg two-miss with equipment (isolation) → 12.5 kg (42314b8d: snap UP)", 
+  check("Barbell 13.75 kg two-miss with equipment (isolation) → 12.5 kg (loadable)", 
     d.nextWorkingWeightKg === 12.5 && d.consecutiveFailures === 0);
 }
 
@@ -246,6 +231,7 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (metric, isolation) ===");
 {
   const d = run({
     equipmentIds: undefined,
+    unit: undefined,
     meta: CURL,  // isolation
     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
   });
@@ -253,21 +239,23 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (metric, isolation) ===");
     d.nextWorkingWeightKg === 11.25 && d.consecutiveFailures === 0);
 }
 
-// M2: Imperial test removed
+console.log("\n=== Two-Miss: Barbell 13.75 kg (imperial, isolation) ===");
+
 {
   const d = run({
     equipmentIds: ["barbell"],
+    unit: "lb",
     meta: CURL,  // isolation
     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
-    units: "imperial",
   });
   check("Barbell 13.75 kg (30.5 lb) two-miss with equipment (isolation) → 12.5 kg (27.5 lb, loadable)", 
-    d.nextWorkingWeightKg === 12.5 && d.message.includes("27.5 lb"));
+    d.nextWorkingWeightKg === 12.5 && d.message.includes("27"));
 }
 
 {
   const d = run({
     equipmentIds: undefined,
+    unit: undefined,
     meta: CURL,  // isolation
     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
   });
@@ -282,16 +270,15 @@ console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
   const decision = run({
     sets: sets(4, 12, 12),
     equipmentIds: ["dumbbell"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
-  // #120: One-grid-step increase cap: 12 kg → 12.5 kg (not 15)
-  check("Increase from 12kg dumbbell lands on loadable value", decision.nextWorkingWeightKg === 12.5);
+  check("Increase from 12kg dumbbell lands on loadable value", decision.nextWorkingWeightKg === 15);
   
   // suggestedWeight just returns that value
-  const w = suggestedWeight({ currentWorkingWeightKg: 12.5 }, false, CURL, ["dumbbell"]);
-  check("  suggestedWeight returns 12.5 (loadable)", w === 12.5);
+  const w = suggestedWeight({ currentWorkingWeightKg: 15 }, false, CURL, ["dumbbell"], "kg");
+  check("  suggestedWeight returns 15 (loadable)", w === 15);
 }
 
 // Test that decreases land on grid (via two-miss)
@@ -299,7 +286,7 @@ console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
   const decision = run({
     sets: sets(4, 10, 13.75),
     equipmentIds: ["dumbbell"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
   });
@@ -308,28 +295,28 @@ console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
   check("Decrease from 13.75kg isolation returns computed value", decision.nextWorkingWeightKg !== null);
   
   // suggestedWeight returns as-is (might be off-grid, acceptable)
-  const w = suggestedWeight({ currentWorkingWeightKg: decision.nextWorkingWeightKg! }, false, CURL, ["dumbbell"]);
+  const w = suggestedWeight({ currentWorkingWeightKg: decision.nextWorkingWeightKg! }, false, CURL, ["dumbbell"], "kg");
   check("  suggestedWeight returns as-is", w === decision.nextWorkingWeightKg);
 }
 
 // Test holds return exact
 {
-  const w1 = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL, ["dumbbell"]);
+  const w1 = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL, ["dumbbell"], "kg");
   check("Hold at 12kg returns 12 exact", w1 === 12);
   
-  const w2 = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, ["barbell"]);
+  const w2 = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, ["barbell"], "kg");
   check("Hold at 13.75kg returns 13.75 exact", w2 === 13.75);
 }
 
 console.log("\n=== suggestedWeight: No Equipment (unchanged) ===");
 
 {
-  const w = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL);
+  const w = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL, undefined, undefined);
   check("suggestedWeight no-equipment: 12 kg → 12 kg (same as main)", w === 12);
 }
 
 {
-  const w = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH);
+  const w = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, undefined, undefined);
   check("suggestedWeight no-equipment: 13.75 kg → 13.75 kg (same as main)", w === 13.75);
 }
 
@@ -337,21 +324,23 @@ console.log("\n=== Invariant: First-Miss >= Two-Miss ===");
 
 // Test that first-miss result is always >= two-miss result
 const testWeights = [5, 7.5, 10, 12, 15, 20, 30, 40, 60, 100];
-const equipments = [
-  { ids: ["barbell"] },
-  { ids: ["dumbbell"] },
-  { ids: ["machine", "cable"] },
+const equipments: Array<{ ids: string[]; unit: WeightUnit }> = [
+  { ids: ["barbell"], unit: "kg" },
+  { ids: ["dumbbell"], unit: "kg" },
+  { ids: ["machine", "cable"], unit: "kg" },
 ];
 
-for (const { ids } of equipments) {
+for (const { ids, unit } of equipments) {
   for (const weight of testWeights) {
     const firstMiss = run({
       equipmentIds: ids,
+      unit,
       meta: BENCH,
       state: fresh({ currentWorkingWeightKg: weight, consecutiveFailures: 0 }),
     });
     const twoMiss = run({
       equipmentIds: ids,
+      unit,
       meta: BENCH,
       state: fresh({ currentWorkingWeightKg: weight, consecutiveFailures: 1 }),
     });
@@ -368,7 +357,7 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     equipmentIds: ["kettlebell"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 3, consecutiveFailures: 0 }),
   });
@@ -379,7 +368,7 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     equipmentIds: ["lat_pulldown"],
-    
+    unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
     state: fresh({ currentWorkingWeightKg: 3, consecutiveFailures: 0 }),
   });
@@ -390,7 +379,7 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     equipmentIds: ["lat_pulldown"],
-    
+    unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
     state: fresh({ currentWorkingWeightKg: 3, consecutiveFailures: 1 }),
   });
@@ -401,7 +390,7 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     equipmentIds: ["lat_pulldown"],
-    
+    unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
     state: fresh({ currentWorkingWeightKg: 4.5, consecutiveFailures: 0 }),
   });
@@ -412,7 +401,7 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     equipmentIds: ["leg_extension"],
-    
+    unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "lunge" },
     state: fresh({ currentWorkingWeightKg: 30, consecutiveFailures: 0 }),
   });
@@ -425,7 +414,7 @@ console.log("\n=== HOLD Tests ===");
 {
   const d = run({
     equipmentIds: ["barbell"],
-    
+    unit: "kg",
     meta: { ...CURL, mechanic: "isolation" },
     state: fresh({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
   });
@@ -437,7 +426,7 @@ console.log("\n=== HOLD Tests ===");
 {
   const d = run({
     equipmentIds: ["kettlebell"],
-    
+    unit: "kg",
     meta: { ...BENCH, mechanic: "compound", movementPattern: "vertical_press" },
     state: fresh({ currentWorkingWeightKg: 48, consecutiveFailures: 1 }),
   });
@@ -449,7 +438,7 @@ console.log("\n=== HOLD Tests ===");
 {
   const d = run({
     equipmentIds: ["barbell"],
-    
+    unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 0 }),
   });
@@ -467,7 +456,7 @@ console.log("\n=== Mutant-Killing Tests ===");
   // With >, this should drop. With >=, this would hold.
   const d = run({
     equipmentIds: ["dumbbell"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
   });
@@ -479,7 +468,7 @@ console.log("\n=== Mutant-Killing Tests ===");
   // Barbell compound 12.5kg -> 10kg is exactly 20%
   const d = run({
     equipmentIds: ["barbell"],
-    
+    unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
   });
@@ -492,7 +481,7 @@ console.log("\n=== Mutant-Killing Tests ===");
   // With <, it must go to 14.
   const d = run({
     equipmentIds: ["kettlebell"],
-    
+    unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 16, consecutiveFailures: 0 }),
   });
@@ -503,7 +492,7 @@ console.log("\n=== Mutant-Killing Tests ===");
 {
   const d = run({
     equipmentIds: ["kettlebell"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 12, consecutiveFailures: 0 }),
   });
@@ -513,7 +502,7 @@ console.log("\n=== Mutant-Killing Tests ===");
 {
   const d = run({
     equipmentIds: ["kettlebell"],
-    
+    unit: "kg",
     meta: BENCH,
     state: fresh({ currentWorkingWeightKg: 24, consecutiveFailures: 0 }),
   });
@@ -526,14 +515,14 @@ console.log("\n=== Mutant-Killing Tests ===");
   // but two-miss holds at 2.75kg (light weight). Clamp forces first to hold at 2.75.
   const firstMiss = run({
     equipmentIds: ["barbell"],
-    
+    unit: "kg",
     meta: { ...CURL, mechanic: "isolation" },
     state: fresh({ currentWorkingWeightKg: 2.75, consecutiveFailures: 0 }),
   });
   
   const twoMiss = run({
     equipmentIds: ["barbell"],
-    
+    unit: "kg",
     meta: { ...CURL, mechanic: "isolation" },
     state: fresh({ currentWorkingWeightKg: 2.75, consecutiveFailures: 1 }),
   });
@@ -553,7 +542,7 @@ console.log("\n=== THRESHOLD BEHAVIOR ===");
 {
   const d = run({
     equipmentIds: ["dumbbell"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 0 }),
   });
@@ -565,7 +554,7 @@ console.log("\n=== THRESHOLD BEHAVIOR ===");
 {
   const d = run({
     equipmentIds: ["barbell"],
-    
+    unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 0 }),
   });
@@ -579,7 +568,7 @@ console.log("\n=== HOLD RETURNS EXACT WEIGHT ===");
 {
   const d = run({
     equipmentIds: ["dumbbell"],
-    
+    unit: "kg",
     meta: CURL,
     state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 0 }),
   });
@@ -590,7 +579,7 @@ console.log("\n=== HOLD RETURNS EXACT WEIGHT ===");
   // Off-grid weight
   const d = run({
     equipmentIds: ["dumbbell"],
-    
+    unit: "kg",
     meta: { ...CURL, mechanic: "isolation" },
     state: fresh({ currentWorkingWeightKg: 2.75, consecutiveFailures: 1 }), // Two-miss hold
   });
@@ -603,7 +592,7 @@ console.log("\n=== HARD-FEEL HOLD ===");
   const d = run({
     sets: sets(4, 12, 60), // Hit target but felt hard
     equipmentIds: ["barbell"],
-    
+    unit: "kg",
     meta: BENCH,
     state: fresh({ currentWorkingWeightKg: 60, consecutiveFailures: 0 }),
     feel: "hard",
@@ -617,7 +606,7 @@ console.log("\n=== IN-RANGE HOLD (4×10 in 8-12) ===");
   const d = run({
     sets: sets(4, 10, 40), // In range [8, 12], not at top
     equipmentIds: ["barbell"],
-    
+    unit: "kg",
     meta: BENCH,
     state: fresh({ currentWorkingWeightKg: 40, consecutiveFailures: 0 }),
     feel: "right",

@@ -448,9 +448,9 @@ export function evaluateProgression(input: {
   state: ProgressState;
   isDeload: boolean;
   equipmentIds?: string[];
-  units?: "metric" | "imperial";
+  unit?: WeightUnit;
 }): Decision {
-  const { sets, plannedSets, repsMin, repsMax, feel, meta, state, isDeload, equipmentIds, units = "metric" } = input;
+  const { sets, plannedSets, repsMin, repsMax, feel, meta, state, isDeload, equipmentIds, unit } = input;
 
   const isTimed = meta.metric === "seconds";
   /** What this set is measured in: seconds held for a hold, reps otherwise. */
@@ -466,8 +466,8 @@ export function evaluateProgression(input: {
    * Format weight for display in progression messages.
    * Uses the user's unit preference (metric or imperial).
    */
-  const displayWeight = (kg: number) => units === "imperial" 
-    ? formatWeight(kg, units, true, "0 lb")
+  const displayWeight = (kg: number, fallbackUnit: WeightUnit = "kg") => (unit ?? fallbackUnit) === "lb" 
+    ? formatWeight(kg, "imperial", true, "0 lb")
     : `${kg} kg`;
 
   // Get resolved target (what the display shows) for write-back
@@ -547,10 +547,6 @@ export function evaluateProgression(input: {
     return modeWeight;
   }
   
-  // Progression base is what was ACTUALLY lifted this session (mode), not stored weight.
-  // Only use stored weight when there are no logged working sets.
-  const modeWeight = mostCommonWorkingWeight(working);
-  const baseWeight = modeWeight > 0 ? modeWeight : state.currentWorkingWeightKg;
   
   const carried = { ...base };
 
@@ -575,7 +571,7 @@ export function evaluateProgression(input: {
 
   if (succeeded) {
     // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    const currentWeight = baseWeight ?? (heaviest > 0 ? heaviest : null);
+    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds) {
       // Hold at current weight (don't snap down)
       return {
@@ -672,10 +668,11 @@ export function evaluateProgression(input: {
       const isKettlebell = equipmentIds.includes('kettlebell');
       
       if (isKettlebell) {
-        // Kettlebell: move up by bell count
-        // #120: One-grid-step cap: easy feel doesn't double with equipment (1 bell for all feels)
+        // Kettlebell: move up by bell count (1 bell for 'right', 2 bells for 'easy')
+        // Never skip bells or invent weights above the top bell
         const bells = KETTLEBELL_WEIGHTS_KG;
-        const bellsToMove = 1;
+        const isCompound = meta.mechanic === "compound";
+        const bellsToMove = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? 2 : 1;
         
         // Find current position in bell list
         const epsilon = 0.001;
@@ -711,9 +708,8 @@ export function evaluateProgression(input: {
         // Get the mechanic increment (5kg for lower-body compound, 2.5kg otherwise)
         const increment = incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";
-        // #120: One-grid-step cap: easy feel doesn't double with equipment
-        const hasEquipment = equipmentIds && equipmentIds.length > 0;
-        const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight && !hasEquipment ? increment * 2 : increment;
+        // #120: incrementFor caps at grid step, but easy STILL doubles that capped increment
+        const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? increment * 2 : increment;
         
         // Add jump (incrementFor ensures jump >= gridStep for loadable equipment)
         next = snappedFrom + jump;
@@ -802,7 +798,7 @@ export function evaluateProgression(input: {
   // MISS: sets incomplete, or any set's reps below repsMin. Increment consecutiveFailures.
   // Cap at 3 to prevent infinite growth at minimum weights
   const failures = Math.min(state.consecutiveFailures + 1, 3);
-  const currentWeight = baseWeight ?? (heaviest > 0 ? heaviest : null);
+  const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
 
   /**
    * Shared helper: compute what the two-miss back-off would return.
@@ -1029,7 +1025,7 @@ export function evaluateProgression(input: {
   let nextWeight = currentWeight;
   let holdReason: 'smallest' | 'cut20' | 'twomiss' | null = null;
   
-  if (currentWeight !== null && currentWeight > 0 && equipmentIds) {
+  if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
     const isKettlebell = equipmentIds.includes('kettlebell');
     let candidateWeight: number;
     

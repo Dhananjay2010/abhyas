@@ -79,7 +79,7 @@ async function main() {
       best_weight_kg: "40",
       best_reps: 12,
       best_e1rm: "56",
-      total_sessions: 1, weight_at_failure_start_kg: null,
+      total_sessions: 1,
     };
 
     const session: SessionRow = {
@@ -111,7 +111,7 @@ async function main() {
     check("Persisted: weight=40", written?.current_working_weight_kg === 40, `${written?.current_working_weight_kg}`);
   }
 
-  console.log("\n2. Real miss (4×7 below min=8): increments failures, drops weight with equipment");
+  console.log("\n2. Real miss (4×7 below min=8): increments failures, holds weight (no equipment)");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-2",
@@ -144,7 +144,7 @@ async function main() {
       best_weight_kg: "60",
       best_reps: 12,
       best_e1rm: "84",
-      total_sessions: 2, weight_at_failure_start_kg: null,
+      total_sessions: 2,
     };
 
     const session: SessionRow = {
@@ -158,10 +158,9 @@ async function main() {
 
     check("Miss: outcome hold (first miss)", decision.outcome === "hold", decision.outcome);
     check("Miss: failures=1", decision.consecutiveFailures === 1, `${decision.consecutiveFailures}`);
-    // #120: Now wired with equipmentIds (M2: unit removed)
-    check("Miss: weight drops to 57.5 (first-miss with equipment)", decision.nextWorkingWeightKg === 57.5, `${decision.nextWorkingWeightKg}`);
-    check("Builder: has equipmentIds", "equipmentIds" in input && Array.isArray(input.equipmentIds), `${JSON.stringify(input.equipmentIds)}`);
-    check("M2: unit removed (no longer in input)", !("unit" in input), "unit property removed");
+    check("Miss: weight holds at 60 (no equipmentIds/unit)", decision.nextWorkingWeightKg === 60, `${decision.nextWorkingWeightKg}`);
+    check("Builder: no equipmentIds", !("equipmentIds" in input), `${JSON.stringify(input).includes("equipmentIds")}`);
+    check("Builder: no unit", !("unit" in input), `${JSON.stringify(input).includes("unit")}`);
   }
 
   console.log("\n3. State weight test: current=50 vs best=60 (would catch best_weight_kg swap)");
@@ -197,7 +196,7 @@ async function main() {
       best_weight_kg: "60", // Historical best is higher
       best_reps: 12,
       best_e1rm: "84",
-      total_sessions: 5, weight_at_failure_start_kg: null,
+      total_sessions: 5,
     };
 
     const session: SessionRow = {
@@ -247,7 +246,7 @@ async function main() {
       best_weight_kg: "60",
       best_reps: 12,
       best_e1rm: "84",
-      total_sessions: 3, weight_at_failure_start_kg: null,
+      total_sessions: 3,
     };
 
     const session: SessionRow = {
@@ -264,7 +263,7 @@ async function main() {
     check("Two misses: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
   }
 
-  console.log("\n5. Unloaded stored target 12, best 12: 3×10 below target (miss)");
+  console.log("\n5. Unloaded in-range hold: bodyweight 3×10 in 8-12");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-5",
@@ -291,12 +290,12 @@ async function main() {
 
     const progress: ExerciseProgressRow = {
       current_working_weight_kg: null,
-      current_target_reps: 12, // #120: Restore main's stored target
+      current_target_reps: 12,
       consecutive_failures: 0,
       best_weight_kg: null,
-      best_reps: 12, // #120: Restore main's best
+      best_reps: 12,
       best_e1rm: null,
-      total_sessions: 3, weight_at_failure_start_kg: null,
+      total_sessions: 3,
     };
 
     const session: SessionRow = {
@@ -308,12 +307,11 @@ async function main() {
     const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
-    // #120: With stored target 12, resolveTarget returns 12 as min, so 3×10 is a miss (not in-range)
-    check("Unloaded stored target: repsMin from stored (12)", input.repsMin === 12, `${input.repsMin}`);
-    check("Unloaded stored target: repsMax from planned (12)", input.repsMax === 12, `${input.repsMax}`);
-    check("Unloaded stored target: outcome hold (miss)", decision.outcome === "hold", decision.outcome);
-    check("Unloaded stored target: failures incremented to 1", decision.consecutiveFailures === 1, `${decision.consecutiveFailures}`);
-    check("Unloaded stored target: message 'Staying'", decision.message.includes("Staying"), decision.message);
+    check("Unloaded in-range: repsMin from planned (8)", input.repsMin === 8, `${input.repsMin}`);
+    check("Unloaded in-range: repsMax from planned (12)", input.repsMax === 12, `${input.repsMax}`);
+    check("Unloaded in-range: outcome hold", decision.outcome === "hold", decision.outcome);
+    check("Unloaded in-range: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
+    check("Unloaded in-range: message 'Staying'", decision.message.includes("Staying"), decision.message);
   }
 
   console.log("\n6. Unloaded below-min miss: bodyweight 3×7 below min=8");
@@ -348,7 +346,7 @@ async function main() {
       best_weight_kg: null,
       best_reps: 12,
       best_e1rm: null,
-      total_sessions: 3, weight_at_failure_start_kg: null,
+      total_sessions: 3,
     };
 
     const session: SessionRow = {
@@ -360,14 +358,13 @@ async function main() {
     const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
-    // #120: Unloaded uses resolveTarget for min; stored target=12, so min=12 (not plan min=8)
-    check("Unloaded miss: repsMin from resolveTarget (12)", input.repsMin === 12, `${input.repsMin}`);
+    check("Unloaded miss: repsMin from planned (8)", input.repsMin === 8, `${input.repsMin}`);
     check("Unloaded miss: outcome hold (below min)", decision.outcome === "hold", decision.outcome);
     check("Unloaded miss: failures=1", decision.consecutiveFailures === 1, `${decision.consecutiveFailures}`);
     check("Unloaded miss: target stays at 12", decision.nextTargetReps === 12, `${decision.nextTargetReps}`);
   }
 
-  console.log("\n7. Timed stored target 45 s, best 45 s: 2×35s below target (miss)");
+  console.log("\n7. Timed in-range hold: plank 2×35s in 20-45s");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-7",
@@ -393,12 +390,12 @@ async function main() {
 
     const progress: ExerciseProgressRow = {
       current_working_weight_kg: null,
-      current_target_reps: 45, // #120: Restore main's stored target
+      current_target_reps: 45,
       consecutive_failures: 0,
       best_weight_kg: null,
-      best_reps: 45, // #120: Restore main's best
+      best_reps: 45,
       best_e1rm: null,
-      total_sessions: 2, weight_at_failure_start_kg: null,
+      total_sessions: 2,
     };
 
     const session: SessionRow = {
@@ -410,241 +407,11 @@ async function main() {
     const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
     const decision = evaluateProgression(input);
 
-    // #120: With stored target 45 s, resolveTarget returns 45 as min, so 2×35s is a miss (not in-range)
-    check("Timed stored target: repsMin from stored (45)", input.repsMin === 45, `${input.repsMin}`);
-    check("Timed stored target: repsMax from planned (45)", input.repsMax === 45, `${input.repsMax}`);
-    check("Timed stored target: outcome hold (miss)", decision.outcome === "hold", decision.outcome);
-    check("Timed stored target: failures incremented to 1", decision.consecutiveFailures === 1, `${decision.consecutiveFailures}`);
-    check("Timed stored target: message 'hold length'", decision.message.includes("hold length"), decision.message);
-  }
-
-  console.log("\n8. Success threshold consistency: stored 14, plan 8-12");
-  {
-    // #120: Test that success threshold matches minimum for unloaded exercises
-    // Push-ups stored 14: 3×12 should NOT progress (below stored target)
-    const sessionExercise1: SessionExerciseRow = {
-      id: "se-8a",
-      session_id: "sess-8a",
-      exercise_id: "ex-pushup",
-      planned_sets: 3,
-      planned_reps_min: 8,
-      planned_reps_max: 12,
-      metric: "reps",
-      exercises: {
-        mechanic: "compound",
-        movement_pattern: "horizontal_press",
-        equipment_ids: [],
-        progression_chain: null,
-        progression_rank: null,
-      },
-    };
-
-    const sets1: SessionSetRow[] = [
-      { reps: 12, weight_kg: null, duration_seconds: null },
-      { reps: 12, weight_kg: null, duration_seconds: null },
-      { reps: 12, weight_kg: null, duration_seconds: null },
-    ];
-
-    const progress1: ExerciseProgressRow = {
-      current_working_weight_kg: null,
-      current_target_reps: 14,
-      consecutive_failures: 0,
-      best_weight_kg: null,
-      best_reps: 14,
-      best_e1rm: null,
-      total_sessions: 5, weight_at_failure_start_kg: null,
-    };
-
-    const session1: SessionRow = {
-      is_deload: false,
-      local_date: "2026-10-25",
-      program_id: "prog-1",
-    };
-
-    const input1 = buildProgressionInput(sessionExercise1, sets1, progress1, session1, "right");
-    const decision1 = evaluateProgression(input1);
-
-    // #120: 3×12 below stored target 14, should hold (not progress)
-    check("Stored 14, 3×12: repsMin from stored (14)", input1.repsMin === 14, `${input1.repsMin}`);
-    check("Stored 14, 3×12: outcome hold (below target)", decision1.outcome === "hold", decision1.outcome);
-    check("Stored 14, 3×12: target stays at 14", decision1.nextTargetReps === 14, `${decision1.nextTargetReps}`);
-    check("Stored 14, 3×12: failures=1", decision1.consecutiveFailures === 1, `${decision1.consecutiveFailures}`);
-
-    // Now test 3×14: should progress
-    const sets2: SessionSetRow[] = [
-      { reps: 14, weight_kg: null, duration_seconds: null },
-      { reps: 14, weight_kg: null, duration_seconds: null },
-      { reps: 14, weight_kg: null, duration_seconds: null },
-    ];
-
-    const input2 = buildProgressionInput(sessionExercise1, sets2, progress1, session1, "right");
-    const decision2 = evaluateProgression(input2);
-
-    // #120: 3×14 hits stored target 14, should progress to 16
-    check("Stored 14, 3×14: outcome progressed", decision2.outcome === "progressed", decision2.outcome);
-    check("Stored 14, 3×14: target increases to 16", decision2.nextTargetReps === 16, `${decision2.nextTargetReps}`);
-    check("Stored 14, 3×14: failures reset to 0", decision2.consecutiveFailures === 0, `${decision2.consecutiveFailures}`);
-  }
-
-  console.log("\n9. Chin-ups pull_up_bar: stored 11, plan 8-12");
-  {
-    // #120: Test chin-ups with pull_up_bar equipment and stored target 11
-    const sessionExercise: SessionExerciseRow = {
-      id: "se-9",
-      session_id: "sess-9",
-      exercise_id: "ex-chinup",
-      planned_sets: 3,
-      planned_reps_min: 8,
-      planned_reps_max: 12,
-      metric: "reps",
-      exercises: {
-        mechanic: "compound",
-        movement_pattern: "vertical_pull",
-        equipment_ids: ["pull_up_bar"],
-        progression_chain: null,
-        progression_rank: null,
-      },
-    };
-
-    const sets: SessionSetRow[] = [
-      { reps: 11, weight_kg: null, duration_seconds: null },
-      { reps: 11, weight_kg: null, duration_seconds: null },
-      { reps: 11, weight_kg: null, duration_seconds: null },
-    ];
-
-    const progress: ExerciseProgressRow = {
-      current_working_weight_kg: null,
-      current_target_reps: 11,
-      consecutive_failures: 0,
-      best_weight_kg: null,
-      best_reps: 11,
-      best_e1rm: null,
-      total_sessions: 3, weight_at_failure_start_kg: null,
-    };
-
-    const session: SessionRow = {
-      is_deload: false,
-      local_date: "2026-10-25",
-      program_id: "prog-1",
-    };
-
-    const input = buildProgressionInput(sessionExercise, sets, progress, session, "right");
-    const decision = evaluateProgression(input);
-
-    // #120: 3×11 at stored target 11 should progress to 13
-    check("Chin-ups stored 11: repsMin from stored (11)", input.repsMin === 11, `${input.repsMin}`);
-    check("Chin-ups 3×11: outcome progressed", decision.outcome === "progressed", decision.outcome);
-    check("Chin-ups 3×11: target increases to 13", decision.nextTargetReps === 13, `${decision.nextTargetReps}`);
-    check("Chin-ups 3×11: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
-  }
-
-  console.log("\n10. C4: isBodyweight assertions");
-  {
-    // Bodyweight exercise (empty equipment_ids)
-    const bwEx: SessionExerciseRow = {
-      id: "se-pushup",
-      session_id: "sess-1",
-      exercise_id: "ex-pushup",
-      planned_sets: 4,
-      planned_reps_min: 8,
-      planned_reps_max: 12,
-      metric: "reps",
-      exercises: {
-        mechanic: "compound",
-        movement_pattern: "horizontal_press",
-        equipment_ids: [],
-        progression_chain: null,
-        progression_rank: null,
-      },
-    };
-
-    const bwProgress: ExerciseProgressRow = {
-      current_working_weight_kg: null,
-      current_target_reps: 12,
-      consecutive_failures: 0,
-      best_weight_kg: null,
-      best_reps: 12,
-      best_e1rm: null,
-      total_sessions: 3,
-      weight_at_failure_start_kg: null,
-    };
-
-    const bwInput = buildProgressionInput(bwEx, [], bwProgress, { is_deload: false, local_date: "2026-10-25", program_id: "prog-1" }, "right");
-    check("C4: isBodyweight true for empty equipment_ids", bwInput.meta.isBodyweight === true);
-
-    // Loaded exercise (pull_up_bar)
-    const loadedEx: SessionExerciseRow = {
-      id: "se-pullup",
-      session_id: "sess-1",
-      exercise_id: "ex-pullup",
-      planned_sets: 4,
-      planned_reps_min: 8,
-      planned_reps_max: 12,
-      metric: "reps",
-      exercises: {
-        mechanic: "compound",
-        movement_pattern: "vertical_pull",
-        equipment_ids: ["pull_up_bar"],
-        progression_chain: null,
-        progression_rank: null,
-      },
-    };
-
-    const loadedInput = buildProgressionInput(loadedEx, [], bwProgress, { is_deload: false, local_date: "2026-10-25", program_id: "prog-1" }, "right");
-    check("C4: isBodyweight false for pull_up_bar", loadedInput.meta.isBodyweight === false);
-  }
-
-  console.log("\n11. C4: Weighted-dip case (+10 kg, no equipment)");
-  {
-    // Dips with added weight, but no equipment listed
-    const dipEx: SessionExerciseRow = {
-      id: "se-dip-weighted",
-      session_id: "sess-1",
-      exercise_id: "ex-dip-weighted",
-      planned_sets: 4,
-      planned_reps_min: 8,
-      planned_reps_max: 12,
-      metric: "reps",
-      exercises: {
-        mechanic: "compound",
-        movement_pattern: "horizontal_press",
-        equipment_ids: [], // Bodyweight + added weight, but no equipment
-        progression_chain: null,
-        progression_rank: null,
-      },
-    };
-
-    const dipSets: SessionSetRow[] = [
-      { reps: 12, weight_kg: "10", duration_seconds: null },
-      { reps: 12, weight_kg: "10", duration_seconds: null },
-      { reps: 12, weight_kg: "10", duration_seconds: null },
-      { reps: 12, weight_kg: "10", duration_seconds: null },
-    ];
-
-    const dipProgress: ExerciseProgressRow = {
-      current_working_weight_kg: "10",
-      current_target_reps: 12,
-      consecutive_failures: 0,
-      best_weight_kg: "10",
-      best_reps: 12,
-      best_e1rm: null,
-      total_sessions: 3,
-      weight_at_failure_start_kg: null,
-    };
-
-    const session: SessionRow = {
-      is_deload: false,
-      local_date: "2026-10-25",
-      program_id: "prog-1",
-    };
-
-    const input = buildProgressionInput(dipEx, dipSets, dipProgress, session, "easy");
-    const decision = evaluateProgression(input);
-
-    // Easy at top: should progress. With no equipment, bodyweight added-weight step is 1.25 kg
-    // From 10 kg, one step = 11.25 kg (not 15 kg which would be 2×2.5 steps)
-    check("Weighted dip +10 kg, 3×12 easy: progressed", decision.outcome === "progressed", decision.outcome);
-    check("Weighted dip +10 kg easy: next weight 11.25 kg (C4: mutant gives 15)", decision.nextWorkingWeightKg === 11.25, `got ${decision.nextWorkingWeightKg}`);
+    check("Timed in-range: repsMin from planned (20)", input.repsMin === 20, `${input.repsMin}`);
+    check("Timed in-range: repsMax from planned (45)", input.repsMax === 45, `${input.repsMax}`);
+    check("Timed in-range: outcome hold", decision.outcome === "hold", decision.outcome);
+    check("Timed in-range: failures reset to 0", decision.consecutiveFailures === 0, `${decision.consecutiveFailures}`);
+    check("Timed in-range: message 'hold length'", decision.message.includes("hold length"), decision.message);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

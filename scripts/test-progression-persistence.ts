@@ -78,7 +78,7 @@ async function main() {
       bestWeightKg: 40,
       bestReps: 12,
       bestE1rm: 56,
-      totalSessions: 1, weightAtFailureStartKg: null,
+      totalSessions: 1,
     };
 
     const decision1 = evaluateProgression({
@@ -91,7 +91,7 @@ async function main() {
       state: state1,
       isDeload: false,
       equipmentIds: ["barbell"],
-      
+      unit: "kg",
     });
 
     check("Session 1: outcome hold", decision1.outcome === "hold", decision1.outcome);
@@ -123,7 +123,7 @@ async function main() {
       bestWeightKg: 40,
       bestReps: 12,
       bestE1rm: 56,
-      totalSessions: 2, weightAtFailureStartKg: null,
+      totalSessions: 2,
     };
 
     const decision2 = evaluateProgression({
@@ -136,7 +136,7 @@ async function main() {
       state: state2,
       isDeload: false,
       equipmentIds: ["barbell"],
-      
+      unit: "kg",
     });
 
     check("Session 2: outcome hold (not backed_off)", decision2.outcome === "hold", decision2.outcome);
@@ -169,7 +169,7 @@ async function main() {
       bestWeightKg: 60,
       bestReps: 12,
       bestE1rm: 84,
-      totalSessions: 2, weightAtFailureStartKg: null,
+      totalSessions: 2,
     };
 
     const decision1 = evaluateProgression({
@@ -182,7 +182,7 @@ async function main() {
       state: state1,
       isDeload: false,
       equipmentIds: ["barbell"],
-      
+      unit: "kg",
     });
 
     check("First miss: outcome hold", decision1.outcome === "hold", decision1.outcome);
@@ -212,7 +212,7 @@ async function main() {
       bestWeightKg: written1?.best_weight_kg ?? 60,
       bestReps: written1?.best_reps ?? 12,
       bestE1rm: written1?.best_e1rm ?? 84,
-      totalSessions: written1?.total_sessions ?? 3, weightAtFailureStartKg: written1?.weight_at_failure_start_kg ?? null,
+      totalSessions: written1?.total_sessions ?? 3,
     };
 
     check("State 2 loaded: failures=1", state2.consecutiveFailures === 1);
@@ -228,12 +228,11 @@ async function main() {
       state: state2,
       isDeload: false,
       equipmentIds: ["barbell"],
-      
+      unit: "kg",
     });
 
     check("Second miss: outcome backed_off", decision2.outcome === "backed_off", decision2.outcome);
-    // M1: Back off from pre-miss weight 60 kg: 90% = 54, floored to 52.5 (smallest loadable >= 54)
-    check("Second miss: deloads to 52.5 kg (M1: from pre-miss 60kg)", decision2.nextWorkingWeightKg === 52.5, `${decision2.nextWorkingWeightKg}`);
+    check("Second miss: deloads to 50 kg", decision2.nextWorkingWeightKg === 50, `${decision2.nextWorkingWeightKg}`);
     check("Second miss: failures reset to 0", decision2.consecutiveFailures === 0, `${decision2.consecutiveFailures}`);
 
     // Persist second miss
@@ -249,7 +248,7 @@ async function main() {
 
     const written2 = fake2.getWritten();
     check("Second miss persisted: consecutive_failures=0", written2?.consecutive_failures === 0, `${written2?.consecutive_failures}`);
-    check("Second miss persisted: weight=52.5", written2?.current_working_weight_kg === 52.5, `${written2?.current_working_weight_kg}`);
+    check("Second miss persisted: weight=50", written2?.current_working_weight_kg === 50, `${written2?.current_working_weight_kg}`);
   }
 
   console.log("\n3. One miss then in-range resets failures and doesn't deload");
@@ -262,7 +261,7 @@ async function main() {
       bestWeightKg: 40,
       bestReps: 12,
       bestE1rm: 56,
-      totalSessions: 1, weightAtFailureStartKg: null,
+      totalSessions: 1,
     };
 
     const decision1 = evaluateProgression({
@@ -275,7 +274,7 @@ async function main() {
       state: state1,
       isDeload: false,
       equipmentIds: ["barbell"],
-      
+      unit: "kg",
     });
 
     check("Miss: failures=1", decision1.consecutiveFailures === 1);
@@ -299,7 +298,6 @@ async function main() {
       bestReps: written1?.best_reps ?? 12,
       bestE1rm: written1?.best_e1rm ?? 56,
       totalSessions: written1?.total_sessions ?? 2,
-      weightAtFailureStartKg: written1?.weight_at_failure_start_kg ?? null,
     };
 
     // Second session: 4×10 (in-range)
@@ -313,7 +311,7 @@ async function main() {
       state: state2,
       isDeload: false,
       equipmentIds: ["barbell"],
-      
+      unit: "kg",
     });
 
     check("In-range after miss: outcome hold", decision2.outcome === "hold", decision2.outcome);
@@ -344,7 +342,7 @@ async function main() {
       bestWeightKg: null,
       bestReps: null,
       bestE1rm: null,
-      totalSessions: 0, weightAtFailureStartKg: null,
+      totalSessions: 0,
     };
 
     const decision1 = evaluateProgression({
@@ -357,7 +355,7 @@ async function main() {
       state: state1,
       isDeload: false,
       equipmentIds: ["barbell"],
-      
+      unit: "kg",
     });
 
     check("Session 1: bestE1rm stored as 53.33", decision1.bestE1rm === 53.33, `${decision1.bestE1rm}`);
@@ -387,7 +385,6 @@ async function main() {
       bestReps: written1?.best_reps ?? 10,
       bestE1rm: written1?.best_e1rm ?? 53.33,
       totalSessions: written1?.total_sessions ?? 1,
-      weightAtFailureStartKg: written1?.weight_at_failure_start_kg ?? null,
     };
 
     const decision2 = evaluateProgression({
@@ -400,7 +397,7 @@ async function main() {
       state: state2,
       isDeload: false,
       equipmentIds: ["barbell"],
-      
+      unit: "kg",
     });
 
     check("Session 2: NO false PB for identical session", decision2.personalBest === null, 

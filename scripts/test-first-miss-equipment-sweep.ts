@@ -18,16 +18,19 @@ import {
 } from "../src/lib/program/progression";
 import { gridStepFor, KETTLEBELL_WEIGHTS_KG, type WeightUnit } from "../src/lib/session/equipment-grid";
 
-const EQUIPMENTS: Array<{ ids: string[] }> = [
-  { ids: ["barbell"] },
-  { ids: ["dumbbell"] },
-  { ids: ["kettlebell"] },
-  { ids: ["cable_machine"] },
-  { ids: ["lat_pulldown"] },
-  { ids: ["leg_extension"] },
-  { ids: ["leg_press"] },
-  { ids: ["leg_curl"] },
-  { ids: ["medicine_ball"] },
+const EQUIPMENTS: Array<{ ids: string[]; unit: WeightUnit }> = [
+  { ids: ["barbell"], unit: "kg" },
+  { ids: ["dumbbell"], unit: "kg" },
+  { ids: ["kettlebell"], unit: "kg" },
+  { ids: ["cable_machine"], unit: "kg" },
+  { ids: ["lat_pulldown"], unit: "kg" },
+  { ids: ["leg_extension"], unit: "kg" },
+  { ids: ["leg_press"], unit: "kg" },
+  { ids: ["leg_curl"], unit: "kg" },
+  { ids: ["medicine_ball"], unit: "kg" },
+  { ids: ["barbell"], unit: "lb" },
+  { ids: ["dumbbell"], unit: "lb" },
+  { ids: ["kettlebell"], unit: "lb" },
 ];
 
 const MECHANICS: Array<"compound" | "isolation"> = ["compound", "isolation"];
@@ -75,7 +78,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestWeightKg: 60,
   bestReps: 12,
   bestE1rm: 84,
-  totalSessions: 3, weightAtFailureStartKg: null,
+  totalSessions: 3,
   ...over,
 });
 
@@ -99,7 +102,7 @@ function isOnGrid(weight: number, equipmentIds: string[]): boolean {
   return Math.abs(weight - Math.round(weight / step) * step) < 0.001;
 }
 
-for (const { ids } of EQUIPMENTS) {
+for (const { ids, unit } of EQUIPMENTS) {
   for (const mechanic of MECHANICS) {
     for (const pattern of PATTERNS) {
       for (const feel of FEELS) {
@@ -131,6 +134,7 @@ for (const { ids } of EQUIPMENTS) {
             state,
             isDeload: false,
             equipmentIds: ids,
+            unit,
           };
 
         const firstMissResult = evaluateProgression(input);
@@ -139,30 +143,23 @@ for (const { ids } of EQUIPMENTS) {
         const firstMissW = firstMissResult.nextWorkingWeightKg ?? 0;
 
         // Check invariant: first-miss >= two-miss
-        // M1: Two-miss should have weightAtFailureStartKg set to simulate first miss at this weight
         const twoMissInput: EvalInput = {
           ...input,
           state: fresh({
             currentWorkingWeightKg: weight,
             consecutiveFailures: 1,
-            weightAtFailureStartKg: weight, // M1: simulate first miss stored this weight
           }),
         };
         const twoMissResult = evaluateProgression(twoMissInput);
         const twoMissW = twoMissResult.nextWorkingWeightKg ?? 0;
 
-        // M1: With snap DOWN for two-miss, the old invariant (first-miss >= two-miss) no longer holds.
-        // The real invariant (first-miss >= Rule 2 floor with snap UP) is enforced by Rule 2.
-        // This check is disabled for M1 since actual two-miss can be < first-miss (expected behavior).
-        /*
         if (firstMissW < twoMissW - 0.001) {
           invariantViolations++;
           console.log(
-            `VIOLATION: first-miss < two-miss for ${ids[0]} ${weight} "kg"`
+            `VIOLATION: first-miss < two-miss for ${ids[0]} ${weight} ${unit}`
           );
           console.log(`  first-miss: ${firstMissW}, two-miss: ${twoMissW}`);
         }
-        */
 
         // Check step violation: first miss should not drop more than 1.5 steps (non-kettlebell)
         if (!ids.includes("kettlebell")) {
@@ -171,7 +168,7 @@ for (const { ids } of EQUIPMENTS) {
           if (firstMissW < weight - maxDrop - 0.001 && firstMissW < weight - 0.001) {
             stepViolations++;
             console.log(
-              `STEP VIOLATION: dropped ${weight - firstMissW} (> ${maxDrop}) for ${ids[0]} ${weight} "kg"`
+              `STEP VIOLATION: dropped ${weight - firstMissW} (> ${maxDrop}) for ${ids[0]} ${weight} ${unit}`
             );
           }
         }
@@ -180,14 +177,14 @@ for (const { ids } of EQUIPMENTS) {
         if (firstMissW < weight - 0.001 && !isOnGrid(firstMissW, ids)) {
           offGridDecreases++;
           console.log(
-            `OFF-GRID FIRST-MISS: ${ids[0]} ${weight} -> ${firstMissW} "kg"`
+            `OFF-GRID FIRST-MISS: ${ids[0]} ${weight} -> ${firstMissW} ${unit}`
           );
         }
         
         if (twoMissW < weight - 0.001 && !isOnGrid(twoMissW, ids)) {
           offGridDecreases++;
           console.log(
-            `OFF-GRID TWO-MISS: ${ids[0]} ${weight} -> ${twoMissW} "kg"`
+            `OFF-GRID TWO-MISS: ${ids[0]} ${weight} -> ${twoMissW} ${unit}`
           );
         }
 
@@ -195,23 +192,18 @@ for (const { ids } of EQUIPMENTS) {
         if (firstMissW > weight + 0.001) {
           invariantViolations++;
           console.log(
-            `NEVER-RAISE VIOLATION (first-miss): ${ids[0]} ${weight} -> ${firstMissW} "kg"`
+            `NEVER-RAISE VIOLATION (first-miss): ${ids[0]} ${weight} -> ${firstMissW} ${unit}`
           );
         }
         
         if (twoMissW > weight + 0.001) {
           invariantViolations++;
           console.log(
-            `NEVER-RAISE VIOLATION (two-miss): ${ids[0]} ${weight} -> ${twoMissW} "kg"`
+            `NEVER-RAISE VIOLATION (two-miss): ${ids[0]} ${weight} -> ${twoMissW} ${unit}`
           );
         }
         
-        // M1: Two-miss cap check adjusted for snap DOWN
-        // With M1, two-miss snaps DOWN, so it can legitimately be below the cap
-        // The cap (rawReduced - liftIncrement) is still the lower bound for the target,
-        // but snap DOWN can produce a grid-aligned result below this
-        // This is expected behavior with M1, so we don't check this invariant
-        /*
+        // Check two-miss >= cap
         if (mechanic === "isolation" || mechanic === "compound") {
           const liftIncrement = mechanic === "compound" ? 2.5 : 1.25;
           const rawReduced = weight * 0.9;
@@ -219,17 +211,16 @@ for (const { ids } of EQUIPMENTS) {
           if (twoMissW < cap - 0.001 && twoMissW < weight - 0.001) {
             invariantViolations++;
             console.log(
-              `TWO-MISS BELOW CAP: ${ids[0]} ${weight} -> ${twoMissW} (cap: ${cap.toFixed(2)}) "kg"`
+              `TWO-MISS BELOW CAP: ${ids[0]} ${weight} -> ${twoMissW} (cap: ${cap.toFixed(2)}) ${unit}`
             );
           }
         }
-        */
 
-        // Test suggested weight for holds (M2: no unit)
-        const suggested = suggestedWeight(state, false, meta, ids);
+        // Test suggested weight for holds
+        const suggested = suggestedWeight(state, false, meta, ids, unit);
         if (firstMissResult.outcome === "hold" && suggested !== null && Math.abs(suggested - weight) > 0.001) {
           console.log(
-            `HOLD MISMATCH: ${ids[0]} ${weight} "kg" outcome=hold but suggested=${suggested}`
+            `HOLD MISMATCH: ${ids[0]} ${weight} ${unit} outcome=hold but suggested=${suggested}`
           );
         }
         }

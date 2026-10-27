@@ -66,7 +66,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestWeightKg: 40,
   bestReps: 12,
   bestE1rm: 56,
-  totalSessions: 1, weightAtFailureStartKg: null,
+  totalSessions: 1,
   ...over,
 });
 
@@ -90,7 +90,7 @@ const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) =>
     state: fresh(),
     isDeload: false,
     equipmentIds: ["barbell"],
-    
+    unit: "kg",
     ...over,
   });
 
@@ -273,7 +273,7 @@ console.log("\n8. Timed exercises (seconds) follow same min/top logic");
     state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 45 }),
     isDeload: false,
     equipmentIds: [],
-    
+    unit: "kg",
   });
   check("Plank 2×30s in 20-45s: outcome hold", d.outcome === "hold", d.outcome);
   check("Plank 30s: failures reset to 0", d.consecutiveFailures === 0, `${d.consecutiveFailures}`);
@@ -293,7 +293,7 @@ console.log("\n8. Timed exercises (seconds) follow same min/top logic");
     state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 45 }),
     isDeload: false,
     equipmentIds: [],
-    
+    unit: "kg",
   });
   check("Plank 2×45s (all at top): outcome progressed", d.outcome === "progressed", d.outcome);
   check("Plank 45s: target increases to 50s", d.nextTargetReps === 50, `${d.nextTargetReps}`);
@@ -312,7 +312,7 @@ console.log("\n8. Timed exercises (seconds) follow same min/top logic");
     state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 45 }),
     isDeload: false,
     equipmentIds: [],
-    
+    unit: "kg",
   });
   check("Plank 2×15s (below min): outcome hold", d.outcome === "hold", d.outcome);
   check("Plank 15s: failures increment to 1", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);

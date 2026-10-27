@@ -48,7 +48,7 @@ console.log("\n1. Unit: state null + 4×10@40 → holds at 40, failures 0");
       bestWeightKg: null,
       bestReps: null,
       bestE1rm: null,
-      totalSessions: 0, weightAtFailureStartKg: null,
+      totalSessions: 0,
     },
     isDeload: false,
   });
@@ -87,7 +87,7 @@ console.log("\n2. Mixed weights: state null + 4×10 at 40/42.5/40/40 → stores 
       bestWeightKg: null,
       bestReps: null,
       bestE1rm: null,
-      totalSessions: 0, weightAtFailureStartKg: null,
+      totalSessions: 0,
     },
     isDeload: false,
   });
@@ -122,7 +122,7 @@ console.log("\n3. Bodyweight (no logged weights): stays null");
       bestWeightKg: null,
       bestReps: null,
       bestE1rm: null,
-      totalSessions: 0, weightAtFailureStartKg: null,
+      totalSessions: 0,
     },
     isDeload: false,
   });
@@ -159,7 +159,7 @@ console.log("\n4. Stored weight takes precedence over logged weight");
       bestWeightKg: 40,
       bestReps: 12,
       bestE1rm: 56,
-      totalSessions: 3, weightAtFailureStartKg: null,
+      totalSessions: 3,
     },
     isDeload: false,
   });

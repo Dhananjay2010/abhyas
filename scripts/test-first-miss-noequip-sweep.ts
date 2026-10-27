@@ -51,7 +51,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestWeightKg: 60,
   bestReps: 12,
   bestE1rm: 84,
-  totalSessions: 3, weightAtFailureStartKg: null,
+  totalSessions: 3,
   ...over,
 });
 
@@ -78,6 +78,7 @@ console.log("\n=== IN-RANGE HOLD (differs from main) ===");
     state: fresh({ currentWorkingWeightKg: 40, consecutiveFailures: 0 }),
     isDeload: false,
     equipmentIds: undefined,
+    unit: undefined,
   });
   
   const pass = inRangeResult.outcome === "hold" && 
@@ -133,6 +134,7 @@ for (const mechanic of MECHANICS) {
             state,
             isDeload: deload,
             equipmentIds: undefined,
+            unit: undefined,
           };
 
             const result = evaluateProgression(input);
@@ -203,9 +205,9 @@ for (let i = 0; i < 64; i++) {
 
 if (bucketMismatches > 0) {
   console.error(
-    `\n❌ ${bucketMismatches} bucket(s) differ from the committed fixture (differences vs main are listed in scripts/fixtures/noequip-diff-vs-main.json).`
+    `\n❌ ${bucketMismatches} bucket(s) differ from main. Behavior has changed without equipment.`
   );
   process.exit(1);
 }
 
-console.log(`\n✅ All ${bucketMatches} buckets match the committed fixture (differences vs main are listed in scripts/fixtures/noequip-diff-vs-main.json).`);
+console.log(`\n✅ All ${bucketMatches} buckets match main. Behavior unchanged without equipment.`);

@@ -73,7 +73,7 @@ for (const t of tests) {
     state: {currentWorkingWeightKg: t.weight, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: t.weight, bestReps: 12, bestE1rm: null, totalSessions: 5, weightAtFailureStartKg: null},
     isDeload: false,
     equipmentIds: t.equipmentIds,
-    units: "metric"
+    unit: "kg"
   });
   
   if (result.nextWorkingWeightKg !== t.expected) {
