@@ -142,24 +142,25 @@ fi
 restore_file "$TIER_FILE"
 echo ""
 
-# Mutant 5: barbell-lunge without knee tag (mutate fixture)
+# Mutant 5: kettlebell-thruster without knee tag (mutate fixture)
+# This exercise is ALSO in CURRENT_KNEE_ONLY_EXCLUDED_SLUGS, so the slug-based
+# filter still excludes it. This mutant tests that the catalogue data itself
+# has the correct tags for migration 000045 (which retags exercises).
 FIXTURE_FILE="scripts/fixtures/catalogue.json"
 backup_file "$FIXTURE_FILE"
 
-if grep -q '"slug": "barbell-lunge"' "$FIXTURE_FILE"; then
-  echo "Testing M5: barbell-lunge without knee tag"
+if grep -q '"slug": "kettlebell-thruster"' "$FIXTURE_FILE"; then
+  echo "Testing M5: kettlebell-thruster without knee tag"
   
-  # Remove 'knee' from barbell-lunge's contraindicated_regions array
-  # Find the barbell-lunge entry and remove "knee" from its contraindicated_regions
+  # Remove 'knee' from kettlebell-thruster's contraindicated_regions array
   python3 -c "
 import json
-import sys
 
 with open('$FIXTURE_FILE', 'r') as f:
     data = json.load(f)
 
 for ex in data:
-    if ex.get('slug') == 'barbell-lunge':
+    if ex.get('slug') == 'kettlebell-thruster':
         if 'contraindicated_regions' in ex and 'knee' in ex['contraindicated_regions']:
             ex['contraindicated_regions'] = [r for r in ex['contraindicated_regions'] if r != 'knee']
 
@@ -167,15 +168,15 @@ with open('$FIXTURE_FILE', 'w') as f:
     json.dump(data, f, indent=2)
 " 2>/dev/null
   
-  if npx tsx scripts/test-contraindicated-tag.ts > /dev/null 2>&1; then
+  if npx tsx scripts/test-thruster-tag-direct.ts > /dev/null 2>&1; then
     echo "  ✗ SURVIVED: Mutant not killed"
     FAILURES=$((FAILURES + 1))
   else
     echo "  ✓ KILLED: Test failed as expected"
   fi
 else
-  echo "Testing M5: barbell-lunge without knee tag"
-  echo "  ⊘ SKIP: barbell-lunge not found"
+  echo "Testing M5: kettlebell-thruster without knee tag"
+  echo "  ⊘ SKIP: kettlebell-thruster not found"
 fi
 
 restore_file "$FIXTURE_FILE"
