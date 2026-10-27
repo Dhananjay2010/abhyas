@@ -90,6 +90,8 @@ run_mutant() {
   if ! psql "$SUPABASE_DB_URL" \
     -c "$sql_mutation" > "$mutation_output" 2>&1; then
     echo "  ❌ SKIPPED: mutation SQL failed"
+    echo "  psql error:"
+    cat "$mutation_output" | sed 's/^/    /'
     SKIPPED+=("$name: mutation failed")
     rm -f "$mutation_output"
     sleep 2
@@ -153,7 +155,7 @@ run_mutant \
 run_mutant \
   "(f) leak created_at" \
   "Return sensitive created_at field from get_gym_brand" \
-  "create or replace function public.get_gym_brand(p_gym_id uuid) returns table (name text, slug text, timezone text, display_name text, logo_url text, primary_color text, accent_color text, created_at timestamptz) language sql security definer set search_path = '' stable as \$\$ select g.name, g.slug, g.timezone, g.display_name, g.logo_url, g.primary_color, g.accent_color, g.created_at from public.gyms g where g.id = p_gym_id limit 1; \$\$;"
+  "drop function if exists public.get_gym_brand(uuid); create function public.get_gym_brand(p_gym_id uuid) returns table (name text, slug text, timezone text, display_name text, logo_url text, primary_color text, accent_color text, created_at timestamptz) language sql security definer set search_path = '' stable as \$\$ select g.name, g.slug, g.timezone, g.display_name, g.logo_url, g.primary_color, g.accent_color, g.created_at from public.gyms g where g.id = p_gym_id limit 1; \$\$; revoke execute on function public.get_gym_brand(uuid) from public; grant execute on function public.get_gym_brand(uuid) to anon, authenticated;"
 
 # Mutant (g): Disable RLS on gyms
 run_mutant \
@@ -165,7 +167,7 @@ run_mutant \
 run_mutant \
   "(h) missing GRANT on get_gym_brand" \
   "Recreate get_gym_brand without granting to anon/authenticated" \
-  "drop function if exists public.get_gym_brand(uuid); create function public.get_gym_brand(p_gym_id uuid) returns table (name text, slug text, timezone text, display_name text, logo_url text, primary_color text, accent_color text) language sql security definer set search_path = '' stable as \$\$ select g.name, g.slug, g.timezone, g.display_name, g.logo_url, g.primary_color, g.accent_color from public.gyms g where g.id = p_gym_id limit 1; \$\$; revoke execute on function public.get_gym_brand(uuid) from public;"
+  "drop function if exists public.get_gym_brand(uuid); create function public.get_gym_brand(p_gym_id uuid) returns table (name text, slug text, timezone text, display_name text, logo_url text, primary_color text, accent_color text) language sql security definer set search_path = '' stable as \$\$ select g.name, g.slug, g.timezone, g.display_name, g.logo_url, g.primary_color, g.accent_color from public.gyms g where g.id = p_gym_id limit 1; \$\$; revoke execute on function public.get_gym_brand(uuid) from public, anon, authenticated;"
 
 # Mutant (i): Clear parameter ignored
 run_mutant \
