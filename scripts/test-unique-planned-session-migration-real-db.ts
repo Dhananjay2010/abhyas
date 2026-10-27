@@ -170,7 +170,7 @@ async function main() {
     // Insert breathing_log for case (f)
     await client.query(`
       INSERT INTO breathing_logs (session_id, user_id, pattern_name, breaths, cycles_completed, planned_cycles, seconds, guidance, ended_early) VALUES
-      ($1, $2, 'Box Breathing', 20, 5, 5, 80, 'inhale', false)
+      ($1, $2, 'Box Breathing', 20, 5, 5, 80, 'tones', false)
     `, [caseF2, userId]);
 
     // Count children before migration
