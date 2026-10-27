@@ -578,6 +578,7 @@ export function evaluateProgression(input: {
 
   if (succeeded) {
     // Hard feel: with equipment, hold at current weight; without equipment, progress normally
+    // Use mode (most common working-set weight) when available; otherwise fall back to stored or heaviest
     const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds) {
       // Hold at current weight (don't snap down)
