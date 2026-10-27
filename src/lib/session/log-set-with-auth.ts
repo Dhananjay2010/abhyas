@@ -20,14 +20,16 @@ export type LogSetCoreDeps = {
     input: { reps: number | null; weightKg: number | null; durationSeconds: number | null }
   ) => Promise<string | null>;
   validateSessionForLogSet: (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     deps: any,
     sessionExerciseId: string,
     set: { setNumber: number; reps: number | null; weightKg: number | null; durationSeconds: number | null }
   ) => Promise<
     | { ok: true }
     | { ok: false; error: string }
-    | { ok: false; reason: "set_exists"; savedSets: any[] }
+    | { ok: false; reason: "set_exists"; savedSets: any[] } // eslint-disable-line @typescript-eslint/no-explicit-any
   >;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   buildLogSetValidationDeps: (supabase: SupabaseClient<Database>) => any;
   logSetCore: (
     supabase: SupabaseClient<Database>,
@@ -42,7 +44,7 @@ export type LogSetCoreDeps = {
   ) => Promise<
     | { ok: true }
     | { ok: false; error: string }
-    | { ok: false; reason: "set_exists"; savedSets: any[] }
+    | { ok: false; reason: "set_exists"; savedSets: any[] } // eslint-disable-line @typescript-eslint/no-explicit-any
   >;
 };
 

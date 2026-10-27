@@ -339,7 +339,13 @@ export function SessionRunner({
 
   // Clear sessionExpired when pending sets are successfully replayed
   useEffect(() => {
-    if (pendingSetState.expired === false && pendingSetState.pending.length === 0 && pendingSetState.replayed.length > 0) {
+    const shouldClear = 
+      pendingSetState.expired === false && 
+      pendingSetState.pending.length === 0 && 
+      pendingSetState.replayed.length > 0;
+    
+    if (shouldClear) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSessionExpired(false);
     }
   }, [pendingSetState]);
