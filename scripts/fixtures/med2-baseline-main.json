@@ -49,9 +49,9 @@
     "dayIndex": 5,
     "label": "Lower",
     "focus": "lower",
-    "lowerBodySets": 22,
-    "totalSets": 26,
-    "estMinutes": 68,
+    "lowerBodySets": 21,
+    "totalSets": 25,
+    "estMinutes": 72,
     "exercises": [
       {
         "name": "Barbell Squat",
@@ -74,18 +74,18 @@
       {
         "name": "Barbell Seated Calf Raise",
         "slug": "barbell-seated-calf-raise",
-        "targetSets": 4,
+        "targetSets": 3,
         "movementPattern": "calf"
       },
       {
-        "name": "Leg Extensions",
-        "slug": "leg-extensions",
+        "name": "Wall Sit",
+        "slug": "wall-sit",
         "targetSets": 4,
         "movementPattern": "squat"
       },
       {
-        "name": "Cable Seated Crunch",
-        "slug": "cable-seated-crunch",
+        "name": "Cable Crunch",
+        "slug": "cable-crunch",
         "targetSets": 4,
         "movementPattern": "core"
       }

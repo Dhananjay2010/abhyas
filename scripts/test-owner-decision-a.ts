@@ -11,6 +11,7 @@
 import { readFileSync } from "fs";
 import { isEligible, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { rankAlternatives, type AlternativesContext } from "../src/lib/program/alternatives";
+import { getPastKneeExcludedSlugs } from "../src/lib/program/past-knee";
 
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf-8")
@@ -22,10 +23,13 @@ const THREE_EXCLUDED_SLUGS = new Set([
   "single-arm-linear-jammer",
 ]);
 
-const TWO_JAMMER_SLUGS = new Set([
-  "landmine-linear-jammer",
-  "single-arm-linear-jammer",
-]);
+// Derive jammer slugs from PAST_KNEE_EXCLUDED_SLUGS
+const PAST_KNEE_EXCLUDED = getPastKneeExcludedSlugs();
+const TWO_JAMMER_SLUGS = new Set(
+  [...PAST_KNEE_EXCLUDED].filter(slug => 
+    slug.includes("jammer")
+  )
+);
 
 // Fixtures: main's eligible sets (captured from main c3662dce)
 const MAIN_PAST_KNEE_ELIGIBLE = new Set([

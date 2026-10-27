@@ -63,6 +63,17 @@ const baseline: BaselineData = JSON.parse(
   readFileSync("scripts/fixtures/identity-baseline-main.json", "utf-8")
 );
 
+// Owner decision (a): current-knee-intermediate expected diffs from jammer exclusion.
+// Landmine jammer removal changes RNG stream for 6 accessory/core exercises.
+const ALLOWED_DIFFS: Array<{ profile: string; day: number; slot: number; mainExercise: string; expectedExercise: string }> = [
+  { profile: "current-knee-intermediate", day: 1, slot: 5, mainExercise: "Band Skull Crusher", expectedExercise: "Kneeling Cable Triceps Extension" },
+  { profile: "current-knee-intermediate", day: 1, slot: 6, mainExercise: "Incline Inner Biceps Curl", expectedExercise: "Lying Close-Grip Bar Curl On High Pulley" },
+  { profile: "current-knee-intermediate", day: 2, slot: 5, mainExercise: "Crunches", expectedExercise: "Decline Crunch" },
+  { profile: "current-knee-intermediate", day: 4, slot: 5, mainExercise: "Standing Bent-Over Two-Arm Dumbbell Triceps Extension", expectedExercise: "Standing Overhead Barbell Triceps Extension" },
+  { profile: "current-knee-intermediate", day: 4, slot: 6, mainExercise: "Preacher Hammer Dumbbell Curl", expectedExercise: "Seated Close-Grip Concentration Barbell Curl" },
+  { profile: "current-knee-intermediate", day: 5, slot: 5, mainExercise: "Sit-Up", expectedExercise: "Crunch - Legs On Exercise Ball" },
+];
+
 const testCases: Array<{
   id: string;
   injuries: Array<{ region: string; severity: string }>;
@@ -133,6 +144,9 @@ for (const testCase of testCases) {
   }
   
   let programMatch = true;
+  const foundDiffs: Array<{ day: number; slot: number; got: string; expected: string }> = [];
+  const allowedDiffsUsed = new Set<number>();
+  
   for (let i = 0; i < Math.min(program.days.length, expected.program.days.length); i++) {
     const day = program.days[i];
     const expDay = expected.program.days[i];
@@ -153,14 +167,39 @@ for (const testCase of testCases) {
       const expEx = expDay.exercises[j];
       
       if (ex.name !== expEx.name || ex.targetSets !== expEx.targetSets) {
-        fail(`Day ${i+1} ex ${j+1}: ${ex.name} (${ex.targetSets} sets) vs ${expEx.name} (${expEx.targetSets} sets)`);
-        programMatch = false;
+        // Check if this diff is allowed
+        const allowedIdx = ALLOWED_DIFFS.findIndex(
+          d => d.profile === testCase.id && d.day === (i + 1) && d.slot === (j + 1) && 
+               d.mainExercise === expEx.name && d.expectedExercise === (ex.name ?? "")
+        );
+        
+        if (allowedIdx >= 0) {
+          allowedDiffsUsed.add(allowedIdx);
+          foundDiffs.push({ day: i + 1, slot: j + 1, got: ex.name ?? "", expected: expEx.name ?? "" });
+        } else {
+          fail(`Day ${i+1} ex ${j+1}: ${ex.name ?? "unknown"} (${ex.targetSets} sets) vs ${expEx.name ?? "unknown"} (${expEx.targetSets} sets) [not on allow-list]`);
+          programMatch = false;
+        }
       }
     }
   }
   
-  if (programMatch) {
+  // Check for stale allow-list entries
+  const expectedDiffsForProfile = ALLOWED_DIFFS
+    .map((d, idx) => ({ ...d, idx }))
+    .filter(d => d.profile === testCase.id);
+  
+  for (const { idx, day, slot, mainExercise, expectedExercise } of expectedDiffsForProfile) {
+    if (!allowedDiffsUsed.has(idx)) {
+      fail(`Stale allow-list entry: Day ${day} ex ${slot} ${mainExercise} → ${expectedExercise} did not occur`);
+      programMatch = false;
+    }
+  }
+  
+  if (programMatch && foundDiffs.length === 0) {
     console.log(`  ✓ Program identical to main`);
+  } else if (programMatch && foundDiffs.length > 0) {
+    console.log(`  ✓ Program matches main (${foundDiffs.length} allowed jammer RNG diffs)`);
   }
   
   // Generate swap lists

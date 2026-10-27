@@ -84,6 +84,20 @@ const baseline: BaselineDay[] = JSON.parse(
   readFileSync("scripts/fixtures/med2-baseline-main.json", "utf-8")
 );
 
+// Owner decision (a): Day 5 expected diffs from jammer exclusion.
+// Landmine jammer removal changes RNG stream for 3 exercises on Day 5.
+const ALLOWED_DAY5_DIFF = {
+  dayIndex: 5,
+  estMinutes: { main: 72, expected: 68 },
+  totalSets: { main: 25, expected: 26 },
+  lowerBodySets: { main: 21, expected: 22 },
+  exerciseChanges: [
+    { exercise: "Barbell Seated Calf Raise", mainSets: 3, expectedSets: 4 },
+    { mainExercise: "Wall Sit", expectedExercise: "Leg Extensions", sets: 4 },
+    { mainExercise: "Cable Crunch", expectedExercise: "Cable Seated Crunch", sets: 4 },
+  ],
+};
+
 console.log("Baseline from origin/main:");
 baseline.forEach(day => {
   console.log(`  Day ${day.dayIndex} (${day.label}): ${day.lowerBodySets} lower sets, ${day.estMinutes} min`);
@@ -125,21 +139,52 @@ for (const day of lowerDays) {
   // Check against baseline
   const baselineDay = baseline.find(b => b.dayIndex === day.dayIndex);
   if (baselineDay) {
-    const setDiff = Math.abs(lowerBodySets - baselineDay.lowerBodySets);
-    const minuteDiff = Math.abs(estMinutes - baselineDay.estMinutes);
+    const isAllowedDay5 = day.dayIndex === ALLOWED_DAY5_DIFF.dayIndex;
     
-    if (setDiff > 1) {
-      console.log(`  ✗ Lower-body sets differ by ${setDiff} (baseline: ${baselineDay.lowerBodySets}, got: ${lowerBodySets})`);
-      failures++;
+    if (isAllowedDay5) {
+      // Day 5: check exact expected diffs
+      const minuteMatch = estMinutes === ALLOWED_DAY5_DIFF.estMinutes.expected;
+      const setsMatch = totalSets === ALLOWED_DAY5_DIFF.totalSets.expected;
+      const lowerMatch = lowerBodySets === ALLOWED_DAY5_DIFF.lowerBodySets.expected;
+      
+      if (minuteMatch) {
+        console.log(`  ✓ Estimated minutes: ${estMinutes} (allowed diff: ${ALLOWED_DAY5_DIFF.estMinutes.main} → ${ALLOWED_DAY5_DIFF.estMinutes.expected})`);
+      } else {
+        console.log(`  ✗ Estimated minutes: ${estMinutes} (expected ${ALLOWED_DAY5_DIFF.estMinutes.expected}, main was ${ALLOWED_DAY5_DIFF.estMinutes.main})`);
+        failures++;
+      }
+      
+      if (setsMatch) {
+        console.log(`  ✓ Total sets: ${totalSets} (allowed diff: ${ALLOWED_DAY5_DIFF.totalSets.main} → ${ALLOWED_DAY5_DIFF.totalSets.expected})`);
+      } else {
+        console.log(`  ✗ Total sets: ${totalSets} (expected ${ALLOWED_DAY5_DIFF.totalSets.expected}, main was ${ALLOWED_DAY5_DIFF.totalSets.main})`);
+        failures++;
+      }
+      
+      if (lowerMatch) {
+        console.log(`  ✓ Lower-body sets: ${lowerBodySets} (allowed diff: ${ALLOWED_DAY5_DIFF.lowerBodySets.main} → ${ALLOWED_DAY5_DIFF.lowerBodySets.expected})`);
+      } else {
+        console.log(`  ✗ Lower-body sets: ${lowerBodySets} (expected ${ALLOWED_DAY5_DIFF.lowerBodySets.expected}, main was ${ALLOWED_DAY5_DIFF.lowerBodySets.main})`);
+        failures++;
+      }
     } else {
-      console.log(`  ✓ Lower-body sets within ±1 of baseline (${lowerBodySets} vs ${baselineDay.lowerBodySets})`);
-    }
-    
-    if (minuteDiff > 2) {
-      console.log(`  ✗ Estimated minutes differ by ${minuteDiff} (baseline: ${baselineDay.estMinutes}, got: ${estMinutes})`);
-      failures++;
-    } else {
-      console.log(`  ✓ Estimated minutes within ±2 of baseline (${estMinutes} vs ${baselineDay.estMinutes})`);
+      // Other days: check tolerance
+      const setDiff = Math.abs(lowerBodySets - baselineDay.lowerBodySets);
+      const minuteDiff = Math.abs(estMinutes - baselineDay.estMinutes);
+      
+      if (setDiff > 1) {
+        console.log(`  ✗ Lower-body sets differ by ${setDiff} (baseline: ${baselineDay.lowerBodySets}, got: ${lowerBodySets})`);
+        failures++;
+      } else {
+        console.log(`  ✓ Lower-body sets within ±1 of baseline (${lowerBodySets} vs ${baselineDay.lowerBodySets})`);
+      }
+      
+      if (minuteDiff > 2) {
+        console.log(`  ✗ Estimated minutes differ by ${minuteDiff} (baseline: ${baselineDay.estMinutes}, got: ${estMinutes})`);
+        failures++;
+      } else {
+        console.log(`  ✓ Estimated minutes within ±2 of baseline (${estMinutes} vs ${baselineDay.estMinutes})`);
+      }
     }
     console.log("");
   }
