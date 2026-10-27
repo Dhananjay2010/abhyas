@@ -3,7 +3,7 @@
  * Extracted for testing to ensure rounding is applied correctly.
  */
 
-import { kgToDisplay, roundLbToHalf, type UnitsPreference } from "@/lib/units";
+import { kgToDisplay, type UnitsPreference } from "@/lib/units";
 import type { Point } from "@/components/charts";
 
 type VolumeRow = {
@@ -11,7 +11,7 @@ type VolumeRow = {
   volume_kg: string | number;
 };
 
-type WeightRow = {
+export type WeightRow = {
   recorded_on: string;
   weight_kg: string | number;
 };
@@ -45,7 +45,8 @@ export function buildBodyWeightChartPoints(
   return rows.map((w) => {
     const kg = Number(w.weight_kg);
     const displayValue = kgToDisplay(kg, units);
-    const value = units === "imperial" ? roundLbToHalf(displayValue) : displayValue;
+    // Round to 0.1 precision for body weight (both units)
+    const value = Math.round(displayValue * 10) / 10;
     return {
       label: shortDate(w.recorded_on),
       value,

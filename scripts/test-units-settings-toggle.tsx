@@ -266,8 +266,8 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
 
           // Check error is displayed
           const errorText = container2.textContent;
-          const hasError = errorText?.includes("between 55 and 661 lb");
-          check("Typing 50 lb shows 'between 55 and 661 lb' error", hasError);
+          const hasError = errorText?.includes("between 55.5 and 661 lb");
+          check("Typing 50 lb shows 'between 55.5 and 661 lb' error", hasError);
 
           check(
             "logAction NOT called for out-of-range value",
@@ -576,7 +576,7 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
 
             check(
               "Out-of-range weight shows error message",
-              bodyText2.includes("between 55 and 661 lb") || bodyText2.includes("25 and 300 kg")
+              bodyText2.includes("between 55.5 and 661 lb") || bodyText2.includes("25 and 300 kg")
             );
 
             check(

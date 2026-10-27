@@ -18,7 +18,7 @@ import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { displayToKg, formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
+import { formatLoad, formatPrescribedWeight, computeRunnerWeightPrefill, weightKgToSubmit, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { shouldShowFinishRetry, runEndEarly } from "@/lib/session/finish-flow";
 import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
@@ -803,10 +803,10 @@ export function SessionRunner({
   const nextSetNumber = setsDone + 1;
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
-  // For imperial: snap prescription to lb grid so prefill matches working weight line.
+  const hasLoggedWeightThisExercise = current.sets.some((s) => s.weightKg !== null);
   const lastWeight =
     [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ??
-    snapPrescribedWeight(current.suggestedWeightKg, settings.units);
+    current.suggestedWeightKg;
 
   /**
    * What the reps field starts on — and, for the first set, nothing.
@@ -995,12 +995,9 @@ export function SessionRunner({
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
-          <p className="mt-2 text-sm text-muted">
-            Working weight {formatLoad(
-              snapPrescribedWeight(
-                current.suggestedWeightKg ?? current.workingWeightKg,
-                settings.units
-              ),
+          <p className="mt-2 text-sm text-muted" data-testid="working-weight-line">
+            Working weight {formatPrescribedWeight(
+              current.suggestedWeightKg ?? current.workingWeightKg,
               settings.units
             )}
           </p>
@@ -1103,6 +1100,7 @@ export function SessionRunner({
             metric={current.metric}
             targetSeconds={current.repsMax}
             defaultWeight={lastWeight}
+            isPrescription={!hasLoggedWeightThisExercise}
             defaultReps={defaultReps}
             setNumber={nextSetNumber}
             isBodyweight={current.isBodyweight}
@@ -1380,6 +1378,7 @@ function SetEntry({
   metric,
   targetSeconds,
   defaultWeight,
+  isPrescription,
   defaultReps,
   setNumber,
   isBodyweight,
@@ -1394,6 +1393,7 @@ function SetEntry({
   /** Top of the target range, which is what the hold counts down from. */
   targetSeconds: number;
   defaultWeight: number | null;
+  isPrescription: boolean;
   /** Null on the first set of an exercise, so it has to be entered. */
   defaultReps: number | null;
   setNumber: number;
@@ -1414,9 +1414,11 @@ function SetEntry({
   // Remounted per set via a key at the call site, so the fields reset naturally
   // rather than being reset from an effect.
   const [reps, setReps] = useState(defaultReps !== null ? String(defaultReps) : "");
-  const [weight, setWeight] = useState(() => 
-    computeRunnerWeightPrefill(defaultWeight, units, isBodyweight)
+  const initialPrefill = useMemo(() => 
+    computeRunnerWeightPrefill(defaultWeight, units, isBodyweight, isPrescription),
+    [defaultWeight, units, isBodyweight, isPrescription]
   );
+  const [weight, setWeight] = useState(initialPrefill);
 
   /**
    * The hold timer.
@@ -1463,7 +1465,8 @@ function SetEntry({
   // round trip rather than after one. An empty field is only meaningful when
   // per-set logging is off, where the runner records that a set happened
   // without asking for numbers; here it means the user has not said yet.
-  const weightKg = weight === "" ? null : displayToKg(Number(weight), units);
+  // L-3 round-trip: use weightKgToSubmit to preserve original kg when unchanged.
+  const weightKg = weightKgToSubmit(weight, initialPrefill, defaultWeight, units);
   const invalid =
     reps === ""
       ? isTimed
@@ -1560,6 +1563,7 @@ function SetEntry({
               ? onLog(null, weightKg, Number(reps))
               : onLog(reps === "" ? null : Number(reps), weightKg);
           }}
+          data-testid="log-set-button"
         >
           Log set {setNumber}
         </BigButton>
@@ -1672,16 +1676,18 @@ function BigButton({
   children,
   onClick,
   disabled = false,
+  ...props
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
-}) {
+} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       className="w-full rounded-xl bg-accent px-6 py-5 text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-60"
+      {...props}
     >
       {children}
     </button>

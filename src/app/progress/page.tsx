@@ -436,6 +436,7 @@ export default async function ProgressPage() {
             weightUnits={units}
             title="Body weight"
             singlePointHint="Weigh in on another day to see a trend"
+            isBodyWeight={true}
           />
         )}
         <LogWeight current={latestWeight} units={units} />

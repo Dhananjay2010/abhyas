@@ -109,6 +109,7 @@ async function runTests() {
 
   console.log("TEST: pd-b scenario - Settings rebuild after block ends WITHOUT Today rollover");
   {
+    const scenarioStartFailures = testsFailed;
     // Create test user via admin API
     const testEmail = `test-rebuild-${Date.now()}@example.com`;
     const { data: authData, error: createError } = await adminClient.auth.admin.createUser({
@@ -125,11 +126,16 @@ async function runTests() {
     const userId = authData.user.id;
     assert(!!userId, "Created test user");
 
-    // Ensure profile exists (trigger creates it, but set required fields)
+    // Ensure profile exists (trigger creates it, but set required fields for plan builder)
     const { error: profileError } = await adminClient.from("profiles").upsert({
       id: userId,
       timezone: "America/Los_Angeles",
       onboarding_completed_at: new Date().toISOString(),
+      date_of_birth: "1990-01-01",
+      goal: "strength",
+      level: "intermediate",
+      primary_track: "weights",
+      days_per_week: 4,
     });
 
     if (profileError) {
@@ -303,11 +309,16 @@ async function runTests() {
     assert(newBlocks[0].block_number === 2, "New block has block_number 2", `got ${newBlocks[0].block_number}`);
     assert(newBlocks[0].status === "active", "New block is active", `got ${newBlocks[0].status}`);
 
-    console.log("  PASS: pd-b scenario test\n");
+    if (testsFailed === scenarioStartFailures) {
+      console.log("  PASS: pd-b scenario test\n");
+    } else {
+      console.log(`  FAIL: pd-b scenario test (${testsFailed - scenarioStartFailures} failures)\n`);
+    }
   }
 
   console.log("TEST: Mid-block rebuild preserves completed status");
   {
+    const scenarioStartFailures = testsFailed;
     // Create test user
     const testEmail = `test-midblock-${Date.now()}@example.com`;
     const { data: authData, error: createError } = await adminClient.auth.admin.createUser({
@@ -323,11 +334,16 @@ async function runTests() {
 
     const userId = authData.user.id;
 
-    // Ensure profile exists (trigger creates it, but set required fields)
+    // Ensure profile exists (trigger creates it, but set required fields for plan builder)
     await adminClient.from("profiles").upsert({
       id: userId,
       timezone: "America/Los_Angeles",
       onboarding_completed_at: new Date().toISOString(),
+      date_of_birth: "1990-01-01",
+      goal: "strength",
+      level: "intermediate",
+      primary_track: "weights",
+      days_per_week: 4,
     });
 
     // Create block: started 2026-10-01, ends 2026-10-29, user rebuilds mid-block on 2026-10-15
@@ -390,7 +406,11 @@ async function runTests() {
     // Mid-block rebuild supersedes the old block and creates a new one
     assert(afterData!.status === "superseded", "Mid-block rebuild marks old block superseded", `got ${afterData!.status}`);
 
-    console.log("  PASS: mid-block rebuild test\n");
+    if (testsFailed === scenarioStartFailures) {
+      console.log("  PASS: mid-block rebuild test\n");
+    } else {
+      console.log(`  FAIL: mid-block rebuild test (${testsFailed - scenarioStartFailures} failures)\n`);
+    }
   }
 
   if (testsFailed === 0) {
