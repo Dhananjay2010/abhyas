@@ -99,7 +99,7 @@ export function DayPlanPrompt({
       </p>
 
       {!choosing ? (
-        <div className={`mt-4 gap-2 ${showRestOption ? "grid grid-cols-3" : "flex"}`}>
+        <div className={`mt-4 gap-2 ${showRestOption && programDayId ? "grid grid-cols-3" : "flex"}`}>
           <Choice
             disabled={pending}
             onClick={() =>
@@ -113,7 +113,7 @@ export function DayPlanPrompt({
           <Choice disabled={pending} onClick={() => setChoosing(true)}>
             Swap the day
           </Choice>
-          {showRestOption && (
+          {showRestOption && programDayId && (
             <Choice disabled={pending} onClick={() => choose({ kind: "rest" }, "a rest day")}>
               Rest
             </Choice>
@@ -152,7 +152,7 @@ export function DayPlanPrompt({
           </Choice>
           <button
             onClick={() => setChoosing(false)}
-            className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg"
+            className="w-full min-h-11 flex items-center justify-center text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg"
           >
             Never mind
           </button>

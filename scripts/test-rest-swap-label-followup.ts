@@ -427,6 +427,141 @@ async function main() {
     console.log("  ✓ Block 2 rollover returns undefined\n");
   }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // MED-B: Summary's 'Swap the day' list badges the NEXT workout, not the one just finished
+  // ──────────────────────────────────────────────────────────────────────────
+  console.log("MED-B: Summary badge on NEXT workout (not just finished)\n");
+
+  {
+    console.log("9. 3-day: finish C → plannableDays badges A (not C)");
+
+    const client = buildClient({
+      programDays: days3Full,
+      sessions: [
+        { id: "s-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "in_progress", created_at: "2026-10-29T10:00:00Z" },
+      ],
+    });
+
+    // During C's summary, compute plannableDays with currentSessionId
+    const plannable = await plannableDays(client, "prog-1", {
+      afterDate: "2026-10-29",
+      userId: "u1",
+      currentSessionId: "s-c",
+    });
+
+    const aDay = plannable.find(d => d.label === "Full Body A");
+    const cDay = plannable.find(d => d.label === "Full Body C");
+
+    assert.ok(aDay, "Should have Full Body A");
+    assert.ok(cDay, "Should have Full Body C");
+    assert.strictEqual(aDay.nextUp, true, "A should have nextUp badge (after C)");
+    assert.strictEqual(cDay.nextUp, false, "C should NOT have nextUp badge (just finished)");
+
+    console.log("  ✓ A badged, C not badged (C just finished)\n");
+  }
+
+  {
+    console.log("10. 6-day PPL: finish Pull → plannableDays badges Legs (not Pull)");
+
+    const client = buildClient({
+      programDays: days6PPL,
+      sessions: [
+        { id: "s-pull", user_id: "u1", program_day_id: "Pull1", actual_type: "weights", local_date: "2026-10-29", status: "in_progress", created_at: "2026-10-29T10:00:00Z" },
+      ],
+    });
+
+    const plannable = await plannableDays(client, "prog-1", {
+      afterDate: "2026-10-29",
+      userId: "u1",
+      currentSessionId: "s-pull",
+    });
+
+    const pullDay = plannable.find(d => d.label === "Pull");
+    const legsDay = plannable.find(d => d.label === "Legs");
+
+    assert.ok(pullDay, "Should have Pull");
+    assert.ok(legsDay, "Should have Legs");
+    assert.strictEqual(legsDay.nextUp, true, "Legs should have nextUp badge (after Pull)");
+    assert.strictEqual(pullDay.nextUp, false, "Pull should NOT have nextUp badge (just finished)");
+
+    console.log("  ✓ Legs badged, Pull not badged (Pull just finished)\n");
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // MED-A: 6-day PPL after skipped days
+  // ──────────────────────────────────────────────────────────────────────────
+  console.log("11. 6-day PPL after skipped days: Wed swap Push → Thu resolves Pull (not Push repeat)");
+
+  {
+    // Setup: Mon Push1, Tue Pull1 done. Wed rest-day (day 3) swap to Push (Push1).
+    // Thu is scheduled Push2 (day 4). Since Push was done Wed, Thu should serve Pull (next after Push).
+
+    const client = buildClient({
+      programDays: days6PPL,
+      sessions: [
+        { id: "s-push-mon", user_id: "u1", program_day_id: "Push1", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
+        { id: "s-pull-tue", user_id: "u1", program_day_id: "Pull1", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T10:00:00Z" },
+        { id: "s-push-wed", user_id: "u1", program_day_id: "Push1", actual_type: "weights", local_date: "2026-10-29", status: "completed", created_at: "2026-10-29T14:00:00Z" },
+      ],
+    });
+
+    // Thu Today: resolve (Wed was Push swap, Thu scheduled Push2)
+    const thuResolve = await resolveTodayProgramDayCore({
+      getAllProgramDays: async () => days6PPL,
+      getYesterdaySession: async () => ({ programDayId: "Push1", actualType: "weights" }),
+      getTodayIndex: () => 4,
+      getYesterdayIndex: () => 3,
+    });
+
+    assert.ok(thuResolve, "Should resolve Thu");
+    assert.strictEqual(thuResolve.label, "Pull", "Thu should serve Pull (Push collision resolved)");
+
+    console.log("  ✓ 6-day after skipped: Push Wed → Pull Thu (not Push repeat)\n");
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // LOW: Anchor yoga-only plans
+  // ──────────────────────────────────────────────────────────────────────────
+  console.log("LOW: Anchor yoga-only plans\n");
+
+  {
+    console.log("12. Yoga-only 3-day plan anchored to Tuesday");
+
+    // Simulate generateProgram for a yoga-only plan
+    const { generateProgram } = await import("../src/lib/program/generate");
+
+    const input = {
+      userId: "test-user",
+      blockNumber: 1,
+      goal: "fitness" as const,
+      level: "beginner" as const,
+      primaryTrack: "yoga" as const,
+      daysPerWeek: 3,
+      yogaDaysPerWeek: 0,
+      age: 30,
+      bmi: 22,
+      hasAllEquipment: false,
+      equipmentIds: [],
+      currentInjuryRegions: [],
+      preferredSessionMinutes: 45,
+      catalogue: [],
+      startedOn: "2026-10-27", // Tuesday
+    };
+
+    const plan = generateProgram(input);
+
+    // Find the active yoga days
+    const yogaDays = plan.days.filter(d => d.dayType === "yoga").map(d => d.dayIndex);
+
+    console.log(`    Generated plan: ${plan.days.map(d => `${d.dayIndex}:${d.dayType}`).join(", ")}`);
+    console.log(`    Yoga days: ${yogaDays.join(", ")}`);
+
+    assert.strictEqual(yogaDays.length, 3, "Should have 3 yoga days");
+    assert.ok(yogaDays.includes(2), "Tuesday (day 2) should be yoga (sign-up day)");
+
+    console.log(`  ✓ Yoga-only plan anchored: yoga on days ${yogaDays.join(", ")} (includes Tuesday 2)\n`);
+  }
+
   console.log("✓ All rest-swap label followup tests passed\n");
 }
 

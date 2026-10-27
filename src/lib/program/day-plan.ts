@@ -193,6 +193,11 @@ export async function resolveTodayProgramDay({
  * 
  * Marks the "next up" workout based on the most recently completed session,
  * so rest-day swaps can preselect the recommended next workout in the rotation.
+ * 
+ * MED-B: When computing the badge from the summary (while the current session
+ * is still in_progress), pass currentSessionId to treat that session as
+ * completed for next-up computation, preventing the just-finished workout
+ * from being badged as "Next up".
  */
 export async function plannableDays(
   supabase: Client,
@@ -202,6 +207,8 @@ export async function plannableDays(
     afterDate?: string;
     /** User ID for filtering sessions (required when afterDate is provided) */
     userId?: string;
+    /** When provided, treat this in_progress session as completed for next-up computation */
+    currentSessionId?: string;
   }
 ): Promise<PlannableDay[]> {
   const { data } = await supabase
@@ -219,14 +226,20 @@ export async function plannableDays(
   // MED-1 fix: Track by label (not id) so the badge lands on the kept row
   // after deduplication. In 4-day Upper/Lower, the nextUp might be "Upper" (id U2),
   // but deduplication keeps the first "Upper" (id U1), so we mark by label.
+  // MED-B fix: When currentSessionId is provided (post-workout summary), treat
+  // that in_progress session as completed so the badge lands on the NEXT workout,
+  // not the one just finished.
   let nextUpLabel: string | null = null;
   
   if (options?.afterDate && options?.userId && trainingDays.length > 0) {
+    // When computing from the summary, check both completed and in_progress (for currentSessionId)
+    const statuses = options.currentSessionId ? ["completed", "in_progress"] : ["completed"];
+    
     const { data: recentSession } = await supabase
       .from("sessions")
-      .select("program_day_id")
+      .select("id, program_day_id")
       .eq("user_id", options.userId)
-      .eq("status", "completed")
+      .in("status", statuses)
       .in("actual_type", ["weights", "bodyweight"])
       .lte("local_date", options.afterDate)
       .order("local_date", { ascending: false })
@@ -631,6 +644,7 @@ export async function nextDayPlan(
       return await plannableDays(supabase, program.id, {
         afterDate: today,
         userId,
+        currentSessionId: options?.sessionId,
       });
     },
 
