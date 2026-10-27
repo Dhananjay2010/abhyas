@@ -30,16 +30,16 @@ check("100 kg formats as '220.5 lb top' for imperial users (space, 1 decimal)",
   imperial100 === "220.5 lb top",
   `got '${imperial100}'`);
 
-// Test rounding to 1 decimal: 50 kg → 110.23 lb → 110.2 lb
+// Test rounding to 0.5 lb: 50 kg → 110.23 lb → 110 lb (nearest 0.5)
 const imperial50 = formatTopSet(50, "imperial");
-check("50 kg formats as '110.2 lb top' for imperial users (space)",
-  imperial50 === "110.2 lb top",
+check("50 kg formats as '110 lb top' for imperial users (0.5 lb rounding)",
+  imperial50 === "110 lb top",
   `got '${imperial50}'`);
 
-// Test rounding to 1 decimal: 45.5 kg → 100.31 lb → 100.3 lb
+// Test rounding to 0.5 lb: 45.5 kg → 100.31 lb → 100.5 lb (nearest 0.5)
 const imperial45 = formatTopSet(45.5, "imperial");
-check("45.5 kg formats as '100.3 lb top' for imperial users (space)",
-  imperial45 === "100.3 lb top",
+check("45.5 kg formats as '100.5 lb top' for imperial users (0.5 lb rounding)",
+  imperial45 === "100.5 lb top",
   `got '${imperial45}'`);
 
 // Test decimal display with .0 dropped: 22.5 kg → 22.5 kg top
