@@ -3,8 +3,9 @@
  * 
  * Verifies that past-knee squat swaps:
  * 1. Are never empty
- * 2. Offer PAST_KNEE_LUNGE_EXERCISES first (leg-extensions, single-leg-leg-extension, wall-sit, spanish-squat)
- *    in that order, filtered by equipment and excluding the current exercise
+ * 2. Offer PAST_KNEE_LUNGE_EXERCISES first (leg-extensions, wall-sit, spanish-squat)
+ *    in that order, filtered by equipment and excluding the current exercise.
+ *    Owner decision: single-leg-leg-extension excluded for past-knee only.
  * 3. Then offer knee-safe hinge/bridge fallbacks (hip thrust, glute bridge, RDL variants, hamstring curl)
  *    with glutes or hamstrings as primary muscles
  * 4. Contain no knee-risk exercises
@@ -141,9 +142,10 @@ function testProfile(profileName: string, equipmentIds: string[], currentSlug: s
       }
     }
     
-    // 4. Verify quad isolation order (leg-extensions, single-leg-leg-extension, wall-sit, spanish-squat)
-    //    and wall-sit is never first in the overall list
-    const expectedOrder = ["leg-extensions", "single-leg-leg-extension", "wall-sit", "spanish-squat"];
+    // 4. Verify quad isolation order (leg-extensions, wall-sit, spanish-squat)
+    //    Owner decision: single-leg-leg-extension excluded for past-knee only
+    //    Wall-sit is never first in the overall list
+    const expectedOrder = ["leg-extensions", "wall-sit", "spanish-squat"];
     const actualQuadOrder = quadIsolationInList.map(ex => ex.slug);
     const expectedQuadOrder = expectedOrder.filter(slug => actualQuadOrder.includes(slug));
     const orderCorrect = actualQuadOrder.every((slug, i) => slug === expectedQuadOrder[i]);
