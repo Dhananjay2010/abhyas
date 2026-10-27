@@ -39,17 +39,20 @@ export type BuildResult =
  * to let the RPC or rollover logic handle the start date.
  * 
  * @param blockNumber - The block number being created
+ * @param isRebuild - Whether this is a rebuild of an existing block
  * @param today - The current date string (ISO format)
  * @returns today for new block 1, undefined otherwise
  */
 export function decideBlockStartedOn({
   blockNumber,
+  isRebuild,
   today,
 }: {
   blockNumber: number;
+  isRebuild: boolean;
   today: string;
 }): string | undefined {
-  return blockNumber === 1 ? today : undefined;
+  return blockNumber === 1 && !isRebuild ? today : undefined;
 }
 
 type ProgramPayload = {
@@ -226,9 +229,18 @@ export async function createBlockForUser(
       ? Number(weightKg) / (Number(profile.height_cm) / 100) ** 2
       : null;
 
+  const timezone = resolveTimezoneWithProfile(profile.timezone);
+  const today = localDateString(timezone);
+  const blockNumber = rebuildOf?.block_number ?? (lastBlockRes.data?.block_number ?? 0) + 1;
+  const isRebuild = !!rebuildOf;
+
+  // For a brand new user's first block, anchor the schedule to their sign-up weekday.
+  // For rebuilds or block 2+, leave startedOn undefined so the generator uses the default mapping.
+  const startedOn = decideBlockStartedOn({ blockNumber, isRebuild, today });
+
   const input: GeneratorInput = {
     userId,
-    blockNumber: rebuildOf?.block_number ?? (lastBlockRes.data?.block_number ?? 0) + 1,
+    blockNumber,
     goal: profile.goal!,
     level: profile.level!,
     primaryTrack: profile.primary_track!,
@@ -244,6 +256,7 @@ export async function createBlockForUser(
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver: options.carryOver,
+    startedOn,
   };
 
   const plan = generateProgram(input);
@@ -260,9 +273,6 @@ export async function createBlockForUser(
         "No exercises match your equipment, level and injuries. Widen your equipment list in Settings.",
     };
   }
-
-  const timezone = resolveTimezoneWithProfile(profile.timezone);
-  const today = localDateString(timezone);
 
   // For rebuild mode, use the rebuild_block RPC
   if (rebuildOf) {
@@ -285,10 +295,10 @@ export async function createBlockForUser(
     return { ok: false, error: retireResult.error! };
   }
 
-  // For block 1, anchor to today. For block 2+, this code path shouldn't
-  // be reached (rollover uses the RPC), but fall back to today if it is.
-  const startedOn = decideBlockStartedOn({ blockNumber: plan.blockNumber, today }) ?? today;
-  const endsOn = addDays(startedOn, 27); // four weeks inclusive
+  // For block 1, the generator already anchored the schedule via input.startedOn.
+  // The database column started_on still uses today for all blocks, but this doesn't
+  // affect schedule generation - that's driven by the generator's startedOn input.
+  const endsOn = addDays(today, 27); // four weeks inclusive
 
   const { data: program, error: programError } = await supabase
     .from("programs")
@@ -300,7 +310,7 @@ export async function createBlockForUser(
       primary_track: input.primaryTrack,
       goal: input.goal,
       level: input.level,
-      started_on: startedOn,
+      started_on: today,
       ends_on: endsOn,
       deload_week: plan.deloadWeek,
       status: "active",
