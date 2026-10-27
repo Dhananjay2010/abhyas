@@ -473,6 +473,7 @@
     "test:units-onboarding-weight-prefill": "tsx scripts/test-units-onboarding-weight-prefill.tsx",
     "test:units-body-weight-validation": "tsx scripts/test-units-body-weight-validation.ts",
     "test:units-settings-toggle": "tsx scripts/test-units-settings-toggle.tsx",
+    "test:fetch-session-local-date": "tsx scripts/test-fetch-session-local-date.ts",
     "test:plan-day-dedupe-keeps-lowest-id": "tsx scripts/test-plan-day-dedupe-keeps-lowest-id.ts",
     "test:actions-adapter-wiring": "tsx scripts/test-actions-adapter-wiring.ts",
     "test:adapter-23505-handling": "tsx scripts/test-adapter-23505-handling.ts",

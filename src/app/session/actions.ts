@@ -628,11 +628,12 @@ export async function planDay(input: {
   // Resolve target date (session.local_date + 1 or direct localDate)
   const targetResult = await resolvePlanTargetDate(
     {
-      async fetchSessionLocalDate(sessionId) {
+      async fetchSessionLocalDate(sessionId, userId) {
         const { data, error } = await supabase
           .from("sessions")
           .select("local_date")
           .eq("id", sessionId)
+          .eq("user_id", userId)
           .maybeSingle();
         return { localDate: data?.local_date ?? null, error: error?.message ?? null };
       },

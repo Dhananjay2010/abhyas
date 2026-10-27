@@ -352,6 +352,20 @@ run_mutant "N5. planDay ignores resolved date (uses today instead)" "src/lib/ses
   '      local_date: input.localDate,' \
   '      local_date: input.today,' "$T_SERVER"
 
+run_mutant "N6. Session lookup not scoped by user_id" "src/app/session/actions.ts" \
+  '          .eq("id", sessionId)
+          .eq("user_id", userId)
+          .maybeSingle();' \
+  '          .eq("id", sessionId)
+          .maybeSingle();' "npm run test:fetch-session-local-date"
+
+run_mutant "N7. Resolver error falls back to today (no friendly error)" "src/lib/session/resolve-plan-target-date.ts" \
+  '    if (result.error) {
+      return { ok: false, error: "Could not load session." };
+    }' \
+  '    if (result.error) {
+      return { ok: true, data: new Date().toISOString().slice(0, 10) };
+    }' "$T_SERVER"
 
 run_mutant "N10. SessionRunner passes localDate instead of sessionId" "$COMPONENT" \
   '        // Type-safe construction without cast
