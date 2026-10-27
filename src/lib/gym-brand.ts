@@ -7,6 +7,7 @@ import { unstable_cache } from "next/cache";
 import type { Database } from "@/lib/database.types";
 import type { Brand } from "@/lib/branding";
 import { validateTimezone, branding } from "@/lib/branding";
+import { accessibleTextColor } from "@/lib/contrast";
 
 /**
  * Neutral unbranded fallback for when the database is unreachable
@@ -63,13 +64,58 @@ export function gymBrandTag(gymId: string): string {
 }
 
 /**
+ * RPC return type from get_gym_brand
+ */
+type GymBrandRow = {
+  name: string;
+  slug: string;
+  timezone: string | null;
+  display_name: string | null;
+  logo_url: string | null;
+  primary_color: string | null;
+  accent_color: string | null;
+};
+
+/**
+ * Type guard for GymBrandRow
+ * 
+ * Brand fields (display_name, logo_url, primary_color, accent_color) may be
+ * missing (undefined) in pre-040 RPC mocks or responses, and are treated as null.
+ */
+function isGymBrandRow(row: unknown): row is GymBrandRow {
+  if (typeof row !== 'object' || row === null) return false;
+  if (!('name' in row) || typeof row.name !== 'string') return false;
+  if (!('slug' in row) || typeof row.slug !== 'string') return false;
+  
+  // timezone is optional (may be null or missing)
+  if ('timezone' in row && row.timezone !== null && typeof row.timezone !== 'string') {
+    return false;
+  }
+  
+  // Brand fields are optional (may be null or missing, treated as null)
+  if ('display_name' in row && row.display_name !== null && typeof row.display_name !== 'string') {
+    return false;
+  }
+  if ('logo_url' in row && row.logo_url !== null && typeof row.logo_url !== 'string') {
+    return false;
+  }
+  if ('primary_color' in row && row.primary_color !== null && typeof row.primary_color !== 'string') {
+    return false;
+  }
+  if ('accent_color' in row && row.accent_color !== null && typeof row.accent_color !== 'string') {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
  * Get public brand fields for a gym (internal implementation).
  *
- * Returns a Partial<Brand> with only the fields available in the database:
+ * Returns a Partial<Brand> with fields from the database:
  * - name (required, maps to Brand.name and optionally Brand.shortName)
  * - timezone (optional, validated against IANA names)
- *
- * Future migrations (e.g. 000038) will add logo, colors, etc.
+ * - display_name, logo_url, primary_color, accent_color (from 000040 migration)
  *
  * This function:
  * - Uses an anon client (no cookies/session) since brand data is public
@@ -105,22 +151,67 @@ async function getGymBrandInternal(gymId: string): Promise<Partial<Brand>> {
   }
 
   const row = data[0];
+  if (!isGymBrandRow(row)) {
+    throw new Error(`Invalid gym brand row structure for gym ${gymId}`);
+  }
+  
+  // Normalize undefined to null for optional brand fields (pre-040 RPC mocks may omit them)
+  const normalizedRow: GymBrandRow = {
+    name: row.name,
+    slug: row.slug,
+    timezone: 'timezone' in row ? row.timezone ?? null : null,
+    display_name: 'display_name' in row ? row.display_name ?? null : null,
+    logo_url: 'logo_url' in row ? row.logo_url ?? null : null,
+    primary_color: 'primary_color' in row ? row.primary_color ?? null : null,
+    accent_color: 'accent_color' in row ? row.accent_color ?? null : null,
+  };
+  
   const brand: Partial<Brand> = {};
 
   // Map name to both name and shortName if it's reasonable
-  if (row.name) {
-    brand.name = row.name;
+  // Prefer display_name if set, otherwise use name
+  const displayName = normalizedRow.display_name || normalizedRow.name;
+  if (displayName) {
+    brand.name = displayName;
     // Use the same name for shortName if it's <= 12 chars (home screen recommendation)
     // Otherwise just use the first 12 chars (caller can override)
-    brand.shortName = row.name.length <= 12 ? row.name : row.name.slice(0, 12);
+    brand.shortName = displayName.length <= 12 ? displayName : displayName.slice(0, 12);
   }
 
   // Validate and include timezone if set
-  if (row.timezone) {
-    const canonical = validateTimezone(row.timezone);
+  if (normalizedRow.timezone) {
+    const canonical = validateTimezone(normalizedRow.timezone);
     if (canonical) {
       brand.timezone = canonical;
     }
+  }
+
+  // Include logo if set
+  if (normalizedRow.logo_url) {
+    brand.logo = normalizedRow.logo_url;
+  }
+
+  // Include colors if both are set (partial brand colors aren't useful)
+  if (normalizedRow.primary_color && normalizedRow.accent_color) {
+    brand.colors = {
+      // Use gym's custom colors where provided
+      accent: normalizedRow.primary_color,
+      accentHover: normalizedRow.accent_color,
+      // Derive accessible text color for buttons based on primary color (WCAG AA 4.5:1)
+      accentFg: accessibleTextColor(normalizedRow.primary_color),
+      // Keep defaults for other colors from branding config
+      bg: branding.colors.bg,
+      surface: branding.colors.surface,
+      surface2: branding.colors.surface2,
+      border: branding.colors.border,
+      fg: branding.colors.fg,
+      muted: branding.colors.muted,
+      success: branding.colors.success,
+      warning: branding.colors.warning,
+      warningFg: branding.colors.warningFg,
+      danger: branding.colors.danger,
+      chart: branding.colors.chart,
+    };
   }
 
   return brand;
