@@ -15,5 +15,5 @@ export function buildDetailDurationInput(
   logged_at?: string | null;
   is_warmup_set: boolean;
 }> {
-  return sets;
+  return sets.filter((s) => !s.is_warmup_set);
 }

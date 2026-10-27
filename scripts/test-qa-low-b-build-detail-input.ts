@@ -1,9 +1,9 @@
 #!/usr/bin/env tsx
 /**
- * Test QA LOW B: buildDetailDurationInput must include all sets.
+ * Test QA LOW B: buildDetailDurationInput must include all working sets.
  * 
- * The helper extracts sets for duration calculation. Passing only the last set
- * would give incorrect duration for multi-set sessions.
+ * The helper extracts working sets (filters warm-ups) for duration calculation.
+ * Passing only the last set would give incorrect duration for multi-set sessions.
  * 
  *   npx tsx scripts/test-qa-low-b-build-detail-input.ts
  */
@@ -72,7 +72,7 @@ console.log("\n2. Multiple working sets with warm-ups");
   
   const input = buildDetailDurationInput(sets);
   
-  assertEquals(input.length, 4, "input includes all 4 sets");
+  assertEquals(input.length, 2, "input filters out warm-ups, includes 2 working sets");
 }
 
 console.log("\n3. Specific duration test: 3 sets at 10:10, 10:20, 10:30 from 10:00 start");
