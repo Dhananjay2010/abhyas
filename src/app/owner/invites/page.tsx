@@ -1,12 +1,21 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { InvitesList } from "./invites-list";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
 export default async function OwnerInvitesPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", user.id)
+    .single();
+
+  const timezone = resolveTimezoneWithProfile(profile?.timezone);
 
   // Find the gym this user owns
   const { data: ownedMemberships } = await supabase
@@ -36,7 +45,7 @@ export default async function OwnerInvitesPage() {
         Invite members and staff to your gym
       </p>
 
-      <InvitesList gymId={ownedGym.id} gymName={ownedGym.name} initialCodes={codes ?? []} />
+      <InvitesList gymId={ownedGym.id} gymName={ownedGym.name} initialCodes={codes ?? []} timezone={timezone} />
     </main>
   );
 }

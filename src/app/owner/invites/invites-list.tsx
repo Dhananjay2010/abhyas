@@ -12,27 +12,46 @@ interface InvitesListProps {
   gymId: string;
   gymName: string;
   initialCodes: JoinCode[];
+  timezone: string;
 }
 
-export function InvitesList({ gymId, gymName, initialCodes }: InvitesListProps) {
+export function InvitesList({ gymId, gymName, initialCodes, timezone }: InvitesListProps) {
   const [codes, setCodes] = useState<JoinCode[]>(initialCodes);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<GymRole>("member");
   const [expiryDays, setExpiryDays] = useState<string>("30");
   const [maxUses, setMaxUses] = useState<string>("");
+  const [revokeSuccess, setRevokeSuccess] = useState<string | null>(null);
 
   const handleCreateCode = async () => {
     setCreating(true);
     setCreateError(null);
     
-    const expiresAt = expiryDays ? new Date(Date.now() + parseInt(expiryDays) * 24 * 60 * 60 * 1000).toISOString() : undefined;
-    const maxUsesNum = maxUses ? parseInt(maxUses) : undefined;
+    const expiryNum = expiryDays ? parseInt(expiryDays) : 0;
+    const maxUsesNum = maxUses ? parseInt(maxUses) : 0;
     
-    const result = await createJoinCode(gymId, selectedRole, expiresAt, maxUsesNum);
+    if (expiryNum && expiryNum < 1) {
+      setCreateError("Expiry must be at least 1 day");
+      setCreating(false);
+      return;
+    }
+    
+    if (maxUsesNum && maxUsesNum < 1) {
+      setCreateError("Max uses must be at least 1");
+      setCreating(false);
+      return;
+    }
+    
+    const expiresAt = expiryNum > 0 ? new Date(Date.now() + expiryNum * 24 * 60 * 60 * 1000).toISOString() : undefined;
+    const maxUsesValue = maxUsesNum > 0 ? maxUsesNum : undefined;
+    
+    const result = await createJoinCode(gymId, selectedRole, expiresAt, maxUsesValue);
     
     if (result.ok) {
       setCodes([result.code, ...codes]);
+      setExpiryDays("30");
+      setMaxUses("");
     } else {
       setCreateError(result.error);
     }
@@ -41,10 +60,13 @@ export function InvitesList({ gymId, gymName, initialCodes }: InvitesListProps) 
   };
 
   const handleRevokeCode = async (codeId: string) => {
+    setRevokeSuccess(null);
     const result = await revokeJoinCode(codeId);
     
     if (result.ok) {
       setCodes(codes.map(c => c.id === codeId ? { ...c, revoked_at: new Date().toISOString() } : c));
+      setRevokeSuccess("Code revoked successfully");
+      setTimeout(() => setRevokeSuccess(null), 3000);
     }
   };
 
@@ -117,6 +139,9 @@ export function InvitesList({ gymId, gymName, initialCodes }: InvitesListProps) 
         {createError && (
           <p className="mt-2 text-sm text-danger">{createError}</p>
         )}
+        {revokeSuccess && (
+          <p className="mt-2 text-sm text-success">{revokeSuccess}</p>
+        )}
       </section>
 
       <section>
@@ -127,7 +152,7 @@ export function InvitesList({ gymId, gymName, initialCodes }: InvitesListProps) 
           <div className="space-y-3">
             {codes.map((code) => {
               const isActive = isJoinCodeActive(code);
-              const expiryText = formatJoinCodeExpiry(code);
+              const expiryText = formatJoinCodeExpiry(code, timezone);
               
               return (
                 <div

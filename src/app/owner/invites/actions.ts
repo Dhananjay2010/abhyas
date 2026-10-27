@@ -16,6 +16,59 @@ export type RevokeCodeResult =
   | { ok: true }
   | { ok: false; error: string };
 
+function mapDbErrorToMessage(error: { code?: string; message?: string }): string {
+  if (!error.code && !error.message) return "An error occurred";
+  
+  const code = error.code || "";
+  const message = error.message || "";
+  
+  if (code === "PAUTH" || message.includes("Not authenticated")) {
+    return "You must be signed in";
+  }
+  
+  if (code === "POWNER" || message.includes("Only gym owners")) {
+    return "Only gym owners can perform this action";
+  }
+  
+  if (code === "PROLE" || message.includes("Role must be")) {
+    return "Invalid role specified";
+  }
+  
+  if (code === "PEXPIRY" || message.includes("Expiry must be")) {
+    return "Expiry date must be in the future";
+  }
+  
+  if (code === "PMAXUSE" || message.includes("Max uses must be")) {
+    return "Max uses must be at least 1";
+  }
+  
+  if (code === "PCODE" || message.includes("Invalid code")) {
+    return "This code is invalid, expired, or no longer available";
+  }
+  
+  if (code === "PNOTFND" || message.includes("Code not found")) {
+    return "Code not found";
+  }
+  
+  if (code === "PCOLLIDE" || message.includes("Failed to generate unique code")) {
+    return "Unable to generate code. Please try again";
+  }
+  
+  if (code === "P0001" || message.includes("Too many failed attempts")) {
+    return "Too many failed attempts. Please try again later";
+  }
+  
+  if (code === "23505" || message.includes("duplicate key") || message.includes("unique constraint")) {
+    return "You're already a member of this gym";
+  }
+  
+  if (code === "23503" || message.includes("foreign key")) {
+    return "Invalid reference. Please refresh and try again";
+  }
+  
+  return "An error occurred. Please try again";
+}
+
 export async function createJoinCode(
   gymId: string,
   role: GymRole,
@@ -31,11 +84,11 @@ export async function createJoinCode(
   const { data, error } = await supabase.rpc("create_join_code", {
     p_gym_id: gymId,
     p_role: role,
-    p_expires_at: expiresAt || undefined,
-    p_max_uses: maxUses || undefined,
+    ...(expiresAt && { p_expires_at: expiresAt }),
+    ...(maxUses && { p_max_uses: maxUses }),
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: mapDbErrorToMessage(error) };
   if (!data || data.length === 0) return { ok: false, error: "Failed to create code" };
 
   const { data: codeRow, error: fetchError } = await supabase
@@ -61,7 +114,7 @@ export async function revokeJoinCode(codeId: string): Promise<RevokeCodeResult> 
     p_id: codeId,
   });
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: mapDbErrorToMessage(error) };
 
   revalidatePath("/owner/invites");
   return { ok: true };

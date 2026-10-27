@@ -9,14 +9,14 @@ export function isJoinCodeActive(code: JoinCode): boolean {
   return true;
 }
 
-export function formatJoinCodeExpiry(code: JoinCode): string | null {
+export function formatJoinCodeExpiry(code: JoinCode, timezone: string): string | null {
   if (code.expires_at) {
     const expiry = new Date(code.expires_at);
     const now = new Date();
     if (expiry <= now) {
-      return `Expired ${expiry.toLocaleDateString()}`;
+      return `Expired ${expiry.toLocaleDateString(undefined, { timeZone: timezone })}`;
     }
-    return `Expires ${expiry.toLocaleDateString()}`;
+    return `Expires ${expiry.toLocaleDateString(undefined, { timeZone: timezone })}`;
   }
   return null;
 }

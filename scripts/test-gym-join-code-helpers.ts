@@ -57,15 +57,17 @@ console.log();
 
 console.log("TEST: formatJoinCodeExpiry");
 {
+  const testTz = "America/New_York";
+  
   const noExpiry = makeCode({ expires_at: null });
-  check("Code with no expiry returns null", formatJoinCodeExpiry(noExpiry) === null);
+  check("Code with no expiry returns null", formatJoinCodeExpiry(noExpiry, testTz) === null);
 
   const futureExpiry = makeCode({ expires_at: new Date(Date.now() + 100000).toISOString() });
-  const futureText = formatJoinCodeExpiry(futureExpiry);
+  const futureText = formatJoinCodeExpiry(futureExpiry, testTz);
   check("Future expiry starts with 'Expires'", futureText?.startsWith("Expires") ?? false);
 
   const pastExpiry = makeCode({ expires_at: new Date(Date.now() - 1000).toISOString() });
-  const pastText = formatJoinCodeExpiry(pastExpiry);
+  const pastText = formatJoinCodeExpiry(pastExpiry, testTz);
   check("Past expiry starts with 'Expired'", pastText?.startsWith("Expired") ?? false);
 }
 console.log();
