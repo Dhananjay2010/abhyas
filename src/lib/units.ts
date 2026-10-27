@@ -643,6 +643,35 @@ export function formatLoad(kg: number | null | undefined, units: UnitsPreference
 }
 
 /**
+ * Format a prescribed weight for display. Use this for weights from snapPrescribedWeight.
+ * 
+ * Imperial: floored to 0.5 lb (conservative, matches snapPrescribedWeight)
+ * Metric: up to 2 decimal places (trailing zeros trimmed)
+ * 
+ * @param kg - Weight in kilograms from snapPrescribedWeight
+ * @param units - 'metric' or 'imperial'
+ * @returns Formatted string like "137.5 lb" or "62.5 kg"
+ */
+export function formatPrescribedWeight(kg: number | null | undefined, units: UnitsPreference): string {
+  if (kg == null || !Number.isFinite(kg) || kg <= 0) return "—";
+  
+  const label = units === "imperial" ? "lb" : "kg";
+  
+  if (units === "imperial") {
+    // Floor to 0.5 lb for display (conservative, matches snapPrescribedWeight)
+    const lb = kgToLb(kg);
+    const floored = Math.floor(lb * 2) / 2;
+    const formatted = floored % 1 === 0 ? floored.toFixed(0) : floored.toFixed(1);
+    return `${formatted} ${label}`;
+  }
+  
+  // Metric: round to 2 decimal places, trim trailing zeros
+  const rounded = Math.round(kg * 100) / 100;
+  const formatted = rounded.toFixed(2).replace(/\.?0+$/, "");
+  return `${formatted} ${label}`;
+}
+
+/**
  * Round a value to standard plate/weight increments.
  * Uses 2.5 kg / 5 lb step (smallest standard plate).
  * 
@@ -888,17 +917,19 @@ export function convertWeightInputToKg(
 /**
  * Compute the initial value for the weight input in the session runner.
  * For bodyweight exercises, only prefills if there's actual added weight.
- * For imperial units, snaps the prescribed weight to the lb grid before converting.
+ * For imperial units: prescriptions are floored to 0.5 lb, logged weights are rounded to nearest 0.5 lb.
  * 
  * @param defaultWeightKg - The prescribed weight in kg (or last logged weight)
  * @param units - The user's units preference
  * @param isBodyweight - Whether this is a bodyweight exercise
+ * @param isPrescription - True if this is a prescribed weight with no logged sets yet (should floor, not round)
  * @returns The string value for the weight input, or empty string if no prefill
  */
 export function computeRunnerWeightPrefill(
   defaultWeightKg: number | null,
   units: UnitsPreference,
-  isBodyweight: boolean
+  isBodyweight: boolean,
+  isPrescription = false
 ): string {
   // For bodyweight exercises, only prefill if the last set actually used added weight.
   const shouldPrefillWeight = !isBodyweight || (defaultWeightKg !== null && defaultWeightKg > 0);
@@ -913,11 +944,18 @@ export function computeRunnerWeightPrefill(
     return rounded.toFixed(2).replace(/\.?0+$/, "");
   }
   
-  // Imperial: stored weights display rounded to NEAREST 0.5 lb
-  // (runner prefill matches History display)
+  // Imperial: different behavior for prescriptions vs logged weights
   const lb = kgToLb(defaultWeightKg);
-  const rounded = roundLbToHalf(lb);
-  return String(rounded);
+  
+  if (isPrescription) {
+    // Prescriptions: FLOOR to 0.5 lb (conservative)
+    const floored = Math.floor(lb * 2) / 2;
+    return String(floored);
+  } else {
+    // Logged weights: round to NEAREST 0.5 lb to match History display
+    const rounded = roundLbToHalf(lb);
+    return String(rounded);
+  }
 }
 
 /**

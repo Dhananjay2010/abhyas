@@ -18,7 +18,7 @@ import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { formatLoad, snapPrescribedWeight, computeRunnerWeightPrefill, weightKgToSubmit, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
+import { formatLoad, formatPrescribedWeight, snapPrescribedWeight, computeRunnerWeightPrefill, weightKgToSubmit, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { shouldShowFinishRetry, runEndEarly } from "@/lib/session/finish-flow";
 import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
@@ -804,6 +804,7 @@ export function SessionRunner({
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
   // For imperial: snap prescription to lb grid so prefill matches working weight line.
+  const hasLoggedWeightThisExercise = current.sets.some((s) => s.weightKg !== null);
   const lastWeight =
     [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ??
     snapPrescribedWeight(current.suggestedWeightKg, settings.units);
@@ -996,7 +997,7 @@ export function SessionRunner({
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
           <p className="mt-2 text-sm text-muted" data-testid="working-weight-line">
-            Working weight {formatLoad(
+            Working weight {formatPrescribedWeight(
               snapPrescribedWeight(
                 current.suggestedWeightKg ?? current.workingWeightKg,
                 settings.units
@@ -1103,6 +1104,7 @@ export function SessionRunner({
             metric={current.metric}
             targetSeconds={current.repsMax}
             defaultWeight={lastWeight}
+            isPrescription={!hasLoggedWeightThisExercise}
             defaultReps={defaultReps}
             setNumber={nextSetNumber}
             isBodyweight={current.isBodyweight}
@@ -1394,6 +1396,7 @@ function SetEntry({
   /** Top of the target range, which is what the hold counts down from. */
   targetSeconds: number;
   defaultWeight: number | null;
+  isPrescription: boolean;
   /** Null on the first set of an exercise, so it has to be entered. */
   defaultReps: number | null;
   setNumber: number;
@@ -1415,8 +1418,8 @@ function SetEntry({
   // rather than being reset from an effect.
   const [reps, setReps] = useState(defaultReps !== null ? String(defaultReps) : "");
   const initialPrefill = useMemo(() => 
-    computeRunnerWeightPrefill(defaultWeight, units, isBodyweight),
-    [defaultWeight, units, isBodyweight]
+    computeRunnerWeightPrefill(defaultWeight, units, isBodyweight, isPrescription),
+    [defaultWeight, units, isBodyweight, isPrescription]
   );
   const [weight, setWeight] = useState(initialPrefill);
 
