@@ -9,6 +9,9 @@
  * - Metric works correctly
  */
 
+import "./helpers/setup-jsdom";
+import { render, waitFor } from "@testing-library/react";
+import { SessionRunner, type RunnerExercise, type SessionActions } from "../src/app/session/[id]/session-runner";
 import { weightKgToSubmit, computeRunnerWeightPrefill, formatTopSet, snapPrescribedWeight } from "../src/lib/units";
 
 let passed = 0;
@@ -189,14 +192,119 @@ for (const { kg, expectedLb } of storedWeights) {
   }
 }
 
-// Test (c): New targets still floor (snapPrescribedWeight behavior)
-const targetKg = 72.5;
-const snappedTarget = snapPrescribedWeight(targetKg, "imperial");
-check(
-  "72.5 kg target: snapPrescribedWeight floors to loadable grid",
-  snappedTarget !== null && snappedTarget <= targetKg,
-  `snapped to ${snappedTarget} kg`
-);
+// Test (c): Real SessionRunner renders floored prescriptions (62.5 kg → 137.5 lb, 100 kg → 220 lb)
+console.log("\nTest (c): Real SessionRunner prescription flooring");
+(async () => {
+  for (const testCase of [
+    { kg: 62.5, expectedLb: "137.5" },
+    { kg: 100, expectedLb: "220" },
+  ]) {
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async () => ({ ok: true as const }),
+      deleteSet: async () => ({ ok: true as const }),
+      finishExercise: async () => ({
+        ok: true as const,
+        data: { outcome: "hold", message: "", personalBest: null },
+      }),
+      finishSession: async () => ({
+        ok: true as const,
+        data: { status: "completed" as const, durationSeconds: null },
+      }),
+      abandonSession: async () => ({ ok: true as const }),
+      planDay: async () => ({ ok: true as const }),
+      refreshAfterSession: async () => ({ ok: true as const }),
+      swapExercise: async () => ({ 
+        ok: true, 
+        data: { 
+          workoutSessionExerciseId: "", 
+          exerciseId: "",
+          metric: "reps" as const,
+          repsMin: null,
+          repsMax: null,
+          equipmentIds: [],
+          weightPrefill: null,
+          workingWeightKg: null,
+          currentTargetReps: null,
+          isBodyweight: false,
+        } 
+      }),
+      findAlternatives: async () => ({ ok: true as const, data: [] }),
+      getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    };
+
+    const settings = {
+      perSetLogging: true,
+      restAutostart: false,
+      restSound: false,
+      restVibrate: false,
+      restOverrideSeconds: null,
+      cooldownEnabled: false,
+      units: "imperial" as const,
+    };
+
+    const exercise: RunnerExercise = {
+      id: "ex1",
+      exerciseId: "test",
+      name: "Test",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: [],
+      plannedSets: 3,
+      plannedRepsMin: 6,
+      plannedRepsMax: 8,
+      repsMin: 6,
+      repsMax: 8,
+      restSeconds: 180,
+      workingWeightKg: testCase.kg,
+      suggestedWeightKg: testCase.kg,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false,
+    };
+
+    const r = render(
+      <SessionRunner
+        sessionId="s1"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[exercise]}
+        settings={settings}
+        actions={actions}
+      />,
+    );
+
+    await waitFor(() => {
+      const workingWeightLine = r.container.querySelector("[data-testid='working-weight-line']");
+      if (!workingWeightLine) throw new Error("Working weight line not found");
+    }, { timeout: 5000 });
+
+    const workingWeightLine = r.container.querySelector<HTMLElement>("[data-testid='working-weight-line']");
+    const workingWeightText = workingWeightLine?.textContent || "";
+    check(
+      `SessionRunner: ${testCase.kg} kg → ${testCase.expectedLb} lb (floored)`,
+      workingWeightText.includes(`${testCase.expectedLb} lb`),
+      `found: "${workingWeightText}"`
+    );
+
+    const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
+    );
+    
+    check(
+      `SessionRunner prefill: ${testCase.kg} kg → ${testCase.expectedLb} lb`,
+      weightInput?.value === testCase.expectedLb,
+      `got "${weightInput?.value}"`
+    );
+
+    r.unmount();
+  }
+})().catch(e => { console.error(e); process.exit(1); });
 
 // Test (d): Unedited prefill submits original kg (already covered above, verify once more)
 const testKg = 72.5;
