@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { JoinConfirmation } from "./join-confirmation";
 import { parsePreviewJoinCodeResult } from "@/lib/gym-join-code-types";
+import { mapPreviewResultToMessage } from "@/lib/preview-join-code-messages";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +29,9 @@ export default async function JoinPage({ params }: PageProps) {
   const result = parsePreviewJoinCodeResult(previewData);
 
   if (!result || !result.ok) {
-    const reason = result?.ok === false ? result.reason : "invalid";
-    const isThrottled = reason === "throttled";
+    const failureResult = result?.ok === false ? result : { ok: false as const, reason: "invalid" as const };
+    const errorMessage = mapPreviewResultToMessage(failureResult);
+    const isThrottled = failureResult.reason === "throttled";
     
     return (
       <main className="mx-auto w-full max-w-md px-6 py-10">
@@ -38,9 +40,7 @@ export default async function JoinPage({ params }: PageProps) {
             {isThrottled ? "Too Many Attempts" : "Invalid Invite Code"}
           </h1>
           <p className="mt-2 text-sm text-muted">
-            {isThrottled
-              ? "You've made too many attempts. Please try again in a few minutes."
-              : "This invite code is invalid, expired, or no longer available."}
+            {errorMessage}
           </p>
         </div>
       </main>
