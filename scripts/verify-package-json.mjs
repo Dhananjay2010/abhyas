@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Verify package.json structure: base keys present, chain prefix correct, non-scripts match
-const fs = require('fs');
-const { execSync } = require('child_process');
+import { readFileSync } from 'fs';
+import { execSync } from 'child_process';
 
-const current = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const current = JSON.parse(readFileSync('package.json', 'utf8'));
 const baseJson = execSync('git show origin/cursor/gym-tenant-data-model-73d4:package.json', { encoding: 'utf8' });
 const base = JSON.parse(baseJson);
 
@@ -107,7 +107,7 @@ console.log();
 console.log('Check 5: package-lock.json');
 try {
   const baseLock = execSync('git show origin/cursor/gym-tenant-data-model-73d4:package-lock.json', { encoding: 'utf8' });
-  const currentLock = fs.readFileSync('package-lock.json', 'utf8');
+  const currentLock = readFileSync('package-lock.json', 'utf8');
   if (baseLock === currentLock) {
     console.log('  ✓ package-lock.json matches base');
   } else {

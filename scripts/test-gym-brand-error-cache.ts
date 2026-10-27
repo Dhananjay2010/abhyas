@@ -14,7 +14,7 @@
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
-(globalThis as any).AsyncLocalStorage = AsyncLocalStorage;
+(globalThis as Record<string, unknown>).AsyncLocalStorage = AsyncLocalStorage;
 
 // Setup fake environment
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://fake.supabase.local";
@@ -26,14 +26,14 @@ const store = new Map<string, Entry>();
 const sets: { key: string; body: string; revalidate: number; tags: string[] }[] = [];
 
 // Mock Next.js incrementalCache
-(globalThis as any).__incrementalCache = {
+(globalThis as Record<string, unknown>).__incrementalCache = {
   isOnDemandRevalidate: false,
   generateSimpleCacheKey: async (k: string) => k,
   get: async (key: string) => {
     const e = store.get(key);
     return e ? { isStale: false, value: { kind: "FETCH", data: { body: e.body } } } : null;
   },
-  set: async (key: string, v: any, ctx: any) => {
+  set: async (key: string, v: { data: { body: string }; revalidate: number }, ctx: { tags: string[] }) => {
     const e = { body: v.data.body, revalidate: v.revalidate, tags: ctx.tags };
     store.set(key, e);
     sets.push({ key, ...e });
@@ -46,12 +46,12 @@ let rpcCalls = 0;
 
 // Mock fetch to intercept RPC calls
 const realFetch = globalThis.fetch;
-(globalThis as any).fetch = async (url: any, init: any) => {
+(globalThis as Record<string, unknown>).fetch = async (url: string | URL | Request, init?: RequestInit) => {
   const u = String(url);
   if (!u.includes("/rest/v1/rpc/get_gym_brand")) return realFetch(url, init);
   
   rpcCalls++;
-  const id = JSON.parse(init.body).p_gym_id;
+  const id = JSON.parse((init as RequestInit & { body: string }).body).p_gym_id;
   const m = mode[id] ?? "ok";
   
   if (m === "err") {
