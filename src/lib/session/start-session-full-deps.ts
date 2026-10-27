@@ -14,8 +14,10 @@ import { insertSessionExercises } from "./insert-session-exercises";
 import { buildStartSessionStaleDeps } from "./build-start-session-stale-deps";
 import type { StartSessionFullDeps } from "./start-session-full-core";
 
+export type DepsClient = Pick<SupabaseClient<Database>, "from">;
+
 export function buildStartSessionFullDeps(
-  supabase: SupabaseClient<Database>,
+  supabase: DepsClient,
   userId: string,
   nowMs: number
 ): StartSessionFullDeps {
