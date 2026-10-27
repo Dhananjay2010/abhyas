@@ -1,31 +1,133 @@
+#!/usr/bin/env tsx
 /**
  * Test: buildStartSessionFullDeps.resolveTodayDay passes through result (mutant B)
  * 
- * Mutant (B): buildStartSessionFullDeps.resolveTodayDay returns null → test fails
- * 
- * Run: npx tsx scripts/test-start-session-full-deps-resolve.ts
+ * Mutant (B): If buildStartSessionFullDeps.resolveTodayDay always returns null,
+ * this test FAILS because it asserts the real resolver's result passes through.
  */
 
-async function runTestB() {
+import { strict as assert } from "node:assert";
+import { buildStartSessionFullDeps } from "../src/lib/session/start-session-full-deps";
+
+// Fake Supabase client that simulates a swap collision:
+// - Today is Tuesday 2026-10-27 (index 2)
+// - Yesterday was Monday 2026-10-26 (index 1), scheduled for "day-monday-rest" (rest)
+// - Yesterday completed "day-tuesday-push" (weights) — swapped from today
+// - Today is scheduled for "day-tuesday-push" (weights)
+// - Collision: today's scheduled day was completed yesterday via swap
+// - Should rotate to "day-wednesday-legs" (weights, different label)
+const fakeSupabaseWithCollision = {
+  from: (table: string) => {
+    if (table === "program_days") {
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              order: () => ({
+                data: [
+                  { id: "day-monday-rest", day_index: 1, day_type: "rest" as const, label: null },
+                  { id: "day-tuesday-push", day_index: 2, day_type: "weights" as const, label: "Push" },
+                  { id: "day-wednesday-legs", day_index: 3, day_type: "weights" as const, label: "Legs" },
+                  { id: "day-thursday-pull", day_index: 4, day_type: "weights" as const, label: "Pull" },
+                ],
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+    }
+    if (table === "sessions") {
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: () => ({
+                    maybeSingle: async () => ({
+                      data: { program_day_id: "day-tuesday-push", actual_type: "weights" as const },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+    }
+    return {} as never;
+  },
+};
+
+const fakeSupabaseNoCollision = {
+  from: (table: string) => {
+    if (table === "program_days") {
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              order: () => ({
+                data: [{ id: "day-monday-push", day_index: 1, day_type: "weights" as const, label: "Push" }],
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+    }
+    if (table === "sessions") {
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              eq: () => ({
+                order: () => ({
+                  limit: () => ({
+                    maybeSingle: async () => ({ data: null, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+    }
+    return {} as never;
+  },
+};
+
+(async () => {
   console.log("Test: buildStartSessionFullDeps.resolveTodayDay passthrough (mutant B)\n");
 
-  console.log("1. Architecture: resolveTodayDay must pass through the resolver result");
+  console.log("1. When resolver finds collision, resolveTodayDay returns the resolved ID");
   {
-    // This test documents the required behavior:
-    // - buildStartSessionFullDeps.resolveTodayDay calls resolveTodayProgramDay
-    // - It must return the result (not null)
-    //
-    // Mutant (B): returning null unconditionally would break collision resolution
-    // and is caught by the integration tests (test-today-plan-loader, etc.)
-    
-    console.log("  ✓ resolveTodayDay returns resolveTodayProgramDay result");
-    console.log("  ✓ Does not return null when collision detected");
+    const deps = buildStartSessionFullDeps(fakeSupabaseWithCollision as never, "user-123", Date.now());
+    const result = await deps.resolveTodayDay?.("prog-456", "2026-10-27");
+
+    assert.ok(result !== null && result !== undefined, "resolveTodayDay must return non-null when collision detected");
+    assert.strictEqual(result?.programDayId, "day-wednesday-legs", "must rotate to next training day after collision");
+    assert.strictEqual(result?.dayType, "weights", "must pass through dayType");
+    assert.strictEqual(result?.label, "Legs", "must pass through rotated label");
+
+    console.log("  ✓ Collision detected: resolver result passes through unchanged");
   }
 
-  console.log("\n✅ buildStartSessionFullDeps passthrough documented");
-}
+  console.log("\n2. When no collision, resolveTodayDay returns null");
+  {
+    const deps = buildStartSessionFullDeps(fakeSupabaseNoCollision as never, "user-123", Date.now());
+    const result = await deps.resolveTodayDay?.("prog-456", "2026-10-27");
 
-runTestB().catch((e) => {
-  console.error(e);
+    assert.strictEqual(result, null, "resolveTodayDay must return null when no collision");
+
+    console.log("  ✓ No collision: returns null as expected");
+  }
+
+  console.log("\n✅ Mutant B would fail: returning null unconditionally breaks test 1");
+})().catch((e) => {
+  console.error("\n❌ Test failed:", e.message);
   process.exit(1);
 });
+
+export {};
