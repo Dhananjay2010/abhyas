@@ -128,4 +128,88 @@ console.log("\n=== MED-3: Consecutive Miss Messages (with equipment) ===");
     d.message);
 }
 
+console.log("\n=== Resistance band: drop to no band ===");
+
+// Third miss with resistance_band at 1.25 kg: MED-3 drops to 0
+{
+  const d = evaluateProgression({
+    sets: sets(4, 7, 1.25),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: BENCH,
+    state: fresh({ currentWorkingWeightKg: 1.25, consecutiveFailures: 2, weightAtFailureStartKg: 1.25 }),
+    isDeload: false,
+    equipmentIds: ["resistance_band"],
+    unit: "kg",
+  });
+  check("Third miss resistance_band 1.25 kg: weight drops to 0 kg", d.nextWorkingWeightKg === 0);
+  check("Third miss resistance_band: exact message 'Missed three times in a row — dropping to no band'", 
+    d.message === "Missed three times in a row — dropping to no band to build up again.",
+    d.message);
+}
+
+// Fourth miss with resistance_band at 1.25 kg: "Missed again"
+{
+  const d = evaluateProgression({
+    sets: sets(4, 7, 1.25),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: BENCH,
+    state: fresh({ currentWorkingWeightKg: 1.25, consecutiveFailures: 3, weightAtFailureStartKg: 1.25 }),
+    isDeload: false,
+    equipmentIds: ["resistance_band"],
+    unit: "kg",
+  });
+  check("Fourth miss resistance_band 1.25 kg: weight drops to 0 kg", d.nextWorkingWeightKg === 0);
+  check("Fourth miss resistance_band: exact message 'Missed again — dropping to no band'", 
+    d.message === "Missed again — dropping to no band to build up again.",
+    d.message);
+}
+
+console.log("\n=== Pull-up bar: drop to bodyweight ===");
+
+// Third miss with pull_up_bar at 1.25 kg: MED-3 drops to 0
+{
+  const d = evaluateProgression({
+    sets: sets(4, 7, 1.25),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: BENCH,
+    state: fresh({ currentWorkingWeightKg: 1.25, consecutiveFailures: 2, weightAtFailureStartKg: 1.25 }),
+    isDeload: false,
+    equipmentIds: ["pull_up_bar"],
+    unit: "kg",
+  });
+  check("Third miss pull_up_bar 1.25 kg: weight drops to 0 kg", d.nextWorkingWeightKg === 0);
+  check("Third miss pull_up_bar: exact message 'Missed three times in a row — dropping to bodyweight'", 
+    d.message === "Missed three times in a row — dropping to bodyweight to build up again.",
+    d.message);
+}
+
+// Fourth miss with pull_up_bar at 1.25 kg: "Missed again"
+{
+  const d = evaluateProgression({
+    sets: sets(4, 7, 1.25),
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: BENCH,
+    state: fresh({ currentWorkingWeightKg: 1.25, consecutiveFailures: 3, weightAtFailureStartKg: 1.25 }),
+    isDeload: false,
+    equipmentIds: ["pull_up_bar"],
+    unit: "kg",
+  });
+  check("Fourth miss pull_up_bar 1.25 kg: weight drops to 0 kg", d.nextWorkingWeightKg === 0);
+  check("Fourth miss pull_up_bar: exact message 'Missed again — dropping to bodyweight'", 
+    d.message === "Missed again — dropping to bodyweight to build up again.",
+    d.message);
+}
+
 console.log("\n✅ All MED-3 consecutive miss message tests passed");
