@@ -483,7 +483,8 @@
     "test:post-swap-collision": "tsx scripts/test-post-swap-collision.ts",
     "test:next-day-plan-core": "tsx scripts/test-next-day-plan-core.ts",
     "test:start-session-today-resolve": "tsx scripts/test-start-session-today-resolve.ts",
-    "ci:mutant-gym-domains": "bash scripts/mutant-test-gym-domains.sh"
+    "ci:mutant-gym-domains": "bash scripts/mutant-test-gym-domains.sh",
+    "test:create-block-anchoring": "tsx scripts/test-create-block-anchoring.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

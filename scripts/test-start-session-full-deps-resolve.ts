@@ -7,9 +7,7 @@
  */
 
 import { strict as assert } from "node:assert";
-import { buildStartSessionFullDeps } from "../src/lib/session/start-session-full-deps";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "../src/lib/database.types";
+import { buildStartSessionFullDeps, type MinimalSupabaseClient } from "../src/lib/session/start-session-full-deps";
 
 // Fake Supabase client that simulates a swap collision:
 // - Today is Tuesday 2026-10-27 (index 2)
@@ -18,8 +16,7 @@ import type { Database } from "../src/lib/database.types";
 // - Today is scheduled for "day-tuesday-push" (weights)
 // - Collision: today's scheduled day was completed yesterday via swap
 // - Should rotate to "day-wednesday-legs" (weights, different label)
-function makeFakeSupabaseWithCollision(): SupabaseClient<Database> {
-  // @ts-expect-error - Test fake with minimal implementation
+function makeFakeSupabaseWithCollision(): MinimalSupabaseClient {
   return {
     from: (table: string) => {
       if (table === "program_days") {
@@ -74,11 +71,10 @@ function makeFakeSupabaseWithCollision(): SupabaseClient<Database> {
         }),
       };
     },
-  } as SupabaseClient<Database>;
+  };
 }
 
-function makeFakeSupabaseNoCollision(): SupabaseClient<Database> {
-  // @ts-expect-error - Test fake with minimal implementation
+function makeFakeSupabaseNoCollision(): MinimalSupabaseClient {
   return {
     from: (table: string) => {
       if (table === "program_days") {
@@ -125,7 +121,7 @@ function makeFakeSupabaseNoCollision(): SupabaseClient<Database> {
         }),
       };
     },
-  } as SupabaseClient<Database>;
+  };
 }
 
 (async () => {
