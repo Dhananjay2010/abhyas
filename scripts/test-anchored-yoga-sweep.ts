@@ -54,15 +54,16 @@ function countDayTypes(plan: ReturnType<typeof generateProgram>): DayTypeCounts 
   return counts;
 }
 
-// Valid combos: strength days (2-6) + yoga days (0-2)
+// Valid combos: strength days (3-6) + yoga days (0-2)
+// Bounds from src/app/settings/actions.ts line 57-63:
+// - days_per_week: 3-6
+// - yoga_days_per_week: <= days_per_week - 1, max 2
 // Total daysPerWeek = strength + yoga, max 7
 const validCombos: Array<{ strength: number; yoga: number }> = [
-  { strength: 2, yoga: 0 },
   { strength: 3, yoga: 0 },
   { strength: 4, yoga: 0 },
   { strength: 5, yoga: 0 },
   { strength: 6, yoga: 0 },
-  { strength: 2, yoga: 1 },
   { strength: 3, yoga: 1 },
   { strength: 4, yoga: 1 },
   { strength: 5, yoga: 1 },
