@@ -65,19 +65,27 @@ const DATA: Record<string, unknown> = {
 };
 
 // PostgREST fake fetch
-const fakeFetch = async (url: string | URL, init?: RequestInit): Promise<Response> => {
-  const urlStr = typeof url === "string" ? url : url.toString();
+const fakeFetch: typeof fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+  const urlStr = input instanceof Request ? input.url : (typeof input === "string" ? input : input.toString());
   const path = new URL(urlStr).pathname;
   const table = path.split("/").pop() ?? "";
   
+  // Get headers from Request or init
+  let headers: HeadersInit | undefined;
+  if (input instanceof Request) {
+    headers = input.headers;
+  } else if (init?.headers) {
+    headers = init.headers;
+  }
+  
   // Return single object if Accept includes vnd.pgrst.object
   let accept = "";
-  if (init?.headers) {
-    if (init.headers instanceof Headers) {
-      accept = init.headers.get("Accept") || init.headers.get("accept") || "";
-    } else if (typeof init.headers === "object") {
-      const headers = init.headers as Record<string, string>;
-      accept = headers.Accept || headers.accept || "";
+  if (headers) {
+    if (headers instanceof Headers) {
+      accept = headers.get("Accept") || headers.get("accept") || "";
+    } else if (typeof headers === "object") {
+      const h = headers as Record<string, string>;
+      accept = h.Accept || h.accept || "";
     }
   }
   const isSingle = accept.includes("vnd.pgrst.object");
@@ -110,14 +118,14 @@ console.log("=== L4B-4: buildProgressionFeedbackForUser with real createClient =
 (async () => {
   try {
     const supabase = createClient<Database>("http://fake.local", "anon-key", {
-      global: { fetch: fakeFetch },
+      global: { fetch: fakeFetch as typeof fetch },
       auth: { persistSession: false },
     });
     
     console.log("Executing buildProgressionFeedbackForUser with imperial units...");
     
     const result = await buildProgressionFeedbackForUser(
-      supabase,
+      supabase as Parameters<typeof buildProgressionFeedbackForUser>[0],
       "user1",
       "se1",
       "right",
