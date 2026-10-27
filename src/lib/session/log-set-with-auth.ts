@@ -41,11 +41,7 @@ export type LogSetCoreDeps = {
       weightKg: number | null;
       durationSeconds: number | null;
     }
-  ) => Promise<
-    | { ok: true }
-    | { ok: false; error: string }
-    | { ok: false; reason: "set_exists"; savedSets: any[] } // eslint-disable-line @typescript-eslint/no-explicit-any
-  >;
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
 export type LogSetInput = {
@@ -56,10 +52,17 @@ export type LogSetInput = {
   durationSeconds?: number | null;
 };
 
+export type SavedSet = {
+  setNumber: number;
+  reps: number | null;
+  weightKg: number | null;
+  durationSeconds: number | null;
+};
+
 export type LogSetResult =
   | { ok: true }
   | { ok: false; error: string; code?: string }
-  | { ok: false; reason: "set_exists"; savedSets: any[] };
+  | { ok: false; reason: "set_exists"; savedSets: SavedSet[] };
 
 /**
  * Dependency-injected logSet core. Uses REAL resolveAuth for SESSION_EXPIRED handling.

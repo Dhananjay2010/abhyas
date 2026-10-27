@@ -158,7 +158,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
     { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null },
   ]);
 
-  let finishCalls2: Array<{ cooldownCompleted?: boolean }> = [];
+  const finishCalls2: Array<{ cooldownCompleted?: boolean }> = [];
   const actions2: SessionActions = {
     ...actions1,
     finishSession: async (input: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -226,7 +226,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
   const exercise3 = makeExercise("ex-3", "deadlift", "Deadlift", 1);
 
   let logSetCalls3 = 0;
-  let finishCalls3: Array<{ cooldownCompleted?: boolean }> = [];
+  const finishCalls3: Array<{ cooldownCompleted?: boolean }> = [];
   const actions3: SessionActions = {
     ...actions1,
     logSet: async () => {
