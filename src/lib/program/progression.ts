@@ -552,6 +552,8 @@ export function evaluateProgression(input: {
     return modeWeight;
   }
   
+  // Calculate mode once for use in all paths (success, in-range, miss)
+  const mode = mostCommonWorkingWeight(working);
   
   const carried = { ...base };
 
@@ -576,7 +578,7 @@ export function evaluateProgression(input: {
 
   if (succeeded) {
     // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+    const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds) {
       // Hold at current weight (don't snap down)
       return {
@@ -666,7 +668,7 @@ export function evaluateProgression(input: {
     // Bodyweight with added weight: smaller steps, never doubled.
     // Loaded exercises: with equipment, ONE grid step only (never doubled); without equipment, standard increment (doubled on easy).
     const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
-    const from = state.currentWorkingWeightKg ?? heaviest;
+    const from = mode > 0 ? mode : (state.currentWorkingWeightKg ?? heaviest);
     
     let next: number;
     if (equipmentIds && equipmentIds.length > 0) {
@@ -800,9 +802,9 @@ export function evaluateProgression(input: {
   // all at top) sessions hold the weight and reset consecutiveFailures to 0.
   // "Hard" feel never causes a deload or counts as a miss on its own (SPEC: '"hard" holds it').
   if (inRange) {
-    // HOLD: Use stored weight if available; otherwise fall back to heaviest logged working-set weight.
+    // HOLD: Use most common working-set weight (mode); otherwise fall back to stored weight or heaviest.
     // For true bodyweight (no weights logged), keep null.
-    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+    const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));
     return {
       ...carried,
       outcome: "hold",
@@ -814,14 +816,14 @@ export function evaluateProgression(input: {
         ? "Staying at this hold length until every set reaches the top of the range."
         : currentWeight === null
           ? "Staying here until every set reaches the top of the range."
-          : "Staying at this weight until every set reaches the top of the range.",
+          : `Staying at ${displayWeight(currentWeight)} until every set reaches the top of the range.`,
     };
   }
 
   // MISS: sets incomplete, or any set's reps below repsMin. Increment consecutiveFailures.
   // Cap at 3 to prevent infinite growth at minimum weights
   const failures = Math.min(state.consecutiveFailures + 1, 3);
-  const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+  const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));
 
   /**
    * Shared helper: compute what the two-miss back-off would return.
@@ -1046,7 +1048,7 @@ export function evaluateProgression(input: {
 
   // First miss: drop one equipment grid step with equipment, hold without
   let nextWeight = currentWeight;
-  if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
+  if (currentWeight !== null && currentWeight > 0 && equipmentIds) {
     const isKettlebell = equipmentIds.includes('kettlebell');
     let candidateWeight: number;
     
@@ -1103,10 +1105,10 @@ export function evaluateProgression(input: {
     : currentWeight === null
       ? "Staying here until every set reaches the top of the range."
       : nextWeight !== null && nextWeight !== currentWeight
-        ? `Missed the target — dropping to ${displayWeight(nextWeight, unit)}.`
-        : equipmentIds && unit && currentWeight !== null && currentWeight > 0
-          ? "Missed the target but holding at this weight — it is the smallest available step."
-          : "Staying at this weight until every set reaches the top of the range.";
+        ? `Missed the target — dropping to ${displayWeight(nextWeight)}.`
+        : equipmentIds && currentWeight !== null && currentWeight > 0
+          ? `Missed the target but holding at ${displayWeight(currentWeight)} — it is the smallest available step.`
+          : `Staying at ${displayWeight(currentWeight)} until every set reaches the top of the range.`;
   
   return {
     ...carried,
