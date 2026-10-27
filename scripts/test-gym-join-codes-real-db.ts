@@ -469,9 +469,10 @@ async function runTests() {
           "SELECT * FROM gym_join_codes WHERE id = $1 FOR UPDATE",
           [forUpdateCodeId]
         );
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Should timeout or block
-        conn2Blocked = err.message?.includes("timeout") || err.message?.includes("canceled");
+        const message = err instanceof Error ? err.message : String(err);
+        conn2Blocked = message.includes("timeout") || message.includes("canceled");
       }
       
       check("FOR UPDATE blocks second connection", conn2Blocked);
