@@ -23,22 +23,19 @@ declare
 begin
   -- Only run cleanup check if table exists and has data
   if exists (select from information_schema.tables where table_schema = 'public' and table_name = 'gym_domains') then
-    -- Collect rows that violate the new format
+    -- Collect rows that violate the new format (use same checks as the constraint below)
     for bad_row in
       select host, gym_id, verified
       from public.gym_domains
       where 
-        -- Not lowercase
-        host <> lower(host)
-        -- Or has port/scheme/path/trailing dot
-        or host ~ '(^https?://|:[0-9]+$|/$|\.$)'
-        -- Or exceeds length limits (253 total, 63 per label)
-        or char_length(host) > 253
-        or host ~ '[a-z0-9-]{64,}'
-        -- Or invalid format (leading dot, consecutive dots, starts/ends with hyphen)
-        or not (host ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$')
-        -- Or all-numeric TLD (IPv4 literal)
-        or not (host ~ '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]*[a-z][a-z0-9]*$')
+        -- Violates length or format constraints
+        not (
+          char_length(host) <= 253
+          and host ~ '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)$'
+          and (host !~ '\.[0-9]+$' or host ~ '\.xn--')
+        )
+        -- Or not lowercase
+        or host <> lower(host)
     loop
       bad_hosts := array_append(bad_hosts, format('host=%L (gym_id=%s, verified=%s)', bad_row.host, bad_row.gym_id, bad_row.verified));
     end loop;
@@ -65,8 +62,8 @@ alter table public.gym_domains add constraint gym_domains_host_lowercase
 -- - Each label <= 63 chars (DNS maximum per label)
 -- - No scheme, no port, no path, no trailing dot
 -- - Each label: starts and ends with alphanumeric, hyphens only in middle
--- - TLD (last label) must contain at least one letter (blocks IPv4 literals like 1.2.3.4)
--- Allows: example.com, sub.example.com, multi.level.sub.example.com, xn--bcher-kva.example
+-- - TLD (last label) must either start with 'xn--' (punycode/IDN) or contain at least one letter (blocks IPv4 literals like 1.2.3.4)
+-- Allows: example.com, sub.example.com, multi.level.sub.example.com, xn--bcher-kva.example, gym.xn--p1ai, .भारत (as xn--h2brj9c)
 -- Blocks: https://example.com, example.com:3000, example.com/, example.com.
 -- Blocks: .example.com (leading dot), example..com (consecutive dots)
 -- Blocks: -example.com, example-.com (labels starting/ending with hyphen)
@@ -75,10 +72,11 @@ alter table public.gym_domains add constraint gym_domains_host_lowercase
 alter table public.gym_domains add constraint gym_domains_host_format 
   check (
     char_length(host) <= 253
-    -- Hostname pattern: label(s) + TLD
-    -- Each label: [a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?
-    -- TLD (last label) must contain at least one letter: reject all-numeric like "1", "168", etc.
-    and host ~ '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]*[a-z][a-z0-9]*$'
+    -- Each label (including TLD): 1-63 chars, alphanumeric + hyphens, no leading/trailing hyphen
+    -- Pattern: single char [a-z0-9], or 2+ chars [a-z0-9]...[a-z0-9] with [a-z0-9-] in middle (max 61 middle chars for total 63)
+    and host ~ '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)$'
+    -- TLD must not be all-numeric (must contain letter) OR must be punycode (starts with xn--)
+    and (host !~ '\.[0-9]+$' or host ~ '\.xn--')
   );
 
 -- Index for gym_id lookups (e.g. listing all domains for a gym)

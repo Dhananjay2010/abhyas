@@ -1,128 +1,158 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Unit tests for DB reset guard logic (both bash and TypeScript)
-# Verifies the guard refuses unless CI=true OR ALLOW_DB_RESET=1 + non-default config
+# Pure tests for db-reset-guard logic (bash and TypeScript)
+# NO database operations, NO exec, NO network calls
+# Just test the pure decision functions
 
-echo "=== Testing DB Reset Guard ==="
+echo "=== Pure DB Reset Guard Tests ==="
 echo
 
-total_tests=0
-passed_tests=0
+FAILURES=0
 
-run_test() {
-  local name="$1"
+check() {
+  local label="$1"
   local expected="$2"
-  shift 2
+  local actual="$3"
   
-  total_tests=$((total_tests + 1))
-  echo "TEST: $name"
-  
-  # Run the command and capture exit code
-  set +e
-  "$@" > /tmp/guard-test-output.txt 2>&1
-  local exit_code=$?
-  set -e
-  
-  local output=$(cat /tmp/guard-test-output.txt)
-  
-  if [ "$expected" = "refuse" ]; then
-    if echo "$output" | grep -qE "destroys local data|deletes users|affects local data|requires a non-default"; then
-      echo "  ✓ Correctly refused"
-      passed_tests=$((passed_tests + 1))
-    else
-      echo "  ✗ Expected refusal but got exit_code=$exit_code"
-      echo "Output: $output" | head -3
-    fi
-  elif [ "$expected" = "allow" ]; then
-    # For bash: should pass the guard and reach "Check we're in the repo root" or later
-    # For TypeScript: should pass the guard and reach "Checking Supabase connection" or skip message
-    # Or fail because Supabase isn't running (which means guard passed)
-    if echo "$output" | grep -qE "Checking Supabase connection|Skipping real DB tests|ALLOW_DB_RESET=1 with non-default|repo root|Supabase not running"; then
-      echo "  ✓ Correctly allowed (passed guard)"
-      passed_tests=$((passed_tests + 1))
-    else
-      echo "  ✗ Expected to pass guard but didn't"
-      echo "Output: $output" | head -3
-    fi
+  if [ "$expected" = "$actual" ]; then
+    echo "  ✓ $label"
+  else
+    echo "  ✗ $label (expected: $expected, got: $actual)"
+    FAILURES=$((FAILURES + 1))
   fi
-  echo
 }
 
-# TEST 1: Bash script refuses without CI or ALLOW_DB_RESET
-export REAL_DB=1
-unset CI
-unset ALLOW_DB_RESET
-run_test "Bash: refuse without CI or ALLOW_DB_RESET" "refuse" \
-  bash scripts/mutant-test-gym-domains.sh
+# Source the bash guard
+source "$(dirname "$0")/lib-db-reset-guard.sh"
 
-# TEST 2: Bash script refuses with ALLOW_DB_RESET=1 but default config
-export ALLOW_DB_RESET=1
-unset SUPABASE_DB_URL
-# Keep default project_id in supabase/config.toml
-run_test "Bash: refuse with ALLOW_DB_RESET=1 but default project/port" "refuse" \
-  bash scripts/mutant-test-gym-domains.sh
-
-# TEST 3: Bash script allows with CI=true
-export CI=true
-unset ALLOW_DB_RESET
-run_test "Bash: allow with CI=true" "allow" \
-  bash scripts/mutant-test-gym-domains.sh
-
-# TEST 4: Bash script allows with ALLOW_DB_RESET=1 and non-default port
-unset CI
-export ALLOW_DB_RESET=1
-export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
-run_test "Bash: allow with ALLOW_DB_RESET=1 and non-default port (54333)" "allow" \
-  bash scripts/mutant-test-gym-domains.sh
-
-# TEST 5: TypeScript script refuses without CI or ALLOW_DB_RESET
-unset SUPABASE_DB_URL
-export REAL_DB=1
-unset CI
-unset ALLOW_DB_RESET
-run_test "TypeScript: refuse without CI or ALLOW_DB_RESET" "refuse" \
-  npx tsx scripts/test-gym-domains-real-db.ts
-
-# TEST 6: TypeScript script refuses with ALLOW_DB_RESET=1 but default config
-export ALLOW_DB_RESET=1
-unset SUPABASE_DB_URL
-unset SUPABASE_PROJECT_ID
-run_test "TypeScript: refuse with ALLOW_DB_RESET=1 but default project/port" "refuse" \
-  npx tsx scripts/test-gym-domains-real-db.ts
-
-# TEST 7: TypeScript script allows with CI=true
-export CI=true
-unset ALLOW_DB_RESET
-run_test "TypeScript: allow with CI=true" "allow" \
-  npx tsx scripts/test-gym-domains-real-db.ts
-
-# TEST 8: TypeScript script allows with ALLOW_DB_RESET=1 and non-default port
-unset CI
-export ALLOW_DB_RESET=1
-export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
-run_test "TypeScript: allow with ALLOW_DB_RESET=1 and non-default port (54333)" "allow" \
-  npx tsx scripts/test-gym-domains-real-db.ts
-
-# TEST 9: TypeScript script allows with ALLOW_DB_RESET=1 and non-default project
-unset SUPABASE_DB_URL
-export SUPABASE_PROJECT_ID="my-custom-project"
-run_test "TypeScript: allow with ALLOW_DB_RESET=1 and non-default project" "allow" \
-  npx tsx scripts/test-gym-domains-real-db.ts
-
-echo "========================================="
-echo "Guard Test Summary"
-echo "========================================="
-echo "Total:  $total_tests"
-echo "Passed: $passed_tests"
-echo "Failed: $((total_tests - passed_tests))"
-echo "========================================="
+echo "TEST: Bash guard - CI=true always allows"
+CI=true ALLOW_DB_RESET=0 SUPABASE_DB_URL="" SUPABASE_PROJECT_ID="Fitness"
+if check_db_reset_guard_bash check; then
+  check "CI=true allows" "0" "0"
+else
+  check "CI=true allows" "0" "1"
+fi
 echo
 
-if [ $passed_tests -ne $total_tests ]; then
-  echo "❌ Some guard tests failed"
+echo "TEST: Bash guard - Missing ALLOW_DB_RESET refuses"
+CI="" ALLOW_DB_RESET="" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_PROJECT_ID="TestGym"
+if check_db_reset_guard_bash check; then
+  check "No ALLOW_DB_RESET refuses" "1" "0"
+else
+  check "No ALLOW_DB_RESET refuses" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - Default port refuses even with ALLOW_DB_RESET=1"
+CI="" ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54322/postgres" SUPABASE_PROJECT_ID="NonDefault"
+if check_db_reset_guard_bash check; then
+  check "Default port refuses" "1" "0"
+else
+  check "Default port refuses" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - Default project_id refuses even with ALLOW_DB_RESET=1"
+CI="" ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_PROJECT_ID="Fitness"
+if check_db_reset_guard_bash check; then
+  check "Default project_id refuses" "1" "0"
+else
+  check "Default project_id refuses" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - Non-default port + project_id allows with ALLOW_DB_RESET=1"
+CI="" ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_PROJECT_ID="TestGym"
+if check_db_reset_guard_bash check; then
+  check "Non-default allows" "0" "0"
+else
+  check "Non-default allows" "0" "1"
+fi
+echo
+
+echo "TEST: Bash guard - Missing SUPABASE_DB_URL refuses"
+CI="" ALLOW_DB_RESET="1" SUPABASE_DB_URL="" SUPABASE_PROJECT_ID="TestGym"
+if check_db_reset_guard_bash check; then
+  check "Missing SUPABASE_DB_URL refuses" "1" "0"
+else
+  check "Missing SUPABASE_DB_URL refuses" "1" "1"
+fi
+echo
+
+echo "TEST: TypeScript guard - Run via tsx"
+# Test the TypeScript guard
+npx tsx << 'TSTEST'
+import { checkDbResetGuard, checkRealDbTest } from "./scripts/lib-db-reset-guard";
+
+let failures = 0;
+
+function check(label: string, expected: boolean, actual: boolean) {
+  if (expected === actual) {
+    console.log(`  ✓ ${label}`);
+  } else {
+    console.log(`  ✗ ${label} (expected: ${expected}, got: ${actual})`);
+    failures++;
+  }
+}
+
+console.log("TypeScript guard - CI=true allows");
+process.env.CI = "true";
+process.env.ALLOW_DB_RESET = "0";
+process.env.SUPABASE_URL = "http://127.0.0.1:54321";
+process.env.SUPABASE_PROJECT_ID = "Fitness";
+check("CI=true allows", true, checkDbResetGuard().allow);
+console.log();
+
+console.log("TypeScript guard - Missing ALLOW_DB_RESET refuses");
+delete process.env.CI;
+delete process.env.ALLOW_DB_RESET;
+process.env.SUPABASE_URL = "http://localhost:54333";
+process.env.SUPABASE_PROJECT_ID = "TestGym";
+check("No ALLOW_DB_RESET refuses", false, checkDbResetGuard().allow);
+console.log();
+
+console.log("TypeScript guard - Default host/port refuses");
+process.env.ALLOW_DB_RESET = "1";
+process.env.SUPABASE_URL = "http://127.0.0.1:54321";
+process.env.SUPABASE_PROJECT_ID = "NonDefault";
+check("Default host/port refuses", false, checkDbResetGuard().allow);
+console.log();
+
+console.log("TypeScript guard - Default project refuses");
+process.env.ALLOW_DB_RESET = "1";
+process.env.SUPABASE_URL = "http://localhost:54333";
+process.env.SUPABASE_PROJECT_ID = "Fitness";
+check("Default project refuses", false, checkDbResetGuard().allow);
+console.log();
+
+console.log("TypeScript guard - Non-default allows");
+process.env.ALLOW_DB_RESET = "1";
+process.env.SUPABASE_URL = "http://localhost:54333";
+process.env.SUPABASE_PROJECT_ID = "TestGym";
+check("Non-default allows", true, checkDbResetGuard().allow);
+console.log();
+
+console.log("TypeScript guard - REAL_DB=1 required");
+delete process.env.REAL_DB;
+check("REAL_DB unset refuses", false, checkRealDbTest().allow);
+process.env.REAL_DB = "1";
+process.env.CI = "true";
+check("REAL_DB=1 + CI allows", true, checkRealDbTest().allow);
+console.log();
+
+if (failures > 0) {
+  console.error(`\n❌ ${failures} TypeScript test(s) failed\n`);
+  process.exit(1);
+}
+console.log("✅ All TypeScript tests passed\n");
+TSTEST
+echo
+
+if [ $FAILURES -gt 0 ]; then
+  echo "❌ $FAILURES bash test(s) failed"
   exit 1
 fi
 
-echo "✅ All guard tests passed"
+echo "✅ All tests passed"
 exit 0

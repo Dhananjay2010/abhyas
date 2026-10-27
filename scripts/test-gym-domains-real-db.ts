@@ -57,31 +57,16 @@ async function runTests() {
     return true;
   }
 
-  // User deletion guard: refuse unless CI=true OR ALLOW_DB_RESET=1 + non-default config
-  if (process.env.CI !== "true") {
-    if (process.env.ALLOW_DB_RESET !== "1") {
-      console.error("\n❌ This script deletes users which affects local data.");
-      console.error("   Run in CI, or set ALLOW_DB_RESET=1 with a non-default project/port.\n");
-      return false;
-    }
-
-    // Check for non-default project id or DB port
-    const dbUrl = process.env.SUPABASE_DB_URL || "postgresql://postgres:postgres@localhost:54322/postgres";
-    const projectId = process.env.SUPABASE_PROJECT_ID || "Fitness";
-    
-    // Extract port from DB URL (default is 54322)
-    const portMatch = dbUrl.match(/:(\d+)\//);
-    const dbPort = portMatch ? portMatch[1] : "54322";
-    
-    if (projectId === "Fitness" && dbPort === "54322") {
-      console.error("\n❌ ALLOW_DB_RESET=1 requires a non-default project id or DB port.");
-      console.error(`   Current: project_id='${projectId}', db_port='${dbPort}'`);
-      console.error("   Set SUPABASE_PROJECT_ID or SUPABASE_DB_URL with a different port.\n");
-      return false;
-    }
-    
-    console.log(`✓ ALLOW_DB_RESET=1 with non-default config (project_id='${projectId}', db_port='${dbPort}')\n`);
+  // Import and check guard
+  const { checkRealDbTest } = await import("./lib-db-reset-guard");
+  const guardResult = checkRealDbTest();
+  
+  if (!guardResult.allow) {
+    console.log(`\n⏭️  Skipping real DB tests: ${guardResult.reason}\n`);
+    return true;
   }
+  
+  console.log(`✓ Guard check passed: ${guardResult.reason}\n`);
 
   console.log("Checking Supabase connection...");
 

@@ -2,6 +2,7 @@
  * Resolve a deployment hostname to a gym for runtime white-label branding.
  */
 
+import { domainToASCII } from "node:url";
 import { createClient } from "@/lib/supabase/server";
 import { branding } from "@/lib/branding";
 import { neutralBrand } from "@/lib/gym-brand";
@@ -61,6 +62,7 @@ export function isAppOwnDomain(host: string): boolean {
  * - Strip port (:3000, :8080, etc.)
  * - Strip trailing dot
  * - Strip IPv6 brackets and port ([::1]:3000 -> ::1)
+ * - Convert IDN/unicode domains to ASCII (punycode)
  */
 export function normalizeHost(host: string): string {
   let normalized = host.trim();
@@ -77,7 +79,20 @@ export function normalizeHost(host: string): string {
   }
   
   // Lowercase and strip trailing dot
-  return normalized.toLowerCase().replace(/\.$/, '');
+  normalized = normalized.toLowerCase().replace(/\.$/, '');
+  
+  // Convert IDN/unicode to ASCII (punycode)
+  // e.g., "bücher.example" -> "xn--bcher-kva.example", "测试.中国" -> "xn--0zwm56d.xn--fiqs8s"
+  try {
+    const ascii = domainToASCII(normalized);
+    if (ascii) {
+      normalized = ascii;
+    }
+  } catch {
+    // domainToASCII may throw on invalid input; keep original
+  }
+  
+  return normalized;
 }
 
 /**
@@ -117,6 +132,15 @@ export function decideGymResolution(
 }
 
 /**
+ * Type for the RPC dependency that resolves a host to gym data.
+ * Used for dependency injection in tests.
+ */
+export type ResolveGymByHostRpc = (host: string) => Promise<{
+  data: Array<{ gym_id: string; gym_slug: string; gym_name: string }> | null;
+  error: unknown;
+}>;
+
+/**
  * Resolve a hostname to a gym via the gym_domains table.
  * Returns only verified mappings; unverified or unknown hosts return null.
  *
@@ -133,9 +157,13 @@ export function decideGymResolution(
  * 3. Lookup errored on a custom domain (not app's own domain):
  *    Returns USE_NEUTRAL_BRAND symbol → caller uses neutralBrand.
  *    This prevents gym members from seeing another brand on their gym's domain during an outage.
+ * 
+ * @param host - The hostname to resolve
+ * @param rpc - RPC function for testing (optional, defaults to Supabase client)
  */
 export async function resolveGymByHost(
   host: string | null | undefined,
+  rpc: ResolveGymByHostRpc = defaultResolveGymByHostRpc,
 ): Promise<GymResolution | null | typeof USE_NEUTRAL_BRAND> {
   // Guard null, undefined, or empty host
   if (!host || host.trim() === '') {
@@ -153,11 +181,7 @@ export async function resolveGymByHost(
     return null;
   }
 
-  const supabase = await createClient();
-
-  const { data, error } = await supabase.rpc("resolve_gym_by_host", {
-    p_host: normalized,
-  });
+  const { data, error } = await rpc(normalized);
 
   if (error) {
     console.error("Failed to resolve gym by host:", error);
@@ -174,6 +198,19 @@ export async function resolveGymByHost(
 
   // Use pure decision logic
   return decideGymResolution(normalized, isAppDomain, mappedData, Boolean(error));
+}
+
+/**
+ * Default RPC implementation using Supabase client.
+ */
+async function defaultResolveGymByHostRpc(host: string): Promise<{
+  data: Array<{ gym_id: string; gym_slug: string; gym_name: string }> | null;
+  error: unknown;
+}> {
+  const supabase = await createClient();
+  return supabase.rpc("resolve_gym_by_host", {
+    p_host: host,
+  });
 }
 
 /**

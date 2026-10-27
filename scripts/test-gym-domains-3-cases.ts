@@ -10,6 +10,13 @@
  * - null (default brand) for app domains and unmapped hosts
  * - USE_NEUTRAL_BRAND (neutral brand) for RPC errors on custom domains
  * - GymResolution for mapped custom domains
+ * 
+ * Also tests wiring (W1-W6 mutants) by injecting mocks into resolveGymByHost:
+ * - W1: RPC error -> USE_NEUTRAL_BRAND
+ * - W2: Empty result -> null
+ * - W3: localhost -> no RPC call
+ * - W4: NEXT_PUBLIC_SITE_URL host -> null
+ * - W5-W6: isAppDomain=true -> null (respects the check even with data)
  */
 
 import { 
@@ -19,7 +26,9 @@ import {
   getDefaultBrand, 
   getNeutralBrand,
   USE_NEUTRAL_BRAND,
-  type GymResolution 
+  resolveGymByHost,
+  type GymResolution,
+  type ResolveGymByHostRpc
 } from "../src/lib/gym-domains";
 import { branding } from "../src/lib/branding";
 import { neutralBrand } from "../src/lib/gym-brand";
@@ -33,7 +42,7 @@ function check(label: string, ok: boolean, detail = "") {
   );
 }
 
-function runTests() {
+async function runTests() {
   console.log("TEST: Case 1 - App's own domain returns null (use default brand)");
   {
     // Test isAppOwnDomain helper
@@ -133,6 +142,84 @@ function runTests() {
     check("USE_NEUTRAL_BRAND is a symbol", typeof USE_NEUTRAL_BRAND === "symbol");
     check("USE_NEUTRAL_BRAND !== null", USE_NEUTRAL_BRAND !== null);
     check("USE_NEUTRAL_BRAND !== undefined", USE_NEUTRAL_BRAND !== undefined);
+  }
+  console.log();
+
+  console.log("TEST: Wiring W1 - RPC error returns USE_NEUTRAL_BRAND");
+  {
+    const mockRpcError: ResolveGymByHostRpc = async (_host: string) => {
+      return { data: null, error: new Error("Database timeout") };
+    };
+    
+    const result = await resolveGymByHost("custom.example.com", mockRpcError);
+    check("RPC error on custom domain -> USE_NEUTRAL_BRAND", result === USE_NEUTRAL_BRAND);
+  }
+  console.log();
+
+  console.log("TEST: Wiring W2 - Empty result returns null");
+  {
+    const mockRpcEmpty: ResolveGymByHostRpc = async (_host: string) => {
+      return { data: [], error: null };
+    };
+    
+    const result = await resolveGymByHost("unmapped.example.com", mockRpcEmpty);
+    check("Empty RPC result -> null", result === null);
+  }
+  console.log();
+
+  console.log("TEST: Wiring W3 - localhost skips RPC call");
+  {
+    let rpcCalled = false;
+    const mockRpcNeverCalled: ResolveGymByHostRpc = async (_host: string) => {
+      rpcCalled = true;
+      return { data: null, error: null };
+    };
+    
+    const result = await resolveGymByHost("localhost", mockRpcNeverCalled);
+    check("localhost -> null", result === null);
+    check("RPC was not called for localhost", !rpcCalled);
+  }
+  console.log();
+
+  console.log("TEST: Wiring W4 - NEXT_PUBLIC_SITE_URL host returns null");
+  {
+    const oldSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.NEXT_PUBLIC_SITE_URL = "https://myapp.example.com";
+    
+    let rpcCalled = false;
+    const mockRpcNeverCalled: ResolveGymByHostRpc = async (_host: string) => {
+      rpcCalled = true;
+      return { data: null, error: null };
+    };
+    
+    const result = await resolveGymByHost("myapp.example.com", mockRpcNeverCalled);
+    check("NEXT_PUBLIC_SITE_URL host -> null", result === null);
+    check("RPC was not called for NEXT_PUBLIC_SITE_URL host", !rpcCalled);
+    
+    // Restore
+    if (oldSiteUrl !== undefined) {
+      process.env.NEXT_PUBLIC_SITE_URL = oldSiteUrl;
+    } else {
+      delete process.env.NEXT_PUBLIC_SITE_URL;
+    }
+  }
+  console.log();
+
+  console.log("TEST: Wiring W5-W6 - isAppDomain=true respects check even with data");
+  {
+    // Even if RPC somehow returns data for an app domain, we should still return null
+    const mockRpcWithData: ResolveGymByHostRpc = async (_host: string) => {
+      return { 
+        data: [{ gym_id: "fake-id", gym_slug: "fake", gym_name: "Fake" }], 
+        error: null 
+      };
+    };
+    
+    const result1 = await resolveGymByHost("localhost", mockRpcWithData);
+    check("localhost with data -> null (respects isAppDomain)", result1 === null);
+    
+    const result2 = await resolveGymByHost("vercel.app", mockRpcWithData);
+    check("vercel.app with data -> null (respects isAppDomain)", result2 === null);
   }
   console.log();
 

@@ -17,14 +17,14 @@ import { validateTimezone, branding } from "@/lib/branding";
  * - The host is NOT the app's own domain (not localhost, not *.vercel.app, not NEXT_PUBLIC_SITE_URL)
  * 
  * This prevents gym members from seeing another brand on their gym's domain during an outage.
- * Never cached. Uses generic name and neutral grey colors.
+ * Never cached. Uses generic name, neutral grey colors, and generic icons.
  */
 export const neutralBrand: Brand = {
   id: "neutral",
   name: "Fitness",
   shortName: "Fitness",
   description: "Fitness training",
-  siteUrl: branding.siteUrl,
+  siteUrl: "",
   timezone: branding.timezone,
   defaultUnits: branding.defaultUnits,
   colors: {
@@ -43,7 +43,14 @@ export const neutralBrand: Brand = {
     danger: "#f87171",
     chart: "#6b7280",        // neutral grey-500
   },
-  icons: branding.icons, // Reuse same icons
+  icons: {
+    icon192: "",
+    icon512: "",
+    maskable192: "",
+    maskable512: "",
+    appleTouchIcon: "",
+    favicon: "",
+  },
 };
 
 /**

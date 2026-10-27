@@ -16,6 +16,20 @@ if [ "${REAL_DB:-}" != "1" ]; then
   exit 0
 fi
 
+# Source guard and check
+source "$(dirname "$0")/lib-db-reset-guard.sh"
+if ! check_db_reset_guard_bash check; then
+  echo "❌ DB reset guard check failed:"
+  check_db_reset_guard_bash explain
+  exit 1
+fi
+
+# Require SUPABASE_DB_URL for explicit targeting
+if [ -z "${SUPABASE_DB_URL:-}" ]; then
+  echo "❌ SUPABASE_DB_URL must be set for mutant tests"
+  exit 1
+fi
+
 # Check we're in the repo root
 if [ ! -f "package.json" ]; then
   echo "❌ ERROR: Must run from repo root" >&2
@@ -34,7 +48,7 @@ SKIPPED=()
 
 echo "Running baseline tests..."
 BASELINE_OUTPUT=$(mktemp)
-if ! supabase db reset > "$BASELINE_OUTPUT" 2>&1; then
+if ! supabase db reset --db-url "$SUPABASE_DB_URL" > "$BASELINE_OUTPUT" 2>&1; then
   echo "❌ Baseline: db reset failed" >&2
   cat "$BASELINE_OUTPUT"
   rm -f "$BASELINE_OUTPUT"
@@ -60,9 +74,9 @@ run_mutant() {
   echo "Testing mutant: $name"
   echo "  $description"
   
-  # Reset database
+  # Reset database with explicit URL
   local reset_output=$(mktemp)
-  if ! supabase db reset > "$reset_output" 2>&1; then
+  if ! supabase db reset --db-url "$SUPABASE_DB_URL" > "$reset_output" 2>&1; then
     echo "  ❌ SKIPPED: db reset failed"
     SKIPPED+=("$name: db reset failed")
     rm -f "$reset_output"
@@ -71,9 +85,9 @@ run_mutant() {
   fi
   rm -f "$reset_output"
   
-  # Apply mutation via psql
+  # Apply mutation via psql to the same DB
   local mutation_output=$(mktemp)
-  if ! psql "${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/postgres}" \
+  if ! psql "$SUPABASE_DB_URL" \
     -c "$sql_mutation" > "$mutation_output" 2>&1; then
     echo "  ❌ SKIPPED: mutation SQL failed"
     SKIPPED+=("$name: mutation failed")

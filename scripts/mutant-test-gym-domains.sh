@@ -2,14 +2,12 @@
 set -euo pipefail
 
 # Mutant test script for gym_domains and resolve_gym_by_host
-# Tests that removing key constraints or permissions causes test failures
-# Uses SQL commands applied after db reset (not sed on migration files)
-# CI-only: runs as explicit step in database-seed-test job, not in npm test chain
+# CI-only: runs as explicit step in database-seed-test job
 
 echo "=== Mutant Testing: Gym Domains & Brand Resolution ==="
 echo
 
-# Skip if REAL_DB is not set (shard environments don't have Supabase)
+# Skip if REAL_DB is not set
 if [ "${REAL_DB:-}" != "1" ]; then
   echo "⏭️  Skipping mutant tests (REAL_DB=1 not set)"
   echo "   Set REAL_DB=1 to run these tests against a local Supabase instance"
@@ -17,29 +15,18 @@ if [ "${REAL_DB:-}" != "1" ]; then
   exit 0
 fi
 
-# DB reset guard: refuse unless CI=true OR ALLOW_DB_RESET=1 + non-default config
-if [ "${CI:-}" != "true" ]; then
-  if [ "${ALLOW_DB_RESET:-}" != "1" ]; then
-    echo "❌ This script runs 'supabase db reset' which destroys local data."
-    echo "   Run in CI, or set ALLOW_DB_RESET=1 with a non-default project/port."
-    exit 1
-  fi
-  
-  # Check for non-default project id or DB port
-  project_id=$(grep '^project_id' supabase/config.toml 2>/dev/null | head -1 | sed 's/.*"\(.*\)".*/\1/' || echo "Fitness")
-  db_url="${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/postgres}"
-  
-  # Extract port from DB URL (default is 54322)
-  db_port=$(echo "$db_url" | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
-  
-  if [ "$project_id" = "Fitness" ] && [ "$db_port" = "54322" ]; then
-    echo "❌ ALLOW_DB_RESET=1 requires a non-default project id or DB port."
-    echo "   Current: project_id='$project_id', db_port='$db_port'"
-    echo "   Change project_id in supabase/config.toml or set SUPABASE_DB_URL."
-    exit 1
-  fi
-  
-  echo "✓ ALLOW_DB_RESET=1 with non-default config (project_id='$project_id', db_port='$db_port')"
+# Source guard and check
+source "$(dirname "$0")/lib-db-reset-guard.sh"
+if ! check_db_reset_guard_bash check; then
+  echo "❌ DB reset guard check failed:"
+  check_db_reset_guard_bash explain
+  exit 1
+fi
+
+# Require SUPABASE_DB_URL for explicit targeting
+if [ -z "${SUPABASE_DB_URL:-}" ]; then
+  echo "❌ SUPABASE_DB_URL must be set for mutant tests"
+  exit 1
 fi
 
 # Check we're in the repo root
@@ -61,7 +48,7 @@ SKIPPED=()
 
 echo "Running baseline tests..."
 baseline_output=$(mktemp)
-if ! supabase db reset > /dev/null 2>&1; then
+if ! supabase db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1; then
   echo "❌ Baseline: db reset failed" >&2
   exit 1
 fi
@@ -87,16 +74,15 @@ run_mutant() {
   echo "Testing mutant: $name"
   echo "  $description"
   
-  # Reset database
-  if ! supabase db reset > /dev/null 2>&1; then
+  # Reset database with explicit URL
+  if ! supabase db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1; then
     echo "  ❌ SKIPPED: db reset failed"
     SKIPPED+=("$name: db reset failed")
     return 0
   fi
   
-  # Apply mutation via psql
-  if ! psql "${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/postgres}" \
-    -c "$sql_mutation" > /dev/null 2>&1; then
+  # Apply mutation via psql to the same DB
+  if ! psql "$SUPABASE_DB_URL" -c "$sql_mutation" > /dev/null 2>&1; then
     echo "  ❌ SKIPPED: mutation SQL failed"
     SKIPPED+=("$name: mutation failed")
     return 0
@@ -107,9 +93,6 @@ run_mutant() {
   if test_output=$(REAL_DB=1 npm run test:gym-domains-real-db 2>&1); then
     echo "  ❌ SURVIVED"
     SURVIVORS+=("$name")
-    # Print first failing check from test output
-    echo "  Failed check output:"
-    echo "$test_output" | grep -E "FAIL|ERROR" | head -5 | sed 's/^/    /'
   else
     echo "  ✅ KILLED"
     KILLED=$((KILLED + 1))
@@ -118,8 +101,7 @@ run_mutant() {
   return 0
 }
 
-# Mutant (a): Drop verified filter in resolve_gym_by_host
-# Fixed SQL escaping: use $$ delimiters and properly escape single quotes
+# Mutant (a): Drop verified filter
 run_mutant \
   "(a) drop verified filter" \
   "Remove the 'where verified = true' filter from resolve_gym_by_host" \
@@ -149,24 +131,19 @@ run_mutant \
   "Allow authenticated users to insert gym_domains" \
   "CREATE POLICY gym_domains_insert_authenticated ON public.gym_domains FOR INSERT TO authenticated WITH CHECK (true);"
 
-# Mutant (c): Drop RLS on gym_domains
+# Mutant (c): Drop RLS
 run_mutant \
   "(c) drop RLS" \
   "Disable RLS on gym_domains table" \
   "ALTER TABLE public.gym_domains DISABLE ROW LEVEL SECURITY;"
 
-# Mutant (d): Remove CASCADE on gym deletion
+# Mutant (d): Remove CASCADE
 run_mutant \
   "(d) remove CASCADE" \
   "Remove ON DELETE CASCADE from gym_domains.gym_id" \
   "ALTER TABLE public.gym_domains DROP CONSTRAINT gym_domains_gym_id_fkey; 
    ALTER TABLE public.gym_domains ADD CONSTRAINT gym_domains_gym_id_fkey 
    FOREIGN KEY (gym_id) REFERENCES public.gyms(id);"
-
-# Note: Mutant (e) "remove lowercase constraint" was removed because the format
-# constraint regex (^[a-z0-9]...) already only allows lowercase letters, making
-# the lowercase constraint redundant. The lowercase constraint is kept as
-# defense-in-depth and clear intent, but removing it doesn't break functionality.
 
 # Mutant (f): Remove anon grant from resolve_gym_by_host
 run_mutant \
@@ -180,7 +157,7 @@ run_mutant \
   "Revoke execute on get_gym_brand from anon" \
   "REVOKE EXECUTE ON FUNCTION public.get_gym_brand(uuid) FROM anon;"
 
-# Mutant (h): Leak private field from get_gym_brand
+# Mutant (h): Leak private field
 run_mutant \
   "(h) leak private field" \
   "Add id column to get_gym_brand return" \
@@ -196,6 +173,12 @@ run_mutant \
      LIMIT 1;
    \$\$; 
    GRANT EXECUTE ON FUNCTION public.get_gym_brand(uuid) TO anon, authenticated;"
+
+# Mutant (i): CHECK constraint removed
+run_mutant \
+  "(i) host format CHECK removed" \
+  "Drop the host format CHECK constraint" \
+  "ALTER TABLE public.gym_domains DROP CONSTRAINT gym_domains_host_format;"
 
 echo
 echo "========================================="
