@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Mutant test for db-reset-guard: verifies all 43 checks are exercised
-# For each check, runs a case that SHOULD be refused by that specific check
-# A mutant is KILLED if the guard refuses the case (proving the check works)
+# Refuse-case test for db-reset-guard: verifies all guard checks are tested
+# Each case starts from GOOD_ENV and changes exactly one thing
+# A case PASSES if the guard refuses (proving the check works)
 
-echo "=== DB Reset Guard Mutant Test ==="
-echo "Verifying that all 43 guard checks are exercised"
+echo "=== DB Reset Guard Refuse-Case Test ==="
+echo "Testing 57 guard refuse cases (bash and TypeScript)"
 echo
 
-KILLED=0
-SURVIVED=0
-MUTANTS_TOTAL=57
+PASSED=0
+FAILED=0
+TOTAL_CASES=57
 
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
@@ -56,36 +56,43 @@ EOF
 source "$(dirname "$0")/lib-db-reset-guard.sh"
 
 # Helper: test that a case is REFUSED (check is working)
+# Base env: GOOD_ENV (ALLOW_DB_RESET=1, custom ports, all URLs set)
 test_refuse_bash() {
   local name="$1"
   shift
   local env_args=("$@")
   
-  # Save and clear env
+  # Save and clear all relevant env vars
   local saved_env=()
-  for var in CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL; do
+  for var in CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL; do
     if [ -n "${!var:-}" ]; then
       saved_env+=("$var=${!var}")
     fi
     unset "$var" 2>/dev/null || true
   done
   
-  # Set test env
+  # Set base GOOD_ENV
+  export ALLOW_DB_RESET="1"
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+  export SUPABASE_URL="http://localhost:54334"
+  export NEXT_PUBLIC_SUPABASE_URL="http://localhost:54334"
+  
+  # Apply test-specific overrides
   for arg in "${env_args[@]}"; do
     export "$arg"
   done
   
   # Run guard (should refuse)
   if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml" 2>/dev/null; then
-    echo "  ✗ SURVIVED: $name (guard allowed, check not working)"
-    SURVIVED=$((SURVIVED + 1))
+    echo "  ✗ FAILED: $name (guard allowed, check not working)"
+    FAILED=$((FAILED + 1))
   else
-    echo "  ✓ KILLED: $name (guard refused as expected)"
-    KILLED=$((KILLED + 1))
+    echo "  ✓ PASSED: $name (guard refused as expected)"
+    PASSED=$((PASSED + 1))
   fi
   
   # Restore env
-  for var in CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL; do
+  for var in CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL; do
     unset "$var" 2>/dev/null || true
   done
   for entry in "${saved_env[@]}"; do
@@ -94,6 +101,7 @@ test_refuse_bash() {
 }
 
 # Helper: test that a TS case is REFUSED
+# Base env: GOOD_ENV (ALLOW_DB_RESET=1, custom ports, all URLs set)
 test_refuse_ts() {
   local name="$1"
   local config="$2"
@@ -102,11 +110,13 @@ test_refuse_ts() {
   if npx tsx << TSTEST 2>/dev/null
 import { checkDbResetGuard } from "./scripts/lib-db-reset-guard";
 
-// Clear env
+// Clear all relevant env vars
 delete process.env.CI;
 delete process.env.ALLOW_DB_RESET;
 delete process.env.SUPABASE_PROJECT_ID;
 delete process.env.SUPABASE_DB_PORT;
+delete process.env.SUPABASE_WORKDIR;
+delete process.env.SUPABASE_ACCESS_TOKEN;
 delete process.env.PGHOST;
 delete process.env.PGPORT;
 delete process.env.PGSERVICE;
@@ -115,7 +125,13 @@ delete process.env.SUPABASE_DB_URL;
 delete process.env.SUPABASE_URL;
 delete process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-// Set test env
+// Set base GOOD_ENV
+process.env.ALLOW_DB_RESET = "1";
+process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+process.env.SUPABASE_URL = "http://localhost:54334";
+process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";
+
+// Apply test-specific overrides
 $env_setup
 
 // Run guard (should refuse)
@@ -123,11 +139,11 @@ const result = checkDbResetGuard("$config");
 process.exit(result.allow ? 0 : 1);
 TSTEST
   then
-    echo "  ✗ SURVIVED: $name (guard allowed, check not working)"
-    SURVIVED=$((SURVIVED + 1))
+    echo "  ✗ FAILED: $name (guard allowed, check not working)"
+    FAILED=$((FAILED + 1))
   else
-    echo "  ✓ KILLED: $name (guard refused as expected)"
-    KILLED=$((KILLED + 1))
+    echo "  ✓ PASSED: $name (guard refused as expected)"
+    PASSED=$((PASSED + 1))
   fi
 }
 
@@ -139,8 +155,21 @@ test_refuse_bash "CI=1 refused" \
   "CI=1" "ALLOW_DB_RESET=0" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
 
 echo "Check 2: ALLOW_DB_RESET=1 required (outside CI)"
-test_refuse_bash "No ALLOW_DB_RESET refused" \
-  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
+# Inline test - need to not set ALLOW_DB_RESET
+if (
+  unset CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL 2>/dev/null || true
+  # Don't set ALLOW_DB_RESET - testing that it's required
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+  export SUPABASE_URL="http://localhost:54334"
+  export NEXT_PUBLIC_SUPABASE_URL="http://localhost:54334"
+  check_db_reset_guard_bash check "$TMPDIR/custom-config.toml" 2>/dev/null
+); then
+  echo "  ✗ FAILED: No ALLOW_DB_RESET refused (guard allowed)"
+  FAILED=$((FAILED + 1))
+else
+  echo "  ✓ PASSED: No ALLOW_DB_RESET refused (guard refused)"
+  PASSED=$((PASSED + 1))
+fi
 
 echo "Check 3: SUPABASE_PROJECT_ID env var not allowed"
 test_refuse_bash "SUPABASE_PROJECT_ID env refused" \
@@ -177,8 +206,21 @@ test_refuse_bash "Default 54322 refused" \
   "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54322/postgres" "SUPABASE_URL=http://localhost:54321"
 
 echo "Check 10: Default project_id 'Fitness' not allowed"
-test_refuse_bash "Default Fitness refused" \
-  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54322/postgres" "SUPABASE_URL=http://localhost:54321"
+# Inline test with default-config.toml (has Fitness project_id)
+if (
+  unset CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL 2>/dev/null || true
+  export ALLOW_DB_RESET="1"
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54322/postgres"
+  export SUPABASE_URL="http://localhost:54321"
+  export NEXT_PUBLIC_SUPABASE_URL="http://localhost:54321"
+  check_db_reset_guard_bash check "$TMPDIR/default-config.toml" 2>/dev/null
+); then
+  echo "  ✗ FAILED: Default Fitness refused (guard allowed)"
+  FAILED=$((FAILED + 1))
+else
+  echo "  ✓ PASSED: Default Fitness refused (guard refused)"
+  PASSED=$((PASSED + 1))
+fi
 
 echo "Check 11: Query params (?) not allowed in SUPABASE_DB_URL"
 test_refuse_bash "Query ?port= refused" \
@@ -226,9 +268,10 @@ echo "Check 21: Multi-host URLs not allowed"
 test_refuse_bash "Multi-host refused" \
   "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333,other:5432/postgres" "SUPABASE_URL=http://localhost:54334"
 
-echo "Check 22: Default API port 54321 not allowed"
+echo "Check 22: Default API port 54321 not allowed (distinct from DB port check)"
+# Test specifically :54321 API port (case 9 tests :54322 DB port)
 test_refuse_bash "Default API 54321 refused" \
-  "ALLOW_DB_RESET=1" "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54322/postgres" "SUPABASE_URL=http://localhost:54321"
+  "SUPABASE_URL=http://localhost:54321" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321"
 
 echo
 echo "TYPESCRIPT GUARD CHECKS:"
@@ -240,7 +283,7 @@ test_refuse_ts "TS CI=1 refused" "$TMPDIR/custom-config.toml" \
 
 echo "Check 24: TS - ALLOW_DB_RESET=1 required"
 test_refuse_ts "TS No ALLOW_DB_RESET refused" "$TMPDIR/custom-config.toml" \
-  'process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334";'
+  'delete process.env.ALLOW_DB_RESET; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
 
 echo "Check 25: TS - SUPABASE_PROJECT_ID env not allowed"
 test_refuse_ts "TS SUPABASE_PROJECT_ID refused" "$TMPDIR/custom-config.toml" \
@@ -329,19 +372,55 @@ test_refuse_bash "Unknown SUPABASE_* refused" \
   "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54334"
 
 echo "Check 46: SUPABASE_DB_URL must be set (bash)"
-test_refuse_bash "SUPABASE_DB_URL unset refused" \
-  "ALLOW_DB_RESET=1" \
-  "SUPABASE_URL=http://localhost:54334" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54334"
+# Inline test - need to actually unset the variable
+if (
+  unset CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL 2>/dev/null || true
+  export ALLOW_DB_RESET="1"
+  # Don't set SUPABASE_DB_URL - testing that it's required
+  export SUPABASE_URL="http://localhost:54334"
+  export NEXT_PUBLIC_SUPABASE_URL="http://localhost:54334"
+  check_db_reset_guard_bash check "$TMPDIR/custom-config.toml" 2>/dev/null
+); then
+  echo "  ✗ FAILED: SUPABASE_DB_URL unset refused (guard allowed)"
+  FAILED=$((FAILED + 1))
+else
+  echo "  ✓ PASSED: SUPABASE_DB_URL unset refused (guard refused)"
+  PASSED=$((PASSED + 1))
+fi
 
 echo "Check 47: SUPABASE_URL must be set (bash)"
-test_refuse_bash "SUPABASE_URL unset refused" \
-  "ALLOW_DB_RESET=1" \
-  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "NEXT_PUBLIC_SUPABASE_URL=http://localhost:54334"
+# Inline test - need to actually unset the variable
+if (
+  unset CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL 2>/dev/null || true
+  export ALLOW_DB_RESET="1"
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+  # Don't set SUPABASE_URL - testing that it's required
+  export NEXT_PUBLIC_SUPABASE_URL="http://localhost:54334"
+  check_db_reset_guard_bash check "$TMPDIR/custom-config.toml" 2>/dev/null
+); then
+  echo "  ✗ FAILED: SUPABASE_URL unset refused (guard allowed)"
+  FAILED=$((FAILED + 1))
+else
+  echo "  ✓ PASSED: SUPABASE_URL unset refused (guard refused)"
+  PASSED=$((PASSED + 1))
+fi
 
 echo "Check 48: NEXT_PUBLIC_SUPABASE_URL must be set (bash)"
-test_refuse_bash "NEXT_PUBLIC unset refused" \
-  "ALLOW_DB_RESET=1" \
-  "SUPABASE_DB_URL=postgresql://postgres:postgres@localhost:54333/postgres" "SUPABASE_URL=http://localhost:54334"
+# Inline test - need to actually unset the variable
+if (
+  unset CI ALLOW_DB_RESET SUPABASE_PROJECT_ID SUPABASE_DB_PORT SUPABASE_WORKDIR SUPABASE_ACCESS_TOKEN PGHOST PGPORT PGSERVICE PGHOSTADDR SUPABASE_DB_URL SUPABASE_URL NEXT_PUBLIC_SUPABASE_URL 2>/dev/null || true
+  export ALLOW_DB_RESET="1"
+  export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+  export SUPABASE_URL="http://localhost:54334"
+  # Don't set NEXT_PUBLIC_SUPABASE_URL - testing that it's required
+  check_db_reset_guard_bash check "$TMPDIR/custom-config.toml" 2>/dev/null
+); then
+  echo "  ✗ FAILED: NEXT_PUBLIC unset refused (guard allowed)"
+  FAILED=$((FAILED + 1))
+else
+  echo "  ✓ PASSED: NEXT_PUBLIC unset refused (guard refused)"
+  PASSED=$((PASSED + 1))
+fi
 
 echo "Check 49: TS - SUPABASE_WORKDIR not allowed"
 test_refuse_ts "TS SUPABASE_WORKDIR refused" "$TMPDIR/custom-config.toml" \
@@ -381,16 +460,16 @@ test_refuse_ts "TS project_id env() refused" "$TMPDIR/env-ref-config.toml" \
   'process.env.ALLOW_DB_RESET = "1"; process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres"; process.env.SUPABASE_URL = "http://localhost:54334"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54334";'
 
 echo
-echo "=== MUTANT TEST RESULTS ==="
-echo "Expected: $MUTANTS_TOTAL checks"
-echo "KILLED: $KILLED (checks working, cases refused)"
-echo "SURVIVED: $SURVIVED (checks broken, cases allowed)"
+echo "=== REFUSE-CASE TEST RESULTS ==="
+echo "Total: $TOTAL_CASES refuse cases"
+echo "PASSED: $PASSED (guard refused as expected)"
+echo "FAILED: $FAILED (guard allowed or wrong reason)"
 echo
 
-if [ "$KILLED" -eq "$MUTANTS_TOTAL" ] && [ "$SURVIVED" -eq 0 ]; then
-  echo "✅ All $MUTANTS_TOTAL checks are working - guard fully exercised"
+if [ "$PASSED" -eq "$TOTAL_CASES" ] && [ "$FAILED" -eq 0 ]; then
+  echo "✅ All $TOTAL_CASES refuse cases passed"
   exit 0
 else
-  echo "❌ Some checks are not working - guard has gaps"
+  echo "❌ Some refuse cases failed"
   exit 1
 fi

@@ -283,9 +283,14 @@ check_db_reset_guard_bash() {
   
   # Normalize both URLs for comparison (scheme, host, port, path)
   local normalized_supabase normalized_next_public
-  normalized_supabase=$(node -e "
+  normalized_supabase=$(SUPABASE_URL="$SUPABASE_URL" node -e "
     try {
-      const u = new URL('$SUPABASE_URL');
+      const urlStr = process.env.SUPABASE_URL;
+      if (!urlStr) {
+        console.log('EMPTY');
+        process.exit(0);
+      }
+      const u = new URL(urlStr);
       const host = u.hostname.toLowerCase();
       // Normalize localhost and 127.0.0.1
       const normalizedHost = (host === 'localhost' || host === '127.0.0.1' || /^127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\$/.test(host)) ? 'localhost' : host;
@@ -297,9 +302,14 @@ check_db_reset_guard_bash() {
     }
   " 2>/dev/null)
   
-  normalized_next_public=$(node -e "
+  normalized_next_public=$(NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" node -e "
     try {
-      const u = new URL('$NEXT_PUBLIC_SUPABASE_URL');
+      const urlStr = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      if (!urlStr) {
+        console.log('EMPTY');
+        process.exit(0);
+      }
+      const u = new URL(urlStr);
       const host = u.hostname.toLowerCase();
       const normalizedHost = (host === 'localhost' || host === '127.0.0.1' || /^127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\$/.test(host)) ? 'localhost' : host;
       const port = u.port || (u.protocol === 'https:' ? '443' : '80');
@@ -309,6 +319,21 @@ check_db_reset_guard_bash() {
       console.log('INVALID');
     }
   " 2>/dev/null)
+  
+  if [ "$normalized_supabase" = "EMPTY" ] || [ -z "$normalized_supabase" ]; then
+    [ "$mode" = "explain" ] && echo "REFUSE: SUPABASE_URL is required (tests use this to connect to the API - set it to match config.toml [api] port)"
+    return 1
+  fi
+  
+  if [ "$normalized_supabase" = "INVALID" ]; then
+    [ "$mode" = "explain" ] && echo "REFUSE: SUPABASE_URL is not a valid URL"
+    return 1
+  fi
+  
+  if [ "$normalized_next_public" = "EMPTY" ] || [ -z "$normalized_next_public" ]; then
+    [ "$mode" = "explain" ] && echo "REFUSE: NEXT_PUBLIC_SUPABASE_URL is required but unset"
+    return 1
+  fi
   
   if [ "$normalized_next_public" = "INVALID" ]; then
     [ "$mode" = "explain" ] && echo "REFUSE: NEXT_PUBLIC_SUPABASE_URL is not a valid URL"

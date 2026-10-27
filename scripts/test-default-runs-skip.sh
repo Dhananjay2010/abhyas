@@ -139,7 +139,8 @@ e1rm-formula-db          # dedicated e1RM test, gated by REAL_DB=1 in-chain
 ended-early-real-db      # real-DB integration test, gated by REAL_DB=1 in-chain
 seed-validity            # runs inline in CI job after seed, validates seed correctness
 skipped-session-shapes   # minimal real-DB test, already gated by REAL_DB=1 in-chain
-swap-guard-real-db"      # real-DB integration test, gated by REAL_DB=1 in-chain
+swap-guard-real-db       # real-DB integration test, gated by REAL_DB=1 in-chain
+"
 
 # Manual-only tests: discovered but NOT in chain (warn but don't fail)
 MANUAL_ONLY_ALLOWLIST="first-build-ended-on
