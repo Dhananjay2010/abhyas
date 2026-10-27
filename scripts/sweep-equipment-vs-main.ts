@@ -16,15 +16,14 @@ const currentProgression = fs.readFileSync("src/lib/program/progression.ts", "ut
 fs.writeFileSync("src/lib/program/progression.ts", mainProgression);
 
 // Dynamic import for main's version
-const mainModule = await import("../src/lib/program/progression.js");
+const mainModule = await import("../src/lib/program/progression.js?" + Date.now());
 const mainEval = mainModule.evaluateProgression;
 
 // Restore current version
 fs.writeFileSync("src/lib/program/progression.ts", currentProgression);
 
-// Re-import current version
-delete (await import("../src/lib/program/progression.js"));
-const currentModule = await import("../src/lib/program/progression.js?" + Date.now());
+// Re-import current version with fresh cache key
+const currentModule = await import("../src/lib/program/progression.js?" + Date.now() + "current");
 const currentEval = currentModule.evaluateProgression;
 
 const COMPOUND: ExerciseMeta = {
