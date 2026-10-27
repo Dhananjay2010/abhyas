@@ -84,63 +84,79 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
     units: UnitsPreference; 
     shouldAccept: boolean;
     desc: string;
+    expectedKg?: number;
   }> = [
     { value: "55.4", units: "imperial", shouldAccept: false, desc: "imperial just below lower (55.4 lb)" },
-    { value: "55.5", units: "imperial", shouldAccept: true, desc: "imperial lower bound (55.5 lb)" },
-    { value: "661", units: "imperial", shouldAccept: true, desc: "imperial upper bound (661 lb)" },
+    { value: "55.5", units: "imperial", shouldAccept: true, desc: "imperial lower bound (55.5 lb)", expectedKg: 25.2 },
+    { value: "661", units: "imperial", shouldAccept: true, desc: "imperial upper bound (661 lb)", expectedKg: 299.8 },
     { value: "661.1", units: "imperial", shouldAccept: false, desc: "imperial just above upper (661.1 lb)" },
     { value: "", units: "imperial", shouldAccept: false, desc: "empty string (imperial)" },
     { value: "24.9", units: "metric", shouldAccept: false, desc: "metric just below lower (24.9 kg)" },
-    { value: "25", units: "metric", shouldAccept: true, desc: "metric lower bound (25 kg)" },
-    { value: "300", units: "metric", shouldAccept: true, desc: "metric upper bound (300 kg)" },
+    { value: "25", units: "metric", shouldAccept: true, desc: "metric lower bound (25 kg)", expectedKg: 25 },
+    { value: "300", units: "metric", shouldAccept: true, desc: "metric upper bound (300 kg)", expectedKg: 300 },
     { value: "300.1", units: "metric", shouldAccept: false, desc: "metric just above upper (300.1 kg)" },
   ];
 
-  for (const { value, units, shouldAccept, desc } of parityTestCases) {
+  for (const { value, units, shouldAccept, desc, expectedKg } of parityTestCases) {
     // Test Progress LogWeight component
     let progressAccepted = false;
+    let progressCapturedKg: number | null = null;
     let progressError: string | null = null;
 
     const { container: progressContainer, unmount: progressUnmount } = render(
       React.createElement(LogWeight, {
         current: null,
         units,
-        logAction: async () => {
+        logAction: async (data) => {
           progressAccepted = true;
+          progressCapturedKg = data.weightKg;
           return { ok: true as const };
         }
       })
     );
 
+    // Must find open button or fail
+    await waitFor(() => {
+      const openButton = progressContainer.querySelector("button");
+      if (!openButton) throw new Error("Progress open button not found");
+    });
+    
     const openButton = progressContainer.querySelector("button");
-    if (openButton) fireEvent.click(openButton);
+    if (!openButton) throw new Error("Progress open button not found");
+    fireEvent.click(openButton);
 
     await waitFor(() => {
       const input = progressContainer.querySelector<HTMLInputElement>("input[type='number']");
-      return input !== null;
+      if (!input) throw new Error("Progress input not found");
     });
 
     const progressInput = progressContainer.querySelector<HTMLInputElement>("input[type='number']");
-    if (progressInput) {
-      act(() => {
-        fireEvent.change(progressInput, { target: { value } });
-      });
-      
+    if (!progressInput) throw new Error("Progress input not found after waitFor");
+    
+    act(() => {
+      fireEvent.change(progressInput, { target: { value } });
+    });
+    
+    // Must find submit button or fail
+    await waitFor(() => {
       const submitButton = Array.from(progressContainer.querySelectorAll("button")).find(
         (btn) => btn.textContent?.includes("Save") || btn.textContent?.includes("Log")
       );
-      if (submitButton) {
-        await act(async () => {
-          fireEvent.click(submitButton);
-          // Give startTransition time to process
-          await new Promise(resolve => setTimeout(resolve, 100));
-        });
-        
-        // Now check the results
-        const errorEl = progressContainer.querySelector("[role='alert']");
-        progressError = errorEl ? errorEl.textContent : null;
-      }
-    }
+      if (!submitButton) throw new Error("Progress submit button not found");
+    });
+
+    const submitButton = Array.from(progressContainer.querySelectorAll("button")).find(
+      (btn) => btn.textContent?.includes("Save") || btn.textContent?.includes("Log")
+    );
+    if (!submitButton) throw new Error("Progress submit button not found after waitFor");
+
+    await act(async () => {
+      fireEvent.click(submitButton);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+    
+    const errorEl = progressContainer.querySelector("[role='alert']");
+    progressError = errorEl ? errorEl.textContent : null;
 
     progressUnmount();
 
@@ -150,6 +166,16 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
         progressAccepted && progressError === null,
         `accepted=${progressAccepted}, error="${progressError}"`
       );
+      
+      if (expectedKg !== undefined) {
+        const tolerance = 0.1;
+        const kgMatch = progressCapturedKg !== null && Math.abs(progressCapturedKg - expectedKg) < tolerance;
+        check(
+          `Progress ${desc}: logAction receives ~${expectedKg} kg`,
+          kgMatch,
+          `got ${progressCapturedKg}, expected ${expectedKg}`
+        );
+      }
     } else {
       check(
         `Progress ${desc}: ${value === "" ? "rejects empty" : "rejects with error"}`,
@@ -169,10 +195,12 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
 
     // Test Onboarding body-weight input (from OnboardingFlow at "about" step)
     let onboardingError: string | null = null;
+    let onboardingCapturedKg: number | null = null;
 
     const mockActions = {
       acceptDisclaimer: async () => ({ ok: true as const }),
-      saveAboutYou: async () => {
+      saveAboutYou: async (data: { weightKg: number; heightCm: number; sex: string }) => {
+        onboardingCapturedKg = data.weightKg;
         return { ok: true as const };
       },
       saveProfileFields: async () => ({ ok: true as const }),
@@ -212,14 +240,14 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
 
     await waitFor(() => {
       const input = onboardingContainer.querySelector<HTMLInputElement>("input[type='number']");
-      return input !== null;
+      if (!input) throw new Error("Onboarding input not found");
     });
 
     const onboardingWeightInput = onboardingContainer.querySelector<HTMLInputElement>("input[type='number']");
-    if (onboardingWeightInput) {
-      fireEvent.change(onboardingWeightInput, { target: { value } });
-      fireEvent.blur(onboardingWeightInput);
-    }
+    if (!onboardingWeightInput) throw new Error("Onboarding input not found after waitFor");
+    
+    fireEvent.change(onboardingWeightInput, { target: { value } });
+    fireEvent.blur(onboardingWeightInput);
 
     await waitFor(() => {
       const errorEl = onboardingContainer.querySelector("p.text-danger");
@@ -243,14 +271,17 @@ console.log("\n=== L-b: Onboarding and Progress parity (component rendering) ===
         `error="${onboardingError}", expected="${expectedError}"`
       );
     }
-  }
 
-  console.log("\n=== Mutant tests ===\n");
-  console.log("Mutant: onboarding parseBodyWeight → parseWeight");
-  console.log("Expected: 'Onboarding imperial just below lower (55.4 lb): shows error' would fail\n");
-  
-  console.log("Mutant: progress parseBodyWeight → parseWeight");
-  console.log("Expected: 'Progress imperial just below lower (55.4 lb): rejects with error' would fail\n");
+    if (shouldAccept && expectedKg !== undefined) {
+      const tolerance = 0.1;
+      const kgMatch = onboardingCapturedKg !== null && Math.abs(onboardingCapturedKg - expectedKg) < tolerance;
+      check(
+        `Onboarding ${desc}: saveAboutYou receives ~${expectedKg} kg`,
+        kgMatch,
+        `got ${onboardingCapturedKg}, expected ${expectedKg}`
+      );
+    }
+  }
 
   console.log("");
 
