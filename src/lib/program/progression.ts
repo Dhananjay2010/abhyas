@@ -670,29 +670,26 @@ export function evaluateProgression(input: {
       const isKettlebell = equipmentIds.includes('kettlebell');
       
       if (isKettlebell) {
-        // Kettlebell: move to next bell (smallest bell strictly > from)
-        const bells = KETTLEBELL_WEIGHTS_KG;
-        const epsilon = 0.001;
-        let found = from; // Default to hold if at max
-        for (const bell of bells) {
-          if (bell > from + epsilon) {
-            found = bell;
-            break;
-          }
-        }
-        next = found;
+        // Kettlebell: apply increment + easy doubling, then round to next available bell
+        const increment = incrementFor(meta, equipmentIds);
+        const isCompound = meta.mechanic === "compound";
+        const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? increment * 2 : increment;
+        const rawNext = from + jump;
+        next = roundToGrid(rawNext, equipmentIds, 'kg', increment, 'up');
       } else {
-        // Standard equipment: snap DOWN to largest loadable value <= from, then add one step.
-        // This ensures the jump never exceeds one grid step.
-        // Snap DOWN (floor) to the grid
+        // Standard equipment: snap DOWN to largest loadable value <= from, then add one increment.
+        // The cap is ONE INCREMENT (5kg lower-body compound, 2.5kg upper-body compound),
+        // which may span multiple grid steps. 'Easy' feel doubles the increment.
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
         const snappedFrom = Math.floor(from / gridStep) * gridStep;
         
-        // Add one step (or double increment for 'easy' feel on compound exercises only)
-        const mechanicInc = incrementFor(meta, equipmentIds);
-        const easyJump = Math.ceil((2 * mechanicInc) / gridStep) * gridStep;
+        // Get the mechanic increment (5kg for lower-body compound, 2.5kg otherwise)
+        const increment = incrementFor(meta, equipmentIds);
         const isCompound = meta.mechanic === "compound";
-        next = snappedFrom + (feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? Math.max(gridStep, easyJump) : gridStep);
+        const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? increment * 2 : increment;
+        
+        // Add max(gridStep, jump) to ensure we always move forward
+        next = snappedFrom + Math.max(gridStep, jump);
       }
     } else {
       // No equipment info: use standard increment, doubled when easy (preserve old behavior)

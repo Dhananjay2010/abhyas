@@ -425,13 +425,30 @@ l4b_no_snap_step() {
   fi
   # Comment out the snap line, use from directly
   sed -i 's|const snappedFrom = Math\.floor(from / gridStep) \* gridStep;|// const snappedFrom = Math.floor(from / gridStep) * gridStep; // MUTANT|' "$file"
-  sed -i 's|next = snappedFrom + gridStep;|next = from + gridStep;|' "$file"
+  sed -i 's|next = snappedFrom + Math\.max(gridStep, jump);|next = from + Math.max(gridStep, jump);|' "$file"
   if cmp -s "$file" "$BACKUP_PROG"; then
     echo "ERROR: L4B-2 did not change the file" >&2
     return 1
   fi
 }
 test_mutant "L4B-2: no snap, step from raw stored weight" l4b_no_snap_step
+
+# CAP-1: Cap at gridStep only (not max(gridStep, increment))
+cap_gridstep_only() {
+  local file="$PROG"
+  local search='next = snappedFrom + Math.max(gridStep, jump);'
+  local count=$(grep -Fc "$search" "$file" || true)
+  if [ "$count" -ne 1 ]; then
+    echo "ERROR: Pattern found $count times (expected 1)" >&2
+    return 1
+  fi
+  sed -i 's|next = snappedFrom + Math\.max(gridStep, jump);|next = snappedFrom + gridStep;|' "$file"
+  if ! grep -q 'next = snappedFrom + gridStep;' "$file"; then
+    echo "ERROR: CAP-1 mutation did not apply" >&2
+    return 1
+  fi
+}
+test_mutant "CAP-1: cap at gridStep (not max(gridStep, increment))" cap_gridstep_only
 
 # L4B-3: Drop equipmentIds (make progressionInputsFromExercise return empty)
 l4b_drop_equipment() {
