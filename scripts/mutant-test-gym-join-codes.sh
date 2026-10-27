@@ -100,6 +100,9 @@ run_mutant_migration_file() {
   # Backup migration file
   cp "$migration_file" "$migration_file.backup"
   
+  # Set trap to restore migration file on exit
+  trap "mv '$migration_file.backup' '$migration_file' 2>/dev/null || true" EXIT
+  
   # Apply mutation
   eval "$sed_command \"$migration_file\"" > "$migration_file.tmp"
   
@@ -107,8 +110,9 @@ run_mutant_migration_file() {
   if cmp -s "$migration_file" "$migration_file.tmp"; then
     echo "  ⚠️  SKIPPED: sed did not change the file"
     SKIPPED+=("$name: sed pattern not found")
-    mv "$migration_file.backup" "$migration_file"
     rm -f "$migration_file.tmp"
+    trap - EXIT
+    mv "$migration_file.backup" "$migration_file"
     sleep 2
     return 0
   fi
@@ -121,8 +125,9 @@ run_mutant_migration_file() {
     if ! npx supabase@2.122.0 db reset > "$reset_output" 2>&1; then
       echo "  ❌ SKIPPED: db reset failed"
       SKIPPED+=("$name: db reset failed")
-      mv "$migration_file.backup" "$migration_file"
       rm -f "$reset_output"
+      trap - EXIT
+      mv "$migration_file.backup" "$migration_file"
       sleep 2
       return 0
     fi
@@ -130,8 +135,9 @@ run_mutant_migration_file() {
     if ! npx supabase@2.122.0 db reset --db-url "$SUPABASE_DB_URL" > "$reset_output" 2>&1; then
       echo "  ❌ SKIPPED: db reset failed"
       SKIPPED+=("$name: db reset failed")
-      mv "$migration_file.backup" "$migration_file"
       rm -f "$reset_output"
+      trap - EXIT
+      mv "$migration_file.backup" "$migration_file"
       sleep 2
       return 0
     fi
@@ -151,8 +157,16 @@ run_mutant_migration_file() {
     test2_passed=true
   fi
   
-  # Restore migration file immediately
+  # Restore migration file and reset DB to clean state
+  trap - EXIT
   mv "$migration_file.backup" "$migration_file"
+  
+  # Reset DB again so later CI steps see the real migration 042
+  if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
+    npx supabase@2.122.0 db reset > /dev/null 2>&1 || true
+  else
+    npx supabase@2.122.0 db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1 || true
+  fi
   
   if [ "$test1_passed" = true ] && [ "$test2_passed" = true ]; then
     echo "  ❌ SURVIVED (both tests passed when they should have failed)"
@@ -343,7 +357,7 @@ run_mutant_migration_file \
   "(o) already_member returns no gym_name" \
   "Remove gym_name from already_member jsonb_build_object calls" \
   "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
-  "sed \"s/, 'gym_name', v_code_record.gym_name//g\"" \
+  "sed \"/already_member/s/, 'gym_name', v_code_record.gym_name//\"" \
   "already_member includes gym_name"
 
 echo
