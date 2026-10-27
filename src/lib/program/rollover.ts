@@ -133,7 +133,10 @@ async function callRolloverRPC(
     ]);
 
   const profile = profileRes.data;
-  if (!profile) return { ok: false, error: "Unable to load your profile. Please try again." };
+  if (!profile) {
+    console.error("rollover: profile load failed", profileRes.error);
+    return { ok: false, error: "Unable to load your profile. Please try again." };
+  }
 
   const missing = ["goal", "level", "primary_track", "days_per_week"].filter(
     (k) => profile[k as keyof typeof profile] === null,
@@ -209,6 +212,8 @@ async function callRolloverRPC(
   });
 
   if (error) {
+    // Friendly copy for the member; keep the original for diagnostics.
+    console.error("rollover_block failed", error);
     return { 
       ok: false, 
       error: "Unable to start your next training block. Please try again or contact support if this persists." 

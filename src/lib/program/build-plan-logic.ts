@@ -10,6 +10,10 @@ import { localDateString } from "@/lib/dates";
 import { buildRebuildPlanDeps } from "./rebuild-plan-deps";
 import { rebuildPlanCore } from "./rebuild-plan-core";
 
+/** Shown when the rebuild throws; the original error is logged, never shown. */
+export const REBUILD_FAILED_MESSAGE =
+  "We couldn't rebuild your plan just now. Please try again in a moment.";
+
 export type BuildPlanLogicResult =
   | { ok: true }
   | { ok: false; error: string };
@@ -48,9 +52,8 @@ export async function buildPlanLogic(
 
     return { ok: true };
   } catch (error) {
-    return { 
-      ok: false, 
-      error: error instanceof Error ? error.message : "An error occurred during rebuild" 
-    };
+    // The thrown message can carry raw PostgREST text; log it, show friendly copy.
+    console.error("buildPlanLogic: rebuild failed", error);
+    return { ok: false, error: REBUILD_FAILED_MESSAGE };
   }
 }

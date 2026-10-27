@@ -16,17 +16,49 @@
  * from().select/eq/neq/order/limit/lt/in + single/maybeSingle/await, and rpc().
  * Programs state is mutated by the fake rollover_block like the real RPC does.
  *
- * Mutant M-B in scripts/test-rebuild-rollover-mutants.sh makes buildPlanLogic skip
- * rebuildPlanCore and call createBlockForUser(..., { mode: "rebuild" }) directly;
- * this test must then fail by assertion ("❌ FAIL").
+ * It also runs the REAL buildPlan server action (src/app/today/actions.ts) with
+ * next/cache, auth and the rate limiter stubbed, so the action itself is proven
+ * to delegate to buildPlanLogic (rollover_block, then rebuild_block).
+ *
+ * Clock: the global Date is faked (no-arg `new Date()` / `Date.now()`) to a
+ * far-off instant, 2031-06-15, so any code path that reads the wall clock
+ * instead of the pinned `now` gets a date no assertion accepts, whatever the
+ * real date is. Only the action section moves the global clock to NOW, because
+ * the action takes no clock argument.
+ *
+ * Mutants in scripts/test-rebuild-rollover-mutants.sh that this test must kill
+ * by assertion ("❌ FAIL"):
+ *   B  buildPlanLogic skips rebuildPlanCore (createBlockForUser rebuild directly)
+ *   C  the buildPlan action calls createBlockForUser directly (main's old body)
+ *   T1 rebuild-plan-deps drops `today` from createBlockForUser
+ *   T2 persist.ts ignores options.today
+ *   T4 buildPlanLogic reads the wall clock instead of `now`
+ *   E1 fetchActiveBlock swallows its error
+ *   G  buildPlanLogic's catch shows the raw error message
  *
  *   npx tsx scripts/test-build-plan-logic-wiring.ts
  */
 
+// ---- global fake clock -----------------------------------------------------
+const FAR_CLOCK = Date.UTC(2031, 5, 15, 12, 0, 0);
+let clockNow = FAR_CLOCK;
+{
+  const RealDate = Date;
+  class FixedDate extends RealDate {
+    constructor(...args: unknown[]) {
+      if (args.length === 0) super(clockNow);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      else super(...(args as [any]));
+    }
+    static now() { return clockNow; }
+  }
+  (globalThis as unknown as { Date: DateConstructor }).Date = FixedDate as unknown as DateConstructor;
+}
+
 import { readFileSync } from "fs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
-import { buildPlanLogic } from "../src/lib/program/build-plan-logic";
+import { buildPlanLogic, REBUILD_FAILED_MESSAGE } from "../src/lib/program/build-plan-logic";
 import { localDateString, addDays } from "../src/lib/dates";
 
 type Row = Record<string, unknown>;
@@ -38,7 +70,7 @@ type Op =
 // The committed fixture is exported from active rows only; restore the column the queries filter on.
 const catalogue = (JSON.parse(readFileSync("scripts/fixtures/catalogue.json", "utf8")) as Row[]).map((e) => ({ ...e, is_active: true }));
 
-function makeFake(opts: { timezone: string; programs: Row[] }) {
+function makeFake(opts: { timezone: string; programs: Row[]; failActiveFetch?: string; rolloverError?: string }) {
   const ops: Op[] = [];
   const programs = opts.programs.map((p) => ({ ...p }));
   const profile: Row = {
@@ -81,7 +113,13 @@ function makeFake(opts: { timezone: string; programs: Row[] }) {
       return { data: r, error: null };
     };
     c.single = () => Promise.resolve(run("single"));
-    c.maybeSingle = () => Promise.resolve(run("maybeSingle"));
+    c.maybeSingle = () => {
+      if (opts.failActiveFetch && table === "programs" && select === "id, ends_on") {
+        ops.push({ kind: "query", table, select, filters, terminal: "maybeSingle" });
+        return Promise.resolve({ data: null, error: { message: opts.failActiveFetch } });
+      }
+      return Promise.resolve(run("maybeSingle"));
+    };
     c.then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) => Promise.resolve(run("await")).then(res, rej);
     return c;
   }
@@ -90,9 +128,23 @@ function makeFake(opts: { timezone: string; programs: Row[] }) {
     ops.push({ kind: "rpc", name, args });
     const payload = args.p_payload as Row;
     if (name === "rollover_block") {
-      // Mirror the real RPC: close the ended active block as completed, open the next.
-      for (const p of programs) if (p.status === "active") { p.status = "completed"; p.ended_on = addDays(args.p_today as string, -1); }
-      programs.push({ id: payload.id, user_id: "u1", block_number: payload.block_number, started_on: args.p_today, ends_on: payload.ends_on, ended_on: null, status: "active" });
+      if (opts.rolloverError) return { data: null, error: { message: opts.rolloverError } };
+      // Mirror rollover_block (migration 20261025000023): the ended block is closed as
+      // completed with ended_on = its ends_on; the next block starts the day after,
+      // or on p_today (ending p_today + 27) for a late return more than a day after.
+      const today = args.p_today as string;
+      let startedOn = today;
+      let endsOn = payload.ends_on as string;
+      for (const p of programs) {
+        if (p.status !== "active") continue;
+        const ends = p.ends_on as string;
+        if (today <= ends) return { data: null, error: { message: "rollover_block: block has not ended" } };
+        const late = today > addDays(ends, 1);
+        startedOn = late ? today : addDays(ends, 1);
+        if (late) endsOn = addDays(today, 27);
+        p.status = "completed"; p.ended_on = ends;
+      }
+      programs.push({ id: payload.id, user_id: "u1", block_number: payload.block_number, started_on: startedOn, ends_on: endsOn, ended_on: null, status: "active", week_offset: 0 });
       return { data: payload.id, error: null };
     }
     if (name === "rebuild_block") return { data: payload.id, error: null };
@@ -115,7 +167,30 @@ const idx = (ops: Op[], pred: (o: Op) => boolean) => ops.findIndex(pred);
 const NOW = new Date(Date.UTC(2026, 9, 27, 20, 0, 0));
 const TZ = "Asia/Kolkata";
 
+/** Capture console.error while `fn` runs, so logged originals can be asserted. */
+async function captureErrors<T>(fn: () => Promise<T>): Promise<{ value: T; logged: string }> {
+  const orig = console.error;
+  const lines: string[] = [];
+  console.error = (...a: unknown[]) => { lines.push(a.map((x) => (x instanceof Error ? x.message : typeof x === "string" ? x : JSON.stringify(x))).join(" ")); };
+  try { return { value: await fn(), logged: lines.join("\n") }; } finally { console.error = orig; }
+}
+
+// ---- module stubs for the buildPlan server action ---------------------------
+let actionClient: SupabaseClient<Database> | null = null;
+const revalidated: string[] = [];
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const Module = require("module");
+const origRequire = Module.prototype.require;
+Module.prototype.require = function (id: string): unknown {
+  if (id === "next/cache") return { revalidatePath: (p: string) => { revalidated.push(p); } };
+  if (id === "@/lib/rate-limit/server-action") return { checkActionRateLimit: async () => null };
+  if (id === "@/lib/supabase/auth") return { getAuthedClient: async () => ({ supabase: actionClient, user: { id: "u1" } }) };
+  // eslint-disable-next-line prefer-rest-params
+  return origRequire.apply(this, arguments);
+};
+
 (async () => {
+  check("global clock faked far from the pinned instant (2031-06-15)", localDateString("UTC") === "2031-06-15", localDateString("UTC"));
   const localToday = localDateString(TZ, NOW);
   check("pinned clock: local date in Asia/Kolkata is 2026-10-28 (UTC date is 2026-10-27)", localToday === "2026-10-28" && localDateString("UTC", NOW) === "2026-10-27", localToday);
 
@@ -169,6 +244,62 @@ const TZ = "Asia/Kolkata";
     const names = rpcs(f.ops).map((r) => r.name);
     check("RPCs are exactly [rebuild_block] (no rollover in UTC)", JSON.stringify(names) === JSON.stringify(["rebuild_block"]), JSON.stringify(names));
     check("rebuild_block p_today is 2026-10-27", rpcs(f.ops)[0]?.args.p_today === "2026-10-27", String(rpcs(f.ops)[0]?.args.p_today));
+  }
+
+  console.log("\nB4: fetching the active block fails -> friendly error, original logged, nothing written");
+  {
+    const raw = "PGRST301 raw database text";
+    const f = makeFake({ timezone: TZ, failActiveFetch: raw, programs: [
+      { id: "old", user_id: "u1", block_number: 1, started_on: "2026-09-30", ends_on: "2026-10-27", ended_on: null, status: "active" },
+    ] });
+    const { value: res, logged } = await captureErrors(() => buildPlanLogic(f.client, "u1", NOW));
+    check("buildPlanLogic returns ok:false", res.ok === false, JSON.stringify(res));
+    check("member sees the friendly copy", !res.ok && res.error === REBUILD_FAILED_MESSAGE, JSON.stringify(res));
+    check("raw database text is not shown to the member", !res.ok && !res.error.includes(raw), JSON.stringify(res));
+    check("original error is logged", logged.includes(raw), logged || "nothing logged");
+    check("no RPC runs after the failed read", rpcs(f.ops).length === 0, JSON.stringify(rpcs(f.ops).map((r) => r.name)));
+  }
+
+  console.log("\nB5: rollover_block fails -> friendly rollover copy, original logged, no rebuild");
+  {
+    const raw = "rollover raw failure 23505";
+    const f = makeFake({ timezone: TZ, rolloverError: raw, programs: [
+      { id: "old", user_id: "u1", block_number: 1, started_on: "2026-09-30", ends_on: "2026-10-27", ended_on: null, status: "active" },
+    ] });
+    const { value: res, logged } = await captureErrors(() => buildPlanLogic(f.client, "u1", NOW));
+    check("buildPlanLogic returns ok:false", res.ok === false, JSON.stringify(res));
+    check("member sees friendly rollover copy, not the raw text", !res.ok && res.error.startsWith("Unable to start your next training block") && !res.error.includes(raw), JSON.stringify(res));
+    check("original rollover error is logged", logged.includes(raw), logged || "nothing logged");
+    check("rebuild_block never runs after a failed rollover", !rpcs(f.ops).some((r) => r.name === "rebuild_block"), JSON.stringify(rpcs(f.ops).map((r) => r.name)));
+  }
+
+  console.log("\nA1: the REAL buildPlan server action delegates to buildPlanLogic (rollover, then rebuild)");
+  {
+    const { buildPlan } = await import("../src/app/today/actions");
+    clockNow = NOW.getTime();
+    try {
+      const f = makeFake({ timezone: TZ, programs: [
+        { id: "old", user_id: "u1", block_number: 1, started_on: "2026-09-30", ends_on: "2026-10-27", ended_on: null, status: "active" },
+      ] });
+      actionClient = f.client;
+      revalidated.length = 0;
+      const res = await buildPlan();
+      check("buildPlan returns ok", res.ok === true, JSON.stringify(res));
+      const names = rpcs(f.ops).map((r) => r.name);
+      check("action RPCs are exactly [rollover_block, rebuild_block]", JSON.stringify(names) === JSON.stringify(["rollover_block", "rebuild_block"]), JSON.stringify(names));
+      check("action passes the member's local date to both RPCs", rpcs(f.ops).every((r) => r.args.p_today === localToday), JSON.stringify(rpcs(f.ops).map((r) => r.args.p_today)));
+      check("ended block closed as 'completed' by the action", f.programs.find((p) => p.id === "old")?.status === "completed", String(f.programs.find((p) => p.id === "old")?.status));
+      check("action revalidates Today, History and Progress", ["/today", "/history", "/progress"].every((p) => revalidated.includes(p)), JSON.stringify(revalidated));
+
+      const g = makeFake({ timezone: TZ, failActiveFetch: "raw action failure", programs: [] });
+      actionClient = g.client;
+      revalidated.length = 0;
+      const { value: bad } = await captureErrors(() => buildPlan());
+      check("action surfaces buildPlanLogic's friendly error", !bad.ok && bad.error === REBUILD_FAILED_MESSAGE, JSON.stringify(bad));
+      check("action does not revalidate after a failure", revalidated.length === 0, JSON.stringify(revalidated));
+    } finally {
+      clockNow = FAR_CLOCK;
+    }
   }
 
   console.log(failures ? `\n❌ ${failures} FAIL` : "\n✅ All buildPlanLogic wiring checks passed");
