@@ -745,14 +745,32 @@ async function runTests() {
     !!directInsertError && (directInsertError.message?.includes("row-level security") || 
     directInsertError.message?.includes("policy")));
   
-  const { error: directUpdateError } = await clientA
+  // UPDATE with no policy: silently matches 0 rows (no error in Postgres RLS)
+  // Read original state first
+  const { data: beforeUpdate } = await adminClient
     .from("gym_join_codes")
-    .update({ revoked_at: new Date().toISOString() })
-    .eq("id", memberCodeId);
-  check("Owner cannot UPDATE directly", !!directUpdateError);
-  check("UPDATE error is RLS policy violation",
-    !!directUpdateError && (directUpdateError.message?.includes("row-level security") || 
-    directUpdateError.message?.includes("policy")));
+    .select("use_count, revoked_at, expires_at")
+    .eq("id", memberCodeId)
+    .single();
+  
+  const testRevokedAt = new Date(Date.now() + 86400000).toISOString();
+  const { data: directUpdateResult } = await clientA
+    .from("gym_join_codes")
+    .update({ revoked_at: testRevokedAt })
+    .eq("id", memberCodeId)
+    .select();
+  check("Owner UPDATE matches 0 rows (no policy)", !directUpdateResult || directUpdateResult.length === 0);
+  
+  // Verify row is actually unchanged
+  const { data: afterUpdate } = await adminClient
+    .from("gym_join_codes")
+    .select("use_count, revoked_at, expires_at")
+    .eq("id", memberCodeId)
+    .single();
+  check("Row unchanged after UPDATE with no policy", 
+    afterUpdate?.use_count === beforeUpdate?.use_count &&
+    afterUpdate?.revoked_at === beforeUpdate?.revoked_at &&
+    afterUpdate?.expires_at === beforeUpdate?.expires_at);
   console.log();
 
   // TEST: Throttle limits at exactly 10 misses
