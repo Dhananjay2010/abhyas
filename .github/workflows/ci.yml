@@ -47,6 +47,9 @@ jobs:
       - name: Test DB reset guard (mutant tests)
         run: npm run ci:mutant-db-reset-guard
 
+      - name: Test join code wiring (mutant tests)
+        run: npm run ci:mutant-join-code-wiring
+
       - name: Test built service worker output
         run: npm run test:sw-built-output
         env:
@@ -394,6 +397,7 @@ jobs:
           REAL_DB=1 npm run test:gym-join-codes-comprehensive
           REAL_DB=1 npm run ci:mutant-gym-join-codes
           REAL_DB=1 npm run ci:migration-040-idempotent
+          REAL_DB=1 npm run ci:migration-042-idempotent
           REAL_DB=1 npm run test:gym-branding-real-db
           REAL_DB=1 npm run ci:mutant-gym-branding
           REAL_DB=1 npm run ci:migration-043-idempotent
