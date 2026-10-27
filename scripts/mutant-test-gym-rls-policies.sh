@@ -50,7 +50,7 @@ SKIPPED=()
 
 echo "Running baseline tests..."
 BASELINE_OUTPUT=$(mktemp)
-if ! supabase db reset > "$BASELINE_OUTPUT" 2>&1; then
+if ! supabase db reset --db-url "$SUPABASE_DB_URL" > "$BASELINE_OUTPUT" 2>&1; then
   echo "❌ Baseline: db reset failed" >&2
   cat "$BASELINE_OUTPUT"
   rm -f "$BASELINE_OUTPUT"
@@ -78,7 +78,7 @@ run_mutant() {
   
   # Reset database
   local reset_output=$(mktemp)
-  if ! supabase db reset > "$reset_output" 2>&1; then
+  if ! supabase db reset --db-url "$SUPABASE_DB_URL" > "$reset_output" 2>&1; then
     echo "  ❌ SKIPPED: db reset failed"
     SKIPPED+=("$name: db reset failed")
     rm -f "$reset_output"

@@ -501,7 +501,7 @@
     "png-chunk-text": "^1.0.0",
     "semver": "^7.8.5",
     "sharp": "^0.35.5",
-    "smol-toml": "^1.9.1",
+    "smol-toml": "1.9.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"

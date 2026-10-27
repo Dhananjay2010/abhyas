@@ -14,7 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
   ]),
   {
-    files: ["**/*.cjs"],
+    files: ["scripts/netspy.cjs"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
     },

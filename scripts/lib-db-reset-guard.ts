@@ -13,22 +13,37 @@ export interface GuardDecision {
 }
 
 function isLoopbackAddress(hostname: string): boolean {
-  // Check various loopback representations
-  if (hostname === "localhost" || hostname.startsWith("localhost.")) {
+  // Strict loopback check - case-sensitive, no evil subdomains
+  const lower = hostname.toLowerCase();
+  
+  // localhost only (not localhost.evil.com)
+  if (lower === "localhost") {
     return true;
   }
-  if (hostname === "127.0.0.1" || /^127\./.test(hostname)) {
+  
+  // IPv4 127.0.0.0/8 (not 127.1 shorthand)
+  if (lower === "127.0.0.1" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(lower)) {
     return true;
   }
-  if (hostname === "::1" || hostname === "[::1]") {
+  
+  // IPv6 loopback
+  if (lower === "::1" || lower === "[::1]") {
     return true;
   }
-  if (hostname === "[::ffff:127.0.0.1]" || /^\[::ffff:127\./.test(hostname)) {
+  
+  // IPv4-mapped IPv6 (but not [::ffff:127.0.0.1] - reject to force canonical form)
+  if (lower.startsWith("[::ffff:127.") && lower.endsWith("]")) {
+    const ipv4Part = lower.slice("[::ffff:".length, -1);
+    if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ipv4Part)) {
+      return false; // Reject - use canonical [::1] or 127.x.x.x
+    }
+  }
+  
+  // unspecified (0.0.0.0)
+  if (lower === "0.0.0.0") {
     return true;
   }
-  if (hostname === "0.0.0.0") {
-    return true;
-  }
+  
   return false;
 }
 
@@ -64,6 +79,33 @@ export function checkDbResetGuard(
       reason:
         "SUPABASE_DB_PORT env var is set (remove it or unset to prevent config.toml bypass)",
     };
+  }
+  
+  if (process.env.SUPABASE_WORKDIR) {
+    return {
+      allow: false,
+      reason:
+        "SUPABASE_WORKDIR env var is set (remove it to prevent CLI target override)",
+    };
+  }
+  
+  // Refuse other SUPABASE_* vars that could redirect CLI operations
+  const allowedSupabaseVars = new Set([
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY", 
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_DB_URL",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+  ]);
+  
+  for (const key of Object.keys(process.env)) {
+    if (key.startsWith("SUPABASE_") && !allowedSupabaseVars.has(key)) {
+      return {
+        allow: false,
+        reason: `${key} env var is set (unset non-allowlisted SUPABASE_* variables)`,
+      };
+    }
   }
 
   // Rule 4: Check for psql env vars
@@ -118,9 +160,20 @@ export function checkDbResetGuard(
     };
   }
 
-  const projectId = (parsed.project_id as string) || "";
+  // Validate project_id type
+  const rawProjectId = parsed.project_id;
+  if (typeof rawProjectId !== "string" && rawProjectId !== undefined) {
+    return {
+      allow: false,
+      reason: `project_id in ${configPath} must be a string, got ${typeof rawProjectId}`,
+    };
+  }
+  
+  const projectId = (rawProjectId as string | undefined) || "";
   const dbConfig = (parsed.db as Record<string, unknown>) || {};
   const dbPort = (dbConfig.port as number) || 54322;
+  const apiConfig = (parsed.api as Record<string, unknown>) || {};
+  const apiPort = (apiConfig.port as number) || 54321;
 
   // Check for env() in project_id
   if (projectId.includes("env(")) {
@@ -158,20 +211,13 @@ export function checkDbResetGuard(
     };
   }
 
-  // Rule 7: Refuse SUPABASE_DB_URL with query string override params
-  if (dbUrl.includes("?")) {
-    if (
-      /[?&]port=/.test(dbUrl) ||
-      /[?&]host=/.test(dbUrl) ||
-      /[?&]hostaddr=/.test(dbUrl) ||
-      /[?&]service=/.test(dbUrl)
-    ) {
-      return {
-        allow: false,
-        reason:
-          "SUPABASE_DB_URL contains override params in query string (port=, host=, hostaddr=, or service=)",
-      };
-    }
+  // Rule 7: Refuse SUPABASE_DB_URL with query string or percent-encoding (MED-3)
+  if (dbUrl.includes("?") || dbUrl.includes("%")) {
+    return {
+      allow: false,
+      reason:
+        "SUPABASE_DB_URL contains '?' or '%' (query params or percent-encoding not allowed)",
+    };
   }
 
   // Rule 8: Refuse multi-host URLs
@@ -218,6 +264,77 @@ export function checkDbResetGuard(
       allow: false,
       reason: "SUPABASE_DB_URL port is default 54322 (must use isolated port)",
     };
+  }
+  
+  // HIGH-1: SUPABASE_URL is required and must match config [api] port
+  const supabaseUrl = process.env.SUPABASE_URL;
+  if (!supabaseUrl) {
+    return {
+      allow: false,
+      reason:
+        "SUPABASE_URL is required (tests use this to connect to the API - set it to match config.toml [api] port)",
+    };
+  }
+  
+  // Refuse SUPABASE_URL with query string or percent-encoding
+  if (supabaseUrl.includes("?") || supabaseUrl.includes("%")) {
+    return {
+      allow: false,
+      reason:
+        "SUPABASE_URL contains '?' or '%' (query params or percent-encoding not allowed)",
+    };
+  }
+  
+  let parsedSupabaseUrl: URL;
+  try {
+    parsedSupabaseUrl = new URL(supabaseUrl);
+  } catch {
+    return {
+      allow: false,
+      reason: "SUPABASE_URL is not a valid URL",
+    };
+  }
+  
+  const supabaseHostname = parsedSupabaseUrl.hostname;
+  const supabasePort = parsedSupabaseUrl.port || "80";
+  
+  // Must be loopback
+  if (!isLoopbackAddress(supabaseHostname)) {
+    return {
+      allow: false,
+      reason: `SUPABASE_URL hostname (${supabaseHostname}) is not a local address`,
+    };
+  }
+  
+  // Must match config [api] port
+  if (supabasePort !== String(apiPort)) {
+    return {
+      allow: false,
+      reason: `SUPABASE_URL port (${supabasePort}) must match config.toml [api] port (${apiPort})`,
+    };
+  }
+  
+  // Refuse default API port
+  if (supabasePort === "54321") {
+    return {
+      allow: false,
+      reason: "SUPABASE_URL port is default 54321 (must use isolated port)",
+    };
+  }
+  
+  // If NEXT_PUBLIC_SUPABASE_URL is set, it must match SUPABASE_URL
+  const nextPublicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (nextPublicUrl) {
+    // Normalize for comparison (strip trailing slashes)
+    const normalizedSupabase = supabaseUrl.replace(/\/+$/, "");
+    const normalizedNextPublic = nextPublicUrl.replace(/\/+$/, "");
+    
+    if (normalizedNextPublic !== normalizedSupabase) {
+      return {
+        allow: false,
+        reason: `NEXT_PUBLIC_SUPABASE_URL (${nextPublicUrl}) must match SUPABASE_URL (${supabaseUrl})`,
+      };
+    }
   }
 
   return {

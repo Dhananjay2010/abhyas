@@ -44,6 +44,9 @@ project_id = "TestGym"
 
 [db]
 port = 54333
+
+[api]
+port = 54334
 EOF
 
 # Config with single-quoted project_id
@@ -52,6 +55,9 @@ project_id = 'TestGym'
 
 [db]
 port = 54333
+
+[api]
+port = 54334
 EOF
 
 # Config with comment after project_id
@@ -60,6 +66,9 @@ project_id = "TestGym" # "Fitness"
 
 [db]
 port = 54333
+
+[api]
+port = 54334
 EOF
 
 # Config with env() in project_id
@@ -68,6 +77,9 @@ project_id = "env(PROJ)"
 
 [db]
 port = 54333
+
+[api]
+port = 54334
 EOF
 
 echo "TEST: Bash guard - CI=true always allows"
@@ -257,7 +269,7 @@ fi
 echo
 
 echo "TEST: Bash guard - Single-quoted project_id parsed correctly"
-ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_URL="http://localhost:54334"
 if check_db_reset_guard_bash check "$TMPDIR/single-quote-config.toml"; then
   check "Single-quoted project_id allows" "0" "0"
 else
@@ -266,7 +278,7 @@ fi
 echo
 
 echo "TEST: Bash guard - Comment after project_id parsed correctly"
-ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_URL="http://localhost:54334"
 if check_db_reset_guard_bash check "$TMPDIR/comment-config.toml"; then
   check "Comment after project_id allows" "0" "0"
 else
@@ -284,7 +296,7 @@ fi
 echo
 
 echo "TEST: Bash guard - Non-default config with matching URL allows"
-ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_URL="http://localhost:54334"
 if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
   check "Non-default allows (config port=54333, URL port=54333)" "0" "0"
 else
@@ -320,8 +332,11 @@ port = 54333
 
 [db.pooler]
 port = 54329
+
+[api]
+port = 54334
 EOF
-ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres" SUPABASE_URL="http://localhost:54334"
 if check_db_reset_guard_bash check "$TMPDIR/pooler-config.toml"; then
   check "Pooler port ignored, [db] port used (54333)" "0" "0"
 else
@@ -355,11 +370,11 @@ const singleQuoteConfig = join(tmpDir, "single-quote.toml");
 const commentConfig = join(tmpDir, "comment.toml");
 const envConfig = join(tmpDir, "env.toml");
 
-writeFileSync(customConfig, 'project_id = "TestGym"\n\n[db]\nport = 54333\n');
-writeFileSync(defaultConfig, 'project_id = "Fitness"\n\n[db]\nport = 54322\n');
-writeFileSync(singleQuoteConfig, "project_id = 'TestGym'\n\n[db]\nport = 54333\n");
-writeFileSync(commentConfig, 'project_id = "TestGym" # "Fitness"\n\n[db]\nport = 54333\n');
-writeFileSync(envConfig, 'project_id = "env(PROJ)"\n\n[db]\nport = 54333\n');
+writeFileSync(customConfig, 'project_id = "TestGym"\n\n[db]\nport = 54333\n\n[api]\nport = 54334\n');
+writeFileSync(defaultConfig, 'project_id = "Fitness"\n\n[db]\nport = 54322\n\n[api]\nport = 54321\n');
+writeFileSync(singleQuoteConfig, "project_id = 'TestGym'\n\n[db]\nport = 54333\n\n[api]\nport = 54334\n");
+writeFileSync(commentConfig, 'project_id = "TestGym" # "Fitness"\n\n[db]\nport = 54333\n\n[api]\nport = 54334\n');
+writeFileSync(envConfig, 'project_id = "env(PROJ)"\n\n[db]\nport = 54333\n\n[api]\nport = 54334\n');
 
 try {
   console.log("TypeScript guard - CI=true allows");
@@ -501,13 +516,17 @@ try {
   console.log("TypeScript guard - Single-quoted project_id parsed correctly");
   process.env.ALLOW_DB_RESET = "1";
   process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  process.env.SUPABASE_URL = "http://localhost:54334";
   check("Single-quoted project_id allows", true, checkDbResetGuard(singleQuoteConfig).allow);
+  delete process.env.SUPABASE_URL;
   console.log();
 
   console.log("TypeScript guard - Comment after project_id parsed correctly");
   process.env.ALLOW_DB_RESET = "1";
   process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  process.env.SUPABASE_URL = "http://localhost:54334";
   check("Comment after project_id allows", true, checkDbResetGuard(commentConfig).allow);
+  delete process.env.SUPABASE_URL;
   console.log();
 
   console.log("TypeScript guard - env() in project_id refuses");
@@ -519,7 +538,9 @@ try {
   console.log("TypeScript guard - Non-default allows");
   process.env.ALLOW_DB_RESET = "1";
   process.env.SUPABASE_DB_URL = "postgresql://postgres:postgres@localhost:54333/postgres";
+  process.env.SUPABASE_URL = "http://localhost:54334";
   check("Non-default allows", true, checkDbResetGuard(customConfig).allow);
+  delete process.env.SUPABASE_URL;
   console.log();
 
   console.log("TypeScript guard - REAL_DB=1 required");

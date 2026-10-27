@@ -25,15 +25,24 @@ net.Socket.prototype.connect = function netspyConnect(...args) {
     options = options[0];
   }
   
-  // Build connection description
+  // Build connection description (swap port and host order for readability)
   const description =
     typeof options === 'object'
-      ? options.path || `${options.host || ''}:${options.port || ''}`
-      : String(options) + ':' + (args[1] || '');
+      ? options.path || `${options.port || ''}:${options.host || ''}`
+      : (args[1] || '') + ':' + String(options);
   
-  // Allow Unix domain sockets (tsx/esbuild IPC) but block TCP
+  // Allow Unix domain sockets ONLY for tsx/esbuild IPC, block all others including docker.sock
   if (typeof options === 'object' && options.path) {
-    return originalConnect.apply(this, args);
+    const path = options.path;
+    // Allow only tsx/esbuild internal IPC sockets
+    if (path.includes('/tsx-') || path.includes('/esbuild-')) {
+      return originalConnect.apply(this, args);
+    }
+    // Block all other Unix sockets (docker.sock, etc.)
+    record('CONNECT', `unix:${path}`);
+    const error = new Error('netspy blocked Unix socket connect: ' + path);
+    process.nextTick(() => this.destroy(error));
+    return this;
   }
   
   record('CONNECT', description);
@@ -59,12 +68,15 @@ for (const method of spawnMethods) {
   const original = cp[method];
   
   cp[method] = function netspySpawn(command, ...rest) {
+    // Normalize command to string (handle absolute paths)
+    const cmdBase = typeof command === 'string' ? command : String(command);
     const cmdString = Array.isArray(rest[0])
-      ? command + ' ' + rest[0].join(' ')
-      : String(command);
+      ? cmdBase + ' ' + rest[0].join(' ')
+      : cmdBase;
     
-    // Log non-esbuild spawns
-    if (!/esbuild/.test(cmdString)) {
+    // Log all spawns except tsx, esbuild, and npm self-spawns
+    const isInternal = /tsx|esbuild|npm/.test(cmdString) || cmdString.includes('node_modules');
+    if (!isInternal) {
       record('SPAWN', cmdString.slice(0, 200));
     }
     
