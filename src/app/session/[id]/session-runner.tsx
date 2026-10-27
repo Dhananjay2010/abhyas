@@ -1116,7 +1116,7 @@ export function SessionRunner({
         setSessionExpired(true);
         setError(null);
       } else {
-        setError(runnerErrorMessage(err, 'action'));
+        setError(runnerErrorMessage(err, 'set'));
         setSessionExpired(false);
       }
       busyRef.current = false;
