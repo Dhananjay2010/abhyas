@@ -4,6 +4,7 @@ import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { createBlockForUser } from "@/lib/program/persist";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import { cleanBannedPlannedExercises } from "@/lib/program/clean-banned-planned";
 
 export type BuildPlanResult = { ok: true } | { ok: false; error: string };
 
@@ -30,4 +31,26 @@ export async function buildPlan(): Promise<BuildPlanResult> {
 
   revalidateTrainingData();
   return { ok: true };
+}
+
+export type CleanBannedResult = { ok: true; cleaned: number } | { ok: false; error: string };
+
+/**
+ * Clean banned exercises from planned workouts (on-demand persistence).
+ * Called as a Server Action when user needs immediate cleanup.
+ */
+export async function cleanBannedExercises(): Promise<CleanBannedResult> {
+  const rateLimit = await checkActionRateLimit("expensive");
+  if (rateLimit) return rateLimit;
+  
+  const { supabase, user } = await getAuthedClient();
+  if (!user) return { ok: false, error: "Not signed in" };
+
+  const result = await cleanBannedPlannedExercises(supabase, user.id);
+  if (result.errors.length > 0) {
+    return { ok: false, error: result.errors[0] };
+  }
+
+  revalidateTrainingData();
+  return { ok: true, cleaned: result.cleaned };
 }

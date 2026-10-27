@@ -9,9 +9,9 @@
 import type { Database } from "@/lib/database.types";
 import { applyDeload } from "@/lib/program/prescription";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { replaceBannedInPlanned, type PlannedExercise } from "@/lib/program/replace-banned-in-planned";
-import type { CandidateExercise, GeneratorInput } from "@/lib/program/generate";
-import { buildInjuryFlags } from "@/lib/program/injury-regions";
+import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
+import type { CandidateExercise } from "@/lib/program/generate";
+import { cleanBannedPlannedExercises } from "@/lib/program/clean-banned-planned";
 
 /**
  * The metric to stamp on a session exercise, from an embedded `exercises` row.
@@ -33,11 +33,12 @@ export async function ensureSessionExercises(
   sessionId: string,
   catalogue?: CandidateExercise[],
   profile?: {
+    goal: Database["public"]["Enums"]["fitness_goal"];
     level: Database["public"]["Enums"]["fitness_level"];
     primary_track: Database["public"]["Enums"]["track_type"];
-    goal: Database["public"]["Enums"]["fitness_goal"];
     days_per_week: number;
     yoga_days_per_week: number;
+    has_all_equipment: boolean;
   } | null,
   injuries?: Array<{ body_region: Database["public"]["Enums"]["body_region"]; severity: "current" | "past" }>,
 ): Promise<void> {
@@ -64,48 +65,31 @@ export async function ensureSessionExercises(
     .order("order_index");
   if (!planned || planned.length === 0) return;
 
+  // Clean banned exercises in-memory (backstop), then persist if needed
   let cleanedPlanned = planned;
-  
   if (catalogue && profile && injuries) {
-    const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
+    const plannedForCleaning = planned.map(p => ({
+      id: p.id,
+      exercise_id: p.exercise_id,
+      order_index: p.order_index,
+      target_sets: p.target_sets,
+      target_reps_min: p.target_reps_min,
+      target_reps_max: p.target_reps_max,
+      rest_seconds: p.rest_seconds,
+    }));
     
-    if (anyKneeInjury) {
-      const generatorInput: GeneratorInput = {
-        userId,
-        blockNumber: 1,
-        goal: profile.goal,
-        level: profile.level,
-        primaryTrack: profile.primary_track,
-        daysPerWeek: profile.days_per_week,
-        yogaDaysPerWeek: profile.yoga_days_per_week,
-        age: null,
-        bmi: null,
-        hasAllEquipment: true,
-        equipmentIds: [],
-        currentInjuryRegions,
-        anyKneeInjury,
-        catalogue,
-      };
-      
-      const plannedForCleaning: PlannedExercise[] = planned.map(p => ({
-        id: p.id,
-        exercise_id: p.exercise_id,
-        order_index: p.order_index,
-        target_sets: p.target_sets,
-        target_reps_min: p.target_reps_min,
-        target_reps_max: p.target_reps_max,
-        rest_seconds: p.rest_seconds,
-      }));
-      
-      const result = replaceBannedInPlanned(plannedForCleaning, catalogue, generatorInput);
-      
-      if (result.changed) {
-        cleanedPlanned = planned.map((p, i) => ({
-          ...p,
-          exercise_id: result.rows[i].exercise_id,
-        }));
-      }
+    const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId);
+    
+    // Persist cleaned exercises to program_day_exercises
+    const changed = planned.some((p, i) => p.exercise_id !== cleaned[i].exercise_id);
+    if (changed) {
+      await cleanBannedPlannedExercises(supabase, userId);
     }
+    
+    cleanedPlanned = planned.map((p, i) => ({
+      ...p,
+      exercise_id: cleaned[i].exercise_id,
+    }));
   }
 
   // HIGH-2: Apply deload the same way as the fresh start path (actions.ts:232)

@@ -161,17 +161,103 @@ export default async function TodayPage() {
   // The week's days arrive with each day's exercises embedded. That is one
   // round trip instead of two, and it removes the dependency that forced the
   // exercise query to wait for the day query to name today's row.
-  const daysRes = await supabase
-    .from("program_days")
-    // One string literal: Supabase infers the row type from it, and a
-    // concatenation degrades the result to GenericStringError.
-    .select("id, day_index, day_type, focus, label, program_day_exercises(id, exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
-    .eq("status", "active")
-    .eq("program_id", program.id)
-    .order("day_index")
-    .order("order_index", { referencedTable: "program_day_exercises" });
+  const [daysRes, injuriesRes, catalogueRes] = await Promise.all([
+    supabase
+      .from("program_days")
+      // One string literal: Supabase infers the row type from it, and a
+      // concatenation degrades the result to GenericStringError.
+      .select("id, day_index, day_type, focus, label, program_day_exercises(id, exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
+      .eq("status", "active")
+      .eq("program_id", program.id)
+      .order("day_index")
+      .order("order_index", { referencedTable: "program_day_exercises" }),
+    supabase.from("user_injuries").select("body_region, severity"),
+    supabase.from("exercises").select("id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category").eq("is_active", true),
+  ]);
 
   let days = daysRes.data;
+  
+  // Clean banned exercises in-memory for knee users (no DB writes during render)
+  try {
+    const injuries = injuriesRes.data;
+    const hasKneeInjury = injuries?.some(inj => inj.body_region === "knee");
+    
+    if (hasKneeInjury && days && catalogueRes.data) {
+      const { buildInjuryFlags } = await import("@/lib/program/injury-regions");
+      const { replaceBannedInPlanned } = await import("@/lib/program/replace-banned-in-planned");
+      
+      const catalogue = catalogueRes.data as CandidateExercise[];
+      const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
+      
+      const generatorInput = {
+        userId: user.id,
+        blockNumber: 1,
+        goal: profile.goal,
+        level: profile.level,
+        primaryTrack: profile.primary_track,
+        daysPerWeek: profile.days_per_week,
+        yogaDaysPerWeek: profile.yoga_days_per_week,
+        age: null,
+        bmi: null,
+        hasAllEquipment: profile.has_all_equipment,
+        equipmentIds: [],
+        currentInjuryRegions,
+        anyKneeInjury,
+        catalogue,
+      };
+      
+      days = days.map(day => {
+        if (!day.program_day_exercises || day.program_day_exercises.length === 0) {
+          return day;
+        }
+        
+        type DayExercise = typeof day.program_day_exercises[number];
+        const planned = day.program_day_exercises.map((ex: DayExercise) => ({
+          id: ex.id,
+          exercise_id: ex.exercise_id,
+          order_index: ex.order_index,
+          target_sets: ex.target_sets,
+          target_reps_min: ex.target_reps_min,
+          target_reps_max: ex.target_reps_max,
+          rest_seconds: ex.rest_seconds,
+        }));
+        
+        const result = replaceBannedInPlanned(planned, catalogue, generatorInput);
+        
+        if (!result.changed) {
+          return day;
+        }
+        
+        const cleanedExercises = day.program_day_exercises.map((ex: DayExercise, i: number) => {
+          const cleanedId = result.rows[i].exercise_id;
+          if (ex.exercise_id === cleanedId) {
+            return ex;
+          }
+          
+          const newExercise = catalogue.find(e => e.id === cleanedId);
+          if (!newExercise) return ex;
+          
+          return {
+            ...ex,
+            exercise_id: cleanedId,
+            exercises: {
+              name: newExercise.name,
+              cue: null,
+              movement_pattern: newExercise.movement_pattern,
+              metric: newExercise.metric,
+            },
+          };
+        });
+        
+        return {
+          ...day,
+          program_day_exercises: cleanedExercises,
+        };
+      });
+    }
+  } catch (error) {
+    // Non-knee users or error: continue with original days
+  }
   // Derived from the user's own local date rather than re-reading the clock,
   // so the weekday and the date can never disagree at a midnight boundary.
   const todayIndex = isoWeekday(localToday);
