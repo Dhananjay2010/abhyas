@@ -61,7 +61,15 @@ assert(
   "Internal Server Error SHOULD be classified as 5xx"
 );
 
-// Test 5: "Status 500 Service Unavailable" SHOULD be 5xx (case insensitive)
+// Test 5: "500 Internal Server Error" SHOULD be 5xx  
+const error500 = new Error("500 Internal Server Error");
+const error500Result = runnerErrorMessage(error500);
+assert(
+  error500Result.includes("Something went wrong on our side"),
+  "500 Internal Server Error SHOULD be classified as 5xx"
+);
+
+// Test 6: "Status 500 Service Unavailable" SHOULD be 5xx (case insensitive)
 const status500Upper = new Error("Status 500 Service Unavailable");
 const status500UpperResult = runnerErrorMessage(status500Upper);
 assert(
@@ -69,7 +77,7 @@ assert(
   "Status 500 (uppercase) SHOULD be classified as 5xx"
 );
 
-// Test 6: "Request failed with status 599" SHOULD be 5xx
+// Test 7: "Request failed with status 599" SHOULD be 5xx
 const status599 = new Error("Request failed with status 599");
 const status599Result = runnerErrorMessage(status599);
 assert(
@@ -79,7 +87,7 @@ assert(
 
 console.log("\n=== Kind Parameter Tests ===\n");
 
-// Test 7: Offline with kind='set'
+// Test 8: Offline with kind='set'
 const offlineError = new TypeError("Failed to fetch");
 const offlineSetResult = runnerErrorMessage(offlineError, 'set');
 assert(
@@ -87,14 +95,14 @@ assert(
   "Offline error with kind='set' shows set-specific copy"
 );
 
-// Test 8: Offline with kind='action'
+// Test 9: Offline with kind='action'
 const offlineActionResult = runnerErrorMessage(offlineError, 'action');
 assert(
   offlineActionResult === "You're offline. That didn't go through, try again when you're back online.",
   "Offline error with kind='action' shows generic copy"
 );
 
-// Test 9: 5xx with kind='set'
+// Test 10: 5xx with kind='set'
 const server5xxError = new Error("status 500");
 const server5xxSetResult = runnerErrorMessage(server5xxError, 'set');
 assert(
@@ -102,7 +110,7 @@ assert(
   "5xx error with kind='set' shows set-specific copy"
 );
 
-// Test 10: 5xx with kind='action'
+// Test 11: 5xx with kind='action'
 const server5xxActionResult = runnerErrorMessage(server5xxError, 'action');
 assert(
   server5xxActionResult === "Something went wrong on our side. Please try again.",
