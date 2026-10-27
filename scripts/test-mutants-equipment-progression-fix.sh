@@ -10,6 +10,7 @@ BUILD_INPUT="src/lib/session/build-progression-input.ts"
 BUILD_RUNNER="src/lib/session/build-runner-exercises.ts"
 PROG_INPUTS="src/lib/session/progression-inputs.ts"
 SWAP_PREFILL="src/lib/session/swap-prefill.ts"
+FEEDBACK="src/lib/session/progression-feedback.ts"
 
 BACKUP_PROG=$(mktemp /tmp/prog-backup.XXXXXX.ts)
 BACKUP_ACTIONS=$(mktemp /tmp/actions-backup.XXXXXX.ts)
@@ -17,6 +18,7 @@ BACKUP_BUILD_INPUT=$(mktemp /tmp/build-input-backup.XXXXXX.ts)
 BACKUP_BUILD_RUNNER=$(mktemp /tmp/build-runner-backup.XXXXXX.ts)
 BACKUP_PROG_INPUTS=$(mktemp /tmp/prog-inputs-backup.XXXXXX.ts)
 BACKUP_SWAP=$(mktemp /tmp/swap-backup.XXXXXX.ts)
+BACKUP_FEEDBACK=$(mktemp /tmp/feedback-backup.XXXXXX.ts)
 
 cp "$PROG" "$BACKUP_PROG"
 cp "$ACTIONS" "$BACKUP_ACTIONS"
@@ -24,6 +26,7 @@ cp "$BUILD_INPUT" "$BACKUP_BUILD_INPUT"
 cp "$BUILD_RUNNER" "$BACKUP_BUILD_RUNNER"
 cp "$PROG_INPUTS" "$BACKUP_PROG_INPUTS"
 cp "$SWAP_PREFILL" "$BACKUP_SWAP"
+cp "$FEEDBACK" "$BACKUP_FEEDBACK"
 
 COUNT=0
 KILLED=0
@@ -70,6 +73,7 @@ TESTS=(
   "npm run test:m1-null-premiss-fallback"
   "npm run test:third-miss-step-down"
   "npm run test:imperial-units-full-path"
+  "npm run test:actions-imperial-behavioral-l4b4"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
@@ -462,19 +466,19 @@ l4b_drop_equipment() {
 }
 test_mutant "L4B-3: drop equipmentIds from progression input" l4b_drop_equipment
 
-# L4B-4: Drop units parameter (pass units via buildProgressionFeedbackForUser)
+# L4B-4: Hardcode units to metric in buildProgressionFeedbackForUser
 l4b_drop_units() {
-  local file="src/app/session/actions.ts"
-  # Mutate the last argument (getProfileUnits) passed to buildProgressionFeedbackForUser
-  local search='buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel, getProfileUnits);'
+  local file="src/lib/session/progression-feedback.ts"
+  # Mutate getProfileUnits call inside buildProgressionFeedbackForUser
+  local search='getProfileUnits(supabase, userId),'
   local count=$(grep -Fc "$search" "$file" || true)
   if [ "$count" -ne 1 ]; then
     echo "ERROR: Pattern not found (found $count times)" >&2
     return 1
   fi
-  # Replace getProfileUnits with async () => 'metric'
-  sed -i "s|buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel, getProfileUnits);|buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel, async () => 'metric' as UnitsPreference);|" "$file"
-  if ! grep -q "async () => 'metric' as UnitsPreference" "$file"; then
+  # Replace with Promise.resolve("metric")
+  sed -i "s|getProfileUnits(supabase, userId),|Promise.resolve<UnitsPreference>(\"metric\"),|" "$file"
+  if ! grep -q 'Promise.resolve<UnitsPreference>("metric")' "$file"; then
     echo "ERROR: L4B-4 mutation did not apply" >&2
     return 1
   fi
