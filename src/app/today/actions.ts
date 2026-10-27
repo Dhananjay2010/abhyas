@@ -43,11 +43,19 @@ export async function buildPlan(): Promise<BuildPlanResult> {
   const today = localDateString(timezone);
 
   const deps = buildRebuildPlanDeps(supabase, user.id, today);
-  const result = await rebuildPlanCore(deps);
-  if (!result.ok) {
-    return { ok: false, error: result.error };
-  }
+  
+  try {
+    const result = await rebuildPlanCore(deps);
+    if (!result.ok) {
+      return { ok: false, error: result.error };
+    }
 
-  revalidateTrainingData();
-  return { ok: true };
+    revalidateTrainingData();
+    return { ok: true };
+  } catch (error) {
+    return { 
+      ok: false, 
+      error: error instanceof Error ? error.message : "An error occurred during rebuild" 
+    };
+  }
 }

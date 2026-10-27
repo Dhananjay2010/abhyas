@@ -22,12 +22,15 @@ export function buildRebuildPlanDeps(
     today,
 
     async fetchActiveBlock() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("programs")
         .select("id, ends_on")
         .eq("user_id", userId)
         .eq("status", "active")
         .maybeSingle();
+      if (error) {
+        throw new Error(`Failed to fetch active block: ${error.message}`);
+      }
       return data;
     },
 
