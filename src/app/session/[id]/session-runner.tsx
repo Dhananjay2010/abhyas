@@ -997,10 +997,7 @@ export function SessionRunner({
         {current.workingWeightKg !== null && (
           <p className="mt-2 text-sm text-muted" data-testid="working-weight-line">
             Working weight {formatPrescribedWeight(
-              snapPrescribedWeight(
-                current.suggestedWeightKg ?? current.workingWeightKg,
-                settings.units
-              ),
+              current.suggestedWeightKg ?? current.workingWeightKg,
               settings.units
             )}
           </p>
