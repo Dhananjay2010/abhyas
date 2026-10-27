@@ -8,6 +8,8 @@
 
 import { strict as assert } from "node:assert";
 import { buildStartSessionFullDeps } from "../src/lib/session/start-session-full-deps";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../src/lib/database.types";
 
 // Fake Supabase client that simulates a swap collision:
 // - Today is Tuesday 2026-10-27 (index 2)
@@ -16,94 +18,120 @@ import { buildStartSessionFullDeps } from "../src/lib/session/start-session-full
 // - Today is scheduled for "day-tuesday-push" (weights)
 // - Collision: today's scheduled day was completed yesterday via swap
 // - Should rotate to "day-wednesday-legs" (weights, different label)
-const fakeSupabaseWithCollision = {
-  from: (table: string) => {
-    if (table === "program_days") {
-      return {
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              order: () => ({
-                data: [
-                  { id: "day-monday-rest", day_index: 1, day_type: "rest" as const, label: null },
-                  { id: "day-tuesday-push", day_index: 2, day_type: "weights" as const, label: "Push" },
-                  { id: "day-wednesday-legs", day_index: 3, day_type: "weights" as const, label: "Legs" },
-                  { id: "day-thursday-pull", day_index: 4, day_type: "weights" as const, label: "Pull" },
-                ],
-                error: null,
-              }),
-            }),
-          }),
-        }),
-      };
-    }
-    if (table === "sessions") {
-      return {
-        select: () => ({
-          eq: () => ({
+function makeFakeSupabaseWithCollision(): SupabaseClient<Database> {
+  return {
+    from: (table: string) => {
+      if (table === "program_days") {
+        return {
+          select: () => ({
             eq: () => ({
               eq: () => ({
                 order: () => ({
-                  limit: () => ({
-                    maybeSingle: async () => ({
-                      data: { program_day_id: "day-tuesday-push", actual_type: "weights" as const },
-                      error: null,
+                  data: [
+                    { id: "day-monday-rest", day_index: 1, day_type: "rest" as const, label: null },
+                    { id: "day-tuesday-push", day_index: 2, day_type: "weights" as const, label: "Push" },
+                    { id: "day-wednesday-legs", day_index: 3, day_type: "weights" as const, label: "Legs" },
+                    { id: "day-thursday-pull", day_index: 4, day_type: "weights" as const, label: "Pull" },
+                  ],
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "sessions") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                eq: () => ({
+                  order: () => ({
+                    limit: () => ({
+                      maybeSingle: async () => ({
+                        data: { program_day_id: "day-tuesday-push", actual_type: "weights" as const },
+                        error: null,
+                      }),
                     }),
                   }),
                 }),
               }),
             }),
           }),
-        }),
-      };
-    }
-    return {} as never;
-  },
-};
-
-const fakeSupabaseNoCollision = {
-  from: (table: string) => {
-    if (table === "program_days") {
+        };
+      }
       return {
         select: () => ({
           eq: () => ({
             eq: () => ({
               order: () => ({
-                data: [{ id: "day-monday-push", day_index: 1, day_type: "weights" as const, label: "Push" }],
+                data: [],
                 error: null,
               }),
             }),
           }),
         }),
       };
-    }
-    if (table === "sessions") {
-      return {
-        select: () => ({
-          eq: () => ({
+    },
+  } as SupabaseClient<Database>;
+}
+
+function makeFakeSupabaseNoCollision(): SupabaseClient<Database> {
+  return {
+    from: (table: string) => {
+      if (table === "program_days") {
+        return {
+          select: () => ({
             eq: () => ({
               eq: () => ({
                 order: () => ({
-                  limit: () => ({
-                    maybeSingle: async () => ({ data: null, error: null }),
+                  data: [{ id: "day-monday-push", day_index: 1, day_type: "weights" as const, label: "Push" }],
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "sessions") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                eq: () => ({
+                  order: () => ({
+                    limit: () => ({
+                      maybeSingle: async () => ({ data: null, error: null }),
+                    }),
                   }),
                 }),
               }),
             }),
           }),
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              order: () => ({
+                data: [],
+                error: null,
+              }),
+            }),
+          }),
         }),
       };
-    }
-    return {} as never;
-  },
-};
+    },
+  } as SupabaseClient<Database>;
+}
 
 (async () => {
   console.log("Test: buildStartSessionFullDeps.resolveTodayDay passthrough (mutant B)\n");
 
   console.log("1. When resolver finds collision, resolveTodayDay returns the resolved ID");
   {
-    const deps = buildStartSessionFullDeps(fakeSupabaseWithCollision as never, "user-123", Date.now());
+    const deps = buildStartSessionFullDeps(makeFakeSupabaseWithCollision(), "user-123", Date.now());
     const result = await deps.resolveTodayDay?.("prog-456", "2026-10-27");
 
     assert.ok(result !== null && result !== undefined, "resolveTodayDay must return non-null when collision detected");
@@ -116,7 +144,7 @@ const fakeSupabaseNoCollision = {
 
   console.log("\n2. When no collision, resolveTodayDay returns null");
   {
-    const deps = buildStartSessionFullDeps(fakeSupabaseNoCollision as never, "user-123", Date.now());
+    const deps = buildStartSessionFullDeps(makeFakeSupabaseNoCollision(), "user-123", Date.now());
     const result = await deps.resolveTodayDay?.("prog-456", "2026-10-27");
 
     assert.strictEqual(result, null, "resolveTodayDay must return null when no collision");
