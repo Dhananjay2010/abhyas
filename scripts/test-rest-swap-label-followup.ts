@@ -73,43 +73,82 @@ function applyFilters<T extends Record<string, unknown>>(data: T[], params: URLS
   let result = data;
 
   for (const [key, value] of params.entries()) {
-    if (key.startsWith("select") || key.startsWith("order") || key === "limit") continue;
+    if (key === "select" || key === "order" || key === "limit") continue;
 
-    const match = key.match(/^(.+)\[eq\]$/) || (value.startsWith("eq.") ? [null, key] : null);
-    if (match) {
-      const field = match[1] || key;
-      const val = value.startsWith("eq.") ? value.substring(3) : value;
-      result = result.filter((row) => String(row[field]) === val);
+    // Handle eq. prefix: field=eq.value
+    if (value.startsWith("eq.")) {
+      const val = value.substring(3);
+      result = result.filter((row) => String(row[key]) === val);
+      continue;
     }
 
+    // Handle in.(...) prefix: field=in.(val1,val2,...)
     if (value.startsWith("in.(")) {
-      const vals = value.substring(4, value.length - 1).split(",").map(v => v.replace(/"/g, ""));
-      result = result.filter((row) => vals.includes(String(row[key])));
+      const vals = value.substring(4, value.length - 1).split(",").map(v => v.replace(/"/g, "").trim());
+      result = result.filter((row) => {
+        const rowVal = row[key];
+        return rowVal != null && vals.includes(String(rowVal));
+      });
+      continue;
     }
 
+    // Handle lte. prefix: field=lte.value
     if (value.startsWith("lte.")) {
       const val = value.substring(4);
       result = result.filter((row) => {
         const fieldVal = row[key];
         return fieldVal != null && String(fieldVal) <= val;
       });
+      continue;
+    }
+
+    // Handle gte. prefix: field=gte.value
+    if (value.startsWith("gte.")) {
+      const val = value.substring(4);
+      result = result.filter((row) => {
+        const fieldVal = row[key];
+        return fieldVal != null && String(fieldVal) >= val;
+      });
+      continue;
+    }
+
+    // Handle neq. prefix: field=neq.value
+    if (value.startsWith("neq.")) {
+      const val = value.substring(4);
+      result = result.filter((row) => String(row[key]) !== val);
+      continue;
+    }
+
+    // Handle not.in.(...) prefix: field=not.in.(val1,val2,...)
+    if (value.startsWith("not.in.(")) {
+      const vals = value.substring(8, value.length - 1).split(",").map(v => v.replace(/"/g, "").trim());
+      result = result.filter((row) => {
+        const rowVal = row[key];
+        return rowVal == null || !vals.includes(String(rowVal));
+      });
+      continue;
     }
   }
 
   const orderParam = params.get("order");
   if (orderParam) {
-    const [field, dir] = orderParam.split(".");
-    const ascending = dir !== "desc";
-    result = result.slice().sort((a, b) => {
-      const aVal = a[field];
-      const bVal = b[field];
-      if (aVal == null || bVal == null) return 0;
-      const aStr = String(aVal);
-      const bStr = String(bVal);
-      if (aStr < bStr) return ascending ? -1 : 1;
-      if (aStr > bStr) return ascending ? 1 : -1;
-      return 0;
-    });
+    const parts = orderParam.split(",");
+    for (const part of parts) {
+      const [field, dir] = part.split(".");
+      const ascending = dir !== "desc";
+      result = result.slice().sort((a, b) => {
+        const aVal = a[field];
+        const bVal = b[field];
+        if (aVal == null && bVal == null) return 0;
+        if (aVal == null) return ascending ? 1 : -1;
+        if (bVal == null) return ascending ? -1 : 1;
+        const aStr = String(aVal);
+        const bStr = String(bVal);
+        if (aStr < bStr) return ascending ? -1 : 1;
+        if (aStr > bStr) return ascending ? 1 : -1;
+        return 0;
+      });
+    }
   }
 
   const limitParam = params.get("limit");
@@ -512,7 +551,7 @@ async function main() {
   const { nextDayPlan } = await import("../src/lib/program/day-plan");
 
   {
-    console.log("10. nextDayPlan with sessionId: Tue swap B + yoga → Wed resolves C");
+    console.log("10. nextDayPlan with sessionId: Tue rest→B swap + yoga → Wed detects swap, resolves collision to C (not B)");
 
     const client = buildClient({
       programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
@@ -520,39 +559,39 @@ async function main() {
       sessions: [
         { id: "s-mon-a", user_id: "u1", program_day_id: "A", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
         { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T10:00:00Z" },
-        { id: "s-tue-yoga", user_id: "u1", program_day_id: "B", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
-        { id: "s-wed-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
+        { id: "s-tue-yoga", user_id: "u1", program_day_id: "A", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
+        { id: "s-wed-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
       ],
     });
 
-    const result = await nextDayPlan(client, "America/New_York", "2026-10-29", { sessionId: "s-tue-b" });
+    const result = await nextDayPlan(client, "America/New_York", "2026-10-28", { sessionId: "s-tue-b" });
 
     assert.ok(result, "Should return next day plan");
-    assert.strictEqual(result.plannedLabel, "Full Body C", "Wed should serve C (yoga ignored via sessionId branch)");
+    assert.strictEqual(result.plannedLabel, "Full Body C", "Wed should serve C (collision: Tue B swap, Wed B scheduled); dropping actual_type would pick yoga A, miss swap detection, wrongly serve B");
 
-    console.log("  ✓ nextDayPlan with sessionId filters yoga (sessionId branch)\n");
+    console.log("  ✓ nextDayPlan with sessionId filters yoga (getTodayCompletedSession sessionId branch)\n");
   }
 
   {
-    console.log("11. nextDayPlan without sessionId: Tue swap B + yoga → Wed resolves C");
+    console.log("11. nextDayPlan without sessionId: Tue rest→B swap, yoga later → Wed detects swap, resolves collision to C (not B)");
 
     const client = buildClient({
       programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
       programDays: days3Full,
       sessions: [
         { id: "s-mon-a", user_id: "u1", program_day_id: "A", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T10:00:00Z" },
-        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T10:00:00Z" },
-        { id: "s-tue-yoga", user_id: "u1", program_day_id: "B", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
-        { id: "s-wed-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
+        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T10:00:00Z" },
+        { id: "s-tue-yoga", user_id: "u1", program_day_id: "A", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
+        { id: "s-wed-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
       ],
     });
 
-    const result = await nextDayPlan(client, "America/New_York", "2026-10-29");
+    const result = await nextDayPlan(client, "America/New_York", "2026-10-28");
 
     assert.ok(result, "Should return next day plan");
-    assert.strictEqual(result.plannedLabel, "Full Body C", "Wed should serve C (yoga ignored via no-sessionId branch)");
+    assert.strictEqual(result.plannedLabel, "Full Body C", "Wed should serve C (collision: Tue B swap, Wed B scheduled); dropping actual_type would pick newer yoga A, no collision, wrongly serve B");
 
-    console.log("  ✓ nextDayPlan without sessionId filters yoga (no-sessionId branch)\n");
+    console.log("  ✓ nextDayPlan without sessionId filters yoga (getTodayCompletedSession no-sessionId branch)\n");
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -561,7 +600,7 @@ async function main() {
   console.log("MED-B comprehensive: plannableDays currentSessionId scoping\n");
 
   {
-    console.log("12. plannableDays with currentSessionId: uses exact session (not latest)");
+    console.log("12. plannableDays with currentSessionId: uses exact session (not latest completed)");
 
     const client = buildClient({
       programDays: days3Full,
@@ -571,7 +610,7 @@ async function main() {
       ],
     });
 
-    // With currentSessionId pointing to B, nextUp should be C
+    // With currentSessionId pointing to B, nextUp should be C (after B)
     const plannable = await plannableDays(client, "prog-1", {
       afterDate: "2026-10-28",
       userId: "u1",
@@ -583,10 +622,10 @@ async function main() {
 
     assert.ok(cDay, "Should have Full Body C");
     assert.ok(aDay, "Should have Full Body A");
-    assert.strictEqual(cDay.nextUp, true, "C should have nextUp (after B via currentSessionId)");
-    assert.strictEqual(aDay.nextUp, false, "A should NOT have nextUp (latest is C, but we want B's next)");
+    assert.strictEqual(cDay.nextUp, true, "C should have nextUp (after B via .eq('id', currentSessionId)); dropping .eq would pick latest C and wrongly badge A");
+    assert.strictEqual(aDay.nextUp, false, "A should NOT have nextUp");
 
-    console.log("  ✓ plannableDays uses currentSessionId (not latest session)\n");
+    console.log("  ✓ plannableDays uses .eq('id', currentSessionId) not broad query\n");
   }
 
   {
