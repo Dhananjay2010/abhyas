@@ -51,7 +51,7 @@ SKIPPED=()
 echo "Running baseline tests..."
 baseline_output=$(mktemp)
 # In CI with local URL, use plain reset (already linked). Outside CI or with custom URL, use --db-url.
-if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" =~ localhost:54322 ]]; then
+if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
   if ! supabase db reset > /dev/null 2>&1; then
     echo "❌ Baseline: db reset failed" >&2
     exit 1
@@ -85,10 +85,19 @@ run_mutant() {
   echo "  $description"
   
   # Reset database
-  if ! supabase db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1; then
-    echo "  ❌ SKIPPED: db reset failed"
-    SKIPPED+=("$name: db reset failed")
-    return 0
+  # In CI with local URL, use plain reset. Outside CI or with custom URL, use --db-url.
+  if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" =~ localhost:54322 ]]; then
+    if ! supabase db reset > /dev/null 2>&1; then
+      echo "  ❌ SKIPPED: db reset failed"
+      SKIPPED+=("$name: db reset failed")
+      return 0
+    fi
+  else
+    if ! supabase db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1; then
+      echo "  ❌ SKIPPED: db reset failed"
+      SKIPPED+=("$name: db reset failed")
+      return 0
+    fi
   fi
   
   # Apply mutation via psql to the same DB
