@@ -714,8 +714,8 @@ export function evaluateProgression(input: {
         const isCompound = meta.mechanic === "compound";
         const jump = feel === "easy" && isCompound && !isBodyweightWithAddedWeight ? increment * 2 : increment;
         
-        // Add max(gridStep, jump) to ensure we always move forward
-        next = snappedFrom + Math.max(gridStep, jump);
+        // Add jump (incrementFor ensures jump >= gridStep for loadable equipment)
+        next = snappedFrom + jump;
       }
     } else {
       // No equipment info: use standard increment, doubled when easy (preserve old behavior)
