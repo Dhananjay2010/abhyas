@@ -456,8 +456,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
   {
     const actions: SessionActions = {
       markWarmupDone: async () => ({ ok: true }),
-      logSet: async (data) => {
-        capturedWeightKg = data.weightKg;
+      logSet: async () => {
         return { ok: true as const };
       },
       deleteSet: async () => ({ ok: true as const }),
