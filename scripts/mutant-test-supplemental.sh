@@ -89,9 +89,9 @@ test_mutant() {
 
 # H5: bar and band floor at 0
 test_mutant "H5 (floor = gridStep)" \
-  "        const floor = isBodyweightEquipment ? 0 : gridStep;" \
-  "        const floor = gridStep;" \
-  "npm run test:units-progression-messages" || true
+  "          const floor = isBodyweightEquipment ? 0 : gridStep;" \
+  "          const floor = gridStep;" \
+  "npm run test:zero-weight-real-path" || true
 
 # Z1: zero-weight message wording
 test_mutant "Z1 (zero message wording)" \

@@ -283,7 +283,7 @@ async function runTests() {
   console.log("\n5. Property check: next - stored <= one step, next on grid");
   console.log("   Testing barbell, dumbbell over range 10-100 kg");
   {
-    const offgridWeights = [10.3, 14.7, 23.1, 37.8, 49.2, 56.4, 63.9, 71.44, 72.35, 88.6, 95.1];
+    const offgridWeights = [10.3, 14.7, 23.1, 37.8, 49.2, 56.4, 63.9, 71.44, 72.35, 73.75, 88.6, 95.1];
     
     for (const equipment of ["barbell", "dumbbell"]) {
       const grid = 2.5;
@@ -304,7 +304,7 @@ async function runTests() {
   if (failures === 0) {
     console.log("✅ ALL PASS");
     console.log("Snap rule verified: floor to grid, then add one step");
-    console.log("Kills mutants: equipmentIds dropped, units dropped");
+    console.log("Kills mutants: equipmentIds dropped, units dropped, L4B-1 round instead of floor");
     process.exit(0);
   } else {
     console.log(`❌ ${failures} failure(s)`);

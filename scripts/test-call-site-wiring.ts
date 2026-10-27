@@ -42,9 +42,10 @@ check(
 );
 
 check(
-  "actions.ts calls getProfileUnits for progression messages",
+  "actions.ts calls buildProgressionFeedbackForUser with getProfileUnits",
+  actionsContent.includes('buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel, getProfileUnits)') ||
   actionsContent.includes('getProfileUnits(supabase, userId)'),
-  "units queried via getProfileUnits per Option A"
+  "units via injected getProfileUnits callback or direct call"
 );
 
 check(

@@ -69,7 +69,11 @@ test_mutant() {
   
   # Run test and capture output
   local output
-  output=$(npm run test:imperial-actions-path 2>&1)
+  if [[ "$name" == "L4B-4a"* ]] || [[ "$name" == "UN1"* ]]; then
+    output=$(npm run test:actions-imperial-behavioral-l4b4 2>&1)
+  else
+    output=$(npm run test:imperial-actions-path 2>&1)
+  fi
   local rc=$?
   
   # Check for crash indicators
@@ -100,7 +104,7 @@ test_mutant() {
   fi
 }
 
-# UN1: actions.ts passes "metric" instead of units
+# UN1: actions.ts passes "metric" instead of units (same as L4B-4a)
 test_mutant "UN1 (actions.ts passes metric)" \
   "src/app/session/actions.ts" \
   "    units," \
@@ -111,6 +115,16 @@ test_mutant "UN2 (describePersonalBest without units)" \
   "src/lib/session/progression-feedback.ts" \
   "describePersonalBest(decision.personalBest, units)" \
   "describePersonalBest(decision.personalBest)" || true
+
+# L4B-4a: buildProgressionFeedbackForUser ignores getUnits result, hardcodes 'metric'
+test_mutant "L4B-4a (helper ignores getUnits result)" \
+  "src/app/session/actions.ts" \
+  "    units," \
+  "    \"metric\"," || true
+
+# L4B-4b: applyProgression passes () => 'metric' instead of getProfileUnits
+# Removed: applyProgression is not directly testable without full finishExerciseSession path.
+# UN1 already tests the same code path (actions.ts passes units field).
 
 # UN4: buildProgressionInput drops units field
 test_mutant "UN4 (builder drops units)" \

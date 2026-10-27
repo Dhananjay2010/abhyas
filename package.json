@@ -441,6 +441,7 @@
     "test:hold-preserves-counter": "tsx scripts/test-hold-preserves-counter.ts",
     "test:hold-preserves-wafs": "tsx scripts/test-hold-preserves-wafs.ts",
     "test:imperial-actions-path": "tsx scripts/test-imperial-actions-path.ts",
+    "test:actions-imperial-behavioral-l4b4": "tsx scripts/test-actions-imperial-behavioral-l4b4.ts",
     "test:zero-weight-real-path": "tsx scripts/test-zero-weight-real-path.ts",
     "test:mutants-zero-weight": "bash scripts/mutant-test-zero-weight.sh",
     "test:mutants-imperial-units": "bash scripts/mutant-test-imperial-units.sh",

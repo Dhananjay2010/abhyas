@@ -445,23 +445,24 @@ l4b_drop_equipment() {
 }
 test_mutant "L4B-3: drop equipmentIds from progression input" l4b_drop_equipment
 
-# L4B-4: Drop units parameter (hardcode getProfileUnits to always return metric)
+# L4B-4: Drop units parameter (pass units via buildProgressionFeedbackForUser)
 l4b_drop_units() {
   local file="src/app/session/actions.ts"
-  # Find where getProfileUnits is called in Promise.all
-  local search='getProfileUnits(supabase, userId),'
+  # Find where getUnits callback is passed in buildProgressionFeedbackForUser
+  local search='getUnits(supabase, userId);'
   local count=$(grep -c "$search" "$file" || true)
-  if [ "$count" -ne 1 ]; then
-    echo "ERROR: Pattern found $count times (expected 1)" >&2
+  if [ "$count" -lt 1 ]; then
+    echo "ERROR: Pattern '$search' not found in $file" >&2
     return 1
   fi
-  sed -i "s|getProfileUnits(supabase, userId),|Promise.resolve('metric' as const), \/\/ MUTANT|" "$file"
-  if ! grep -q "Promise.resolve('metric' as const)" "$file"; then
+  # Mutate: hardcode metric instead of calling getUnits
+  sed -i "s|getUnits(supabase, userId);|async () => 'metric' as UnitsPreference;|g" "$file"
+  if ! grep -q "async () => 'metric' as UnitsPreference;" "$file"; then
     echo "ERROR: L4B-4 mutation did not apply" >&2
     return 1
   fi
 }
-test_mutant "L4B-4: drop units (hardcode getProfileUnits to metric)" l4b_drop_units
+test_mutant "L4B-4: drop units (hardcode getUnits to metric)" l4b_drop_units
 
 echo
 echo "==========================================="
