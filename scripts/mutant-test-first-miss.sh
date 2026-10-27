@@ -303,8 +303,20 @@ run_mutant \
 run_mutant \
   "(d') increment failures wrong" \
   "First miss should set consecutiveFailures to failures (1), not failures+1" \
-  "    consecutiveFailures: failures," \
-  "    consecutiveFailures: failures + 1,"
+  "  return {
+    ...carried,
+    outcome: \"hold\",
+    nextWorkingWeightKg: nextWeight,
+    consecutiveFailures: failures,
+    weightAtFailureStartKg: newWeightAtFailureStart, // M1: store pre-miss weight
+    message," \
+  "  return {
+    ...carried,
+    outcome: \"hold\",
+    nextWorkingWeightKg: nextWeight,
+    consecutiveFailures: failures + 1,
+    weightAtFailureStartKg: newWeightAtFailureStart, // M1: store pre-miss weight
+    message,"
 
 # Mutant (e): M1 counter not set on first miss (Decision G)
 run_mutant \
@@ -366,16 +378,18 @@ echo "  ⚠️  DELETED: Rule is unreachable (strictly-below ensures at most 1-s
 # Mutant (k'): kettlebell next-lower-bell < → <=
 run_mutant \
   "(k') kettlebell next-lower-bell boundary" \
-  "Kettlebell should find next-lower bell with <, not <=" \
-  "        if (bells[i] < from) {" \
-  "        if (bells[i] <= from) {"
+  "Kettlebell should find next-lower bell with >, not >=" \
+  "          if (bells[i] > from) {" \
+  "          if (bells[i] >= from) {"
 
 # Mutant (l'): first-miss message string changed
 run_mutant \
   "(l') first-miss message altered" \
   "First-miss message should be exact: 'Staying at this weight until every set reaches the top of the range.'" \
-  "    message: \"Staying at this weight until every set reaches the top of the range.\"," \
-  "    message: \"Holding at this weight until sets improve.\"," \
+  "      ? \"Staying here until every set reaches the top of the range.\"
+      : \"Staying at this weight until every set reaches the top of the range.\";" \
+  "      ? \"Staying here until every set reaches the top of the range.\"
+      : \"Holding at this weight until sets improve.\";" \
 
 # Mutant (m): snap down instead of snap up in two-miss helper
 run_mutant \

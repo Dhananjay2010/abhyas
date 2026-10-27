@@ -664,6 +664,28 @@ console.log("\n=== HARD-FEEL HOLD ===");
   check("Hard feel at 60 kg barbell: holds at 60", d.nextWorkingWeightKg === 60 && d.outcome === "hold");
 }
 
+// Test hard-feel with stored ≠ mode (kills mutant i)
+{
+  const d = evaluateProgression({
+    sets: [
+      { reps: 12, weightKg: 60 },
+      { reps: 12, weightKg: 60 },
+      { reps: 12, weightKg: 60 },
+      { reps: 12, weightKg: 60 },
+    ],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "hard",
+    meta: BENCH,
+    state: fresh({ currentWorkingWeightKg: 55, consecutiveFailures: 0 }), // stored 55, lifted 60
+    isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  check("Hard feel: stored 55, lifted 60 → holds at stored 55 (kills mutant i)", d.nextWorkingWeightKg === 55 && d.outcome === "hold");
+}
+
 console.log("\n=== IN-RANGE HOLD (4×10 in 8-12) ===");
 // Test that in-range sessions hold weight and reset failures
 {
