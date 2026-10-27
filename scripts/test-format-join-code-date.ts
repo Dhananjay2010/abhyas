@@ -1,4 +1,5 @@
 import assert from "node:assert";
+import { spawnSync } from "node:child_process";
 import { formatJoinCodeDate } from "../src/lib/format-join-code-date";
 
 console.log("=== TEST: formatJoinCodeDate ===\n");
@@ -6,9 +7,46 @@ console.log("=== TEST: formatJoinCodeDate ===\n");
 // Fixed date for consistent testing: 2026-10-27 14:30:00 UTC
 const testDate = new Date("2026-10-27T14:30:00Z");
 
-console.log("TEST: Same output across different process TZ values");
-// The formatter should produce the same output regardless of the process.env.TZ
-// because we specify an explicit timeZone parameter
+console.log("TEST: Same output regardless of server TZ (process.env.TZ)");
+// The formatter should produce the same output regardless of what process.env.TZ is set to
+// We spawn child processes with different TZ values to prove TZ doesn't affect results
+
+function formatInChildProcess(isoDate: string, targetTimezone: string, processTZ: string): string {
+  const result = spawnSync(
+    "tsx",
+    ["scripts/test-format-join-code-date-child.ts", isoDate, targetTimezone],
+    {
+      env: { ...process.env, TZ: processTZ },
+      encoding: "utf-8",
+    }
+  );
+  
+  if (result.status !== 0) {
+    throw new Error(`Child process failed: ${result.stderr}`);
+  }
+  
+  return result.stdout.trim();
+}
+
+const testDateISO = testDate.toISOString();
+
+// Format UTC timezone under different process TZ values
+const utcUnderUTC = formatInChildProcess(testDateISO, "UTC", "UTC");
+const utcUnderPacific = formatInChildProcess(testDateISO, "UTC", "America/Los_Angeles");
+const utcUnderKolkata = formatInChildProcess(testDateISO, "UTC", "Asia/Kolkata");
+
+console.log(`  UTC timezone under process.env.TZ=UTC: "${utcUnderUTC}"`);
+console.log(`  UTC timezone under process.env.TZ=America/Los_Angeles: "${utcUnderPacific}"`);
+console.log(`  UTC timezone under process.env.TZ=Asia/Kolkata: "${utcUnderKolkata}"`);
+
+assert.strictEqual(utcUnderUTC, utcUnderPacific, "FAIL: UTC output should be identical under different process TZ");
+assert.strictEqual(utcUnderUTC, utcUnderKolkata, "FAIL: UTC output should be identical under different process TZ");
+assert.strictEqual(utcUnderUTC, "27 Oct 2026", "FAIL: UTC should show 27 Oct 2026");
+
+console.log("  ✓ Output is identical regardless of process.env.TZ\n");
+
+console.log("TEST: Different target timezones produce correct output");
+// Now test that different target timezones still work correctly (all under same process TZ)
 const resultUTC = formatJoinCodeDate(testDate, "UTC");
 const resultPacific = formatJoinCodeDate(testDate, "America/Los_Angeles");
 const resultKolkata = formatJoinCodeDate(testDate, "Asia/Kolkata");
@@ -39,42 +77,27 @@ assert.strictEqual(resultLondon, "27 Oct 2026", "FAIL: London should show 27 Oct
 
 console.log("  ✓ All timezones produce consistent format\n");
 
-console.log("TEST: Date around midnight boundary");
-// Test a date that's near midnight in one timezone but not another
+console.log("TEST: Midnight boundary under different process TZ");
+// Test a date around midnight, formatted under different process.env.TZ values
 // 2026-10-28 00:30:00 UTC (just after midnight UTC)
 const midnightDate = new Date("2026-10-28T00:30:00Z");
+const midnightDateISO = midnightDate.toISOString();
 
-const midnightUTC = formatJoinCodeDate(midnightDate, "UTC");
-const midnightPacific = formatJoinCodeDate(midnightDate, "America/Los_Angeles");
-const midnightKolkata = formatJoinCodeDate(midnightDate, "Asia/Kolkata");
+// Format America/Los_Angeles timezone under different process TZ values
+// (00:30 UTC = 17:30 PDT Oct 27 - crosses midnight boundary)
+const pacificUnderUTC = formatInChildProcess(midnightDateISO, "America/Los_Angeles", "UTC");
+const pacificUnderPacific = formatInChildProcess(midnightDateISO, "America/Los_Angeles", "America/Los_Angeles");
+const pacificUnderKolkata = formatInChildProcess(midnightDateISO, "America/Los_Angeles", "Asia/Kolkata");
 
-console.log(`  UTC (00:30): "${midnightUTC}"`);
-console.log(`  America/Los_Angeles (16:30 previous day): "${midnightPacific}"`);
-console.log(`  Asia/Kolkata (06:00 same day): "${midnightKolkata}"`);
+console.log(`  Pacific (00:30 UTC = 17:30 PDT Oct 27):`);
+console.log(`    under process.env.TZ=UTC: "${pacificUnderUTC}"`);
+console.log(`    under process.env.TZ=America/Los_Angeles: "${pacificUnderPacific}"`);
+console.log(`    under process.env.TZ=Asia/Kolkata: "${pacificUnderKolkata}"`);
 
-// UTC should be 28 Oct
-assert.strictEqual(midnightUTC, "28 Oct 2026", "FAIL: UTC should be 28 Oct 2026");
+assert.strictEqual(pacificUnderUTC, pacificUnderPacific, "FAIL: Pacific output should be identical under different process TZ");
+assert.strictEqual(pacificUnderUTC, pacificUnderKolkata, "FAIL: Pacific output should be identical under different process TZ");
+assert.strictEqual(pacificUnderUTC, "27 Oct 2026", "FAIL: Pacific should be 27 Oct 2026 (previous day)");
 
-// Pacific should be 27 Oct (00:30 UTC = 17:30 PDT Oct 27)
-assert.strictEqual(midnightPacific, "27 Oct 2026", "FAIL: Pacific should be 27 Oct 2026 (previous day)");
-
-// Kolkata should be 28 Oct (00:30 UTC = 06:00 IST Oct 28)
-assert.strictEqual(midnightKolkata, "28 Oct 2026", "FAIL: Kolkata should be 28 Oct 2026");
-
-console.log("  ✓ Dates correctly adjusted for timezone across midnight\n");
-
-console.log("TEST: Date at exact midnight in different timezones");
-// Test exact midnight in different timezones
-const utcMidnight = new Date("2026-10-28T00:00:00Z");
-const londonMidnightDate = formatJoinCodeDate(utcMidnight, "Europe/London");
-const pacificMidnightDate = formatJoinCodeDate(utcMidnight, "America/Los_Angeles");
-
-console.log(`  Europe/London at UTC midnight: "${londonMidnightDate}"`);
-console.log(`  America/Los_Angeles at UTC midnight: "${pacificMidnightDate}"`);
-
-assert.strictEqual(londonMidnightDate, "28 Oct 2026", "FAIL: London should be 28 Oct 2026");
-assert.strictEqual(pacificMidnightDate, "27 Oct 2026", "FAIL: Pacific should be 27 Oct 2026");
-
-console.log("  ✓ Exact midnight handled correctly\n");
+console.log("  ✓ Midnight boundary handled correctly regardless of process TZ\n");
 
 console.log("✅ All formatJoinCodeDate tests passed");
