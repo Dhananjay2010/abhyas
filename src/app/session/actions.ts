@@ -17,7 +17,9 @@ import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps
 import { planDayCore } from "@/lib/session/plan-day-core";
 import { createPlanDayDbOps } from "@/lib/session/make-plan-day-client";
 import { localDateString } from "@/lib/dates";
-import { resolvePlanTargetDate } from "@/lib/session/resolve-plan-target-date";
+import { resolvePlanTargetDate, sessionPlanTargetDate } from "@/lib/session/resolve-plan-target-date";
+import type { ResolvePlanTargetDateDeps } from "@/lib/session/resolve-plan-target-date";
+import { makeFetchSessionLocalDate, type SessionLookupClient } from "@/lib/session/fetch-session-local-date";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
@@ -628,15 +630,8 @@ export async function planDay(input: {
   // Resolve target date (session.local_date + 1 or direct localDate)
   const targetResult = await resolvePlanTargetDate(
     {
-      async fetchSessionLocalDate(sessionId, userId) {
-        const { data, error } = await supabase
-          .from("sessions")
-          .select("local_date")
-          .eq("id", sessionId)
-          .eq("user_id", userId)
-          .maybeSingle();
-        return { localDate: data?.local_date ?? null, error: error?.message ?? null };
-      },
+      // Cast: real Supabase client is structurally compatible; types differ only in unused methods
+      fetchSessionLocalDate: makeFetchSessionLocalDate(supabase as unknown as SessionLookupClient),
     },
     { userId: user.id, sessionId: input.sessionId, localDate: input.localDate }
   );
