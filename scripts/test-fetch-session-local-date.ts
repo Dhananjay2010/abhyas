@@ -36,14 +36,14 @@ async function main() {
   const { supabase, eqCalls } = makeFakeSupabase();
 
   // Inline the fetch (simulates actions.ts implementation)
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("sessions")
     .select("local_date")
     .eq("id", "session-abc")
     .eq("user_id", "user-xyz")
     .maybeSingle();
   
-  const result = { localDate: data?.local_date ?? null, error: null };
+  const result = { localDate: data?.local_date ?? null };
 
   const check = (msg: string, pass: boolean) => {
     if (!pass) throw new Error(`❌ ${msg}`);
