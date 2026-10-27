@@ -248,12 +248,36 @@ if (caseCount !== mainFixture.totalCases) {
   process.exit(1);
 }
 
-if (diffsFound !== Object.keys(diffWhitelist).length) {
-  console.error(`\n❌ Diff count mismatch: expected ${Object.keys(diffWhitelist).length}, found ${diffsFound}`);
+if (diffsFound !== 328 || Object.keys(diffWhitelist).length !== 328) {
+  console.error(`\n❌ Diff count mismatch: expected exactly 328, found ${diffsFound}, whitelist has ${Object.keys(diffWhitelist).length}`);
   process.exit(1);
 }
 
-console.log(`\n✅ All ${caseCount} cases processed successfully`);
+let bucketMatches = 0;
+let bucketMismatches = 0;
+
+for (let i = 0; i < 64; i++) {
+  const actual = buckets[i];
+  const expected = mainFixture.buckets[i];
+
+  if (actual.hash === expected.hash && actual.count === expected.count) {
+    bucketMatches++;
+  } else {
+    bucketMismatches++;
+    console.log(
+      `Bucket ${i} MISMATCH:\n  Expected: ${expected.hash.slice(0, 16)}... (${expected.count} cases)\n  Actual:   ${actual.hash.slice(0, 16)}... (${actual.count} cases)`
+    );
+  }
+}
+
+if (bucketMismatches > 0) {
+  console.error(
+    `\n❌ ${bucketMismatches} bucket(s) differ from main. Behavior has changed without equipment.`
+  );
+  process.exit(1);
+}
+
+console.log(`\n✅ All ${bucketMatches} buckets match main. Behavior unchanged without equipment.`);
 console.log(`   ${diffsFound} whitelisted cases verified against branch behavior`);
 console.log(`   ${diffsExpected} cases expected to differ (all verified)`);
 console.log(`   Bucket hashes use mainOutput for whitelisted cases to match main's golden fixture`);

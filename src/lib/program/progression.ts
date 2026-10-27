@@ -995,19 +995,25 @@ export function evaluateProgression(input: {
         let message: string;
         if (stepped === 0) {
           if (equipmentIds.includes('resistance_band')) {
-            message = failures >= 3
-              ? "Missed three times in a row — dropping to no band to build up again."
-              : "Missed twice in a row — dropping to no band to build up again.";
+            message = state.consecutiveFailures >= 3
+              ? "Missed again — dropping to no band to build up again."
+              : state.consecutiveFailures === 2
+                ? "Missed three times in a row — dropping to no band to build up again."
+                : "Missed twice in a row — dropping to no band to build up again.";
           } else {
             // Pull-up bar or other bodyweight equipment
-            message = failures >= 3
-              ? "Missed three times in a row — dropping to bodyweight to build up again."
-              : "Missed twice in a row — dropping to bodyweight to build up again.";
+            message = state.consecutiveFailures >= 3
+              ? "Missed again — dropping to bodyweight to build up again."
+              : state.consecutiveFailures === 2
+                ? "Missed three times in a row — dropping to bodyweight to build up again."
+                : "Missed twice in a row — dropping to bodyweight to build up again.";
           }
         } else {
-          message = failures >= 3
-            ? `Missed three times in a row — dropping one step to ${displayWeight(stepped)} to break through.`
-            : `Missed twice in a row — dropping to ${displayWeight(stepped)} to build back.`;
+          message = state.consecutiveFailures >= 3
+            ? `Missed again — dropping one step to ${displayWeight(stepped)} to break through.`
+            : state.consecutiveFailures === 2
+              ? `Missed three times in a row — dropping one step to ${displayWeight(stepped)} to break through.`
+              : `Missed twice in a row — dropping to ${displayWeight(stepped)} to build back.`;
         }
         
         return {

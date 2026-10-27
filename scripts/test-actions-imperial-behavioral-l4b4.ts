@@ -118,7 +118,7 @@ console.log("=== L4B-4: buildProgressionFeedbackForUser with real createClient =
 (async () => {
   try {
     const supabase = createClient<Database>("http://fake.local", "anon-key", {
-      global: { fetch: fakeFetch as typeof fetch },
+      global: { fetch: fakeFetch },
       auth: { persistSession: false },
     });
     
