@@ -12,7 +12,9 @@
  * 
  * Run: npm run test:qa-low-b-page-call-site
  */
+import { createRequire } from "module";
 import { JSDOM } from "jsdom";
+import { isValidElement } from "react";
 
 const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true });
 const g = globalThis as Record<string, unknown>;
@@ -22,16 +24,19 @@ for (const k of ["window", "document", "HTMLElement", "Node", "navigator", "Mous
 g.IS_REACT_ACT_ENVIRONMENT = true;
 g.self = dom.window;
 
-// Fake Supabase client
-let fake: { tables: Record<string, unknown[]>; single: Record<string, unknown>; rpc: Record<string, unknown> } = { tables: {}, single: {}, rpc: {} };
+type FakeData = { tables: Record<string, unknown[]>; single: Record<string, unknown>; rpc: Record<string, unknown> };
+let fake: FakeData = { tables: {}, single: {}, rpc: {} };
+
+type QueryResult = { data: unknown; error: null };
+
 function chain(table: string) {
-  const list = { data: fake.tables[table] ?? [], error: null };
-  const one = { data: fake.single[table] ?? null, error: null };
+  const list: QueryResult = { data: fake.tables[table] ?? [], error: null };
+  const one: QueryResult = { data: fake.single[table] ?? null, error: null };
   const c: Record<string, unknown> = {};
   for (const m of ["select", "eq", "neq", "order", "limit", "in", "gte", "lte", "lt", "gt", "is", "not", "range"]) c[m] = () => c;
   c.single = () => Promise.resolve(one);
   c.maybeSingle = () => Promise.resolve(one);
-  c.then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) => Promise.resolve(list).then(res, rej);
+  c.then = (res: (v: QueryResult) => unknown, rej: (e: unknown) => unknown) => Promise.resolve(list).then(res, rej);
   return c;
 }
 
@@ -41,11 +46,11 @@ const fakeClient = {
   auth: { getUser: async () => ({ data: { user: { id: "u1", created_at: "2026-01-01T00:00:00Z" } }, error: null }) },
 };
 
-// Module interception
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// Module interception with createRequire
+const require = createRequire(import.meta.url);
 const Module = require("module");
 const orig = Module.prototype.require;
-Module.prototype.require = function (id: string): unknown {
+Module.prototype.require = function (id: string, ...args: unknown[]): unknown {
   if (id === "next/navigation") return {
     useRouter: () => ({ push() {}, refresh() {}, replace() {}, prefetch() {}, back() {}, forward() {} }),
     redirect: (u: string) => { throw new Error("REDIRECT " + u); },
@@ -54,8 +59,7 @@ Module.prototype.require = function (id: string): unknown {
   if (id === "next/cache") return { revalidatePath() {} };
   if (id === "../actions") return { updateSet: async () => ({}), deleteSet: async () => ({}), updateSessionDateTime: async () => ({}), deleteSession: async () => ({}) };
   if (id === "@/lib/supabase/auth") return { getAuthedClient: async () => ({ supabase: fakeClient, user: { id: "u1" } }) };
-  // eslint-disable-next-line prefer-rest-params
-  return orig.apply(this, arguments);
+  return orig.call(this, id, ...args);
 };
 
 let failures = 0;
@@ -65,7 +69,6 @@ function check(label: string, ok: boolean, detail = "") {
 }
 
 (async () => {
-  const React = await import("react");
   const { renderToStaticMarkup } = await import("react-dom/server");
   const { default: SessionDetailPage } = await import("../src/app/history/[id]/page");
 
@@ -123,7 +126,9 @@ function check(label: string, ok: boolean, detail = "") {
     rpc: {},
   };
 
-  const html = renderToStaticMarkup((await SessionDetailPage({ params: Promise.resolve({ id: sid }) })) as React.ReactElement);
+  const page1 = await SessionDetailPage({ params: Promise.resolve({ id: sid }) });
+  if (!isValidElement(page1)) throw new Error("Page did not return a React element");
+  const html = renderToStaticMarkup(page1);
   const d = new JSDOM(html).window.document;
   
   // Find the duration stat
@@ -134,28 +139,29 @@ function check(label: string, ok: boolean, detail = "") {
   
   const timeStat = stats.find((s) => s.label === "Time");
   
-  check("Time stat is present", !!timeStat, JSON.stringify(stats.map(s => s.label)));
+  check("Time stat is present", timeStat !== undefined, JSON.stringify(stats.map(s => s.label)));
   
   // Expected: started_at 10:00:00, last working set completed_at 10:20:00 = 20 minutes
   // (The final warm-up at 10:23:00 should be filtered out)
   check("Time is 20m (1200s from working sets only)", timeStat?.value === "20m", timeStat?.value ?? "missing");
 
-  console.log("\n2. Critical: If page passed only last set (.slice(-1)), time would be —");
-  // The last set is a warm-up at 10:23:00
-  // If the page calls buildSessionDuration with only the last set, it gets filtered out
-  // and the function returns null, which renders as "—"
-  const expectedIfMutated = "—";
-  check("Mutant would break: last set is warm-up", timeStat?.value === "20m", 
-    `current=${timeStat?.value}, mutant would give ${expectedIfMutated}`);
+  console.log("\n2. Last set is warm-up: mutant passing .slice(-1) would give null duration");
+  // The last set at 10:23:00 is a warm-up
+  // If buildSessionDuration receives only that set, it filters it out and returns null (renders as "—")
+  // This case already proves the mutant fails: time is "20m", not "—"
+  check("With all sets, time is 20m (not — from last warm-up only)", timeStat?.value === "20m", `got ${timeStat?.value}`);
 
   console.log("\n3. Sanity: Session with stored duration_seconds");
-  const prevSession = fake.single.sessions as Record<string, unknown>;
+  const prevSession = fake.single.sessions;
+  if (typeof prevSession !== "object" || prevSession === null) throw new Error("sessions not an object");
   fake.single.sessions = { 
     ...prevSession, 
     duration_seconds: 1500 // 25 minutes stored
   };
   
-  const html2 = renderToStaticMarkup((await SessionDetailPage({ params: Promise.resolve({ id: sid }) })) as React.ReactElement);
+  const page2 = await SessionDetailPage({ params: Promise.resolve({ id: sid }) });
+  if (!isValidElement(page2)) throw new Error("Page did not return a React element");
+  const html2 = renderToStaticMarkup(page2);
   const d2 = new JSDOM(html2).window.document;
   const stats2 = [...d2.querySelectorAll("dt")].map((dt) => ({ 
     label: dt.textContent?.trim() ?? "", 
