@@ -118,6 +118,7 @@ fi
 echo
 
 echo "TEST: Bash guard - Non-default config with matching URL allows"
+unset SUPABASE_PROJECT_ID
 ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
 if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
   check "Non-default allows (config port=54333, URL port=54333)" "0" "0"
@@ -132,6 +133,37 @@ if check_db_reset_guard_bash check "$TMPDIR/nonexistent.toml"; then
   check "Missing config file refuses" "1" "0"
 else
   check "Missing config file refuses" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - SUPABASE_DB_URL unset refuses (outside CI)"
+# Critical: prevents scripts from defaulting to :54322 and hitting shared DB
+unset SUPABASE_DB_URL
+ALLOW_DB_RESET="1"
+if check_db_reset_guard_bash check "$TMPDIR/custom-config.toml"; then
+  check "SUPABASE_DB_URL unset refuses (even with non-default config)" "1" "0"
+else
+  check "SUPABASE_DB_URL unset refuses (even with non-default config)" "1" "1"
+fi
+echo
+
+echo "TEST: Bash guard - Config with [db.pooler] port doesn't pick wrong port"
+# Ensure we only read port from [db] section, not later sections like [db.pooler]
+cat > "$TMPDIR/pooler-config.toml" << 'EOF'
+project_id = "TestGym"
+
+[db]
+port = 54333
+
+[db.pooler]
+port = 54329
+EOF
+unset SUPABASE_PROJECT_ID
+ALLOW_DB_RESET="1" SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54333/postgres"
+if check_db_reset_guard_bash check "$TMPDIR/pooler-config.toml"; then
+  check "Pooler port ignored, [db] port used (54333)" "0" "0"
+else
+  check "Pooler port ignored, [db] port used (54333)" "0" "1"
 fi
 echo
 

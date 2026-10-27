@@ -23,10 +23,11 @@ if ! check_db_reset_guard_bash check "supabase/config.toml"; then
   exit 1
 fi
 
-# Default SUPABASE_DB_URL if not set (standard Supabase local stack)
-if [ -z "${SUPABASE_DB_URL:-}" ]; then
+# In CI, default SUPABASE_DB_URL if not set (standard Supabase local stack)
+# Outside CI, SUPABASE_DB_URL is required (enforced by guard above)
+if [ "${CI:-}" = "true" ] && [ -z "${SUPABASE_DB_URL:-}" ]; then
   export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:54322/postgres"
-  echo "Using default SUPABASE_DB_URL: $SUPABASE_DB_URL"
+  echo "CI: Using default SUPABASE_DB_URL: $SUPABASE_DB_URL"
   echo
 fi
 

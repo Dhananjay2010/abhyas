@@ -31,7 +31,9 @@ check_db_reset_guard_bash() {
   local project_id=$(grep '^project_id' "$config_path" 2>/dev/null | head -1 | sed 's/.*"\(.*\)".*/\1/')
   
   # Extract db.port from config.toml (default is 54322)
-  local db_port=$(grep -A 20 '^\[db\]' "$config_path" 2>/dev/null | grep '^port' | head -1 | sed 's/.*=\s*\([0-9]*\).*/\1/')
+  # Use awk to extract only the [db] section, stopping at the next [section]
+  # This prevents picking up port from [db.pooler] or other later sections
+  local db_port=$(awk '/^\[db\]$/{flag=1; next} /^\[/{flag=0} flag && /^port/{print}' "$config_path" 2>/dev/null | head -1 | sed 's/.*=\s*\([0-9]*\).*/\1/')
   if [ -z "$db_port" ]; then
     db_port="54322" # Supabase default
   fi
@@ -52,37 +54,41 @@ check_db_reset_guard_bash() {
     return 1
   fi
   
-  # Rule 4: If SUPABASE_DB_URL is set, verify it targets the same port on localhost
-  # (to prevent mismatch where guard passes but reset hits wrong DB)
-  if [ -n "${SUPABASE_DB_URL:-}" ]; then
-    # Extract host and port from SUPABASE_DB_URL safely (no injection risk)
-    local U="$SUPABASE_DB_URL"
-    export U
-    local url_host_port=$(node -e "
-      try {
-        const url = new URL(process.env.U);
-        console.log(url.hostname + ':' + (url.port || '5432'));
-      } catch (e) {
-        console.log('INVALID');
-      }
-    " 2>/dev/null)
-    
-    if [ "$url_host_port" = "INVALID" ]; then
-      [ "$mode" = "explain" ] && echo "REFUSE: SUPABASE_DB_URL is not a valid URL"
-      return 1
-    fi
-    
-    # Check that SUPABASE_DB_URL points to localhost:$db_port
-    local expected_localhost="localhost:$db_port"
-    local expected_127="127.0.0.1:$db_port"
-    
-    if [ "$url_host_port" != "$expected_localhost" ] && [ "$url_host_port" != "$expected_127" ]; then
-      [ "$mode" = "explain" ] && echo "REFUSE: SUPABASE_DB_URL ($url_host_port) must match config.toml [db] port on localhost (expected localhost:$db_port or 127.0.0.1:$db_port)"
-      return 1
-    fi
+  # Rule 4: Outside CI, SUPABASE_DB_URL is REQUIRED
+  # (prevents scripts from defaulting to :54322 and hitting shared DB)
+  if [ -z "${SUPABASE_DB_URL:-}" ]; then
+    [ "$mode" = "explain" ] && echo "REFUSE: SUPABASE_DB_URL is required for local DB operations (set it to match your config.toml [db] port)"
+    return 1
   fi
   
-  [ "$mode" = "explain" ] && echo "ALLOW: ALLOW_DB_RESET=1 with non-default port ($db_port) and project_id ($project_id) in $config_path"
+  # Rule 5: Verify SUPABASE_DB_URL targets the same port on localhost
+  # (to prevent mismatch where guard passes but reset hits wrong DB)
+  local U="$SUPABASE_DB_URL"
+  export U
+  local url_host_port=$(node -e "
+    try {
+      const url = new URL(process.env.U);
+      console.log(url.hostname + ':' + (url.port || '5432'));
+    } catch (e) {
+      console.log('INVALID');
+    }
+  " 2>/dev/null)
+  
+  if [ "$url_host_port" = "INVALID" ]; then
+    [ "$mode" = "explain" ] && echo "REFUSE: SUPABASE_DB_URL is not a valid URL"
+    return 1
+  fi
+  
+  # Check that SUPABASE_DB_URL points to localhost:$db_port
+  local expected_localhost="localhost:$db_port"
+  local expected_127="127.0.0.1:$db_port"
+  
+  if [ "$url_host_port" != "$expected_localhost" ] && [ "$url_host_port" != "$expected_127" ]; then
+    [ "$mode" = "explain" ] && echo "REFUSE: SUPABASE_DB_URL ($url_host_port) must match config.toml [db] port on localhost (expected localhost:$db_port or 127.0.0.1:$db_port)"
+    return 1
+  fi
+  
+  [ "$mode" = "explain" ] && echo "ALLOW: ALLOW_DB_RESET=1 with non-default port ($db_port) and project_id ($project_id) in $config_path, SUPABASE_DB_URL=$url_host_port"
   return 0
 }
 
