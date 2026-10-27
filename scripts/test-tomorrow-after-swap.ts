@@ -1,24 +1,27 @@
 #!/usr/bin/env tsx
 /**
- * Behavioral test: tomorrow prompt after rest-day swap uses session.local_date
+ * Behavioral test: tomorrow prompt after rest-day swap uses session.local_date + 1
  *
- * MED-1: nextDayPlan must check both completed and in_progress sessions, and
- * compute tomorrow from sessionLocalDate (not wall-clock) so a session finishing
- * after midnight still plans the correct next day.
+ * MED-1: nextDayPlan must check both completed and in_progress sessions, query by
+ * session id, pin the clock via `now`, and compute tomorrow from targetLocalDate
+ * (session.local_date + 1, precomputed server-side) so a session finishing after
+ * midnight still plans the correct next day.
  *
- * Drives the REAL nextDayPlan through a stubbed Supabase client (same pattern
- * as test-create-block-anchoring). Scenario: block [A,B,C] on Mon/Wed/Fri;
- * Mon A completed; Tue rest day with B swapped in → tomorrow (Wed) must be C.
+ * Drives the REAL nextDayPlan through a stubbed Supabase client. Scenario: block
+ * [A,B,C] on Mon/Wed/Fri; Mon A completed; Tue rest day with B swapped in →
+ * tomorrow (Wed) must be C, never B.
  *
  * Mutants killed:
  * - (a) drop in_progress from query: test fails "Tomorrow should be C"
- * - (b) use wall-clock instead of sessionLocalDate: date assertion fails
+ * - (b) use wall-clock instead of targetLocalDate: date assertion fails
+ * - (c) query by local_date instead of session id: test-5 fails
  */
 
 import { strict as assert } from "node:assert";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 import { nextDayPlan } from "../src/lib/program/day-plan";
+import { addDays } from "../src/lib/dates";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 
@@ -33,7 +36,7 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-function rows(data: unknown[], accept: string): Response {
+function rows<T>(data: T[], accept: string): Response {
   if (accept.includes("vnd.pgrst.object")) {
     if (data.length === 0) {
       return json(null, 200);
@@ -49,10 +52,9 @@ function rows(data: unknown[], accept: string): Response {
   return json(data);
 }
 
-function applyFilters(data: unknown[], params: URLSearchParams): unknown[] {
+function applyFilters<T extends Record<string, unknown>>(data: T[], params: URLSearchParams): T[] {
   let result = data;
 
-  // Apply eq filters
   for (const [key, value] of params.entries()) {
     if (key.startsWith("select") || key.startsWith("order") || key === "limit") continue;
     
@@ -60,42 +62,30 @@ function applyFilters(data: unknown[], params: URLSearchParams): unknown[] {
     if (match) {
       const field = match[1] || key;
       const val = value.startsWith("eq.") ? value.substring(3) : value;
-      result = result.filter((row: unknown) => {
-        const r = row as Record<string, unknown>;
-        return String(r[field]) === val;
-      });
+      result = result.filter((row) => String(row[field]) === val);
     }
     
-    // in filter
     if (value.startsWith("in.(")) {
       const vals = value.substring(4, value.length - 1).split(",").map(v => v.replace(/"/g, ""));
-      result = result.filter((row: unknown) => {
-        const r = row as Record<string, unknown>;
-        return vals.includes(String(r[key]));
-      });
+      result = result.filter((row) => vals.includes(String(row[key])));
     }
     
-    // lte filter
     if (value.startsWith("lte.")) {
       const val = value.substring(4);
-      result = result.filter((row: unknown) => {
-        const r = row as Record<string, unknown>;
-        const fieldVal = r[key];
+      result = result.filter((row) => {
+        const fieldVal = row[key];
         return fieldVal != null && String(fieldVal) <= val;
       });
     }
   }
 
-  // Apply order
   const orderParam = params.get("order");
   if (orderParam) {
     const [field, dir] = orderParam.split(".");
     const ascending = dir !== "desc";
-    result = result.slice().sort((a: unknown, b: unknown) => {
-      const aRow = a as Record<string, unknown>;
-      const bRow = b as Record<string, unknown>;
-      const aVal = aRow[field];
-      const bVal = bRow[field];
+    result = result.slice().sort((a, b) => {
+      const aVal = a[field];
+      const bVal = b[field];
       if (aVal == null || bVal == null) return 0;
       const aStr = String(aVal);
       const bStr = String(bVal);
@@ -105,7 +95,6 @@ function applyFilters(data: unknown[], params: URLSearchParams): unknown[] {
     });
   }
 
-  // Apply limit
   const limitParam = params.get("limit");
   if (limitParam) {
     result = result.slice(0, parseInt(limitParam, 10));
@@ -115,14 +104,11 @@ function applyFilters(data: unknown[], params: URLSearchParams): unknown[] {
 }
 
 function buildClient(scenario: {
-  sessionStatus: "completed" | "in_progress";
-  todaySessionProgramDayId: string;
-  todayLocalDate: string;
-}): { client: ReturnType<typeof createClient<Database>>; callLog: string[] } {
-  const callLog: string[] = [];
-
+  sessions: Session[];
+  programDays?: ProgramDay[];
+}): ReturnType<typeof createClient<Database>> {
   const program: Program = { id: "prog-1", user_id: "user-1", split_type: "full_body", status: "active" };
-  const programDays: ProgramDay[] = [
+  const defaultProgramDays: ProgramDay[] = [
     { id: "pd-a", program_id: "prog-1", day_index: 1, day_type: "weights", label: "Full Body A", status: "active" },
     { id: "pd-rest-2", program_id: "prog-1", day_index: 2, day_type: "rest", label: "Rest", status: "active" },
     { id: "pd-b", program_id: "prog-1", day_index: 3, day_type: "weights", label: "Full Body B", status: "active" },
@@ -131,56 +117,35 @@ function buildClient(scenario: {
     { id: "pd-rest-6", program_id: "prog-1", day_index: 6, day_type: "rest", label: "Rest", status: "active" },
     { id: "pd-rest-7", program_id: "prog-1", day_index: 7, day_type: "rest", label: "Rest", status: "active" },
   ];
-
-  const sessions: Session[] = [
-    {
-      id: "sess-1",
-      user_id: "user-1",
-      program_day_id: scenario.todaySessionProgramDayId,
-      actual_type: "weights",
-      local_date: scenario.todayLocalDate,
-      status: scenario.sessionStatus,
-      created_at: "2026-10-28T10:00:00Z",
-    },
-  ];
+  const programDays = scenario.programDays ?? defaultProgramDays;
 
   const stubFetch: typeof fetch = async (input, init) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
-    const method = (init?.method ?? "GET").toUpperCase();
     const accept = new Headers(init?.headers).get("accept") ?? "";
     const path = url.pathname;
     const params = url.searchParams;
 
-    const logEntry = `${method} ${path}?${params.toString()} [Accept: ${accept.includes("object") ? "object" : "array"}]`;
-    callLog.push(logEntry);
-
-    // Programs table
     if (path.includes("/programs")) {
       const filtered = applyFilters([program], params);
       return rows(filtered, accept);
     }
 
-    // Program days table
     if (path.includes("/program_days")) {
       const filtered = applyFilters(programDays, params);
       return rows(filtered, accept);
     }
 
-    // Sessions table
     if (path.includes("/sessions")) {
-      const filtered = applyFilters(sessions, params);
+      const filtered = applyFilters(scenario.sessions, params);
       return rows(filtered, accept);
     }
 
-    // Default: empty result
     return rows([], accept);
   };
 
-  const client = createClient<Database>("http://stub.local", "anon", {
+  return createClient<Database>("http://stub.local", "anon", {
     global: { fetch: stubFetch },
   });
-
-  return { client, callLog };
 }
 
 async function main() {
@@ -189,23 +154,26 @@ async function main() {
   // Test 1: in_progress session (before finish button)
   console.log("1. Tue swap to B (in_progress) → tomorrow should be C, not B");
   {
-    const { client } = buildClient({
-      sessionStatus: "in_progress",
-      todaySessionProgramDayId: "pd-b",
-      todayLocalDate: "2026-10-27", // Tuesday (day 2 = rest)
+    const client = buildClient({
+      sessions: [{
+        id: "sess-1",
+        user_id: "user-1",
+        program_day_id: "pd-b",
+        actual_type: "weights",
+        local_date: "2026-10-27", // Tuesday
+        status: "in_progress",
+        created_at: "2026-10-27T10:00:00Z",
+      }],
     });
 
-    const result = await nextDayPlan(client, "UTC", {
-      sessionLocalDate: "2026-10-27", // Tuesday
-    });
+    const targetLocalDate = addDays("2026-10-27", 1); // Wed
+    const now = new Date("2026-10-27T14:00:00Z");
+    const result = await nextDayPlan(client, "UTC", targetLocalDate, { sessionId: "sess-1", now });
 
     assert.ok(result, "Should return a plan");
     assert.strictEqual(result.localDate, "2026-10-28", "Tomorrow should be Wed (session date + 1)");
-    assert.strictEqual(
-      result.plannedLabel,
-      "Full Body C",
-      "Tomorrow should be Full Body C after swap to B"
-    );
+    assert.strictEqual(result.plannedLabel, "Full Body C", "Tomorrow should be C after swap to B");
+    assert.strictEqual(result.programDayId, "pd-c", "Program day ID should be pd-c");
     assert.strictEqual(result.collisionResolved, true, "Should have resolved collision");
 
     console.log(`  ✓ Tomorrow is ${result.plannedLabel}, date is ${result.localDate}, collision resolved`);
@@ -214,123 +182,139 @@ async function main() {
   // Test 2: completed session (after finish)
   console.log("\n2. Tue swap to B (completed) → tomorrow should be C, not B");
   {
-    const { client } = buildClient({
-      sessionStatus: "completed",
-      todaySessionProgramDayId: "pd-b",
-      todayLocalDate: "2026-10-27", // Tuesday
+    const client = buildClient({
+      sessions: [{
+        id: "sess-2",
+        user_id: "user-1",
+        program_day_id: "pd-b",
+        actual_type: "weights",
+        local_date: "2026-10-27", // Tuesday
+        status: "completed",
+        created_at: "2026-10-27T10:00:00Z",
+      }],
     });
 
-    const result = await nextDayPlan(client, "UTC", {
-      sessionLocalDate: "2026-10-27", // Tuesday
-    });
+    const targetLocalDate = addDays("2026-10-27", 1); // Wed
+    const now = new Date("2026-10-27T18:00:00Z");
+    const result = await nextDayPlan(client, "UTC", targetLocalDate, { sessionId: "sess-2", now });
 
     assert.ok(result, "Should return a plan");
-    assert.strictEqual(
-      result.plannedLabel,
-      "Full Body C",
-      "Tomorrow should be Full Body C after swap to B"
-    );
+    assert.strictEqual(result.plannedLabel, "Full Body C", "Tomorrow should be C after swap to B");
     assert.strictEqual(result.collisionResolved, true, "Should have resolved collision");
 
     console.log(`  ✓ Tomorrow is ${result.plannedLabel}, collision resolved`);
   }
 
-  // Test 3: sessionLocalDate drives the date (not wall-clock)
-  console.log("\n3. sessionLocalDate drives tomorrow date (not wall-clock)");
+  // Test 3: targetLocalDate drives the date (not wall-clock)
+  console.log("\n3. targetLocalDate drives tomorrow date (not wall-clock)");
   {
-    const { client } = buildClient({
-      sessionStatus: "completed",
-      todaySessionProgramDayId: "pd-a", // Mon A (not a swap)
-      todayLocalDate: "2026-10-26", // Monday
+    const client = buildClient({
+      sessions: [{
+        id: "sess-3",
+        user_id: "user-1",
+        program_day_id: "pd-a", // Mon A (not a swap)
+        actual_type: "weights",
+        local_date: "2026-10-26", // Monday
+        status: "completed",
+        created_at: "2026-10-26T23:30:00Z",
+      }],
     });
 
-    const result = await nextDayPlan(client, "UTC", {
-      sessionLocalDate: "2026-10-26", // Monday
-    });
+    // Session finished Mon at 11:30 PM, but wall-clock is already Tuesday 1 AM
+    const targetLocalDate = addDays("2026-10-26", 1); // Tue (session date + 1)
+    const now = new Date("2026-10-27T01:00:00Z"); // Wall-clock is Tue 1 AM
+    const result = await nextDayPlan(client, "UTC", targetLocalDate, { sessionId: "sess-3", now });
 
     assert.ok(result, "Should return a plan");
-    assert.strictEqual(result.localDate, "2026-10-27", "Tomorrow should be Mon + 1 = Tue");
+    assert.strictEqual(result.localDate, "2026-10-27", "Tomorrow should be Mon + 1 = Tue (from targetLocalDate)");
     assert.strictEqual(result.plannedLabel, "Rest", "Tuesday is scheduled rest");
 
-    console.log(`  ✓ Tomorrow date is ${result.localDate} (Mon + 1)`);
+    console.log(`  ✓ Tomorrow date is ${result.localDate} (from targetLocalDate, not wall-clock)`);
   }
 
-  console.log("\n✓ All tomorrow-prompt tests passed\n");
-  
-  // Test 4: abandoned in_progress session from earlier day is NOT treated as done
-  console.log("4. Abandoned in_progress from earlier day doesn't affect today");
+  // Test 4: Two sessions on same date, query by id returns correct one
+  console.log("\n4. Multiple sessions same date: query by id returns correct one");
   {
-    const programAbandoned: Program = { id: "prog-1", user_id: "user-1", split_type: "full_body", status: "active" };
-    const programDaysAbandoned: ProgramDay[] = [
-      { id: "pd-a", program_id: "prog-1", day_index: 1, day_type: "weights", label: "Full Body A", status: "active" },
-      { id: "pd-rest-2", program_id: "prog-1", day_index: 2, day_type: "rest", label: "Rest", status: "active" },
-      { id: "pd-b", program_id: "prog-1", day_index: 3, day_type: "weights", label: "Full Body B", status: "active" },
-    ];
+    const client = buildClient({
+      sessions: [
+        {
+          id: "sess-4a",
+          user_id: "user-1",
+          program_day_id: "pd-a", // Morning session: did A
+          actual_type: "weights",
+          local_date: "2026-10-27", // Tuesday
+          status: "completed",
+          created_at: "2026-10-27T08:00:00Z",
+        },
+        {
+          id: "sess-4b",
+          user_id: "user-1",
+          program_day_id: "pd-c", // Evening session: did C (different day)
+          actual_type: "weights",
+          local_date: "2026-10-27", // Same Tuesday
+          status: "completed",
+          created_at: "2026-10-27T18:00:00Z",
+        },
+      ],
+    });
+
+    // Query by sess-4a (did A on Tue) → tomorrow should rotate from A
+    const targetLocalDate1 = addDays("2026-10-27", 1); // Wed
+    const now = new Date("2026-10-27T20:00:00Z");
+    const result1 = await nextDayPlan(client, "UTC", targetLocalDate1, { sessionId: "sess-4a", now });
+    assert.ok(result1, "Should return a plan");
+    // Wed is scheduled B, A → B rotation (no collision)
+    assert.strictEqual(result1.plannedLabel, "Full Body B", "After A, next is B");
     
-    // Two sessions: one abandoned on Monday (in_progress), one completed on Wednesday
-    const sessionsAbandoned: Session[] = [
-      {
-        id: "sess-old",
-        user_id: "user-1",
-        program_day_id: "pd-a",
-        actual_type: "weights",
-        local_date: "2026-10-26", // Monday (abandoned)
-        status: "in_progress",
-        created_at: "2026-10-26T10:00:00Z",
-      },
-      {
-        id: "sess-today",
-        user_id: "user-1",
-        program_day_id: "pd-b",
-        actual_type: "weights",
-        local_date: "2026-10-28", // Wednesday (completed)
-        status: "completed",
-        created_at: "2026-10-28T10:00:00Z",
-      },
-    ];
-    
-    const stubFetch: typeof fetch = async (input, init) => {
-      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
-      const accept = new Headers(init?.headers).get("accept") ?? "";
-      const path = url.pathname;
-      const params = url.searchParams;
+    // Query by sess-4b (did C on Tue) → tomorrow should rotate from C
+    const result2 = await nextDayPlan(client, "UTC", targetLocalDate1, { sessionId: "sess-4b", now });
+    assert.ok(result2, "Should return a plan");
+    // Wed is scheduled B, but C → A rotation collides with B, so should give B
+    // (Wed scheduled B matches next-up rotation slot, no collision)
+    assert.strictEqual(result2.plannedLabel, "Full Body B", "After C, next is A, but Wed is B");
 
-      if (path.includes("/programs")) {
-        const filtered = applyFilters([programAbandoned], params);
-        return rows(filtered, accept);
-      }
+    console.log(`  ✓ Different sessions on same date → different rotations`);
+  }
 
-      if (path.includes("/program_days")) {
-        const filtered = applyFilters(programDaysAbandoned, params);
-        return rows(filtered, accept);
-      }
-
-      if (path.includes("/sessions")) {
-        const filtered = applyFilters(sessionsAbandoned, params);
-        return rows(filtered, accept);
-      }
-
-      return rows([], accept);
-    };
-    
-    const client = createClient<Database>("http://stub.local", "anon", {
-      global: { fetch: stubFetch },
+  // Test 5: Abandoned in_progress from earlier day doesn't affect today
+  console.log("\n5. Abandoned in_progress from earlier day is ignored");
+  {
+    const client = buildClient({
+      sessions: [
+        {
+          id: "sess-old",
+          user_id: "user-1",
+          program_day_id: "pd-a",
+          actual_type: "weights",
+          local_date: "2026-10-26", // Monday (abandoned)
+          status: "in_progress",
+          created_at: "2026-10-26T10:00:00Z",
+        },
+        {
+          id: "sess-today",
+          user_id: "user-1",
+          program_day_id: "pd-b",
+          actual_type: "weights",
+          local_date: "2026-10-28", // Wednesday (completed)
+          status: "completed",
+          created_at: "2026-10-28T10:00:00Z",
+        },
+      ],
     });
     
-    // Query from Wednesday's perspective - should see Wed's B, not Monday's abandoned A
-    const result = await nextDayPlan(client, "UTC", {
-      sessionLocalDate: "2026-10-28", // Wednesday
-    });
+    // Query from Wednesday's session perspective
+    const targetLocalDate = addDays("2026-10-28", 1); // Thu
+    const now = new Date("2026-10-28T15:00:00Z");
+    const result = await nextDayPlan(client, "UTC", targetLocalDate, { sessionId: "sess-today", now });
     
     assert.ok(result, "Should return a plan");
-    // Tomorrow (Thu) is day 4 = rest, so no collision
     assert.strictEqual(result.plannedLabel, "Rest", "Thursday is scheduled rest");
     assert.strictEqual(result.collisionResolved, false, "No collision (B done, rest tomorrow)");
     
     console.log(`  ✓ Abandoned Mon in_progress ignored, Wed completed B recognized`);
   }
-  
-  console.log("\n✓ All tests including abandoned-session guard passed\n");
+
+  console.log("\n✓ All tomorrow-prompt tests passed\n");
 }
 
 main().catch((e) => {

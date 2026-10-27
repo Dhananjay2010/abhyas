@@ -19,6 +19,7 @@ export function DayPlanPrompt({
   localDate,
   dayLabel,
   plannedLabel,
+  programDayId,
   days,
   heading,
   intro,
@@ -31,6 +32,8 @@ export function DayPlanPrompt({
   dayLabel: string;
   /** What the block currently says that day is. */
   plannedLabel: string;
+  /** The resolved program_day_id for this day (after collision resolution). Null for Rest. */
+  programDayId: string | null;
   /** The training days of the block, offered as alternatives. */
   days: PlannableDay[];
   heading: string;
@@ -97,7 +100,14 @@ export function DayPlanPrompt({
 
       {!choosing ? (
         <div className={`mt-4 gap-2 ${showRestOption ? "grid grid-cols-3" : "flex"}`}>
-          <Choice disabled={pending} onClick={() => choose({ kind: "keep" }, plannedLabel)}>
+          <Choice
+            disabled={pending}
+            onClick={() =>
+              programDayId
+                ? choose({ kind: "training", programDayId }, plannedLabel)
+                : choose({ kind: "rest" }, plannedLabel)
+            }
+          >
             Keep it
           </Choice>
           <Choice disabled={pending} onClick={() => setChoosing(true)}>

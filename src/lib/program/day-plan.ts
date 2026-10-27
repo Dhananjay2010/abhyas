@@ -522,15 +522,18 @@ export async function nextDayPlanCore(
  * tomorrow's scheduled workout is the same program day just done, serve the
  * next workout in the rotation instead.
  * 
- * MED-1 fix: when called from a session summary (sessionLocalDate provided),
- * compute tomorrow = sessionLocalDate + 1 so a session finishing after midnight
- * still plans the correct next day, and check today's swap using sessionLocalDate
- * not wall-clock time.
+ * MED-1 fix: when targetLocalDate is provided (precomputed as session.local_date + 1),
+ * use it as tomorrow. This ensures a session finishing after midnight still plans
+ * the correct next day. Pass sessionId to query the specific session by id.
+ * Pass now to pin the wall-clock for testing.
+ * 
+ * Signature matches PR #166 for trivial merge.
  */
 export async function nextDayPlan(
   supabase: Client,
   timezone: string,
-  options?: { userId?: string; sessionLocalDate?: string },
+  targetLocalDate?: string,
+  options?: { sessionId?: string; now?: Date },
 ): Promise<NextDayPlan | null> {
   const { data: program } = await supabase
     .from("programs")
@@ -539,11 +542,13 @@ export async function nextDayPlan(
     .maybeSingle();
   if (!program) return null;
 
-  // MED-1: when sessionLocalDate is provided (session summary), use it to compute
-  // tomorrow and check today's swap. Otherwise use wall-clock today (Today page).
-  const today = options?.sessionLocalDate ?? localDateString(timezone);
-  const tomorrow = addDays(today, 1);
-  const userId = options?.userId ?? program.user_id;
+  // MED-1: when targetLocalDate is provided (session summary), use it as tomorrow.
+  // Otherwise compute tomorrow from wall-clock today (Today page).
+  // Pin clock via options.now for testing.
+  const wallClockNow = options?.now ?? new Date();
+  const today = targetLocalDate ? addDays(targetLocalDate, -1) : localDateString(timezone, wallClockNow);
+  const tomorrow = targetLocalDate ?? addDays(today, 1);
+  const userId = program.user_id;
   const todayDayIndex = isoWeekday(today);
 
   const deps: NextDayPlanCoreDeps = {
@@ -552,6 +557,20 @@ export async function nextDayPlan(
       // prompt during a session (before finish), the session is in_progress but
       // will be completed by the time the user acts on the prompt. Treating it as
       // "today's session" prevents planning a repeat after a rest-day swap.
+      // When sessionId is provided, query by id. Otherwise use newest on date.
+      if (options?.sessionId) {
+        const { data } = await supabase
+          .from("sessions")
+          .select("id, program_day_id, actual_type, local_date")
+          .eq("id", options.sessionId)
+          .eq("user_id", userId)
+          .in("status", ["completed", "in_progress"])
+          .maybeSingle();
+        return data
+          ? { programDayId: data.program_day_id, actualType: data.actual_type ?? "" }
+          : null;
+      }
+      
       const { data } = await supabase
         .from("sessions")
         .select("id, program_day_id, actual_type")

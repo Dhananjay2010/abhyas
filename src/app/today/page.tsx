@@ -519,6 +519,7 @@ export default async function TodayPage() {
           localDate={localToday}
           dayLabel="Today"
           plannedLabel={dayLabel}
+          programDayId={null}
           days={plannable}
           heading={viewModel.prompt.heading}
           intro={viewModel.prompt.intro}
@@ -573,6 +574,7 @@ export default async function TodayPage() {
                   localDate={localToday}
                   dayLabel="Today"
                   plannedLabel="Rest"
+                  programDayId={null}
                   days={plannable}
                   heading="Or train today anyway"
                   intro="Pick what you'd like to do instead."
