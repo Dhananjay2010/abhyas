@@ -3,7 +3,7 @@
     "4": 270,
     "5": 33588
   },
-  "aggregateSha256": "1fa1f17d46e07c4e2dcf8f79e82381ba6fa39f1822b724c32f4567987fa3adf7",
+  "aggregateSha256": "74e9adbdbd88b5ff700d4167afc94930043a65181982e200ee01355443e0192a",
   "subset": {
     "pk_lbc|all|beginner|bodyweight|barbell-full-squat|a": [
       "spanish-squat",
@@ -21,10 +21,10 @@
     ],
     "pk_lbc|all|beginner|weights|wide-stance-barbell-squat|c": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "spanish-squat",
-      "pull-through"
+      "pull-through",
+      "hip-extension-with-bands"
     ],
     "pk_lbc|all|expert|bodyweight|wide-stance-barbell-squat|a": [
       "spanish-squat",
@@ -35,10 +35,10 @@
     ],
     "pk_lbc|all|expert|weights|weighted-sissy-squat|b": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "spanish-squat",
-      "pull-through"
+      "pull-through",
+      "hip-lift-with-band"
     ],
     "pk_lbc|all|intermediate|bodyweight|weighted-jump-squat|c": [
       "spanish-squat",
@@ -49,10 +49,10 @@
     ],
     "pk_lbc|all|intermediate|weights|weighted-jump-squat|a": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "spanish-squat",
-      "pull-through"
+      "pull-through",
+      "hip-extension-with-bands"
     ],
     "pk_lbc|band|beginner|bodyweight|wall-sit|b": [
       "spanish-squat",
@@ -765,10 +765,10 @@
     ],
     "pk_lbc|legext|beginner|weights|lying-machine-squat|c": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "butt-lift-bridge",
-      "glute-bridge"
+      "glute-bridge",
+      "leg-lift"
     ],
     "pk_lbc|legext|expert|bodyweight|lying-machine-squat|a": [
       "butt-lift-bridge",
@@ -797,10 +797,10 @@
     ],
     "pk_lbc|legext|expert|weights|leg-press|b": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "glute-bridge",
-      "butt-lift-bridge"
+      "butt-lift-bridge",
+      "leg-lift"
     ],
     "pk_lbc|legext|intermediate|bodyweight|leg-extensions|c": [
       "leg-lift",
@@ -828,11 +828,11 @@
       "glute-bridge"
     ],
     "pk_lbc|legext|intermediate|weights|leg-extensions|a": [
-      "single-leg-leg-extension",
-      "wall-sit",
       "single-leg-glute-bridge",
+      "wall-sit",
       "leg-lift",
-      "butt-lift-bridge"
+      "butt-lift-bridge",
+      "glute-bridge"
     ],
     "pk_lbc|mach|beginner|bodyweight|kneeling-squat|b": [
       "glute-bridge",
@@ -861,10 +861,10 @@
     ],
     "pk_lbc|mach|beginner|weights|knee-tuck-jump|c": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "butt-lift-bridge",
-      "glute-bridge"
+      "glute-bridge",
+      "leg-lift"
     ],
     "pk_lbc|mach|expert|bodyweight|knee-tuck-jump|a": [
       "butt-lift-bridge",
@@ -893,10 +893,10 @@
     ],
     "pk_lbc|mach|expert|weights|kettlebell-turkish-get-up-squat-style|b": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "pull-through",
-      "one-legged-cable-kickback"
+      "one-legged-cable-kickback",
+      "seated-leg-curl"
     ],
     "pk_lbc|mach|intermediate|bodyweight|jefferson-squats|c": [
       "butt-lift-bridge",
@@ -925,10 +925,10 @@
     ],
     "pk_lbc|mach|intermediate|weights|jefferson-squats|a": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "pull-through",
-      "one-legged-cable-kickback"
+      "one-legged-cable-kickback",
+      "seated-leg-curl"
     ],
     "pk_lbc|none|beginner|bodyweight|hack-squat|b": [
       "glute-bridge",
@@ -1239,10 +1239,10 @@
     ],
     "pk_shc|all|beginner|weights|dumbbell-seated-box-jump|c": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "spanish-squat",
-      "stiff-legged-dumbbell-deadlift"
+      "stiff-legged-dumbbell-deadlift",
+      "pull-through"
     ],
     "pk_shc|all|expert|bodyweight|dumbbell-seated-box-jump|a": [
       "spanish-squat",
@@ -1253,10 +1253,10 @@
     ],
     "pk_shc|all|expert|weights|chair-squat|b": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "spanish-squat",
-      "reverse-hyperextension"
+      "reverse-hyperextension",
+      "sumo-deadlift-with-chains"
     ],
     "pk_shc|all|intermediate|bodyweight|cable-hip-adduction|c": [
       "spanish-squat",
@@ -1267,10 +1267,10 @@
     ],
     "pk_shc|all|intermediate|weights|cable-hip-adduction|a": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "spanish-squat",
-      "one-legged-cable-kickback"
+      "one-legged-cable-kickback",
+      "pull-through"
     ],
     "pk_shc|band|beginner|bodyweight|box-squat|b": [
       "spanish-squat",
@@ -1666,10 +1666,10 @@
     ],
     "pk_shc|legext|beginner|weights|smith-machine-squat|a": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "butt-lift-bridge",
-      "glute-bridge"
+      "glute-bridge",
+      "single-leg-glute-bridge"
     ],
     "pk_shc|legext|expert|bodyweight|smith-machine-leg-press|b": [
       "glute-bridge",
@@ -1730,10 +1730,10 @@
     ],
     "pk_shc|legext|intermediate|weights|scissors-jump|b": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "glute-bridge",
-      "butt-lift-bridge"
+      "butt-lift-bridge",
+      "leg-lift"
     ],
     "pk_shc|mach|beginner|bodyweight|rocket-jump|c": [
       "butt-lift-bridge",
@@ -1762,10 +1762,10 @@
     ],
     "pk_shc|mach|beginner|weights|rocket-jump|a": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "butt-lift-bridge",
-      "glute-bridge"
+      "glute-bridge",
+      "single-leg-glute-bridge"
     ],
     "pk_shc|mach|expert|bodyweight|reverse-band-power-squat|b": [
       "glute-bridge",
@@ -1794,10 +1794,10 @@
     ],
     "pk_shc|mach|expert|weights|reverse-band-box-squat|c": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "pull-through",
-      "seated-leg-curl"
+      "seated-leg-curl",
+      "reverse-hyperextension"
     ],
     "pk_shc|mach|intermediate|bodyweight|reverse-band-box-squat|a": [
       "butt-lift-bridge",
@@ -1826,10 +1826,10 @@
     ],
     "pk_shc|mach|intermediate|weights|plie-dumbbell-squat|b": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "pull-through",
-      "one-legged-cable-kickback"
+      "one-legged-cable-kickback",
+      "seated-leg-curl"
     ],
     "pk_shc|none|beginner|bodyweight|one-leg-barbell-squat|c": [
       "butt-lift-bridge",
@@ -2140,10 +2140,10 @@
     ],
     "pk|all|beginner|weights|kneeling-squat|a": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "spanish-squat",
-      "pull-through"
+      "pull-through",
+      "hip-extension-with-bands"
     ],
     "pk|all|expert|bodyweight|knee-tuck-jump|b": [
       "spanish-squat",
@@ -2154,10 +2154,10 @@
     ],
     "pk|all|expert|weights|kettlebell-turkish-get-up-squat-style|c": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "spanish-squat",
-      "one-arm-kettlebell-swings"
+      "one-arm-kettlebell-swings",
+      "kettlebell-one-legged-deadlift"
     ],
     "pk|all|intermediate|bodyweight|kettlebell-turkish-get-up-squat-style|a": [
       "spanish-squat",
@@ -2168,10 +2168,10 @@
     ],
     "pk|all|intermediate|weights|jefferson-squats|b": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "spanish-squat",
-      "sumo-deadlift-with-chains"
+      "sumo-deadlift-with-chains",
+      "barbell-hip-thrust"
     ],
     "pk|band|beginner|bodyweight|hack-squat|c": [
       "spanish-squat",
@@ -2567,10 +2567,10 @@
     ],
     "pk|legext|beginner|weights|wall-sit|b": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "leg-lift",
       "single-leg-glute-bridge",
-      "glute-bridge"
+      "glute-bridge",
+      "butt-lift-bridge"
     ],
     "pk|legext|expert|bodyweight|star-jump|c": [
       "butt-lift-bridge",
@@ -2599,10 +2599,10 @@
     ],
     "pk|legext|expert|weights|star-jump|a": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "butt-lift-bridge",
-      "glute-bridge"
+      "glute-bridge",
+      "single-leg-glute-bridge"
     ],
     "pk|legext|intermediate|bodyweight|standing-long-jump|b": [
       "glute-bridge",
@@ -2631,10 +2631,10 @@
     ],
     "pk|legext|intermediate|weights|squats-with-bands|c": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "butt-lift-bridge",
-      "glute-bridge"
+      "glute-bridge",
+      "leg-lift"
     ],
     "pk|mach|beginner|bodyweight|squats-with-bands|a": [
       "butt-lift-bridge",
@@ -2663,10 +2663,10 @@
     ],
     "pk|mach|beginner|weights|squat-with-plate-movers|b": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "pull-through",
-      "seated-leg-curl"
+      "seated-leg-curl",
+      "standing-leg-curl"
     ],
     "pk|mach|expert|bodyweight|squat-with-chains|c": [
       "butt-lift-bridge",
@@ -2695,10 +2695,10 @@
     ],
     "pk|mach|expert|weights|squat-with-chains|a": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "pull-through",
-      "one-legged-cable-kickback"
+      "one-legged-cable-kickback",
+      "seated-leg-curl"
     ],
     "pk|mach|intermediate|bodyweight|squat-with-bands|b": [
       "glute-bridge",
@@ -2727,10 +2727,10 @@
     ],
     "pk|mach|intermediate|weights|squat-jerk|c": [
       "leg-extensions",
-      "single-leg-leg-extension",
       "wall-sit",
       "pull-through",
-      "seated-leg-curl"
+      "seated-leg-curl",
+      "reverse-hyperextension"
     ],
     "pk|none|beginner|bodyweight|squat-jerk|a": [
       "butt-lift-bridge",

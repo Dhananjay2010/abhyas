@@ -1,9 +1,9 @@
 #!/usr/bin/env tsx
 /**
- * Test: package.json has no duplicate keys
+ * Test: package.json validation
  * 
- * Validates that package.json is valid JSON with no duplicate keys.
- * Duplicate keys can occur after merge conflicts and are invalid JSON.
+ * Validates that package.json is valid JSON with no duplicate keys
+ * and that scripts.test contains no literal newlines (breaks npm test locally).
  */
 
 import { readFileSync } from 'fs';
@@ -33,8 +33,9 @@ function runTest(): void {
   const content = readFileSync(packageJsonPath, 'utf-8');
   
   // Test 1: Valid JSON
+  let pkg: { scripts?: { test?: string } };
   try {
-    JSON.parse(content);
+    pkg = JSON.parse(content);
     console.log('✓ package.json is valid JSON');
   } catch (error) {
     console.error('✗ package.json is invalid JSON:', (error as Error).message);
@@ -48,6 +49,17 @@ function runTest(): void {
     process.exit(1);
   }
   console.log('✓ package.json has no duplicate keys');
+  
+  // Test 3: scripts.test must not contain literal newlines
+  // Newlines break local `npm test` with "Syntax error: '&&' unexpected"
+  // (CI shards pass because they parse differently)
+  const testScript = pkg.scripts?.test;
+  if (testScript && testScript.includes('\n')) {
+    console.error('✗ scripts.test contains literal newline(s) - breaks local npm test');
+    console.error('  Run: sh -n -c "$(jq -r .scripts.test package.json)" to verify');
+    process.exit(1);
+  }
+  console.log('✓ scripts.test contains no literal newlines');
   
   console.log('\n✅ All package.json validation tests passed\n');
 }
