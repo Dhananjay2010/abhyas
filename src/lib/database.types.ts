@@ -1564,6 +1564,7 @@ export type Database = {
           p_logo_url?: string
           p_primary_color?: string
           p_accent_color?: string
+          p_clear?: string[]
         }
         Returns: Json
       }

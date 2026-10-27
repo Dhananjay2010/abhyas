@@ -123,13 +123,13 @@ run_mutant() {
 run_mutant \
   "(a) remove owner check" \
   "Allow any authenticated user to update branding" \
-  "create or replace function public.set_gym_branding(p_gym_id uuid, p_display_name text default null, p_logo_url text default null, p_primary_color text default null, p_accent_color text default null) returns json language plpgsql security definer set search_path = '' as \$\$ declare v_updated_count int; begin update public.gyms set display_name = coalesce(p_display_name, display_name), logo_url = coalesce(p_logo_url, logo_url), primary_color = coalesce(p_primary_color, primary_color), accent_color = coalesce(p_accent_color, accent_color) where id = p_gym_id; get diagnostics v_updated_count = row_count; if v_updated_count = 0 then raise exception 'BRND5: Gym not found' using errcode = 'BRND5'; end if; return json_build_object('success', true); end; \$\$;"
+  "create or replace function public.set_gym_branding(p_gym_id uuid, p_display_name text default null, p_logo_url text default null, p_primary_color text default null, p_accent_color text default null, p_clear text[] default array[]::text[]) returns json language plpgsql security definer set search_path = '' as \$\$ declare v_updated_count int; begin update public.gyms set display_name = coalesce(p_display_name, display_name), logo_url = coalesce(p_logo_url, logo_url), primary_color = coalesce(p_primary_color, primary_color), accent_color = coalesce(p_accent_color, accent_color) where id = p_gym_id; get diagnostics v_updated_count = row_count; if v_updated_count = 0 then raise exception 'BRND5: Gym not found' using errcode = 'BRND5'; end if; return json_build_object('success', true); end; \$\$;"
 
 # Mutant (b): Add anon grant to set_gym_branding
 run_mutant \
   "(b) add anon grant" \
   "Allow anonymous users to call set_gym_branding" \
-  "grant execute on function public.set_gym_branding(uuid, text, text, text, text) to anon;"
+  "grant execute on function public.set_gym_branding(uuid, text, text, text, text, text[]) to anon;"
 
 # Mutant (c): Drop primary_color CHECK constraint
 run_mutant \
@@ -161,12 +161,24 @@ run_mutant \
   "Allow direct table access bypassing RLS" \
   "alter table public.gyms disable row level security;"
 
+# Mutant (h): GRANT missing after get_gym_brand recreate
+run_mutant \
+  "(h) missing GRANT on get_gym_brand" \
+  "Recreate get_gym_brand without granting to anon/authenticated" \
+  "drop function if exists public.get_gym_brand(uuid); create function public.get_gym_brand(p_gym_id uuid) returns table (name text, slug text, timezone text, display_name text, logo_url text, primary_color text, accent_color text) language sql security definer set search_path = '' stable as \$\$ select g.name, g.slug, g.timezone, g.display_name, g.logo_url, g.primary_color, g.accent_color from public.gyms g where g.id = p_gym_id limit 1; \$\$; revoke execute on function public.get_gym_brand(uuid) from public;"
+
+# Mutant (i): Clear parameter ignored
+run_mutant \
+  "(i) clear parameter ignored" \
+  "Ignore p_clear array in set_gym_branding" \
+  "create or replace function public.set_gym_branding(p_gym_id uuid, p_display_name text default null, p_logo_url text default null, p_primary_color text default null, p_accent_color text default null, p_clear text[] default array[]::text[]) returns json language plpgsql security definer set search_path = '' as \$\$ declare v_updated_count int; begin if not public.is_gym_owner(p_gym_id) then raise exception 'BRND1: Only the gym owner can update branding settings' using errcode = 'BRND1'; end if; if p_primary_color is not null and p_primary_color !~ '^#[0-9a-fA-F]{6}$' then raise exception 'BRND2: primary_color must be a 6-digit hex code (e.g. #FF9A2E)' using errcode = 'BRND2'; end if; if p_accent_color is not null and p_accent_color !~ '^#[0-9a-fA-F]{6}$' then raise exception 'BRND3: accent_color must be a 6-digit hex code (e.g. #E8850C)' using errcode = 'BRND3'; end if; if p_logo_url is not null and p_logo_url !~ '^https://' and p_logo_url !~ '^/storage/' then raise exception 'BRND4: logo_url must start with https:// or /storage/' using errcode = 'BRND4'; end if; update public.gyms set display_name = coalesce(p_display_name, display_name), logo_url = coalesce(p_logo_url, logo_url), primary_color = coalesce(p_primary_color, primary_color), accent_color = coalesce(p_accent_color, accent_color) where id = p_gym_id; get diagnostics v_updated_count = row_count; if v_updated_count = 0 then raise exception 'BRND5: Gym not found' using errcode = 'BRND5'; end if; return json_build_object('success', true); end; \$\$;"
+
 echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-echo "Total mutants:                   7"
-echo "Killed:                          $((7 - FAILED - ${#SKIPPED[@]}))"
+echo "Total mutants:                   9"
+echo "Killed:                          $((9 - FAILED - ${#SKIPPED[@]}))"
 echo "Survived:                        $FAILED"
 echo "Skipped:                         ${#SKIPPED[@]}"
 echo "========================================="

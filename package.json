@@ -476,6 +476,7 @@
     "test:owner-no-hardcoded-colors": "bash scripts/test-owner-no-hardcoded-colors.sh",
     "test:branding-validation": "tsx scripts/test-branding-validation.ts",
     "test:gym-branding-real-db": "tsx scripts/test-gym-branding-real-db.ts",
+    "test:migration-040-idempotent": "bash scripts/test-migration-040-idempotent.sh",
     "ci:mutant-gym-branding": "bash scripts/mutant-test-gym-branding.sh"
   },
   "dependencies": {

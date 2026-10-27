@@ -82,22 +82,45 @@ alter table public.gyms add constraint gyms_logo_url_format
 
 -- Set brand fields for a gym (owner-only).
 -- Validates colors and logo format. Only the gym's owner can update.
+-- Supports clearing fields via p_clear array.
 -- SECURITY DEFINER with search_path='' to avoid SQL injection.
 create or replace function public.set_gym_branding(
   p_gym_id uuid,
   p_display_name text default null,
   p_logo_url text default null,
   p_primary_color text default null,
-  p_accent_color text default null
+  p_accent_color text default null,
+  p_clear text[] default array[]::text[]
 ) returns json language plpgsql security definer
 set search_path = '' as $$
 declare
   v_updated_count int;
+  v_field text;
+  v_clear_display_name boolean := false;
+  v_clear_logo_url boolean := false;
+  v_clear_primary_color boolean := false;
+  v_clear_accent_color boolean := false;
 begin
   -- Check: caller must be the gym owner (BRND1)
   if not public.is_gym_owner(p_gym_id) then
     raise exception 'BRND1: Only the gym owner can update branding settings'
       using errcode = 'BRND1';
+  end if;
+
+  -- Validate clear field names (BRND6)
+  if p_clear is not null then
+    foreach v_field in array p_clear loop
+      if v_field not in ('display_name', 'logo_url', 'primary_color', 'accent_color') then
+        raise exception 'BRND6: Invalid clear field name: %', v_field
+          using errcode = 'BRND6';
+      end if;
+    end loop;
+    
+    -- Set clear flags
+    v_clear_display_name := 'display_name' = any(p_clear);
+    v_clear_logo_url := 'logo_url' = any(p_clear);
+    v_clear_primary_color := 'primary_color' = any(p_clear);
+    v_clear_accent_color := 'accent_color' = any(p_clear);
   end if;
 
   -- Validate primary_color if provided (BRND2)
@@ -120,13 +143,34 @@ begin
       using errcode = 'BRND4';
   end if;
 
-  -- Update the gym (only if owner check passed)
+  -- Enforce color pair rule: both or neither (unless clearing)
+  if not v_clear_primary_color and not v_clear_accent_color then
+    if (p_primary_color is not null and p_accent_color is null and not v_clear_accent_color)
+       or (p_accent_color is not null and p_primary_color is null and not v_clear_primary_color) then
+      raise exception 'BRND7: Both primary_color and accent_color must be set together or cleared together'
+        using errcode = 'BRND7';
+    end if;
+  end if;
+
+  -- Update the gym (clear takes precedence over set)
   update public.gyms
   set 
-    display_name = coalesce(p_display_name, display_name),
-    logo_url = coalesce(p_logo_url, logo_url),
-    primary_color = coalesce(p_primary_color, primary_color),
-    accent_color = coalesce(p_accent_color, accent_color)
+    display_name = case 
+      when v_clear_display_name then null 
+      else coalesce(p_display_name, display_name) 
+    end,
+    logo_url = case 
+      when v_clear_logo_url then null 
+      else coalesce(p_logo_url, logo_url) 
+    end,
+    primary_color = case 
+      when v_clear_primary_color then null 
+      else coalesce(p_primary_color, primary_color) 
+    end,
+    accent_color = case 
+      when v_clear_accent_color then null 
+      else coalesce(p_accent_color, accent_color) 
+    end
   where id = p_gym_id;
 
   get diagnostics v_updated_count = row_count;
@@ -142,23 +186,23 @@ end;
 $$;
 
 -- Revoke from public and anon, grant only to authenticated users
-do $$
-begin
-  revoke execute on function public.set_gym_branding(uuid, text, text, text, text) from public, anon;
-  grant execute on function public.set_gym_branding(uuid, text, text, text, text) to authenticated;
-exception when undefined_function then
-  null;
-end $$;
+revoke execute on function public.set_gym_branding(uuid, text, text, text, text, text[]) from public, anon;
+grant execute on function public.set_gym_branding(uuid, text, text, text, text, text[]) to authenticated;
 
 -- ============================================================
 -- EXTEND get_gym_brand TO RETURN BRAND FIELDS
 -- ============================================================
 
+-- Drop the existing get_gym_brand function (from migration 037) to change return type.
+-- CREATE OR REPLACE cannot change the return type (would fail with 42P13).
+-- This is idempotent: DROP IF EXISTS allows re-running the migration.
+drop function if exists public.get_gym_brand(uuid);
+
 -- Return public brand fields for a gym (name, slug, timezone, logo, colors).
 -- SECURITY DEFINER bypasses RLS so anon visitors on a gym's domain can see the brand.
 -- Members and staff CANNOT see other gyms' branding (only their own via RLS on gyms table).
 -- This function is called by the app on the homepage to style the gym's domain.
-create or replace function public.get_gym_brand(p_gym_id uuid)
+create function public.get_gym_brand(p_gym_id uuid)
 returns table (
   name text,
   slug text,
@@ -184,10 +228,5 @@ stable as $$
 $$;
 
 -- Revoke from PUBLIC, grant to anon and authenticated
-do $$
-begin
-  revoke execute on function public.get_gym_brand(uuid) from public;
-  grant execute on function public.get_gym_brand(uuid) to anon, authenticated;
-exception when undefined_function then
-  null;
-end $$;
+revoke execute on function public.get_gym_brand(uuid) from public;
+grant execute on function public.get_gym_brand(uuid) to anon, authenticated;

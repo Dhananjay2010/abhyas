@@ -407,30 +407,81 @@ async function runTests() {
   }
   console.log();
 
-  // TEST: Can clear branding by passing null
-  console.log("TEST: Can clear branding by passing null");
+  // TEST: Can clear branding by passing p_clear array
+  console.log("TEST: Can clear branding by passing p_clear array");
+  {
+    // First set all fields
+    await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "Test Clear",
+      p_logo_url: "https://example.com/test.png",
+      p_primary_color: "#FF0000",
+      p_accent_color: "#00FF00",
+    });
+
+    // Clear display_name
+    const { error: clearDisplayError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_clear: ["display_name"],
+    });
+    check("Owner can clear display_name", !clearDisplayError, clearDisplayError?.message);
+
+    const { data: afterDisplayClear } = await clientOwner.rpc("get_gym_brand", {
+      p_gym_id: gymId,
+    });
+    if (afterDisplayClear && afterDisplayClear[0]) {
+      check("display_name cleared", afterDisplayClear[0].display_name === null);
+      check("logo_url unchanged", afterDisplayClear[0].logo_url === "https://example.com/test.png");
+    }
+
+    // Clear logo_url
+    const { error: clearLogoError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_clear: ["logo_url"],
+    });
+    check("Owner can clear logo_url", !clearLogoError, clearLogoError?.message);
+
+    const { data: afterLogoClear } = await clientOwner.rpc("get_gym_brand", {
+      p_gym_id: gymId,
+    });
+    if (afterLogoClear && afterLogoClear[0]) {
+      check("logo_url cleared", afterLogoClear[0].logo_url === null);
+    }
+
+    // Clear both colors at once
+    const { error: clearColorsError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_clear: ["primary_color", "accent_color"],
+    });
+    check("Owner can clear both colors", !clearColorsError, clearColorsError?.message);
+
+    const { data: afterColorsClear } = await clientOwner.rpc("get_gym_brand", {
+      p_gym_id: gymId,
+    });
+    if (afterColorsClear && afterColorsClear[0]) {
+      check("primary_color cleared", afterColorsClear[0].primary_color === null);
+      check("accent_color cleared", afterColorsClear[0].accent_color === null);
+    }
+
+    // Verify neutralBrand fallback works with all null fields
+    check("neutralBrand fallback after clearing", 
+      afterColorsClear && 
+      afterColorsClear[0].display_name === null &&
+      afterColorsClear[0].logo_url === null &&
+      afterColorsClear[0].primary_color === null &&
+      afterColorsClear[0].accent_color === null
+    );
+  }
+  console.log();
+
+  // TEST: Invalid clear field name rejected (BRND6)
+  console.log("TEST: Invalid clear field name rejected");
   {
     const { error } = await clientOwner.rpc("set_gym_branding", {
       p_gym_id: gymId,
-      p_display_name: null,
-      p_logo_url: null,
-      p_primary_color: null,
-      p_accent_color: null,
+      p_clear: ["invalid_field"],
     });
-    check("Owner can clear branding", !error, error?.message);
-  }
-
-  {
-    const { data } = await clientOwner.rpc("get_gym_brand", {
-      p_gym_id: gymId,
-    });
-    if (Array.isArray(data) && data.length > 0) {
-      const row = data[0];
-      check("display_name cleared", row.display_name === null);
-      check("logo_url cleared", row.logo_url === null);
-      check("primary_color cleared", row.primary_color === null);
-      check("accent_color cleared", row.accent_color === null);
-    }
+    check("Invalid clear field rejected", !!error && error.code === "BRND6");
   }
   console.log();
 
