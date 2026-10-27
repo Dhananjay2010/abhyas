@@ -19,9 +19,9 @@ if ! check_db_reset_guard_bash check "supabase/config.toml"; then
   exit 1
 fi
 
-# Check DATABASE_URL early - test script needs it
-if [ -z "$DATABASE_URL" ]; then
-  echo "❌ FAIL: DATABASE_URL not set (mutants would incorrectly pass/fail)"
+# Check SUPABASE_SERVICE_ROLE_KEY early - test script needs it
+if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+  echo "❌ FAIL: SUPABASE_SERVICE_ROLE_KEY not set (mutants would falsely appear killed)"
   exit 1
 fi
 
