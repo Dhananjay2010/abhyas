@@ -488,7 +488,7 @@ async function runTests() {
   // Create anon client for public access tests
   const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // TEST: Anon cannot set branding (permission denied)
+  // TEST: Anon cannot set branding (permission denied, not BRND1)
   console.log("TEST: Anon cannot set branding");
   {
     const { error } = await anonClient.rpc("set_gym_branding", {
@@ -496,6 +496,12 @@ async function runTests() {
       p_display_name: "Anon Hack",
     });
     check("Anon cannot call set_gym_branding", !!error, error?.message);
+    // Should get permission denied (42501), not BRND1 - if we get BRND1,
+    // it means anon was granted execute permission (mutant b survived)
+    if (error && error.code === "BRND1") {
+      console.error("  ✗ SECURITY: Anon got past permission check! Got BRND1 instead of permission denied.");
+      process.exit(1);
+    }
   }
   console.log();
 
@@ -506,6 +512,11 @@ async function runTests() {
       p_gym_id: gymId,
     });
     check("Anon can call get_gym_brand", !error, error?.message);
+    // If this fails with permission denied, mutant (h) survived
+    if (error && (error.message?.includes("permission denied") || error.code === "42501")) {
+      console.error("  ✗ SECURITY: get_gym_brand missing public GRANT! Anon got permission denied.");
+      process.exit(1);
+    }
     check("Returns gym name", Array.isArray(data) && data.length > 0 && data[0].name === "Branding Test Gym");
   }
   console.log();
