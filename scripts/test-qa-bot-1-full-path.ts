@@ -469,7 +469,7 @@ console.log("\n=== QA Bot 1: (3) Heavier Actual Weight ===\n");
   
   await writeExerciseProgressCore(client, USER_ID, deadliftId, decision, state.totalSessions, "2026-10-25");
   
-  check("Deadlift stored 90, lifted 95 → 97.5 (based on 95)", decision.nextWorkingWeightKg === 97.5, `${decision.nextWorkingWeightKg}`);
+  check("Deadlift stored 90, lifted 95 → 100 (based on 95 + increment 5)", decision.nextWorkingWeightKg === 100, `${decision.nextWorkingWeightKg}`);
 }
 
 console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, Weighted Pull-ups ===\n");
@@ -624,7 +624,7 @@ console.log("\n=== Missing Cases: Dips, Push-ups, Stored Below Min, Stored 0, We
   await writeExerciseProgressCore(client, USER_ID, squatId, decision, state.totalSessions, "2026-10-25");
   
   check("Squat stored 6 < min 8: uses plan max 12, 3x12 → progresses", decision.outcome === "progressed");
-  check("Squat: next weight 82.5", decision.nextWorkingWeightKg === 82.5);
+  check("Squat: next weight 85 (80 + 5kg increment)", decision.nextWorkingWeightKg === 85);
 }
 
 // Stored 0

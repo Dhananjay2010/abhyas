@@ -31,26 +31,26 @@ const actionsContent = fs.readFileSync("src/app/session/actions.ts", "utf8");
 const feedbackContent = fs.readFileSync("src/lib/session/progression-feedback.ts", "utf8");
 
 check(
-  "actions.ts imports progressionFeedback, which imports buildProgressionInput",
-  actionsContent.includes('import { progressionFeedback } from "@/lib/session/progression-feedback"') &&
+  "actions.ts imports progressionFeedback and buildProgressionFeedbackForUser",
+  actionsContent.includes('import { progressionFeedback, buildProgressionFeedbackForUser } from "@/lib/session/progression-feedback"') &&
   feedbackContent.includes('import { buildProgressionInput } from "./build-progression-input"')
 );
 
 check(
-  "actions.ts uses getProfileUnits",
+  "actions.ts uses getProfileUnits (not via buildProgressionFeedbackForUser)",
   actionsContent.includes("getProfileUnits")
 );
 
 check(
-  "actions.ts calls buildProgressionFeedbackForUser with getProfileUnits",
-  actionsContent.includes('buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel, getProfileUnits)'),
-  "units via getProfileUnits callback"
+  "actions.ts calls buildProgressionFeedbackForUser without getUnits callback",
+  actionsContent.includes('buildProgressionFeedbackForUser(supabase, userId, sessionExerciseId, feel)'),
+  "buildProgressionFeedbackForUser calls getProfileUnits internally"
 );
 
 check(
-  "actions.ts passes units to buildProgressionInput",
-  actionsContent.includes('units,') || actionsContent.includes('units)'),
-  "units parameter passed per Option A"
+  "progression-feedback.ts passes units to buildProgressionInput",
+  feedbackContent.includes('units,') || feedbackContent.includes('units)'),
+  "units parameter passed"
 );
 
 // U1: Static assertion that applyProgression is passed to finishExerciseCore

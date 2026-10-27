@@ -110,7 +110,7 @@ test_mutant() {
   return 1
 }
 
-# UN1: actions.ts passes "metric" instead of units (same as L4B-4a)
+# UN1: actions.ts passes "metric" instead of units
 test_mutant "UN1 (actions.ts passes metric)" \
   "src/app/session/actions.ts" \
   "    units," \
@@ -122,15 +122,9 @@ test_mutant "UN2 (describePersonalBest without units)" \
   "describePersonalBest(decision.personalBest, units)" \
   "describePersonalBest(decision.personalBest)" || true
 
-# L4B-4a: buildProgressionFeedbackForUser ignores getUnits result, hardcodes 'metric'
-test_mutant "L4B-4a (helper ignores getUnits result)" \
-  "src/app/session/actions.ts" \
-  "    units," \
-  "    'metric'," || true
-
 # L4B-4b: applyProgression passes () => 'metric' instead of getProfileUnits
-# Removed: applyProgression is not directly testable without full finishExerciseSession path.
-# UN1 already tests the same code path (actions.ts passes units field).
+# Removed: applyProgression now calls buildProgressionFeedbackForUser without getUnits param.
+# L4B-4 mutant is in equipment harness (targets progression-feedback.ts directly).
 
 # UN4: buildProgressionInput drops units field
 test_mutant "UN4 (builder drops units)" \
