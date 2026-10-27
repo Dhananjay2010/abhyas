@@ -266,5 +266,45 @@ console.log("\n=== Never-Below-Lifted Invariant ===\n");
   check("48 kg kettlebell (max): next === 48", d.nextWorkingWeightKg === MAX_BELL, `got ${d.nextWorkingWeightKg}`);
 }
 
+// Test 11: Kettlebell above max bell (50 kg) - kills M2 mutant
+{
+  const d = evaluateProgression({
+    sets: [{ reps: 12, weightKg: 50 }, { reps: 12, weightKg: 50 }, { reps: 12, weightKg: 50 }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: PRESS,
+    state: { currentWorkingWeightKg: 50, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null },
+    isDeload: false,
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  
+  check("50 kg kettlebell (above max): outcome is hold", d.outcome === "hold", `got ${d.outcome}`);
+  check("50 kg kettlebell (above max): next === 50", d.nextWorkingWeightKg === 50, `got ${d.nextWorkingWeightKg}`);
+  check("50 kg kettlebell (above max): message", d.message === "All sets at the top of the range — no heavier load available.", `got ${d.message}`);
+}
+
+// Test 12: Kettlebell at max bell (48 kg) with exact message - kills M2 mutant
+{
+  const d = evaluateProgression({
+    sets: [{ reps: 12, weightKg: 48 }, { reps: 12, weightKg: 48 }, { reps: 12, weightKg: 48 }],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    meta: PRESS,
+    state: { currentWorkingWeightKg: 48, currentTargetReps: 12, consecutiveFailures: 0, bestWeightKg: null, bestReps: null, bestE1rm: null, totalSessions: 0, weightAtFailureStartKg: null },
+    isDeload: false,
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  
+  check("48 kg kettlebell (max): outcome is hold", d.outcome === "hold", `got ${d.outcome}`);
+  check("48 kg kettlebell (max): next === 48", d.nextWorkingWeightKg === 48, `got ${d.nextWorkingWeightKg}`);
+  check("48 kg kettlebell (max): message", d.message === "All sets at the top of the range — no heavier load available.", `got ${d.message}`);
+}
+
 console.log(failures === 0 ? "\n✅ All never-below-lifted tests passed\n" : `\n❌ ${failures} test(s) failed\n`);
 process.exit(failures === 0 ? 0 : 1);

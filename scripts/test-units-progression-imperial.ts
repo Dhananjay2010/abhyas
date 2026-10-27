@@ -76,8 +76,7 @@ console.log("\n=== Imperial Units in Progression Messages ===\n");
     unit: "lb",
   });
   
-  check("Hold: 22.68 kg (50 lb) in-range → includes 'lb'", d.message.includes("lb"), d.message);
-  check("Hold: shows 50 lb", d.message.includes("50 lb"), d.message);
+  check("Hold: 22.68 kg (50 lb) in-range message", d.message === "Staying at this weight until every set reaches the top of the range.", d.message);
 }
 
 // Test 3: First miss holds with standard message (Decision F)

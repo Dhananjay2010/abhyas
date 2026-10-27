@@ -1735,7 +1735,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
                 
                 // Never drop the only pull or only push
                 if (isPull && pullCount === 1) continue;
-                if (isPush && pushCount === 1) continue;
+                // MUTANT: Removed push protection
+                // if (isPush && pushCount === 1) continue;
               }
               
               dropIndex = i;

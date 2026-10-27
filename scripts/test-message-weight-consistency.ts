@@ -58,11 +58,11 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     isDeload: false,
   });
   
-  check("With equipment: 1x7@72.5 + 4x12@70 → holds at mode 70 kg (Decision F)", withEquip.nextWorkingWeightKg === 70);
+  check("With equipment: 1x7@72.5 + 4x12@70 → holds at heaviest 72.5 kg (Decision B: stored null, use heaviest)", withEquip.nextWorkingWeightKg === 72.5);
   check("  message: Staying at this weight (Decision C)", withEquip.message === "Staying at this weight until every set reaches the top of the range.");
   check("  consecutiveFailures incremented", withEquip.consecutiveFailures === 1);
   
-  // Without equipment (first miss from mode 70 kg → holds at 70 per Decision F)
+  // Without equipment (first miss from heaviest 72.5 kg → holds at 72.5 per Decision F)
   const noEquip = evaluateProgression({
     sets,
     plannedSets: 5,
@@ -75,9 +75,36 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     isDeload: false,
   });
   
-  check("Without equipment: 1x7@72.5 + 4x12@70 → holds at mode 70 kg (Decision F)", noEquip.nextWorkingWeightKg === 70);
+  check("Without equipment: 1x7@72.5 + 4x12@70 → holds at heaviest 72.5 kg (Decision B)", noEquip.nextWorkingWeightKg === 72.5);
   check("  message: Staying at this weight (Decision C)", noEquip.message === "Staying at this weight until every set reaches the top of the range.");
   check("  consecutiveFailures incremented", noEquip.consecutiveFailures === 1);
+}
+
+// Case: stored ≠ lifted (keeps a lifted ≠ stored case)
+{
+  const sets = [
+    makeSet(7, 72.5),
+    makeSet(7, 72.5),
+    makeSet(7, 72.5),
+    makeSet(7, 72.5),
+  ];
+  
+  const withEquip = evaluateProgression({
+    sets,
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: ["barbell"],
+    
+    meta: CURL,
+    state: fresh({ currentWorkingWeightKg: 70, consecutiveFailures: 0 }),
+    isDeload: false,
+  });
+  
+  check("Stored 70, lifted 72.5 miss → holds at stored 70 (Decision B)", withEquip.nextWorkingWeightKg === 70);
+  check("  message: Staying at this weight (Decision C)", withEquip.message === "Staying at this weight until every set reaches the top of the range.");
+  check("  consecutiveFailures incremented", withEquip.consecutiveFailures === 1);
 }
 
 // Case: Success case with mode weight - all sets hit top
@@ -158,7 +185,7 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     isDeload: false,
   });
   
-  check("First miss: 1x7@72.5 + 4x11@70 → holds at mode 70 kg (Decision F)", withEquip.nextWorkingWeightKg === 70);
+  check("First miss: 1x7@72.5 + 4x11@70 → holds at heaviest 72.5 kg (Decision B: stored null, use heaviest)", withEquip.nextWorkingWeightKg === 72.5);
   check("  message: Staying at this weight (Decision C)", withEquip.message === "Staying at this weight until every set reaches the top of the range.");
   check("  outcome is hold", withEquip.outcome === "hold");
 }
@@ -186,7 +213,7 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     isDeload: false,
   });
   
-  check("Hold at smallest: 1x7@7.5 + 4x11@5 → holds at mode 5 kg (Decision F)", withEquip.nextWorkingWeightKg === 5);
+  check("Hold at smallest: 1x7@7.5 + 4x11@5 → holds at heaviest 7.5 kg (Decision B: stored null, use heaviest)", withEquip.nextWorkingWeightKg === 7.5);
   check("  message: Staying at this weight (Decision C)", withEquip.message === "Staying at this weight until every set reaches the top of the range.");
   check("  outcome is hold", withEquip.outcome === "hold");
 }

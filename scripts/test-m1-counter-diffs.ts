@@ -231,8 +231,8 @@ console.log("");
     unit: "kg",
   });
   
-  check("Stored 55, lifted 60 miss: holds at mode 60", result.nextWorkingWeightKg === 60);
-  check("Stored 55, lifted 60 miss: counter set to 60", result.weightAtFailureStartKg === 60);
+  check("Stored 55, lifted 60 miss: holds at stored 55 (Decision B)", result.nextWorkingWeightKg === 55);
+  check("Stored 55, lifted 60 miss: counter set to stored 55 (Decision G)", result.weightAtFailureStartKg === 55);
   check("Stored 55, lifted 60 miss: failures = 1", result.consecutiveFailures === 1);
 }
 

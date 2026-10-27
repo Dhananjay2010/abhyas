@@ -695,7 +695,16 @@ export function evaluateProgression(input: {
         }
         
         // If at or past the end, we're at max bell
-        if (currentIndex < 0) currentIndex = 0;
+        if (currentIndex < 0) {
+          // currentIndex < 0 means we never found a bell >= from
+          // This can mean from is above all bells OR below the first bell
+          // Check if from is above the last bell
+          if (from > bells[bells.length - 1]) {
+            currentIndex = bells.length - 1; // At or above max bell
+          } else {
+            currentIndex = 0; // Below first bell
+          }
+        }
         if (currentIndex >= bells.length - 1) {
           // At or above max bell: hold
           next = from;
