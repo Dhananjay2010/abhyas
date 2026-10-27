@@ -7,6 +7,9 @@
 import { progressStartDate } from "../src/lib/progress/progress-start-date.js";
 import { buildDayRecords, computeStreaks } from "../src/lib/progress/streaks.js";
 import { rebuildPlanCore } from "../src/lib/program/rebuild-plan-core.js";
+import { ensureCurrentBlock } from "../src/lib/program/rollover.js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../src/lib/database.types.js";
 
 let testsFailed = 0;
 function assert(condition: boolean, message: string, detail = "") {
@@ -165,52 +168,62 @@ async function runUnitTests() {
     console.log("  PASS: Mutant 3 killer\n");
   }
 
-  console.log("TEST: Unit test - last-day rebuild (today == ends_on)");
+  console.log("TEST: Unit test - last-day rebuild (today == ends_on) uses the REAL ensureCurrentBlock");
   {
-    // When today equals the block's ends_on date, the block is still current
-    // and rebuild should NOT trigger rollover (no new block should be created)
-    const callLog: string[] = [];
-    
-    const lastDayDeps = {
-      userId: "test-user",
-      today: "2026-10-27", // Same as ends_on
-      fetchActiveBlock: async () => {
-        callLog.push("fetchActiveBlock");
-        return { id: "block1", ends_on: "2026-10-27" };
-      },
-      ensureCurrentBlock: async (activeBlock: { id: string; ends_on: string } | null) => {
-        callLog.push("ensureCurrentBlock");
-        // Today == ends_on, so block is still current (not rolled over)
-        if (activeBlock && activeBlock.ends_on >= "2026-10-27") {
-          return { status: "current" as const, programId: activeBlock.id };
-        }
-        return { status: "none" as const };
-      },
-      createBlock: async () => {
-        callLog.push("createBlock");
-        return { ok: true as const, programId: "prog1", blockNumber: 1 };
-      },
+    // The rollover boundary lives in rollover.ts (`active.ends_on >= today`), so this
+    // drives rebuildPlanCore with the REAL ensureCurrentBlock and a client that records
+    // every call. On the last day the block is current: no database call, no rollover.
+    // The day after, the same code must try to roll over (and here fails, because the
+    // recording client returns errors), so createBlock must not run.
+    const dbCalls: string[] = [];
+    const failing = { data: null, error: { message: "recording client" } };
+    const chain = (table: string): Record<string, unknown> => {
+      const c: Record<string, unknown> = {};
+      for (const m of ["select", "eq", "neq", "order", "limit", "lt", "in"]) c[m] = () => c;
+      c.single = () => Promise.resolve(failing);
+      c.maybeSingle = () => Promise.resolve(failing);
+      c.then = (res: (v: unknown) => unknown) => { dbCalls.push(`from:${table}`); return Promise.resolve(failing).then(res); };
+      dbCalls.push(`from:${table}`);
+      return c;
+    };
+    const client = {
+      from: (t: string) => chain(t),
+      rpc: (n: string) => { dbCalls.push(`rpc:${n}`); return Promise.resolve(failing); },
+    } as unknown as SupabaseClient<Database>;
+
+    const run = async (today: string) => {
+      const callLog: string[] = [];
+      dbCalls.length = 0;
+      const origError = console.error;
+      console.error = () => {};
+      try {
+        const result = await rebuildPlanCore({
+          userId: "test-user",
+          today,
+          fetchActiveBlock: async () => { callLog.push("fetchActiveBlock"); return { id: "block1", ends_on: "2026-10-27" }; },
+          ensureCurrentBlock: async (active) => { callLog.push("ensureCurrentBlock"); return ensureCurrentBlock(client, "test-user", today, active); },
+          createBlock: async () => { callLog.push("createBlock"); return { ok: true as const, programId: "prog1", blockNumber: 1 }; },
+        });
+        return { result, callLog: [...callLog], dbCalls: [...dbCalls] };
+      } finally {
+        console.error = origError;
+      }
     };
 
-    const result = await rebuildPlanCore(lastDayDeps);
-    assert(result.ok === true, "Last-day rebuild succeeds");
-    assert(callLog.length === 3, "All functions called", `got ${callLog.length}`);
-    assert(callLog.includes("ensureCurrentBlock"), "ensureCurrentBlock called");
-    assert(callLog.includes("createBlock"), "createBlock called for rebuild");
-    
+    const last = await run("2026-10-27");
+    assert(last.result.ok === true, "Last-day rebuild succeeds");
+    assert(JSON.stringify(last.callLog) === JSON.stringify(["fetchActiveBlock", "ensureCurrentBlock", "createBlock"]), "Last day: fetch, ensure, then createBlock", last.callLog.join(","));
+    assert(last.dbCalls.length === 0, "Last day: real ensureCurrentBlock makes no DB call (block still current)", `got ${last.dbCalls.join(",") || "none"}`);
+
+    const after = await run("2026-10-28");
+    assert(after.dbCalls.length > 0, "Day after ends_on: real ensureCurrentBlock goes to the database to roll over", `got ${after.dbCalls.length}`);
+    assert(after.result.ok === false && !after.callLog.includes("createBlock"), "Day after ends_on: a failed rollover stops before createBlock", after.callLog.join(","));
+
     console.log("  PASS: last-day rebuild unit test\n");
   }
 
-  console.log("TEST: Wiring - buildPlan entry point calls rebuildPlanCore");
-  {
-    // This test verifies that the production buildPlan action properly wires
-    // to rebuildPlanCore and ensureCurrentBlock (which runs rollover first).
-    // We can't easily mock the buildPlan action itself (it's a server action),
-    // but we verify the core logic order via rebuildPlanCore unit tests above.
-    // This test documents that buildPlan (actions.ts) -> rebuildPlanCore -> ensureCurrentBlock.
-    console.log("  ✓ buildPlan → buildRebuildPlanDeps → rebuildPlanCore → ensureCurrentBlock");
-    console.log("  ✓ Verified via rebuildPlanCore unit tests\n");
-  }
+  // The buildPlan server action itself is exercised for real in
+  // scripts/test-build-plan-logic-wiring.ts (section A1).
 
   console.log("TEST: Wiring - Progress page renders days trained and streak with pre-block sessions");
   {

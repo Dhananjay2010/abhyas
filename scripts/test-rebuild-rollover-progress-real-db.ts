@@ -14,6 +14,7 @@ import { randomUUID } from "crypto";
 import type { Database } from "../src/lib/database.types.js";
 import { rebuildPlanCore } from "../src/lib/program/rebuild-plan-core.js";
 import { buildRebuildPlanDeps } from "../src/lib/program/rebuild-plan-deps.js";
+import { activeDayIndicesAnchored } from "../src/lib/program/splits.js";
 import { checkRealDbTest } from "./lib-db-reset-guard.js";
 
 // Skip unless REAL_DB=1
@@ -259,9 +260,8 @@ async function runTests() {
       process.exit(1);
     }
 
-    // Pin today for the ENTIRE flow (no clock drift between setup, RPCs, and assertions)
-    // This test can run at any pinned date; validated at 2026-10-27, 2026-10-28, and 2026-10-30
-    // Currently: 2026-10-27 (day after block 1 ends on 2026-10-26)
+    // Pin today for the ENTIRE flow (no clock drift between setup, RPCs, and assertions):
+    // 2026-10-27 is the day after block 1 ends on 2026-10-26. Both RPCs get this date.
     const today = "2026-10-27";
 
     // Before rebuild: block 1 is still active, ends_on has passed
@@ -419,9 +419,8 @@ async function runTests() {
       target_reps_max: 12,
     });
 
-    // Pin today for the ENTIRE flow (no clock drift between setup, RPCs, and assertions)
-    // This test can run at any pinned date; validated at 2026-10-15, 2026-10-28, and 2026-10-30
-    // Currently: 2026-10-15 (mid-block: after block starts 2026-10-01, before it ends 2026-10-29)
+    // Pin today for the ENTIRE flow (no clock drift between setup, RPCs, and assertions):
+    // 2026-10-15 is mid-block (block started 2026-10-01, ends 2026-10-29).
     const today = "2026-10-15";
 
     // Create authenticated client (rebuild_block RPC requires auth.uid())
@@ -453,6 +452,48 @@ async function runTests() {
 
     // Mid-block rebuild supersedes the old block and creates a new one
     assert(afterData!.status === "superseded", "Mid-block rebuild marks old block superseded", `got ${afterData!.status}`);
+
+    // What rebuild_block (migration 20261025000023) preserves on a different-day rebuild:
+    // the old row keeps its started_on and is ended the day before; the new row starts on
+    // p_today with week_offset = old offset + whole weeks elapsed, so the cycle week the
+    // member sees is unchanged (week 3 on 2026-10-15 before and after). A rebuilt block 1
+    // also keeps the weekdays it was anchored to (2026-10-01, a Thursday).
+    const { data: midBlocks } = await adminClient
+      .from("programs")
+      .select("id, block_number, status, started_on, ends_on, ended_on, week_offset")
+      .eq("user_id", userId)
+      .order("started_on", { ascending: true });
+    const oldRow = midBlocks?.find((b) => b.id === blockId);
+    const newRow = midBlocks?.find((b) => b.status === "active");
+    assert((midBlocks?.length ?? 0) === 2, "Mid-block: exactly 2 rows (superseded + active)", `got ${midBlocks?.length}`);
+    assert(oldRow?.started_on === "2026-10-01", "Mid-block: superseded row keeps started_on 2026-10-01", `got ${oldRow?.started_on}`);
+    assert(oldRow?.ended_on === "2026-10-14", "Mid-block: superseded row ended_on = p_today - 1 (2026-10-14)", `got ${oldRow?.ended_on}`);
+    assert(newRow?.block_number === 1, "Mid-block: rebuilt row keeps block_number 1", `got ${newRow?.block_number}`);
+    assert(newRow?.started_on === today, "Mid-block: rebuilt row started_on = p_today (2026-10-15)", `got ${newRow?.started_on}`);
+    assert(newRow?.week_offset === 2, "Mid-block: rebuilt row week_offset 2 (two whole weeks carried)", `got ${newRow?.week_offset}`);
+    assert(newRow?.ends_on === "2026-11-11", "Mid-block: rebuilt row ends_on = p_today + 27 (payload)", `got ${newRow?.ends_on}`);
+    const cycleWeek = (offset: number, startedOn: string) =>
+      offset + Math.floor((Date.parse(today) - Date.parse(startedOn)) / (7 * 86400000)) + 1;
+    assert(
+      !!newRow && cycleWeek(newRow.week_offset, newRow.started_on) === cycleWeek(0, "2026-10-01"),
+      "Mid-block: cycle week unchanged by the rebuild (week 3)",
+      newRow ? `${cycleWeek(0, "2026-10-01")} -> ${cycleWeek(newRow.week_offset, newRow.started_on)}` : "no active row",
+    );
+    const { data: newDays } = await adminClient
+      .from("program_days")
+      .select("day_index, day_type")
+      .eq("program_id", newRow?.id ?? "")
+      .eq("status", "active");
+    const trainedOn = (newDays ?? [])
+      .filter((d) => d.day_type === "weights" || d.day_type === "bodyweight" || d.day_type === "yoga")
+      .map((d) => d.day_index)
+      .sort((a, b) => a - b);
+    const anchored = activeDayIndicesAnchored("2026-10-01", 4);
+    assert(
+      JSON.stringify(trainedOn) === JSON.stringify(anchored),
+      "Mid-block: rebuilt block 1 keeps the Thursday-anchored weekdays",
+      `got ${JSON.stringify(trainedOn)}, want ${JSON.stringify(anchored)}`,
+    );
 
     if (testsFailed === scenarioStartFailures) {
       console.log("  PASS: mid-block rebuild test\n");

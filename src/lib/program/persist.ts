@@ -35,24 +35,34 @@ export type BuildResult =
  * to their sign-up weekday by setting `started_on` to today. This ensures
  * their first workout lands on the day they join.
  * 
- * For all other cases (rebuild or rollover to block 2+), return undefined
- * to let the RPC or rollover logic handle the start date.
+ * A mid-block rebuild of block 1 re-plans the block the member is IN, so it
+ * keeps the weekdays block 1 was anchored to: pass the block's original start
+ * as `rebuildAnchor` and it is returned instead of today. Without it a rebuild
+ * flipped a Wednesday sign-up's Wed/Fri/Sun week to Mon/Wed/Fri.
+ * 
+ * For all other cases (rollover to block 2+, or a rebuild of block 2+), return
+ * undefined to let the RPC or rollover logic handle the start date.
  * 
  * @param blockNumber - The block number being created
  * @param isRebuild - Whether this is a rebuild of an existing block
  * @param today - The current date string (ISO format)
- * @returns today for new block 1, undefined otherwise
+ * @param rebuildAnchor - For a rebuild, the date block 1 originally started on
+ * @returns today for new block 1, the anchor for a rebuilt block 1, undefined otherwise
  */
 export function decideBlockStartedOn({
   blockNumber,
   isRebuild,
   today,
+  rebuildAnchor,
 }: {
   blockNumber: number;
   isRebuild: boolean;
   today: string;
+  rebuildAnchor?: string | null;
 }): string | undefined {
-  return blockNumber === 1 && !isRebuild ? today : undefined;
+  if (blockNumber !== 1) return undefined;
+  if (isRebuild) return rebuildAnchor ?? undefined;
+  return today;
 }
 
 type ProgramPayload = {
@@ -247,9 +257,27 @@ export async function createBlockForUser(
   const blockNumber = rebuildOf?.block_number ?? (lastBlockRes.data?.block_number ?? 0) + 1;
   const isRebuild = !!rebuildOf;
 
+  // A mid-block rebuild of block 1 keeps the weekdays block 1 was anchored to.
+  // rebuild_block gives each rebuilt row started_on = p_today, so after one
+  // rebuild the active row no longer carries the sign-up date; the earliest
+  // block-1 row (superseded rows keep their started_on) still does.
+  let rebuildAnchor: string | null = null;
+  if (rebuildOf && rebuildOf.block_number === 1) {
+    const firstRes = await supabase
+      .from("programs")
+      .select("started_on")
+      .eq("user_id", userId)
+      .eq("block_number", 1)
+      .order("started_on", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    rebuildAnchor = firstRes.data?.started_on ?? rebuildOf.started_on;
+  }
+
   // For a brand new user's first block, anchor the schedule to their sign-up weekday.
-  // For rebuilds or block 2+, leave startedOn undefined so the generator uses the default mapping.
-  const startedOn = decideBlockStartedOn({ blockNumber, isRebuild, today });
+  // A rebuilt block 1 keeps that anchor; block 2+ (new or rebuilt) leaves startedOn
+  // undefined so the generator uses the default mapping.
+  const startedOn = decideBlockStartedOn({ blockNumber, isRebuild, today, rebuildAnchor });
 
   const input: GeneratorInput = {
     userId,

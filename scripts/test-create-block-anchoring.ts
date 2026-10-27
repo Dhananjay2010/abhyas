@@ -8,11 +8,16 @@
  *   - new block 1 / new block 2: rows POSTed to /program_days
  *   - rebuild: p_payload.days sent to /rpc/rebuild_block
  *
- * Clock: options.now = Thursday 2026-10-29 (UTC profile timezone).
+ * Clock: options.now = Thursday 2026-10-29 (UTC profile timezone); the rebuild
+ * cases run on Monday 2026-10-26 so "anchor to today" would give a different week.
  * Expected training weekdays for a 3-day plan:
- *   - new block 1        -> [1,4,6] (anchored to Thursday)
- *   - rebuild of block 1 -> [1,3,5] (default mapping)
- *   - new block 2        -> [1,3,5] (default mapping)
+ *   - new block 1                          -> [1,4,6] (anchored to Thursday)
+ *   - mid-block rebuild of block 1         -> [1,4,6] (keeps block 1's Thursday anchor;
+ *                                             #168 changed this from main's [1,3,5])
+ *   - second rebuild of block 1            -> [1,4,6] (anchor = earliest block-1 start,
+ *                                             not the Tuesday the first rebuild started)
+ *   - rebuild of block 2                   -> [1,3,5] (block 2+ is never anchored)
+ *   - new block 2                          -> [1,3,5] (default mapping)
  *
  * PostgREST detail that matters: `.single()` sends
  * `Accept: application/vnd.pgrst.object+json` and supabase-js returns the body
@@ -27,6 +32,7 @@ import { createBlockForUser } from "../src/lib/program/persist";
 import catalogueFixture from "./fixtures/catalogue.json";
 
 const THURSDAY = new Date("2026-10-29T06:00:00Z");
+const MONDAY = new Date("2026-10-26T06:00:00Z");
 
 type Recorded = {
   insertedDays: Array<{ dayIndex: number; dayType: string }>;
@@ -82,6 +88,8 @@ function rows(data: unknown[], accept: string): Response {
 function buildClient(cfg: {
   lastBlockNumber: number | null;
   activeBlock: { block_number: number; started_on: string } | null;
+  /** started_on of every block-1 row (superseded ones included), for the anchor read. */
+  block1Starts?: string[];
 }) {
   const recorded: Recorded = { insertedDays: [], rpc: [] };
 
@@ -137,6 +145,10 @@ function buildClient(cfg: {
       if (url.searchParams.get("status") === "eq.active") {
         return rows(cfg.activeBlock ? [cfg.activeBlock] : [], accept);
       }
+      if (url.searchParams.get("block_number") === "eq.1") {
+        const starts = [...(cfg.block1Starts ?? [])].sort();
+        return rows(starts.slice(0, 1).map((started_on) => ({ started_on })), accept);
+      }
       return rows(cfg.lastBlockNumber === null ? [] : [{ block_number: cfg.lastBlockNumber }], accept);
     }
     return rows([], accept);
@@ -167,13 +179,14 @@ async function main() {
     console.log("  ✓ inserted training weekdays [1,4,6]");
   }
 
-  console.log("2. Rebuild of block 1 -> [1,3,5]");
+  console.log("2. Mid-block rebuild of block 1 (anchored Thu 2026-10-15, rebuilt Mon 2026-10-26) -> [1,4,6]");
   {
     const { client, recorded } = buildClient({
       lastBlockNumber: 1,
       activeBlock: { block_number: 1, started_on: "2026-10-15" },
+      block1Starts: ["2026-10-15"],
     });
-    const result = await createBlockForUser(client, "user-1", { mode: "rebuild", now: THURSDAY });
+    const result = await createBlockForUser(client, "user-1", { mode: "rebuild", now: MONDAY });
     assert.ok(result.ok, `rebuild should succeed: ${JSON.stringify(result)}`);
     assert.strictEqual(result.blockNumber, 1, "rebuild keeps block number 1");
     assert.strictEqual(recorded.rpc.length, 1, "rebuild goes through one RPC call");
@@ -181,8 +194,44 @@ async function main() {
     assert.strictEqual(recorded.insertedDays.length, 0, "rebuild must not insert program_days directly");
     assert.deepStrictEqual(
       trainingWeekdays(recorded.rpc[0]?.days ?? []),
+      [1, 4, 6],
+      "mid-block rebuild of block 1 must keep the Thursday-anchored [1,4,6] weekdays",
+    );
+    console.log("  ✓ rebuild_block payload training weekdays [1,4,6]");
+  }
+
+  console.log("2b. Second rebuild of block 1 (active row started Tue 2026-10-20 by the first rebuild) -> [1,4,6]");
+  {
+    const { client, recorded } = buildClient({
+      lastBlockNumber: 1,
+      activeBlock: { block_number: 1, started_on: "2026-10-20" },
+      block1Starts: ["2026-10-20", "2026-10-15"],
+    });
+    const result = await createBlockForUser(client, "user-1", { mode: "rebuild", now: MONDAY });
+    assert.ok(result.ok, `second rebuild should succeed: ${JSON.stringify(result)}`);
+    assert.strictEqual(recorded.rpc[0]?.name, "rebuild_block", "second rebuild must call rebuild_block");
+    assert.deepStrictEqual(
+      trainingWeekdays(recorded.rpc[0]?.days ?? []),
+      [1, 4, 6],
+      "a second rebuild must anchor to block 1's first start (Thu), not the Tuesday row",
+    );
+    console.log("  ✓ rebuild_block payload training weekdays [1,4,6]");
+  }
+
+  console.log("2c. Rebuild of block 2 (started Thu 2026-10-15) -> [1,3,5]");
+  {
+    const { client, recorded } = buildClient({
+      lastBlockNumber: 2,
+      activeBlock: { block_number: 2, started_on: "2026-10-15" },
+      block1Starts: ["2026-09-17"],
+    });
+    const result = await createBlockForUser(client, "user-1", { mode: "rebuild", now: MONDAY });
+    assert.ok(result.ok, `block 2 rebuild should succeed: ${JSON.stringify(result)}`);
+    assert.strictEqual(result.blockNumber, 2, "rebuild keeps block number 2");
+    assert.deepStrictEqual(
+      trainingWeekdays(recorded.rpc[0]?.days ?? []),
       [1, 3, 5],
-      "rebuild of block 1 must keep the default [1,3,5] mapping",
+      "rebuild of block 2 must keep the default [1,3,5] mapping",
     );
     console.log("  ✓ rebuild_block payload training weekdays [1,3,5]");
   }
