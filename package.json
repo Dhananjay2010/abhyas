@@ -584,7 +584,8 @@
     "test:current-knee-thruster-pin": "tsx scripts/test-current-knee-thruster-pin.ts",
     "test:generate-current-knee-thruster": "tsx scripts/test-generate-current-knee-thruster.ts",
     "test:alternatives-current-knee-thruster": "tsx scripts/test-alternatives-current-knee-thruster.ts",
-    "test:replace-banned-current-knee-thruster": "tsx scripts/test-replace-banned-current-knee-thruster.ts"
+    "test:replace-banned-current-knee-thruster": "tsx scripts/test-replace-banned-current-knee-thruster.ts",
+    "test:pickforslot-current-knee-thruster": "tsx scripts/test-pickforslot-current-knee-thruster.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

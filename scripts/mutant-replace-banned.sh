@@ -146,13 +146,15 @@ echo ""
 # Decision (a): kettlebell-thruster is pinned in CURRENT_KNEE_ONLY_EXCLUDED_SLUGS
 # for current-knee exclusion. Removing it must be killed by the pin test AND
 # at least one behavioural path test (e.g. generator test).
+# NOTE: kettlebell-thruster also exists in PAST_KNEE_EXCLUDED_SLUGS (for both tiers),
+# so we need to remove it from BOTH lists for the behavioural test to catch it.
 PAST_KNEE_FILE="src/lib/program/past-knee.ts"
 backup_file "$PAST_KNEE_FILE"
 
 if grep -q '"kettlebell-thruster",' "$PAST_KNEE_FILE"; then
-  echo "Testing M5: Remove kettlebell-thruster from CURRENT_KNEE_ONLY_EXCLUDED_SLUGS"
+  echo "Testing M5: Remove kettlebell-thruster from both PAST and CURRENT lists"
   
-  # Remove kettlebell-thruster line from the list
+  # Remove kettlebell-thruster from both lists
   if [[ "$OSTYPE" == "darwin"* ]]; then
     sed -i '' '/"kettlebell-thruster",/d' "$PAST_KNEE_FILE"
   else
@@ -169,7 +171,7 @@ if grep -q '"kettlebell-thruster",' "$PAST_KNEE_FILE"; then
     PIN_PASSED=true
   fi
   
-  if npx tsx scripts/test-generate-current-knee-thruster.ts > /dev/null 2>&1; then
+  if npx tsx scripts/test-pickforslot-current-knee-thruster.ts > /dev/null 2>&1; then
     echo "  ✗ Behavioural test SURVIVED"
   else
     BEHAVIOURAL_PASSED=true
@@ -182,7 +184,7 @@ if grep -q '"kettlebell-thruster",' "$PAST_KNEE_FILE"; then
     FAILURES=$((FAILURES + 1))
   fi
 else
-  echo "Testing M5: Remove kettlebell-thruster from CURRENT_KNEE_ONLY_EXCLUDED_SLUGS"
+  echo "Testing M5: Remove kettlebell-thruster from both PAST and CURRENT lists"
   echo "  ⊘ SKIP: kettlebell-thruster not found"
 fi
 
