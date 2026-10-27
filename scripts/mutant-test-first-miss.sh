@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # Simplified mutant test for Decision F
-FILE="src/lib/program/progression.ts"
-BASELINE_CMD="npm run test:first-miss-pinned"
-COMPILE_CMD="npx tsc --noEmit"
-MUTANT_TEST_CMD="npm run test:first-miss-pinned"
+FILE="${MUTANT_TARGET_FILE:-src/lib/program/progression.ts}"
+BASELINE_CMD="${MUTANT_BASELINE_CMD:-npm run test:first-miss-pinned}"
+COMPILE_CMD="${MUTANT_COMPILE_CMD:-npx tsc --noEmit}"
+MUTANT_TEST_CMD="${MUTANT_TEST_CMD:-npm run test:first-miss-pinned}"
 
 BACKUP=$(mktemp)
 cp "$FILE" "$BACKUP"
