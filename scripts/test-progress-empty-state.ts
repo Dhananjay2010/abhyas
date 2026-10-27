@@ -177,7 +177,7 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
   };
   {
     const html = await renderProgress("P9: strength member, only completed meditation sessions (HISTORY_TYPES but not counted toward streaks)");
-    check("P9 empty state NOT shown (History lists meditation sessions)", !html.includes("No progress data yet"), "mutation check: hasAnyCompletedSession vs streaks.totalSessions");
+    check("P3 empty state NOT shown (History lists meditation sessions, mutant 19 check)", !html.includes("No progress data yet"), "mutation check: hasAnyCompletedSession vs streaks.totalSessions");
     check("P9 stat tiles shown", html.includes("Best streak"));
   }
 

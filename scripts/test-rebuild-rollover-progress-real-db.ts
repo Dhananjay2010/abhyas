@@ -78,7 +78,7 @@ async function runTests() {
       process.exit(1);
     }
     console.log(`✓ Using service_role key\n`);
-  } catch (e) {
+  } catch {
     console.error("❌ Failed to decode service role key");
     process.exit(1);
   }
@@ -166,16 +166,16 @@ async function runTests() {
       process.exit(1);
     }
 
-    const exerciseOrder = randomUUID();
+    const orderIndex = 0;
     const { error: exError } = await adminClient.from("program_day_exercises").insert({
       id: randomUUID(),
       program_day_id: dayId1,
       user_id: userId,
       exercise_id: exerciseId,
-      exercise_order: exerciseOrder,
-      sets: 3,
-      reps_min: 8,
-      reps_max: 12,
+      order_index: orderIndex,
+      target_sets: 3,
+      target_reps_min: 8,
+      target_reps_max: 12,
     });
 
     if (exError) {
@@ -205,7 +205,7 @@ async function runTests() {
       session_id: sessionId1,
       user_id: userId,
       exercise_id: exerciseId,
-      exercise_order: exerciseOrder,
+      order_index: orderIndex,
     });
 
     if (sessExError) {
@@ -219,16 +219,16 @@ async function runTests() {
         id: randomUUID(),
         session_exercise_id: sessionExId,
         user_id: userId,
-        set_index: 0,
-        reps_completed: 10,
+        set_number: 1,
+        reps: 10,
         weight_kg: 50,
       },
       {
         id: randomUUID(),
         session_exercise_id: sessionExId,
         user_id: userId,
-        set_index: 1,
-        reps_completed: 10,
+        set_number: 2,
+        reps: 10,
         weight_kg: 50,
       },
     ]);
@@ -349,16 +349,16 @@ async function runTests() {
       label: "Upper A",
     });
 
-    const exerciseOrder = randomUUID();
+    const orderIndex2 = 0;
     await adminClient.from("program_day_exercises").insert({
       id: randomUUID(),
       program_day_id: dayId,
       user_id: userId,
       exercise_id: exerciseId,
-      exercise_order: exerciseOrder,
-      sets: 3,
-      reps_min: 8,
-      reps_max: 12,
+      order_index: orderIndex2,
+      target_sets: 3,
+      target_reps_min: 8,
+      target_reps_max: 12,
     });
 
     const today = "2026-10-15";
