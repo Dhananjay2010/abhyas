@@ -19,7 +19,7 @@ test_mutant 9 "Body weight section hidden" regex "$P" \
   '(<section className="mt-10">\s*<h2 className="text-sm font-semibold">Body weight</h2>[\s\S]*?</section>)' \
   '{false && (\1)}'
 test_mutant 10 "drop !!weightsRes.error from anyLoadError" literal "$P" '|| !!weightsRes.error ' ''
-test_mutant 11 "remove <LogWeight>" literal "$P" '<LogWeight current={latestWeight} />' '{ /* LogWeight removed */ }'
+test_mutant 11 "remove <LogWeight>" literal "$P" '<LogWeight current={latestWeight} units={units} />' '{ /* LogWeight removed */ }'
 test_mutant 12 "banner reverted to the old condition" literal "$P" \
   '{anyLoadError && (' '{(progressQueryFailed || setCountsError || yogaStatsError) && ('
 test_mutant 13 "drop !!volumeRes.error from anyLoadError" literal "$P" '|| !!volumeRes.error ' ''
