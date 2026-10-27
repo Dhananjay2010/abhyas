@@ -83,9 +83,9 @@ const fakeFetch: typeof fetch = async (input: string | URL | Request, init?: Req
   if (headers) {
     if (headers instanceof Headers) {
       accept = headers.get("Accept") || headers.get("accept") || "";
-    } else if (typeof headers === "object") {
-      const h = headers as Record<string, string>;
-      accept = h.Accept || h.accept || "";
+    } else if (typeof headers === "object" && headers !== null) {
+      const h = headers;
+      accept = ("Accept" in h ? String(h.Accept) : "") || ("accept" in h ? String(h.accept) : "");
     }
   }
   const isSingle = accept.includes("vnd.pgrst.object");
@@ -125,7 +125,7 @@ console.log("=== L4B-4: buildProgressionFeedbackForUser with real createClient =
     console.log("Executing buildProgressionFeedbackForUser with imperial units...");
     
     const result = await buildProgressionFeedbackForUser(
-      supabase as Parameters<typeof buildProgressionFeedbackForUser>[0],
+      supabase,
       "user1",
       "se1",
       "right",
