@@ -13,7 +13,7 @@ import "./helpers/setup-jsdom";
 import React from "react";
 import { render, waitFor } from "@testing-library/react";
 import { SessionRunner, type RunnerExercise, type SessionActions } from "../src/app/session/[id]/session-runner";
-import { weightKgToSubmit, computeRunnerWeightPrefill, formatTopSet, snapPrescribedWeight } from "../src/lib/units";
+import { weightKgToSubmit, computeRunnerWeightPrefill, formatTopSet } from "../src/lib/units";
 
 let passed = 0;
 let failed = 0;
