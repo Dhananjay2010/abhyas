@@ -8,11 +8,13 @@ type Pattern = Database["public"]["Enums"]["movement_pattern"];
  * 
  * Owner decisions:
  * 1. EXCLUDE: pistol/single-leg-squat variants, jumping/plyometric, sissy squats,
- *    walking and jumping lunges
+ *    walking and jumping lunges, and single-leg-leg-extension (owner decision)
  * 2. PREFER: knee-friendly primaries (goblet squat, box squat, leg press, split squat
  *    with controlled range; dumbbell rear lunge or step-up over barbell lunge)
  * 3. Barbell back squat stays as swap option but NOT default primary
- * 4. Squat swap list must include leg press and goblet squat when equipment allows
+ * 4. Squat swap list: leg-extensions, wall-sit, spanish-squat (3-exercise list after
+ *    single-leg-leg-extension exclusion), then knee-safe hinge/bridge fallbacks
+ *    (glutes or hamstrings as primary muscles)
  * 5. Deficit deadlift in swaps is fine
  */
 
@@ -77,6 +79,13 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   
   // Jogging (repeated knee loading)
   "jogging-treadmill",
+  
+  // Calf Press on Leg Press: knee-contraindicated (QA Bot 1 finding)
+  "calf-press-on-the-leg-press-machine",
+  
+  // G-3: Landmine jammers are leg-driven presses (push from legs through shoulders)
+  "landmine-linear-jammer",
+  "single-arm-linear-jammer",
 ]);
 
 /**

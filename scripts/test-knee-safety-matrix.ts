@@ -78,10 +78,10 @@ const EXPECTED_UNSAFE_KNEE_LUNGES = new Set([
   "smith-machine-pistol-squat",
 ]);
 
-// Hard-coded PAST_KNEE_LUNGE_EXERCISES (4-list, independent test oracle)
+// Hard-coded PAST_KNEE_LUNGE_EXERCISES (3-exercise list after single-leg-leg-extension exclusion)
+// Owner decision: single-leg-leg-extension excluded for past-knee only
 const EXPECTED_PAST_KNEE_LUNGE_EXERCISES = new Set([
   "leg-extensions",
-  "single-leg-leg-extension",
   "wall-sit",
   "spanish-squat",
 ]);
