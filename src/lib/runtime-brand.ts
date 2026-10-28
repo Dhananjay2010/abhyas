@@ -20,6 +20,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
 /**
+ * Injectable cache function type for testing.
+ * Wraps an async function with caching behavior.
+ * Matches the signature of Next.js unstable_cache.
+ */
+export type CacheFn = <T extends (...args: unknown[]) => Promise<unknown>>(
+  fn: T,
+  keyParts: string[],
+  opts?: { revalidate?: number; tags?: string[] }
+) => T;
+
+/**
  * RPC return type for resolve_gym_by_host (migration 037).
  * Returns only gym_id, gym_slug, gym_name.
  * The SQL already filters d.verified = true, so verified is not in the result.
@@ -61,12 +72,14 @@ export type BrandResolution = {
  * @param supabase Supabase client
  * @param normalizedHost Normalized host (lowercase, port stripped)
  * @param useCache Whether to use unstable_cache (requires Next.js runtime)
+ * @param cacheFn Injectable cache function (defaults to unstable_cache)
  * @returns Gym resolution result or null
  */
 async function resolveHostToBranding(
   supabase: SupabaseClient<Database>,
   normalizedHost: string,
-  useCache: boolean = true
+  useCache: boolean = true,
+  cacheFn: CacheFn = unstable_cache
 ): Promise<{ gymId: string; gymName: string | null } | null> {
   const resolveFn = async () => {
     const { data, error } = await supabase.rpc("resolve_gym_by_host", {
@@ -100,7 +113,7 @@ async function resolveHostToBranding(
     return resolveFn();
   }
   
-  const cachedFn = unstable_cache(
+  const cachedFn = cacheFn(
     resolveFn,
     [`gym-host-${normalizedHost}`],
     {
@@ -124,6 +137,7 @@ async function resolveHostToBranding(
  * @param base Base brand to use as fallback
  * @param fetchGymBrand Optional fetcher for gym brand (for testing)
  * @param useCache Whether to use unstable_cache for host lookup (default true, false for tests)
+ * @param cacheFn Injectable cache function (defaults to unstable_cache)
  */
 export async function resolveBrand(
   supabase: SupabaseClient<Database>,
@@ -131,7 +145,8 @@ export async function resolveBrand(
   memberGym: { gymId: string; gymName: string } | null,
   base: Brand,
   fetchGymBrand: (gymId: string) => Promise<Partial<Brand>> = getGymBrand,
-  useCache: boolean = true
+  useCache: boolean = true,
+  cacheFn: CacheFn = unstable_cache
 ): Promise<BrandResolution> {
   // Tier 1: Host-mapped verified gym
   if (host) {
@@ -157,7 +172,7 @@ export async function resolveBrand(
 
     if (!isUnmapped) {
       try {
-        const hostResult = await resolveHostToBranding(supabase, normalizedHost, useCache);
+        const hostResult = await resolveHostToBranding(supabase, normalizedHost, useCache, cacheFn);
         
         if (hostResult) {
           try {
