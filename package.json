@@ -613,7 +613,7 @@
     "test:session-runner-plan-day-wiring": "tsx scripts/test-session-runner-plan-day-wiring.tsx",
     "test:next-up-after-session-wiring": "tsx scripts/test-next-up-after-session-wiring.tsx",
     "test:day-plan-prompt-pins": "tsx scripts/test-day-plan-prompt-pins.tsx",
-    "test:layout-page-wiring": "tsx scripts/test-layout-page-wiring.tsx",
+    "test:layout-page-wiring": "tsx scripts/test-layout-page-wiring.ts",
     "test:cache-keys": "tsx scripts/test-cache-keys.ts",
     "test:runtime-branding": "tsx scripts/test-runtime-branding.ts",
     "test:runtime-branding-resolver": "tsx scripts/test-runtime-branding-resolver.ts",
