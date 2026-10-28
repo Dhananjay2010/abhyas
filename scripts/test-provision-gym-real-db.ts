@@ -156,7 +156,7 @@ async function runTests() {
       p_owner_email: emailOwner,
     });
 
-    check("provision_gym returns no error", !error, error?.message);
+    check("create returns no error", !error, error?.message);
     check("provision_gym returns data", !!data);
     check("data.ok is true", data?.ok === true);
     check("data.created is true", data?.created === true);
@@ -260,7 +260,7 @@ async function runTests() {
     });
 
     check("provision_gym returns error", !!error);
-    check("error code is 22023", error?.code === "22023", error?.code);
+    check("invalid timezone error code is 22023", error?.code === "22023", error?.code);
     check("error message mentions timezone", (error?.message?.toLowerCase()?.includes("timezone") ?? false), error?.message);
   }
   console.log("");
@@ -275,7 +275,7 @@ async function runTests() {
     });
 
     check("provision_gym returns error", !!error);
-    check("error code is 22023", error?.code === "22023", error?.code);
+    check("invalid slug error code is 22023", error?.code === "22023", error?.code);
     check("error message mentions slug", (error?.message?.toLowerCase()?.includes("slug") ?? false), error?.message);
   }
   console.log("");
@@ -846,37 +846,66 @@ async function runTests() {
 
     if (userIdDefaultOwner) {
       // Get the default gym
-      const { data: defaultGym } = await adminClient
+      const { data: defaultGym, error: defaultGymError } = await adminClient
         .from("gyms")
         .select("*")
         .eq("slug", "default")
         .single();
+
+      check("default gym exists", !defaultGymError && !!defaultGym, defaultGymError?.message);
       const defaultGymId = defaultGym?.id;
 
       // Make this user an active owner of default (mirroring prod)
-      await adminClient
+      // The 035 trigger already created a member row; UPDATE it to owner
+      const { error: updateOwnerError } = await adminClient
         .from("gym_memberships")
-        .insert({
-          gym_id: defaultGymId,
-          user_id: userIdDefaultOwner,
+        .update({
           role: "owner",
           status: "active",
-        });
+        })
+        .eq("gym_id", defaultGymId)
+        .eq("user_id", userIdDefaultOwner);
 
-      // Capture all default gym memberships before
-      const { data: defaultMembershipsBefore } = await adminClient
+      check("default owner setup succeeds", !updateOwnerError, updateOwnerError?.message);
+
+      // Verify the row is now owner
+      const { data: verifyOwner, error: verifyOwnerError } = await adminClient
         .from("gym_memberships")
-        .select("role, status, joined_at")
+        .select("role, status")
         .eq("gym_id", defaultGymId)
         .eq("user_id", userIdDefaultOwner)
-        .order("joined_at", { ascending: true });
+        .single();
 
-      // Capture default gym branding before
-      const { data: defaultGymBefore } = await adminClient
+      check("default membership is now owner", !verifyOwnerError && verifyOwner?.role === "owner" && verifyOwner?.status === "active", 
+        verifyOwnerError?.message || `role=${verifyOwner?.role}, status=${verifyOwner?.status}`);
+
+      // Capture FULL default gym membership row before (all columns via to_jsonb)
+      const { data: defaultMembershipBefore, error: defaultMembershipBeforeError } = await adminClient
+        .from("gym_memberships")
+        .select("*")
+        .eq("gym_id", defaultGymId)
+        .eq("user_id", userIdDefaultOwner)
+        .single();
+
+      check("default membership snapshot succeeds", !defaultMembershipBeforeError && !!defaultMembershipBefore, defaultMembershipBeforeError?.message);
+
+      // Capture user's profiles row before (member data)
+      const { data: profileBefore, error: profileBeforeError } = await adminClient
+        .from("profiles")
+        .select("*")
+        .eq("id", userIdDefaultOwner)
+        .single();
+
+      check("profile snapshot succeeds", !profileBeforeError && !!profileBefore, profileBeforeError?.message);
+
+      // Capture default gym row before
+      const { data: defaultGymBefore, error: defaultGymBeforeError } = await adminClient
         .from("gyms")
         .select("*")
         .eq("id", defaultGymId)
         .single();
+
+      check("default gym snapshot succeeds", !defaultGymBeforeError && !!defaultGymBefore, defaultGymBeforeError?.message);
 
       // Provision a new gym for this user
       const ironTempleSlug = `iron-temple-${Date.now()}`;
@@ -890,12 +919,14 @@ async function runTests() {
       check("iron temple provision created", !error && data?.created === true, error?.message);
 
       // Assert user has exactly 2 active owner rows: default and iron-temple
-      const { data: ownerMemberships } = await adminClient
+      const { data: ownerMemberships, error: ownerMembershipsError } = await adminClient
         .from("gym_memberships")
         .select("gym_id, role, status")
         .eq("user_id", userIdDefaultOwner)
         .eq("role", "owner")
         .eq("status", "active");
+
+      check("owner memberships query succeeds", !ownerMembershipsError, ownerMembershipsError?.message);
 
       const ironTempleGymId = data?.gym_id;
       check("user has exactly 2 active owner rows", ownerMemberships?.length === 2, `found ${ownerMemberships?.length}`);
@@ -904,34 +935,42 @@ async function runTests() {
         (ownerMemberships?.some(m => m.gym_id === ironTempleGymId) ?? false),
         `gym_ids: ${ownerMemberships?.map(m => m.gym_id).join(", ")}`);
 
-      // Verify all default memberships are byte-identical
-      const { data: defaultMembershipsAfter } = await adminClient
+      // Verify default membership row is byte-identical
+      const { data: defaultMembershipAfter, error: defaultMembershipAfterError } = await adminClient
         .from("gym_memberships")
-        .select("role, status, joined_at")
+        .select("*")
         .eq("gym_id", defaultGymId)
         .eq("user_id", userIdDefaultOwner)
-        .order("joined_at", { ascending: true });
+        .single();
 
-      check("default memberships count unchanged", defaultMembershipsAfter?.length === defaultMembershipsBefore?.length);
-      check("all default memberships byte-identical",
-        JSON.stringify(defaultMembershipsBefore) === JSON.stringify(defaultMembershipsAfter),
-        `before: ${JSON.stringify(defaultMembershipsBefore)}, after: ${JSON.stringify(defaultMembershipsAfter)}`);
+      check("default membership after snapshot succeeds", !defaultMembershipAfterError && !!defaultMembershipAfter, defaultMembershipAfterError?.message);
+      check("default membership byte-identical",
+        JSON.stringify(defaultMembershipBefore) === JSON.stringify(defaultMembershipAfter),
+        `before: ${JSON.stringify(defaultMembershipBefore)}, after: ${JSON.stringify(defaultMembershipAfter)}`);
 
-      // Verify default gym row and branding unchanged
-      const { data: defaultGymAfter } = await adminClient
+      // Verify profile row is byte-identical
+      const { data: profileAfter, error: profileAfterError } = await adminClient
+        .from("profiles")
+        .select("*")
+        .eq("id", userIdDefaultOwner)
+        .single();
+
+      check("profile after snapshot succeeds", !profileAfterError && !!profileAfter, profileAfterError?.message);
+      check("profile byte-identical",
+        JSON.stringify(profileBefore) === JSON.stringify(profileAfter),
+        `before: ${JSON.stringify(profileBefore)}, after: ${JSON.stringify(profileAfter)}`);
+
+      // Verify default gym row is byte-identical
+      const { data: defaultGymAfter, error: defaultGymAfterError } = await adminClient
         .from("gyms")
         .select("*")
         .eq("id", defaultGymId)
         .single();
 
-      check("default gym row unchanged",
-        defaultGymAfter?.name === defaultGymBefore?.name &&
-        defaultGymAfter?.slug === defaultGymBefore?.slug &&
-        defaultGymAfter?.timezone === defaultGymBefore?.timezone &&
-        defaultGymAfter?.display_name === defaultGymBefore?.display_name &&
-        defaultGymAfter?.primary_color === defaultGymBefore?.primary_color &&
-        defaultGymAfter?.accent_color === defaultGymBefore?.accent_color &&
-        defaultGymAfter?.logo_url === defaultGymBefore?.logo_url);
+      check("default gym after snapshot succeeds", !defaultGymAfterError && !!defaultGymAfter, defaultGymAfterError?.message);
+      check("default gym byte-identical",
+        JSON.stringify(defaultGymBefore) === JSON.stringify(defaultGymAfter),
+        `before: ${JSON.stringify(defaultGymBefore)}, after: ${JSON.stringify(defaultGymAfter)}`);
 
       // Re-run is a no-op
       const { data: data2, error: error2 } = await adminClient.rpc("provision_gym", {

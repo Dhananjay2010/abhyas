@@ -45,9 +45,9 @@ fi
 FAILED=0
 KILLED_COUNT=0
 EXPECTED_MUTANT_COUNT=14
-declare -a SURVIVORS
-declare -a SKIPPED
-declare -a MUTANT_RESULTS
+SURVIVORS=()
+SKIPPED=()
+MUTANT_RESULTS=()
 
 echo "Running baseline tests..."
 BASELINE_OUTPUT=$(mktemp)
@@ -110,8 +110,21 @@ cleanup_and_summary() {
 
   echo ""
 
-  local mutants_run=$((KILLED_COUNT + ${#SURVIVORS[@]}))
+  local mutants_run=$((KILLED_COUNT + ${#SURVIVORS[@]} + ${#SKIPPED[@]}))
 
+  # Exit with failure if pre-trap exit was non-zero
+  if [ $exit_code -ne 0 ]; then
+    echo "❌ Script exited with error before summary"
+    exit 1
+  fi
+
+  # Exit with failure if wrong number of mutants ran
+  if [ $mutants_run -ne $EXPECTED_MUTANT_COUNT ]; then
+    echo "❌ Expected $EXPECTED_MUTANT_COUNT mutants, ran $mutants_run"
+    exit 1
+  fi
+
+  # Exit with success only if all killed and none skipped
   if [ $KILLED_COUNT -eq $EXPECTED_MUTANT_COUNT ] && [ ${#SKIPPED[@]} -eq 0 ]; then
     echo "✅ All mutants killed"
     exit 0
@@ -309,13 +322,13 @@ run_mutant \
 run_mutant \
   "(f) owner role becomes member" \
   "Change owner role to member in membership creation" \
-  "membership role is owner" \
+  "create returns no error" \
   mutate_f
 
 run_mutant \
   "(g) skip timezone validation" \
   "Remove timezone existence check" \
-  "error code is 22023" \
+  "invalid timezone error code is 22023" \
   mutate_g
 
 run_mutant \
