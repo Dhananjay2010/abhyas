@@ -160,7 +160,8 @@ run_mutant \
 run_mutant \
   "M5: Remove kettlebell-thruster" \
   "src/lib/program/past-knee.ts" \
-  '"kettlebell-thruster",' \
+  '// Kettlebell thruster: banned for both tiers (Decision a: pinned here for M5 test coverage)
+  "kettlebell-thruster",' \
   '// MUTANT: kettlebell-thruster removed' \
   "test:current-knee-thruster-pin"
 
@@ -169,7 +170,7 @@ run_mutant \
   "M6: Math.random tie-break" \
   "src/lib/session/eligible-swap-list.ts" \
   'const tieBreakFn = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);' \
-  'const tieBreakFn = (slug: string) => Math.random(); // MUTANT' \
+  'const tieBreakFn = () => Math.random(); // MUTANT' \
   "test:tie-break-determinism-m6"
 
 # Mutant 7: Today call site removed
@@ -232,8 +233,12 @@ run_mutant \
 run_mutant \
   "W6: cleanup table isolation broken" \
   "src/lib/program/clean-banned-planned.ts" \
-  '.from("program_day_exercises")' \
-  '.from("session_exercises") // MUTANT: wrong table' \
+  '// Delete dropped slot
+          const { error } = await supabase
+            .from("program_day_exercises")' \
+  '// Delete dropped slot
+          const { error} = await supabase
+            .from("session_exercises") // MUTANT: wrong table' \
   "test:cleanup-table-isolation"
 
 # Mutant H2: ensureSessionExercises not called on resume
