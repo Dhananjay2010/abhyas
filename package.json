@@ -600,6 +600,7 @@
     "test:qa-low-b-detail-page-duration-call": "tsx scripts/test-qa-low-b-detail-page-duration-call.ts",
     "test:qa-low-b-page-call-site": "tsx scripts/test-qa-low-b-page-call-site.ts",
     "test:qa-low-b-page-duration-path": "tsx scripts/test-qa-low-b-page-duration-path.ts",
+    "test:repair-superseded-blocks-real-db": "tsx scripts/test-repair-superseded-blocks-real-db.ts",
     "test:provision-gym-url-guard": "tsx scripts/test-provision-gym-url-guard.ts",
     "test:provision-gym-real-db": "tsx scripts/test-provision-gym-real-db.ts",
     "provision:gym": "tsx scripts/provision-gym.ts",

@@ -405,6 +405,7 @@ jobs:
           REAL_DB=1 npm run ci:mutant-provision-gym
           REAL_DB=1 npm run test:rebuild-rollover-progress-real-db
           REAL_DB=1 npm run test:rebuild-rollover-mutants
+          REAL_DB=1 npm run test:repair-superseded-blocks-real-db
         env:
           REAL_DB: "1"
 
