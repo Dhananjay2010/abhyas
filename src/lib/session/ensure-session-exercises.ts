@@ -12,6 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
 import type { CandidateExercise } from "@/lib/program/generate";
 import { cleanBannedPlannedExercises } from "@/lib/program/clean-banned-planned";
+import type { ReplacementResult } from "@/lib/program/replace-banned-in-planned";
 
 /**
  * Apply banned-exercise cleanup to planned exercises (extracted for M8 test coverage).
@@ -45,7 +46,7 @@ export function applyEnsureSessionCleanup(
   injuries: Array<InjuryForCleanup>,
   userId: string,
   equipmentIds: string[]
-) {
+): ReplacementResult {
   const plannedForCleaning = planned.map(p => ({
     id: p.id,
     exercise_id: p.exercise_id,
@@ -56,9 +57,33 @@ export function applyEnsureSessionCleanup(
     rest_seconds: p.rest_seconds,
   }));
   
-  const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId, equipmentIds);
+  const { replaceBannedInPlanned } = require("@/lib/program/replace-banned-in-planned");
+  const { buildInjuryFlags } = require("@/lib/program/injury-regions");
   
-  return cleaned;
+  const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
+  
+  if (!anyKneeInjury) {
+    return { rows: plannedForCleaning, changed: false };
+  }
+  
+  const generatorInput = {
+    userId,
+    blockNumber: 1,
+    goal: profile.goal,
+    level: profile.level,
+    primaryTrack: profile.primary_track,
+    daysPerWeek: profile.days_per_week,
+    yogaDaysPerWeek: profile.yoga_days_per_week,
+    age: null,
+    bmi: null,
+    hasAllEquipment: profile.has_all_equipment,
+    equipmentIds,
+    currentInjuryRegions,
+    anyKneeInjury,
+    catalogue,
+  };
+  
+  return replaceBannedInPlanned(plannedForCleaning, catalogue, generatorInput);
 }
 
 /**

@@ -16,6 +16,7 @@ import type { StartSessionFullDeps, ProgramDayExercise } from "./start-session-f
 import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
 import type { CandidateExercise } from "@/lib/program/generate";
 import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
+import type { ReplacementResult } from "@/lib/program/replace-banned-in-planned";
 
 /**
  * Apply banned-exercise cleanup for start-session (extracted for M10 test coverage).
@@ -49,17 +50,34 @@ export function applyStartSessionCleanup(
   injuries: Array<InjuryForCleanup>,
   userId: string,
   equipmentIds: string[]
-) {
-  const cleaned = applyBannedCleanup(
-    plannedForCleaning,
-    catalogue,
-    profile,
-    injuries,
-    userId,
-    equipmentIds
-  );
+): ReplacementResult {
+  const { replaceBannedInPlanned } = require("@/lib/program/replace-banned-in-planned");
+  const { buildInjuryFlags } = require("@/lib/program/injury-regions");
   
-  return cleaned;
+  const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
+  
+  if (!anyKneeInjury) {
+    return { rows: plannedForCleaning, changed: false };
+  }
+  
+  const generatorInput = {
+    userId,
+    blockNumber: 1,
+    goal: profile.goal,
+    level: profile.level,
+    primaryTrack: profile.primary_track,
+    daysPerWeek: profile.days_per_week,
+    yogaDaysPerWeek: profile.yoga_days_per_week,
+    age: null,
+    bmi: null,
+    hasAllEquipment: profile.has_all_equipment,
+    equipmentIds,
+    currentInjuryRegions,
+    anyKneeInjury,
+    catalogue,
+  };
+  
+  return replaceBannedInPlanned(plannedForCleaning, catalogue, generatorInput);
 }
 
 export function buildStartSessionFullDeps(
@@ -123,9 +141,24 @@ export function buildStartSessionFullDeps(
       ]);
 
       const catalogue = toCandidateExercises(catalogueRes.data || []);
-      const profile = profileRes.data;
+      const profileData = profileRes.data;
       const injuries = injuriesRes.data || [];
       const equipmentIds = (equipmentRes.data || []).map(e => e.equipment_id);
+
+      const profile = profileData && 
+                      profileData.goal && 
+                      profileData.level && 
+                      profileData.primary_track && 
+                      profileData.days_per_week !== null
+        ? {
+            goal: profileData.goal,
+            level: profileData.level,
+            primary_track: profileData.primary_track,
+            days_per_week: profileData.days_per_week,
+            yoga_days_per_week: profileData.yoga_days_per_week,
+            has_all_equipment: profileData.has_all_equipment,
+          }
+        : null;
 
       await ensureSessionExercises(supabase, userId, sessionId, catalogue, profile, injuries, equipmentIds);
     },

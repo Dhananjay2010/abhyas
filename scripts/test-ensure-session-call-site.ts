@@ -57,13 +57,13 @@ const equipmentIds = ["kettlebell", "dumbbell"];
 const cleaned = applyEnsureSessionCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);
 
 // Check that thruster was replaced
-if (cleaned[0].exercise_id === thruster.id) {
+if (cleaned.rows[0].exercise_id === thruster.id) {
   console.error("✗ FAIL: kettlebell-thruster not cleaned in ensure-session-exercises path");
-  console.error(`  Planned: ${thruster.id}, Cleaned: ${cleaned[0].exercise_id}`);
+  console.error(`  Planned: ${thruster.id}, Cleaned: ${cleaned.rows[0].exercise_id}`);
   console.error("  The ensure-session-exercises cleanup call may have been removed or bypassed");
   process.exit(1);
 }
 
 console.log("✓ PASS: ensure-session-exercises cleanup call site works");
 console.log(`  Original: ${thruster.id}`);
-console.log(`  Cleaned:  ${cleaned[0].exercise_id}`);
+console.log(`  Cleaned:  ${cleaned.rows[0].exercise_id}`);

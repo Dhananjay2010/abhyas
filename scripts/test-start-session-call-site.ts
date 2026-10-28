@@ -64,13 +64,13 @@ const cleaned = applyStartSessionCleanup(
 );
 
 // Check that thruster was replaced
-if (cleaned[0].exercise_id === thruster.id) {
+if (cleaned.rows[0].exercise_id === thruster.id) {
   console.error("✗ FAIL: kettlebell-thruster not cleaned in start-session path");
-  console.error(`  Planned: ${thruster.id}, Cleaned: ${cleaned[0].exercise_id}`);
+  console.error(`  Planned: ${thruster.id}, Cleaned: ${cleaned.rows[0].exercise_id}`);
   console.error("  The start-session cleanup call may have been removed or bypassed");
   process.exit(1);
 }
 
 console.log("✓ PASS: start-session cleanup call site works");
 console.log(`  Original: ${thruster.id}`);
-console.log(`  Cleaned:  ${cleaned[0].exercise_id}`);
+console.log(`  Cleaned:  ${cleaned.rows[0].exercise_id}`);
