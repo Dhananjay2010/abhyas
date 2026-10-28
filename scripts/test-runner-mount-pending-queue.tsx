@@ -127,7 +127,7 @@ Object.defineProperty(window, 'localStorage', {
   assert(fakeStorage.getItem("pending-sets:u1") !== null, "Queue seeded");
   
   // Mount - controller.load() and focus-retry both run
-  const { container } = render(
+  render(
     <SessionRunner
       sessionId="s1"
       sessionStatus="in_progress"
