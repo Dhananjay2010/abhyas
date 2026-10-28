@@ -21,11 +21,6 @@ async function main() {
   console.log("TEST 1: JoinConfirmation per-role copy");
   {
     const { JoinConfirmation } = await import("@/app/join/[code]/join-confirmation");
-    const nextNav = await import("next/navigation");
-
-    // Mock router
-    const mockPush = async (_path: string) => { /* no-op */ };
-    (nextNav.useRouter as unknown as () => { push: typeof mockPush }) = () => ({ push: mockPush });
 
     // Scenario: Member joining as member
     const { container: memberContainer } = render(
@@ -92,10 +87,6 @@ async function main() {
   console.log("TEST 2: Button re-enables after redemption error");
   {
     const { JoinConfirmation } = await import("@/app/join/[code]/join-confirmation");
-    const nextNav = await import("next/navigation");
-
-    const mockPush = async (_path: string) => { /* no-op */ };
-    (nextNav.useRouter as unknown as () => { push: typeof mockPush }) = () => ({ push: mockPush });
 
     const { getByText } = render(
       React.createElement(JoinConfirmation, {
