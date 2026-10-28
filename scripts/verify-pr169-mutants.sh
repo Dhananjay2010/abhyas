@@ -31,7 +31,8 @@ test_mutant() {
       ;;
     "item2")
       # Mutant: Done handler never sets retry (setNeedsFinishRetry(false) hardcoded)
-      sed -i '768s/setNeedsFinishRetry(shouldShowFinishRetry(!!result))/setNeedsFinishRetry(false)/' "$file"
+      # Replace ALL occurrences (there are 6 total in the file)
+      sed -i 's/setNeedsFinishRetry(shouldShowFinishRetry(!!result))/setNeedsFinishRetry(false)/g' "$file"
       ;;
     "item4")
       # Mutant: drop warm-up filter from buildHistoryDetailView
