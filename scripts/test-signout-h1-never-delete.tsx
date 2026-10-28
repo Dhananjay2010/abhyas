@@ -352,6 +352,15 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     });
     
     await act(async () => {});
+    
+    // Click confirmation
+    await act(async () => {
+      const confirmButtons = screen.queryAllByRole("button", { name: /Sign out anyway/i });
+      const confirmBtn = confirmButtons[confirmButtons.length - 1];
+      confirmBtn.click();
+    });
+    
+    await act(async () => {});
     await act(async () => {});
     
     assert(signOutCalls === 1, `(e) ${name}: signOut called`);
