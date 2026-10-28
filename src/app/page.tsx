@@ -1,10 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { getRequestBrandResolution } from "@/lib/runtime-brand";
-import { getLandingRedirectTarget } from "@/lib/auth/sign-in-redirect";
-import { safeNextPath } from "@/lib/auth/redirect-origin";
-import { buildLandingBrandProp } from "@/lib/landing-props";
-import { LandingContent } from "./landing-content";
+import { renderLandingPage } from "./render-landing-page";
 
 export default async function LandingPage({
   searchParams,
@@ -12,23 +9,5 @@ export default async function LandingPage({
   searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const { error, next } = await searchParams;
-  const { supabase, user } = await getAuthedClient();
-
-  if (user) {
-    // Check if onboarding is complete
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed_at")
-      .eq("id", user.id)
-      .single();
-
-    // Determine redirect target based on onboarding status and next parameter
-    const target = getLandingRedirectTarget(profile?.onboarding_completed_at, next, safeNextPath);
-    redirect(target);
-  }
-
-  // Get runtime brand for white-label hosting
-  const { brand } = await buildLandingBrandProp(getRequestBrandResolution);
-  
-  return <LandingContent brand={brand} error={error} next={next} />;
+  return renderLandingPage({ error, next }, { getAuthedClient, getRequestBrandResolution, redirect });
 }

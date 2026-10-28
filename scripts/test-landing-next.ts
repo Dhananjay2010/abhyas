@@ -21,6 +21,9 @@ function runTests(): TestResult[] {
   const pagePath = join(process.cwd(), 'src/app/page.tsx');
   const pageContent = readFileSync(pagePath, 'utf-8');
   
+  const renderLandingPagePath = join(process.cwd(), 'src/app/render-landing-page.tsx');
+  const renderLandingPageContent = readFileSync(renderLandingPagePath, 'utf-8');
+  
   const landingContentPath = join(process.cwd(), 'src/app/landing-content.tsx');
   const landingContentContent = readFileSync(landingContentPath, 'utf-8');
   
@@ -29,7 +32,7 @@ function runTests(): TestResult[] {
 
   // Test 1: Landing page imports getLandingRedirectTarget
   {
-    const importsHelper = /import[\s\S]*?getLandingRedirectTarget[\s\S]*?from[\s\S]*?sign-in-redirect/.test(pageContent);
+    const importsHelper = /import[\s\S]*?getLandingRedirectTarget[\s\S]*?from[\s\S]*?sign-in-redirect/.test(renderLandingPageContent);
     results.push({
       passed: importsHelper,
       message: importsHelper 
@@ -51,7 +54,7 @@ function runTests(): TestResult[] {
 
   // Test 3: Landing page passes next to LandingContent, which passes it to SignInButton
   {
-    const pagePassesNext = /<LandingContent[\s\S]*?next=\{next\}[\s\S]*?\/>/i.test(pageContent);
+    const pagePassesNext = /<LandingContent[\s\S]*?next=\{next\}[\s\S]*?\/>/i.test(renderLandingPageContent);
     const contentPassesNext = /<SignInButton[\s\S]*?next=\{next\}[\s\S]*?\/>/i.test(landingContentContent);
     results.push({
       passed: pagePassesNext && contentPassesNext,
@@ -96,7 +99,7 @@ function runTests(): TestResult[] {
 
   // Test 7: Landing page checks onboarding_completed_at
   {
-    const checksOnboarding = /profile\?.onboarding_completed_at/.test(pageContent);
+    const checksOnboarding = /profile\?.onboarding_completed_at/.test(renderLandingPageContent);
     results.push({
       passed: checksOnboarding,
       message: checksOnboarding
@@ -107,7 +110,7 @@ function runTests(): TestResult[] {
 
   // Test 8: Landing page uses getLandingRedirectTarget
   {
-    const usesHelper = /getLandingRedirectTarget\([\s\S]*?profile\?.onboarding_completed_at[\s\S]*?next[\s\S]*?safeNextPath/.test(pageContent);
+    const usesHelper = /getLandingRedirectTarget\([\s\S]*?profile\?.onboarding_completed_at[\s\S]*?next[\s\S]*?safeNextPath/.test(renderLandingPageContent);
     results.push({
       passed: usesHelper,
       message: usesHelper
@@ -118,7 +121,7 @@ function runTests(): TestResult[] {
 
   // Test 9: Landing page redirects to helper result
   {
-    const redirectsToTarget = /const\s+target\s*=\s*getLandingRedirectTarget[\s\S]*?redirect\(target\)/.test(pageContent);
+    const redirectsToTarget = /const\s+target\s*=\s*getLandingRedirectTarget[\s\S]*?redirect\(target\)/.test(renderLandingPageContent);
     results.push({
       passed: redirectsToTarget,
       message: redirectsToTarget
