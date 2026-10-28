@@ -32,8 +32,9 @@ import { friendlyPlanDayError, GENERIC_PLAN_DAY_ERROR } from "@/lib/session/frie
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
 import { checkLogSetInput } from "@/lib/session/check-log-set-input";
-import { logSetWithAuth } from "@/lib/session/log-set-with-auth";
 
+export type { SwapResult };
+import { logSetWithAuth } from "@/lib/session/log-set-with-auth";
 export type { SwapResult };
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -106,8 +107,6 @@ export async function markWarmupDone(sessionId: string): Promise<Result> {
 
 export async function logSet(input: {
   sessionExerciseId: string;
-export async function logSet(input: {
-  sessionExerciseId: string;
   setNumber: number;
   reps: number | null;
   weightKg: number | null;
@@ -128,6 +127,26 @@ export async function logSet(input: {
     input
   );
 }
+
+
+export async function deleteSet(
+  sessionExerciseId: string,
+  setNumber: number,
+): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
+  const { supabase } = await requireUser();
+  const { error } = await supabase
+    .from("session_sets")
+    .delete()
+    .eq("session_exercise_id", sessionExerciseId)
+    .eq("set_number", setNumber)
+    .eq("is_warmup_set", false);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 import { makeFinishExerciseDeps } from "@/lib/session/finish-exercise-deps";
 
 export type { ProgressionFeedback, SummaryNote };

@@ -129,3 +129,5 @@ Module._load = function (request: string, parent: unknown, isMain: boolean): unk
   }
   return originalLoad.call(this, request, parent, isMain);
 };
+
+export { dom };

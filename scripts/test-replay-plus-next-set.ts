@@ -16,13 +16,13 @@ import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
 import type { Storage } from "../src/lib/session/pending-set-retry";
 import { storageKey } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
-
-// Inline helper (next-set-number.ts was removed in L2 - dead code cleanup)
-function nextSetNumberFor(maxSetNumber: number, pendingCount: number): number {
-  return maxSetNumber + 1 + pendingCount;
-}
+import { nextSetTarget } from "../src/lib/session/next-set-target";
 
 const FIXED_TIME = 1700000000000; // Nov 14, 2023
+
+function nextSetNumberFor(maxSetNumber: number, pendingCount: number): number {
+  return nextSetTarget(maxSetNumber, pendingCount);
+}
 
 function createStorage(): Storage {
   const store = new Map<string, string>();

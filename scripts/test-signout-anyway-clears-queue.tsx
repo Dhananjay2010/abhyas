@@ -8,30 +8,20 @@
  */
 
 import "./helpers/setup-jsdom";
-import { mockNextRouter } from "./helpers/setup-jsdom";
+import { mockNextRouter, dom } from "./helpers/setup-jsdom";
 import { render, act, screen, cleanup } from "@testing-library/react";
 import { SignOutForm } from "../src/app/today/signout-form";
 import { savePendingSet, storageKey } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 import type { Storage } from "../src/lib/session/pending-set-retry";
 
-// Mock FormData to handle form submission in JSDOM without errors
-const OriginalFormData = globalThis.FormData;
-class MockFormData extends OriginalFormData {
-  constructor(form?: HTMLFormElement) {
-    // If form is undefined or invalid, create empty FormData
-    if (!form || !(form instanceof HTMLFormElement)) {
-      super();
-    } else {
-      try {
-        super(form);
-      } catch {
-        super();
-      }
-    }
-  }
-}
-globalThis.FormData = MockFormData as typeof OriginalFormData;
+// Expose jsdom's FormData and HTMLFormElement to fix JSDOM form submission
+Object.defineProperty(globalThis, "FormData", { 
+  value: dom.window.FormData, writable: true, configurable: true 
+});
+Object.defineProperty(globalThis, "HTMLFormElement", { 
+  value: dom.window.HTMLFormElement, writable: true, configurable: true 
+});
 
 let passed = 0;
 

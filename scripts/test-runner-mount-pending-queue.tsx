@@ -52,6 +52,7 @@ Object.defineProperty(window, 'localStorage', {
   fakeStorage.clear();
   
   const logSetCalls: Array<{ sessionExerciseId: string; setNumber: number }> = [];
+  const logSetDeferreds: Array<() => void> = [];
   
   const fakeActions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
@@ -60,7 +61,10 @@ Object.defineProperty(window, 'localStorage', {
         sessionExerciseId: input.sessionExerciseId,
         setNumber: input.setNumber
       });
-      // Fail logSet so queue stays non-empty and notice remains visible
+      // Hang on a deferred promise so we can check UI state before replay completes
+      await new Promise<void>((resolve) => {
+        logSetDeferreds.push(resolve);
+      });
       return { ok: false, error: "NETWORK_ERROR" };
     },
     deleteSet: async () => ({ ok: true }),
@@ -148,21 +152,29 @@ Object.defineProperty(window, 'localStorage', {
     />
   );
   
-  // Wait for controller.load() to run in useEffect
+  // Wait for controller.load() to run in useEffect and queue to be loaded into UI
+  await act(async () => {
+    await Promise.resolve();
+  });
   await act(async () => {
     await Promise.resolve();
   });
 
-  // C1: Assert the queue is LOADED into UI state on mount (independent of replay)
-  // "2 sets waiting to save" or similar notice must be visible
+  // C1: Assert the queue is LOADED into UI state RIGHT AFTER MOUNT
+  // This must work independently of replay - check while logSet is still hanging
   const text = container.textContent || "";
   const hasWaitingNotice = text.includes("2 set") && (text.includes("waiting") || text.includes("pending"));
-  assert(hasWaitingNotice, "C1: Queue loaded on mount - '2 sets waiting to save' visible in UI");
+  assert(hasWaitingNotice, "C1: Queue loaded on mount - '2 sets waiting to save' visible right after mount");
   
-  // Wait for replay to complete (it will fail, so queue stays)
-  await waitFor(() => {
-    if (logSetCalls.length === 0) throw new Error("Replay not attempted");
-  }, { timeout: 1000 });
+  // Now release the deferred logSets to let replay continue
+  for (const resolve of logSetDeferreds) {
+    resolve();
+  }
+  
+  // Wait for replay to complete
+  await act(async () => {
+    await Promise.resolve();
+  });
   
   // Verify logSet was called (replay attempted)
   assert(logSetCalls.length > 0, "Replay attempted after mount");

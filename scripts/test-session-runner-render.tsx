@@ -761,11 +761,15 @@ async function test9b() {
   
   let logSetCallCount = 0;
   let finishSessionCalled: boolean = false;
+  let logSetShouldFail = true; // Fail during mount/focus, succeed on Done click
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async () => {
       logSetCallCount++;
+      if (logSetShouldFail) {
+        return { ok: false, error: "Network error" };
+      }
       return { ok: true };
     },
     deleteSet: async () => ({ ok: true }),
@@ -860,16 +864,22 @@ async function test9b() {
   assert(!!doneButton, "9b: Done button exists");
   assert(!!skipCooldownButton, "9b: Skip cool-down button exists");
   
-  if (!doneButton || !('disabled' in doneButton)) {
-    throw new Error("Done button missing disabled property");
+  if (!(doneButton instanceof HTMLButtonElement)) {
+    throw new Error("Done button is not HTMLButtonElement");
   }
-  if (!skipCooldownButton || !('disabled' in skipCooldownButton)) {
-    throw new Error("Skip cool-down button missing disabled property");
+  if (!(skipCooldownButton instanceof HTMLButtonElement)) {
+    throw new Error("Skip cool-down button is not HTMLButtonElement");
   }
   
   // L3: Both buttons should be enabled (symmetric behavior)
-  assert(!(doneButton as HTMLButtonElement).disabled, "9b: L3 - Done button is ENABLED while sets are pending");
-  assert(!(skipCooldownButton as HTMLButtonElement).disabled, "9b: L3 - Skip cool-down button is ENABLED (symmetric with Done)");
+  assert(!doneButton.disabled, "9b: L3 - Done button is ENABLED while sets are pending");
+  assert(!skipCooldownButton.disabled, "9b: L3 - Skip cool-down button is ENABLED (symmetric with Done)");
+  
+  // Restore main's assertion: "1 set waiting to save" notice must be visible
+  assert(screen.queryByText(/1 set waiting to save/i) !== null, "9b: Notice shows '1 set waiting to save'");
+  
+  // Now allow logSet to succeed on Done click
+  logSetShouldFail = false;
   
   // Click Done button - it should replay pending sets then finish
   await act(async () => {
@@ -878,11 +888,11 @@ async function test9b() {
   
   // Wait for async operations
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await Promise.resolve();
   });
   
   // Assert replay happened and queue was emptied before finish
-  assert(logSetCallCount === 1, `9b: L3 - logSet called once during replay (got ${logSetCallCount})`);
+  assert(logSetCallCount >= 2, `9b: L3 - logSet called at least twice (mount+Done) (got ${logSetCallCount})`);
   
   const deps = createPendingSetDeps(() => FIXED_TIME);
   const pendingAfter = loadPendingSets(fakeStorage, userId, sessionId, deps);

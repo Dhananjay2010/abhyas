@@ -30,10 +30,24 @@ console.log("\n📋 Test: logSet returns SESSION_EXPIRED when auth expired (Item
 async function testExpiredAuth() {
   console.log("=== Test 1: Expired auth returns SESSION_EXPIRED ===\n");
   
+  const stubSupabase = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null }),
+            }),
+          }),
+        }),
+      }),
+    }),
+  };
+  
   const deps: LogSetCoreDeps = {
     getAuthedClient: async () => ({
-      supabase: null as unknown as SupabaseClient<Database>,
-      user: null, // Expired: no user
+      supabase: stubSupabase as unknown as SupabaseClient<Database>,
+      user: null,
     }),
     checkLogSetInput: async () => {
       throw new Error("Should not be called when auth fails");
@@ -59,7 +73,6 @@ async function testExpiredAuth() {
   
   assert("ok" in result && result.ok === false, "Result has ok: false");
   if ("ok" in result && !result.ok && "code" in result) {
-    assert(true, "Result has code field");
     assert(result.code === SESSION_EXPIRED_CODE, `Result code is SESSION_EXPIRED_CODE (${SESSION_EXPIRED_CODE})`);
     assert(result.error === "Not signed in", "Result error message is 'Not signed in'");
   } else {
@@ -75,21 +88,23 @@ async function testValidAuth() {
   
   let coreCalled = false;
   
-  const deps: LogSetCoreDeps = {
-    getAuthedClient: async () => ({
-      supabase: {
-        from: () => ({
-          select: () => ({
+  const stubSupabase = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
             eq: () => ({
-              eq: () => ({
-                eq: () => ({
-                  maybeSingle: async () => ({ data: null }),
-                }),
-              }),
+              maybeSingle: async () => ({ data: null }),
             }),
           }),
         }),
-      } as unknown as SupabaseClient<Database>,
+      }),
+    }),
+  };
+  
+  const deps: LogSetCoreDeps = {
+    getAuthedClient: async () => ({
+      supabase: stubSupabase as unknown as SupabaseClient<Database>,
       user: { id: "user123" },
     }),
     checkLogSetInput: async () => null,
