@@ -441,11 +441,16 @@ async function main() {
   }
   console.log();
 
-  console.log("TEST: MUTANT M1 - RPC returns {gym_id, gym_slug, gym_name} only (no verified field)");
+  console.log("TEST: MUTANT M1 - RPC shape check catches missing fields");
   {
-    const gymId = 'gym-m1-id';
     const stub = createStubFetch({
-      resolve_gym_by_host: [{ gym_id: gymId, gym_slug: 'test-gym', gym_name: 'Test Gym' }],
+      resolve_gym_by_host: [
+        {
+          gym_id: 'gym-1',
+          // MISSING gym_slug - should fail shape check
+          gym_name: 'Test Gym',
+        } as unknown as ResolveGymByHostResult
+      ],
     });
     
     const supabase = createSupabaseClient<Database>(
@@ -459,11 +464,10 @@ async function main() {
     
     const mockFetchBrand = async (): Promise<Partial<Brand>> => ({ name: 'Test Gym', colors: { ...branding.colors, accent: '#10B981' } });
     
-    const resolution = await resolveBrand(supabase, 'mapped.example.com', null, branding, mockFetchBrand, false);
+    const resolution = await resolveBrand(supabase, 'malformed.example.com', null, branding, mockFetchBrand, false);
     
-    check("M1: Resolution succeeds with migration 037 shape", resolution.gymId === gymId);
-    check("M1: Tier is host", resolution.tier === "host");
-    check("M1: Brand name from gym", resolution.brand.name === 'Test Gym');
+    check("M1: Shape check catches malformed row", resolution.tier === "base");
+    check("M1: Falls through on bad data", resolution.gymId === null);
   }
   console.log();
 
