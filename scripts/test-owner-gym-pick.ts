@@ -111,17 +111,22 @@ console.log("=== Test: pickOwnedGym ===\n");
   console.log("✓ Order independence: reverse order still picks non-default");
 }
 
-// Test 7: gyms relation as array is handled
+// Test 7: gyms relation as array is handled (with 2 rows to exercise normalisation)
 {
   const rows: GymMembershipRow[] = [
     {
-      gym_id: "gym-1",
+      gym_id: "gym-default",
       joined_at: "2024-01-01T00:00:00Z",
-      gyms: [{ name: "Test Gym", slug: "test-gym" }],
+      gyms: [{ name: "Default Gym", slug: "default" }],
+    },
+    {
+      gym_id: "gym-iron",
+      joined_at: "2024-02-01T00:00:00Z",
+      gyms: [{ name: "Iron Temple", slug: "iron-temple" }],
     },
   ];
   const result = pickOwnedGym(rows);
-  assert.strictEqual(result?.gym_id, "gym-1", "FAIL: should handle gyms as array");
+  assert.strictEqual(result?.gym_id, "gym-iron", "FAIL: should handle gyms as array and prefer non-default");
   console.log("✓ gyms relation as array is handled");
 }
 
@@ -131,6 +136,7 @@ console.log();
 async function testCheckGymOwnership() {
   console.log("=== Test: checkGymOwnership integration ===\n");
   
+  // Test with rows in normal order
   const db = createFakeDb();
   db.beforeRequest = (req) => {
     if (req.table !== "gym_memberships") return;
@@ -147,6 +153,19 @@ async function testCheckGymOwnership() {
   assert.strictEqual(own.gymSlug, "iron-temple", "FAIL: checkGymOwnership must pick iron-temple");
   assert.strictEqual(own.gymId, "g-iron");
   console.log("✓ checkGymOwnership (default + iron-temple) gives iron-temple");
+  
+  // Test with rows in reverse order
+  const dbReverse = createFakeDb();
+  dbReverse.beforeRequest = (req) => {
+    if (req.table !== "gym_memberships") return;
+    return json(200, [
+      { gym_id: "g-iron", joined_at: "2024-06-01T00:00:00Z", role: "owner", status: "active", gyms: { name: "Iron Temple", slug: "iron-temple" } },
+      { gym_id: "g-default", joined_at: "2024-01-01T00:00:00Z", role: "owner", status: "active", gyms: { name: "Default", slug: "default" } },
+    ]);
+  };
+  const ownReverse = await checkGymOwnership(dbReverse.client, "u1");
+  assert.strictEqual(ownReverse.gymSlug, "iron-temple", "FAIL: checkGymOwnership must pick iron-temple in reverse order too");
+  console.log("✓ checkGymOwnership (reverse order) gives iron-temple");
   
   const empty = createFakeDb();
   empty.beforeRequest = () => json(200, []);
