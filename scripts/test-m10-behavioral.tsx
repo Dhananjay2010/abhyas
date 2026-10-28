@@ -10,7 +10,6 @@
  */
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { strict as assert } from "assert";
 import { branding, type Brand } from "@/lib/branding";
 import { LandingContent } from "@/app/landing-content";
 
