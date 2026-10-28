@@ -29,6 +29,7 @@ if (!thruster) {
 
 console.log("Testing W5 call-site: Today loader cleanup\n");
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const days: any = [
   {
     id: "day-1",

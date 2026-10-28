@@ -305,6 +305,7 @@ export default async function TodayPage() {
           yoga_days_per_week: profile.yoga_days_per_week,
           has_all_equipment: profile.has_all_equipment,
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         catalogueRows: catalogueRes.data as any,
         equipmentIds: (equipmentRes.data || []).map(e => e.equipment_id),
         userId: user.id,
