@@ -14,6 +14,40 @@ import type { CandidateExercise } from "@/lib/program/generate";
 import { cleanBannedPlannedExercises } from "@/lib/program/clean-banned-planned";
 
 /**
+ * Apply banned-exercise cleanup to planned exercises (extracted for M8 test coverage).
+ */
+export function applyEnsureSessionCleanup(
+  planned: Array<{
+    id: string;
+    exercise_id: string;
+    order_index: number;
+    target_sets: number;
+    target_reps_min: number;
+    target_reps_max: number;
+    rest_seconds: number;
+  }>,
+  catalogue: CandidateExercise[],
+  profile: any,
+  injuries: Array<{ body_region: string; severity: string }>,
+  userId: string,
+  equipmentIds: string[]
+) {
+  const plannedForCleaning = planned.map(p => ({
+    id: p.id,
+    exercise_id: p.exercise_id,
+    order_index: p.order_index,
+    target_sets: p.target_sets,
+    target_reps_min: p.target_reps_min,
+    target_reps_max: p.target_reps_max,
+    rest_seconds: p.rest_seconds,
+  }));
+  
+  const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId, equipmentIds);
+  
+  return cleaned;
+}
+
+/**
  * The metric to stamp on a session exercise, from an embedded `exercises` row.
  *
  * PostgREST types a to-one embed as either an object or an array depending on
@@ -69,17 +103,7 @@ export async function ensureSessionExercises(
   // Clean banned exercises in-memory (backstop), then persist if needed
   let cleanedPlanned = planned;
   if (catalogue && profile && injuries && equipmentIds) {
-    const plannedForCleaning = planned.map(p => ({
-      id: p.id,
-      exercise_id: p.exercise_id,
-      order_index: p.order_index,
-      target_sets: p.target_sets,
-      target_reps_min: p.target_reps_min,
-      target_reps_max: p.target_reps_max,
-      rest_seconds: p.rest_seconds,
-    }));
-    
-    const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId, equipmentIds);
+    const cleaned = applyEnsureSessionCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);
     
     // Persist cleaned exercises to program_day_exercises
     const changed = planned.some((p, i) => p.exercise_id !== cleaned[i].exercise_id);

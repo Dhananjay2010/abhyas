@@ -1,14 +1,13 @@
 #!/usr/bin/env npx tsx
 /**
  * Test ensure-session-exercises cleanup call site (M8)
- * Tests that applyBannedCleanup is actually called in ensureSessionExercises.
+ * Tests that applyBannedCleanup is actually called via applyEnsureSessionCleanup.
  * 
  * If the call is removed or no-op'd, this test must fail.
  */
 
 import { readFileSync } from "fs";
-import { applyBannedCleanup } from "../src/lib/program/apply-banned-cleanup";
-import type { CandidateExercise } from "../src/lib/program/generate";
+import { applyEnsureSessionCleanup } from "../src/lib/session/ensure-session-exercises";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 
@@ -28,7 +27,7 @@ if (!thruster) {
 console.log("Testing ensure-session-exercises cleanup call site\n");
 
 // Simulate planned exercises from program_day_exercises
-const plannedForCleaning = [
+const planned = [
   {
     id: "pde-1",
     exercise_id: thruster.id,
@@ -54,14 +53,14 @@ const injuries = [{ body_region: "knee" as const, severity: "current" as const }
 const userId = "test-user";
 const equipmentIds = ["kettlebell", "dumbbell"];
 
-// This is the exact call from ensure-session-exercises.ts line ~82
-const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId, equipmentIds);
+// Call the extracted helper
+const cleaned = applyEnsureSessionCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);
 
 // Check that thruster was replaced
 if (cleaned[0].exercise_id === thruster.id) {
   console.error("✗ FAIL: kettlebell-thruster not cleaned in ensure-session-exercises path");
   console.error(`  Planned: ${thruster.id}, Cleaned: ${cleaned[0].exercise_id}`);
-  console.error("  The ensure-session-exercises call site may have been removed or bypassed");
+  console.error("  The ensure-session-exercises cleanup call may have been removed or bypassed");
   process.exit(1);
 }
 

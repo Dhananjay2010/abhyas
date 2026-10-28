@@ -224,7 +224,7 @@ run_mutant_test \
   "M8: ensure-session-exercises call site removed" \
   "src/lib/session/ensure-session-exercises.ts" \
   'const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId, equipmentIds);' \
-  'const cleaned = plannedForCleaning; // MUTANT: applyBannedCleanup call removed' \
+  'const cleaned = plannedForCleaning; // MUTANT' \
   "npx tsx scripts/test-ensure-session-call-site.ts"
 
 # Mutant 9: generate.ts:828 reverted to past-only
@@ -262,8 +262,8 @@ echo ""
 run_mutant_test \
   "M10: start-session cleanup removed" \
   "src/lib/session/start-session-full-deps.ts" \
-  'const cleaned = applyBannedCleanup(' \
-  'const cleaned = plannedForCleaning; if (false) { applyBannedCleanup(' \
+  'const cleaned = applyStartSessionCleanup(' \
+  'const cleaned = plannedForCleaning; if (false) { applyStartSessionCleanup(' \
   "npx tsx scripts/test-start-session-call-site.ts"
 
 # Mutant 11: Force-add filter removed

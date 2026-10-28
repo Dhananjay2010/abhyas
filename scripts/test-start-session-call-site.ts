@@ -1,14 +1,13 @@
 #!/usr/bin/env npx tsx
 /**
  * Test start-session cleanup call site (M10)
- * Tests that applyBannedCleanup is actually called in start-session-full-deps.
+ * Tests that applyBannedCleanup is actually called via applyStartSessionCleanup.
  * 
  * If the call is removed or no-op'd, this test must fail.
  */
 
 import { readFileSync } from "fs";
-import { applyBannedCleanup } from "../src/lib/program/apply-banned-cleanup";
-import type { CandidateExercise } from "../src/lib/program/generate";
+import { applyStartSessionCleanup } from "../src/lib/session/start-session-full-deps";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 
@@ -54,8 +53,8 @@ const injuries = [{ body_region: "knee" as const, severity: "current" as const }
 const userId = "test-user";
 const equipmentIds = ["kettlebell", "dumbbell"];
 
-// This is the exact call from start-session-full-deps.ts line ~207
-const cleaned = applyBannedCleanup(
+// Call the extracted helper
+const cleaned = applyStartSessionCleanup(
   plannedForCleaning,
   catalogue,
   profile,
@@ -68,7 +67,7 @@ const cleaned = applyBannedCleanup(
 if (cleaned[0].exercise_id === thruster.id) {
   console.error("✗ FAIL: kettlebell-thruster not cleaned in start-session path");
   console.error(`  Planned: ${thruster.id}, Cleaned: ${cleaned[0].exercise_id}`);
-  console.error("  The start-session call site may have been removed or bypassed");
+  console.error("  The start-session cleanup call may have been removed or bypassed");
   process.exit(1);
 }
 

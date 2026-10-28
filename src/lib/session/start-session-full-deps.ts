@@ -17,6 +17,44 @@ import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
 import type { CandidateExercise } from "@/lib/program/generate";
 import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
 
+/**
+ * Apply banned-exercise cleanup for start-session (extracted for M10 test coverage).
+ */
+export function applyStartSessionCleanup(
+  plannedForCleaning: Array<{
+    id: string;
+    exercise_id: string;
+    order_index: number;
+    target_sets: number;
+    target_reps_min: number;
+    target_reps_max: number;
+    rest_seconds: number;
+  }>,
+  catalogue: CandidateExercise[],
+  profile: {
+    goal: string;
+    level: string;
+    primary_track: string;
+    days_per_week: number;
+    yoga_days_per_week: number;
+    has_all_equipment: boolean;
+  },
+  injuries: Array<{ body_region: string; severity: string }>,
+  userId: string,
+  equipmentIds: string[]
+) {
+  const cleaned = applyBannedCleanup(
+    plannedForCleaning,
+    catalogue,
+    profile,
+    injuries,
+    userId,
+    equipmentIds
+  );
+  
+  return cleaned;
+}
+
 export function buildStartSessionFullDeps(
   supabase: SupabaseClient<Database>,
   userId: string,
@@ -205,7 +243,7 @@ export function buildStartSessionFullDeps(
         rest_seconds: e.rest_seconds,
       }));
 
-      const cleaned = applyBannedCleanup(
+      const cleaned = applyStartSessionCleanup(
         plannedForCleaning,
         catalogue,
         {
@@ -218,7 +256,7 @@ export function buildStartSessionFullDeps(
         },
         injuries,
         userId,
-        equipmentIds,
+        equipmentIds
       );
 
       return exercises.map((e, i) => ({
