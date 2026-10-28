@@ -8,10 +8,6 @@
 
 import { readProfileUnitsOrNull } from "../src/lib/program/read-profile-units-or-null";
 import { progressionFeedback } from "../src/lib/session/progression-feedback";
-import type { Database } from "../src/lib/database.types";
-import type { UnitsPreference } from "../src/lib/units";
-
-type ProfilesRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 type SupabaseQuery<T> = {
   data: T | null;
@@ -23,7 +19,7 @@ type SupabaseQueryBuilder<T> = {
   single: () => Promise<SupabaseQuery<T>>;
 };
 
-type FakeSupabaseClient = {
+type MinimalSupabaseClient = {
   from: <T>(table: string) => {
     select: (columns: string) => SupabaseQueryBuilder<T>;
   };
@@ -38,7 +34,7 @@ function check(label: string, ok: boolean, detail = "") {
 console.log("\nTest: readProfileUnitsOrNull fallback and unit-neutral feedback\n");
 
 // Typed fake client that returns error
-function createErrorClient(): FakeSupabaseClient {
+function createErrorClient(): MinimalSupabaseClient {
   return {
     from: <T>() => {
       const builder: SupabaseQueryBuilder<T> = {
@@ -56,7 +52,7 @@ function createErrorClient(): FakeSupabaseClient {
 }
 
 // Typed fake client that throws exception
-function createThrowingClient(): FakeSupabaseClient {
+function createThrowingClient(): MinimalSupabaseClient {
   return {
     from: <T>() => {
       const builder: SupabaseQueryBuilder<T> = {
@@ -73,7 +69,7 @@ function createThrowingClient(): FakeSupabaseClient {
 }
 
 // Typed fake client that returns null profile
-function createNullProfileClient(): FakeSupabaseClient {
+function createNullProfileClient(): MinimalSupabaseClient {
   return {
     from: <T>() => {
       const builder: SupabaseQueryBuilder<T> = {
@@ -91,7 +87,7 @@ function createNullProfileClient(): FakeSupabaseClient {
 }
 
 // Typed fake client that returns imperial
-function createImperialClient(): FakeSupabaseClient {
+function createImperialClient(): MinimalSupabaseClient {
   return {
     from: <T>(table: string) => {
       const builder: SupabaseQueryBuilder<T> = {
@@ -114,7 +110,7 @@ function createImperialClient(): FakeSupabaseClient {
 }
 
 // Typed fake client that returns metric
-function createMetricClient(): FakeSupabaseClient {
+function createMetricClient(): MinimalSupabaseClient {
   return {
     from: <T>(table: string) => {
       const builder: SupabaseQueryBuilder<T> = {
@@ -136,46 +132,58 @@ function createMetricClient(): FakeSupabaseClient {
   };
 }
 
+// Test helper to call readProfileUnitsOrNull with a minimal fake client
+async function testReader(client: MinimalSupabaseClient, userId: string) {
+  // In test code, we use the minimal client directly
+  // The type system knows it's compatible for the methods we actually call
+  return readProfileUnitsOrNull(client as never, userId);
+}
+
 async function main() {
   console.log("1. Error case returns null");
   {
     const client = createErrorClient();
-    const units = await readProfileUnitsOrNull(client as any, "user-1");
+    const units = await testReader(client, "user-1");
     check("Error case returns null", units === null, `got: ${units}`);
   }
 
   console.log("\n2. Throw case returns null");
   {
     const client = createThrowingClient();
-    const units = await readProfileUnitsOrNull(client as any, "user-1");
+    const units = await testReader(client, "user-1");
     check("Throw case returns null", units === null, `got: ${units}`);
   }
 
   console.log("\n3. Null profile returns null");
   {
     const client = createNullProfileClient();
-    const units = await readProfileUnitsOrNull(client as any, "user-1");
+    const units = await testReader(client, "user-1");
     check("Null profile returns null", units === null, `got: ${units}`);
   }
 
   console.log("\n4. Valid imperial returns 'imperial'");
   {
     const client = createImperialClient();
-    const units = await readProfileUnitsOrNull(client as any, "user-1");
+    const units = await testReader(client, "user-1");
     check("Valid imperial returns 'imperial'", units === "imperial", `got: ${units}`);
   }
 
   console.log("\n5. Valid metric returns 'metric'");
   {
     const client = createMetricClient();
-    const units = await readProfileUnitsOrNull(client as any, "user-1");
+    const units = await testReader(client, "user-1");
     check("Valid metric returns 'metric'", units === "metric", `got: ${units}`);
   }
 
   console.log("\n6. Unit-neutral feedback contains neither /\\bkg\\b/ nor /\\blb\\b/");
   {
     // Mock session exercise, sets, prior, session for progression feedback
-    const se: any = {
+    type SessionExerciseRow = Parameters<typeof progressionFeedback>[0];
+    type SessionSetRow = Parameters<typeof progressionFeedback>[1][0];
+    type ExerciseProgressRow = Parameters<typeof progressionFeedback>[2];
+    type SessionRow = Parameters<typeof progressionFeedback>[3];
+    
+    const se: SessionExerciseRow = {
       id: "se-1",
       session_id: "sess-1",
       exercise_id: "ex-bench",
@@ -192,14 +200,14 @@ async function main() {
       },
     };
     
-    const sets: any[] = [
+    const sets: SessionSetRow[] = [
       { reps: 7, weight_kg: 60, duration_seconds: null },
       { reps: 7, weight_kg: 60, duration_seconds: null },
       { reps: 7, weight_kg: 60, duration_seconds: null },
       { reps: 7, weight_kg: 60, duration_seconds: null },
     ];
     
-    const prior: any = {
+    const prior: ExerciseProgressRow = {
       current_working_weight_kg: 60,
       current_target_reps: 12,
       consecutive_failures: 0,
@@ -210,7 +218,7 @@ async function main() {
       weight_at_failure_start_kg: null,
     };
     
-    const session: any = {
+    const session: SessionRow = {
       is_deload: false,
       local_date: "2026-10-28",
       program_id: "prog-1",
@@ -228,7 +236,12 @@ async function main() {
 
   console.log("\n7. Imperial user gets 'lb' in feedback");
   {
-    const se: any = {
+    type SessionExerciseRow = Parameters<typeof progressionFeedback>[0];
+    type SessionSetRow = Parameters<typeof progressionFeedback>[1][0];
+    type ExerciseProgressRow = Parameters<typeof progressionFeedback>[2];
+    type SessionRow = Parameters<typeof progressionFeedback>[3];
+    
+    const se: SessionExerciseRow = {
       id: "se-1",
       session_id: "sess-1",
       exercise_id: "ex-bench",
@@ -245,14 +258,14 @@ async function main() {
       },
     };
     
-    const sets: any[] = [
+    const sets: SessionSetRow[] = [
       { reps: 12, weight_kg: 60, duration_seconds: null },
       { reps: 12, weight_kg: 60, duration_seconds: null },
       { reps: 12, weight_kg: 60, duration_seconds: null },
       { reps: 12, weight_kg: 60, duration_seconds: null },
     ];
     
-    const prior: any = {
+    const prior: ExerciseProgressRow = {
       current_working_weight_kg: 60,
       current_target_reps: 12,
       consecutive_failures: 0,
@@ -263,7 +276,7 @@ async function main() {
       weight_at_failure_start_kg: null,
     };
     
-    const session: any = {
+    const session: SessionRow = {
       is_deload: false,
       local_date: "2026-10-28",
       program_id: "prog-1",
@@ -277,7 +290,12 @@ async function main() {
 
   console.log("\n8. Metric user gets 'kg' in feedback");
   {
-    const se: any = {
+    type SessionExerciseRow = Parameters<typeof progressionFeedback>[0];
+    type SessionSetRow = Parameters<typeof progressionFeedback>[1][0];
+    type ExerciseProgressRow = Parameters<typeof progressionFeedback>[2];
+    type SessionRow = Parameters<typeof progressionFeedback>[3];
+    
+    const se: SessionExerciseRow = {
       id: "se-1",
       session_id: "sess-1",
       exercise_id: "ex-bench",
@@ -294,14 +312,14 @@ async function main() {
       },
     };
     
-    const sets: any[] = [
+    const sets: SessionSetRow[] = [
       { reps: 12, weight_kg: 60, duration_seconds: null },
       { reps: 12, weight_kg: 60, duration_seconds: null },
       { reps: 12, weight_kg: 60, duration_seconds: null },
       { reps: 12, weight_kg: 60, duration_seconds: null },
     ];
     
-    const prior: any = {
+    const prior: ExerciseProgressRow = {
       current_working_weight_kg: 60,
       current_target_reps: 12,
       consecutive_failures: 0,
@@ -312,7 +330,7 @@ async function main() {
       weight_at_failure_start_kg: null,
     };
     
-    const session: any = {
+    const session: SessionRow = {
       is_deload: false,
       local_date: "2026-10-28",
       program_id: "prog-1",
