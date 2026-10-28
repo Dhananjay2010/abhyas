@@ -104,6 +104,7 @@ async function main() {
     ["barbell-glute-bridge", "rack-pulls", "glute-bridge", "butt-lift-bridge"]);
 
   // 2b. Past-knee-only exercises: must be excluded for CURRENT knee too (superset)
+  // Deficit deadlift is past-knee banned but not current-knee-only
   const HINGE_WITH_PAST = ["deficit-deadlift", "barbell-glute-bridge", "rack-pulls", "glute-bridge", "butt-lift-bridge"];
   await scenario("Hinge — CURRENT knee: deficit-deadlift excluded (past-knee list)", knee("current", "intermediate", ["barbell"]), "barbell-deadlift", HINGE_WITH_PAST,
     ["barbell-glute-bridge", "rack-pulls", "glute-bridge", "butt-lift-bridge"]);
