@@ -1,13 +1,15 @@
 #!/usr/bin/env npx tsx
 /**
- * Test ensure-session-exercises cleanup call site (M8)
- * Tests that applyBannedCleanup is actually called via applyEnsureSessionCleanup.
+ * Test ensure-session-exercises cleanup call site (M8/W3)
+ * Tests that applyBannedCleanup is called inside ensureSessionExercises.
  * 
- * If the call is removed or no-op'd, this test must fail.
+ * M8/W3 mutant: const cleaned = { rows: planned, changed: false }
+ * (bypasses applyBannedCleanup call in ensure-session-exercises.ts)
  */
 
 import { readFileSync } from "fs";
-import { applyBannedCleanup } from "../src/lib/program/apply-banned-cleanup";
+import { createFakeDb } from "./helpers/fake-postgrest";
+import { ensureSessionExercises } from "../src/lib/session/ensure-session-exercises";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 
@@ -24,46 +26,73 @@ if (!thruster) {
   process.exit(1);
 }
 
-console.log("Testing ensure-session-exercises cleanup call site\n");
+console.log("Testing M8/W3: ensure-session-exercises cleanup call site\n");
 
-// Simulate planned exercises from program_day_exercises
-const planned = [
-  {
-    id: "pde-1",
-    exercise_id: thruster.id,
-    order_index: 0,
-    target_sets: 3,
-    target_reps_min: 8,
-    target_reps_max: 12,
-    rest_seconds: 90,
-  },
-];
+(async () => {
+  const fake = createFakeDb({
+    tables: {
+      sessions: [{
+        id: "s1",
+        user_id: "u1",
+        program_day_id: "pd1",
+        actual_type: "weights",
+        is_deload: false,
+      }],
+      session_exercises: [],
+      program_day_exercises: [{
+        id: "pde1",
+        program_day_id: "pd1",
+        exercise_id: thruster.id,
+        order_index: 0,
+        target_sets: 3,
+        target_reps_min: 8,
+        target_reps_max: 12,
+        rest_seconds: 90,
+      }],
+    },
+  });
 
-// Current-knee user
-const profile = {
-  goal: "strength" as const,
-  level: "intermediate" as const,
-  primary_track: "weights" as const,
-  days_per_week: 4,
-  yoga_days_per_week: 0,
-  has_all_equipment: false,
-};
+  await ensureSessionExercises(
+    fake.client,
+    "u1",
+    "s1",
+    catalogue,
+    {
+      goal: "muscle_gain",
+      level: "beginner",
+      primary_track: "weights",
+      days_per_week: 4,
+      yoga_days_per_week: 0,
+      has_all_equipment: true,
+    },
+    [{ body_region: "knee", severity: "current" }],
+    catalogue.flatMap(e => e.equipment_ids)
+  );
 
-const injuries = [{ body_region: "knee" as const, severity: "current" as const }];
-const userId = "test-user";
-const equipmentIds = ["kettlebell", "dumbbell"];
+  const inserts = fake.requests.filter(r => r.method === "POST" && r.table === "session_exercises");
+  if (inserts.length === 0) {
+    console.error("✗ FAIL: No exercises inserted");
+    process.exit(1);
+  }
 
-// Call the extracted helper
-const cleaned = applyBannedCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);
+  const insertedExercises = inserts[0].body;
+  if (!Array.isArray(insertedExercises) || insertedExercises.length === 0) {
+    console.error("✗ FAIL: No exercises in insert body");
+    process.exit(1);
+  }
 
-// Check that thruster was replaced
-if (cleaned.rows[0].exercise_id === thruster.id) {
-  console.error("✗ FAIL: kettlebell-thruster not cleaned in ensure-session-exercises path");
-  console.error(`  Planned: ${thruster.id}, Cleaned: ${cleaned.rows[0].exercise_id}`);
-  console.error("  The ensure-session-exercises cleanup call may have been removed or bypassed");
-  process.exit(1);
-}
+  const first = insertedExercises[0];
 
-console.log("✓ PASS: ensure-session-exercises cleanup call site works");
-console.log(`  Original: ${thruster.id}`);
-console.log(`  Cleaned:  ${cleaned.rows[0].exercise_id}`);
+  if (first.exercise_id === thruster.id) {
+    console.error("✗ FAIL: M8/W3 - ensureSessionExercises did not clean banned exercise");
+    console.error(`  M8/W3 mutant: const cleaned = { rows: planned, changed: false }`);
+    console.error(`  Expected: replacement, got banned: kettlebell-thruster (${thruster.id})`);
+    process.exit(1);
+  }
+
+  const replacement = catalogue.find(e => e.id === first.exercise_id);
+
+  console.log("✓ PASS: M8/W3 killed - ensureSessionExercises applies cleanup");
+  console.log(`  Original: ${thruster.id}`);
+  console.log(`  Cleaned:  ${first.exercise_id} (${replacement?.slug || 'unknown'})`);
+})();
