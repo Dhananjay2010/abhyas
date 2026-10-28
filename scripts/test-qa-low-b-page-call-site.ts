@@ -1,0 +1,186 @@
+#!/usr/bin/env tsx
+/**
+ * QA LOW B: Test the page's call site at src/app/history/[id]/page.tsx:117-120
+ * 
+ * This test renders the real SessionDetailPage with fake data to verify that
+ * the page correctly calls buildSessionDuration with all sets, not just the
+ * last set.
+ * 
+ * Mutants that should FAIL this test:
+ * - `(sets ?? []).slice(-1)` at line 119
+ * - `0 && buildSessionDuration(` at line 117
+ * 
+ * Run: npm run test:qa-low-b-page-call-site
+ */
+import { createRequire } from "module";
+import { JSDOM } from "jsdom";
+import { isValidElement } from "react";
+
+const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", { url: "http://localhost/", pretendToBeVisual: true });
+for (const k of ["window", "document", "HTMLElement", "Node", "navigator", "MouseEvent", "Event", "getComputedStyle"]) {
+  Object.defineProperty(globalThis, k, { value: Reflect.get(dom.window, k) ?? dom.window, writable: true, configurable: true });
+}
+Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
+Reflect.set(globalThis, "self", dom.window);
+
+type FakeData = { tables: Record<string, unknown[]>; single: Record<string, unknown>; rpc: Record<string, unknown> };
+let fake: FakeData = { tables: {}, single: {}, rpc: {} };
+
+type QueryResult = { data: unknown; error: null };
+
+function chain(table: string) {
+  const list: QueryResult = { data: fake.tables[table] ?? [], error: null };
+  const one: QueryResult = { data: fake.single[table] ?? null, error: null };
+  const c: Record<string, unknown> = {};
+  for (const m of ["select", "eq", "neq", "order", "limit", "in", "gte", "lte", "lt", "gt", "is", "not", "range"]) c[m] = () => c;
+  c.single = () => Promise.resolve(one);
+  c.maybeSingle = () => Promise.resolve(one);
+  c.then = (res: (v: QueryResult) => unknown, rej: (e: unknown) => unknown) => Promise.resolve(list).then(res, rej);
+  return c;
+}
+
+const fakeClient = {
+  from: (t: string) => chain(t),
+  rpc: (n: string) => Promise.resolve({ data: fake.rpc[n] ?? null, error: null }),
+  auth: { getUser: async () => ({ data: { user: { id: "u1", created_at: "2026-01-01T00:00:00Z" } }, error: null }) },
+};
+
+// Module interception with createRequire
+const require = createRequire(import.meta.url);
+const Module = require("module");
+const orig = Module.prototype.require;
+Module.prototype.require = function (id: string, ...args: unknown[]): unknown {
+  if (id === "next/navigation") return {
+    useRouter: () => ({ push() {}, refresh() {}, replace() {}, prefetch() {}, back() {}, forward() {} }),
+    redirect: (u: string) => { throw new Error("REDIRECT " + u); },
+    notFound: () => { throw new Error("NOT_FOUND"); },
+  };
+  if (id === "next/cache") return { revalidatePath() {} };
+  if (id === "../actions") return { updateSet: async () => ({}), deleteSet: async () => ({}), updateSessionDateTime: async () => ({}), deleteSession: async () => ({}) };
+  if (id === "@/lib/supabase/auth") return { getAuthedClient: async () => ({ supabase: fakeClient, user: { id: "u1" } }) };
+  return orig.call(this, id, ...args);
+};
+
+let failures = 0;
+function check(label: string, ok: boolean, detail = "") {
+  if (!ok) failures++;
+  console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
+}
+
+(async () => {
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { default: SessionDetailPage } = await import("../src/app/history/[id]/page");
+
+  const sid = "22222222-2222-4222-8222-222222222222";
+
+  console.log("\nQA LOW B: Page call site duration rendering\n");
+
+  console.log("1. Session with warm-ups and working sets, null duration_seconds");
+  fake = {
+    tables: {
+      session_exercises: [
+        { 
+          id: "se1", 
+          order_index: 0, 
+          status: "completed", 
+          feel: null, 
+          planned_sets: 3, 
+          planned_reps_min: 8, 
+          planned_reps_max: 10, 
+          metric: "reps", 
+          exercises: { name: "Squat" }, 
+          swapped_from_exercise_id: null 
+        }
+      ],
+      session_sets: [
+        // Warm-up sets
+        { session_exercise_id: "se1", set_number: 1, reps: 5, weight_kg: "20", duration_seconds: null, is_warmup_set: true, completed_at: "2026-10-27T10:05:00Z", logged_at: null },
+        { session_exercise_id: "se1", set_number: 2, reps: 5, weight_kg: "40", duration_seconds: null, is_warmup_set: true, completed_at: "2026-10-27T10:08:00Z", logged_at: null },
+        // Working sets
+        { session_exercise_id: "se1", set_number: 3, reps: 10, weight_kg: "60", duration_seconds: null, is_warmup_set: false, completed_at: "2026-10-27T10:12:00Z", logged_at: null },
+        { session_exercise_id: "se1", set_number: 4, reps: 10, weight_kg: "60", duration_seconds: null, is_warmup_set: false, completed_at: "2026-10-27T10:16:00Z", logged_at: null },
+        { session_exercise_id: "se1", set_number: 5, reps: 10, weight_kg: "60", duration_seconds: null, is_warmup_set: false, completed_at: "2026-10-27T10:20:00Z", logged_at: null },
+        // Final warm-up (cooldown)
+        { session_exercise_id: "se1", set_number: 6, reps: 5, weight_kg: "20", duration_seconds: null, is_warmup_set: true, completed_at: "2026-10-27T10:23:00Z", logged_at: null },
+      ],
+    },
+    single: {
+      profiles: { units: "metric", timezone: "UTC", created_at: "2026-01-01T00:00:00Z" },
+      sessions: { 
+        id: sid, 
+        local_date: "2026-10-27", 
+        status: "completed", 
+        actual_type: "weights", 
+        duration_seconds: null, // NULL - page must compute from sets
+        is_deload: false, 
+        week_in_block: 1, 
+        notes: null, 
+        started_at: "2026-10-27T10:00:00Z", 
+        completed_at: "2026-10-27T10:23:00Z", 
+        program_days: { label: "Legs" }, 
+        breathing_patterns: null, 
+        breathing_logs: [] 
+      },
+    },
+    rpc: {},
+  };
+
+  const page1 = await SessionDetailPage({ params: Promise.resolve({ id: sid }) });
+  if (!isValidElement(page1)) throw new Error("Page did not return a React element");
+  const html = renderToStaticMarkup(page1);
+  const d = new JSDOM(html).window.document;
+  
+  // Find the duration stat
+  const stats = [...d.querySelectorAll("dt")].map((dt) => ({ 
+    label: dt.textContent?.trim() ?? "", 
+    value: dt.nextElementSibling?.textContent?.trim() ?? "" 
+  }));
+  
+  const timeStat = stats.find((s) => s.label === "Time");
+  
+  check("Time stat is present", timeStat !== undefined, JSON.stringify(stats.map(s => s.label)));
+  
+  // Expected: started_at 10:00:00, last working set completed_at 10:20:00 = 20 minutes
+  // (The final warm-up at 10:23:00 should be filtered out)
+  check("Time is 20m (1200s from working sets only)", timeStat?.value === "20m", timeStat?.value ?? "missing");
+
+  console.log("\n2. Last set in array order is NOT the latest: page must pass every set");
+  // Working set completed 10:40 comes first; the final array entry is an earlier working set (10:15).
+  // All sets -> latest working completion 10:40 -> 40m. Only the last set (.slice(-1)) -> 15m.
+  const case1Sets = fake.tables.session_sets;
+  fake.tables.session_sets = [
+    { session_exercise_id: "se1", set_number: 1, reps: 10, weight_kg: "60", duration_seconds: null, is_warmup_set: false, completed_at: "2026-10-27T10:40:00Z", logged_at: null },
+    { session_exercise_id: "se1", set_number: 2, reps: 10, weight_kg: "60", duration_seconds: null, is_warmup_set: false, completed_at: "2026-10-27T10:15:00Z", logged_at: null },
+  ];
+  const pageCase2 = await SessionDetailPage({ params: Promise.resolve({ id: sid }) });
+  if (!isValidElement(pageCase2)) throw new Error("Page did not return a React element");
+  const dCase2 = new JSDOM(renderToStaticMarkup(pageCase2)).window.document;
+  const timeCase2 = [...dCase2.querySelectorAll("dt")]
+    .map((dt) => ({ label: dt.textContent?.trim() ?? "", value: dt.nextElementSibling?.textContent?.trim() ?? "" }))
+    .find((s) => s.label === "Time");
+  check("Time is 40m (latest of all sets, not the last array entry)", timeCase2?.value === "40m", timeCase2?.value ?? "missing");
+  fake.tables.session_sets = case1Sets;
+
+  console.log("\n3. Sanity: Session with stored duration_seconds");
+  const prevSession = fake.single.sessions;
+  if (typeof prevSession !== "object" || prevSession === null) throw new Error("sessions not an object");
+  fake.single.sessions = { 
+    ...prevSession, 
+    duration_seconds: 1500 // 25 minutes stored
+  };
+  
+  const page2 = await SessionDetailPage({ params: Promise.resolve({ id: sid }) });
+  if (!isValidElement(page2)) throw new Error("Page did not return a React element");
+  const html2 = renderToStaticMarkup(page2);
+  const d2 = new JSDOM(html2).window.document;
+  const stats2 = [...d2.querySelectorAll("dt")].map((dt) => ({ 
+    label: dt.textContent?.trim() ?? "", 
+    value: dt.nextElementSibling?.textContent?.trim() ?? "" 
+  }));
+  const timeStat2 = stats2.find((s) => s.label === "Time");
+  
+  check("Stored duration_seconds takes precedence", timeStat2?.value === "25m", timeStat2?.value ?? "missing");
+
+  console.log(failures ? `\n${failures} FAIL` : "\n✨ All page call site tests passed");
+  process.exit(failures ? 1 : 0);
+})().catch((e) => { console.log("Test error:", e?.stack ?? e); process.exit(2); });
