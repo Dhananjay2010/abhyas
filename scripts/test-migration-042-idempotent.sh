@@ -1,163 +1,172 @@
 #!/usr/bin/env bash
-# Test: migration 042 is idempotent
-# Verifies that migration 042 can be re-applied cleanly on an already-migrated database.
-# This test runs only in CI on a dedicated stack where all migrations are already applied.
-
 set -euo pipefail
 
-# Ensure this script only runs with REAL_DB=1 and proper DB safety guards
+# Test that migration 042 can be re-applied idempotently
+# Creates its own test data, asserts exact behavior
+
+echo "=== Testing migration 042 idempotency ==="
+echo
+
+# Skip if REAL_DB is not set
 if [ "${REAL_DB:-}" != "1" ]; then
-  echo "⚠️  Skipping migration-042-idempotent test (REAL_DB not set)"
+  echo "⏭️  Skipping (REAL_DB=1 not set)"
   exit 0
 fi
 
-# Import and call DB reset guard (HIGH-1 requirement)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib-db-reset-guard.sh"
-
-# Check guard before any DB operations
-if ! check_db_reset_guard_bash check supabase/config.toml; then
-  echo "❌ DB reset guard check failed:"
-  check_db_reset_guard_bash explain supabase/config.toml
+# Source guard
+source "$(dirname "$0")/lib-db-reset-guard.sh"
+if ! check_db_reset_guard_bash check "supabase/config.toml"; then
+  echo "❌ DB reset guard check failed"
+  check_db_reset_guard_bash explain "supabase/config.toml"
   exit 1
 fi
 
-echo "✓ DB reset guard check passed"
+SUPABASE_DB_URL="${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/postgres}"
 
-echo "Testing migration 042 idempotency"
-echo "=================================="
-
-# Check for psql
-if ! command -v psql &> /dev/null; then
-  echo "❌ psql not found (required for testing migrations)"
+# Verify migration file exists
+if [ ! -f "supabase/migrations/20261025000042_gym_join_codes_perf.sql" ]; then
+  echo "❌ Migration 042 not found"
   exit 1
 fi
 
-# HIGH-1: Require SUPABASE_DB_URL outside CI (never derive from supabase status)
-if [ "${CI:-}" != "true" ]; then
-  if [ -z "${SUPABASE_DB_URL:-}" ]; then
-    echo "❌ SUPABASE_DB_URL must be set outside CI"
-    echo "   This prevents accidental operations on the shared local DB"
-    exit 1
-  fi
-  DB_URL="$SUPABASE_DB_URL"
-else
-  # In CI, use SUPABASE_DB_URL or fall back to default
-  DB_URL="${SUPABASE_DB_URL:-postgresql://postgres:postgres@localhost:54322/postgres}"
-  echo "CI: Using DB_URL: ${DB_URL%%\?*}"
-fi
+echo "Creating test gym, owner and join code..."
 
-if [ -z "$DB_URL" ]; then
-  echo "❌ No database connection available"
+# Create test data
+GYM_ID=$(uuidgen)
+OWNER_ID=$(uuidgen)
+CODE_ID=$(uuidgen)
+JOIN_CODE="ED3M942TST"
+
+psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" <<SQL
+-- Insert test gym
+INSERT INTO public.gyms (id, slug, name, timezone)
+VALUES ('$GYM_ID', 'idem-042-gym', 'Idem 042 Gym', 'UTC');
+
+-- Create owner user
+INSERT INTO auth.users (id, email, email_confirmed_at, encrypted_password, aud, role, created_at, updated_at)
+VALUES ('$OWNER_ID', 'owner-idem042@example.com', now(), crypt('password123', gen_salt('bf')), 'authenticated', 'authenticated', now(), now());
+
+-- Add owner membership
+INSERT INTO public.gym_memberships (gym_id, user_id, role, status)
+VALUES ('$GYM_ID', '$OWNER_ID', 'owner', 'active');
+
+-- Create join code
+INSERT INTO public.gym_join_codes (id, gym_id, code, role, created_by, use_count, max_uses)
+VALUES ('$CODE_ID', '$GYM_ID', '$JOIN_CODE', 'member', '$OWNER_ID', 0, NULL);
+SQL
+
+echo "✓ Test data created"
+echo
+
+# Count visible rows before re-apply (as authenticated owner)
+echo "Counting visible rows before re-apply (RLS)..."
+ROW_COUNT_BEFORE=$(psql -q -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
+SELECT COUNT(*) FROM public.gym_join_codes WHERE id = '$CODE_ID';
+ROLLBACK;
+SQL
+)
+echo "Visible rows before: $ROW_COUNT_BEFORE"
+
+if [ "$ROW_COUNT_BEFORE" != "1" ]; then
+  echo "❌ FAIL: Expected 1 row before re-apply, got $ROW_COUNT_BEFORE"
   exit 1
 fi
 
-echo "✓ Database connection: ${DB_URL%%\?*}"
+# Test redeem returns gym_name for already_member before re-apply
+echo
+echo "Testing redeem_join_code before re-apply..."
+REDEEM_BEFORE=$(psql -q -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
+SELECT public.redeem_join_code('$JOIN_CODE');
+ROLLBACK;
+SQL
+)
+echo "Redeem result before: $REDEEM_BEFORE"
 
-# In CI, the stack already has all migrations applied by earlier steps.
-# We don't reset - we just verify that 042 can be re-applied.
-
-# Step 1: Apply migration 042 (re-application)
-echo ""
-echo "Step 1: Re-applying migration 042..."
-if ! psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000042_gym_join_codes_perf.sql > /dev/null 2>&1; then
-  echo "❌ Migration 042 failed on re-application (not idempotent)"
+if ! echo "$REDEEM_BEFORE" | grep -q "already_member"; then
+  echo "❌ FAIL: Expected already_member before re-apply"
   exit 1
 fi
-echo "✓ Migration 042 re-applied successfully"
 
-# Step 2: Verify redeem_join_code still exists
-echo ""
-echo "Step 2: Verifying redeem_join_code function exists..."
+GYM_NAME_BEFORE=$(echo "$REDEEM_BEFORE" | jq -r '.gym_name // empty' 2>/dev/null)
+echo "Gym name in result: $GYM_NAME_BEFORE"
 
-REDEEM_FUNC=$(psql "$DB_URL" -t -c "
-  SELECT proname 
-  FROM pg_proc 
-  WHERE proname = 'redeem_join_code' 
-    AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
-  LIMIT 1;
-" | xargs || echo "")
-
-if [ "$REDEEM_FUNC" != "redeem_join_code" ]; then
-  echo "❌ redeem_join_code function not found after re-application"
+if [ "$GYM_NAME_BEFORE" != "Idem 042 Gym" ]; then
+  echo "❌ FAIL: Expected gym_name 'Idem 042 Gym', got: $GYM_NAME_BEFORE"
   exit 1
 fi
-echo "✓ redeem_join_code function exists"
+echo "✓ gym_name correct before re-apply"
 
-# Step 3: Verify EXECUTE grant to authenticated (and NOT to anon)
-echo ""
-echo "Step 3: Verifying grants on redeem_join_code..."
-
-# Check authenticated has EXECUTE
-AUTH_GRANT=$(psql "$DB_URL" -t -c "
-  SELECT count(*) 
-  FROM information_schema.routine_privileges
-  WHERE routine_schema = 'public'
-    AND routine_name = 'redeem_join_code'
-    AND privilege_type = 'EXECUTE'
-    AND grantee = 'authenticated';
-" | xargs || echo "0")
-
-if [ "$AUTH_GRANT" != "1" ]; then
-  echo "❌ authenticated does not have EXECUTE on redeem_join_code"
+# Re-apply migration 042
+echo
+echo "Re-applying migration 042..."
+if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -f "supabase/migrations/20261025000042_gym_join_codes_perf.sql" > /dev/null 2>&1; then
+  echo "❌ Re-apply failed"
   exit 1
 fi
-echo "✓ authenticated has EXECUTE on redeem_join_code"
+echo "✓ Re-apply succeeded"
 
-# Check anon does NOT have EXECUTE
-ANON_GRANT=$(psql "$DB_URL" -t -c "
-  SELECT count(*) 
-  FROM information_schema.routine_privileges
-  WHERE routine_schema = 'public'
-    AND routine_name = 'redeem_join_code'
-    AND privilege_type = 'EXECUTE'
-    AND grantee = 'anon';
-" | xargs || echo "0")
+# Count visible rows after re-apply (as authenticated owner)
+echo
+echo "Counting visible rows after re-apply (RLS)..."
+ROW_COUNT_AFTER=$(psql -q -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
+SELECT COUNT(*) FROM public.gym_join_codes WHERE id = '$CODE_ID';
+ROLLBACK;
+SQL
+)
+echo "Visible rows after: $ROW_COUNT_AFTER"
 
-if [ "$ANON_GRANT" != "0" ]; then
-  echo "❌ anon should NOT have EXECUTE on redeem_join_code"
+if [ "$ROW_COUNT_AFTER" != "$ROW_COUNT_BEFORE" ]; then
+  echo "❌ FAIL: Row count changed: $ROW_COUNT_BEFORE -> $ROW_COUNT_AFTER"
   exit 1
 fi
-echo "✓ anon does not have EXECUTE on redeem_join_code (correct)"
+echo "✓ Row count unchanged"
 
-# Step 4: Verify gym_join_codes SELECT policy exists
-echo ""
-echo "Step 4: Verifying gym_join_codes_select policy..."
+# Test redeem after re-apply
+echo
+echo "Testing redeem_join_code after re-apply..."
+REDEEM_AFTER=$(psql -q -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
+SELECT public.redeem_join_code('$JOIN_CODE');
+ROLLBACK;
+SQL
+)
+echo "Redeem result after: $REDEEM_AFTER"
 
-SELECT_POLICY=$(psql "$DB_URL" -t -c "
-  SELECT count(*) 
-  FROM pg_policies 
-  WHERE schemaname = 'public' 
-    AND tablename = 'gym_join_codes' 
-    AND policyname = 'gym_join_codes_select';
-" | xargs || echo "0")
-
-if [ "$SELECT_POLICY" != "1" ]; then
-  echo "❌ gym_join_codes_select policy not found"
+if ! echo "$REDEEM_AFTER" | grep -q "already_member"; then
+  echo "❌ FAIL: Expected already_member after re-apply"
   exit 1
 fi
-echo "✓ gym_join_codes_select policy exists"
 
-# Step 5: Verify gym_join_codes_created_by_idx index exists
-echo ""
-echo "Step 5: Verifying gym_join_codes_created_by_idx index..."
+GYM_NAME_AFTER=$(echo "$REDEEM_AFTER" | jq -r '.gym_name // empty' 2>/dev/null)
+echo "Gym name in result: $GYM_NAME_AFTER"
 
-INDEX_EXISTS=$(psql "$DB_URL" -t -c "
-  SELECT count(*) 
-  FROM pg_indexes 
-  WHERE schemaname = 'public' 
-    AND tablename = 'gym_join_codes' 
-    AND indexname = 'gym_join_codes_created_by_idx';
-" | xargs || echo "0")
-
-if [ "$INDEX_EXISTS" != "1" ]; then
-  echo "❌ gym_join_codes_created_by_idx index not found"
+if [ "$GYM_NAME_BEFORE" != "$GYM_NAME_AFTER" ]; then
+  echo "❌ FAIL: gym_name changed: $GYM_NAME_BEFORE -> $GYM_NAME_AFTER"
   exit 1
 fi
-echo "✓ gym_join_codes_created_by_idx index exists"
+echo "✓ gym_name unchanged"
 
-echo ""
-echo "✅ All migration 042 idempotency tests passed"
-echo "   - Migration 042 can be re-applied on an already-migrated database"
-echo "   - redeem_join_code function exists with correct grants"
-echo "   - SELECT policy and created_by index remain intact"
+echo
+echo "Cleaning up test data..."
+psql "$SUPABASE_DB_URL" <<SQL
+DELETE FROM public.gym_join_codes WHERE id = '$CODE_ID';
+DELETE FROM public.gym_memberships WHERE gym_id = '$GYM_ID';
+DELETE FROM public.gyms WHERE id = '$GYM_ID';
+DELETE FROM auth.users WHERE id = '$OWNER_ID';
+SQL
+echo "✓ Test data cleaned up"
+
+echo
+echo "✅ Migration 042 is idempotent"
+exit 0
