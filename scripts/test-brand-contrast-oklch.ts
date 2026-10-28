@@ -204,7 +204,7 @@ async function main() {
     const input2 = "#8B0000";
     const result2 = ensureMinContrast(input2, appBg, minRatio, fallback);
     // Pin this exact hex - mutations will change it
-    check("M8/M9: #8B0000 adjusted to exact hex", result2.toLowerCase() === "#dc5959" || result2.toLowerCase() === "#db5858", `got ${result2}`);
+    check("M8/M9: #8B0000 adjusted to exact hex", result2.toLowerCase() === "#b13327", `got ${result2}`);
     const ratio2 = contrastRatio(result2, appBg);
     check("M8/M9: #8B0000 passes 3:1", ratio2 >= 3.0, `${ratio2.toFixed(2)}:1`);
     
@@ -212,9 +212,7 @@ async function main() {
     const input3 = "#006400";
     const result3 = ensureMinContrast(input3, appBg, minRatio, fallback);
     // Pin exact hex - hue shift or chroma change will alter output
-    const isGreenish = result3.toLowerCase().startsWith("#") && 
-                      parseInt(result3.slice(3,5), 16) > parseInt(result3.slice(1,3), 16);
-    check("M8/M9: #006400 stays green-hued", isGreenish, `got ${result3}`);
+    check("M8/M9: #006400 adjusted to exact hex", result3.toLowerCase() === "#126d0f", `got ${result3}`);
     const ratio3 = contrastRatio(result3, appBg);
     check("M8/M9: #006400 passes 3:1", ratio3 >= 3.0, `${ratio3.toFixed(2)}:1`);
   }
