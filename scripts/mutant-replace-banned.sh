@@ -79,17 +79,22 @@ run_mutant_test() {
     return
   fi
   
-  # Run test
-  if eval "$test_command" > /dev/null 2>&1; then
+  # Run test and capture output
+  local test_output
+  test_output=$(eval "$test_command" 2>&1)
+  local test_exit=$?
+  
+  if [ $test_exit -eq 0 ]; then
     echo "  ✗ SURVIVED: Mutant not killed"
     FAILURES=$((FAILURES + 1))
   else
-    local exit_code=$?
-    if [ $exit_code -eq 139 ] || [ $exit_code -eq 134 ]; then
-      echo "  ✗ ERROR: Crash (exit $exit_code) - crashes don't count as kills"
-      FAILURES=$((FAILURES + 1))
-    else
+    # Check for required FAIL or ✗ marker in output
+    if echo "$test_output" | grep -qE "✗|FAIL"; then
       echo "  ✓ KILLED: Test failed as expected"
+    else
+      echo "  ✗ ERROR: Test failed without FAIL/✗ marker (exit $test_exit)"
+      echo "  Output: $(echo "$test_output" | head -3)"
+      FAILURES=$((FAILURES + 1))
     fi
   fi
   
@@ -135,11 +140,17 @@ if grep -q 'const hasCurrentKnee = currentInjuryRegions.includes("knee");' "$TIE
   
   if grep -q 'MUTANT' "$TIER_FILE"; then
     echo "Testing M4: Tier determination uses length === 0"
-    if npx tsx scripts/test-knee-tier-determination.ts > /dev/null 2>&1; then
+    local test_output
+    test_output=$(npx tsx scripts/test-knee-tier-determination.ts 2>&1)
+    local test_exit=$?
+    if [ $test_exit -eq 0 ]; then
       echo "  ✗ SURVIVED: Mutant not killed"
       FAILURES=$((FAILURES + 1))
-    else
+    elif echo "$test_output" | grep -qE "✗|FAIL"; then
       echo "  ✓ KILLED: Test failed as expected"
+    else
+      echo "  ✗ ERROR: Test failed without FAIL/✗ marker"
+      FAILURES=$((FAILURES + 1))
     fi
   else
     echo "Testing M4: Tier determination uses length === 0"
@@ -149,6 +160,7 @@ if grep -q 'const hasCurrentKnee = currentInjuryRegions.includes("knee");' "$TIE
 else
   echo "Testing M4: Tier determination uses length === 0"
   echo "  ⊘ SKIP: Original pattern not found"
+  FAILURES=$((FAILURES + 1))
 fi
 
 restore_file "$TIER_FILE"
@@ -174,22 +186,26 @@ if grep -q '"kettlebell-thruster",' "$PAST_KNEE_FILE"; then
   fi
   
   # Run both the pin test and the behavioural test
-  PIN_PASSED=false
-  BEHAVIOURAL_PASSED=false
+  PIN_KILLED=false
+  BEHAVIOURAL_KILLED=false
   
-  if npx tsx scripts/test-current-knee-thruster-pin.ts > /dev/null 2>&1; then
-    echo "  ✗ Pin test SURVIVED"
+  local pin_output
+  pin_output=$(npx tsx scripts/test-current-knee-thruster-pin.ts 2>&1)
+  if [ $? -ne 0 ] && echo "$pin_output" | grep -qE "✗|FAIL"; then
+    PIN_KILLED=true
   else
-    PIN_PASSED=true
+    echo "  ✗ Pin test SURVIVED or missing FAIL marker"
   fi
   
-  if npx tsx scripts/test-pickforslot-current-knee-thruster.ts > /dev/null 2>&1; then
-    echo "  ✗ Behavioural test SURVIVED"
+  local behav_output
+  behav_output=$(npx tsx scripts/test-pickforslot-current-knee-thruster.ts 2>&1)
+  if [ $? -ne 0 ] && echo "$behav_output" | grep -qE "✗|FAIL"; then
+    BEHAVIOURAL_KILLED=true
   else
-    BEHAVIOURAL_PASSED=true
+    echo "  ✗ Behavioural test SURVIVED or missing FAIL marker"
   fi
   
-  if [ "$PIN_PASSED" = true ] && [ "$BEHAVIOURAL_PASSED" = true ]; then
+  if [ "$PIN_KILLED" = true ] && [ "$BEHAVIOURAL_KILLED" = true ]; then
     echo "  ✓ KILLED: Both pin test and behavioural test failed as expected"
   else
     echo "  ✗ SURVIVED: Mutant not killed by both tests"
@@ -198,6 +214,7 @@ if grep -q '"kettlebell-thruster",' "$PAST_KNEE_FILE"; then
 else
   echo "Testing M5: Remove kettlebell-thruster from both PAST and CURRENT lists"
   echo "  ⊘ SKIP: kettlebell-thruster not found"
+  FAILURES=$((FAILURES + 1))
 fi
 
 restore_file "$PAST_KNEE_FILE"
@@ -227,36 +244,13 @@ run_mutant_test \
   'const cleaned = { rows: planned, changed: false }; // MUTANT' \
   "npx tsx scripts/test-ensure-session-call-site.ts"
 
-# Mutant 9: generate.ts:828 reverted to past-only
-GEN_FILE="src/lib/program/generate.ts"
-backup_file "$GEN_FILE"
-
-# Need to handle special regex characters carefully
-ORIGINAL_LINE='.filter((item) => !(hasCurrentKnee && (isExcludedForPastKnee(item.e) || isExcludedForCurrentKneeOnly(item.e))));'
-
-if grep -qF "$ORIGINAL_LINE" "$GEN_FILE"; then
-  # Apply mutation
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' "s|.*hasCurrentKnee.*isExcludedForPastKnee.*isExcludedForCurrentKneeOnly.*|      // MUTANT: current-knee filter removed|" "$GEN_FILE"
-  else
-    sed -i "s|.*hasCurrentKnee.*isExcludedForPastKnee.*isExcludedForCurrentKneeOnly.*|      // MUTANT: current-knee filter removed|" "$GEN_FILE"
-  fi
-  
-  echo "Testing M9: generate.ts:828 reverted to past-only"
-  if npx tsx scripts/test-generate-current-knee-filter.ts > /dev/null 2>&1; then
-    echo "  ✗ SURVIVED: Mutant not killed"
-    FAILURES=$((FAILURES + 1))
-  else
-    echo "  ✓ KILLED: Test failed as expected"
-  fi
-else
-  echo "Testing M9: generate.ts:828 reverted to past-only"
-  echo "  ⊘ SKIP: Original pattern not found"
-  FAILURES=$((FAILURES + 1))
-fi
-
-restore_file "$GEN_FILE"
-echo ""
+# Mutant 9: generate.ts filter reverted to past-only
+run_mutant_test \
+  "M9: generate.ts current-knee filter removed" \
+  "src/lib/program/generate.ts" \
+  '.filter((item) => !(hasCurrentKnee && (isExcludedForPastKnee(item.e) || isExcludedForCurrentKneeOnly(item.e))));' \
+  '.filter((item) => !(hasCurrentKnee && isExcludedForPastKnee(item.e))); // MUTANT: current-only removed' \
+  "npx tsx scripts/test-current-knee-kb-sweep.ts"
 
 # Mutant 10 / W1: start-session cleanup call removed
 run_mutant_test \

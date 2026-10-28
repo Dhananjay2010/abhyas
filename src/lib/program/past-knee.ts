@@ -81,7 +81,7 @@ const PAST_KNEE_EXCLUDED_SLUGS: ReadonlySet<string> = new Set([
   "jogging-treadmill",
   
   // Calf Press on Leg Press: knee-contraindicated (QA Bot 1 finding)
-  "calf-press-on-the-leg-press-machine",
+  // MUTANT: calf-press-on-the-leg-press-machine removed
   
   // G-3: Landmine jammers are leg-driven presses (push from legs through shoulders)
   "landmine-linear-jammer",
