@@ -135,7 +135,20 @@ export async function resolveBrand(
 ): Promise<BrandResolution> {
   // Tier 1: Host-mapped verified gym
   if (host) {
-    const normalizedHost = host.toLowerCase().split(":")[0];
+    // Normalize host: lowercase, strip port (handle IPv6 bracket notation)
+    let normalizedHost = host.toLowerCase();
+    // IPv6 addresses are in brackets: [::1]:3000 -> [::1]
+    // IPv4/hostname with port: example.com:3000 -> example.com
+    if (normalizedHost.startsWith('[')) {
+      // IPv6: strip everything after the closing bracket
+      const bracketEnd = normalizedHost.indexOf(']');
+      if (bracketEnd !== -1) {
+        normalizedHost = normalizedHost.substring(0, bracketEnd + 1);
+      }
+    } else {
+      // IPv4/hostname: strip port (everything after first colon)
+      normalizedHost = normalizedHost.split(":")[0];
+    }
 
     // Localhost and vercel preview domains skip tier 1
     const isUnmapped =

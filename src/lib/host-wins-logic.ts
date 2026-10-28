@@ -11,7 +11,9 @@ import type { BrandResolution } from "./runtime-brand";
 import type { UserGymMembership } from "./gym/member-gym";
 
 export type HostWinsNoticeProps = {
+  userGymId: string | null;
   userGymName: string | null;
+  hostGymId: string | null;
   hostGymName: string | null;
 };
 
@@ -21,7 +23,7 @@ export type HostWinsNoticeProps = {
  * 
  * @param resolution Brand resolution (includes tier and gym ID)
  * @param memberGym User's gym membership (null if not a member)
- * @returns Props for HostWinsNotice (both null if notice should not show)
+ * @returns Props for HostWinsNotice (all null if notice should not show)
  */
 export function getHostWinsNoticeProps(
   resolution: BrandResolution,
@@ -29,22 +31,24 @@ export function getHostWinsNoticeProps(
 ): HostWinsNoticeProps {
   // Only show notice in tier "host" (host wins)
   if (resolution.tier !== "host") {
-    return { userGymName: null, hostGymName: null };
+    return { userGymId: null, userGymName: null, hostGymId: null, hostGymName: null };
   }
   
   // Need both host gym and member gym
   if (!resolution.gymId || !memberGym) {
-    return { userGymName: null, hostGymName: null };
+    return { userGymId: null, userGymName: null, hostGymId: null, hostGymName: null };
   }
   
   // Compare gym IDs (not names)
   if (resolution.gymId === memberGym.gymId) {
-    return { userGymName: null, hostGymName: null };
+    return { userGymId: null, userGymName: null, hostGymId: null, hostGymName: null };
   }
   
   // Different gyms: show notice
   return {
+    userGymId: memberGym.gymId,
     userGymName: memberGym.gymName,
+    hostGymId: resolution.gymId,
     hostGymName: resolution.gymName,
   };
 }

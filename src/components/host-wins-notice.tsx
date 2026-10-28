@@ -3,7 +3,9 @@
 import { useState } from "react";
 
 type HostWinsNoticeProps = {
+  userGymId: string | null;
   userGymName: string | null;
+  hostGymId: string | null;
   hostGymName: string | null;
 };
 
@@ -11,19 +13,19 @@ type HostWinsNoticeProps = {
  * Host-wins notice: shown when a signed-in member's gym differs from the host's gym.
  * Small, dismissible, non-blocking notice with role=status.
  */
-export function HostWinsNotice({ userGymName, hostGymName }: HostWinsNoticeProps) {
+export function HostWinsNotice({ userGymId, userGymName, hostGymId, hostGymName }: HostWinsNoticeProps) {
   const [dismissed, setDismissed] = useState(false);
 
   // Show if:
   // 1. User has a gym (signed in member)
   // 2. Host has a gym (on a gym's domain)
-  // 3. They're different
+  // 3. Their IDs are different (not names, to handle same-named gyms)
   // 4. Not dismissed
   const shouldShow =
     !dismissed &&
-    userGymName &&
-    hostGymName &&
-    userGymName !== hostGymName;
+    userGymId &&
+    hostGymId &&
+    userGymId !== hostGymId;
 
   if (!shouldShow) {
     return null;
