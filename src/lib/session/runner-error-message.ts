@@ -55,11 +55,10 @@ export function runnerErrorMessage(err: unknown, kind: 'set' | 'action' = 'set')
     }
   }
   
-  // Item 5 decision: runner finish failures ALWAYS show fixed friendly copy.
-  // Never pass server text through (including HTML bodies, duplicate key errors, etc.)
-  if (kind === 'set') {
-    return "That set wasn't saved. Please try again.";
-  } else {
-    return "That didn't save. Try again.";
+  // Fallback for other errors (validation messages, etc.)
+  if (err instanceof Error) {
+    return err.message;
   }
+  
+  return "Network error. Check your connection.";
 }

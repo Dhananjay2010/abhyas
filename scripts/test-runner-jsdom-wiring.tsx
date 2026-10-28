@@ -259,7 +259,7 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
   await act(async () => {});
 
   let textContent = container.textContent;
-  const hasFriendlyError = textContent !== null && (textContent.includes("didn't save") || textContent.includes("Try again"));
+  const hasFriendlyError = textContent !== null && textContent.includes("That didn't save. Try again.");
   check("Failed finish shows friendly error", hasFriendlyError);
   
   // Item 5 decision: arbitrary server text (HTML, SQL errors) NEVER passes through

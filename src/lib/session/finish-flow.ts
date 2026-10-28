@@ -1,4 +1,5 @@
 import { isNetworkError } from "./network-error";
+import { finishErrorMessage } from "./finish-error-message";
 
 /**
  * Run the end-early flow (End session early button).
@@ -33,7 +34,8 @@ export async function runEndEarly(
       deps.resumeElapsed();
       params.setConfirming(null);
       params.setOfflineError(false);
-      deps.setError("Couldn't end the session. Try again.");
+      const rawError = result.error ?? "Couldn't end the session";
+      deps.setError(finishErrorMessage(new Error(rawError)));
       params.endingRef.current = false;
       params.setEnding(false);
       return false;
@@ -54,7 +56,7 @@ export async function runEndEarly(
     } else {
       params.setConfirming(null);
       params.setOfflineError(false);
-      deps.setError("Couldn't end the session. Try again.");
+      deps.setError(finishErrorMessage(err));
     }
     params.endingRef.current = false;
     params.setEnding(false);

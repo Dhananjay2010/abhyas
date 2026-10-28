@@ -14,7 +14,7 @@ import { formatVolume, formatWeight, getUnitsPreference } from "@/lib/units";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
 import { buildSessionDuration } from "@/lib/history/build-session-duration";
-import { formatDurationMinutes } from "@/lib/history/compute-duration";
+import { buildHistoryDetailView } from "@/lib/history/build-detail-view";
 
 export const dynamic = "force-dynamic";
 
@@ -119,14 +119,14 @@ export default async function SessionDetailPage({
     { duration_seconds: session.duration_seconds, started_at: session.started_at },
     sets ?? []
   );
-  const durationText = formatDurationMinutes(durationSeconds, session.status, session.actual_type);
   
-  const volume = (sets ?? [])
-    .filter((s) => !s.is_warmup_set)
-    .reduce(
-      (n, s) => n + (s.reps ?? 0) * Number(s.weight_kg ?? 0),
-      0,
-    );
+  // PR #169 follow-up: Use builder for Volume and Duration (items 4 & 6)
+  const { volumeKg: volume, durationText } = buildHistoryDetailView(
+    durationSeconds,
+    session.status,
+    session.actual_type,
+    sets ?? []
+  );
 
   // TZ-2: Format date and time consistently (item 9: always from started_at)
   const timezone = resolveTimezoneWithProfile(profile?.timezone);

@@ -13,11 +13,9 @@ export interface HistoryDetailView {
 }
 
 export function buildHistoryDetailView(
-  session: {
-    duration_seconds: number | null;
-    status: string | null;
-    actual_type: string | null;
-  },
+  durationSeconds: number | null,
+  status: string | null,
+  actualType: string | null,
   sets: Array<{
     reps: number | null;
     weight_kg: number | null;
@@ -31,9 +29,9 @@ export function buildHistoryDetailView(
 
   // Duration: use formatDurationMinutes for '<1 min' / 'X min' / '—'
   const durationText = formatDurationMinutes(
-    session.duration_seconds,
-    session.status,
-    session.actual_type
+    durationSeconds,
+    status,
+    actualType
   );
 
   return { volumeKg, durationText };

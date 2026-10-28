@@ -45,60 +45,56 @@ async function runTests(): Promise<TestResult[]> {
     }
   }
 
-  // Test 2: Normal Error returns fixed friendly copy (item 5 decision)
+  // Test 2: Normal Error returns its message
   {
     const normalError = new Error("Network timeout");
     const result = runnerErrorMessage(normalError);
     
-    // Item 5 decision: ALWAYS show fixed friendly copy, never pass through arbitrary text
-    const expectedSet = "That set wasn't saved. Please try again.";
-    if (result !== expectedSet) {
+    if (result !== "Network timeout") {
       results.push({
         passed: false,
-        message: `Test 2: FAILED - Expected fixed copy, got: "${result}"`
+        message: `Test 2: FAILED - Expected "Network timeout", got: "${result}"`
       });
     } else {
       results.push({
         passed: true,
-        message: 'Test 2: PASSED - Normal Error returns fixed friendly copy (item 5)'
+        message: 'Test 2: PASSED - Normal Error returns its message'
       });
     }
   }
 
-  // Test 3: Non-Error object returns fixed friendly copy (item 5 decision)
+  // Test 3: Non-Error object returns generic message
   {
     const nonError = { code: 500, message: "Server error" };
     const result = runnerErrorMessage(nonError);
     
-    const expectedSet = "That set wasn't saved. Please try again.";
-    if (result !== expectedSet) {
+    if (result !== "Network error. Check your connection.") {
       results.push({
         passed: false,
-        message: `Test 3: FAILED - Expected fixed copy, got: "${result}"`
+        message: `Test 3: FAILED - Expected generic message, got: "${result}"`
       });
     } else {
       results.push({
         passed: true,
-        message: 'Test 3: PASSED - Non-Error returns fixed friendly copy (item 5)'
+        message: 'Test 3: PASSED - Non-Error returns generic message'
       });
     }
   }
 
-  // Test 4: String returns fixed friendly copy (item 5 decision)
+  // Test 4: String (non-Error) returns generic message
   {
     const stringError = "Something went wrong";
     const result = runnerErrorMessage(stringError);
     
-    const expectedSet = "That set wasn't saved. Please try again.";
-    if (result !== expectedSet) {
+    if (result !== "Network error. Check your connection.") {
       results.push({
         passed: false,
-        message: `Test 4: FAILED - Expected fixed copy, got: "${result}"`
+        message: `Test 4: FAILED - Expected generic message for string, got: "${result}"`
       });
     } else {
       results.push({
         passed: true,
-        message: 'Test 4: PASSED - String returns fixed friendly copy (item 5)'
+        message: 'Test 4: PASSED - String returns generic message'
       });
     }
   }

@@ -136,7 +136,7 @@ function check(label: string, ok: boolean, detail = "") {
       return t !== null && (t.includes("Done") || t.includes("Finish"));
     });
     check("Done button found", doneButton !== undefined);
-    if (doneButton) (doneButton as HTMLButtonElement).click();
+    if (doneButton) doneButton.click();
   });
 
   await act(async () => {});
@@ -155,7 +155,7 @@ function check(label: string, ok: boolean, detail = "") {
     const buttons = Array.from(container.querySelectorAll("button"));
     const retryButton = buttons.find(b => b.textContent?.trim() === "Try again");
     check("Try again button found", retryButton !== undefined);
-    if (retryButton) (retryButton as HTMLButtonElement).click();
+    if (retryButton) retryButton.click();
   });
 
   await act(async () => {});
