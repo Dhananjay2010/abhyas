@@ -247,13 +247,22 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
-  // Now click "Sign out anyway" which triggers expired session path
+  // Now click "Sign out anyway" which shows confirmation dialog
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
   });
   
   await act(async () => {});
+  
+  // Then click "Sign out anyway" again in the confirmation dialog
+  await act(async () => {
+    const confirmButtons = screen.queryAllByText(/Sign out anyway/i);
+    // The second button is in the confirmation dialog
+    const confirmButton = confirmButtons[confirmButtons.length - 1];
+    confirmButton.click();
+  });
+  
   await act(async () => {});
   await act(async () => {});
   
@@ -309,10 +318,19 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
-  // Now click "Sign out anyway" which triggers throw
+  // Now click "Sign out anyway" to show confirmation
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
+  });
+  
+  await act(async () => {});
+  
+  // Click "Sign out anyway" again in confirmation dialog
+  await act(async () => {
+    const confirmButtons = screen.queryAllByText(/Sign out anyway/i);
+    const confirmButton = confirmButtons[confirmButtons.length - 1];
+    confirmButton.click();
   });
   
   await act(async () => {});
@@ -366,10 +384,19 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
-  // Now click "Sign out anyway" which triggers ok:false
+  // Now click "Sign out anyway" to show confirmation
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
+  });
+  
+  await act(async () => {});
+  
+  // Click "Sign out anyway" again in confirmation dialog
+  await act(async () => {
+    const confirmButtons = screen.queryAllByText(/Sign out anyway/i);
+    const confirmButton = confirmButtons[confirmButtons.length - 1];
+    confirmButton.click();
   });
   
   await act(async () => {});
@@ -430,10 +457,19 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
-  // Now click "Sign out anyway" which triggers expired session path with non-ok POST
+  // Now click "Sign out anyway" to show confirmation
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
+  });
+  
+  await act(async () => {});
+  
+  // Click "Sign out anyway" again in confirmation dialog
+  await act(async () => {
+    const confirmButtons = screen.queryAllByText(/Sign out anyway/i);
+    const confirmButton = confirmButtons[confirmButtons.length - 1];
+    confirmButton.click();
   });
   
   await act(async () => {});

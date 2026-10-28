@@ -83,7 +83,7 @@ export function useSignOut({
     startTransition(async () => {
       setError(null);
       setShowWarning(false);
-      await performSignOut(true); // Pass clearQueue flag
+      await performSignOut(false); // Don't clear queue - sets should be kept for next sign-in
     });
   }
 
