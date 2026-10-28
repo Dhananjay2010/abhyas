@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { safeNextPath } from "@/lib/auth/redirect-origin";
 import { getLandingRedirectTarget } from "@/lib/auth/sign-in-redirect";
-import { getRequestBrand } from "@/lib/runtime-brand";
+import { getRequestBrandResolution } from "@/lib/runtime-brand";
+import { buildLandingBrandProp } from "@/lib/landing-props";
 import { LandingContent } from "./landing-content";
 
 export default async function LandingPage({
@@ -27,7 +28,7 @@ export default async function LandingPage({
   }
 
   // Get runtime brand for white-label hosting
-  const brand = await getRequestBrand();
+  const { brand } = await buildLandingBrandProp(getRequestBrandResolution);
   
   return <LandingContent brand={brand} error={error} next={next} />;
 }

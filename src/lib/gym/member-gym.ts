@@ -18,6 +18,7 @@ export type UserGymMembership = {
  * For users with multiple active memberships (owners/staff):
  * - Prefers role 'member' over 'owner'/'staff'
  * - Then prefers oldest joined_at (first membership)
+ * - Tie-breaks by gym_id (deterministic ordering)
  */
 export async function getUserGymMembership(
   supabase: SupabaseClient<Database>,
@@ -37,7 +38,8 @@ export async function getUserGymMembership(
     )
     .eq("user_id", userId)
     .eq("status", "active")
-    .order("joined_at", { ascending: true });
+    .order("joined_at", { ascending: true })
+    .order("gym_id", { ascending: true });
 
   if (error || !data || data.length === 0) {
     return null;
