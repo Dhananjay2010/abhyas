@@ -210,32 +210,41 @@ run_mutant "R1. Wrong sessionId sent to onPlan" "$COMPONENT" \
   '        const r = await onPlan({ sessionId: "mutant-wrong-id", plan } as never);' "$T"
 
 run_mutant "R3. Never mind persists a change (writes keep)" "$COMPONENT" \
-  '            <button
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
+            <button
               disabled={pending}
               onClick={() => setChoosing(false)}
-              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+              className="w-full min-h-11 py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
             </button>
           </div>
-        )}
-
-        {error && (' \
-  '            <button
+        )}' \
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
+            <button
               disabled={pending}
               onClick={() => choose({ kind: "keep" }, "a rest day")}
-              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+              className="w-full min-h-11 py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
             </button>
           </div>
-        )}
-
-        {error && (' "$T"
+        )}' "$T"
 
 run_mutant "R4. Never mind does nothing (stays choosing)" "$COMPONENT" \
-  '              Keep rest
-            </Choice>
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
             <button
               disabled={pending}
               onClick={() => setChoosing(false)}
@@ -243,8 +252,11 @@ run_mutant "R4. Never mind does nothing (stays choosing)" "$COMPONENT" \
             >
               Never mind
             </button>' \
-  '              Keep rest
-            </Choice>
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
             <button
               disabled={pending}
               onClick={() => {}}
@@ -399,22 +411,30 @@ run_mutant "Q1. Yoga not added when already in block" "$COMPONENT" \
             </Choice>' "$T"
 
 run_mutant "Q4. Never mind tap target too small (py-2)" "$COMPONENT" \
-  '              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
+            <button
+              disabled={pending}
+              onClick={() => setChoosing(false)}
+              className="w-full min-h-11 py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>
-          </div>
-        )}
-
-        {error && (' \
-  '              className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+            </button>' \
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
+            <button
+              disabled={pending}
+              onClick={() => setChoosing(false)}
+              className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>
-          </div>
-        )}
-
-        {error && (' "$T"
+            </button>' "$T"
 
 # MED-2 behavioural tests: the REAL planDay action (test-plan-day-action-wiring)
 run_mutant "MED-2a. planDay saves to today instead of resolved date" "$ACTION" \
