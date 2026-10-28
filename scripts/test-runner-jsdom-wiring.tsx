@@ -1271,10 +1271,11 @@ console.log("\n10. Clock resumes after failed end early (endearly-resume)");
 
   await act(async () => {});
 
-  // Abandon should have failed, check for generic error message
+  // Abandon should have failed, check for fixed finish error message (per item 5)
   textContent = container.textContent;
-  const hasError = textContent?.includes("Couldn't end the session");
-  check("Error message shown after failed abandon", hasError === true);
+  const hasFixedError = textContent?.includes("That didn't save. Try again.");
+  const hasRawError = textContent?.includes("Couldn't end the session");
+  check("Error message shown after failed abandon", hasFixedError === true && hasRawError === false);
 
   // Clock should still be ticking (not frozen) - just verify it's still showing time
   // The exact time might vary due to React updates, but it should show a time
