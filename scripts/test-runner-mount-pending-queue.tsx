@@ -2,13 +2,10 @@
 /**
  * Test: Runner loads pending queue on mount (C1 mutant)
  * 
- * Proves controller.load() runs on mount and sets expired:true for non-empty queues.
+ * C1 mutant: controller.load() deleted from mount useEffect
  * 
- * C1 mutant: controller.load() deleted. The mount-time onFocus() still loads the queue
- * into state.pending, but doesn't set expired:true. Only load() sets that flag.
- * 
- * The test asserts on the SessionExpiredPrompt, which only shows when
- * getPendingUiMode returns "expired" (driven by state.expired === true).
+ * Tests that controller.load() sets expired:true, which drives the SessionExpiredPrompt.
+ * The expired flag takes priority over replay-error (pending-ui-state.ts:27-28).
  */
 
 import "./helpers/setup-jsdom";
@@ -63,12 +60,12 @@ Object.defineProperty(window, 'localStorage', {
   
   fakeStorage.clear();
   
-  const logSetCalls: Array<{ setNumber: number }> = [];
+  let replayAttempted = false;
   
   const fakeActions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
-    logSet: async (input) => {
-      logSetCalls.push({ setNumber: input.setNumber });
+    logSet: async () => {
+      replayAttempted = true;
       return { ok: false, error: "NETWORK_ERROR" };
     },
     deleteSet: async () => ({ ok: true }),
@@ -105,7 +102,7 @@ Object.defineProperty(window, 'localStorage', {
     }
   ];
   
-  // Seed the queue with 2 pending sets
+  // Seed 2 pending sets
   savePendingSet(fakeStorage, "u1", "s1", {
     sessionExerciseId: "ex1",
     setNumber: 1,
@@ -127,7 +124,7 @@ Object.defineProperty(window, 'localStorage', {
   const queueBefore = fakeStorage.getItem("pending-sets:u1");
   assert(queueBefore !== null, "Queue seeded in storage");
   
-  // Mount the runner
+  // Mount the runner - controller.load() should set expired: true
   const { container } = render(
     <SessionRunner
       sessionId="s1"
@@ -157,27 +154,23 @@ Object.defineProperty(window, 'localStorage', {
     />
   );
   
-  await act(async () => {});
+  // Flush effects so controller.load() runs
   await act(async () => {});
   
-  // Debug: Check what's in the container
-  const text = container.textContent || "";
-  console.log("Rendered text sample:", text.substring(0, 200));
-  console.log("Has '2 set':", text.includes("2 set"));
-  console.log("Has 'waiting':", text.includes("waiting"));
-  console.log("Has 'expired':", text.toLowerCase().includes("expired"));
-  console.log("Has 'sign':", text.toLowerCase().includes("sign"));
+  // C1: Assert SessionExpiredPrompt shown BEFORE any focus/replay
+  // pending-set-controller.ts:107-111 sets expired: true when loading non-empty queue
+  // pending-ui-state.ts:27-28 says expired takes priority over error
+  // This should render even before focus retry runs
   
-  // C1: Assert the SessionExpiredPrompt is shown
-  // This prompt only appears when getPendingUiMode returns "expired",
-  // which requires state.expired === true. Only controller.load() sets
-  // expired:true when loading a non-empty queue. onFocus() doesn't set it.
+  assert(!replayAttempted, "Replay hasn't run yet (no focus event)");
+  
   const expiredPrompt = screen.queryByTestId("session-expired-prompt");
   assert(expiredPrompt !== null, "C1: SessionExpiredPrompt shown (controller.load() set expired:true)");
   
-  // Also verify "2 sets waiting to save" is shown
+  // Also verify "2 sets waiting" notice
+  const text = container.textContent || "";
   const hasWaitingNotice = text.includes("2 set") && (text.includes("waiting") || text.includes("pending"));
-  assert(hasWaitingNotice, "'2 sets waiting to save' visible");
+  assert(hasWaitingNotice, "'2 sets waiting' notice visible");
   
   cleanup();
   

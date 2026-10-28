@@ -2,12 +2,11 @@
 /**
  * Test: require-weight-loaded (W1 mutant)
  * 
- * Tests that weight validation prevents submission when weight is required.
- * W1 mutant: removes the weight-required validation block.
+ * W1 mutant: removes the weight-required validation block
  */
 
 import "./helpers/setup-jsdom";
-import { render, act, screen, cleanup, waitFor, fireEvent } from "@testing-library/react";
+import { render, act, screen, cleanup, fireEvent } from "@testing-library/react";
 import { SessionRunner, type RunnerExercise, type RunnerSettings, type SessionActions, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 
 let passed = 0;
@@ -33,9 +32,7 @@ const fakeTimer: RunnerTimer = {
 };
 
 (async () => {
-  console.log("\n📋 Test: Weight required validation (W1)\n");
-  
-  console.log("=== Test: Weight validation blocks submission ===\n");
+  console.log("\n📋 Test: Weight validation blocks submission (W1)\n");
   
   const logSetCalls: Array<{ reps: number | null; weightKg: number | null }> = [];
   
@@ -110,15 +107,7 @@ const fakeTimer: RunnerTimer = {
   
   await act(async () => {});
   
-  // Wait for Log button to be enabled
-  await waitFor(() => {
-    const logBtn = screen.queryByText(/Log set/i);
-    if (!logBtn || (logBtn instanceof window.HTMLButtonElement && logBtn.disabled)) {
-      throw new Error("Log button not ready");
-    }
-  });
-  
-  // Find and clear weight input, enter reps
+  // Clear weight input and set reps
   const weightInput = screen.getByLabelText(/weight/i);
   const repsInput = screen.getByLabelText(/reps/i);
   
@@ -129,7 +118,6 @@ const fakeTimer: RunnerTimer = {
     throw new Error("Reps input not HTMLInputElement");
   }
   
-  // Clear weight and set reps
   fireEvent.change(weightInput, { target: { value: "" } });
   fireEvent.change(repsInput, { target: { value: "10" } });
   await act(async () => {});
@@ -139,46 +127,28 @@ const fakeTimer: RunnerTimer = {
   fireEvent.click(logBtn);
   await act(async () => {});
   
-  // Wait for validation message
-  await waitFor(() => {
-    const text = container.textContent || "";
-    if (!text.includes("Add the weight") && !text.includes("enter") && !text.toLowerCase().includes("weight")) {
-      throw new Error("Validation message not shown");
-    }
-  }, { timeout: 2000 });
+  // W1: Assert logSet NOT called when weight is empty
+  assert(logSetCalls.length === 0, `W1: logSet NOT called without weight (got ${logSetCalls.length} calls)`);
   
-  // W1: Assert logSet was NOT called
-  assert(logSetCalls.length === 0, `W1: logSet NOT called when weight is missing (got ${logSetCalls.length} calls)`);
+  // Assert validation message shown
+  const text = container.textContent || "";
+  const hasValidation = text.includes("Add the weight") || text.includes("enter") || text.toLowerCase().includes("weight you used");
+  assert(hasValidation, "Validation message shown for empty weight");
   
-  // Now enter weight and submit
+  // Now enter weight
   fireEvent.change(weightInput, { target: { value: "50" } });
   await act(async () => {});
   
-  // Wait for Log button to be ready again
-  await waitFor(() => {
-    const logBtn2 = screen.queryByText(/Log set/i);
-    if (!logBtn2 || (logBtn2 instanceof window.HTMLButtonElement && logBtn2.disabled)) {
-      throw new Error("Log button not ready after weight entry");
-    }
-  });
-  
+  // Submit with weight
   const logBtn2 = screen.getByText(/Log set/i);
   fireEvent.click(logBtn2);
   await act(async () => {});
   
-  // Wait for logSet to be called
-  await waitFor(() => {
-    if (logSetCalls.length === 0) {
-      throw new Error("logSet not called");
-    }
-  });
-  
-  // Assert logSet was called with weight 50
-  assert(logSetCalls.length === 1, `logSet called once after weight provided (got ${logSetCalls.length})`);
-  assert(logSetCalls[0].weightKg === 50, `logSet called with weight 50 kg (got ${logSetCalls[0].weightKg})`);
+  // Assert logSet WAS called with weight
+  assert(logSetCalls.length === 1, `logSet called after weight provided (got ${logSetCalls.length})`);
+  assert(logSetCalls[0].weightKg === 50, `Weight is 50 kg (got ${logSetCalls[0].weightKg})`);
   
   cleanup();
-  console.log("✓ Test passed\n");
   
   console.log(`\n✅ Weight validation test passed (${passed} assertions)\n`);
   process.exit(0);

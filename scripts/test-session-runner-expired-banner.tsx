@@ -4,14 +4,10 @@
  * 
  * E1: L1 guard inverted - expired prompt shows when NOT expired
  * E2: L1 clear removed - expired prompt never hides after successful replay
- * 
- * Drives the runner to allSetsDone while session is expired, asserts exactly
- * ONE expired prompt there (kills E1), then Retry succeeds and asserts ZERO
- * prompts (kills E2).
  */
 
 import "./helpers/setup-jsdom";
-import { render, act, screen, cleanup, waitFor, fireEvent } from "@testing-library/react";
+import { render, act, screen, cleanup, fireEvent } from "@testing-library/react";
 import { SessionRunner, type RunnerExercise, type RunnerSettings, type SessionActions, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
 
@@ -40,25 +36,23 @@ const fakeTimer: RunnerTimer = {
 (async () => {
   console.log("\n📋 Test: Session expired banner (E1/E2)\n");
   
-  // ========================================================================
-  // Test 1: Exactly ONE expired prompt at allSetsDone (E1)
-  // ========================================================================
-  console.log("=== Test 1: Exactly ONE expired prompt at allSetsDone ===\n");
+  // Test 1: Exactly ONE expired prompt when session expires (E1)
+  console.log("=== Test 1: ONE expired prompt when finishing with expired session (E1) ===\n");
   
-  let logSetCallCount = 0;
-  let logSetShouldExpire = true;
+  let logSetCount = 0;
+  let finishCount = 0;
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async () => {
-      logSetCallCount++;
-      if (logSetShouldExpire) {
-        return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
-      }
-      return { ok: true };
+      logSetCount++;
+      return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
     },
     deleteSet: async () => ({ ok: true }),
-    finishExercise: async () => ({ ok: true, data: null }),
+    finishExercise: async () => {
+      finishCount++;
+      return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
+    },
     finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
@@ -121,79 +115,77 @@ const fakeTimer: RunnerTimer = {
   );
   
   await act(async () => {});
+  await act(async () => {});
+  await act(async () => {});
   
-  // Wait for Log button to be enabled (synced after fake timer runs)
-  await waitFor(() => {
-    const logBtn = screen.queryByText(/Log set/i);
-    if (!logBtn) throw new Error("Log button not found");
-    if (logBtn instanceof window.HTMLButtonElement && logBtn.disabled) {
-      throw new Error("Log button still disabled");
-    }
-  });
+  // Fill inputs first
+  const repsInput = screen.getByLabelText(/reps/i);
+  if (repsInput instanceof window.HTMLInputElement) {
+    fireEvent.change(repsInput, { target: { value: "10" } });
+    await act(async () => {});
+    await act(async () => {});
+    await act(async () => {});
+  }
   
-  // Log set 1 (expires)
+  // Log set 1 - expires
   const logBtn1 = screen.getByText(/Log set/i);
   fireEvent.click(logBtn1);
   await act(async () => {});
   
-  // Wait for expired state
-  await waitFor(() => {
-    const text = container.textContent || "";
-    if (!text.includes("expired") && !text.includes("Retry")) {
-      throw new Error("Expired prompt not shown");
-    }
-  });
+  assert(logSetCount === 1, "Log set 1 called");
   
-  // Log set 2 (also expires)
-  await waitFor(() => {
-    const logBtn2 = screen.queryByText(/Log set/i);
-    if (!logBtn2 || (logBtn2 instanceof window.HTMLButtonElement && logBtn2.disabled)) {
-      throw new Error("Log button 2 not ready");
-    }
-  });
-  
+  // Log set 2 - expires
   const logBtn2 = screen.getByText(/Log set/i);
   fireEvent.click(logBtn2);
   await act(async () => {});
   
-  // Finish exercise to reach allSetsDone
-  await waitFor(() => {
-    const finishBtn = screen.queryByText(/Finish/i);
-    if (!finishBtn) throw new Error("Finish button not found");
-  });
+  assert(logSetCount === 2, "Log set 2 called");
   
+  // Finish exercise - expires and shows allSetsDone
   const finishBtn = screen.getByText(/Finish/i);
   fireEvent.click(finishBtn);
   await act(async () => {});
   
-  // Wait for allSetsDone to render
-  await waitFor(() => {
-    const text = container.textContent || "";
-    if (!text.includes("all") && !text.includes("complete") && !text.includes("done")) {
-      throw new Error("allSetsDone not shown");
-    }
-  });
+  assert(finishCount === 1, "Finish called");
   
-  // E1: Assert exactly ONE expired prompt at allSetsDone
+  // E1: At allSetsDone with expired finish, assert EXACTLY 1 expired prompt
   const expiredPrompts = screen.queryAllByText(/session.*expired|expired.*session/i);
   assert(expiredPrompts.length === 1, `E1: Exactly ONE expired prompt at allSetsDone (got ${expiredPrompts.length})`);
   
   cleanup();
   console.log("✓ Test 1 passed\n");
   
-  // ========================================================================
   // Test 2: Zero prompts after successful retry (E2)
-  // ========================================================================
-  console.log("=== Test 2: Zero prompts after successful retry ===\n");
+  console.log("=== Test 2: Zero prompts after successful Retry (E2) ===\n");
   
-  logSetCallCount = 0;
-  logSetShouldExpire = true;
+  logSetCount = 0;
+  let replaySucceeds = false;
+  
+  const actions2: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async () => {
+      logSetCount++;
+      if (replaySucceeds) {
+        return { ok: true };
+      }
+      return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
+    },
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+    getSessionSummary: async () => ({ ok: true, data: [] }),
+  };
   
   render(
     <SessionRunner
-      sessionId="s1"
+      sessionId="s2"
       sessionStatus="in_progress"
-      userId="u1"
+      userId="u2"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
@@ -202,7 +194,7 @@ const fakeTimer: RunnerTimer = {
       cooldown={[]}
       exercises={exercises}
       settings={settings}
-      actions={actions}
+      actions={actions2}
       timer={fakeTimer}
       nowFn={() => FIXED_TIME}
     />
@@ -210,46 +202,31 @@ const fakeTimer: RunnerTimer = {
   
   await act(async () => {});
   
-  // Wait for Log button
-  await waitFor(() => {
-    const logBtn = screen.queryByText(/Log set/i);
-    if (!logBtn || (logBtn instanceof window.HTMLButtonElement && logBtn.disabled)) {
-      throw new Error("Log button not ready");
-    }
-  });
-  
-  // Log set (expires)
+  // Log set - expires
   const logBtn3 = screen.getByText(/Log set/i);
   fireEvent.click(logBtn3);
   await act(async () => {});
   
-  // Wait for Retry button
-  await waitFor(() => {
-    if (!screen.queryByText(/Retry/i)) {
-      throw new Error("Retry button not shown");
-    }
-  });
+  assert(logSetCount === 1, "Log set called and expired");
   
-  // Now allow logSet to succeed
-  logSetShouldExpire = false;
+  // Verify expired prompt shown
+  let prompts = screen.queryAllByText(/session.*expired|expired.*session/i);
+  assert(prompts.length === 1, "Expired prompt shown before retry");
+  
+  // Now allow replay to succeed
+  replaySucceeds = true;
   
   // Click Retry
   const retryBtn = screen.getByText(/Retry/i);
   fireEvent.click(retryBtn);
   await act(async () => {});
-  
-  // Wait for replay to complete
-  await waitFor(() => {
-    if (logSetCallCount < 2) {
-      throw new Error("Retry not completed");
-    }
-  });
-  
   await act(async () => {});
   
+  assert(logSetCount === 2, "Retry replayed the set");
+  
   // E2: Assert ZERO expired prompts after successful replay
-  const expiredPromptsAfter = screen.queryAllByText(/session.*expired|expired.*session/i);
-  assert(expiredPromptsAfter.length === 0, `E2: Zero expired prompts after retry (got ${expiredPromptsAfter.length})`);
+  prompts = screen.queryAllByText(/session.*expired|expired.*session/i);
+  assert(prompts.length === 0, `E2: Zero expired prompts after retry (got ${prompts.length})`);
   
   cleanup();
   console.log("✓ Test 2 passed\n");
