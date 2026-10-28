@@ -55,12 +55,47 @@ export async function updateBranding(
       };
     }
 
-    if (formData.logoUrl && !isValidLogoUrl(formData.logoUrl)) {
-      return {
-        success: false,
-        error: "Logo URL must start with https:// or /storage/",
-        field: "logoUrl",
-      };
+    if (formData.logoUrl) {
+      const trimmed = formData.logoUrl.trim();
+      
+      // Check length first
+      if (trimmed.length > 2048) {
+        return {
+          success: false,
+          error: "Logo URL cannot exceed 2048 characters",
+          field: "logoUrl",
+        };
+      }
+      
+      // Check for path traversal (..)
+      if (trimmed.includes("..")) {
+        return {
+          success: false,
+          error: "Path traversal (..) is not allowed in logo URL",
+          field: "logoUrl",
+        };
+      }
+      
+      // Check for control characters
+      for (let i = 0; i < trimmed.length; i++) {
+        const code = trimmed.charCodeAt(i);
+        if ((code >= 0x00 && code <= 0x1F) || code === 0x7F) {
+          return {
+            success: false,
+            error: "Logo URL cannot contain control characters",
+            field: "logoUrl",
+          };
+        }
+      }
+      
+      // Finally check protocol
+      if (!isValidLogoUrl(trimmed)) {
+        return {
+          success: false,
+          error: "Logo URL must start with https:// or /storage/",
+          field: "logoUrl",
+        };
+      }
     }
 
     // Both colors must be set together or both empty
@@ -120,6 +155,14 @@ export async function updateBranding(
       }
       if (error.code === "BRND7") {
         return { success: false, error: "Both colors must be set or cleared together" };
+      }
+      // LOW-3: Map 22023 (invalid_parameter_value) for display_name validation
+      if (error.code === "22023") {
+        return {
+          success: false,
+          error: "Display name must be between 1 and 100 characters",
+          field: "displayName",
+        };
       }
 
       // Generic fallback (do not expose raw error.message to user)
