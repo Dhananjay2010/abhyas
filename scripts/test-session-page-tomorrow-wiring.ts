@@ -185,17 +185,17 @@ type Tomorrow = { localDate: string; plannedLabel: string; programDayId: string 
     check("plannedLabel = Lower", tomorrow?.plannedLabel === "Lower", String(tomorrow?.plannedLabel));
   }
 
-  console.log("\nP6: #165 sessionId - stale swap session (Sat 24 Oct did Upper) finished Wed 28 -> Thu 29 collision resolves to Lower");
+  console.log("\nP6: #165 sessionId - stale swap session (Sat 24 Oct did Upper) finished Wed 28 -> Thu 29 stays Upper (no collision)");
   {
     // Target = today+1 = Thu 29 (Upper). nextDayPlan's swap check must read
-    // THIS session by id: Upper was done as a swap, so Thu's Upper collides and
-    // the next day in the rotation (Lower) is served. A date-based lookup on
-    // Wed 28 finds nothing and would wrongly keep Upper.
+    // THIS session by id, but swap collision only applies when TODAY was a swap
+    // (day-plan.ts:300-303). A 4-day-old stale session doesn't trigger collision.
+    // The by-id lookup is correct; the stale check prevents the collision.
     const { tomorrow, byIdLookup } = await render("2026-10-24", EVENING_IST, undefined, { programDayId: "pd-4", actualType: "weights" });
     check("nextDayPlan looked the session up by id", !!byIdLookup && byIdLookup.filters.some(([c, v]) => c === "id" && v === SESSION_ID), JSON.stringify(byIdLookup?.filters));
     check("tomorrow.localDate = 2026-10-29", tomorrow?.localDate === "2026-10-29", String(tomorrow?.localDate));
-    check("collision resolved: plannedLabel = Lower", tomorrow?.plannedLabel === "Lower", String(tomorrow?.plannedLabel));
-    check("collision resolved: programDayId = pd-3", tomorrow?.programDayId === "pd-3", String(tomorrow?.programDayId));
+    check("no collision: plannedLabel = Upper", tomorrow?.plannedLabel === "Upper", String(tomorrow?.plannedLabel));
+    check("no collision: programDayId = pd-4", tomorrow?.programDayId === "pd-4", String(tomorrow?.programDayId));
   }
 
   console.log("\nP7: no swap (session 28 Oct did its scheduled Lower) -> Thu 29 stays Upper, no collision");

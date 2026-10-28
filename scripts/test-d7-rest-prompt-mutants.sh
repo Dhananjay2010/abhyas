@@ -210,58 +210,68 @@ run_mutant "R1. Wrong sessionId sent to onPlan" "$COMPONENT" \
   '        const r = await onPlan({ sessionId: "mutant-wrong-id", plan } as never);' "$T"
 
 run_mutant "R3. Never mind persists a change (writes keep)" "$COMPONENT" \
-  '            <button
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
+            <button
               disabled={pending}
               onClick={() => setChoosing(false)}
-              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+              className="w-full min-h-11 py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
             </button>
           </div>
-        )}
-
-        {error && (' \
-  '            <button
+        )}' \
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
+            <button
               disabled={pending}
               onClick={() => choose({ kind: "keep" }, "a rest day")}
-              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+              className="w-full min-h-11 py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
             </button>
           </div>
-        )}
-
-        {error && (' "$T"
+        )}' "$T"
 
 run_mutant "R4. Never mind does nothing (stays choosing)" "$COMPONENT" \
-  '            <button
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
+            <button
               disabled={pending}
               onClick={() => setChoosing(false)}
-              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+              className="w-full min-h-11 py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>
-          </div>
-        )}
-
-        {error && (' \
-  '            <button
+            </button>' \
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
+            <button
               disabled={pending}
-              onClick={() => setChoosing(true)}
-              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+              onClick={() => {}}
+              className="w-full min-h-11 py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>
-          </div>
-        )}
-
-        {error && (' "$T"
+            </button>' "$T"
 
 run_mutant "R5. Keep rest settles with wrong label" "$COMPONENT" \
-  'const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
+  '    // MED-C: Use dayLabel (context-dependent) instead of hardcoding "Tomorrow"
+    const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
       ? `${shownLabel} is a rest day.`
       : `${shownLabel} is ${settled}.`;' \
-  'const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
+  '    // MED-C: Use dayLabel (context-dependent) instead of hardcoding "Tomorrow"
+    const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
       ? `${shownLabel} is Upper.`
       : `${shownLabel} is ${settled}.`;' "$T"
 
@@ -401,33 +411,43 @@ run_mutant "Q1. Yoga not added when already in block" "$COMPONENT" \
             </Choice>' "$T"
 
 run_mutant "Q4. Never mind tap target too small (py-2)" "$COMPONENT" \
-  '              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
+            <button
+              disabled={pending}
+              onClick={() => setChoosing(false)}
+              className="w-full min-h-11 py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>
-          </div>
-        )}
-
-        {error && (' \
-  '              className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+            </button>' \
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
+              <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
+                Yoga
+              </Choice>
+            )}
+            <button
+              disabled={pending}
+              onClick={() => setChoosing(false)}
+              className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>
-          </div>
-        )}
-
-        {error && (' "$T"
+            </button>' "$T"
 
 # MED-2 behavioural tests: the REAL planDay action (test-plan-day-action-wiring)
 run_mutant "MED-2a. planDay saves to today instead of resolved date" "$ACTION" \
   '  const result = await planDayCore(client, {
     userId: user.id,
     localDate: targetDate,
-    today,' \
+    today,
+    plan: input.plan,' \
   '  const result = await planDayCore(client, {
     userId: user.id,
     localDate: input.localDate ?? today,
-    today,' "$T_ACTION"
+    today,
+    plan: input.plan,' "$T_ACTION"
 
 run_mutant "MED-2b. Raw error passes through (no friendlyPlanDayError)" "$ACTION" \
   '    return { ok: false, error: friendlyPlanDayError(result.error) };' \
@@ -554,7 +574,7 @@ run_mutant "NU1. Old in-progress computation: Next up ignores the session being 
 
 run_mutant "NU2. Next-up badge matched by id on the label-deduped list" "$DAYPLAN" \
   '      nextUp: label === nextUpLabel' \
-  '      nextUp: d.id === nextUpId' "$T_NEXT"
+  '      nextUp: d.id === nextUpLabel' "$T_NEXT"
 
 run_mutant "NU3. A just-done session that is not a program day still counts" "$DAYPLAN" \
   '    justDone.programDayId !== null &&' \

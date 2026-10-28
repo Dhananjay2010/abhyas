@@ -40,6 +40,7 @@ async function main() {
         return {
           programDayId: "lower-id",
           actualType: "weights",
+          localDate: "2024-03-03",
         };
       },
 

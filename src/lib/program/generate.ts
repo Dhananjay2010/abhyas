@@ -943,8 +943,13 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
   // NOT a strength split: previously these tracks fell through to push/pull/
   // legs, so someone who chose yoga was handed six days of weights and no yoga
   // at all, with the equipment filter then emptying half the days.
+  // LOW: Anchor yoga-only plans too, so a Tuesday sign-up's first day is not Rest.
   if (input.primaryTrack === "yoga" || input.primaryTrack === "meditation") {
-    const active = new Set(activeDayIndices(input.daysPerWeek));
+    const carried = input.blockNumber > 1 ? validWeekdayLayout(input.weekdayLayout, input.daysPerWeek) : null;
+    const activeIdx = input.blockNumber === 1 && input.startedOn
+      ? activeDayIndicesAnchored(input.startedOn, input.daysPerWeek)
+      : carried ?? activeDayIndices(input.daysPerWeek);
+    const active = new Set(activeIdx);
     const isYoga = input.primaryTrack === "yoga";
     return {
       splitType: "custom",
