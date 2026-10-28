@@ -9,6 +9,9 @@
 import type { Database } from "@/lib/database.types";
 import { applyDeload } from "@/lib/program/prescription";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CandidateExercise } from "@/lib/program/generate";
+import { cleanBannedPlannedExercises } from "@/lib/program/clean-banned-planned";
+import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
 
 /**
  * The metric to stamp on a session exercise, from an embedded `exercises` row.
@@ -28,6 +31,17 @@ export async function ensureSessionExercises(
   supabase: SupabaseClient<Database>,
   userId: string,
   sessionId: string,
+  catalogue?: CandidateExercise[],
+  profile?: {
+    goal: Database["public"]["Enums"]["fitness_goal"];
+    level: Database["public"]["Enums"]["fitness_level"];
+    primary_track: Database["public"]["Enums"]["track_type"];
+    days_per_week: number;
+    yoga_days_per_week: number;
+    has_all_equipment: boolean;
+  } | null,
+  injuries?: Array<{ body_region: Database["public"]["Enums"]["body_region"]; severity: "current" | "past" }>,
+  equipmentIds?: string[],
 ): Promise<void> {
   // One round trip answers both questions this needs: whether the session
   // already has exercises, and which program day to copy them from. It used to
@@ -45,18 +59,61 @@ export async function ensureSessionExercises(
   if (!session?.program_day_id) return;
   if (session.actual_type === "yoga" || session.actual_type === "meditation") return;
 
-  const { data: planned } = await supabase
+  const plannedRes = await supabase
     .from("program_day_exercises")
-    .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
+    .select("id, exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
     .eq("program_day_id", session.program_day_id)
     .order("order_index");
+  
+  // Fail-closed: check for query errors and missing data for knee users
+  const hasKneeInjury = injuries?.some(inj => inj.body_region === "knee");
+  if (hasKneeInjury) {
+    if (plannedRes.error) {
+      throw new Error(`Cannot ensure session exercises: exercise query failed: ${plannedRes.error.message}`);
+    }
+    if (!plannedRes.data || plannedRes.data.length === 0) {
+      throw new Error("Cannot ensure session exercises: no planned exercises found for knee-injured user");
+    }
+    if (!catalogue || !profile) {
+      throw new Error("Cannot ensure session exercises: cleanup inputs required for knee injury safety");
+    }
+  }
+  
+  const planned = plannedRes.data;
   if (!planned || planned.length === 0) return;
+
+  // Clean banned exercises in-memory (backstop), then persist if needed
+  let cleanedPlanned = planned;
+  const catalogueMap = catalogue ? new Map(catalogue.map(c => [c.id, c])) : null;
+  
+  if (catalogue && profile && injuries && equipmentIds) {
+    const cleaned = applyBannedCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);
+    
+    // Persist cleaned exercises to program_day_exercises
+    if (cleaned.changed) {
+      await cleanBannedPlannedExercises(supabase, userId);
+    }
+    
+    const cleanedMap = new Map(cleaned.rows.map(c => [c.id, c.exercise_id]));
+    cleanedPlanned = planned
+      .map(p => {
+        const cleanedExerciseId = cleanedMap.get(p.id);
+        if (cleanedExerciseId === undefined) {
+          return null;
+        }
+        return {
+          ...p,
+          exercise_id: cleanedExerciseId,
+        };
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
+  }
 
   // HIGH-2: Apply deload the same way as the fresh start path (actions.ts:232)
   const isDeload = session.is_deload ?? false;
 
   await supabase.from("session_exercises").insert(
-    planned.map((p) => {
+    cleanedPlanned.map((p) => {
       const prescription = {
         sets: p.target_sets ?? 0,
         repsMin: p.target_reps_min ?? 0,
@@ -67,6 +124,9 @@ export async function ensureSessionExercises(
       // Apply deload transform when needed
       const transformed = isDeload ? applyDeload(prescription) : prescription;
       
+      // Metric from replacement exercise in catalogue, fallback to embedded
+      const metric = catalogueMap?.get(p.exercise_id)?.metric ?? metricOf(p.exercises);
+      
       return {
         session_id: sessionId,
         user_id: userId,
@@ -76,7 +136,7 @@ export async function ensureSessionExercises(
         planned_reps_min: transformed.repsMin,
         planned_reps_max: transformed.repsMax,
         rest_seconds: transformed.restSeconds,
-        metric: metricOf(p.exercises),
+        metric,
       };
     }),
   );

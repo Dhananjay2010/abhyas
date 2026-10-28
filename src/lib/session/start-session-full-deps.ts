@@ -13,7 +13,8 @@ import { ensureSessionExercises } from "./ensure-session-exercises";
 import { insertSessionExercises } from "./insert-session-exercises";
 import { buildStartSessionStaleDeps } from "./build-start-session-stale-deps";
 import type { StartSessionFullDeps } from "./start-session-full-core";
-
+import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
+import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
 export function buildStartSessionFullDeps(
   supabase: SupabaseClient<Database>,
   userId: string,
@@ -67,7 +68,34 @@ export function buildStartSessionFullDeps(
     },
 
     async ensureSessionExercises(sessionId) {
-      await ensureSessionExercises(supabase, userId, sessionId);
+      const [catalogueRes, profileRes, injuriesRes, equipmentRes] = await Promise.all([
+        supabase.from("exercises").select("id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category").eq("is_active", true),
+        supabase.from("profiles").select("goal, level, primary_track, days_per_week, yoga_days_per_week, has_all_equipment").eq("id", userId).maybeSingle(),
+        supabase.from("user_injuries").select("body_region, severity").eq("user_id", userId),
+        supabase.from("user_equipment").select("equipment_id").eq("user_id", userId),
+      ]);
+
+      const catalogue = toCandidateExercises(catalogueRes.data || []);
+      const profileData = profileRes.data;
+      const injuries = injuriesRes.data || [];
+      const equipmentIds = (equipmentRes.data || []).map(e => e.equipment_id);
+
+      const profile = profileData && 
+                      profileData.goal && 
+                      profileData.level && 
+                      profileData.primary_track && 
+                      profileData.days_per_week !== null
+        ? {
+            goal: profileData.goal,
+            level: profileData.level,
+            primary_track: profileData.primary_track,
+            days_per_week: profileData.days_per_week,
+            yoga_days_per_week: profileData.yoga_days_per_week,
+            has_all_equipment: profileData.has_all_equipment,
+          }
+        : null;
+
+      await ensureSessionExercises(supabase, userId, sessionId, catalogue, profile, injuries, equipmentIds);
     },
 
     async ensureCurrentBlock(today) {
@@ -147,7 +175,7 @@ export function buildStartSessionFullDeps(
     async fetchPlannedExercises(dayId) {
       const { data } = await supabase
         .from("program_day_exercises")
-        .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
+        .select("id, exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
         .eq("program_day_id", dayId)
         .order("order_index");
       return data;
@@ -166,6 +194,98 @@ export function buildStartSessionFullDeps(
         metric: e.metric,
       }));
       return await insertSessionExercises(supabase, mapped);
+    },
+
+    async cleanBannedExercises(exercises) {
+      // Load data needed for cleaning
+      const [profileRes, injuriesRes, catalogueRes, equipmentRes] = await Promise.all([
+        supabase.from("profiles").select("goal, level, primary_track, days_per_week, yoga_days_per_week, has_all_equipment").eq("id", userId).maybeSingle(),
+        supabase.from("user_injuries").select("body_region, severity").eq("user_id", userId),
+        supabase.from("exercises").select("id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category").eq("is_active", true),
+        supabase.from("user_equipment").select("equipment_id").eq("user_id", userId),
+      ]);
+
+      // Fail-closed: check for query errors
+      if (profileRes.error) {
+        throw new Error(`Cannot start session: profile query failed: ${profileRes.error.message}`);
+      }
+      if (injuriesRes.error) {
+        throw new Error(`Cannot start session: injuries query failed: ${injuriesRes.error.message}`);
+      }
+      if (catalogueRes.error) {
+        throw new Error(`Cannot start session: catalogue query failed: ${catalogueRes.error.message}`);
+      }
+
+      const profile = profileRes.data;
+      const injuries = injuriesRes.data || [];
+      const catalogue = toCandidateExercises(catalogueRes.data || []);
+      const equipmentIds = (equipmentRes.data ?? []).map(r => r.equipment_id);
+
+      // Fail-closed: knee users must have complete data for safety
+      const hasKneeInjury = injuries.some(inj => inj.body_region === "knee");
+      if (hasKneeInjury) {
+        if (!profile) {
+          throw new Error("Cannot start session: profile required for knee injury safety");
+        }
+        if (!catalogue.length) {
+          throw new Error("Cannot start session: exercise catalogue required for knee injury safety");
+        }
+      }
+
+      if (!profile || !catalogue.length) {
+        return exercises;
+      }
+
+      if (!profile.goal || !profile.level || !profile.primary_track ||
+          profile.days_per_week === null || profile.days_per_week === undefined ||
+          profile.yoga_days_per_week === null || profile.yoga_days_per_week === undefined) {
+        return exercises;
+      }
+
+      const plannedForCleaning = exercises.map(e => ({
+        id: e.id,
+        exercise_id: e.exercise_id,
+        order_index: e.order_index,
+        target_sets: e.target_sets,
+        target_reps_min: e.target_reps_min,
+        target_reps_max: e.target_reps_max,
+        rest_seconds: e.rest_seconds,
+      }));
+
+      const cleaned = applyBannedCleanup(
+        plannedForCleaning,
+        catalogue,
+        {
+          goal: profile.goal,
+          level: profile.level,
+          primary_track: profile.primary_track,
+          days_per_week: profile.days_per_week,
+          yoga_days_per_week: profile.yoga_days_per_week,
+          has_all_equipment: profile.has_all_equipment ?? true,
+        },
+        injuries,
+        userId,
+        equipmentIds
+      );
+
+      const cleanedMap = new Map(cleaned.rows.map(c => [c.id, c.exercise_id]));
+      const catalogueMap = new Map(catalogue.map(c => [c.id, c]));
+      
+      return exercises
+        .map(e => {
+          const cleanedExerciseId = cleanedMap.get(e.id);
+          if (cleanedExerciseId === undefined) {
+            return null;
+          }
+          const catalogueExercise = catalogueMap.get(cleanedExerciseId);
+          
+          return {
+            ...e,
+            exercise_id: cleanedExerciseId,
+            exercises: catalogueExercise ? { metric: catalogueExercise.metric } : e.exercises,
+          };
+        })
+        .filter((e): e is NonNullable<typeof e> => e !== null);
     },
   };
 }

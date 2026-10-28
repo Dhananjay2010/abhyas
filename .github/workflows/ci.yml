@@ -50,6 +50,9 @@ jobs:
       - name: Test join code wiring (mutant tests)
         run: npm run ci:mutant-join-code-wiring
 
+      - name: Test replace-banned wiring (mutant tests)
+        run: npm run ci:mutant-replace-banned
+
       - name: Test built service worker output
         run: npm run test:sw-built-output
         env:

@@ -11,12 +11,14 @@ import { labelForDayType, plannableDays, resolveTodayProgramDay } from "@/lib/pr
 import { loadTodayPlan } from "@/lib/today/load-today-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
+import type { CandidateExercise, GeneratorInput } from "@/lib/program/generate";
 import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
 import { buildWeekDays } from "@/lib/today/compute-done-days";
+import { replaceBannedInPlanned } from "@/lib/program/replace-banned-in-planned";
 import { getUnitsPreference } from "@/lib/units";
 import { WeekList } from "./week-list";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
@@ -25,10 +27,119 @@ import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
 import { StrengthDoneBanner } from "./strength-done-banner";
 import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
 import { deriveTodayView } from "@/lib/today/derive-today-view";
+import { CleanupTrigger } from "./cleanup-trigger";
+import { shouldTriggerBannedCleanup } from "@/lib/today/should-trigger-cleanup";
+import { isRestAfterCleanup } from "@/lib/today/classify-zero-exercise-day";
+import { loadTodayWithBannedCleanup } from "@/lib/today/load-today-with-banned-cleanup";
 
 export const dynamic = "force-dynamic";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/**
+ * Apply banned-exercise cleanup to a single program day (extracted for M7 test coverage).
+ */
+type DayExerciseForCleanup = {
+  id: string;
+  exercise_id: string;
+  order_index: number;
+  target_sets: number;
+  target_reps_min: number;
+  target_reps_max: number;
+  rest_seconds: number;
+  exercises: {
+    name: string;
+    cue: string | null;
+    movement_pattern: string;
+    metric: string;
+  };
+};
+
+export function applyDayCleanup<T extends {
+  id: string;
+  day_index: number;
+  day_type: string;
+  focus: string | null;
+  label: string | null;
+  program_day_exercises: DayExerciseForCleanup[];
+}>(
+  day: T,
+  catalogue: CandidateExercise[],
+  generatorInput: GeneratorInput,
+  cleanupResults: { changed: boolean }[]
+): T {
+  if (!day.program_day_exercises || day.program_day_exercises.length === 0) {
+    // Zero-exercise weights/bodyweight day becomes rest
+    if (isRestAfterCleanup(day.day_type, [])) {
+      return {
+        ...day,
+        day_type: "rest",
+        program_day_exercises: [],
+      } as T;
+    }
+    return day;
+  }
+  
+  const planned = day.program_day_exercises.map((ex) => ({
+    id: ex.id,
+    exercise_id: ex.exercise_id,
+    order_index: ex.order_index,
+    target_sets: ex.target_sets,
+    target_reps_min: ex.target_reps_min,
+    target_reps_max: ex.target_reps_max,
+    rest_seconds: ex.rest_seconds,
+  }));
+  
+  const result = replaceBannedInPlanned(planned, catalogue, generatorInput);
+  
+  if (!result.changed) {
+    return day;
+  }
+  
+  // Track cleanup results
+  cleanupResults.push({ changed: result.changed });
+  
+  const cleanedMap = new Map(result.rows.map(r => [r.id, r.exercise_id]));
+  const cleanedExercises = day.program_day_exercises
+    .map((ex) => {
+      const cleanedId = cleanedMap.get(ex.id);
+      if (cleanedId === undefined) {
+        return null;
+      }
+      if (ex.exercise_id === cleanedId) {
+        return ex;
+      }
+      
+      const newExercise = catalogue.find(e => e.id === cleanedId);
+      if (!newExercise) return ex;
+      
+      return {
+        ...ex,
+        exercise_id: cleanedId,
+        exercises: {
+          name: newExercise.name,
+          cue: null,
+          movement_pattern: newExercise.movement_pattern,
+          metric: newExercise.metric,
+        },
+      };
+    })
+    .filter((ex): ex is NonNullable<typeof ex> => ex !== null);
+  
+  // If all exercises dropped, treat as rest day
+  if (isRestAfterCleanup(day.day_type, cleanedExercises)) {
+    return {
+      ...day,
+      day_type: "rest",
+      program_day_exercises: [],
+    };
+  }
+  
+  return {
+    ...day,
+    program_day_exercises: cleanedExercises,
+  };
+}
 
 export default async function TodayPage() {
   const { supabase, user } = await getAuthedClient();
@@ -52,7 +163,7 @@ export default async function TodayPage() {
     // A strength plan with no equipment recorded is a misconfiguration that
     // produces a thin, odd-looking plan. Say so rather than letting the user
     // wonder why their Pull day is full of core work.
-    supabase.from("user_equipment").select("*", { count: "exact", head: true }),
+    supabase.from("user_equipment").select("equipment_id", { count: "exact" }).eq("user_id", user.id),
   ]);
 
   /*
@@ -158,20 +269,22 @@ export default async function TodayPage() {
   }
 
   // ---- wave 2 -------------------------------------------------------------
-  // The week's days arrive with each day's exercises embedded. That is one
-  // round trip instead of two, and it removes the dependency that forced the
-  // exercise query to wait for the day query to name today's row.
-  const daysRes = await supabase
-    .from("program_days")
-    // One string literal: Supabase infers the row type from it, and a
-    // concatenation degrades the result to GenericStringError.
-    .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
-    .eq("status", "active")
-    .eq("program_id", program.id)
-    .order("day_index")
-    .order("order_index", { referencedTable: "program_day_exercises" });
-
-  const days = daysRes.data;
+  // Days (exercises embedded), injuries and catalogue, then the in-memory
+  // banned-exercise cleanup for knee users. See loadTodayWithBannedCleanup.
+  const { days, cleanupResults } = await loadTodayWithBannedCleanup(supabase, {
+    programId: program.id,
+    profile: {
+      goal: profile.goal,
+      level: profile.level,
+      primary_track: profile.primary_track,
+      days_per_week: profile.days_per_week,
+      yoga_days_per_week: profile.yoga_days_per_week,
+      has_all_equipment: profile.has_all_equipment,
+    },
+    equipmentIds: (equipmentRes.data || []).map(e => e.equipment_id),
+    userId: user.id,
+    applyDayCleanup,
+  });
   // Derived from the user's own local date rather than re-reading the clock,
   // so the weekday and the date can never disagree at a midnight boundary.
   const todayIndex = isoWeekday(localToday);
@@ -761,6 +874,7 @@ export default async function TodayPage() {
         <SignOutForm label="Sign out" userId={user.id} />
       </div>
 
+      <CleanupTrigger shouldClean={shouldTriggerBannedCleanup(cleanupResults)} />
     </main>
   );
 }

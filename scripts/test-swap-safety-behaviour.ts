@@ -103,11 +103,26 @@ async function main() {
   await scenario("Hinge — PAST knee: power-clean excluded", knee("past", "intermediate", ["barbell"]), "barbell-deadlift", HINGE,
     ["barbell-glute-bridge", "rack-pulls", "glute-bridge", "butt-lift-bridge"]);
 
+  // 2b. Past-knee-only exercises: must be excluded for CURRENT knee too (superset)
+  // Deficit deadlift is past-knee banned but not current-knee-only (Mutant 15 killer)
+  const HINGE_WITH_PAST = ["deficit-deadlift", "barbell-glute-bridge", "rack-pulls", "glute-bridge", "butt-lift-bridge"];
+  await scenario("Hinge — CURRENT knee: deficit-deadlift excluded (past-knee list, M15 killer)", knee("current", "intermediate", ["barbell"]), "barbell-deadlift", HINGE_WITH_PAST,
+    ["barbell-glute-bridge", "rack-pulls", "glute-bridge", "butt-lift-bridge"]);
+
   // 3. Past-knee banned cardio (chest-push-with-run-release, jogging-treadmill).
   const CARDIO = ["chest-push-with-run-release", "air-bike", "recumbent-bike", "walking-treadmill", "jogging-treadmill"];
   const CARDIO_EQ = ["medicine_ball", "machine_generic", "treadmill"];
   await scenario("Cardio — healthy (control)", healthy("intermediate", CARDIO_EQ), "bicycling-stationary", CARDIO, CARDIO);
   await scenario("Cardio — PAST knee: chest-push-with-run-release and jogging excluded", knee("past", "intermediate", CARDIO_EQ), "bicycling-stationary", CARDIO,
+    ["air-bike", "recumbent-bike", "walking-treadmill"]);
+  // Mutant 15 killer: jogging-treadmill and chest-push-with-run-release are on
+  // the past-knee list only (not CURRENT_KNEE_ONLY, no knee tag; jogging is low
+  // impact, chest-push has a chest primary), so for a CURRENT-knee intermediate
+  // nothing upstream (isEligible,
+  // impact rule, contraindicated_regions) removes them: only the past-knee half
+  // of the current-knee exclusion in rankAlternatives does. (deficit-deadlift
+  // cannot kill it: isEligible's FLOOR_PULL_DEADLIFTS drops it first.)
+  await scenario("Cardio — CURRENT knee: past-knee-only jogging-treadmill and chest-push-with-run-release excluded (M15 killer)", knee("current", "intermediate", CARDIO_EQ), "bicycling-stationary", CARDIO,
     ["air-bike", "recumbent-bike", "walking-treadmill"]);
 
   // 4. Jump guard: lower-body jump banned for past knee; upper-body plyo kept.

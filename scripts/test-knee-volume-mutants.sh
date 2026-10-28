@@ -237,11 +237,13 @@ run_mutant "P1. Remove isExcludedForPastKnee filter from pickForSlot" "$GENERATE
         return b.rng - a.rng;
       })
       .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug))
-      .filter((item) => !(hasPastKnee && isExcludedForPastKnee(item.e)));' \
+      .filter((item) => !(hasPastKnee && isExcludedForPastKnee(item.e)))
+      .filter((item) => !(hasCurrentKnee && (isExcludedForPastKnee(item.e) || isExcludedForCurrentKneeOnly(item.e))));' \
   '        // 3. RNG breaks ties (provides variety for accessories across blocks)
         return b.rng - a.rng;
       })
-      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));' "$X"
+      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug))
+      .filter((item) => !(hasCurrentKnee && (isExcludedForPastKnee(item.e) || isExcludedForCurrentKneeOnly(item.e))));' "$X"
 
 run_mutant "K1. Ignore explicit knee tag in isKneeRiskForKneeUser" "$KNEE_SAFETY" \
   '  // Check explicit contraindications

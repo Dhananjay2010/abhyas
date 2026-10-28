@@ -13,7 +13,12 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../src/lib/database.types";
 
-export type Value = string | number | boolean | null;
+/**
+ * CHANGE: Widened Value to include string[] for catalogue array columns
+ * (primary_muscles, equipment_ids, contraindicated_regions, tracks).
+ * This is additive only; existing string | number | boolean | null behavior unchanged.
+ */
+export type Value = string | number | boolean | null | string[];
 export type Row = Record<string, Value>;
 
 export type UniqueConstraint = {

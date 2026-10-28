@@ -117,6 +117,7 @@ echo
 
 # Expected list of 16 REAL_DB-gated tests
 EXPECTED_TESTS="abandon-end-early-real-db
+clean-banned-planned-real-db
 ensure-session-exercises-deload
 exercise-history-real-db
 gym-branding-real-db
