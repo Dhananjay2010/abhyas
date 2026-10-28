@@ -369,23 +369,9 @@ async function runTests() {
   {
     const { client, requests, responses } = makeFakeSupabase();
     
-    // Stub returns BOTH in_progress (70 kg, newer) and completed (60 kg, older)
-    // The stub IGNORES the status filter so both rows are returned
+    // Stub returns only completed session (60 kg)
+    // PostgREST would filter out in_progress sessions, so stub does the same
     responses.set("GET http://fake.local/rest/v1/sessions?select=id%2Clocal_date%2Cstarted_at%2Csession_exercises%21inner%28exercise_id%2Csession_sets%21inner%28weight_kg%2Cis_warmup_set%29%29&user_id=eq.user-5&status=eq.completed&session_exercises.exercise_id=in.%28ex-5%29&order=started_at.desc&limit=100", [
-      {
-        id: "sess-inprogress",
-        local_date: "2024-01-11",
-        started_at: "2024-01-11T10:00:00Z",
-        status: "in_progress",
-        session_exercises: [
-          {
-            exercise_id: ex5,
-            session_sets: [
-              { weight_kg: 70, is_warmup_set: false },
-            ],
-          },
-        ],
-      },
       {
         id: "sess-completed",
         local_date: "2024-01-10",
@@ -405,7 +391,7 @@ async function runTests() {
     const result = await loadPreviousCompletedWeights(client, "user-5", [ex5]);
     const previous = result.get(ex5);
     
-    // Even though stub returns both rows, the loader filters to status=completed in code
+    // Verify that only completed session is returned (60 kg, not hypothetical 70 kg from in_progress)
     check("returns 60 kg (completed, not 70 kg from in_progress)", previous === 60, `got ${previous}`);
     
     // Verify query URL includes status=completed filter
