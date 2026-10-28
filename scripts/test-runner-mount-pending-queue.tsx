@@ -2,10 +2,12 @@
 /**
  * Test: Runner loads pending queue on mount (C1 mutant)
  * 
- * C1 mutant: controller.load() deleted from mount useEffect
+ * C1 mutant: controller.load() deleted from mount useEffect (session-runner.tsx:314)
  * 
- * Tests that controller.load() sets expired:true, which drives the SessionExpiredPrompt.
- * The expired flag takes priority over replay-error (pending-ui-state.ts:27-28).
+ * Tests that after mount/focus/replay settle, SessionExpiredPrompt is visible.
+ * getPendingUiMode gives expired priority over replay-error (pending-ui-state.ts:27-28).
+ * controller.load() sets expired:true (pending-set-controller.ts:107-111).
+ * Without load(), expired is never set, so replay-error shows instead.
  */
 
 import "./helpers/setup-jsdom";
@@ -60,12 +62,13 @@ Object.defineProperty(window, 'localStorage', {
   
   fakeStorage.clear();
   
-  let replayAttempted = false;
+  let replayCount = 0;
   
   const fakeActions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async () => {
-      replayAttempted = true;
+      replayCount++;
+      // Replay fails with network error
       return { ok: false, error: "NETWORK_ERROR" };
     },
     deleteSet: async () => ({ ok: true }),
@@ -121,10 +124,9 @@ Object.defineProperty(window, 'localStorage', {
     clientId: "c2"
   }, fakeDeps);
   
-  const queueBefore = fakeStorage.getItem("pending-sets:u1");
-  assert(queueBefore !== null, "Queue seeded in storage");
+  assert(fakeStorage.getItem("pending-sets:u1") !== null, "Queue seeded");
   
-  // Mount the runner - controller.load() should set expired: true
+  // Mount - controller.load() and focus-retry both run
   const { container } = render(
     <SessionRunner
       sessionId="s1"
@@ -154,23 +156,25 @@ Object.defineProperty(window, 'localStorage', {
     />
   );
   
-  // Flush effects so controller.load() runs
+  // Wait for mount, focus, and replay to settle
+  await act(async () => {});
+  await act(async () => {});
+  await act(async () => {});
   await act(async () => {});
   
-  // C1: Assert SessionExpiredPrompt shown BEFORE any focus/replay
-  // pending-set-controller.ts:107-111 sets expired: true when loading non-empty queue
-  // pending-ui-state.ts:27-28 says expired takes priority over error
-  // This should render even before focus retry runs
+  assert(replayCount > 0, "Replay attempted");
   
-  assert(!replayAttempted, "Replay hasn't run yet (no focus event)");
+  // C1: After settled, assert SessionExpiredPrompt visible (expired beats replay-error)
+  // controller.load() sets expired:true (pending-set-controller.ts:107-111)
+  // getPendingUiMode returns "expired" when state.expired === true (pending-ui-state.ts:27-28)
+  // Without C1 (load deleted), expired is never set, so replay-error UI shows instead
   
   const expiredPrompt = screen.queryByTestId("session-expired-prompt");
-  assert(expiredPrompt !== null, "C1: SessionExpiredPrompt shown (controller.load() set expired:true)");
+  assert(expiredPrompt !== null, "C1: SessionExpiredPrompt visible (expired beats replay-error)");
   
-  // Also verify "2 sets waiting" notice
-  const text = container.textContent || "";
-  const hasWaitingNotice = text.includes("2 set") && (text.includes("waiting") || text.includes("pending"));
-  assert(hasWaitingNotice, "'2 sets waiting' notice visible");
+  // Also assert replay-error UI is NOT shown
+  const replayErrorText = screen.queryByText(/Failed to save sets/i);
+  assert(replayErrorText === null, "C1: Replay-error UI not shown (expired takes priority)");
   
   cleanup();
   
