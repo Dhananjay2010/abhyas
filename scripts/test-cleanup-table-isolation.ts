@@ -28,7 +28,8 @@ console.log("Testing cleanup table isolation (W6)\n");
 
 (async () => {
   const fake = createFakeDb({
-    profiles: [{
+    tables: {
+      profiles: [{
       id: "user1",
       goal: "muscle_gain",
       level: "beginner",
@@ -76,7 +77,8 @@ console.log("Testing cleanup table isolation (W6)\n");
       target_reps_min: 8,
       target_reps_max: 12,
       rest_seconds: 90,
-    }],
+      }],
+    },
   });
 
   const { cleanBannedPlannedExercises } = await import("../src/lib/program/clean-banned-planned");
