@@ -290,14 +290,12 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
   // ===== Test 3: Skip with pending sets - replay succeeds =====
   console.log("\n=== Test 3: Skip + pending → replay OK → finish ===\n");
 
-  let logSetCount3 = 0;
   let logSetFailCount3 = 0;
   const finishCalls3: Array<{ cooldownCompleted?: boolean }> = [];
   
   const actions3: SessionActions = {
     markWarmupDone: ok,
     logSet: async () => {
-      logSetCount3++;
       if (logSetFailCount3 < 1) {
         logSetFailCount3++;
         return { ok: false, error: "NETWORK_ERROR" };
