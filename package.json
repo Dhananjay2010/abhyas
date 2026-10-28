@@ -586,6 +586,7 @@
     "ci:mutant-gym-branding": "bash scripts/mutant-test-gym-branding.sh",
     "ci:mutant-join-code-wiring": "bash scripts/mutant-test-gym-join-code-wiring.sh",
     "test:runtime-branding": "tsx scripts/test-runtime-branding.ts",
+    "test:runtime-metadata": "tsx scripts/test-runtime-metadata.ts",
     "test:runtime-branding-resolver": "tsx scripts/test-runtime-branding-resolver.ts",
     "test:runtime-brand-3-tier": "tsx scripts/test-runtime-brand-3-tier.ts",
     "test:brand-contrast-oklch": "tsx scripts/test-brand-contrast-oklch.ts",
