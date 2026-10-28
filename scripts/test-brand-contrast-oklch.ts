@@ -183,11 +183,10 @@ async function main() {
     // Adjusted colors: #5e5e5e to #606060 (still need white, not black)
     //
     // Conclusion: This mutant survives at 3:1 but is benign (both approaches give #ffffff).
-    check("Proof documented", true);
-    check("Searched 12 dark colors (#1a1a1a to #5a5a5a)", true);
-    check("All original colors need white text", true);
-    check("All adjusted (3:1+) colors need white text", true);
-    check("Black text threshold >> 3:1 contrast", true);
+    console.log("  ℹ Proof documented: searched 12 dark colors (#1a1a1a to #5a5a5a)");
+    console.log("  ℹ All original colors need white text");
+    console.log("  ℹ All adjusted (3:1+) colors need white text");
+    console.log("  ℹ Black text threshold >> 3:1 contrast");
   }
   console.log();
 

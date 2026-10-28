@@ -226,11 +226,32 @@ async function main() {
   }
   console.log();
 
-  console.log("TEST: (d) RPC error returns base");
+  console.log("TEST: (d) PostgREST error (HTTP 500) returns neutralBrand");
   {
-    const stub = createStubFetch({
-      resolve_gym_by_host: { error: { message: 'Database error' } },
-    });
+    // Stub that returns PostgREST error (500 + error body)
+    const stub = {
+      calls: [] as FetchCall[],
+      fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        const method = init?.method || 'GET';
+        const body = init?.body ? init.body.toString() : undefined;
+        
+        stub.calls.push({ url, method, body });
+        
+        // Return PostgREST error (status 500)
+        return new Response(
+          JSON.stringify({ 
+            message: "Database connection error",
+            code: "PGRST000",
+            details: "Connection refused",
+          }),
+          {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      },
+    };
     
     const supabase = createSupabaseClient<Database>(
       'https://test.supabase.co',
@@ -243,10 +264,21 @@ async function main() {
     
     const mockFetchBrand = async () => ({ name: 'Should not be called' });
     const resolution = await resolveBrand(supabase, 'error.example.com', null, branding, mockFetchBrand, false);
-    const result = resolution.brand;
     
-    check("Result identical to base on error", JSON.stringify(result) === JSON.stringify(branding));
-    check("RPC was called", stub.calls.length > 0);
+    check("PostgREST 500 error returns neutralBrand", resolution.tier === "neutral");
+    check("PostgREST 500 error: gymId is null", resolution.gymId === null);
+    check("PostgREST 500 error: gymName is null", resolution.gymName === null);
+    // neutralBrand is merged with base, so check tier is sufficient
+    
+    // Verify p_host was sent
+    const resolveCall = stub.calls.find(c => c.url.includes('/rpc/resolve_gym_by_host'));
+    check("RPC was called", resolveCall !== undefined);
+    
+    const bodyMatch = resolveCall?.body?.match(/"p_host"\s*:\s*"([^"]+)"/);
+    check("p_host present in body", bodyMatch !== null);
+    if (bodyMatch) {
+      check("p_host is error.example.com", bodyMatch[1] === "error.example.com");
+    }
   }
   console.log();
 
