@@ -3,7 +3,8 @@
  */
 
 import assert from "node:assert";
-import { pickOwnedGym } from "@/lib/gym/owner-check";
+import { pickOwnedGym, checkGymOwnership } from "@/lib/gym/owner-check";
+import { createFakeDb, json } from "./helpers/fake-postgrest";
 
 type GymMembershipRow = {
   gym_id: string;
@@ -124,4 +125,40 @@ console.log("=== Test: pickOwnedGym ===\n");
   console.log("✓ gyms relation as array is handled");
 }
 
-console.log("\n✅ All tests passed\n");
+console.log();
+
+// Test 8: checkGymOwnership itself (default older + iron-temple newer) picks iron-temple
+async function testCheckGymOwnership() {
+  console.log("=== Test: checkGymOwnership integration ===\n");
+  
+  const db = createFakeDb();
+  db.beforeRequest = (req) => {
+    if (req.table !== "gym_memberships") return;
+    assert.strictEqual(req.filters.role, "eq.owner");
+    assert.strictEqual(req.filters.status, "eq.active");
+    assert.strictEqual(req.limit, null, "FAIL: no limit — all owner rows must be fetched");
+    return json(200, [
+      { gym_id: "g-default", joined_at: "2024-01-01T00:00:00Z", role: "owner", status: "active", gyms: { name: "Default", slug: "default" } },
+      { gym_id: "g-iron", joined_at: "2024-06-01T00:00:00Z", role: "owner", status: "active", gyms: { name: "Iron Temple", slug: "iron-temple" } },
+    ]);
+  };
+  const own = await checkGymOwnership(db.client, "u1");
+  assert.strictEqual(own.isOwner, true);
+  assert.strictEqual(own.gymSlug, "iron-temple", "FAIL: checkGymOwnership must pick iron-temple");
+  assert.strictEqual(own.gymId, "g-iron");
+  console.log("✓ checkGymOwnership (default + iron-temple) gives iron-temple");
+  
+  const empty = createFakeDb();
+  empty.beforeRequest = () => json(200, []);
+  assert.strictEqual((await checkGymOwnership(empty.client, "u1")).isOwner, false);
+  console.log("✓ checkGymOwnership with no owner rows gives isOwner false");
+}
+
+testCheckGymOwnership()
+  .then(() => {
+    console.log("\n✅ All tests passed\n");
+  })
+  .catch((err) => {
+    console.error("Test failed:", err);
+    process.exitCode = 1;
+  });
