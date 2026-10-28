@@ -158,13 +158,13 @@ async function runTests() {
     check("M16: abandon returns error when loadExercises fails", !result.ok);
   }
 
-  // M24: shouldShowFinishRetry considering cooldown
+  // M24: shouldShowFinishRetry considering cooldown (updated for PR #169 follow-up)
   console.log("\nM24: shouldShowFinishRetry considering cooldown");
   {
     const { shouldShowFinishRetry } = await import("../src/lib/session/finish-flow");
     
     check("M24: show retry when failed without cooldown", shouldShowFinishRetry(false, false) === true);
-    check("M24: no retry when failed with cooldown done", shouldShowFinishRetry(false, true) === false);
+    check("M24: show retry when failed with cooldown done (PR #169)", shouldShowFinishRetry(false, true) === true);
     check("M24: no retry when succeeded", shouldShowFinishRetry(true, false) === false);
     check("M24: no retry when succeeded with cooldown", shouldShowFinishRetry(true, true) === false);
   }
