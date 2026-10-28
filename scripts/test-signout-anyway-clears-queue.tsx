@@ -17,7 +17,7 @@ import type { Storage } from "../src/lib/session/pending-set-retry";
 
 // Mock FormData to handle form submission in JSDOM without errors
 const OriginalFormData = globalThis.FormData;
-globalThis.FormData = class MockFormData extends OriginalFormData {
+class MockFormData extends OriginalFormData {
   constructor(form?: HTMLFormElement) {
     // If form is undefined or invalid, create empty FormData
     if (!form || !(form instanceof HTMLFormElement)) {
@@ -30,7 +30,8 @@ globalThis.FormData = class MockFormData extends OriginalFormData {
       }
     }
   }
-} as any;
+}
+globalThis.FormData = MockFormData as typeof OriginalFormData;
 
 let passed = 0;
 
