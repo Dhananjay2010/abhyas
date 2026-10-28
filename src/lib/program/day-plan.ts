@@ -191,6 +191,12 @@ export async function plannableDays(
     afterDate?: string;
     /** User ID for filtering sessions (required when afterDate is provided) */
     userId?: string;
+    /**
+     * The session being finished right now (still in_progress when the summary
+     * is rendered). Next up is computed as if it were already completed, so the
+     * badge never lands on the workout just done (QA1 MED-1 / MED-B).
+     */
+    justDone?: JustDoneSession | null;
   }
 ): Promise<PlannableDay[]> {
   const { data } = await supabase
@@ -208,9 +214,9 @@ export async function plannableDays(
   let nextUpId: string | null = null;
   
   if (options?.afterDate && options?.userId && trainingDays.length > 0) {
-    const { data: recentSession } = await supabase
+    const { data: completedSession } = await supabase
       .from("sessions")
-      .select("program_day_id")
+      .select("program_day_id, local_date")
       .eq("user_id", options.userId)
       .eq("status", "completed")
       .in("actual_type", ["weights", "bodyweight"])
@@ -219,6 +225,7 @@ export async function plannableDays(
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    const recentSession = latestDoneSession(completedSession, options.justDone ?? null);
     
     if (recentSession?.program_day_id) {
       const completedIndex = trainingDays.findIndex(d => d.id === recentSession.program_day_id);
@@ -233,6 +240,13 @@ export async function plannableDays(
     }
   }
 
+  // The list is deduplicated by label (a 4-day upper/lower split has two
+  // "Upper" days), so the badge goes on the entry carrying the next day's
+  // label; matching by id would drop it whenever the next day is the second
+  // day of a pair.
+  const nextUpDay = trainingDays.find((d) => d.id === nextUpId);
+  const nextUpLabel = nextUpDay ? (nextUpDay.label ?? "Training") : null;
+
   const seen = new Set<string>();
   const out: PlannableDay[] = [];
   for (const d of trainingDays) {
@@ -243,10 +257,36 @@ export async function plannableDays(
       programDayId: d.id, 
       label, 
       dayType: d.day_type,
-      nextUp: d.id === nextUpId
+      nextUp: label === nextUpLabel
     });
   }
   return out;
+}
+
+/** The session the member is finishing, treated as completed for Next up. */
+export type JustDoneSession = {
+  programDayId: string | null;
+  actualType: string | null;
+  localDate: string;
+};
+
+/**
+ * The most recent completed strength session, counting `justDone` as
+ * completed. A later-dated completed session in the database still wins (a
+ * stale session finished days later); on the same date `justDone` wins,
+ * because it is the one being finished now.
+ */
+export function latestDoneSession(
+  completed: { program_day_id: string | null; local_date: string } | null,
+  justDone: JustDoneSession | null,
+): { program_day_id: string | null; local_date: string } | null {
+  const counts =
+    justDone !== null &&
+    justDone.programDayId !== null &&
+    (justDone.actualType === "weights" || justDone.actualType === "bodyweight");
+  if (!counts) return completed;
+  if (completed && completed.local_date > justDone.localDate) return completed;
+  return { program_day_id: justDone.programDayId, local_date: justDone.localDate };
 }
 
 type ProgramDay = {
@@ -551,13 +591,16 @@ export async function nextDayPlan(
   const userId = program.user_id;
   const todayDayIndex = isoWeekday(today);
 
-  const deps: NextDayPlanCoreDeps = {
-    async getTodayCompletedSession() {
-      // MED-1: check both completed and in_progress sessions. When computing the
-      // prompt during a session (before finish), the session is in_progress but
-      // will be completed by the time the user acts on the prompt. Treating it as
-      // "today's session" prevents planning a repeat after a rest-day swap.
-      // When sessionId is provided, query by id. Otherwise use newest on date.
+  // MED-1: check both completed and in_progress sessions. When computing the
+  // prompt during a session (before finish), the session is in_progress but
+  // will be completed by the time the user acts on the prompt. Treating it as
+  // "today's session" prevents planning a repeat after a rest-day swap, and
+  // (QA1 MED-1 / MED-B) keeps Next up from badging the workout just done.
+  // When sessionId is provided, query by id. Otherwise use newest on date.
+  // Read once and shared by the swap check and the Next-up computation.
+  let currentSession: Promise<JustDoneSession | null> | null = null;
+  const loadCurrentSession = () =>
+    (currentSession ??= (async (): Promise<JustDoneSession | null> => {
       if (options?.sessionId) {
         const { data } = await supabase
           .from("sessions")
@@ -567,10 +610,10 @@ export async function nextDayPlan(
           .in("status", ["completed", "in_progress"])
           .maybeSingle();
         return data
-          ? { programDayId: data.program_day_id, actualType: data.actual_type ?? "" }
+          ? { programDayId: data.program_day_id, actualType: data.actual_type, localDate: data.local_date }
           : null;
       }
-      
+
       const { data } = await supabase
         .from("sessions")
         .select("id, program_day_id, actual_type")
@@ -581,8 +624,14 @@ export async function nextDayPlan(
         .limit(1)
         .maybeSingle();
       return data
-        ? { programDayId: data.program_day_id, actualType: data.actual_type ?? "" }
+        ? { programDayId: data.program_day_id, actualType: data.actual_type, localDate: today }
         : null;
+    })());
+
+  const deps: NextDayPlanCoreDeps = {
+    async getTodayCompletedSession() {
+      const s = await loadCurrentSession();
+      return s ? { programDayId: s.programDayId, actualType: s.actualType ?? "" } : null;
     },
 
     async getAllProgramDays() {
@@ -603,6 +652,7 @@ export async function nextDayPlan(
       return await plannableDays(supabase, program.id, {
         afterDate: today,
         userId,
+        justDone: await loadCurrentSession(),
       });
     },
 
