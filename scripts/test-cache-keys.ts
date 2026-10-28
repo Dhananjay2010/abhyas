@@ -9,14 +9,25 @@
  */
 
 import { strict as assert } from "assert";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
+
+type CacheCall = {
+  keyParts: string[];
+  tags?: { tags?: string[] };
+};
 
 async function testCacheKeyInclusion() {
   console.log("Test: Cache key construction");
   
-  const recordedCacheCalls: Array<{ keyParts: string[]; tags?: { tags?: string[] } }> = [];
+  const recordedCacheCalls: CacheCall[] = [];
   
-  // Stub unstable_cache to record key parts
-  const unstableCacheStub = (fn: any, keyParts?: string[], tags?: { tags?: string[] }) => {
+  // Type-safe unstable_cache stub
+  const unstableCacheStub = <T extends (...args: never[]) => Promise<unknown>>(
+    fn: T,
+    keyParts?: string[],
+    tags?: { tags?: string[] }
+  ): T => {
     if (keyParts) {
       recordedCacheCalls.push({ keyParts, tags });
     }
@@ -48,47 +59,75 @@ async function testCacheKeyInclusion() {
     const { resolveBrand } = await import("@/lib/runtime-brand");
     const { branding } = await import("@/lib/branding");
     
-    // Create a stub supabase client
-    const createStubSupabase = () => {
-      return {
-        rpc: async (name: string, params: any) => {
-          if (name === "resolve_gym_by_host") {
-            return {
-              data: [
-                {
-                  gym_id: "test-gym-123",
-                  gym_slug: "test-gym",
-                  gym_name: "Test Gym",
-                },
-              ],
-              error: null,
-            };
-          }
-          return { data: null, error: null };
-        },
-        from: () => ({
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: {
-                  name: "Test Gym",
-                  primary_color: "#FF0000",
-                  accent_color: "#00FF00",
-                  logo_url: "https://example.com/logo.png",
-                },
-                error: null,
-              }),
-            }),
-          }),
-        }),
-      } as any;
+    // Create a real stub fetch
+    type FetchCall = {
+      url: string;
+      method: string;
+      body?: string;
     };
+    
+    const calls: FetchCall[] = [];
+    
+    const stubFetch: typeof fetch = async (input, init) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      const method = init?.method || 'GET';
+      const body = init?.body ? init.body.toString() : undefined;
+      
+      calls.push({ url, method, body });
+      
+      // Return host resolution result
+      if (url.includes('/rpc/resolve_gym_by_host')) {
+        return new Response(
+          JSON.stringify([
+            {
+              gym_id: "test-gym-123",
+              gym_slug: "test-gym",
+              gym_name: "Test Gym",
+            },
+          ]),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      }
+      
+      // Return gym brand result
+      if (url.includes('gyms') && url.includes('select')) {
+        return new Response(
+          JSON.stringify({
+            name: "Test Gym",
+            primary_color: "#FF0000",
+            accent_color: "#00FF00",
+            logo_url: "https://example.com/logo.png",
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
+      }
+      
+      return new Response(JSON.stringify(null), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+    
+    // Create real Supabase client with stub fetch
+    const supabase = createSupabaseClient<Database>(
+      'https://test.supabase.co',
+      'test-anon-key',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: stubFetch },
+      }
+    );
     
     // Clear recorded calls
     recordedCacheCalls.length = 0;
     
     // Trigger resolution with caching enabled (useCache=true)
-    const supabase = createStubSupabase();
     const resolution = await resolveBrand(
       supabase,
       "Custom.Example.COM:3000",  // Will be normalized to custom.example.com
@@ -106,7 +145,7 @@ async function testCacheKeyInclusion() {
     );
     assert.ok(hostCacheCall, "Host resolution should use unstable_cache");
     
-    const hostKey = hostCacheCall!.keyParts.find((k) => k.includes("gym-host-"));
+    const hostKey = hostCacheCall.keyParts.find((k) => k.includes("gym-host-"));
     console.log("  Host cache key:", hostKey);
     assert.ok(
       hostKey && hostKey.includes("custom.example.com"),
@@ -119,7 +158,7 @@ async function testCacheKeyInclusion() {
     );
     assert.ok(gymCacheCall, "Gym brand fetch should use unstable_cache");
     
-    const gymKey = gymCacheCall!.keyParts.find((k) => k.includes("gym-brand-"));
+    const gymKey = gymCacheCall.keyParts.find((k) => k.includes("gym-brand-"));
     console.log("  Gym cache key:", gymKey);
     assert.ok(
       gymKey && gymKey.includes("test-gym-123"),

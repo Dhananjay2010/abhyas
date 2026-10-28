@@ -12,7 +12,7 @@ import { accessibleTextColor } from "../src/lib/contrast";
 
 let failures = 0;
 
-function check(label: string, ok: boolean, detail = "") {
+function check(label: string, ok: boolean, detail?: string) {
   if (!ok) failures++;
   console.log(
     `  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`,
@@ -80,18 +80,19 @@ function runTests() {
     check("Base brand has name", typeof branding.name === "string" && branding.name.length > 0);
     check("Base brand name length valid", branding.name.length <= 100);
     check("Base brand has colors", typeof branding.colors === "object");
-    check("Base brand has all required colors", 
+    check("Base brand has all required colors", Boolean(
       branding.colors.accent && 
       branding.colors.accentFg && 
       branding.colors.bg &&
-      branding.colors.fg);
+      branding.colors.fg
+    ));
     
     // All colors must be valid 6-digit hex
     const hexRegex = /^#[0-9a-fA-F]{6}$/;
     const colorEntries = Object.entries(branding.colors);
     let allValid = true;
     for (const [key, value] of colorEntries) {
-      if (!hexRegex.test(value as string)) {
+      if (typeof value === 'string' && !hexRegex.test(value)) {
         allValid = false;
         console.log(`    Invalid color ${key}: ${value}`);
       }

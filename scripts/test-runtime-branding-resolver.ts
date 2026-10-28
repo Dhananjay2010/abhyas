@@ -229,8 +229,10 @@ async function main() {
   console.log("TEST: (d) PostgREST error (HTTP 500) returns neutralBrand");
   {
     // Stub that returns PostgREST error (500 + error body)
+    const calls: FetchCall[] = [];
+    
     const stub = {
-      calls: [] as FetchCall[],
+      calls,
       fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input.toString();
         const method = init?.method || 'GET';
