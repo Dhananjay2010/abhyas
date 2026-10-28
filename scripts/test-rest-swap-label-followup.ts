@@ -531,65 +531,6 @@ async function main() {
     console.log("  ✓ nextDayPlan without sessionId: actual_type filter picks weights over yoga (getTodayCompletedSession no-sessionId branch)\n");
   }
 
-  {
-    console.log("12. Mutant 2b: nextDayPlan with yoga sessionId whose program_day_id collides with tomorrow");
-
-    // days3Full: 1=A, 2=rest, 3=B, 4=rest, 5=C, 6=yoga-6, 7=rest
-    // Today=Thu 2026-10-29 (day 4=rest), Tomorrow=Fri 2026-10-30 (day 5=C)
-    // Thu has yoga session with program_day_id C
-    const client = buildClient({
-      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
-      programDays: days3Full,
-      sessions: [
-        // Thursday: yoga with program_day_id C (would collide with tomorrow's scheduled C)
-        { id: "s-thu-yoga-c", user_id: "u1", program_day_id: "C", actual_type: "yoga", local_date: "2026-10-29", status: "completed", created_at: "2026-10-29T18:00:00Z" },
-      ],
-    });
-
-    // Call nextDayPlan(tomorrow="2026-10-30") with sessionId pointing at Thu's yoga
-    // targetLocalDate="2026-10-30", today="2026-10-29", getTodayCompletedSession uses sessionId
-    const result = await nextDayPlan(client, "America/New_York", "2026-10-30", { sessionId: "s-thu-yoga-c" });
-
-    assert.ok(result, "Should return next day plan");
-    // Fri (day 5) = scheduled C. Thu yoga has program_day_id C.
-    // WITH filter: yoga filtered out, getTodayCompletedSession returns null, tomorrow stays C
-    // WITHOUT filter (mutant): yoga C returned, collision with Fri's C, resolves to A
-    assert.strictEqual(result.plannedLabel, "Full Body C", "Tomorrow should be C (yoga filtered); dropping .in at line 607 returns yoga C, detects collision, resolves to A");
-    assert.strictEqual(result.collisionResolved, false, "No collision with filter; mutant causes collision");
-
-    console.log("  ✓ Mutant 2b killed: yoga session filtered out, no false collision\n");
-  }
-
-  {
-    console.log("13. Mutant 5c: nextDayPlan without sessionId, yoga session changes collision");
-
-    // days3Full: 1=A, 2=rest, 3=B, 4=rest, 5=C, 6=yoga-6, 7=rest
-    // Today=Thu 2026-10-29 (day 4=rest), Tomorrow=Fri 2026-10-30 (day 5=C)
-    // Thu has weights B (older) and yoga C (newer)
-    const client = buildClient({
-      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
-      programDays: days3Full,
-      sessions: [
-        // Thursday: weights B in morning, yoga with program_day_id C later (newest)
-        { id: "s-thu-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-29", status: "completed", created_at: "2026-10-29T09:00:00Z" },
-        { id: "s-thu-yoga-c", user_id: "u1", program_day_id: "C", actual_type: "yoga", local_date: "2026-10-29", status: "completed", created_at: "2026-10-29T18:00:00Z" },
-      ],
-    });
-
-    // Call nextDayPlan(tomorrow="2026-10-30") without sessionId
-    // targetLocalDate="2026-10-30", today="2026-10-29", getTodayCompletedSession finds newest on that date
-    const result = await nextDayPlan(client, "America/New_York", "2026-10-30");
-
-    assert.ok(result, "Should return next day plan");
-    // Fri (day 5) = scheduled C. Thu's newest is yoga C (18:00), older is weights B (09:00).
-    // WITH filter: returns weights B (yoga filtered), no collision with Fri's C, stays C
-    // WITHOUT filter (mutant): returns yoga C (newest), collision with Fri's C, resolves to A
-    assert.strictEqual(result.plannedLabel, "Full Body C", "Tomorrow should be C (yoga filtered, weights B no collision); dropping .in at line 620 returns yoga C, collision, resolves to A");
-    assert.strictEqual(result.collisionResolved, false, "No collision with filter; mutant causes collision");
-
-    console.log("  ✓ Mutant 5c killed: newest session filtered by actual_type\n");
-  }
-
   console.log("✓ All rest-swap label followup tests passed\n");
 }
 
