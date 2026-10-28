@@ -370,7 +370,7 @@ run_mutant \
 run_mutant \
   "(n) end default gym memberships" \
   "Deactivate user's default gym memberships when creating new gym" \
-  "all default memberships byte-identical" \
+  "default membership byte-identical" \
   mutate_n
 
 # Summary is printed by trap on exit
