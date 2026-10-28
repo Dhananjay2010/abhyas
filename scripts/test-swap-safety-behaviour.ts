@@ -115,6 +115,15 @@ async function main() {
   await scenario("Cardio — healthy (control)", healthy("intermediate", CARDIO_EQ), "bicycling-stationary", CARDIO, CARDIO);
   await scenario("Cardio — PAST knee: chest-push-with-run-release and jogging excluded", knee("past", "intermediate", CARDIO_EQ), "bicycling-stationary", CARDIO,
     ["air-bike", "recumbent-bike", "walking-treadmill"]);
+  // Mutant 15 killer: jogging-treadmill and chest-push-with-run-release are on
+  // the past-knee list only (not CURRENT_KNEE_ONLY, no knee tag; jogging is low
+  // impact, chest-push has a chest primary), so for a CURRENT-knee intermediate
+  // nothing upstream (isEligible,
+  // impact rule, contraindicated_regions) removes them: only the past-knee half
+  // of the current-knee exclusion in rankAlternatives does. (deficit-deadlift
+  // cannot kill it: isEligible's FLOOR_PULL_DEADLIFTS drops it first.)
+  await scenario("Cardio — CURRENT knee: past-knee-only jogging-treadmill and chest-push-with-run-release excluded (M15 killer)", knee("current", "intermediate", CARDIO_EQ), "bicycling-stationary", CARDIO,
+    ["air-bike", "recumbent-bike", "walking-treadmill"]);
 
   // 4. Jump guard: lower-body jump banned for past knee; upper-body plyo kept.
   // Updated per Run 4: bodyweight-squat and goblet-squat are knee-risk (isKneeRiskForKneeUser),
