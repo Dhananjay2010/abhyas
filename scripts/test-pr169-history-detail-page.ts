@@ -6,19 +6,12 @@
  * - Filters warm-ups from volume calculation
  * - Uses formatDurationMinutes for time display ('<1 min' for <60s, 'X min' for >=60s)
  * 
- * This test exercises the actual page.tsx code path.
+ * This test imports REAL production code (buildHistoryDetailView).
  * 
  *   npx tsx scripts/test-pr169-history-detail-page.ts
  */
 
-import { formatDurationMinutes } from "../src/lib/history/compute-duration";
-
-// Volume calculation from page.tsx lines 124-130
-function computeVolume(sets: Array<{ reps: number | null; weight_kg: number | null; is_warmup_set: boolean }>) {
-  return sets
-    .filter((s) => !s.is_warmup_set)
-    .reduce((n, s) => n + (s.reps ?? 0) * Number(s.weight_kg ?? 0), 0);
-}
+import { buildHistoryDetailView } from "../src/lib/history/build-detail-view";
 
 let passed = 0;
 let failed = 0;
@@ -38,8 +31,14 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
 (function main() {
   console.log("\nPR #169 follow-up item 4 & 6: History detail page behavioral test\n");
 
-  console.log("Item 4: Volume calculation filters warm-ups");
+  console.log("Item 4: Volume calculation filters warm-ups (PRODUCTION CODE)");
   {
+    const session = {
+      duration_seconds: 600,
+      status: "completed",
+      actual_type: "weights",
+    };
+    
     // Mix of warm-up and working sets
     const sets = [
       { reps: 5, weight_kg: 20, is_warmup_set: true },  // warm-up: 100 kg
@@ -48,65 +47,59 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
       { reps: 3, weight_kg: 30, is_warmup_set: true },   // warm-up: 90 kg
     ];
     
-    const volume = computeVolume(sets);
-    assertEquals(volume, 980, "volume excludes warm-ups (500 + 480 = 980 kg)");
+    const view = buildHistoryDetailView(session, sets);
+    assertEquals(view.volumeKg, 980, "production code: volume excludes warm-ups (500 + 480 = 980 kg)");
   }
 
   console.log("\nItem 4: Mutant test - volume WITHOUT filter includes warm-ups");
   {
+    const session = {
+      duration_seconds: 600,
+      status: "completed",
+      actual_type: "weights",
+    };
+    
     const sets = [
-      { reps: 5, weight_kg: 20, is_warmup_set: true },
-      { reps: 10, weight_kg: 50, is_warmup_set: false },
+      { reps: 5, weight_kg: 20, is_warmup_set: true },  // warm-up: 100 kg
+      { reps: 10, weight_kg: 50, is_warmup_set: false }, // working: 500 kg
     ];
     
-    // Mutant: delete .filter((s) => !s.is_warmup_set)
-    const mutantVolume = sets.reduce((sum, s) => sum + s.reps * s.weight_kg, 0);
-    assertEquals(mutantVolume, 600, "mutant includes warm-ups (100 + 500 = 600)");
-    
-    const correctVolume = computeVolume(sets);
-    assertEquals(correctVolume, 500, "correct implementation excludes warm-ups (500 only)");
+    const view = buildHistoryDetailView(session, sets);
+    assertEquals(view.volumeKg, 500, "production code excludes warm-ups (500 only, not 600)");
   }
 
-  console.log("\nItem 6: Duration format for <1 minute");
+  console.log("\nItem 6: Duration format for <1 minute (PRODUCTION CODE)");
   {
-    const duration30s = formatDurationMinutes(30, "completed", "weights");
-    assertEquals(duration30s, "<1 min", "30 seconds shows '<1 min'");
+    const session30s = { duration_seconds: 30, status: "completed", actual_type: "weights" };
+    const view30 = buildHistoryDetailView(session30s, []);
+    assertEquals(view30.durationText, "<1 min", "production: 30 seconds shows '<1 min'");
     
-    const duration59s = formatDurationMinutes(59, "completed", "weights");
-    assertEquals(duration59s, "<1 min", "59 seconds shows '<1 min'");
+    const session59s = { duration_seconds: 59, status: "completed", actual_type: "weights" };
+    const view59 = buildHistoryDetailView(session59s, []);
+    assertEquals(view59.durationText, "<1 min", "production: 59 seconds shows '<1 min'");
     
-    const duration0s = formatDurationMinutes(0, "completed", "weights");
-    assertEquals(duration0s, null, "0 seconds returns null (no sets)");
+    const session0s = { duration_seconds: 0, status: "completed", actual_type: "weights" };
+    const view0 = buildHistoryDetailView(session0s, []);
+    assertEquals(view0.durationText, null, "production: 0 seconds returns null");
     
-    const durationNull = formatDurationMinutes(null, "completed", "weights");
-    assertEquals(durationNull, "—", "null duration shows '—' for completed strength");
+    const sessionNull = { duration_seconds: null, status: "completed", actual_type: "weights" };
+    const viewNull = buildHistoryDetailView(sessionNull, []);
+    assertEquals(viewNull.durationText, "—", "production: null shows '—'");
   }
 
-  console.log("\nItem 6: Duration format for >=1 minute");
+  console.log("\nItem 6: Duration format for >=1 minute (PRODUCTION CODE)");
   {
-    const duration60s = formatDurationMinutes(60, "completed", "weights");
-    assertEquals(duration60s, "1 min", "60 seconds shows '1 min'");
+    const session60s = { duration_seconds: 60, status: "completed", actual_type: "weights" };
+    const view60 = buildHistoryDetailView(session60s, []);
+    assertEquals(view60.durationText, "1 min", "production: 60 seconds shows '1 min'");
     
-    const duration120s = formatDurationMinutes(120, "completed", "weights");
-    assertEquals(duration120s, "2 min", "120 seconds shows '2 min'");
+    const session120s = { duration_seconds: 120, status: "completed", actual_type: "weights" };
+    const view120 = buildHistoryDetailView(session120s, []);
+    assertEquals(view120.durationText, "2 min", "production: 120 seconds shows '2 min'");
     
-    const duration90s = formatDurationMinutes(90, "completed", "weights");
-    assertEquals(duration90s, "2 min", "90 seconds rounds to '2 min'");
-  }
-
-  console.log("\nItem 6: Mutant test - inline formatting without formatDurationMinutes");
-  {
-    // Mutant: back to inline `${Math.round(durationSeconds / 60)}m`
-    const mutantFormat = (s: number | null) => s === null ? "—" : s === 0 ? null : `${Math.round(s / 60)}m`;
-    
-    assertEquals(mutantFormat(30), "1m", "mutant shows '1m' for 30s (wrong)");
-    assertEquals(formatDurationMinutes(30, "completed", "weights"), "<1 min", "correct shows '<1 min' for 30s");
-    
-    assertEquals(mutantFormat(null), "—", "mutant shows '—' for null (correct for completed)");
-    assertEquals(formatDurationMinutes(null, "completed", "weights"), "—", "correct shows '—' for null");
-    
-    assertEquals(mutantFormat(60), "1m", "mutant shows '1m' for 60s (wrong format)");
-    assertEquals(formatDurationMinutes(60, "completed", "weights"), "1 min", "correct shows '1 min' for 60s");
+    const session90s = { duration_seconds: 90, status: "completed", actual_type: "weights" };
+    const view90 = buildHistoryDetailView(session90s, []);
+    assertEquals(view90.durationText, "2 min", "production: 90 seconds rounds to '2 min'");
   }
 
   console.log(`\n✅ Passed: ${passed}`);

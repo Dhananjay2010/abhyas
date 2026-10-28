@@ -35,7 +35,7 @@ function check(label: string, ok: boolean, detail = "") {
 
   let finishAttempts = 0;
   const fakeActions: SessionActions = {
-    async markWarmupDone() {},
+    async markWarmupDone() { return { ok: true }; },
     async logSet() { return { ok: true, data: { id: "set-1" } }; },
     async deleteSet() { return { ok: true }; },
     async finishExercise() { return { ok: true, data: null }; },

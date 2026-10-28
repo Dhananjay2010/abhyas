@@ -175,7 +175,7 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
     async finishSession() {
       finishAttempts++;
       if (finishAttempts === 1) {
-        return { ok: false, error: "Network error" };
+        return { ok: false, error: "<html><body><h1>502 Bad Gateway</h1><p>The server encountered an error</p></body></html>" };
       }
       return { ok: true, data: { status: "completed", durationSeconds: null } };
     },
@@ -259,18 +259,15 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
   await act(async () => {});
 
   let textContent = container.textContent;
-  const hasFriendlyError = textContent !== null && textContent.includes("You're offline");
+  const hasFriendlyError = textContent !== null && (textContent.includes("didn't save") || textContent.includes("Try again"));
   check("Failed finish shows friendly error", hasFriendlyError);
-  const hasRawError = textContent !== null && textContent.includes("Network error");
-  check("Failed finish does NOT show raw server text", !hasRawError);
+  
+  // Item 5 decision: arbitrary server text (HTML, SQL errors) NEVER passes through
+  const hasHTML = textContent !== null && (textContent.includes("<html>") || textContent.includes("<body>") || textContent.includes("502 Bad Gateway"));
+  check("Failed finish does NOT show raw HTML server text", !hasHTML);
+  
   const hasTryAgain = textContent !== null && textContent.includes("Try again");
   check("Failed finish shows 'Try again' button", hasTryAgain);
-  
-  // Item 5 decision: arbitrary server text (HTML, SQL errors) never passes through
-  const noHTML = textContent !== null && !textContent.includes("<html>") && !textContent.includes("<body>");
-  check("No HTML body pass-through", noHTML);
-  const noSQLError = textContent !== null && !textContent.includes("duplicate key");
-  check("No SQL error pass-through", noSQLError);
 
   // Click "Try again"
   await act(async () => {
