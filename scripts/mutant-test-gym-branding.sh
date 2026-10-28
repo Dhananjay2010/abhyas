@@ -42,7 +42,7 @@ FAILED=0
 SURVIVORS=()
 SKIPPED=()
 KILLED=0
-TOTAL_MUTANTS=11
+TOTAL_MUTANTS=12
 
 # Use main's reset pattern: plain only in CI with default URL
 if [ "${CI:-}" = "true" ] && [ "${SUPABASE_DB_URL:-}" = "postgresql://postgres:postgres@localhost:54322/postgres" ]; then
@@ -76,6 +76,7 @@ run_mutant() {
   local description="$2"
   local sed_command="$3"
   local expected_fail_line="$4"
+  local post_sql="${5:-}"
   
   echo "Testing mutant: $name"
   echo "  $description"
@@ -122,6 +123,20 @@ run_mutant() {
     return 1
   fi
   rm -f "$mutation_output" "$mutated_file"
+
+  # Apply optional post-mutation SQL
+  if [ -n "$post_sql" ]; then
+    local post_output=$(mktemp)
+    if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -c "$post_sql" > "$post_output" 2>&1; then
+      echo "  ❌ SKIP: post-mutation SQL failed"
+      cat "$post_output" | head -5 | sed 's/^/    /'
+      SKIPPED+=("$name: post-SQL failed")
+      FAILED=$((FAILED + 1))
+      rm -f "$post_output"
+      return 1
+    fi
+    rm -f "$post_output"
+  fi
   
   # Run tests and capture output
   local test_output=$(mktemp)
@@ -166,27 +181,27 @@ run_mutant \
   "(b) drop primary_color CHECK" \
   "Allow invalid primary_color values" \
   "sed '/alter table public.gyms add constraint gyms_primary_color_hex/,/;$/d' <" \
-  "FAIL Invalid primary color rejected"
+  "FAIL Invalid primary_color rejected"
 
 # Mutant (c): Drop accent_color CHECK constraint
 run_mutant \
   "(c) drop accent_color CHECK" \
   "Allow invalid accent_color values" \
   "sed '/alter table public.gyms add constraint gyms_accent_color_hex/,/;$/d' <" \
-  "FAIL Invalid accent color rejected"
+  "FAIL Invalid accent_color rejected"
 
 # Mutant (d): Drop logo_url CHECK constraint
 run_mutant \
   "(d) drop logo_url CHECK" \
   "Allow invalid logo_url values" \
   "sed '/alter table public.gyms add constraint gyms_logo_url_format/,/);$/d' <" \
-  "FAIL Invalid logo URL rejected"
+  "FAIL javascript: logo_url rejected"
 
 # Mutant (e): Make set_gym_branding SECURITY INVOKER
 run_mutant \
   "(e) SECURITY INVOKER" \
   "Change SECURITY DEFINER to INVOKER (RLS blocks)" \
-  "sed 's/security definer/security invoker/' <" \
+  "sed '/create or replace function public.set_gym_branding(/,/^\$\$;/s/security definer/security invoker/' <" \
   "FAIL set_gym_branding has prosecdef"
 
 # Mutant (f): Remove search_path from set_gym_branding
@@ -204,13 +219,12 @@ run_mutant \
   "FAIL Anon cannot call set_gym_branding"
 
 # Mutant (h): Leak created_at from get_gym_brand
+# Mutant (h): Leak created_at from get_gym_brand
 run_mutant \
   "(h) leak created_at" \
   "Return sensitive created_at field from get_gym_brand" \
-  "sed '/^create function public.get_gym_brand/,/^\$\$/{ s/returns table ($/returns table (name text, slug text, timezone text, display_name text, logo_url text, primary_color text, accent_color text, created_at timestamptz)/; s/select$/select g.name, g.slug, g.timezone, g.display_name, g.logo_url, g.primary_color, g.accent_color, g.created_at/; s/  g.name,$/  select g.name, g.slug, g.timezone, g.display_name, g.logo_url, g.primary_color, g.accent_color, g.created_at/; }' <" \
-  "FAIL get_gym_brand does not leak created_at"
-
-# Mutant (i): Disable RLS on gyms
+  "perl -0pe 's/  accent_color text\n\) language sql/  accent_color text,\n  created_at timestamptz\n) language sql/; s/    g\.accent_color\n  from public\.gyms g/    g.accent_color,\n    g.created_at\n  from public.gyms g/' <" \
+  "FAIL Only returns allowed fields"
 run_mutant \
   "(i) disable RLS on gyms" \
   "Allow direct table access bypassing RLS" \
@@ -218,18 +232,24 @@ run_mutant \
   "FAIL RLS enabled on gyms"
 
 # Mutant (j): Missing GRANT on get_gym_brand
+# Mutant (j): Missing GRANT on get_gym_brand
 run_mutant \
   "(j) missing GRANT on get_gym_brand" \
   "Recreate get_gym_brand without granting to anon/authenticated" \
-  "sed '/^grant execute on function public.get_gym_brand/d' <" \
+  "sed 's/^grant execute on function public.get_gym_brand(uuid) to anon, authenticated;$/revoke execute on function public.get_gym_brand(uuid) from anon, authenticated;/' <" \
   "FAIL Anon can call get_gym_brand"
-
-# Mutant (k): Clear parameter ignored
 run_mutant \
   "(k) clear parameter ignored" \
   "Ignore p_clear array in set_gym_branding (always coalesce)" \
   "sed '/-- Validate clear field names/,/v_clear_accent_color := .accent_color. = any(p_clear);/d; /when v_clear_/s/when v_clear_[a-z_]* then null/when false then null/' <" \
   "FAIL Clear display_name works"
+
+# Mutant (l): Cross-gym attack (replace WHERE id = p_gym_id with WHERE id IS NOT NULL)
+run_mutant \
+  "(l) cross-gym attack" \
+  "Allow owner to update all gyms' branding (cross-tenant)" \
+  "sed 's/^  where id = p_gym_id;$/  where id is not null;/' <" \
+  "FAIL Other gym display_name unchanged"
 
 # Reset DB after last mutant
 echo

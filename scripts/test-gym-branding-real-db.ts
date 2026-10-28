@@ -495,13 +495,7 @@ async function runTests() {
       p_gym_id: gymId,
       p_display_name: "Anon Hack",
     });
-    check("Anon cannot call set_gym_branding", !!error, error?.message);
-    // Should get permission denied (42501), not BRND1 - if we get BRND1,
-    // it means anon was granted execute permission (mutant b survived)
-    if (error && error.code === "BRND1") {
-      console.error("  ✗ SECURITY: Anon got past permission check! Got BRND1 instead of permission denied.");
-      return false;
-    }
+    check("Anon cannot call set_gym_branding", error?.code === "42501", error?.message);
   }
   console.log();
 

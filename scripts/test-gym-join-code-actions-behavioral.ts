@@ -3,20 +3,28 @@
  * 
  * Tests:
  * - JoinConfirmation component rendering (role copy, button states)
- * - redeemJoinCode action implementation structure
- * - Button interaction and DOM updates
+ * - Async redemption with deferred promises (pending → error → success)
+ * - redeemJoinCode action with real RPC calls
  * 
  * Run: npm run test:gym-join-code-actions-behavioral
  */
 
 import "./helpers/setup-jsdom";
+import { installServerActionStubs, stubState } from "./helpers/server-action-stubs";
+import { createFakeDb, json } from "./helpers/fake-postgrest";
 import { strict as assert } from "node:assert";
 
 console.log("=== L2 Behavioral: Join Code Redemption & UI ===\n");
 
+// Install stubs BEFORE importing
+installServerActionStubs();
+stubState.client = createFakeDb().client;
+
 async function main() {
   const React = await import("react");
-  const { render, cleanup, fireEvent } = await import("@testing-library/react");
+  const { render, cleanup, fireEvent, waitFor } = await import("@testing-library/react");
+  const { act } = React;
+  const { mockNextRouter } = await import("./helpers/setup-jsdom");
 
   // Test 1: JoinConfirmation per-role copy
   console.log("TEST 1: JoinConfirmation per-role copy");
@@ -84,14 +92,29 @@ async function main() {
     console.log("  ✓ Per-role copy correct\n");
   }
 
-  // Test 2: Button interaction
-  console.log("TEST 2: Button is clickable and has proper attributes");
+  // Test 2: Button states during async redemption (deferred promise)
+  console.log("TEST 2: Button states during redemption (pending → error)");
   {
+    const db = createFakeDb();
+    stubState.client = db.client;
+    stubState.userId = "test-user-1";
+    
+    let resolveRequest: ((value: Response) => void) | null = null;
+    const requestPromise = new Promise<Response>((resolve) => {
+      resolveRequest = resolve;
+    });
+    
+    db.beforeRequest = (req) => {
+      if (req.table === "rpc/redeem_join_code") {
+        return requestPromise as unknown as Response;
+      }
+    };
+
     const { JoinConfirmation } = await import("@/app/join/[code]/join-confirmation");
 
-    const { getByRole } = render(
+    const { getByRole, container } = render(
       React.createElement(JoinConfirmation, {
-        code: "TESTCODE",
+        code: "EXPIREDCODE",
         gymName: "Test Gym",
         role: "member" as const,
         currentGymName: null,
@@ -102,47 +125,176 @@ async function main() {
     );
 
     const confirmButton = getByRole("button", { name: "Confirm" });
-    assert.ok(confirmButton, "FAIL: Should render Confirm button");
-    assert.ok(!(confirmButton as HTMLButtonElement).disabled, "FAIL: Button should be enabled initially");
+    assert.ok(confirmButton instanceof HTMLButtonElement, "FAIL: Button must be HTMLButtonElement");
     
-    // Button should be clickable (verify it doesn't throw)
-    fireEvent.click(confirmButton);
-    
+    await act(async () => {
+      fireEvent.click(confirmButton);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    // Check button is disabled with "Joining..." while pending
+    assert.ok(confirmButton.disabled, "FAIL: Button should be disabled while joining");
+    const buttonTextPending = confirmButton.textContent ?? "";
+    assert.match(buttonTextPending, /Joining/, "FAIL: Button should show 'Joining...' while pending");
+
+    // Resolve with expired error
+    await act(async () => {
+      if (resolveRequest) {
+        resolveRequest(json(200, { ok: false, reason: "expired" }));
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    // Wait for error to show and button to re-enable
+    await waitFor(() => {
+      const errorText = container.textContent ?? "";
+      assert.match(errorText, /expired|no longer valid/i, "FAIL: Should show expired error message");
+      assert.ok(!confirmButton.disabled, "FAIL: Button should be re-enabled after error");
+      const buttonTextAfter = confirmButton.textContent ?? "";
+      assert.match(buttonTextAfter, /Confirm/, "FAIL: Button should say 'Confirm' after error");
+    }, { timeout: 2000 });
+
     cleanup();
-    console.log("  ✓ Button interaction correct\n");
+    console.log("  ✓ Button state handling correct\n");
   }
 
-  // Test 3: redeemJoinCode action implementation structure
-  console.log("TEST 3: redeemJoinCode action structure");
+  // Test 3: RPC error case (GJC00)
+  console.log("TEST 3: RPC error case");
   {
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
+    const db = createFakeDb();
+    stubState.client = db.client;
+    stubState.userId = "test-user-2";
 
-    const actionsSource = readFileSync(
-      join(process.cwd(), "src", "app", "join", "[code]", "actions.ts"),
-      "utf-8"
+    db.beforeRequest = (req) => {
+      if (req.table === "rpc/redeem_join_code") {
+        return json(400, { code: "GJC00", message: "Not authenticated", details: null, hint: null });
+      }
+    };
+
+    const { JoinConfirmation } = await import("@/app/join/[code]/join-confirmation");
+
+    const { getByRole, container } = render(
+      React.createElement(JoinConfirmation, {
+        code: "ERRORCODE",
+        gymName: "Test Gym",
+        role: "member" as const,
+        currentGymName: null,
+        currentGymRole: undefined,
+        codeGymRole: undefined,
+        otherMemberGymName: null,
+      })
     );
 
-    assert.match(
-      actionsSource,
-      /import.*processRedeemResult.*from.*redeem-join-code-errors/,
-      "FAIL: actions.ts must import processRedeemResult"
+    const confirmButton = getByRole("button", { name: "Confirm" });
+    
+    await act(async () => {
+      fireEvent.click(confirmButton);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    await waitFor(() => {
+      const errorText = container.textContent ?? "";
+      assert.match(errorText, /signed in|auth/i, "FAIL: Should show auth error message");
+    }, { timeout: 2000 });
+
+    cleanup();
+    console.log("  ✓ RPC error handling correct\n");
+  }
+
+  // Test 4: Success case with router.push
+  console.log("TEST 4: Success case redirects to /today");
+  {
+    const db = createFakeDb();
+    stubState.client = db.client;
+    stubState.userId = "test-user-3";
+
+    db.beforeRequest = (req) => {
+      if (req.table === "rpc/redeem_join_code") {
+        return json(200, { ok: true, gym_id: "gym-123", gym_name: "Test Gym" });
+      }
+    };
+
+    let pushCalled = false;
+    let pushArg: unknown = null;
+    const originalPush = mockNextRouter.push;
+    mockNextRouter.push = (arg: unknown) => {
+      pushArg = arg;
+      if (arg === "/today") {
+        pushCalled = true;
+      }
+      return (originalPush as (a: unknown) => void).call(mockNextRouter, arg);
+    };
+
+    const { JoinConfirmation } = await import("@/app/join/[code]/join-confirmation");
+
+    const { getByRole } = render(
+      React.createElement(JoinConfirmation, {
+        code: "SUCCESSCODE",
+        gymName: "Test Gym",
+        role: "member" as const,
+        currentGymName: null,
+        currentGymRole: undefined,
+        codeGymRole: undefined,
+        otherMemberGymName: null,
+      })
     );
-    assert.match(
-      actionsSource,
-      /return processRedeemResult\(/,
-      "FAIL: actions.ts must call processRedeemResult"
-    );
-    assert.match(
-      actionsSource,
-      /\.rpc\(\s*['"]redeem_join_code['"]/,
-      "FAIL: actions.ts must call redeem_join_code RPC"
-    );
-    assert.match(
-      actionsSource,
-      /mapDbErrorToMessage/,
-      "FAIL: actions.ts must use mapDbErrorToMessage for error handling"
-    );
+
+    const confirmButton = getByRole("button", { name: "Confirm" });
+    
+    await act(async () => {
+      fireEvent.click(confirmButton);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    await waitFor(() => {
+      assert.ok(pushCalled, `FAIL: Should call router.push('/today'), got: ${pushArg}`);
+    }, { timeout: 2000 });
+
+    mockNextRouter.push = originalPush;
+    cleanup();
+    console.log("  ✓ Success redirect correct\n");
+  }
+
+  // Test 5: redeemJoinCode action with real calls
+  console.log("TEST 5: redeemJoinCode action with stubbed RPC");
+  {
+    const db = createFakeDb();
+    stubState.client = db.client;
+    stubState.userId = "test-user-4";
+
+    const { redeemJoinCode } = await import("@/app/join/[code]/actions");
+
+    // Case A: RPC error mapped by mapDbErrorToMessage
+    db.beforeRequest = (req) => {
+      if (req.table === "rpc/redeem_join_code") {
+        return json(400, { code: "GJC11", message: "Read-only mode", details: null, hint: null });
+      }
+    };
+
+    const errorResult = await redeemJoinCode("TESTCODE");
+    assert.ok(!errorResult.ok, "FAIL: Should return !ok for RPC error");
+    assert.match(errorResult.error ?? "", /read.?only|maintenance/i, "FAIL: Should map GJC11 to read-only message");
+
+    // Case B: already_member with gym_name
+    db.beforeRequest = (req) => {
+      if (req.table === "rpc/redeem_join_code") {
+        return json(200, { ok: false, reason: "already_member", gym_name: "Test Gym" });
+      }
+    };
+
+    const alreadyResult = await redeemJoinCode("TESTCODE");
+    assert.ok(!alreadyResult.ok, "FAIL: Should return !ok for already_member");
+    assert.match(alreadyResult.error ?? "", /Test Gym/, "FAIL: Should include gym_name in already_member message");
+
+    // Case C: Success
+    db.beforeRequest = (req) => {
+      if (req.table === "rpc/redeem_join_code") {
+        return json(200, { ok: true, gym_id: "gym-456", gym_name: "Success Gym" });
+      }
+    };
+
+    const successResult = await redeemJoinCode("SUCCESSCODE");
+    assert.ok(successResult.ok, "FAIL: Should return ok=true for success");
 
     console.log("  ✓ redeemJoinCode correctly structured\n");
   }

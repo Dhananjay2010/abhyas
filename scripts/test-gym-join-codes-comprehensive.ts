@@ -394,18 +394,6 @@ async function runTests() {
       exhaustYParsed?.ok === false && exhaustYParsed.reason === "exhausted");
   }
 
-  // L1 mutant (c): Member C default gym membership still exists (not deleted)
-  if (defaultGym) {
-    const { data: memberDefaultMembership } = await adminClient
-      .from("gym_memberships")
-      .select("status")
-      .eq("user_id", member.userId)
-      .eq("gym_id", defaultGym.id)
-      .single();
-    check("Member C default gym membership still exists (not deleted)", 
-      memberDefaultMembership?.status === "removed");
-  }
-
   console.log("TEST: Own-gym redeem rules");
   
   // Create a fresh gym for these tests

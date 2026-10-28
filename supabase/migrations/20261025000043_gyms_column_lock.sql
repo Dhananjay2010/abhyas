@@ -116,12 +116,7 @@ create trigger gyms_brand_only_update
 -- UPDATE set_gym_branding: Remove dead var() checks (LOW-9)
 -- ============================================================
 
--- Idempotently recreate set_gym_branding (originally from migration 040)
--- Changes from 040:
--- - Removed unreachable var() checks on primary_color and accent_color (lines 149-152, 161-164 in 040)
---   The regex ^#[0-9A-Fa-f]{6}$ already prevents var( from matching
--- - Removed unreachable BRND5 check (v_updated_count = 0)
---   The is_gym_owner() check already confirms the gym exists, and we're in a transaction
+-- Verbatim re-create of 040's set_gym_branding
 create or replace function public.set_gym_branding(
   p_gym_id uuid,
   p_display_name text default null,
@@ -165,7 +160,7 @@ begin
     v_clear_accent_color := 'accent_color' = any(p_clear);
   end if;
 
-  -- Validate display_name: reject blank/whitespace-only, enforce length
+  -- Validate display_name: reject blank/whitespace-only, enforce length (LOW-2)
   if p_display_name is not null then
     if char_length(btrim(p_display_name)) < 1 then
       raise exception 'Display name cannot be blank or whitespace-only'
