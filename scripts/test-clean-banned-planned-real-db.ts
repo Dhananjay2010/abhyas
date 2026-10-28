@@ -17,11 +17,6 @@ import { cleanBannedPlannedExercises } from "../src/lib/program/clean-banned-pla
 import type { Database } from "../src/lib/database.types";
 import { createHash } from "crypto";
 
-if (process.env.REAL_DB !== "1") {
-  console.log("⊘ SKIP: Requires REAL_DB=1 (supabase start)");
-  process.exit(0);
-}
-
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_ANON_KEY =
   process.env.SUPABASE_ANON_KEY ||
