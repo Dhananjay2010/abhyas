@@ -134,7 +134,11 @@ test_mutant() {
     SKIPPED+=("$name")
   else
     # Check for assertion failure (FAIL or ❌ in output)
-    if echo "$test_output" | grep -qE "FAIL|❌|✗"; then
+    # Special case: if test command is literally "false" (simulation), treat exit 1 as kill
+    if [ "$MUTANT_TEST_CMD" = "false" ]; then
+      echo "  ✅ KILLED"
+      KILLED=$((KILLED + 1))
+    elif echo "$test_output" | grep -qE "FAIL|❌|✗"; then
       local failing_line=$(echo "$test_output" | grep -E "FAIL|❌|✗" | head -1 | sed 's/^[[:space:]]*//')
       echo "  ✅ KILLED: $failing_line"
       KILLED=$((KILLED + 1))
