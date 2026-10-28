@@ -75,6 +75,14 @@ export type GeneratorInput = {
    * weekday mapping is preserved.
    */
   startedOn?: string;
+  /**
+   * Block 2+ only: the weekdays (1 = Monday) to lay this block's sessions onto,
+   * in template order, carried from the previous block by
+   * `carriedWeekdayLayout` so a new block keeps the member's week (QA2 M-1).
+   * Ignored for block 1, for yoga/breathing-led plans, and when it is not
+   * `daysPerWeek` distinct weekdays; the default mapping is used then.
+   */
+  weekdayLayout?: number[] | null;
 };
 
 /** How many slots per day are treated as the main lifts. */
@@ -922,6 +930,14 @@ export function getMainSlotCountForDay(daysPerWeek: number, yogaDaysPerWeek: num
   return getMainSlotCount(entry.slots);
 }
 
+/** A carried weekday layout the generator can use as-is, or null. */
+function validWeekdayLayout(layout: number[] | null | undefined, daysPerWeek: number): number[] | null {
+  if (!layout || layout.length !== daysPerWeek || layout.length === 0) return null;
+  if (layout.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) return null;
+  if (new Set(layout).size !== layout.length) return null;
+  return [...layout];
+}
+
 export function generateProgram(input: GeneratorInput): GeneratedProgram {
   // A yoga- or breathing-led plan is a week of that practice plus rest. It is
   // NOT a strength split: previously these tracks fell through to push/pull/
@@ -969,9 +985,12 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
   // EXISTING plans (block 2+) keep the original weekday mapping for schedule continuity.
   // HIGH-1 fix: use daysPerWeek (all scheduled days) not trainingDays (strength only)
   // so yoga-inclusive plans don't drop training days.
+  // Block 2+ keeps the previous block's weekdays when the caller carried them
+  // (QA2 M-1); otherwise the default mapping, as before.
+  const carried = input.blockNumber > 1 ? validWeekdayLayout(input.weekdayLayout, input.daysPerWeek) : null;
   let activeIdx = input.blockNumber === 1 && input.startedOn
     ? activeDayIndicesAnchored(input.startedOn, input.daysPerWeek)
-    : activeDayIndices(input.daysPerWeek);
+    : carried ?? activeDayIndices(input.daysPerWeek);
   
   // For anchored plans, reorder activeIdx in chronological order from start weekday
   // so the first template aligns with the sign-up day
