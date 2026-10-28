@@ -160,16 +160,20 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
+  // Debug: Check what's in the container
+  const text = container.textContent || "";
+  console.log("Rendered text sample:", text.substring(0, 200));
+  console.log("Has '2 set':", text.includes("2 set"));
+  console.log("Has 'waiting':", text.includes("waiting"));
+  console.log("Has 'expired':", text.toLowerCase().includes("expired"));
+  console.log("Has 'sign':", text.toLowerCase().includes("sign"));
+  
   // C1: Assert the SessionExpiredPrompt is shown
   // This prompt only appears when getPendingUiMode returns "expired",
   // which requires state.expired === true. Only controller.load() sets
   // expired:true when loading a non-empty queue. onFocus() doesn't set it.
-  const text = container.textContent || "";
-  const hasExpiredPrompt = text.toLowerCase().includes("expired") || 
-                          text.toLowerCase().includes("sign") ||
-                          screen.queryByText(/sign/i) !== null;
-  
-  assert(hasExpiredPrompt, "C1: SessionExpiredPrompt shown (controller.load() set expired:true)");
+  const expiredPrompt = screen.queryByTestId("session-expired-prompt");
+  assert(expiredPrompt !== null, "C1: SessionExpiredPrompt shown (controller.load() set expired:true)");
   
   // Also verify "2 sets waiting to save" is shown
   const hasWaitingNotice = text.includes("2 set") && (text.includes("waiting") || text.includes("pending"));
