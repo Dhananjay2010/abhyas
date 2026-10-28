@@ -125,6 +125,7 @@ gym-join-codes-comprehensive
 gym-join-codes-real-db
 gym-owner-guards-sql
 gym-tenant-rls-real-db
+gyms-column-lock-real-db
 history-edit-validation-db
 progress-rpcs-real-db
 resolve-swap-weights-real-db

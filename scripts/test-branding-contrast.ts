@@ -123,6 +123,56 @@ function testAccessibleTextColorLogic() {
   console.log("  ✓ Text color selection logic correct");
 }
 
+async function testPrimaryColorContrastWarning() {
+  console.log("\n▶ Testing primary color 3:1 contrast warning (QA Bot LOW-1)...");
+
+  // Import the actual function used by the form
+  const brandingValidation = await import("../src/lib/gym/branding-validation");
+  const { primaryContrastWarning } = brandingValidation;
+
+  // Test case: #1E40AF should trigger warning (< 3:1)
+  const darkBlue = "#1E40AF";
+  const darkBlueWarning = primaryContrastWarning(darkBlue);
+  assert(
+    darkBlueWarning !== null,
+    `${darkBlue} should trigger warning, got null`
+  );
+  assert(
+    darkBlueWarning === "This colour is too dark for the app background, so members will see a lighter shade.",
+    `${darkBlue} warning message incorrect`
+  );
+  console.log(`  ✓ ${darkBlue} triggers warning`);
+
+  // Test case: bright color should NOT trigger warning (>= 3:1)
+  const brightOrange = "#FF9A2E";
+  const brightWarning = primaryContrastWarning(brightOrange);
+  assert(
+    brightWarning === null,
+    `${brightOrange} should not trigger warning, got: ${brightWarning}`
+  );
+  console.log(`  ✓ ${brightOrange} does not trigger warning`);
+
+  // Test case: invalid hex should return null
+  const invalid = "#FFF";
+  const invalidWarning = primaryContrastWarning(invalid);
+  assert(
+    invalidWarning === null,
+    `Invalid hex should return null, got: ${invalidWarning}`
+  );
+  console.log(`  ✓ Invalid hex returns null`);
+
+  // Test case: empty string should return null
+  const empty = "";
+  const emptyWarning = primaryContrastWarning(empty);
+  assert(
+    emptyWarning === null,
+    `Empty string should return null, got: ${emptyWarning}`
+  );
+  console.log(`  ✓ Empty string returns null`);
+
+  console.log("  ✓ primaryContrastWarning function tested (exact code used by form)");
+}
+
 async function testPre040RpcMock() {
   console.log("\n▶ Testing pre-040 RPC response (name, slug, timezone only)...");
 
@@ -238,6 +288,7 @@ async function main() {
     testRequiredColors();
     testContrastFunction();
     testAccessibleTextColorLogic();
+    await testPrimaryColorContrastWarning();
     await testPre040RpcMock();
 
     console.log("\n✅ All contrast tests passed\n");

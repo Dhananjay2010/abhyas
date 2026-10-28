@@ -92,42 +92,18 @@ run_mutant_migration_file() {
   local description="$2"
   local migration_file="$3"
   local sed_command="$4"
-  local expected_error="$5"
+  local expected_label="$5"
   
   echo "Testing mutant: $name"
   echo "  $description"
   
-  # Backup migration file
-  cp "$migration_file" "$migration_file.backup"
-  
-  # Set trap to restore migration file on exit
-  trap "mv '$migration_file.backup' '$migration_file' 2>/dev/null || true" EXIT
-  
-  # Apply mutation
-  eval "$sed_command \"$migration_file\"" > "$migration_file.tmp"
-  
-  # Verify sed changed the file
-  if cmp -s "$migration_file" "$migration_file.tmp"; then
-    echo "  ⚠️  SKIPPED: sed did not change the file"
-    SKIPPED+=("$name: sed pattern not found")
-    rm -f "$migration_file.tmp"
-    trap - EXIT
-    mv "$migration_file.backup" "$migration_file"
-    sleep 2
-    return 0
-  fi
-  
-  mv "$migration_file.tmp" "$migration_file"
-  
-  # Reset database (which will re-apply all migrations including mutated one)
+  # Reset database with real migration files first
   local reset_output=$(mktemp)
   if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
     if ! npx supabase@2.122.0 db reset > "$reset_output" 2>&1; then
       echo "  ❌ SKIPPED: db reset failed"
       SKIPPED+=("$name: db reset failed")
       rm -f "$reset_output"
-      trap - EXIT
-      mv "$migration_file.backup" "$migration_file"
       sleep 2
       return 0
     fi
@@ -136,13 +112,34 @@ run_mutant_migration_file() {
       echo "  ❌ SKIPPED: db reset failed"
       SKIPPED+=("$name: db reset failed")
       rm -f "$reset_output"
-      trap - EXIT
-      mv "$migration_file.backup" "$migration_file"
       sleep 2
       return 0
     fi
   fi
   rm -f "$reset_output"
+  
+  # Build mutated migration in a temp file
+  local mutated_file=$(mktemp)
+  eval "$sed_command \"$migration_file\"" > "$mutated_file"
+  
+  # Verify sed changed the file
+  if cmp -s "$migration_file" "$mutated_file"; then
+    echo "  ⚠️  SKIPPED: sed did not change the file"
+    SKIPPED+=("$name: sed pattern not found")
+    rm -f "$mutated_file"
+    sleep 2
+    return 0
+  fi
+  
+  # Apply the mutated migration (042 is idempotent)
+  if ! psql -v ON_ERROR_STOP=1 -f "$mutated_file" "$SUPABASE_DB_URL" > /dev/null 2>&1; then
+    echo "  ❌ SKIPPED: mutant SQL failed to apply"
+    SKIPPED+=("$name: SQL error")
+    rm -f "$mutated_file"
+    sleep 2
+    return 0
+  fi
+  rm -f "$mutated_file"
   
   # Run tests and capture output
   local test_output=$(mktemp)
@@ -157,16 +154,6 @@ run_mutant_migration_file() {
     test2_passed=true
   fi
   
-  # Restore migration file and reset DB to clean state
-  trap - EXIT
-  mv "$migration_file.backup" "$migration_file"
-  
-  # Reset DB again so later CI steps see the real migration 042
-  if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
-    npx supabase@2.122.0 db reset > /dev/null 2>&1 || true
-  else
-    npx supabase@2.122.0 db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1 || true
-  fi
   
   if [ "$test1_passed" = true ] && [ "$test2_passed" = true ]; then
     echo "  ❌ SURVIVED (both tests passed when they should have failed)"
@@ -175,12 +162,12 @@ run_mutant_migration_file() {
     FAILED=$((FAILED + 1))
     SURVIVORS+=("$name")
   else
-    # Check if expected error message appears
-    if grep -q "$expected_error" "$test_output"; then
-      echo "  ✓ KILLED (test caught the mutation with expected error)"
+    # Check if expected label appears as "FAIL <label>"
+    if grep -q "FAIL $expected_label" "$test_output"; then
+      echo "  ✓ KILLED (test caught the mutation: FAIL $expected_label)"
     else
-      echo "  ❌ SURVIVED (test failed but not with expected message)"
-      echo "  Expected error: $expected_error"
+      echo "  ❌ SURVIVED (test failed but not with expected FAIL label)"
+      echo "  Expected: FAIL $expected_label"
       echo "  Last 20 lines of test output:"
       tail -20 "$test_output" | sed 's/^/    /'
       FAILED=$((FAILED + 1))
@@ -189,6 +176,14 @@ run_mutant_migration_file() {
   fi
   
   rm -f "$test_output"
+  
+  # Reset DB after each mutant to restore real 042
+  if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
+    npx supabase@2.122.0 db reset > /dev/null 2>&1 || { echo "❌ Post-mutant reset failed"; exit 1; }
+  else
+    npx supabase@2.122.0 db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1 || { echo "❌ Post-mutant reset failed"; exit 1; }
+  fi
+  
   echo
   sleep 2
 }
@@ -268,29 +263,37 @@ run_mutant() {
   return 0
 }
 
-# Mutant (a): Drop FOR UPDATE (race condition) - updated for jsonb return
-run_mutant \
+# Mutant (a): Drop FOR UPDATE (race condition)
+run_mutant_migration_file \
   "(a) drop FOR UPDATE in redeem_join_code" \
   "Remove row lock that prevents race on max_uses" \
-  "DROP FUNCTION IF EXISTS public.redeem_join_code(text); CREATE FUNCTION public.redeem_join_code(p_code text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER VOLATILE SET search_path = '' AS \$\$ DECLARE v_code_record record; v_caller_id uuid; v_existing_membership record; v_is_read_only text; v_attempt_count int; BEGIN v_caller_id := auth.uid(); IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated' USING errcode = 'GJC00'; END IF; v_is_read_only := current_setting('transaction_read_only'); IF v_is_read_only = 'on' THEN RAISE EXCEPTION 'Read-only access not permitted' USING errcode = 'GJC11'; END IF; SELECT count(*) INTO v_attempt_count FROM public.gym_join_code_attempts WHERE user_id = v_caller_id AND attempted_at > now() - interval '15 minutes'; IF v_attempt_count >= 10 THEN RETURN jsonb_build_object('ok', false, 'reason', 'throttled'); END IF; BEGIN SELECT public.gym_join_codes.id, public.gym_join_codes.gym_id, public.gym_join_codes.role, public.gym_join_codes.use_count, public.gym_join_codes.max_uses, public.gym_join_codes.expires_at, public.gym_join_codes.revoked_at, public.gyms.name AS gym_name INTO STRICT v_code_record FROM public.gym_join_codes JOIN public.gyms ON public.gym_join_codes.gym_id = public.gyms.id WHERE upper(public.gym_join_codes.code) = upper(p_code); EXCEPTION WHEN no_data_found THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); WHEN too_many_rows THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); END; IF v_code_record.revoked_at IS NOT NULL THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'revoked'); END IF; IF v_code_record.expires_at IS NOT NULL AND v_code_record.expires_at <= now() THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'expired'); END IF; IF v_code_record.max_uses IS NOT NULL AND v_code_record.use_count >= v_code_record.max_uses THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'exhausted'); END IF; SELECT * INTO v_existing_membership FROM public.gym_memberships WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; IF v_existing_membership.gym_id IS NOT NULL AND v_existing_membership.status = 'active' THEN IF v_existing_membership.role = 'owner' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'staff' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'member' AND v_code_record.role = 'staff' THEN null; ELSE RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; END IF; IF v_code_record.role = 'member' THEN UPDATE public.gym_memberships SET status = 'removed' WHERE public.gym_memberships.user_id = v_caller_id AND public.gym_memberships.role = 'member' AND public.gym_memberships.status = 'active' AND public.gym_memberships.gym_id != v_code_record.gym_id; END IF; IF v_existing_membership.gym_id IS NULL THEN INSERT INTO public.gym_memberships (gym_id, user_id, role, status, joined_at) VALUES (v_code_record.gym_id, v_caller_id, v_code_record.role, 'active', now()); ELSE UPDATE public.gym_memberships SET role = v_code_record.role, status = 'active', joined_at = CASE WHEN public.gym_memberships.status = 'removed' THEN now() ELSE public.gym_memberships.joined_at END WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; END IF; UPDATE public.gym_join_codes SET use_count = use_count + 1 WHERE id = v_code_record.id; RETURN jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name); END; \$\$; REVOKE EXECUTE ON FUNCTION public.redeem_join_code(text) FROM public, anon; GRANT EXECUTE ON FUNCTION public.redeem_join_code(text) TO authenticated;"
+  "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
+  "sed -e '/^    for update;$/d' -e '/where upper(public.gym_join_codes.code) = upper(p_code)$/s/$/;/'" \
+  "redeem_join_code locks code row FOR UPDATE"
 
-# Mutant (b): Skip use_count check - updated for jsonb return
-run_mutant \
+# Mutant (b): Skip use_count check
+run_mutant_migration_file \
   "(b) skip use_count check" \
   "Remove max_uses exhaustion check" \
-  "DROP FUNCTION IF EXISTS public.redeem_join_code(text); CREATE FUNCTION public.redeem_join_code(p_code text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER VOLATILE SET search_path = '' AS \$\$ DECLARE v_code_record record; v_caller_id uuid; v_existing_membership record; v_is_read_only text; v_attempt_count int; BEGIN v_caller_id := auth.uid(); IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated' USING errcode = 'GJC00'; END IF; v_is_read_only := current_setting('transaction_read_only'); IF v_is_read_only = 'on' THEN RAISE EXCEPTION 'Read-only access not permitted' USING errcode = 'GJC11'; END IF; SELECT count(*) INTO v_attempt_count FROM public.gym_join_code_attempts WHERE user_id = v_caller_id AND attempted_at > now() - interval '15 minutes'; IF v_attempt_count >= 10 THEN RETURN jsonb_build_object('ok', false, 'reason', 'throttled'); END IF; BEGIN SELECT public.gym_join_codes.id, public.gym_join_codes.gym_id, public.gym_join_codes.role, public.gym_join_codes.use_count, public.gym_join_codes.max_uses, public.gym_join_codes.expires_at, public.gym_join_codes.revoked_at, public.gyms.name AS gym_name INTO STRICT v_code_record FROM public.gym_join_codes JOIN public.gyms ON public.gym_join_codes.gym_id = public.gyms.id WHERE upper(public.gym_join_codes.code) = upper(p_code) FOR UPDATE; EXCEPTION WHEN no_data_found THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); WHEN too_many_rows THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); END; IF v_code_record.revoked_at IS NOT NULL THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'revoked'); END IF; IF v_code_record.expires_at IS NOT NULL AND v_code_record.expires_at <= now() THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'expired'); END IF; SELECT * INTO v_existing_membership FROM public.gym_memberships WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; IF v_existing_membership.gym_id IS NOT NULL AND v_existing_membership.status = 'active' THEN IF v_existing_membership.role = 'owner' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'staff' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'member' AND v_code_record.role = 'staff' THEN null; ELSE RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; END IF; IF v_code_record.role = 'member' THEN UPDATE public.gym_memberships SET status = 'removed' WHERE public.gym_memberships.user_id = v_caller_id AND public.gym_memberships.role = 'member' AND public.gym_memberships.status = 'active' AND public.gym_memberships.gym_id != v_code_record.gym_id; END IF; IF v_existing_membership.gym_id IS NULL THEN INSERT INTO public.gym_memberships (gym_id, user_id, role, status, joined_at) VALUES (v_code_record.gym_id, v_caller_id, v_code_record.role, 'active', now()); ELSE UPDATE public.gym_memberships SET role = v_code_record.role, status = 'active', joined_at = CASE WHEN public.gym_memberships.status = 'removed' THEN now() ELSE public.gym_memberships.joined_at END WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; END IF; UPDATE public.gym_join_codes SET use_count = use_count + 1 WHERE id = v_code_record.id; RETURN jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name); END; \$\$; REVOKE EXECUTE ON FUNCTION public.redeem_join_code(text) FROM public, anon; GRANT EXECUTE ON FUNCTION public.redeem_join_code(text) TO authenticated;"
+  "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
+  "sed '/-- Validate not exhausted/,/end if;/{ /-- Validate not exhausted/d; /if v_code_record.max_uses is not null/d; /perform public.record_join_code_miss/d; /return jsonb_build_object.*exhausted/d; /end if;/d; }'" \
+  "Exhausted code returns reason:exhausted"
 
-# Mutant (c): Delete instead of status='removed' - updated for jsonb return
-run_mutant \
+# Mutant (c): Delete instead of status='removed'
+run_mutant_migration_file \
   "(c) delete instead of status=removed" \
   "Delete old membership instead of setting status=removed" \
-  "DROP FUNCTION IF EXISTS public.redeem_join_code(text); CREATE FUNCTION public.redeem_join_code(p_code text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER VOLATILE SET search_path = '' AS \$\$ DECLARE v_code_record record; v_caller_id uuid; v_existing_membership record; v_is_read_only text; v_attempt_count int; BEGIN v_caller_id := auth.uid(); IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated' USING errcode = 'GJC00'; END IF; v_is_read_only := current_setting('transaction_read_only'); IF v_is_read_only = 'on' THEN RAISE EXCEPTION 'Read-only access not permitted' USING errcode = 'GJC11'; END IF; SELECT count(*) INTO v_attempt_count FROM public.gym_join_code_attempts WHERE user_id = v_caller_id AND attempted_at > now() - interval '15 minutes'; IF v_attempt_count >= 10 THEN RETURN jsonb_build_object('ok', false, 'reason', 'throttled'); END IF; BEGIN SELECT public.gym_join_codes.id, public.gym_join_codes.gym_id, public.gym_join_codes.role, public.gym_join_codes.use_count, public.gym_join_codes.max_uses, public.gym_join_codes.expires_at, public.gym_join_codes.revoked_at, public.gyms.name AS gym_name INTO STRICT v_code_record FROM public.gym_join_codes JOIN public.gyms ON public.gym_join_codes.gym_id = public.gyms.id WHERE upper(public.gym_join_codes.code) = upper(p_code) FOR UPDATE; EXCEPTION WHEN no_data_found THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); WHEN too_many_rows THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); END; IF v_code_record.revoked_at IS NOT NULL THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'revoked'); END IF; IF v_code_record.expires_at IS NOT NULL AND v_code_record.expires_at <= now() THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'expired'); END IF; IF v_code_record.max_uses IS NOT NULL AND v_code_record.use_count >= v_code_record.max_uses THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'exhausted'); END IF; SELECT * INTO v_existing_membership FROM public.gym_memberships WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; IF v_existing_membership.gym_id IS NOT NULL AND v_existing_membership.status = 'active' THEN IF v_existing_membership.role = 'owner' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'staff' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'member' AND v_code_record.role = 'staff' THEN null; ELSE RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; END IF; IF v_code_record.role = 'member' THEN DELETE FROM public.gym_memberships WHERE public.gym_memberships.user_id = v_caller_id AND public.gym_memberships.role = 'member' AND public.gym_memberships.status = 'active' AND public.gym_memberships.gym_id != v_code_record.gym_id; END IF; IF v_existing_membership.gym_id IS NULL THEN INSERT INTO public.gym_memberships (gym_id, user_id, role, status, joined_at) VALUES (v_code_record.gym_id, v_caller_id, v_code_record.role, 'active', now()); ELSE UPDATE public.gym_memberships SET role = v_code_record.role, status = 'active', joined_at = CASE WHEN public.gym_memberships.status = 'removed' THEN now() ELSE public.gym_memberships.joined_at END WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; END IF; UPDATE public.gym_join_codes SET use_count = use_count + 1 WHERE id = v_code_record.id; RETURN jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name); END; \$\$; REVOKE EXECUTE ON FUNCTION public.redeem_join_code(text) FROM public, anon; GRANT EXECUTE ON FUNCTION public.redeem_join_code(text) TO authenticated;"
+  "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
+  "perl -0pe \"s/update public\\.gym_memberships\\n    set status = 'removed'/delete from public.gym_memberships/\"" \
+  "Member C default gym membership still exists (not deleted)"
 
-# Mutant (d): Skip expiry check - updated for jsonb return
-run_mutant \
+# Mutant (d): Skip expiry check
+run_mutant_migration_file \
   "(d) skip expiry check" \
   "Allow redemption of expired codes" \
-  "DROP FUNCTION IF EXISTS public.redeem_join_code(text); CREATE FUNCTION public.redeem_join_code(p_code text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER VOLATILE SET search_path = '' AS \$\$ DECLARE v_code_record record; v_caller_id uuid; v_existing_membership record; v_is_read_only text; v_attempt_count int; BEGIN v_caller_id := auth.uid(); IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated' USING errcode = 'GJC00'; END IF; v_is_read_only := current_setting('transaction_read_only'); IF v_is_read_only = 'on' THEN RAISE EXCEPTION 'Read-only access not permitted' USING errcode = 'GJC11'; END IF; SELECT count(*) INTO v_attempt_count FROM public.gym_join_code_attempts WHERE user_id = v_caller_id AND attempted_at > now() - interval '15 minutes'; IF v_attempt_count >= 10 THEN RETURN jsonb_build_object('ok', false, 'reason', 'throttled'); END IF; BEGIN SELECT public.gym_join_codes.id, public.gym_join_codes.gym_id, public.gym_join_codes.role, public.gym_join_codes.use_count, public.gym_join_codes.max_uses, public.gym_join_codes.expires_at, public.gym_join_codes.revoked_at, public.gyms.name AS gym_name INTO STRICT v_code_record FROM public.gym_join_codes JOIN public.gyms ON public.gym_join_codes.gym_id = public.gyms.id WHERE upper(public.gym_join_codes.code) = upper(p_code) FOR UPDATE; EXCEPTION WHEN no_data_found THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); WHEN too_many_rows THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); END; IF v_code_record.revoked_at IS NOT NULL THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'revoked'); END IF; IF v_code_record.max_uses IS NOT NULL AND v_code_record.use_count >= v_code_record.max_uses THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'exhausted'); END IF; SELECT * INTO v_existing_membership FROM public.gym_memberships WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; IF v_existing_membership.gym_id IS NOT NULL AND v_existing_membership.status = 'active' THEN IF v_existing_membership.role = 'owner' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'staff' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'member' AND v_code_record.role = 'staff' THEN null; ELSE RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; END IF; IF v_code_record.role = 'member' THEN UPDATE public.gym_memberships SET status = 'removed' WHERE public.gym_memberships.user_id = v_caller_id AND public.gym_memberships.role = 'member' AND public.gym_memberships.status = 'active' AND public.gym_memberships.gym_id != v_code_record.gym_id; END IF; IF v_existing_membership.gym_id IS NULL THEN INSERT INTO public.gym_memberships (gym_id, user_id, role, status, joined_at) VALUES (v_code_record.gym_id, v_caller_id, v_code_record.role, 'active', now()); ELSE UPDATE public.gym_memberships SET role = v_code_record.role, status = 'active', joined_at = CASE WHEN public.gym_memberships.status = 'removed' THEN now() ELSE public.gym_memberships.joined_at END WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; END IF; UPDATE public.gym_join_codes SET use_count = use_count + 1 WHERE id = v_code_record.id; RETURN jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name); END; \$\$; REVOKE EXECUTE ON FUNCTION public.redeem_join_code(text) FROM public, anon; GRANT EXECUTE ON FUNCTION public.redeem_join_code(text) TO authenticated;"
+  "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
+  "sed '/-- Validate not expired/,/end if;/{ /-- Validate not expired/d; /if v_code_record.expires_at is not null/d; /perform public.record_join_code_miss/d; /return jsonb_build_object.*expired/d; /end if;/d; }'" \
+  "Redeem expired code returns reason:expired"
 
 # Mutant (e): Grant to anon
 run_mutant \
@@ -304,17 +307,21 @@ run_mutant \
   "Allow invalid code formats (not 10 chars from unambiguous alphabet)" \
   "ALTER TABLE public.gym_join_codes DROP CONSTRAINT IF EXISTS code_format;"
 
-# Mutant (g): Weaken inline throttle threshold in preview and redeem from 10 to 20
-run_mutant \
+# Mutant (g): Weaken inline throttle threshold from 10 to 20
+run_mutant_migration_file \
   "(g) weaken inline throttle threshold to 20" \
-  "Allow 20 misses instead of 10 in preview and redeem" \
-  "DROP FUNCTION IF EXISTS public.preview_join_code(text); CREATE FUNCTION public.preview_join_code(p_code text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER VOLATILE SET search_path = '' AS \$\$ DECLARE v_caller_id uuid; v_result record; v_is_read_only text; v_attempt_count int; BEGIN v_caller_id := auth.uid(); IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated' USING errcode = 'GJC00'; END IF; v_is_read_only := current_setting('transaction_read_only'); IF v_is_read_only = 'on' THEN RAISE EXCEPTION 'Read-only access not permitted' USING errcode = 'GJC11'; END IF; SELECT count(*) INTO v_attempt_count FROM public.gym_join_code_attempts WHERE user_id = v_caller_id AND attempted_at > now() - interval '15 minutes'; IF v_attempt_count >= 20 THEN RETURN jsonb_build_object('ok', false, 'reason', 'throttled'); END IF; BEGIN SELECT public.gyms.name, public.gyms.slug, public.gym_join_codes.role INTO STRICT v_result FROM public.gym_join_codes JOIN public.gyms ON public.gym_join_codes.gym_id = public.gyms.id WHERE upper(public.gym_join_codes.code) = upper(p_code) AND public.gym_join_codes.revoked_at IS NULL AND (public.gym_join_codes.expires_at IS NULL OR public.gym_join_codes.expires_at > now()) AND (public.gym_join_codes.max_uses IS NULL OR public.gym_join_codes.use_count < public.gym_join_codes.max_uses) LIMIT 1; RETURN jsonb_build_object('ok', true, 'gym_name', v_result.name, 'gym_slug', v_result.slug, 'role', v_result.role); EXCEPTION WHEN no_data_found THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); WHEN too_many_rows THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); END; END; \$\$; REVOKE EXECUTE ON FUNCTION public.preview_join_code(text) FROM public, anon; GRANT EXECUTE ON FUNCTION public.preview_join_code(text) TO authenticated; DROP FUNCTION IF EXISTS public.redeem_join_code(text); CREATE FUNCTION public.redeem_join_code(p_code text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER VOLATILE SET search_path = '' AS \$\$ DECLARE v_code_record record; v_caller_id uuid; v_existing_membership record; v_is_read_only text; v_attempt_count int; BEGIN v_caller_id := auth.uid(); IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated' USING errcode = 'GJC00'; END IF; v_is_read_only := current_setting('transaction_read_only'); IF v_is_read_only = 'on' THEN RAISE EXCEPTION 'Read-only access not permitted' USING errcode = 'GJC11'; END IF; SELECT count(*) INTO v_attempt_count FROM public.gym_join_code_attempts WHERE user_id = v_caller_id AND attempted_at > now() - interval '15 minutes'; IF v_attempt_count >= 20 THEN RETURN jsonb_build_object('ok', false, 'reason', 'throttled'); END IF; BEGIN SELECT public.gym_join_codes.id, public.gym_join_codes.gym_id, public.gym_join_codes.role, public.gym_join_codes.use_count, public.gym_join_codes.max_uses, public.gym_join_codes.expires_at, public.gym_join_codes.revoked_at, public.gyms.name AS gym_name INTO STRICT v_code_record FROM public.gym_join_codes JOIN public.gyms ON public.gym_join_codes.gym_id = public.gyms.id WHERE upper(public.gym_join_codes.code) = upper(p_code) FOR UPDATE; EXCEPTION WHEN no_data_found THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); WHEN too_many_rows THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); END; IF v_code_record.revoked_at IS NOT NULL THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'revoked'); END IF; IF v_code_record.expires_at IS NOT NULL AND v_code_record.expires_at <= now() THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'expired'); END IF; IF v_code_record.max_uses IS NOT NULL AND v_code_record.use_count >= v_code_record.max_uses THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'exhausted'); END IF; SELECT * INTO v_existing_membership FROM public.gym_memberships WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; IF v_existing_membership.gym_id IS NOT NULL AND v_existing_membership.status = 'active' THEN IF v_existing_membership.role = 'owner' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'staff' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'member' AND v_code_record.role = 'staff' THEN null; ELSE RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; END IF; IF v_code_record.role = 'member' THEN UPDATE public.gym_memberships SET status = 'removed' WHERE public.gym_memberships.user_id = v_caller_id AND public.gym_memberships.role = 'member' AND public.gym_memberships.status = 'active' AND public.gym_memberships.gym_id != v_code_record.gym_id; END IF; IF v_existing_membership.gym_id IS NULL THEN INSERT INTO public.gym_memberships (gym_id, user_id, role, status, joined_at) VALUES (v_code_record.gym_id, v_caller_id, v_code_record.role, 'active', now()); ELSE UPDATE public.gym_memberships SET role = v_code_record.role, status = 'active', joined_at = CASE WHEN public.gym_memberships.status = 'removed' THEN now() ELSE public.gym_memberships.joined_at END WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; END IF; UPDATE public.gym_join_codes SET use_count = use_count + 1 WHERE id = v_code_record.id; RETURN jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name); END; \$\$; REVOKE EXECUTE ON FUNCTION public.redeem_join_code(text) FROM public, anon; GRANT EXECUTE ON FUNCTION public.redeem_join_code(text) TO authenticated;"
+  "Allow 20 misses instead of 10 in redeem_join_code" \
+  "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
+  "sed 's/>= 10/>= 20/g'" \
+  "11th attempt is throttled"
 
-# Mutant (h): Make throttle count ALL attempts (not just misses) - updated for jsonb return
-run_mutant \
+# Mutant (h): Throttle counts successes too (should only count misses)
+run_mutant_migration_file \
   "(h) throttle counts successes too" \
   "Record successful attempts in throttle (should only count misses)" \
-  "DROP FUNCTION IF EXISTS public.redeem_join_code(text); CREATE FUNCTION public.redeem_join_code(p_code text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER VOLATILE SET search_path = '' AS \$\$ DECLARE v_code_record record; v_caller_id uuid; v_existing_membership record; v_is_read_only text; v_attempt_count int; BEGIN v_caller_id := auth.uid(); IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated' USING errcode = 'GJC00'; END IF; v_is_read_only := current_setting('transaction_read_only'); IF v_is_read_only = 'on' THEN RAISE EXCEPTION 'Read-only access not permitted' USING errcode = 'GJC11'; END IF; SELECT count(*) INTO v_attempt_count FROM public.gym_join_code_attempts WHERE user_id = v_caller_id AND attempted_at > now() - interval '15 minutes'; IF v_attempt_count >= 10 THEN RETURN jsonb_build_object('ok', false, 'reason', 'throttled'); END IF; BEGIN SELECT public.gym_join_codes.id, public.gym_join_codes.gym_id, public.gym_join_codes.role, public.gym_join_codes.use_count, public.gym_join_codes.max_uses, public.gym_join_codes.expires_at, public.gym_join_codes.revoked_at, public.gyms.name AS gym_name INTO STRICT v_code_record FROM public.gym_join_codes JOIN public.gyms ON public.gym_join_codes.gym_id = public.gyms.id WHERE upper(public.gym_join_codes.code) = upper(p_code) FOR UPDATE; EXCEPTION WHEN no_data_found THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); WHEN too_many_rows THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); END; IF v_code_record.revoked_at IS NOT NULL THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'revoked'); END IF; IF v_code_record.expires_at IS NOT NULL AND v_code_record.expires_at <= now() THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'expired'); END IF; IF v_code_record.max_uses IS NOT NULL AND v_code_record.use_count >= v_code_record.max_uses THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'exhausted'); END IF; SELECT * INTO v_existing_membership FROM public.gym_memberships WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; IF v_existing_membership.gym_id IS NOT NULL AND v_existing_membership.status = 'active' THEN IF v_existing_membership.role = 'owner' THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'staff' THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'member' AND v_code_record.role = 'staff' THEN null; ELSE PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; END IF; IF v_code_record.role = 'member' THEN UPDATE public.gym_memberships SET status = 'removed' WHERE public.gym_memberships.user_id = v_caller_id AND public.gym_memberships.role = 'member' AND public.gym_memberships.status = 'active' AND public.gym_memberships.gym_id != v_code_record.gym_id; END IF; IF v_existing_membership.gym_id IS NULL THEN INSERT INTO public.gym_memberships (gym_id, user_id, role, status, joined_at) VALUES (v_code_record.gym_id, v_caller_id, v_code_record.role, 'active', now()); ELSE UPDATE public.gym_memberships SET role = v_code_record.role, status = 'active', joined_at = CASE WHEN public.gym_memberships.status = 'removed' THEN now() ELSE public.gym_memberships.joined_at END WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; END IF; UPDATE public.gym_join_codes SET use_count = use_count + 1 WHERE id = v_code_record.id; PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name); END; \$\$; REVOKE EXECUTE ON FUNCTION public.redeem_join_code(text) FROM public, anon; GRANT EXECUTE ON FUNCTION public.redeem_join_code(text) TO authenticated;"
+  "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
+  "sed '/-- Return success/i\\  perform public.record_join_code_miss(v_caller_id);'" \
+  "Successes don't record attempts"
 
 # Mutant (i): Re-add owner INSERT policy
 run_mutant \
@@ -334,11 +341,13 @@ run_mutant \
   "Use random() instead of gen_random_bytes (weaker entropy)" \
   "DROP FUNCTION IF EXISTS public.generate_join_code(); CREATE FUNCTION public.generate_join_code() RETURNS text LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS \$\$ DECLARE alphabet text := '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; alphabet_len int := 32; code_length int := 10; result text := ''; i int; byte_val int; BEGIN FOR i IN 1..code_length LOOP byte_val := floor(random() * alphabet_len)::int; result := result || substr(alphabet, byte_val + 1, 1); END LOOP; RETURN result; END; \$\$; REVOKE EXECUTE ON FUNCTION public.generate_join_code() FROM public, anon, authenticated; GRANT EXECUTE ON FUNCTION public.generate_join_code() TO postgres, service_role;"
 
-# Mutant (l): Member upgrade to staff doesn't change role - updated for jsonb return
-run_mutant \
+# Mutant (l): Member upgrade to staff doesn't change role
+run_mutant_migration_file \
   "(l) member upgrade to staff doesn't change role" \
   "Member upgrade to staff returns ok but doesn't actually change role" \
-  "DROP FUNCTION IF EXISTS public.redeem_join_code(text); CREATE FUNCTION public.redeem_join_code(p_code text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER VOLATILE SET search_path = '' AS \$\$ DECLARE v_code_record record; v_caller_id uuid; v_existing_membership record; v_is_read_only text; v_attempt_count int; BEGIN v_caller_id := auth.uid(); IF v_caller_id IS NULL THEN RAISE EXCEPTION 'Not authenticated' USING errcode = 'GJC00'; END IF; v_is_read_only := current_setting('transaction_read_only'); IF v_is_read_only = 'on' THEN RAISE EXCEPTION 'Read-only access not permitted' USING errcode = 'GJC11'; END IF; SELECT count(*) INTO v_attempt_count FROM public.gym_join_code_attempts WHERE user_id = v_caller_id AND attempted_at > now() - interval '15 minutes'; IF v_attempt_count >= 10 THEN RETURN jsonb_build_object('ok', false, 'reason', 'throttled'); END IF; BEGIN SELECT public.gym_join_codes.id, public.gym_join_codes.gym_id, public.gym_join_codes.role, public.gym_join_codes.use_count, public.gym_join_codes.max_uses, public.gym_join_codes.expires_at, public.gym_join_codes.revoked_at, public.gyms.name AS gym_name INTO STRICT v_code_record FROM public.gym_join_codes JOIN public.gyms ON public.gym_join_codes.gym_id = public.gyms.id WHERE upper(public.gym_join_codes.code) = upper(p_code) FOR UPDATE; EXCEPTION WHEN no_data_found THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); WHEN too_many_rows THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'invalid'); END; IF v_code_record.revoked_at IS NOT NULL THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'revoked'); END IF; IF v_code_record.expires_at IS NOT NULL AND v_code_record.expires_at <= now() THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'expired'); END IF; IF v_code_record.max_uses IS NOT NULL AND v_code_record.use_count >= v_code_record.max_uses THEN PERFORM public.record_join_code_miss(v_caller_id); RETURN jsonb_build_object('ok', false, 'reason', 'exhausted'); END IF; SELECT * INTO v_existing_membership FROM public.gym_memberships WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; IF v_existing_membership.gym_id IS NOT NULL AND v_existing_membership.status = 'active' THEN IF v_existing_membership.role = 'owner' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'staff' THEN RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; IF v_existing_membership.role = 'member' AND v_code_record.role = 'staff' THEN null; ELSE RETURN jsonb_build_object('ok', false, 'reason', 'already_member'); END IF; END IF; IF v_code_record.role = 'member' THEN UPDATE public.gym_memberships SET status = 'removed' WHERE public.gym_memberships.user_id = v_caller_id AND public.gym_memberships.role = 'member' AND public.gym_memberships.status = 'active' AND public.gym_memberships.gym_id != v_code_record.gym_id; END IF; IF v_existing_membership.gym_id IS NULL THEN INSERT INTO public.gym_memberships (gym_id, user_id, role, status, joined_at) VALUES (v_code_record.gym_id, v_caller_id, v_code_record.role, 'active', now()); ELSE UPDATE public.gym_memberships SET status = 'active', joined_at = CASE WHEN public.gym_memberships.status = 'removed' THEN now() ELSE public.gym_memberships.joined_at END WHERE public.gym_memberships.gym_id = v_code_record.gym_id AND public.gym_memberships.user_id = v_caller_id; END IF; UPDATE public.gym_join_codes SET use_count = use_count + 1 WHERE id = v_code_record.id; RETURN jsonb_build_object('ok', true, 'gym_id', v_code_record.gym_id::text, 'gym_name', v_code_record.gym_name); END; \$\$; REVOKE EXECUTE ON FUNCTION public.redeem_join_code(text) FROM public, anon; GRANT EXECUTE ON FUNCTION public.redeem_join_code(text) TO authenticated;"
+  "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
+  "sed '/^      role = v_code_record.role,$/d'" \
+  "Member upgraded to staff"
 
 # Mutant (m): Broaden merged SELECT policy to allow anyone to read codes
 run_mutant \
@@ -358,7 +367,23 @@ run_mutant_migration_file \
   "Remove gym_name from already_member jsonb_build_object calls" \
   "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
   "sed \"/already_member/s/, 'gym_name', v_code_record.gym_name//\"" \
-  "already_member includes gym_name"
+  "successUser redeem already_member includes gym_name"
+
+# Final DB reset to restore real migrations
+echo
+echo "Resetting DB to restore real migrations..."
+if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
+  npx supabase@2.122.0 db reset > /dev/null 2>&1 || { echo "❌ Final reset failed"; exit 1; }
+else
+  npx supabase@2.122.0 db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1 || { echo "❌ Final reset failed"; exit 1; }
+fi
+
+# Verify real 042 is live (check that redeem_join_code returns gym_name on already_member)
+if ! psql -tA "$SUPABASE_DB_URL" -c "select pg_get_functiondef('public.redeem_join_code(text)'::regprocedure)" | grep -q "'gym_name', v_code_record.gym_name"; then
+  echo "❌ FAIL: redeem_join_code doesn't return gym_name on already_member (real 042 not applied)"
+  exit 1
+fi
+echo "✓ Real 042 verified"
 
 echo
 echo "========================================="

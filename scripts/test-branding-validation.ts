@@ -84,6 +84,10 @@ function testLogoUrlValidation() {
     "HTTPS://example.com/logo.png",   // uppercase protocol (MED-3b)
     "https://",                        // bare https:// (LOW-3)
     "/storage/",                       // bare /storage/ (LOW-3)
+    "https://example.com/../x.png",   // .. path traversal (LOW-4)
+    "/storage/../secrets/key.txt",    // .. in /storage/ URL (LOW-4)
+    "https://example.com/logo\n.png", // control character (newline)
+    "https://example.com/logo\x00.png", // null byte (control character)
   ];
 
   for (const url of invalidUrls) {
