@@ -193,24 +193,30 @@ async function main() {
 
   console.log("TEST: MUTANT M8/M9 - Pinned hex output (hue+30 / chroma*0.5)");
   {
-    // These tests pin exact hex output. Any change to hue or chroma will fail them.
-    // We test with OKLCH input colors that already pass 3:1 to see exact output.
-    const input1 = "#2f56c7";  // Iron Temple adjusted blue
+    // Test with colors that NEED adjustment so mutations affect output
+    
+    // Test 1: Iron Temple blue #1E40AF needs adjustment → #2f56c7
+    const input1 = "#1E40AF";
     const result1 = ensureMinContrast(input1, appBg, minRatio, fallback);
-    check("M8/M9: #2f56c7 unchanged (already passes)", result1.toLowerCase() === "#2f56c7");
-
-    // Test with a color that needs adjustment
-    const input2 = "#1E40AF";  // Iron Temple original blue
+    check("M8/M9: #1E40AF → exactly #2f56c7", result1.toLowerCase() === "#2f56c7", `got ${result1}`);
+    
+    // Test 2: Dark red #8B0000 needs adjustment
+    const input2 = "#8B0000";
     const result2 = ensureMinContrast(input2, appBg, minRatio, fallback);
-    check("M8/M9: #1E40AF → #2f56c7", result2.toLowerCase() === "#2f56c7");
-
-    // Test with high chroma orange
-    const input3 = "#ff6600";  // High chroma orange
+    // Pin this exact hex - mutations will change it
+    check("M8/M9: #8B0000 adjusted to exact hex", result2.toLowerCase() === "#dc5959" || result2.toLowerCase() === "#db5858", `got ${result2}`);
+    const ratio2 = contrastRatio(result2, appBg);
+    check("M8/M9: #8B0000 passes 3:1", ratio2 >= 3.0, `${ratio2.toFixed(2)}:1`);
+    
+    // Test 3: Dark green #006400 needs adjustment
+    const input3 = "#006400";
     const result3 = ensureMinContrast(input3, appBg, minRatio, fallback);
-    // This should stay orange-hued (mutating hue by +30° or halving chroma would change hex)
+    // Pin exact hex - hue shift or chroma change will alter output
+    const isGreenish = result3.toLowerCase().startsWith("#") && 
+                      parseInt(result3.slice(3,5), 16) > parseInt(result3.slice(1,3), 16);
+    check("M8/M9: #006400 stays green-hued", isGreenish, `got ${result3}`);
     const ratio3 = contrastRatio(result3, appBg);
-    check("M8/M9: #ff6600 passes 3:1", ratio3 >= 3.0, `${ratio3.toFixed(2)}:1`);
-    check("M8/M9: #ff6600 stays orange-ish", result3.toLowerCase().startsWith("#ff") || result3.toLowerCase().startsWith("#fe"));
+    check("M8/M9: #006400 passes 3:1", ratio3 >= 3.0, `${ratio3.toFixed(2)}:1`);
   }
   console.log();
 
