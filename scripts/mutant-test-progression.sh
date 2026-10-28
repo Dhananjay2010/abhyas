@@ -84,10 +84,10 @@ function run_mutant() {
   fi
 }
 
-# Mutant M1: Success path uses stored weight instead of mode (main's QA bug)
+# Mutant M1: Success path uses stored weight only, ignoring a heavier lifted set (main's QA bug)
 run_mutant "M1-stored-weight" \
-  "Success path: from = state.currentWorkingWeightKg ?? heaviest (main's bug)" \
-  "sed -i 's/const from = mode > 0 ? mode : (state.currentWorkingWeightKg ?? heaviest);/const from = state.currentWorkingWeightKg ?? heaviest;/' src/lib/program/progression.ts" \
+  "Success path: from = state.currentWorkingWeightKg ?? heaviest (ignores the heaviest qualifying set)" \
+  "sed -i 's/const from = Math.max(state.currentWorkingWeightKg ?? 0, heaviestQualifying);/const from = state.currentWorkingWeightKg ?? heaviest;/' src/lib/program/progression.ts" \
   "npx tsx scripts/test-comprehensive-progression.ts"
 
 # Mutant M2: Remove never-below guards (both max and <= check)

@@ -10,6 +10,7 @@
  */
 
 import {
+  barbellFloorKg,
   evaluateProgression,
   suggestedWeight,
   type ExerciseMeta,
@@ -182,22 +183,28 @@ for (const { ids, unit } of EQUIPMENTS) {
           );
         }
         
-        if (twoMissW < weight - 0.001 && !isOnGrid(twoMissW, ids)) {
+        // The empty bar is loadable even off the kg grid: 45 lb (20.41 kg) for imperial
+        const isBarFloor = barbellFloorKg(ids, unit) === twoMissW;
+        if (twoMissW < weight - 0.001 && !isOnGrid(twoMissW, ids) && !isBarFloor) {
           offGridDecreases++;
           console.log(
             `OFF-GRID TWO-MISS: ${ids[0]} ${weight} -> ${twoMissW} ${unit}`
           );
         }
 
-        // Check never-raise: misses should never increase weight
-        if (firstMissW > weight + 0.001) {
+        // Check never-raise: misses should never increase weight -- except that a
+        // barbell start under the empty bar is lifted to the bar (nothing lighter loads)
+        const barFloorKg = barbellFloorKg(ids, unit);
+        const liftedToBar = (w: number) =>
+          barFloorKg !== null && weight < barFloorKg - 0.005 && Math.abs(w - barFloorKg) < 0.001;
+        if (firstMissW > weight + 0.001 && !liftedToBar(firstMissW)) {
           invariantViolations++;
           console.log(
             `NEVER-RAISE VIOLATION (first-miss): ${ids[0]} ${weight} -> ${firstMissW} ${unit}`
           );
         }
         
-        if (twoMissW > weight + 0.001) {
+        if (twoMissW > weight + 0.001 && !liftedToBar(twoMissW)) {
           invariantViolations++;
           console.log(
             `NEVER-RAISE VIOLATION (two-miss): ${ids[0]} ${weight} -> ${twoMissW} ${unit}`

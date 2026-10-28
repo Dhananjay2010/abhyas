@@ -231,7 +231,7 @@ run_mutant "hard-feel-wrong-baseline" \
   "  const failures = Math.min(state.consecutiveFailures + 1, 3);
   const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);" \
   "  const failures = Math.min(state.consecutiveFailures + 1, 3);
-  const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));" \
+  const currentWeight = heaviest > 0 ? heaviest : state.currentWorkingWeightKg;" \
   "test:first-miss-pinned"
 
 run_mutant "message-altered" \

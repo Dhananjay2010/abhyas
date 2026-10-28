@@ -130,8 +130,9 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     isDeload: false,
   });
   
-  check("Success: 5x12 (1@72.5, 4@70) → progresses from mode 70 to 72.5 kg", withEquip.nextWorkingWeightKg === 72.5);
-  check("  message includes '72.5 kg'", withEquip.message.includes("72.5 kg"));
+  // QA2 L-2: step from the heaviest set that met the target (72.5), never the mode
+  check("Success: 5x12 (1@72.5, 4@70) → progresses from heaviest 72.5 to 75 kg", withEquip.nextWorkingWeightKg === 75);
+  check("  message includes '75 kg'", withEquip.message.includes("75 kg"));
   check("  outcome is progressed", withEquip.outcome === "progressed");
 }
 
@@ -157,8 +158,8 @@ console.log("\n=== Message Weight Consistency: Actual Lifted Weight (Mode) ===\n
     isDeload: false,
   });
   
-  check("Tie-breaker: 2x12@70 + 2x12@72.5 → progresses from lower (70 to 72.5 kg)", withEquip.nextWorkingWeightKg === 72.5);
-  check("  message includes '72.5 kg'", withEquip.message.includes("72.5 kg"));
+  check("2x12@70 + 2x12@72.5 → progresses from heaviest (72.5 to 75 kg) (QA2 L-2)", withEquip.nextWorkingWeightKg === 75);
+  check("  message includes '75 kg'", withEquip.message.includes("75 kg"));
   check("  outcome is progressed", withEquip.outcome === "progressed");
 }
 
@@ -247,7 +248,7 @@ console.log("\n=== Progression Base: Actual Lifted Weight, Not Stored ===\n");
   check("  outcome is progressed", result.outcome === "progressed");
 }
 
-// Case: stored 70 + 4x12@65 → must progress from 65
+// Case: stored 70 + 4x12@65 → progresses from 70 (QA2 L-2: success never lowers)
 {
   const sets = [
     makeSet(12, 65),
@@ -269,8 +270,8 @@ console.log("\n=== Progression Base: Actual Lifted Weight, Not Stored ===\n");
     isDeload: false,
   });
   
-  check("Stored 70 + 4x12@65 → progresses from 65 to 67.5 kg (not from 70)", result.nextWorkingWeightKg === 67.5);
-  check("  message includes '67.5 kg'", result.message.includes("67.5 kg"));
+  check("Stored 70 + 4x12@65 → progresses from 70 to 72.5 kg (not from 65; QA2 L-2)", result.nextWorkingWeightKg === 72.5);
+  check("  message includes '72.5 kg'", result.message.includes("72.5 kg"));
   check("  outcome is progressed", result.outcome === "progressed");
 }
 
@@ -297,8 +298,8 @@ console.log("\n=== Progression Base: Actual Lifted Weight, Not Stored ===\n");
     isDeload: false,
   });
   
-  check("No prior row: 5x12 (1@72.5, 4@70) → from mode 70 to 72.5 kg", withEquip.nextWorkingWeightKg === 72.5);
-  check("  message weight matches next (72.5 kg)", withEquip.message.includes("72.5 kg"));
+  check("No prior row: 5x12 (1@72.5, 4@70) → from heaviest 72.5 to 75 kg (QA2 L-2)", withEquip.nextWorkingWeightKg === 75);
+  check("  message weight matches next (75 kg)", withEquip.message.includes("75 kg"));
   
   const noEquip = evaluateProgression({
     sets,
@@ -312,7 +313,7 @@ console.log("\n=== Progression Base: Actual Lifted Weight, Not Stored ===\n");
     isDeload: false,
   });
   
-  check("No equipment: from mode 70 to 71.25 kg", noEquip.nextWorkingWeightKg === 71.25);
+  check("No equipment: from heaviest 72.5 to 73.75 kg (QA2 L-2)", noEquip.nextWorkingWeightKg === 73.75);
 }
 
 console.log("\n✅ All message weight consistency tests passed\n");

@@ -35,7 +35,7 @@ const mockSessionExercise: SessionExerciseRow = {
   exercises: {
     mechanic: "compound",
     movement_pattern: "horizontal_press",
-    equipment_ids: ["barbell"],
+    equipment_ids: ["dumbbell"], // 2.5 kg grid; a barbell under 20 kg is lifted to the bar
     progression_chain: null,
     progression_rank: null,
   },

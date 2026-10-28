@@ -79,7 +79,7 @@ console.log("\n=== MED-3: Consecutive Miss Messages (with equipment) ===");
     meta: BENCH,
     state: fresh({ currentWorkingWeightKg: 5, consecutiveFailures: 2, weightAtFailureStartKg: 5 }),
     isDeload: false,
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell would hold at the 20 kg bar
     unit: "kg",
   });
   check("Third miss at 5 kg: weight drops one step to 2.5 kg (MED-3)", d.nextWorkingWeightKg === 2.5);
@@ -99,7 +99,7 @@ console.log("\n=== MED-3: Consecutive Miss Messages (with equipment) ===");
     meta: BENCH,
     state: fresh({ currentWorkingWeightKg: 5, consecutiveFailures: 3, weightAtFailureStartKg: 5 }),
     isDeload: false,
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell would hold at the 20 kg bar
     unit: "kg",
   });
   check("Fourth miss at 5 kg: weight drops one step to 2.5 kg", d.nextWorkingWeightKg === 2.5);
@@ -119,7 +119,7 @@ console.log("\n=== MED-3: Consecutive Miss Messages (with equipment) ===");
     meta: BENCH,
     state: fresh({ currentWorkingWeightKg: 5, consecutiveFailures: 4, weightAtFailureStartKg: 5 }),
     isDeload: false,
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell would hold at the 20 kg bar
     unit: "kg",
   });
   check("Fifth miss at 5 kg: weight drops one step to 2.5 kg", d.nextWorkingWeightKg === 2.5);

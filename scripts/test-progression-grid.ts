@@ -732,10 +732,10 @@ console.log("\n15. MINIMUM GUARD TESTS");
     meta: { ...BENCH, mechanic: "isolation" },
     sets: sets(4, 7, 2.5), // First miss
     state: fresh({ currentWorkingWeightKg: 2.5 }),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell under 20 kg is lifted to the bar
     unit: "kg",
   });
-  check("barbell isolation 2.5 kg first miss stays at 2.5 kg", missDecision.nextWorkingWeightKg === 2.5, `${missDecision.nextWorkingWeightKg}`);
+  check("dumbbell isolation 2.5 kg first miss stays at 2.5 kg", missDecision.nextWorkingWeightKg === 2.5, `${missDecision.nextWorkingWeightKg}`);
   
   // Back-off at minimum
   const backoffDecision = run({
@@ -1042,7 +1042,8 @@ console.log("\n23. Back-off: 90% rounded to 2.5 kg grid, never more than one inc
       meta: testCase.meta,
       sets: sets(4, 7, testCase.current),
       state: fresh({ currentWorkingWeightKg: testCase.current, consecutiveFailures: 1 }),
-      equipmentIds: ["barbell"],
+      // Dumbbell: same 2.5 kg grid, but no empty-bar floor (a barbell floors at 20 kg)
+      equipmentIds: ["dumbbell"],
       unit: "kg",
     });
     check(
@@ -1141,7 +1142,7 @@ console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric")
   const progressKg = run({
     sets: sets(4, 12, 15),
     state: fresh({ currentWorkingWeightKg: 15 }),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell under 20 kg is lifted to the bar
     unit: undefined,
   });
   check("15 kg progress shows '17.5 kg' (plain, matches main)", progressKg.message.includes("17.5 kg"), progressKg.message);
@@ -1151,7 +1152,7 @@ console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric")
     meta: BENCH,
     sets: sets(4, 7, 16.25),
     state: fresh({ currentWorkingWeightKg: 16.25, consecutiveFailures: 1 }),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell would floor at the 20 kg bar
     unit: undefined,
   });
   check("16.25 kg back-off shows '12.5 kg' (plain, no rounding)", backOffKg.message.includes("12.5 kg") && !backOffKg.message.includes("12.50"), backOffKg.message);
@@ -1210,7 +1211,7 @@ console.log("\n29. Back-off max drop: never more than one increment below 90%");
     meta: { ...BENCH, movementPattern: "squat" },
     sets: sets(4, 7, 11),
     state: fresh({ currentWorkingWeightKg: 11, consecutiveFailures: 1 }),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell would floor at the 20 kg bar
     unit: "kg",
   });
   check("back-off 11 kg: 11 -> 7.5 kg (not 5 kg)", backOff11.nextWorkingWeightKg === 7.5, `${backOff11.nextWorkingWeightKg}`);
@@ -1220,7 +1221,7 @@ console.log("\n29. Back-off max drop: never more than one increment below 90%");
     meta: BENCH,
     sets: sets(4, 7, 6),
     state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 1 }),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell would floor at the 20 kg bar
     unit: "kg",
   });
   check("back-off 6 kg: 6 -> 5 kg (not 2.5 kg)", backOff6.nextWorkingWeightKg === 5, `${backOff6.nextWorkingWeightKg}`);
@@ -1267,7 +1268,7 @@ console.log("\n32. Back-off holds when reduced weight would be at or below incre
     meta: { ...BENCH, movementPattern: "squat" },
     sets: sets(4, 7, 7.5),
     state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 1 }),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell under 20 kg is lifted to the bar
     unit: "kg",
   });
   check("back-off 7.5 kg lower: holds at 7.5 kg (reduced 5 <= increment 5)", backOff75.nextWorkingWeightKg === 7.5 && backOff75.outcome === "hold", `${backOff75.nextWorkingWeightKg}, ${backOff75.outcome}`);
