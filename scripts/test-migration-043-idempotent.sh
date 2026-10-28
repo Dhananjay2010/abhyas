@@ -83,10 +83,10 @@ echo "✓ Gym data unchanged"
 # Test GJC12 still works after re-apply
 echo
 echo "Testing GJC12 enforcement after re-apply..."
-ERROR_OUTPUT=$(psql -v VERBOSITY=verbose "$SUPABASE_DB_URL" <<SQL 2>&1 || true
+ERROR_OUTPUT=$(psql -q -v VERBOSITY=verbose "$SUPABASE_DB_URL" <<SQL 2>&1 || true
 BEGIN;
 SET LOCAL ROLE authenticated;
-SET LOCAL request.jwt.claims = '{"sub": "$(psql -tA "$SUPABASE_DB_URL" -c "SELECT user_id FROM public.gym_memberships WHERE gym_id = '$GYM_ID' AND role = 'owner' LIMIT 1")"}';
+SET LOCAL request.jwt.claims = '{"sub": "$(psql -q -tA "$SUPABASE_DB_URL" -c "SELECT user_id FROM public.gym_memberships WHERE gym_id = '$GYM_ID' AND role = 'owner' LIMIT 1")"}';
 UPDATE public.gyms SET name = 'Hacked' WHERE id = '$GYM_ID';
 ROLLBACK;
 SQL

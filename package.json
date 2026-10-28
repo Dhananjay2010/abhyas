@@ -561,6 +561,7 @@
     "test:gyms-column-lock-real-db": "tsx scripts/test-gyms-column-lock-real-db.ts",
     "ci:migration-043-idempotent": "bash scripts/test-migration-043-idempotent.sh",
     "ci:mutant-gyms-column-lock": "bash scripts/mutant-test-gyms-column-lock.sh",
+    "test:gym-join-code-actions-mapper": "tsx scripts/test-gym-join-code-actions-mapper.ts",
     "test:gym-join-code-actions-behavioral": "tsx scripts/test-gym-join-code-actions-behavioral.ts",
     "test:gym-join-code-gating": "tsx scripts/test-gym-join-code-gating.ts",
     "test:format-join-code-date": "tsx scripts/test-format-join-code-date.ts",

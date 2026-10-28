@@ -480,9 +480,11 @@ async function runTests() {
       
       execSync(
         `psql -v VERBOSITY=verbose "${dbUrl}" <<'SQL'
+BEGIN;
 SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claims', jsonb_build_object('sub', '${userIdOwner}', 'role', 'authenticated')::text, false);
+SET LOCAL request.jwt.claims = '{"sub":"${userIdOwner}","role":"authenticated"}';
 UPDATE public.gyms SET temp_future_col = 'hacked' WHERE id = '${gymId}';
+ROLLBACK;
 SQL`,
         { encoding: 'utf-8', stdio: 'pipe' }
       );
@@ -490,7 +492,7 @@ SQL`,
       check("Future column update blocked", false, "Update succeeded when it should have been blocked");
     } catch (err) {
       const errStr = String(err);
-      check("Future column update blocked", errStr.includes("GJC12") || errStr.includes("ERROR"));
+      check("Future column update blocked", errStr.includes("GJC12"));
       check("SQLSTATE GJC12", errStr.includes("GJC12"));
     }
   }
@@ -661,7 +663,10 @@ SQL`,
       .update({ name: "Hacked via direct" })
       .eq("id", otherGymId);
     check("Direct name update on gym B returns GJC12", directNameError?.code === "GJC12");
-    check("checkGymOwnership asserts single gym in trigger", directNameError?.code === "GJC12");
+    
+    const { checkGymOwnership } = await import("@/lib/gym/owner-check");
+    const own = await checkGymOwnership(clientOwner, userIdOwner);
+    check("checkGymOwnership returns single gym", own.isOwner === true && own.gymId === gymId);
     
     const { data: gymAAfter } = await adminClient.from("gyms").select("display_name").eq("id", gymId).single();
     const { data: gymBAfter } = await adminClient.from("gyms").select("display_name").eq("id", otherGymId).single();

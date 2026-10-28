@@ -235,7 +235,12 @@ async function runTests() {
 
   // Make 15 successful redeem calls (first one joins, rest are idempotent)
   for (let i = 0; i < 15; i++) {
-    await successUser.client.rpc("redeem_join_code", { p_code: highUsesCode });
+    const { data: redeemData } = await successUser.client.rpc("redeem_join_code", { p_code: highUsesCode });
+    if (i === 0) {
+      // First redeem: success should return gym_name
+      const parsed = parseRedeemJoinCodeResult(redeemData);
+      check("Success redeem returns gym_name", !!parsed && parsed.ok && parsed.gym_name === "Test Gym");
+    }
   }
 
   // Check that no attempts were recorded
@@ -251,6 +256,56 @@ async function runTests() {
   });
   const afterResult = parsePreviewJoinCodeResult(afterSuccesses);
   check("30+ successes don't throttle", afterResult !== null && afterResult.ok === true);
+  console.log();
+
+  // L1: Member cannot see own gym's codes
+  {
+    const { data: memberCodes } = await member.client
+      .from("gym_join_codes")
+      .select("id")
+      .eq("gym_id", gymId);
+    check("Member cannot see own gym's codes", memberCodes?.length === 0);
+  }
+
+  // L1: Outsider cannot see other gym's codes
+  {
+    const { data: outsiderCodes } = await outsider.client
+      .from("gym_join_codes")
+      .select("id")
+      .eq("gym_id", gymId);
+    check("Outsider cannot see other gym's codes", outsiderCodes?.length === 0);
+  }
+
+  // L1: Staff sees only member codes (comprehensive)
+  // Create a staff code first
+  const staffCodeId = randomUUID();
+  await adminClient.from("gym_join_codes").insert({
+    id: staffCodeId,
+    gym_id: gymId,
+    code: "STAFF" + generateJoinCode().slice(5),
+    role: "staff",
+    created_by: owner.userId,
+  });
+  {
+    const { data: staffVisible } = await staff.client
+      .from("gym_join_codes")
+      .select("id, role")
+      .eq("gym_id", gymId);
+    const allMember = staffVisible?.every(c => c.role === "member") ?? false;
+    const staffCodeAbsent = !staffVisible?.some(c => c.id === staffCodeId) ?? false;
+    check("Staff sees only member codes (comprehensive)", allMember && staffCodeAbsent);
+  }
+
+  // L1: Owner sees staff codes
+  {
+    const { data: ownerVisible } = await owner.client
+      .from("gym_join_codes")
+      .select("id")
+      .eq("gym_id", gymId);
+    const seesStaffCode = ownerVisible?.some(c => c.id === staffCodeId) ?? false;
+    check("Owner sees staff codes", seesStaffCode);
+  }
+
   console.log();
 
   console.log("TEST: Staff redeeming own gym's member code stays staff");
@@ -804,6 +859,32 @@ async function runTests() {
       const errorMsg = definerError instanceof Error ? definerError.message : String(definerError);
       check("All SECURITY DEFINER functions have search_path=\"\" (kills search_path mutant)", false, errorMsg);
     }
+
+    // L1: gym_join_codes_created_by_idx exists on (created_by)
+    try {
+      const idxResult = await pgClient.query(`
+        SELECT indexdef FROM pg_indexes 
+        WHERE schemaname='public' AND indexname='gym_join_codes_created_by_idx'
+      `);
+      check("gym_join_codes_created_by_idx exists on (created_by)", 
+        idxResult.rows.length === 1 && idxResult.rows[0].indexdef.includes('(created_by)'));
+    } catch (idxError) {
+      check("gym_join_codes_created_by_idx exists on (created_by)", false, String(idxError));
+    }
+
+    // L1: Single merged SELECT policy on gym_join_codes
+    try {
+      const policyResult = await pgClient.query(`
+        SELECT policyname FROM pg_policies 
+        WHERE schemaname='public' AND tablename='gym_join_codes' AND cmd='SELECT'
+      `);
+      const policyNames = policyResult.rows.map((r: {policyname: string}) => r.policyname);
+      check("Single merged SELECT policy on gym_join_codes", 
+        policyNames.length === 1 && policyNames[0] === 'gym_join_codes_select');
+    } catch (policyError) {
+      check("Single merged SELECT policy on gym_join_codes", false, String(policyError));
+    }
+
   } finally {
     await pgClient.end();
   }

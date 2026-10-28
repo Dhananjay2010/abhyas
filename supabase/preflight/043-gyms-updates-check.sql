@@ -51,8 +51,8 @@ SELECT EXISTS (
 -- Verify set_gym_branding is SECURITY DEFINER with search_path=''
 SELECT 
   prosecdef AS is_security_definer,
-  proconfig AS config,
-  pg_get_userbyid(proowner) AS owner
+  'search_path=""' = any(proconfig) AS has_empty_search_path,
+  pg_get_userbyid(proowner) = 'postgres' AS owner_is_postgres
 FROM pg_proc p
 JOIN pg_namespace n ON p.pronamespace = n.oid
 WHERE n.nspname = 'public'
@@ -65,14 +65,6 @@ AND p.proname = 'set_gym_branding' \gset
   SELECT 1/0 AS preflight_failed;
 \endif
 
--- Check search_path is set to empty string (using SQL comparison)
-SELECT 
-  CASE 
-    WHEN :'config' = '{}' THEN false
-    WHEN 'search_path=""' = ANY(string_to_array(replace(replace(:'config', '{', ''), '}', ''), ',')) THEN true
-    ELSE false
-  END AS has_empty_search_path \gset
-
 \if :has_empty_search_path
   \echo '✓ set_gym_branding has search_path=""'
 \else
@@ -80,11 +72,10 @@ SELECT
   SELECT 1/0 AS preflight_failed;
 \endif
 
--- Check owner is postgres
-\if :'owner' = 'postgres'
+\if :owner_is_postgres
   \echo '✓ set_gym_branding owner is postgres'
 \else
-  \echo '✗ FAIL: set_gym_branding owner is not postgres (got ' :'owner' ')'
+  \echo '✗ FAIL: set_gym_branding owner is not postgres'
   SELECT 1/0 AS preflight_failed;
 \endif
 

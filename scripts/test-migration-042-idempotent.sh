@@ -60,7 +60,7 @@ echo
 
 # Count visible rows before re-apply (as authenticated owner)
 echo "Counting visible rows before re-apply (RLS)..."
-ROW_COUNT_BEFORE=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+ROW_COUNT_BEFORE=$(psql -q -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
 BEGIN;
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
@@ -78,7 +78,7 @@ fi
 # Test redeem returns gym_name for already_member before re-apply
 echo
 echo "Testing redeem_join_code before re-apply..."
-REDEEM_BEFORE=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+REDEEM_BEFORE=$(psql -q -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
 BEGIN;
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
@@ -93,7 +93,7 @@ if ! echo "$REDEEM_BEFORE" | grep -q "already_member"; then
   exit 1
 fi
 
-GYM_NAME_BEFORE=$(echo "$REDEEM_BEFORE" | jq -r '.gym_name // empty' 2>/dev/null || echo "$REDEEM_BEFORE" | grep -oP '"gym_name"\s*:\s*"\K[^"]+' || echo "")
+GYM_NAME_BEFORE=$(echo "$REDEEM_BEFORE" | jq -r '.gym_name // empty' 2>/dev/null)
 echo "Gym name in result: $GYM_NAME_BEFORE"
 
 if [ "$GYM_NAME_BEFORE" != "Idem 042 Gym" ]; then
@@ -114,7 +114,7 @@ echo "✓ Re-apply succeeded"
 # Count visible rows after re-apply (as authenticated owner)
 echo
 echo "Counting visible rows after re-apply (RLS)..."
-ROW_COUNT_AFTER=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+ROW_COUNT_AFTER=$(psql -q -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
 BEGIN;
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
@@ -133,7 +133,7 @@ echo "✓ Row count unchanged"
 # Test redeem after re-apply
 echo
 echo "Testing redeem_join_code after re-apply..."
-REDEEM_AFTER=$(psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
+REDEEM_AFTER=$(psql -q -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -tA <<SQL
 BEGIN;
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub": "$OWNER_ID"}';
@@ -148,7 +148,7 @@ if ! echo "$REDEEM_AFTER" | grep -q "already_member"; then
   exit 1
 fi
 
-GYM_NAME_AFTER=$(echo "$REDEEM_AFTER" | jq -r '.gym_name // empty' 2>/dev/null || echo "$REDEEM_AFTER" | grep -oP '"gym_name"\s*:\s*"\K[^"]+' || echo "")
+GYM_NAME_AFTER=$(echo "$REDEEM_AFTER" | jq -r '.gym_name // empty' 2>/dev/null)
 echo "Gym name in result: $GYM_NAME_AFTER"
 
 if [ "$GYM_NAME_BEFORE" != "$GYM_NAME_AFTER" ]; then
