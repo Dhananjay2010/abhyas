@@ -53,19 +53,19 @@ type DayExerciseForCleanup = {
   };
 };
 
-export function applyDayCleanup(
-  day: {
-    id: string;
-    day_index: number;
-    day_type: string;
-    focus: string | null;
-    label: string | null;
-    program_day_exercises: DayExerciseForCleanup[];
-  },
+export function applyDayCleanup<T extends {
+  id: string;
+  day_index: number;
+  day_type: string;
+  focus: string | null;
+  label: string | null;
+  program_day_exercises: DayExerciseForCleanup[];
+}>(
+  day: T,
   catalogue: CandidateExercise[],
   generatorInput: GeneratorInput,
   cleanupResults: { changed: boolean }[]
-) {
+): T {
   if (!day.program_day_exercises || day.program_day_exercises.length === 0) {
     return day;
   }
@@ -309,7 +309,7 @@ export default async function TodayPage() {
         );
         
         if (generatorInput) {
-          days = days.map(day => applyDayCleanup(day, catalogue, generatorInput, cleanupResults)) as typeof days;
+          days = days.map(day => applyDayCleanup(day, catalogue, generatorInput, cleanupResults));
         }
       }
     }
