@@ -9,48 +9,29 @@
  * Mutant would keep the banned exercise (no drop).
  */
 
+import { readFileSync } from "fs";
 import { applyBannedCleanup } from "../src/lib/program/apply-banned-cleanup";
-import type { CandidateExercise } from "../src/lib/program/generate";
+import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
+import type { Database } from "../src/lib/database.types";
+
+type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
+
+const catalogueRows: ExerciseRow[] = JSON.parse(
+  readFileSync("scripts/fixtures/catalogue.json", "utf-8")
+);
+const catalogue = toCandidateExercises(catalogueRows);
+
+const thruster = catalogue.find(e => e.slug === "kettlebell-thruster");
+const bench = catalogue.find(e => e.slug === "barbell-bench-press-medium-grip");
+
+if (!thruster || !bench) {
+  console.error("✗ FAIL: test exercises not found");
+  process.exit(1);
+}
 
 console.log("Testing L1: Drop-slot guard for current-knee with zero alternatives\n");
 
-// Create a tiny catalogue: just the banned thruster and a press (no swap matches)
-const thruster: CandidateExercise = {
-  id: "thruster-id",
-  slug: "kettlebell-thruster",
-  name: "Kettlebell Thruster",
-  movement_pattern: "squat",
-  mechanic: "compound",
-  metric: "reps",
-  primary_muscles: ["quadriceps", "gluteus_maximus"],
-  equipment_ids: ["kettlebell"],
-  level_min: 0,
-  contraindicated_regions: ["knee"],
-  impact: "high",
-  spinal_load: "moderate",
-  tracks: ["weights"],
-  default_rest_seconds: 90,
-  category: "strength",
-};
-
-const bench: CandidateExercise = {
-  id: "bench-id",
-  slug: "barbell-bench-press",
-  name: "Barbell Bench Press",
-  movement_pattern: "horizontal_push",
-  mechanic: "compound",
-  metric: "reps",
-  primary_muscles: ["pectoralis_major"],
-  equipment_ids: ["barbell"],
-  level_min: 0,
-  contraindicated_regions: [],
-  impact: "low",
-  spinal_load: "none",
-  tracks: ["weights"],
-  default_rest_seconds: 90,
-  category: "strength",
-};
-
+// Create tiny catalogue with just thruster (banned) and bench (different pattern)
 const tinyCatalogue = [thruster, bench];
 
 // Plan: thruster (banned) + bench (safe)
@@ -92,7 +73,7 @@ const result = applyBannedCleanup(
   ["kettlebell", "barbell"]
 );
 
-// With zero alternatives, current-knee guard should drop the slot
+// With zero alternatives in tiny catalogue, current-knee guard should drop the slot
 if (result.rows.length === planned.length) {
   // Check if thruster is still present
   if (result.rows.some(r => r.exercise_id === thruster.id)) {
