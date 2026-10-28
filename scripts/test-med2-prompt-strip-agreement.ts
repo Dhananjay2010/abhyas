@@ -11,7 +11,7 @@
 
 import { strict as assert } from "node:assert";
 import { createClient } from "@supabase/supabase-js";
-import { nextDayPlan, plannableDays } from "../src/lib/program/day-plan";
+import { nextDayPlan } from "../src/lib/program/day-plan";
 import type { Database } from "../src/lib/database.types";
 
 type Row = Record<string, unknown>;
@@ -102,8 +102,8 @@ function createStubFetch(sessions: Row[]): typeof fetch {
         filtered.sort((a, b) => {
           for (const o of orders) {
             const [field, dir] = o.split(".");
-            const aVal = String((a as any)[field] ?? "");
-            const bVal = String((b as any)[field] ?? "");
+            const aVal = String((a as Record<string, unknown>)[field] ?? "");
+            const bVal = String((b as Record<string, unknown>)[field] ?? "");
             const cmp = dir === "desc" ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
             if (cmp !== 0) return cmp;
           }
@@ -222,7 +222,7 @@ async function main() {
   ];
 
   function createUnlabeledStub(sessions: Row[], days: Row[]): typeof fetch {
-    return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    return async (input: RequestInfo | URL): Promise<Response> => {
       const urlString = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       const parsedUrl = new URL(urlString);
       const params = parsedUrl.searchParams;
