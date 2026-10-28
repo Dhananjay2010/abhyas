@@ -6,11 +6,17 @@
  * Kills page-wiring mutants: empty map bypass, skipping the loader, etc.
  */
 
+import "./helpers/setup-jsdom";
+import { render, waitFor } from "@testing-library/react";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 import { loadAndBuildRunnerExercises } from "../src/lib/session/load-and-build-runner-exercises";
-import { computeRunnerWeightPrefill } from "../src/lib/units";
 import type { SessionExerciseInput, ProgressInput } from "../src/lib/session/build-runner-exercises";
+import {
+  SessionRunner,
+  type RunnerExercise,
+  type SessionActions,
+} from "../src/app/session/[id]/session-runner";
 
 function check(label: string, ok: boolean, detail?: string, actualValue?: unknown) {
   if (ok) {
@@ -132,7 +138,7 @@ async function runTests() {
     
     const progressByExercise: Map<string, ProgressInput> = new Map([
       ["ex-bench", {
-        current_working_weight_kg: 60,
+        current_working_weight_kg: 62.5,
         current_target_reps: 6,
         previous_completed_weight_kg: null,
       }],
@@ -156,15 +162,52 @@ async function runTests() {
       ex.previousCompletedWeightKg === 60, 
       `got ${ex.previousCompletedWeightKg}`);
     
-    // Verify prefill logic with loaded previous weight
-    // prescribed increase (suggested 62.5 > previous 60) → floor to 137.5 lb
-    const suggested = 62.5;
-    const previous = ex.previousCompletedWeightKg;
-    const isPrescribed = previous !== null && suggested > previous + 0.01;
-    check("is prescribed increase (62.5 > 60)", isPrescribed === true);
+    check("exercise has suggestedWeightKg = 62.5", ex.suggestedWeightKg === 62.5, `got ${ex.suggestedWeightKg}`);
     
-    const prefill = computeRunnerWeightPrefill(suggested, "imperial", false, isPrescribed);
-    check("Mutant: page bypassing helper - runner prefills 137.5 lb", prefill === "137.5", `got "${prefill}"`);
+    // Render SessionRunner with loaded exercise and assert Set 1 prefill
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async () => ({ ok: true as const }),
+      deleteSet: async () => ({ ok: true as const }),
+      finishExercise: async () => ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+      finishSession: async () => ({ ok: true as const, data: { status: "completed" as const, durationSeconds: null } }),
+      abandonSession: async () => ({ ok: true as const }),
+      planDay: async () => ({ ok: true as const }),
+      refreshAfterSession: async () => ({ ok: true as const }),
+      swapExercise: async () => ({ ok: true, data: { workoutSessionExerciseId: "", exerciseId: "", metric: "reps" as const, repsMin: null, repsMax: null, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
+      findAlternatives: async () => ({ ok: true as const, data: [] }),
+      getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    };
+    
+    const r = render(
+      <SessionRunner
+        userId="test-user"
+        sessionId="sess"
+        sessionStatus="in_progress"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        isStale={false}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[ex]}
+        settings={{ perSetLogging: true, restAutostart: false, restSound: false, restVibrate: false, restOverrideSeconds: null, cooldownEnabled: false, units: "imperial" }}
+        tomorrow={{ isMissedYesterday: false, isRestDay: false, canPlanDay: false, needsPlan: false }}
+        units="imperial"
+        actions={actions}
+      />
+    );
+    
+    await waitFor(() => {
+      const workingWeightLine = r.container.querySelector("[data-testid='working-weight-line']");
+      if (!workingWeightLine) throw new Error("Working weight line not found");
+    }, { timeout: 5000 });
+    
+    const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
+    );
+    check("Mutant: page bypassing helper - runner prefills 137.5 lb", weightInput?.value === "137.5", `got "${weightInput?.value}"`);
   }
   
   console.log("\nAll page loader wiring tests passed\n");

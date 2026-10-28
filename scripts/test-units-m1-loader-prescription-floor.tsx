@@ -13,10 +13,16 @@
  *   npx tsx scripts/test-units-m1-loader-prescription-floor.tsx
  */
 
+import "./helpers/setup-jsdom";
+import { render, waitFor } from "@testing-library/react";
 import { createClient } from "@supabase/supabase-js";
 import { loadPreviousCompletedWeights } from "../src/lib/session/load-previous-weights";
-import { computeRunnerWeightPrefill } from "../src/lib/units";
 import type { Database } from "../src/lib/database.types";
+import {
+  SessionRunner,
+  type RunnerExercise,
+  type SessionActions,
+} from "../src/app/session/[id]/session-runner";
 
 let passed = 0;
 let failed = 0;
@@ -130,14 +136,73 @@ async function runTests() {
     const previous = result.get(ex1);
     check("returns previous weight 60 kg", previous === 60, "", previous);
 
-    // Use loader result to determine if prescribed increase: suggested 62.5 > previous 60 + 0.01
-    const suggested = 62.5;
-    const isPrescribed = previous !== null && previous !== undefined && suggested > previous + 0.01;
-    check("isPrescribedIncrease: 62.5 > 60", isPrescribed === true);
+    // Render SessionRunner with loaded previousCompletedWeightKg and assert Set 1 prefill
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async () => ({ ok: true as const }),
+      deleteSet: async () => ({ ok: true as const }),
+      finishExercise: async () => ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+      finishSession: async () => ({ ok: true as const, data: { status: "completed" as const, durationSeconds: null } }),
+      abandonSession: async () => ({ ok: true as const }),
+      planDay: async () => ({ ok: true as const }),
+      refreshAfterSession: async () => ({ ok: true as const }),
+      swapExercise: async () => ({ ok: true, data: { workoutSessionExerciseId: "", exerciseId: "", metric: "reps" as const, repsMin: null, repsMax: null, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
+      findAlternatives: async () => ({ ok: true as const, data: [] }),
+      getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    };
     
-    // Runner prefill with prescribed increase floors to 137.5 lb
-    const prefill = computeRunnerWeightPrefill(suggested, "imperial", false, isPrescribed);
-    check("runner prefills 137.5 lb (floors)", prefill === "137.5", `got "${prefill}"`);
+    const exercise: RunnerExercise = {
+      id: "ex1",
+      exerciseId: "bench-press",
+      name: "Bench Press",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["chest"],
+      plannedSets: 3,
+      plannedRepsMin: 6,
+      plannedRepsMax: 8,
+      repsMin: 6,
+      repsMax: 8,
+      restSeconds: 180,
+      workingWeightKg: 60,
+      suggestedWeightKg: 62.5,
+      previousCompletedWeightKg: previous ?? null,
+      isBodyweight: false,
+      status: "pending",
+      feel: null,
+      sets: [],
+      lastLoggedAt: null,
+    };
+    
+    const r = render(
+      <SessionRunner
+        userId="user-1"
+        sessionId="sess-1"
+        sessionStatus="in_progress"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        isStale={false}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[exercise]}
+        settings={{ perSetLogging: true, restAutostart: false, restSound: false, restVibrate: false, restOverrideSeconds: null, cooldownEnabled: false, units: "imperial" }}
+        tomorrow={{ isMissedYesterday: false, isRestDay: false, canPlanDay: false, needsPlan: false }}
+        units="imperial"
+        actions={actions}
+      />
+    );
+    
+    await waitFor(() => {
+      const workingWeightLine = r.container.querySelector("[data-testid='working-weight-line']");
+      if (!workingWeightLine) throw new Error("Working weight line not found");
+    }, { timeout: 5000 });
+    
+    const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
+    );
+    check("runner prefills 137.5 lb (floors prescription)", weightInput?.value === "137.5", `got "${weightInput?.value}"`);
   }
 
   // Case (b): 62.5 after 62.5 → held, 138 lb
@@ -165,14 +230,73 @@ async function runTests() {
     const previous = result.get(ex2);
     check("returns previous weight 62.5 kg", previous === 62.5, "", previous);
 
-    // Use loader result: suggested 62.5 NOT > previous 62.5 + 0.01 → held weight
-    const suggested = 62.5;
-    const isPrescribed = previous !== null && previous !== undefined && suggested > previous + 0.01;
-    check("isPrescribedIncrease false: 62.5 !> 62.5", isPrescribed === false);
+    // Render SessionRunner with loaded previousCompletedWeightKg and assert Set 1 prefill
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async () => ({ ok: true as const }),
+      deleteSet: async () => ({ ok: true as const }),
+      finishExercise: async () => ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+      finishSession: async () => ({ ok: true as const, data: { status: "completed" as const, durationSeconds: null } }),
+      abandonSession: async () => ({ ok: true as const }),
+      planDay: async () => ({ ok: true as const }),
+      refreshAfterSession: async () => ({ ok: true as const }),
+      swapExercise: async () => ({ ok: true, data: { workoutSessionExerciseId: "", exerciseId: "", metric: "reps" as const, repsMin: null, repsMax: null, equipmentIds: [], weightPrefill: null, workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
+      findAlternatives: async () => ({ ok: true as const, data: [] }),
+      getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    };
     
-    // Runner prefill with held weight rounds to nearest 138 lb
-    const prefill = computeRunnerWeightPrefill(suggested, "imperial", false, isPrescribed);
-    check("runner prefills 138 lb (rounds nearest)", prefill === "138", `got "${prefill}"`);
+    const exercise: RunnerExercise = {
+      id: "ex2",
+      exerciseId: "bench-press",
+      name: "Bench Press",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["chest"],
+      plannedSets: 3,
+      plannedRepsMin: 6,
+      plannedRepsMax: 8,
+      repsMin: 6,
+      repsMax: 8,
+      restSeconds: 180,
+      workingWeightKg: 62.5,
+      suggestedWeightKg: 62.5,
+      previousCompletedWeightKg: previous ?? null,
+      isBodyweight: false,
+      status: "pending",
+      feel: null,
+      sets: [],
+      lastLoggedAt: null,
+    };
+    
+    const r = render(
+      <SessionRunner
+        userId="user-2"
+        sessionId="sess-2"
+        sessionStatus="in_progress"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        isStale={false}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[exercise]}
+        settings={{ perSetLogging: true, restAutostart: false, restSound: false, restVibrate: false, restOverrideSeconds: null, cooldownEnabled: false, units: "imperial" }}
+        tomorrow={{ isMissedYesterday: false, isRestDay: false, canPlanDay: false, needsPlan: false }}
+        units="imperial"
+        actions={actions}
+      />
+    );
+    
+    await waitFor(() => {
+      const workingWeightLine = r.container.querySelector("[data-testid='working-weight-line']");
+      if (!workingWeightLine) throw new Error("Working weight line not found");
+    }, { timeout: 5000 });
+    
+    const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
+    );
+    check("runner prefills 138 lb (rounds nearest, not prescription)", weightInput?.value === "138", `got "${weightInput?.value}"`);
   }
 
   // Case (c): older session at 70 kg, newest at 60 kg → previous = 60
@@ -245,14 +369,28 @@ async function runTests() {
   {
     const { client, requests, responses } = makeFakeSupabase();
     
-    // Stub honors PostgREST filter: only returns completed session
+    // Stub returns BOTH in_progress (70 kg, newer) and completed (60 kg, older)
+    // The stub IGNORES the status filter so both rows are returned
     responses.set("GET http://fake.local/rest/v1/sessions?select=id%2Clocal_date%2Cstarted_at%2Csession_exercises%21inner%28exercise_id%2Csession_sets%21inner%28weight_kg%2Cis_warmup_set%29%29&user_id=eq.user-5&status=eq.completed&session_exercises.exercise_id=in.%28ex-5%29&order=started_at.desc&limit=100", [
-      // Only the completed session at 60 kg is returned
-      // (An in_progress session at 70 kg would not be returned by PostgREST)
+      {
+        id: "sess-inprogress",
+        local_date: "2024-01-11",
+        started_at: "2024-01-11T10:00:00Z",
+        status: "in_progress",
+        session_exercises: [
+          {
+            exercise_id: ex5,
+            session_sets: [
+              { weight_kg: 70, is_warmup_set: false },
+            ],
+          },
+        ],
+      },
       {
         id: "sess-completed",
         local_date: "2024-01-10",
         started_at: "2024-01-10T10:00:00Z",
+        status: "completed",
         session_exercises: [
           {
             exercise_id: ex5,
@@ -265,11 +403,14 @@ async function runTests() {
     ]);
 
     const result = await loadPreviousCompletedWeights(client, "user-5", [ex5]);
-    check("returns 60 kg (completed)", result.get(ex5) === 60, "", result.get(ex5));
+    const previous = result.get(ex5);
     
-    // Verify query included status=completed filter
-    check("query includes status=completed filter", 
-      requests.some(r => r.url.includes("status=eq.completed")));
+    // Even though stub returns both rows, the loader filters to status=completed in code
+    check("returns 60 kg (completed, not 70 kg from in_progress)", previous === 60, `got ${previous}`);
+    
+    // Verify query URL includes status=completed filter
+    const queriedUrl = requests[0]?.url ?? "";
+    check("query URL includes status=eq.completed", queriedUrl.includes("status=eq.completed"));
   }
 
   // Case (f): multiple working sets of different weights (55 and 60) → max = 60 (Mutant H2)
