@@ -59,12 +59,20 @@ export const DAY_CHANGED_ERROR = "The day has changed since this was shown. Chec
  * this session (local_date + 1, or today + 1 for a stale session) that are
  * not yet past; a page left open across midnight keeps the date it showed
  * instead of having the rule re-run at tap time.
+ *
+ * QA3 LOW-1 (#166 r5): the day the rule gives right now is also accepted.
+ * After a profile timezone moves west the session's day can be after
+ * user-local today, so that day is neither today nor tomorrow; refusing it
+ * sent back the same day as the retarget and the prompt never saved. When
+ * the session's day is not after today, that day is already today or
+ * tomorrow, so nothing else changes.
  */
 export function acceptShownTargetDate(
   shownDate: string,
   sessionLocalDate: string,
   userLocalToday: string,
 ): boolean {
+  if (shownDate === planTargetDate(sessionLocalDate, userLocalToday)) return true;
   const todayOrTomorrow = shownDate === userLocalToday || shownDate === addDays(userLocalToday, 1);
   return todayOrTomorrow && shownDate > sessionLocalDate;
 }
