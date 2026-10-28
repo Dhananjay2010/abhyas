@@ -123,7 +123,7 @@ function makeTypedActions(logSetImpl: Parameters<SessionActions["logSet"]>[0] ex
   
   // Find reps input and enter reps
   const repsInput = screen.getByLabelText(/reps/i);
-  if (!(repsInput instanceof HTMLInputElement)) {
+  if (!(repsInput instanceof window.HTMLInputElement)) {
     throw new Error("Reps input is not HTMLInputElement");
   }
   
@@ -181,10 +181,10 @@ function makeTypedActions(logSetImpl: Parameters<SessionActions["logSet"]>[0] ex
   const repsInput2 = screen.getByLabelText(/reps/i);
   const weightInput = screen.getByLabelText(/weight/i);
   
-  if (!(repsInput2 instanceof HTMLInputElement)) {
+  if (!(repsInput2 instanceof window.HTMLInputElement)) {
     throw new Error("Reps input is not HTMLInputElement");
   }
-  if (!(weightInput instanceof HTMLInputElement)) {
+  if (!(weightInput instanceof window.HTMLInputElement)) {
     throw new Error("Weight input is not HTMLInputElement");
   }
   

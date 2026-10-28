@@ -77,7 +77,7 @@ function setInputValue(input: HTMLInputElement, value: string) {
 function fillRepsInput(container: HTMLElement, value: string) {
   const inputs = Array.from(container.querySelectorAll('input[type="number"]'));
   const repsInput = inputs[0];
-  if (!(repsInput instanceof HTMLInputElement)) {
+  if (!(repsInput instanceof window.HTMLInputElement)) {
     throw new Error("Expected first input to be HTMLInputElement");
   }
   setInputValue(repsInput, value);

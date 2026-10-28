@@ -864,10 +864,10 @@ async function test9b() {
   assert(!!doneButton, "9b: Done button exists");
   assert(!!skipCooldownButton, "9b: Skip cool-down button exists");
   
-  if (!(doneButton instanceof HTMLButtonElement)) {
+  if (!(doneButton instanceof window.HTMLButtonElement)) {
     throw new Error("Done button is not HTMLButtonElement");
   }
-  if (!(skipCooldownButton instanceof HTMLButtonElement)) {
+  if (!(skipCooldownButton instanceof window.HTMLButtonElement)) {
     throw new Error("Skip cool-down button is not HTMLButtonElement");
   }
   

@@ -131,7 +131,7 @@ function makeTypedActions(logSetImpl: Parameters<SessionActions["logSet"]>[0] ex
   
   // Log set 1
   const repsInput0 = repsInputs[0];
-  if (repsInput0 instanceof HTMLInputElement) {
+  if (repsInput0 instanceof window.HTMLInputElement) {
     await act(async () => {
       repsInput0.value = "10";
       repsInput0.dispatchEvent(new Event('input', { bubbles: true }));
@@ -152,7 +152,7 @@ function makeTypedActions(logSetImpl: Parameters<SessionActions["logSet"]>[0] ex
   
   // Log set 2 (still expired)
   await act(async () => {
-    if (repsInputs[1] instanceof HTMLInputElement) {
+    if (repsInputs[1] instanceof window.HTMLInputElement) {
       repsInputs[1].value = "10";
       repsInputs[1].dispatchEvent(new Event('input', { bubbles: true }));
     }
@@ -233,7 +233,7 @@ function makeTypedActions(logSetImpl: Parameters<SessionActions["logSet"]>[0] ex
   const logButtons2 = screen.queryAllByText(/Log set/i);
   
   const repsInput2_0 = repsInputs2[0];
-  if (repsInput2_0 instanceof HTMLInputElement) {
+  if (repsInput2_0 instanceof window.HTMLInputElement) {
     await act(async () => {
       repsInput2_0.value = "10";
       repsInput2_0.dispatchEvent(new Event('input', { bubbles: true }));
