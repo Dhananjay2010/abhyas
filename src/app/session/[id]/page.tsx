@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
+import { planTargetDate, planTargetLabel } from "@/lib/session/resolve-plan-target-date";
+import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isStaleSession } from "@/lib/session/is-stale-session";
 import type { Database } from "@/lib/database.types";
@@ -182,16 +184,22 @@ export default async function SessionPage({
   };
 
   // "What about tomorrow?" needs the block's own days to offer as alternatives,
-  // and what tomorrow already is. MED-1 fix: precompute targetLocalDate as
-  // session.local_date + 1 (matches PR #166). This ensures a session finishing
-  // after midnight still plans the correct next day, and the swap check uses
-  // the session's date. Pass session.id to query the specific session.
+  // and what tomorrow already is. MED-A + MED-4: "tomorrow" = session.local_date
+  // + 1 (even after midnight), or user-local today + 1 for a stale session, so
+  // a past day is never offered. Same helper as the planDay action, so the
+  // displayed plan and the saved date always match. #165: pass session.id so
+  // the post-swap collision check reads this exact session.
   const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
-  const { addDays } = await import("@/lib/dates");
-  const targetLocalDate = session.local_date ? addDays(session.local_date, 1) : undefined;
-  const tomorrow = await nextDayPlan(supabase, timezone, targetLocalDate, {
+  const sessionTargetDate = session.local_date
+    ? planTargetDate(session.local_date, localDateString(timezone))
+    : undefined;
+  const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate, {
     sessionId: session.id,
   });
+  // QA1 LOW-2: a next-morning finish plans today, so name the day it plans.
+  const tomorrowLabel = sessionTargetDate
+    ? planTargetLabel(sessionTargetDate, localDateString(timezone))
+    : "Tomorrow";
 
   // Compute isStale on the server to avoid requiring timezone in client components
   const isStale = session.started_at
@@ -219,6 +227,7 @@ export default async function SessionPage({
       exercises={exercises}
       settings={settings}
       tomorrow={tomorrow}
+      tomorrowLabel={tomorrowLabel}
       units={getUnitsPreference(profileRes.data?.units)}
     />
   );

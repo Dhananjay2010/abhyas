@@ -14,17 +14,21 @@ import { buildStartSessionFullDeps } from "@/lib/session/start-session-full-deps
 import { planDayCore } from "@/lib/session/plan-day-core";
 import { createPlanDayDbOps } from "@/lib/session/make-plan-day-client";
 import { localDateString } from "@/lib/dates";
+import { planTargetLabel, resolvePlanTargetDate } from "@/lib/session/resolve-plan-target-date";
+import { nextDayPlan } from "@/lib/program/day-plan";
+import { makeFetchSessionLocalDate, type SessionLookupClient } from "@/lib/session/fetch-session-local-date";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { finishSessionAction, abandonSessionAction } from "@/lib/session/session-action-wrappers";
 import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 import { buildEligibleSwapList, buildGeneratorInput } from "@/lib/session/eligible-swap-list";
-
-export type { SwapResult };
-
+import { friendlyPlanDayError, GENERIC_PLAN_DAY_ERROR } from "@/lib/session/friendly-plan-day-error";
 import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
+import { checkLogSetInput } from "@/lib/session/check-log-set-input";
+
+export type { SwapResult };
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -113,7 +117,6 @@ export async function logSet(input: {
     async ({ user, supabase }) => {
       if (!user) throw new Error("Not signed in");
       
-      const { checkLogSetInput } = await import("@/lib/session/check-log-set-input");
       const invalid = await checkLogSetInput(supabase, user.id, {
         reps: input.reps,
         weightKg: input.weightKg,
@@ -487,10 +490,27 @@ export type PlannableDay = {
  * "Keep" removes any override rather than writing one, which is what makes the
  * prompt safe to change your mind with.
  */
-export async function planDay(input: {
+/**
+ * QA3 LOW-1: the day the prompt should show instead, when the day it showed
+ * can no longer be saved. Same shape as the page's `tomorrow`, plus its name.
+ */
+export type PlanRetarget = {
   localDate: string;
+  label: string;
+  plannedLabel: string;
+  programDayId: string | null;
+  days: PlannableDay[];
+};
+
+export type PlanDayResult = Result | { ok: false; error: string; retarget: PlanRetarget };
+
+export async function planDay(input: {
+  sessionId?: string;
+  /** End-of-session: the target day the prompt showed (QA3 LOW-1). */
+  shownDate?: string;
+  localDate?: string;
   plan: DayPlan;
-}): Promise<Result> {
+}): Promise<PlanDayResult> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
   
@@ -504,18 +524,66 @@ export async function planDay(input: {
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const today = localDateString(timezone);
 
+  // LOW-9: neither a session nor a date means a caller bug; never guess a day.
+  if (!input.sessionId && !input.localDate) {
+    return { ok: false, error: GENERIC_PLAN_DAY_ERROR };
+  }
+
+  // Resolve target date (session.local_date + 1 or direct localDate)
+  const targetResult = await resolvePlanTargetDate(
+    {
+      // Cast: real Supabase client is structurally compatible; types differ only in unused methods
+      fetchSessionLocalDate: makeFetchSessionLocalDate(supabase as unknown as SessionLookupClient),
+    },
+    input.sessionId
+      ? { userId: user.id, sessionId: input.sessionId, shownDate: input.shownDate }
+      : { userId: user.id, localDate: input.localDate as string },
+    today,
+  );
+
+  if (!targetResult.ok) {
+    if (targetResult.retarget && input.sessionId) {
+      // Nothing saved: hand back the day the summary should now show.
+      const fresh = await nextDayPlan(supabase, timezone, targetResult.retarget, {
+        sessionId: input.sessionId,
+      });
+      if (fresh) {
+        return {
+          ok: false,
+          error: targetResult.error,
+          retarget: {
+            localDate: fresh.localDate,
+            label: planTargetLabel(fresh.localDate, today),
+            plannedLabel: fresh.plannedLabel,
+            programDayId: fresh.programDayId,
+            days: fresh.days,
+          },
+        };
+      }
+    }
+    return { ok: false, error: targetResult.error };
+  }
+
+  const targetDate = targetResult.data;
+
   const client = createPlanDayDbOps(supabase, user.id);
 
   const result = await planDayCore(client, {
     userId: user.id,
-    localDate: input.localDate,
+    localDate: targetDate,
     today,
     plan: input.plan,
   });
 
-  if (result.ok) {
-    revalidateTrainingData();
+  if (!result.ok) {
+    return { ok: false, error: friendlyPlanDayError(result.error) };
   }
 
-  return result;
+  // QA1 LOW-1: from the session summary, revalidating here re-renders the
+  // summary route, whose completed-session guard redirects to Today ~100ms
+  // after the tap, before the confirmation can be read. The prompt calls
+  // `refreshAfterSession()` once the confirmation has been shown instead
+  // (the same reason `finishSession` leaves it to "Back to Today").
+  if (!input.sessionId) revalidateTrainingData();
+  return { ok: true };
 }
