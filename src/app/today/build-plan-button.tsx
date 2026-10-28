@@ -15,13 +15,18 @@ import { buildPlan } from "./actions";
  *
  * `confirm={false}` is for the first build, where there is no plan to replace
  * and so nothing to warn about.
+ *
+ * `onBuilt` runs after a successful build, for callers holding client state the
+ * server refresh cannot reset (Settings' "plan no longer matches" banner).
  */
 export function BuildPlanButton({
   label,
   confirm = true,
+  onBuilt,
 }: {
   label: string;
   confirm?: boolean;
+  onBuilt?: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +38,7 @@ export function BuildPlanButton({
       const r = await buildPlan();
       if (!r.ok) return setError(r.error);
       setAsking(false);
+      onBuilt?.();
       // buildPlan revalidates "/today"; the fresh tree arrives with the
       // action's response.
     });
