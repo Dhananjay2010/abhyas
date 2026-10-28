@@ -144,6 +144,7 @@ async function runTests() {
         },
         session_sets: [],
       },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any;
     
     const progressByExercise = new Map([
