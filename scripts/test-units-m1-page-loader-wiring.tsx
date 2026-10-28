@@ -144,9 +144,10 @@ async function runTests() {
         },
         session_sets: [],
       },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any;
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const progressByExercise: any = new Map([
       ["ex-bench", {
         current_working_weight_kg: 60,
