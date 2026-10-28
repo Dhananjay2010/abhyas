@@ -9,6 +9,7 @@
 import { readFileSync } from "fs";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
@@ -128,7 +129,7 @@ const fakeClient: { from: (table: string) => FakeQueryBuilder } = {
 (async () => {
   const { cleanBannedPlannedExercises } = await import("../src/lib/program/clean-banned-planned");
   
-  await cleanBannedPlannedExercises(fakeClient as never, "user1");
+  await cleanBannedPlannedExercises(fakeClient as Pick<SupabaseClient<Database>, "from">, "user1");
   
   // Check that only program_day_exercises was written to
   const writeTables = tablesAccessed.filter(a => a.includes(":update") || a.includes(":delete"));

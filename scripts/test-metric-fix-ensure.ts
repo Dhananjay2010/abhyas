@@ -10,6 +10,7 @@ import { readFileSync } from "fs";
 import { ensureSessionExercises } from "../src/lib/session/ensure-session-exercises";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
@@ -96,7 +97,7 @@ const fakeClient = makeFakeSupabase();
 
 (async () => {
 await ensureSessionExercises(
-  fakeClient as never,
+  fakeClient as Pick<SupabaseClient<Database>, "from">,
   "u1",
   "s1",
   catalogue,

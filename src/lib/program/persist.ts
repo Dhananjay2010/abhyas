@@ -107,7 +107,7 @@ async function block1RebuildAnchor(
   supabase: Client,
   userId: string,
 ): Promise<{ ok: true; anchor: string | null } | { ok: false; error: string }> {
-  const failed = { ok: false as const, error: "We couldn't load your current plan. Please try again." };
+  const failed: { ok: false; error: string } = { ok: false, error: "We couldn't load your current plan. Please try again." };
   const { data: rows, error } = await supabase
     .from("programs")
     .select("id, started_on, status")
@@ -146,7 +146,7 @@ async function blockLayoutSourceDays(
   supabase: Client,
   userId: string,
 ): Promise<{ ok: true; days: LayoutSourceDay[] } | { ok: false; error: string }> {
-  const failed = { ok: false as const, error: "We couldn't load your current plan. Please try again." };
+  const failed: { ok: false; error: string } = { ok: false, error: "We couldn't load your current plan. Please try again." };
   const { data: source, error } = await supabase
     .from("programs")
     .select("id")

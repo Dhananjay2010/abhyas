@@ -12,6 +12,7 @@ import { readFileSync } from "fs";
 import { buildStartSessionFullDeps } from "../src/lib/session/start-session-full-deps";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
@@ -138,7 +139,7 @@ const fakeTables = {
 
 const fakeClient = makeFakeSupabase(fakeTables);
 
-const deps = buildStartSessionFullDeps(fakeClient as never, "u1", Date.now());
+const deps = buildStartSessionFullDeps(fakeClient as Pick<SupabaseClient<Database>, "from">, "u1", Date.now());
 
 (async () => {
   await deps.ensureSessionExercises("s1");

@@ -12,6 +12,7 @@
 import { readFileSync } from "fs";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
@@ -97,13 +98,11 @@ const fakeClient = {
         }
         return resolve({ data: [] });
       },
-      update(data: unknown) {
-        console.log("DEBUG: update() called with", data);
+      update() {
         isUpdate = true;
         return builder;
       },
       delete() {
-        console.log("DEBUG: delete() called");
         isDelete = true;
         return builder;
       },
@@ -112,7 +111,7 @@ const fakeClient = {
   },
 };
 
-await cleanBannedPlannedExercises(fakeClient as never, "u1");
+await cleanBannedPlannedExercises(fakeClient as Pick<SupabaseClient<Database>, "from">, "u1");
 
 // Check update has both id and exercise_id filters
 const updateHasId = updateFilters.some(f => f.column === "id");

@@ -10,6 +10,8 @@ import { readFileSync } from "fs";
 import { buildStartSessionFullDeps } from "../src/lib/session/start-session-full-deps";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ProgramDayExercise } from "../src/lib/session/start-session-full-core";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
@@ -35,8 +37,6 @@ if (barbell.metric === wallSit.metric) {
   console.log("⊘ SKIP: Metrics are the same, test not applicable");
   process.exit(0);
 }
-
-let insertedExercises: unknown[] = [];
 
 const fakeTables = {
   profiles: [{
@@ -93,10 +93,7 @@ function makeFakeSupabase(tables: Record<string, unknown[]>) {
           const rows = tables[table] || [];
           return resolve({ data: rows, error: null });
         },
-        insert(data: unknown) {
-          if (table === "session_exercises") {
-            insertedExercises = Array.isArray(data) ? data : [data];
-          }
+        insert() {
           if (table === "sessions") {
             return { select: () => ({ single: async () => ({ data: { id: "s1" }, error: null }) }) };
           }
@@ -112,7 +109,7 @@ function makeFakeSupabase(tables: Record<string, unknown[]>) {
 }
 
 const fakeClient = makeFakeSupabase(fakeTables);
-const deps = buildStartSessionFullDeps(fakeClient as never, "u1", Date.now());
+const deps = buildStartSessionFullDeps(fakeClient as Pick<SupabaseClient<Database>, "from">, "u1", Date.now());
 
 if (!deps.cleanBannedExercises) {
   console.error("✗ FAIL: cleanBannedExercises not available");
@@ -130,7 +127,7 @@ const planned = [{
   exercises: { metric: barbell.metric },
 }];
 
-const cleaned = await deps.cleanBannedExercises(planned as never);
+const cleaned = await deps.cleanBannedExercises!(planned as ProgramDayExercise[]);
 
 if (cleaned.length === 0) {
   console.error("✗ FAIL: No exercises after cleanup");

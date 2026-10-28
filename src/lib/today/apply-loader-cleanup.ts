@@ -10,7 +10,24 @@ import type { CandidateExercise, GeneratorInput } from "@/lib/program/generate";
 import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
 import { buildCleanupGeneratorInput } from "@/lib/program/apply-banned-cleanup";
 
-type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
+type PartialExerciseRow = Pick<
+  Database["public"]["Tables"]["exercises"]["Row"],
+  | "id"
+  | "slug"
+  | "name"
+  | "movement_pattern"
+  | "mechanic"
+  | "metric"
+  | "primary_muscles"
+  | "equipment_ids"
+  | "level_min"
+  | "contraindicated_regions"
+  | "impact"
+  | "spinal_load"
+  | "tracks"
+  | "default_rest_seconds"
+  | "category"
+>;
 
 type ProgramDay = {
   id: string;
@@ -46,7 +63,7 @@ export type LoaderCleanupInput = {
     yoga_days_per_week: number | null;
     has_all_equipment: boolean;
   };
-  catalogueRows: ExerciseRow[] | null;
+  catalogueRows: PartialExerciseRow[] | null;
   equipmentIds: string[];
   userId: string;
   applyDayCleanup: <T extends ProgramDay>(day: T, catalogue: CandidateExercise[], generatorInput: GeneratorInput, cleanupResults: { changed: boolean }[]) => T;

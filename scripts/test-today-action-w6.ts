@@ -11,6 +11,7 @@
 import { readFileSync } from "fs";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
@@ -101,7 +102,7 @@ const fakeClient = {
   },
 };
 
-await cleanBannedPlannedExercises(fakeClient as never, "u1");
+await cleanBannedPlannedExercises(fakeClient as Pick<SupabaseClient<Database>, "from">, "u1");
 
 if (!updateCalled) {
   console.error("✗ FAIL: W6 - Action did not call update");

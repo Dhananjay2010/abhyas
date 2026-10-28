@@ -29,12 +29,11 @@ if (!thruster) {
 
 console.log("Testing W5 call-site: Today loader cleanup\n");
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const days: any = [
+const days = [
   {
     id: "day-1",
     day_index: 1,
-    day_type: "weights" as const,
+    day_type: "weights" as Database["public"]["Enums"]["day_type"],
     focus: null,
     label: null,
     program_day_exercises: [
@@ -49,8 +48,8 @@ const days: any = [
         exercises: {
           name: "Kettlebell Thruster",
           cue: null,
-          movement_pattern: "squat",
-          metric: "reps",
+          movement_pattern: "squat" as Database["public"]["Enums"]["movement_pattern"],
+          metric: "reps" as Database["public"]["Enums"]["metric"],
         },
       },
     ],

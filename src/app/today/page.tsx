@@ -28,7 +28,6 @@ import { StrengthDoneBanner } from "./strength-done-banner";
 import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
 import { deriveTodayView } from "@/lib/today/derive-today-view";
 import { CleanupTrigger } from "./cleanup-trigger";
-import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
 import { shouldTriggerBannedCleanup } from "@/lib/today/should-trigger-cleanup";
 import { isRestAfterCleanup } from "@/lib/today/classify-zero-exercise-day";
 
@@ -305,8 +304,7 @@ export default async function TodayPage() {
           yoga_days_per_week: profile.yoga_days_per_week,
           has_all_equipment: profile.has_all_equipment,
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        catalogueRows: catalogueRes.data as any,
+        catalogueRows: catalogueRes.data,
         equipmentIds: (equipmentRes.data || []).map(e => e.equipment_id),
         userId: user.id,
         applyDayCleanup,
