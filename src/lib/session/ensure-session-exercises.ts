@@ -9,10 +9,10 @@
 import type { Database } from "@/lib/database.types";
 import { applyDeload } from "@/lib/program/prescription";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
 import type { CandidateExercise } from "@/lib/program/generate";
 import { cleanBannedPlannedExercises } from "@/lib/program/clean-banned-planned";
-import type { ReplacementResult } from "@/lib/program/replace-banned-in-planned";
+import { replaceBannedInPlanned, type ReplacementResult } from "@/lib/program/replace-banned-in-planned";
+import { buildInjuryFlags } from "@/lib/program/injury-regions";
 
 /**
  * Apply banned-exercise cleanup to planned exercises (extracted for M8 test coverage).
@@ -56,9 +56,6 @@ export function applyEnsureSessionCleanup(
     target_reps_max: p.target_reps_max,
     rest_seconds: p.rest_seconds,
   }));
-  
-  const { replaceBannedInPlanned } = require("@/lib/program/replace-banned-in-planned");
-  const { buildInjuryFlags } = require("@/lib/program/injury-regions");
   
   const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
   

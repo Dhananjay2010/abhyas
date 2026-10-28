@@ -13,10 +13,10 @@ import { ensureSessionExercises } from "./ensure-session-exercises";
 import { insertSessionExercises } from "./insert-session-exercises";
 import { buildStartSessionStaleDeps } from "./build-start-session-stale-deps";
 import type { StartSessionFullDeps, ProgramDayExercise } from "./start-session-full-core";
-import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
 import type { CandidateExercise } from "@/lib/program/generate";
 import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
-import type { ReplacementResult } from "@/lib/program/replace-banned-in-planned";
+import { replaceBannedInPlanned, type ReplacementResult } from "@/lib/program/replace-banned-in-planned";
+import { buildInjuryFlags } from "@/lib/program/injury-regions";
 
 /**
  * Apply banned-exercise cleanup for start-session (extracted for M10 test coverage).
@@ -51,9 +51,6 @@ export function applyStartSessionCleanup(
   userId: string,
   equipmentIds: string[]
 ): ReplacementResult {
-  const { replaceBannedInPlanned } = require("@/lib/program/replace-banned-in-planned");
-  const { buildInjuryFlags } = require("@/lib/program/injury-regions");
-  
   const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
   
   if (!anyKneeInjury) {
