@@ -8,8 +8,6 @@
 
 import { readFileSync } from "fs";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
-import { buildCleanupGeneratorInput } from "../src/lib/program/apply-banned-cleanup";
-import { replaceBannedInPlanned } from "../src/lib/program/replace-banned-in-planned";
 import type { Database } from "../src/lib/database.types";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
@@ -29,13 +27,32 @@ console.log("Testing cleanup table isolation (W6)\n");
 
 const tablesAccessed: string[] = [];
 
+type FakeQueryBuilder = {
+  select: (...args: string[]) => FakeQueryBuilder;
+  eq: (...args: unknown[]) => FakeQueryBuilder;
+  in: (...args: unknown[]) => FakeQueryBuilder;
+  maybeSingle: () => Promise<{ data: unknown }>;
+  then: <T>(resolve: (value: { data: unknown }) => T) => Promise<T>;
+  update: (data: unknown) => FakeUpdateBuilder;
+  delete: () => FakeDeleteBuilder;
+};
+
+type FakeUpdateBuilder = {
+  eq: (...args: unknown[]) => FakeUpdateBuilder;
+  select: () => { single: () => Promise<{ data: unknown; error: unknown }> };
+};
+
+type FakeDeleteBuilder = {
+  eq: (...args: unknown[]) => { error: unknown };
+};
+
 // Fake Supabase that tracks table access
-const fakeClient: any = {
-  from(table: string) {
-    return {
-      select(...args: any[]) { return this; },
-      eq(...args: any[]) { return this; },
-      in(...args: any[]) { return this; },
+const fakeClient: { from: (table: string) => FakeQueryBuilder } = {
+  from(table: string): FakeQueryBuilder {
+    const builder: FakeQueryBuilder = {
+      select(..._: string[]) { return builder; },
+      eq(..._: unknown[]) { return builder; },
+      in(..._: unknown[]) { return builder; },
       
       async maybeSingle() {
         tablesAccessed.push(`${table}:read`);
@@ -57,7 +74,7 @@ const fakeClient: any = {
         return { data: null };
       },
       
-      async then(resolve: any) {
+      async then<T>(resolve: (value: { data: unknown }) => T) {
         tablesAccessed.push(`${table}:read`);
         if (table === "user_injuries") {
           return resolve({ data: [{ body_region: "knee", severity: "current" }] });
@@ -88,21 +105,23 @@ const fakeClient: any = {
         return resolve({ data: [] });
       },
       
-      update(data: any) {
+      update(_: unknown): FakeUpdateBuilder {
         tablesAccessed.push(`${table}:update`);
-        return {
-          eq: () => this,
+        const updateBuilder: FakeUpdateBuilder = {
+          eq: (..._: unknown[]) => updateBuilder,
           select: () => ({ single: async () => ({ data: null, error: null }) }),
         };
+        return updateBuilder;
       },
       
-      delete() {
+      delete(): FakeDeleteBuilder {
         tablesAccessed.push(`${table}:delete`);
         return {
-          eq: () => ({ error: null }),
+          eq: (..._: unknown[]) => ({ error: null }),
         };
       },
     };
+    return builder;
   },
 };
 
