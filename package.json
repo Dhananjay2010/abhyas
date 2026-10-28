@@ -638,7 +638,8 @@
     "test:reps-cap-message": "tsx scripts/test-reps-cap-message.ts",
     "test:swap-mechanic-wiring": "tsx scripts/test-swap-mechanic-wiring.ts",
     "test:lightest-weight-miss-messages": "tsx scripts/test-lightest-weight-miss-messages.ts",
-    "test:profile-units-fallback": "tsx scripts/test-profile-units-fallback.ts"
+    "test:profile-units-fallback": "tsx scripts/test-profile-units-fallback.ts",
+    "mutants:progression": "bash scripts/mutant-test-progression.sh"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
