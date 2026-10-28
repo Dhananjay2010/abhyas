@@ -28,6 +28,11 @@ console.log("Testing Today page cleanup call site\n");
 
 // Simulate a program day with kettlebell-thruster
 const day = {
+  id: "day-1",
+  day_index: 1,
+  day_type: "weights",
+  focus: null,
+  label: null,
   program_day_exercises: [
     {
       id: "pde-1",

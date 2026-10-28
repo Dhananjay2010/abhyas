@@ -10,6 +10,7 @@ import { readFileSync } from "fs";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
+import { isExcludedForCurrentKneeOnly } from "../src/lib/program/past-knee";
 
 type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
@@ -30,7 +31,6 @@ if (!thruster || !pushPress) {
 }
 
 // Check that these are in the current-knee-only list
-const { isExcludedForCurrentKneeOnly } = require("../src/lib/program/past-knee.ts");
 if (!isExcludedForCurrentKneeOnly(thruster)) {
   console.error("✗ FAIL: kettlebell-thruster should be current-knee-only excluded");
   process.exit(1);

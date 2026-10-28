@@ -11,13 +11,14 @@ import { labelForDayType, plannableDays, resolveTodayProgramDay } from "@/lib/pr
 import { loadTodayPlan } from "@/lib/today/load-today-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
-import type { CandidateExercise } from "@/lib/program/generate";
+import type { CandidateExercise, GeneratorInput } from "@/lib/program/generate";
 import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
 import { buildWeekDays } from "@/lib/today/compute-done-days";
+import { replaceBannedInPlanned } from "@/lib/program/replace-banned-in-planned";
 import { getUnitsPreference } from "@/lib/units";
 import { WeekList } from "./week-list";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
@@ -36,18 +37,40 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 /**
  * Apply banned-exercise cleanup to a single program day (extracted for M7 test coverage).
  */
+type DayExerciseForCleanup = {
+  id: string;
+  exercise_id: string;
+  order_index: number;
+  target_sets: number;
+  target_reps_min: number;
+  target_reps_max: number;
+  rest_seconds: number;
+  exercises: {
+    name: string;
+    cue: string | null;
+    movement_pattern: string;
+    metric: string;
+  };
+};
+
 export function applyDayCleanup(
-  day: any,
+  day: {
+    id: string;
+    day_index: number;
+    day_type: string;
+    focus: string | null;
+    label: string | null;
+    program_day_exercises: DayExerciseForCleanup[];
+  },
   catalogue: CandidateExercise[],
-  generatorInput: any,
+  generatorInput: GeneratorInput,
   cleanupResults: { changed: boolean }[]
 ) {
   if (!day.program_day_exercises || day.program_day_exercises.length === 0) {
     return day;
   }
   
-  type DayExercise = typeof day.program_day_exercises[number];
-  const planned = day.program_day_exercises.map((ex: DayExercise) => ({
+  const planned = day.program_day_exercises.map((ex) => ({
     id: ex.id,
     exercise_id: ex.exercise_id,
     order_index: ex.order_index,
@@ -57,7 +80,6 @@ export function applyDayCleanup(
     rest_seconds: ex.rest_seconds,
   }));
   
-  const { replaceBannedInPlanned } = require("@/lib/program/replace-banned-in-planned");
   const result = replaceBannedInPlanned(planned, catalogue, generatorInput);
   
   if (!result.changed) {
@@ -67,7 +89,7 @@ export function applyDayCleanup(
   // Track cleanup results
   cleanupResults.push({ changed: result.changed });
   
-  const cleanedExercises = day.program_day_exercises.map((ex: DayExercise, i: number) => {
+  const cleanedExercises = day.program_day_exercises.map((ex, i: number) => {
     const cleanedId = result.rows[i].exercise_id;
     if (ex.exercise_id === cleanedId) {
       return ex;
@@ -275,7 +297,7 @@ export default async function TodayPage() {
           catalogue,
         };
         
-        days = days.map(day => applyDayCleanup(day, catalogue, generatorInput, cleanupResults));
+        days = days.map(day => applyDayCleanup(day, catalogue, generatorInput, cleanupResults)) as typeof days;
       }
     }
   } catch (error) {
