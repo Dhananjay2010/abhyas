@@ -736,7 +736,7 @@ export function evaluateProgression(input: {
         }
         
         // Easy doubles the MECHANIC increment (before grid constraints)
-        const mechanicIncrement = meta.mechanic === "isolation" ? 2.5 : 
+        const mechanicIncrement = meta.mechanic === "isolation" ? 1.25 : 
           LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;
         let jump: number;
         if (feel === "easy" && !isBodyweightWithAddedWeight) {

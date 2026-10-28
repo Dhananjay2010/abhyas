@@ -28,7 +28,7 @@ echo "✅ Baseline passed"
 echo
 echo "Applying mutant: disable unit-neutral path (displayWeight always returns weight)"
 # Change the displayWeight function to never return null
-sed -i 's/unit === null || unit === undefined/false/g' "$TARGET"
+sed -i 's/unit === null/false/g' "$TARGET"
 
 echo "Testing mutant..."
 if npm run test:profile-units-fallback > /tmp/neutral-mutant.log 2>&1; then
