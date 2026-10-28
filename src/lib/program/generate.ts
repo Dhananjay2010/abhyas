@@ -511,7 +511,7 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   }
 
   // BMI >= 30 excludes high-impact work
-  // MUTANT: Removed BMI>=30 high-impact ban
+  if (input.bmi !== null && input.bmi >= 30 && ex.impact === "high") return false;
   
   // QA Pass 10 C3: Age >= 50 caps high spinal loading
   // Also block high spinal load for current lower_back injury (handled above via derived contraindications)

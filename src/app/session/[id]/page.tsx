@@ -4,9 +4,8 @@ import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warm
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isStaleSession } from "@/lib/session/is-stale-session";
-import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
+import { SessionRunner, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
-import { buildRunnerExercise } from "@/lib/session/build-runner-exercises";
 import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
 import { buildRunnerProps } from "@/lib/session/build-runner-props";
