@@ -531,6 +531,37 @@ async function main() {
     console.log("  ✓ nextDayPlan without sessionId: actual_type filter picks weights over yoga (getTodayCompletedSession no-sessionId branch)\n");
   }
 
+  {
+    console.log("12. Mutant 5c: actual_type filter at line 620 decides which row wins with order+limit");
+
+    const { nextDayPlan } = await import("../src/lib/program/day-plan");
+
+    // days3Full: 1=A, 2=rest, 3=B, 4=rest, 5=C, 6=yoga, 7=rest
+    // Today: Tue Oct 27 2026 (day 2 = rest), swap to B
+    // Tomorrow: Wed Oct 28 2026 (day 3 = scheduled B)
+    const client = buildClient({
+      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
+      programDays: days3Full,
+      sessions: [
+        // Tuesday (rest day): weights B at 09:00 (swap from rest)
+        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T09:00:00Z" },
+        // Tuesday: meditation at 18:00 (newer, but not weights/bodyweight)
+        { id: "s-tue-med", user_id: "u1", program_day_id: null, actual_type: "meditation", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T18:00:00Z" },
+      ],
+    });
+
+    // Call nextDayPlan for tomorrow (Wed Oct 28, day 3, scheduled B)
+    // WITH filter: weights B (09:00) wins via order+limit, today is swap, collision with Wed's B → resolves to C
+    // WITHOUT filter: meditation (18:00) wins, wasSwapDay returns false (not weights), no swap detected → tomorrow stays B
+    const result = await nextDayPlan(client, "America/New_York", "2026-10-28");
+
+    assert.ok(result, "Should return next day plan");
+    assert.strictEqual(result.plannedLabel, "Full Body C", "Tomorrow should be C (weights B picked, swap detected, collision resolved); dropping .in at line 620 picks meditation, no swap, returns B");
+    assert.strictEqual(result.collisionResolved, true, "Collision resolved with filter; mutant returns false (no swap detected)");
+
+    console.log("  ✓ Mutant 5c killed: actual_type filter chooses weights over newer meditation\n");
+  }
+
   console.log("✓ All rest-swap label followup tests passed\n");
 }
 
