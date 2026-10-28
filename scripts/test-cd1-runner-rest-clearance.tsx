@@ -16,6 +16,8 @@ import {
   type RunnerSettings,
 } from "../src/app/session/[id]/session-runner";
 import type { StorageAdapter } from "../src/lib/session/rest-timer-persistence";
+import { savePendingSet, loadPendingSets } from "../src/lib/session/pending-set-retry";
+import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createFakeStorage(): StorageAdapter & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -536,6 +538,111 @@ console.log("\n5. Skip with empty pending queue: finishSession fails - rest pers
   assertEqualsCd1(fakeStorage.data.has(restKey), true, "rest persistence NOT cleared after failed finish (empty queue path)");
   
   cleanup();
+}
+
+console.log("\n6. Skip with a pending set: replay empties the queue, finishSession fails - rest persistence NOT cleared");
+{
+  const SESSION_ID = "test-session-6";
+  const USER_ID = "test-user-6";
+  const restKey = `abhyas:rest:${SESSION_ID}`;
+  const pendingDeps = createPendingSetDeps(() => now);
+
+  fakeStorage.data.clear();
+  window.localStorage.clear();
+  fakeStorage.setItem(restKey, JSON.stringify({
+    sessionId: SESSION_ID,
+    sessionExerciseId: "ex-completed-6",
+    restEndsAt: now + 90000,
+  }));
+  savePendingSet(window.localStorage, USER_ID, SESSION_ID, {
+    sessionExerciseId: "ex-completed-6",
+    setNumber: 3,
+    reps: 8,
+    weightKg: 60,
+    durationSeconds: null,
+    clientId: "pending-cd1-6",
+  }, pendingDeps);
+
+  // The mount-time replay fails, so the set is still pending when Skip is tapped;
+  // the replay started by Skip succeeds and empties the queue.
+  let logSetSucceeds = false;
+  let logSetCalls = 0;
+  let finishAttempts = 0;
+  const actions: SessionActions = {
+    markWarmupDone: ok,
+    logSet: async () => {
+      logSetCalls++;
+      return logSetSucceeds ? { ok: true as const } : { ok: false as const, error: "Network error" };
+    },
+    deleteSet: ok,
+    finishExercise: async () => ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: async () => {
+      finishAttempts++;
+      return { ok: false, error: "Network error" };
+    },
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => ({ ok: true as const, data: {
+      metric: "reps" as const,
+      repsMin: 8,
+      repsMax: 12,
+      equipmentIds: [],
+      weightPrefill: null,
+      workingWeightKg: null,
+      currentTargetReps: null,
+      isBodyweight: false,
+    }}),
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+  };
+
+  render(
+    <SessionRunner
+      sessionId={SESSION_ID}
+      sessionStatus="in_progress"
+      userId={USER_ID}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(now).toISOString()}
+      isStale={false}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[makeExercise("ex-completed-6", "Squat", "completed")]}
+      settings={settings}
+      actions={actions}
+      nowFn={() => now}
+    />
+  );
+
+  await act(async () => {
+    await waitFor(() => {
+      if (logSetCalls === 0) throw new Error("waiting for mount replay");
+      if (!screen.queryByText(/Skip/i)) throw new Error("Waiting for Skip button");
+      if (!screen.queryByText(/waiting to save/i)) throw new Error("waiting for pending notice");
+    }, { timeout: 2000 });
+  });
+
+  assertEqualsCd1(loadPendingSets(window.localStorage, USER_ID, SESSION_ID, pendingDeps).length, 1, "set still pending before Skip");
+  assertEqualsCd1(fakeStorage.data.has(restKey), true, "rest persistence exists before finish");
+
+  logSetSucceeds = true;
+  const callsBeforeSkip = logSetCalls;
+  await act(async () => {
+    screen.getByText(/Skip/i).click();
+    await waitFor(() => {
+      if (finishAttempts === 0) throw new Error("waiting for finishSession");
+    }, { timeout: 1000 });
+  });
+
+  assertEqualsCd1(logSetCalls > callsBeforeSkip, true, "Skip replayed the pending set");
+  assertEqualsCd1(loadPendingSets(window.localStorage, USER_ID, SESSION_ID, pendingDeps).length, 0, "replay emptied the queue");
+  assertEqualsCd1(finishAttempts, 1, "finishSession was called in the same tap");
+  assertEqualsCd1(fakeStorage.data.has(restKey), true, "rest persistence NOT cleared after failed finish (pending-replay path)");
+
+  cleanup();
+  window.localStorage.clear();
 }
 
 console.log(`\n✅ Passed: ${passedCd1}`);
