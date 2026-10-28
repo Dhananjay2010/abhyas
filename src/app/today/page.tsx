@@ -144,7 +144,7 @@ export default async function TodayPage() {
     // A strength plan with no equipment recorded is a misconfiguration that
     // produces a thin, odd-looking plan. Say so rather than letting the user
     // wonder why their Pull day is full of core work.
-    supabase.from("user_equipment").select("*", { count: "exact", head: true }),
+    supabase.from("user_equipment").select("equipment_id", { count: "exact" }).eq("user_id", user.id),
   ]);
 
   /*
@@ -297,7 +297,7 @@ export default async function TodayPage() {
           age: null,
           bmi: null,
           hasAllEquipment: profile.has_all_equipment,
-          equipmentIds: [],
+          equipmentIds: (equipmentRes.data || []).map(e => e.equipment_id),
           currentInjuryRegions,
           anyKneeInjury,
           catalogue,
