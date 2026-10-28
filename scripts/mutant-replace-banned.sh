@@ -211,8 +211,21 @@ run_mutant_test \
   'const tieBreakFn = (slug: string) => Math.random(); // MUTANT' \
   "npx tsx scripts/test-replace-banned-in-planned.ts"
 
-# Note: M7 and M8 (call-site verifications) removed as they require integration tests
-# The underlying functions are tested by test-today-cleanup-action and test-ensure-session-banned-cleanup
+# Mutant 7: Today call site removed
+run_mutant_test \
+  "M7: Today call site removed" \
+  "src/app/today/page.tsx" \
+  'const result = replaceBannedInPlanned(planned, catalogue, generatorInput);' \
+  'const result = { changed: false, rows: planned }; // MUTANT' \
+  "npx tsx scripts/test-today-page-cleanup-path.ts"
+
+# Mutant 8: ensure-session-exercises call site removed
+run_mutant_test \
+  "M8: ensure-session-exercises call site removed" \
+  "src/lib/session/ensure-session-exercises.ts" \
+  'const cleaned = applyBannedCleanup(plannedForCleaning, catalogue, profile, injuries, userId, equipmentIds);' \
+  'const cleaned = plannedForCleaning; // MUTANT: applyBannedCleanup call removed' \
+  "npx tsx scripts/test-ensure-session-call-site.ts"
 
 # Mutant 9: generate.ts:828 reverted to past-only
 GEN_FILE="src/lib/program/generate.ts"
@@ -245,8 +258,21 @@ fi
 restore_file "$GEN_FILE"
 echo ""
 
-# Note: M10 and M11 (call-site/path verifications) require integration tests
-# The per-path behavioral tests verify the functions work correctly
+# Mutant 10: start-session call site removed
+run_mutant_test \
+  "M10: start-session cleanup removed" \
+  "src/lib/session/start-session-full-deps.ts" \
+  'const cleaned = applyBannedCleanup(' \
+  'const cleaned = plannedForCleaning; if (false) { applyBannedCleanup(' \
+  "npx tsx scripts/test-start-session-call-site.ts"
+
+# Mutant 11: Force-add filter removed
+run_mutant_test \
+  "M11: Force-add current-knee filter removed" \
+  "src/lib/program/generate.ts" \
+  'if (isExcludedForCurrentKneeOnly(e)) return false;' \
+  '// MUTANT: isExcludedForCurrentKneeOnly check removed' \
+  "npx tsx scripts/test-generate-force-add-current-knee.ts"
 
 echo "================================================================================"
 if [ $FAILURES -eq 0 ]; then

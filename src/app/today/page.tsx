@@ -33,6 +33,67 @@ export const dynamic = "force-dynamic";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
+/**
+ * Apply banned-exercise cleanup to a single program day (extracted for M7 test coverage).
+ */
+export function applyDayCleanup(
+  day: any,
+  catalogue: CandidateExercise[],
+  generatorInput: any,
+  cleanupResults: { changed: boolean }[]
+) {
+  if (!day.program_day_exercises || day.program_day_exercises.length === 0) {
+    return day;
+  }
+  
+  type DayExercise = typeof day.program_day_exercises[number];
+  const planned = day.program_day_exercises.map((ex: DayExercise) => ({
+    id: ex.id,
+    exercise_id: ex.exercise_id,
+    order_index: ex.order_index,
+    target_sets: ex.target_sets,
+    target_reps_min: ex.target_reps_min,
+    target_reps_max: ex.target_reps_max,
+    rest_seconds: ex.rest_seconds,
+  }));
+  
+  const { replaceBannedInPlanned } = require("@/lib/program/replace-banned-in-planned");
+  const result = replaceBannedInPlanned(planned, catalogue, generatorInput);
+  
+  if (!result.changed) {
+    return day;
+  }
+  
+  // Track cleanup results
+  cleanupResults.push({ changed: result.changed });
+  
+  const cleanedExercises = day.program_day_exercises.map((ex: DayExercise, i: number) => {
+    const cleanedId = result.rows[i].exercise_id;
+    if (ex.exercise_id === cleanedId) {
+      return ex;
+    }
+    
+    const newExercise = catalogue.find(e => e.id === cleanedId);
+    if (!newExercise) return ex;
+    
+    return {
+      ...ex,
+      exercise_id: cleanedId,
+      exercises: {
+        name: newExercise.name,
+        cue: null,
+        movement_pattern: newExercise.movement_pattern,
+        metric: newExercise.metric,
+      },
+    };
+  });
+  
+  return {
+    ...day,
+    program_day_exercises: cleanedExercises,
+  };
+}
+
 export default async function TodayPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
@@ -214,57 +275,7 @@ export default async function TodayPage() {
           catalogue,
         };
         
-        days = days.map(day => {
-          if (!day.program_day_exercises || day.program_day_exercises.length === 0) {
-            return day;
-          }
-          
-          type DayExercise = typeof day.program_day_exercises[number];
-          const planned = day.program_day_exercises.map((ex: DayExercise) => ({
-            id: ex.id,
-            exercise_id: ex.exercise_id,
-            order_index: ex.order_index,
-            target_sets: ex.target_sets,
-            target_reps_min: ex.target_reps_min,
-            target_reps_max: ex.target_reps_max,
-            rest_seconds: ex.rest_seconds,
-          }));
-          
-          const result = replaceBannedInPlanned(planned, catalogue, generatorInput);
-          
-          if (!result.changed) {
-            return day;
-          }
-          
-          // Track cleanup results
-          cleanupResults.push({ changed: result.changed });
-          
-          const cleanedExercises = day.program_day_exercises.map((ex: DayExercise, i: number) => {
-            const cleanedId = result.rows[i].exercise_id;
-            if (ex.exercise_id === cleanedId) {
-              return ex;
-            }
-            
-            const newExercise = catalogue.find(e => e.id === cleanedId);
-            if (!newExercise) return ex;
-            
-            return {
-              ...ex,
-              exercise_id: cleanedId,
-              exercises: {
-                name: newExercise.name,
-                cue: null,
-                movement_pattern: newExercise.movement_pattern,
-                metric: newExercise.metric,
-              },
-            };
-          });
-          
-          return {
-            ...day,
-            program_day_exercises: cleanedExercises,
-          };
-        });
+        days = days.map(day => applyDayCleanup(day, catalogue, generatorInput, cleanupResults));
       }
     }
   } catch (error) {
