@@ -297,12 +297,17 @@ export async function closeStaleSessionsCore(
 
       const workingSetCount = workingSetCounts.get(id) ?? 0;
       
-      // MUTANT: Always use last set's rest, ignoring working set rest
-      const restSeconds = lastSetRestSeconds.get(id) ?? null;
+      const lastSetTime = lastSetCompletedAt.get(id);
+      const lastWorkingSetTime = lastWorkingSetCompletedAt.get(id);
+      const lastSetIsWarmup = lastSetTime && lastWorkingSetTime && lastSetTime > lastWorkingSetTime;
+      
+      const restSeconds = lastSetIsWarmup 
+        ? (lastWorkingSetRestSeconds.get(id) ?? null)
+        : (lastSetRestSeconds.get(id) ?? null);
       
       const input: StaleFinishInputExtended = {
         startedAt,
-        lastSetCompletedAt: lastSetCompletedAt.get(id) ?? null,
+        lastSetCompletedAt: lastSetTime ?? null,
         workingSetCount,
         restSeconds,
       };
