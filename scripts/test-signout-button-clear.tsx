@@ -191,7 +191,7 @@ Object.defineProperty(window, 'localStorage', {
   console.log("✓ Test 3 passed\n");
   
   // ========================================================================
-  // Test 4: Expired session on "Sign out anyway" → CLEARS queue (Item 1), calls /auth/signout POST, navigates
+  // Test 4: Expired session on "Sign out anyway" → keeps queue, calls /auth/signout POST, navigates
   // ========================================================================
   console.log("=== Test 4: Expired session path (Sign out anyway) ===\n");
   
@@ -205,17 +205,7 @@ Object.defineProperty(window, 'localStorage', {
     clientId: "pending-u4"
   }, fakeDeps);
   
-  // Also add u5's queue to verify it stays untouched
-  savePendingSet(fakeStorage, "u5", "session-5", {
-    sessionExerciseId: "ex5",
-    setNumber: 1,
-    reps: 10,
-    weightKg: 50,
-    durationSeconds: null,
-    clientId: "pending-u5"
-  }, fakeDeps);
-  
-  const queueU5Before = fakeStorage.getItem(storageKey("u5"));
+  const queueBeforeExpired = fakeStorage.getItem(storageKey("u4"));
   
   const signOutExpired = async () => {
     throw new Error("SESSION_EXPIRED:abc123");
@@ -257,27 +247,17 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
-  // Click "Sign out anyway" once to show confirmation dialog, then click again to confirm
+  // Now click "Sign out anyway" which triggers expired session path
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
   });
   
   await act(async () => {});
-  
-  // Click the confirmation "Sign out anyway" button
-  await act(async () => {
-    const anywayButtons = screen.queryAllByText(/Sign out anyway/i);
-    const confirmButton = anywayButtons[anywayButtons.length - 1];
-    confirmButton.click();
-  });
-  
-  await act(async () => {});
   await act(async () => {});
   await act(async () => {});
   
-  assert(fakeStorage.getItem(storageKey("u4")) === null, "u4 queue CLEARED on 'Sign out anyway' (Item 1)");
-  assert(fakeStorage.getItem(storageKey("u5")) === queueU5Before, "u5 queue kept (another user untouched)");
+  assert(fakeStorage.getItem(storageKey("u4")) === queueBeforeExpired, "u4 queue kept on expired session");
   assert(fetchCalled, "/auth/signout POST was made");
   assert(fetchPath === "/auth/signout", "POST to /auth/signout");
   assert(fetchMethod === "POST", "Method is POST");
@@ -289,7 +269,7 @@ Object.defineProperty(window, 'localStorage', {
   console.log("✓ Test 4 passed\n");
   
   // ========================================================================
-  // Test 5: Non-expired throw on "Sign out anyway" → CLEARS queue (Item 1), shows error, no navigation
+  // Test 5: Non-expired throw on "Sign out anyway" → keeps queue, shows error, no navigation
   // ========================================================================
   console.log("=== Test 5: Non-expired throw (Sign out anyway) ===\n");
   
@@ -302,6 +282,8 @@ Object.defineProperty(window, 'localStorage', {
     durationSeconds: null,
     clientId: "pending-u5"
   }, fakeDeps);
+  
+  const queueBeforeThrow = fakeStorage.getItem(storageKey("u5"));
   
   const signOutThrow = async () => {
     throw new Error("Network timeout");
@@ -327,24 +309,16 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
-  // Click "Sign out anyway" once to show confirmation, then click again to confirm
+  // Now click "Sign out anyway" which triggers throw
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
   });
   
   await act(async () => {});
-  
-  await act(async () => {
-    const anywayButtons = screen.queryAllByText(/Sign out anyway/i);
-    const confirmButton = anywayButtons[anywayButtons.length - 1];
-    confirmButton.click();
-  });
-  
-  await act(async () => {});
   await act(async () => {});
   
-  assert(fakeStorage.getItem(storageKey("u5")) === null, "u5 queue CLEARED on 'Sign out anyway' even when signOut throws (Item 1)");
+  assert(fakeStorage.getItem(storageKey("u5")) === queueBeforeThrow, "u5 queue kept on throw");
   assert(replaceCalls.length === 0, "No navigation on non-expired throw");
   assert(screen.queryByText(/Unable to sign out/i) !== null, "Shows error message");
   
@@ -352,7 +326,7 @@ Object.defineProperty(window, 'localStorage', {
   console.log("✓ Test 5 passed\n");
   
   // ========================================================================
-  // Test 6: {ok:false} result on "Sign out anyway" → CLEARS queue (Item 1), shows error, no navigation
+  // Test 6: {ok:false} result on "Sign out anyway" → keeps queue, shows error, no navigation
   // ========================================================================
   console.log("=== Test 6: {ok:false} result (Sign out anyway) ===\n");
   
@@ -365,6 +339,8 @@ Object.defineProperty(window, 'localStorage', {
     durationSeconds: null,
     clientId: "pending-u6"
   }, fakeDeps);
+  
+  const queueBeforeOkFalse = fakeStorage.getItem(storageKey("u6"));
   
   const signOutOkFalse = async () => {
     return { ok: false as const, error: "Invalid session" };
@@ -390,24 +366,16 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
-  // Click "Sign out anyway" once to show confirmation, then click again to confirm
+  // Now click "Sign out anyway" which triggers ok:false
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
   });
   
   await act(async () => {});
-  
-  await act(async () => {
-    const anywayButtons = screen.queryAllByText(/Sign out anyway/i);
-    const confirmButton = anywayButtons[anywayButtons.length - 1];
-    confirmButton.click();
-  });
-  
-  await act(async () => {});
   await act(async () => {});
   
-  assert(fakeStorage.getItem(storageKey("u6")) === null, "u6 queue CLEARED on 'Sign out anyway' even when ok:false (Item 1)");
+  assert(fakeStorage.getItem(storageKey("u6")) === queueBeforeOkFalse, "u6 queue kept on ok:false");
   assert(replaceCalls.length === 0, "No navigation on ok:false");
   assert(screen.queryByText(/Unable to sign out/i) !== null, "Shows error on ok:false");
   
@@ -415,7 +383,7 @@ Object.defineProperty(window, 'localStorage', {
   console.log("✓ Test 6 passed\n");
   
   // ========================================================================
-  // Test 7: Non-ok /auth/signout on expired session → CLEARS queue (Item 1), shows error, no navigation
+  // Test 7: Non-ok /auth/signout on expired session → shows error, no navigation, queue kept
   // ========================================================================
   console.log("=== Test 7: Non-ok /auth/signout POST (Sign out anyway) ===\n");
   
@@ -428,6 +396,8 @@ Object.defineProperty(window, 'localStorage', {
     durationSeconds: null,
     clientId: "pending-u7"
   }, fakeDeps);
+  
+  const queueBeforeNonOk = fakeStorage.getItem(storageKey("u7"));
   
   const signOutExpired2 = async () => {
     throw new Error("SESSION_EXPIRED:xyz789");
@@ -460,25 +430,17 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {});
   await act(async () => {});
   
-  // Click "Sign out anyway" once to show confirmation, then click again to confirm
+  // Now click "Sign out anyway" which triggers expired session path with non-ok POST
   await act(async () => {
     const anywayButton = screen.getByText(/Sign out anyway/i);
     anywayButton.click();
   });
   
   await act(async () => {});
-  
-  await act(async () => {
-    const anywayButtons = screen.queryAllByText(/Sign out anyway/i);
-    const confirmButton = anywayButtons[anywayButtons.length - 1];
-    confirmButton.click();
-  });
-  
-  await act(async () => {});
   await act(async () => {});
   await act(async () => {});
   
-  assert(fakeStorage.getItem(storageKey("u7")) === null, "u7 queue CLEARED on 'Sign out anyway' even when POST fails (Item 1)");
+  assert(fakeStorage.getItem(storageKey("u7")) === queueBeforeNonOk, "u7 queue kept on non-ok POST");
   assert(replaceCalls.length === 0, "No navigation on non-ok POST");
   assert(screen.queryByText(/Failed to sign out/i) !== null, "Shows error on non-ok POST");
   

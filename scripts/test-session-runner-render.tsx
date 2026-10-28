@@ -975,8 +975,10 @@ async function test9b() {
     if (doneButton2) fireEvent.click(doneButton2);
   });
   
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 100));
+  await waitFor(() => {
+    if (logSetCallCount2 !== 1) {
+      throw new Error("Waiting for replay to complete");
+    }
   });
   
   assert(logSetCallCount2 === 1, `9b negative: logSet called once during replay (got ${logSetCallCount2})`);
@@ -987,9 +989,7 @@ async function test9b() {
   assert(!finishSessionCalled2, "9b negative: finishSession NOT called when replay fails");
   
   // Verify pending notice still shown
-  const bodyText = screen.getByRole('main').textContent || "";
-  const hasPendingNotice = bodyText.includes("pending") || bodyText.includes("Pending") || bodyText.includes("waiting");
-  assert(hasPendingNotice, "9b negative: Pending notice still shown after failed replay");
+  assert(screen.queryByText(/1 set waiting to save/i) !== null, "9b negative: '1 set waiting to save' still shown after failed replay");
   
   cleanup();
   fakeStorage.clear();

@@ -309,9 +309,9 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     unmountD();
     
     // ========================================================================
-    // Test (e): "Sign out anyway" → queue CLEARED (Item 1)
+    // Test (e): "Sign out anyway" → queue unchanged
     // ========================================================================
-    console.log(`\nTest (e) ${name}: 'Sign out anyway' clears queue (Item 1)\n`);
+    console.log(`\nTest (e) ${name}: 'Sign out anyway' keeps queue\n`);
     
     fakeStorage.clear();
     savePendingSet(fakeStorage, "u5", "session-5", {
@@ -345,20 +345,10 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     await act(async () => {});
     await act(async () => {});
     
-    // Click "Sign out anyway" once to show confirmation
     const signOutAnywayBtn = screen.getByRole("button", { name: /Sign out anyway/i });
     
     await act(async () => {
       signOutAnywayBtn.click();
-    });
-    
-    await act(async () => {});
-    
-    // Click "Sign out anyway" again to confirm
-    await act(async () => {
-      const anywayButtons = screen.queryAllByText(/Sign out anyway/i);
-      const confirmButton = anywayButtons[anywayButtons.length - 1];
-      confirmButton.click();
     });
     
     await act(async () => {});
@@ -367,7 +357,8 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
     assert(signOutCalls === 1, `(e) ${name}: signOut called`);
     
     const queueAfterE = fakeStorage.getItem(storageKey("u5"));
-    assert(queueAfterE === null, `(e) ${name}: u5 queue CLEARED by 'Sign out anyway' (Item 1)`);
+    assert(queueAfterE !== null, `(e) ${name}: u5 queue kept`);
+    assert(queueAfterE === queueBeforeE, `(e) ${name}: u5 queue byte-identical`);
     
     unmountE();
   }

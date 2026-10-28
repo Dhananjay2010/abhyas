@@ -80,19 +80,14 @@ export function useSignOut({
   }
 
   async function handleSignOutAnyway() {
-    // Clear this user's pending queue before signing out (Item 1)
-    if (typeof window !== "undefined") {
-      clearAllPendingSetsForUser(window.localStorage, userId);
-    }
-    
     startTransition(async () => {
       setError(null);
       setShowWarning(false);
-      await performSignOut();
+      await performSignOut(true); // Pass clearQueue flag
     });
   }
 
-  async function performSignOut() {
+  async function performSignOut(clearQueue = false) {
     let result;
     try {
       result = await signOut();
@@ -100,8 +95,6 @@ export function useSignOut({
       // Check if this is an expired session error
       if (isSessionExpired(err)) {
         // Session is already expired, sign out locally and navigate
-        // Queue is already cleared by handleSignOutAnyway (Item 1)
-        // Normal sign-out paths keep the queue for replay on next sign-in
         try {
           const res = await fetch("/auth/signout", {
             method: "POST",
@@ -113,8 +106,14 @@ export function useSignOut({
             setError("Failed to sign out. Please try again.");
             return;
           }
+          // Success - clear queue if requested, then navigate
+          if (clearQueue && typeof window !== "undefined") {
+            clearAllPendingSetsForUser(window.localStorage, userId);
+          }
         } catch {
-          // If fetch fails, cookies might still be invalid; proceed with navigation
+          // If fetch fails, keep queue and show error
+          setError("Failed to sign out. Please try again.");
+          return;
         }
         router.replace("/");
         router.refresh();
@@ -130,7 +129,10 @@ export function useSignOut({
       return;
     }
     
-    // Success - navigate (queue is already empty or kept for replay)
+    // Success - clear queue if requested, then navigate
+    if (clearQueue && typeof window !== "undefined") {
+      clearAllPendingSetsForUser(window.localStorage, userId);
+    }
     router.replace("/");
     router.refresh();
   }

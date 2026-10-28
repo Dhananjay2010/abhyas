@@ -217,4 +217,3 @@ function check(label: string, pass: boolean, detail = "") {
     process.exit(1);
   }
 })();
-

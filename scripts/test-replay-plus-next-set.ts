@@ -16,6 +16,7 @@ import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
 import type { Storage } from "../src/lib/session/pending-set-retry";
 import { storageKey } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
+import { nextSetTarget } from "../src/lib/session/resume-state";
 
 const FIXED_TIME = 1700000000000; // Nov 14, 2023
 
@@ -110,13 +111,17 @@ async function testReplayPlusNextSetNoCollision() {
   );
 
   const setsInUI = 0;
-  const pendingCount = states[states.length - 1].pending.filter(
+  const pendingState = states[states.length - 1];
+  const pendingForThisEx = pendingState.pending.filter(
     (s) => s.sessionExerciseId === exerciseId
-  ).length;
-  // Real logic: next set = max set + 1 + pending count
-  const correctNextSetNumber = setsInUI + 1 + pendingCount;
+  );
+  
+  // Use real nextSetTarget to compute expected next set
+  const exercises = [{ id: exerciseId, status: "pending" as const, plannedSets: 3, sets: [] }];
+  const target = nextSetTarget(exercises, exerciseId, pendingState.pending);
+  const correctNextSetNumber = target?.setNumber ?? 1;
 
-  console.log(`  Current sets: ${setsInUI}, Pending: ${pendingCount}`);
+  console.log(`  Current sets: ${setsInUI}, Pending: ${pendingForThisEx.length}`);
   console.log(`  Next set number (accounting for pending): ${correctNextSetNumber}`);
 
   // Step 3: Replay the pending set (async, doesn't block UI)
@@ -264,8 +269,16 @@ async function testReplayedSetsUpdateUI() {
   assertEqual(finalState.replayed.length, 2, "Both sets reported as replayed");
   assertEqual(finalState.pending.length, 0, "No sets remain pending");
   
-  const maxSetNumber = Math.max(...finalState.replayed.map((s) => s.setNumber));
-  const correctNextSetNumber = maxSetNumber + 1 + 0;
+  // Use real nextSetTarget to compute expected next set
+  const replayedSetNumbers = finalState.replayed.map((s) => s.setNumber);
+  const exercises = [{
+    id: "ex-1",
+    status: "pending" as const,
+    plannedSets: 3,
+    sets: replayedSetNumbers.map(n => ({ set_number: n }))
+  }];
+  const target = nextSetTarget(exercises, "ex-1", []);
+  const correctNextSetNumber = target?.setNumber ?? 1;
   
   assertEqual(correctNextSetNumber, 3, "After replaying sets 1 and 2, nextSetNumber should be 3");
 }

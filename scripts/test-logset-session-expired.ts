@@ -26,11 +26,16 @@ function assert(condition: boolean, message: string) {
 
 console.log("\n📋 Test: logSet returns SESSION_EXPIRED when auth expired (Item 6 - A1)\n");
 
+// Helper to create a minimal SupabaseClient stub for testing
+function createStubSupabase(impl: { from: SupabaseClient<Database>["from"] }): SupabaseClient<Database> {
+  return impl as SupabaseClient<Database>;
+}
+
 // Test 1: Auth returns null user → resolveAuth catches and returns SESSION_EXPIRED
 async function testExpiredAuth() {
   console.log("=== Test 1: Expired auth returns SESSION_EXPIRED ===\n");
   
-  const stubSupabase = {
+  const stubSupabase = createStubSupabase({
     from: () => ({
       select: () => ({
         eq: () => ({
@@ -42,12 +47,13 @@ async function testExpiredAuth() {
         }),
       }),
     }),
-  };
+  });
   
   const deps: LogSetCoreDeps = {
     getAuthedClient: async () => ({
-      supabase: stubSupabase as unknown as SupabaseClient<Database>,
+      supabase: stubSupabase,
       user: null,
+    }),
     }),
     checkLogSetInput: async () => {
       throw new Error("Should not be called when auth fails");
@@ -88,7 +94,7 @@ async function testValidAuth() {
   
   let coreCalled = false;
   
-  const stubSupabase = {
+  const stubSupabase = createStubSupabase({
     from: () => ({
       select: () => ({
         eq: () => ({
@@ -100,11 +106,11 @@ async function testValidAuth() {
         }),
       }),
     }),
-  };
+  });
   
   const deps: LogSetCoreDeps = {
     getAuthedClient: async () => ({
-      supabase: stubSupabase as unknown as SupabaseClient<Database>,
+      supabase: stubSupabase,
       user: { id: "user123" },
     }),
     checkLogSetInput: async () => null,

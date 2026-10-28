@@ -129,15 +129,15 @@ if (imperialButton) {
 
   // Check 5: Fill in DOB (required) - use explicit date parts
   const dobDayInput = container.querySelector<HTMLInputElement>('input[placeholder="DD"]');
-  if (!(dobDayInput instanceof window.HTMLInputElement)) {
+  if (!(dobDayInput instanceof HTMLInputElement)) {
     throw new Error("DOB day input not found");
   }
   const dobMonthInput = container.querySelector<HTMLInputElement>('input[placeholder="MM"]');
-  if (!(dobMonthInput instanceof window.HTMLInputElement)) {
+  if (!(dobMonthInput instanceof HTMLInputElement)) {
     throw new Error("DOB month input not found");
   }
   const dobYearInput = container.querySelector<HTMLInputElement>('input[placeholder="YYYY"]');
-  if (!(dobYearInput instanceof window.HTMLInputElement)) {
+  if (!(dobYearInput instanceof HTMLInputElement)) {
     throw new Error("DOB year input not found");
   }
 

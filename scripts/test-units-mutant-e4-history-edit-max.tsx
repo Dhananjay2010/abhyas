@@ -100,7 +100,7 @@ console.log("\n1. Imperial user: weight input max attribute");
   fireEvent.click(editButtons[0]);
 
   const el = container.querySelector('input[type="number"][placeholder="lb"]');
-  if (!(el instanceof window.HTMLInputElement)) {
+  if (!(el instanceof HTMLInputElement)) {
     throw new Error("Imperial weight input not found");
   }
 
@@ -121,7 +121,7 @@ console.log("\n2. Imperial user: entering 1000 lb shows validation error");
   fireEvent.click(editButtons[0]);
 
   const el = container.querySelector('input[type="number"][placeholder="lb"]');
-  if (!(el instanceof window.HTMLInputElement)) {
+  if (!(el instanceof HTMLInputElement)) {
     throw new Error("Imperial weight input not found");
   }
 
@@ -152,7 +152,7 @@ console.log("\n3. Imperial user: 999 lb accepted (no validation error)");
   fireEvent.click(editButtons[0]);
 
   const el = container.querySelector('input[type="number"][placeholder="lb"]');
-  if (!(el instanceof window.HTMLInputElement)) {
+  if (!(el instanceof HTMLInputElement)) {
     throw new Error("Imperial weight input not found");
   }
 
@@ -183,7 +183,7 @@ console.log("\n4. Metric user: weight input max attribute");
   fireEvent.click(editButtons[0]);
 
   const el = container.querySelector('input[type="number"][placeholder="kg"]');
-  if (!(el instanceof window.HTMLInputElement)) {
+  if (!(el instanceof HTMLInputElement)) {
     throw new Error("Metric weight input not found");
   }
 
@@ -204,7 +204,7 @@ console.log("\n5. Metric user: entering 501 kg shows validation error");
   fireEvent.click(editButtons[0]);
 
   const el = container.querySelector('input[type="number"][placeholder="kg"]');
-  if (!(el instanceof window.HTMLInputElement)) {
+  if (!(el instanceof HTMLInputElement)) {
     throw new Error("Metric weight input not found");
   }
 
@@ -235,7 +235,7 @@ console.log("\n6. Metric user: 500 kg accepted (no validation error)");
   fireEvent.click(editButtons[0]);
 
   const el = container.querySelector('input[type="number"][placeholder="kg"]');
-  if (!(el instanceof window.HTMLInputElement)) {
+  if (!(el instanceof HTMLInputElement)) {
     throw new Error("Metric weight input not found");
   }
 

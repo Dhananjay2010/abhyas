@@ -181,7 +181,7 @@ async function testWithoutPendingSets() {
 }
 
 async function testSignOutAnywayKeepsPending() {
-  console.log("\n📋 Test: Sign out anyway handler is called after confirmation");
+  console.log("\n📋 Test: Sign out anyway keeps pending sets");
   
   cleanup(); // Clean up any previous renders
   fakeStorage.clear();
@@ -217,26 +217,16 @@ async function testSignOutAnywayKeepsPending() {
 
   const signOutAnywayButton = screen.getByText(/sign out anyway/i);
   
-  // Click Sign out anyway (shows confirmation)
+  // Click Sign out anyway
   await act(async () => {
     signOutAnywayButton.click();
-  });
-  
-  await act(async () => {});
-  
-  // Click Sign out anyway again (in confirmation dialog)
-  await act(async () => {
-    const anywayButtons = screen.queryAllByText(/sign out anyway/i);
-    const confirmButton = anywayButtons[anywayButtons.length - 1];
-    confirmButton.click();
   });
 
   assert(signOutAnywayCalled, "Sign out anyway handler called");
 
-  // The view itself must never touch storage: clearing is done by useSignOut's
-  // handleSignOutAnyway (Item 1), which is stubbed here.
+  // Verify pending set is still in storage (not cleared by the view)
   const stored = fakeStorage.getItem(`pending-sets:${userId}`);
-  assert(!!stored, "Pending sets kept in storage by the view (cleared by useSignOut, not the view)");
+  assert(!!stored, "Pending sets kept in storage (cleared by useSignOut, not the view)");
 
   fakeStorage.clear();
 }

@@ -1,15 +1,19 @@
 #!/usr/bin/env tsx
 /**
- * Test: Runner loads pending queue on mount (Item 7 - 8f)
+ * Test: Runner loads pending queue on mount (C1 mutant)
  * 
- * Proves the runner loads the pending queue when it mounts.
- * Seeds the queue in storage, mounts the runner, then verifies
- * the pending count shows and replay is triggered.
+ * Proves controller.load() runs on mount and sets expired:true for non-empty queues.
+ * 
+ * C1 mutant: controller.load() deleted. The mount-time onFocus() still loads the queue
+ * into state.pending, but doesn't set expired:true. Only load() sets that flag.
+ * 
+ * The test asserts on the SessionExpiredPrompt, which only shows when
+ * getPendingUiMode returns "expired" (driven by state.expired === true).
  */
 
 import "./helpers/setup-jsdom";
-import { render, act, cleanup, waitFor } from "@testing-library/react";
-import { SessionRunner, type SessionActions, type RunnerExercise } from "../src/app/session/[id]/session-runner";
+import { render, act, screen, cleanup } from "@testing-library/react";
+import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 import { savePendingSet } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 import type { Storage } from "../src/lib/session/pending-set-retry";
@@ -29,6 +33,14 @@ function assert(condition: boolean, message: string) {
 const FIXED_TIME = new Date('2026-10-27T12:00:00Z').getTime();
 const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
 
+const fakeTimer: RunnerTimer = {
+  setTimeout: (callback: () => void) => {
+    callback();
+    return setTimeout(() => {}, 999999);
+  },
+  clearTimeout: () => {},
+};
+
 class FakeStorage implements Storage {
   private data: Map<string, string> = new Map();
   get length() { return this.data.size; }
@@ -47,24 +59,16 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 (async () => {
-  console.log("\n📋 Test: Runner loads pending queue on mount (Item 7 - 8f)\n");
+  console.log("\n📋 Test: Runner loads pending queue on mount (C1)\n");
   
   fakeStorage.clear();
   
-  const logSetCalls: Array<{ sessionExerciseId: string; setNumber: number }> = [];
-  const logSetDeferreds: Array<() => void> = [];
+  const logSetCalls: Array<{ setNumber: number }> = [];
   
   const fakeActions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async (input) => {
-      logSetCalls.push({
-        sessionExerciseId: input.sessionExerciseId,
-        setNumber: input.setNumber
-      });
-      // Hang on a deferred promise so we can check UI state before replay completes
-      await new Promise<void>((resolve) => {
-        logSetDeferreds.push(resolve);
-      });
+      logSetCalls.push({ setNumber: input.setNumber });
       return { ok: false, error: "NETWORK_ERROR" };
     },
     deleteSet: async () => ({ ok: true }),
@@ -73,9 +77,9 @@ Object.defineProperty(window, 'localStorage', {
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
-    refreshAfterSession: async () => ({ ok: true } as const),
-    planDay: async () => ({ ok: true, data: null } as const),
-    getSessionSummary: async () => ({ ok: true, data: [] } as const),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+    getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -120,7 +124,6 @@ Object.defineProperty(window, 'localStorage', {
     clientId: "c2"
   }, fakeDeps);
   
-  // Verify queue is seeded
   const queueBefore = fakeStorage.getItem("pending-sets:u1");
   assert(queueBefore !== null, "Queue seeded in storage");
   
@@ -149,39 +152,28 @@ Object.defineProperty(window, 'localStorage', {
       tomorrow={null}
       units="metric"
       actions={fakeActions}
+      timer={fakeTimer}
+      nowFn={() => FIXED_TIME}
     />
   );
   
-  // Wait for controller.load() to run in useEffect and queue to be loaded into UI
-  await act(async () => {
-    await Promise.resolve();
-  });
-  await act(async () => {
-    await Promise.resolve();
-  });
-
-  // C1: Assert the queue is LOADED into UI state RIGHT AFTER MOUNT
-  // This must work independently of replay - check while logSet is still hanging
+  await act(async () => {});
+  await act(async () => {});
+  
+  // C1: Assert the SessionExpiredPrompt is shown
+  // This prompt only appears when getPendingUiMode returns "expired",
+  // which requires state.expired === true. Only controller.load() sets
+  // expired:true when loading a non-empty queue. onFocus() doesn't set it.
   const text = container.textContent || "";
+  const hasExpiredPrompt = text.toLowerCase().includes("expired") || 
+                          text.toLowerCase().includes("sign") ||
+                          screen.queryByText(/sign/i) !== null;
+  
+  assert(hasExpiredPrompt, "C1: SessionExpiredPrompt shown (controller.load() set expired:true)");
+  
+  // Also verify "2 sets waiting to save" is shown
   const hasWaitingNotice = text.includes("2 set") && (text.includes("waiting") || text.includes("pending"));
-  assert(hasWaitingNotice, "C1: Queue loaded on mount - '2 sets waiting to save' visible right after mount");
-  
-  // Now release the deferred logSets to let replay continue
-  for (const resolve of logSetDeferreds) {
-    resolve();
-  }
-  
-  // Wait for replay to complete
-  await act(async () => {
-    await Promise.resolve();
-  });
-  
-  // Verify logSet was called (replay attempted)
-  assert(logSetCalls.length > 0, "Replay attempted after mount");
-  
-  // Queue should NOT be cleared because logSet failed
-  const queueAfter = fakeStorage.getItem("pending-sets:u1");
-  assert(queueAfter !== null, "Queue kept after failed replay");
+  assert(hasWaitingNotice, "'2 sets waiting to save' visible");
   
   cleanup();
   

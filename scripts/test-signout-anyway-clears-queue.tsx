@@ -265,6 +265,142 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   cleanup();
   console.log("✓ Test 3 passed\n");
   
+  // ========================================================================
+  // Test 4: Sign out failure (throws) keeps queue
+  // ========================================================================
+  console.log("=== Test 4: Sign out failure (throws) keeps queue ===\n");
+  
+  fakeStorage.clear();
+  
+  savePendingSet(fakeStorage, "user5", "session5", {
+    sessionExerciseId: "ex5",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "user5-set1"
+  }, fakeDeps);
+  
+  const signOutThrows = async () => {
+    throw new Error("Network failure");
+  };
+  
+  replaceCalls.length = 0;
+  
+  render(
+    <SignOutForm
+      label="Sign out"
+      userId="user5"
+      signOut={signOutThrows}
+      logSet={logSetFail}
+      now={new Date(FIXED_TIME)}
+    />
+  );
+  
+  // Click sign out
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Click "Sign out anyway" to show confirm
+  await act(async () => {
+    const anywayButton = screen.getByText(/Sign out anyway/i);
+    anywayButton.click();
+  });
+  
+  await act(async () => {});
+  
+  // Click final "Sign out anyway"
+  await act(async () => {
+    const confirmButtons = screen.getAllByRole("button");
+    const finalAnyway = confirmButtons.find(b => b.textContent === "Sign out anyway");
+    if (!finalAnyway) throw new Error("Could not find final Sign out anyway button");
+    finalAnyway.click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Sign out failed - queue should be kept
+  assert(fakeStorage.getItem(storageKey("user5")) !== null, "user5 queue kept after sign-out throw");
+  assert(replaceCalls.length === 0, "No navigation after sign-out failure");
+  assert(screen.queryByText(/Unable to sign out/i) !== null, "Error message shown");
+  
+  cleanup();
+  console.log("✓ Test 4 passed\n");
+  
+  // ========================================================================
+  // Test 5: Sign out returns {ok: false} keeps queue
+  // ========================================================================
+  console.log("=== Test 5: Sign out returns {ok: false} keeps queue ===\n");
+  
+  fakeStorage.clear();
+  
+  savePendingSet(fakeStorage, "user6", "session6", {
+    sessionExerciseId: "ex6",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "user6-set1"
+  }, fakeDeps);
+  
+  const signOutFails = async () => {
+    return { ok: false as const };
+  };
+  
+  replaceCalls.length = 0;
+  
+  render(
+    <SignOutForm
+      label="Sign out"
+      userId="user6"
+      signOut={signOutFails}
+      logSet={logSetFail}
+      now={new Date(FIXED_TIME)}
+    />
+  );
+  
+  // Click sign out
+  await act(async () => {
+    const buttons = screen.getAllByRole("button");
+    buttons[buttons.length - 1].click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Click "Sign out anyway"
+  await act(async () => {
+    const anywayButton = screen.getByText(/Sign out anyway/i);
+    anywayButton.click();
+  });
+  
+  await act(async () => {});
+  
+  // Click final "Sign out anyway"
+  await act(async () => {
+    const confirmButtons = screen.getAllByRole("button");
+    const finalAnyway = confirmButtons.find(b => b.textContent === "Sign out anyway");
+    if (!finalAnyway) throw new Error("Could not find final Sign out anyway button");
+    finalAnyway.click();
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // Sign out failed - queue should be kept
+  assert(fakeStorage.getItem(storageKey("user6")) !== null, "user6 queue kept after {ok:false}");
+  assert(replaceCalls.length === 0, "No navigation after sign-out failure");
+  assert(screen.queryByText(/Unable to sign out/i) !== null, "Error message shown");
+  
+  cleanup();
+  console.log("✓ Test 5 passed\n");
+  
   console.log(`✅ Sign out anyway clears queue tests passed (${passed} assertions)\n`);
   process.exit(0);
 })();

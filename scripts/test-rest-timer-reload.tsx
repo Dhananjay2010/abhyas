@@ -184,7 +184,7 @@ const repsInput0 = [...c0.querySelectorAll("input")].find((input) =>
   input.closest("label")?.textContent?.includes("Reps"),
 );
 
-if (!(repsInput0 instanceof window.HTMLInputElement)) {
+if (!(repsInput0 instanceof HTMLInputElement)) {
   console.log("  ✗ FAIL Reps input not found");
   process.exit(1);
 }
@@ -332,7 +332,7 @@ const repsInput2 = [...c2.querySelectorAll("input")].find((input) =>
   input.closest("label")?.textContent?.includes("Reps"),
 );
 
-if (!(repsInput2 instanceof window.HTMLInputElement)) {
+if (!(repsInput2 instanceof HTMLInputElement)) {
   console.log("  ✗ FAIL Reps input not found");
   process.exit(1);
 }
@@ -377,7 +377,7 @@ const repsInput2b = [...c2.querySelectorAll("input")].find((input) =>
   input.closest("label")?.textContent?.includes("Reps"),
 );
 
-if (!(repsInput2b instanceof window.HTMLInputElement)) {
+if (!(repsInput2b instanceof HTMLInputElement)) {
   console.log("  ✗ FAIL Reps input not found for set 2");
   process.exit(1);
 }
@@ -516,7 +516,7 @@ const repsInput4 = [...c4.querySelectorAll("input")].find((input) =>
   input.closest("label")?.textContent?.includes("Reps"),
 );
 
-if (!(repsInput4 instanceof window.HTMLInputElement)) {
+if (!(repsInput4 instanceof HTMLInputElement)) {
   console.log("  ✗ FAIL Reps input not found");
   process.exit(1);
 }
@@ -560,7 +560,7 @@ const repsInput4_2 = [...c4.querySelectorAll("input")].find((input) =>
   input.closest("label")?.textContent?.includes("Reps"),
 );
 
-if (!(repsInput4_2 instanceof window.HTMLInputElement)) {
+if (!(repsInput4_2 instanceof HTMLInputElement)) {
   console.log("  ✗ FAIL Reps input not found for set 2");
   process.exit(1);
 }
@@ -658,7 +658,7 @@ const repsInput4b = [...c4b.querySelectorAll("input")].find((input) =>
   input.closest("label")?.textContent?.includes("Reps"),
 );
 
-if (!(repsInput4b instanceof window.HTMLInputElement)) {
+if (!(repsInput4b instanceof HTMLInputElement)) {
   console.log("  ✗ FAIL Reps input not found");
   process.exit(1);
 }
@@ -701,7 +701,7 @@ const repsInput4b2 = [...c4b.querySelectorAll("input")].find((input) =>
   input.closest("label")?.textContent?.includes("Reps"),
 );
 
-if (!(repsInput4b2 instanceof window.HTMLInputElement)) {
+if (!(repsInput4b2 instanceof HTMLInputElement)) {
   console.log("  ✗ FAIL Reps input not found for set 2");
   process.exit(1);
 }

@@ -148,9 +148,9 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
 
       const input = container.querySelector('input[type="number"]');
       check("Input field rendered", input !== null);
-      check("Input is HTMLInputElement", input instanceof window.HTMLInputElement);
+      check("Input is HTMLInputElement", input instanceof HTMLInputElement);
 
-      if (input instanceof window.HTMLInputElement) {
+      if (input instanceof HTMLInputElement) {
         const inputValue = input.value;
         const displayedLb = parseFloat(inputValue);
         check(
