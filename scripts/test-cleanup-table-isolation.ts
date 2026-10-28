@@ -50,9 +50,9 @@ type FakeDeleteBuilder = {
 const fakeClient: { from: (table: string) => FakeQueryBuilder } = {
   from(table: string): FakeQueryBuilder {
     const builder: FakeQueryBuilder = {
-      select(..._: string[]) { return builder; },
-      eq(..._: unknown[]) { return builder; },
-      in(..._: unknown[]) { return builder; },
+      select() { return builder; },
+      eq() { return builder; },
+      in() { return builder; },
       
       async maybeSingle() {
         tablesAccessed.push(`${table}:read`);
@@ -105,10 +105,10 @@ const fakeClient: { from: (table: string) => FakeQueryBuilder } = {
         return resolve({ data: [] });
       },
       
-      update(_: unknown): FakeUpdateBuilder {
+      update(): FakeUpdateBuilder {
         tablesAccessed.push(`${table}:update`);
         const updateBuilder: FakeUpdateBuilder = {
-          eq: (..._: unknown[]) => updateBuilder,
+          eq: () => updateBuilder,
           select: () => ({ single: async () => ({ data: null, error: null }) }),
         };
         return updateBuilder;
@@ -117,7 +117,7 @@ const fakeClient: { from: (table: string) => FakeQueryBuilder } = {
       delete(): FakeDeleteBuilder {
         tablesAccessed.push(`${table}:delete`);
         return {
-          eq: (..._: unknown[]) => ({ error: null }),
+          eq: () => ({ error: null }),
         };
       },
     };

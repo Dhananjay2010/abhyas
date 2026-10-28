@@ -37,16 +37,13 @@ function makeFakeSupabase(tables: Record<string, unknown[]>) {
   return {
     from(table: string) {
       const builder = {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        select(_?: string) {
+        select() {
           return builder;
         },
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        eq(_1: string, _2: unknown) {
+        eq() {
           return builder;
         },
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        in(_1: string, _2: unknown[]) {
+        in() {
           return builder;
         },
         async maybeSingle(): Promise<QueryResponse<unknown>> {

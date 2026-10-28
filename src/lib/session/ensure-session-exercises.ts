@@ -59,22 +59,32 @@ export async function ensureSessionExercises(
   if (!session?.program_day_id) return;
   if (session.actual_type === "yoga" || session.actual_type === "meditation") return;
 
-  const { data: planned } = await supabase
+  const plannedRes = await supabase
     .from("program_day_exercises")
     .select("id, exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
     .eq("program_day_id", session.program_day_id)
     .order("order_index");
+  
+  // Fail-closed: check for query errors and missing data for knee users
+  const hasKneeInjury = injuries?.some(inj => inj.body_region === "knee");
+  if (hasKneeInjury) {
+    if (plannedRes.error) {
+      throw new Error(`Cannot ensure session exercises: exercise query failed: ${plannedRes.error.message}`);
+    }
+    if (!plannedRes.data || plannedRes.data.length === 0) {
+      throw new Error("Cannot ensure session exercises: no planned exercises found for knee-injured user");
+    }
+    if (!catalogue || !profile) {
+      throw new Error("Cannot ensure session exercises: cleanup inputs required for knee injury safety");
+    }
+  }
+  
+  const planned = plannedRes.data;
   if (!planned || planned.length === 0) return;
 
   // Clean banned exercises in-memory (backstop), then persist if needed
   let cleanedPlanned = planned;
   const catalogueMap = catalogue ? new Map(catalogue.map(c => [c.id, c])) : null;
-  
-  // Fail-closed: knee users must have cleanup inputs
-  const hasKneeInjury = injuries?.some(inj => inj.body_region === "knee");
-  if (hasKneeInjury && (!catalogue || !profile)) {
-    throw new Error("Cannot ensure session exercises: cleanup inputs required for knee injury safety");
-  }
   
   if (catalogue && profile && injuries && equipmentIds) {
     const cleaned = applyBannedCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);

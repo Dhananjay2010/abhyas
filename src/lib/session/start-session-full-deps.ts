@@ -205,15 +205,31 @@ export function buildStartSessionFullDeps(
         supabase.from("user_equipment").select("equipment_id").eq("user_id", userId),
       ]);
 
+      // Fail-closed: check for query errors
+      if (profileRes.error) {
+        throw new Error(`Cannot start session: profile query failed: ${profileRes.error.message}`);
+      }
+      if (injuriesRes.error) {
+        throw new Error(`Cannot start session: injuries query failed: ${injuriesRes.error.message}`);
+      }
+      if (catalogueRes.error) {
+        throw new Error(`Cannot start session: catalogue query failed: ${catalogueRes.error.message}`);
+      }
+
       const profile = profileRes.data;
       const injuries = injuriesRes.data || [];
       const catalogue = toCandidateExercises(catalogueRes.data || []);
       const equipmentIds = (equipmentRes.data ?? []).map(r => r.equipment_id);
 
-      // Fail-closed: knee users must have catalogue for safety
+      // Fail-closed: knee users must have complete data for safety
       const hasKneeInjury = injuries.some(inj => inj.body_region === "knee");
-      if (hasKneeInjury && !catalogue.length) {
-        throw new Error("Cannot start session: exercise catalogue required for knee injury safety");
+      if (hasKneeInjury) {
+        if (!profile) {
+          throw new Error("Cannot start session: profile required for knee injury safety");
+        }
+        if (!catalogue.length) {
+          throw new Error("Cannot start session: exercise catalogue required for knee injury safety");
+        }
       }
 
       if (!profile || !catalogue.length) {

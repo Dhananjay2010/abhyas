@@ -315,7 +315,7 @@ export default async function TodayPage() {
         }
       }
     }
-  } catch (error) {
+  } catch {
     // Non-knee users or error: continue with original days
   }
   // Derived from the user's own local date rather than re-reading the clock,

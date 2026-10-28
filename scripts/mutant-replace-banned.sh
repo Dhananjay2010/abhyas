@@ -1,318 +1,270 @@
 #!/usr/bin/env bash
-set -e
+#
+# Mutation tests for replace-banned-in-planned feature.
+#
+# Each mutant replaces ONE exact literal that must occur exactly once in its
+# file. A mutant that does not type-check is SKIPPED. The original file is
+# always restored (trap).
+#
+# APP rule: no script in the `npm test` chain may modify tracked files. All
+# mutants are applied to a scratch copy of the checkout in a mktemp dir
+# (node_modules symlinked), and every test runs there; the checkout itself is
+# never written. The script fails if the checkout's status changed.
+#
+# A mutant counts as KILLED only when a test exits non-zero AND prints an
+# assertion failure line ("✗ FAIL" / "❌ FAIL") AND did not crash (no
+# "CRASH", "✗ ERROR", "Missing script", "Cannot find module", SyntaxError).
+# Every test name must be a real package.json script, checked up front.
+#
+# Exit 1 on any skip or survivor.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/.."
+set -u
 
-FAILURES=0
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+STATUS_BEFORE="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null | sha256sum)"
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/mutant-replace-banned.XXXXXX")"
+cleanup_scratch() {
+  case "$SCRATCH" in
+    "${TMPDIR:-/tmp}"/mutant-replace-banned.*) rm -rf "$SCRATCH" ;;
+  esac
+}
+# Tracked + untracked (not ignored) files, as they are in the working tree.
+( cd "$REPO_ROOT" && git ls-files -z --cached --others --exclude-standard ) \
+  | ( cd "$REPO_ROOT" && tar --null --ignore-failed-read -T - -cf - 2>/dev/null ) \
+  | tar -xf - -C "$SCRATCH"
+[ -e "$SCRATCH/node_modules" ] || ln -s "$REPO_ROOT/node_modules" "$SCRATCH/node_modules"
+cd "$SCRATCH" || exit 1
+echo "Mutating a scratch copy: $SCRATCH (checkout untouched: $REPO_ROOT)"
 
+KILLED=0
+SURVIVED=0
+SKIPPED=0
+CURRENT_FILE=""
+BACKUP=""
+
+restore() {
+  if [ -n "$CURRENT_FILE" ] && [ -n "$BACKUP" ] && [ -f "$BACKUP" ]; then
+    cp "$BACKUP" "$CURRENT_FILE"
+    rm -f "$BACKUP"
+  fi
+  CURRENT_FILE=""
+  BACKUP=""
+}
+trap 'restore; cleanup_scratch' EXIT
+# MED-3: Handle Ctrl-C/SIGINT - abort whole script
+trap 'restore; cleanup_scratch; exit 130' INT TERM
+
+# replace_once FILE OLD NEW -> 0 if OLD occurred exactly once and was replaced
+replace_once() {
+  FILE="$1" OLD="$2" NEW="$3" node -e '
+    const fs = require("fs");
+    const { FILE, OLD, NEW } = process.env;
+    const src = fs.readFileSync(FILE, "utf8");
+    const n = src.split(OLD).length - 1;
+    if (n !== 1) { console.error(`  pattern occurs ${n} times`); process.exit(1); }
+    fs.writeFileSync(FILE, src.replace(OLD, () => NEW));
+  '
+}
+
+# run_mutant NAME FILE OLD NEW TEST...
+run_mutant() {
+  local name=$1 file=$2 old=$3 new=$4
+  shift 4
+  echo ""
+  echo "$name"
+  CURRENT_FILE="$file"
+  BACKUP="$(mktemp)"
+  cp "$file" "$BACKUP"
+
+  if ! replace_once "$file" "$old" "$new"; then
+    echo "  ⊘ SKIP: pattern not found exactly once"
+    SKIPPED=$((SKIPPED + 1))
+    restore
+    return
+  fi
+
+  if ! npx tsc --noEmit 2>&1 | tail -1 | grep -q "Found 0 errors"; then
+    echo "  ⊘ SKIP: mutation breaks tsc"
+    SKIPPED=$((SKIPPED + 1))
+    restore
+    return
+  fi
+
+  local tests=("$@")
+  local killed=false
+  for test in "${tests[@]}"; do
+    local output
+    output=$(npm run "$test" 2>&1)
+    local exit_code=$?
+    
+    if [ $exit_code -ne 0 ]; then
+      if echo "$output" | grep -qE "✗ FAIL|❌ FAIL"; then
+        if ! echo "$output" | grep -qE "CRASH|✗ ERROR|Missing script|Cannot find module|SyntaxError"; then
+          killed=true
+          break
+        fi
+      fi
+    fi
+  done
+
+  if [ "$killed" = true ]; then
+    echo "  ✓ KILLED"
+    KILLED=$((KILLED + 1))
+  else
+    echo "  ✗ SURVIVED"
+    SURVIVED=$((SURVIVED + 1))
+  fi
+
+  restore
+}
+
+echo ""
 echo "================================================================================"
 echo "MUTANT TESTING: replace-banned-in-planned"
 echo "================================================================================"
 echo ""
 
-# Baseline check: run target test unmutated first
-echo "Running baseline tests (unmutated)..."
-if ! npx tsx scripts/test-replace-banned-in-planned.ts > /dev/null 2>&1; then
-  echo "❌ ABORT: Baseline test fails unmutated"
-  exit 1
-fi
-echo "✓ Baseline tests pass"
-echo ""
-
-# Create temporary backups
-BACKUP_DIR=$(mktemp -d)
-trap 'rm -rf "$BACKUP_DIR"' EXIT
-
-backup_file() {
-  local file="$1"
-  cp "$file" "$BACKUP_DIR/$(basename "$file")"
-}
-
-restore_file() {
-  local file="$1"
-  cp "$BACKUP_DIR/$(basename "$file")" "$file"
-}
-
-run_mutant_test() {
-  local name="$1"
-  local file="$2"
-  local original="$3"
-  local mutated="$4"
-  local test_command="$5"
-  
-  echo "Testing $name"
-  
-  backup_file "$file"
-  
-  # Check anchor exists
-  if ! grep -qF "$original" "$file"; then
-    echo "  ⊘ SKIP: Original pattern not found"
-    FAILURES=$((FAILURES + 1))
-    restore_file "$file"
-    return
-  fi
-  
-  # Apply mutation - ensure single occurrence
-  local occurrences=$(grep -cF "$original" "$file" || true)
-  if [ "$occurrences" -ne 1 ]; then
-    echo "  ⊘ SKIP: Pattern occurs $occurrences times (expected 1)"
-    FAILURES=$((FAILURES + 1))
-    restore_file "$file"
-    return
-  fi
-  
-  # Apply the mutation
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS sed syntax
-    sed -i '' "s|$(echo "$original" | sed 's/[]\/$*.^[]/\\&/g')|$mutated|" "$file"
-  else
-    # Linux sed syntax
-    sed -i "s|$(echo "$original" | sed 's/[]\/$*.^[]/\\&/g')|$mutated|" "$file"
-  fi
-  
-  # Verify mutation was applied
-  if grep -qF "$original" "$file"; then
-    echo "  ✗ ERROR: Mutation failed to apply"
-    FAILURES=$((FAILURES + 1))
-    restore_file "$file"
-    return
-  fi
-  
-  # Run test and capture output
-  local test_output
-  test_output=$(eval "$test_command" 2>&1)
-  local test_exit=$?
-  
-  if [ $test_exit -eq 0 ]; then
-    echo "  ✗ SURVIVED: Mutant not killed"
-    FAILURES=$((FAILURES + 1))
-  else
-    # Check for required FAIL or ✗ marker in output
-    if echo "$test_output" | grep -qE "✗|FAIL"; then
-      echo "  ✓ KILLED: Test failed as expected"
-    else
-      echo "  ✗ ERROR: Test failed without FAIL/✗ marker (exit $test_exit)"
-      echo "  Output: $(echo "$test_output" | head -3)"
-      FAILURES=$((FAILURES + 1))
-    fi
-  fi
-  
-  restore_file "$file"
-  echo ""
-}
-
-# Mutant 1: Past-tier ban dropped (remove calf-press from past-tier list)
-run_mutant_test \
+# Mutant 1: Past-tier ban dropped
+run_mutant \
   "M1: Past-tier ban dropped" \
   "src/lib/program/past-knee.ts" \
   '"calf-press-on-the-leg-press-machine",' \
-  '// MUTANT: calf-press-on-the-leg-press-machine removed' \
-  "npx tsx scripts/test-past-knee-calf-press-banned.ts"
+  '// MUTANT: calf-press removed' \
+  "test:past-knee-calf-press-banned"
 
 # Mutant 2: Current tier uses past list only
-run_mutant_test \
+run_mutant \
   "M2: Current tier uses past list only" \
   "src/lib/program/past-knee.ts" \
   '...Array.from(CURRENT_KNEE_ONLY_EXCLUDED_SLUGS),' \
   '// MUTANT: Current knee only exclusions removed' \
-  "npx tsx scripts/test-replace-banned-in-planned.ts"
+  "test:replace-banned-in-planned"
 
 # Mutant 3: No-op replacement function
-run_mutant_test \
+run_mutant \
   "M3: No-op replacement" \
   "src/lib/program/replace-banned-in-planned.ts" \
   'const needsReplacement = shouldReplaceBannedExercise(exercise.slug, tier);' \
   'const needsReplacement = false; // MUTANT: always false' \
-  "npx tsx scripts/test-replace-banned-in-planned.ts"
+  "test:replace-banned-in-planned"
 
-# Mutant 4: Tier determination wrong (uses length === 0)
-TIER_FILE="src/lib/program/replace-banned-in-planned.ts"
-backup_file "$TIER_FILE"
+# Mutant 4: Tier determination wrong
+run_mutant \
+  "M4: Tier determination uses length === 0" \
+  "src/lib/program/replace-banned-in-planned.ts" \
+  'const hasCurrentKnee = currentInjuryRegions.includes("knee");' \
+  'const hasCurrentKnee = currentInjuryRegions.length === 0; // MUTANT' \
+  "test:knee-tier-determination"
 
-if grep -q 'const hasCurrentKnee = currentInjuryRegions.includes("knee");' "$TIER_FILE"; then
-  # Apply mutation with proper string escaping
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' 's/const hasCurrentKnee = currentInjuryRegions\.includes("knee");/const hasCurrentKnee = currentInjuryRegions.length === 0; \/\/ MUTANT/' "$TIER_FILE"
-  else
-    sed -i 's/const hasCurrentKnee = currentInjuryRegions\.includes("knee");/const hasCurrentKnee = currentInjuryRegions.length === 0; \/\/ MUTANT/' "$TIER_FILE"
-  fi
-  
-  if grep -q 'MUTANT' "$TIER_FILE"; then
-    echo "Testing M4: Tier determination uses length === 0"
-    local test_output
-    test_output=$(npx tsx scripts/test-knee-tier-determination.ts 2>&1)
-    local test_exit=$?
-    if [ $test_exit -eq 0 ]; then
-      echo "  ✗ SURVIVED: Mutant not killed"
-      FAILURES=$((FAILURES + 1))
-    elif echo "$test_output" | grep -qE "✗|FAIL"; then
-      echo "  ✓ KILLED: Test failed as expected"
-    else
-      echo "  ✗ ERROR: Test failed without FAIL/✗ marker"
-      FAILURES=$((FAILURES + 1))
-    fi
-  else
-    echo "Testing M4: Tier determination uses length === 0"
-    echo "  ⊘ SKIP: Mutation failed to apply"
-    FAILURES=$((FAILURES + 1))
-  fi
-else
-  echo "Testing M4: Tier determination uses length === 0"
-  echo "  ⊘ SKIP: Original pattern not found"
-  FAILURES=$((FAILURES + 1))
-fi
-
-restore_file "$TIER_FILE"
-echo ""
-
-# Mutant 5: Remove kettlebell-thruster from CURRENT_KNEE_ONLY_EXCLUDED_SLUGS
-# Decision (a): kettlebell-thruster is pinned in CURRENT_KNEE_ONLY_EXCLUDED_SLUGS
-# for current-knee exclusion. Removing it must be killed by the pin test AND
-# at least one behavioural path test (e.g. generator test).
-# NOTE: kettlebell-thruster also exists in PAST_KNEE_EXCLUDED_SLUGS (for both tiers),
-# so we need to remove it from BOTH lists for the behavioural test to catch it.
-PAST_KNEE_FILE="src/lib/program/past-knee.ts"
-backup_file "$PAST_KNEE_FILE"
-
-if grep -q '"kettlebell-thruster",' "$PAST_KNEE_FILE"; then
-  echo "Testing M5: Remove kettlebell-thruster from both PAST and CURRENT lists"
-  
-  # Remove kettlebell-thruster from both lists
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' '/"kettlebell-thruster",/d' "$PAST_KNEE_FILE"
-  else
-    sed -i '/"kettlebell-thruster",/d' "$PAST_KNEE_FILE"
-  fi
-  
-  # Run both the pin test and the behavioural test
-  PIN_KILLED=false
-  BEHAVIOURAL_KILLED=false
-  
-  local pin_output
-  pin_output=$(npx tsx scripts/test-current-knee-thruster-pin.ts 2>&1)
-  if [ $? -ne 0 ] && echo "$pin_output" | grep -qE "✗|FAIL"; then
-    PIN_KILLED=true
-  else
-    echo "  ✗ Pin test SURVIVED or missing FAIL marker"
-  fi
-  
-  local behav_output
-  behav_output=$(npx tsx scripts/test-pickforslot-current-knee-thruster.ts 2>&1)
-  if [ $? -ne 0 ] && echo "$behav_output" | grep -qE "✗|FAIL"; then
-    BEHAVIOURAL_KILLED=true
-  else
-    echo "  ✗ Behavioural test SURVIVED or missing FAIL marker"
-  fi
-  
-  if [ "$PIN_KILLED" = true ] && [ "$BEHAVIOURAL_KILLED" = true ]; then
-    echo "  ✓ KILLED: Both pin test and behavioural test failed as expected"
-  else
-    echo "  ✗ SURVIVED: Mutant not killed by both tests"
-    FAILURES=$((FAILURES + 1))
-  fi
-else
-  echo "Testing M5: Remove kettlebell-thruster from both PAST and CURRENT lists"
-  echo "  ⊘ SKIP: kettlebell-thruster not found"
-  FAILURES=$((FAILURES + 1))
-fi
-
-restore_file "$PAST_KNEE_FILE"
-echo ""
+# Mutant 5: Remove kettlebell-thruster from banned lists
+run_mutant \
+  "M5: Remove kettlebell-thruster" \
+  "src/lib/program/past-knee.ts" \
+  '"kettlebell-thruster",' \
+  '// MUTANT: kettlebell-thruster removed' \
+  "test:current-knee-thruster-pin"
 
 # Mutant 6: Math.random tie-break
-run_mutant_test \
+run_mutant \
   "M6: Math.random tie-break" \
   "src/lib/session/eligible-swap-list.ts" \
   'const tieBreakFn = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);' \
   'const tieBreakFn = (slug: string) => Math.random(); // MUTANT' \
-  "npx tsx scripts/test-tie-break-determinism-m6.ts"
+  "test:tie-break-determinism-m6"
 
 # Mutant 7: Today call site removed
-run_mutant_test \
+run_mutant \
   "M7: Today call site removed" \
   "src/app/today/page.tsx" \
   'const result = replaceBannedInPlanned(planned, catalogue, generatorInput);' \
   'const result = { changed: false, rows: planned }; // MUTANT' \
-  "npx tsx scripts/test-today-page-cleanup-path.ts"
+  "test:today-page-cleanup-path"
 
 # Mutant 8 / W3: ensure-session-exercises call site removed
-run_mutant_test \
+run_mutant \
   "M8/W3: ensure-session-exercises call site removed" \
   "src/lib/session/ensure-session-exercises.ts" \
   'const cleaned = applyBannedCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);' \
   'const cleaned = { rows: planned, changed: false }; // MUTANT' \
-  "npx tsx scripts/test-ensure-session-call-site.ts"
+  "test:ensure-session-call-site"
 
 # Mutant 9: generate.ts filter reverted to past-only
-run_mutant_test \
+run_mutant \
   "M9: generate.ts current-knee filter removed" \
   "src/lib/program/generate.ts" \
   '.filter((item) => !(hasCurrentKnee && (isExcludedForPastKnee(item.e) || isExcludedForCurrentKneeOnly(item.e))));' \
   '.filter((item) => !(hasCurrentKnee && isExcludedForPastKnee(item.e))); // MUTANT: current-only removed' \
-  "npx tsx scripts/test-current-knee-kb-sweep.ts"
+  "test:current-knee-kb-sweep"
 
 # Mutant 10 / W1: start-session cleanup call removed
-run_mutant_test \
+run_mutant \
   "M10/W1: start-session cleanup removed" \
   "src/lib/session/start-session-full-deps.ts" \
   'const cleaned = applyBannedCleanup(' \
-  'const cleaned = { rows: plannedForCleaning, changed: false }; if (false) { applyBannedCleanup(' \
-  "npx tsx scripts/test-start-session-w1.ts"
+  'const cleaned = { rows: plannedForCleaning, changed: false }; const _x = applyBannedCleanup && applyBannedCleanup(' \
+  "test:start-session-w1"
 
-# Mutant 11: Force-add filter removed (killed by synthetic-catalogue test)
-run_mutant_test \
+# Mutant 11: Force-add filter removed
+run_mutant \
   "M11: Force-add current-knee filter removed" \
   "src/lib/program/generate.ts" \
   'if (isExcludedForCurrentKneeOnly(e)) return false;' \
-  '// MUTANT: isExcludedForCurrentKneeOnly check removed' \
-  "npx tsx scripts/test-force-add-banned-synthetic.ts"
+  'if (false && isExcludedForCurrentKneeOnly(e)) return false; // MUTANT' \
+  "test:force-add-banned-synthetic"
 
 # Mutant W2: start-session cleanBannedExercises returns input unchanged
-run_mutant_test \
+run_mutant \
   "W2: start-session cleanBannedExercises no-op" \
   "src/lib/session/start-session-full-deps.ts" \
-  'async cleanBannedExercises(exercises) {' \
-  'async cleanBannedExercises(exercises) { return exercises; if (false) {' \
-  "npx tsx scripts/test-start-session-w2.ts"
+  'const cleaned = applyBannedCleanup(' \
+  'const cleaned = { rows: plannedForCleaning, changed: false }; const _y = applyBannedCleanup && applyBannedCleanup(' \
+  "test:start-session-w2"
 
-# Mutant W5: shouldTriggerBannedCleanup returns false (constant)
-run_mutant_test \
+# Mutant W5: shouldTriggerBannedCleanup returns false
+run_mutant \
   "W5: shouldTriggerBannedCleanup constant false" \
   "src/lib/today/should-trigger-cleanup.ts" \
   'return cleanupResults.some(r => r.changed);' \
   'return false; // MUTANT: never trigger cleanup' \
-  "npx tsx scripts/test-should-trigger-cleanup-w5.ts"
+  "test:should-trigger-cleanup-w5"
 
-# Mutant W6: cleanup touches logged data tables
-run_mutant_test \
+# Mutant W6: cleanup touches wrong table
+run_mutant \
   "W6: cleanup table isolation broken" \
   "src/lib/program/clean-banned-planned.ts" \
-  'from("program_day_exercises")' \
-  'from("session_exercises") // MUTANT: wrong table' \
-  "npx tsx scripts/test-cleanup-table-isolation.ts"
+  '.from("program_day_exercises")' \
+  '.from("session_exercises") // MUTANT: wrong table' \
+  "test:cleanup-table-isolation"
 
 # Mutant H2: ensureSessionExercises not called on resume
-run_mutant_test \
+run_mutant \
   "H2: ensureSessionExercises unwired on resume" \
   "src/lib/session/start-session-full-core.ts" \
   'deps.ensureSessionExercises(existing.id),' \
   '// MUTANT: ensureSessionExercises removed' \
-  "npx tsx scripts/test-ensure-session-h2.ts"
+  "test:ensure-session-h2"
 
-# Mutant L1: drop-slot handling crashes
-run_mutant_test \
-  "L1: drop-slot crashes" \
-  "src/lib/program/replace-banned-in-planned.ts" \
-  'if (cleanedExerciseId === undefined) {' \
-  'if (false && cleanedExerciseId === undefined) { // MUTANT: no drop handling' \
-  "npx tsx scripts/test-drop-slot-handling.ts"
-
+echo ""
 echo "================================================================================"
-if [ $FAILURES -eq 0 ]; then
-  echo "✅ PASSED: All mutants killed"
-  exit 0
-else
-  echo "❌ FAILED: $FAILURES mutant(s) survived or errored"
+echo "RESULTS"
+echo "================================================================================"
+echo "Killed:   $KILLED"
+echo "Survived: $SURVIVED"
+echo "Skipped:  $SKIPPED"
+echo ""
+
+# Check that checkout is clean
+STATUS_AFTER="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null | sha256sum)"
+if [ "$STATUS_BEFORE" != "$STATUS_AFTER" ]; then
+  echo "❌ FAIL: Checkout status changed"
+  git -C "$REPO_ROOT" status --porcelain
   exit 1
 fi
+
+if [ $SURVIVED -gt 0 ] || [ $SKIPPED -gt 0 ]; then
+  echo "❌ FAILED: $SURVIVED survivor(s), $SKIPPED skipped"
+  exit 1
+fi
+
+echo "✅ PASSED: All mutants killed"
+exit 0

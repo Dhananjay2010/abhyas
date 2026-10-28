@@ -222,7 +222,14 @@ export async function startSessionFullCore(
   const sessionId = insertResult.sessionId;
   if (planned && planned.length > 0) {
     // Clean banned exercises before insert (backstop for knee-injured users)
-    const cleanedPlanned = deps.cleanBannedExercises ? await deps.cleanBannedExercises(planned) : planned;
+    let cleanedPlanned = planned;
+    if (deps.cleanBannedExercises) {
+      try {
+        cleanedPlanned = await deps.cleanBannedExercises(planned);
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : "Failed to clean banned exercises" };
+      }
+    }
     
     const exercisesToInsert = cleanedPlanned.map((p) => {
       const dose = isDeloadWeek
