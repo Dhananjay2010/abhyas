@@ -531,6 +531,64 @@ async function main() {
     console.log("  ✓ nextDayPlan without sessionId: actual_type filter picks weights over yoga (getTodayCompletedSession no-sessionId branch)\n");
   }
 
+  {
+    console.log("12. Mutant 2b: nextDayPlan with yoga sessionId whose program_day_id collides with tomorrow");
+
+    const client = buildClient({
+      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
+      programDays: days3Full,
+      sessions: [
+        // Yesterday: did B (swap from planned A)
+        { id: "s-mon-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T09:00:00Z" },
+        // Today: weights B done, then yoga with program_day_id C (collision with tomorrow's scheduled C)
+        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T09:00:00Z" },
+        { id: "s-tue-yoga-c", user_id: "u1", program_day_id: "C", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
+        // Tomorrow: scheduled C
+        { id: "s-wed-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
+      ],
+    });
+
+    // Call with sessionId pointing at yoga session with program_day_id C
+    const result = await nextDayPlan(client, "America/New_York", "2026-10-29", { sessionId: "s-tue-yoga-c" });
+
+    assert.ok(result, "Should return next day plan");
+    // With filter: yoga filtered out, today's completed is weights B, no collision with tomorrow's C
+    // Without filter (mutant): yoga C returned, collision detected, tomorrow resolves to A
+    assert.strictEqual(result.plannedLabel, "Full Body C", "Tomorrow should be C (yoga filtered out, no collision); dropping .in('actual_type') at line 600 returns yoga C, collision detected, resolves to A");
+    assert.strictEqual(result.collisionResolved, false, "No collision with filter; mutant causes collision resolution");
+
+    console.log("  ✓ Mutant 2b killed: yoga session filtered out, no false collision\n");
+  }
+
+  {
+    console.log("13. Mutant 5c: nextDayPlan without sessionId, yoga session changes collision");
+
+    const client = buildClient({
+      programs: [{ id: "prog-1", user_id: "u1", split_type: "full_body", status: "active" }],
+      programDays: days3Full,
+      sessions: [
+        // Yesterday: did B (swap)
+        { id: "s-mon-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-27", status: "completed", created_at: "2026-10-27T09:00:00Z" },
+        // Today: weights B in morning, yoga with program_day_id C later (newest)
+        { id: "s-tue-b", user_id: "u1", program_day_id: "B", actual_type: "weights", local_date: "2026-10-28", status: "in_progress", created_at: "2026-10-28T09:00:00Z" },
+        { id: "s-tue-yoga-c", user_id: "u1", program_day_id: "C", actual_type: "yoga", local_date: "2026-10-28", status: "completed", created_at: "2026-10-28T18:00:00Z" },
+        // Tomorrow: scheduled C
+        { id: "s-wed-c", user_id: "u1", program_day_id: "C", actual_type: "weights", local_date: "2026-10-29", status: "planned", created_at: "2026-10-28T20:00:00Z" },
+      ],
+    });
+
+    // Call without sessionId (uses newest completed/in_progress on today's date)
+    const result = await nextDayPlan(client, "America/New_York", "2026-10-29");
+
+    assert.ok(result, "Should return next day plan");
+    // With filter: returns weights B, no collision with tomorrow's C
+    // Without filter (mutant): returns yoga C (newest), collision detected, resolves to A
+    assert.strictEqual(result.plannedLabel, "Full Body C", "Tomorrow should be C (yoga filtered, weights B has no collision); dropping .in('actual_type') at line 613 returns yoga C, collision detected, resolves to A");
+    assert.strictEqual(result.collisionResolved, false, "No collision with filter; mutant causes collision resolution");
+
+    console.log("  ✓ Mutant 5c killed: newest session filtered by actual_type\n");
+  }
+
   console.log("✓ All rest-swap label followup tests passed\n");
 }
 

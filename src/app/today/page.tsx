@@ -524,7 +524,6 @@ export default async function TodayPage() {
           heading={viewModel.prompt.heading}
           intro={viewModel.prompt.intro}
           showRestOption={viewModel.offerRest}
-          tomorrowIsRest={dayType === "rest"}
         />
       )}
 
@@ -580,7 +579,6 @@ export default async function TodayPage() {
                   heading="Or train today anyway"
                   intro="Pick what you'd like to do instead."
                   showRestOption={viewModel.offerRest}
-                  tomorrowIsRest={true}
                 />
               )}
             </div>

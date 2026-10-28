@@ -224,7 +224,7 @@ export async function plannableDays(
   if (options?.afterDate && options?.userId && trainingDays.length > 0) {
     const { data } = await supabase
       .from("sessions")
-      .select("id, program_day_id")
+      .select("program_day_id")
       .eq("user_id", options.userId)
       .eq("status", "completed")
       .in("actual_type", ["weights", "bodyweight"])
@@ -273,7 +273,7 @@ type ProgramDay = {
 };
 
 function isDayType(value: string): value is DayType {
-  return ["weights", "bodyweight", "rest", "yoga", "breathing"].includes(value);
+  return ["weights", "bodyweight", "yoga", "meditation", "rest", "active_recovery"].includes(value);
 }
 
 /**
