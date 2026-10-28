@@ -219,12 +219,12 @@ run_mutant_test \
   'const result = { changed: false, rows: planned }; // MUTANT' \
   "npx tsx scripts/test-today-page-cleanup-path.ts"
 
-# Mutant 8: ensure-session-exercises call site removed
+# Mutant 8 / W3: ensure-session-exercises call site removed
 run_mutant_test \
-  "M8: ensure-session-exercises call site removed" \
+  "M8/W3: ensure-session-exercises call site removed" \
   "src/lib/session/ensure-session-exercises.ts" \
-  'return replaceBannedInPlanned(plannedForCleaning, catalogue, generatorInput);' \
-  'return { rows: plannedForCleaning, changed: false }; // MUTANT' \
+  'const cleaned = applyBannedCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);' \
+  'const cleaned = { rows: planned, changed: false }; // MUTANT' \
   "npx tsx scripts/test-ensure-session-call-site.ts"
 
 # Mutant 9: generate.ts:828 reverted to past-only
@@ -258,12 +258,12 @@ fi
 restore_file "$GEN_FILE"
 echo ""
 
-# Mutant 10: start-session call site removed
+# Mutant 10 / W1: start-session cleanup call removed
 run_mutant_test \
-  "M10: start-session cleanup removed" \
+  "M10/W1: start-session cleanup removed" \
   "src/lib/session/start-session-full-deps.ts" \
-  'const cleaned = applyStartSessionCleanup(' \
-  'const cleaned = plannedForCleaning; if (false) { applyStartSessionCleanup(' \
+  'const cleaned = applyBannedCleanup(' \
+  'const cleaned = { rows: plannedForCleaning, changed: false }; if (false) { applyBannedCleanup(' \
   "npx tsx scripts/test-start-session-call-site.ts"
 
 # Mutant 11: Force-add filter removed (killed by synthetic-catalogue test)
@@ -273,6 +273,46 @@ run_mutant_test \
   'if (isExcludedForCurrentKneeOnly(e)) return false;' \
   '// MUTANT: isExcludedForCurrentKneeOnly check removed' \
   "npx tsx scripts/test-force-add-banned-synthetic.ts"
+
+# Mutant W2: start-session cleanBannedExercises returns input unchanged
+run_mutant_test \
+  "W2: start-session cleanBannedExercises no-op" \
+  "src/lib/session/start-session-full-deps.ts" \
+  'async cleanBannedExercises(exercises) {' \
+  'async cleanBannedExercises(exercises) { return exercises; if (false) {' \
+  "npx tsx scripts/test-start-session-call-site.ts"
+
+# Mutant W5: Today applyDayCleanup returns day unchanged
+run_mutant_test \
+  "W5: Today applyDayCleanup no-op" \
+  "src/app/today/page.tsx" \
+  'export function applyDayCleanup(' \
+  'export function applyDayCleanup(day: any) { return day; } function applyDayCleanupMutated(' \
+  "npx tsx scripts/test-today-page-cleanup-path.ts"
+
+# Mutant W6: cleanup touches logged data tables
+run_mutant_test \
+  "W6: cleanup table isolation broken" \
+  "src/lib/program/clean-banned-planned.ts" \
+  'from("program_day_exercises")' \
+  'from("session_exercises") // MUTANT: wrong table' \
+  "npx tsx scripts/test-cleanup-table-isolation.ts"
+
+# Mutant H2: ensureSessionExercises not called on resume
+run_mutant_test \
+  "H2: ensureSessionExercises unwired on resume" \
+  "src/lib/session/start-session-full-core.ts" \
+  'deps.ensureSessionExercises(existing.id),' \
+  '// MUTANT: ensureSessionExercises removed' \
+  "npx tsx scripts/test-start-session-call-site.ts"
+
+# Mutant L1: drop-slot handling crashes
+run_mutant_test \
+  "L1: drop-slot crashes" \
+  "src/lib/program/replace-banned-in-planned.ts" \
+  'if (cleanedExerciseId === undefined) {' \
+  'if (false && cleanedExerciseId === undefined) { // MUTANT: no drop handling' \
+  "npx tsx scripts/test-drop-slot-handling.ts"
 
 echo "================================================================================"
 if [ $FAILURES -eq 0 ]; then
