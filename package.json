@@ -588,6 +588,7 @@
     "test:units-m1-loader-prescription-floor": "npx tsx scripts/test-units-m1-loader-prescription-floor.tsx",
     "test:units-m1-page-mapping": "npx tsx scripts/test-units-m1-page-mapping.tsx",
     "test:units-m1-page-loader-wiring": "npx tsx scripts/test-units-m1-page-loader-wiring.tsx",
+    "test:units-m1-page-loader-wiring": "npx tsx scripts/test-units-m1-page-loader-wiring.tsx",
     "test:units-m1-held-weight-nearest": "tsx scripts/test-units-m1-held-weight-nearest.tsx",
     "test:units-l2-numeric-comparison": "tsx scripts/test-units-l2-numeric-comparison.tsx",
     "test:units-m2-metric-exact-2dp": "tsx scripts/test-units-m2-metric-exact-2dp.tsx",
