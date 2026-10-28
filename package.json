@@ -601,7 +601,9 @@
     "test:qa-low-b-page-call-site": "tsx scripts/test-qa-low-b-page-call-site.ts",
     "test:qa-low-b-page-duration-path": "tsx scripts/test-qa-low-b-page-duration-path.ts",
     "test:gyms-column-lock-real-db": "tsx scripts/test-gyms-column-lock-real-db.ts",
-    "test:gym-join-code-actions-behavioral": "tsx scripts/test-gym-join-code-actions-behavioral.ts"
+    "test:gym-join-code-actions-behavioral": "tsx scripts/test-gym-join-code-actions-behavioral.ts",
+    "ci:migration-043-idempotent": "bash scripts/test-migration-043-idempotent.sh",
+    "ci:mutant-gyms-column-lock": "bash scripts/mutant-test-gyms-column-lock.sh"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
