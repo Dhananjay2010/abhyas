@@ -101,23 +101,20 @@ console.log("\n=== OnboardingFlow weight prefill preservation ===\n");
       check("Metric: Prefill shows 82.1", weightInput.value === "82.1",
         `got "${weightInput.value}"`);
 
-      // Fill other required fields
+      // Fill other required fields (task: remove if-guards so missing field fails)
       const dobFieldset = r.container.querySelector("fieldset");
-      if (dobFieldset) {
-        const dobInputs = Array.from(dobFieldset.querySelectorAll<HTMLInputElement>("input"));
-        if (dobInputs.length >= 3) {
-          fireEvent.change(dobInputs[0], { target: { value: "15" } }); // day
-          fireEvent.change(dobInputs[1], { target: { value: "01" } }); // month
-          fireEvent.change(dobInputs[2], { target: { value: "1990" } }); // year
-        }
-      }
+      if (!dobFieldset) throw new Error("DOB fieldset not found");
+      const dobInputs = Array.from(dobFieldset.querySelectorAll<HTMLInputElement>("input"));
+      if (dobInputs.length < 3) throw new Error("DOB inputs not found");
+      fireEvent.change(dobInputs[0], { target: { value: "15" } }); // day
+      fireEvent.change(dobInputs[1], { target: { value: "01" } }); // month
+      fireEvent.change(dobInputs[2], { target: { value: "1990" } }); // year
 
       // Select Male
       const buttons = Array.from(r.container.querySelectorAll("button"));
       const maleButton = buttons.find(b => b.textContent?.includes("Male"));
-      if (maleButton) {
-        fireEvent.click(maleButton);
-      }
+      if (!maleButton) throw new Error("Male button not found");
+      fireEvent.click(maleButton);
 
       // Fill height
       const textInputs = Array.from(r.container.querySelectorAll<HTMLInputElement>("input[type='text']"));
@@ -126,10 +123,9 @@ console.log("\n=== OnboardingFlow weight prefill preservation ===\n");
         const field = i.closest("div")?.querySelector("span")?.textContent || "";
         return label.includes("Height") || field.includes("Height");
       });
-      if (heightInput) {
-        fireEvent.change(heightInput, { target: { value: "175" } });
-        fireEvent.blur(heightInput);
-      }
+      if (!heightInput) throw new Error("Height input not found");
+      fireEvent.change(heightInput, { target: { value: "175" } });
+      fireEvent.blur(heightInput);
 
       // Wait for validation
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -231,22 +227,19 @@ console.log("\n=== OnboardingFlow weight prefill preservation ===\n");
       check("Imperial: Prefill shows 170.6", weightInput2.value === "170.6",
         `got "${weightInput2.value}"`);
 
-      // Fill other required fields
+      // Fill other required fields (task: remove if-guards so missing field fails)
       const dobFieldset2 = r2.container.querySelector("fieldset");
-      if (dobFieldset2) {
-        const dobInputs2 = Array.from(dobFieldset2.querySelectorAll<HTMLInputElement>("input"));
-        if (dobInputs2.length >= 3) {
-          fireEvent.change(dobInputs2[0], { target: { value: "15" } }); // day
-          fireEvent.change(dobInputs2[1], { target: { value: "01" } }); // month
-          fireEvent.change(dobInputs2[2], { target: { value: "1990" } }); // year
-        }
-      }
+      if (!dobFieldset2) throw new Error("DOB fieldset not found");
+      const dobInputs2 = Array.from(dobFieldset2.querySelectorAll<HTMLInputElement>("input"));
+      if (dobInputs2.length < 3) throw new Error("DOB inputs not found");
+      fireEvent.change(dobInputs2[0], { target: { value: "15" } }); // day
+      fireEvent.change(dobInputs2[1], { target: { value: "01" } }); // month
+      fireEvent.change(dobInputs2[2], { target: { value: "1990" } }); // year
 
       const buttons2 = Array.from(r2.container.querySelectorAll("button"));
       const maleButton2 = buttons2.find(b => b.textContent?.includes("Male"));
-      if (maleButton2) {
-        fireEvent.click(maleButton2);
-      }
+      if (!maleButton2) throw new Error("Male button not found");
+      fireEvent.click(maleButton2);
 
       const textInputs2 = Array.from(r2.container.querySelectorAll<HTMLInputElement>("input[type='text']"));
       const heightInput2 = textInputs2.find(i => {
@@ -254,10 +247,9 @@ console.log("\n=== OnboardingFlow weight prefill preservation ===\n");
         const field = i.closest("div")?.querySelector("span")?.textContent || "";
         return label.includes("Height") || field.includes("Height");
       });
-      if (heightInput2) {
-        fireEvent.change(heightInput2, { target: { value: "5'9\"" } });
-        fireEvent.blur(heightInput2);
-      }
+      if (!heightInput2) throw new Error("Height input not found");
+      fireEvent.change(heightInput2, { target: { value: "5'9\"" } });
+      fireEvent.blur(heightInput2);
 
       await new Promise(resolve => setTimeout(resolve, 100));
 

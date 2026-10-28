@@ -97,6 +97,7 @@ function baseExercise(id: string, name: string) {
     feel: null,
     sets: [],
     isBodyweight: false,
+    previousCompletedWeightKg: null,
   };
 }
 

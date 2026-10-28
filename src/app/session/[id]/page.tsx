@@ -4,18 +4,15 @@ import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warm
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isStaleSession } from "@/lib/session/is-stale-session";
-import type { Database } from "@/lib/database.types";
-import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
+import { SessionRunner, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
-import { buildRunnerExercise } from "@/lib/session/build-runner-exercises";
 import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
 import { buildRunnerProps } from "@/lib/session/build-runner-props";
 import { getUnitsPreference } from "@/lib/units";
+import { loadAndBuildRunnerExercises } from "@/lib/session/load-and-build-runner-exercises";
 
 export const dynamic = "force-dynamic";
-
-type Muscle = Database["public"]["Enums"]["muscle"];
 
 export default async function SessionPage({
   params,
@@ -115,23 +112,14 @@ export default async function SessionPage({
   */
   const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
 
-  const exercises: RunnerExercise[] = rows.map((r) => {
-    const ex = r.exercises as unknown as {
-      id: string;
-      name: string;
-      cue: string | null;
-      movement_pattern: Database["public"]["Enums"]["movement_pattern"];
-      primary_muscles: Muscle[];
-      equipment_ids: string[];
-    };
-    const progress = remembersWeights ? progressByExercise.get(ex?.id ?? "") : undefined;
-    
-    return buildRunnerExercise({
-      row: r,
-      progress,
-      remembersWeights,
-      isDeload: session.is_deload,
-    });
+  // M1: Load previous completed weights and build runner exercises (integrated)
+  const exercises = await loadAndBuildRunnerExercises({
+    client: supabase,
+    userId: user.id,
+    rows,
+    progressByExercise,
+    remembersWeights,
+    isDeload: session.is_deload,
   });
 
   const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];

@@ -75,6 +75,7 @@ const settings: RunnerSettings = {
     feel: null,
     sets: [],
     isBodyweight: false,
+      previousCompletedWeightKg: null,
   }];
   
   const actions1: SessionActions = {
@@ -169,6 +170,7 @@ const settings: RunnerSettings = {
     feel: null,
     sets: [],
     isBodyweight: false,
+      previousCompletedWeightKg: null,
   }];
   
   const actions2: SessionActions = {

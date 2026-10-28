@@ -92,6 +92,7 @@ for (const lbValue of testValues) {
     restSeconds: 180,
     workingWeightKg: storedKg,
     suggestedWeightKg: storedKg,
+      previousCompletedWeightKg: null,
     status: "pending",
     feel: null,
     sets: [],

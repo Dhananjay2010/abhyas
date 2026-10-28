@@ -125,6 +125,7 @@ async function testR4AndR4s() {
       feel: null,
       sets: [],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   

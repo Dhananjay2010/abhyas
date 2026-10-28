@@ -99,6 +99,7 @@ const baseExercise = (id: string, name: string): RunnerExercise => ({
   restSeconds: 90,
   workingWeightKg: 60,
   suggestedWeightKg: 60,
+      previousCompletedWeightKg: null,
   status: "pending" as const,
   feel: null,
   sets: [],

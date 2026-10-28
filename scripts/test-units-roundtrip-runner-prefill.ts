@@ -197,8 +197,8 @@ for (const { kg, expectedLb } of storedWeights) {
 console.log("\nTest (c): Real SessionRunner prescription flooring");
 (async () => {
   for (const testCase of [
-    { kg: 62.5, expectedLb: "137.5" },
-    { kg: 100, expectedLb: "220" },
+    { kg: 62.5, previousKg: 60, expectedLb: "137.5" },
+    { kg: 100, previousKg: 97.5, expectedLb: "220" },
   ]) {
     const actions: SessionActions = {
       markWarmupDone: async () => ({ ok: true }),
@@ -259,6 +259,8 @@ console.log("\nTest (c): Real SessionRunner prescription flooring");
       restSeconds: 180,
       workingWeightKg: testCase.kg,
       suggestedWeightKg: testCase.kg,
+      // M1: Make this an increase so it floors
+      previousCompletedWeightKg: testCase.previousKg,
       status: "pending",
       feel: null,
       sets: [],

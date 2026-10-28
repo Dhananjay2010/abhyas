@@ -917,12 +917,15 @@ export function convertWeightInputToKg(
 /**
  * Compute the initial value for the weight input in the session runner.
  * For bodyweight exercises, only prefills if there's actual added weight.
- * For imperial units: prescriptions are floored to 0.5 lb, logged weights are rounded to nearest 0.5 lb.
+ * 
+ * M1/L1 fix: For imperial units:
+ * - A held or unchanged weight (isPrescription=false) shows the NEAREST 0.5 lb
+ * - Only a PRESCRIBED INCREASE (isPrescription=true) rounds down to 0.5 lb
  * 
  * @param defaultWeightKg - The prescribed weight in kg (or last logged weight)
  * @param units - The user's units preference
  * @param isBodyweight - Whether this is a bodyweight exercise
- * @param isPrescription - True if this is a prescribed weight with no logged sets yet (should floor, not round)
+ * @param isPrescription - True if this is a prescribed increase (should floor, not round)
  * @returns The string value for the weight input, or empty string if no prefill
  */
 export function computeRunnerWeightPrefill(
@@ -937,22 +940,21 @@ export function computeRunnerWeightPrefill(
   if (!shouldPrefillWeight || defaultWeightKg === null) return "";
   
   if (units === "metric") {
-    // Metric: round to 2 decimal places to match formatLoad display
-    // (so prefill agrees with the working-weight line above it)
+    // Metric: round to 2 decimal places, trim trailing zeros (M2/L3)
     const rounded = Math.round(defaultWeightKg * 100) / 100;
     // Format to 2 decimals with trailing zeros trimmed
     return rounded.toFixed(2).replace(/\.?0+$/, "");
   }
   
-  // Imperial: different behavior for prescriptions vs logged weights
+  // Imperial: different behavior for prescribed increases vs held/logged weights
   const lb = kgToLb(defaultWeightKg);
   
   if (isPrescription) {
-    // Prescriptions: FLOOR to 0.5 lb (conservative, with epsilon for round-trip precision)
+    // Prescribed increases: FLOOR to 0.5 lb (conservative, with epsilon for round-trip precision)
     const floored = Math.floor(lb * 2 + SNAP_LB_EPSILON) / 2;
     return String(floored);
   } else {
-    // Logged weights: round to NEAREST 0.5 lb to match History display
+    // Held/logged weights: round to NEAREST 0.5 lb (M1/L1)
     const rounded = roundLbToHalf(lb);
     return String(rounded);
   }
@@ -963,6 +965,9 @@ export function computeRunnerWeightPrefill(
  * 
  * L-3 fix: When the weight field is unchanged from the prefill, submit the
  * original defaultWeight to avoid precision loss from lb->kg conversion.
+ * 
+ * L2 fix: Compare numerically, not as text. Typing 187.0 over a displayed 187
+ * still saves the exact original 85 kg.
  * 
  * @param weight - The current weight input value (string)
  * @param initialPrefill - The initial prefill value (string)
@@ -978,8 +983,9 @@ export function weightKgToSubmit(
 ): number | null {
   if (weight === "") return null;
   
-  // If the weight field is unchanged from the prefill, submit the original kg
-  if (weight === initialPrefill && defaultWeight !== null) {
+  // If the weight field is numerically unchanged from the prefill, submit the original kg
+  // L2: Compare numerically so 187.0 typed over 187 is still unedited
+  if (Number(weight) === Number(initialPrefill) && defaultWeight !== null) {
     return defaultWeight;
   }
   

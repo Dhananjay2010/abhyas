@@ -81,6 +81,7 @@ const exercises: RunnerExercise[] = [{
     { setNumber: 3, reps: 10, weightKg: 50, durationSeconds: null },
   ],
   isBodyweight: false,
+      previousCompletedWeightKg: null,
 }];
 
 const settings: RunnerSettings = {

@@ -44,6 +44,7 @@ export type SessionExerciseInput = {
 export type ProgressInput = {
   readonly current_working_weight_kg: number | null;
   readonly current_target_reps: number | null;
+  readonly previous_completed_weight_kg?: number | null;
 } | undefined;
 
 export type RunnerExerciseInput = {
@@ -70,6 +71,8 @@ export type RunnerExerciseOutput = {
   feel: Feel | null;
   workingWeightKg: number | null;
   suggestedWeightKg: number | null;
+  /** Weight from the last completed session for this exercise (for M1 floor/nearest logic) */
+  previousCompletedWeightKg: number | null;
   isBodyweight: boolean;
   sets: {
     setNumber: number;
@@ -131,6 +134,11 @@ export function buildRunnerExercise(input: RunnerExerciseInput): RunnerExerciseO
     null
   );
 
+  // M1: Track the weight from the last completed session for floor/nearest logic
+  const previousCompleted = progress?.previous_completed_weight_kg === undefined || progress?.previous_completed_weight_kg === null
+    ? null
+    : Number(progress.previous_completed_weight_kg);
+
   return {
     id: r.id,
     exerciseId: ex?.id ?? "",
@@ -148,6 +156,7 @@ export function buildRunnerExercise(input: RunnerExerciseInput): RunnerExerciseO
     feel: r.feel ?? null,
     workingWeightKg: working,
     suggestedWeightKg: suggested,
+    previousCompletedWeightKg: previousCompleted,
     isBodyweight,
     sets: workingSets
       .sort((a, b) => a.set_number - b.set_number)

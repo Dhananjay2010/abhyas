@@ -80,6 +80,7 @@ function makeExercise(id: string, name: string, status: "pending" | "completed" 
     restSeconds: 90,
     workingWeightKg: 50,
     suggestedWeightKg: 50,
+    previousCompletedWeightKg: null,
     status,
     feel: status === "completed" ? "right" : null,
     sets: status === "completed" ? [

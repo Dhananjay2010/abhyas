@@ -155,6 +155,7 @@ async function test1b1d() {
       feel: null,
       sets: [],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   
@@ -276,6 +277,7 @@ async function testN7() {
       feel: null,
       sets: [],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   
@@ -421,6 +423,7 @@ async function test7b7c() {
         feel: null,
         sets: [],
         isBodyweight: false,
+      previousCompletedWeightKg: null,
       },
     ];
     
@@ -516,6 +519,7 @@ async function test7b7c() {
         feel: null,
         sets: [],
         isBodyweight: false,
+      previousCompletedWeightKg: null,
       },
     ];
     
@@ -639,6 +643,7 @@ async function test8d8e() {
       feel: null,
       sets: [],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   
@@ -795,6 +800,7 @@ async function test9b() {
       feel: "right",
       sets: [{ setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null }],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   
@@ -916,6 +922,7 @@ async function testN11() {
       feel: null,
       sets: [{setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null}],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   
@@ -1026,6 +1033,7 @@ async function testN12() {
       feel: null,
       sets: [],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   
@@ -1125,6 +1133,7 @@ async function testConflict() {
       feel: null,
       sets: [],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   
@@ -1249,6 +1258,7 @@ async function testDoubleTap() {
       feel: null,
       sets: [],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   
@@ -1350,6 +1360,7 @@ async function testFailedSubmit() {
       feel: null,
       sets: [],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   
@@ -1456,6 +1467,7 @@ async function testN7sCompletedSession() {
         { setNumber: 3, reps: 10, weightKg: 50, durationSeconds: null },
       ],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   
@@ -1567,6 +1579,7 @@ async function testRetryButton() {
       feel: null,
       sets: [],
       isBodyweight: false,
+      previousCompletedWeightKg: null,
     },
   ];
   
@@ -1682,7 +1695,8 @@ async function testItem2b() {
       status: "pending", 
       feel: null, 
       sets: [{ setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null }], 
-      isBodyweight: false 
+      isBodyweight: false,
+      previousCompletedWeightKg: null 
     }
   ];
   

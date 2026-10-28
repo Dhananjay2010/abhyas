@@ -116,7 +116,8 @@ function check(label: string, ok: boolean, detail = "") { if (!ok) failures++; c
     check("U2 lb values snapped to 0.5", unsnapped(t + " " + a).length === 0, unsnapped(t + " " + a).join(","));
     const axis = [...html.matchAll(/<text[^>]*font-size="9"[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
     console.log("  axis labels:", JSON.stringify(axis));
-    check("U2 axis labels in lb (weight 181 / 179.5, volume max 6,834)", axis.includes("181") && axis.includes("179.5") && axis.includes("6,834"), JSON.stringify(axis));
+    // M1: bodyweight now uses formatBodyWeight (0.1 precision) not formatWeight (0.5 lb snap)
+    check("U2 axis labels in lb (weight 181.2 / 179.3, volume max 6,834)", axis.includes("181.2") && axis.includes("179.3") && axis.includes("6,834"), JSON.stringify(axis));
   }
 
   console.log("\nU3: metric member, same data stays in kg");
