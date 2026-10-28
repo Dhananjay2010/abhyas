@@ -7,6 +7,7 @@ import { SignOutButton } from "./signout-button";
 import { buildTimezoneOptions } from "@/lib/timezone-options";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
 import { buildSettingsProps } from "@/lib/session/build-runner-props";
+import { loadSettingsOwnership, OwnerSection } from "./owner-section";
 
 export const dynamic = "force-dynamic";
 
@@ -14,13 +15,14 @@ export default async function SettingsPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
-  const [profileRes, settingsRes, equipment, userEquipmentRes, injuriesRes] =
+  const [profileRes, settingsRes, equipment, userEquipmentRes, injuriesRes, ownership] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
       getCachedEquipment(),
       supabase.from("user_equipment").select("equipment_id"),
       supabase.from("user_injuries").select("body_region, severity"),
+      loadSettingsOwnership(supabase, user.id),
     ]);
 
   const profile = profileRes.data;
@@ -76,6 +78,8 @@ export default async function SettingsPage() {
       <SettingsForm initial={initial} equipment={equipment} timezones={timezones} userId={user.id} />
 
       <div className="mt-12 space-y-8 border-t border-border pt-8">
+        <OwnerSection ownership={ownership} />
+
         <section>
           <h2 className="text-lg font-semibold mb-2">Legal & Support</h2>
           <div className="space-y-3">
