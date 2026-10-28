@@ -11,7 +11,7 @@
  */
 
 import { readFileSync } from "fs";
-import { createFakeDb, json } from "./helpers/fake-postgrest";
+import { createFakeDb } from "./helpers/fake-postgrest";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 
