@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updateBranding, type BrandingResult } from "./actions";
 import { accessibleTextColor } from "@/lib/contrast";
+import { ensureMinContrast } from "@/lib/brand-contrast";
 import { branding } from "@/lib/branding";
 
 type BrandingFormProps = {
@@ -62,16 +63,34 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
     });
   };
 
-  // Preview colors (use user input or neutral defaults from CSS custom properties)
-  // These are passed into CSS custom properties on the preview wrapper
-  const previewPrimary = primaryColor || "var(--color-muted)";
-  const previewAccent = accentColor || "var(--color-border)";
+  // Preview colors with contrast adjustment (same as runtime mergeBrand)
+  // Show owners the ACTUAL color members will see after ensureMinContrast
+  const appBg = branding.colors.bg; // #0a0c0e
+  const minRatio = 3.0;
   
-  // Compute accessible text color for preview when a valid color is entered
-  // Use simple contrast: if sum of RGB > 382 (roughly half of max 765), use black, else white
+  const rawPrimary = primaryColor && primaryColor.match(/^#[0-9A-Fa-f]{6}$/)
+    ? primaryColor
+    : null;
   
-  const previewTextColor = primaryColor && primaryColor.match(/^#[0-9A-Fa-f]{6}$/)
-    ? accessibleTextColor(primaryColor)
+  const adjustedPrimary = rawPrimary
+    ? ensureMinContrast(rawPrimary, appBg, minRatio, branding.colors.accent)
+    : null;
+  
+  const previewPrimary = adjustedPrimary || "var(--color-muted)";
+  
+  const rawAccent = accentColor && accentColor.match(/^#[0-9A-Fa-f]{6}$/)
+    ? accentColor
+    : null;
+  
+  const adjustedAccent = rawAccent
+    ? ensureMinContrast(rawAccent, appBg, minRatio, branding.colors.accentHover)
+    : null;
+  
+  const previewAccent = adjustedAccent || "var(--color-border)";
+  
+  // Compute accessible text color for preview against adjusted color
+  const previewTextColor = adjustedPrimary
+    ? accessibleTextColor(adjustedPrimary)
     : branding.colors.accentFg;
 
   return (
@@ -218,6 +237,9 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
       {/* Live Preview */}
       <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
         <h3 className="text-sm font-semibold text-muted">Live Preview</h3>
+        <p className="text-xs text-muted">
+          Colors are automatically adjusted for contrast. Members see the adjusted version shown here.
+        </p>
         <div
           className="space-y-3"
           style={
