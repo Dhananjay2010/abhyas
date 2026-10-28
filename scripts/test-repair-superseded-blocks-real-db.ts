@@ -178,6 +178,16 @@ async function runTests() {
     return out;
   }
 
+  // Every seed write must succeed: a swallowed insert error leaves a user unseeded and
+  // turns the asserts that follow into misleading failures.
+  function must<R extends { error: { message: string } | null }>(res: R, what: string): R {
+    if (res.error) {
+      console.error(`❌ Seed failed: ${what}:`, res.error);
+      throw new Error(`Seed failed: ${what}: ${res.error.message}`);
+    }
+    return res;
+  }
+
   async function makeUser(tag: string) {
     const email = `test-repair-${tag}-${Date.now()}@example.com`;
     const password = `test-password-${tag}`;
@@ -186,7 +196,7 @@ async function runTests() {
       console.error(`❌ Failed to create test user ${tag}:`, error);
       process.exit(1);
     }
-    await adminClient.from("profiles").upsert({
+    must(await adminClient.from("profiles").upsert({
       id: data.user.id,
       timezone: "America/Los_Angeles",
       onboarding_completed_at: new Date().toISOString(),
@@ -195,7 +205,7 @@ async function runTests() {
       level: "intermediate",
       primary_track: "weights",
       days_per_week: 4,
-    });
+    }), "upsert profiles");
     const client = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     });
@@ -216,12 +226,12 @@ async function runTests() {
   async function seedBlockWithDay(userId: string, startedOn: string, endsOn: string) {
     const blockId = randomUUID();
     const dayId = randomUUID();
-    await adminClient.from("programs").insert({ id: blockId, ...blockRow(userId, startedOn, endsOn), status: "active" });
-    await adminClient.from("program_days").insert({ id: dayId, program_id: blockId, user_id: userId, day_index: 1, day_type: "weights", label: "Upper A" });
-    await adminClient.from("program_day_exercises").insert({
+    must(await adminClient.from("programs").insert({ id: blockId, ...blockRow(userId, startedOn, endsOn), status: "active" }), "insert programs");
+    must(await adminClient.from("program_days").insert({ id: dayId, program_id: blockId, user_id: userId, day_index: 1, day_type: "weights", label: "Upper A" }), "insert program_days");
+    must(await adminClient.from("program_day_exercises").insert({
       id: randomUUID(), program_day_id: dayId, user_id: userId, exercise_id: exerciseId,
       order_index: 0, target_sets: 3, target_reps_min: 8, target_reps_max: 12,
-    });
+    }), "insert program_day_exercises");
     return { blockId, dayId };
   }
 
@@ -264,21 +274,21 @@ async function runTests() {
     const { blockId: blockId1, dayId: dayId1 } = await seedBlockWithDay(u1.userId, "2026-09-29", "2026-10-26");
 
     const sessionId1 = randomUUID();
-    await adminClient.from("sessions").insert({
+    must(await adminClient.from("sessions").insert({
       id: sessionId1, user_id: u1.userId, program_id: blockId1, program_day_id: dayId1,
       local_date: "2026-09-30", status: "completed", planned_type: "weights", actual_type: "weights",
       week_in_block: 1, is_deload: false,
-    });
+    }), "insert sessions");
     const sessionExId = randomUUID();
-    await adminClient.from("session_exercises").insert({
+    must(await adminClient.from("session_exercises").insert({
       id: sessionExId, session_id: sessionId1, user_id: u1.userId, exercise_id: exerciseId, order_index: 0, status: "completed",
-    });
+    }), "insert session_exercises");
     const setIds = [randomUUID(), randomUUID(), randomUUID()];
-    await adminClient.from("session_sets").insert([
+    must(await adminClient.from("session_sets").insert([
       { id: setIds[0], session_exercise_id: sessionExId, user_id: u1.userId, set_number: 1, reps: 10, weight_kg: 50 },
       { id: setIds[1], session_exercise_id: sessionExId, user_id: u1.userId, set_number: 2, reps: 9, weight_kg: 50 },
       { id: setIds[2], session_exercise_id: sessionExId, user_id: u1.userId, set_number: 3, reps: 8, weight_kg: 50 },
-    ]);
+    ]), "insert session_sets");
 
     const todayBuggy = "2026-10-27"; // the day after block 1 ended
     await mainRebuild(u1.client, todayBuggy, "2026-11-23");
@@ -310,11 +320,11 @@ async function runTests() {
     const old3 = randomUUID();
     const repl3 = randomUUID();
     const active3 = randomUUID();
-    await adminClient.from("programs").insert([
+    must(await adminClient.from("programs").insert([
       { id: old3, ...blockRow(u3.userId, "2026-09-29", "2026-10-26"), status: "superseded", ended_on: "2026-10-26" },
       { id: repl3, ...blockRow(u3.userId, "2026-10-27", "2026-11-23"), week_offset: 4, status: "superseded", ended_on: "2026-11-02" },
       { id: active3, ...blockRow(u3.userId, "2026-11-03", "2026-11-30"), week_offset: 5, status: "active" },
-    ]);
+    ]), "insert programs");
 
     // === USER 4: broken account, then a mid-block rebuild of the replacement (real RPCs) ===
     // Today's rebuild_block keeps started_on and week_offset mid-block, so both replacing
@@ -331,22 +341,24 @@ async function runTests() {
     // Older rebuilds consumed numbers: 11 superseded leftovers #1-#11, the real block 1 as
     // #12 (completed), 4 superseded leftovers of the next block as #13 and the real block 2
     // as #13 (active), so Today shows "Block 13". Inserted directly (older code made it).
+    // Every row carries an explicit id: supabase-js sends a multi-row insert with
+    // ?columns=<union of keys>, so a row without "id" would send id = NULL (not the default).
     const u5 = await makeUser("u5");
     createdUserIds.push(u5.userId);
     const addDays = (d: string, n: number) => new Date(Date.parse(d) + n * 86400000).toISOString().slice(0, 10);
     const real5a = randomUUID();
     const real5b = randomUUID();
-    await adminClient.from("programs").insert([
+    must(await adminClient.from("programs").insert([
       ...Array.from({ length: 11 }, (_, i) => ({
-        ...blockRow(u5.userId, addDays("2026-08-26", 2 * i), addDays("2026-08-26", 2 * i + 27)),
+        id: randomUUID(), ...blockRow(u5.userId, addDays("2026-08-26", 2 * i), addDays("2026-08-26", 2 * i + 27)),
         block_number: i + 1, status: "superseded" as const, ended_on: addDays("2026-08-26", 2 * i + 1),
       })),
       { id: real5a, ...blockRow(u5.userId, "2026-09-15", "2026-10-12"), block_number: 12, status: "completed" as const, ended_on: "2026-10-12" },
       ...Array.from({ length: 4 }, (_, i) => ({
-        ...blockRow(u5.userId, "2026-10-13", "2026-11-09"), block_number: 13, status: "superseded" as const, ended_on: addDays("2026-10-13", i + 1),
+        id: randomUUID(), ...blockRow(u5.userId, "2026-10-13", "2026-11-09"), block_number: 13, status: "superseded" as const, ended_on: addDays("2026-10-13", i + 1),
       })),
       { id: real5b, ...blockRow(u5.userId, "2026-10-13", "2026-11-09"), block_number: 13, status: "active" as const },
-    ]);
+    ]), "insert programs");
     const u5Before = await rowsOf(u5.userId);
     assert(u5Before.length === 17 && Math.max(...u5Before.map((r) => r.block_number)) === 13, "User 5: 17 rows numbered up to 13", `${u5Before.length} rows`);
 
