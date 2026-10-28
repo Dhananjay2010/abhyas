@@ -90,7 +90,44 @@ check(
   `got: ${imperialDecision.message}`
 );
 
-// Test 3 is covered by the first two tests (the primary case for MEDIUM-1)
+// Test 3: MSG2 killer - Bodyweight success with added weight (stored 0, lifted 6.25)
+// When stored is 0 but user lifted with added weight, progression shows "ready to add X kg"
+const successDecision = evaluateProgression({
+  sets: [
+    { reps: 12, weightKg: 6.25, durationSeconds: null },
+    { reps: 12, weightKg: 6.25, durationSeconds: null },
+    { reps: 12, weightKg: 6.25, durationSeconds: null },
+  ],
+  plannedSets: 3,
+  repsMin: 8,
+  repsMax: 12,
+  feel: "right",
+  meta: bodyweightMeta,
+  state: {
+    currentWorkingWeightKg: 0,
+    currentTargetReps: 12,
+    consecutiveFailures: 0,
+    bestWeightKg: 0,
+    bestReps: 12,
+    bestE1rm: null,
+    totalSessions: 3,
+    weightAtFailureStartKg: null,
+  },
+  isDeload: false,
+  equipmentIds: [],
+  unit: "kg",
+});
+
+check(
+  "MSG2: Bodyweight success (stored 0, lifted 6.25) says 'ready to add X kg' (not 'up to X kg')",
+  successDecision.message.includes("ready to add") && !successDecision.message.includes("up to"),
+  `got: ${successDecision.message}`
+);
+check(
+  "MSG2: Exact string is 'ready to add 7.5 kg' (6.25 + 1.25)",
+  successDecision.message === "All sets at the top of the range — ready to add 7.5 kg.",
+  `got: ${successDecision.message}`
+);
 
 if (failures > 0) {
   console.log(`\n❌ FAILED: ${failures} checks`);

@@ -205,6 +205,37 @@ async function main() {
   check("best_weight_kg unchanged", written?.best_weight_kg === 60);
   }
 
+  console.log("\n6. M1d: weight_at_failure_start_kg is written from decision");
+  {
+  const fake = createFakeClient();
+  const decision: Decision = {
+    outcome: "hold",
+    nextWorkingWeightKg: 60,
+    nextTargetReps: 12,
+    consecutiveFailures: 1,
+    wantsHarderVariation: false,
+    bestWeightKg: 60,
+    bestReps: 12,
+    bestE1rm: 84,
+    personalBest: null,
+    message: "Staying at this weight until every set reaches the top of the range.",
+    weightAtFailureStartKg: 60,
+  };
+
+  await writeExerciseProgressCore(
+    fake.client,
+    "user-1",
+    "ex-bench",
+    decision,
+    3,
+    "2026-10-24",
+  );
+
+  const written = fake.getWritten();
+  check("M1d: weight_at_failure_start_kg written from decision", written?.weight_at_failure_start_kg === 60, `${written?.weight_at_failure_start_kg}`);
+  check("consecutive_failures is 1", written?.consecutive_failures === 1);
+  }
+
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
   process.exit(failures === 0 ? 0 : 1);
 }

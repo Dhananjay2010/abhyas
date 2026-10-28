@@ -58,20 +58,28 @@ function run_mutant() {
   
   # Check for crash
   if isCrash "$output"; then
-    echo "  ❌ CRASH: test crashed (not a kill)"
+    echo "  ❌ SKIP: test crashed (not a kill)"
     echo "  Output: $(echo "$output" | head -3)"
     MUTATIONS_SKIPPED=$((MUTATIONS_SKIPPED + 1))
     return 0
   fi
   
-  # Check exit code
-  if [ $exit_code -eq 0 ]; then
+  # Check for assertion failure (FAIL or ❌ in output)
+  if [ $exit_code -ne 0 ]; then
+    if echo "$output" | grep -qE "FAIL|❌|✗"; then
+      local failing_line=$(echo "$output" | grep -E "FAIL|❌|✗" | head -1 | sed 's/^[[:space:]]*//')
+      echo "  ✅ KILLED: $failing_line"
+      MUTATIONS_KILLED=$((MUTATIONS_KILLED + 1))
+      return 0
+    else
+      echo "  ❌ SKIP: nonzero exit but no assertion failure (not a kill)"
+      echo "  Output: $(echo "$output" | tail -5)"
+      MUTATIONS_SKIPPED=$((MUTATIONS_SKIPPED + 1))
+      return 0
+    fi
+  else
     echo "  ❌ SURVIVED: mutant passed tests"
     MUTATIONS_SURVIVED=$((MUTATIONS_SURVIVED + 1))
-    return 0
-  else
-    echo "  ✅ KILLED: test failed as expected"
-    MUTATIONS_KILLED=$((MUTATIONS_KILLED + 1))
     return 0
   fi
 }

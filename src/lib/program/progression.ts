@@ -1030,13 +1030,17 @@ export function evaluateProgression(input: {
     
     // If helper returned same weight as current (no actual change), it's a hold
     if (reduced === currentWeight) {
-      const holdMessage = failures >= 3
+      const holdMessage = state.consecutiveFailures >= 3
         ? equipmentIds
-          ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
-          : "Missed twice in a row but already at light weight — holding to build back up."
-        : equipmentIds
-          ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
-          : "Missed twice in a row but already at light weight — holding to build back up.";
+          ? "Missed again but no lighter loadable weight fits within 10% — holding to build back up."
+          : "Missed again but already at light weight — holding to build back up."
+        : state.consecutiveFailures === 2
+          ? equipmentIds
+            ? "Missed three times in a row but no lighter loadable weight fits within 10% — holding to build back up."
+            : "Missed three times in a row but already at light weight — holding to build back up."
+          : equipmentIds
+            ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
+            : "Missed twice in a row but already at light weight — holding to build back up.";
       
       return {
         ...carried,
@@ -1058,9 +1062,11 @@ export function evaluateProgression(input: {
         nextTargetReps: repsMax,
         consecutiveFailures: failures, // Keep counter so third miss triggers step-down
         weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss
-        message: failures >= 3
-          ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
-          : "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up.",
+        message: state.consecutiveFailures >= 3
+          ? "Missed again but no lighter loadable weight fits within 10% — holding to build back up."
+          : state.consecutiveFailures === 2
+            ? "Missed three times in a row but no lighter loadable weight fits within 10% — holding to build back up."
+            : "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up.",
       };
     }
     

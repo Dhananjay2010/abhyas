@@ -123,7 +123,8 @@ test_mutant() {
   
   # Run tests
   local test_exit=0
-  eval "$MUTANT_TEST_CMD" > /dev/null 2>&1 || test_exit=$?
+  local test_output
+  test_output=$(eval "$MUTANT_TEST_CMD" 2>&1) || test_exit=$?
   
   if [ $test_exit -eq 0 ]; then
     echo "  ❌ SURVIVED"
@@ -132,8 +133,15 @@ test_mutant() {
     echo "  ⊘ SKIP: Test crashed"
     SKIPPED+=("$name")
   else
-    echo "  ✅ KILLED"
-    KILLED=$((KILLED + 1))
+    # Check for assertion failure (FAIL or ❌ in output)
+    if echo "$test_output" | grep -qE "FAIL|❌|✗"; then
+      local failing_line=$(echo "$test_output" | grep -E "FAIL|❌|✗" | head -1 | sed 's/^[[:space:]]*//')
+      echo "  ✅ KILLED: $failing_line"
+      KILLED=$((KILLED + 1))
+    else
+      echo "  ⊘ SKIP: Nonzero exit but no assertion failure"
+      SKIPPED+=("$name")
+    fi
   fi
   
   restore_from_backup
