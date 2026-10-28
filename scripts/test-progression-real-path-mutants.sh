@@ -20,7 +20,7 @@ cp "$SRC_FILE" "$TEMP_DIR/build-progression-input.ts.orig"
 echo "=== MUTANT 1: repsMin <- planned_reps_max ==="
 echo "This brings back the original bug: 4×10 in 8-12 becomes a miss"
 cp "$TEMP_DIR/build-progression-input.ts.orig" "$SRC_FILE"
-sed -i 's/repsMin: sessionExercise\.planned_reps_min ?? 8,/repsMin: sessionExercise.planned_reps_max ?? 12, \/\/ MUTANT: wired to max/' "$SRC_FILE"
+sed -i 's/repsMin: resolvedMin,/repsMin: sessionExercise.planned_reps_max ?? 12, \/\/ MUTANT: wired to max/' "$SRC_FILE"
 
 echo "Running test with mutant..."
 if npx tsx scripts/test-progression-real-path.ts 2>&1 | tee "$TEMP_DIR/mutant1-output.txt" | grep -q "FAIL"; then
@@ -38,7 +38,7 @@ echo "=== MUTANT 2: repsMin dropped ==="
 echo "Remove repsMin from the return, making it undefined"
 cp "$TEMP_DIR/build-progression-input.ts.orig" "$SRC_FILE"
 # Remove the repsMin line from the return statement
-sed -i '/repsMin: sessionExercise\.planned_reps_min ?? 8,/d' "$SRC_FILE"
+sed -i '/repsMin: resolvedMin,/d' "$SRC_FILE"
 
 echo "Running test with mutant..."
 if npx tsx scripts/test-progression-real-path.ts 2>&1 | tee "$TEMP_DIR/mutant2-output.txt" | grep -q "FAIL\|error\|Error"; then
@@ -54,8 +54,8 @@ echo ""
 # Mutant 3: wrong state weight source
 echo "=== MUTANT 3: state weight from best_weight_kg instead of current_working_weight_kg ==="
 cp "$TEMP_DIR/build-progression-input.ts.orig" "$SRC_FILE"
-sed -i 's/currentWorkingWeightKg:/currentWorkingWeightKg: \/\/ MUTANT: wrong field/' "$SRC_FILE"
-sed -i '/currentWorkingWeightKg: \/\/ MUTANT:/,+3s/current_working_weight_kg/best_weight_kg/' "$SRC_FILE"
+# Only mutate the state object, not the resolveTarget call - need to replace all occurrences on matching lines
+sed -i '/const state: ProgressState = {/,/bestWeightKg:/ s/current_working_weight_kg/best_weight_kg/g' "$SRC_FILE"
 
 echo "Running test with mutant..."
 if npx tsx scripts/test-progression-real-path.ts 2>&1 | tee "$TEMP_DIR/mutant3-output.txt" | grep -q "FAIL"; then
