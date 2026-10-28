@@ -5,6 +5,7 @@ import { ageOn } from "@/lib/onboarding/options";
 import { addDays } from "@/lib/dates";
 import { buildInjuryFlags } from "./injury-regions";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
+import { carriedWeekdayLayout, loadLayoutSourceDays, type LayoutSourceDay } from "./weekday-layout";
 
 type Client = SupabaseClient<Database>;
 
@@ -110,6 +111,8 @@ async function callRolloverRPC(
   userId: string,
   today: string,
   carryOver: Record<string, string>,
+  /** The ended block's program_days: the new block keeps its weekdays (QA2 M-1). */
+  previousDays: LayoutSourceDay[],
 ): Promise<{ ok: true; programId: string; blockNumber: number } | { ok: false; error: string }> {
   // Fetch profile and catalog to generate the plan
   const [profileRes, weightRes, equipmentRes, injuriesRes, catalogueRes, lastBlockRes] =
@@ -172,7 +175,13 @@ async function callRolloverRPC(
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver,
-    // Rollover: Don't pass startedOn so existing users keep their weekday mapping
+    // Rollover: Don't pass startedOn (block 2+ is never re-anchored to the
+    // rollover date); keep the ended block's weekdays instead (QA2 M-1).
+    weekdayLayout: carriedWeekdayLayout(
+      previousDays,
+      profile.days_per_week!,
+      profile.yoga_days_per_week ?? 0,
+    ),
   };
 
   const plan = generateProgram(input);
@@ -259,7 +268,10 @@ export async function ensureCurrentBlock(
   if (active.ends_on >= today) return { status: "current", programId: active.id };
 
   const carryOver = await extractCarryOver(supabase, active.id);
-  const built = await callRolloverRPC(supabase, userId, today, carryOver);
+  const previous = await loadLayoutSourceDays(supabase, active.id);
+  const built = previous.ok
+    ? await callRolloverRPC(supabase, userId, today, carryOver, previous.days)
+    : ({ ok: false, error: "Unable to start your next training block. Please try again or contact support if this persists." } as const);
 
   if (!built.ok) {
     // A concurrent request may have rolled over first; the partial unique index

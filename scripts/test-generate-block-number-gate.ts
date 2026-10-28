@@ -8,6 +8,8 @@
  * This test verifies:
  * - Block 1 with startedOn='2026-10-29' (Thursday) → [1,4,6] (anchored)
  * - Block 2 with startedOn='2026-10-29' → [1,3,5] (NOT anchored, gate prevents it)
+ * - Block 2 with a carried weekdayLayout keeps the previous block's week (QA2 M-1);
+ *   block 1 ignores it, and an invalid layout falls back to the default
  */
 
 import { strict as assert } from "node:assert";
@@ -101,6 +103,67 @@ console.log("\n2. Block 2 with startedOn='2026-10-29' → [1,3,5] (NOT anchored,
   );
   
   console.log(`  ✓ Block 2 not anchored: [${trainingDayIndices.join(",")}] = [1,3,5]`);
+}
+
+console.log("\n3. Block 2 with a carried weekdayLayout [4,6,1] (QA2 M-1) → keeps Thu A / Sat B / Mon C");
+{
+  const plan = generateProgram({
+    ...BASE_INPUT,
+    blockNumber: 2,
+    startedOn: "2026-10-29",
+    weekdayLayout: [4, 6, 1],
+  });
+
+  const week = plan.days
+    .filter((d) => d.dayType === "weights")
+    .map((d) => `${d.dayIndex}:${d.label}`);
+
+  assert.deepStrictEqual(
+    week,
+    ["1:Full Body C", "4:Full Body A", "6:Full Body B"],
+    "Block 2 must keep the previous block's weekdays and their sessions when a layout is carried"
+  );
+
+  console.log(`  ✓ Block 2 carried: ${week.join(", ")}`);
+}
+
+console.log("\n4. Block 1 ignores weekdayLayout (only #165's started_on anchor or the default)");
+{
+  const plan = generateProgram({
+    ...BASE_INPUT,
+    blockNumber: 1,
+    weekdayLayout: [4, 6, 1],
+  });
+
+  const trainingDayIndices = plan.days
+    .filter((d) => d.dayType === "weights")
+    .map((d) => d.dayIndex)
+    .sort((a, b) => a - b);
+
+  assert.deepStrictEqual(
+    trainingDayIndices,
+    [1, 3, 5],
+    "Block 1 without startedOn must stay on the default [1,3,5] even if a layout is passed"
+  );
+
+  console.log(`  ✓ Block 1 not carried: [${trainingDayIndices.join(",")}] = [1,3,5]`);
+}
+
+console.log("\n5. Block 2 ignores an invalid carried layout (wrong count, duplicate, out of range) → [1,3,5]");
+{
+  for (const weekdayLayout of [[3, 4, 6, 7], [4, 4, 1], [0, 4, 6], [4, 6, 8]]) {
+    const plan = generateProgram({ ...BASE_INPUT, blockNumber: 2, weekdayLayout });
+    const trainingDayIndices = plan.days
+      .filter((d) => d.dayType === "weights")
+      .map((d) => d.dayIndex)
+      .sort((a, b) => a - b);
+    assert.deepStrictEqual(
+      trainingDayIndices,
+      [1, 3, 5],
+      `Block 2 must fall back to the default for invalid layout ${JSON.stringify(weekdayLayout)}`
+    );
+  }
+  console.log("  ✓ invalid layouts fall back to [1,3,5]");
 }
 
 console.log("\n✓ Mutant (a) would fail: removing blockNumber gate would anchor block 2\n");
