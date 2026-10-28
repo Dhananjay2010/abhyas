@@ -1,16 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
+import type { WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { isStaleSession } from "@/lib/session/is-stale-session";
-import { SessionRunner, type RunnerSettings } from "./session-runner";
+import { SessionRunner } from "./session-runner";
 import { isUuid } from "@/lib/ids";
 import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
-import { buildRunnerProps } from "@/lib/session/build-runner-props";
-import { getUnitsPreference } from "@/lib/units";
-import { loadAndBuildRunnerExercises } from "@/lib/session/load-and-build-runner-exercises";
+import { loadSessionPageData } from "@/lib/session/load-session-page-data";
 
 export const dynamic = "force-dynamic";
 
@@ -112,60 +109,6 @@ export default async function SessionPage({
   */
   const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
 
-  // M1: Load previous completed weights and build runner exercises (integrated)
-  const exercises = await loadAndBuildRunnerExercises({
-    client: supabase,
-    userId: user.id,
-    rows,
-    progressByExercise,
-    remembersWeights,
-    isDeload: session.is_deload,
-  });
-
-  const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];
-  const allWarmupRows = (warmupsRes.data ?? []) as WarmupRow[];
-  
-  // Separate current and past injuries: prehab uses ALL (past injuries benefit from warming up),
-  // but exclusion logic (mobility filter and cool-down) uses only CURRENT to avoid over-filtering
-  const allInjuries = injuriesRes.data ?? [];
-  const allInjuryRegions = allInjuries.map((i) => i.body_region);
-  const currentInjuryRegions = allInjuries.filter((i) => i.severity === "current").map((i) => i.body_region);
-  
-  const warmup = selectWarmup({
-    warmups: allWarmupRows,
-    trainingMuscles,
-    injuryRegions: currentInjuryRegions,
-    prehabRegions: allInjuryRegions,
-    track: profileRes.data?.primary_track ?? "weights",
-    hasAllEquipment: profileRes.data?.has_all_equipment ?? false,
-    availableEquipment: profileRes.data?.has_all_equipment
-      ? null
-      : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
-  });
-
-  // Cool-down uses only CURRENT injuries for exclusion
-  const cooldown = selectCooldown({
-    stretches: allWarmupRows,
-    trainingMuscles,
-    injuryRegions: currentInjuryRegions,
-    hasAllEquipment: profileRes.data?.has_all_equipment ?? false,
-    availableEquipment: profileRes.data?.has_all_equipment
-      ? null
-      : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
-  });
-
-  const s = settingsRes.data;
-  const profile = profileRes.data;
-  const settings: RunnerSettings = {
-    perSetLogging: s?.per_set_logging ?? true,
-    restAutostart: s?.rest_timer_autostart ?? true,
-    restSound: s?.rest_timer_sound ?? true,
-    restVibrate: s?.rest_timer_vibrate ?? true,
-    restOverrideSeconds: s?.rest_seconds_override ?? null,
-    cooldownEnabled: s?.cooldown_enabled ?? true,
-    units: (profile?.units === "imperial" || profile?.units === "metric") ? profile.units : "metric",
-  };
-
   // "What about tomorrow?" needs the block's own days to offer as alternatives,
   // and what tomorrow already is. MED-1 fix: precompute targetLocalDate as
   // session.local_date + 1 (matches PR #166). This ensures a session finishing
@@ -174,37 +117,24 @@ export default async function SessionPage({
   const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
   const { addDays } = await import("@/lib/dates");
   const targetLocalDate = session.local_date ? addDays(session.local_date, 1) : undefined;
-  const tomorrow = await nextDayPlan(supabase, timezone, targetLocalDate, {
-    sessionId: session.id,
+
+  // Load all session page data (exercises, warmup, cooldown, settings, tomorrow, isStale, runnerProps)
+  const pageData = await loadSessionPageData({
+    client: supabase,
+    session,
+    user,
+    rows,
+    progressByExercise,
+    remembersWeights,
+    warmupsRes,
+    injuriesRes,
+    settingsRes,
+    profileRes,
+    equipmentRes,
+    timezone,
+    targetLocalDate,
+    nextDayPlan,
   });
 
-  // Compute isStale on the server to avoid requiring timezone in client components
-  const isStale = session.started_at
-    ? isStaleSession({
-        startedAt: session.started_at,
-        now: new Date().toISOString(),
-        timezone,
-      })
-    : false;
-
-  // N6/N6s: Extract userId and sessionStatus via tested helper
-  const runnerProps = buildRunnerProps(session, user);
-
-  return (
-    <SessionRunner
-      {...runnerProps}
-      sessionId={session.id}
-      isDeload={session.is_deload}
-      week={session.week_in_block ?? 1}
-      warmupAlreadyDone={session.warmup_completed}
-      startedAt={session.started_at}
-      isStale={isStale}
-      warmup={warmup}
-      cooldown={cooldown}
-      exercises={exercises}
-      settings={settings}
-      tomorrow={tomorrow}
-      units={getUnitsPreference(profileRes.data?.units)}
-    />
-  );
+  return <SessionRunner {...pageData} />;
 }

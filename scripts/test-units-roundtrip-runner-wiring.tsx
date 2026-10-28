@@ -603,7 +603,7 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     r.unmount();
   }
 
-  // Test 4K: Mutant K - After logging Set 1 at 62.75 kg, Set 2 prefill rounds (not floors)
+  // Test 4K: Mutant K - After logging Set 1 at 62.75 kg, Set 2 prefill rounds to 138.5 lb (not 138)
   console.log("\nTest 4K: Mutant K - logged 62.75 kg set 1, set 2 prefill → 138.5 lb");
   {
     const capturedWeights: number[] = [];
