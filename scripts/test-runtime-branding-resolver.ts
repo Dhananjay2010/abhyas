@@ -449,7 +449,7 @@ async function main() {
           gym_id: 'gym-1',
           // MISSING gym_slug - should fail shape check
           gym_name: 'Test Gym',
-        } as unknown as ResolveGymByHostResult
+        }
       ],
     });
     
