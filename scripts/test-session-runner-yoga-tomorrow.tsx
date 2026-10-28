@@ -2,11 +2,13 @@
 /**
  * Test: SessionRunner yoga tomorrow wiring
  * 
- * Regression test for tomorrowIsRest yoga bug: when tomorrow is yoga (dayType='yoga',
- * programDayId=null), the Rest button should still be shown (yoga is not rest).
+ * When tomorrow is yoga (dayType='yoga', programDayId=null), the normal UI shows with
+ * "Keep it / Swap the day / Rest" buttons. The Rest button is shown (yoga is not rest).
  * 
- * Mutant killed: changing `tomorrow.dayType === "rest"` to `tomorrow.programDayId === null`
- * in session-runner.tsx would hide Rest for yoga days too.
+ * When tomorrow is rest (dayType='rest'), #166's showNewRestUI triggers and shows
+ * "Train anyway / Keep rest" instead, preventing the duplicate Rest button.
+ * 
+ * This test verifies yoga days don't trigger showNewRestUI.
  */
 
 import "./helpers/setup-jsdom";

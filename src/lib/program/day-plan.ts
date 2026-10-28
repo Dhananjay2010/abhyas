@@ -535,8 +535,7 @@ export async function nextDayPlanCore(
 
   const scheduledToday = allProgramDays.find((d) => d.day_index === todayDayIndex);
 
-  // Only treat as a swap if the session is actually from today (not a stale session)
-  const todayWasSwap = todaySession && todaySession.localDate === deps.getToday()
+  const todayWasSwap = todaySession
     ? wasSwapDay({
         completedProgramDayId: todaySession.programDayId,
         scheduledProgramDayId: scheduledToday?.id ?? null,
@@ -665,7 +664,11 @@ export async function nextDayPlan(
   const deps: NextDayPlanCoreDeps = {
     async getTodayCompletedSession() {
       const s = await loadCurrentSession();
-      return s ? { programDayId: s.programDayId, actualType: s.actualType ?? "", localDate: s.localDate } : null;
+      // Only return session if it's from today. Stale sessions don't trigger
+      // swap collision (day-plan.ts:300-303 - shift only when TODAY was a swap).
+      // justDone in plannableDays still uses the full session for Next up.
+      if (!s || s.localDate !== today) return null;
+      return { programDayId: s.programDayId, actualType: s.actualType ?? "", localDate: s.localDate };
     },
 
     async getAllProgramDays() {

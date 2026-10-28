@@ -26,7 +26,7 @@ async function main() {
   console.log("LOW: Hide duplicate Rest button when tomorrow is rest\n");
 
   {
-    console.log("1. Tomorrow is Rest → only 'Keep it' and 'Swap the day' (no 'Rest')");
+    console.log("1. Tomorrow is Rest → #166 UI: 'Train anyway' and 'Keep rest' (not Keep it / Swap)");
 
     const { container } = render(
       <DayPlanPrompt
@@ -37,22 +37,23 @@ async function main() {
         days={[]}
         heading="What about tomorrow?"
         onPlan={async () => ({ ok: true })}
-        tomorrowIsRest={true}
       />
     );
 
-    // Check that "Keep it" and "Swap the day" exist
+    // #166 changed rest-day UI: "Tomorrow: rest day. Train anyway?" with buttons "Train anyway" and "Keep rest"
     const buttons = Array.from(container.querySelectorAll("button"));
-    const keepButton = buttons.find(btn => btn.textContent === "Keep it");
+    const trainButton = buttons.find(btn => btn.textContent === "Train anyway");
+    const keepRestButton = buttons.find(btn => btn.textContent === "Keep rest");
+    assert.ok(trainButton, "Should have 'Train anyway' button");
+    assert.ok(keepRestButton, "Should have 'Keep rest' button");
+
+    // Old buttons should not exist
+    const keepItButton = buttons.find(btn => btn.textContent === "Keep it");
     const swapButton = buttons.find(btn => btn.textContent === "Swap the day");
-    assert.ok(keepButton, "Should have 'Keep it' button");
-    assert.ok(swapButton, "Should have 'Swap the day' button");
+    assert.ok(!keepItButton, "Should NOT have 'Keep it' button (replaced by #166 UI)");
+    assert.ok(!swapButton, "Should NOT have 'Swap the day' button in rest UI");
 
-    // Check that "Rest" button does NOT exist
-    const restButton = buttons.find(btn => btn.textContent === "Rest");
-    assert.ok(!restButton, "Should NOT have separate 'Rest' button");
-
-    console.log("  ✓ No duplicate Rest button (only Keep it and Swap the day)\n");
+    console.log("  ✓ #166 rest UI: Train anyway / Keep rest buttons present\n");
   }
 
   {
@@ -67,7 +68,6 @@ async function main() {
         days={[]}
         heading="What about tomorrow?"
         onPlan={async () => ({ ok: true })}
-        tomorrowIsRest={false}
       />
     );
 
@@ -95,7 +95,6 @@ async function main() {
         days={[]}
         heading="What about tomorrow?"
         onPlan={async () => ({ ok: true })}
-        tomorrowIsRest={false}
       />
     );
 
@@ -123,7 +122,6 @@ async function main() {
         days={[]}
         heading="Yesterday you missed"
         showRestOption={true}
-        tomorrowIsRest={false}
       />
     );
 
@@ -140,7 +138,7 @@ async function main() {
   console.log("LOW: Never mind button is 44px min height\n");
 
   {
-    console.log("5. Never mind button has min-h-11 (44px)");
+    console.log("5. Never mind button has min-h-11 (44px), accessed via #166 Train anyway");
 
     const { container } = render(
       <DayPlanPrompt
@@ -151,15 +149,14 @@ async function main() {
         days={[{ programDayId: "pd-a", label: "Full Body A", dayType: "weights", nextUp: false }]}
         heading="What about tomorrow?"
         onPlan={async () => ({ ok: true })}
-        tomorrowIsRest={true}
       />
     );
 
-    // Find and click "Swap the day" to show the list with "Never mind"
-    const swapButtons = Array.from(container.querySelectorAll("button"));
-    const swapBtn = swapButtons.find(b => b.textContent === "Swap the day");
-    assert.ok(swapBtn, "Should find Swap the day button");
-    swapBtn.click();
+    // Find and click "Train anyway" (#166 rest UI) to show the list with "Never mind"
+    const trainButtons = Array.from(container.querySelectorAll("button"));
+    const trainBtn = trainButtons.find(b => b.textContent === "Train anyway");
+    assert.ok(trainBtn, "Should find Train anyway button");
+    trainBtn.click();
 
     await new Promise(resolve => setTimeout(resolve, 100));
 

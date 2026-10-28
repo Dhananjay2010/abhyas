@@ -957,7 +957,6 @@ export function SessionRunner({
             days={tomorrow.days}
             heading={planPromptHeading(tomorrowLabel)}
             onPlan={actions.planDay}
-            tomorrowIsRest={tomorrow.dayType === "rest"}
             onRefresh={actions.refreshAfterSession}
           />
         )}
