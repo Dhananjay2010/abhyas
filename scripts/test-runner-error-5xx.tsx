@@ -28,9 +28,10 @@ assert(
   !weight500Result.includes("Something went wrong on our side"),
   "Weight 500 kg should NOT be classified as 5xx"
 );
+// Item 5: ALL non-5xx/non-offline/non-expired errors show friendly text
 assert(
-  weight500Result === "Weight 500 kg is above the max",
-  "Weight 500 kg returns raw message"
+  weight500Result === "That set wasn't saved. Please try again.",
+  "Weight 500 kg returns friendly sanitized message (Item 5)"
 );
 
 // Test 2: "Set 1500 rejected" should NOT be 5xx
@@ -40,9 +41,10 @@ assert(
   !set1500Result.includes("Something went wrong on our side"),
   "Set 1500 should NOT be classified as 5xx"
 );
+// Item 5: ALL non-5xx/non-offline/non-expired errors show friendly text
 assert(
-  set1500Result === "Set 1500 rejected",
-  "Set 1500 returns raw message"
+  set1500Result === "That set wasn't saved. Please try again.",
+  "Set 1500 returns friendly sanitized message (Item 5)"
 );
 
 // Test 3: "status 503" SHOULD be 5xx
