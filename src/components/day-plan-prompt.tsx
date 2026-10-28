@@ -1,8 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { planDay, type DayPlan, type PlannableDay } from "@/app/session/actions";
+import {
+  planDay,
+  refreshAfterSession,
+  type DayPlan,
+  type PlannableDay,
+  type PlanRetarget,
+} from "@/app/session/actions";
+import { DAY_CHANGED_ERROR, planPromptHeading } from "@/lib/session/resolve-plan-target-date";
 import { isOfflineError } from "@/lib/offline-error";
 
 /**
@@ -16,10 +23,15 @@ import { isOfflineError } from "@/lib/offline-error";
  * its dates and the deload week stays where it was. "Keep the plan" removes an
  * override rather than writing one, so changing your mind costs nothing.
  */
+/** How long an end-of-session confirmation stays up before Today (QA1 LOW-1). */
+export const SESSION_CONFIRM_MS = 1500;
+
 export function DayPlanPrompt({
   sessionId,
+  shownDate,
   localDate,
   dayLabel,
+  displayLabel,
   plannedLabel,
   programDayId,
   days,
@@ -27,13 +39,26 @@ export function DayPlanPrompt({
   intro,
   showRestOption = true,
   onPlan = planDay,
+  onRefresh = refreshAfterSession,
 }: {
   /** The session ID whose local_date + 1 is the target date (for end-of-session prompts). */
   sessionId?: string;
+  /**
+   * End-of-session: the target day this prompt shows (the page's
+   * `tomorrow.localDate`). Sent with the choice so the server saves this day,
+   * not one re-derived at tap time (QA3 LOW-1).
+   */
+  shownDate?: string;
   /** The day being planned, as a local `YYYY-MM-DD` (for Today page prompts). */
   localDate?: string;
   /** How to name that day to the user: "Tomorrow", "Today", "Thursday". */
   dayLabel: string;
+  /**
+   * The name shown for that day when it differs from `dayLabel`'s framing: an
+   * end-of-session prompt (dayLabel "Tomorrow") about today after a
+   * next-morning finish passes "Today" (QA1 LOW-2).
+   */
+  displayLabel?: string;
   /** What the block currently says that day is. */
   plannedLabel: string;
   /** The resolved program_day_id for this day (after collision resolution). Null for Rest. */
@@ -46,6 +71,8 @@ export function DayPlanPrompt({
   showRestOption?: boolean;
   /** Injected so the prompt can be driven without a signed-in session. */
   onPlan?: typeof planDay;
+  /** Injected for the same reason; refreshes Today after an end-of-session choice. */
+  onRefresh?: () => Promise<unknown>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -53,6 +80,19 @@ export function DayPlanPrompt({
   const [settled, setSettled] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastAttempt, setLastAttempt] = useState<{ plan: DayPlan; describedAs: string } | null>(null);
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+  }, []);
+  // QA3 LOW-1: when the server says the shown day has passed, it sends the
+  // new day; show that one (unsaved) and send it with the next choice.
+  const [retarget, setRetarget] = useState<PlanRetarget | null>(null);
+  const shownLabel = retarget?.label ?? displayLabel ?? dayLabel;
+  const shownDay = retarget?.localDate ?? shownDate;
+  const shownPlanned = retarget?.plannedLabel ?? plannedLabel;
+  const shownProgramDayId = retarget ? retarget.programDayId : programDayId;
+  const shownDays = retarget?.days ?? days;
+  const shownHeading = retarget ? planPromptHeading(retarget.label) : heading;
 
   // LOW-7: Non-retryable errors (core errors that won't change on retry)
   const NON_RETRYABLE_ERRORS = [
@@ -61,12 +101,16 @@ export function DayPlanPrompt({
     "That day has already been and gone.",
     "That session has already started.",
     "Cannot save: missing session or date.",
+    // QA3 LOW-6: retrying cannot bring a missing session back.
+    "Session not found.",
+    // QA3 LOW-1: the day changed; choose again for the new day.
+    DAY_CHANGED_ERROR,
   ];
 
   const isRetryable = error && !NON_RETRYABLE_ERRORS.some(msg => error.includes(msg));
 
   // Sort days so nextUp is first (preselected)
-  const sortedDays = [...days].sort((a, b) => {
+  const sortedDays = [...shownDays].sort((a, b) => {
     if (a.nextUp && !b.nextUp) return -1;
     if (!a.nextUp && b.nextUp) return 1;
     return 0;
@@ -84,18 +128,34 @@ export function DayPlanPrompt({
         }
 
         const input = sessionId 
-          ? { sessionId, plan }
+          ? { sessionId, plan, ...(shownDay ? { shownDate: shownDay } : {}) }
           : { localDate: localDate!, plan };
 
         const r = await onPlan(input);
         if (!r.ok) {
+          if ("retarget" in r && r.retarget) {
+            setRetarget(r.retarget);
+            setChoosing(false);
+          }
           setError(r.error);
           return;
         }
         setChoosing(false);
         setSettled(describedAs);
+        if (leaveTimer.current) clearTimeout(leaveTimer.current);
+        if (sessionId) {
+          // QA1 LOW-1: the session summary stays up with the confirmation for
+          // SESSION_CONFIRM_MS; only then is Today revalidated, and that
+          // re-render takes the completed session's summary on to Today.
+          leaveTimer.current = setTimeout(() => {
+            leaveTimer.current = null;
+            // A failed refresh leaves the summary up; "Back to Today" still works.
+            void Promise.resolve().then(onRefresh).catch(() => {});
+          }, SESSION_CONFIRM_MS);
+          return;
+        }
         // Delay redirect so confirmation is visible for ~1.2s
-        setTimeout(() => {
+        leaveTimer.current = setTimeout(() => {
           // Today reads the override on the server, so it has to re-render.
           router.refresh();
         }, 1200);
@@ -113,8 +173,8 @@ export function DayPlanPrompt({
   if (settled) {
     // MED-C: Use dayLabel (context-dependent) instead of hardcoding "Tomorrow"
     const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
-      ? `${dayLabel} is a rest day.`
-      : `${dayLabel} is ${settled}.`;
+      ? `${shownLabel} is a rest day.`
+      : `${shownLabel} is ${settled}.`;
     return (
       <section className="mt-8 rounded-xl border border-success/30 bg-success/10 px-5 py-4">
         <p className="text-sm text-success">
@@ -122,6 +182,8 @@ export function DayPlanPrompt({
         </p>
         <button
           onClick={() => {
+            if (leaveTimer.current) clearTimeout(leaveTimer.current);
+            leaveTimer.current = null;
             setSettled(null);
             setChoosing(true);
           }}
@@ -133,7 +195,7 @@ export function DayPlanPrompt({
     );
   }
 
-  const isRestDay = plannedLabel.toLowerCase() === "rest";
+  const isRestDay = shownPlanned.toLowerCase() === "rest";
   const isTomorrowLabel = dayLabel === "Tomorrow";
   const showNewRestUI = isRestDay && isTomorrowLabel;
 
@@ -141,9 +203,9 @@ export function DayPlanPrompt({
     // Rest branch: same order and "Next up" badge as the swap list (#165).
     return (
       <section className="mt-8">
-        <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">{heading}</h2>
+        <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">{shownHeading}</h2>
         <p className="mt-2 text-sm text-muted">
-          {dayLabel}: rest day. Train anyway?
+          {shownLabel}: rest day. Train anyway?
         </p>
 
         {!choosing ? (
@@ -157,7 +219,7 @@ export function DayPlanPrompt({
           </div>
         ) : (
           <div className="mt-4 space-y-2">
-            {days.length === 0 ? (
+            {shownDays.length === 0 ? (
               <p className="text-sm text-muted">
                 No training days in this block.
               </p>
@@ -182,7 +244,7 @@ export function DayPlanPrompt({
                 </Choice>
               ))
             )}
-            {days.some((d) => d.dayType === "yoga") || days.length === 0 ? null : (
+            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
               <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
                 Yoga
               </Choice>
@@ -224,10 +286,10 @@ export function DayPlanPrompt({
 
   return (
     <section className="mt-8">
-      <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">{heading}</h2>
+      <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">{shownHeading}</h2>
       <p className="mt-2 text-sm text-muted">
         {intro ? `${intro} ` : ""}
-        {dayLabel} is <span className="font-medium text-fg">{plannedLabel}</span>.
+        {shownLabel} is <span className="font-medium text-fg">{shownPlanned}</span>.
       </p>
 
       {!choosing ? (
@@ -235,9 +297,9 @@ export function DayPlanPrompt({
           <Choice
             disabled={pending}
             onClick={() =>
-              programDayId
-                ? choose({ kind: "training", programDayId }, plannedLabel)
-                : choose({ kind: "keep" }, plannedLabel)
+              shownProgramDayId
+                ? choose({ kind: "training", programDayId: shownProgramDayId }, shownPlanned)
+                : choose({ kind: "keep" }, shownPlanned)
             }
           >
             Keep it

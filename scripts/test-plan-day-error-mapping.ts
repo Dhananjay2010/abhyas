@@ -83,6 +83,16 @@ function main() {
   console.log("\n3. Generic copy verification");
   check("Generic copy is correct", GENERIC_COPY === "Couldn't save your choice. Please try again.");
 
+  // Test 4 (QA3 LOW-5 / X1): exact match only, never a substring match.
+  console.log("\n4. Allowlist is an exact match, not a substring match");
+  for (const raw of [
+    'permission denied: That day is already done.',
+    'That day is already done. (pg error 42501 at row-level security policy "sessions")',
+    'ERROR: That session has already started.\nDETAIL: raw',
+  ]) {
+    check(`raw text containing allowlisted copy maps to generic: ${JSON.stringify(raw)}`, friendlyPlanDayError(raw) === GENERIC_COPY, friendlyPlanDayError(raw));
+  }
+
   if (failures > 0) {
     console.log(`\n✗ ${failures} check(s) failed`);
     process.exit(1);

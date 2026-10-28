@@ -25,6 +25,50 @@ export function planTargetDate(sessionLocalDate: string, userLocalToday: string)
   return candidate >= userLocalToday ? candidate : addDays(userLocalToday, 1);
 }
 
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/**
+ * QA1 LOW-2: how the end-of-session prompt names its target day. A session
+ * finished the next morning plans *today* (see `planTargetDate`), so calling
+ * it "Tomorrow" would describe the wrong day. "Today", "Tomorrow", or else
+ * the weekday ("Thursday").
+ */
+export function planTargetLabel(targetDate: string, userLocalToday: string): string {
+  if (targetDate === userLocalToday) return "Today";
+  if (targetDate === addDays(userLocalToday, 1)) return "Tomorrow";
+  return WEEKDAYS[new Date(`${targetDate}T00:00:00Z`).getUTCDay()];
+}
+
+/** The prompt's heading for a label from `planTargetLabel`. */
+export function planPromptHeading(label: string): string {
+  const named = label === "Today" || label === "Tomorrow" ? label.toLowerCase() : label;
+  return `What about ${named}?`;
+}
+
+/**
+ * QA3 LOW-1: copy returned when the day the summary showed can no longer be
+ * saved (the page sat open across midnight). The action sends back the new
+ * day so the prompt can show it before anything is saved.
+ */
+export const DAY_CHANGED_ERROR = "The day has changed since this was shown. Check the new day and choose again.";
+
+/**
+ * QA3 LOW-1: may the end-of-session prompt save the day it showed?
+ * Only if that day is still today or tomorrow (user-local) and comes after
+ * the session's own day. That is the set of days the MED-4 rule can show for
+ * this session (local_date + 1, or today + 1 for a stale session) that are
+ * not yet past; a page left open across midnight keeps the date it showed
+ * instead of having the rule re-run at tap time.
+ */
+export function acceptShownTargetDate(
+  shownDate: string,
+  sessionLocalDate: string,
+  userLocalToday: string,
+): boolean {
+  const todayOrTomorrow = shownDate === userLocalToday || shownDate === addDays(userLocalToday, 1);
+  return todayOrTomorrow && shownDate > sessionLocalDate;
+}
+
 export interface ResolvePlanTargetDateDeps {
   fetchSessionLocalDate(
     sessionId: string,
@@ -33,10 +77,12 @@ export interface ResolvePlanTargetDateDeps {
 }
 
 type Input = 
-  | { userId: string; sessionId: string }
+  | { userId: string; sessionId: string; shownDate?: string }
   | { userId: string; localDate: string };
 
-type Result = { ok: true; data: string } | { ok: false; error: string };
+type Result =
+  | { ok: true; data: string }
+  | { ok: false; error: string; retarget?: string };
 
 /**
  * MED-A + MED-4: Resolve the target date for planning.
@@ -68,7 +114,16 @@ export async function resolvePlanTargetDate(
     }
 
     // MED-4: session.local_date + 1, but never a past day
-    return { ok: true, data: planTargetDate(result.localDate, userLocalToday) };
+    const target = planTargetDate(result.localDate, userLocalToday);
+    // QA3 LOW-1: save the day the prompt showed while it is still valid;
+    // otherwise send back the day the rule gives now, unsaved.
+    if (input.shownDate !== undefined) {
+      if (acceptShownTargetDate(input.shownDate, result.localDate, userLocalToday)) {
+        return { ok: true, data: input.shownDate };
+      }
+      return { ok: false, error: DAY_CHANGED_ERROR, retarget: target };
+    }
+    return { ok: true, data: target };
   }
 
   return { ok: true, data: input.localDate };

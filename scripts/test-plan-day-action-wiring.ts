@@ -146,7 +146,10 @@ function reset(r: (q: Query) => Reply, now: number) {
     check("insert lands on resolved date 2026-10-29", written === "2026-10-29", String(written));
     check("insert is NOT today (2026-10-28)", written !== "2026-10-28");
     check("target day read on 2026-10-29", daySessionReads().every((q) => has(q, "local_date", "2026-10-29")) && daySessionReads().length > 0);
-    check("revalidated after a successful save", revalidations > 0, String(revalidations));
+    // QA1 LOW-1: a revalidation here re-renders the summary, whose
+    // completed-session guard redirected ~100ms after the tap; the prompt
+    // calls refreshAfterSession() once the confirmation has shown instead.
+    check("NOT revalidated from the session summary (sessionId path)", revalidations === 0, String(revalidations));
   }
 
   console.log("\nA2: 00:20 IST after a 28 Oct session -> writes 29 Oct (user-local, not UTC)");
@@ -176,6 +179,7 @@ function reset(r: (q: Query) => Reply, now: number) {
     check("result ok", r.ok, JSON.stringify(r));
     check("writes 2026-10-28", written === "2026-10-28", String(written));
     check("no session lookup on the localDate path", !queries.some(isLookup));
+    check("revalidated after a successful save on the Today path", revalidations > 0, String(revalidations));
   }
 
   console.log("\nB1: unexpected DB error (RLS) on the day read -> generic copy, not raw text");
@@ -234,6 +238,70 @@ function reset(r: (q: Query) => Reply, now: number) {
     const r = await planDay({ plan: { kind: "rest" } });
     check("error is the generic copy", !r.ok && r.error === GENERIC, JSON.stringify(r));
     check("no sessions query at all", !queries.some((q) => q.table === "sessions"));
+  }
+
+  // ── r5: QA3 LOW-1 (page open across midnight saves the day it SHOWS),
+  //        QA3 LOW-4 / X8 (Today path writes input.localDate) ──
+  const { DAY_CHANGED_ERROR } = await import("../src/lib/session/resolve-plan-target-date");
+  // 23:59:59 IST Wed 28 Oct (page load) and 00:00:01 IST Thu 29 Oct (tap)
+  const BEFORE_MIDNIGHT_IST = Date.UTC(2026, 9, 28, 18, 29, 59);
+  const AFTER_MIDNIGHT_TAP_IST = Date.UTC(2026, 9, 28, 18, 30, 1);
+  const inserted = () => (sessionWrites().find((q) => q.op === "insert")?.payload as Row | undefined)?.local_date;
+
+  console.log("\nM1: stale session (24 Oct) shown at 23:59:59 IST as Thu 29, tapped 00:00:01 -> saves 29 (shown), not 30");
+  NOW = BEFORE_MIDNIGHT_IST;
+  check("clock: shown at IST 2026-10-28", localDateString("Asia/Kolkata") === "2026-10-28");
+  reset(db({ sessionLocalDate: "2026-10-24" }), AFTER_MIDNIGHT_TAP_IST);
+  check("clock: tapped at IST 2026-10-29", localDateString("Asia/Kolkata") === "2026-10-29");
+  {
+    const r = await planDay({ sessionId: "s-old", shownDate: "2026-10-29", plan: { kind: "rest" } });
+    check("result ok", r.ok, JSON.stringify(r));
+    check("writes the shown day 2026-10-29 (re-running MED-4 at tap time would give 2026-10-30)", inserted() === "2026-10-29", String(inserted()));
+  }
+
+  console.log("\nM2: 0-day session (28 Oct) shown at 23:59:59 as Thu 29, tapped 00:00:01 -> saves 29");
+  reset(db({ sessionLocalDate: "2026-10-28" }), AFTER_MIDNIGHT_TAP_IST);
+  {
+    const r = await planDay({ sessionId: "s-1", shownDate: "2026-10-29", plan: { kind: "rest" } });
+    check("result ok", r.ok, JSON.stringify(r));
+    check("writes 2026-10-29", inserted() === "2026-10-29", String(inserted()));
+  }
+
+  console.log("\nM3: QA3 LOW-1 repro: 1-day session (27 Oct) shown at 23:59:59 as Wed 28 (today then), tapped 00:00:01 -> nothing saved, new day sent back");
+  reset(db({ sessionLocalDate: "2026-10-27" }), AFTER_MIDNIGHT_TAP_IST);
+  {
+    const r = await planDay({ sessionId: "s-y", shownDate: "2026-10-28", plan: { kind: "rest" } });
+    check("not ok", !r.ok, JSON.stringify(r));
+    check("error is the day-changed copy", !r.ok && r.error === DAY_CHANGED_ERROR, JSON.stringify(r));
+    check("nothing written (never 2026-10-30 behind the user's back)", sessionWrites().length === 0, JSON.stringify(sessionWrites()));
+    const rt = !r.ok && "retarget" in r ? r.retarget : null;
+    check("retarget is the new MED-4 day 2026-10-30", rt?.localDate === "2026-10-30", JSON.stringify(rt));
+    check("retarget is named Tomorrow", rt?.label === "Tomorrow", JSON.stringify(rt?.label));
+    check("not revalidated", revalidations === 0);
+  }
+
+  console.log("\nM4: a shown day that is neither today nor tomorrow is refused (2026-10-31 at 22:00 IST 28)");
+  reset(db({ sessionLocalDate: "2026-10-28" }), EVENING_IST);
+  {
+    const r = await planDay({ sessionId: "s-1", shownDate: "2026-10-31", plan: { kind: "rest" } });
+    check("refused with the day-changed copy", !r.ok && r.error === DAY_CHANGED_ERROR, JSON.stringify(r));
+    check("nothing written", sessionWrites().length === 0);
+  }
+
+  console.log("\nM5: the session's own day is never a valid shown day (session 28, shown 28, today 28)");
+  reset(db({ sessionLocalDate: "2026-10-28" }), EVENING_IST);
+  {
+    const r = await planDay({ sessionId: "s-1", shownDate: "2026-10-28", plan: { kind: "rest" } });
+    check("refused with the day-changed copy", !r.ok && r.error === DAY_CHANGED_ERROR, JSON.stringify(r));
+    check("nothing written", sessionWrites().length === 0);
+  }
+
+  console.log("\nA5 (X8): Today-page path writes input.localDate even when it is not today (2026-10-29 at 22:00 IST 28)");
+  reset(db({}), EVENING_IST);
+  {
+    const r = await planDay({ localDate: "2026-10-29", plan: { kind: "rest" } });
+    check("result ok", r.ok, JSON.stringify(r));
+    check("writes 2026-10-29, not today 2026-10-28", inserted() === "2026-10-29", String(inserted()));
   }
 
   if (failures > 0) {

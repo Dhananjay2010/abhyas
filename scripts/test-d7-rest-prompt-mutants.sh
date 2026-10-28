@@ -6,6 +6,11 @@
 # file. A mutant that does not type-check is SKIPPED. The original file is
 # always restored (trap).
 #
+# APP rule: no script in the `npm test` chain may modify tracked files. All
+# mutants are applied to a scratch copy of the checkout in a mktemp dir
+# (node_modules symlinked), and every test runs there; the checkout itself is
+# never written. The script fails if the checkout's status changed.
+#
 # A mutant counts as KILLED only when a test exits non-zero AND prints an
 # assertion failure line ("✗ FAIL" / "❌ FAIL") AND did not crash (no
 # "CRASH", "✗ ERROR", "Missing script", "Cannot find module", SyntaxError).
@@ -14,6 +19,22 @@
 # Exit 1 on any skip or survivor.
 
 set -u
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+STATUS_BEFORE="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null | sha256sum)"
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/d7-mutants.XXXXXX")"
+cleanup_scratch() {
+  case "$SCRATCH" in
+    "${TMPDIR:-/tmp}"/d7-mutants.*) rm -rf "$SCRATCH" ;;
+  esac
+}
+# Tracked + untracked (not ignored) files, as they are in the working tree.
+( cd "$REPO_ROOT" && git ls-files -z --cached --others --exclude-standard ) \
+  | ( cd "$REPO_ROOT" && tar --null --ignore-failed-read -T - -cf - 2>/dev/null ) \
+  | tar -xf - -C "$SCRATCH"
+[ -e "$SCRATCH/node_modules" ] || ln -s "$REPO_ROOT/node_modules" "$SCRATCH/node_modules"
+cd "$SCRATCH" || exit 1
+echo "Mutating a scratch copy: $SCRATCH (checkout untouched: $REPO_ROOT)"
 
 KILLED=0
 SURVIVED=0
@@ -29,9 +50,9 @@ restore() {
   CURRENT_FILE=""
   BACKUP=""
 }
-trap restore EXIT
+trap 'restore; cleanup_scratch' EXIT
 # MED-3: Handle Ctrl-C/SIGINT - abort whole script
-trap 'restore; exit 130' INT TERM
+trap 'restore; cleanup_scratch; exit 130' INT TERM
 
 # replace_once FILE OLD NEW -> 0 if OLD occurred exactly once and was replaced
 replace_once() {
@@ -116,7 +137,9 @@ RUNNER="src/app/session/[id]/session-runner.tsx"
 PAGE="src/app/session/[id]/page.tsx"
 DAYPLAN=src/lib/program/day-plan.ts
 FRIENDLY=src/lib/session/friendly-plan-day-error.ts
-ALL_TESTS="$T $T_RESOLVE $T_SERVER $T_MED_A $T_FETCH $T_ERROR $T_ACTION $T_PAGE $T_RUNNER"
+T_NEXT=test:next-up-after-session-wiring
+T_PINS=test:day-plan-prompt-pins
+ALL_TESTS="$T $T_RESOLVE $T_SERVER $T_MED_A $T_FETCH $T_ERROR $T_ACTION $T_PAGE $T_RUNNER $T_NEXT $T_PINS"
 
 # MED-3: every test name must be a real npm script (no "npm run npm run ...")
 for test in $ALL_TESTS; do
@@ -143,7 +166,7 @@ echo "All baselines pass"
 echo ""
 
 run_mutant "1. Rest day detection: always false" "$COMPONENT" \
-  'const isRestDay = plannedLabel.toLowerCase() === "rest";' \
+  'const isRestDay = shownPlanned.toLowerCase() === "rest";' \
   'const isRestDay = false;' "$T"
 
 run_mutant "2. Tomorrow label detection: always false" "$COMPONENT" \
@@ -155,8 +178,8 @@ run_mutant "3. Show new UI gate: always false" "$COMPONENT" \
   'const showNewRestUI = false;' "$T"
 
 run_mutant "4. Rest day line text: change 'Train anyway?' to 'Rest today?'" "$COMPONENT" \
-  '{dayLabel}: rest day. Train anyway?' \
-  '{dayLabel}: rest day. Rest today?' "$T"
+  '{shownLabel}: rest day. Train anyway?' \
+  '{shownLabel}: rest day. Rest today?' "$T"
 
 run_mutant "5. Train anyway button: change to 'Swap it'" "$COMPONENT" \
   '<Choice disabled={pending} onClick={() => setChoosing(true)}>
@@ -175,8 +198,8 @@ run_mutant "6. Keep rest button: change to 'Dismiss'" "$COMPONENT" \
             </Choice>' "$T"
 
 run_mutant "9. Rest day detection: case-sensitive (accept 'Rest' but not 'rest')" "$COMPONENT" \
-  'const isRestDay = plannedLabel.toLowerCase() === "rest";' \
-  'const isRestDay = plannedLabel === "Rest";' "$T"
+  'const isRestDay = shownPlanned.toLowerCase() === "rest";' \
+  'const isRestDay = shownPlanned === "Rest";' "$T"
 
 run_mutant "10. Tomorrow detection: case-sensitive check is strict" "$COMPONENT" \
   'const isTomorrowLabel = dayLabel === "Tomorrow";' \
@@ -236,11 +259,11 @@ run_mutant "R4. Never mind does nothing (stays choosing)" "$COMPONENT" \
 
 run_mutant "R5. Keep rest settles with wrong label" "$COMPONENT" \
   'const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
-      ? `${dayLabel} is a rest day.`
-      : `${dayLabel} is ${settled}.`;' \
+      ? `${shownLabel} is a rest day.`
+      : `${shownLabel} is ${settled}.`;' \
   'const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
-      ? `${dayLabel} is Upper.`
-      : `${dayLabel} is ${settled}.`;' "$T"
+      ? `${shownLabel} is Upper.`
+      : `${shownLabel} is ${settled}.`;' "$T"
 
 run_mutant "R6. Keep rest not disabled while pending" "$COMPONENT" \
   '            <Choice disabled={pending} onClick={() => choose({ kind: "keep" }, "a rest day")}>
@@ -333,29 +356,15 @@ run_mutant "R7b. Error not shown in non-rest branch" "$COMPONENT" \
       )}' "$T"
 
 run_mutant "R8. Failed plan still settles (ignore r.ok)" "$COMPONENT" \
-  '        const r = await onPlan(input);
-        if (!r.ok) {
-          setError(r.error);
+  '          setError(r.error);
           return;
         }
         setChoosing(false);
-        setSettled(describedAs);
-        // Delay redirect so confirmation is visible for ~1.2s
-        setTimeout(() => {
-          // Today reads the override on the server, so it has to re-render.
-          router.refresh();
-        }, 1200);' \
-  '        const r = await onPlan(input);
-        if (!r.ok) {
-          setError(r.error);
+        setSettled(describedAs);' \
+  '          setError(r.error);
         }
         setChoosing(false);
-        setSettled(describedAs);
-        // Delay redirect so confirmation is visible for ~1.2s
-        setTimeout(() => {
-          // Today reads the override on the server, so it has to re-render.
-          router.refresh();
-        }, 1200);' "$T"
+        setSettled(describedAs);' "$T"
 
 run_mutant "R11. Training choice sends wrong programDayId (rest branch)" "$COMPONENT" \
   '              sortedDays.map((d) => (
@@ -382,7 +391,7 @@ run_mutant "R11. Training choice sends wrong programDayId (rest branch)" "$COMPO
                     <span>{d.label}</span>' "$T"
 
 run_mutant "Q1. Yoga not added when already in block" "$COMPONENT" \
-  '            {days.some((d) => d.dayType === "yoga") || days.length === 0 ? null : (
+  '            {shownDays.some((d) => d.dayType === "yoga") || shownDays.length === 0 ? null : (
               <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
                 Yoga
               </Choice>
@@ -460,11 +469,11 @@ run_mutant "MED-1b. Real core copy missing from allowlist" "$FRIENDLY" \
 
 run_mutant "MED-2d. Component prefers localDate over sessionId" "$COMPONENT" \
   '        const input = sessionId 
-          ? { sessionId, plan }
+          ? { sessionId, plan, ...(shownDay ? { shownDate: shownDay } : {}) }
           : { localDate: localDate!, plan };' \
   '        const input = localDate 
           ? { localDate, plan }
-          : { sessionId: sessionId!, plan };' "$T"
+          : { sessionId: sessionId!, plan, ...(shownDay ? { shownDate: shownDay } : {}) };' "$T"
 
 # QA3 r3 Q4: the REAL runner must pass sessionId, not tomorrow.localDate
 run_mutant "RUN1. Session-runner passes localDate instead of sessionId" "$RUNNER" \
@@ -537,12 +546,140 @@ run_mutant "NX2. Rest branch drops the Next-up badge" "$COMPONENT" \
                       </span>
                     )}' "$T"
 
+# ── r5: QA1 MED-1 / MED-B (Next up after this session), LOW-1, LOW-2 ──
+
+run_mutant "NU1. Old in-progress computation: Next up ignores the session being finished" "$DAYPLAN" \
+  '        justDone: await loadCurrentSession(),' \
+  '        justDone: null,' "$T_NEXT"
+
+run_mutant "NU2. Next-up badge matched by id on the label-deduped list" "$DAYPLAN" \
+  '      nextUp: label === nextUpLabel' \
+  '      nextUp: d.id === nextUpId' "$T_NEXT"
+
+run_mutant "NU3. A just-done session that is not a program day still counts" "$DAYPLAN" \
+  '    justDone.programDayId !== null &&' \
+  '    true &&' "$T_NEXT"
+
+run_mutant "NU-S1. Surface 1 (rest list) unsorted: Next up not first" "$COMPONENT" \
+  '              sortedDays.map((d) => (' \
+  '              days.map((d) => (' "$T_NEXT"
+
+run_mutant "NU-S2. Surface 2 (summary swap list) unsorted: Next up not first" "$COMPONENT" \
+  '          {sortedDays.map((d) => (' \
+  '          {days.map((d) => (' "$T_NEXT"
+
+run_mutant "NU-S2b. Surface 2 (summary swap list) drops the Next-up badge" "$COMPONENT" \
+  '                <span>{d.label}</span>
+                {d.nextUp && (' \
+  '                <span>{d.label}</span>
+                {false && d.nextUp && (' "$T_NEXT"
+
+run_mutant "LBL1. page.tsx always labels the target day Tomorrow" "$PAGE" \
+  '    ? planTargetLabel(sessionTargetDate, localDateString(timezone))' \
+  '    ? "Tomorrow"' "$T_NEXT"
+
+run_mutant "LBL2. Runner drops the label the page computed from the prompt copy" "$RUNNER" \
+  '            displayLabel={tomorrowLabel}' \
+  '            displayLabel={undefined}' "$T_NEXT"
+
+run_mutant "LBL3. Runner keeps the hardcoded 'What about tomorrow?' heading" "$RUNNER" \
+  '            heading={planPromptHeading(tomorrowLabel)}' \
+  '            heading={planPromptHeading("Tomorrow")}' "$T_NEXT"
+
+run_mutant "LBL4. Prompt ignores displayLabel" "$COMPONENT" \
+  '  const shownLabel = retarget?.label ?? displayLabel ?? dayLabel;' \
+  '  const shownLabel = retarget?.label ?? dayLabel;' "$T_NEXT"
+
+run_mutant "CF1. planDay revalidates from the summary (redirect ~100ms after the tap)" "$ACTION" \
+  '  if (!input.sessionId) revalidateTrainingData();' \
+  '  revalidateTrainingData();' "$T_ACTION"
+
+run_mutant "CF2. Summary leaves for Today immediately (no hold)" "$COMPONENT" \
+  '          }, SESSION_CONFIRM_MS);' \
+  '          }, 0);' "$T_NEXT"
+
+run_mutant "CF3. Summary only router.refresh()es (Today never revalidated)" "$COMPONENT" \
+  '            void Promise.resolve().then(onRefresh).catch(() => {});' \
+  '            router.refresh();' "$T_NEXT"
+
+run_mutant "CF4. Change it does not cancel the pending refresh" "$COMPONENT" \
+  '            if (leaveTimer.current) clearTimeout(leaveTimer.current);
+            leaveTimer.current = null;
+            setSettled(null);' \
+  '            setSettled(null);' "$T_NEXT"
+
+# ── r5: QA3 r4 LOWs (page open across midnight, no-Retry list, pins X1/X2/X4–X6/X8) ──
+
+run_mutant "MID1. Server ignores the shown day (MED-4 re-run at tap time: shows 28, saves 30)" "$RESOLVE" \
+  '    if (input.shownDate !== undefined) {' \
+  '    if (input.shownDate !== undefined && input.userId.length < 0) {' "$T_ACTION"
+
+run_mutant "MID2. Server accepts any shown day" "$RESOLVE" \
+  '  return todayOrTomorrow && shownDate > sessionLocalDate;' \
+  '  return true;' "$T_ACTION"
+
+run_mutant "MID3. Server accepts the session's own day" "$RESOLVE" \
+  '  return todayOrTomorrow && shownDate > sessionLocalDate;' \
+  '  return todayOrTomorrow;' "$T_ACTION"
+
+run_mutant "MID4. Runner does not send the day it showed" "$RUNNER" \
+  '            shownDate={tomorrow.localDate}' \
+  '            shownDate={undefined}' "$T_NEXT"
+
+run_mutant "MID5. planDay drops the new day (no retarget)" "$ACTION" \
+  '    if (targetResult.retarget && input.sessionId) {' \
+  '    if (targetResult.retarget && input.sessionId && input.sessionId.length < 0) {' "$T_ACTION"
+
+run_mutant "MID6. Prompt ignores the new day the server sent" "$COMPONENT" \
+  '            setRetarget(r.retarget);' \
+  '            void r.retarget;' "$T_PINS"
+
+run_mutant "NR1. Retry offered after 'Session not found.'" "$COMPONENT" \
+  '    // QA3 LOW-6: retrying cannot bring a missing session back.
+    "Session not found.",' \
+  '    // QA3 LOW-6: retrying cannot bring a missing session back.' "$T_PINS"
+
+run_mutant "X1. Allowlist matches by substring" "$FRIENDLY" \
+  '  if ((CORE_FRIENDLY_ERRORS as readonly string[]).includes(error)) {' \
+  '  if ((CORE_FRIENDLY_ERRORS as readonly string[]).some((m) => error.includes(m))) {' "$T_ERROR"
+
+run_mutant "X2. Page MED-4 date check uses UTC instead of the profile timezone" "$PAGE" \
+  '    ? planTargetDate(session.local_date, localDateString(timezone))' \
+  '    ? planTargetDate(session.local_date, localDateString("UTC"))' "$T_NEXT"
+
+run_mutant "X4. 'That day has already been and gone.' made retryable" "$COMPONENT" \
+  '    "That day has already been and gone.",
+    "That session has already started.",' \
+  '    "That session has already started.",' "$T_PINS"
+
+run_mutant "X5. Settled rest copy hard-codes Tomorrow" "$COMPONENT" \
+  '      ? `${shownLabel} is a rest day.`' \
+  '      ? `Tomorrow is a rest day.`' "$T_PINS"
+
+run_mutant "X6. Retry only dismisses (Today page / non-rest branch)" "$COMPONENT" \
+  '                if (lastAttempt) {
+                  choose(lastAttempt.plan, lastAttempt.describedAs);
+                }' \
+  '                if (lastAttempt) {
+                  void lastAttempt;
+                }' "$T_PINS"
+
+run_mutant "X8. Today path writes today instead of input.localDate" "$ACTION" \
+  '      : { userId: user.id, localDate: input.localDate as string },' \
+  '      : { userId: user.id, localDate: today },' "$T_ACTION"
+
 echo ""
 echo "──────────────────────────────────────────────────────────"
 echo "Mutants killed:   $KILLED"
 echo "Mutants survived: $SURVIVED"
 echo "Mutants skipped:  $SKIPPED"
 echo ""
+
+# APP rule: the checkout must be exactly as it was.
+if [ "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null | sha256sum)" != "$STATUS_BEFORE" ]; then
+  echo "❌ FAILED: the checkout's tracked files changed during the run"
+  exit 1
+fi
 
 if [ $SURVIVED -gt 0 ] || [ $SKIPPED -gt 0 ]; then
   echo "❌ FAILED: $SURVIVED survived, $SKIPPED skipped"

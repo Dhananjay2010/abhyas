@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
-import { planTargetDate } from "@/lib/session/resolve-plan-target-date";
+import { planTargetDate, planTargetLabel } from "@/lib/session/resolve-plan-target-date";
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isStaleSession } from "@/lib/session/is-stale-session";
@@ -193,6 +193,10 @@ export default async function SessionPage({
   const tomorrow = await nextDayPlan(supabase, timezone, sessionTargetDate, {
     sessionId: session.id,
   });
+  // QA1 LOW-2: a next-morning finish plans today, so name the day it plans.
+  const tomorrowLabel = sessionTargetDate
+    ? planTargetLabel(sessionTargetDate, localDateString(timezone))
+    : "Tomorrow";
 
   // Compute isStale on the server to avoid requiring timezone in client components
   const isStale = session.started_at
@@ -220,6 +224,7 @@ export default async function SessionPage({
       exercises={exercises}
       settings={settings}
       tomorrow={tomorrow}
+      tomorrowLabel={tomorrowLabel}
       units={getUnitsPreference(profileRes.data?.units)}
     />
   );
