@@ -445,7 +445,7 @@ export function evaluateProgression(input: {
   state: ProgressState;
   isDeload: boolean;
   equipmentIds?: string[];
-  unit?: WeightUnit;
+  unit?: WeightUnit | null;
 }): Decision {
   const { sets, plannedSets, repsMin, repsMax, feel, meta, state, isDeload, equipmentIds, unit } = input;
 
@@ -465,7 +465,7 @@ export function evaluateProgression(input: {
    * Returns null when unit preference is unavailable (for unit-neutral messages).
    */
   const displayWeight = (kg: number, fallbackUnit: WeightUnit = "kg"): string | null => 
-    unit === null || unit === undefined
+    unit === null
       ? null
       : (unit ?? fallbackUnit) === "lb" 
         ? formatWeight(kg, "imperial", true, "0 lb")
@@ -474,7 +474,7 @@ export function evaluateProgression(input: {
   // For prescribed increases: rounds DOWN in imperial (conservative)
   // Returns null when unit preference is unavailable
   const displayPrescribedWeight = (kg: number): string | null => 
-    unit === null || unit === undefined
+    unit === null
       ? null
       : unit === "lb"
         ? formatPrescribedWeight(kg, "imperial")

@@ -15,8 +15,8 @@ import type { ExerciseMeta, ProgressState } from "../program/progression";
 import type { WeightUnit } from "./equipment-grid";
 import { progressionInputsFromExercise } from "./progression-inputs";
 
-function unitsToWeightUnit(units: "metric" | "imperial" | null): WeightUnit | undefined {
-  if (units === null) return undefined;
+function unitsToWeightUnit(units: "metric" | "imperial" | null): WeightUnit | null {
+  if (units === null) return null;
   return units === "imperial" ? "lb" : "kg";
 }
 
