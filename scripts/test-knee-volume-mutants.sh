@@ -250,7 +250,7 @@ run_mutant "K1. Ignore explicit knee tag in isKneeRiskForKneeUser" "$KNEE_SAFETY
   if (ex.contraindicated_regions.includes("knee")) {
     return true;
   }' \
-  '' "$V" "$C"
+  '' "test:explicit-knee-tag-filter" "$V" "$C"
 
 run_mutant "K5. Drop derived squat-pattern check" "$KNEE_SAFETY" \
   '  // Check derived contraindications (squat/lunge pattern, unless in knee-safe list)

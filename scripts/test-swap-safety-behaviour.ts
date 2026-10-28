@@ -103,6 +103,11 @@ async function main() {
   await scenario("Hinge — PAST knee: power-clean excluded", knee("past", "intermediate", ["barbell"]), "barbell-deadlift", HINGE,
     ["barbell-glute-bridge", "rack-pulls", "glute-bridge", "butt-lift-bridge"]);
 
+  // 2b. Past-knee-only exercises: must be excluded for CURRENT knee too (superset)
+  const HINGE_WITH_PAST = ["deficit-deadlift", "barbell-glute-bridge", "rack-pulls", "glute-bridge", "butt-lift-bridge"];
+  await scenario("Hinge — CURRENT knee: deficit-deadlift excluded (past-knee list)", knee("current", "intermediate", ["barbell"]), "barbell-deadlift", HINGE_WITH_PAST,
+    ["barbell-glute-bridge", "rack-pulls", "glute-bridge", "butt-lift-bridge"]);
+
   // 3. Past-knee banned cardio (chest-push-with-run-release, jogging-treadmill).
   const CARDIO = ["chest-push-with-run-release", "air-bike", "recumbent-bike", "walking-treadmill", "jogging-treadmill"];
   const CARDIO_EQ = ["medicine_ball", "machine_generic", "treadmill"];
