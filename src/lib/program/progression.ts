@@ -764,7 +764,7 @@ export function evaluateProgression(input: {
     
     // Rule 1: if cut > 20%, hold instead
     const cutFraction = (currentWeight - candidateWeight) / currentWeight;
-    if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {
+    if (cutFraction >= FIRST_MISS_HOLD_THRESHOLD) {
       candidateWeight = currentWeight;
     }
     
