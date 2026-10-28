@@ -464,10 +464,10 @@ export function evaluateProgression(input: {
    * Uses the user's unit preference (metric or imperial).
    * Returns null when unit preference is unavailable (for unit-neutral messages).
    */
-  const displayWeight = (kg: number, fallbackUnit: WeightUnit = "kg"): string | null => 
+  const displayWeight = (kg: number, fallbackUnit: WeightUnit | null | undefined = "kg"): string | null => 
     unit === null
       ? null
-      : (unit ?? fallbackUnit) === "lb" 
+      : (unit ?? fallbackUnit ?? "kg") === "lb" 
         ? formatWeight(kg, "imperial", true, "0 lb")
         : `${kg} kg`;
   
@@ -736,7 +736,7 @@ export function evaluateProgression(input: {
         }
         
         // Easy doubles the MECHANIC increment (before grid constraints)
-        const mechanicIncrement = meta.mechanic === "isolation" ? 1.25 : 
+        const mechanicIncrement = meta.mechanic === "isolation" ? 2.5 : 
           LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;
         let jump: number;
         if (feel === "easy" && !isBodyweightWithAddedWeight) {

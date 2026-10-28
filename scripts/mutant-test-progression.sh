@@ -119,7 +119,7 @@ run_mutant "M5-first-miss-drops" \
 # Mutant M6: Remove display-weight equality check (decision A)
 run_mutant "M6-no-display-equality" \
   "Skip display-weight equality check (always progress)" \
-  "sed -i '/if (displayWeight(next, unit) === displayWeight(from, unit)) {/,/}$/d' src/lib/program/progression.ts" \
+  "sed -i '/Coordinator decision A/,/^    }$/d' src/lib/program/progression.ts" \
   "npx tsx scripts/test-comprehensive-progression.ts"
 
 # Mutant M7: Imperial increases don't round down
