@@ -73,6 +73,7 @@ function createBasicDeps(overrides: Partial<StartSessionFullDeps> = {}): StartSe
     
     fetchPlannedExercises: async () => [
       {
+        id: "pde-1",
         exercise_id: "ex-1",
         order_index: 0,
         target_sets: 3,
@@ -82,6 +83,7 @@ function createBasicDeps(overrides: Partial<StartSessionFullDeps> = {}): StartSe
         exercises: { metric: "reps" },
       },
       {
+        id: "pde-2",
         exercise_id: "ex-2",
         order_index: 1,
         target_sets: 3,
@@ -409,6 +411,7 @@ async function main() {
     let insertedExercises: Array<Record<string, unknown>> = [];
     const deps = createBasicDeps({
       fetchPlannedExercises: async () => [{
+        id: "pde-plank",
         exercise_id: "ex-plank",
         order_index: 0,
         target_sets: 3,
@@ -605,6 +608,7 @@ async function main() {
     let insertedExercises: unknown = null;
     const deps = createBasicDeps({
       fetchPlannedExercises: async () => [{
+        id: "pde-1",
         exercise_id: "ex-1",
         order_index: 0,
         target_sets: 3,
@@ -669,6 +673,7 @@ async function main() {
     let insertedExercises: unknown[] = [];
     const deps = createBasicDeps({
       fetchPlannedExercises: async () => [{
+        id: "pde-1",
         exercise_id: "ex-1",
         order_index: 0,
         target_sets: 3,

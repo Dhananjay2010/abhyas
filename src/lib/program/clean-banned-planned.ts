@@ -13,9 +13,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { replaceBannedInPlanned, type PlannedExercise } from "@/lib/program/replace-banned-in-planned";
-import type { CandidateExercise, GeneratorInput } from "@/lib/program/generate";
-import { buildInjuryFlags } from "@/lib/program/injury-regions";
 import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
+import { buildCleanupGeneratorInput } from "@/lib/program/apply-banned-cleanup";
 
 export async function cleanBannedPlannedExercises(
   supabase: SupabaseClient<Database>,
@@ -39,34 +38,30 @@ export async function cleanBannedPlannedExercises(
     const injuries = injuriesRes.data || [];
     const catalogue = toCandidateExercises(catalogueRes.data);
     
-    const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
-    
-    if (!anyKneeInjury) {
-      return { cleaned: 0, errors: [] };
-    }
-    
     if (!profile.goal || !profile.level || !profile.primary_track || 
         profile.days_per_week === null || profile.days_per_week === undefined ||
         profile.yoga_days_per_week === null || profile.yoga_days_per_week === undefined) {
       return { cleaned: 0, errors: ["Incomplete profile"] };
     }
     
-    const generatorInput: GeneratorInput = {
+    const generatorInput = buildCleanupGeneratorInput(
+      {
+        goal: profile.goal,
+        level: profile.level,
+        primary_track: profile.primary_track,
+        days_per_week: profile.days_per_week,
+        yoga_days_per_week: profile.yoga_days_per_week,
+        has_all_equipment: profile.has_all_equipment ?? true,
+      },
+      injuries,
+      (equipmentRes.data ?? []).map(r => r.equipment_id),
       userId,
-      blockNumber: 1,
-      goal: profile.goal,
-      level: profile.level,
-      primaryTrack: profile.primary_track,
-      daysPerWeek: profile.days_per_week,
-      yogaDaysPerWeek: profile.yoga_days_per_week,
-      age: null,
-      bmi: null,
-      hasAllEquipment: profile.has_all_equipment ?? true,
-      equipmentIds: (equipmentRes.data ?? []).map(r => r.equipment_id),
-      currentInjuryRegions,
-      anyKneeInjury,
-      catalogue,
-    };
+      catalogue
+    );
+    
+    if (!generatorInput) {
+      return { cleaned: 0, errors: [] };
+    }
     
     const { data: days } = await supabase
       .from("program_days")
@@ -112,36 +107,43 @@ export async function cleanBannedPlannedExercises(
     let totalCleaned = 0;
     const errors: string[] = [];
     
-    for (const [dayId, exercises] of byDay.entries()) {
+    for (const [, exercises] of byDay.entries()) {
       const result = replaceBannedInPlanned(exercises, catalogue, generatorInput);
       
       if (!result.changed) continue;
       
-      // Build a map of original exercise_id to replacement
-      const replacementMap = new Map<string, string | null>();
+      // Build a map of original id to { originalExerciseId, replacementExerciseId }
+      const replacementMap = new Map<string, { originalExerciseId: string; replacementExerciseId: string | null }>();
       let resultIdx = 0;
       for (let i = 0; i < exercises.length; i++) {
         const original = exercises[i];
         if (resultIdx < result.rows.length && result.rows[resultIdx].id === original.id) {
           const cleaned = result.rows[resultIdx];
           if (original.exercise_id !== cleaned.exercise_id) {
-            replacementMap.set(original.id, cleaned.exercise_id);
+            replacementMap.set(original.id, {
+              originalExerciseId: original.exercise_id,
+              replacementExerciseId: cleaned.exercise_id,
+            });
           }
           resultIdx++;
         } else {
           // Slot was dropped
-          replacementMap.set(original.id, null);
+          replacementMap.set(original.id, {
+            originalExerciseId: original.exercise_id,
+            replacementExerciseId: null,
+          });
         }
       }
       
-      // Apply updates and deletions
-      for (const [originalId, replacementExerciseId] of replacementMap.entries()) {
+      // Apply updates and deletions with CAS
+      for (const [originalId, { originalExerciseId, replacementExerciseId }] of replacementMap.entries()) {
         if (replacementExerciseId === null) {
           // Delete dropped slot
           const { error } = await supabase
             .from("program_day_exercises")
             .delete()
-            .eq("id", originalId);
+            .eq("id", originalId)
+            .eq("exercise_id", originalExerciseId);
           
           if (error) {
             errors.push(`Failed to delete exercise ${originalId}: ${error.message}`);
@@ -153,7 +155,8 @@ export async function cleanBannedPlannedExercises(
           const { error } = await supabase
             .from("program_day_exercises")
             .update({ exercise_id: replacementExerciseId })
-            .eq("id", originalId);
+            .eq("id", originalId)
+            .eq("exercise_id", originalExerciseId);
           
           if (error) {
             errors.push(`Failed to update exercise ${originalId}: ${error.message}`);

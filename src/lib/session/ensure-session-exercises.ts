@@ -11,77 +11,7 @@ import { applyDeload } from "@/lib/program/prescription";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CandidateExercise } from "@/lib/program/generate";
 import { cleanBannedPlannedExercises } from "@/lib/program/clean-banned-planned";
-import { replaceBannedInPlanned, type ReplacementResult } from "@/lib/program/replace-banned-in-planned";
-import { buildInjuryFlags } from "@/lib/program/injury-regions";
-
-/**
- * Apply banned-exercise cleanup to planned exercises (extracted for M8 test coverage).
- */
-type ProfileForCleanup = {
-  goal: "fat_loss" | "muscle_gain" | "strength" | "general_fitness" | "flexibility_stress";
-  level: "beginner" | "intermediate" | "expert";
-  primary_track: "weights" | "bodyweight" | "yoga" | "meditation";
-  days_per_week: number;
-  yoga_days_per_week: number;
-  has_all_equipment: boolean;
-};
-
-type InjuryForCleanup = {
-  body_region: "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core";
-  severity: "current" | "past";
-};
-
-export function applyEnsureSessionCleanup(
-  planned: Array<{
-    id: string;
-    exercise_id: string;
-    order_index: number;
-    target_sets: number;
-    target_reps_min: number;
-    target_reps_max: number;
-    rest_seconds: number;
-  }>,
-  catalogue: CandidateExercise[],
-  profile: ProfileForCleanup,
-  injuries: Array<InjuryForCleanup>,
-  userId: string,
-  equipmentIds: string[]
-): ReplacementResult {
-  const plannedForCleaning = planned.map(p => ({
-    id: p.id,
-    exercise_id: p.exercise_id,
-    order_index: p.order_index,
-    target_sets: p.target_sets,
-    target_reps_min: p.target_reps_min,
-    target_reps_max: p.target_reps_max,
-    rest_seconds: p.rest_seconds,
-  }));
-  
-  const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
-  
-  if (!anyKneeInjury) {
-    return { rows: plannedForCleaning, changed: false };
-  }
-  
-  const generatorInput = {
-    userId,
-    blockNumber: 1,
-    goal: profile.goal,
-    level: profile.level,
-    primaryTrack: profile.primary_track,
-    daysPerWeek: profile.days_per_week,
-    yogaDaysPerWeek: profile.yoga_days_per_week,
-    age: null,
-    bmi: null,
-    hasAllEquipment: profile.has_all_equipment,
-    equipmentIds,
-    currentInjuryRegions,
-    anyKneeInjury,
-    catalogue,
-  };
-  
-  return replaceBannedInPlanned(plannedForCleaning, catalogue, generatorInput);
-}
+import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
 
 /**
  * The metric to stamp on a session exercise, from an embedded `exercises` row.
@@ -138,8 +68,10 @@ export async function ensureSessionExercises(
 
   // Clean banned exercises in-memory (backstop), then persist if needed
   let cleanedPlanned = planned;
+  const catalogueMap = catalogue ? new Map(catalogue.map(c => [c.id, c])) : null;
+  
   if (catalogue && profile && injuries && equipmentIds) {
-    const cleaned = applyEnsureSessionCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);
+    const cleaned = applyBannedCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);
     
     // Persist cleaned exercises to program_day_exercises
     if (cleaned.changed) {
@@ -176,6 +108,9 @@ export async function ensureSessionExercises(
       // Apply deload transform when needed
       const transformed = isDeload ? applyDeload(prescription) : prescription;
       
+      // Metric from replacement exercise in catalogue, fallback to embedded
+      const metric = catalogueMap?.get(p.exercise_id)?.metric ?? metricOf(p.exercises);
+      
       return {
         session_id: sessionId,
         user_id: userId,
@@ -185,7 +120,7 @@ export async function ensureSessionExercises(
         planned_reps_min: transformed.repsMin,
         planned_reps_max: transformed.repsMax,
         rest_seconds: transformed.restSeconds,
-        metric: metricOf(p.exercises),
+        metric,
       };
     }),
   );

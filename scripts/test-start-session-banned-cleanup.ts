@@ -63,9 +63,9 @@ const cleaned = applyBannedCleanup(
 );
 
 // Check that thruster was replaced
-if (cleaned[0].exercise_id === thruster.id) {
+if (cleaned.rows[0].exercise_id === thruster.id) {
   console.error("✗ FAIL: kettlebell-thruster not cleaned in start-session path");
-  console.error(`  Planned: ${thruster.id}, Cleaned: ${cleaned[0].exercise_id}`);
+  console.error(`  Planned: ${thruster.id}, Cleaned: ${cleaned.rows[0].exercise_id}`);
   process.exit(1);
 }
 
@@ -82,7 +82,7 @@ const emptyResult = applyBannedCleanup(
   []
 );
 
-if (emptyResult.length !== 0) {
+if (emptyResult.rows.length !== 0) {
   console.error("✗ FAIL: Empty plan should return empty result");
   process.exit(1);
 }

@@ -1,16 +1,14 @@
 /**
- * Apply banned exercise replacement in-memory to planned exercises.
- * Helper to keep call sites minimal.
+ * Build GeneratorInput for banned exercise cleanup.
+ * Shared builder used by start-session, ensure-session, Today page and cleanBannedPlannedExercises.
  */
 
 import type { Database } from "@/lib/database.types";
-import { replaceBannedInPlanned, type PlannedExercise } from "@/lib/program/replace-banned-in-planned";
+import { replaceBannedInPlanned, type PlannedExercise, type ReplacementResult } from "@/lib/program/replace-banned-in-planned";
 import type { CandidateExercise, GeneratorInput } from "@/lib/program/generate";
 import { buildInjuryFlags } from "@/lib/program/injury-regions";
 
-export function applyBannedCleanup(
-  planned: PlannedExercise[],
-  catalogue: CandidateExercise[],
+export function buildCleanupGeneratorInput(
   profile: {
     goal: Database["public"]["Enums"]["fitness_goal"];
     level: Database["public"]["Enums"]["fitness_level"];
@@ -20,16 +18,17 @@ export function applyBannedCleanup(
     has_all_equipment: boolean;
   },
   injuries: Array<{ body_region: Database["public"]["Enums"]["body_region"]; severity: "current" | "past" }>,
-  userId: string,
   equipmentIds: string[],
-): PlannedExercise[] {
+  userId: string,
+  catalogue: CandidateExercise[],
+): GeneratorInput | null {
   const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
   
   if (!anyKneeInjury) {
-    return planned;
+    return null;
   }
   
-  const generatorInput: GeneratorInput = {
+  return {
     userId,
     blockNumber: 1,
     goal: profile.goal,
@@ -45,7 +44,28 @@ export function applyBannedCleanup(
     anyKneeInjury,
     catalogue,
   };
+}
+
+export function applyBannedCleanup(
+  planned: PlannedExercise[],
+  catalogue: CandidateExercise[],
+  profile: {
+    goal: Database["public"]["Enums"]["fitness_goal"];
+    level: Database["public"]["Enums"]["fitness_level"];
+    primary_track: Database["public"]["Enums"]["track_type"];
+    days_per_week: number;
+    yoga_days_per_week: number;
+    has_all_equipment: boolean;
+  },
+  injuries: Array<{ body_region: Database["public"]["Enums"]["body_region"]; severity: "current" | "past" }>,
+  userId: string,
+  equipmentIds: string[],
+): ReplacementResult {
+  const generatorInput = buildCleanupGeneratorInput(profile, injuries, equipmentIds, userId, catalogue);
   
-  const result = replaceBannedInPlanned(planned, catalogue, generatorInput);
-  return result.rows;
+  if (!generatorInput) {
+    return { rows: planned, changed: false };
+  }
+  
+  return replaceBannedInPlanned(planned, catalogue, generatorInput);
 }

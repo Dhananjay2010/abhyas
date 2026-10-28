@@ -7,7 +7,7 @@
  */
 
 import { readFileSync } from "fs";
-import { applyStartSessionCleanup } from "../src/lib/session/start-session-full-deps";
+import { applyBannedCleanup } from "../src/lib/program/apply-banned-cleanup";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 
@@ -54,7 +54,7 @@ const userId = "test-user";
 const equipmentIds = ["kettlebell", "dumbbell"];
 
 // Call the extracted helper
-const cleaned = applyStartSessionCleanup(
+const cleaned = applyBannedCleanup(
   plannedForCleaning,
   catalogue,
   profile,

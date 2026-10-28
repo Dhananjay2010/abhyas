@@ -276,34 +276,32 @@ export default async function TodayPage() {
     const hasKneeInjury = injuries?.some(inj => inj.body_region === "knee");
     
     if (hasKneeInjury && days && catalogueRes.data) {
-      const { buildInjuryFlags } = await import("@/lib/program/injury-regions");
-      const { replaceBannedInPlanned } = await import("@/lib/program/replace-banned-in-planned");
+      const { buildCleanupGeneratorInput } = await import("@/lib/program/apply-banned-cleanup");
       
       const catalogue = toCandidateExercises(catalogueRes.data);
-      const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries || []);
       
       if (!profile.goal || !profile.level || !profile.primary_track || 
           profile.days_per_week === null || profile.yoga_days_per_week === null) {
         // Skip if profile incomplete
       } else {
-        const generatorInput = {
-          userId: user.id,
-          blockNumber: 1,
-          goal: profile.goal,
-          level: profile.level,
-          primaryTrack: profile.primary_track,
-          daysPerWeek: profile.days_per_week,
-          yogaDaysPerWeek: profile.yoga_days_per_week,
-          age: null,
-          bmi: null,
-          hasAllEquipment: profile.has_all_equipment,
-          equipmentIds: (equipmentRes.data || []).map(e => e.equipment_id),
-          currentInjuryRegions,
-          anyKneeInjury,
-          catalogue,
-        };
+        const generatorInput = buildCleanupGeneratorInput(
+          {
+            goal: profile.goal,
+            level: profile.level,
+            primary_track: profile.primary_track,
+            days_per_week: profile.days_per_week,
+            yoga_days_per_week: profile.yoga_days_per_week,
+            has_all_equipment: profile.has_all_equipment,
+          },
+          injuries || [],
+          (equipmentRes.data || []).map(e => e.equipment_id),
+          user.id,
+          catalogue
+        );
         
-        days = days.map(day => applyDayCleanup(day, catalogue, generatorInput, cleanupResults)) as typeof days;
+        if (generatorInput) {
+          days = days.map(day => applyDayCleanup(day, catalogue, generatorInput, cleanupResults)) as typeof days;
+        }
       }
     }
   } catch (error) {

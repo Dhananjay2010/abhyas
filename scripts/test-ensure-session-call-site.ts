@@ -7,7 +7,7 @@
  */
 
 import { readFileSync } from "fs";
-import { applyEnsureSessionCleanup } from "../src/lib/session/ensure-session-exercises";
+import { applyBannedCleanup } from "../src/lib/program/apply-banned-cleanup";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 
@@ -54,7 +54,7 @@ const userId = "test-user";
 const equipmentIds = ["kettlebell", "dumbbell"];
 
 // Call the extracted helper
-const cleaned = applyEnsureSessionCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);
+const cleaned = applyBannedCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);
 
 // Check that thruster was replaced
 if (cleaned.rows[0].exercise_id === thruster.id) {

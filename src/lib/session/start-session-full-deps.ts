@@ -12,71 +12,9 @@ import { updateSessionCore } from "./update-session-core";
 import { ensureSessionExercises } from "./ensure-session-exercises";
 import { insertSessionExercises } from "./insert-session-exercises";
 import { buildStartSessionStaleDeps } from "./build-start-session-stale-deps";
-import type { StartSessionFullDeps, ProgramDayExercise } from "./start-session-full-core";
-import type { CandidateExercise } from "@/lib/program/generate";
+import type { StartSessionFullDeps } from "./start-session-full-core";
 import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
-import { replaceBannedInPlanned, type ReplacementResult } from "@/lib/program/replace-banned-in-planned";
-import { buildInjuryFlags } from "@/lib/program/injury-regions";
-
-/**
- * Apply banned-exercise cleanup for start-session (extracted for M10 test coverage).
- */
-type ProfileForCleanup = {
-  goal: "fat_loss" | "muscle_gain" | "strength" | "general_fitness" | "flexibility_stress";
-  level: "beginner" | "intermediate" | "expert";
-  primary_track: "weights" | "bodyweight" | "yoga" | "meditation";
-  days_per_week: number;
-  yoga_days_per_week: number;
-  has_all_equipment: boolean;
-};
-
-type InjuryForCleanup = {
-  body_region: "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core";
-  severity: "current" | "past";
-};
-
-export function applyStartSessionCleanup(
-  plannedForCleaning: Array<{
-    id: string;
-    exercise_id: string;
-    order_index: number;
-    target_sets: number;
-    target_reps_min: number;
-    target_reps_max: number;
-    rest_seconds: number;
-  }>,
-  catalogue: CandidateExercise[],
-  profile: ProfileForCleanup,
-  injuries: Array<InjuryForCleanup>,
-  userId: string,
-  equipmentIds: string[]
-): ReplacementResult {
-  const { currentInjuryRegions, anyKneeInjury } = buildInjuryFlags(injuries);
-  
-  if (!anyKneeInjury) {
-    return { rows: plannedForCleaning, changed: false };
-  }
-  
-  const generatorInput = {
-    userId,
-    blockNumber: 1,
-    goal: profile.goal,
-    level: profile.level,
-    primaryTrack: profile.primary_track,
-    daysPerWeek: profile.days_per_week,
-    yogaDaysPerWeek: profile.yoga_days_per_week,
-    age: null,
-    bmi: null,
-    hasAllEquipment: profile.has_all_equipment,
-    equipmentIds,
-    currentInjuryRegions,
-    anyKneeInjury,
-    catalogue,
-  };
-  
-  return replaceBannedInPlanned(plannedForCleaning, catalogue, generatorInput);
-}
-
+import { applyBannedCleanup } from "@/lib/program/apply-banned-cleanup";
 export function buildStartSessionFullDeps(
   supabase: SupabaseClient<Database>,
   userId: string,
@@ -237,7 +175,7 @@ export function buildStartSessionFullDeps(
     async fetchPlannedExercises(dayId) {
       const { data } = await supabase
         .from("program_day_exercises")
-        .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
+        .select("id, exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
         .eq("program_day_id", dayId)
         .order("order_index");
       return data;
@@ -269,10 +207,10 @@ export function buildStartSessionFullDeps(
 
       const profile = profileRes.data;
       const injuries = injuriesRes.data || [];
-      const catalogue = toCandidateExercises(catalogueRes.data);
+      const catalogue = toCandidateExercises(catalogueRes.data || []);
       const equipmentIds = (equipmentRes.data ?? []).map(r => r.equipment_id);
 
-      if (!profile || !catalogue) {
+      if (!profile || !catalogue.length) {
         return exercises;
       }
 
@@ -282,8 +220,8 @@ export function buildStartSessionFullDeps(
         return exercises;
       }
 
-      const plannedForCleaning = exercises.map((e, idx) => ({
-        id: `pde-${idx}`,
+      const plannedForCleaning = exercises.map(e => ({
+        id: e.id,
         exercise_id: e.exercise_id,
         order_index: e.order_index,
         target_sets: e.target_sets,
@@ -292,7 +230,7 @@ export function buildStartSessionFullDeps(
         rest_seconds: e.rest_seconds,
       }));
 
-      const cleaned = applyStartSessionCleanup(
+      const cleaned = applyBannedCleanup(
         plannedForCleaning,
         catalogue,
         {
@@ -309,16 +247,20 @@ export function buildStartSessionFullDeps(
       );
 
       const cleanedMap = new Map(cleaned.rows.map(c => [c.id, c.exercise_id]));
+      const catalogueMap = new Map(catalogue.map(c => [c.id, c]));
+      
       return exercises
-        .map((e, idx) => {
-          const pdeId = `pde-${idx}`;
-          const cleanedExerciseId = cleanedMap.get(pdeId);
+        .map(e => {
+          const cleanedExerciseId = cleanedMap.get(e.id);
           if (cleanedExerciseId === undefined) {
             return null;
           }
+          const catalogueExercise = catalogueMap.get(cleanedExerciseId);
+          
           return {
             ...e,
             exercise_id: cleanedExerciseId,
+            exercises: catalogueExercise ? { metric: catalogueExercise.metric } : e.exercises,
           };
         })
         .filter((e): e is NonNullable<typeof e> => e !== null);

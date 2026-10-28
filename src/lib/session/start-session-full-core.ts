@@ -38,6 +38,7 @@ export type OpenSession = {
 };
 
 export type ProgramDayExercise = {
+  id: string;
   exercise_id: string;
   order_index: number;
   target_sets: number;

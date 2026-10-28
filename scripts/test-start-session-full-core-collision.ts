@@ -69,6 +69,7 @@ function makeFakeDeps(resolvedDayId: string | null): StartSessionFullDeps {
     insertSession: async () => ({ ok: true, sessionId: "sess-123" }),
     fetchPlannedExercises: async () => [
       {
+        id: "pde-1",
         exercise_id: "ex-1",
         order_index: 0,
         target_sets: 3,
