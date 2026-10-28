@@ -31,6 +31,7 @@ const customBrand: Brand = {
     accent: "#FF6600",
     accentHover: "#FF7700",
     accentFg: "#FFFFFF",
+    accentOnSurface: "#FF8800",
     bg: "#FF0000",
     surface: "#FF1111",
     surface2: "#FF2222",

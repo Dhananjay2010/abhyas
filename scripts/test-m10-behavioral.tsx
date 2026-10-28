@@ -14,6 +14,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { branding, type Brand } from "@/lib/branding";
 import type { BrandResolution } from "@/lib/runtime-brand";
 import { renderLandingPage } from "@/app/render-landing-page";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 
 let failures = 0;
 
@@ -75,11 +77,11 @@ async function testRenderLandingPageWithCustomBrand() {
   // Stub deps: no user, custom brand resolution
   const stubDeps = {
     getAuthedClient: async () => ({
-      supabase: null,
+      supabase: null as unknown as SupabaseClient<Database>,
       user: null,
     }),
     getRequestBrandResolution: async () => customResolution,
-    redirect: (): never => {
+    redirect: (_url: string): never => {
       throw new Error("Should not redirect for non-authenticated user");
     },
   };
@@ -124,11 +126,11 @@ async function testRenderLandingPageWithBaseBrand() {
   
   const stubDeps = {
     getAuthedClient: async () => ({
-      supabase: null,
+      supabase: null as unknown as SupabaseClient<Database>,
       user: null,
     }),
     getRequestBrandResolution: async () => baseResolution,
-    redirect: (): never => {
+    redirect: (_url: string): never => {
       throw new Error("Should not redirect for non-authenticated user");
     },
   };

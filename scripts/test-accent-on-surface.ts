@@ -49,7 +49,7 @@ async function testAccentOnSurfaceContrast() {
     `ratio: ${contrastVsSurface.toFixed(2)}:1`
   );
   
-  console.log(`  Original accent: ${lowContrastPartial.colors.accent}`);
+  console.log(`  Original accent: ${lowContrastPartial.colors?.accent ?? 'N/A'}`);
   console.log(`  Adjusted accentOnSurface: ${merged.colors.accentOnSurface}`);
   console.log(`  Contrast ratio: ${contrastVsSurface.toFixed(2)}:1`);
 }

@@ -150,6 +150,7 @@ async function main() {
         warningFg: branding.colors.warningFg,
         danger: branding.colors.danger,
         chart: branding.colors.chart,
+        accentOnSurface: branding.colors.accentOnSurface,
       },
     };
     

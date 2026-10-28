@@ -2,9 +2,9 @@ import { getLandingRedirectTarget } from "@/lib/auth/sign-in-redirect";
 import { safeNextPath } from "@/lib/auth/redirect-origin";
 import { buildLandingBrandProp } from "@/lib/landing-props";
 import type { BrandResolution } from "@/lib/runtime-brand";
-import type { User } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import type { SessionUser } from "@/lib/supabase/auth";
 import { LandingContent } from "./landing-content";
 
 export type LandingPageProps = {
@@ -13,7 +13,7 @@ export type LandingPageProps = {
 };
 
 export type LandingPageDeps = {
-  getAuthedClient: () => Promise<{ supabase: SupabaseClient<Database>; user: User | null }>;
+  getAuthedClient: () => Promise<{ supabase: SupabaseClient<Database>; user: SessionUser | null }>;
   getRequestBrandResolution: () => Promise<BrandResolution>;
   redirect: (url: string) => never;
 };
