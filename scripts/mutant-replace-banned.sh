@@ -244,6 +244,62 @@ run_mutant \
   '// MUTANT: ensureSessionExercises removed' \
   "test:ensure-session-h2"
 
+# Mutant W4: Today cleanup call removed
+run_mutant \
+  "W4: Today cleanup call removed" \
+  "src/app/today/page.tsx" \
+  'days.map(day => applyDayCleanup(day, catalogue, generatorInput, cleanupResults))' \
+  'days /* MUTANT: cleanup removed */' \
+  "test:today-cleanup-w4"
+
+# Mutant W5 call-site: Loader cleanup identity
+run_mutant \
+  "W5 call-site: Loader cleanup identity" \
+  "src/app/today/page.tsx" \
+  'applyLoaderCleanup(' \
+  '((x: unknown) => x.days) as typeof applyLoaderCleanup; const _unused = applyLoaderCleanup && applyLoaderCleanup(' \
+  "test:today-loader-cleanup-w5"
+
+# Mutant W6: Action call stubbed
+run_mutant \
+  "W6: Action call stubbed" \
+  "src/app/today/cleanup-trigger.tsx" \
+  'cleanBannedExercises().catch(console.error);' \
+  '// MUTANT: action stubbed' \
+  "test:today-action-w6"
+
+# Mutant CAS-update: Remove exercise_id filter from update
+run_mutant \
+  "CAS-update: exercise_id filter removed" \
+  "src/lib/program/clean-banned-planned.ts" \
+  '.eq("exercise_id", originalExerciseId);' \
+  '; // MUTANT: CAS guard removed' \
+  "test:cas-guards"
+
+# Mutant L1-fixed: Drop-slot guard removed
+run_mutant \
+  "L1: Drop-slot guard removed" \
+  "src/lib/program/replace-banned-in-planned.ts" \
+  'if (cleanedExerciseId === undefined) {' \
+  'if (false && cleanedExerciseId === undefined) { // MUTANT' \
+  "test:drop-slot-handling"
+
+# Mutant METRIC-start: Don't update metric on start
+run_mutant \
+  "METRIC-start: Metric not updated" \
+  "src/lib/session/start-session-full-deps.ts" \
+  'exercises: catalogueExercise ? { metric: catalogueExercise.metric } : e.exercises,' \
+  'exercises: e.exercises, // MUTANT: metric not updated' \
+  "test:metric-fix-start"
+
+# Mutant METRIC-ensure: Don't update metric on ensure
+run_mutant \
+  "METRIC-ensure: Metric not updated" \
+  "src/lib/session/ensure-session-exercises.ts" \
+  'metric: metricOf(p.exercises),' \
+  'metric: "reps", // MUTANT: metric not updated' \
+  "test:metric-fix-ensure"
+
 echo ""
 echo "================================================================================"
 echo "RESULTS"

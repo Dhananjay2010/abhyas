@@ -68,18 +68,26 @@ try {
 }
 
 // When there are zero safe alternatives, the slot should be dropped
-// Result can be: empty (slot dropped) OR unchanged (no knee injury detected/no replacement needed)
-// The key is that it doesn't crash
+// Assert: rows were dropped AND banned id is absent
 
-if (result.rows.length === 0) {
-  console.log("✓ PASS: L1 killed - drop-slot handled gracefully (slot dropped)");
-  console.log(`  Input: 1 exercise, Output: 0 exercises`);
-} else if (result.rows[0].exercise_id === pistolSquat.id) {
-  // Unchanged is also acceptable if no replacement was attempted
-  console.log("✓ PASS: L1 killed - drop-slot handled gracefully (unchanged)");
-  console.log(`  Input: 1 exercise, Output: 1 exercise (unchanged)`);
-} else {
-  console.log("✓ PASS: L1 killed - drop-slot handled gracefully (replaced)");
-  console.log(`  Input: 1 exercise, Output: ${result.rows.length} exercises`);
-  console.log(`  Changed: ${result.changed}`);
+if (result.rows.length > 0 && result.rows.some(r => r.exercise_id === pistolSquat.id)) {
+  console.error("✗ FAIL: L1 - Banned exercise still present after drop-slot");
+  console.error(`  L1 mutant: drop-slot guard removed (cleanedExerciseId === undefined check)`);
+  console.error(`  Expected: banned id absent or row dropped`);
+  console.error(`  Got:      banned exercise ${pistolSquat.slug} (${pistolSquat.id}) still present`);
+  process.exit(1);
 }
+
+// Verify the slot was actually dropped (result is either empty or changed)
+if (result.rows.length > 0 && !result.changed) {
+  console.error("✗ FAIL: L1 - Exercise unchanged when it should be replaced or dropped");
+  console.error(`  Expected: changed=true or rows.length=0`);
+  console.error(`  Got:      changed=false, rows.length=${result.rows.length}`);
+  process.exit(1);
+}
+
+console.log("✓ PASS: L1 killed - drop-slot handled, banned id absent");
+console.log(`  Input:   1 exercise (${pistolSquat.slug})`);
+console.log(`  Output:  ${result.rows.length} exercises`);
+console.log(`  Changed: ${result.changed}`);
+console.log(`  Banned ID absent: ✓`);

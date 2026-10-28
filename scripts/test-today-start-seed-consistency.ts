@@ -1,14 +1,15 @@
 #!/usr/bin/env npx tsx
 /**
  * Test seed consistency between Today page and start-session paths.
- * Item 1: Verify that Today SSR and start-session choose identical
- * replacements for smith-machine-pistol-squat (beginner, all equipment).
+ * Item 1: Verify that Today SSR (applyDayCleanup) and start-session
+ * (applyBannedCleanup) choose identical replacements for the same exercise.
  * 
  * Both paths must use real program_day_exercises.id for deterministic
  * tie-breaking in buildEligibleSwapList hash("${sessionExerciseId}:${slug}").
  */
 
 import { readFileSync } from "fs";
+import { applyDayCleanup } from "../src/app/today/page";
 import { applyBannedCleanup } from "../src/lib/program/apply-banned-cleanup";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
@@ -43,7 +44,53 @@ console.log("Testing Today vs start-session seed consistency\n");
 
 // Simulate real program_day_exercises with real ids
 const realPdeId = "pde-real-id-123";
-const planned = [{
+
+// Today path: uses applyDayCleanup from page.tsx
+const todayDay = {
+  id: "day-1",
+  day_index: 1,
+  day_type: "weights" as const,
+  focus: null,
+  label: null,
+  program_day_exercises: [{
+    id: realPdeId,
+    exercise_id: smithPistol.id,
+    order_index: 0,
+    target_sets: 3,
+    target_reps_min: 8,
+    target_reps_max: 12,
+    rest_seconds: 90,
+    exercises: {
+      name: "Smith Machine Pistol Squat",
+      cue: null,
+      movement_pattern: "squat",
+      metric: "reps",
+    },
+  }],
+};
+
+const generatorInput = {
+  userId,
+  blockNumber: 1,
+  goal: profile.goal,
+  level: profile.level,
+  primaryTrack: profile.primary_track,
+  daysPerWeek: profile.days_per_week,
+  yogaDaysPerWeek: profile.yoga_days_per_week,
+  age: 30,
+  bmi: 23,
+  hasAllEquipment: profile.has_all_equipment,
+  equipmentIds: allEquipment,
+  currentInjuryRegions: ["knee" as const],
+  anyKneeInjury: true,
+  catalogue,
+};
+
+const todayCleanupResults: Array<{ changed: boolean }> = [];
+const todayResult = applyDayCleanup(todayDay, catalogue, generatorInput, todayCleanupResults);
+
+// Start-session path: uses applyBannedCleanup
+const startPlanned = [{
   id: realPdeId,
   exercise_id: smithPistol.id,
   order_index: 0,
@@ -53,19 +100,8 @@ const planned = [{
   rest_seconds: 90,
 }];
 
-// Today path: uses shared builder
-const todayResult = applyBannedCleanup(
-  planned,
-  catalogue,
-  profile,
-  injuries,
-  userId,
-  allEquipment
-);
-
-// Start-session path: uses same shared builder
 const startResult = applyBannedCleanup(
-  planned,
+  startPlanned,
   catalogue,
   profile,
   injuries,
@@ -73,12 +109,17 @@ const startResult = applyBannedCleanup(
   allEquipment
 );
 
-if (!todayResult.changed || !startResult.changed) {
-  console.error("✗ FAIL: smith-machine-pistol-squat should be replaced");
+if (todayResult.program_day_exercises.length === 0) {
+  console.error("✗ FAIL: Today path returned no exercises");
   process.exit(1);
 }
 
-const todayReplacement = todayResult.rows[0].exercise_id;
+if (!startResult.changed) {
+  console.error("✗ FAIL: Start path did not replace exercise");
+  process.exit(1);
+}
+
+const todayReplacement = todayResult.program_day_exercises[0].exercise_id;
 const startReplacement = startResult.rows[0].exercise_id;
 
 if (todayReplacement !== startReplacement) {
@@ -91,7 +132,9 @@ if (todayReplacement !== startReplacement) {
   process.exit(1);
 }
 
+const replacementExercise = catalogue.find(e => e.id === todayReplacement);
+
 console.log("✓ PASS: Today and start-session chose identical replacement");
 console.log(`  Banned:      ${smithPistol.slug} (${smithPistol.id})`);
-console.log(`  Replacement: ${todayReplacement}`);
+console.log(`  Replacement: ${replacementExercise?.slug || 'unknown'} (${todayReplacement})`);
 console.log(`  PDE id used: ${realPdeId}`);

@@ -69,6 +69,14 @@ export function applyDayCleanup<T extends {
   cleanupResults: { changed: boolean }[]
 ): T {
   if (!day.program_day_exercises || day.program_day_exercises.length === 0) {
+    // Zero-exercise weights/bodyweight day becomes rest
+    if (isRestAfterCleanup(day.day_type, [])) {
+      return {
+        ...day,
+        day_type: "rest",
+        program_day_exercises: [],
+      } as T;
+    }
     return day;
   }
   
@@ -283,38 +291,27 @@ export default async function TodayPage() {
   // Clean banned exercises in-memory for knee users (no DB writes during render)
   const cleanupResults: { changed: boolean }[] = [];
   try {
-    const injuries = injuriesRes.data;
-    const hasKneeInjury = injuries?.some(inj => inj.body_region === "knee");
+    const { applyLoaderCleanup } = await import("@/lib/today/apply-loader-cleanup");
     
-    if (hasKneeInjury && days && catalogueRes.data) {
-      const { buildCleanupGeneratorInput } = await import("@/lib/program/apply-banned-cleanup");
-      
-      const catalogue = toCandidateExercises(catalogueRes.data);
-      
-      if (!profile.goal || !profile.level || !profile.primary_track || 
-          profile.days_per_week === null || profile.yoga_days_per_week === null) {
-        // Skip if profile incomplete
-      } else {
-        const generatorInput = buildCleanupGeneratorInput(
-          {
-            goal: profile.goal,
-            level: profile.level,
-            primary_track: profile.primary_track,
-            days_per_week: profile.days_per_week,
-            yoga_days_per_week: profile.yoga_days_per_week,
-            has_all_equipment: profile.has_all_equipment,
-          },
-          injuries || [],
-          (equipmentRes.data || []).map(e => e.equipment_id),
-          user.id,
-          catalogue
-        );
-        
-        if (generatorInput) {
-          days = days.map(day => applyDayCleanup(day, catalogue, generatorInput, cleanupResults));
-        }
-      }
-    }
+    days = applyLoaderCleanup(
+      {
+        days,
+        injuries: injuriesRes.data,
+        profile: {
+          goal: profile.goal,
+          level: profile.level,
+          primary_track: profile.primary_track,
+          days_per_week: profile.days_per_week,
+          yoga_days_per_week: profile.yoga_days_per_week,
+          has_all_equipment: profile.has_all_equipment,
+        },
+        catalogueRows: catalogueRes.data as any,
+        equipmentIds: (equipmentRes.data || []).map(e => e.equipment_id),
+        userId: user.id,
+        applyDayCleanup,
+      },
+      cleanupResults
+    );
   } catch {
     // Non-knee users or error: continue with original days
   }
