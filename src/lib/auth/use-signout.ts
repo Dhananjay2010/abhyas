@@ -1,7 +1,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signOutAction } from "@/lib/auth/signout";
-import { replayAllPendingSetsForUser } from "@/lib/session/pending-set-retry";
+import { replayAllPendingSetsForUser, clearAllPendingSetsForUser } from "@/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { clearPendingChanges } from "@/lib/auth/pending-changes";
 import { isSessionExpired } from "@/lib/auth/session-expired";
@@ -83,12 +83,11 @@ export function useSignOut({
     startTransition(async () => {
       setError(null);
       setShowWarning(false);
-      // Sign out without clearing the queue
-      await performSignOut();
+      await performSignOut(true); // Pass clearQueue flag
     });
   }
 
-  async function performSignOut() {
+  async function performSignOut(clearQueue = false) {
     let result;
     try {
       result = await signOut();
@@ -96,7 +95,6 @@ export function useSignOut({
       // Check if this is an expired session error
       if (isSessionExpired(err)) {
         // Session is already expired, sign out locally and navigate
-        // KEEP the queue - it's keyed by userId and will replay on next sign-in
         try {
           const res = await fetch("/auth/signout", {
             method: "POST",
@@ -108,8 +106,14 @@ export function useSignOut({
             setError("Failed to sign out. Please try again.");
             return;
           }
+          // Success - clear queue if requested, then navigate
+          if (clearQueue && typeof window !== "undefined") {
+            clearAllPendingSetsForUser(window.localStorage, userId);
+          }
         } catch {
-          // If fetch fails, cookies might still be invalid; proceed with navigation
+          // If fetch fails, keep queue and show error
+          setError("Failed to sign out. Please try again.");
+          return;
         }
         router.replace("/");
         router.refresh();
@@ -125,7 +129,10 @@ export function useSignOut({
       return;
     }
     
-    // Success - navigate (queue is already empty or kept for replay)
+    // Success - clear queue if requested, then navigate
+    if (clearQueue && typeof window !== "undefined") {
+      clearAllPendingSetsForUser(window.localStorage, userId);
+    }
     router.replace("/");
     router.refresh();
   }

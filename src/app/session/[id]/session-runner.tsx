@@ -49,7 +49,7 @@ import {
 } from "@/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { loadPendingSets } from "@/lib/session/pending-set-retry";
-import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
+import { getFinishButtonText } from "@/lib/session/finish-guard";
 import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
 import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
@@ -340,6 +340,14 @@ export function SessionRunner({
       return () => window.removeEventListener("online", handleOnline);
     }
   }, [controller]);
+
+  // Derive sessionExpired visibility: clear when replay succeeded
+  const replaySucceeded = 
+    pendingSetState.expired === false && 
+    pendingSetState.pending.length === 0 && 
+    pendingSetState.replayed.length > 0;
+  
+  const showExpiredPrompt = sessionExpired && !replaySucceeded;
 
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
@@ -754,8 +762,34 @@ export function SessionRunner({
         </ul>
         <div className="mt-10 space-y-3">
           <BigButton
-            disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
+            disabled={busy}
             onClick={async () => {
+              // If there are pending sets, try to replay them first
+              if (pendingSetState.pending.length > 0 && controller) {
+                await controller.replay();
+                // After replay, check if queue is now empty
+                const deps = createPendingSetDeps(nowFn);
+                const remaining = loadPendingSets(window.localStorage, userId, sessionId, deps);
+                if (remaining.length === 0) {
+                  // Queue is empty, finish session in the same tap
+                  const frozen = stopElapsed();
+                  setLastCooldownCompleted(true);
+                  const result = await run(() =>
+                    actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
+                  );
+                  if (result && result.ok) {
+                    restPersistence.clear();
+                    setSavedDurationSeconds(result.data.durationSeconds);
+                    setPhase("done");
+                  } else {
+                    resumeElapsed();
+                  }
+                  setNeedsFinishRetry(shouldShowFinishRetry(!!result, true));
+                }
+                // If queue is not empty (offline/expired/error), stay on cool-down with notice
+                return;
+              }
+              // No pending sets, finish immediately
               const frozen = stopElapsed();
               setLastCooldownCompleted(true);
               const result = await run(() =>
@@ -1413,7 +1447,7 @@ export function SessionRunner({
 
         {allSetsDone && (
           <div className="mt-8">
-            {sessionExpired && (
+            {showExpiredPrompt && getPendingUiMode(pendingSetState) !== "expired" && (
               <div className="mb-4">
                 <SessionExpiredPrompt />
               </div>
@@ -1768,14 +1802,21 @@ function SetEntry({
   // without asking for numbers; here it means the user has not said yet.
   // L-3 round-trip: use weightKgToSubmit to preserve original kg when unchanged.
   const weightKg = weightKgToSubmit(weight, initialPrefill, defaultWeight, units);
+  
+  // Item 8: For loaded (non-bodyweight) exercises, require weight
+  const isWeightRequired = !isBodyweight && !isTimed;
+  const weightMissing = isWeightRequired && (weight === "" || weightKg === null);
+  
   const invalid =
-    reps === ""
-      ? isTimed
-        ? "Hold it, or enter the seconds you held."
-        : "Enter the reps you did."
-      : isTimed
-        ? validateSet(null, weightKg, Number(reps), units)
-        : validateSet(Number(reps), weightKg, undefined, units);
+    weightMissing
+      ? "Add the weight you used."
+      : reps === ""
+        ? isTimed
+          ? "Hold it, or enter the seconds you held."
+          : "Enter the reps you did."
+        : isTimed
+          ? validateSet(null, weightKg, Number(reps), units)
+          : validateSet(Number(reps), weightKg, undefined, units);
 
   if (!perSetLogging) {
     return (

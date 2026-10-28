@@ -267,7 +267,8 @@ export function createPendingSetController(config: {
       
       setState({
         pending: remaining,
-        expired: remaining.length > 0 && authFailed,
+        // Preserve expired=true if already set (e.g. by load()), or set it if auth failed
+        expired: state.expired || (remaining.length > 0 && authFailed),
         retrying: false,
         error: firstError,
         replayed: successfullyReplayed,

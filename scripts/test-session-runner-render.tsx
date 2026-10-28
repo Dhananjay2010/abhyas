@@ -14,9 +14,10 @@
 
 import "./helpers/setup-jsdom";
 
-import { render, act, screen, cleanup } from "@testing-library/react";
+import { render, act, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 import { savePendingSet, loadPendingSets } from "../src/lib/session/pending-set-retry";
+import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 let passed = 0;
@@ -754,18 +755,29 @@ async function test8d8e() {
   fakeStorage.clear();
 }
 
-// Test 9b: Done/Skip buttons disabled while pending
+// Test 9b: L3 - Done/Skip buttons enabled, replay pending sets then finish
 async function test9b() {
-  console.log("\n📋 Test 9b: Done/Skip buttons disabled while pending");
+  console.log("\n📋 Test 9b: L3 - Done/Skip buttons enabled, replay pending sets then finish");
   
-  const replayDeferred = createDeferred<{ ok: true }>();
+  let logSetCallCount = 0;
+  let finishSessionCalled: boolean = false;
+  let logSetShouldFail = true; // Fail during mount/focus, succeed on Done click
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
-    logSet: async () => replayDeferred.promise,
+    logSet: async () => {
+      logSetCallCount++;
+      if (logSetShouldFail) {
+        return { ok: false, error: "Network error" };
+      }
+      return { ok: true };
+    },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
-    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
+    finishSession: async () => {
+      finishSessionCalled = true;
+      return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
+    },
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -844,23 +856,140 @@ async function test9b() {
   
   await act(async () => {});
   
-  // Assert cooldown Done and Skip buttons
-  // Done button now always says "Done" (the pending count is shown in the notice)
+  // Assert cooldown Done and Skip buttons exist and are enabled
   const buttons = screen.getAllByRole("button");
   const doneButton = buttons.find(b => b.textContent?.trim() === "Done");
   const skipCooldownButton = buttons.find(b => b.textContent?.includes("Skip cool-down"));
   
   assert(!!doneButton, "9b: Done button exists");
-  assert(doneButton !== undefined && 'disabled' in doneButton && Boolean(doneButton.disabled), "9b: Done button is disabled while sets are pending");
+  assert(!!skipCooldownButton, "9b: Skip cool-down button exists");
   
-  // Verify the notice shows the pending count
-  const pendingNotice = screen.queryByText(/1 set waiting to save/i);
-  assert(pendingNotice !== null, "9b: Notice shows '1 set waiting to save'");
-  
-  assert(skipCooldownButton !== null, "9c: Skip cool-down button exists");
-  if (skipCooldownButton && 'disabled' in skipCooldownButton) {
-    assert(skipCooldownButton.disabled === false, "9c: Skip cool-down button is NOT disabled by pending sets (F1)");
+  if (!(doneButton instanceof window.HTMLButtonElement)) {
+    throw new Error("Done button is not HTMLButtonElement");
   }
+  if (!(skipCooldownButton instanceof window.HTMLButtonElement)) {
+    throw new Error("Skip cool-down button is not HTMLButtonElement");
+  }
+  
+  // L3: Both buttons should be enabled (symmetric behavior)
+  assert(!doneButton.disabled, "9b: L3 - Done button is ENABLED while sets are pending");
+  assert(!skipCooldownButton.disabled, "9b: L3 - Skip cool-down button is ENABLED (symmetric with Done)");
+  
+  // Restore main's assertion: "1 set waiting to save" notice must be visible
+  assert(screen.queryByText(/1 set waiting to save/i) !== null, "9b: Notice shows '1 set waiting to save'");
+  
+  // Now allow logSet to succeed on Done click
+  logSetShouldFail = false;
+  
+  // Click Done button - it should replay pending sets then finish
+  await act(async () => {
+    fireEvent.click(doneButton);
+  });
+  
+  // Wait for async operations
+  await act(async () => {
+    await Promise.resolve();
+  });
+  
+  // Assert replay happened and queue was emptied before finish
+  assert(logSetCallCount >= 2, `9b: L3 - logSet called at least twice (mount+Done) (got ${logSetCallCount})`);
+  
+  const deps = createPendingSetDeps(() => FIXED_TIME);
+  const pendingAfter = loadPendingSets(fakeStorage, userId, sessionId, deps);
+  assert(pendingAfter.length === 0, `9b: L3 - queue emptied after replay (got ${pendingAfter.length} remaining)`);
+  
+  assert(finishSessionCalled, "9b: L3 - finishSession called after replay cleared queue");
+  
+  cleanup();
+  fakeStorage.clear();
+  
+  // NEGATIVE CASE: replay fails, queue kept, finishSession NOT called
+  console.log("  Testing negative case: replay fails");
+  
+  const userId2 = "test-user-9b-neg";
+  const sessionId2 = "session-9b-neg";
+  let logSetCallCount2 = 0;
+  let finishSessionCalled2 = false;
+  
+  const actions2: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async () => {
+      logSetCallCount2++;
+      return { ok: false, error: "NETWORK_ERROR" };
+    },
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => {
+      finishSessionCalled2 = true;
+      return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
+    },
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+    getSessionSummary: async () => ({ ok: true, data: [] }),
+  };
+  
+  // Add pending set for negative test
+  savePendingSet(fakeStorage, userId2, sessionId2, {
+    sessionExerciseId: "ex1",
+    setNumber: 2,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-9b-fail"
+  }, fakeDeps);
+  
+  render(
+    <SessionRunner
+      sessionId={sessionId2}
+      sessionStatus="in_progress"
+      userId={userId2}
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date(FIXED_TIME).toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={exercises}
+      settings={settings}
+      actions={actions2}
+      timer={fakeTimer}
+      nowFn={() => FIXED_TIME}
+    />
+  );
+  
+  await act(async () => {});
+  
+  // Reset the counter - controller may have tried to replay on mount
+  logSetCallCount2 = 0;
+  
+  const buttons2 = screen.getAllByRole("button");
+  const doneButton2 = buttons2.find(b => b.textContent?.trim() === "Done");
+  
+  assert(!!doneButton2, "9b negative: Done button exists");
+  
+  // Click Done - replay should fail and finishSession should NOT be called
+  await act(async () => {
+    if (doneButton2) fireEvent.click(doneButton2);
+  });
+  
+  await waitFor(() => {
+    if (logSetCallCount2 !== 1) {
+      throw new Error("Waiting for replay to complete");
+    }
+  });
+  
+  assert(logSetCallCount2 === 1, `9b negative: logSet called once during replay (got ${logSetCallCount2})`);
+  
+  const pendingAfterFail = loadPendingSets(fakeStorage, userId2, sessionId2, deps);
+  assert(pendingAfterFail.length === 1, `9b negative: queue NOT empty after failed replay (got ${pendingAfterFail.length})`);
+  
+  assert(!finishSessionCalled2, "9b negative: finishSession NOT called when replay fails");
+  
+  // Verify pending notice still shown
+  assert(screen.queryByText(/1 set waiting to save/i) !== null, "9b negative: '1 set waiting to save' still shown after failed replay");
   
   cleanup();
   fakeStorage.clear();

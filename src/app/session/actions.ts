@@ -28,6 +28,8 @@ import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
 import { checkLogSetInput } from "@/lib/session/check-log-set-input";
 
+import { logSetWithAuth } from "@/lib/session/log-set-with-auth";
+
 export type { SwapResult };
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -108,49 +110,16 @@ export async function logSet(input: {
 }): Promise<Result | SetConflictResult> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-  
-  return await resolveAuth(
-    async () => {
-      const { supabase, user } = await getAuthedClient();
-      return { user, supabase };
+
+  return await logSetWithAuth(
+    {
+      getAuthedClient,
+      checkLogSetInput,
+      validateSessionForLogSet,
+      buildLogSetValidationDeps,
+      logSetCore,
     },
-    async ({ user, supabase }) => {
-      if (!user) throw new Error("Not signed in");
-      
-      const invalid = await checkLogSetInput(supabase, user.id, {
-        reps: input.reps,
-        weightKg: input.weightKg,
-        durationSeconds: input.durationSeconds,
-      });
-      if (invalid) return { ok: false, error: invalid };
-
-      // Reject writes to sessions that are no longer in_progress or don't exist
-      // For ended sessions, allow idempotent retry if the exact set already exists
-      const validationDeps = buildLogSetValidationDeps(supabase);
-      const durationSeconds = input.durationSeconds ?? null;
-      const validationResult = await validateSessionForLogSet(
-        validationDeps, 
-        input.sessionExerciseId,
-        {
-          setNumber: input.setNumber,
-          reps: input.reps,
-          weightKg: input.weightKg,
-          durationSeconds,
-        }
-      );
-  
-      if (!validationResult.ok) {
-        return validationResult;
-      }
-
-      return logSetCore(supabase, user.id, {
-        sessionExerciseId: input.sessionExerciseId,
-        setNumber: input.setNumber,
-        reps: input.reps,
-        weightKg: input.weightKg,
-        durationSeconds,
-      });
-    }
+    input
   );
 }
 

@@ -99,7 +99,7 @@ async function testReplayErrorShowsSeparately() {
 
   const finalState = states[states.length - 1];
   assertEqual(finalState.error, "Network timeout", "Replay sets error message");
-  assert(!finalState.expired, "Expired flag cleared after non-auth replay error");
+  assert(finalState.expired, "Expired flag preserved after non-auth replay error (set by load)");
   assertEqual(finalState.retrying, false, "Retrying is false after replay completes");
 }
 

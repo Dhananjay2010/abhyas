@@ -1,11 +1,15 @@
 #!/usr/bin/env tsx
 /**
- * Test: getPendingCountForExercise helper
+ * Test: Pending count per exercise helper
  * 
- * Tests break 1b: the runner must pass the correct pending count to nextSetNumberFor.
+ * Updated to test the real runtime path (nextSetTarget) instead of
+ * the deleted getPendingCountForExercise helper.
+ * 
+ * Tests that nextSetTarget correctly accounts for pending sets for
+ * the specific exercise when calculating the next set number.
  */
 
-import { getPendingCountForExercise } from "../src/lib/session/pending-count";
+import { nextSetTarget, type ResumeExercise } from "../src/lib/session/resume-state";
 import type { PendingSet } from "../src/lib/session/pending-set-retry";
 
 let exitCode = 0;
@@ -19,7 +23,23 @@ function check(name: string, condition: boolean): void {
   }
 }
 
-console.log("\nTesting getPendingCountForExercise\n");
+console.log("\nTesting nextSetTarget with pending sets per exercise\n");
+
+function makeExercise(id: string, setsDone: number[]): ResumeExercise {
+  return {
+    id,
+    status: "pending",
+    plannedSets: 5,
+    sets: setsDone.map(n => ({ setNumber: n, reps: 10, weightKg: 50, durationSeconds: null })),
+    lastLoggedAt: null
+  };
+}
+
+const exercises: ResumeExercise[] = [
+  makeExercise("ex-1", []),
+  makeExercise("ex-2", []),
+  makeExercise("ex-3", []),
+];
 
 const pending: PendingSet[] = [
   {
@@ -48,10 +68,20 @@ const pending: PendingSet[] = [
   },
 ];
 
-check("Returns 2 for ex-1", getPendingCountForExercise(pending, "ex-1") === 2);
-check("Returns 1 for ex-2", getPendingCountForExercise(pending, "ex-2") === 1);
-check("Returns 0 for ex-3", getPendingCountForExercise(pending, "ex-3") === 0);
-check("Returns 0 for empty pending", getPendingCountForExercise([], "ex-1") === 0);
+// Test that nextSetTarget accounts for pending sets for the current exercise
+const target1 = nextSetTarget(exercises, "ex-1", pending);
+check("ex-1 with 2 pending → next is set 3", target1?.setNumber === 3);
+
+const target2 = nextSetTarget(exercises, "ex-2", pending);
+check("ex-2 with 1 pending → next is set 2", target2?.setNumber === 2);
+
+const target3 = nextSetTarget(exercises, "ex-3", pending);
+check("ex-3 with 0 pending → next is set 1", target3?.setNumber === 1);
+
+// Test with empty pending
+const target4 = nextSetTarget(exercises, "ex-1", []);
+check("ex-1 with empty pending → next is set 1", target4?.setNumber === 1);
 
 console.log(exitCode === 0 ? "\n✅ All tests passed" : "\n❌ Some tests failed");
 process.exit(exitCode);
+
