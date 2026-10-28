@@ -56,6 +56,7 @@ async function main() {
     bestE1rm: 112,
     personalBest: { kind: "weight", value: 80 },
     message: "Deload week — weights held where they were.",
+    weightAtFailureStartKg: null,
   };
 
   await writeExerciseProgressCore(
@@ -90,6 +91,7 @@ async function main() {
     bestE1rm: 84,
     personalBest: null,
     message: "Deload week — weights held where they were.",
+    weightAtFailureStartKg: null,
   };
 
   await writeExerciseProgressCore(
@@ -121,6 +123,7 @@ async function main() {
     bestE1rm: 84,
     personalBest: null,
     message: "All sets at the top of the range — up to 62.5 kg.",
+    weightAtFailureStartKg: null,
   };
 
   await writeExerciseProgressCore(
@@ -151,6 +154,7 @@ async function main() {
     bestE1rm: null,
     personalBest: { kind: "hold", value: 50 },
     message: "Deload week — nothing moves this week.",
+    weightAtFailureStartKg: null,
   };
 
   await writeExerciseProgressCore(
@@ -183,6 +187,7 @@ async function main() {
     bestE1rm: 88,
     personalBest: { kind: "e1rm", value: 88 },
     message: "Deload week — weights held where they were.",
+    weightAtFailureStartKg: null,
   };
 
   await writeExerciseProgressCore(
@@ -198,6 +203,37 @@ async function main() {
   check("best_e1rm is 88", written?.best_e1rm === 88, `${written?.best_e1rm}`);
   check("best_reps is 14", written?.best_reps === 14);
   check("best_weight_kg unchanged", written?.best_weight_kg === 60);
+  }
+
+  console.log("\n6. M1d: weight_at_failure_start_kg is written from decision");
+  {
+  const fake = createFakeClient();
+  const decision: Decision = {
+    outcome: "hold",
+    nextWorkingWeightKg: 60,
+    nextTargetReps: 12,
+    consecutiveFailures: 1,
+    wantsHarderVariation: false,
+    bestWeightKg: 60,
+    bestReps: 12,
+    bestE1rm: 84,
+    personalBest: null,
+    message: "Staying at this weight until every set reaches the top of the range.",
+    weightAtFailureStartKg: 60,
+  };
+
+  await writeExerciseProgressCore(
+    fake.client,
+    "user-1",
+    "ex-bench",
+    decision,
+    3,
+    "2026-10-24",
+  );
+
+  const written = fake.getWritten();
+  check("M1d: weight_at_failure_start_kg written from decision", written?.weight_at_failure_start_kg === 60, `${written?.weight_at_failure_start_kg}`);
+  check("consecutive_failures is 1", written?.consecutive_failures === 1);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
