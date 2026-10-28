@@ -7,7 +7,6 @@ import { NewVersionHint } from "@/components/new-version-hint";
 import { branding, getBrandCssVariables } from "@/lib/branding";
 import { getRequestBrandResolution } from "@/lib/runtime-brand";
 import { generateMetadataFor } from "@/lib/layout-metadata";
-import { buildMetadata } from "@/lib/metadata-builder";
 import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 import { InProgressBar } from "@/components/in-progress-bar";
 import { PendingSetReplayProvider } from "@/components/pending-set-replay-provider";

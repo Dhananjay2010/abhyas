@@ -46,12 +46,20 @@ async function main() {
     check("M10: applicationName is host gym", metadata.applicationName === "Iron Temple");
     check("M10: applicationName is NOT base", metadata.applicationName !== "Abhyas");
     
-    const og = metadata.openGraph as { siteName?: string; title?: string };
-    check("M10: openGraph.siteName is host gym", og.siteName === "Iron Temple");
-    check("M10: openGraph.title is host gym", og.title === "Iron Temple");
+    const og = metadata.openGraph;
+    if (typeof og === "object" && og !== null && "siteName" in og && "title" in og) {
+      check("M10: openGraph.siteName is host gym", og.siteName === "Iron Temple");
+      check("M10: openGraph.title is host gym", og.title === "Iron Temple");
+    } else {
+      check("M10: openGraph is valid object", false);
+    }
     
-    const apple = metadata.appleWebApp as { title?: string };
-    check("M10: appleWebApp.title is host gym", apple.title === "Iron Temple");
+    const apple = metadata.appleWebApp;
+    if (typeof apple === "object" && apple !== null && "title" in apple) {
+      check("M10: appleWebApp.title is host gym", apple.title === "Iron Temple");
+    } else {
+      check("M10: appleWebApp is valid object", false);
+    }
   }
   
   // Test layout wiring with injected resolution
@@ -69,8 +77,12 @@ async function main() {
     check("M10: Layout wiring title NOT static", layoutMetadata.title !== "Abhyas");
     check("M10: Layout wiring applicationName is runtime", layoutMetadata.applicationName === "Iron Temple");
     
-    const og = layoutMetadata.openGraph as { siteName?: string; title?: string };
-    check("M10: Layout wiring openGraph uses runtime", og.siteName === "Iron Temple");
+    const og = layoutMetadata.openGraph;
+    if (typeof og === "object" && og !== null && "siteName" in og) {
+      check("M10: Layout wiring openGraph uses runtime", og.siteName === "Iron Temple");
+    } else {
+      check("M10: Layout wiring openGraph is valid", false);
+    }
   }
   
   console.log();

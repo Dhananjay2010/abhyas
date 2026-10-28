@@ -2,22 +2,27 @@
 /**
  * Test: MUTANT M11 - BrandLogo component uses runtime brand
  * 
- * Tests that BrandLogo component accepts and uses a brand prop,
+ * Tests that BrandLogo renders with the brand passed as prop,
  * and that LandingContent passes brand={brand}.
- * Mutant: Remove brand={brand} from LandingContent or make BrandLogo ignore the prop.
+ * Mutant: Drop brand={brand} prop from landing-content.tsx or 
+ * make BrandLogo ignore the prop.
  */
 
+import { renderToStaticMarkup } from "react-dom/server";
+import { BrandLogo } from "../src/components/brand-logo";
+import { LandingContent } from "../src/app/landing-content";
 import { branding } from "../src/lib/branding";
 import type { Brand } from "../src/lib/branding";
+import React from "react";
 
-const hostBrand: Brand = {
+// Stub brand WITHOUT logo (will render text fallback as <span>)
+const stubBrandNoLogo: Brand = {
   id: "test-gym-id",
-  name: "Iron Temple",
+  name: "Iron Temple Gym",
   shortName: "Iron Temple",
-  logo: "https://gym.example.com/logo.png",
   colors: branding.colors,
   siteUrl: branding.siteUrl,
-  description: branding.description,
+  description: "Train like a warrior at Iron Temple",
   supportEmail: branding.supportEmail,
   defaultUnits: branding.defaultUnits,
   icons: branding.icons,
@@ -32,72 +37,84 @@ function check(label: string, ok: boolean, detail = "") {
   );
 }
 
-async function main() {
+function main() {
   console.log("TEST: MUTANT M11 - BrandLogo uses runtime brand prop");
 
-  // Test 1: Verify BrandLogo component signature accepts brand prop
+  // Test BrandLogo directly with stub brand that has logo
   {
-    const { BrandLogo } = await import("../src/components/brand-logo");
-    
-    // BrandLogo should be a function
-    check("M11: BrandLogo is a component", typeof BrandLogo === "function");
-    
-    // Create a mock render to verify brand usage
-    let capturedBrand: Brand | undefined;
-    const mockBrandLogo = ({ brand = branding }: { brand?: Brand }) => {
-      capturedBrand = brand;
-      return null;
+    const stubWithLogo: Brand = {
+      ...stubBrandNoLogo,
+      logo: "/stub-logo.svg",
     };
-    
-    // Simulate calling with host brand
-    mockBrandLogo({ brand: hostBrand });
-    check("M11: BrandLogo accepts brand prop", capturedBrand === hostBrand);
-    
-    // Simulate calling with no prop (should default to branding)
-    capturedBrand = undefined;
-    mockBrandLogo({});
-    check("M11: BrandLogo defaults to static branding", capturedBrand === branding);
-  }
 
-  // Test 2: Verify LandingContent source code passes brand prop
-  {
-    const fs = await import("fs");
-    const landingContentSource = fs.readFileSync("src/app/landing-content.tsx", "utf-8");
-    
-    check(
-      "M11: LandingContent imports BrandLogo",
-      landingContentSource.includes('import { BrandLogo }')
+    const html = renderToStaticMarkup(
+      React.createElement(BrandLogo, { brand: stubWithLogo })
     );
-    
+
     check(
-      "M11: LandingContent passes brand prop to BrandLogo",
-      landingContentSource.includes('<BrandLogo brand={brand}')
+      "M11: BrandLogo with stub logo renders stub src",
+      html.includes("/stub-logo.svg")
     );
-    
     check(
-      "M11: LandingContent does NOT use static branding in BrandLogo call",
-      !landingContentSource.includes('<BrandLogo brand={branding}')
+      "M11: BrandLogo with stub logo uses stub alt text",
+      html.includes(stubWithLogo.name)
     );
   }
 
-  // Test 3: Verify BrandLogo source uses brand parameter
+  // Test BrandLogo directly with stub brand (no logo, renders <span> text)
   {
-    const fs = await import("fs");
-    const brandLogoSource = fs.readFileSync("src/components/brand-logo.tsx", "utf-8");
-    
-    check(
-      "M11: BrandLogo has brand parameter",
-      brandLogoSource.includes('brand') && brandLogoSource.includes('Brand')
+    const html = renderToStaticMarkup(
+      React.createElement(BrandLogo, { brand: stubBrandNoLogo })
     );
-    
+
     check(
-      "M11: BrandLogo uses brand.logo",
-      brandLogoSource.includes('brand.logo')
+      "M11: BrandLogo renders stub name in span",
+      html.includes("<span") && html.includes(stubBrandNoLogo.name)
     );
-    
     check(
-      "M11: BrandLogo uses brand.name",
-      brandLogoSource.includes('brand.name')
+      "M11: BrandLogo does NOT render base brand name",
+      !html.includes(branding.name)
+    );
+  }
+
+  // Test BrandLogo with base branding (should render base name)
+  {
+    const html = renderToStaticMarkup(
+      React.createElement(BrandLogo, { brand: branding })
+    );
+
+    check(
+      "M11: BrandLogo with base brand renders base name",
+      html.includes(branding.name)
+    );
+  }
+
+  // Test LandingContent passes brand prop to BrandLogo
+  // When logo is undefined, LandingContent renders brand.name in an h1,
+  // and BrandLogo is not used. So use a brand WITH a logo.
+  {
+    const stubBrandWithLogo: Brand = {
+      ...stubBrandNoLogo,
+      logo: "/test-logo.svg", // Relative path, won't trigger Next.js Image validation
+    };
+
+    const html = renderToStaticMarkup(
+      React.createElement(LandingContent, { brand: stubBrandWithLogo })
+    );
+
+    // When brand.logo exists, LandingContent renders BrandLogo + small h1
+    // BrandLogo will try to render <img> with the logo
+    check(
+      "M11: LandingContent with logo brand renders logo src",
+      html.includes("/test-logo.svg")
+    );
+    check(
+      "M11: LandingContent renders stub name",
+      html.includes(stubBrandWithLogo.name)
+    );
+    check(
+      "M11: LandingContent renders stub description",
+      html.includes(stubBrandWithLogo.description)
     );
   }
 
