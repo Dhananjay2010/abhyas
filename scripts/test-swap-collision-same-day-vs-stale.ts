@@ -38,16 +38,20 @@ const PROFILES: Row[] = [
 
 function createStubFetch(sessions: Row[]): typeof fetch {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const urlString = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const method = init?.method ?? "GET";
+    const parsedUrl = new URL(urlString);
+    const params = parsedUrl.searchParams;
+    const headers = new Headers(init?.headers);
+    const wantsSingle = headers.get("Accept")?.includes("vnd.pgrst.object") ?? false;
 
     // programs table
-    if (url.includes("/programs?") && method === "GET") {
+    if (urlString.includes("/programs?") && method === "GET") {
       let filtered = [...PROGRAMS];
-      if (url.includes("status=eq.active")) {
+      const status = params.get("status");
+      if (status === "eq.active") {
         filtered = filtered.filter(p => p.status === "active");
       }
-      const wantsSingle = init?.headers && (init.headers as Record<string, string>)["Accept"]?.includes("vnd.pgrst.object");
       return new Response(JSON.stringify(wantsSingle ? (filtered[0] ?? null) : filtered), {
         status: 200,
         headers: { "Content-Type": wantsSingle ? "application/vnd.pgrst.object+json" : "application/json" },
@@ -55,8 +59,7 @@ function createStubFetch(sessions: Row[]): typeof fetch {
     }
 
     // profiles table
-    if (url.includes("/profiles?") && method === "GET") {
-      const wantsSingle = init?.headers && (init.headers as Record<string, string>)["Accept"]?.includes("vnd.pgrst.object");
+    if (urlString.includes("/profiles?") && method === "GET") {
       return new Response(JSON.stringify(wantsSingle ? (PROFILES[0] ?? null) : PROFILES), {
         status: 200,
         headers: { "Content-Type": wantsSingle ? "application/vnd.pgrst.object+json" : "application/json" },
@@ -64,41 +67,47 @@ function createStubFetch(sessions: Row[]): typeof fetch {
     }
 
     // sessions table
-    if (url.includes("/sessions?") && method === "GET") {
+    if (urlString.includes("/sessions?") && method === "GET") {
       let filtered = [...sessions];
       
-      if (url.includes("user_id=eq.")) {
-        const userId = url.match(/user_id=eq\.([^&]+)/)?.[1];
+      const userIdParam = params.get("user_id");
+      if (userIdParam?.startsWith("eq.")) {
+        const userId = userIdParam.slice(3);
         filtered = filtered.filter(s => s.user_id === userId);
       }
-      if (url.includes("id=eq.")) {
-        const id = url.match(/id=eq\.([^&]+)/)?.[1];
+      
+      const idParam = params.get("id");
+      if (idParam?.startsWith("eq.")) {
+        const id = idParam.slice(3);
         filtered = filtered.filter(s => s.id === id);
       }
-      if (url.includes("status=in.(")) {
-        const statuses = url.match(/status=in\.\(([^)]+)\)/)?.[1]?.split(",") ?? [];
+      
+      const statusParam = params.get("status");
+      if (statusParam?.startsWith("in.(")) {
+        const statuses = statusParam.slice(4, -1).split(",");
         filtered = filtered.filter(s => statuses.includes(String(s.status)));
       }
-      if (url.includes("actual_type=in.(")) {
-        const types = url.match(/actual_type=in\.\(([^)]+)\)/)?.[1]?.split(",") ?? [];
+      
+      const actualTypeParam = params.get("actual_type");
+      if (actualTypeParam?.startsWith("in.(")) {
+        const types = actualTypeParam.slice(4, -1).split(",");
         filtered = filtered.filter(s => types.includes(String(s.actual_type)));
       }
-      if (url.includes("local_date=eq.")) {
-        const date = url.match(/local_date=eq\.([^&]+)/)?.[1];
-        filtered = filtered.filter(s => s.local_date === date);
+      
+      const localDateParam = params.get("local_date");
+      if (localDateParam?.startsWith("eq.")) {
+        const localDate = localDateParam.slice(3);
+        filtered = filtered.filter(s => s.local_date === localDate);
       }
       
-      // order
-      if (url.includes("order=created_at.desc")) {
+      const order = params.get("order");
+      if (order === "created_at.desc") {
         filtered.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
       }
       
-      // limit
-      if (url.includes("limit=1")) {
-        filtered = filtered.slice(0, 1);
-      }
+      const limit = params.get("limit");
+      if (limit) filtered = filtered.slice(0, Number(limit));
 
-      const wantsSingle = init?.headers && (init.headers as Record<string, string>)["Accept"]?.includes("vnd.pgrst.object");
       return new Response(JSON.stringify(wantsSingle ? (filtered[0] ?? null) : filtered), {
         status: 200,
         headers: { "Content-Type": wantsSingle ? "application/vnd.pgrst.object+json" : "application/json" },
@@ -106,18 +115,25 @@ function createStubFetch(sessions: Row[]): typeof fetch {
     }
 
     // program_days table
-    if (url.includes("/program_days?") && method === "GET") {
+    if (urlString.includes("/program_days?") && method === "GET") {
       let filtered = [...PROGRAM_DAYS];
-      if (url.includes("program_id=eq.")) {
-        const programId = url.match(/program_id=eq\.([^&]+)/)?.[1];
+      
+      const programIdParam = params.get("program_id");
+      if (programIdParam?.startsWith("eq.")) {
+        const programId = programIdParam.slice(3);
         filtered = filtered.filter(d => d.program_id === programId);
       }
-      if (url.includes("status=eq.active")) {
+      
+      const status = params.get("status");
+      if (status === "eq.active") {
         filtered = filtered.filter(d => d.status === "active");
       }
-      if (url.includes("order=day_index")) {
+      
+      const order = params.get("order");
+      if (order?.startsWith("day_index")) {
         filtered.sort((a, b) => Number(a.day_index) - Number(b.day_index));
       }
+      
       return new Response(JSON.stringify(filtered), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -211,13 +227,6 @@ async function main() {
   assert.strictEqual(staleResult.collisionResolved, false, "Should NOT mark as resolved");
 
   console.log("  ✓ Stale swap → no collision, Upper stays\n");
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // Mutant: remove the localDate check
-  // ──────────────────────────────────────────────────────────────────────────
-  console.log("MUTANT TEST: Without localDate check (day-plan.ts ~670), stale session would trigger collision");
-  console.log("  Named failure: Case 2 (test-swap-collision-same-day-vs-stale) would serve Lower instead of Upper");
-  console.log("  (Mutant verification: remove `if (!s || s.localDate !== today) return null;` from getTodayCompletedSession)\n");
 
   console.log("✓ All swap collision same-day vs stale tests passed\n");
 }

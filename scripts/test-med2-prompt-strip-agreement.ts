@@ -36,66 +36,93 @@ const PROFILES: Row[] = [
 
 function createStubFetch(sessions: Row[]): typeof fetch {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const urlString = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const method = init?.method ?? "GET";
+    const parsedUrl = new URL(urlString);
+    const params = parsedUrl.searchParams;
+    const headers = new Headers(init?.headers);
+    const wantsSingle = headers.get("Accept")?.includes("vnd.pgrst.object") ?? false;
 
-    if (url.includes("/programs?") && method === "GET") {
+    // programs table
+    if (urlString.includes("/programs?") && method === "GET") {
       let filtered = [...PROGRAMS];
-      if (url.includes("status=eq.active")) {
+      const status = params.get("status");
+      if (status === "eq.active") {
         filtered = filtered.filter(p => p.status === "active");
       }
       return new Response(JSON.stringify(filtered), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 
-    if (url.includes("/profiles?") && method === "GET") {
+    // profiles table
+    if (urlString.includes("/profiles?") && method === "GET") {
       return new Response(JSON.stringify(PROFILES), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 
-    if (url.includes("/sessions?") && method === "GET") {
+    // sessions table
+    if (urlString.includes("/sessions?") && method === "GET") {
       let filtered = [...sessions];
       
-      if (url.includes("user_id=eq.")) {
-        const userId = url.match(/user_id=eq\.([^&]+)/)?.[1];
-        if (userId) filtered = filtered.filter(s => s.user_id === userId);
+      const userIdParam = params.get("user_id");
+      if (userIdParam?.startsWith("eq.")) {
+        const userId = userIdParam.slice(3);
+        filtered = filtered.filter(s => s.user_id === userId);
       }
-      if (url.includes("id=eq.")) {
-        const id = url.match(/id=eq\.([^&]+)/)?.[1];
-        if (id) filtered = filtered.filter(s => s.id === id);
+      
+      const idParam = params.get("id");
+      if (idParam?.startsWith("eq.")) {
+        const id = idParam.slice(3);
+        filtered = filtered.filter(s => s.id === id);
       }
-      if (url.includes("status=in.(")) {
-        const statuses = url.match(/status=in\.\(([^)]+)\)/)?.[1]?.split(",") ?? [];
-        filtered = filtered.filter(s => statuses.includes(s.status as string));
+      
+      const statusParam = params.get("status");
+      if (statusParam?.startsWith("in.(")) {
+        const statuses = statusParam.slice(4, -1).split(",");
+        filtered = filtered.filter(s => statuses.includes(String(s.status)));
       }
-      if (url.includes("actual_type=in.(")) {
-        const types = url.match(/actual_type=in\.\(([^)]+)\)/)?.[1]?.split(",") ?? [];
-        filtered = filtered.filter(s => s.actual_type && types.includes(s.actual_type as string));
+      
+      const actualTypeParam = params.get("actual_type");
+      if (actualTypeParam?.startsWith("in.(")) {
+        const types = actualTypeParam.slice(4, -1).split(",");
+        filtered = filtered.filter(s => types.includes(String(s.actual_type)));
       }
-      if (url.includes("local_date=eq.")) {
-        const date = url.match(/local_date=eq\.([^&]+)/)?.[1];
-        if (date) filtered = filtered.filter(s => s.local_date === date);
+      
+      const localDateParam = params.get("local_date");
+      if (localDateParam?.startsWith("eq.")) {
+        const localDate = localDateParam.slice(3);
+        filtered = filtered.filter(s => s.local_date === localDate);
       }
-      if (url.includes("order=created_at.desc")) {
-        filtered.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
+      
+      const order = params.get("order");
+      if (order === "created_at.desc") {
+        filtered.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
       }
-      if (url.includes("limit=1")) {
-        filtered = filtered.slice(0, 1);
-      }
+      
+      const limit = params.get("limit");
+      if (limit) filtered = filtered.slice(0, Number(limit));
       
       return new Response(JSON.stringify(filtered), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 
-    if (url.includes("/program_days?") && method === "GET") {
+    // program_days table
+    if (urlString.includes("/program_days?") && method === "GET") {
       let filtered = [...PROGRAM_DAYS];
-      if (url.includes("program_id=eq.")) {
-        const programId = url.match(/program_id=eq\.([^&]+)/)?.[1];
-        if (programId) filtered = filtered.filter(d => d.program_id === programId);
+      
+      const programIdParam = params.get("program_id");
+      if (programIdParam?.startsWith("eq.")) {
+        const programId = programIdParam.slice(3);
+        filtered = filtered.filter(d => d.program_id === programId);
       }
-      if (url.includes("status=eq.active")) {
+      
+      const status = params.get("status");
+      if (status === "eq.active") {
         filtered = filtered.filter(d => d.status === "active");
       }
-      if (url.includes("order=day_index")) {
-        filtered.sort((a, b) => Number(a.day_index ?? 0) - Number(b.day_index ?? 0));
+      
+      const order = params.get("order");
+      if (order?.startsWith("day_index")) {
+        filtered.sort((a, b) => Number(a.day_index) - Number(b.day_index));
       }
+      
       return new Response(JSON.stringify(filtered), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 
