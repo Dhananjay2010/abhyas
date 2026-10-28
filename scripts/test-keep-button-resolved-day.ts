@@ -15,7 +15,7 @@ import "./helpers/setup-jsdom";
 import { strict as assert } from "node:assert";
 
 type PlanDay = { kind: string; programDayId?: string };
-type PlanInput = { localDate: string; plan: PlanDay };
+type PlanInput = { sessionId?: string; localDate?: string; plan: PlanDay };
 
 async function main() {
   console.log("\nKeep button: collision-resolved vs Today page\n");
