@@ -96,13 +96,6 @@ export default async function SessionPage({
     (progressRes.data ?? []).map((p) => [p.exercise_id, p]),
   );
 
-  // M1: Fetch actual weight from most recent completed session for each exercise
-  const exerciseIds = rows
-    .map((r) => r.exercises?.id)
-    .filter((id): id is string => typeof id === 'string');
-  
-  const previousWeightByExercise = await loadPreviousCompletedWeights(supabase, user.id, exerciseIds);
-
   /*
     Daily menu means no working-weight memory.
 
@@ -119,10 +112,12 @@ export default async function SessionPage({
   */
   const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
 
-  const exercises = buildRunnerExercisesWithPreviousWeights({
+  // M1: Load previous completed weights and build runner exercises (integrated)
+  const exercises = await loadAndBuildRunnerExercises({
+    client: supabase,
+    userId: user.id,
     rows,
     progressByExercise,
-    previousWeightByExercise,
     remembersWeights,
     isDeload: session.is_deload,
   });
