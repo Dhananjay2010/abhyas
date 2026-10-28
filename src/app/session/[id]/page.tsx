@@ -1,13 +1,16 @@
 import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import type { WarmupRow } from "@/lib/program/warmup";
+import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { SessionRunner } from "./session-runner";
+import { isStaleSession } from "@/lib/session/is-stale-session";
+import { SessionRunner, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
 import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
-import { loadSessionPageData } from "@/lib/session/load-session-page-data";
+import { buildRunnerProps } from "@/lib/session/build-runner-props";
+import { getUnitsPreference } from "@/lib/units";
+import { loadAndBuildRunnerExercises } from "@/lib/session/load-and-build-runner-exercises";
 
 export const dynamic = "force-dynamic";
 
