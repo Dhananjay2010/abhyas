@@ -1,3 +1,4 @@
+#!/usr/bin/env tsx
 /**
  * test-units-m1-page-loader-wiring.tsx
  * 
@@ -5,8 +6,11 @@
  * Kills page-wiring mutants: empty map bypass, skipping the loader, etc.
  */
 
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "../src/lib/database.types";
 import { loadAndBuildRunnerExercises } from "../src/lib/session/load-and-build-runner-exercises";
 import { computeRunnerWeightPrefill } from "../src/lib/units";
+import type { SessionExerciseInput, ProgressInput } from "../src/lib/session/build-runner-exercises";
 
 function check(label: string, ok: boolean, detail?: string, actualValue?: unknown) {
   if (ok) {
@@ -17,18 +21,50 @@ function check(label: string, ok: boolean, detail?: string, actualValue?: unknow
   }
 }
 
-// Minimal PostgREST stub (from test-units-m1-loader-prescription-floor)
+type RecordedRequest = {
+  url: string;
+  method: string;
+  body: unknown;
+  headers: Record<string, string>;
+};
+
 function makeFakeSupabase() {
-  const requests: Array<{ url: string; method: string }> = [];
-  const responses = new Map<string, unknown>();
+  const requests: RecordedRequest[] = [];
+  const responses: Map<string, unknown> = new Map();
 
   const stubFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
     
-    const key = `${method} ${url}`;
-    requests.push({ url, method });
+    let body: unknown = null;
+    if (init?.body) {
+      if (typeof init.body === "string") {
+        body = JSON.parse(init.body);
+      }
+    }
+    
+    const headers: Record<string, string> = {};
+    if (init?.headers) {
+      if (init.headers instanceof Headers) {
+        init.headers.forEach((value, key) => {
+          headers[key.toLowerCase()] = value;
+        });
+      } else if (Array.isArray(init.headers)) {
+        init.headers.forEach(([key, value]) => {
+          headers[key.toLowerCase()] = value;
+        });
+      } else {
+        Object.entries(init.headers).forEach(([key, value]) => {
+          if (typeof value === "string") {
+            headers[key.toLowerCase()] = value;
+          }
+        });
+      }
+    }
 
+    requests.push({ url, method, body, headers });
+
+    const key = `${method} ${url}`;
     const data = responses.get(key) ?? [];
 
     return new Response(JSON.stringify(data), {
@@ -37,48 +73,9 @@ function makeFakeSupabase() {
     });
   };
 
-  const queryBuilder = {
-    _table: "",
-    _params: new URLSearchParams(),
-    eq: function (col: string, val: unknown) {
-      this._params.set(col, `eq.${val}`);
-      return this;
-    },
-    in: function (col: string, vals: unknown[]) {
-      this._params.set(col, `in.(${vals.join(",")})`);
-      return this;
-    },
-    order: function (col: string, opts?: { ascending?: boolean }) {
-      this._params.set("order", `${col}.${opts?.ascending ? "asc" : "desc"}`);
-      return this;
-    },
-    limit: function (n: number) {
-      this._params.set("limit", `${n}`);
-      return this;
-    },
-    then: function (resolve: (result: { data: unknown; error: null }) => void) {
-      const url = `http://fake.local/rest/v1/${this._table}?${this._params.toString()}`;
-      // console.log("Requesting:", `GET ${url}`);
-      stubFetch(url, { method: "GET" }).then((res) => res.json()).then((data) => {
-        resolve({ data, error: null });
-      });
-      return Promise.resolve();
-    },
-  };
-
-  const client = {
-    from: (table: string) => {
-      return {
-        select: (cols: string) => {
-          const builder = Object.create(queryBuilder);
-          builder._table = table;
-          builder._params = new URLSearchParams();
-          builder._params.set("select", cols.replace(/\s+/g, "").replace(/\n/g, ""));
-          return builder;
-        },
-      };
-    },
-  } as any;
+  const client = createClient<Database>("http://fake.local", "fake-key", {
+    global: { fetch: stubFetch },
+  });
 
   return { client, responses, requests };
 }
@@ -111,48 +108,33 @@ async function runTests() {
       },
     ]);
     
-    const rows = [
+    const rows: readonly SessionExerciseInput[] = [
       {
         id: "session-ex-1",
-        session_id: "sess",
-        exercise_id: "ex-bench",
-        sequence: 1,
-        sets_count: 3,
         planned_sets: 3,
-        reps_min: 6,
-        reps_max: 8,
         planned_reps_min: 6,
         planned_reps_max: 8,
         rest_seconds: 180,
-        notes: null,
-        metric: "reps" as const,
-        status: "pending" as const,
+        metric: "reps",
+        status: "pending",
         feel: null,
+        session_sets: [],
         exercises: {
           id: "ex-bench",
           name: "Bench Press",
-          slug: "bench-press",
           cue: null,
-          metric: "reps" as const,
-          primary_muscles: ["chest" as const],
-          equipment_tags: [],
-          contraindicated_regions: [],
-          impact: null,
-          movement_pattern: "push" as const,
-          plane_of_motion: "horizontal" as const,
-          spinal_load: "none" as const,
+          movement_pattern: "push",
+          primary_muscles: ["chest"],
+          equipment_ids: [],
         },
-        session_sets: [],
       },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ] as any;
+    ];
     
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const progressByExercise: any = new Map([
+    const progressByExercise: Map<string, ProgressInput> = new Map([
       ["ex-bench", {
         current_working_weight_kg: 60,
         current_target_reps: 6,
-        previous_completed_weight_kg: null,  // Will be set by integrated function
+        previous_completed_weight_kg: null,
       }],
     ]);
     
