@@ -145,6 +145,19 @@ begin
   where slug = p_slug;
 
   if v_existing_gym_id is not null then
+    -- Gym exists: check if trying to assign a different owner
+    if exists (
+      select 1
+      from public.gym_memberships
+      where gym_id = v_existing_gym_id
+        and role = 'owner'
+        and status = 'active'
+        and user_id != v_owner_id
+    ) then
+      raise exception 'Gym slug already exists with a different owner'
+        using errcode = 'PGY03';
+    end if;
+
     -- Gym exists: update branding fields only if provided
     update public.gyms
     set

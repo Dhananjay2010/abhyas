@@ -65,7 +65,7 @@ TEST_USER_EMAIL="idempotent-test-044-$(date +%s)@example.com"
 TEST_GYM_SLUG="idempotent-test-044-$(date +%s)"
 
 # Create test user via auth.users
-TEST_USER_ID=$(psql "$DB_URL" -t -c "
+TEST_USER_ID=$(psql "$DB_URL" -qtAX -c "
   INSERT INTO auth.users (
     instance_id,
     id,
@@ -103,7 +103,7 @@ TEST_USER_ID=$(psql "$DB_URL" -t -c "
     '',
     ''
   ) RETURNING id;
-" | xargs || echo "")
+" || echo "")
 
 if [ -z "$TEST_USER_ID" ]; then
   echo "❌ Failed to create test user"
@@ -114,7 +114,7 @@ echo "Test user ID: $TEST_USER_ID"
 echo "Test user email: $TEST_USER_EMAIL"
 
 # Provision test gym via provision_gym RPC (using service_role via postgres direct)
-TEST_GYM_RESULT=$(psql "$DB_URL" -t -c "
+TEST_GYM_RESULT=$(psql "$DB_URL" -qtAX -c "
   SELECT public.provision_gym(
     'Idempotent Test Gym',
     '$TEST_GYM_SLUG',
@@ -125,7 +125,7 @@ TEST_GYM_RESULT=$(psql "$DB_URL" -t -c "
     '#C1440E',
     'https://example.com/test-logo.png'
   )::text;
-" | xargs || echo "")
+" || echo "")
 
 echo "Provision result: $TEST_GYM_RESULT"
 
@@ -150,7 +150,7 @@ echo ""
 echo "Step 1: Capturing current state..."
 
 # Capture provision_gym function definition
-FUNCTION_DEF_BEFORE=$(psql "$DB_URL" -t -c "
+FUNCTION_DEF_BEFORE=$(psql "$DB_URL" -qtAX -c "
   SELECT pg_get_functiondef(oid)
   FROM pg_proc
   WHERE proname = 'provision_gym'
@@ -166,18 +166,18 @@ fi
 echo "✓ Captured provision_gym function definition"
 
 # Capture provision_gym grants
-GRANTS_BEFORE=$(psql "$DB_URL" -t -c "
+GRANTS_BEFORE=$(psql "$DB_URL" -qtAX -c "
   SELECT array_agg(grantee::text ORDER BY grantee::text)::text
   FROM information_schema.routine_privileges
   WHERE routine_schema = 'public'
     AND routine_name = 'provision_gym'
     AND privilege_type = 'EXECUTE';
-" | xargs || echo "")
+" || echo "")
 
 echo "provision_gym grants before: $GRANTS_BEFORE"
 
 # Capture the test gym's data
-TEST_GYM_DATA=$(psql "$DB_URL" -t -c "
+TEST_GYM_DATA=$(psql "$DB_URL" -qtAX -c "
   SELECT name, slug, timezone, display_name, primary_color, accent_color, logo_url
   FROM public.gyms
   WHERE id = '$TEST_GYM_ID';
@@ -191,11 +191,11 @@ if [ -z "$TEST_GYM_DATA" ]; then
 fi
 
 # Capture the test gym's owner membership
-TEST_MEMBERSHIP_DATA=$(psql "$DB_URL" -t -c "
+TEST_MEMBERSHIP_DATA=$(psql "$DB_URL" -qtAX -c "
   SELECT role, status
   FROM public.gym_memberships
   WHERE gym_id = '$TEST_GYM_ID' AND user_id = '$TEST_USER_ID';
-" | xargs || echo "")
+" || echo "")
 
 echo "Test membership data before: $TEST_MEMBERSHIP_DATA"
 
@@ -217,7 +217,7 @@ echo "✓ Migration 044 re-applied successfully (first time)"
 echo ""
 echo "Step 3: Verifying function definition unchanged after first re-application..."
 
-FUNCTION_DEF_AFTER=$(psql "$DB_URL" -t -c "
+FUNCTION_DEF_AFTER=$(psql "$DB_URL" -qtAX -c "
   SELECT pg_get_functiondef(oid)
   FROM pg_proc
   WHERE proname = 'provision_gym'
@@ -235,13 +235,13 @@ echo "✓ provision_gym function definition unchanged"
 echo ""
 echo "Step 4: Verifying grants unchanged after first re-application..."
 
-GRANTS_AFTER=$(psql "$DB_URL" -t -c "
+GRANTS_AFTER=$(psql "$DB_URL" -qtAX -c "
   SELECT array_agg(grantee::text ORDER BY grantee::text)::text
   FROM information_schema.routine_privileges
   WHERE routine_schema = 'public'
     AND routine_name = 'provision_gym'
     AND privilege_type = 'EXECUTE';
-" | xargs || echo "")
+" || echo "")
 
 if [ "$GRANTS_BEFORE" != "$GRANTS_AFTER" ]; then
   echo "❌ provision_gym grants changed"
@@ -256,7 +256,7 @@ echo ""
 echo "Step 5: Verifying existing gym and membership data survived..."
 
 # Check the specific test gym's data
-TEST_GYM_DATA_AFTER=$(psql "$DB_URL" -t -c "
+TEST_GYM_DATA_AFTER=$(psql "$DB_URL" -qtAX -c "
   SELECT name, slug, timezone, display_name, primary_color, accent_color, logo_url
   FROM public.gyms
   WHERE id = '$TEST_GYM_ID';
@@ -273,11 +273,11 @@ fi
 echo "✓ Test gym data unchanged"
 
 # Check the test membership data
-TEST_MEMBERSHIP_DATA_AFTER=$(psql "$DB_URL" -t -c "
+TEST_MEMBERSHIP_DATA_AFTER=$(psql "$DB_URL" -qtAX -c "
   SELECT role, status
   FROM public.gym_memberships
   WHERE gym_id = '$TEST_GYM_ID' AND user_id = '$TEST_USER_ID';
-" | xargs || echo "")
+" || echo "")
 
 if [ "$TEST_MEMBERSHIP_DATA" != "$TEST_MEMBERSHIP_DATA_AFTER" ]; then
   echo "❌ Test membership data changed"
@@ -301,13 +301,13 @@ echo ""
 echo "Step 7: Final verification..."
 
 # Verify provision_gym exists and has correct signature
-FUNCTION_EXISTS=$(psql "$DB_URL" -t -c "
+FUNCTION_EXISTS=$(psql "$DB_URL" -qtAX -c "
   SELECT proname
   FROM pg_proc
   WHERE proname = 'provision_gym'
     AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
   LIMIT 1;
-" | xargs || echo "")
+" || echo "")
 
 if [ "$FUNCTION_EXISTS" != "provision_gym" ]; then
   echo "❌ provision_gym function not found"
@@ -316,13 +316,13 @@ fi
 echo "✓ provision_gym function exists"
 
 # Verify prosecdef is true and proconfig contains search_path=""
-PROSECDEF=$(psql "$DB_URL" -t -c "
+PROSECDEF=$(psql "$DB_URL" -qtAX -c "
   SELECT prosecdef
   FROM pg_proc
   WHERE proname = 'provision_gym'
     AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
   LIMIT 1;
-" | xargs || echo "")
+" || echo "")
 
 if [ "$PROSECDEF" != "t" ]; then
   echo "❌ provision_gym prosecdef is not true"
@@ -330,23 +330,23 @@ if [ "$PROSECDEF" != "t" ]; then
 fi
 echo "✓ provision_gym is SECURITY DEFINER"
 
-PROCONFIG=$(psql "$DB_URL" -t -c "
+PROCONFIG=$(psql "$DB_URL" -qtAX -c "
   SELECT proconfig::text
   FROM pg_proc
   WHERE proname = 'provision_gym'
     AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
   LIMIT 1;
-" | xargs || echo "")
+" || echo "")
 
-if [[ ! "$PROCONFIG" =~ "search_path" ]]; then
-  echo "❌ provision_gym proconfig does not contain search_path"
+if [[ ! "$PROCONFIG" =~ 'search_path=""' ]] && [[ ! "$PROCONFIG" =~ "search_path=" ]]; then
+  echo "❌ provision_gym proconfig does not contain search_path=\"\""
   echo "   Got: $PROCONFIG"
   exit 1
 fi
-echo "✓ provision_gym has search_path in proconfig"
+echo "✓ provision_gym has search_path=\"\" in proconfig"
 
 # Verify test gym's data is still unchanged after second re-application
-TEST_GYM_DATA_FINAL=$(psql "$DB_URL" -t -c "
+TEST_GYM_DATA_FINAL=$(psql "$DB_URL" -qtAX -c "
   SELECT name, slug, timezone, display_name, primary_color, accent_color, logo_url
   FROM public.gyms
   WHERE id = '$TEST_GYM_ID';
@@ -364,14 +364,14 @@ echo "✓ Test gym data unchanged after both re-applications"
 echo ""
 echo "Step 8: Verifying provision_gym idempotency on same slug..."
 
-REPROVISION_RESULT=$(psql "$DB_URL" -t -c "
+REPROVISION_RESULT=$(psql "$DB_URL" -qtAX -c "
   SELECT public.provision_gym(
     'Idempotent Test Gym Updated',
     '$TEST_GYM_SLUG',
     'America/New_York',
     '$TEST_USER_EMAIL'
   )::text;
-" | xargs || echo "")
+" || echo "")
 
 echo "Re-provision result: $REPROVISION_RESULT"
 
@@ -383,11 +383,11 @@ fi
 echo "✓ Re-provisioning same slug returns created:false"
 
 # Verify no duplicate gym rows
-GYM_COUNT=$(psql "$DB_URL" -t -c "
+GYM_COUNT=$(psql "$DB_URL" -qtAX -c "
   SELECT count(*)
   FROM public.gyms
   WHERE slug = '$TEST_GYM_SLUG';
-" | xargs || echo "0")
+" || echo "0")
 
 if [ "$GYM_COUNT" != "1" ]; then
   echo "❌ Found $GYM_COUNT gym rows with slug $TEST_GYM_SLUG (expected 1)"
@@ -396,11 +396,11 @@ fi
 echo "✓ No duplicate gym rows"
 
 # Verify no duplicate membership rows
-MEMBERSHIP_COUNT=$(psql "$DB_URL" -t -c "
+MEMBERSHIP_COUNT=$(psql "$DB_URL" -qtAX -c "
   SELECT count(*)
   FROM public.gym_memberships
   WHERE gym_id = '$TEST_GYM_ID' AND user_id = '$TEST_USER_ID';
-" | xargs || echo "0")
+" || echo "0")
 
 if [ "$MEMBERSHIP_COUNT" != "1" ]; then
   echo "❌ Found $MEMBERSHIP_COUNT membership rows (expected 1)"

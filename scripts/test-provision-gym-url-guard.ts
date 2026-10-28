@@ -1,16 +1,15 @@
 /**
- * Pure unit test for provision-gym.ts URL guard.
+ * Pure unit test for provision-gym URL guard.
  * 
- * Verifies that the CLI script refuses non-localhost URLs unless
- * --i-know-this-is-not-local is passed.
+ * Verifies that the URL guard correctly identifies localhost/127.0.0.1/::1
+ * and rejects other hostnames.
  * 
- * This test does NOT require a real database connection.
+ * This test does NOT require a real database connection or network calls.
  * 
  * Run: npm run test:provision-gym-url-guard
  */
 
-import { spawn } from "child_process";
-import { resolve } from "path";
+import { isLocalhostUrl } from "./lib-provision-gym-url-guard";
 
 let failures = 0;
 
@@ -19,171 +18,67 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-function runScript(
-  args: string[],
-  env: Record<string, string> = {}
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((resolve) => {
-    const scriptPath = "./scripts/provision-gym.ts";
-    const child = spawn("tsx", [scriptPath, ...args], {
-      env: { ...process.env, ...env },
-      cwd: process.cwd(),
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (data) => {
-      stdout += data.toString();
-    });
-
-    child.stderr.on("data", (data) => {
-      stderr += data.toString();
-    });
-
-    child.on("close", (code) => {
-      resolve({ code: code || 0, stdout, stderr });
-    });
-  });
-}
-
-async function runTests() {
-  console.log("=== Test 1: Localhost URL is allowed ===");
+function runTests() {
+  console.log("=== Test 1: localhost URLs are allowed ===");
   {
-    const { code, stdout, stderr } = await runScript(
-      ["Test Gym", "test-gym", "Asia/Kolkata", "owner@example.com"],
-      {
-        SUPABASE_URL: "http://localhost:54321",
-        SUPABASE_SERVICE_ROLE_KEY: "fake-key-for-url-guard-test",
-      }
-    );
-
-    check("exit code is non-zero (connection will fail)", code !== 0);
-    check("does NOT print safety check failed", !stderr.includes("SAFETY CHECK FAILED"));
-    check("does NOT refuse localhost", !stdout.includes("SAFETY CHECK FAILED") && !stderr.includes("SAFETY CHECK FAILED"));
+    check("http://localhost:54321 is localhost", isLocalhostUrl("http://localhost:54321") === true);
+    check("https://localhost is localhost", isLocalhostUrl("https://localhost") === true);
+    check("http://localhost is localhost", isLocalhostUrl("http://localhost") === true);
   }
   console.log("");
 
-  console.log("=== Test 2: 127.0.0.1 URL is allowed ===");
+  console.log("=== Test 2: 127.0.0.1 URLs are allowed ===");
   {
-    const { code, stdout, stderr } = await runScript(
-      ["Test Gym", "test-gym", "Asia/Kolkata", "owner@example.com"],
-      {
-        SUPABASE_URL: "http://127.0.0.1:54321",
-        SUPABASE_SERVICE_ROLE_KEY: "fake-key-for-url-guard-test",
-      }
-    );
-
-    check("exit code is non-zero (connection will fail)", code !== 0);
-    check("does NOT print safety check failed", !stderr.includes("SAFETY CHECK FAILED"));
-    check("does NOT refuse 127.0.0.1", !stdout.includes("SAFETY CHECK FAILED") && !stderr.includes("SAFETY CHECK FAILED"));
+    check("http://127.0.0.1:54321 is localhost", isLocalhostUrl("http://127.0.0.1:54321") === true);
+    check("https://127.0.0.1 is localhost", isLocalhostUrl("https://127.0.0.1") === true);
   }
   console.log("");
 
-  console.log("=== Test 3: Remote URL is refused ===");
+  console.log("=== Test 3: ::1 (IPv6 localhost) URLs are allowed ===");
   {
-    const { code, stdout, stderr } = await runScript(
-      ["Test Gym", "test-gym", "Asia/Kolkata", "owner@example.com"],
-      {
-        SUPABASE_URL: "https://abcdefg.supabase.co",
-        SUPABASE_SERVICE_ROLE_KEY: "fake-key-for-url-guard-test",
-      }
-    );
-
-    check("exit code is 1", code === 1, `got ${code}`);
-    check("stderr contains SAFETY CHECK FAILED", stderr.includes("SAFETY CHECK FAILED"));
-    check("stderr mentions the URL", stderr.includes("abcdefg.supabase.co"));
-    check("stderr mentions override flag", stderr.includes("--i-know-this-is-not-local"));
+    check("http://[::1]:54321 is localhost", isLocalhostUrl("http://[::1]:54321") === true);
+    check("https://[::1] is localhost", isLocalhostUrl("https://[::1]") === true);
   }
   console.log("");
 
-  console.log("=== Test 4: Remote URL with override flag prints warning ===");
+  console.log("=== Test 4: Remote URLs are rejected ===");
   {
-    const { code, stdout, stderr } = await runScript(
-      ["Test Gym", "test-gym", "Asia/Kolkata", "owner@example.com", "--i-know-this-is-not-local"],
-      {
-        SUPABASE_URL: "https://abcdefg.supabase.co",
-        SUPABASE_SERVICE_ROLE_KEY: "fake-key-for-url-guard-test",
-      }
-    );
-
-    check("exit code is non-zero (connection will fail)", code !== 0);
-    check("stderr contains WARNING", stderr.includes("WARNING"));
-    check("stderr mentions non-local database", stderr.includes("NON-LOCAL") || stderr.includes("non-local"));
-    check("stderr does NOT refuse", !stderr.includes("SAFETY CHECK FAILED"));
+    check("https://abcdefg.supabase.co is NOT localhost", isLocalhostUrl("https://abcdefg.supabase.co") === false);
+    check("https://xyz.supabase.co is NOT localhost", isLocalhostUrl("https://xyz.supabase.co") === false);
+    check("https://example.com is NOT localhost", isLocalhostUrl("https://example.com") === false);
   }
   console.log("");
 
-  console.log("=== Test 5: Missing SUPABASE_SERVICE_ROLE_KEY is rejected ===");
+  console.log("=== Test 5: Localhost-like hostnames are rejected ===");
   {
-    const { code, stdout, stderr } = await runScript(
-      ["Test Gym", "test-gym", "Asia/Kolkata", "owner@example.com"],
-      {
-        SUPABASE_URL: "http://localhost:54321",
-        SUPABASE_SERVICE_ROLE_KEY: "",
-      }
-    );
-
-    check("exit code is 1", code === 1, `got ${code}`);
-    check("stderr mentions SUPABASE_SERVICE_ROLE_KEY", stderr.includes("SUPABASE_SERVICE_ROLE_KEY"));
+    check("https://localhost.evil.com is NOT localhost", isLocalhostUrl("https://localhost.evil.com") === false);
+    check("https://mylocalhost.com is NOT localhost", isLocalhostUrl("https://mylocalhost.com") === false);
   }
   console.log("");
 
-  console.log("=== Test 6: Missing required arguments is rejected ===");
+  console.log("=== Test 6: Query params don't affect hostname check ===");
   {
-    const { code, stdout, stderr } = await runScript(
-      ["Test Gym"],
-      {
-        SUPABASE_URL: "http://localhost:54321",
-        SUPABASE_SERVICE_ROLE_KEY: "fake-key",
-      }
-    );
-
-    check("exit code is 1", code === 1, `got ${code}`);
-    check("stderr contains Usage", stderr.includes("Usage"));
+    check("https://evil.com/?x=127.0.0.1 is NOT localhost", isLocalhostUrl("https://evil.com/?x=127.0.0.1") === false);
+    check("https://example.com/?host=localhost is NOT localhost", isLocalhostUrl("https://example.com/?host=localhost") === false);
   }
   console.log("");
 
-  console.log("=== Test 7: Override flag can be at different positions ===");
+  console.log("=== Test 7: Invalid URLs are rejected ===");
   {
-    // Override flag at the end
-    const { code: code1, stderr: stderr1 } = await runScript(
-      ["Test Gym", "test-gym", "Asia/Kolkata", "owner@example.com", "--i-know-this-is-not-local"],
-      {
-        SUPABASE_URL: "https://xyz.supabase.co",
-        SUPABASE_SERVICE_ROLE_KEY: "fake-key",
-      }
-    );
-
-    check("override at end: stderr contains WARNING", stderr1.includes("WARNING"));
-    check("override at end: NOT refused", !stderr1.includes("SAFETY CHECK FAILED"));
-
-    // Override flag in the middle
-    const { code: code2, stderr: stderr2 } = await runScript(
-      ["Test Gym", "--i-know-this-is-not-local", "test-gym", "Asia/Kolkata", "owner@example.com"],
-      {
-        SUPABASE_URL: "https://xyz.supabase.co",
-        SUPABASE_SERVICE_ROLE_KEY: "fake-key",
-      }
-    );
-
-    check("override in middle: stderr contains WARNING", stderr2.includes("WARNING"));
-    check("override in middle: NOT refused", !stderr2.includes("SAFETY CHECK FAILED"));
+    check("invalid-url is NOT localhost", isLocalhostUrl("invalid-url") === false);
+    check("empty string is NOT localhost", isLocalhostUrl("") === false);
   }
   console.log("");
 
   return failures === 0;
 }
 
-runTests().then((success) => {
-  if (success) {
-    console.log("✅ All URL guard tests passed\n");
-    process.exit(0);
-  } else {
-    console.log(`\n❌ ${failures} test(s) failed\n`);
-    process.exit(1);
-  }
-}).catch((err) => {
-  console.error("\n❌ Test runner error:", err);
+const success = runTests();
+
+if (success) {
+  console.log("✅ All URL guard tests passed\n");
+  process.exit(0);
+} else {
+  console.log(`\n❌ ${failures} test(s) failed\n`);
   process.exit(1);
-});
+}

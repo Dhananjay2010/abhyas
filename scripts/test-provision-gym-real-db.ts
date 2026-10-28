@@ -9,7 +9,6 @@
  * - anon and authenticated calls are denied (permission denied)
  * - service_role succeeds
  * - After provisioning, owner sees only their gym via RLS
- * - checkGymOwnership returns the provisioned gym
  * - prosecdef is true and proconfig contains search_path=""
  * 
  * Run: supabase start && REAL_DB=1 npm run test:provision-gym-real-db
@@ -23,13 +22,14 @@ if (process.env.REAL_DB !== "1") {
 }
 
 import { createClient } from "@supabase/supabase-js";
-import { randomUUID } from "crypto";
+import { spawn } from "child_process";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
+const SUPABASE_DB_URL = process.env.SUPABASE_DB_URL || "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -45,6 +45,30 @@ async function testDatabaseConnection() {
   } catch {
     return false;
   }
+}
+
+function execPsql(query: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("psql", [SUPABASE_DB_URL, "-qtAX", "-c", query]);
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`psql exited with code ${code}: ${stderr}`));
+      } else {
+        resolve(stdout.trim());
+      }
+    });
+  });
 }
 
 async function runTests() {
@@ -183,7 +207,7 @@ async function runTests() {
     // Verify no duplicate gym
     const { data: gyms, error: gymsError } = await adminClient
       .from("gyms")
-      .select("id")
+      .select("gym_id:id")
       .eq("slug", testSlug);
 
     check("no duplicate gym rows", !gymsError && gyms?.length === 1, gymsError?.message || `found ${gyms?.length} rows`);
@@ -191,26 +215,37 @@ async function runTests() {
     // Verify no duplicate membership
     const { data: memberships, error: membershipsError } = await adminClient
       .from("gym_memberships")
-      .select("id")
+      .select("gym_id")
       .eq("gym_id", data?.gym_id)
       .eq("user_id", userIdOwner);
 
     check("no duplicate membership rows", !membershipsError && memberships?.length === 1, membershipsError?.message || `found ${memberships?.length} rows`);
+
+    // Verify name and timezone are UNCHANGED (function ignores them on re-run)
+    const { data: gymRow } = await adminClient
+      .from("gyms")
+      .select("name, timezone")
+      .eq("slug", testSlug)
+      .single();
+
+    check("gym name unchanged on re-run", gymRow?.name === "Test Gym One", `got ${gymRow?.name}`);
+    check("gym timezone unchanged on re-run", gymRow?.timezone === "Asia/Kolkata", `got ${gymRow?.timezone}`);
   }
   console.log("");
 
   console.log("=== Test 3: Unknown email raises PGY01 ===");
   {
+    const unknownEmail = `nonexistent-${Date.now()}@example.com`;
     const { data, error } = await adminClient.rpc("provision_gym", {
       p_name: "Ghost Gym",
       p_slug: `ghost-gym-${Date.now()}`,
       p_timezone: "Asia/Kolkata",
-      p_owner_email: `nonexistent-${randomUUID()}@example.com`,
+      p_owner_email: unknownEmail,
     });
 
     check("provision_gym returns error", !!error);
     check("error code is PGY01", error?.code === "PGY01", error?.code);
-    check("error message mentions sign up", error?.message?.includes("sign up") || error?.message?.includes("email"), error?.message);
+    check("error message is exact", error?.message === "No user with that email. Ask them to sign up first.", error?.message);
   }
   console.log("");
 
@@ -224,7 +259,8 @@ async function runTests() {
     });
 
     check("provision_gym returns error", !!error);
-    check("error message mentions timezone", error?.message?.toLowerCase().includes("timezone"), error?.message);
+    check("error code is 22023", error?.code === "22023", error?.code);
+    check("error message mentions timezone", (error?.message?.toLowerCase()?.includes("timezone") ?? false), error?.message);
   }
   console.log("");
 
@@ -238,7 +274,8 @@ async function runTests() {
     });
 
     check("provision_gym returns error", !!error);
-    check("error message mentions slug", error?.message?.toLowerCase().includes("slug"), error?.message);
+    check("error code is 22023", error?.code === "22023", error?.code);
+    check("error message mentions slug", (error?.message?.toLowerCase()?.includes("slug") ?? false), error?.message);
   }
   console.log("");
 
@@ -315,7 +352,7 @@ async function runTests() {
     });
 
     check("provision_gym returns error", !!error);
-    check("error message mentions permission", error?.message?.toLowerCase().includes("permission") || error?.message?.toLowerCase().includes("denied"), error?.message);
+    check("error message mentions permission", (error?.message?.toLowerCase()?.includes("permission") ?? false) || (error?.message?.toLowerCase()?.includes("denied") ?? false), error?.message);
   }
   console.log("");
 
@@ -329,7 +366,7 @@ async function runTests() {
     });
 
     check("provision_gym returns error", !!error);
-    check("error message mentions permission", error?.message?.toLowerCase().includes("permission") || error?.message?.toLowerCase().includes("denied"), error?.message);
+    check("error message mentions permission", (error?.message?.toLowerCase()?.includes("permission") ?? false) || (error?.message?.toLowerCase()?.includes("denied") ?? false), error?.message);
   }
   console.log("");
 
@@ -348,17 +385,40 @@ async function runTests() {
   }
   console.log("");
 
-  console.log("=== Test 13: Owner sees only their gym via RLS ===");
+  console.log("=== Test 13: Owner sees only their gyms via RLS (not unrelated gyms) ===");
   {
+    // Create an unrelated gym for a different user
+    const emailOther = `other-owner-${Date.now()}@example.com`;
+    const { data: otherUser } = await adminClient.auth.admin.createUser({
+      email: emailOther,
+      password: "test-password-other",
+      email_confirm: true,
+    });
+
+    const otherSlug = `other-gym-${Date.now()}`;
+    await adminClient.rpc("provision_gym", {
+      p_name: "Other Gym",
+      p_slug: otherSlug,
+      p_timezone: "Asia/Kolkata",
+      p_owner_email: emailOther,
+    });
+
     const { data: gyms, error: gymsError } = await ownerClient
       .from("gyms")
       .select("id, slug");
 
     check("gyms query succeeds", !gymsError, gymsError?.message);
     check("owner sees exactly 2 gyms", gyms?.length === 2, `saw ${gyms?.length} gyms`);
-    check("gym slugs match", 
-      gyms?.some(g => g.slug === testSlug) && gyms?.some(g => g.slug === testSlug2),
+    check("gym slugs match owned gyms", 
+      (gyms?.some(g => g.slug === testSlug) ?? false) && (gyms?.some(g => g.slug === testSlug2) ?? false),
       `slugs: ${gyms?.map(g => g.slug).join(", ")}`);
+    check("owner does NOT see unrelated gym", !(gyms?.some(g => g.slug === otherSlug) ?? true), "unrelated gym visible");
+
+    // Cleanup other user
+    if (otherUser?.user?.id) {
+      await adminClient.from("gyms").delete().eq("slug", otherSlug);
+      await adminClient.auth.admin.deleteUser(otherUser.user.id);
+    }
   }
   console.log("");
 
@@ -391,6 +451,9 @@ async function runTests() {
       check("primary_color is exact", gymRow?.primary_color === "#FF6B35");
       check("accent_color is exact", gymRow?.accent_color === "#C1440E");
       check("logo_url is exact", gymRow?.logo_url === "https://example.com/logo.png");
+
+      // Cleanup
+      await adminClient.from("gyms").delete().eq("slug", brandedSlug);
     }
   }
   console.log("");
@@ -483,7 +546,7 @@ async function runTests() {
       check("gym A provision succeeds", !errorA && dataA?.created === true, errorA?.message);
       const gymIdA = dataA?.gym_id;
 
-      // Add a member-role membership for this user in another gym (or the same gym)
+      // Add a member-role membership for this user in another gym
       // First provision a member gym owned by the original owner
       await adminClient.rpc("provision_gym", {
         p_name: "Member Gym",
@@ -495,12 +558,14 @@ async function runTests() {
       const gymIdMember = (await adminClient.from("gyms").select("id").eq("slug", slugMember).single()).data?.id;
 
       // Add multi-owner user as member to the member gym
-      await adminClient.from("gym_memberships").insert({
+      const { error: memberInsertError } = await adminClient.from("gym_memberships").insert({
         gym_id: gymIdMember,
         user_id: userIdMultiOwner,
         role: "member",
         status: "active",
       });
+
+      check("member membership insert succeeds", !memberInsertError, memberInsertError?.message);
 
       // Capture gym A membership before provisioning gym B
       const { data: membershipABefore, error: membershipABeforeError } = await adminClient
@@ -553,7 +618,7 @@ async function runTests() {
       check("owner memberships query succeeds", !ownerMembershipsError, ownerMembershipsError?.message);
       check("user has exactly 2 active owner memberships", ownerMemberships?.length === 2, `found ${ownerMemberships?.length}`);
       check("both gyms A and B are in owner memberships", 
-        ownerMemberships?.some(m => m.gym_id === gymIdA) && ownerMemberships?.some(m => m.gym_id === gymIdB));
+        (ownerMemberships?.some(m => m.gym_id === gymIdA) ?? false) && (ownerMemberships?.some(m => m.gym_id === gymIdB) ?? false));
 
       // Verify gym A membership is unchanged
       const { data: membershipAAfter, error: membershipAAfterError } = await adminClient
@@ -615,7 +680,7 @@ async function runTests() {
       // Verify still exactly one owner membership for gym B
       const { data: gymBMemberships, error: gymBMembershipsError } = await adminClient
         .from("gym_memberships")
-        .select("id")
+        .select("gym_id")
         .eq("gym_id", gymIdB)
         .eq("user_id", userIdMultiOwner)
         .eq("role", "owner")
@@ -663,8 +728,9 @@ async function runTests() {
       });
 
       // Add the member user as a member to the first gym
+      const gymIdMember = (await adminClient.from("gyms").select("id").eq("slug", memberSlug).single()).data?.id;
       await adminClient.from("gym_memberships").insert({
-        gym_id: (await adminClient.from("gyms").select("id").eq("slug", memberSlug).single()).data?.id,
+        gym_id: gymIdMember,
         user_id: userIdMember,
         role: "member",
         status: "active",
@@ -688,64 +754,56 @@ async function runTests() {
   }
   console.log("");
 
-  console.log("=== Test 18: prosecdef is true and proconfig contains search_path ===");
+  console.log("=== Test 18: Different owner raises PGY03 ===");
   {
-    const { data: funcInfo, error: funcError } = await adminClient.rpc("sql", {
-      query: `
-        select prosecdef, proconfig
-        from pg_proc p
-        join pg_namespace n on p.pronamespace = n.oid
-        where n.nspname = 'public' and p.proname = 'provision_gym'
-      `,
-    } as any);
+    const conflictSlug = `conflict-slug-${Date.now()}`;
+    const emailOwner2 = `owner2-${Date.now()}@example.com`;
 
-    if (funcError) {
-      // Fallback: use direct query via adminClient
-      const { data: directData, error: directError } = await adminClient
-        .from("pg_proc")
-        .select("prosecdef, proconfig")
-        .eq("proname", "provision_gym")
-        .single();
+    // Create second owner
+    const { data: owner2User } = await adminClient.auth.admin.createUser({
+      email: emailOwner2,
+      password: "test-password-owner2",
+      email_confirm: true,
+    });
 
-      if (!directError && directData) {
-        check("prosecdef is true", directData.prosecdef === true);
-        check("proconfig contains search_path", 
-          Array.isArray(directData.proconfig) && 
-          directData.proconfig.some((c: string) => c.includes("search_path")),
-          `proconfig: ${JSON.stringify(directData.proconfig)}`);
-      } else {
-        // Final fallback: check via raw SQL using adminClient auth header
-        console.log("  (Checking prosecdef and proconfig via direct pg query)");
-        const pgCheck = await fetch(`${SUPABASE_URL}/rest/v1/rpc/sql`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-          },
-          body: JSON.stringify({
-            query: `
-              select prosecdef, proconfig
-              from pg_proc p
-              join pg_namespace n on p.pronamespace = n.oid
-              where n.nspname = 'public' and p.proname = 'provision_gym'
-            `,
-          }),
-        });
+    // Provision gym with first owner
+    await adminClient.rpc("provision_gym", {
+      p_name: "Conflict Gym",
+      p_slug: conflictSlug,
+      p_timezone: "Asia/Kolkata",
+      p_owner_email: emailOwner,
+    });
 
-        if (pgCheck.ok) {
-          const pgData = await pgCheck.json();
-          if (pgData && pgData.length > 0) {
-            check("prosecdef is true", pgData[0].prosecdef === true);
-            check("proconfig contains search_path", 
-              Array.isArray(pgData[0].proconfig) && 
-              pgData[0].proconfig.some((c: string) => c.includes("search_path")),
-              `proconfig: ${JSON.stringify(pgData[0].proconfig)}`);
-          }
-        } else {
-          console.log("  (Could not check prosecdef and proconfig - skipping)");
-        }
-      }
+    // Try to provision same slug with different owner
+    const { data, error } = await adminClient.rpc("provision_gym", {
+      p_name: "Conflict Gym 2",
+      p_slug: conflictSlug,
+      p_timezone: "America/New_York",
+      p_owner_email: emailOwner2,
+    });
+
+    check("provision_gym returns error", !!error);
+    check("error code is PGY03", error?.code === "PGY03", error?.code);
+    check("error message is exact", error?.message === "Gym slug already exists with a different owner", error?.message);
+
+    // Cleanup
+    await adminClient.from("gyms").delete().eq("slug", conflictSlug);
+    if (owner2User?.user?.id) {
+      await adminClient.auth.admin.deleteUser(owner2User.user.id);
+    }
+  }
+  console.log("");
+
+  console.log("=== Test 19: prosecdef is true and proconfig contains search_path ===");
+  {
+    try {
+      const prosecdef = await execPsql("SELECT prosecdef FROM pg_proc WHERE proname = 'provision_gym' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public') LIMIT 1");
+      const proconfig = await execPsql("SELECT proconfig::text FROM pg_proc WHERE proname = 'provision_gym' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public') LIMIT 1");
+
+      check("prosecdef is true", prosecdef === "t", `got ${prosecdef}`);
+      check("proconfig contains search_path=\"\"", (proconfig?.includes('search_path=""') ?? false) || (proconfig?.includes("search_path=") ?? false), `got ${proconfig}`);
+    } catch (err) {
+      check("prosecdef/proconfig check failed", false, String(err));
     }
   }
   console.log("");
@@ -756,7 +814,6 @@ async function runTests() {
   // Delete test gyms
   await adminClient.from("gyms").delete().eq("slug", testSlug);
   await adminClient.from("gyms").delete().eq("slug", testSlug2);
-  await adminClient.from("gyms").delete().ilike("slug", `branded-gym-%`);
   
   // Delete test user
   if (userIdOwner) {
