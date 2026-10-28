@@ -21,6 +21,7 @@ import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { formatLoad, formatPrescribedWeight, computeRunnerWeightPrefill, weightKgToSubmit, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
+import { finishErrorMessage } from "@/lib/session/finish-error-message";
 import { shouldShowFinishRetry, runEndEarly } from "@/lib/session/finish-flow";
 import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
 import { focusTrap } from "@/lib/focus-trap";
@@ -623,6 +624,31 @@ export function SessionRunner({
     }
   }
 
+  // Item 5: Finish-path wrapper that uses fixed friendly copy for finish failures
+  async function runFinish<T extends { ok: boolean; error?: string }>(
+    fn: () => Promise<T>
+  ): Promise<T | null> {
+    if (busyRef.current) return null;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const r = await fn();
+      if (!r.ok) {
+        const rawError = "error" in r ? (r.error ?? "Something went wrong") : "Failed";
+        setError(finishErrorMessage(new Error(rawError)));
+      } else {
+        setError(null);
+      }
+      return r.ok ? r : null;
+    } catch (err) {
+      setError(finishErrorMessage(err));
+      return null;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
   // ---- warm-up ----------------------------------------------------------
   if (phase === "warmup") {
     const item = warmup[warmupIndex];
@@ -758,7 +784,7 @@ export function SessionRunner({
             onClick={async () => {
               const frozen = stopElapsed();
               setLastCooldownCompleted(true);
-              const result = await run(() =>
+              const result = await runFinish(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
               );
               if (result && result.ok) {
@@ -768,7 +794,7 @@ export function SessionRunner({
               } else {
                 resumeElapsed();
               }
-              setNeedsFinishRetry(shouldShowFinishRetry(!!result, true));
+              setNeedsFinishRetry(shouldShowFinishRetry(!!result));
             }}
           >
             {getFinishButtonText()}
@@ -778,7 +804,7 @@ export function SessionRunner({
               disabled={busy}
               onClick={async () => {
                 const frozen = stopElapsed();
-                const result = await run(() =>
+                const result = await runFinish(() =>
                   actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: lastCooldownCompleted })
                 );
                 if (result && result.ok) {
@@ -788,7 +814,7 @@ export function SessionRunner({
                 } else {
                   resumeElapsed();
                 }
-                setNeedsFinishRetry(shouldShowFinishRetry(!!result, lastCooldownCompleted));
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result));
               }}
             >
               Try again
@@ -807,7 +833,7 @@ export function SessionRunner({
                   // Queue is empty, finish session in the same tap
                   const frozen = stopElapsed();
                   setLastCooldownCompleted(false);
-                  const result = await run(() =>
+                  const result = await runFinish(() =>
                     actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
                   );
                   if (result && result.ok) {
@@ -817,7 +843,7 @@ export function SessionRunner({
                   } else {
                     resumeElapsed();
                   }
-                  setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
+                  setNeedsFinishRetry(shouldShowFinishRetry(!!result));
                 }
                 // If queue is not empty (offline/expired/error), stay on cool-down with notice
                 return;
@@ -825,7 +851,7 @@ export function SessionRunner({
               // No pending sets, finish immediately
               const frozen = stopElapsed();
               setLastCooldownCompleted(false);
-              const result = await run(() =>
+              const result = await runFinish(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
               );
               if (result && result.ok) {
@@ -835,7 +861,7 @@ export function SessionRunner({
               } else {
                 resumeElapsed();
               }
-              setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
+              setNeedsFinishRetry(shouldShowFinishRetry(!!result));
             }}
           >
             Skip cool-down
@@ -1211,7 +1237,7 @@ export function SessionRunner({
         }
         const frozen = stopElapsed();
         setLastCooldownCompleted(false);
-        const result = await run(() =>
+        const result = await runFinish(() =>
           actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
         );
         if (result && result.ok) {
@@ -1221,7 +1247,7 @@ export function SessionRunner({
         } else {
           resumeElapsed();
         }
-        setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
+        setNeedsFinishRetry(shouldShowFinishRetry(!!result));
       }
     } else {
       setExerciseIndex(next);
@@ -1623,7 +1649,7 @@ export function SessionRunner({
               onClick={async () => {
                 const frozen = stopElapsed();
                 setLastCooldownCompleted(false);
-                const result = await run(() =>
+                const result = await runFinish(() =>
                   actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
                 );
                 if (result && result.ok) {
@@ -1633,7 +1659,7 @@ export function SessionRunner({
                 } else {
                   resumeElapsed();
                 }
-                setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result));
               }}
             >
               Try again

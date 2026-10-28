@@ -1,4 +1,5 @@
 import { isNetworkError } from "./network-error";
+import { finishErrorMessage } from "./finish-error-message";
 
 /**
  * Run the end-early flow (End session early button).
@@ -33,7 +34,8 @@ export async function runEndEarly(
       deps.resumeElapsed();
       params.setConfirming(null);
       params.setOfflineError(false);
-      deps.setError("Couldn't end the session. Try again.");
+      const rawError = result.error ?? "Couldn't end the session";
+      deps.setError(finishErrorMessage(new Error(rawError)));
       params.endingRef.current = false;
       params.setEnding(false);
       return false;
@@ -54,7 +56,7 @@ export async function runEndEarly(
     } else {
       params.setConfirming(null);
       params.setOfflineError(false);
-      deps.setError("Couldn't end the session. Try again.");
+      deps.setError(finishErrorMessage(err));
     }
     params.endingRef.current = false;
     params.setEnding(false);
@@ -67,14 +69,11 @@ export async function runEndEarly(
  * 
  * Returns true when:
  * - The finish failed (succeeded = false)
- * - The cooldown was NOT completed (if cooldown is done, the summary shows immediately)
  * 
- * Note: On a failed cool-down Done, the runner stays on the cool-down screen
- * and shows the retry button.
+ * Both Done and Skip show "Try again" on failure.
  * 
  * @param succeeded - Whether runFinish returned true
- * @param cooldownCompleted - Whether the cooldown phase was completed
  */
-export function shouldShowFinishRetry(succeeded: boolean, cooldownCompleted: boolean): boolean {
-  return !succeeded && !cooldownCompleted;
+export function shouldShowFinishRetry(succeeded: boolean): boolean {
+  return !succeeded;
 }

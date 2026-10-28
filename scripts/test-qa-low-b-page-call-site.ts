@@ -142,7 +142,7 @@ function check(label: string, ok: boolean, detail = "") {
   
   // Expected: started_at 10:00:00, last working set completed_at 10:20:00 = 20 minutes
   // (The final warm-up at 10:23:00 should be filtered out)
-  check("Time is 20m (1200s from working sets only)", timeStat?.value === "20m", timeStat?.value ?? "missing");
+  check("Time is 20 min (1200s from working sets only)", timeStat?.value === "20 min", timeStat?.value ?? "missing");
 
   console.log("\n2. Last set in array order is NOT the latest: page must pass every set");
   // Working set completed 10:40 comes first; the final array entry is an earlier working set (10:15).
@@ -158,7 +158,7 @@ function check(label: string, ok: boolean, detail = "") {
   const timeCase2 = [...dCase2.querySelectorAll("dt")]
     .map((dt) => ({ label: dt.textContent?.trim() ?? "", value: dt.nextElementSibling?.textContent?.trim() ?? "" }))
     .find((s) => s.label === "Time");
-  check("Time is 40m (latest of all sets, not the last array entry)", timeCase2?.value === "40m", timeCase2?.value ?? "missing");
+  check("Time is 40 min (latest of all sets, not the last array entry)", timeCase2?.value === "40 min", timeCase2?.value ?? "missing");
   fake.tables.session_sets = case1Sets;
 
   console.log("\n3. Sanity: Session with stored duration_seconds");
@@ -179,7 +179,7 @@ function check(label: string, ok: boolean, detail = "") {
   }));
   const timeStat2 = stats2.find((s) => s.label === "Time");
   
-  check("Stored duration_seconds takes precedence", timeStat2?.value === "25m", timeStat2?.value ?? "missing");
+  check("Stored duration_seconds takes precedence", timeStat2?.value === "25 min", timeStat2?.value ?? "missing");
 
   console.log(failures ? `\n${failures} FAIL` : "\n✨ All page call site tests passed");
   process.exit(failures ? 1 : 0);

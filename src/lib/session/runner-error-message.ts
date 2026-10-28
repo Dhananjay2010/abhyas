@@ -55,6 +55,7 @@ export function runnerErrorMessage(err: unknown, kind: 'set' | 'action' = 'set')
     }
   }
   
+  // Fallback for other errors (validation messages, etc.)
   if (err instanceof Error) {
     return err.message;
   }

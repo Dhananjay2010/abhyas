@@ -175,7 +175,7 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
     async finishSession() {
       finishAttempts++;
       if (finishAttempts === 1) {
-        return { ok: false, error: "Network error" };
+        return { ok: false, error: "<html><body><h1>502 Bad Gateway</h1><p>The server encountered an error</p></body></html>" };
       }
       return { ok: true, data: { status: "completed", durationSeconds: null } };
     },
@@ -259,8 +259,13 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
   await act(async () => {});
 
   let textContent = container.textContent;
-  const hasError = textContent !== null && textContent.includes("Network error");
-  check("Failed finish shows error", hasError);
+  const hasFriendlyError = textContent !== null && textContent.includes("That didn't save. Try again.");
+  check("Failed finish shows friendly error", hasFriendlyError);
+  
+  // Item 5 decision: arbitrary server text (HTML, SQL errors) NEVER passes through
+  const hasHTML = textContent !== null && (textContent.includes("<html>") || textContent.includes("<body>") || textContent.includes("502 Bad Gateway"));
+  check("Failed finish does NOT show raw HTML server text", !hasHTML);
+  
   const hasTryAgain = textContent !== null && textContent.includes("Try again");
   check("Failed finish shows 'Try again' button", hasTryAgain);
 
@@ -1180,7 +1185,7 @@ console.log("\n10. Clock resumes after failed end early (endearly-resume)");
     async finishSession() { return { ok: true, data: { status: "completed", durationSeconds: null } }; },
     async abandonSession() {
       if (abandonFails) {
-        return { ok: false, error: "Network error" };
+        return { ok: false, error: "Couldn't end the session" };
       }
       return { ok: true };
     },
@@ -1266,10 +1271,11 @@ console.log("\n10. Clock resumes after failed end early (endearly-resume)");
 
   await act(async () => {});
 
-  // Abandon should have failed, check for generic error message
+  // Abandon should have failed, check for fixed finish error message (per item 5)
   textContent = container.textContent;
-  const hasError = textContent?.includes("Couldn't end the session");
-  check("Error message shown after failed abandon", hasError === true);
+  const hasFixedError = textContent?.includes("That didn't save. Try again.");
+  const hasRawError = textContent?.includes("Couldn't end the session");
+  check("Error message shown after failed abandon", hasFixedError === true && hasRawError === false);
 
   // Clock should still be ticking (not frozen) - just verify it's still showing time
   // The exact time might vary due to React updates, but it should show a time

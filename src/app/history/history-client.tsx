@@ -8,7 +8,7 @@ import { formatVolume, formatTopSet, type UnitsPreference } from "@/lib/units";
 import { closeOutSession } from "./actions";
 import { getSessionLabel, type SessionStatus, type ActualType } from "@/lib/history/session-label";
 import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
-import { formatDurationMinutes } from "@/lib/history/compute-duration";
+import { buildHistoryListRow } from "@/lib/history/build-list-row";
 import { historyEmptyState } from "@/lib/history/empty-state";
 
 // Helper for proper pluralization
@@ -200,7 +200,12 @@ export function HistoryClient({
 
               // Item 9: Duration - never show "0 min" for NULL duration
               // "—" only for finished strength sessions (completed or ended early)
-              const durationLabel = formatDurationMinutes(item.durationSeconds, item.status, item.actualType);
+              // PR #169 follow-up item 6: Use builder for duration formatting
+              const { durationText: durationLabel } = buildHistoryListRow(
+                item.durationSeconds,
+                item.status,
+                item.actualType
+              );
 
               // Build label for the session
               let label = "";
