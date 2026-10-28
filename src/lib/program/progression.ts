@@ -782,7 +782,10 @@ export function evaluateProgression(input: {
 
     // Coordinator decision A: if displayed weight equals lifted weight, show hold
     // (prevents confusing "up to X" messages for tiny jumps like 47.49→47.5 both showing "104.5 lb")
-    if (displayWeight(next, unit) === displayWeight(from, unit)) {
+    // Skip this check when units are unavailable (displayWeight returns null)
+    const nextDisplay = displayWeight(next, unit);
+    const fromDisplay = displayWeight(from, unit);
+    if (nextDisplay !== null && fromDisplay !== null && nextDisplay === fromDisplay) {
       return {
         ...carried,
         outcome: "hold",
