@@ -38,6 +38,7 @@ const customBrand: Brand = {
     accent: "#FF6600",
     accentHover: "#FF7700",
     accentFg: "#FFFFFF",
+    accentOnSurface: "#FF8800",
     bg: "#0a0c0e",
     surface: "#1a1c1e",
     surface2: "#2a2c2e",
@@ -74,13 +75,13 @@ async function testRenderLandingPageWithCustomBrand() {
   // Stub deps: no user, custom brand resolution
   const stubDeps = {
     getAuthedClient: async () => ({
-      supabase: null as any,
+      supabase: null,
       user: null,
     }),
     getRequestBrandResolution: async () => customResolution,
-    redirect: ((_url: string) => {
+    redirect: (_url: string): never => {
       throw new Error("Should not redirect for non-authenticated user");
-    }) as any,
+    },
   };
   
   const element = await renderLandingPage({ error: undefined, next: undefined }, stubDeps);
@@ -123,13 +124,13 @@ async function testRenderLandingPageWithBaseBrand() {
   
   const stubDeps = {
     getAuthedClient: async () => ({
-      supabase: null as any,
+      supabase: null,
       user: null,
     }),
     getRequestBrandResolution: async () => baseResolution,
-    redirect: ((_url: string) => {
+    redirect: (_url: string): never => {
       throw new Error("Should not redirect for non-authenticated user");
-    }) as any,
+    },
   };
   
   const element = await renderLandingPage({ error: undefined, next: undefined }, stubDeps);
