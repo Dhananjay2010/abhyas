@@ -18,18 +18,6 @@ import type { SessionListItem } from "../src/app/history/types";
 let passed = 0;
 let failed = 0;
 
-function assertEquals<T>(actual: T, expected: T, message: string) {
-  if (actual === expected) {
-    console.log(`  ok   ${message}`);
-    passed++;
-  } else {
-    console.error(`❌ ${message}`);
-    console.error(`   Expected: ${JSON.stringify(expected)}`);
-    console.error(`   Actual:   ${JSON.stringify(actual)}`);
-    failed++;
-  }
-}
-
 function assert(condition: boolean, message: string) {
   if (condition) {
     console.log(`  ok   ${message}`);
