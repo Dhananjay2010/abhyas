@@ -33,8 +33,9 @@ async function testFormRendersAdjustedSwatches() {
       gymId="test-gym-id"
       gymName="Test Gym"
       initial={{
-        displayName: null,
-        logoUrl: null,
+        gymName: "Test Gym",
+        displayName: "",
+        logoUrl: "",
         primaryColor: "#1E40AF", // Dark blue needing adjustment
         accentColor: "#2563eb", // Blue-600 needing adjustment
       }}
