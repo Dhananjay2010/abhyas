@@ -2,40 +2,62 @@
 /**
  * L1: Drop-slot guard removed
  * 
- * Mutant: Disable `if (tier === "current")` check that prevents dropping last slot
+ * Mutant: `if (false && tier === "current") {` at replace-banned-in-planned.ts
  * 
- * Test: Build a day where dropping a banned exercise would remove the last slot
- * of a required type (e.g., last squat). Assert the guard prevents the drop.
+ * Test: Provide a banned exercise with ZERO safe alternatives (tiny catalogue).
+ * For current-knee tier, assert the slot is dropped (length decreases).
+ * Mutant would keep the banned exercise (no drop).
  */
 
-import { readFileSync } from "fs";
 import { applyBannedCleanup } from "../src/lib/program/apply-banned-cleanup";
-import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
-import type { Database } from "../src/lib/database.types";
+import type { CandidateExercise } from "../src/lib/program/generate";
 
-type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
+console.log("Testing L1: Drop-slot guard for current-knee with zero alternatives\n");
 
-const catalogueRows: ExerciseRow[] = JSON.parse(
-  readFileSync("scripts/fixtures/catalogue.json", "utf-8")
-);
-const catalogue = toCandidateExercises(catalogueRows);
+// Create a tiny catalogue: just the banned thruster and a press (no swap matches)
+const thruster: CandidateExercise = {
+  id: "thruster-id",
+  slug: "kettlebell-thruster",
+  name: "Kettlebell Thruster",
+  movement_pattern: "squat",
+  mechanic: "compound",
+  metric: "reps",
+  primary_muscles: ["quadriceps", "gluteus_maximus"],
+  equipment_ids: ["kettlebell"],
+  level_min: 0,
+  contraindicated_regions: ["knee"],
+  impact: "high",
+  spinal_load: "moderate",
+  tracks: ["weights"],
+  default_rest_seconds: 90,
+  category: "strength",
+};
 
-const thruster = catalogue.find(e => e.slug === "kettlebell-thruster");
-const bench = catalogue.find(e => e.slug === "barbell-bench-press-medium-grip");
+const bench: CandidateExercise = {
+  id: "bench-id",
+  slug: "barbell-bench-press",
+  name: "Barbell Bench Press",
+  movement_pattern: "horizontal_push",
+  mechanic: "compound",
+  metric: "reps",
+  primary_muscles: ["pectoralis_major"],
+  equipment_ids: ["barbell"],
+  level_min: 0,
+  contraindicated_regions: [],
+  impact: "low",
+  spinal_load: "none",
+  tracks: ["weights"],
+  default_rest_seconds: 90,
+  category: "strength",
+};
 
-if (!thruster || !bench) {
-  console.error("✗ FAIL: test exercises not found");
-  process.exit(1);
-}
+const tinyCatalogue = [thruster, bench];
 
-console.log("Testing L1: Drop-slot guard prevents removing last slot\n");
-
-// Build a day with just two exercises: one squat (banned) and one press (safe)
-// For current-knee, dropping the squat would leave no lower-body exercises
-const plannedExercises = [
+// Plan: thruster (banned) + bench (safe)
+const planned = [
   {
     id: "pde1",
-    exercise_id: thruster.id, // Squat, banned for current-knee
+    exercise_id: thruster.id,
     order_index: 0,
     target_sets: 3,
     target_reps_min: 8,
@@ -44,7 +66,7 @@ const plannedExercises = [
   },
   {
     id: "pde2",
-    exercise_id: bench.id, // Press, safe
+    exercise_id: bench.id,
     order_index: 1,
     target_sets: 3,
     target_reps_min: 8,
@@ -53,37 +75,48 @@ const plannedExercises = [
   },
 ];
 
+// Apply cleanup with current-knee injury
 const result = applyBannedCleanup(
-  plannedExercises,
-  catalogue,
+  planned,
+  tinyCatalogue,
   {
     goal: "muscle_gain",
     level: "beginner",
     primary_track: "weights",
     days_per_week: 4,
     yoga_days_per_week: 0,
-    has_all_equipment: false,
+    has_all_equipment: true,
   },
   [{ body_region: "knee", severity: "current" }],
   "u1",
-  []
+  ["kettlebell", "barbell"]
 );
 
-// The guard should either:
-// 1. Find a replacement (changed = true, exercises.length === 2)
-// 2. Keep the banned exercise (changed = false, exercises.length === 2)
-// 
-// With mutant disabled, it might incorrectly drop (exercises.length === 1)
-
-if (result.rows.length < plannedExercises.length) {
-  console.error("✗ FAIL: L1 - guard allowed dropping exercise");
-  console.error(`  Planned: ${plannedExercises.length} exercises`);
-  console.error(`  Result:  ${result.rows.length} exercises`);
-  console.error(`  Mutant disabled drop-slot guard for current tier`);
-  process.exit(1);
+// With zero alternatives, current-knee guard should drop the slot
+if (result.rows.length === planned.length) {
+  // Check if thruster is still present
+  if (result.rows.some(r => r.exercise_id === thruster.id)) {
+    console.error("✗ FAIL: L1 - banned exercise kept despite zero alternatives");
+    console.error(`  Mutant disabled drop-slot guard for current tier`);
+    process.exit(1);
+  }
+  // Otherwise it found a replacement somehow (unlikely with tiny catalogue)
 }
 
-console.log("✓ PASS: L1 killed - drop-slot guard preserved exercise count");
-console.log(`  Planned: ${plannedExercises.length} exercises`);
-console.log(`  Result:  ${result.rows.length} exercises`);
-console.log(`  Changed: ${result.changed}`);
+if (result.rows.length < planned.length) {
+  // Slot was dropped - this is correct behavior
+  if (result.rows.some(r => r.exercise_id === thruster.id)) {
+    console.error("✗ FAIL: L1 - slot dropped but still contains banned exercise");
+    process.exit(1);
+  }
+  console.log("✓ PASS: L1 killed - drop-slot guard dropped banned exercise");
+  console.log(`  Planned: ${planned.length} exercises`);
+  console.log(`  Result:  ${result.rows.length} exercises (slot dropped)`);
+  console.log(`  Changed: ${result.changed}`);
+  process.exit(0);
+}
+
+// If we get here, something unexpected happened
+console.error("✗ FAIL: L1 - unexpected result");
+console.error(`  Planned: ${planned.length}, Result: ${result.rows.length}, Changed: ${result.changed}`);
+process.exit(1);

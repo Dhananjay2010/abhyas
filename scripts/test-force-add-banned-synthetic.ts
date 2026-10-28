@@ -2,14 +2,15 @@
 /**
  * M11: Force-add current-knee filter removed
  * 
- * Mutant: Disable isExcludedForCurrentKneeOnly check in force-add path
+ * Mutant: `if (false && isExcludedForCurrentKneeOnly(e)) return false;`
+ *         at generate.ts:1338 in force-add lower-body path
  * 
- * Test: Try to add a current-knee-only banned exercise to a planned set.
- * Assert it doesn't get added (filtered out).
+ * Test: Generate a full program for current-knee user. Assert no generated
+ * exercises are current-knee-only banned (like kettlebell-thruster).
  */
 
 import { readFileSync } from "fs";
-import { applyBannedCleanup } from "../src/lib/program/apply-banned-cleanup";
+import { generateProgram } from "../src/lib/program/generate";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 
@@ -29,47 +30,60 @@ if (!thruster) {
 
 console.log("Testing M11: Force-add filter excludes current-knee-only banned\n");
 
-// Test with current-knee injury - thruster is current-knee-only banned
-const result = applyBannedCleanup(
-  [{
-    id: "pde1",
-    exercise_id: thruster.id,
-    order_index: 0,
-    target_sets: 3,
-    target_reps_min: 8,
-    target_reps_max: 12,
-    rest_seconds: 90,
-  }],
+// Generate full program with current-knee injury
+const result = generateProgram({
+  userId: "u1",
+  blockNumber: 1,
+  goal: "muscle_gain",
+  level: "beginner",
+  primaryTrack: "weights",
+  daysPerWeek: 4,
+  yogaDaysPerWeek: 0,
+  age: 25,
+  bmi: 22,
+  hasAllEquipment: true,
+  equipmentIds: catalogue.flatMap(e => e.equipment_ids),
+  currentInjuryRegions: ["knee"],
+  anyKneeInjury: true,
   catalogue,
-  {
-    goal: "muscle_gain",
-    level: "beginner",
-    primary_track: "weights",
-    days_per_week: 4,
-    yoga_days_per_week: 0,
-    has_all_equipment: true,
-  },
-  [{ body_region: "knee", severity: "current" }],
-  "u1",
-  catalogue.flatMap(e => e.equipment_ids)
+});
+
+if (!result.days || result.days.length === 0) {
+  console.error("✗ FAIL: generateProgram returned no days");
+  console.error(JSON.stringify(result, null, 2));
+  process.exit(1);
+}
+
+// Check all exercises across all days
+const allExerciseIds = result.days.flatMap(day => 
+  day.exercises.map(ex => ex.exerciseId)
 );
 
-if (!result.changed) {
-  console.error("✗ FAIL: M11 - banned exercise was not replaced");
-  console.error(`  Input: kettlebell-thruster (${thruster.id})`);
-  console.error(`  Expected cleanup to replace it`);
+if (allExerciseIds.includes(thruster.id)) {
+  console.error("✗ FAIL: M11 - current-knee-only banned exercise in generated program");
+  console.error(`  Found: kettlebell-thruster (${thruster.id})`);
+  console.error(`  Mutant disabled isExcludedForCurrentKneeOnly in force-add path`);
   process.exit(1);
 }
 
-const finalIds = result.rows.map(e => e.exercise_id);
+// Also check that no other current-knee-only banned exercises appear
+const currentKneeOnlyBanned = catalogue.filter(e => {
+  // These are in CURRENT_KNEE_ONLY_BANNED list per past-knee.ts
+  return ["kettlebell-thruster", "dumbbell-thruster", "barbell-thruster"].includes(e.slug);
+});
 
-if (finalIds.includes(thruster.id)) {
-  console.error("✗ FAIL: M11 - current-knee-only banned exercise in result");
-  console.error(`  Result includes: kettlebell-thruster (${thruster.id})`);
-  console.error(`  Mutant disabled force-add filter`);
+const foundBanned = currentKneeOnlyBanned.filter(banned => 
+  allExerciseIds.includes(banned.id)
+);
+
+if (foundBanned.length > 0) {
+  console.error("✗ FAIL: M11 - current-knee-only banned exercises in program:");
+  foundBanned.forEach(ex => {
+    console.error(`  - ${ex.slug} (${ex.id})`);
+  });
   process.exit(1);
 }
 
-console.log("✓ PASS: M11 killed - current-knee-only banned was replaced");
-console.log(`  Input: kettlebell-thruster (${thruster.id})`);
-console.log(`  Replacement count: ${result.rows.length}`);
+console.log("✓ PASS: M11 killed - no current-knee-only banned exercises generated");
+console.log(`  Program has ${result.days.length} days, ${allExerciseIds.length} total exercises`);
+console.log(`  Verified thrusters (kettlebell/dumbbell/barbell) excluded`);
