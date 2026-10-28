@@ -1,17 +1,19 @@
 #!/usr/bin/env tsx
 
 /**
- * Test: M10c behavioral - verify LandingContent receives resolved brand
+ * Test: M10c behavioral - verify renderLandingPage wires resolved brand
  * 
- * Tests that LandingContent component properly receives and renders the brand
- * prop by checking that custom brand name and logo appear in the output.
+ * Tests that renderLandingPage (extracted from page.tsx) properly wires the
+ * resolved brand from getRequestBrandResolution through to LandingContent.
  * 
- * M10c mutant: page.tsx passes brand={branding} (static) instead of brand={brand} (resolved)
+ * M10c mutant: renderLandingPage passes brand={branding} (static) instead of
+ * the resolved brand from buildLandingBrandProp.
  */
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { branding, type Brand } from "@/lib/branding";
-import { LandingContent } from "@/app/landing-content";
+import type { BrandResolution } from "@/lib/runtime-brand";
+import { renderLandingPage } from "@/app/render-landing-page";
 
 let failures = 0;
 
@@ -59,69 +61,94 @@ const customBrand: Brand = {
   logo: "/custom-logo.png",
 };
 
-async function testLandingContentWithCustomBrand() {
-  console.log("TEST: M10c behavioral - LandingContent receives custom brand");
+const customResolution: BrandResolution = {
+  tier: "host",
+  brand: customBrand,
+  gymId: "gym_123",
+  gymName: "Iron Temple Gym",
+};
+
+async function testRenderLandingPageWithCustomBrand() {
+  console.log("TEST: M10c behavioral - renderLandingPage wires resolved brand");
   
-  const html = renderToStaticMarkup(
-    <LandingContent 
-      brand={customBrand}
-      error={undefined}
-      next={undefined}
-    />
-  );
+  // Stub deps: no user, custom brand resolution
+  const stubDeps = {
+    getAuthedClient: async () => ({
+      supabase: null as any,
+      user: null,
+    }),
+    getRequestBrandResolution: async () => customResolution,
+    redirect: ((_url: string) => {
+      throw new Error("Should not redirect for non-authenticated user");
+    }) as any,
+  };
+  
+  const element = await renderLandingPage({ error: undefined, next: undefined }, stubDeps);
+  const html = renderToStaticMarkup(element);
   
   // Check that custom brand name appears
-  check("M10c: Custom brand name rendered", 
+  check("M10c: Custom brand name in page output", 
     html.includes("Iron Temple Gym"),
     html.includes("Iron Temple Gym") ? "" : "Custom brand name not found"
   );
   
   // Check that custom tagline appears
-  check("M10c: Custom brand tagline rendered", 
+  check("M10c: Custom brand tagline in page output", 
     html.includes("Train Different"),
     html.includes("Train Different") ? "" : "Custom tagline not found"
   );
   
-  // Check that custom logo path is passed to BrandLogo
-  check("M10c: Custom brand logo rendered", 
-    html.includes("/custom-logo.png") || html.includes("custom-logo"),
-    html.includes("custom-logo") ? "" : "Custom logo not found"
-  );
-  
   // Check that custom description appears
-  check("M10c: Custom brand description rendered", 
+  check("M10c: Custom brand description in page output", 
     html.includes("A custom gym experience"),
     html.includes("A custom gym experience") ? "" : "Custom description not found"
   );
+  
+  // Check that custom logo path is used
+  check("M10c: Custom brand logo in page output", 
+    html.includes("/custom-logo.png") || html.includes("custom-logo"),
+    html.includes("custom-logo") ? "" : "Custom logo not found"
+  );
 }
 
-async function testLandingContentWithBaseBrand() {
-  console.log("\nTEST: M10c control - LandingContent with base brand");
+async function testRenderLandingPageWithBaseBrand() {
+  console.log("\nTEST: M10c control - renderLandingPage with base brand");
   
-  const html = renderToStaticMarkup(
-    <LandingContent 
-      brand={branding}
-      error={undefined}
-      next={undefined}
-    />
-  );
+  const baseResolution: BrandResolution = {
+    tier: "base",
+    brand: branding,
+    gymId: null,
+    gymName: null,
+  };
+  
+  const stubDeps = {
+    getAuthedClient: async () => ({
+      supabase: null as any,
+      user: null,
+    }),
+    getRequestBrandResolution: async () => baseResolution,
+    redirect: ((_url: string) => {
+      throw new Error("Should not redirect for non-authenticated user");
+    }) as any,
+  };
+  
+  const element = await renderLandingPage({ error: undefined, next: undefined }, stubDeps);
+  const html = renderToStaticMarkup(element);
   
   // Check that base brand name appears
-  check("M10c control: Base brand name rendered", 
-    html.includes(branding.name),
-    html.includes(branding.name) ? "" : "Base brand name not found"
+  check("M10c control: Base brand name in output", 
+    html.includes(branding.name)
   );
   
   // Should NOT contain custom brand name when using base brand
-  check("M10c control: Custom brand name NOT in base", 
-    !html.includes("Iron Temple Gym"),
-    !html.includes("Iron Temple Gym") ? "" : "Custom brand leaked into base render"
+  check("M10c control: Custom brand name NOT in base output", 
+    !html.includes("Iron Temple Gym")
   );
 }
 
 async function main() {
-  await testLandingContentWithCustomBrand();
-  await testLandingContentWithBaseBrand();
+  await testRenderLandingPageWithCustomBrand();
+  await testRenderLandingPageWithBaseBrand();
   
   if (failures > 0) {
     console.error(`\n❌ ${failures} test(s) failed`);
@@ -129,9 +156,8 @@ async function main() {
   }
   
   console.log("\n✅ All M10c behavioral tests passed");
-  console.log("\nNote: This test verifies LandingContent renders the brand prop.");
-  console.log("The wiring from page.tsx buildLandingBrandProp() is tested separately.");
-  console.log("Full end-to-end requires async server component rendering.");
+  console.log("\nThis test verifies the real page.tsx → renderLandingPage wiring.");
+  console.log("Mutant: renderLandingPage using static branding instead of resolved brand.");
   process.exit(0);
 }
 
