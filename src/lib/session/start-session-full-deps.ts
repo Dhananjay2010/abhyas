@@ -115,7 +115,19 @@ export function buildStartSessionFullDeps(
     },
 
     async ensureSessionExercises(sessionId) {
-      await ensureSessionExercises(supabase, userId, sessionId);
+      const [catalogueRes, profileRes, injuriesRes, equipmentRes] = await Promise.all([
+        supabase.from("exercises").select("id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category").eq("is_active", true),
+        supabase.from("profiles").select("goal, level, primary_track, days_per_week, yoga_days_per_week, has_all_equipment").eq("id", userId).maybeSingle(),
+        supabase.from("user_injuries").select("body_region, severity").eq("user_id", userId),
+        supabase.from("user_equipment").select("equipment_id").eq("user_id", userId),
+      ]);
+
+      const catalogue = toCandidateExercises(catalogueRes.data || []);
+      const profile = profileRes.data;
+      const injuries = injuriesRes.data || [];
+      const equipmentIds = (equipmentRes.data || []).map(e => e.equipment_id);
+
+      await ensureSessionExercises(supabase, userId, sessionId, catalogue, profile, injuries, equipmentIds);
     },
 
     async ensureCurrentBlock(today) {
@@ -240,8 +252,8 @@ export function buildStartSessionFullDeps(
         return exercises;
       }
 
-      const plannedForCleaning = exercises.map(e => ({
-        id: `temp-${e.exercise_id}`,
+      const plannedForCleaning = exercises.map((e, idx) => ({
+        id: `pde-${idx}`,
         exercise_id: e.exercise_id,
         order_index: e.order_index,
         target_sets: e.target_sets,
@@ -266,10 +278,20 @@ export function buildStartSessionFullDeps(
         equipmentIds
       );
 
-      return exercises.map((e, i) => ({
-        ...e,
-        exercise_id: cleaned[i].exercise_id,
-      }));
+      const cleanedMap = new Map(cleaned.rows.map(c => [c.id, c.exercise_id]));
+      return exercises
+        .map((e, idx) => {
+          const pdeId = `pde-${idx}`;
+          const cleanedExerciseId = cleanedMap.get(pdeId);
+          if (cleanedExerciseId === undefined) {
+            return null;
+          }
+          return {
+            ...e,
+            exercise_id: cleanedExerciseId,
+          };
+        })
+        .filter((e): e is NonNullable<typeof e> => e !== null);
     },
   };
 }

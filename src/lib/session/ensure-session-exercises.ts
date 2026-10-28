@@ -120,15 +120,23 @@ export async function ensureSessionExercises(
     const cleaned = applyEnsureSessionCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);
     
     // Persist cleaned exercises to program_day_exercises
-    const changed = planned.some((p, i) => p.exercise_id !== cleaned[i].exercise_id);
-    if (changed) {
+    if (cleaned.changed) {
       await cleanBannedPlannedExercises(supabase, userId);
     }
     
-    cleanedPlanned = planned.map((p, i) => ({
-      ...p,
-      exercise_id: cleaned[i].exercise_id,
-    }));
+    const cleanedMap = new Map(cleaned.rows.map(c => [c.id, c.exercise_id]));
+    cleanedPlanned = planned
+      .map(p => {
+        const cleanedExerciseId = cleanedMap.get(p.id);
+        if (cleanedExerciseId === undefined) {
+          return null;
+        }
+        return {
+          ...p,
+          exercise_id: cleanedExerciseId,
+        };
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
   }
 
   // HIGH-2: Apply deload the same way as the fresh start path (actions.ts:232)

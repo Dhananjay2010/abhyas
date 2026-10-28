@@ -89,26 +89,32 @@ export function applyDayCleanup(
   // Track cleanup results
   cleanupResults.push({ changed: result.changed });
   
-  const cleanedExercises = day.program_day_exercises.map((ex, i: number) => {
-    const cleanedId = result.rows[i].exercise_id;
-    if (ex.exercise_id === cleanedId) {
-      return ex;
-    }
-    
-    const newExercise = catalogue.find(e => e.id === cleanedId);
-    if (!newExercise) return ex;
-    
-    return {
-      ...ex,
-      exercise_id: cleanedId,
-      exercises: {
-        name: newExercise.name,
-        cue: null,
-        movement_pattern: newExercise.movement_pattern,
-        metric: newExercise.metric,
-      },
-    };
-  });
+  const cleanedMap = new Map(result.rows.map(r => [r.id, r.exercise_id]));
+  const cleanedExercises = day.program_day_exercises
+    .map((ex) => {
+      const cleanedId = cleanedMap.get(ex.id);
+      if (cleanedId === undefined) {
+        return null;
+      }
+      if (ex.exercise_id === cleanedId) {
+        return ex;
+      }
+      
+      const newExercise = catalogue.find(e => e.id === cleanedId);
+      if (!newExercise) return ex;
+      
+      return {
+        ...ex,
+        exercise_id: cleanedId,
+        exercises: {
+          name: newExercise.name,
+          cue: null,
+          movement_pattern: newExercise.movement_pattern,
+          metric: newExercise.metric,
+        },
+      };
+    })
+    .filter((ex): ex is NonNullable<typeof ex> => ex !== null);
   
   return {
     ...day,
