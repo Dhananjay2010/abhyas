@@ -116,6 +116,15 @@ export function applyDayCleanup(
     })
     .filter((ex): ex is NonNullable<typeof ex> => ex !== null);
   
+  // If all exercises dropped, treat as rest day
+  if (cleanedExercises.length === 0) {
+    return {
+      ...day,
+      day_type: "rest",
+      program_day_exercises: [],
+    };
+  }
+  
   return {
     ...day,
     program_day_exercises: cleanedExercises,
