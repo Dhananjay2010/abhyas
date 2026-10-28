@@ -73,7 +73,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
     deleteSet: ok,
     finishExercise: async () =>
       ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: async (input: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    finishSession: async (input) => {
       finishCalls.push({ cooldownCompleted: input?.cooldownCompleted });
       await Promise.resolve();
       return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
@@ -86,7 +86,7 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
     },
     findAlternatives: async () => ({ ok: true as const, data: [] }),
     getSessionSummary: async () => ({ ok: true as const, data: [] }),
-  } as unknown as SessionActions;
+  };
 
   const settings = {
     perSetLogging: true,
@@ -116,16 +116,9 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
     />,
   );
 
-  // Wait for sync
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
   await waitFor(() => {
     if (!c1.textContent?.includes("Cool-down")) throw new Error("Cool-down not shown");
   });
-
-  check("Cool-down loaded", true);
 
   // Click Done
   const doneButton = [...c1.querySelectorAll("button")].find((b) =>
@@ -141,32 +134,67 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
     fireEvent.click(doneButton);
   });
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  await waitFor(() => {
+    if (finishCalls.length === 0) throw new Error("finishSession not called");
   });
 
   check("finishSession called with empty queue", finishCalls.length === 1);
   check("cooldownCompleted is true for Done", finishCalls[0].cooldownCompleted === true);
 
   unmount1();
-  console.log("✓ Test 1 passed\n");
 
-  // ===== Test 2: Skip with empty queue =====
-  console.log("=== Test 2: Skip with empty queue ===\n");
+  // ===== Test 2: Done with pending sets - replay succeeds =====
+  console.log("\n=== Test 2: Done + pending → replay OK → finish ===\n");
 
-  const exercise2 = makeExercise("ex-2", "bench", "Bench Press", 1, [
+  let logSetCount2 = 0;
+  let logSetFailCount2 = 0;
+  const finishCalls2: Array<{ cooldownCompleted?: boolean }> = [];
+  
+  const actions2: SessionActions = {
+    markWarmupDone: ok,
+    logSet: async () => {
+      logSetCount2++;
+      if (logSetFailCount2 < 1) {
+        logSetFailCount2++;
+        return { ok: false, error: "NETWORK_ERROR" };
+      }
+      return { ok: true };
+    },
+    deleteSet: ok,
+    finishExercise: async () =>
+      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: async (input) => {
+      finishCalls2.push({ cooldownCompleted: input?.cooldownCompleted });
+      return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
+    },
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => {
+      throw new Error("Should not swap");
+    },
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+  };
+
+  const exercise2 = makeExercise("ex-2", "bench", "Bench", 1, [
     { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null },
   ]);
 
-  const finishCalls2: Array<{ cooldownCompleted?: boolean }> = [];
-  const actions2: SessionActions = {
-    ...actions1,
-    finishSession: async (input: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-      finishCalls2.push({ cooldownCompleted: input?.cooldownCompleted });
-      await Promise.resolve();
-      return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
-    },
-  } as unknown as SessionActions;
+  const { savePendingSet } = await import("../src/lib/session/pending-set-storage");
+  const { createPendingSetDeps } = await import("../src/lib/session/pending-set-deps");
+  const fakeDeps = createPendingSetDeps(() => Date.now());
+  const fakeStorage = globalThis.localStorage;
+
+  fakeStorage.clear();
+  savePendingSet(fakeStorage, "test-user-2", "s2", {
+    sessionExerciseId: "ex-2",
+    setNumber: 2,
+    reps: 12,
+    weightKg: 55,
+    durationSeconds: null,
+    clientId: "pending-2",
+  }, fakeDeps);
 
   const { container: c2, unmount: unmount2 } = render(
     <SessionRunner
@@ -179,67 +207,93 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
       startedAt={new Date().toISOString()}
       isStale={false}
       warmup={[]}
-      cooldown={[{ id: "c2", name: "Quad stretch", slug: "quad-stretch", type: "stretch", phase: "stretch", target_regions: ["lower_back"], target_muscles: ["quads"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
+      cooldown={[{ id: "c1", name: "Hamstring stretch", slug: "hamstring-stretch", type: "stretch", phase: "stretch", target_regions: ["lower_back"], target_muscles: ["hamstrings"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
       exercises={[exercise2]}
       settings={settings}
       actions={actions2}
     />,
   );
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
   await waitFor(() => {
     if (!c2.textContent?.includes("Cool-down")) throw new Error("Cool-down not shown");
   });
 
-  check("Cool-down loaded", true);
+  // Assert pending notice BEFORE clicking
+  check("Pending notice visible before Done click", 
+    c2.textContent?.includes("waiting to save") || c2.textContent?.includes("pending") || false);
 
-  // Click Skip
-  const skipButton = [...c2.querySelectorAll("button")].find((b) =>
-    /Skip/.test(b.textContent ?? ""),
+  const logSetCountBeforeClick = logSetCount2;
+
+  const doneButton2 = [...c2.querySelectorAll("button")].find((b) =>
+    /Done/.test(b.textContent ?? ""),
   );
 
-  if (!skipButton) {
-    console.log("  ✗ FAIL Skip button not found");
+  if (!doneButton2) {
+    console.log("  ✗ FAIL Done button not found");
     process.exit(1);
   }
 
   await act(async () => {
-    fireEvent.click(skipButton);
+    fireEvent.click(doneButton2);
   });
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  await waitFor(() => {
+    if (finishCalls2.length === 0) throw new Error("finishSession not called");
   });
 
-  check("finishSession called with empty queue", finishCalls2.length === 1);
-  check("cooldownCompleted is false for Skip", finishCalls2[0].cooldownCompleted === false);
+  check("D1: Done click triggered replay (logSet count increased)", logSetCount2 > logSetCountBeforeClick);
+  check("finishSession called after replay", finishCalls2.length === 1);
+  check("cooldownCompleted is true", finishCalls2[0].cooldownCompleted === true);
 
   unmount2();
-  console.log("✓ Test 2 passed\n");
 
-  // ===== Test 3: Done with successful replay =====
-  console.log("=== Test 3: Done with successful replay ===\n");
+  // ===== Test 3: Skip with pending sets - replay succeeds =====
+  console.log("\n=== Test 3: Skip + pending → replay OK → finish ===\n");
 
-  const exercise3 = makeExercise("ex-3", "deadlift", "Deadlift", 1);
-
-  let logSetCalls3 = 0;
+  let logSetCount3 = 0;
+  let logSetFailCount3 = 0;
   const finishCalls3: Array<{ cooldownCompleted?: boolean }> = [];
+  
   const actions3: SessionActions = {
-    ...actions1,
+    markWarmupDone: ok,
     logSet: async () => {
-      logSetCalls3++;
-      await Promise.resolve();
+      logSetCount3++;
+      if (logSetFailCount3 < 1) {
+        logSetFailCount3++;
+        return { ok: false, error: "NETWORK_ERROR" };
+      }
       return { ok: true };
     },
-    finishSession: async (input: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    deleteSet: ok,
+    finishExercise: async () =>
+      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: async (input) => {
       finishCalls3.push({ cooldownCompleted: input?.cooldownCompleted });
-      await Promise.resolve();
       return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
     },
-  } as unknown as SessionActions;
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => {
+      throw new Error("Should not swap");
+    },
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+  };
+
+  const exercise3 = makeExercise("ex-3", "deadlift", "Deadlift", 1, [
+    { setNumber: 1, reps: 8, weightKg: 100, durationSeconds: null },
+  ]);
+
+  fakeStorage.clear();
+  savePendingSet(fakeStorage, "test-user-3", "s3", {
+    sessionExerciseId: "ex-3",
+    setNumber: 2,
+    reps: 8,
+    weightKg: 100,
+    durationSeconds: null,
+    clientId: "pending-3",
+  }, fakeDeps);
 
   const { container: c3, unmount: unmount3 } = render(
     <SessionRunner
@@ -252,115 +306,43 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
       startedAt={new Date().toISOString()}
       isStale={false}
       warmup={[]}
-      cooldown={[{ id: "c3", name: "Hip stretch", slug: "hip-stretch", type: "stretch", phase: "stretch", target_regions: ["hip"], target_muscles: ["hip_flexors"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
+      cooldown={[{ id: "c1", name: "Hamstring stretch", slug: "hamstring-stretch", type: "stretch", phase: "stretch", target_regions: ["lower_back"], target_muscles: ["hamstrings"], instructions: [""], duration_seconds: 30, equipment_ids: [], contraindicated_regions: [] }]}
       exercises={[exercise3]}
       settings={settings}
       actions={actions3}
     />,
   );
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
-  // Mark exercise as completed
-  await waitFor(() => {
-    if (!c3.textContent?.includes("Deadlift")) throw new Error("Exercise not shown");
-  });
-
-  // Log a set (will go to pending queue initially if we make it fail first then succeed)
-  // For simplicity, just simulate pending by clicking Done after set logged
-  const repsInput3 = [...c3.querySelectorAll("input")].find((input) =>
-    input.closest("label")?.textContent?.includes("Reps"),
-  ) as HTMLInputElement | undefined;
-
-  if (repsInput3) {
-    await act(async () => {
-      fireEvent.change(repsInput3, { target: { value: "5" } });
-    });
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    const logBtn3 = [...c3.querySelectorAll("button")].find((b) =>
-      /Log set 1/.test(b.textContent ?? ""),
-    );
-
-    if (logBtn3) {
-      await act(async () => {
-        fireEvent.click(logBtn3);
-      });
-
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      });
-    }
-  }
-
-  check("Set logged", logSetCalls3 === 1);
-
-  // Navigate to cooldown (finish exercise)
-  const easyButton = [...c3.querySelectorAll("button")].find((b) =>
-    /Easy/.test(b.textContent ?? "") || /Just right/.test(b.textContent ?? "") || /Hard/.test(b.textContent ?? ""),
-  );
-
-  if (easyButton) {
-    await act(async () => {
-      fireEvent.click(easyButton);
-    });
-
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    });
-  }
-
-  // Should be in cooldown now
   await waitFor(() => {
     if (!c3.textContent?.includes("Cool-down")) throw new Error("Cool-down not shown");
-  }, { timeout: 5000 });
+  });
 
-  check("Reached cooldown", true);
+  // Assert pending notice BEFORE clicking
+  check("Pending notice visible before Skip click", 
+    c3.textContent?.includes("waiting to save") || c3.textContent?.includes("pending") || false);
 
-  // Click Done (with empty pending queue since replay succeeded)
-  const doneButton3 = [...c3.querySelectorAll("button")].find((b) =>
-    /Done/.test(b.textContent ?? ""),
+  const skipButton = [...c3.querySelectorAll("button")].find((b) =>
+    /Skip cool-down/.test(b.textContent ?? ""),
   );
 
-  if (!doneButton3) {
-    console.log("  ✗ FAIL Done button not found");
+  if (!skipButton) {
+    console.log("  ✗ FAIL Skip button not found");
     process.exit(1);
   }
 
   await act(async () => {
-    fireEvent.click(doneButton3);
+    fireEvent.click(skipButton);
   });
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  await waitFor(() => {
+    if (finishCalls3.length === 0) throw new Error("finishSession not called");
   });
 
-  check("finishSession called after Done", finishCalls3.length === 1);
-  check("cooldownCompleted is true for Done after replay", finishCalls3[0].cooldownCompleted === true);
+  check("finishSession called after replay", finishCalls3.length === 1);
+  check("cooldownCompleted is false for Skip", finishCalls3[0].cooldownCompleted === false);
 
   unmount3();
-  console.log("✓ Test 3 passed\n");
 
-  // ===== Test 4: Done with pending, replay succeeds but finish fails - rest NOT cleared =====
-  console.log("=== Test 4: Done with pending, replay succeeds, finish fails - rest NOT cleared ===\n");
-
-
-  // This test would need to mock restPersistence, which isn't easily accessible in the test
-  // For now, document the expected behavior:
-  // - Replay succeeds (logSet returns ok: true)
-  // - finishSession fails (returns ok: false)
-  // - restPersistence.clear() is NOT called because it's inside 'if (result && result.ok)'
-  // The fix is in session-runner.tsx lines 782-784 and 797-799 (Done), 847-849 and 865-867 (Skip)
-
-  console.log("  ✓ restPersistence.clear() is inside 'if (result && result.ok)' block");
-  console.log("  ✓ If finishSession fails, rest persistence stays for retry");
-  console.log("✓ Test 4 verified (code inspection)\n");
-
-  console.log("\n✅ All L3 tests passed\n");
+  console.log("\n✅ All L3 Done/Skip replay tests passed\n");
   process.exit(0);
 })();
