@@ -600,6 +600,7 @@
     "test:qa-low-b-detail-page-duration-call": "tsx scripts/test-qa-low-b-detail-page-duration-call.ts",
     "test:qa-low-b-page-call-site": "tsx scripts/test-qa-low-b-page-call-site.ts",
     "test:qa-low-b-page-duration-path": "tsx scripts/test-qa-low-b-page-duration-path.ts",
+    "test:repair-superseded-blocks-real-db": "tsx scripts/test-repair-superseded-blocks-real-db.ts",
     "test:pr169-stale-close-warmup-rest": "tsx scripts/test-pr169-stale-close-warmup-rest.ts",
     "test:pr169-cooldown-done-retry": "tsx scripts/test-pr169-cooldown-done-retry.ts",
     "test:pr169-history-volume-warmup": "tsx scripts/test-pr169-history-volume-warmup.ts",
