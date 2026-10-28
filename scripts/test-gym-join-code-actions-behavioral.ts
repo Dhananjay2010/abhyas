@@ -106,7 +106,7 @@ async function main() {
     
     db.beforeRequest = (req) => {
       if (req.table === "rpc/redeem_join_code") {
-        return requestPromise as unknown as Response;
+        return requestPromise;
       }
     };
 
@@ -125,7 +125,7 @@ async function main() {
     );
 
     const confirmButton = getByRole("button", { name: "Confirm" });
-    assert.ok(confirmButton.tagName === "BUTTON", "FAIL: Element must be a BUTTON");
+    assert.ok(confirmButton instanceof HTMLButtonElement, "FAIL: Element must be HTMLButtonElement");
     
     await act(async () => {
       fireEvent.click(confirmButton);
@@ -133,7 +133,7 @@ async function main() {
     });
 
     // Check button is disabled with "Joining..." while pending
-    assert.ok((confirmButton as unknown as {disabled: boolean}).disabled, "FAIL: Button should be disabled while joining");
+    assert.ok(confirmButton.disabled, "FAIL: Button should be disabled while joining");
     const buttonTextPending = confirmButton.textContent ?? "";
     assert.match(buttonTextPending, /Joining/, "FAIL: Button should show 'Joining...' while pending");
 
@@ -149,7 +149,7 @@ async function main() {
     await waitFor(() => {
       const errorText = container.textContent ?? "";
       assert.match(errorText, /expired|no longer valid/i, "FAIL: Should show expired error message");
-      assert.ok(!(confirmButton as unknown as {disabled: boolean}).disabled, "FAIL: Button should be re-enabled after error");
+      assert.ok(!confirmButton.disabled, "FAIL: Button should be re-enabled after error");
       const buttonTextAfter = confirmButton.textContent ?? "";
       assert.match(buttonTextAfter, /Confirm/, "FAIL: Button should say 'Confirm' after error");
     }, { timeout: 2000 });
@@ -217,14 +217,13 @@ async function main() {
     let pushCalled = false;
     let pushArg: unknown = null;
     const originalPush = mockNextRouter.push;
-    mockNextRouter.push = ((arg: unknown) => {
+    mockNextRouter.push = (arg: string) => {
       pushArg = arg;
       if (arg === "/today") {
         pushCalled = true;
       }
-      const fn = originalPush as unknown as (a: unknown) => void;
-      return fn.call(mockNextRouter, arg);
-    }) as typeof mockNextRouter.push;
+      return originalPush(arg);
+    };
 
     const { JoinConfirmation } = await import("@/app/join/[code]/join-confirmation");
 

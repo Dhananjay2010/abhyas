@@ -97,37 +97,13 @@ run_mutant_migration_file() {
   echo "Testing mutant: $name"
   echo "  $description"
   
-  # Backup migration file
-  cp "$migration_file" "$migration_file.backup"
-  
-  # Set trap to restore migration file on exit
-  trap "mv '$migration_file.backup' '$migration_file' 2>/dev/null || true" EXIT
-  
-  # Apply mutation
-  eval "$sed_command \"$migration_file\"" > "$migration_file.tmp"
-  
-  # Verify sed changed the file
-  if cmp -s "$migration_file" "$migration_file.tmp"; then
-    echo "  ⚠️  SKIPPED: sed did not change the file"
-    SKIPPED+=("$name: sed pattern not found")
-    rm -f "$migration_file.tmp"
-    trap - EXIT
-    mv "$migration_file.backup" "$migration_file"
-    sleep 2
-    return 0
-  fi
-  
-  mv "$migration_file.tmp" "$migration_file"
-  
-  # Reset database (which will re-apply all migrations including mutated one)
+  # Reset database with real migration files first
   local reset_output=$(mktemp)
   if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
     if ! npx supabase@2.122.0 db reset > "$reset_output" 2>&1; then
       echo "  ❌ SKIPPED: db reset failed"
       SKIPPED+=("$name: db reset failed")
       rm -f "$reset_output"
-      trap - EXIT
-      mv "$migration_file.backup" "$migration_file"
       sleep 2
       return 0
     fi
@@ -136,13 +112,34 @@ run_mutant_migration_file() {
       echo "  ❌ SKIPPED: db reset failed"
       SKIPPED+=("$name: db reset failed")
       rm -f "$reset_output"
-      trap - EXIT
-      mv "$migration_file.backup" "$migration_file"
       sleep 2
       return 0
     fi
   fi
   rm -f "$reset_output"
+  
+  # Build mutated migration in a temp file
+  local mutated_file=$(mktemp)
+  eval "$sed_command \"$migration_file\"" > "$mutated_file"
+  
+  # Verify sed changed the file
+  if cmp -s "$migration_file" "$mutated_file"; then
+    echo "  ⚠️  SKIPPED: sed did not change the file"
+    SKIPPED+=("$name: sed pattern not found")
+    rm -f "$mutated_file"
+    sleep 2
+    return 0
+  fi
+  
+  # Apply the mutated migration (042 is idempotent)
+  if ! psql -v ON_ERROR_STOP=1 -f "$mutated_file" "$SUPABASE_DB_URL" > /dev/null 2>&1; then
+    echo "  ❌ SKIPPED: mutant SQL failed to apply"
+    SKIPPED+=("$name: SQL error")
+    rm -f "$mutated_file"
+    sleep 2
+    return 0
+  fi
+  rm -f "$mutated_file"
   
   # Run tests and capture output
   local test_output=$(mktemp)
@@ -157,16 +154,6 @@ run_mutant_migration_file() {
     test2_passed=true
   fi
   
-  # Restore migration file and reset DB to clean state
-  trap - EXIT
-  mv "$migration_file.backup" "$migration_file"
-  
-  # Reset DB again so later steps see the real migration 042
-  if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
-    npx supabase@2.122.0 db reset > /dev/null 2>&1 || { echo "❌ Post-mutant reset failed"; exit 1; }
-  else
-    npx supabase@2.122.0 db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1 || { echo "❌ Post-mutant reset failed"; exit 1; }
-  fi
   
   if [ "$test1_passed" = true ] && [ "$test2_passed" = true ]; then
     echo "  ❌ SURVIVED (both tests passed when they should have failed)"

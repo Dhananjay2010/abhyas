@@ -102,8 +102,8 @@ run_mutant() {
     return 1
   fi
   
-  # Verify sed changed the file
-  if cmp -s "$MIGRATION_FILE" "$mutated_file"; then
+  # Verify sed changed the file (skip if post_sql is set and sed is no-op)
+  if [ -z "$post_sql" ] && cmp -s "$MIGRATION_FILE" "$mutated_file"; then
     echo "  ❌ SKIP: sed did not change the file (pattern not found)"
     SKIPPED+=("$name: sed pattern not found")
     FAILED=$((FAILED + 1))
@@ -219,7 +219,6 @@ run_mutant \
   "FAIL Anon cannot call set_gym_branding"
 
 # Mutant (h): Leak created_at from get_gym_brand
-# Mutant (h): Leak created_at from get_gym_brand
 run_mutant \
   "(h) leak created_at" \
   "Return sensitive created_at field from get_gym_brand" \
@@ -228,10 +227,10 @@ run_mutant \
 run_mutant \
   "(i) disable RLS on gyms" \
   "Allow direct table access bypassing RLS" \
-  "sed 's/alter table public.gyms enable row level security;/alter table public.gyms disable row level security;/' <" \
-  "FAIL RLS enabled on gyms"
+  ":" \
+  "FAIL Member UPDATE affects 0 rows" \
+  "alter table public.gyms disable row level security;"
 
-# Mutant (j): Missing GRANT on get_gym_brand
 # Mutant (j): Missing GRANT on get_gym_brand
 run_mutant \
   "(j) missing GRANT on get_gym_brand" \
@@ -241,9 +240,8 @@ run_mutant \
 run_mutant \
   "(k) clear parameter ignored" \
   "Ignore p_clear array in set_gym_branding (always coalesce)" \
-  "sed '/-- Validate clear field names/,/v_clear_accent_color := .accent_color. = any(p_clear);/d; /when v_clear_/s/when v_clear_[a-z_]* then null/when false then null/' <" \
-  "FAIL Clear display_name works"
-
+  "sed "s/v_clear_\([a-z_]*\) := '\1' = any(p_clear);/v_clear_\1 := false;/" <" \
+  "FAIL display_name cleared"
 # Mutant (l): Cross-gym attack (replace WHERE id = p_gym_id with WHERE id IS NOT NULL)
 run_mutant \
   "(l) cross-gym attack" \

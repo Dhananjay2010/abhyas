@@ -113,7 +113,7 @@ create trigger gyms_brand_only_update
 -- To allow updates to a new column, add it to v_brand_columns in the trigger function.
 
 -- ============================================================
--- UPDATE set_gym_branding: Remove dead var() checks (LOW-9)
+-- Verbatim re-create of set_gym_branding from 040
 -- ============================================================
 
 -- Verbatim re-create of 040's set_gym_branding
