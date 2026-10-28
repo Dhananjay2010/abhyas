@@ -78,7 +78,7 @@ console.log("Testing METRIC-start: Replacement metric must be copied from catalo
     target_reps_min: 8,
     target_reps_max: 12,
     rest_seconds: 90,
-    exercises: { metric: "reps" as const }, // WRONG - should be seconds
+    exercises: { metric: "reps" }, // WRONG - should be seconds
   }];
   
   const cleaned = await deps.cleanBannedExercises?.(plannedExercises);
@@ -89,8 +89,13 @@ console.log("Testing METRIC-start: Replacement metric must be copied from catalo
   }
 
   // Check the metric was updated from catalogue
-  type CleanedRow = typeof cleaned[0];
-  const cleanedMetric = (cleaned[0] as CleanedRow & { exercises?: { metric?: string } }).exercises?.metric;
+  const firstCleaned = cleaned[0];
+  const cleanedMetric = "exercises" in firstCleaned && 
+                         firstCleaned.exercises && 
+                         typeof firstCleaned.exercises === "object" &&
+                         "metric" in firstCleaned.exercises
+    ? firstCleaned.exercises.metric
+    : undefined;
   
   if (cleanedMetric !== "seconds") {
     console.error("✗ FAIL: METRIC-start - metric not updated from catalogue");

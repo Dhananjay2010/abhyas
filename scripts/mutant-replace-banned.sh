@@ -258,19 +258,32 @@ run_mutant \
   "test:today-cleanup-w4"
 
 # Mutant W5 call-site: Loader cleanup identity
+# page.tsx calls loadTodayWithBannedCleanup once and renders its days; the
+# cleanup call lives there so a test can run it on a real supabase-js client.
 run_mutant \
   "W5 call-site: Loader cleanup identity" \
-  "src/app/today/page.tsx" \
+  "src/lib/today/load-today-with-banned-cleanup.ts" \
   'days = applyLoaderCleanup(' \
   'days = ((x: typeof days) => x)(days) || applyLoaderCleanup && applyLoaderCleanup(' \
   "test:today-loader-cleanup-w5"
 
 # Mutant W6: Action call stubbed
+# cleanup-trigger.tsx calls fireBannedCleanupIfNeeded(shouldClean,
+# cleanBannedExercises, console.error); the call to the action lives there.
 run_mutant \
   "W6: Action call stubbed" \
-  "src/app/today/cleanup-trigger.tsx" \
-  'cleanBannedExercises().catch(console.error);' \
-  '// MUTANT: action stubbed' \
+  "src/lib/today/banned-cleanup-action.ts" \
+  'return runCleanup().catch(onError);' \
+  'return null; // MUTANT: action stubbed' \
+  "test:today-action-w6"
+
+# Mutant W6 action body: Server Action's cleanup call stubbed
+# actions.ts cleanBannedExercises is one call into runBannedCleanupAction.
+run_mutant \
+  "W6 action body: cleanup call stubbed" \
+  "src/lib/today/banned-cleanup-action.ts" \
+  'const result = await deps.clean(supabase, user.id);' \
+  'const result = { cleaned: 0, errors: [] }; // MUTANT: cleanup call stubbed' \
   "test:today-action-w6"
 
 # Mutant CAS-update: Remove exercise_id filter from update

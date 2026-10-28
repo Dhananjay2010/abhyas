@@ -5,6 +5,7 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import { cleanBannedPlannedExercises } from "@/lib/program/clean-banned-planned";
 import { buildPlanLogic } from "@/lib/program/build-plan-logic";
+import { runBannedCleanupAction, type BannedCleanupResult } from "@/lib/today/banned-cleanup-action";
 
 export type BuildPlanResult = { ok: true } | { ok: false; error: string };
 
@@ -33,24 +34,18 @@ export async function buildPlan(): Promise<BuildPlanResult> {
   return { ok: true };
 }
 
-export type CleanBannedResult = { ok: true; cleaned: number } | { ok: false; error: string };
+export type CleanBannedResult = BannedCleanupResult;
 
 /**
  * Clean banned exercises from planned workouts (on-demand persistence).
  * Called as a Server Action when user needs immediate cleanup.
+ * The logic lives in runBannedCleanupAction (tested with a real client).
  */
 export async function cleanBannedExercises(): Promise<CleanBannedResult> {
-  const { supabase, user } = await getAuthedClient();
-  if (!user) return { ok: false, error: "Not signed in" };
-  
-  const rateLimit = await checkActionRateLimit("expensive");
-  if (rateLimit && !rateLimit.ok) return rateLimit;
-
-  const result = await cleanBannedPlannedExercises(supabase, user.id);
-  if (result.errors.length > 0) {
-    return { ok: false, error: result.errors[0] };
-  }
-
-  revalidateTrainingData();
-  return { ok: true, cleaned: result.cleaned };
+  return runBannedCleanupAction({
+    getAuthedClient,
+    checkRateLimit: () => checkActionRateLimit("expensive"),
+    clean: cleanBannedPlannedExercises,
+    revalidate: revalidateTrainingData,
+  });
 }

@@ -30,6 +30,7 @@ import { deriveTodayView } from "@/lib/today/derive-today-view";
 import { CleanupTrigger } from "./cleanup-trigger";
 import { shouldTriggerBannedCleanup } from "@/lib/today/should-trigger-cleanup";
 import { isRestAfterCleanup } from "@/lib/today/classify-zero-exercise-day";
+import { loadTodayWithBannedCleanup } from "@/lib/today/load-today-with-banned-cleanup";
 
 export const dynamic = "force-dynamic";
 
@@ -268,52 +269,22 @@ export default async function TodayPage() {
   }
 
   // ---- wave 2 -------------------------------------------------------------
-  // The week's days arrive with each day's exercises embedded. That is one
-  // round trip instead of two, and it removes the dependency that forced the
-  // exercise query to wait for the day query to name today's row.
-  const [daysRes, injuriesRes, catalogueRes] = await Promise.all([
-    supabase
-      .from("program_days")
-      // One string literal: Supabase infers the row type from it, and a
-      // concatenation degrades the result to GenericStringError.
-      .select("id, day_index, day_type, focus, label, program_day_exercises(id, exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
-      .eq("status", "active")
-      .eq("program_id", program.id)
-      .order("day_index")
-      .order("order_index", { referencedTable: "program_day_exercises" }),
-    supabase.from("user_injuries").select("body_region, severity"),
-    supabase.from("exercises").select("id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds, category").eq("is_active", true),
-  ]);
-
-  let days = daysRes.data;
-  
-  // Clean banned exercises in-memory for knee users (no DB writes during render)
-  const cleanupResults: { changed: boolean }[] = [];
-  try {
-    const { applyLoaderCleanup } = await import("@/lib/today/apply-loader-cleanup");
-    
-    days = applyLoaderCleanup(
-      {
-        days,
-        injuries: injuriesRes.data,
-        profile: {
-          goal: profile.goal,
-          level: profile.level,
-          primary_track: profile.primary_track,
-          days_per_week: profile.days_per_week,
-          yoga_days_per_week: profile.yoga_days_per_week,
-          has_all_equipment: profile.has_all_equipment,
-        },
-        catalogueRows: catalogueRes.data,
-        equipmentIds: (equipmentRes.data || []).map(e => e.equipment_id),
-        userId: user.id,
-        applyDayCleanup,
-      },
-      cleanupResults
-    );
-  } catch {
-    // Non-knee users or error: continue with original days
-  }
+  // Days (exercises embedded), injuries and catalogue, then the in-memory
+  // banned-exercise cleanup for knee users. See loadTodayWithBannedCleanup.
+  const { days, cleanupResults } = await loadTodayWithBannedCleanup(supabase, {
+    programId: program.id,
+    profile: {
+      goal: profile.goal,
+      level: profile.level,
+      primary_track: profile.primary_track,
+      days_per_week: profile.days_per_week,
+      yoga_days_per_week: profile.yoga_days_per_week,
+      has_all_equipment: profile.has_all_equipment,
+    },
+    equipmentIds: (equipmentRes.data || []).map(e => e.equipment_id),
+    userId: user.id,
+    applyDayCleanup,
+  });
   // Derived from the user's own local date rather than re-reading the clock,
   // so the weekday and the date can never disagree at a midnight boundary.
   const todayIndex = isoWeekday(localToday);

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { cleanBannedExercises } from "./actions";
+import { fireBannedCleanupIfNeeded } from "@/lib/today/banned-cleanup-action";
 
 /**
  * Client component that triggers banned exercise cleanup after render.
@@ -9,10 +10,8 @@ import { cleanBannedExercises } from "./actions";
  */
 export function CleanupTrigger({ shouldClean }: { shouldClean: boolean }) {
   useEffect(() => {
-    if (shouldClean) {
-      // Fire-and-forget: trigger cleanup but don't block render
-      cleanBannedExercises().catch(console.error);
-    }
+    // Fire-and-forget: trigger cleanup but don't block render
+    fireBannedCleanupIfNeeded(shouldClean, cleanBannedExercises, console.error);
   }, [shouldClean]);
 
   return null;
