@@ -101,7 +101,7 @@ export function SignOutFormView({
 
   return (
     <div>
-      <form method="post" action="/auth/signout" onSubmit={(e) => {
+      <form onSubmit={(e) => {
         e.preventDefault();
         handleSignOut();
       }}>
