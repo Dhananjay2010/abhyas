@@ -127,6 +127,7 @@ gym-owner-guards-sql
 gym-tenant-rls-real-db
 history-edit-validation-db
 progress-rpcs-real-db
+provision-gym-real-db
 resolve-swap-weights-real-db
 session-summary-real-db
 start-session-ensure-exercises
