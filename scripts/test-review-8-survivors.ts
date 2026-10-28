@@ -163,10 +163,8 @@ async function runTests() {
   {
     const { shouldShowFinishRetry } = await import("../src/lib/session/finish-flow");
     
-    check("M24: show retry when failed without cooldown", shouldShowFinishRetry(false, false) === true);
-    check("M24: show retry when failed with cooldown done (PR #169)", shouldShowFinishRetry(false, true) === true);
-    check("M24: no retry when succeeded", shouldShowFinishRetry(true, false) === false);
-    check("M24: no retry when succeeded with cooldown", shouldShowFinishRetry(true, true) === false);
+    check("M24: show retry when failed", shouldShowFinishRetry(false) === true);
+    check("M24: no retry when succeeded", shouldShowFinishRetry(true) === false);
   }
 
   // M32: displayElapsed returns 0 for stale sessions

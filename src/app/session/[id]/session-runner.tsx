@@ -765,7 +765,7 @@ export function SessionRunner({
               } else {
                 resumeElapsed();
               }
-              setNeedsFinishRetry(shouldShowFinishRetry(!!result, true));
+              setNeedsFinishRetry(shouldShowFinishRetry(!!result));
             }}
           >
             {getFinishButtonText()}
@@ -785,7 +785,7 @@ export function SessionRunner({
                 } else {
                   resumeElapsed();
                 }
-                setNeedsFinishRetry(shouldShowFinishRetry(!!result, lastCooldownCompleted));
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result));
               }}
             >
               Try again
@@ -814,7 +814,7 @@ export function SessionRunner({
                   } else {
                     resumeElapsed();
                   }
-                  setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
+                  setNeedsFinishRetry(shouldShowFinishRetry(!!result));
                 }
                 // If queue is not empty (offline/expired/error), stay on cool-down with notice
                 return;
@@ -832,7 +832,7 @@ export function SessionRunner({
               } else {
                 resumeElapsed();
               }
-              setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
+              setNeedsFinishRetry(shouldShowFinishRetry(!!result));
             }}
           >
             Skip cool-down
@@ -1215,7 +1215,7 @@ export function SessionRunner({
         } else {
           resumeElapsed();
         }
-        setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
+        setNeedsFinishRetry(shouldShowFinishRetry(!!result));
       }
     } else {
       setExerciseIndex(next);
@@ -1627,7 +1627,7 @@ export function SessionRunner({
                 } else {
                   resumeElapsed();
                 }
-                setNeedsFinishRetry(shouldShowFinishRetry(!!result, false));
+                setNeedsFinishRetry(shouldShowFinishRetry(!!result));
               }}
             >
               Try again

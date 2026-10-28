@@ -28,28 +28,16 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
 (function main() {
   console.log("\nPR #169 follow-up LOW-3: cool-down Done shows Try again on failure\n");
 
-  console.log("Case 1: Done succeeds (cooldownCompleted=true, succeeded=true)");
+  console.log("Case 1: Finish succeeds");
   {
-    const result = shouldShowFinishRetry(true, true);
-    assertEquals(result, false, "no retry button when Done succeeds");
+    const result = shouldShowFinishRetry(true);
+    assertEquals(result, false, "no retry button when finish succeeds");
   }
 
-  console.log("\nCase 2: Done fails (cooldownCompleted=true, succeeded=false)");
+  console.log("\nCase 2: Finish fails");
   {
-    const result = shouldShowFinishRetry(false, true);
-    assertEquals(result, true, "show Try again when Done fails");
-  }
-
-  console.log("\nCase 3: Skip succeeds (cooldownCompleted=false, succeeded=true)");
-  {
-    const result = shouldShowFinishRetry(true, false);
-    assertEquals(result, false, "no retry button when Skip succeeds");
-  }
-
-  console.log("\nCase 4: Skip fails (cooldownCompleted=false, succeeded=false)");
-  {
-    const result = shouldShowFinishRetry(false, false);
-    assertEquals(result, true, "show Try again when Skip fails");
+    const result = shouldShowFinishRetry(false);
+    assertEquals(result, true, "show Try again when finish fails");
   }
 
   console.log(`\n✅ Passed: ${passed}`);

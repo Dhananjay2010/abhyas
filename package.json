@@ -603,13 +603,8 @@
     "test:repair-superseded-blocks-real-db": "tsx scripts/test-repair-superseded-blocks-real-db.ts",
     "test:pr169-stale-close-warmup-rest": "tsx scripts/test-pr169-stale-close-warmup-rest.ts",
     "test:pr169-cooldown-done-retry": "tsx scripts/test-pr169-cooldown-done-retry.ts",
-    "test:pr169-history-volume-warmup": "tsx scripts/test-pr169-history-volume-warmup.ts",
-    "test:pr169-start-session-ensure-id": "tsx scripts/test-start-session-source-assertion.ts",
-    "test:pr169-cooldown-finish-error": "tsx scripts/test-pr169-cooldown-finish-error.ts",
-    "test:pr169-history-duration-format": "tsx scripts/test-pr169-history-duration-format.ts",
-    "test:pr169-history-volume-page-call": "tsx scripts/test-pr169-history-volume-page-call.ts",
-    "test:pr169-runner-finish-error-call": "tsx scripts/test-pr169-runner-finish-error-call.ts",
-    "test:pr169-history-duration-page-call": "tsx scripts/test-pr169-history-duration-page-call.ts"
+    "test:pr169-history-detail-page": "tsx scripts/test-pr169-history-detail-page.ts",
+    "test:pr169-history-list-page": "tsx scripts/test-pr169-history-list-page.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

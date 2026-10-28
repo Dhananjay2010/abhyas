@@ -259,8 +259,10 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
   await act(async () => {});
 
   let textContent = container.textContent;
-  const hasError = textContent !== null && textContent.includes("Network error");
-  check("Failed finish shows error", hasError);
+  const hasFriendlyError = textContent !== null && textContent.includes("You're offline");
+  check("Failed finish shows friendly error", hasFriendlyError);
+  const hasRawError = textContent !== null && textContent.includes("Network error");
+  check("Failed finish does NOT show raw server text", !hasRawError);
   const hasTryAgain = textContent !== null && textContent.includes("Try again");
   check("Failed finish shows 'Try again' button", hasTryAgain);
 

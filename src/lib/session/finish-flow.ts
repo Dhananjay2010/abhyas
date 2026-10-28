@@ -71,9 +71,7 @@ export async function runEndEarly(
  * Both Done and Skip show "Try again" on failure.
  * 
  * @param succeeded - Whether runFinish returned true
- * @param cooldownCompleted - Whether the cooldown phase was completed (unused, kept for API compatibility)
  */
-export function shouldShowFinishRetry(succeeded: boolean, cooldownCompleted: boolean): boolean {
-  void cooldownCompleted;
+export function shouldShowFinishRetry(succeeded: boolean): boolean {
   return !succeeded;
 }
