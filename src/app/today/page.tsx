@@ -30,6 +30,7 @@ import { deriveTodayView } from "@/lib/today/derive-today-view";
 import { CleanupTrigger } from "./cleanup-trigger";
 import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
 import { shouldTriggerBannedCleanup } from "@/lib/today/should-trigger-cleanup";
+import { isRestAfterCleanup } from "@/lib/today/classify-zero-exercise-day";
 
 export const dynamic = "force-dynamic";
 
@@ -118,7 +119,7 @@ export function applyDayCleanup<T extends {
     .filter((ex): ex is NonNullable<typeof ex> => ex !== null);
   
   // If all exercises dropped, treat as rest day
-  if (cleanedExercises.length === 0) {
+  if (isRestAfterCleanup(day.day_type, cleanedExercises)) {
     return {
       ...day,
       day_type: "rest",
