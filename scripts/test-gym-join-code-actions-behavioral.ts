@@ -217,13 +217,14 @@ async function main() {
     let pushCalled = false;
     let pushArg: unknown = null;
     const originalPush = mockNextRouter.push;
-    mockNextRouter.push = (arg: unknown) => {
+    mockNextRouter.push = ((arg: unknown) => {
       pushArg = arg;
       if (arg === "/today") {
         pushCalled = true;
       }
-      return (originalPush as (a: unknown) => void).call(mockNextRouter, arg);
-    };
+      const fn = originalPush as unknown as (a: unknown) => void;
+      return fn.call(mockNextRouter, arg);
+    }) as typeof mockNextRouter.push;
 
     const { JoinConfirmation } = await import("@/app/join/[code]/join-confirmation");
 
