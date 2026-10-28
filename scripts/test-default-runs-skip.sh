@@ -115,7 +115,7 @@ DISCOVERED_COUNT=$(echo "$USER_CREATING_TESTS" | wc -l)
 echo "✓ Discovered $DISCOVERED_COUNT user-creating tests"
 echo
 
-# Expected list of 17 REAL_DB-gated tests
+# Expected list of 15 REAL_DB-gated tests
 EXPECTED_TESTS="abandon-end-early-real-db
 ensure-session-exercises-deload
 exercise-history-real-db
