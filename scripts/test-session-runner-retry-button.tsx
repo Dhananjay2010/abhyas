@@ -183,14 +183,9 @@ async function testR4AndR4s() {
   const retryButtons = screen.queryAllByRole("button", { name: /retry/i });
   assert(retryButtons.length > 0, "R4: Retry button is visible after replay error");
   
-  // R4e: Assert error message is shown (not just the heading)
-  const errorTexts = screen.queryAllByText(/failed to save|network error/i);
-  assert(errorTexts.length > 0, "R4e: Error heading shown after replay failure");
-  
-  // R4e detail: Assert the actual error message (not just heading) is present
-  // getReplayErrorMessage returns the replayError, which is "Network error" from the mock
-  const errorMessage = screen.queryByText("Network error", { exact: false });
-  assert(errorMessage !== null, "R4e detail: Error message content shown (getReplayErrorMessage output)");
+  // R4e: With C1 fix, SessionExpiredPrompt is shown (expired from load() takes priority)
+  const expiredPrompt = screen.queryByTestId("session-expired-prompt");
+  assert(expiredPrompt !== null, "R4e: SessionExpiredPrompt shown (C1 behavior: expired from load() takes priority)");
   
   const retryButton = retryButtons[retryButtons.length - 1];
   assert(retryButton !== null, "R4: Retry button element exists");
