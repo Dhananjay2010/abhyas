@@ -29,6 +29,7 @@ import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-s
 import { deriveTodayView } from "@/lib/today/derive-today-view";
 import { CleanupTrigger } from "./cleanup-trigger";
 import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
+import { shouldTriggerBannedCleanup } from "@/lib/today/should-trigger-cleanup";
 
 export const dynamic = "force-dynamic";
 
@@ -905,7 +906,7 @@ export default async function TodayPage() {
         <SignOutForm label="Sign out" userId={user.id} />
       </div>
 
-      <CleanupTrigger shouldClean={cleanupResults.some(r => r.changed)} />
+      <CleanupTrigger shouldClean={shouldTriggerBannedCleanup(cleanupResults)} />
     </main>
   );
 }
