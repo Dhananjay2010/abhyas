@@ -11,6 +11,17 @@ import { strict as assert } from "assert";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 import { resolveDay } from "../src/lib/program/day-plan";
+import { checkRealDbTest } from "./lib-db-reset-guard";
+
+// Skip unless REAL_DB=1 and guard allows
+const guard = checkRealDbTest();
+if (!guard.allow) {
+  console.log(`\n⏭️  Skipping real DB test (${guard.reason})`);
+  console.log(
+    "   Set REAL_DB=1 to run this test against a local Supabase instance\n",
+  );
+  process.exit(0);
+}
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
