@@ -128,24 +128,41 @@ async function main() {
   }
   console.log();
 
-  console.log("TEST: (e) No host gym → no notice");
+  console.log("TEST: MUTANT M7 - Notice only shown on host tier");
   {
-    const resolution: BrandResolution = {
+    // Host tier with different gyms -> show
+    const hostDiff: BrandResolution = {
       brand: branding,
-      gymId: null,  // No host gym
-      gymName: null,
+      gymId: "gym-host",
+      gymName: "Host Gym",
       tier: "host",
     };
-    
-    const memberGym: UserGymMembership = {
+    const memberDiff: UserGymMembership = {
       gymId: "gym-member",
       gymName: "Member Gym",
     };
-    
-    const props = getHostWinsNoticeProps(resolution, memberGym);
-    
-    check("No notice when no host gym ID", props.userGymName === null);
-    check("hostGymName also null", props.hostGymName === null);
+    const hostResult = getHostWinsNoticeProps(hostDiff, memberDiff);
+    check("M7: Notice shown on host tier (different gyms)", hostResult.userGymName === "Member Gym");
+
+    // Member tier -> should NOT show
+    const memberTier: BrandResolution = {
+      brand: branding,
+      gymId: "gym-member",
+      gymName: "Member Gym",
+      tier: "member",
+    };
+    const memberResult = getHostWinsNoticeProps(memberTier, memberDiff);
+    check("M7: No notice on member tier", memberResult.userGymName === null);
+
+    // Base tier -> should NOT show
+    const baseTier: BrandResolution = {
+      brand: branding,
+      gymId: null,
+      gymName: null,
+      tier: "base",
+    };
+    const baseResult = getHostWinsNoticeProps(baseTier, memberDiff);
+    check("M7: No notice on base tier", baseResult.userGymName === null);
   }
   console.log();
 
