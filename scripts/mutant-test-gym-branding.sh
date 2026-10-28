@@ -239,14 +239,19 @@ run_mutant \
   "FAIL Anon can call get_gym_brand"
 run_mutant \
   "(k) clear parameter ignored" \
+# Mutant (k): Clear parameter ignored
+run_mutant \
+  "(k) clear parameter ignored" \
   "Ignore p_clear array in set_gym_branding (always coalesce)" \
-  "sed "s/v_clear_\([a-z_]*\) := '\1' = any(p_clear);/v_clear_\1 := false;/" <" \
+  'sed "s/v_clear_\([a-z_]*\) := '"'"'\1'"'"' = any(p_clear);/v_clear_\1 := false;/" <' \
   "FAIL display_name cleared"
+
 # Mutant (l): Cross-gym attack (replace WHERE id = p_gym_id with WHERE id IS NOT NULL)
 run_mutant \
   "(l) cross-gym attack" \
   "Allow owner to update all gyms' branding (cross-tenant)" \
   "sed 's/^  where id = p_gym_id;$/  where id is not null;/' <" \
+  "FAIL Other gym display_name unchanged"
   "FAIL Other gym display_name unchanged"
 
 # Reset DB after last mutant
