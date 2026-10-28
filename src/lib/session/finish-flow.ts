@@ -74,5 +74,6 @@ export async function runEndEarly(
  * @param cooldownCompleted - Whether the cooldown phase was completed (unused, kept for API compatibility)
  */
 export function shouldShowFinishRetry(succeeded: boolean, cooldownCompleted: boolean): boolean {
+  void cooldownCompleted;
   return !succeeded;
 }
