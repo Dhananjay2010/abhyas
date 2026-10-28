@@ -8,7 +8,7 @@
  */
 
 import "./helpers/setup-jsdom";
-import { render, act, cleanup } from "@testing-library/react";
+import { render, act, cleanup, waitFor } from "@testing-library/react";
 import { SessionRunner, type SessionActions, type RunnerExercise } from "../src/app/session/[id]/session-runner";
 import { savePendingSet } from "../src/lib/session/pending-set-retry";
 import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
@@ -150,7 +150,7 @@ Object.defineProperty(window, 'localStorage', {
   
   // Wait for controller.load() to run in useEffect
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await Promise.resolve();
   });
 
   // C1: Assert the queue is LOADED into UI state on mount (independent of replay)
@@ -160,9 +160,9 @@ Object.defineProperty(window, 'localStorage', {
   assert(hasWaitingNotice, "C1: Queue loaded on mount - '2 sets waiting to save' visible in UI");
   
   // Wait for replay to complete (it will fail, so queue stays)
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 100));
-  });
+  await waitFor(() => {
+    if (logSetCalls.length === 0) throw new Error("Replay not attempted");
+  }, { timeout: 1000 });
   
   // Verify logSet was called (replay attempted)
   assert(logSetCalls.length > 0, "Replay attempted after mount");

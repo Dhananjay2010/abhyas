@@ -120,15 +120,11 @@ console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
     />,
   );
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
   await waitFor(() => {
     if (!c1.textContent?.includes("Barbell Bench Press")) throw new Error("Exercise not shown");
   });
 
-  check("Exercise loaded", true);
+
 
   // Clear weight if prefilled
   const weightInput = [...c1.querySelectorAll("input")].find((input) =>
@@ -168,7 +164,7 @@ console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
     if (!hasErrorMessage) throw new Error("Waiting for validation message");
   });
 
-  check("Shows 'Add the weight you used' message", true);
+
 
   // Log button should be disabled or not log the set
   const logBtn = [...c1.querySelectorAll("button")].find((b) =>
@@ -180,7 +176,7 @@ console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
       fireEvent.click(logBtn);
     });
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await Promise.resolve();
     });
   }
 
@@ -227,15 +223,11 @@ console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
     />,
   );
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
   await waitFor(() => {
     if (!c2.textContent?.includes("Barbell Squat")) throw new Error("Exercise not shown");
   });
 
-  check("Exercise loaded", true);
+
 
   // Enter both reps and weight
   const repsInput2 = [...c2.querySelectorAll("input")].find((input) =>
@@ -321,15 +313,11 @@ console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
     />,
   );
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
   await waitFor(() => {
     if (!c3.textContent?.includes("Push-ups")) throw new Error("Exercise not shown");
   });
 
-  check("Exercise loaded", true);
+
 
   // Enter reps only (bodyweight doesn't require weight)
   const repsInput3 = [...c3.querySelectorAll("input")].find((input) =>
@@ -398,15 +386,11 @@ console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
     />,
   );
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
   await waitFor(() => {
     if (!c4.textContent?.includes("Barbell Deadlift")) throw new Error("Exercise not shown");
   });
 
-  check("Exercise loaded", true);
+
 
   // Enter reps but leave weight blank
   const repsInput4 = [...c4.querySelectorAll("input")].find((input) =>
@@ -432,7 +416,7 @@ console.log("\n📋 Test: Require weight on loaded exercises (Item 8)\n");
     if (!hasErrorMessage4) throw new Error("Waiting for validation message");
   });
 
-  check("Shows error message for imperial units", true);
+
 
   unmount4();
   console.log("✓ Test 4 passed\n");
