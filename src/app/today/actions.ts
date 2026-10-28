@@ -2,8 +2,8 @@
 
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { createBlockForUser } from "@/lib/program/persist";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import { buildPlanLogic } from "@/lib/program/build-plan-logic";
 
 export type BuildPlanResult = { ok: true } | { ok: false; error: string };
 
@@ -25,8 +25,8 @@ export async function buildPlan(): Promise<BuildPlanResult> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  const result = await createBlockForUser(supabase, user.id, { mode: "rebuild" });
-  if (!result.ok) return { ok: false, error: result.error };
+  const result = await buildPlanLogic(supabase, user.id);
+  if (!result.ok) return result;
 
   revalidateTrainingData();
   return { ok: true };

@@ -964,7 +964,7 @@ export function SettingsForm({
             Your plan no longer matches these answers. Your week keeps the old layout until you rebuild your block. Rebuilding keeps every session you have already logged.
           </p>
           <div className="mt-3">
-            <BuildPlanButton label="Rebuild my block" />
+            <BuildPlanButton label="Rebuild my block" onBuilt={() => setPlanStale(false)} />
           </div>
         </div>
       )}

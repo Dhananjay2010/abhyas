@@ -11,6 +11,7 @@ import { getUnitsPreference } from "@/lib/units";
 import { formatVolumeLifted } from "@/lib/session/format-volume-lifted";
 import { LogWeight } from "./log-weight";
 import { loadProgramDays } from "@/lib/progress/load-program-days";
+import { progressStartDate } from "@/lib/progress/progress-start-date";
 import { computeYogaStats } from "@/lib/progress/yoga-stats";
 
 export const dynamic = "force-dynamic";
@@ -160,11 +161,20 @@ export default async function ProgressPage() {
     working_set_count: workingSetsBySession.get(s.id) as number | undefined,
   }));
 
+  // Fix pd-b: Start from the EARLIER of first non-superseded block's started_on
+  // and first completed session's local_date, so sessions always count even if
+  // an ended block was marked superseded instead of completed.
+  const effectiveStart = progressStartDate({
+    programs,
+    completedSessions,
+  });
+
   const dayRecords = buildDayRecords({
     programs,
     dayTypesByProgram,
     completedSessions,
     today,
+    effectiveStart,
   });
 
   const streaks = computeStreaks(dayRecords, today);
