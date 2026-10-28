@@ -63,6 +63,7 @@ async function main() {
     "session-123",
     "exercise-456",
     ["barbell"],
+      null, // mechanic
     "reps",
     "horizontal_press",
     false, // remembersWeights - should ignore progress
@@ -89,6 +90,7 @@ async function main() {
     "session-123",
     "exercise-456",
     ["barbell"],
+      null, // mechanic
     "reps",
     "horizontal_press",
     true, // remembersWeights - should use progress
@@ -115,6 +117,7 @@ async function main() {
     "exercise-456",
     false, // isDeload
     ["barbell"],
+      null, // mechanic
     "reps",
     "horizontal_press",
     100, // progressValue provided
@@ -137,6 +140,7 @@ async function main() {
     "exercise-456",
     false, // isDeload
     ["barbell"],
+      null, // mechanic
     "reps",
     "horizontal_press",
     100, // progressValue provided

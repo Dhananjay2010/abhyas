@@ -24,6 +24,7 @@ export type ProgressWrite = {
   best_e1rm: number | null;
   total_sessions: number;
   updated_at: string;
+  weight_at_failure_start_kg: number | null;
 };
 
 /**
@@ -52,6 +53,7 @@ export async function writeExerciseProgressCore(
     best_e1rm: decision.bestE1rm,
     total_sessions: priorTotalSessions + 1,
     updated_at: new Date().toISOString(),
+    weight_at_failure_start_kg: decision.weightAtFailureStartKg,
   };
 
   const { error } = await client.from("exercise_progress").upsert(row, {

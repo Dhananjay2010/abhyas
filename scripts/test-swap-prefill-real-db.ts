@@ -161,6 +161,7 @@ async function runTests() {
     benchPress.id,
     false,
     benchPress.equipment_ids ?? [],
+    null, // mechanic
     "reps",
     benchPress.movement_pattern ?? "push",
     undefined,
@@ -176,6 +177,7 @@ async function runTests() {
     benchPress.id,
     true,
     benchPress.equipment_ids ?? [],
+      null, // mechanic
     "reps",
     benchPress.movement_pattern ?? "push",
     undefined,
@@ -191,6 +193,7 @@ async function runTests() {
     benchPress.id,
     false,
     benchPress.equipment_ids ?? [],
+      null, // mechanic
     "reps",
     benchPress.movement_pattern ?? "push",
     undefined,
@@ -308,6 +311,7 @@ async function runTests() {
     dumbbell.id,
     false,
     dumbbell.equipment_ids ?? [],
+    null, // mechanic
     "reps",
     dumbbell.movement_pattern ?? "push",
     undefined,
@@ -323,6 +327,7 @@ async function runTests() {
     dumbbell.id,
     false,
     dumbbell.equipment_ids ?? [],
+    null, // mechanic
     "reps",
     dumbbell.movement_pattern ?? "push",
     undefined,
@@ -340,6 +345,7 @@ async function runTests() {
     incline.id,
     false,
     incline.equipment_ids ?? [],
+    null, // mechanic
     "reps",
     incline.movement_pattern ?? "push",
     undefined,
@@ -347,6 +353,87 @@ async function runTests() {
   );
 
   check("No history returns null", prefillNoHistory === null, `got ${prefillNoHistory}`);
+
+  // Test 4: MED-1 - swap prefill must equal runner suggestion for deload
+  console.log("\nTest 4: MED-1 - Deload swap prefill matches runner:");
+
+  // Create an isolation barbell exercise at 102 kg
+  // 102 * 0.7 = 71.4
+  // With 2.5kg grid (barbell): rounds to 72.5kg
+  // With 1.25kg grid (isolation, no equipment): rounds to 71.25kg or 70kg
+  // This test KILLS the SWAP mutant (equipmentIds forced to undefined)
+  const barbellCurl = await adminClient.from("exercises").insert({
+    name: "Barbell Curl Test",
+    slug: `barbell-curl-test-${Date.now()}`,
+    movement_pattern: "biceps",
+    mechanic: "isolation",
+    metric: "reps",
+    equipment_ids: ["barbell"],
+    primary_muscles: ["biceps"],
+    tracks: ["weights"],
+    category: "strength",
+  }).select("id, equipment_ids, movement_pattern, mechanic").single();
+
+  if (barbellCurl.error) {
+    console.log("  FAIL: Could not create test exercise:", barbellCurl.error.message);
+    failures++;
+  } else {
+    // Set progress to 102 kg
+    const { error: progressError } = await adminClient.from("exercise_progress").insert({
+      user_id: userId,
+      exercise_id: barbellCurl.data.id,
+      current_working_weight_kg: 102,
+      current_target_reps: 12,
+      consecutive_failures: 0,
+      best_weight_kg: 102,
+      best_reps: 12,
+      best_e1rm: null,
+      total_sessions: 3,
+      weight_at_failure_start_kg: null,
+    });
+
+    if (progressError) {
+      console.log("  FAIL: Could not insert progress:", progressError.message);
+      failures++;
+    } else {
+      // Get swap prefill (deload)
+      const swapPrefill = await resolveSwapPrefill(
+        adminClient,
+        userId,
+        barbellCurl.data.id,
+        true, // isDeload
+        barbellCurl.data.equipment_ids ?? [],
+        barbellCurl.data.mechanic,
+        "reps",
+        barbellCurl.data.movement_pattern ?? "biceps",
+        undefined,
+        true,
+      );
+
+      // Compute what runner would suggest using suggestedWeight
+      const { suggestedWeight } = await import("../src/lib/program/progression");
+      const runnerSuggestion = suggestedWeight(
+        { currentWorkingWeightKg: 102 },
+        true, // isDeload
+        {
+          mechanic: barbellCurl.data.mechanic,
+          movementPattern: barbellCurl.data.movement_pattern ?? "biceps",
+          metric: "reps",
+          isBodyweight: false,
+          progressionChain: null,
+          progressionRank: null,
+        },
+        barbellCurl.data.equipment_ids,
+      );
+
+      check("Swap prefill equals runner suggestion", swapPrefill === runnerSuggestion, `swap=${swapPrefill}, runner=${runnerSuggestion}`);
+      check("Deload isolation barbell 102kg → 72.5kg (2.5kg grid)", swapPrefill === 72.5, `got ${swapPrefill}`);
+      
+      // SWAP mutant check: if equipmentIds is forced to undefined, suggestedWeight
+      // uses 1.25kg increment (isolation) and produces 70kg or 71.25kg instead of 72.5kg
+      check("SWAP mutant killed: result is NOT 70kg or 71.25kg", swapPrefill !== 70 && swapPrefill !== 71.25, `got ${swapPrefill}`);
+    }
+  }
 
   // Cleanup
   console.log("\nCleaning up...");
