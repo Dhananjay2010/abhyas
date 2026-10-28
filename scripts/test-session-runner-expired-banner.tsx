@@ -172,8 +172,8 @@ const fakeTimer: RunnerTimer = {
         firstCallExpires = false;
         return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
       }
-      // Second call succeeds with message
-      return { ok: true, data: { message: "Good work!" } };
+      // Second call succeeds
+      return { ok: true, data: null };
     },
     finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
@@ -184,13 +184,13 @@ const fakeTimer: RunnerTimer = {
     getSessionSummary: async () => ({ ok: true, data: [] }),
   };
   
-  const exercises2 = [
+  const exercises2: RunnerExercise[] = [
     {
       id: "ex1",
       exerciseId: "pushup",
       name: "Push-up",
       cue: null,
-      metric: "reps",
+      metric: "reps" as const,
       primaryMuscles: ["chest"],
       plannedSets: 2,
       plannedRepsMin: 8,
@@ -200,7 +200,7 @@ const fakeTimer: RunnerTimer = {
       restSeconds: 90,
       workingWeightKg: null,
       suggestedWeightKg: null,
-      status: "pending",
+      status: "pending" as const,
       feel: null,
       sets: [],
       isBodyweight: true
@@ -210,7 +210,7 @@ const fakeTimer: RunnerTimer = {
       exerciseId: "squat",
       name: "Squat",
       cue: null,
-      metric: "reps",
+      metric: "reps" as const,
       primaryMuscles: ["quads"],
       plannedSets: 1,
       plannedRepsMin: 8,
@@ -220,7 +220,7 @@ const fakeTimer: RunnerTimer = {
       restSeconds: 90,
       workingWeightKg: 50,
       suggestedWeightKg: null,
-      status: "pending",
+      status: "pending" as const,
       feel: null,
       sets: [],
       isBodyweight: false
