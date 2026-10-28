@@ -761,8 +761,8 @@ export function SessionRunner({
               const result = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
               );
-              restPersistence.clear();
               if (result && result.ok) {
+                restPersistence.clear();
                 setSavedDurationSeconds(result.data.durationSeconds);
                 setPhase("done");
               } else {
@@ -782,6 +782,7 @@ export function SessionRunner({
                   actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: lastCooldownCompleted })
                 );
                 if (result && result.ok) {
+                  restPersistence.clear();
                   setSavedDurationSeconds(result.data.durationSeconds);
                   setPhase("done");
                 } else {
@@ -809,8 +810,8 @@ export function SessionRunner({
                   const result = await run(() =>
                     actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
                   );
-                  restPersistence.clear();
                   if (result && result.ok) {
+                    restPersistence.clear();
                     setSavedDurationSeconds(result.data.durationSeconds);
                     setPhase("done");
                   } else {
@@ -827,8 +828,8 @@ export function SessionRunner({
               const result = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
               );
-              restPersistence.clear();
               if (result && result.ok) {
+                restPersistence.clear();
                 setSavedDurationSeconds(result.data.durationSeconds);
                 setPhase("done");
               } else {
@@ -1214,6 +1215,7 @@ export function SessionRunner({
           actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
         );
         if (result && result.ok) {
+          restPersistence.clear();
           setSavedDurationSeconds(result.data?.durationSeconds ?? null);
           setPhase("done");
         } else {
@@ -1625,6 +1627,7 @@ export function SessionRunner({
                   actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
                 );
                 if (result && result.ok) {
+                  restPersistence.clear();
                   setSavedDurationSeconds(result.data.durationSeconds);
                   setPhase("done");
                 } else {
