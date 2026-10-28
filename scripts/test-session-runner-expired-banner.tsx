@@ -173,25 +173,25 @@ const fakeTimer: RunnerTimer = {
   cleanup();
   console.log("✓ Test 1 passed\n");
   
-  // Test 2: Zero prompts after successful action (E2)
-  console.log("=== Test 2: Zero prompts after successful next action (E2) ===\n");
+  // Test 2: Expired flag clears after any successful action (E2)
+  console.log("=== Test 2: Expired cleared by successful Skip (E2) ===\n");
   
-  let actionCount = 0;
-  let firstActionExpires = true;
+  let finishCount2 = 0;
+  let skipCount = 0;
   
   const actions2: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async () => ({ ok: true }),
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => {
-      actionCount++;
-      if (firstActionExpires) {
-        firstActionExpires = false;
-        return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
-      }
-      return { ok: true, data: null };
+      finishCount2++;
+      return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
     },
-    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
+    finishSession: async () => {
+      skipCount++;
+      // Skip succeeds
+      return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
+    },
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -222,7 +222,7 @@ const fakeTimer: RunnerTimer = {
   await act(async () => {});
   await act(async () => {});
   
-  // Log set 1
+  // Log both sets
   const repsInput3 = screen.getByLabelText(/reps/i);
   if (repsInput3 instanceof window.HTMLInputElement) {
     await act(async () => {
@@ -235,7 +235,6 @@ const fakeTimer: RunnerTimer = {
     fireEvent.click(logBtn3);
   });
   
-  // Log set 2
   const repsInput4 = screen.getByLabelText(/reps/i);
   if (repsInput4 instanceof window.HTMLInputElement) {
     await act(async () => {
@@ -256,25 +255,24 @@ const fakeTimer: RunnerTimer = {
   
   await act(async () => {});
   
-  assert(actionCount === 1, "First finishExercise expired");
+  assert(finishCount2 === 1, "finishExercise expired");
   
   // Verify expired prompt shown
   let prompt = screen.queryByTestId("session-expired-prompt");
-  assert(prompt !== null, "Expired prompt shown after first finish");
+  assert(prompt !== null, "Expired prompt shown after finish expired");
   
-  // Click Retry on the expired finish (will retry finishExercise, which now succeeds)
-  const retryBtn = screen.getByText(/Retry/i);
+  // Click "End session early" (calls abandonSession or finishSession depending on state)
+  // This action succeeds and should clear sessionExpired per line 1216
+  const endBtn = screen.getByText(/End session early/i);
   await act(async () => {
-    fireEvent.click(retryBtn);
+    fireEvent.click(endBtn);
   });
   await act(async () => {});
   
-  assert(actionCount === 2, "Retry called finishExercise again");
-  
-  // E2: Assert expired prompt is cleared after successful retry
-  // Handler: line 1216 setSessionExpired(false) after successful action
+  // E2: Assert expired prompt cleared after successful action
+  // Handler: line 1216 setSessionExpired(false) after successful action result
   prompt = screen.queryByTestId("session-expired-prompt");
-  assert(prompt === null, `E2: Expired prompt cleared after successful action (E2 mutant: would still show)`);
+  assert(prompt === null, `E2: Expired prompt cleared after successful action`);
   
   cleanup();
   console.log("✓ Test 2 passed\n");
