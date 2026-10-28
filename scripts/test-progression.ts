@@ -46,6 +46,7 @@ const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
   bestReps: 12,
   bestE1rm: 84,
   totalSessions: 3,
+  weightAtFailureStartKg: null,
   ...over,
 });
 
@@ -107,8 +108,16 @@ console.log("\n4. Falling short of the top is in-range: hold and reset failures"
   // Real miss: below repsMin
   const d = run({ sets: sets(4, 7), equipmentIds: ["barbell"], unit: "kg" });
   check("4×7 below min: outcome hold", d.outcome === "hold", d.outcome);
-  check("4×7 real miss: weight drops one grid step (60 -> 57.5)", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
+  check("4×7 real miss: weight holds at 60 (APP decision F)", d.nextWorkingWeightKg === 60, `${d.nextWorkingWeightKg}`); // APP decision F
   check("4×7 real miss: failure counted", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
+  check("4×7 first miss: message matches F", d.message === "Staying at this weight until every set reaches the top of the range.", `${d.message}`); // APP decision F
+}
+{
+  // Second consecutive miss: steps down
+  const d = run({ sets: sets(4, 7), state: fresh({ consecutiveFailures: 1, weightAtFailureStartKg: 60 }), equipmentIds: ["barbell"], unit: "kg" });
+  check("4×7 second miss: outcome backed_off", d.outcome === "backed_off", d.outcome);
+  check("4×7 second miss: weight drops to 52.5", d.nextWorkingWeightKg === 52.5, `${d.nextWorkingWeightKg}`);
+  check("4×7 second miss: failures reset to 0", d.consecutiveFailures === 0, `${d.consecutiveFailures}`);
 }
 {
   const d = run({ sets: sets(3, 12) });
@@ -185,12 +194,12 @@ console.log("\n10. Personal bests track even on a failed session");
 
 console.log("\n11. Deload suggests roughly 70% of working weight");
 {
-  const normal = suggestedWeight({ currentWorkingWeightKg: 100 }, false, SQUAT, ["barbell"], "kg");
-  const deload = suggestedWeight({ currentWorkingWeightKg: 100 }, true, SQUAT, ["barbell"], "kg");
+  const normal = suggestedWeight({ currentWorkingWeightKg: 100 }, false, SQUAT, ["barbell"]);
+  const deload = suggestedWeight({ currentWorkingWeightKg: 100 }, true, SQUAT, ["barbell"]);
   check("normal week suggests the working weight", normal === 100, `${normal}`);
   check("deload suggests 70 kg", deload === 70, `${deload}`);
   check("no suggestion without a working weight",
-    suggestedWeight({ currentWorkingWeightKg: null }, false, SQUAT, ["barbell"], "kg") === null);
+    suggestedWeight({ currentWorkingWeightKg: null }, false, SQUAT, ["barbell"]) === null);
 }
 
 console.log("\n12. A weight logged on a bodyweight exercise must count");
@@ -205,7 +214,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     equipmentIds: ["dip_bars"],
     unit: "kg",
   });
-  check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 27.5,
+  check("load progresses when a weight was used (1.25 kg step, no dip_belt mapping)", weighted.nextWorkingWeightKg === 26.25,
     `${weighted.nextWorkingWeightKg}`);
   check("outcome is progressed", weighted.outcome === "progressed", weighted.outcome);
 
@@ -543,7 +552,6 @@ console.log("\nBodyweight exercises with added weight");
     true,
     SQUAT_BW,
     ["dip_belt"],
-    "kg",
   );
   check("deload suggestion for bodyweight lower-body rounds to 2.5 kg step",
     suggestedBwLower === 7.5, `${suggestedBwLower}`);
@@ -553,7 +561,6 @@ console.log("\nBodyweight exercises with added weight");
     true,
     PUSHUP_LOADED,
     ["dip_belt"],
-    "kg",
   );
   // 5 * 0.7 = 3.5, rounded to 1.25 kg step is 3.75, then grid-rounded to 2.5 kg (tie rounds down)
   check("deload suggestion for bodyweight upper-body rounds to dip_belt grid (2.5 kg)",
@@ -588,7 +595,7 @@ console.log("\n18. No-equipment path matches updated behavior");
   check("no-data without equipment: holds at 60", noData.nextWorkingWeightKg === 60, `${noData.nextWorkingWeightKg}`);
   
   // Never negative or zero
-  const minIso = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 2.5 }), sets: sets(4, 7) });
+  const minIso = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 2.5 }), sets: sets(4, 7, 2.5) });
   check("min isolation real miss: 2.5 stays 2.5", minIso.nextWorkingWeightKg === 2.5, `${minIso.nextWorkingWeightKg}`);
 }
 
@@ -611,7 +618,7 @@ console.log("\n19. With equipment: explicit equipment param tests");
     equipmentIds: ["dip_bars"],
     unit: "kg",
   });
-  check("dip +25 kg with dip_bars: 25 -> 27.5", dipWithEquip.nextWorkingWeightKg === 27.5, `${dipWithEquip.nextWorkingWeightKg}`);
+  check("dip +25 kg with dip_bars: 25 -> 26.25 (1.25 kg step, no dip_belt mapping)", dipWithEquip.nextWorkingWeightKg === 26.25, `${dipWithEquip.nextWorkingWeightKg}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

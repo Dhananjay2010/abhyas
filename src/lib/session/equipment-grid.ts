@@ -5,6 +5,10 @@
 
 export type WeightUnit = 'kg' | 'lb';
 
+// Medicine ball constants
+export const MEDICINE_BALL_MIN_KG = 1;
+export const MEDICINE_BALL_MIN_LB = 2;
+
 /**
  * Pin-stack/selectorised machine IDs: fixed weight stacks with selector pin.
  */
@@ -198,7 +202,7 @@ export function roundToEquipmentGrid(
 
   // Medicine ball: 1 kg / 2 lb minimum
   if (equipmentIds.includes('medicine_ball')) {
-    const minimum = unit === 'kg' ? 1 : 2;
+    const minimum = unit === 'kg' ? MEDICINE_BALL_MIN_KG : MEDICINE_BALL_MIN_LB;
     if (value < minimum) {
       return minimum;
     }

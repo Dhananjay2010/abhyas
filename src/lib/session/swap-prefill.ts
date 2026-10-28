@@ -28,6 +28,7 @@ type TypedSupabase = SupabaseClient<Database>;
  * @param exerciseId - The swapped-in exercise ID
  * @param isDeload - Whether this is a deload session
  * @param equipmentIds - Equipment IDs for the exercise (for bodyweight detection)
+ * @param mechanic - Exercise mechanic type (isolation/compound)
  * @param metric - Exercise metric
  * @param movementPattern - Movement pattern (for suggestedWeight)
  * @param progressValue - Optional pre-fetched progress value (removes duplicate query)
@@ -40,6 +41,7 @@ export async function resolveSwapPrefill(
   exerciseId: string,
   isDeload: boolean,
   equipmentIds: string[],
+  mechanic: Database["public"]["Enums"]["mechanic_type"] | null,
   metric: Database["public"]["Enums"]["exercise_metric"],
   movementPattern: Database["public"]["Enums"]["movement_pattern"],
   progressValue: number | null | undefined,
@@ -71,23 +73,21 @@ export async function resolveSwapPrefill(
     if (currentWorkingWeight !== null && currentWorkingWeight !== undefined) {
       const working = Number(currentWorkingWeight);
       if (working > 0) {
-        // Use the same suggestedWeight logic as session/[id]/page.tsx:141
+        // Use the same suggestedWeight logic as session/[id]/page.tsx
         const isBodyweight = equipmentIds.length === 0;
-        // TODO: MEDIUM-3 - Pass equipmentIds and unit for grid snapping once #120 lands
-        // For now, pass undefined to use the existing simple deload calculation
+        // M2: equipmentIds for grid snapping, no unit (kg always)
         return suggestedWeight(
           { currentWorkingWeightKg: working },
           isDeload,
           {
-            mechanic: null,
+            mechanic,
             movementPattern,
             metric,
             isBodyweight,
             progressionChain: null,
             progressionRank: null,
           },
-          undefined,
-          undefined,
+          isBodyweight ? undefined : equipmentIds,
         );
       }
     }
@@ -102,20 +102,19 @@ export async function resolveSwapPrefill(
       
       // L1: Apply deload reduction to history fallback too
       const isBodyweight = equipmentIds.length === 0;
-      // TODO: MEDIUM-3 - Pass equipmentIds and unit for grid snapping once #120 lands
+      // M2: equipmentIds for grid snapping, no unit (kg always)
       return suggestedWeight(
         { currentWorkingWeightKg: weight },
         isDeload,
         {
-          mechanic: null,
+          mechanic,
           movementPattern,
           metric,
           isBodyweight,
           progressionChain: null,
           progressionRank: null,
         },
-        undefined,
-        undefined,
+        isBodyweight ? undefined : equipmentIds,
       );
     }
 

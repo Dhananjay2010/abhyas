@@ -147,6 +147,7 @@ async function testResolveSwapWeights() {
     deloadSessionId,
     newExerciseId,
     ["barbell"],
+    null, // mechanic
     "reps",
     "horizontal_press",
     true,
@@ -164,6 +165,7 @@ async function testResolveSwapWeights() {
     normalSessionId,
     newExerciseId,
     ["barbell"],
+    null, // mechanic
     "reps",
     "horizontal_press",
     true,
@@ -179,6 +181,7 @@ async function testResolveSwapWeights() {
     normalSessionId,
     newExerciseId,
     ["barbell"],
+    null, // mechanic
     "reps",
     "horizontal_press",
     false,
@@ -195,6 +198,7 @@ async function testResolveSwapWeights() {
     normalSessionId,
     neverDoneId,
     ["dumbbell"],
+    null, // mechanic
     "reps",
     "horizontal_pull",
     true,
@@ -211,6 +215,7 @@ async function testResolveSwapWeights() {
     normalSessionId,
     neverDoneId,
     [],
+    null, // mechanic
     "reps",
     "vertical_press",
     true,
@@ -225,6 +230,7 @@ async function testResolveSwapWeights() {
     "invalid-session-id",
     newExerciseId,
     ["barbell"],
+    null, // mechanic
     "reps",
     "horizontal_press",
     true,
@@ -240,6 +246,7 @@ async function testResolveSwapWeights() {
     normalSessionId,
     newExerciseId,
     ["barbell"],
+    null, // mechanic
     "reps",
     "horizontal_press",
     true,

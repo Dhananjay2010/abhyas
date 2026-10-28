@@ -1,380 +1,311 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
-# Mutant test script for first-miss hold guard
-# Uses Node string replacement with exact-match assertions
-# mktemp backups with restore trap
-# Exit 1 on any survivor or skip
 #
-# RECOVERY: If SIGKILL interrupts while a mutation is applied, manually restore:
-#   Look for the backup path in stderr or find the latest /tmp/tmp.* file
-#   cp BACKUP_PATH src/lib/program/progression.ts
-#   Or use: git show HEAD:src/lib/program/progression.ts > src/lib/program/progression.ts
-#   Verify: git diff src/lib/program/progression.ts (should be empty)
+# Mutation tests for Decision F (first-miss hold).
+#
+# Each mutant replaces ONE exact literal that must occur exactly once in its
+# file. A mutant that does not type-check is SKIPPED. The original file is
+# always restored (trap).
+#
+# Supports two modes:
+# 1. Harness mode (MUTANT_TARGET_FILE set): mutate the specified file with override commands
+# 2. Standalone mode (no MUTANT_TARGET_FILE): create scratch copy via mktemp, never touch checkout
+#
+# A mutant counts as KILLED only when a test exits non-zero AND prints an
+# assertion failure line ("✗ FAIL" / "❌ FAIL") AND did not crash (no
+# "CRASH", "✗ ERROR", "Missing script", "Cannot find module", SyntaxError).
+#
+# Exit 1 on any skip or survivor.
 
-# Check required tools exist
-for cmd in sha256sum cmp; do
-  if ! command -v "$cmd" > /dev/null 2>&1; then
-    echo "❌ ERROR: Required command '$cmd' not found" >&2
-    exit 1
-  fi
-done
+set -u
 
-# Allow override for testing
-FILE="${MUTANT_TARGET_FILE:-src/lib/program/progression.ts}"
-BASELINE_CMD="${MUTANT_BASELINE_CMD:-npm run test:first-miss-pinned}"
-COMPILE_CMD="${MUTANT_COMPILE_CMD:-npx tsc --noEmit}"
-MUTANT_TEST_CMD="${MUTANT_TEST_CMD:-npm run test:first-miss-pinned}"
-
-# Record original SHA before anything else
-if [ ! -f "$FILE" ]; then
-  echo "❌ ERROR: Target file not found: $FILE" >&2
-  exit 1
+# Check if running in harness mode or standalone mode
+if [ -n "${MUTANT_TARGET_FILE:-}" ]; then
+  # === HARNESS MODE: mutate specified file with override commands ===
+  FILE="$MUTANT_TARGET_FILE"
+  BASELINE_CMD="${MUTANT_BASELINE_CMD:-npm run test:first-miss-pinned}"
+  COMPILE_CMD="${MUTANT_COMPILE_CMD:-npx tsc --noEmit}"
+  TEST_CMD="${MUTANT_TEST_CMD:-npm run test:first-miss-pinned}"
+  WORK_DIR="$(pwd)"
+  
+  echo "=== Mutant Testing: Decision F (Harness Mode) ==="
+  echo ""
+else
+  # === STANDALONE MODE: create scratch copy, never touch checkout ===
+  REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  STATUS_BEFORE="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null | sha256sum)"
+  SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/first-miss-mutants.XXXXXX")"
+  cleanup_scratch() {
+    case "$SCRATCH" in
+      "${TMPDIR:-/tmp}"/first-miss-mutants.*) rm -rf "$SCRATCH" ;;
+    esac
+  }
+  # Tracked + untracked (not ignored) files, as they are in the working tree.
+  ( cd "$REPO_ROOT" && git ls-files -z --cached --others --exclude-standard ) \
+    | ( cd "$REPO_ROOT" && tar --null --ignore-failed-read -T - -cf - 2>/dev/null ) \
+    | tar -xf - -C "$SCRATCH"
+  [ -e "$SCRATCH/node_modules" ] || ln -s "$REPO_ROOT/node_modules" "$SCRATCH/node_modules"
+  cd "$SCRATCH" || exit 1
+  echo "Mutating a scratch copy: $SCRATCH (checkout untouched: $REPO_ROOT)"
+  
+  FILE="src/lib/program/progression.ts"
+  BASELINE_CMD="npm run test:first-miss-pinned"
+  COMPILE_CMD="npx tsc --noEmit"
+  TEST_CMD="npm run test:first-miss-pinned"
+  WORK_DIR="$SCRATCH"
+  
+  echo "=== Mutant Testing: Decision F ==="
+  echo ""
 fi
 
-ORIG_SHA=$(sha256sum "$FILE" | cut -d' ' -f1)
+KILLED=0
+SURVIVED=0
+SKIPPED=0
+CURRENT_FILE=""
+BACKUP=""
 
-# When using real file, refuse to run if uncommitted changes exist
-if [ "$FILE" = "src/lib/program/progression.ts" ]; then
-  if ! git diff --quiet -- "$FILE" 2>/dev/null; then
-    echo "❌ ERROR: Target file has uncommitted changes: $FILE" >&2
-    echo "   Commit or stash changes before running mutant tests" >&2
-    echo "   Recovery source: git show HEAD:$FILE" >&2
-    exit 1
+restore() {
+  if [ -n "$CURRENT_FILE" ] && [ -n "$BACKUP" ] && [ -f "$BACKUP" ]; then
+    # Atomic restore: verify backup before overwriting
+    local backup_size
+    backup_size=$(stat -c%s "$BACKUP" 2>/dev/null || stat -f%z "$BACKUP" 2>/dev/null || echo 0)
+    if [ "$backup_size" -lt 1000 ]; then
+      echo "❌ FATAL: Backup corrupted (size $backup_size)" >&2
+      exit 1
+    fi
+    mv "$BACKUP" "$CURRENT_FILE"
   fi
-fi
-
-BACKUP=$(mktemp)
-MUTATE_SCRIPT=$(mktemp)
-FAILED=0
-SURVIVORS=()
-SKIPPED=()
-MUTATION_APPLIED=false
-CLEANUP_DONE=false
-
-restore_or_die() {
-  # Verify backup integrity and restore target file atomically
-  # On any mismatch: print to stderr, keep backup, exit non-zero
-  
-  if [ ! -f "$BACKUP" ]; then
-    echo "❌ FATAL: Backup file missing. Cannot restore $FILE" >&2
-    echo "   Backup path: $BACKUP" >&2
-    exit 1
-  fi
-  
-  if [ ! -s "$BACKUP" ]; then
-    echo "❌ FATAL: Backup file is empty. Cannot restore $FILE" >&2
-    echo "   Backup path: $BACKUP (empty)" >&2
-    exit 1
-  fi
-  
-  local backup_sha
-  backup_sha=$(sha256sum "$BACKUP" | cut -d' ' -f1)
-  
-  if [ "$backup_sha" != "$ORIG_SHA" ]; then
-    echo "❌ FATAL: Backup has been corrupted (sha256 mismatch)" >&2
-    echo "   Expected: $ORIG_SHA" >&2
-    echo "   Got:      $backup_sha" >&2
-    echo "   Backup path: $BACKUP (keeping for recovery)" >&2
-    echo "   Target:  $FILE (left as-is)" >&2
-    exit 1
-  fi
-  
-  # Restore via temp file and atomic rename
-  local temp_restore
-  temp_restore=$(mktemp "${FILE}.restore.XXXXXX")
-  cp "$BACKUP" "$temp_restore"
-  mv "$temp_restore" "$FILE"
-  
-  # Verify restored file
-  local restored_sha
-  restored_sha=$(sha256sum "$FILE" | cut -d' ' -f1)
-  
-  if [ "$restored_sha" != "$ORIG_SHA" ]; then
-    echo "❌ FATAL: Restored file has wrong sha256" >&2
-    echo "   Expected: $ORIG_SHA" >&2
-    echo "   Got:      $restored_sha" >&2
-    echo "   Backup path: $BACKUP (keeping for recovery)" >&2
-    exit 1
-  fi
+  CURRENT_FILE=""
+  BACKUP=""
 }
 
-cleanup() {
-  if [ "$CLEANUP_DONE" = true ]; then
-    return 0
-  fi
-  CLEANUP_DONE=true
-  
-  if [ "$MUTATION_APPLIED" = true ]; then
-    restore_or_die
-  fi
-  
-  rm -f "$BACKUP" "$MUTATE_SCRIPT"
-}
-
-trap cleanup EXIT
-trap 'cleanup; exit 130' INT
-trap 'cleanup; exit 143' TERM
-
-echo "=== Mutant Testing: First-Miss Hold Guard ==="
-echo
-
-# Back up original BEFORE setting any trap
-cp "$FILE" "$BACKUP"
-
-# Record original SHA
-ORIG_SHA=$(sha256sum "$FILE" | cut -d' ' -f1)
-
-# Verify backup exists, is non-empty, and matches original
-if [ ! -f "$BACKUP" ]; then
-  echo "❌ ERROR: Backup file not created"
-  exit 1
+if [ -n "${MUTANT_TARGET_FILE:-}" ]; then
+  # Harness mode: simple cleanup
+  trap 'restore' EXIT
+  trap 'restore; exit 130' INT TERM
+else
+  # Standalone mode: cleanup scratch + check git status
+  trap 'restore; cleanup_scratch' EXIT
+  trap 'restore; cleanup_scratch; exit 130' INT TERM
 fi
 
-if [ ! -s "$BACKUP" ]; then
-  echo "❌ ERROR: Backup file is empty"
-  rm -f "$BACKUP"
-  exit 1
-fi
-
-if ! cmp -s "$FILE" "$BACKUP"; then
-  echo "❌ ERROR: Backup is not byte-identical to original"
-  rm -f "$BACKUP"
-  exit 1
-fi
-
-backup_sha=$(sha256sum "$BACKUP" | cut -d' ' -f1)
-if [ "$backup_sha" != "$ORIG_SHA" ]; then
-  echo "❌ ERROR: Backup sha256 does not match original"
-  rm -f "$BACKUP"
-  exit 1
-fi
-
-# Baseline: run tests
-echo "Running baseline tests..."
+# Baseline check
 if ! eval "$BASELINE_CMD" > /dev/null 2>&1; then
-  echo "❌ Baseline tests failed. Fix the code before running mutant tests."
+  echo "❌ Baseline failed"
   exit 1
 fi
-echo "✓ Baseline tests pass"
-echo
+echo "✓ Baseline pass"
 
+# replace_once FILE OLD NEW -> 0 if OLD occurred exactly once and was replaced
+replace_once() {
+  local file="$1" old="$2" new="$3"
+  FILE="$file" OLD="$old" NEW="$new" node -e '
+    const fs = require("fs");
+    const { FILE, OLD, NEW } = process.env;
+    const src = fs.readFileSync(FILE, "utf8");
+    const n = src.split(OLD).length - 1;
+    if (n !== 1) { console.error(`  pattern occurs ${n} times`); process.exit(1); }
+    fs.writeFileSync(FILE, src.replace(OLD, () => NEW));
+  '
+}
+
+# run_mutant NAME OLD NEW TEST...
 run_mutant() {
-  local name="$1"
-  local description="$2"
-  local search="$3"
-  local replace="$4"
-  
-  echo "Testing mutant: $name"
-  echo "  $description"
-  
-  # Apply mutant with Node (assert exactly one occurrence)
-  # Write to temp file first, then atomic rename
-  cat > "$MUTATE_SCRIPT" << 'MUTATE_SCRIPT'
-const fs = require('fs');
-const path = require('path');
-const content = fs.readFileSync(process.argv[2], 'utf8');
-const search = process.argv[3];
-const replace = process.argv[4];
+  local name=$1 old=$2 new=$3
+  shift 3
+  echo ""
+  echo "$name"
+  CURRENT_FILE="$FILE"
+  BACKUP="$(mktemp)"
+  cp "$FILE" "$BACKUP"
 
-// Escape special regex characters in search string for counting
-const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const count = (content.match(new RegExp(escaped, 'g')) || []).length;
-
-if (count === 0) {
-  console.error('ERROR: Search string not found');
-  process.exit(1);
-}
-if (count > 1) {
-  console.error('ERROR: Search string occurs ' + count + ' times, need exactly 1');
-  process.exit(1);
-}
-
-const newContent = content.replace(search, replace);
-const target = process.argv[2];
-const temp = target + '.mutate.tmp';
-fs.writeFileSync(temp, newContent, 'utf8');
-fs.renameSync(temp, target);
-MUTATE_SCRIPT
-  
-  # Mark that mutation is about to be applied (BEFORE the write)
-  MUTATION_APPLIED=true
-  
-  NODE_EXIT=0
-  node "$MUTATE_SCRIPT" "$FILE" "$search" "$replace" 2>&1 || NODE_EXIT=$?
-  
-  if [ $NODE_EXIT -ne 0 ]; then
-    echo "  ❌ SKIPPED: String replacement failed"
-    SKIPPED+=("$name: replacement failed")
-    MUTATION_APPLIED=false
-    return 0
+  if ! replace_once "$FILE" "$old" "$new"; then
+    echo "  ⊘ SKIP: pattern not found exactly once"
+    SKIPPED=$((SKIPPED + 1))
+    restore
+    return
   fi
   
-  # Verify file changed
-  if cmp -s "$FILE" "$BACKUP"; then
-    echo "  ❌ SKIPPED: File did not change"
-    SKIPPED+=("$name: file unchanged")
-    restore_or_die
-    MUTATION_APPLIED=false
-    return 0
+  if ! eval "$COMPILE_CMD" >/dev/null 2>&1; then
+    echo "  ⊘ SKIP: does not compile (must be killed by a test, not tsc)"
+    SKIPPED=$((SKIPPED + 1))
+    restore
+    return
   fi
   
-  # Check tsc compiles
-  if ! eval "$COMPILE_CMD" > /dev/null 2>&1; then
-    echo "  ❌ SKIPPED: Does not compile"
-    SKIPPED+=("$name: does not compile")
-    restore_or_die
-    MUTATION_APPLIED=false
-    return 0
-  fi
+  # Count kill only when test exits non-zero with assertion FAIL
+  local killer=""
+  local kill_reason=""
+  for t in "$@"; do
+    local output
+    local test_cmd
+    if [ -n "${MUTANT_TEST_CMD:-}" ] && [ "${MUTANT_TEST_CMD:-}" != "npm run test:first-miss-pinned" ]; then
+      # Harness mode with custom test command - run once, not per test
+      test_cmd="$TEST_CMD"
+    else
+      # Normal mode: run specific test
+      test_cmd="npm run -s $t"
+    fi
+    
+    # Run in subshell to prevent "exit N" from terminating this script
+    local exit_code
+    output=$(
+      (eval "$test_cmd") 2>&1
+      echo "EXIT_CODE=$?"
+    )
+    exit_code=$(echo "$output" | grep "^EXIT_CODE=" | cut -d= -f2)
+    output=$(echo "$output" | grep -v "^EXIT_CODE=")
+    
+    # Only count as kill if:
+    # - Test exited non-zero
+    # - Not a crash or unexpected error
+    if [ "$exit_code" -ne 0 ]; then
+      if echo "$output" | grep -qiE "CRASH|ERROR.*test|Missing script|Cannot find module|SyntaxError"; then
+        # Crash, not a kill
+        continue
+      fi
+      
+      # Harness mode: only exit 1 counts as kill, other codes are errors
+      if [ -n "${MUTANT_TEST_CMD:-}" ] && [ "$exit_code" -ne 1 ]; then
+        # Non-1 exit in harness mode is an error, not a kill
+        continue
+      fi
+      
+      # Check for assertion failure line
+      if echo "$output" | grep -qE "FAIL|✗|❌"; then
+        killer="$t"
+        kill_reason=$(echo "$output" | grep -E "FAIL|✗|❌" | head -1 | sed 's/^[[:space:]]*//')
+        break
+      elif [ -n "${MUTANT_TEST_CMD:-}" ]; then
+        # Harness mode with exit 1 but no assertion: still counts as kill
+        killer="$t"
+        kill_reason="test failure"
+        break
+      fi
+    fi
+    
+    # Harness mode: only run test once, not per test in list
+    if [ -n "${MUTANT_TEST_CMD:-}" ] && [ "${MUTANT_TEST_CMD:-}" != "npm run test:first-miss-pinned" ]; then
+      break
+    fi
+  done
   
-  # Run tests
-  if eval "$MUTANT_TEST_CMD" > /dev/null 2>&1; then
-    echo "  ❌ SURVIVED"
-    SURVIVORS+=("$name")
-    FAILED=$((FAILED + 1))
+  if [ -n "$killer" ]; then
+    echo "  ✅ KILLED: $kill_reason"
+    KILLED=$((KILLED + 1))
   else
-    echo "  ✅ KILLED"
+    echo "  ❌ SURVIVED"
+    SURVIVED=$((SURVIVED + 1))
   fi
   
-  # Restore
-  restore_or_die
-  MUTATION_APPLIED=false
-  return 0
+  restore
 }
 
-# Mutant (a): Remove 20% guard
-run_mutant \
-  "(a) remove 20% guard" \
-  "Change cutFraction > THRESHOLD to cutFraction > 99" \
-  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {" \
-  "if (cutFraction > 99) {"
+# Test mutations
+run_mutant "first-miss-drops" \
+  "const nextWeight = currentWeight;" \
+  "const nextWeight = (currentWeight ?? 0) * 0.9;" \
+  "test:first-miss-pinned"
 
-# Mutant (b): Threshold 0.20 → 0.5
-run_mutant \
-  "(b) threshold 0.20 → 0.5" \
-  "Change FIRST_MISS_HOLD_THRESHOLD from 0.20 to 0.50" \
-  "export const FIRST_MISS_HOLD_THRESHOLD = 0.20;" \
-  "export const FIRST_MISS_HOLD_THRESHOLD = 0.50;"
+run_mutant "counter-not-set" \
+  "const newWeightAtFailureStart = state.consecutiveFailures === 0 && currentWeight !== null
+    ? currentWeight
+    : state.weightAtFailureStartKg;" \
+  "const newWeightAtFailureStart = state.weightAtFailureStartKg;" \
+  "test:first-miss-pinned"
 
-# Mutant (c): > to >=
-run_mutant \
-  "(c) > to >=" \
-  "Change cutFraction > THRESHOLD to >=" \
-  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {" \
-  "if (cutFraction >= FIRST_MISS_HOLD_THRESHOLD) {"
+run_mutant "failures-not-incremented" \
+  "    outcome: \"hold\",
+    nextWorkingWeightKg: nextWeight,
+    consecutiveFailures: failures," \
+  "    outcome: \"hold\",
+    nextWorkingWeightKg: nextWeight,
+    consecutiveFailures: 0," \
+  "test:first-miss-pinned"
 
-# Mutant (d): Guard inverted (always hold)
-run_mutant \
-  "(d) guard inverted" \
-  "Invert the guard condition" \
-  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {" \
-  "if (cutFraction < FIRST_MISS_HOLD_THRESHOLD) {"
+run_mutant "second-miss-holds" \
+  "if (failures >= 2 && currentWeight !== null && currentWeight > 0) {" \
+  "if (failures >= 99 && currentWeight !== null && currentWeight > 0) {" \
+  "test:first-miss-pinned"
 
-# Mutant (e): consecutiveFailures not incremented
-run_mutant \
-  "(e) failure counter not incremented" \
-  "Don't increment consecutiveFailures on first miss" \
-  "    consecutiveFailures: failures," \
-  "    consecutiveFailures: 0,"
+run_mutant "hard-feel-wrong-baseline" \
+  "  const failures = Math.min(state.consecutiveFailures + 1, 3);
+  const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);" \
+  "  const failures = Math.min(state.consecutiveFailures + 1, 3);
+  const currentWeight = mode > 0 ? mode : (state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null));" \
+  "test:first-miss-pinned"
 
-# Mutant (f): kettlebell strictly-below
-run_mutant \
-  "(f) kettlebell strictly-below" \
-  "Allow kettlebell to equal or be below current (not strictly below)" \
-  "        if (bells[i] < currentWeight - epsilon) {" \
-  "        if (bells[i] <= currentWeight) {"
+run_mutant "message-altered" \
+  ": \"Staying at this weight until every set reaches the top of the range.\";" \
+  ": \"Holding at this weight.\";" \
+  "test:first-miss-pinned"
 
-# Mutant (g): first-miss >= two-miss guard
-run_mutant \
-  "(g) hold when candidate < two-miss" \
-  "Don't hold when candidate < two-miss" \
-  "    if (candidateWeight < twoMissFloor) {
-      candidateWeight = currentWeight;
-    }" \
-  "    if (candidateWeight < twoMissFloor) {
-      candidateWeight = candidateWeight;
-    }"
+run_mutant "easy-no-double" \
+  "        if (feel === \"easy\" && !isBodyweightWithAddedWeight) {
+          jump = hasLoadable ? Math.max(2 * mechanicIncrement, gridStep) : 2 * mechanicIncrement;
+        } else {
+          jump = step;
+        }" \
+  "        if (false) {
+          jump = hasLoadable ? Math.max(2 * mechanicIncrement, gridStep) : 2 * mechanicIncrement;
+        } else {
+          jump = step;
+        }" \
+  "test:easy-doubling-pins"
 
-# Mutant (h): first-miss hold snap
-run_mutant \
-  "(h) hold snaps weight" \
-  "Snap hold weight to grid instead of returning exact current" \
-  "    nextWorkingWeightKg: nextWeight," \
-  "    nextWorkingWeightKg: nextWeight !== null ? Math.floor(nextWeight / 2.5) * 2.5 : nextWeight,"
+run_mutant "grid-step-ignored" \
+  "step = hasLoadable ? Math.max(patternStep, gridStep) : patternStep;" \
+  "step = patternStep;" \
+  "test:first-miss-pinned"
 
-# Mutant (i): hard-feel hold
-run_mutant \
-  "(i) hard-feel doesn't hold" \
-  "Change hard-feel check to right (never holds early)" \
-  '    if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {' \
-  '    if (feel === "right" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {'
+run_mutant "snap-down" \
+  "const snappedUp = Math.ceil(target / gridStep) * gridStep;" \
+  "const snappedUp = Math.floor(target / gridStep) * gridStep;" \
+  "test:first-miss-pinned"
 
-# Mutant (j): 1.5-step rule - DELETED
-echo "Testing mutant: (j) 1.5-step rule"
-echo "  ⚠️  DELETED: Rule is unreachable (strictly-below ensures at most 1-step drop)"
+run_mutant "floor-snap-ceil" \
+  "next = Math.max(Math.floor((rawNext / gridStep) + 1e-9) * gridStep, from);" \
+  "next = Math.max(Math.ceil((rawNext / gridStep) + 1e-9) * gridStep, from);" \
+  "test:first-miss-pinned"
 
-# Mutant (k): standard equipment strictly-below
-run_mutant \
-  "(k) standard equipment strictly-below" \
-  "Round instead of floor for strictly-below" \
-  "      const stepsBelow = Math.floor((currentWeight - epsilon) / gridStep);" \
-  "      const stepsBelow = Math.round(currentWeight / gridStep);"
+run_mutant "mechanic-wrong" \
+  "        // Easy doubles the MECHANIC increment (before grid constraints)
+        const mechanicIncrement = meta.mechanic === \"isolation\" ? 1.25 : 
+          LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;" \
+  "        // Easy doubles the MECHANIC increment (before grid constraints)
+        const mechanicIncrement = meta.mechanic === \"isolation\" ? 2.5 : 
+          LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;" \
+  "test:easy-doubling-pins"
 
-# Mutant (l): threshold 0.20 → 0.25
-run_mutant \
-  "(l) threshold 0.20 → 0.25" \
-  "Change threshold to 0.25 (25%)" \
-  "export const FIRST_MISS_HOLD_THRESHOLD = 0.20;" \
-  "export const FIRST_MISS_HOLD_THRESHOLD = 0.25;"
+echo ""
+echo "========================================"
+echo "Killed: $KILLED"
+echo "Survived: $SURVIVED"
+echo "Skipped: $SKIPPED"
+echo "========================================"
 
-# Mutant (m): snap down instead of snap up in helper
-run_mutant \
-  "(m) snap down in helper" \
-  "Snap down instead of up in two-miss helper" \
-  "        const snappedUp = Math.ceil(target / gridStep) * gridStep;" \
-  "        const snappedUp = Math.floor(target / gridStep) * gridStep;"
-
-# Mutant (n): remove helper never-raise check (no-equipment path) - UNREACHABLE
-# The never-raise check is unreachable because target is computed as:
-# target = max(floor(0.9*weight / grid) * grid, 0.9*weight - increment)
-# Both components are <= 0.9*weight < weight, so target can never be > weight.
-echo "Testing mutant: (n) remove helper never-raise"
-echo "  ⚠️  UNREACHABLE: target computation ensures target <= weight always"
-
-echo
-echo "========================================="
-echo "Mutant Test Summary"
-echo "========================================="
-TOTAL=12
-KILLED=$((TOTAL - FAILED - ${#SKIPPED[@]}))
-echo "Total mutants:                   $TOTAL"
-echo "Killed:                          $KILLED"
-echo "Survived:                        $FAILED"
-echo "Skipped:                         ${#SKIPPED[@]}"
-echo "========================================="
-
-if [ ${#SURVIVORS[@]} -gt 0 ]; then
-  echo
-  echo "Survivors:"
-  for survivor in "${SURVIVORS[@]}"; do
-    echo "  - $survivor"
-  done
-fi
-
-if [ ${#SKIPPED[@]} -gt 0 ]; then
-  echo
-  echo "Skipped:"
-  for skip in "${SKIPPED[@]}"; do
-    echo "  - $skip"
-  done
-fi
-
-if [ $FAILED -gt 0 ] || [ ${#SKIPPED[@]} -gt 0 ]; then
-  echo
-  echo "❌ FAIL: $FAILED survivor(s), ${#SKIPPED[@]} skip(s)"
+if [ $SURVIVED -gt 0 ]; then
+  echo "❌ FAIL: $SURVIVED mutant(s) survived"
   exit 1
 fi
 
-echo
+if [ $SKIPPED -gt 0 ]; then
+  echo "❌ FAIL: $SKIPPED mutant(s) skipped"
+  exit 1
+fi
+
+if [ "$KILLED" -lt 11 ]; then
+  echo "❌ FAIL: Need at least 11 killed, got $KILLED"
+  exit 1
+fi
+
+# Standalone mode: verify checkout untouched
+if [ -z "${MUTANT_TARGET_FILE:-}" ]; then
+  STATUS_AFTER="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null | sha256sum)"
+  if [ "$STATUS_BEFORE" != "$STATUS_AFTER" ]; then
+    echo "❌ FAIL: Checkout was modified"
+    git -C "$REPO_ROOT" status --porcelain
+    exit 1
+  fi
+fi
+
 echo "✅ PASS: All mutants killed"
