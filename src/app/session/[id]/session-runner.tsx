@@ -337,18 +337,13 @@ export function SessionRunner({
     }
   }, [controller]);
 
-  // Clear sessionExpired when pending sets are successfully replayed
-  useEffect(() => {
-    const shouldClear = 
-      pendingSetState.expired === false && 
-      pendingSetState.pending.length === 0 && 
-      pendingSetState.replayed.length > 0;
-    
-    if (shouldClear) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSessionExpired(false);
-    }
-  }, [pendingSetState]);
+  // Derive sessionExpired visibility: clear when replay succeeded
+  const replaySucceeded = 
+    pendingSetState.expired === false && 
+    pendingSetState.pending.length === 0 && 
+    pendingSetState.replayed.length > 0;
+  
+  const showExpiredPrompt = sessionExpired && !replaySucceeded;
 
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
@@ -1443,7 +1438,7 @@ export function SessionRunner({
 
         {allSetsDone && (
           <div className="mt-8">
-            {sessionExpired && getPendingUiMode(pendingSetState) !== "expired" && (
+            {showExpiredPrompt && getPendingUiMode(pendingSetState) !== "expired" && (
               <div className="mb-4">
                 <SessionExpiredPrompt />
               </div>

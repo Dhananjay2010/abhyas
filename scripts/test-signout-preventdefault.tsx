@@ -233,9 +233,11 @@ async function testSignOutAnywayKeepsPending() {
 
   assert(signOutAnywayCalled, "Sign out anyway handler called");
 
-  // Note: pending sets are now CLEARED by handleSignOutAnyway (Item 1), not kept
-  // This test just verifies the handler is called
-  
+  // The view itself must never touch storage: clearing is done by useSignOut's
+  // handleSignOutAnyway (Item 1), which is stubbed here.
+  const stored = fakeStorage.getItem(`pending-sets:${userId}`);
+  assert(!!stored, "Pending sets kept in storage by the view (cleared by useSignOut, not the view)");
+
   fakeStorage.clear();
 }
 

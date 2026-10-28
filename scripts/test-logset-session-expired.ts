@@ -94,7 +94,7 @@ async function testValidAuth() {
     }),
     checkLogSetInput: async () => null,
     validateSessionForLogSet: async () => ({ ok: true }),
-    buildLogSetValidationDeps: () => ({}),
+    buildLogSetValidationDeps: () => ({ lookupSessionExercise: async () => null, lookupExistingSet: async () => null }),
     logSetCore: async () => {
       coreCalled = true;
       return { ok: true };

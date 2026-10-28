@@ -8,6 +8,7 @@
 import { resolveAuth } from "./auth-result";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import type { LogSetValidationDeps } from "./log-set-validation";
 
 export type LogSetCoreDeps = {
   getAuthedClient: () => Promise<{
@@ -20,17 +21,15 @@ export type LogSetCoreDeps = {
     input: { reps: number | null; weightKg: number | null; durationSeconds: number | null }
   ) => Promise<string | null>;
   validateSessionForLogSet: (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    deps: any,
+    deps: LogSetValidationDeps,
     sessionExerciseId: string,
     set: { setNumber: number; reps: number | null; weightKg: number | null; durationSeconds: number | null }
   ) => Promise<
     | { ok: true }
     | { ok: false; error: string }
-    | { ok: false; reason: "set_exists"; savedSets: any[] } // eslint-disable-line @typescript-eslint/no-explicit-any
+    | { ok: false; reason: "set_exists"; savedSets: SavedSet[] }
   >;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  buildLogSetValidationDeps: (supabase: SupabaseClient<Database>) => any;
+  buildLogSetValidationDeps: (supabase: SupabaseClient<Database>) => LogSetValidationDeps;
   logSetCore: (
     supabase: SupabaseClient<Database>,
     userId: string,
