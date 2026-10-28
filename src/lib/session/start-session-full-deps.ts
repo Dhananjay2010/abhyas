@@ -210,6 +210,12 @@ export function buildStartSessionFullDeps(
       const catalogue = toCandidateExercises(catalogueRes.data || []);
       const equipmentIds = (equipmentRes.data ?? []).map(r => r.equipment_id);
 
+      // Fail-closed: knee users must have catalogue for safety
+      const hasKneeInjury = injuries.some(inj => inj.body_region === "knee");
+      if (hasKneeInjury && !catalogue.length) {
+        throw new Error("Cannot start session: exercise catalogue required for knee injury safety");
+      }
+
       if (!profile || !catalogue.length) {
         return exercises;
       }

@@ -70,6 +70,12 @@ export async function ensureSessionExercises(
   let cleanedPlanned = planned;
   const catalogueMap = catalogue ? new Map(catalogue.map(c => [c.id, c])) : null;
   
+  // Fail-closed: knee users must have cleanup inputs
+  const hasKneeInjury = injuries?.some(inj => inj.body_region === "knee");
+  if (hasKneeInjury && (!catalogue || !profile)) {
+    throw new Error("Cannot ensure session exercises: cleanup inputs required for knee injury safety");
+  }
+  
   if (catalogue && profile && injuries && equipmentIds) {
     const cleaned = applyBannedCleanup(planned, catalogue, profile, injuries, userId, equipmentIds);
     
