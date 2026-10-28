@@ -365,6 +365,47 @@ async function runTests() {
     "", !usesBefore || !usesAfter ? "Failed to read use_count" : undefined);
   console.log();
 
+  // L1 mutant (b): Exhausted code returns reason:exhausted
+  {
+    const exhaustUserX = await createTestUser("exhaust-x");
+    const exhaustUserY = await createTestUser("exhaust-y");
+    
+    const { data: exhaustCodeData } = await owner.client.rpc("create_join_code", {
+      p_gym_id: gymId,
+      p_role: "member",
+      p_max_uses: 1,
+    });
+    const exhaustCodeParsed = parseCreateJoinCodeResult(exhaustCodeData);
+    if (!exhaustCodeParsed) throw new Error("Failed to create exhausted code");
+    
+    // User X redeems it (ok)
+    const { data: exhaustXData } = await exhaustUserX.client.rpc("redeem_join_code", {
+      p_code: exhaustCodeParsed.code,
+    });
+    const exhaustXParsed = parseRedeemJoinCodeResult(exhaustXData);
+    check("First redeem of max_uses=1 succeeds", exhaustXParsed?.ok === true);
+    
+    // User Y tries to redeem it (exhausted)
+    const { data: exhaustYData } = await exhaustUserY.client.rpc("redeem_join_code", {
+      p_code: exhaustCodeParsed.code,
+    });
+    const exhaustYParsed = parseRedeemJoinCodeResult(exhaustYData);
+    check("Exhausted code returns reason:exhausted", 
+      exhaustYParsed?.ok === false && exhaustYParsed.reason === "exhausted");
+  }
+
+  // L1 mutant (c): Member C default gym membership still exists (not deleted)
+  if (defaultGym) {
+    const { data: memberDefaultMembership } = await adminClient
+      .from("gym_memberships")
+      .select("status")
+      .eq("user_id", member.userId)
+      .eq("gym_id", defaultGym.id)
+      .single();
+    check("Member C default gym membership still exists (not deleted)", 
+      memberDefaultMembership?.status === "removed");
+  }
+
   console.log("TEST: Own-gym redeem rules");
   
   // Create a fresh gym for these tests
@@ -883,6 +924,17 @@ async function runTests() {
         policyNames.length === 1 && policyNames[0] === 'gym_join_codes_select');
     } catch (policyError) {
       check("Single merged SELECT policy on gym_join_codes", false, String(policyError));
+    }
+
+    // L1 mutant (a): redeem_join_code locks code row FOR UPDATE
+    try {
+      const funcDefResult = await pgClient.query(`
+        SELECT pg_get_functiondef('public.redeem_join_code(text)'::regprocedure) AS d
+      `);
+      check("redeem_join_code locks code row FOR UPDATE", 
+        funcDefResult.rows[0].d.includes("for update"));
+    } catch (funcError) {
+      check("redeem_join_code locks code row FOR UPDATE", false, String(funcError));
     }
 
   } finally {

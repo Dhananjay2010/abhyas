@@ -42,7 +42,7 @@ FAILED=0
 SURVIVORS=()
 SKIPPED=()
 KILLED=0
-TOTAL_MUTANTS=7
+TOTAL_MUTANTS=11
 
 # Use main's reset pattern: plain only in CI with default URL
 if [ "${CI:-}" = "true" ] && [ "${SUPABASE_DB_URL:-}" = "postgresql://postgres:postgres@localhost:54322/postgres" ]; then
@@ -202,6 +202,34 @@ run_mutant \
   "Allow anonymous users to call set_gym_branding" \
   "sed 's/grant execute on function public.set_gym_branding/grant execute on function public.set_gym_branding(uuid, text, text, text, text, text[]) to anon;\ngrant execute on function public.set_gym_branding/' <" \
   "FAIL Anon cannot call set_gym_branding"
+
+# Mutant (h): Leak created_at from get_gym_brand
+run_mutant \
+  "(h) leak created_at" \
+  "Return sensitive created_at field from get_gym_brand" \
+  "sed '/^create function public.get_gym_brand/,/^\$\$/{ s/returns table ($/returns table (name text, slug text, timezone text, display_name text, logo_url text, primary_color text, accent_color text, created_at timestamptz)/; s/select$/select g.name, g.slug, g.timezone, g.display_name, g.logo_url, g.primary_color, g.accent_color, g.created_at/; s/  g.name,$/  select g.name, g.slug, g.timezone, g.display_name, g.logo_url, g.primary_color, g.accent_color, g.created_at/; }' <" \
+  "FAIL get_gym_brand does not leak created_at"
+
+# Mutant (i): Disable RLS on gyms
+run_mutant \
+  "(i) disable RLS on gyms" \
+  "Allow direct table access bypassing RLS" \
+  "sed 's/alter table public.gyms enable row level security;/alter table public.gyms disable row level security;/' <" \
+  "FAIL RLS enabled on gyms"
+
+# Mutant (j): Missing GRANT on get_gym_brand
+run_mutant \
+  "(j) missing GRANT on get_gym_brand" \
+  "Recreate get_gym_brand without granting to anon/authenticated" \
+  "sed '/^grant execute on function public.get_gym_brand/d' <" \
+  "FAIL Anon can call get_gym_brand"
+
+# Mutant (k): Clear parameter ignored
+run_mutant \
+  "(k) clear parameter ignored" \
+  "Ignore p_clear array in set_gym_branding (always coalesce)" \
+  "sed '/-- Validate clear field names/,/v_clear_accent_color := .accent_color. = any(p_clear);/d; /when v_clear_/s/when v_clear_[a-z_]* then null/when false then null/' <" \
+  "FAIL Clear display_name works"
 
 # Reset DB after last mutant
 echo

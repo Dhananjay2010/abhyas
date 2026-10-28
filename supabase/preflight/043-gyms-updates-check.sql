@@ -51,7 +51,7 @@ SELECT EXISTS (
 -- Verify set_gym_branding is SECURITY DEFINER with search_path=''
 SELECT 
   prosecdef AS is_security_definer,
-  'search_path=""' = any(proconfig) AS has_empty_search_path,
+  coalesce('search_path=""' = any(proconfig), false) AS has_empty_search_path,
   pg_get_userbyid(proowner) = 'postgres' AS owner_is_postgres
 FROM pg_proc p
 JOIN pg_namespace n ON p.pronamespace = n.oid

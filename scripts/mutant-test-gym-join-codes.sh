@@ -273,8 +273,8 @@ run_mutant_migration_file \
   "(a) drop FOR UPDATE in redeem_join_code" \
   "Remove row lock that prevents race on max_uses" \
   "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
-  "sed '/^    for update;$/d' | sed '/where upper(public.gym_join_codes.code) = upper(p_code)$/s/$/;/'" \
-  "Success redeem returns gym_name"
+  "sed -e '/^    for update;$/d' -e '/where upper(public.gym_join_codes.code) = upper(p_code)$/s/$/;/'" \
+  "redeem_join_code locks code row FOR UPDATE"
 
 # Mutant (b): Skip use_count check
 run_mutant_migration_file \
@@ -282,15 +282,15 @@ run_mutant_migration_file \
   "Remove max_uses exhaustion check" \
   "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
   "sed '/-- Validate not exhausted/,/end if;/{ /-- Validate not exhausted/d; /if v_code_record.max_uses is not null/d; /perform public.record_join_code_miss/d; /return jsonb_build_object.*exhausted/d; /end if;/d; }'" \
-  "Success redeem returns gym_name"
+  "Exhausted code returns reason:exhausted"
 
 # Mutant (c): Delete instead of status='removed'
 run_mutant_migration_file \
   "(c) delete instead of status=removed" \
   "Delete old membership instead of setting status=removed" \
   "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
-  "sed 's/update public.gym_memberships$/delete from public.gym_memberships/; /^    set status = .removed.$/d'" \
-  "Success redeem returns gym_name"
+  "perl -0pe \"s/update public\\.gym_memberships\\n    set status = 'removed'/delete from public.gym_memberships/\"" \
+  "Member C default gym membership still exists (not deleted)"
 
 # Mutant (d): Skip expiry check
 run_mutant_migration_file \
@@ -298,7 +298,7 @@ run_mutant_migration_file \
   "Allow redemption of expired codes" \
   "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
   "sed '/-- Validate not expired/,/end if;/{ /-- Validate not expired/d; /if v_code_record.expires_at is not null/d; /perform public.record_join_code_miss/d; /return jsonb_build_object.*expired/d; /end if;/d; }'" \
-  "Success redeem returns gym_name"
+  "Redeem expired code returns reason:expired"
 
 # Mutant (e): Grant to anon
 run_mutant \
@@ -315,10 +315,10 @@ run_mutant \
 # Mutant (g): Weaken inline throttle threshold from 10 to 20
 run_mutant_migration_file \
   "(g) weaken inline throttle threshold to 20" \
-  "Allow 20 misses instead of 10 in preview and redeem" \
+  "Allow 20 misses instead of 10 in redeem_join_code" \
   "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
   "sed 's/>= 10/>= 20/g'" \
-  "30+ successes don't throttle"
+  "11th attempt is throttled"
 
 # Mutant (h): Throttle counts successes too (should only count misses)
 run_mutant_migration_file \
@@ -352,7 +352,7 @@ run_mutant_migration_file \
   "Member upgrade to staff returns ok but doesn't actually change role" \
   "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
   "sed '/^      role = v_code_record.role,$/d'" \
-  "Staff redeeming own gym's member code stays staff"
+  "Member upgraded to staff"
 
 # Mutant (m): Broaden merged SELECT policy to allow anyone to read codes
 run_mutant \

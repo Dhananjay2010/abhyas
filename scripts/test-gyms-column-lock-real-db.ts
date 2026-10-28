@@ -479,7 +479,7 @@ async function runTests() {
       });
       
       execSync(
-        `psql -v VERBOSITY=verbose "${dbUrl}" <<'SQL'
+        `psql -v ON_ERROR_STOP=1 -v VERBOSITY=verbose "${dbUrl}" <<'SQL'
 BEGIN;
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims = '{"sub":"${userIdOwner}","role":"authenticated"}';
@@ -494,6 +494,16 @@ SQL`,
       const errStr = String(err);
       check("Future column update blocked", errStr.includes("GJC12"));
       check("SQLSTATE GJC12", errStr.includes("GJC12"));
+    } finally {
+      // Clean up temp column
+      try {
+        execSync(`psql "${dbUrl}" -c "ALTER TABLE public.gyms DROP COLUMN IF EXISTS temp_future_col;"`, {
+          encoding: 'utf-8',
+          stdio: 'pipe'
+        });
+      } catch {
+        // Ignore cleanup errors
+      }
     }
   }
   console.log();

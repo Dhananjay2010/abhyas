@@ -132,6 +132,7 @@ create or replace function public.set_gym_branding(
 ) returns json language plpgsql security definer
 set search_path = '' as $$
 declare
+  v_updated_count int;
   v_field text;
   v_clear_display_name boolean := false;
   v_clear_logo_url boolean := false;
@@ -182,12 +183,20 @@ begin
       raise exception 'BRND2: primary_color must be exactly 6-digit hex code (e.g. #FF9A2E)'
         using errcode = 'BRND2';
     end if;
+    if p_primary_color ~ 'var\(' then
+      raise exception 'BRND2: primary_color cannot contain CSS var() functions'
+        using errcode = 'BRND2';
+    end if;
   end if;
 
   -- Validate accent_color if provided (BRND3)
   if p_accent_color is not null then
     if p_accent_color !~ '^#[0-9A-Fa-f]{6}$' then
       raise exception 'BRND3: accent_color must be exactly 6-digit hex code (e.g. #E8850C)'
+        using errcode = 'BRND3';
+    end if;
+    if p_accent_color ~ 'var\(' then
+      raise exception 'BRND3: accent_color cannot contain CSS var() functions'
         using errcode = 'BRND3';
     end if;
   end if;
@@ -253,6 +262,14 @@ begin
       else coalesce(p_accent_color, accent_color) 
     end
   where id = p_gym_id;
+
+  get diagnostics v_updated_count = row_count;
+
+  -- If no rows updated, gym doesn't exist (BRND5)
+  if v_updated_count = 0 then
+    raise exception 'BRND5: Gym not found'
+      using errcode = 'BRND5';
+  end if;
 
   return json_build_object('success', true);
 end;
