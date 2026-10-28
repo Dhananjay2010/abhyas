@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getBrandCssVariables } from "@/lib/branding";
 import { generateMetadataFor } from "@/lib/layout-metadata";
+import { getRequestBrandResolution } from "@/lib/runtime-brand";
 import type { BrandResolution } from "@/lib/runtime-brand";
 
 /**
@@ -20,4 +21,22 @@ export async function buildRootLayoutBrandProps(
   const metadata = await generateMetadataFor(getResolution);
 
   return { brand, brandCssVars, metadata };
+}
+
+/**
+ * Production entry point for metadata with real dependency bound.
+ * Call sites: layout.tsx generateMetadata
+ */
+export async function getRootLayoutMetadataForRequest(): Promise<Metadata> {
+  const { metadata } = await buildRootLayoutBrandProps(getRequestBrandResolution);
+  return metadata;
+}
+
+/**
+ * Production entry point for CSS variables with real dependency bound.
+ * Call sites: layout.tsx default export
+ */
+export async function getRootLayoutBrandCssForRequest(): Promise<string> {
+  const { brandCssVars } = await buildRootLayoutBrandProps(getRequestBrandResolution);
+  return brandCssVars;
 }

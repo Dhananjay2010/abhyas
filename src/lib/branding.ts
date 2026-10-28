@@ -397,6 +397,7 @@ export function getBrandCssVariables(brand: Brand = branding): string {
     `--color-accent: ${brand.colors.accent};`,
     `--color-accent-hover: ${brand.colors.accentHover};`,
     `--color-accent-fg: ${brand.colors.accentFg};`,
+    `--color-accent-on-surface: ${brand.colors.accentOnSurface};`,
     `--color-bg: ${brand.colors.bg};`,
     `--color-surface: ${brand.colors.surface};`,
     `--color-surface-2: ${brand.colors.surface2};`,

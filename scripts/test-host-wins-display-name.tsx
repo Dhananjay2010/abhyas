@@ -83,18 +83,19 @@ async function testNoRenderWhenSameGym() {
   console.log("\nTEST: Notice does not render when gym IDs match");
   
   const props = {
-    userGymId: "gym-same",
-    userGymName: "Same Gym",
-    hostGymId: "gym-same", // Same ID
-    hostGymName: "Same Gym",
+    userGymId: "gym-same-id",
+    userGymName: "User's Gym Name",
+    hostGymId: "gym-same-id", // Same ID
+    hostGymName: "Host's Different Name",
   };
   
   const html = renderToStaticMarkup(
     <HostWinsNotice {...props} />
   );
   
-  // Should render empty/null when IDs match
+  // Should render empty/null when IDs match (even though names differ)
   check("No notice rendered when gym IDs match", html === "" || html.length < 10);
+  console.log("  Same ID, different names: no notice shown");
 }
 
 async function main() {

@@ -62,8 +62,7 @@ async function testPreviewUsesEnsureMinContrast() {
   
   // Preview should show adjusted color, not raw
   check("Preview uses adjusted color (not raw)", adjustedPrimary !== lowContrast);
-  check("previewPrimary is adjusted hex", 
-    previewPrimary === adjustedPrimary || previewPrimary.startsWith('#'));
+  check("previewPrimary equals adjustedPrimary", previewPrimary === adjustedPrimary);
   
   console.log(`  Input: ${lowContrast} → Adjusted: ${adjustedPrimary}`);
 }

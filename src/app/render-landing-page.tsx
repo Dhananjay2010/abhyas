@@ -1,6 +1,9 @@
+import { redirect } from "next/navigation";
 import { getLandingRedirectTarget } from "@/lib/auth/sign-in-redirect";
 import { safeNextPath } from "@/lib/auth/redirect-origin";
 import { buildLandingBrandProp } from "@/lib/landing-props";
+import { getAuthedClient } from "@/lib/supabase/auth";
+import { getRequestBrandResolution } from "@/lib/runtime-brand";
 import type { BrandResolution } from "@/lib/runtime-brand";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
@@ -46,4 +49,16 @@ export async function renderLandingPage(
   const { brand } = await buildLandingBrandProp(deps.getRequestBrandResolution);
   
   return <LandingContent brand={brand} error={error} next={next} />;
+}
+
+/**
+ * Production entry point with real dependencies bound.
+ * Call sites: page.tsx
+ */
+export async function renderLandingPageForRequest(props: LandingPageProps) {
+  return renderLandingPage(props, {
+    getAuthedClient,
+    getRequestBrandResolution,
+    redirect,
+  });
 }

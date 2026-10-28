@@ -64,14 +64,13 @@ function runTests() {
     check("Light accent gets dark foreground", lightFg === "#000000");
     check("Dark accent gets light foreground", darkFg === "#ffffff");
     
-    // Verify accessibleTextColor is deterministic
+    // Verify accessibleTextColor returns the expected value for the base brand accent
     const computed = accessibleTextColor(branding.colors.accent);
     check("accessibleTextColor returns black or white", 
       computed === "#000000" || computed === "#ffffff");
     
-    // Verify same input = same output
-    const computed2 = accessibleTextColor(branding.colors.accent);
-    check("accessibleTextColor is deterministic", computed === computed2);
+    // Base brand accent is #ff9a2e (orange) - should return #000000 (black) for contrast
+    check("accessibleTextColor for base accent is black", computed === "#000000");
   }
   console.log();
 

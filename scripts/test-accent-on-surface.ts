@@ -88,10 +88,60 @@ async function testAccentOnSurfaceInBrandType() {
   );
 }
 
+async function testBaseBrandAccentNeedsAdjustment() {
+  console.log("\nTEST: Base brand accent fails 4.5:1, mergeBrand sets accentOnSurface");
+  
+  // Create a brand where the base accent itself fails 4.5:1 on surface
+  const baseBrand: Brand = {
+    ...branding,
+    colors: {
+      ...branding.colors,
+      accent: "#2563eb", // Blue-600 - low contrast on dark surface
+    },
+  };
+  
+  // Check that the base accent fails 4.5:1
+  const baseContrast = contrastRatio(baseBrand.colors.accent, baseBrand.colors.surface);
+  check("Base accent fails 4.5:1 on surface", baseContrast < 4.5, `${baseContrast.toFixed(2)}:1`);
+  
+  // mergeBrand with empty partial should still compute accentOnSurface
+  const merged = mergeBrand(baseBrand, {});
+  
+  const mergedContrast = contrastRatio(merged.colors.accentOnSurface, merged.colors.surface);
+  check("mergeBrand sets accentOnSurface >= 4.5:1", mergedContrast >= 4.5, `${mergedContrast.toFixed(2)}:1`);
+  check("accentOnSurface differs from base accent", merged.colors.accentOnSurface !== baseBrand.colors.accent);
+  
+  console.log(`  Base accent: ${baseBrand.colors.accent} (${baseContrast.toFixed(2)}:1)`);
+  console.log(`  Adjusted accentOnSurface: ${merged.colors.accentOnSurface} (${mergedContrast.toFixed(2)}:1)`);
+}
+
+async function testLayoutCssContainsAdjustedValue() {
+  console.log("\nTEST: Layout CSS contains adjusted accentOnSurface for low-contrast accent");
+  
+  const { getBrandCssVariables } = await import("@/lib/branding");
+  
+  // Merge brand with low-contrast accent to get adjusted accentOnSurface
+  const merged = mergeBrand(branding, { colors: { ...branding.colors, accent: "#1E40AF" } });
+  
+  // Get CSS variables
+  const cssVars = getBrandCssVariables(merged);
+  
+  // Verify accentOnSurface is in the CSS
+  check("CSS vars include --color-accent-on-surface", cssVars.includes("--color-accent-on-surface:"));
+  
+  // Verify the adjusted value is in the CSS
+  const expectedVar = `--color-accent-on-surface: ${merged.colors.accentOnSurface};`;
+  check("CSS contains adjusted accentOnSurface value", cssVars.includes(expectedVar), expectedVar);
+  
+  console.log(`  Adjusted value in CSS: ${merged.colors.accentOnSurface}`);
+}
+
 async function main() {
   await testAccentOnSurfaceInBrandType();
   await testAccentOnSurfaceContrast();
   await testHighContrastAccentUnchanged();
+  await testBaseBrandAccentNeedsAdjustment();
+  await testLayoutCssContainsAdjustedValue();
   
   if (failures > 0) {
     console.error(`\n❌ ${failures} test(s) failed`);
@@ -100,6 +150,7 @@ async function main() {
   
   console.log("\n✅ All accent-on-surface contrast tests passed");
   console.log("\nLOW (a): Accent text on cards now meets WCAG AA (4.5:1).");
+  console.log("accentOnSurface is emitted as --color-accent-on-surface CSS variable.");
   process.exit(0);
 }
 

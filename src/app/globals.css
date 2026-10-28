@@ -12,6 +12,7 @@
   --color-accent: #ff9a2e;
   --color-accent-hover: #e8850c;
   --color-accent-fg: #1a1000;
+  --color-accent-on-surface: #ffa647;
   --color-danger: #f87171;
   /* Chart data hue. Validated against --color-surface (#151a1f): inside the
      dark-mode lightness band and above 3:1 contrast. Do not swap for the
