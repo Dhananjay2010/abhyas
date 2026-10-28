@@ -7,7 +7,6 @@
  */
 
 import { readFileSync } from "fs";
-import type { CandidateExercise } from "../src/lib/program/generate";
 import { replaceBannedInPlanned, type PlannedExercise } from "../src/lib/program/replace-banned-in-planned";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";

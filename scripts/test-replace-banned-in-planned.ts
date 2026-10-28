@@ -272,7 +272,6 @@ if (!thruster || !kbPushPress) {
   failures++;
 } else {
   // Past knee: thruster banned, push-press allowed
-  const pastKneeInput = buildInput(true, false);
   const pastKneeTier = determineKneeTier(true, []);
   
   if (pastKneeTier === "past") {
@@ -291,7 +290,6 @@ if (!thruster || !kbPushPress) {
   }
   
   // Current knee: both banned
-  const currentKneeInput = buildInput(true, true);
   const currentKneeTier = determineKneeTier(true, ["knee"]);
   
   if (currentKneeTier === "current") {

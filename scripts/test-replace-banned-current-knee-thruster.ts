@@ -9,7 +9,7 @@
 
 import { readFileSync } from "fs";
 import { replaceBannedInPlanned, type PlannedExercise } from "../src/lib/program/replace-banned-in-planned";
-import type { CandidateExercise, GeneratorInput } from "../src/lib/program/generate";
+import type { GeneratorInput } from "../src/lib/program/generate";
 import type { Database } from "../src/lib/database.types";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 
