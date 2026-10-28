@@ -1185,7 +1185,7 @@ console.log("\n10. Clock resumes after failed end early (endearly-resume)");
     async finishSession() { return { ok: true, data: { status: "completed", durationSeconds: null } }; },
     async abandonSession() {
       if (abandonFails) {
-        return { ok: false, error: "Network error" };
+        return { ok: false, error: "Couldn't end the session" };
       }
       return { ok: true };
     },
