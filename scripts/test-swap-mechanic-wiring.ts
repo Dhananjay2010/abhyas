@@ -14,7 +14,7 @@ let capturedMechanic: string | null | undefined = undefined;
 
 // Mock dependencies
 const mockDeps: SwapExerciseDeps = {
-  async resolveSwapWeights(sessionId, newExerciseId, equipmentIds, mechanic, _metric, _movementPattern, _remembersWeights) {
+  async resolveSwapWeights(sessionId, newExerciseId, equipmentIds, mechanic) {
     // Capture the mechanic argument
     capturedMechanic = mechanic;
     console.log(`✓ resolveSwapWeights called with mechanic: ${mechanic ?? "null"}`);
@@ -27,7 +27,7 @@ const mockDeps: SwapExerciseDeps = {
     };
   },
   
-  async validateSwapTarget({ newExerciseId: _newExerciseId }) {
+  async validateSwapTarget() {
     // Always approve the swap
     return true;
   },

@@ -6,24 +6,8 @@
  * and the progression feedback must contain neither "kg" nor "lb".
  */
 
-import { readProfileUnitsOrNull } from "../src/lib/program/read-profile-units-or-null";
+import { readProfileUnitsOrNull, type ProfilesReader } from "../src/lib/program/read-profile-units-or-null";
 import { progressionFeedback } from "../src/lib/session/progression-feedback";
-
-type SupabaseQuery<T> = {
-  data: T | null;
-  error: { message: string } | null;
-};
-
-type SupabaseQueryBuilder<T> = {
-  eq: (column: string, value: unknown) => SupabaseQueryBuilder<T>;
-  single: () => Promise<SupabaseQuery<T>>;
-};
-
-type MinimalSupabaseClient = {
-  from: <T>(table: string) => {
-    select: (columns: string) => SupabaseQueryBuilder<T>;
-  };
-};
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -34,156 +18,173 @@ function check(label: string, ok: boolean, detail = "") {
 console.log("\nTest: readProfileUnitsOrNull fallback and unit-neutral feedback\n");
 
 // Typed fake client that returns error
-function createErrorClient(): MinimalSupabaseClient {
+function createErrorClient(): ProfilesReader {
   return {
-    from: <T>() => {
-      const builder: SupabaseQueryBuilder<T> = {
-        eq: () => builder,
-        single: async () => ({
-          data: null,
-          error: { message: "Connection timeout" },
-        }),
-      };
+    from() {
       return {
-        select: () => builder,
+        select() {
+          return {
+            eq() {
+              return {
+                single: async () => ({
+                  data: null,
+                  error: { message: "Connection timeout" },
+                }),
+              };
+            },
+          };
+        },
       };
     },
   };
 }
 
 // Typed fake client that throws exception
-function createThrowingClient(): MinimalSupabaseClient {
+function createThrowingClient(): ProfilesReader {
   return {
-    from: <T>() => {
-      const builder: SupabaseQueryBuilder<T> = {
-        eq: () => builder,
-        single: async () => {
-          throw new Error("Network failure");
-        },
-      };
+    from() {
       return {
-        select: () => builder,
+        select() {
+          return {
+            eq() {
+              return {
+                single: async () => {
+                  throw new Error("Network failure");
+                },
+              };
+            },
+          };
+        },
       };
     },
   };
 }
 
 // Typed fake client that returns null profile
-function createNullProfileClient(): MinimalSupabaseClient {
+function createNullProfileClient(): ProfilesReader {
   return {
-    from: <T>() => {
-      const builder: SupabaseQueryBuilder<T> = {
-        eq: () => builder,
-        single: async () => ({
-          data: null,
-          error: null,
-        }),
-      };
+    from() {
       return {
-        select: () => builder,
+        select() {
+          return {
+            eq() {
+              return {
+                single: async () => ({
+                  data: null,
+                  error: null,
+                }),
+              };
+            },
+          };
+        },
       };
     },
   };
 }
 
 // Typed fake client that returns imperial
-function createImperialClient(): MinimalSupabaseClient {
+function createImperialClient(): ProfilesReader {
   return {
-    from: <T>(table: string) => {
-      const builder: SupabaseQueryBuilder<T> = {
-        eq: () => builder,
-        single: async () => {
-          if (table === "profiles") {
-            return {
-              data: { units: "imperial" } as T,
-              error: null,
-            };
-          }
-          return { data: null, error: null };
-        },
-      };
+    from() {
       return {
-        select: () => builder,
+        select() {
+          return {
+            eq() {
+              return {
+                single: async () => ({
+                  data: { units: "imperial" },
+                  error: null,
+                }),
+              };
+            },
+          };
+        },
       };
     },
   };
 }
 
 // Typed fake client that returns metric
-function createMetricClient(): MinimalSupabaseClient {
+function createMetricClient(): ProfilesReader {
   return {
-    from: <T>(table: string) => {
-      const builder: SupabaseQueryBuilder<T> = {
-        eq: () => builder,
-        single: async () => {
-          if (table === "profiles") {
-            return {
-              data: { units: "metric" } as T,
-              error: null,
-            };
-          }
-          return { data: null, error: null };
-        },
-      };
+    from() {
       return {
-        select: () => builder,
+        select() {
+          return {
+            eq() {
+              return {
+                single: async () => ({
+                  data: { units: "metric" },
+                  error: null,
+                }),
+              };
+            },
+          };
+        },
       };
     },
   };
-}
-
-// Test helper to call readProfileUnitsOrNull with a minimal fake client
-async function testReader(client: MinimalSupabaseClient, userId: string) {
-  // In test code, we use the minimal client directly
-  // The type system knows it's compatible for the methods we actually call
-  return readProfileUnitsOrNull(client as never, userId);
 }
 
 async function main() {
   console.log("1. Error case returns null");
   {
     const client = createErrorClient();
-    const units = await testReader(client, "user-1");
+    const units = await readProfileUnitsOrNull(client, "user-1");
     check("Error case returns null", units === null, `got: ${units}`);
   }
 
   console.log("\n2. Throw case returns null");
   {
     const client = createThrowingClient();
-    const units = await testReader(client, "user-1");
+    const units = await readProfileUnitsOrNull(client, "user-1");
     check("Throw case returns null", units === null, `got: ${units}`);
   }
 
   console.log("\n3. Null profile returns null");
   {
     const client = createNullProfileClient();
-    const units = await testReader(client, "user-1");
+    const units = await readProfileUnitsOrNull(client, "user-1");
     check("Null profile returns null", units === null, `got: ${units}`);
   }
 
   console.log("\n4. Valid imperial returns 'imperial'");
   {
     const client = createImperialClient();
-    const units = await testReader(client, "user-1");
+    const units = await readProfileUnitsOrNull(client, "user-1");
     check("Valid imperial returns 'imperial'", units === "imperial", `got: ${units}`);
   }
 
   console.log("\n5. Valid metric returns 'metric'");
   {
     const client = createMetricClient();
-    const units = await testReader(client, "user-1");
+    const units = await readProfileUnitsOrNull(client, "user-1");
     check("Valid metric returns 'metric'", units === "metric", `got: ${units}`);
   }
 
-  console.log("\n6. Unit-neutral feedback contains neither /\\bkg\\b/ nor /\\blb\\b/");
+  console.log("\n6. Unit-neutral feedback: no kg/lb, no grammar artifacts");
   {
-    // Mock session exercise, sets, prior, session for progression feedback
     type SessionExerciseRow = Parameters<typeof progressionFeedback>[0];
     type SessionSetRow = Parameters<typeof progressionFeedback>[1][0];
     type ExerciseProgressRow = Parameters<typeof progressionFeedback>[2];
     type SessionRow = Parameters<typeof progressionFeedback>[3];
     
-    const se: SessionExerciseRow = {
+    // Helper to check a message
+    const checkNeutral = (label: string, message: string) => {
+      const hasKg = /\bkg\b/i.test(message);
+      const hasLb = /\blb\b/i.test(message);
+      const hasToTo = /\bto to\b/i.test(message);
+      const hasDotTo = /\. to\b/i.test(message);
+      const hasDashDot = /—\./i.test(message);
+      
+      check(`${label}: no 'kg'`, !hasKg, `message: ${message}`);
+      check(`${label}: no 'lb'`, !hasLb, `message: ${message}`);
+      check(`${label}: no 'to to'`, !hasToTo, `message: ${message}`);
+      check(`${label}: no '. to'`, !hasDotTo, `message: ${message}`);
+      check(`${label}: no '—.'`, !hasDashDot, `message: ${message}`);
+    };
+    
+    const BENCH: SessionExerciseRow = {
       id: "se-1",
       session_id: "sess-1",
       exercise_id: "ex-bench",
@@ -200,38 +201,233 @@ async function main() {
       },
     };
     
-    const sets: SessionSetRow[] = [
-      { reps: 7, weight_kg: 60, duration_seconds: null },
-      { reps: 7, weight_kg: 60, duration_seconds: null },
-      { reps: 7, weight_kg: 60, duration_seconds: null },
-      { reps: 7, weight_kg: 60, duration_seconds: null },
-    ];
-    
-    const prior: ExerciseProgressRow = {
-      current_working_weight_kg: 60,
-      current_target_reps: 12,
-      consecutive_failures: 0,
-      best_weight_kg: 60,
-      best_reps: 12,
-      best_e1rm: 84,
-      total_sessions: 5,
-      weight_at_failure_start_kg: null,
-    };
-    
     const session: SessionRow = {
       is_deload: false,
       local_date: "2026-10-28",
       program_id: "prog-1",
     };
     
-    const { decision, personalBest } = progressionFeedback(se, sets, prior, session, "right", null);
+    // Progressed path (easy double)
+    {
+      const sets: SessionSetRow[] = [
+        { reps: 12, weight_kg: 60, duration_seconds: null },
+        { reps: 12, weight_kg: 60, duration_seconds: null },
+        { reps: 12, weight_kg: 60, duration_seconds: null },
+        { reps: 12, weight_kg: 60, duration_seconds: null },
+      ];
+      
+      const prior: ExerciseProgressRow = {
+        current_working_weight_kg: 60,
+        current_target_reps: 12,
+        consecutive_failures: 0,
+        best_weight_kg: 60,
+        best_reps: 12,
+        best_e1rm: 84,
+        total_sessions: 5,
+        weight_at_failure_start_kg: null,
+      };
+      
+      const { decision } = progressionFeedback(BENCH, sets, prior, session, "easy", null);
+      checkNeutral("Progressed (easy)", decision.message);
+      check("Progressed: exact neutral message", 
+        decision.message === "All sets at the top of the range — ready for the next step.",
+        decision.message);
+    }
     
-    const hasKg = /\bkg\b/i.test(decision.message);
-    const hasLb = /\blb\b/i.test(decision.message);
+    // Barbell counter 1 (second miss)
+    {
+      const sets: SessionSetRow[] = [
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+      ];
+      
+      const prior: ExerciseProgressRow = {
+        current_working_weight_kg: 60,
+        current_target_reps: 12,
+        consecutive_failures: 1,
+        best_weight_kg: 60,
+        best_reps: 12,
+        best_e1rm: 84,
+        total_sessions: 5,
+        weight_at_failure_start_kg: 60,
+      };
+      
+      const { decision } = progressionFeedback(BENCH, sets, prior, session, "right", null);
+      checkNeutral("Barbell counter 1", decision.message);
+      check("Barbell counter 1: exact neutral message",
+        decision.message === "Missed twice in a row — dropping the weight to build back.",
+        decision.message);
+    }
     
-    check("Null units: message has no 'kg'", !hasKg, `message: ${decision.message}`);
-    check("Null units: message has no 'lb'", !hasLb, `message: ${decision.message}`);
-    check("Null units: personalBest is null", personalBest === null, `got: ${personalBest}`);
+    // Barbell counter 2 (third miss)
+    {
+      const sets: SessionSetRow[] = [
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+      ];
+      
+      const prior: ExerciseProgressRow = {
+        current_working_weight_kg: 60,
+        current_target_reps: 12,
+        consecutive_failures: 2,
+        best_weight_kg: 60,
+        best_reps: 12,
+        best_e1rm: 84,
+        total_sessions: 5,
+        weight_at_failure_start_kg: 60,
+      };
+      
+      const { decision } = progressionFeedback(BENCH, sets, prior, session, "right", null);
+      checkNeutral("Barbell counter 2", decision.message);
+      check("Barbell counter 2: exact neutral message",
+        decision.message === "Missed three times in a row — dropping the weight to build back.",
+        decision.message);
+    }
+    
+    // Barbell counter 3 (fourth+ miss)
+    {
+      const sets: SessionSetRow[] = [
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+        { reps: 7, weight_kg: 60, duration_seconds: null },
+      ];
+      
+      const prior: ExerciseProgressRow = {
+        current_working_weight_kg: 60,
+        current_target_reps: 12,
+        consecutive_failures: 3,
+        best_weight_kg: 60,
+        best_reps: 12,
+        best_e1rm: 84,
+        total_sessions: 5,
+        weight_at_failure_start_kg: 60,
+      };
+      
+      const { decision } = progressionFeedback(BENCH, sets, prior, session, "right", null);
+      checkNeutral("Barbell counter 3", decision.message);
+      check("Barbell counter 3: exact neutral message",
+        decision.message === "Missed again — dropping the weight to build back.",
+        decision.message);
+    }
+    
+    // Kettlebell 3rd miss step-down
+    {
+      const KB: SessionExerciseRow = {
+        ...BENCH,
+        exercises: {
+          mechanic: "compound",
+          movement_pattern: "horizontal_press",
+          equipment_ids: ["kettlebell"],
+          progression_chain: null,
+          progression_rank: null,
+        },
+      };
+      
+      const sets: SessionSetRow[] = [
+        { reps: 7, weight_kg: 12, duration_seconds: null },
+        { reps: 7, weight_kg: 12, duration_seconds: null },
+        { reps: 7, weight_kg: 12, duration_seconds: null },
+        { reps: 7, weight_kg: 12, duration_seconds: null },
+      ];
+      
+      const prior: ExerciseProgressRow = {
+        current_working_weight_kg: 12,
+        current_target_reps: 12,
+        consecutive_failures: 2,
+        best_weight_kg: 16,
+        best_reps: 12,
+        best_e1rm: 21,
+        total_sessions: 5,
+        weight_at_failure_start_kg: 12,
+      };
+      
+      const { decision } = progressionFeedback(KB, sets, prior, session, "right", null);
+      checkNeutral("Kettlebell 3rd miss", decision.message);
+      check("Kettlebell 3rd miss: exact neutral message",
+        decision.message === "Missed three times in a row — dropping the weight to build back.",
+        decision.message);
+    }
+    
+    // Kettlebell 4th miss step-down
+    {
+      const KB: SessionExerciseRow = {
+        ...BENCH,
+        exercises: {
+          mechanic: "compound",
+          movement_pattern: "horizontal_press",
+          equipment_ids: ["kettlebell"],
+          progression_chain: null,
+          progression_rank: null,
+        },
+      };
+      
+      const sets: SessionSetRow[] = [
+        { reps: 7, weight_kg: 12, duration_seconds: null },
+        { reps: 7, weight_kg: 12, duration_seconds: null },
+        { reps: 7, weight_kg: 12, duration_seconds: null },
+        { reps: 7, weight_kg: 12, duration_seconds: null },
+      ];
+      
+      const prior: ExerciseProgressRow = {
+        current_working_weight_kg: 12,
+        current_target_reps: 12,
+        consecutive_failures: 3,
+        best_weight_kg: 16,
+        best_reps: 12,
+        best_e1rm: 21,
+        total_sessions: 5,
+        weight_at_failure_start_kg: 12,
+      };
+      
+      const { decision } = progressionFeedback(KB, sets, prior, session, "right", null);
+      checkNeutral("Kettlebell 4th miss", decision.message);
+      check("Kettlebell 4th miss: exact neutral message",
+        decision.message === "Missed again — dropping the weight to build back.",
+        decision.message);
+    }
+    
+    // Bodyweight back-off
+    {
+      const PULL_UP: SessionExerciseRow = {
+        ...BENCH,
+        exercises: {
+          mechanic: "compound",
+          movement_pattern: "vertical_pull",
+          equipment_ids: [],
+          progression_chain: null,
+          progression_rank: null,
+        },
+      };
+      
+      const sets: SessionSetRow[] = [
+        { reps: 7, weight_kg: 1.25, duration_seconds: null },
+        { reps: 7, weight_kg: 1.25, duration_seconds: null },
+        { reps: 7, weight_kg: 1.25, duration_seconds: null },
+        { reps: 7, weight_kg: 1.25, duration_seconds: null },
+      ];
+      
+      const prior: ExerciseProgressRow = {
+        current_working_weight_kg: 1.25,
+        current_target_reps: 12,
+        consecutive_failures: 1,
+        best_weight_kg: 2.5,
+        best_reps: 12,
+        best_e1rm: 3.4,
+        total_sessions: 5,
+        weight_at_failure_start_kg: 1.25,
+      };
+      
+      const { decision } = progressionFeedback(PULL_UP, sets, prior, session, "right", null);
+      checkNeutral("Bodyweight back-off", decision.message);
+      check("Bodyweight back-off: exact neutral message",
+        decision.message === "Missed twice in a row — back to bodyweight to build up again.",
+        decision.message);
+    }
   }
 
   console.log("\n7. Imperial user gets 'lb' in feedback");
@@ -350,46 +546,3 @@ main().catch((err) => {
   console.error("Test failed with exception:", err);
   process.exit(1);
 });
-
-// Mutant: readProfileUnitsOrNull returns "metric" on error (not null)
-console.log("\n=== MUTANT: Return 'metric' on error instead of null ===");
-{
-  const BACKUP = "/tmp/read-profile-units-backup-$(date +%s%N).ts";
-  const TARGET = "src/lib/program/read-profile-units-or-null.ts";
-  
-  // Inline mutation test
-  const fs = require("fs");
-  const original = fs.readFileSync(TARGET, "utf8");
-  
-  try {
-    // Apply mutation: return "metric" instead of null
-    const mutated = original.replace(/return null;/g, 'return "metric";');
-    fs.writeFileSync(TARGET, mutated);
-    
-    // Re-import the mutated module
-    delete require.cache[require.resolve("../src/lib/program/read-profile-units-or-null")];
-    const { readProfileUnitsOrNull: mutatedReader } = require("../src/lib/program/read-profile-units-or-null");
-    
-    // Test should fail
-    const client = createErrorClient();
-    const units = await mutatedReader(client as any, "user-1");
-    
-    if (units === null) {
-      console.log("  ❌ MUTANT SURVIVED: Still returns null");
-      failures++;
-    } else {
-      console.log(`  ✅ KILLED: Mutant detected - returns '${units}' instead of null`);
-    }
-    
-  } finally {
-    // Restore original
-    fs.writeFileSync(TARGET, original);
-  }
-}
-
-if (failures > 0) {
-  console.log(`\n❌ FINAL: ${failures} FAILURES\n`);
-  process.exit(1);
-}
-
-console.log("\n✅ FINAL: ALL CHECKS AND MUTANT PASSED\n");

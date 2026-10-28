@@ -462,15 +462,23 @@ export function evaluateProgression(input: {
   /**
    * Format weight for display in progression messages.
    * Uses the user's unit preference (metric or imperial).
+   * Returns null when unit preference is unavailable (for unit-neutral messages).
    */
-  const displayWeight = (kg: number, fallbackUnit: WeightUnit = "kg") => (unit ?? fallbackUnit) === "lb" 
-    ? formatWeight(kg, "imperial", true, "0 lb")
-    : `${kg} kg`;
+  const displayWeight = (kg: number, fallbackUnit: WeightUnit = "kg"): string | null => 
+    unit === null || unit === undefined
+      ? null
+      : (unit ?? fallbackUnit) === "lb" 
+        ? formatWeight(kg, "imperial", true, "0 lb")
+        : `${kg} kg`;
   
   // For prescribed increases: rounds DOWN in imperial (conservative)
-  const displayPrescribedWeight = (kg: number) => unit === "lb"
-    ? formatPrescribedWeight(kg, "imperial")
-    : formatPrescribedWeight(kg, "metric");
+  // Returns null when unit preference is unavailable
+  const displayPrescribedWeight = (kg: number): string | null => 
+    unit === null || unit === undefined
+      ? null
+      : unit === "lb"
+        ? formatPrescribedWeight(kg, "imperial")
+        : formatPrescribedWeight(kg, "metric");
 
   // Get resolved target (what the display shows) for write-back
   const resolvedTargetForBase = resolveTarget({
@@ -791,8 +799,9 @@ export function evaluateProgression(input: {
     // Bodyweight without stored working weight: no kg target in message
     // MSG2: Pin message for bodyweight with added weight progressing from 0 or null
     if (meta.isBodyweight && (state.currentWorkingWeightKg === null || state.currentWorkingWeightKg === 0)) {
-      const message = next > 0
-        ? `All sets at the top of the range — ready to add ${displayPrescribedWeight(next)}.`
+      const weightDisplay = displayPrescribedWeight(next);
+      const message = next > 0 && weightDisplay
+        ? `All sets at the top of the range — ready to add ${weightDisplay}.`
         : "All sets at the top of the range — ready for the next step.";
       
       return {
@@ -813,10 +822,15 @@ export function evaluateProgression(input: {
       nextTargetReps: repsMax,
       consecutiveFailures: 0,
       weightAtFailureStartKg: null, // M1: clear on success
-      message:
-        feel === "easy" && !isBodyweightWithAddedWeight
-          ? `All sets at the top and it felt easy — up to ${displayPrescribedWeight(next)}.`
-          : `All sets at the top of the range — up to ${displayPrescribedWeight(next)}.`,
+      message: (() => {
+        const weightDisplay = displayPrescribedWeight(next);
+        if (!weightDisplay) {
+          return "All sets at the top of the range — ready for the next step.";
+        }
+        return feel === "easy" && !isBodyweightWithAddedWeight
+          ? `All sets at the top and it felt easy — up to ${weightDisplay}.`
+          : `All sets at the top of the range — up to ${weightDisplay}.`;
+      })(),
     };
   }
 
@@ -1011,11 +1025,20 @@ export function evaluateProgression(input: {
                 : "Missed twice in a row — dropping to bodyweight to build up again.";
           }
         } else {
-          message = state.consecutiveFailures >= 3
-            ? `Missed again — dropping one step to ${displayWeight(stepped)} to break through.`
-            : state.consecutiveFailures === 2
-              ? `Missed three times in a row — dropping one step to ${displayWeight(stepped)} to break through.`
-              : `Missed twice in a row — dropping to ${displayWeight(stepped)} to build back.`;
+          const steppedDisplay = displayWeight(stepped);
+          if (steppedDisplay) {
+            message = state.consecutiveFailures >= 3
+              ? `Missed again — dropping one step to ${steppedDisplay} to break through.`
+              : state.consecutiveFailures === 2
+                ? `Missed three times in a row — dropping one step to ${steppedDisplay} to break through.`
+                : `Missed twice in a row — dropping to ${steppedDisplay} to build back.`;
+          } else {
+            message = state.consecutiveFailures >= 3
+              ? "Missed again — dropping one step to break through."
+              : state.consecutiveFailures === 2
+                ? "Missed three times in a row — dropping one step to break through."
+                : "Missed twice in a row — dropping one step to build back.";
+          }
         }
         
         return {
@@ -1072,6 +1095,8 @@ export function evaluateProgression(input: {
       };
     }
     
+    const reducedDisplay = displayWeight(reduced);
+    
     return {
       ...carried,
       outcome: "backed_off",
@@ -1079,11 +1104,17 @@ export function evaluateProgression(input: {
       nextTargetReps: repsMax,
       consecutiveFailures: 0,
       weightAtFailureStartKg: null, // M1: clear on successful two-miss back-off
-      message: state.consecutiveFailures >= 3
-        ? `Missed again — dropping to ${displayWeight(reduced)} to build back.`
-        : state.consecutiveFailures === 2
-          ? `Missed three times in a row — dropping to ${displayWeight(reduced)} to build back.`
-          : `Missed twice in a row — dropping to ${displayWeight(reduced)} to build back.`,
+      message: reducedDisplay
+        ? (state.consecutiveFailures >= 3
+            ? `Missed again — dropping to ${reducedDisplay} to build back.`
+            : state.consecutiveFailures === 2
+              ? `Missed three times in a row — dropping to ${reducedDisplay} to build back.`
+              : `Missed twice in a row — dropping to ${reducedDisplay} to build back.`)
+        : (state.consecutiveFailures >= 3
+            ? "Missed again — dropping the weight to build back."
+            : state.consecutiveFailures === 2
+              ? "Missed three times in a row — dropping the weight to build back."
+              : "Missed twice in a row — dropping the weight to build back."),
     };
   }
 

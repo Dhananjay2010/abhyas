@@ -15,7 +15,8 @@ import type { ExerciseMeta, ProgressState } from "../program/progression";
 import type { WeightUnit } from "./equipment-grid";
 import { progressionInputsFromExercise } from "./progression-inputs";
 
-function unitsToWeightUnit(units: "metric" | "imperial"): WeightUnit {
+function unitsToWeightUnit(units: "metric" | "imperial" | null): WeightUnit | undefined {
+  if (units === null) return undefined;
   return units === "imperial" ? "lb" : "kg";
 }
 
@@ -67,7 +68,7 @@ export function buildProgressionInput(
   progress: ExerciseProgressRow,
   session: SessionRow,
   feel: "easy" | "right" | "hard" | null,
-  units: "metric" | "imperial" = "metric",
+  units: "metric" | "imperial" | null = "metric",
 ) {
   const ex = sessionExercise.exercises;
   if (!ex) {

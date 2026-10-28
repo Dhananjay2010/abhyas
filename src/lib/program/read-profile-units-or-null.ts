@@ -4,11 +4,27 @@
  * Used to build unit-neutral feedback when units cannot be determined.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UnitsPreference } from "../units";
 
+/**
+ * Minimal structural type for reading profile units.
+ * Allows testing with fake clients.
+ */
+export type ProfilesReader = {
+  from(table: "profiles"): {
+    select(columns: "units"): {
+      eq(column: "id", value: string): {
+        single(): PromiseLike<{
+          data: { units: string | null } | null;
+          error: unknown;
+        }>;
+      };
+    };
+  };
+};
+
 export async function readProfileUnitsOrNull(
-  client: SupabaseClient,
+  client: ProfilesReader,
   userId: string
 ): Promise<UnitsPreference | null> {
   try {
