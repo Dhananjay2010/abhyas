@@ -36,8 +36,10 @@ async function testCacheKeyInclusion() {
   };
   
   // Inject stub before importing modules
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Module = require("module");
   const originalRequire = Module.prototype.require;
+  // eslint-disable-next-line prefer-rest-params
   Module.prototype.require = function (id: string) {
     if (id === "next/cache") {
       return {
@@ -45,6 +47,7 @@ async function testCacheKeyInclusion() {
         unstable_cache: unstableCacheStub,
       };
     }
+    // eslint-disable-next-line prefer-rest-params
     return originalRequire.apply(this, arguments);
   };
   
