@@ -103,7 +103,7 @@ async function testCacheKeyInclusion() {
   recordedCacheCalls.length = 0;
   
   // Trigger resolution with caching enabled (useCache=true) and injected stub
-  const resolution = await resolveBrand(
+  await resolveBrand(
     supabase,
     "Custom.Example.COM:3000",  // Will be normalized to custom.example.com
     null,
