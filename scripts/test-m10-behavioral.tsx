@@ -14,7 +14,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { branding, type Brand } from "@/lib/branding";
 import type { BrandResolution } from "@/lib/runtime-brand";
 import { renderLandingPage } from "@/app/render-landing-page";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
 let failures = 0;
@@ -74,14 +74,28 @@ const customResolution: BrandResolution = {
 async function testRenderLandingPageWithCustomBrand() {
   console.log("TEST: M10c behavioral - renderLandingPage wires resolved brand");
   
+  // Stub fetch that returns empty arrays
+  const stubFetch: typeof fetch = async () => {
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  
+  // Create real Supabase client with stub fetch
+  const supabase = createClient<Database>('http://fake.local', 'fake-anon-key', {
+    auth: { persistSession: false },
+    global: { fetch: stubFetch },
+  });
+  
   // Stub deps: no user, custom brand resolution
   const stubDeps = {
     getAuthedClient: async () => ({
-      supabase: null as unknown as SupabaseClient<Database>,
+      supabase,
       user: null,
     }),
     getRequestBrandResolution: async () => customResolution,
-    redirect: (_url: string): never => {
+    redirect: (): never => {
       throw new Error("Should not redirect for non-authenticated user");
     },
   };
@@ -124,13 +138,27 @@ async function testRenderLandingPageWithBaseBrand() {
     gymName: null,
   };
   
+  // Stub fetch that returns empty arrays
+  const stubFetch: typeof fetch = async () => {
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  
+  // Create real Supabase client with stub fetch
+  const supabase = createClient<Database>('http://fake.local', 'fake-anon-key', {
+    auth: { persistSession: false },
+    global: { fetch: stubFetch },
+  });
+  
   const stubDeps = {
     getAuthedClient: async () => ({
-      supabase: null as unknown as SupabaseClient<Database>,
+      supabase,
       user: null,
     }),
     getRequestBrandResolution: async () => baseResolution,
-    redirect: (_url: string): never => {
+    redirect: (): never => {
       throw new Error("Should not redirect for non-authenticated user");
     },
   };

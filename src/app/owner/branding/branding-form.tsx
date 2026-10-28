@@ -6,6 +6,52 @@ import { accessibleTextColor } from "@/lib/contrast";
 import { ensureMinContrast } from "@/lib/brand-contrast";
 import { branding } from "@/lib/branding";
 
+/**
+ * Compute preview colors for owner branding form.
+ * Shows owners the ACTUAL color members will see after ensureMinContrast adjustment.
+ * 
+ * @param primaryColor Raw primary color hex input (or empty string)
+ * @param accentColor Raw accent color hex input (or empty string)
+ * @returns Adjusted preview colors matching runtime mergeBrand behavior
+ */
+export function computePreviewColors(primaryColor: string, accentColor: string) {
+  const appBg = branding.colors.bg; // #0a0c0e
+  const minRatio = 3.0;
+  
+  const rawPrimary = primaryColor && primaryColor.match(/^#[0-9A-Fa-f]{6}$/)
+    ? primaryColor
+    : null;
+  
+  const adjustedPrimary = rawPrimary
+    ? ensureMinContrast(rawPrimary, appBg, minRatio, branding.colors.accent)
+    : null;
+  
+  const previewPrimary = adjustedPrimary || "var(--color-muted)";
+  
+  const rawAccent = accentColor && accentColor.match(/^#[0-9A-Fa-f]{6}$/)
+    ? accentColor
+    : null;
+  
+  const adjustedAccent = rawAccent
+    ? ensureMinContrast(rawAccent, appBg, minRatio, branding.colors.accentHover)
+    : null;
+  
+  const previewAccent = adjustedAccent || "var(--color-border)";
+  
+  // Compute accessible text color for preview against adjusted color
+  const previewTextColor = adjustedPrimary
+    ? accessibleTextColor(adjustedPrimary)
+    : branding.colors.accentFg;
+  
+  return {
+    previewPrimary,
+    previewAccent,
+    previewTextColor,
+    adjustedPrimary,
+    adjustedAccent,
+  };
+}
+
 type BrandingFormProps = {
   gymId: string;
   gymName: string;
@@ -65,33 +111,7 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
 
   // Preview colors with contrast adjustment (same as runtime mergeBrand)
   // Show owners the ACTUAL color members will see after ensureMinContrast
-  const appBg = branding.colors.bg; // #0a0c0e
-  const minRatio = 3.0;
-  
-  const rawPrimary = primaryColor && primaryColor.match(/^#[0-9A-Fa-f]{6}$/)
-    ? primaryColor
-    : null;
-  
-  const adjustedPrimary = rawPrimary
-    ? ensureMinContrast(rawPrimary, appBg, minRatio, branding.colors.accent)
-    : null;
-  
-  const previewPrimary = adjustedPrimary || "var(--color-muted)";
-  
-  const rawAccent = accentColor && accentColor.match(/^#[0-9A-Fa-f]{6}$/)
-    ? accentColor
-    : null;
-  
-  const adjustedAccent = rawAccent
-    ? ensureMinContrast(rawAccent, appBg, minRatio, branding.colors.accentHover)
-    : null;
-  
-  const previewAccent = adjustedAccent || "var(--color-border)";
-  
-  // Compute accessible text color for preview against adjusted color
-  const previewTextColor = adjustedPrimary
-    ? accessibleTextColor(adjustedPrimary)
-    : branding.colors.accentFg;
+  const { previewPrimary, previewAccent, previewTextColor } = computePreviewColors(primaryColor, accentColor);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
