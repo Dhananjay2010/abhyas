@@ -2,10 +2,10 @@
 /**
  * Test: Session expired banner (E1/E2 mutants)
  * 
- * E1: L1 guard inverted - expired prompt shows when NOT expired
- * E2: L1 clear removed - expired prompt never hides after successful replay
+ * E1: Line 1207 guard inverted - expired prompt shows when NOT expired  
+ * E2: Line 1216 clear removed - expired prompt never hides after successful action
  * 
- * Uses Done button to reach allSetsDone with expired finish.
+ * Handler: onFinishExercise (lines 1176-1230), called by feel button clicks (line 1461)
  */
 
 import "./helpers/setup-jsdom";
@@ -49,7 +49,6 @@ const fakeTimer: RunnerTimer = {
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => {
       finishCount++;
-      // Finish expires
       return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
     },
     finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
@@ -81,6 +80,26 @@ const fakeTimer: RunnerTimer = {
       feel: null,
       sets: [],
       isBodyweight: true
+    },
+    {
+      id: "ex2",
+      exerciseId: "squat",
+      name: "Squat",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["quads"],
+      plannedSets: 2,
+      plannedRepsMin: 8,
+      plannedRepsMax: 12,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: 50,
+      suggestedWeightKg: null,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false
     }
   ];
   
@@ -125,9 +144,7 @@ const fakeTimer: RunnerTimer = {
   }
   
   const logBtn1 = screen.getByText(/Log set 1/i);
-  assert(logBtn1 instanceof window.HTMLButtonElement, "Log button 1 is a button");
-  assert(!logBtn1.disabled, "Log button 1 is enabled");
-  
+  assert(logBtn1 instanceof window.HTMLButtonElement && !logBtn1.disabled, "Log button 1 enabled");
   await act(async () => {
     fireEvent.click(logBtn1);
   });
@@ -141,43 +158,37 @@ const fakeTimer: RunnerTimer = {
   }
   
   const logBtn2 = screen.getByText(/Log set 2/i);
-  assert(logBtn2 instanceof window.HTMLButtonElement, "Log button 2 is a button");
-  assert(!logBtn2.disabled, "Log button 2 is enabled");
-  
+  assert(logBtn2 instanceof window.HTMLButtonElement && !logBtn2.disabled, "Log button 2 enabled");
   await act(async () => {
     fireEvent.click(logBtn2);
   });
   
-  // Click feel rating
+  // Click feel - finishExercise expires
   const justRightBtn = screen.getByText(/Just right/i);
   await act(async () => {
     fireEvent.click(justRightBtn);
   });
-  
   await act(async () => {});
   
-  // After selecting feel, with cooldownEnabled: false and only 1 exercise, it should go to allSetsDone
-  // The finishExercise action was set to expire
+  assert(finishCount === 1, "finishExercise called");
   
-  assert(finishCount === 1, "Finish called automatically after feel");
-  
-  // E1: At allSetsDone with expired finish, assert EXACTLY 1 expired prompt
-  // Handler: finishExercise in session-runner.tsx, returns SESSION_EXPIRED_CODE
-  // This must be SessionExpiredPrompt (data-testid="session-expired-prompt"), not error text
+  // E1: At allSetsDone with expired finish, assert SessionExpiredPrompt
+  // Handler: onFinishExercise (session-runner.tsx:1176-1230)
+  // Line 1207-1209 sets sessionExpired=true when code === SESSION_EXPIRED
   const expiredPrompt = screen.queryByTestId("session-expired-prompt");
-  assert(expiredPrompt !== null, "E1: SessionExpiredPrompt component shown");
+  assert(expiredPrompt !== null, "E1: SessionExpiredPrompt shown");
   
   const expiredPrompts = screen.queryAllByTestId("session-expired-prompt");
-  assert(expiredPrompts.length === 1, `E1: Exactly ONE expired prompt at allSetsDone (got ${expiredPrompts.length})`);
+  assert(expiredPrompts.length === 1, `E1: Exactly ONE expired prompt (got ${expiredPrompts.length})`);
   
   cleanup();
   console.log("✓ Test 1 passed\n");
   
-  // Test 2: Expired flag clears after any successful action (E2)
-  console.log("=== Test 2: Expired cleared by successful Skip (E2) ===\n");
+  // Test 2: Expired cleared by successful second call to same handler (E2)
+  console.log("=== Test 2: Expired cleared by successful onFinishExercise (E2) ===\n");
   
   let finishCount2 = 0;
-  let skipCount = 0;
+  let firstCallExpires = true;
   
   const actions2: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
@@ -185,13 +196,13 @@ const fakeTimer: RunnerTimer = {
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => {
       finishCount2++;
-      return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
+      if (firstCallExpires) {
+        firstCallExpires = false;
+        return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
+      }
+      return { ok: true, data: null };
     },
-    finishSession: async () => {
-      skipCount++;
-      // Skip succeeds
-      return { ok: true, data: { status: "completed" as const, durationSeconds: 600 } };
-    },
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     abandonSession: async () => ({ ok: true }),
     findAlternatives: async () => ({ ok: true, data: [] }),
     swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
@@ -229,7 +240,6 @@ const fakeTimer: RunnerTimer = {
       fireEvent.change(repsInput3, { target: { value: "10" } });
     });
   }
-  
   const logBtn3 = screen.getByText(/Log set 1/i);
   await act(async () => {
     fireEvent.click(logBtn3);
@@ -241,38 +251,51 @@ const fakeTimer: RunnerTimer = {
       fireEvent.change(repsInput4, { target: { value: "10" } });
     });
   }
-  
   const logBtn4 = screen.getByText(/Log set 2/i);
   await act(async () => {
     fireEvent.click(logBtn4);
   });
   
-  // Select feel - finishExercise expires
+  // First call: click feel - finishExercise expires
   const justRightBtn2 = screen.getByText(/Just right/i);
   await act(async () => {
     fireEvent.click(justRightBtn2);
   });
-  
   await act(async () => {});
   
-  assert(finishCount2 === 1, "finishExercise expired");
+  assert(finishCount2 === 1, "finishExercise called and expired");
   
   // Verify expired prompt shown
   let prompt = screen.queryByTestId("session-expired-prompt");
-  assert(prompt !== null, "Expired prompt shown after finish expired");
+  assert(prompt !== null, "Expired prompt shown after first call");
   
-  // Click "End session early" (calls abandonSession or finishSession depending on state)
-  // This action succeeds and should clear sessionExpired per line 1216
-  const endBtn = screen.getByText(/End session early/i);
+  // Second call: click feel again - finishExercise succeeds
+  // Call site: session-runner.tsx:1461 onClick={() => onFinishExercise(f.value)}
+  const justRightBtn3 = screen.getByText(/Just right/i);
   await act(async () => {
-    fireEvent.click(endBtn);
+    fireEvent.click(justRightBtn3);
   });
   await act(async () => {});
   
-  // E2: Assert expired prompt cleared after successful action
-  // Handler: line 1216 setSessionExpired(false) after successful action result
+  assert(finishCount2 === 2, "finishExercise called again");
+  
+  // Wait for state to settle
+  await act(async () => {});
+  await act(async () => {});
+  
+  // E2: Assert expired prompt cleared by line 1216 setSessionExpired(false)
+  // Handler: onFinishExercise (session-runner.tsx:1176-1230)
+  // Call site: session-runner.tsx:1461
   prompt = screen.queryByTestId("session-expired-prompt");
-  assert(prompt === null, `E2: Expired prompt cleared after successful action`);
+  
+  // Debug if still there
+  if (prompt !== null) {
+    const text = container.textContent || "";
+    console.log("ERROR: Prompt still visible");
+    console.log("Container text sample:", text.substring(0, 300));
+  }
+  
+  assert(prompt === null, "E2: Expired prompt cleared after successful action");
   
   cleanup();
   console.log("✓ Test 2 passed\n");
