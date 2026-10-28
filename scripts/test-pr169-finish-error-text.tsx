@@ -35,15 +35,6 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
   }
 }
 
-function assert(condition: boolean, message: string) {
-  if (condition) {
-    console.log(`  ok   ${message}`);
-    passed++;
-  } else {
-    console.error(`❌ ${message}`);
-    failed++;
-  }
-}
 
 (function main() {
   console.log("\nPR #169 follow-up item 5: Finish error sanitization\n");
