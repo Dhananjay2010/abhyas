@@ -6,6 +6,7 @@ import { ServiceWorkerRegistration } from "@/components/service-worker-registrat
 import { NewVersionHint } from "@/components/new-version-hint";
 import { branding, getBrandCssVariables } from "@/lib/branding";
 import { getRequestBrandResolution } from "@/lib/runtime-brand";
+import { buildMetadata } from "@/lib/metadata-builder";
 import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 import { InProgressBar } from "@/components/in-progress-bar";
 import { PendingSetReplayProvider } from "@/components/pending-set-replay-provider";
@@ -30,39 +31,7 @@ async function getHostWinsNoticePropsForLayout() {
 
 export async function generateMetadata(): Promise<Metadata> {
   const resolution = await getRequestBrandResolution();
-  const brand = resolution.brand;
-  
-  return {
-    metadataBase: new URL(branding.siteUrl),
-    title: brand.name,
-    description: branding.description,
-    applicationName: brand.name,
-    appleWebApp: {
-      capable: true,
-      title: brand.shortName,
-      statusBarStyle: "black-translucent",
-    },
-    icons: {
-      icon: [
-        { url: branding.icons.favicon, sizes: "32x32" },
-        { url: branding.icons.icon192, sizes: "192x192", type: "image/png" },
-        { url: branding.icons.icon512, sizes: "512x512", type: "image/png" },
-      ],
-      apple: {
-        url: branding.icons.appleTouchIcon,
-        sizes: "180x180",
-        type: "image/png",
-      },
-    },
-    manifest: "/manifest.webmanifest",
-    openGraph: {
-      type: "website",
-      siteName: brand.name,
-      title: brand.name,
-      description: branding.description,
-      url: branding.siteUrl,
-    },
-  };
+  return buildMetadata(resolution.brand);
 }
 
 export const viewport: Viewport = {
