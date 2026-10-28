@@ -33,7 +33,7 @@ const days = [
   {
     id: "day-1",
     day_index: 1,
-    day_type: "weights" as Database["public"]["Enums"]["day_type"],
+    day_type: "weights" as const,
     focus: null,
     label: null,
     program_day_exercises: [
@@ -48,8 +48,8 @@ const days = [
         exercises: {
           name: "Kettlebell Thruster",
           cue: null,
-          movement_pattern: "squat" as Database["public"]["Enums"]["movement_pattern"],
-          metric: "reps" as Database["public"]["Enums"]["metric"],
+          movement_pattern: "squat" as const,
+          metric: "reps" as const,
         },
       },
     ],

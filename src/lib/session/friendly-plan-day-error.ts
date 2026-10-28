@@ -1,7 +1,7 @@
 /**
  * Friendly error messages from plan-day-core that should pass through unchanged.
  */
-export const CORE_FRIENDLY_ERRORS: readonly string[] = [
+export const CORE_FRIENDLY_ERRORS = [
   // plan-day-core.ts
   "That is not a date.",
   "That day has already been and gone.",
@@ -12,7 +12,7 @@ export const CORE_FRIENDLY_ERRORS: readonly string[] = [
   // load-plan-day.ts (via loadProgramDay)
   "Could not load the training block.",
   "That day is not in your block.",
-];
+] as const;
 
 export const GENERIC_PLAN_DAY_ERROR = "Couldn't save your choice. Please try again.";
 

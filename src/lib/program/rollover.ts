@@ -269,9 +269,9 @@ export async function ensureCurrentBlock(
 
   const carryOver = await extractCarryOver(supabase, active.id);
   const previous = await loadLayoutSourceDays(supabase, active.id);
-  const built: { ok: true; newProgramId: string } | { ok: false; error: string } = previous.ok
+  const built = previous.ok
     ? await callRolloverRPC(supabase, userId, today, carryOver, previous.days)
-    : { ok: false, error: "Unable to start your next training block. Please try again or contact support if this persists." };
+    : ({ ok: false, error: "Unable to start your next training block. Please try again or contact support if this persists." } as const);
 
   if (!built.ok) {
     // A concurrent request may have rolled over first; the partial unique index
