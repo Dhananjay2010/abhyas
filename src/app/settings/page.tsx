@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { getCachedEquipment } from "@/lib/supabase/cached-queries";
 import { SettingsForm, type SettingsState } from "./settings-form";
@@ -8,7 +7,7 @@ import { SignOutButton } from "./signout-button";
 import { buildTimezoneOptions } from "@/lib/timezone-options";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
 import { buildSettingsProps } from "@/lib/session/build-runner-props";
-import { checkGymOwnership } from "@/lib/gym/owner-check";
+import { loadSettingsOwnership, OwnerSection } from "./owner-section";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +22,7 @@ export default async function SettingsPage() {
       getCachedEquipment(),
       supabase.from("user_equipment").select("equipment_id"),
       supabase.from("user_injuries").select("body_region, severity"),
-      checkGymOwnership(supabase, user.id),
+      loadSettingsOwnership(supabase, user.id),
     ]);
 
   const profile = profileRes.data;
@@ -79,25 +78,7 @@ export default async function SettingsPage() {
       <SettingsForm initial={initial} equipment={equipment} timezones={timezones} userId={user.id} />
 
       <div className="mt-12 space-y-8 border-t border-border pt-8">
-        {ownership.isOwner && ownership.gymId ? (
-          <section>
-            <h2 className="text-lg font-semibold mb-2">Gym owner</h2>
-            <div className="space-y-3">
-              <Link
-                href="/owner/branding"
-                className="block rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg"
-              >
-                Branding →
-              </Link>
-              <Link
-                href="/owner/invites"
-                className="block rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg"
-              >
-                Invites &amp; join codes →
-              </Link>
-            </div>
-          </section>
-        ) : null}
+        <OwnerSection ownership={ownership} />
 
         <section>
           <h2 className="text-lg font-semibold mb-2">Legal & Support</h2>
