@@ -101,18 +101,17 @@ export function SignOutFormView({
 
   return (
     <div>
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        handleSignOut();
-      }}>
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {pending ? "Signing out..." : label}
-        </button>
-      </form>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          handleSignOut();
+        }}
+        type="button"
+        disabled={pending}
+        className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {pending ? "Signing out..." : label}
+      </button>
       {error && (
         <p className="mt-2 text-sm text-danger" role="alert">
           {error}
