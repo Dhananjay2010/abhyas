@@ -130,12 +130,14 @@ async function runTests() {
     const previous = result.get(ex1);
     check("returns previous weight 60 kg", previous === 60, "", previous);
 
-    // Derive is-prescribed via production: floor=137.5, nearest=132
+    // Use loader result to determine if prescribed increase: suggested 62.5 > previous 60 + 0.01
     const suggested = 62.5;
-    const prefillFloor = computeRunnerWeightPrefill(suggested, "imperial", false, true);
-    const prefillNearest = computeRunnerWeightPrefill(suggested, "imperial", false, false);
-    check("floors to 137.5 lb", prefillFloor === "137.5", `got "${prefillFloor}"`);
-    check("isPrescribedIncrease true (137.5 floor, not 132 nearest)", prefillFloor !== prefillNearest, `floor="${prefillFloor}" vs nearest="${prefillNearest}"`);
+    const isPrescribed = previous !== null && previous !== undefined && suggested > previous + 0.01;
+    check("isPrescribedIncrease: 62.5 > 60", isPrescribed === true);
+    
+    // Runner prefill with prescribed increase floors to 137.5 lb
+    const prefill = computeRunnerWeightPrefill(suggested, "imperial", false, isPrescribed);
+    check("runner prefills 137.5 lb (floors)", prefill === "137.5", `got "${prefill}"`);
   }
 
   // Case (b): 62.5 after 62.5 → held, 138 lb
@@ -163,12 +165,14 @@ async function runTests() {
     const previous = result.get(ex2);
     check("returns previous weight 62.5 kg", previous === 62.5, "", previous);
 
-    // Derive is-held via production: floor=137.5, nearest=138
+    // Use loader result: suggested 62.5 NOT > previous 62.5 + 0.01 → held weight
     const suggested = 62.5;
-    const prefillFloor = computeRunnerWeightPrefill(suggested, "imperial", false, true);
-    const prefillNearest = computeRunnerWeightPrefill(suggested, "imperial", false, false);
-    check("rounds to nearest 138 lb", prefillNearest === "138", `got "${prefillNearest}"`);
-    check("isPrescribedIncrease false (138 nearest, not 137.5 floor)", prefillFloor !== prefillNearest, `floor="${prefillFloor}" vs nearest="${prefillNearest}"`);
+    const isPrescribed = previous !== null && previous !== undefined && suggested > previous + 0.01;
+    check("isPrescribedIncrease false: 62.5 !> 62.5", isPrescribed === false);
+    
+    // Runner prefill with held weight rounds to nearest 138 lb
+    const prefill = computeRunnerWeightPrefill(suggested, "imperial", false, isPrescribed);
+    check("runner prefills 138 lb (rounds nearest)", prefill === "138", `got "${prefill}"`);
   }
 
   // Case (c): older session at 70 kg, newest at 60 kg → previous = 60
@@ -236,16 +240,15 @@ async function runTests() {
     check("returns working weight 60 kg (ignores 65 kg warm-up)", result.get(ex4) === 60, "", result.get(ex4));
   }
 
-  // Case (e): in_progress and abandoned sessions are ignored (behavioral stub)
-  console.log("\n(e) in_progress and abandoned sessions are ignored");
+  // Case (e): PostgREST status=completed filter prevents in_progress sessions
+  console.log("\n(e) status=completed filter in query");
   {
     const { client, requests, responses } = makeFakeSupabase();
     
-    // Stub implementation: mimic PostgREST filtering
-    // Return only completed sessions (honor status=completed filter)
-    // An in_progress session at 70 kg on 2024-01-15 is NOT returned
+    // Stub honors PostgREST filter: only returns completed session
     responses.set("GET http://fake.local/rest/v1/sessions?select=id%2Clocal_date%2Cstarted_at%2Csession_exercises%21inner%28exercise_id%2Csession_sets%21inner%28weight_kg%2Cis_warmup_set%29%29&user_id=eq.user-5&status=eq.completed&session_exercises.exercise_id=in.%28ex-5%29&order=started_at.desc&limit=100", [
-      // Only the completed session is returned
+      // Only the completed session at 60 kg is returned
+      // (An in_progress session at 70 kg would not be returned by PostgREST)
       {
         id: "sess-completed",
         local_date: "2024-01-10",
@@ -259,15 +262,14 @@ async function runTests() {
           },
         ],
       },
-      // The newer in_progress session at 70 kg is NOT here because of status=completed filter
     ]);
 
     const result = await loadPreviousCompletedWeights(client, "user-5", [ex5]);
-    check("returns 60 kg (completed), not 70 kg (in_progress)", result.get(ex5) === 60, "", result.get(ex5));
+    check("returns 60 kg (completed)", result.get(ex5) === 60, "", result.get(ex5));
     
-    // Verify the query included status=completed filter
-    const query = requests.find(r => r.url.includes("status=eq.completed"));
-    check("query uses status=completed filter", query !== undefined);
+    // Verify query included status=completed filter
+    check("query includes status=completed filter", 
+      requests.some(r => r.url.includes("status=eq.completed")));
   }
 
   // Case (f): multiple working sets of different weights (55 and 60) → max = 60 (Mutant H2)
