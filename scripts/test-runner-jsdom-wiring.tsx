@@ -265,6 +265,12 @@ console.log("\n2. Failed finish shows 'Try again', successful retry clears it (8
   check("Failed finish does NOT show raw server text", !hasRawError);
   const hasTryAgain = textContent !== null && textContent.includes("Try again");
   check("Failed finish shows 'Try again' button", hasTryAgain);
+  
+  // Item 5 decision: arbitrary server text (HTML, SQL errors) never passes through
+  const noHTML = textContent !== null && !textContent.includes("<html>") && !textContent.includes("<body>");
+  check("No HTML body pass-through", noHTML);
+  const noSQLError = textContent !== null && !textContent.includes("duplicate key");
+  check("No SQL error pass-through", noSQLError);
 
   // Click "Try again"
   await act(async () => {

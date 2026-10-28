@@ -604,7 +604,8 @@
     "test:pr169-stale-close-warmup-rest": "tsx scripts/test-pr169-stale-close-warmup-rest.ts",
     "test:pr169-cooldown-done-retry": "tsx scripts/test-pr169-cooldown-done-retry.ts",
     "test:pr169-history-detail-page": "tsx scripts/test-pr169-history-detail-page.ts",
-    "test:pr169-history-list-page": "tsx scripts/test-pr169-history-list-page.ts"
+    "test:pr169-history-list-page": "tsx scripts/test-pr169-history-list-page.ts",
+    "test:pr169-runner-done-retry-wiring": "tsx scripts/test-pr169-runner-done-retry-wiring.tsx"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
