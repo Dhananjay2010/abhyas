@@ -510,6 +510,7 @@ export type NextDayPlanCoreDeps = {
   getTodayCompletedSession: () => Promise<{
     programDayId: string | null;
     actualType: string;
+    localDate: string;
   } | null>;
   getAllProgramDays: () => Promise<ProgramDayForCore[]>;
   getResolvedTomorrow: () => Promise<ResolvedDay | null>;
@@ -534,7 +535,8 @@ export async function nextDayPlanCore(
 
   const scheduledToday = allProgramDays.find((d) => d.day_index === todayDayIndex);
 
-  const todayWasSwap = todaySession
+  // Only treat as a swap if the session is actually from today (not a stale session)
+  const todayWasSwap = todaySession && todaySession.localDate === deps.getToday()
     ? wasSwapDay({
         completedProgramDayId: todaySession.programDayId,
         scheduledProgramDayId: scheduledToday?.id ?? null,
@@ -663,7 +665,7 @@ export async function nextDayPlan(
   const deps: NextDayPlanCoreDeps = {
     async getTodayCompletedSession() {
       const s = await loadCurrentSession();
-      return s ? { programDayId: s.programDayId, actualType: s.actualType ?? "" } : null;
+      return s ? { programDayId: s.programDayId, actualType: s.actualType ?? "", localDate: s.localDate } : null;
     },
 
     async getAllProgramDays() {

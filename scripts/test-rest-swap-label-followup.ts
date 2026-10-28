@@ -273,7 +273,7 @@ async function main() {
     // Wed: user picks Upper (the first one offered, U1), finishes it
     // Wed summary: What about tomorrow?
     const nextPlan = await nextDayPlanCore({
-      getTodayCompletedSession: async () => ({ programDayId: "U1", actualType: "weights" }),
+      getTodayCompletedSession: async () => ({ programDayId: "U1", actualType: "weights", localDate: "2026-10-28" }),
       getAllProgramDays: async () => days4Upper,
       getResolvedTomorrow: async () => ({ localDate: "2026-10-29", dayType: "weights", label: "Upper", programDayId: "U2", isOverride: false }),
       getPlannableDays: async () => plannable,
@@ -320,7 +320,7 @@ async function main() {
 
     // Wed summary: What about tomorrow? (Thu scheduled Legs2)
     const nextPlan = await nextDayPlanCore({
-      getTodayCompletedSession: async () => ({ programDayId: "Legs1", actualType: "weights" }),
+      getTodayCompletedSession: async () => ({ programDayId: "Legs1", actualType: "weights", localDate: "2026-10-28" }),
       getAllProgramDays: async () => days6PPL,
       getResolvedTomorrow: async () => ({ localDate: "2026-10-29", dayType: "weights", label: "Push", programDayId: "Push2", isOverride: false }),
       getPlannableDays: async () => plannable,
