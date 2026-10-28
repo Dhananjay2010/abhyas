@@ -119,12 +119,10 @@ export default async function SessionDetailPage({
     { duration_seconds: session.duration_seconds, started_at: session.started_at },
     sets ?? []
   );
-  // MUTANT: Use old format that shows "0m" instead of "<1 min"
-  const minutes = durationSeconds !== null ? Math.round(durationSeconds / 60) : null;
-  const durationText = minutes !== null ? `${minutes}m` : "—";
+  const durationText = formatDurationMinutes(durationSeconds, session.status, session.actual_type);
   
-  // MUTANT: Include warm-up sets in volume
   const volume = (sets ?? [])
+    .filter((s) => !s.is_warmup_set)
     .reduce(
       (n, s) => n + (s.reps ?? 0) * Number(s.weight_kg ?? 0),
       0,

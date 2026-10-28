@@ -230,7 +230,7 @@ export function rankAlternatives<T extends ExerciseRow>(
     // the newly excluded exercises -- a strict subset, never a backfill -- so
     // for them an excluded exercise keeps its ranked slot and is dropped after
     // the limit is applied.
-    if (prExcluded) continue;
+    if (prExcluded && hasPastKnee) continue;
     const hidden = prExcluded;
     
     // 3. Exclude pullovers when original is a compound pull
