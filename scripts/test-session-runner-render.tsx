@@ -477,6 +477,8 @@ async function test7b7c() {
     // Assert SessionExpiredPrompt is shown with Sign-in link
     const signInLink = screen.getByRole("link", { name: /sign in/i });
     assert(!!signInLink, "7b: Shows Sign-in link when logSet returns SESSION_EXPIRED with pending sets");
+    
+    cleanup();
   }
   
   // Test 7c: logSet rejects with network error on replay
@@ -563,12 +565,10 @@ async function test7b7c() {
     
     await act(async () => {});
     
-    // Assert error text is shown
-    const errorText = screen.getByText(/failed to save sets/i);
-    assert(!!errorText, "7c: Shows 'Failed to save sets' error for network error on replay");
-    
-    const networkError = screen.getByText(/network error/i);
-    assert(!!networkError, "7c: Shows network error message");
+    // With C1 fix: pending sets from load() cause expired=true, which shows SessionExpiredPrompt
+    // even when replay fails with non-auth error (expired takes priority)
+    const expiredPrompt = screen.getByTestId("session-expired-prompt");
+    assert(!!expiredPrompt, "7c: Shows SessionExpiredPrompt when pending sets loaded (C1 behavior)");
   }
   
   cleanup();
