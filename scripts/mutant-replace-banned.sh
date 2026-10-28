@@ -266,13 +266,13 @@ run_mutant_test \
   'const cleaned = plannedForCleaning; if (false) { applyStartSessionCleanup(' \
   "npx tsx scripts/test-start-session-call-site.ts"
 
-# Mutant 11: Force-add filter removed
+# Mutant 11: Force-add filter removed (killed by synthetic-catalogue test)
 run_mutant_test \
   "M11: Force-add current-knee filter removed" \
   "src/lib/program/generate.ts" \
   'if (isExcludedForCurrentKneeOnly(e)) return false;' \
   '// MUTANT: isExcludedForCurrentKneeOnly check removed' \
-  "npx tsx scripts/test-generate-force-add-current-knee.ts"
+  "npx tsx scripts/test-force-add-banned-synthetic.ts"
 
 echo "================================================================================"
 if [ $FAILURES -eq 0 ]; then
