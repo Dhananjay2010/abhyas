@@ -1,0 +1,4594 @@
+{
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":1,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":1,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":2,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":2,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":3,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":3,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":1,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":1,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":2,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":2,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":3,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":3,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":1,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":1,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":2,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":2,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":3,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":3,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":1,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":1,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":2,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":2,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":3,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":3,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":1,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":1,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":2,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":2,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":3,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":3,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":1,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":1,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":2,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":2,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":3,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":3,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":1,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":1,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":2,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":2,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":3,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":3,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":1,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":1,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":2,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":2,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":3,\"weight\":6.25,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 6.25,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 6.25,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":3,\"weight\":7.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 7.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 7.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":1,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":1,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":2,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":2,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":3,\"weight\":3.75,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 3.75,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 3.75,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"compound\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":3,\"weight\":5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"easy\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"right\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":\"hard\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"horizontal_press\",\"feel\":null,\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"easy\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"right\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":\"hard\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"vertical_pull\",\"feel\":null,\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"easy\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"right\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":\"hard\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"squat\",\"feel\":null,\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"easy\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"right\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":\"hard\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"hinge\",\"feel\":null,\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"easy\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"right\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":\"hard\",\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":1,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 2,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":2,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":3,\"weight\":0,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 0,
+      "counter": 4,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 0,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  },
+  "{\"mechanic\":\"isolation\",\"pattern\":\"biceps\",\"feel\":null,\"missCount\":3,\"weight\":2.5,\"deload\":false}": {
+    "mainOutput": {
+      "weight": 2.5,
+      "counter": 0,
+      "outcome": "hold",
+      "reps": 12
+    },
+    "branchOutput": {
+      "weight": 2.5,
+      "counter": 3,
+      "outcome": "hold",
+      "reps": 12
+    }
+  }
+}

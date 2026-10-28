@@ -24,6 +24,7 @@ export type SwapWeightsResult = {
  * @param sessionId - Session ID (to read is_deload)
  * @param newExerciseId - The exercise being swapped IN
  * @param equipmentIds - Equipment IDs of the new exercise
+ * @param mechanic - Mechanic type of the new exercise
  * @param metric - Metric of the new exercise
  * @param movementPattern - Movement pattern of the new exercise
  * @param remembersWeights - Whether to use remembered weights (false in daily_menu mode)
@@ -35,6 +36,7 @@ export async function resolveSwapWeights(
   sessionId: string,
   newExerciseId: string,
   equipmentIds: string[],
+  mechanic: Database["public"]["Enums"]["mechanic_type"] | null,
   metric: Database["public"]["Enums"]["exercise_metric"],
   movementPattern: Database["public"]["Enums"]["movement_pattern"],
   remembersWeights: boolean,
@@ -76,6 +78,7 @@ export async function resolveSwapWeights(
       newExerciseId,
       isDeload,
       equipmentIds,
+      mechanic,
       metric,
       movementPattern,
       progressValueNum,

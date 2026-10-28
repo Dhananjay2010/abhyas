@@ -6,7 +6,7 @@ const meta: ExerciseMeta = {
 };
 const state = (o: Partial<ProgressState> = {}): ProgressState => ({
   currentWorkingWeightKg: 60, currentTargetReps: 12, consecutiveFailures: 0,
-  bestWeightKg: 60, bestReps: 12, bestE1rm: 84, totalSessions: 5, ...o,
+  bestWeightKg: 60, bestReps: 12, bestE1rm: 84, totalSessions: 5, weightAtFailureStartKg: null, ...o,
 });
 const run = (label: string, sets: {reps:number|null;weightKg:number|null}[], st = state()) => {
   const d = evaluateProgression({ sets, plannedSets: 4, repsMin: 8, repsMax: 12,
