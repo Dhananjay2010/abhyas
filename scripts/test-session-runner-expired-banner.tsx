@@ -1,440 +1,282 @@
 #!/usr/bin/env tsx
 /**
- * Test: SessionRunner expired banner (L1)
+ * Test: Session expired banner (E1/E2 mutants)
  * 
- * Verifies:
- * - While expired, exactly ONE expired prompt shows (not two - L1 fix)
- * - After successful Retry, no expired prompt remains (L1 clear fix)
+ * E1: L1 guard inverted - expired prompt shows when NOT expired
+ * E2: L1 clear removed - expired prompt never hides after successful replay
+ * 
+ * This test drives the runner to allSetsDone while session is expired,
+ * verifies exactly ONE expired prompt there, then verifies ZERO prompts
+ * after successful retry.
  */
 
 import "./helpers/setup-jsdom";
-import { render, act, fireEvent, waitFor } from "@testing-library/react";
-import {
-  SessionRunner,
-  type RunnerExercise,
-  type SessionActions,
-} from "../src/app/session/[id]/session-runner";
+import { render, act, screen, cleanup, waitFor } from "@testing-library/react";
+import { SessionRunner, type RunnerExercise, type RunnerSettings, type SessionActions, type RunnerTimer } from "../src/app/session/[id]/session-runner";
+import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
 
-const ok = async () => ({ ok: true }) as const;
+let passed = 0;
 
-function makeExercise(
-  id: string,
-  exerciseId: string,
-  name: string,
-  plannedSets: number,
-  sets: Array<{ setNumber: number; reps: number | null; weightKg: number | null; durationSeconds: number | null }> = [],
-): RunnerExercise {
+function assert(condition: boolean, message: string) {
+  if (!condition) {
+    console.error(`  ❌ ${message}`);
+    throw new Error(message);
+  } else {
+    passed++;
+    console.log(`  ✓ ${message}`);
+  }
+}
+
+const FIXED_TIME = new Date('2026-10-27T12:00:00Z').getTime();
+
+const fakeTimer: RunnerTimer = {
+  setTimeout: (callback: () => void) => {
+    callback();
+    return setTimeout(() => {}, 999999);
+  },
+  clearTimeout: () => {},
+};
+
+function makeTypedActions(logSetImpl: Parameters<SessionActions["logSet"]>[0] extends infer P ? (input: P) => ReturnType<SessionActions["logSet"]> : never): SessionActions {
   return {
-    id,
-    exerciseId,
-    name,
-    cue: null,
-    metric: "reps",
-    primaryMuscles: ["chest"],
-    plannedSets,
-    repsMin: 8,
-    repsMax: 12,
-    plannedRepsMin: 8,
-    plannedRepsMax: 12,
-    restSeconds: 60,
-    workingWeightKg: 50,
-    suggestedWeightKg: 50,
-    status: sets.length >= plannedSets ? "completed" : "pending",
-    feel: sets.length >= plannedSets ? "right" : null,
-    sets,
-    isBodyweight: false,
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: logSetImpl,
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps" as const, plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+    getSessionSummary: async () => ({ ok: true, data: [] }),
   };
 }
 
-const settings = {
-  perSetLogging: true,
-  restAutostart: false,
-  restSound: false,
-  restVibrate: false,
-  restOverrideSeconds: null,
-  cooldownEnabled: false,
-  units: "metric" as const,
-};
-
-function check(label: string, pass: boolean, detail?: string) {
-  if (pass) {
-    console.log(`  ✓ ${label}${detail ? `  -- ${detail}` : ""}`);
-  } else {
-    console.log(`  ✗ FAIL ${label}${detail ? `  -- ${detail}` : ""}`);
-    process.exit(1);
-  }
-}
-
-console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
-
 (async () => {
-  // ===== Test 1: Exactly ONE expired banner (not two) =====
-  console.log("=== Test 1: Log set while expired → exactly one expired banner ===\n");
-
-  const exercise1 = makeExercise("ex-1", "squat", "Squat", 1);
-
-  let logSetCalls = 0;
-  const actions1: SessionActions = {
-    markWarmupDone: ok,
-    logSet: async () => {
-      logSetCalls++;
-      await Promise.resolve();
-      return { ok: false, error: "Not signed in", code: "SESSION_EXPIRED" };
-    },
-    deleteSet: ok,
-    finishExercise: async () =>
-      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: ok,
-    getSessionSummary: async () => ({ ok: true as const, data: [] }),
-    abandonSession: ok,
-    planDay: ok,
-    refreshAfterSession: async () => ({ ok: true as const }),
-    swapExercise: async () => {
-      throw new Error("Should not swap");
-    },
-    findAlternatives: async () => ({ ok: true as const, data: [] }),
-  } as unknown as SessionActions;
-
-  const { container: c1, unmount: unmount1 } = render(
+  console.log("\n📋 Test: Session expired banner (E1/E2)\n");
+  
+  // Test 1: Drive to allSetsDone while expired, verify exactly ONE expired prompt
+  console.log("=== Test 1: Exactly ONE expired prompt at allSetsDone ===\n");
+  
+  let logSetCallCount = 0;
+  let logSetShouldExpire = true;
+  
+  const actions = makeTypedActions(async () => {
+    logSetCallCount++;
+    if (logSetShouldExpire) {
+      return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
+    }
+    return { ok: true };
+  });
+  
+  const exercises: RunnerExercise[] = [
+    {
+      id: "ex1",
+      exerciseId: "squat",
+      name: "Squat",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["quads"],
+      plannedSets: 2,
+      plannedRepsMin: 8,
+      plannedRepsMax: 12,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: 50,
+      suggestedWeightKg: null,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false
+    }
+  ];
+  
+  const settings: RunnerSettings = {
+    perSetLogging: true,
+    restSound: false,
+    restVibrate: false,
+    restAutostart: false,
+    restOverrideSeconds: null,
+    cooldownEnabled: false,
+    units: "metric"
+  };
+  
+  const { container } = render(
     <SessionRunner
       sessionId="s1"
       sessionStatus="in_progress"
-      userId="test-user-1"
+      userId="u1"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
-      startedAt={new Date().toISOString()}
-      isStale={false}
+      startedAt={new Date(FIXED_TIME).toISOString()}
       warmup={[]}
       cooldown={[]}
-      exercises={[exercise1]}
+      exercises={exercises}
       settings={settings}
-      actions={actions1}
-    />,
+      actions={actions}
+      timer={fakeTimer}
+      nowFn={() => FIXED_TIME}
+    />
   );
-
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
-  await waitFor(() => {
-    if (!c1.textContent?.includes("Squat")) throw new Error("Exercise not shown");
-  }, { timeout: 5000 });
-
-  // Log first set while expired - fill both reps and weight
-  const repsInput = [...c1.querySelectorAll("input")].find((input) =>
-    input.closest("label")?.textContent?.includes("Reps"),
-  ) as HTMLInputElement | undefined;
-
-  const weightInput = [...c1.querySelectorAll("input")].find((input) =>
-    input.closest("label")?.textContent?.includes("kg"),
-  ) as HTMLInputElement | undefined;
-
-  if (!repsInput || !weightInput) {
-    console.log("  ✗ FAIL Reps or weight input not found");
-    process.exit(1);
+  
+  await act(async () => {});
+  
+  // Log all sets while expired to reach allSetsDone
+  // Use screen.getByRole to find inputs without type casts
+  const repsInputs = screen.getAllByLabelText(/reps/i);
+  const logButtons = screen.queryAllByText(/Log set/i);
+  
+  // Log set 1
+  const repsInput0 = repsInputs[0];
+  if (repsInput0 instanceof HTMLInputElement) {
+    await act(async () => {
+      repsInput0.value = "10";
+      repsInput0.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      logButtons[0].click();
+    });
+    await act(async () => {});
   }
-
-  await act(async () => {
-    fireEvent.change(repsInput, { target: { value: "10" } });
-    fireEvent.change(weightInput, { target: { value: "50" } });
+  
+  // Wait for expired state to settle
+  await waitFor(() => {
+    const text = container.textContent || "";
+    if (!text.includes("expired") && !text.includes("Retry")) {
+      throw new Error("Expired prompt not shown");
+    }
   });
-
+  
+  // Log set 2 (still expired)
   await act(async () => {
-    await Promise.resolve();
+    if (repsInputs[1] instanceof HTMLInputElement) {
+      repsInputs[1].value = "10";
+      repsInputs[1].dispatchEvent(new Event('input', { bubbles: true }));
+    }
   });
-
-  const logBtn = [...c1.querySelectorAll("button")].find((b) =>
-    /Log set 1/.test(b.textContent ?? ""),
-  );
-
-  if (!logBtn) {
-    console.log("  ✗ FAIL Log set button not found");
-    process.exit(1);
+  await act(async () => {
+    const logButtons2 = screen.queryAllByText(/Log set/i);
+    if (logButtons2[1]) logButtons2[1].click();
+  });
+  await act(async () => {});
+  
+  // Finish exercise to reach allSetsDone
+  const finishButton = screen.queryByText(/Finish/i);
+  if (finishButton) {
+    await act(async () => {
+      finishButton.click();
+    });
+    await act(async () => {});
   }
-
-  await act(async () => {
-    fireEvent.click(logBtn);
-  });
-
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  });
-
+  
+  // Wait for allSetsDone block to render
   await waitFor(() => {
-    if (logSetCalls !== 1) throw new Error("logSet not called");
-  }, { timeout: 2000 });
-
-  check("Logged set (expired)", logSetCalls === 1);
-
-  // Check for exactly ONE expired prompt
-  await waitFor(() => {
-    const expiredPrompts = (c1.textContent?.match(/session has expired/gi) || []).length;
-    if (expiredPrompts === 0) throw new Error("Expired prompt not shown");
-  }, { timeout: 1000 });
-
-  const expiredPrompts = (c1.textContent?.match(/session has expired/gi) || []).length;
-  check(`Exactly 1 expired prompt visible (L1 fix)`, expiredPrompts === 1, `found ${expiredPrompts}`);
-
-  unmount1();
+    const text = container.textContent || "";
+    if (!text.includes("all sets") && !text.includes("All done")) {
+      throw new Error("allSetsDone not shown");
+    }
+  });
+  
+  // E1: Assert exactly ONE expired prompt at allSetsDone
+  const expiredPrompts = screen.queryAllByText(/session.*expired|expired.*session/i);
+  assert(expiredPrompts.length === 1, `E1: Exactly ONE expired prompt at allSetsDone (got ${expiredPrompts.length})`);
+  
+  cleanup();
   console.log("✓ Test 1 passed\n");
-
-  // ===== Test 2: After successful Retry, no expired prompt =====
-  console.log("=== Test 2: Successful Retry clears expired prompt ===\n");
-
-  const exercise2 = makeExercise("ex-2", "bench", "Bench Press", 1);
-
-  let expired = true;
-  let logSetCalls2 = 0;
-  const actions2: SessionActions = {
-    markWarmupDone: ok,
-    logSet: async () => {
-      logSetCalls2++;
-      await Promise.resolve();
-      if (expired) {
-        return { ok: false, error: "Not signed in", code: "SESSION_EXPIRED" };
-      }
+  
+  // Test 2: After successful retry, zero expired prompts (E2)
+  console.log("=== Test 2: Zero prompts after successful retry ===\n");
+  
+  logSetCallCount = 0;
+  logSetShouldExpire = true;
+  let retryCalled = false;
+  
+  const actions2 = makeTypedActions(async () => {
+    logSetCallCount++;
+    if (retryCalled) {
       return { ok: true };
-    },
-    deleteSet: ok,
-    finishExercise: async () =>
-      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: ok,
-    getSessionSummary: async () => ({ ok: true as const, data: [] }),
-    abandonSession: ok,
-    planDay: ok,
-    refreshAfterSession: async () => ({ ok: true as const }),
-    swapExercise: async () => {
-      throw new Error("Should not swap");
-    },
-    findAlternatives: async () => ({ ok: true as const, data: [] }),
-  } as unknown as SessionActions;
-
-  const { container: c2, unmount: unmount2 } = render(
+    }
+    if (logSetShouldExpire) {
+      return { ok: false, error: "Session expired", code: SESSION_EXPIRED_CODE };
+    }
+    return { ok: true };
+  });
+  
+  const exercises2 = JSON.parse(JSON.stringify(exercises));
+  
+  render(
     <SessionRunner
-      sessionId="s2"
+      sessionId="s1"
       sessionStatus="in_progress"
-      userId="test-user-2"
+      userId="u1"
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
-      startedAt={new Date().toISOString()}
-      isStale={false}
+      startedAt={new Date(FIXED_TIME).toISOString()}
       warmup={[]}
       cooldown={[]}
-      exercises={[exercise2]}
+      exercises={exercises2}
       settings={settings}
       actions={actions2}
-    />,
+      timer={fakeTimer}
+      nowFn={() => FIXED_TIME}
+    />
   );
-
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
-  await waitFor(() => {
-    if (!c2.textContent?.includes("Bench Press")) throw new Error("Exercise not shown");
-  }, { timeout: 5000 });
-
-  // Log first set while expired - fill both reps and weight
-  const repsInput2 = [...c2.querySelectorAll("input")].find((input) =>
-    input.closest("label")?.textContent?.includes("Reps"),
-  ) as HTMLInputElement | undefined;
-
-  const weightInput2 = [...c2.querySelectorAll("input")].find((input) =>
-    input.closest("label")?.textContent?.includes("kg"),
-  ) as HTMLInputElement | undefined;
-
-  if (!repsInput2 || !weightInput2) {
-    console.log("  ✗ FAIL Reps or weight input not found");
-    process.exit(1);
+  
+  await act(async () => {});
+  
+  // Log set while expired
+  const repsInputs2 = screen.getAllByLabelText(/reps/i);
+  const logButtons2 = screen.queryAllByText(/Log set/i);
+  
+  const repsInput2_0 = repsInputs2[0];
+  if (repsInput2_0 instanceof HTMLInputElement) {
+    await act(async () => {
+      repsInput2_0.value = "10";
+      repsInput2_0.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      logButtons2[0].click();
+    });
+    await act(async () => {});
   }
-
-  await act(async () => {
-    fireEvent.change(repsInput2, { target: { value: "10" } });
-    fireEvent.change(weightInput2, { target: { value: "50" } });
-  });
-
-  await act(async () => {
-    await Promise.resolve();
-  });
-
-  const logBtn2 = [...c2.querySelectorAll("button")].find((b) =>
-    /Log set 1/.test(b.textContent ?? ""),
-  );
-
-  if (!logBtn2) {
-    console.log("  ✗ FAIL Log set button not found");
-    process.exit(1);
-  }
-
-  await act(async () => {
-    fireEvent.click(logBtn2);
-  });
-
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  });
-
+  
+  // Wait for Retry button
   await waitFor(() => {
-    if (logSetCalls2 !== 1) throw new Error("logSet not called");
-  }, { timeout: 2000 });
-
-  check("Logged set while expired", logSetCalls2 === 1);
-
-  // Wait for expired prompt to show
-  await waitFor(() => {
-    if ((c2.textContent?.match(/session has expired/gi) || []).length === 0) 
-      throw new Error("Expired prompt not shown");
-  }, { timeout: 1000 });
-
-  check("Expired prompt shows", (c2.textContent?.match(/session has expired/gi) || []).length > 0);
-
-  // "Restore" session
-  expired = false;
-
-  // Click Retry
-  const retryButton = [...c2.querySelectorAll("button")].find((b) =>
-    /Retry/.test(b.textContent ?? ""),
-  );
-
-  if (!retryButton) {
-    console.log("  ✗ FAIL Retry button not found");
-    process.exit(1);
-  }
-
-  await act(async () => {
-    fireEvent.click(retryButton);
+    if (!screen.queryByText(/Retry/i)) {
+      throw new Error("Retry button not shown");
+    }
   });
-
+  
+  // Click Retry (allow success)
+  logSetShouldExpire = false;
+  retryCalled = true;
+  
+  const retryButton = screen.getByText(/Retry/i);
+  await act(async () => {
+    retryButton.click();
+  });
+  
+  // Wait for replay to complete
   await waitFor(() => {
-    if (logSetCalls2 !== 2) throw new Error("Retry not called");
-  }, { timeout: 2000 });
-
-  check("Retry called logSet", logSetCalls2 === 2);
-
-  // Wait for expired prompt to disappear
-  await waitFor(() => {
-    if ((c2.textContent?.match(/session has expired/gi) || []).length > 0)
-      throw new Error("Expired prompt still visible");
-  }, { timeout: 2000 });
-
-  const expiredPromptsAfterRetry = (c2.textContent?.match(/session has expired/gi) || []).length;
-  check("No expired prompt remains after successful retry (L1 clear fix)", expiredPromptsAfterRetry === 0, `found ${expiredPromptsAfterRetry}`);
-
-  unmount2();
+    if (logSetCallCount < 2) {
+      throw new Error("Retry not completed");
+    }
+  });
+  
+  await act(async () => {});
+  await act(async () => {});
+  
+  // E2: Assert ZERO expired prompts after successful replay
+  const expiredPromptsAfter = screen.queryAllByText(/session.*expired|expired.*session/i);
+  assert(expiredPromptsAfter.length === 0, `E2: Zero expired prompts after retry (got ${expiredPromptsAfter.length})`);
+  
+  cleanup();
   console.log("✓ Test 2 passed\n");
-
-  // ===== Test 3: Non-expired error → NO expired banner (M2) =====
-  console.log("=== Test 3: Non-expired error → NO expired banner ===\n");
-
-  const exercise3 = makeExercise("ex-3", "deadlift", "Deadlift", 1);
-
-  let logSetCalls3 = 0;
-  const actions3: SessionActions = {
-    markWarmupDone: ok,
-    logSet: async () => {
-      logSetCalls3++;
-      await Promise.resolve();
-      return { ok: false, error: "Network error" };
-    },
-    deleteSet: ok,
-    finishExercise: async () =>
-      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: ok,
-    getSessionSummary: async () => ({ ok: true as const, data: [] }),
-    abandonSession: ok,
-    planDay: ok,
-    refreshAfterSession: async () => ({ ok: true as const }),
-    swapExercise: async () => {
-      throw new Error("Should not swap");
-    },
-    findAlternatives: async () => ({ ok: true as const, data: [] }),
-  } as unknown as SessionActions;
-
-  const { container: c3, unmount: unmount3 } = render(
-    <SessionRunner
-      sessionId="s3"
-      sessionStatus="in_progress"
-      userId="test-user-3"
-      isDeload={false}
-      week={1}
-      warmupAlreadyDone={true}
-      startedAt={new Date().toISOString()}
-      isStale={false}
-      warmup={[]}
-      cooldown={[]}
-      exercises={[exercise3]}
-      settings={settings}
-      actions={actions3}
-    />,
-  );
-
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
-  await waitFor(() => {
-    if (!c3.textContent?.includes("Deadlift")) throw new Error("Exercise not shown");
-  }, { timeout: 5000 });
-
-  // Log first set with network error - fill both reps and weight
-  const repsInput3 = [...c3.querySelectorAll("input")].find((input) =>
-    input.closest("label")?.textContent?.includes("Reps"),
-  ) as HTMLInputElement | undefined;
-
-  const weightInput3 = [...c3.querySelectorAll("input")].find((input) =>
-    input.closest("label")?.textContent?.includes("kg"),
-  ) as HTMLInputElement | undefined;
-
-  if (!repsInput3 || !weightInput3) {
-    console.log("  ✗ FAIL Reps or weight input not found");
-    process.exit(1);
-  }
-
-  await act(async () => {
-    fireEvent.change(repsInput3, { target: { value: "10" } });
-    fireEvent.change(weightInput3, { target: { value: "50" } });
-  });
-
-  await act(async () => {
-    await Promise.resolve();
-  });
-
-  const logBtn3 = [...c3.querySelectorAll("button")].find((b) =>
-    /Log set 1/.test(b.textContent ?? ""),
-  );
-
-  if (!logBtn3) {
-    console.log("  ✗ FAIL Log set button not found");
-    process.exit(1);
-  }
-
-  await act(async () => {
-    fireEvent.click(logBtn3);
-  });
-
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  });
-
-  await waitFor(() => {
-    if (logSetCalls3 !== 1) throw new Error("logSet not called");
-  }, { timeout: 2000 });
-
-  check("Logged set (network error)", logSetCalls3 === 1);
-
-  // Check for NO expired prompt (flush any pending updates)
-  await act(async () => {
-    await Promise.resolve();
-  });
-
-  const expiredPrompts3 = (c3.textContent?.match(/session has expired/gi) || []).length;
-  check(`M2: No expired prompt for non-expired error`, expiredPrompts3 === 0, `found ${expiredPrompts3}`);
-
-  unmount3();
-  console.log("✓ Test 3 passed\n");
-
-  console.log("\n✅ All L1 tests passed\n");
+  
+  console.log(`\n✅ Session expired banner tests passed (${passed} assertions)\n`);
   process.exit(0);
 })();

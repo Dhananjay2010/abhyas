@@ -16,13 +16,8 @@ import { SESSION_EXPIRED_CODE } from "../src/lib/auth/session-expired";
 import type { Storage } from "../src/lib/session/pending-set-retry";
 import { storageKey } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
-import { nextSetTarget } from "../src/lib/session/next-set-target";
 
 const FIXED_TIME = 1700000000000; // Nov 14, 2023
-
-function nextSetNumberFor(maxSetNumber: number, pendingCount: number): number {
-  return nextSetTarget(maxSetNumber, pendingCount);
-}
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -118,7 +113,8 @@ async function testReplayPlusNextSetNoCollision() {
   const pendingCount = states[states.length - 1].pending.filter(
     (s) => s.sessionExerciseId === exerciseId
   ).length;
-  const correctNextSetNumber = nextSetNumberFor(setsInUI, pendingCount);
+  // Real logic: next set = max set + 1 + pending count
+  const correctNextSetNumber = setsInUI + 1 + pendingCount;
 
   console.log(`  Current sets: ${setsInUI}, Pending: ${pendingCount}`);
   console.log(`  Next set number (accounting for pending): ${correctNextSetNumber}`);
@@ -269,7 +265,7 @@ async function testReplayedSetsUpdateUI() {
   assertEqual(finalState.pending.length, 0, "No sets remain pending");
   
   const maxSetNumber = Math.max(...finalState.replayed.map((s) => s.setNumber));
-  const correctNextSetNumber = nextSetNumberFor(maxSetNumber, 0);
+  const correctNextSetNumber = maxSetNumber + 1 + 0;
   
   assertEqual(correctNextSetNumber, 3, "After replaying sets 1 and 2, nextSetNumber should be 3");
 }

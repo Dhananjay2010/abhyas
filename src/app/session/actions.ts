@@ -33,8 +33,8 @@ import { loadSessionSummary } from "@/lib/session/load-session-summary";
 import type { SummaryNote } from "@/lib/session/load-session-summary";
 import { checkLogSetInput } from "@/lib/session/check-log-set-input";
 
-export type { SwapResult };
 import { logSetWithAuth } from "@/lib/session/log-set-with-auth";
+
 export type { SwapResult };
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
