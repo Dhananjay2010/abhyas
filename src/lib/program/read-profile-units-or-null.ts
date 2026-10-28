@@ -7,32 +7,18 @@
 import type { UnitsPreference } from "../units";
 
 /**
- * Minimal structural type for reading profile units.
- * Allows testing with fake clients.
+ * Query result type for profile units.
  */
-export type ProfilesReader = {
-  from(table: "profiles"): {
-    select(columns: "units"): {
-      eq(column: "id", value: string): {
-        single(): PromiseLike<{
-          data: { units: string | null } | null;
-          error: unknown;
-        }>;
-      };
-    };
-  };
-};
+export type ProfileUnitsQuery = PromiseLike<{
+  data: { units: string | null } | null;
+  error: unknown;
+}>;
 
 export async function readProfileUnitsOrNull(
-  client: ProfilesReader,
-  userId: string
+  query: () => ProfileUnitsQuery
 ): Promise<UnitsPreference | null> {
   try {
-    const { data: profile, error } = await client
-      .from("profiles")
-      .select("units")
-      .eq("id", userId)
-      .single();
+    const { data: profile, error } = await query();
     
     if (error || !profile) return null;
     

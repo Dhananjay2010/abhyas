@@ -1,7 +1,7 @@
 import { buildProgressionInput } from "./build-progression-input";
 import { evaluateProgression, describePersonalBest } from "@/lib/program/progression";
 import type { UnitsPreference } from "@/lib/units";
-import { readProfileUnitsOrNull, type ProfilesReader } from "@/lib/program/read-profile-units-or-null";
+import { readProfileUnitsOrNull } from "@/lib/program/read-profile-units-or-null";
 import type { Database } from "@/lib/database.types";
 import { writeExerciseProgressCore } from "./write-progress";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -59,7 +59,9 @@ export async function buildProgressionFeedbackForUser(
       .select("planning_mode, per_set_logging")
       .eq("user_id", userId)
       .maybeSingle(),
-    readProfileUnitsOrNull(supabase as unknown as ProfilesReader, userId),
+    readProfileUnitsOrNull(() => 
+      supabase.from("profiles").select("units").eq("id", userId).single()
+    ),
   ]);
 
   const settings = settingsRes.data;

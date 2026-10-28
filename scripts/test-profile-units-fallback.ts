@@ -6,7 +6,7 @@
  * and the progression feedback must contain neither "kg" nor "lb".
  */
 
-import { readProfileUnitsOrNull, type ProfilesReader } from "../src/lib/program/read-profile-units-or-null";
+import { readProfileUnitsOrNull, type ProfileUnitsQuery } from "../src/lib/program/read-profile-units-or-null";
 import { progressionFeedback } from "../src/lib/session/progression-feedback";
 
 let failures = 0;
@@ -17,158 +17,89 @@ function check(label: string, ok: boolean, detail = "") {
 
 console.log("\nTest: readProfileUnitsOrNull fallback and unit-neutral feedback\n");
 
-// Typed fake client that returns error
-function createErrorClient(): ProfilesReader {
-  return {
-    from() {
-      return {
-        select() {
-          return {
-            eq() {
-              return {
-                single: async () => ({
-                  data: null,
-                  error: { message: "Connection timeout" },
-                }),
-              };
-            },
-          };
-        },
-      };
-    },
+// Query function that returns error
+function createErrorQuery(): () => ProfileUnitsQuery {
+  return async () => ({
+    data: null,
+    error: { message: "Connection timeout" },
+  });
+}
+
+// Query function that throws exception
+function createThrowingQuery(): () => ProfileUnitsQuery {
+  return async () => {
+    throw new Error("Network failure");
   };
 }
 
-// Typed fake client that throws exception
-function createThrowingClient(): ProfilesReader {
-  return {
-    from() {
-      return {
-        select() {
-          return {
-            eq() {
-              return {
-                single: async () => {
-                  throw new Error("Network failure");
-                },
-              };
-            },
-          };
-        },
-      };
-    },
-  };
+// Query function that returns null profile
+function createNullProfileQuery(): () => ProfileUnitsQuery {
+  return async () => ({
+    data: null,
+    error: null,
+  });
 }
 
-// Typed fake client that returns null profile
-function createNullProfileClient(): ProfilesReader {
-  return {
-    from() {
-      return {
-        select() {
-          return {
-            eq() {
-              return {
-                single: async () => ({
-                  data: null,
-                  error: null,
-                }),
-              };
-            },
-          };
-        },
-      };
-    },
-  };
+// Query function that returns imperial
+function createImperialQuery(): () => ProfileUnitsQuery {
+  return async () => ({
+    data: { units: "imperial" },
+    error: null,
+  });
 }
 
-// Typed fake client that returns imperial
-function createImperialClient(): ProfilesReader {
-  return {
-    from() {
-      return {
-        select() {
-          return {
-            eq() {
-              return {
-                single: async () => ({
-                  data: { units: "imperial" },
-                  error: null,
-                }),
-              };
-            },
-          };
-        },
-      };
-    },
-  };
-}
-
-// Typed fake client that returns metric
-function createMetricClient(): ProfilesReader {
-  return {
-    from() {
-      return {
-        select() {
-          return {
-            eq() {
-              return {
-                single: async () => ({
-                  data: { units: "metric" },
-                  error: null,
-                }),
-              };
-            },
-          };
-        },
-      };
-    },
-  };
+// Query function that returns metric
+function createMetricQuery(): () => ProfileUnitsQuery {
+  return async () => ({
+    data: { units: "metric" },
+    error: null,
+  });
 }
 
 async function main() {
+  // Type definitions for test cases
+  type SessionExerciseRow = Parameters<typeof progressionFeedback>[0];
+  type SessionSetRow = Parameters<typeof progressionFeedback>[1][0];
+  type ExerciseProgressRow = Parameters<typeof progressionFeedback>[2];
+  type SessionRow = Parameters<typeof progressionFeedback>[3];
+
   console.log("1. Error case returns null");
   {
-    const client = createErrorClient();
-    const units = await readProfileUnitsOrNull(client, "user-1");
+    const query = createErrorQuery();
+    const units = await readProfileUnitsOrNull(query);
     check("Error case returns null", units === null, `got: ${units}`);
   }
 
   console.log("\n2. Throw case returns null");
   {
-    const client = createThrowingClient();
-    const units = await readProfileUnitsOrNull(client, "user-1");
+    const query = createThrowingQuery();
+    const units = await readProfileUnitsOrNull(query);
     check("Throw case returns null", units === null, `got: ${units}`);
   }
 
   console.log("\n3. Null profile returns null");
   {
-    const client = createNullProfileClient();
-    const units = await readProfileUnitsOrNull(client, "user-1");
+    const query = createNullProfileQuery();
+    const units = await readProfileUnitsOrNull(query);
     check("Null profile returns null", units === null, `got: ${units}`);
   }
 
   console.log("\n4. Valid imperial returns 'imperial'");
   {
-    const client = createImperialClient();
-    const units = await readProfileUnitsOrNull(client, "user-1");
+    const query = createImperialQuery();
+    const units = await readProfileUnitsOrNull(query);
     check("Valid imperial returns 'imperial'", units === "imperial", `got: ${units}`);
   }
 
   console.log("\n5. Valid metric returns 'metric'");
   {
-    const client = createMetricClient();
-    const units = await readProfileUnitsOrNull(client, "user-1");
+    const query = createMetricQuery();
+    const units = await readProfileUnitsOrNull(query);
     check("Valid metric returns 'metric'", units === "metric", `got: ${units}`);
   }
 
   console.log("\n6. Unit-neutral feedback: no kg/lb, no grammar artifacts");
   {
-    type SessionExerciseRow = Parameters<typeof progressionFeedback>[0];
-    type SessionSetRow = Parameters<typeof progressionFeedback>[1][0];
-    type ExerciseProgressRow = Parameters<typeof progressionFeedback>[2];
-    type SessionRow = Parameters<typeof progressionFeedback>[3];
-    
     // Helper to check a message
     const checkNeutral = (label: string, message: string) => {
       const hasKg = /\bkg\b/i.test(message);
@@ -536,6 +467,60 @@ async function main() {
     
     const hasKg = /\bkg\b/i.test(decision.message);
     check("Metric user: message has 'kg'", hasKg, `message: ${decision.message}`);
+  }
+
+  console.log("\n9. Medicine ball at lightest ball: no null/undefined in message");
+  {
+    const se: SessionExerciseRow = {
+      id: "se-med",
+      session_id: "session-1",
+      exercise_id: "ex-med",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+      exercises: {
+        mechanic: "isolation",
+        movement_pattern: "core",
+        equipment_ids: ["medicine_ball"],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    };
+    
+    const sets: SessionSetRow[] = [
+      { reps: 6, weight_kg: 1, duration_seconds: null },
+      { reps: 6, weight_kg: 1, duration_seconds: null },
+      { reps: 6, weight_kg: 1, duration_seconds: null },
+    ];
+    
+    const prior: ExerciseProgressRow = {
+      current_working_weight_kg: 1,
+      current_target_reps: 12,
+      consecutive_failures: 2,
+      best_weight_kg: 1,
+      best_reps: 10,
+      best_e1rm: null,
+      total_sessions: 3,
+      weight_at_failure_start_kg: 1,
+    };
+    
+    const session: SessionRow = {
+      is_deload: false,
+      local_date: "2026-10-28",
+      program_id: "prog-1",
+    };
+    
+    const { decision } = progressionFeedback(se, sets, prior, session, "right", null);
+    
+    const hasNull = /\b(null|undefined)\b/i.test(decision.message);
+    const hasKg = /\bkg\b/i.test(decision.message);
+    const hasLb = /\blb\b/i.test(decision.message);
+    
+    check("Medicine ball counter 3: no 'null'", !hasNull, `message: ${decision.message}`);
+    check("Medicine ball counter 3: no 'kg'", !hasKg, `message: ${decision.message}`);
+    check("Medicine ball counter 3: no 'lb'", !hasLb, `message: ${decision.message}`);
+    check("Medicine ball counter 3: exact neutral message", decision.message === "Staying at this weight — aim for clean reps.", decision.message);
   }
 
   console.log(`\n${failures === 0 ? "✅ ALL CHECKS PASSED" : `❌ ${failures} FAILURES`}\n`);

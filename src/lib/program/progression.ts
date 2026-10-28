@@ -999,7 +999,13 @@ export function evaluateProgression(input: {
               nextTargetReps: repsMax,
               consecutiveFailures: failures,
               weightAtFailureStartKg: state.weightAtFailureStartKg,
-              message: `Staying at ${displayWeight(currentWeight)} — aim for clean reps.`,
+              message: (() => {
+                const weightDisplay = displayWeight(currentWeight);
+                if (!weightDisplay) {
+                  return "Staying at this weight — aim for clean reps.";
+                }
+                return `Staying at ${weightDisplay} — aim for clean reps.`;
+              })(),
             };
           }
           stepped = Math.max(MEDICINE_BALL_MIN_KG, oneStepDown);
