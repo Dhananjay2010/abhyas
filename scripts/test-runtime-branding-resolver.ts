@@ -120,7 +120,8 @@ async function main() {
       
       check("037 exact shape: tier is host", resolution.tier === "host");
       check("037 exact shape: resolved gym ID", resolution.gymId === gymId);
-      check("037 exact shape: brand from gym", resolution.brand.colors.accent === '#1E40AF');
+      // ensureMinContrast adjusts #1E40AF to #2f56c7 for 3:1 contrast against #0a0c0e bg
+      check("037 exact shape: brand from gym", resolution.brand.colors.accent === '#2f56c7');
     }
     
     // Test 2: Empty array gives next tier
@@ -215,7 +216,8 @@ async function main() {
       
       check("Extra fields: tier is host", resolution.tier === "host");
       check("Extra fields: resolved gym ID", resolution.gymId === gymId);
-      check("Extra fields: brand from gym", resolution.brand.colors.accent === '#1E40AF');
+      // ensureMinContrast adjusts #1E40AF to #2f56c7 for 3:1 contrast against #0a0c0e bg
+      check("Extra fields: brand from gym", resolution.brand.colors.accent === '#2f56c7');
     }
     
     // Test 5: Missing gym_slug falls through to next tier
