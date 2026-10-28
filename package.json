@@ -600,6 +600,7 @@
     "test:qa-low-b-detail-page-duration-call": "tsx scripts/test-qa-low-b-detail-page-duration-call.ts",
     "test:qa-low-b-page-call-site": "tsx scripts/test-qa-low-b-page-call-site.ts",
     "test:qa-low-b-page-duration-path": "tsx scripts/test-qa-low-b-page-duration-path.ts",
+    "test:repair-superseded-blocks-real-db": "tsx scripts/test-repair-superseded-blocks-real-db.ts",
     "test:current-knee-thruster-pin": "tsx scripts/test-current-knee-thruster-pin.ts",
     "test:generate-current-knee-thruster": "tsx scripts/test-generate-current-knee-thruster.ts",
     "test:alternatives-current-knee-thruster": "tsx scripts/test-alternatives-current-knee-thruster.ts",
