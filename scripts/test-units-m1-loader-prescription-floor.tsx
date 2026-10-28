@@ -20,9 +20,9 @@ import { loadPreviousCompletedWeights } from "../src/lib/session/load-previous-w
 import type { Database } from "../src/lib/database.types";
 import {
   SessionRunner,
+  type RunnerExercise,
   type SessionActions,
 } from "../src/app/session/[id]/session-runner";
-import type { RunnerExercise } from "../src/lib/session/build-runner-exercises";
 
 let passed = 0;
 let failed = 0;

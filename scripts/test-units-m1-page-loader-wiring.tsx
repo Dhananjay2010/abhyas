@@ -14,7 +14,6 @@ import { loadAndBuildRunnerExercises } from "../src/lib/session/load-and-build-r
 import type { SessionExerciseInput, ProgressInput } from "../src/lib/session/build-runner-exercises";
 import {
   SessionRunner,
-  type RunnerExercise,
   type SessionActions,
 } from "../src/app/session/[id]/session-runner";
 
