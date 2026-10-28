@@ -226,7 +226,7 @@ run_mutant_test \
   "src/lib/session/eligible-swap-list.ts" \
   'const tieBreakFn = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);' \
   'const tieBreakFn = (slug: string) => Math.random(); // MUTANT' \
-  "npx tsx scripts/test-replace-banned-in-planned.ts"
+  "npx tsx scripts/test-tie-break-determinism-m6.ts"
 
 # Mutant 7: Today call site removed
 run_mutant_test \
@@ -258,7 +258,7 @@ run_mutant_test \
   "src/lib/session/start-session-full-deps.ts" \
   'const cleaned = applyBannedCleanup(' \
   'const cleaned = { rows: plannedForCleaning, changed: false }; if (false) { applyBannedCleanup(' \
-  "npx tsx scripts/test-start-session-call-site.ts"
+  "npx tsx scripts/test-start-session-w1.ts"
 
 # Mutant 11: Force-add filter removed (killed by synthetic-catalogue test)
 run_mutant_test \
@@ -274,15 +274,15 @@ run_mutant_test \
   "src/lib/session/start-session-full-deps.ts" \
   'async cleanBannedExercises(exercises) {' \
   'async cleanBannedExercises(exercises) { return exercises; if (false) {' \
-  "npx tsx scripts/test-start-session-call-site.ts"
+  "npx tsx scripts/test-start-session-w2.ts"
 
-# Mutant W5: Today applyDayCleanup returns day unchanged
+# Mutant W5: shouldTriggerBannedCleanup returns false (constant)
 run_mutant_test \
-  "W5: Today applyDayCleanup no-op" \
-  "src/app/today/page.tsx" \
-  'export function applyDayCleanup(' \
-  'export function applyDayCleanup(day: any) { return day; } function applyDayCleanupMutated(' \
-  "npx tsx scripts/test-today-page-cleanup-path.ts"
+  "W5: shouldTriggerBannedCleanup constant false" \
+  "src/lib/today/should-trigger-cleanup.ts" \
+  'return cleanupResults.some(r => r.changed);' \
+  'return false; // MUTANT: never trigger cleanup' \
+  "npx tsx scripts/test-should-trigger-cleanup-w5.ts"
 
 # Mutant W6: cleanup touches logged data tables
 run_mutant_test \
@@ -298,7 +298,7 @@ run_mutant_test \
   "src/lib/session/start-session-full-core.ts" \
   'deps.ensureSessionExercises(existing.id),' \
   '// MUTANT: ensureSessionExercises removed' \
-  "npx tsx scripts/test-start-session-call-site.ts"
+  "npx tsx scripts/test-ensure-session-h2.ts"
 
 # Mutant L1: drop-slot handling crashes
 run_mutant_test \
