@@ -236,7 +236,7 @@ export function DayPlanPrompt({
                   <div className="flex items-center justify-between">
                     <span>{d.label}</span>
                     {d.nextUp && (
-                      <span className="rounded bg-accent/20 px-2 py-0.5 text-xs font-semibold text-[color:var(--color-accent-on-surface)]">
+                      <span className="rounded bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent">
                         Next up
                       </span>
                     )}
@@ -327,7 +327,7 @@ export function DayPlanPrompt({
               <div className="flex items-center justify-between">
                 <span>{d.label}</span>
                 {d.nextUp && (
-                  <span className="rounded bg-accent/20 px-2 py-0.5 text-xs font-semibold text-[color:var(--color-accent-on-surface)]">
+                  <span className="rounded bg-accent/20 px-2 py-0.5 text-xs font-semibold text-accent">
                     Next up
                   </span>
                 )}

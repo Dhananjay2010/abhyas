@@ -28,18 +28,28 @@ function check(label: string, ok: boolean, detail = "") {
 async function testFormRendersAdjustedSwatches() {
   console.log("TEST: Form renders preview swatches with adjusted colors");
   
-  const rawPrimary = "#1E40AF"; // Dark blue needing adjustment
-  const rawAccent = "#1E3A8A";  // Even darker blue needing adjustment
+  // Test case 1: Dark primary (needs lightening)
+  const darkPrimary = "#1E40AF";
+  const darkAccent = "#1E3A8A";
   
-  // Compute expected adjusted values
-  const { adjustedPrimary, adjustedAccent, previewTextColor } = computePreviewColors(rawPrimary, rawAccent);
+  const darkResult = computePreviewColors(darkPrimary, darkAccent);
+  console.log(`  Test 1 - Dark primary: ${darkPrimary} → Adjusted: ${darkResult.adjustedPrimary}`);
+  console.log(`  Test 1 - Dark accent: ${darkAccent} → Adjusted: ${darkResult.adjustedAccent}`);
+  console.log(`  Test 1 - Preview text color: ${darkResult.previewTextColor}`);
   
-  console.log(`  Raw primary: ${rawPrimary} → Adjusted: ${adjustedPrimary}`);
-  console.log(`  Raw accent: ${rawAccent} → Adjusted: ${adjustedAccent}`);
-  console.log(`  Preview text color: ${previewTextColor}`);
+  // Test case 2: Medium-dark primary (may cross text color threshold)
+  // This color is dark enough to need adjustment, but after adjustment
+  // might become light enough to need a different text color
+  const mediumPrimary = "#3b5998"; // Facebook blue - darker than adjusted target
+  const mediumAccent = "#365899";
   
-  // Render form with low-contrast primary and accent
-  const html = renderToStaticMarkup(
+  const mediumResult = computePreviewColors(mediumPrimary, mediumAccent);
+  console.log(`  Test 2 - Medium primary: ${mediumPrimary} → Adjusted: ${mediumResult.adjustedPrimary}`);
+  console.log(`  Test 2 - Medium accent: ${mediumAccent} → Adjusted: ${mediumResult.adjustedAccent}`);
+  console.log(`  Test 2 - Preview text color: ${mediumResult.previewTextColor}`);
+  
+  // Render form with dark colors
+  const darkHtml = renderToStaticMarkup(
     <BrandingForm
       gymId="test-gym-id"
       gymName="Test Gym"
@@ -47,40 +57,58 @@ async function testFormRendersAdjustedSwatches() {
         gymName: "Test Gym",
         displayName: "",
         logoUrl: "",
-        primaryColor: rawPrimary,
-        accentColor: rawAccent,
+        primaryColor: darkPrimary,
+        accentColor: darkAccent,
       }}
     />
   );
   
-  // The form should use the adjusted colors in the preview swatches (type="color" inputs)
-  // The adjusted primary should be #2f56c7 (or similar) for 3.0:1 on #0a0c0e
-  check("HTML contains color input swatches", html.includes('type="color"'));
-  
-  // Check that adjusted primary appears in the preview (not raw)
-  check("Preview contains adjusted primary", 
-    adjustedPrimary ? html.includes(adjustedPrimary) : false,
-    adjustedPrimary || "null"
+  check("Dark: HTML contains color input swatches", darkHtml.includes('type="color"'));
+  check("Dark: Preview contains adjusted primary", 
+    darkResult.adjustedPrimary ? darkHtml.includes(darkResult.adjustedPrimary) : false,
+    darkResult.adjustedPrimary || "null"
+  );
+  check("Dark: Preview contains adjusted accent",
+    darkResult.adjustedAccent ? darkHtml.includes(darkResult.adjustedAccent) : false,
+    darkResult.adjustedAccent || "null"
+  );
+  check("Dark: Preview contains text color from adjusted primary",
+    darkResult.previewTextColor ? darkHtml.includes(darkResult.previewTextColor) : false,
+    darkResult.previewTextColor || "null"
   );
   
-  // Check that adjusted accent appears in the preview (not raw)
-  check("Preview contains adjusted accent",
-    adjustedAccent ? html.includes(adjustedAccent) : false,
-    adjustedAccent || "null"
+  // Render form with medium colors
+  const mediumHtml = renderToStaticMarkup(
+    <BrandingForm
+      gymId="test-gym-id"
+      gymName="Test Gym"
+      initial={{
+        gymName: "Test Gym",
+        displayName: "",
+        logoUrl: "",
+        primaryColor: mediumPrimary,
+        accentColor: mediumAccent,
+      }}
+    />
   );
   
-  // Check that preview text color appears (computed from adjusted, not raw primary)
-  check("Preview contains text color from adjusted primary",
-    previewTextColor ? html.includes(previewTextColor) : false,
-    previewTextColor || "null"
+  check("Medium: HTML contains color input swatches", mediumHtml.includes('type="color"'));
+  check("Medium: Preview contains adjusted primary", 
+    mediumResult.adjustedPrimary ? mediumHtml.includes(mediumResult.adjustedPrimary) : false,
+    mediumResult.adjustedPrimary || "null"
+  );
+  check("Medium: Preview contains adjusted accent",
+    mediumResult.adjustedAccent ? mediumHtml.includes(mediumResult.adjustedAccent) : false,
+    mediumResult.adjustedAccent || "null"
+  );
+  check("Medium: Preview contains text color from adjusted primary",
+    mediumResult.previewTextColor ? mediumHtml.includes(mediumResult.previewTextColor) : false,
+    mediumResult.previewTextColor || "null"
   );
   
-  // Check that preview section exists
-  const previewSection = html.indexOf("Preview");
-  check("Preview section exists", previewSection > 0);
-  if (previewSection > 0) {
-    console.log("  Preview section found");
-  }
+  // Check preview sections exist
+  check("Dark: Preview section exists", darkHtml.indexOf("Preview") > 0);
+  check("Medium: Preview section exists", mediumHtml.indexOf("Preview") > 0);
   
   console.log("  Adjusted values should appear in preview swatches");
 }
