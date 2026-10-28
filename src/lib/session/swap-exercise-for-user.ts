@@ -151,8 +151,8 @@ export async function swapExerciseForUser(
 
   const coreResult = await swapExerciseCore(
       {
-        resolveSwapWeights: (sessionId, newExerciseId, equipmentIds, metric, movementPattern, remembersWeights) =>
-          resolveSwapWeights(supabase, userId, sessionId, newExerciseId, equipmentIds, metric, movementPattern, remembersWeights),
+        resolveSwapWeights: (sessionId, newExerciseId, equipmentIds, mechanic, metric, movementPattern, remembersWeights) =>
+          resolveSwapWeights(supabase, userId, sessionId, newExerciseId, equipmentIds, mechanic, metric, movementPattern, remembersWeights),
         validateSwapTarget,
       },
       {

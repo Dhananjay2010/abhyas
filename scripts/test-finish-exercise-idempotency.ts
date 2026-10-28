@@ -84,6 +84,7 @@ function createProgressionSpy() {
       return {
         outcome: "success",
         message: "Weight increased",
+    weightAtFailureStartKg: null,
         personalBest: null,
       } as ProgressionFeedback;
     },
