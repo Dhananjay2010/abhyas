@@ -176,6 +176,14 @@ run_mutant_migration_file() {
   fi
   
   rm -f "$test_output"
+  
+  # Reset DB after each mutant to restore real 042
+  if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
+    npx supabase@2.122.0 db reset > /dev/null 2>&1 || { echo "❌ Post-mutant reset failed"; exit 1; }
+  else
+    npx supabase@2.122.0 db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1 || { echo "❌ Post-mutant reset failed"; exit 1; }
+  fi
+  
   echo
   sleep 2
 }
@@ -360,6 +368,22 @@ run_mutant_migration_file \
   "supabase/migrations/20261025000042_gym_join_codes_perf.sql" \
   "sed \"/already_member/s/, 'gym_name', v_code_record.gym_name//\"" \
   "successUser redeem already_member includes gym_name"
+
+# Final DB reset to restore real migrations
+echo
+echo "Resetting DB to restore real migrations..."
+if [ "${CI:-}" = "true" ] && [[ "$SUPABASE_DB_URL" == *"localhost:54322"* ]]; then
+  npx supabase@2.122.0 db reset > /dev/null 2>&1 || { echo "❌ Final reset failed"; exit 1; }
+else
+  npx supabase@2.122.0 db reset --db-url "$SUPABASE_DB_URL" > /dev/null 2>&1 || { echo "❌ Final reset failed"; exit 1; }
+fi
+
+# Verify real 042 is live (check that redeem_join_code returns gym_name on already_member)
+if ! psql -tA "$SUPABASE_DB_URL" -c "select pg_get_functiondef('public.redeem_join_code(text)'::regprocedure)" | grep -q "'gym_name', v_code_record.gym_name"; then
+  echo "❌ FAIL: redeem_join_code doesn't return gym_name on already_member (real 042 not applied)"
+  exit 1
+fi
+echo "✓ Real 042 verified"
 
 echo
 echo "========================================="

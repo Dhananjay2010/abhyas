@@ -237,8 +237,6 @@ run_mutant \
   "Recreate get_gym_brand without granting to anon/authenticated" \
   "sed 's/^grant execute on function public.get_gym_brand(uuid) to anon, authenticated;$/revoke execute on function public.get_gym_brand(uuid) from anon, authenticated;/' <" \
   "FAIL Anon can call get_gym_brand"
-run_mutant \
-  "(k) clear parameter ignored" \
 # Mutant (k): Clear parameter ignored
 run_mutant \
   "(k) clear parameter ignored" \
@@ -251,7 +249,6 @@ run_mutant \
   "(l) cross-gym attack" \
   "Allow owner to update all gyms' branding (cross-tenant)" \
   "sed 's/^  where id = p_gym_id;$/  where id is not null;/' <" \
-  "FAIL Other gym display_name unchanged"
   "FAIL Other gym display_name unchanged"
 
 # Reset DB after last mutant
