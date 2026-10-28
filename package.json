@@ -614,7 +614,8 @@
     "test:m10-behavioral": "tsx scripts/test-m10-behavioral.tsx",
     "test:accent-on-surface": "tsx scripts/test-accent-on-surface.ts",
     "test:host-wins-display-name": "tsx scripts/test-host-wins-display-name.ts",
-    "test:owner-brand-preview": "tsx scripts/test-owner-brand-preview.ts"
+    "test:owner-brand-preview": "tsx scripts/test-owner-brand-preview.ts",
+    "test:membership-tier-preference": "tsx scripts/test-membership-tier-preference.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
