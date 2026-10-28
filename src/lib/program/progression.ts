@@ -929,9 +929,11 @@ export function evaluateProgression(input: {
         nextTargetReps: repsMax,
         consecutiveFailures: 0,
         weightAtFailureStartKg: null, // M1: clear on two-miss back-off
-        message: failures >= 3
-          ? "Missed twice in a row — back to bodyweight to build up again."
-          : "Missed twice in a row — back to bodyweight to build up again.",
+        message: state.consecutiveFailures >= 3
+          ? "Missed again — back to bodyweight to build up again."
+          : state.consecutiveFailures === 2
+            ? "Missed three times in a row — back to bodyweight to build up again."
+            : "Missed twice in a row — back to bodyweight to build up again.",
       };
     }
     
@@ -1077,9 +1079,11 @@ export function evaluateProgression(input: {
       nextTargetReps: repsMax,
       consecutiveFailures: 0,
       weightAtFailureStartKg: null, // M1: clear on successful two-miss back-off
-      message: failures >= 3
-        ? `Missed twice in a row — dropping to ${displayWeight(reduced)} to build back.`
-        : `Missed twice in a row — dropping to ${displayWeight(reduced)} to build back.`,
+      message: state.consecutiveFailures >= 3
+        ? `Missed again — dropping to ${displayWeight(reduced)} to build back.`
+        : state.consecutiveFailures === 2
+          ? `Missed three times in a row — dropping to ${displayWeight(reduced)} to build back.`
+          : `Missed twice in a row — dropping to ${displayWeight(reduced)} to build back.`,
     };
   }
 

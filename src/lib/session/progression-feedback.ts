@@ -1,7 +1,7 @@
 import { buildProgressionInput } from "./build-progression-input";
 import { evaluateProgression, describePersonalBest } from "@/lib/program/progression";
 import type { UnitsPreference } from "@/lib/units";
-import { getProfileUnits } from "@/lib/get-profile-units";
+import { readProfileUnitsOrNull } from "@/lib/program/read-profile-units-or-null";
 import type { Database } from "@/lib/database.types";
 import { writeExerciseProgressCore } from "./write-progress";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -27,13 +27,31 @@ export function progressionFeedback(
   prior: Parameters<typeof buildProgressionInput>[2],
   session: Parameters<typeof buildProgressionInput>[3],
   feel: Parameters<typeof buildProgressionInput>[4],
-  units: UnitsPreference,
+  units: UnitsPreference | null,
 ) {
-  const input = buildProgressionInput(se, sets, prior, session, feel, units);
+  // When units cannot be determined, build input without unit preference (defaults to metric internally)
+  // but then strip weight mentions from messages
+  const input = units
+    ? buildProgressionInput(se, sets, prior, session, feel, units)
+    : buildProgressionInput(se, sets, prior, session, feel);
+  
   const decision = evaluateProgression(input);
-  const personalBest = decision.personalBest 
+  
+  // Unit-neutral feedback: remove weight mentions when units unavailable
+  if (!units && decision.message) {
+    // Strip weight patterns: "X kg", "X lb", "— up to X kg", "— ready to add X kg", etc.
+    decision.message = decision.message
+      .replace(/\s*—\s*(?:up to|ready to add|dropping to|back to)\s+[\d.]+\s*(?:kg|lb)\.?/gi, '.')
+      .replace(/\s+[\d.]+\s*(?:kg|lb)\b/gi, '')
+      .replace(/\bat\s+[\d.]+\s*(?:kg|lb)\b/gi, 'at this weight')
+      .replace(/\.\s*\./g, '.')
+      .trim();
+  }
+  
+  const personalBest = decision.personalBest && units
     ? describePersonalBest(decision.personalBest, units)
     : null;
+  
   return { input, decision, personalBest };
 }
 
@@ -55,7 +73,7 @@ export async function buildProgressionFeedbackForUser(
       .select("planning_mode, per_set_logging")
       .eq("user_id", userId)
       .maybeSingle(),
-    getProfileUnits(supabase, userId),
+    readProfileUnitsOrNull(supabase, userId),
   ]);
 
   const settings = settingsRes.data;
