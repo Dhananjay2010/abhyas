@@ -1,6 +1,6 @@
 /**
  * Real database tests for provision_gym RPC.
- * 
+ *
  * Verifies:
  * - provision_gym creates gym and owner membership
  * - Re-running with same slug is idempotent (created:false, no duplicates)
@@ -8,9 +8,10 @@
  * - Invalid timezone, slug, colour, logo_url are rejected
  * - anon and authenticated calls are denied (permission denied)
  * - service_role succeeds
- * - After provisioning, owner sees only their gym via RLS
+ * - After provisioning, owner sees only their gyms via RLS
  * - prosecdef is true and proconfig contains search_path=""
- * 
+ * - Provisioning a new gym doesn't affect existing ownerships (including default gym)
+ *
  * Run: supabase start && REAL_DB=1 npm run test:provision-gym-real-db
  */
 
@@ -75,18 +76,18 @@ async function runTests() {
   // Import and check guard
   const { checkRealDbTest } = await import("./lib-db-reset-guard");
   const guardResult = checkRealDbTest();
-  
+
   if (!guardResult.allow) {
     console.log(`\n⏭️  Skipping real DB tests: ${guardResult.reason}\n`);
     return true;
   }
-  
+
   console.log(`✓ Guard check passed: ${guardResult.reason}\n`);
 
   console.log("Checking Supabase connection...");
-  
+
   const isAvailable = await testDatabaseConnection();
-  
+
   if (!isAvailable) {
     console.error("\n❌ REAL_DB=1 but Supabase is not available");
     console.error("   Run `supabase start` to enable these tests\n");
@@ -111,7 +112,7 @@ async function runTests() {
   let userIdOwner: string | null = null;
 
   console.log("Creating test user...");
-  
+
   {
     const { data, error } = await adminClient.auth.admin.createUser({
       email: emailOwner,
@@ -199,7 +200,7 @@ async function runTests() {
       p_owner_email: emailOwner,
     });
 
-    check("provision_gym returns no error", !error, error?.message);
+    check("re-run same slug returns no error", !error, error?.message);
     check("data.ok is true", data?.ok === true);
     check("data.created is false", data?.created === false);
     check("data.slug matches input", data?.slug === testSlug);
@@ -236,7 +237,7 @@ async function runTests() {
   console.log("=== Test 3: Unknown email raises PGY01 ===");
   {
     const unknownEmail = `nonexistent-${Date.now()}@example.com`;
-    const { data, error } = await adminClient.rpc("provision_gym", {
+    const { error } = await adminClient.rpc("provision_gym", {
       p_name: "Ghost Gym",
       p_slug: `ghost-gym-${Date.now()}`,
       p_timezone: "Asia/Kolkata",
@@ -251,7 +252,7 @@ async function runTests() {
 
   console.log("=== Test 4: Invalid timezone is rejected ===");
   {
-    const { data, error } = await adminClient.rpc("provision_gym", {
+    const { error } = await adminClient.rpc("provision_gym", {
       p_name: "Bad Timezone Gym",
       p_slug: `bad-tz-${Date.now()}`,
       p_timezone: "Invalid/Timezone",
@@ -266,7 +267,7 @@ async function runTests() {
 
   console.log("=== Test 5: Invalid slug is rejected ===");
   {
-    const { data, error } = await adminClient.rpc("provision_gym", {
+    const { error } = await adminClient.rpc("provision_gym", {
       p_name: "Bad Slug Gym",
       p_slug: "Bad Slug!",
       p_timezone: "Asia/Kolkata",
@@ -281,7 +282,7 @@ async function runTests() {
 
   console.log("=== Test 6: Invalid primary_color is rejected ===");
   {
-    const { data, error } = await adminClient.rpc("provision_gym", {
+    const { error } = await adminClient.rpc("provision_gym", {
       p_name: "Bad Color Gym",
       p_slug: `bad-color-${Date.now()}`,
       p_timezone: "Asia/Kolkata",
@@ -297,7 +298,7 @@ async function runTests() {
 
   console.log("=== Test 7: Invalid accent_color is rejected ===");
   {
-    const { data, error } = await adminClient.rpc("provision_gym", {
+    const { error } = await adminClient.rpc("provision_gym", {
       p_name: "Bad Color Gym 2",
       p_slug: `bad-color-2-${Date.now()}`,
       p_timezone: "Asia/Kolkata",
@@ -313,7 +314,7 @@ async function runTests() {
 
   console.log("=== Test 8: Color pair rule (both or neither) ===");
   {
-    const { data, error } = await adminClient.rpc("provision_gym", {
+    const { error } = await adminClient.rpc("provision_gym", {
       p_name: "Bad Color Pair Gym",
       p_slug: `bad-color-pair-${Date.now()}`,
       p_timezone: "Asia/Kolkata",
@@ -329,7 +330,7 @@ async function runTests() {
 
   console.log("=== Test 9: Invalid logo_url is rejected ===");
   {
-    const { data, error } = await adminClient.rpc("provision_gym", {
+    const { error } = await adminClient.rpc("provision_gym", {
       p_name: "Bad Logo Gym",
       p_slug: `bad-logo-${Date.now()}`,
       p_timezone: "Asia/Kolkata",
@@ -344,29 +345,29 @@ async function runTests() {
 
   console.log("=== Test 10: anon call is denied ===");
   {
-    const { data, error } = await anonClient.rpc("provision_gym", {
+    const { error } = await anonClient.rpc("provision_gym", {
       p_name: "Anon Gym",
       p_slug: `anon-gym-${Date.now()}`,
       p_timezone: "Asia/Kolkata",
       p_owner_email: emailOwner,
     });
 
-    check("provision_gym returns error", !!error);
-    check("error message mentions permission", (error?.message?.toLowerCase()?.includes("permission") ?? false) || (error?.message?.toLowerCase()?.includes("denied") ?? false), error?.message);
+    check("anon call returns error", !!error);
+    check("anon error message mentions permission", (error?.message?.toLowerCase()?.includes("permission") ?? false) || (error?.message?.toLowerCase()?.includes("denied") ?? false), error?.message);
   }
   console.log("");
 
   console.log("=== Test 11: authenticated call is denied ===");
   {
-    const { data, error } = await ownerClient.rpc("provision_gym", {
+    const { error } = await ownerClient.rpc("provision_gym", {
       p_name: "Authenticated Gym",
       p_slug: `auth-gym-${Date.now()}`,
       p_timezone: "Asia/Kolkata",
       p_owner_email: emailOwner,
     });
 
-    check("provision_gym returns error", !!error);
-    check("error message mentions permission", (error?.message?.toLowerCase()?.includes("permission") ?? false) || (error?.message?.toLowerCase()?.includes("denied") ?? false), error?.message);
+    check("authenticated call returns error", !!error);
+    check("authenticated error message mentions permission", (error?.message?.toLowerCase()?.includes("permission") ?? false) || (error?.message?.toLowerCase()?.includes("denied") ?? false), error?.message);
   }
   console.log("");
 
@@ -389,28 +390,35 @@ async function runTests() {
   {
     // Create an unrelated gym for a different user
     const emailOther = `other-owner-${Date.now()}@example.com`;
-    const { data: otherUser } = await adminClient.auth.admin.createUser({
+    const { data: otherUser, error: otherUserError } = await adminClient.auth.admin.createUser({
       email: emailOther,
       password: "test-password-other",
       email_confirm: true,
     });
 
+    check("unrelated user created", !otherUserError && !!otherUser?.user, otherUserError?.message);
+
     const otherSlug = `other-gym-${Date.now()}`;
-    await adminClient.rpc("provision_gym", {
+    const { error: otherGymError } = await adminClient.rpc("provision_gym", {
       p_name: "Other Gym",
       p_slug: otherSlug,
       p_timezone: "Asia/Kolkata",
       p_owner_email: emailOther,
     });
 
+    check("unrelated gym provisioned", !otherGymError, otherGymError?.message);
+
     const { data: gyms, error: gymsError } = await ownerClient
       .from("gyms")
       .select("id, slug");
 
     check("gyms query succeeds", !gymsError, gymsError?.message);
-    check("owner sees exactly 2 gyms", gyms?.length === 2, `saw ${gyms?.length} gyms`);
-    check("gym slugs match owned gyms", 
-      (gyms?.some(g => g.slug === testSlug) ?? false) && (gyms?.some(g => g.slug === testSlug2) ?? false),
+    // Owner should see: default (from 035 trigger), testSlug, testSlug2
+    check("owner sees exactly 3 gyms", gyms?.length === 3, `saw ${gyms?.length} gyms`);
+    check("gym slugs match owned gyms",
+      (gyms?.some(g => g.slug === "default") ?? false) &&
+      (gyms?.some(g => g.slug === testSlug) ?? false) &&
+      (gyms?.some(g => g.slug === testSlug2) ?? false),
       `slugs: ${gyms?.map(g => g.slug).join(", ")}`);
     check("owner does NOT see unrelated gym", !(gyms?.some(g => g.slug === otherSlug) ?? true), "unrelated gym visible");
 
@@ -461,7 +469,7 @@ async function runTests() {
   console.log("=== Test 15: Branding params null preserves existing values ===");
   {
     const nullTestSlug = `null-test-${Date.now()}`;
-    
+
     // First provision with branding
     const { data: data1, error: error1 } = await adminClient.rpc("provision_gym", {
       p_name: "Null Test Gym",
@@ -514,9 +522,8 @@ async function runTests() {
   {
     const slugA = `multi-owner-a-${Date.now()}`;
     const slugB = `multi-owner-b-${Date.now()}`;
-    const slugMember = `multi-owner-member-${Date.now()}`;
 
-    // Create a second test user
+    // Create a second test user (gets default membership via 035 trigger)
     const emailMultiOwner = `multi-owner-${Date.now()}@example.com`;
     const passwordMultiOwner = "test-password-multi";
     let userIdMultiOwner: string | null = null;
@@ -531,6 +538,14 @@ async function runTests() {
     userIdMultiOwner = multiOwnerUser?.user?.id || null;
 
     if (userIdMultiOwner) {
+      // Get the default gym id for member membership check
+      const { data: defaultGym } = await adminClient
+        .from("gyms")
+        .select("id")
+        .eq("slug", "default")
+        .single();
+      const defaultGymId = defaultGym?.id;
+
       // Provision gym A for this user
       const { data: dataA, error: errorA } = await adminClient.rpc("provision_gym", {
         p_name: "Multi Owner Gym A",
@@ -546,27 +561,6 @@ async function runTests() {
       check("gym A provision succeeds", !errorA && dataA?.created === true, errorA?.message);
       const gymIdA = dataA?.gym_id;
 
-      // Add a member-role membership for this user in another gym
-      // First provision a member gym owned by the original owner
-      await adminClient.rpc("provision_gym", {
-        p_name: "Member Gym",
-        p_slug: slugMember,
-        p_timezone: "Asia/Kolkata",
-        p_owner_email: emailOwner,
-      });
-
-      const gymIdMember = (await adminClient.from("gyms").select("id").eq("slug", slugMember).single()).data?.id;
-
-      // Add multi-owner user as member to the member gym
-      const { error: memberInsertError } = await adminClient.from("gym_memberships").insert({
-        gym_id: gymIdMember,
-        user_id: userIdMultiOwner,
-        role: "member",
-        status: "active",
-      });
-
-      check("member membership insert succeeds", !memberInsertError, memberInsertError?.message);
-
       // Capture gym A membership before provisioning gym B
       const { data: membershipABefore, error: membershipABeforeError } = await adminClient
         .from("gym_memberships")
@@ -577,15 +571,15 @@ async function runTests() {
 
       check("gym A membership exists before", !membershipABeforeError && !!membershipABefore, membershipABeforeError?.message);
 
-      // Capture member-role membership before provisioning gym B
-      const { data: memberMembershipBefore, error: memberMembershipBeforeError } = await adminClient
+      // Capture default-gym member-role membership before provisioning gym B (created by 035 trigger)
+      const { data: defaultMembershipBefore, error: defaultMembershipBeforeError } = await adminClient
         .from("gym_memberships")
         .select("role, status, joined_at")
-        .eq("gym_id", gymIdMember)
+        .eq("gym_id", defaultGymId)
         .eq("user_id", userIdMultiOwner)
         .single();
 
-      check("member membership exists before", !memberMembershipBeforeError && !!memberMembershipBefore, memberMembershipBeforeError?.message);
+      check("default member membership exists before", !defaultMembershipBeforeError && !!defaultMembershipBefore, defaultMembershipBeforeError?.message);
 
       // Capture gym A row before provisioning gym B
       const { data: gymABefore, error: gymABeforeError } = await adminClient
@@ -617,7 +611,7 @@ async function runTests() {
 
       check("owner memberships query succeeds", !ownerMembershipsError, ownerMembershipsError?.message);
       check("user has exactly 2 active owner memberships", ownerMemberships?.length === 2, `found ${ownerMemberships?.length}`);
-      check("both gyms A and B are in owner memberships", 
+      check("both gyms A and B are in owner memberships",
         (ownerMemberships?.some(m => m.gym_id === gymIdA) ?? false) && (ownerMemberships?.some(m => m.gym_id === gymIdB) ?? false));
 
       // Verify gym A membership is unchanged
@@ -628,27 +622,27 @@ async function runTests() {
         .eq("user_id", userIdMultiOwner)
         .single();
 
-      check("gym A membership unchanged", 
+      check("gym A membership unchanged",
         !membershipAAfterError &&
         membershipAAfter?.role === membershipABefore?.role &&
         membershipAAfter?.status === membershipABefore?.status &&
         membershipAAfter?.joined_at === membershipABefore?.joined_at,
         `before: ${JSON.stringify(membershipABefore)}, after: ${JSON.stringify(membershipAAfter)}`);
 
-      // Verify member-role membership is unchanged
-      const { data: memberMembershipAfter, error: memberMembershipAfterError } = await adminClient
+      // Verify default member-role membership is unchanged
+      const { data: defaultMembershipAfter, error: defaultMembershipAfterError } = await adminClient
         .from("gym_memberships")
         .select("role, status, joined_at")
-        .eq("gym_id", gymIdMember)
+        .eq("gym_id", defaultGymId)
         .eq("user_id", userIdMultiOwner)
         .single();
 
-      check("member membership unchanged",
-        !memberMembershipAfterError &&
-        memberMembershipAfter?.role === memberMembershipBefore?.role &&
-        memberMembershipAfter?.status === memberMembershipBefore?.status &&
-        memberMembershipAfter?.joined_at === memberMembershipBefore?.joined_at,
-        `before: ${JSON.stringify(memberMembershipBefore)}, after: ${JSON.stringify(memberMembershipAfter)}`);
+      check("default member membership unchanged",
+        !defaultMembershipAfterError &&
+        defaultMembershipAfter?.role === defaultMembershipBefore?.role &&
+        defaultMembershipAfter?.status === defaultMembershipBefore?.status &&
+        defaultMembershipAfter?.joined_at === defaultMembershipBefore?.joined_at,
+        `before: ${JSON.stringify(defaultMembershipBefore)}, after: ${JSON.stringify(defaultMembershipAfter)}`);
 
       // Verify gym A row is unchanged
       const { data: gymAAfter, error: gymAAfterError } = await adminClient
@@ -686,14 +680,13 @@ async function runTests() {
         .eq("role", "owner")
         .eq("status", "active");
 
-      check("still exactly one owner membership for gym B", 
+      check("still exactly one owner membership for gym B",
         !gymBMembershipsError && gymBMemberships?.length === 1,
         `found ${gymBMemberships?.length}`);
 
       // Cleanup
       await adminClient.from("gyms").delete().eq("slug", slugA);
       await adminClient.from("gyms").delete().eq("slug", slugB);
-      await adminClient.from("gyms").delete().eq("slug", slugMember);
       await adminClient.auth.admin.deleteUser(userIdMultiOwner);
     }
   }
@@ -701,10 +694,9 @@ async function runTests() {
 
   console.log("=== Test 17: User with active member membership can become owner ===");
   {
-    const memberSlug = `member-gym-${Date.now()}`;
     const ownerSlug = `owner-gym-${Date.now()}`;
 
-    // Create a second user to be the member
+    // Create a user (gets default gym member membership via 035 trigger)
     const emailMember = `provision-gym-member-${Date.now()}@example.com`;
     const passwordMember = "test-password-456";
     let userIdMember: string | null = null;
@@ -719,22 +711,23 @@ async function runTests() {
     userIdMember = memberUser?.user?.id || null;
 
     if (userIdMember) {
-      // Provision a gym for the original owner
-      await adminClient.rpc("provision_gym", {
-        p_name: "Member Gym",
-        p_slug: memberSlug,
-        p_timezone: "Asia/Kolkata",
-        p_owner_email: emailOwner,
-      });
+      // Get the default gym id
+      const { data: defaultGym } = await adminClient
+        .from("gyms")
+        .select("id")
+        .eq("slug", "default")
+        .single();
+      const defaultGymId = defaultGym?.id;
 
-      // Add the member user as a member to the first gym
-      const gymIdMember = (await adminClient.from("gyms").select("id").eq("slug", memberSlug).single()).data?.id;
-      await adminClient.from("gym_memberships").insert({
-        gym_id: gymIdMember,
-        user_id: userIdMember,
-        role: "member",
-        status: "active",
-      });
+      // Verify default member membership exists (from 035 trigger)
+      const { data: defaultMembershipBefore, error: defaultMembershipBeforeError } = await adminClient
+        .from("gym_memberships")
+        .select("role, status, joined_at")
+        .eq("gym_id", defaultGymId)
+        .eq("user_id", userIdMember)
+        .single();
+
+      check("default member membership exists", !defaultMembershipBeforeError && !!defaultMembershipBefore, defaultMembershipBeforeError?.message);
 
       // Now provision a gym with the member as owner (should succeed)
       const { data, error } = await adminClient.rpc("provision_gym", {
@@ -746,8 +739,22 @@ async function runTests() {
 
       check("member can become owner of another gym", !error && data?.created === true, error?.message);
 
+      // Verify default member membership is unchanged
+      const { data: defaultMembershipAfter, error: defaultMembershipAfterError } = await adminClient
+        .from("gym_memberships")
+        .select("role, status, joined_at")
+        .eq("gym_id", defaultGymId)
+        .eq("user_id", userIdMember)
+        .single();
+
+      check("default member membership unchanged after becoming owner",
+        !defaultMembershipAfterError &&
+        defaultMembershipAfter?.role === defaultMembershipBefore?.role &&
+        defaultMembershipAfter?.status === defaultMembershipBefore?.status &&
+        defaultMembershipAfter?.joined_at === defaultMembershipBefore?.joined_at,
+        `before: ${JSON.stringify(defaultMembershipBefore)}, after: ${JSON.stringify(defaultMembershipAfter)}`);
+
       // Cleanup
-      await adminClient.from("gyms").delete().eq("slug", memberSlug);
       await adminClient.from("gyms").delete().eq("slug", ownerSlug);
       await adminClient.auth.admin.deleteUser(userIdMember);
     }
@@ -760,22 +767,26 @@ async function runTests() {
     const emailOwner2 = `owner2-${Date.now()}@example.com`;
 
     // Create second owner
-    const { data: owner2User } = await adminClient.auth.admin.createUser({
+    const { data: owner2User, error: owner2Error } = await adminClient.auth.admin.createUser({
       email: emailOwner2,
       password: "test-password-owner2",
       email_confirm: true,
     });
 
+    check("second owner created", !owner2Error && !!owner2User?.user, owner2Error?.message);
+
     // Provision gym with first owner
-    await adminClient.rpc("provision_gym", {
+    const { error: firstProvisionError } = await adminClient.rpc("provision_gym", {
       p_name: "Conflict Gym",
       p_slug: conflictSlug,
       p_timezone: "Asia/Kolkata",
       p_owner_email: emailOwner,
     });
 
+    check("first provision succeeds", !firstProvisionError, firstProvisionError?.message);
+
     // Try to provision same slug with different owner
-    const { data, error } = await adminClient.rpc("provision_gym", {
+    const { error } = await adminClient.rpc("provision_gym", {
       p_name: "Conflict Gym 2",
       p_slug: conflictSlug,
       p_timezone: "America/New_York",
@@ -798,23 +809,154 @@ async function runTests() {
   {
     try {
       const prosecdef = await execPsql("SELECT prosecdef FROM pg_proc WHERE proname = 'provision_gym' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public') LIMIT 1");
-      const proconfig = await execPsql("SELECT proconfig::text FROM pg_proc WHERE proname = 'provision_gym' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public') LIMIT 1");
+      const proconfigCheck = await execPsql("SELECT 'search_path=\"\"' = any(proconfig) FROM pg_proc WHERE proname = 'provision_gym' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public') LIMIT 1");
 
       check("prosecdef is true", prosecdef === "t", `got ${prosecdef}`);
-      check("proconfig contains search_path=\"\"", (proconfig?.includes('search_path=""') ?? false) || (proconfig?.includes("search_path=") ?? false), `got ${proconfig}`);
+      check("proconfig contains search_path=\"\"", proconfigCheck === "t", `got ${proconfigCheck}`);
+
+      // Check grants
+      const anonGrant = await execPsql("SELECT has_function_privilege('anon', 'public.provision_gym(text,text,text,text,text,text,text,text)', 'execute')");
+      const authGrant = await execPsql("SELECT has_function_privilege('authenticated', 'public.provision_gym(text,text,text,text,text,text,text,text)', 'execute')");
+      const serviceGrant = await execPsql("SELECT has_function_privilege('service_role', 'public.provision_gym(text,text,text,text,text,text,text,text)', 'execute')");
+
+      check("anon has no execute privilege", anonGrant === "f", `got ${anonGrant}`);
+      check("authenticated has no execute privilege", authGrant === "f", `got ${authGrant}`);
+      check("service_role has execute privilege", serviceGrant === "t", `got ${serviceGrant}`);
     } catch (err) {
-      check("prosecdef/proconfig check failed", false, String(err));
+      check("prosecdef/proconfig/grants check failed", false, String(err));
+    }
+  }
+  console.log("");
+
+  console.log("=== Test 20: Existing default gym owner can provision new gym ===");
+  {
+    // Create a user (gets default gym member membership via 035 trigger)
+    const emailDefaultOwner = `default-owner-${Date.now()}@example.com`;
+    const passwordDefaultOwner = "test-password-default";
+    let userIdDefaultOwner: string | null = null;
+
+    const { data: defaultOwnerUser, error: defaultOwnerError } = await adminClient.auth.admin.createUser({
+      email: emailDefaultOwner,
+      password: passwordDefaultOwner,
+      email_confirm: true,
+    });
+
+    check("default owner user created", !defaultOwnerError && !!defaultOwnerUser?.user, defaultOwnerError?.message);
+    userIdDefaultOwner = defaultOwnerUser?.user?.id || null;
+
+    if (userIdDefaultOwner) {
+      // Get the default gym
+      const { data: defaultGym } = await adminClient
+        .from("gyms")
+        .select("*")
+        .eq("slug", "default")
+        .single();
+      const defaultGymId = defaultGym?.id;
+
+      // Make this user an active owner of default (mirroring prod)
+      await adminClient
+        .from("gym_memberships")
+        .insert({
+          gym_id: defaultGymId,
+          user_id: userIdDefaultOwner,
+          role: "owner",
+          status: "active",
+        });
+
+      // Capture all default gym memberships before
+      const { data: defaultMembershipsBefore } = await adminClient
+        .from("gym_memberships")
+        .select("role, status, joined_at")
+        .eq("gym_id", defaultGymId)
+        .eq("user_id", userIdDefaultOwner)
+        .order("joined_at", { ascending: true });
+
+      // Capture default gym branding before
+      const { data: defaultGymBefore } = await adminClient
+        .from("gyms")
+        .select("*")
+        .eq("id", defaultGymId)
+        .single();
+
+      // Provision a new gym for this user
+      const ironTempleSlug = `iron-temple-${Date.now()}`;
+      const { data, error } = await adminClient.rpc("provision_gym", {
+        p_name: "Iron Temple Fitness",
+        p_slug: ironTempleSlug,
+        p_timezone: "America/New_York",
+        p_owner_email: emailDefaultOwner,
+      });
+
+      check("iron temple provision created", !error && data?.created === true, error?.message);
+
+      // Assert user has exactly 2 active owner rows: default and iron-temple
+      const { data: ownerMemberships } = await adminClient
+        .from("gym_memberships")
+        .select("gym_id, role, status")
+        .eq("user_id", userIdDefaultOwner)
+        .eq("role", "owner")
+        .eq("status", "active");
+
+      const ironTempleGymId = data?.gym_id;
+      check("user has exactly 2 active owner rows", ownerMemberships?.length === 2, `found ${ownerMemberships?.length}`);
+      check("owner rows are default and iron-temple",
+        (ownerMemberships?.some(m => m.gym_id === defaultGymId) ?? false) &&
+        (ownerMemberships?.some(m => m.gym_id === ironTempleGymId) ?? false),
+        `gym_ids: ${ownerMemberships?.map(m => m.gym_id).join(", ")}`);
+
+      // Verify all default memberships are byte-identical
+      const { data: defaultMembershipsAfter } = await adminClient
+        .from("gym_memberships")
+        .select("role, status, joined_at")
+        .eq("gym_id", defaultGymId)
+        .eq("user_id", userIdDefaultOwner)
+        .order("joined_at", { ascending: true });
+
+      check("default memberships count unchanged", defaultMembershipsAfter?.length === defaultMembershipsBefore?.length);
+      check("all default memberships byte-identical",
+        JSON.stringify(defaultMembershipsBefore) === JSON.stringify(defaultMembershipsAfter),
+        `before: ${JSON.stringify(defaultMembershipsBefore)}, after: ${JSON.stringify(defaultMembershipsAfter)}`);
+
+      // Verify default gym row and branding unchanged
+      const { data: defaultGymAfter } = await adminClient
+        .from("gyms")
+        .select("*")
+        .eq("id", defaultGymId)
+        .single();
+
+      check("default gym row unchanged",
+        defaultGymAfter?.name === defaultGymBefore?.name &&
+        defaultGymAfter?.slug === defaultGymBefore?.slug &&
+        defaultGymAfter?.timezone === defaultGymBefore?.timezone &&
+        defaultGymAfter?.display_name === defaultGymBefore?.display_name &&
+        defaultGymAfter?.primary_color === defaultGymBefore?.primary_color &&
+        defaultGymAfter?.accent_color === defaultGymBefore?.accent_color &&
+        defaultGymAfter?.logo_url === defaultGymBefore?.logo_url);
+
+      // Re-run is a no-op
+      const { data: data2, error: error2 } = await adminClient.rpc("provision_gym", {
+        p_name: "Iron Temple Fitness Updated",
+        p_slug: ironTempleSlug,
+        p_timezone: "Europe/London",
+        p_owner_email: emailDefaultOwner,
+      });
+
+      check("iron temple re-run is idempotent", !error2 && data2?.created === false, error2?.message);
+
+      // Cleanup
+      await adminClient.from("gyms").delete().eq("slug", ironTempleSlug);
+      await adminClient.auth.admin.deleteUser(userIdDefaultOwner);
     }
   }
   console.log("");
 
   // Cleanup
   console.log("Cleaning up test data...");
-  
+
   // Delete test gyms
   await adminClient.from("gyms").delete().eq("slug", testSlug);
   await adminClient.from("gyms").delete().eq("slug", testSlug2);
-  
+
   // Delete test user
   if (userIdOwner) {
     await adminClient.auth.admin.deleteUser(userIdOwner);

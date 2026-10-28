@@ -330,20 +330,44 @@ if [ "$PROSECDEF" != "t" ]; then
 fi
 echo "✓ provision_gym is SECURITY DEFINER"
 
-PROCONFIG=$(psql "$DB_URL" -qtAX -c "
-  SELECT proconfig::text
+PROCONFIG_CHECK=$(psql "$DB_URL" -qtAX -c "
+  SELECT 'search_path=\"\"' = any(proconfig)
   FROM pg_proc
   WHERE proname = 'provision_gym'
     AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
   LIMIT 1;
 " || echo "")
 
-if [[ ! "$PROCONFIG" =~ 'search_path=""' ]] && [[ ! "$PROCONFIG" =~ "search_path=" ]]; then
+if [[ "$PROCONFIG_CHECK" != "t" ]]; then
   echo "❌ provision_gym proconfig does not contain search_path=\"\""
-  echo "   Got: $PROCONFIG"
+  echo "   Got: $PROCONFIG_CHECK"
   exit 1
 fi
 echo "✓ provision_gym has search_path=\"\" in proconfig"
+
+# Check grants
+ANON_GRANT=$(psql "$DB_URL" -qtAX -c "SELECT has_function_privilege('anon', 'public.provision_gym(text,text,text,text,text,text,text,text)', 'execute');" || echo "")
+AUTH_GRANT=$(psql "$DB_URL" -qtAX -c "SELECT has_function_privilege('authenticated', 'public.provision_gym(text,text,text,text,text,text,text,text)', 'execute');" || echo "")
+SERVICE_GRANT=$(psql "$DB_URL" -qtAX -c "SELECT has_function_privilege('service_role', 'public.provision_gym(text,text,text,text,text,text,text,text)', 'execute');" || echo "")
+
+if [[ "$ANON_GRANT" != "f" ]]; then
+  echo "❌ anon should not have execute privilege on provision_gym"
+  echo "   Got: $ANON_GRANT"
+  exit 1
+fi
+
+if [[ "$AUTH_GRANT" != "f" ]]; then
+  echo "❌ authenticated should not have execute privilege on provision_gym"
+  echo "   Got: $AUTH_GRANT"
+  exit 1
+fi
+
+if [[ "$SERVICE_GRANT" != "t" ]]; then
+  echo "❌ service_role should have execute privilege on provision_gym"
+  echo "   Got: $SERVICE_GRANT"
+  exit 1
+fi
+echo "✓ Grants correct: anon=f, authenticated=f, service_role=t"
 
 # Verify test gym's data is still unchanged after second re-application
 TEST_GYM_DATA_FINAL=$(psql "$DB_URL" -qtAX -c "
