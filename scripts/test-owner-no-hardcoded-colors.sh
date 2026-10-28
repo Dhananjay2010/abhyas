@@ -1,24 +1,50 @@
 #!/usr/bin/env bash
-# Test: no hex color literals in owner UI code (outside placeholder/value attributes)
-# Ensures branding preview uses CSS variables, not hardcoded colors
-
 set -euo pipefail
 
-echo "Testing: no hex color literals in src/app/owner/** (outside placeholder/value attributes)"
+echo "Testing: no hex color literals in src/app/owner/** (outside placeholder attributes)"
 
-# Verify directory exists (fail early if it doesn't - MED-3d requirement)
 if [ ! -d "src/app/owner" ]; then
   echo "❌ FAIL: src/app/owner/ directory not found"
-  echo "   This test requires the owner branding feature to be present"
   exit 1
 fi
 
-# Find all hex color patterns (#RRGGBB and #RGB) in owner directory
-hex_matches=$(grep -rn "#[0-9a-fA-F]\{3,6\}" src/app/owner/ || true)
+is_allowed() {
+  local content="$1"
+  
+  if ! echo "$content" | grep -qE '#[0-9a-fA-F]{3,6}|rgb|hsl'; then
+    return 0
+  fi
+  
+  # Skip comments (but NOT lines ending in */)
+  if echo "$content" | grep -qE '^\s*//' || echo "$content" | grep -qE '^\s*/\*'; then
+    return 0
+  fi
+  
+  if echo "$content" | grep -qF 'placeholder='; then
+    return 0
+  fi
+  
+  # Reject value={...} if it contains ANY color literal inside braces
+  if echo "$content" | grep -qE 'value\s*=\s*\{[^}]*#[0-9a-fA-F]{3,6}'; then
+    return 1
+  fi
+  if echo "$content" | grep -qE 'value\s*=\s*\{[^}]*(rgb|hsl)'; then
+    return 1
+  fi
+  
+  if echo "$content" | grep -qE 'errcode|[Ee]rror:'; then
+    return 0
+  fi
+  
+  if echo "$content" | grep -qE 'BRND[0-9]'; then
+    return 0
+  fi
+  
+  return 1
+}
 
-# Also check for rgb(), rgba(), hsl(), hsla() color functions
-color_fn_matches=$(grep -rn -E "(rgb|rgba|hsl|hsla)\s*\(" src/app/owner/ || true)
-
+hex_matches=$(grep -rHn "#[0-9a-fA-F]\{3,6\}" src/app/owner/ || true)
+color_fn_matches=$(grep -rHn -E "(rgb|rgba|hsl|hsla)\s*\(" src/app/owner/ || true)
 all_matches=$(echo -e "$hex_matches\n$color_fn_matches" | grep -v "^$" || true)
 
 if [ -z "$all_matches" ]; then
@@ -26,55 +52,69 @@ if [ -z "$all_matches" ]; then
   exit 0
 fi
 
-# Check each match to see if it's in an allowed context
-allowed_contexts=(
-  'placeholder='
-  'value='
-  'error:'
-  'Error:'
-  'errcode'
-  '// '
-  '* '
-  '/*'
-  'e.g.'
-  'BRND[0-9]'
-)
-
 violations=()
 while IFS= read -r line; do
   if [ -z "$line" ]; then
     continue
   fi
   
-  allowed=false
-  for context in "${allowed_contexts[@]}"; do
-    if echo "$line" | grep -qE "$context"; then
-      allowed=true
-      break
-    fi
-  done
+  content=$(echo "$line" | cut -d: -f2-)
   
-  if [ "$allowed" = false ]; then
+  if ! is_allowed "$content"; then
     violations+=("$line")
   fi
 done <<< "$all_matches"
 
 if [ ${#violations[@]} -eq 0 ]; then
-  echo "✅ All color literals are in allowed contexts (placeholder, value, error messages, comments)"
-  exit 0
+  echo "✅ All color literals are in allowed contexts"
+  TEST_RESULT=0
+else
+  echo "❌ Found ${#violations[@]} color literal(s) outside allowed contexts:"
+  printf '%s\n' "${violations[@]}"
+  TEST_RESULT=1
 fi
 
-echo "❌ Found color literals outside allowed contexts:"
-printf '%s\n' "${violations[@]}"
-echo ""
-echo "Color literals are only allowed in:"
-echo "  - placeholder attributes"
-echo "  - value attributes (user input)"
-echo "  - error messages and error codes"
-echo "  - comments"
-echo ""
-echo "For preview/UI colors, use CSS custom properties:"
-echo "  - var(--color-accent)"
-echo "  - var(--color-accent-hover)"
-echo "  - var(--color-accent-fg)"
-exit 1
+echo
+echo "Running self-test..."
+
+SELF_TEST_DIR=$(mktemp -d)
+trap "rm -rf $SELF_TEST_DIR" EXIT
+
+mkdir -p "$SELF_TEST_DIR/src/app/owner"
+
+cat > "$SELF_TEST_DIR/src/app/owner/test.tsx" << 'VIOLATIONS'
+export function Test() {
+  const hardcoded1 = { color: "#FF0000" };
+  const hardcoded2 = "bg-[#FF0000]";
+  const hardcoded3 = "#f00";
+  const hardcoded4 = "rgb(255, 0, 0)";
+  const hardcoded5 = "hsl(0, 100%, 50%)";
+  const note = "Use e.g. #AABBCC for primary";
+  const bypass1 = <input value="#FF0000" />;
+  const bypass3 = { color: "#FF0000" }; /* note */
+  return <div>Test</div>;
+}
+VIOLATIONS
+
+violations_found=()
+while IFS= read -r line; do
+  if [ -z "$line" ]; then
+    continue
+  fi
+  
+  content=$(echo "$line" | cut -d: -f2-)
+  
+  if ! is_allowed "$content"; then
+    violations_found+=("$line")
+  fi
+done <<< "$(grep -Hn -E '#[0-9a-fA-F]{3,6}|rgb|hsl' "$SELF_TEST_DIR/src/app/owner/test.tsx" || true)"
+
+EXPECTED_VIOLATIONS=8
+if [ ${#violations_found[@]} -ne $EXPECTED_VIOLATIONS ]; then
+  echo "❌ SELF-TEST FAILED: Expected $EXPECTED_VIOLATIONS violations, found ${#violations_found[@]}"
+  exit 1
+else
+  echo "✅ Self-test passed: $EXPECTED_VIOLATIONS violations detected"
+fi
+
+exit $TEST_RESULT

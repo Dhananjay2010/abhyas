@@ -712,6 +712,20 @@ async function runTests() {
     userIdMember = memberUser?.user?.id || null;
 
     if (userIdMember) {
+      // Create authenticated client for the member (for checkGymOwnership)
+      const memberClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false,
+        },
+      });
+
+      await memberClient.auth.signInWithPassword({
+        email: emailMember,
+        password: passwordMember,
+      });
+
       // Get the default gym id
       const { data: defaultGym } = await adminClient
         .from("gyms")
@@ -740,8 +754,8 @@ async function runTests() {
 
       check("member can become owner of another gym", !error && data?.created === true, error?.message);
 
-      // Verify checkGymOwnership returns the provisioned gym
-      const ownership = await checkGymOwnership(adminClient, userIdMember);
+      // Verify checkGymOwnership returns the provisioned gym (using owner's own session)
+      const ownership = await checkGymOwnership(memberClient, userIdMember);
       check("checkGymOwnership returns the provisioned gym",
         ownership.isOwner && ownership.gymId === data?.gym_id && ownership.gymSlug === ownerSlug,
         JSON.stringify(ownership));
