@@ -38,43 +38,55 @@ let updatedRows: unknown[] = [];
 
 const fakeClient = {
   from(table: string) {
-    const builder = {
-      select() { return builder; },
+    let isSelectingProgramDayExercises = false;
+    
+    const builder: Record<string, unknown> = {
+      select() { 
+        if (table === "program_day_exercises") {
+          isSelectingProgramDayExercises = true;
+        }
+        return builder; 
+      },
       eq() { return builder; },
       in() { return builder; },
-      async then(resolve: (value: { data: unknown[] }) => unknown) {
+      maybeSingle() {
         if (table === "profiles") {
-          return resolve({
-            data: [{
+          return Promise.resolve({
+            data: {
               goal: "muscle_gain",
               level: "beginner",
               primary_track: "weights",
               days_per_week: 4,
               yoga_days_per_week: 0,
               has_all_equipment: true,
-            }],
+            },
+            error: null,
           });
         }
         if (table === "programs") {
-          return resolve({ data: [{ id: "prog1", status: "active" }] });
+          return Promise.resolve({ data: { id: "prog1", status: "active" }, error: null });
         }
+        return Promise.resolve({ data: null, error: null });
+      },
+      async then(resolve: (value: { data: unknown[] | unknown; error: null }) => unknown) {
         if (table === "user_injuries") {
-          return resolve({ data: [{ body_region: "knee", severity: "current" }] });
+          return resolve({ data: [{ body_region: "knee", severity: "current" }], error: null });
         }
         if (table === "exercises") {
-          return resolve({ data: catalogueRows });
+          return resolve({ data: catalogueRows, error: null });
         }
         if (table === "user_equipment") {
           const allIds = catalogue.flatMap(e => e.equipment_ids);
-          return resolve({ data: allIds.map(id => ({ equipment_id: id })) });
+          return resolve({ data: allIds.map(id => ({ equipment_id: id })), error: null });
         }
         if (table === "program_days") {
-          return resolve({ data: [{ id: "pd1" }] });
+          return resolve({ data: [{ id: "pd1" }], error: null });
         }
-        if (table === "program_day_exercises") {
+        if (table === "program_day_exercises" && isSelectingProgramDayExercises) {
           return resolve({
             data: [{
               id: "pde1",
+              program_day_id: "pd1",
               exercise_id: thruster.id,
               order_index: 0,
               target_sets: 3,
@@ -82,20 +94,37 @@ const fakeClient = {
               target_reps_max: 12,
               rest_seconds: 90,
             }],
+            error: null,
           });
         }
-        return resolve({ data: [] });
+        return resolve({ data: [], error: null });
       },
       update(data: unknown) {
-        updateCalled = true;
-        updatedRows = Array.isArray(data) ? data : [data];
+        if (table === "program_day_exercises") {
+          updateCalled = true;
+          updatedRows = Array.isArray(data) ? data : [data];
+        }
         return {
-          eq: () => ({ select: () => ({ single: async () => ({ data: null, error: null }) }) }),
+          eq() {
+            return this;
+          },
+          then(resolve: (value: { error: null }) => unknown) {
+            return resolve({ error: null });
+          },
         };
       },
       delete() {
-        deleteCalled = true;
-        return { eq: () => ({ error: null }) };
+        if (table === "program_day_exercises") {
+          deleteCalled = true;
+        }
+        return {
+          eq() {
+            return this;
+          },
+          then(resolve: (value: { error: null }) => unknown) {
+            return resolve({ error: null });
+          },
+        };
       },
     };
     return builder;
