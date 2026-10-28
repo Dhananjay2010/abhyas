@@ -554,7 +554,7 @@ run_mutant "NU1. Old in-progress computation: Next up ignores the session being 
 
 run_mutant "NU2. Next-up badge matched by id on the label-deduped list" "$DAYPLAN" \
   '      nextUp: label === nextUpLabel' \
-  '      nextUp: d.id === nextUpId' "$T_NEXT"
+  '      nextUp: d.id === nextUpLabel' "$T_NEXT"
 
 run_mutant "NU3. A just-done session that is not a program day still counts" "$DAYPLAN" \
   '    justDone.programDayId !== null &&' \

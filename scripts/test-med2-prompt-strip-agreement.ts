@@ -73,7 +73,10 @@ function createStubFetch(sessions: Row[]): typeof fetch {
       }
       
       const statusParam = params.get("status");
-      if (statusParam?.startsWith("in.(")) {
+      if (statusParam?.startsWith("eq.")) {
+        const status = statusParam.slice(3);
+        filtered = filtered.filter(s => s.status === status);
+      } else if (statusParam?.startsWith("in.(")) {
         const statuses = statusParam.slice(4, -1).split(",");
         filtered = filtered.filter(s => statuses.includes(String(s.status)));
       }
@@ -88,11 +91,24 @@ function createStubFetch(sessions: Row[]): typeof fetch {
       if (localDateParam?.startsWith("eq.")) {
         const localDate = localDateParam.slice(3);
         filtered = filtered.filter(s => s.local_date === localDate);
+      } else if (localDateParam?.startsWith("lte.")) {
+        const localDate = localDateParam.slice(4);
+        filtered = filtered.filter(s => String(s.local_date) <= localDate);
       }
       
       const order = params.get("order");
-      if (order === "created_at.desc") {
-        filtered.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+      if (order) {
+        const orders = order.split(",");
+        filtered.sort((a, b) => {
+          for (const o of orders) {
+            const [field, dir] = o.split(".");
+            const aVal = String((a as any)[field] ?? "");
+            const bVal = String((b as any)[field] ?? "");
+            const cmp = dir === "desc" ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+            if (cmp !== 0) return cmp;
+          }
+          return 0;
+        });
       }
       
       const limit = params.get("limit");
@@ -166,17 +182,7 @@ async function main() {
   assert.ok(promptResult, "nextDayPlan should return result");
   console.log(`  Prompt label: ${promptResult.plannedLabel}`);
 
-  const stripResult = await plannableDays(supabase, "p1", {
-    afterDate: "2026-10-26",
-    userId: "u1",
-    justDone: {
-      programDayId: "pd-1",
-      actualType: "weights",
-      localDate: "2026-10-26",
-    },
-  });
-
-  const nextUpDay = stripResult.find(d => d.nextUp);
+  const nextUpDay = promptResult.days.find(d => d.nextUp);
   assert.ok(nextUpDay, "Strip should have Next up badge");
   console.log(`  Strip label: ${nextUpDay.label}`);
 
@@ -184,6 +190,113 @@ async function main() {
   console.log(`\n  ✓ Both agree: ${promptResult.plannedLabel}\n`);
 
   console.log("✓ QA MED-2: Prompt and strip agree (Fixes MED-2)\n");
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Case 2: Unlabeled training day gets "Training" as Next up badge
+  // ──────────────────────────────────────────────────────────────────────────
+  console.log("Unlabeled training day: Next up should fallback to 'Training'");
+
+  const unlabeledDays: Row[] = [
+    { id: "pd-1u", day_index: 1, day_type: "weights", label: null, program_id: "p2", status: "active", user_id: "u2", focus: null },
+    { id: "pd-2u", day_index: 2, day_type: "weights", label: null, program_id: "p2", status: "active", user_id: "u2", focus: null },
+    { id: "pd-3u", day_index: 3, day_type: "rest", label: null, program_id: "p2", status: "active", user_id: "u2", focus: null },
+  ];
+
+  const unlabeledSessions: Row[] = [
+    {
+      id: "sess-unlabeled",
+      user_id: "u2",
+      status: "in_progress",
+      local_date: "2026-10-26",
+      program_day_id: "pd-1u",
+      actual_type: "weights",
+      is_deload: false,
+      week_in_block: 1,
+      warmup_completed: true,
+      started_at: "2026-10-26T12:00:00Z",
+      created_at: "2026-10-26T12:00:00Z",
+      updated_at: "2026-10-26T12:00:00Z",
+      completed_at: null,
+      program_id: "p2",
+    },
+  ];
+
+  function createUnlabeledStub(sessions: Row[], days: Row[]): typeof fetch {
+    return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const urlString = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const parsedUrl = new URL(urlString);
+      const params = parsedUrl.searchParams;
+
+      if (urlString.includes("/programs?")) {
+        return new Response(JSON.stringify([{ id: "p2", user_id: "u2", split_type: "custom", status: "active" }]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (urlString.includes("/profiles?")) {
+        return new Response(JSON.stringify([{ primary_track: "weights", has_all_equipment: true, timezone: "Asia/Kolkata", units: "metric" }]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (urlString.includes("/sessions?")) {
+        let filtered = [...sessions];
+        const userIdParam = params.get("user_id");
+        if (userIdParam?.startsWith("eq.")) filtered = filtered.filter(s => s.user_id === userIdParam.slice(3));
+        const idParam = params.get("id");
+        if (idParam?.startsWith("eq.")) filtered = filtered.filter(s => s.id === idParam.slice(3));
+        const statusParam = params.get("status");
+        if (statusParam?.startsWith("eq.")) filtered = filtered.filter(s => s.status === statusParam.slice(3));
+        else if (statusParam?.startsWith("in.(")) {
+          const statuses = statusParam.slice(4, -1).split(",");
+          filtered = filtered.filter(s => statuses.includes(String(s.status)));
+        }
+        const actualTypeParam = params.get("actual_type");
+        if (actualTypeParam?.startsWith("in.(")) {
+          const types = actualTypeParam.slice(4, -1).split(",");
+          filtered = filtered.filter(s => types.includes(String(s.actual_type)));
+        }
+        return new Response(JSON.stringify(filtered), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+
+      if (urlString.includes("/program_days?")) {
+        let filtered = [...days];
+        const programIdParam = params.get("program_id");
+        if (programIdParam?.startsWith("eq.")) filtered = filtered.filter(d => d.program_id === programIdParam.slice(3));
+        if (params.get("status") === "eq.active") filtered = filtered.filter(d => d.status === "active");
+        const order = params.get("order");
+        if (order?.startsWith("day_index")) filtered.sort((a, b) => Number(a.day_index) - Number(b.day_index));
+        return new Response(JSON.stringify(filtered), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+
+      return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+  }
+
+  const supabase2 = createClient<Database>("http://localhost:54321", "fake-key", {
+    global: { fetch: createUnlabeledStub(unlabeledSessions, unlabeledDays) },
+  });
+
+  const unlabeledResult = await nextDayPlan(
+    supabase2,
+    "Asia/Kolkata",
+    "2026-10-27",
+    { sessionId: "sess-unlabeled", now: new Date("2026-10-26T16:30:00Z") }
+  );
+
+  assert.ok(unlabeledResult, "Should return result");
+  console.log(`  Prompt label: ${unlabeledResult.plannedLabel}`);
+  
+  const unlabeledNextUp = unlabeledResult.days.find(d => d.nextUp);
+  assert.ok(unlabeledNextUp, "Strip should have Next up badge");
+  console.log(`  Strip label: ${unlabeledNextUp.label}`);
+  
+  assert.strictEqual(unlabeledNextUp.label, "Training", "Unlabeled day should show 'Training'");
+  console.log(`\n  ✓ Unlabeled training day → Next up badge shows 'Training'\n`);
+
+  console.log("✓ All MED-2 tests passed\n");
 }
 
 main().catch((e) => {

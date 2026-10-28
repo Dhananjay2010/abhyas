@@ -246,11 +246,11 @@ export async function plannableDays(
       if (completedIndex >= 0) {
         // Next workout in rotation (wraps around)
         const nextDay = trainingDays[(completedIndex + 1) % trainingDays.length];
-        nextUpLabel = nextDay.label ?? null;
+        nextUpLabel = nextDay.label ?? "Training";
       }
     } else {
       // No completed sessions yet: next up is the first day in the rotation
-      nextUpLabel = trainingDays[0]?.label ?? null;
+      nextUpLabel = trainingDays[0]?.label ?? "Training";
     }
   }
 

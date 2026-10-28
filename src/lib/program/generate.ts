@@ -945,9 +945,10 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
   // at all, with the equipment filter then emptying half the days.
   // LOW: Anchor yoga-only plans too, so a Tuesday sign-up's first day is not Rest.
   if (input.primaryTrack === "yoga" || input.primaryTrack === "meditation") {
+    const carried = input.blockNumber > 1 ? validWeekdayLayout(input.weekdayLayout, input.daysPerWeek) : null;
     const activeIdx = input.blockNumber === 1 && input.startedOn
       ? activeDayIndicesAnchored(input.startedOn, input.daysPerWeek)
-      : activeDayIndices(input.daysPerWeek);
+      : carried ?? activeDayIndices(input.daysPerWeek);
     const active = new Set(activeIdx);
     const isYoga = input.primaryTrack === "yoga";
     return {

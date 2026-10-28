@@ -228,6 +228,45 @@ async function main() {
 
   console.log("  ✓ Stale swap → no collision, Upper stays\n");
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // Case 3: Yoga/breathing session does NOT trigger collision (mutant d2: dropping .in('actual_type'))
+  // ──────────────────────────────────────────────────────────────────────────
+  console.log("3. Today yoga session → no collision (not strength)");
+
+  const yogaSessions: Row[] = [
+    {
+      id: "sess-wed-yoga",
+      user_id: "u1",
+      status: "in_progress",
+      local_date: "2026-10-28",  // today (Wed)
+      program_day_id: "pd-yoga",
+      actual_type: "yoga",
+      is_deload: false,
+      week_in_block: 1,
+      warmup_completed: true,
+      started_at: "2026-10-28T12:00:00Z",
+      created_at: "2026-10-28T12:00:00Z",
+    },
+  ];
+
+  const supabase3 = createClient<Database>("http://localhost:54321", "fake-key", {
+    global: { fetch: createStubFetch(yogaSessions) },
+  });
+
+  const yogaResult = await nextDayPlan(
+    supabase3,
+    "Asia/Kolkata",
+    "2026-10-29",  // targetLocalDate (tomorrow Thu)
+    { sessionId: "sess-wed-yoga", now: new Date("2026-10-28T16:30:00Z") }
+  );
+
+  assert.ok(yogaResult, "Should return result");
+  assert.strictEqual(yogaResult.plannedLabel, "Upper", "NO collision from yoga → Upper");
+  assert.strictEqual(yogaResult.programDayId, "pd-4", "NO collision from yoga → pd-4");
+  assert.strictEqual(yogaResult.collisionResolved, false, "Should NOT mark as resolved");
+
+  console.log("  ✓ Yoga session → no collision\n");
+
   console.log("✓ All swap collision same-day vs stale tests passed\n");
 }
 
