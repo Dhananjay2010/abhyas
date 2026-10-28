@@ -64,7 +64,7 @@ const deps: StartSessionFullDeps = {
       ok: true,
       program: { id: "prog1", started_on: "2024-01-01", deload_week: 4, week_offset: 0 },
       dayId: "pd1",
-      dayType: "strength",
+      dayType: "weights" as const,
     };
   },
   

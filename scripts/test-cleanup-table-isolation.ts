@@ -128,7 +128,7 @@ const fakeClient: { from: (table: string) => FakeQueryBuilder } = {
 (async () => {
   const { cleanBannedPlannedExercises } = await import("../src/lib/program/clean-banned-planned");
   
-  await cleanBannedPlannedExercises(fakeClient, "user1");
+  await cleanBannedPlannedExercises(fakeClient as never, "user1");
   
   // Check that only program_day_exercises was written to
   const writeTables = tablesAccessed.filter(a => a.includes(":update") || a.includes(":delete"));
