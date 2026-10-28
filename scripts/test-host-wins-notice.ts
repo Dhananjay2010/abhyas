@@ -144,15 +144,15 @@ async function main() {
     const hostResult = getHostWinsNoticeProps(hostDiff, memberDiff);
     check("M7: Notice shown on host tier (different gyms)", hostResult.userGymName === "Member Gym");
 
-    // Member tier -> should NOT show
+    // Member tier with DIFFERENT gymId -> should NOT show (tier prevents it)
     const memberTier: BrandResolution = {
       brand: branding,
-      gymId: "gym-member",
-      gymName: "Member Gym",
+      gymId: "other-gym-id",  // Different from member
+      gymName: "Other Gym",
       tier: "member",
     };
     const memberResult = getHostWinsNoticeProps(memberTier, memberDiff);
-    check("M7: No notice on member tier", memberResult.userGymName === null);
+    check("M7: No notice on member tier (tier check)", memberResult.userGymName === null);
 
     // Base tier -> should NOT show
     const baseTier: BrandResolution = {
