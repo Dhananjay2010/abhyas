@@ -44,7 +44,7 @@ export type FakeDb = {
    * winning a race, e.g. by adding a row just before an insert lands. Return
    * a Response to answer the request yourself, e.g. with a server error.
    */
-  beforeRequest: (req: RecordedRequest) => Response | void;
+  beforeRequest: (req: RecordedRequest) => Response | Promise<Response> | void;
 };
 
 const RESERVED = new Set(["select", "order", "limit", "offset", "on_conflict", "columns"]);
@@ -166,7 +166,7 @@ export function createFakeDb(options: {
           };
           requests.push(req);
           const override = db.beforeRequest(req);
-          if (override) return override;
+          if (override) return await override;
 
           const rows = (tables[table] ??= []);
           const matching = () =>

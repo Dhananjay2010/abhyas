@@ -45,11 +45,17 @@ async function testDatabaseConnection() {
 }
 
 async function runTests() {
-  // Import and check guard
+  // Import and check guard (LOW-5: fail if REAL_DB=1 but guard refuses)
   const { checkRealDbTest } = await import("./lib-db-reset-guard");
   const guardResult = checkRealDbTest();
   
   if (!guardResult.allow) {
+    // If REAL_DB=1 but guard refuses, this is a configuration error - fail the test
+    if (process.env.REAL_DB === "1") {
+      console.error(`\n❌ REAL_DB=1 but guard check failed: ${guardResult.reason}\n`);
+      return false;
+    }
+    // If REAL_DB is not set, skip
     console.log(`\n⏭️  Skipping real DB tests: ${guardResult.reason}\n`);
     return true;
   }
@@ -429,10 +435,8 @@ async function runTests() {
     const { data: afterDisplayClear } = await clientOwner.rpc("get_gym_brand", {
       p_gym_id: gymId,
     });
-    if (afterDisplayClear && afterDisplayClear[0]) {
-      check("display_name cleared", afterDisplayClear[0].display_name === null);
-      check("logo_url unchanged", afterDisplayClear[0].logo_url === "https://example.com/test.png");
-    }
+    check("display_name cleared", afterDisplayClear && afterDisplayClear[0] && afterDisplayClear[0].display_name === null, `got ${afterDisplayClear?.[0]?.display_name}`);
+    check("logo_url unchanged", afterDisplayClear && afterDisplayClear[0] && afterDisplayClear[0].logo_url === "https://example.com/test.png", `got ${afterDisplayClear?.[0]?.logo_url}`);
 
     // Clear logo_url
     const { error: clearLogoError } = await clientOwner.rpc("set_gym_branding", {
@@ -444,9 +448,7 @@ async function runTests() {
     const { data: afterLogoClear } = await clientOwner.rpc("get_gym_brand", {
       p_gym_id: gymId,
     });
-    if (afterLogoClear && afterLogoClear[0]) {
-      check("logo_url cleared", afterLogoClear[0].logo_url === null);
-    }
+    check("logo_url cleared", afterLogoClear && afterLogoClear[0] && afterLogoClear[0].logo_url === null, `got ${afterLogoClear?.[0]?.logo_url}`);
 
     // Clear both colors at once
     const { error: clearColorsError } = await clientOwner.rpc("set_gym_branding", {
@@ -458,10 +460,8 @@ async function runTests() {
     const { data: afterColorsClear } = await clientOwner.rpc("get_gym_brand", {
       p_gym_id: gymId,
     });
-    if (afterColorsClear && afterColorsClear[0]) {
-      check("primary_color cleared", afterColorsClear[0].primary_color === null);
-      check("accent_color cleared", afterColorsClear[0].accent_color === null);
-    }
+    check("primary_color cleared", afterColorsClear && afterColorsClear[0] && afterColorsClear[0].primary_color === null, `got ${afterColorsClear?.[0]?.primary_color}`);
+    check("accent_color cleared", afterColorsClear && afterColorsClear[0] && afterColorsClear[0].accent_color === null, `got ${afterColorsClear?.[0]?.accent_color}`);
 
     // Verify neutralBrand fallback works with all null fields
     check("neutralBrand fallback after clearing", 
@@ -495,13 +495,7 @@ async function runTests() {
       p_gym_id: gymId,
       p_display_name: "Anon Hack",
     });
-    check("Anon cannot call set_gym_branding", !!error, error?.message);
-    // Should get permission denied (42501), not BRND1 - if we get BRND1,
-    // it means anon was granted execute permission (mutant b survived)
-    if (error && error.code === "BRND1") {
-      console.error("  ✗ SECURITY: Anon got past permission check! Got BRND1 instead of permission denied.");
-      process.exit(1);
-    }
+    check("Anon cannot call set_gym_branding", error?.code === "42501", error?.message);
   }
   console.log();
 
@@ -515,7 +509,7 @@ async function runTests() {
     // If this fails with permission denied, mutant (h) survived
     if (error && (error.message?.includes("permission denied") || error.code === "42501")) {
       console.error("  ✗ SECURITY: get_gym_brand missing public GRANT! Anon got permission denied.");
-      process.exit(1);
+      return false;
     }
     check("Returns gym name", Array.isArray(data) && data.length > 0 && data[0].name === "Branding Test Gym");
   }
@@ -633,9 +627,9 @@ async function runTests() {
       p_gym_id: gymId,
     });
     check("get_gym_brand succeeds", !error, error?.message);
-    if (data && data[0]) {
-      const keys = Object.keys(data[0]).sort();
-      const expectedKeys = [
+    check("get_gym_brand returns data", !!data && data.length > 0 && !!data[0]);
+    const keys = Object.keys(data[0]).sort();
+    const expectedKeys = [
         "name",
         "slug",
         "timezone",
@@ -650,7 +644,6 @@ async function runTests() {
         keys.every((k, i) => k === expectedKeys[i]),
         `Expected: [${expectedKeys.join(", ")}], Got: [${keys.join(", ")}]`
       );
-    }
   }
   console.log();
 
@@ -795,10 +788,136 @@ async function runTests() {
     const { data } = await clientOwner.rpc("get_gym_brand", {
       p_gym_id: gymId,
     });
-    if (data && data[0]) {
-      check("Clear won over set (primary)", data[0].primary_color === null);
-      check("Clear won over set (accent)", data[0].accent_color === null);
-    }
+    check("Clear won over set returns data", !!data && data.length > 0);
+    check("Clear won over set (primary)", data[0].primary_color === null);
+    check("Clear won over set (accent)", data[0].accent_color === null);
+  }
+  console.log();
+
+  // LOW-1 tests: RPC validation gaps
+  console.log("TEST: Display name validation (LOW-1)");
+  {
+    // Blank display name (whitespace only)
+    const { error: blankError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "   ",
+    });
+    check("Blank display_name rejected", !!blankError && blankError.code === "22023");
+
+    // Display name over 100 characters
+    const longName = "A".repeat(101);
+    const { error: longError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: longName,
+    });
+    check("Display name over 100 chars rejected", !!longError && longError.code === "22023");
+
+    // Valid display name at exactly 100 characters (boundary test)
+    const exactName = "B".repeat(100);
+    const { error: exactError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: exactName,
+    });
+    check("Display name at exactly 100 chars accepted", !exactError, exactError?.message);
+  }
+  console.log();
+
+  console.log("TEST: NULL in p_clear rejected (LOW-1)");
+  {
+    // Build array with NULL element without type assertion
+    const clearArray: (string | null)[] = [null, "display_name"];
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_clear: clearArray,
+    });
+    check("NULL in p_clear rejected", !!error && error.code === "BRND6");
+  }
+  console.log();
+
+  console.log("TEST: Low-contrast primary accepted (LOW-1 non-blocking)");
+  {
+    // #1E40AF has < 3:1 contrast vs #0A0C0E but should save (warning in UI, not rejection)
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#1E40AF",
+      p_accent_color: "#3B82F6",
+    });
+    check("Low-contrast #1E40AF accepted", !error, error?.message);
+    
+    // Read back to verify it saved
+    const { data: gymData } = await clientOwner
+      .from("gyms")
+      .select("primary_color")
+      .eq("id", gymId)
+      .single();
+    check("#1E40AF persisted", gymData?.primary_color === "#1E40AF");
+  }
+  console.log();
+
+  console.log("TEST: Single-color clear rejected (LOW-1)");
+  {
+    // Set both colors first
+    await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_primary_color: "#FF0000",
+      p_accent_color: "#00FF00",
+    });
+
+    // Try to clear only primary
+    const { error: onlyPrimary } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_clear: ["primary_color"],
+    });
+    check("Clear only primary_color rejected", !!onlyPrimary && onlyPrimary.code === "BRND7");
+
+    // Try to clear only accent
+    const { error: onlyAccent } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_clear: ["accent_color"],
+    });
+    check("Clear only accent_color rejected", !!onlyAccent && onlyAccent.code === "BRND7");
+  }
+  console.log();
+
+  console.log("TEST: Logo control character validation (LOW-1)");
+  {
+    // Control character (newline)
+    const { error: newlineError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_logo_url: "https://example.com/logo\n.png",
+    });
+    check("Logo with newline rejected", !!newlineError && newlineError.code === "BRND4");
+
+    // Control character (tab)
+    const { error: tabError } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_logo_url: "https://example.com/logo\t.png",
+    });
+    check("Logo with tab rejected", !!tabError && tabError.code === "BRND4");
+  }
+  console.log();
+
+  console.log("TEST: Clear wins over set for display_name (LOW-1)");
+  {
+    // Set a display name first
+    await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "Test Name",
+    });
+
+    // Try to set and clear at the same time - clear should win
+    const { error } = await clientOwner.rpc("set_gym_branding", {
+      p_gym_id: gymId,
+      p_display_name: "New Name",
+      p_clear: ["display_name"],
+    });
+    check("Clear with set succeeds for display_name", !error, error?.message);
+
+    const { data } = await clientOwner.rpc("get_gym_brand", {
+      p_gym_id: gymId,
+    });
+    check("Clear won over set returns data", !!data && data.length > 0);
+    check("Clear won over set for display_name", data[0].display_name === null);
   }
   console.log();
 
