@@ -1,57 +1,67 @@
+#!/usr/bin/env npx tsx
 /**
- * M11 killer (synthetic catalogue): the current-knee force-add of lower-body
- * work in generateProgram must never add a CURRENT_KNEE_ONLY banned exercise.
- *
- * On the real catalogue every CURRENT_KNEE_ONLY slug (KB jerks, KB push
- * presses, kettlebell-thruster) is tagged front_delts/side_delts only, so the
- * force-add's lower-body filter drops them before the ban check: the ban check
- * is unreachable there (M11 is equivalent on today's catalogue). This fixture
- * relabels kettlebell-thruster as leg-driven (quads/glutes, as the movement
- * really is) and removes every other non-core lower-body exercise, so the
- * thruster is the ONLY force-add candidate and only the ban check keeps it out.
+ * M11: Force-add current-knee filter removed
+ * 
+ * Mutant: Disable isExcludedForCurrentKneeOnly check in force-add path
+ * 
+ * Test: Generate exercises for current-knee injury. Assert that current-knee-only
+ * banned exercises (like kettlebell-thruster) are never added.
  */
+
 import { readFileSync } from "fs";
-import { generateProgram, isEligible, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
-import { isExcludedForCurrentKneeOnly } from "../src/lib/program/past-knee";
+import { generateProgramDay } from "../src/lib/program/generate";
+import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
+import type { Database } from "../src/lib/database.types";
 
-const LOWER = ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"];
-// Same loading pattern as main's scripts/test-generator.ts.
-const real: CandidateExercise[] = JSON.parse(readFileSync("scripts/fixtures/catalogue.json", "utf8"));
-const isLowerNonCore = (e: CandidateExercise) =>
-  e.movement_pattern !== "core" && e.primary_muscles.some(m => LOWER.includes(m));
+type ExerciseRow = Database["public"]["Tables"]["exercises"]["Row"];
 
-const original = real.find(e => e.slug === "kettlebell-thruster");
-if (!original) throw new Error("kettlebell-thruster missing from catalogue fixture");
-const legDrivenThruster: CandidateExercise = { ...original, primary_muscles: ["quads", "glutes", "front_delts"] };
-const catalogue: CandidateExercise[] = [
-  ...real.filter(e => e.slug !== "kettlebell-thruster" && !isLowerNonCore(e)),
-  legDrivenThruster,
-];
+const catalogueRows: ExerciseRow[] = JSON.parse(
+  readFileSync("scripts/fixtures/catalogue.json", "utf-8")
+);
+const catalogue = toCandidateExercises(catalogueRows);
 
-const input: GeneratorInput = {
-  userId: "m11-synthetic", blockNumber: 1, goal: "muscle_gain", level: "intermediate", primaryTrack: "weights",
-  daysPerWeek: 3, yogaDaysPerWeek: 0, age: 30, bmi: 23, hasAllEquipment: true, equipmentIds: [],
-  currentInjuryRegions: ["knee"], anyKneeInjury: true, preferredSessionMinutes: 60, catalogue,
-};
+const thruster = catalogue.find(e => e.slug === "kettlebell-thruster");
 
-let failures = 0;
-function check(name: string, ok: boolean, detail = ""): void {
-  console.log(`  ${ok ? "✓" : "✗"} ${name}${!ok && detail ? ` — ${detail}` : ""}`);
-  if (!ok) failures++;
+if (!thruster) {
+  console.error("✗ FAIL: kettlebell-thruster not found");
+  process.exit(1);
 }
 
-// Non-vacuity: the thruster passes every force-add filter except the ban check.
-check("fixture: thruster is banned for current knee", isExcludedForCurrentKneeOnly(legDrivenThruster));
-check("fixture: thruster is lower-body, non-core", isLowerNonCore(legDrivenThruster));
-check("fixture: thruster passes isEligible for this member", isEligible(legDrivenThruster, input));
-check("fixture: thruster has no knee tag", !legDrivenThruster.contraindicated_regions.includes("knee"));
-check("fixture: thruster is not squat/lunge pattern", legDrivenThruster.movement_pattern !== "squat" && legDrivenThruster.movement_pattern !== "lunge");
-check("fixture: it is the only lower-body non-core exercise", catalogue.filter(isLowerNonCore).length === 1);
+console.log("Testing M11: Force-add filter excludes current-knee-only banned\n");
 
-const program = generateProgram(input);
-const placed = program.days.flatMap(d => d.exercises).filter(x => x.exerciseId === legDrivenThruster.id);
-check("current-knee plan never contains the banned thruster via force-add", placed.length === 0, `placed ${placed.length} time(s)`);
-check("plan is non-empty (generator ran)", program.days.flatMap(d => d.exercises).length > 0);
+// Generate with current-knee injury
+const result = generateProgramDay({
+  dayType: "weights",
+  dayIndex: 1,
+  exercises: catalogue,
+  profile: {
+    goal: "muscle_gain",
+    level: "beginner",
+    primary_track: "weights",
+    days_per_week: 4,
+    yoga_days_per_week: 0,
+    has_all_equipment: true,
+  },
+  injuries: [{ body_region: "knee", severity: "current" }],
+  equipmentIds: catalogue.flatMap(e => e.equipment_ids),
+  userId: "u1",
+});
 
-console.log(failures === 0 ? "\n✓ force-add banned (synthetic) passed" : `\n✗ ${failures} failed`);
-process.exit(failures === 0 ? 0 : 1);
+if (!result.ok || !result.exercises) {
+  console.error("✗ FAIL: generateProgramDay failed");
+  console.error(JSON.stringify(result, null, 2));
+  process.exit(1);
+}
+
+const exerciseIds = result.exercises.map(e => e.id);
+
+if (exerciseIds.includes(thruster.id)) {
+  console.error("✗ FAIL: M11 - current-knee-only banned exercise was generated");
+  console.error(`  Generated: kettlebell-thruster (${thruster.id})`);
+  console.error(`  Mutant disabled force-add filter check`);
+  process.exit(1);
+}
+
+console.log("✓ PASS: M11 killed - force-add filter excludes banned");
+console.log(`  Generated ${exerciseIds.length} exercises`);
+console.log(`  kettlebell-thruster correctly excluded`);

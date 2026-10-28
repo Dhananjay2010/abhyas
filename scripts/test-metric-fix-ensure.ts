@@ -1,9 +1,12 @@
 #!/usr/bin/env npx tsx
 /**
- * Metric fix: Ensure session must use replacement's metric.
+ * METRIC-ensure: Metric not updated when ensuring exercises
  * 
- * Mutant: Don't update metric when replacing banned exercise in ensure path.
- * Example: one-leg-barbell-squat (reps) → wall-sit (seconds), must use seconds.
+ * Mutant: Don't use catalogue metric in ensure-session-exercises.ts
+ * 
+ * Test: Resume session where an exercise was replaced (banned → safe).
+ * The session_exercises row has wrong metric. Assert ensureSessionExercises
+ * updates it with the correct metric from catalogue.
  */
 
 import { readFileSync } from "fs";
@@ -19,99 +22,113 @@ const catalogueRows: ExerciseRow[] = JSON.parse(
 );
 const catalogue = toCandidateExercises(catalogueRows);
 
-// Find an exercise that gets replaced with different metric
-const barbell = catalogue.find(e => e.slug === "one-leg-barbell-squat");
-const wallSit = catalogue.find(e => e.slug === "wall-sit");
+const thruster = catalogue.find(e => e.slug === "kettlebell-thruster");
+const goblet = catalogue.find(e => e.slug === "goblet-squat");
 
-if (!barbell || !wallSit) {
-  console.error("✗ FAIL: Test exercises not found");
+if (!thruster || !goblet) {
+  console.error("✗ FAIL: test exercises not found");
   process.exit(1);
 }
 
-const bMetric = barbell.metric;
-const wMetric = wallSit.metric;
-
-console.log("Testing metric fix: ensure session\n");
-console.log(`  Original: ${barbell.slug} (${bMetric})`);
-console.log(`  Replacement: ${wallSit.slug} (${wMetric})`);
-
-if (bMetric === wMetric) {
-  console.log("⊘ SKIP: Metrics are the same, test not applicable");
-  process.exit(0);
+if (thruster.metric === goblet.metric) {
+  console.error("✗ FAIL: test exercises have same metric, can't test");
+  process.exit(1);
 }
+
+console.log("Testing METRIC-ensure: Replacement metric in ensure exercises\n");
 
 (async () => {
   const fake = createFakeDb({
-    tables: {
-      sessions: [{
-        id: "s1",
-        user_id: "u1",
-        program_day_id: "pd1",
-        actual_type: "weights",
-        is_deload: false,
-      }],
-      session_exercises: [],
-      program_day_exercises: [{
-        id: "pde1",
-        program_day_id: "pd1",
-        exercise_id: barbell.id,
-        order_index: 0,
-        target_sets: 3,
-        target_reps_min: 8,
-        target_reps_max: 12,
-        rest_seconds: 90,
-      }],
-    },
+    profiles: [{
+      id: "u1",
+      current_injury_regions: ["knee"],
+      past_injury_regions: [],
+      equipment_ids: [],
+    }],
+    programs: [{
+      id: "prog1",
+      user_id: "u1",
+      status: "active",
+      started_on: "2024-01-01",
+      deload_week: 4,
+      week_offset: 0,
+      current_block_id: "block1",
+    }],
+    program_days: [{
+      id: "pd1",
+      program_id: "prog1",
+      day_of_week: 1,
+      day_type: "weights",
+      label: "Lower A",
+    }],
+    program_day_exercises: [{
+      id: "pde1",
+      program_day_id: "pd1",
+      exercise_id: goblet.id, // Replacement (was thruster before cleanup)
+      order_index: 0,
+      target_sets: 3,
+      target_reps_min: 8,
+      target_reps_max: 12,
+      rest_seconds: 90,
+    }],
+    sessions: [{
+      id: "s1",
+      user_id: "u1",
+      program_id: "prog1",
+      program_day_id: "pd1",
+      local_date: "2024-01-15",
+      status: "in_progress",
+      started_at: null,
+      actual_type: "weights",
+    }],
+    session_exercises: [{
+      id: "se1",
+      session_id: "s1",
+      exercise_id: goblet.id,
+      order_index: 0,
+      target_sets: 3,
+      target_reps_min: 8,
+      target_reps_max: 12,
+      rest_seconds: 90,
+      exercises: {
+        name: goblet.name,
+        metric: thruster.metric, // WRONG - should be goblet.metric
+      },
+    }],
   });
 
-  await ensureSessionExercises(
-    fake.client,
-    "u1",
-    "s1",
-    catalogue,
-    {
-      goal: "muscle_gain",
-      level: "beginner",
-      primary_track: "weights",
-      days_per_week: 4,
-      yoga_days_per_week: 0,
-      has_all_equipment: true,
-    },
-    [{ body_region: "knee", severity: "current" }],
-    catalogue.flatMap(e => e.equipment_ids)
+  await ensureSessionExercises(fake.client, "s1", "u1");
+
+  // Find PATCH to session_exercises
+  const patches = fake.requests.filter(
+    r => r.method === "PATCH" && r.table === "session_exercises"
   );
 
-  const inserts = fake.requests.filter(r => r.method === "POST" && r.table === "session_exercises");
-  if (inserts.length === 0) {
-    console.error("✗ FAIL: No exercises inserted");
+  if (patches.length === 0) {
+    console.error("✗ FAIL: No session_exercises PATCH");
+    console.error(`  Should update metric from ${thruster.metric} to ${goblet.metric}`);
+    console.error(`  Mutant uses wrong metric`);
     process.exit(1);
   }
 
-  const insertedExercises = inserts[0].body;
-  if (!Array.isArray(insertedExercises) || insertedExercises.length === 0) {
-    console.error("✗ FAIL: No exercises in insert body");
+  const body = patches[0].body as { exercises?: { metric: string } };
+  const patchedMetric = body.exercises?.metric;
+
+  if (!patchedMetric) {
+    console.error("✗ FAIL: PATCH doesn't update metric");
+    console.error(JSON.stringify(body, null, 2));
     process.exit(1);
   }
 
-  const first = insertedExercises[0] as { exercise_id: string; metric: string };
-  const catalogueEntry = catalogue.find(e => e.id === first.exercise_id);
-
-  if (!catalogueEntry) {
-    console.error("✗ FAIL: Replacement not found in catalogue");
+  if (patchedMetric !== goblet.metric) {
+    console.error("✗ FAIL: METRIC-ensure - wrong metric in PATCH");
+    console.error(`  Expected: ${goblet.metric} (from catalogue)`);
+    console.error(`  Got:      ${patchedMetric}`);
+    console.error(`  Mutant didn't use catalogue metric`);
     process.exit(1);
   }
 
-  if (first.metric !== catalogueEntry.metric) {
-    console.error("✗ FAIL: Metric fix - Ensure session uses wrong metric");
-    console.error(`  Mutant: Don't update metric when replacing in ensure`);
-    console.error(`  Exercise: ${catalogueEntry.slug} (${catalogueEntry.id})`);
-    console.error(`  Catalogue metric: ${catalogueEntry.metric}`);
-    console.error(`  Inserted metric:  ${first.metric}`);
-    process.exit(1);
-  }
-
-  console.log("✓ PASS: Metric fix - Ensure uses replacement's metric");
-  console.log(`  Replacement:      ${catalogueEntry.slug}`);
-  console.log(`  Catalogue metric: ${catalogueEntry.metric}`);
-  console.log(`  Inserted metric:  ${first.metric} ✓`);
+  console.log("✓ PASS: METRIC-ensure killed - catalogue metric used");
+  console.log(`  Session had wrong metric: ${thruster.metric}`);
+  console.log(`  PATCH updated to:         ${goblet.metric}`);
 })();

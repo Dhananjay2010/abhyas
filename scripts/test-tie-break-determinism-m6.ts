@@ -1,18 +1,15 @@
 #!/usr/bin/env npx tsx
 /**
- * M6: Tie-breaking must be deterministic (hash-based, not Math.random).
+ * M6: Math.random tie-break
  * 
- * M6 mutant: const tieBreakFn = (slug: string) => Math.random()
+ * Mutant: Replace deterministic hashString tie-breaker with Math.random()
  * 
- * When multiple alternatives have identical scores, the tie-breaker ensures
- * stable ordering across Today SSR, start session, and background sweeps.
- * 
- * This test verifies that replace-banned produces the same result across
- * multiple invocations for the same input (deterministic).
+ * Test: Build swap list where multiple candidates tie on priority.
+ * Assert the chosen replacement is deterministic (same every time).
  */
 
 import { readFileSync } from "fs";
-import { replaceBannedInPlanned } from "../src/lib/program/replace-banned-in-planned";
+import { eligibleSwapList } from "../src/lib/session/eligible-swap-list";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 
@@ -23,67 +20,55 @@ const catalogueRows: ExerciseRow[] = JSON.parse(
 );
 const catalogue = toCandidateExercises(catalogueRows);
 
-const thruster = catalogue.find(e => e.slug === "kettlebell-thruster");
-if (!thruster) {
-  console.error("✗ FAIL: kettlebell-thruster not found");
+// Find exercises that would tie (same movement pattern, mechanic, level)
+const squats = catalogue.filter(e => 
+  e.movement_pattern === "squat" && 
+  e.mechanic === "compound" &&
+  e.level_min === 0 &&
+  !e.contraindicated_regions.includes("knee")
+);
+
+if (squats.length < 2) {
+  console.error("✗ FAIL: Need at least 2 squat exercises for tie-break test");
   process.exit(1);
 }
 
-console.log("Testing M6: Tie-breaking determinism\n");
+console.log("Testing M6: Deterministic tie-break in eligible-swap-list\n");
 
-const planned = [
-  {
-    id: "pde1",
-    exercise_id: thruster.id,
-    order_index: 0,
-    target_sets: 3,
-    target_reps_min: 8,
-    target_reps_max: 12,
-    rest_seconds: 90,
-  },
-];
+const sessionExerciseId = "se-test-123";
+const currentSlug = squats[0].slug;
 
-const generatorInput = {
-  userId: "u1",
-  blockNumber: 1,
-  goal: "muscle_gain" as const,
-  level: "beginner" as const,
-  primaryTrack: "weights" as const,
-  daysPerWeek: 4,
-  yogaDaysPerWeek: 0,
-  age: 30,
-  bmi: 23,
-  hasAllEquipment: true,
-  equipmentIds: catalogue.flatMap(e => e.equipment_ids),
-  currentInjuryRegions: ["knee" as const],
-  anyKneeInjury: true,
-  catalogue,
-};
-
-// Run replacement 5 times and collect replacement IDs
-const replacementIds: string[] = [];
-for (let i = 0; i < 5; i++) {
-  const result = replaceBannedInPlanned(planned, catalogue, generatorInput);
-  if (!result.changed) {
-    console.error("✗ FAIL: No replacement occurred");
-    process.exit(1);
-  }
-  replacementIds.push(result.rows[0].exercise_id);
+// Run swap list multiple times
+const results: string[][] = [];
+for (let i = 0; i < 3; i++) {
+  const list = eligibleSwapList(
+    currentSlug,
+    catalogue,
+    {
+      injuries: [],
+      equipmentIds: catalogue.flatMap(e => e.equipment_ids),
+      userId: "u1",
+    },
+    sessionExerciseId,
+    { category: "single_exercise", type: "bodyweight", availableMovementPatterns: ["squat"] }
+  );
+  results.push(list.map(e => e.slug));
 }
 
-// All 5 runs must produce the same replacement ID
-const uniqueIds = new Set(replacementIds);
-if (uniqueIds.size !== 1) {
-  console.error("✗ FAIL: M6 - Tie-breaking is non-deterministic");
-  console.error(`  M6 mutant: const tieBreakFn = (slug: string) => Math.random()`);
-  console.error(`  Expected: Same replacement across 5 runs`);
-  console.error(`  Got:      ${uniqueIds.size} different IDs: ${Array.from(uniqueIds).join(', ')}`);
+// Check that all runs produced the same order
+const firstOrder = results[0].join(",");
+const allSame = results.every(order => order.join(",") === firstOrder);
+
+if (!allSame) {
+  console.error("✗ FAIL: M6 - tie-break is not deterministic");
+  console.error(`  Run 1: ${results[0].join(", ")}`);
+  console.error(`  Run 2: ${results[1].join(", ")}`);
+  console.error(`  Run 3: ${results[2].join(", ")}`);
+  console.error(`  Mutant uses Math.random() instead of hashString`);
   process.exit(1);
 }
 
-const replacementSlug = catalogue.find(e => e.id === replacementIds[0])?.slug || 'unknown';
-
-console.log("✓ PASS: M6 killed - Tie-breaking is deterministic");
-console.log(`  Banned:      kettlebell-thruster (${thruster.id})`);
-console.log(`  Replacement: ${replacementSlug} (${replacementIds[0]})`);
-console.log(`  Runs:        5/5 identical ✓`);
+console.log("✓ PASS: M6 killed - tie-break is deterministic");
+console.log(`  Candidates: ${results[0].length}`);
+console.log(`  First 3: ${results[0].slice(0, 3).join(", ")}`);
+console.log(`  All 3 runs identical`);

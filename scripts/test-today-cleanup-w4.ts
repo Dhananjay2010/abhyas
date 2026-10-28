@@ -1,15 +1,16 @@
 #!/usr/bin/env npx tsx
 /**
- * W4: Today cleanup wiring - days.map(applyDayCleanup) must be called.
+ * W4: Today cleanup call removed
  * 
- * W4 mutant: Remove the .map(applyDayCleanup) call.
+ * Mutant: `return days;` (cleanup skipped in apply-loader-cleanup.ts line 111)
  * 
- * This test verifies that Today's loader applies cleanup to program days
- * when the user has a knee injury, replacing banned exercises.
+ * Test: Call applyLoaderCleanup with a day containing banned exercise.
+ * Assert the returned day has the banned exercise replaced.
  */
 
 import { readFileSync } from "fs";
-import { applyDayCleanup } from "../src/app/today/page";
+import { applyLoaderCleanup } from "../src/lib/today/apply-loader-cleanup";
+import { replaceBannedInPlanned } from "../src/lib/program/replace-banned-in-planned";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 
@@ -21,77 +22,94 @@ const catalogueRows: ExerciseRow[] = JSON.parse(
 const catalogue = toCandidateExercises(catalogueRows);
 
 const thruster = catalogue.find(e => e.slug === "kettlebell-thruster");
+
 if (!thruster) {
-  console.error("✗ FAIL: kettlebell-thruster not found");
+  console.error("✗ FAIL: test exercise not found");
   process.exit(1);
 }
 
-console.log("Testing W4: Today cleanup wiring\n");
+console.log("Testing W4: Today cleanup call in apply-loader-cleanup\n");
 
-const day = {
-  id: "day-1",
+const days = [{
+  id: "pd1",
   day_index: 1,
   day_type: "weights" as const,
-  focus: null,
-  label: null,
-  program_day_exercises: [
-    {
-      id: "pde-1",
-      exercise_id: thruster.id,
-      order_index: 0,
-      target_sets: 3,
-      target_reps_min: 8,
-      target_reps_max: 12,
-      rest_seconds: 90,
-      exercises: {
-        name: "Kettlebell Thruster",
-        cue: null,
-        movement_pattern: "squat",
-        metric: "reps",
-      },
+  focus: "lower",
+  label: "Lower A",
+  program_day_exercises: [{
+    id: "pde1",
+    exercise_id: thruster.id, // BANNED for current-knee
+    order_index: 0,
+    target_sets: 3,
+    target_reps_min: 8,
+    target_reps_max: 12,
+    rest_seconds: 90,
+    exercises: {
+      name: thruster.name,
+      cue: null,
+      movement_pattern: thruster.movement_pattern,
+      metric: "reps" as const,
     },
-  ],
-};
+  }],
+}];
 
-const generatorInput = {
-  userId: "test-user",
-  blockNumber: 1,
-  goal: "muscle_gain" as const,
-  level: "beginner" as const,
-  primaryTrack: "weights" as const,
-  daysPerWeek: 4,
-  yogaDaysPerWeek: 0,
-  age: 30,
-  bmi: 23,
-  hasAllEquipment: true,
-  equipmentIds: catalogue.flatMap(e => e.equipment_ids),
-  currentInjuryRegions: ["knee" as const],
-  anyKneeInjury: true,
-  catalogue,
-};
+const cleanupResults: { changed: boolean }[] = [];
 
-const cleanupResults: Array<{ changed: boolean }> = [];
+const result = applyLoaderCleanup(
+  {
+    days,
+    injuries: [{ body_region: "knee", severity: "current" }],
+    profile: {
+      goal: "general_fitness",
+      level: "beginner",
+      primary_track: "balanced",
+      days_per_week: 4,
+      yoga_days_per_week: 0,
+      has_all_equipment: false,
+    },
+    catalogueRows,
+    equipmentIds: [],
+    userId: "u1",
+    applyDayCleanup: (day, catalogue, generatorInput, cleanupResults) => {
+      const injuryList = generatorInput.injuries;
+      const result = replaceBannedInPlanned(
+        day.program_day_exercises,
+        injuryList,
+        generatorInput.equipmentIds,
+        catalogue,
+        generatorInput.userId
+      );
+      cleanupResults.push({ changed: result.changed });
+      return {
+        ...day,
+        program_day_exercises: result.exercises,
+      };
+    },
+  },
+  cleanupResults
+);
 
-const cleanedDay = applyDayCleanup(day, catalogue, generatorInput, cleanupResults);
-
-if (cleanedDay.program_day_exercises.length === 0) {
-  console.error("✗ FAIL: W4 - No exercises after cleanup");
+if (!result || result.length === 0) {
+  console.error("✗ FAIL: No days returned");
   process.exit(1);
 }
 
-const firstExerciseId = cleanedDay.program_day_exercises[0].exercise_id;
+const exerciseIds = result[0].program_day_exercises.map(e => e.exercise_id);
 
-if (firstExerciseId === thruster.id) {
-  console.error("✗ FAIL: W4 - Banned exercise not replaced by Today cleanup");
-  console.error(`  W4 mutant: days.map(applyDayCleanup) removed`);
-  console.error(`  Expected: replacement exercise`);
-  console.error(`  Got:      kettlebell-thruster (${thruster.id})`);
+if (exerciseIds.includes(thruster.id)) {
+  console.error("✗ FAIL: W4 - banned exercise (kettlebell-thruster) in returned day");
+  console.error(`  Input had: ${thruster.slug} (${thruster.id})`);
+  console.error(`  Mutant returned days without applyDayCleanup`);
   process.exit(1);
 }
 
-const replacement = catalogue.find(e => e.id === firstExerciseId);
+if (cleanupResults.length === 0) {
+  console.error("✗ FAIL: applyDayCleanup was never called");
+  console.error(`  Mutant skipped .map(applyDayCleanup)`);
+  process.exit(1);
+}
 
-console.log("✓ PASS: W4 killed - Today cleanup replaces banned exercise");
-console.log(`  Banned:      kettlebell-thruster (${thruster.id})`);
-console.log(`  Replacement: ${replacement?.slug || 'unknown'} (${firstExerciseId})`);
-console.log(`  Changed:     ${cleanupResults.some(r => r.changed)}`);
+console.log("✓ PASS: W4 killed - cleanup was applied to days");
+console.log(`  Input had: kettlebell-thruster (${thruster.id})`);
+console.log(`  Cleaned:   ${exerciseIds.length} exercises (no banned)`);
+console.log(`  Cleanup called: ${cleanupResults.length} times`);

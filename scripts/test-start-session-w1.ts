@@ -1,16 +1,17 @@
 #!/usr/bin/env npx tsx
 /**
- * W1: startSessionFullCore must use cleanBannedExercises result, not planned input.
+ * M10/W1: start-session cleanup removed
  * 
- * W1 mutant: `const cleanedPlanned = planned` (no-op cleanBannedExercises).
- * This test builds a typed StartSessionFullDeps with trivial stubs except
- * cleanBannedExercises which returns a cleaned list different from planned.
- * Asserts insertExercises receives the CLEANED list.
+ * Mutant: `const cleaned = { rows: plannedForCleaning, changed: false };`
+ * (applyBannedCleanup call removed in start-session-full-deps.ts)
+ * 
+ * Test: Create a program with banned exercise (kettlebell-thruster for current-knee).
+ * Call startSessionFullDeps through createFakeDb. Assert returned exercises don't include banned.
  */
 
 import { readFileSync } from "fs";
-import { startSessionFullCore } from "../src/lib/session/start-session-full-core";
-import type { StartSessionFullDeps } from "../src/lib/session/start-session-full-core";
+import { createFakeDb } from "./helpers/fake-postgrest";
+import { startSessionFullDeps } from "../src/lib/session/start-session-full-deps";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 
@@ -29,130 +30,80 @@ if (!thruster || !goblet) {
   process.exit(1);
 }
 
-console.log("Testing W1: startSessionFullCore uses cleanBannedExercises result\n");
-
-let insertedExercises: unknown[] = [];
-
-const deps: StartSessionFullDeps = {
-  userId: "u1",
-  nowMs: Date.now(),
-  
-  async fetchProfile() {
-    return { timezone: null };
-  },
-  
-  async fetchOpenSessions() {
-    return [];
-  },
-  
-  async fetchResumeEnabled() {
-    return true;
-  },
-  
-  async updateSession() {
-    return { ok: false, error: "not used" };
-  },
-  
-  async ensureSessionExercises() {},
-  
-  async ensureCurrentBlock() {
-    return { status: "current", programId: "prog1" };
-  },
-  
-  async loadProgram() {
-    return {
-      ok: true,
-      program: { id: "prog1", started_on: "2024-01-01", deload_week: 4, week_offset: 0 },
-      dayId: "pd1",
-      dayType: "weights" as const,
-    };
-  },
-  
-  async findInProgressToday() {
-    return [];
-  },
-  
-  buildStaleDeps(openSessions, today) {
-    return {
-      today,
-      async readOpenSessions() {
-        return openSessions;
-      },
-      async closeStaleSessions() {
-        return 0;
-      },
-      async findInProgressAnyDay() {
-        return [];
-      },
-      filterClosedToday: () => [],
-      filterStaleToday: () => [],
-    } as never;
-  },
-  
-  async insertSession() {
-    return { ok: true, sessionId: "s1" };
-  },
-  
-  async fetchPlannedExercises() {
-    return [
-      {
-        id: "pde1",
-        exercise_id: thruster.id,
-        order_index: 0,
-        target_sets: 3,
-        target_reps_min: 8,
-        target_reps_max: 12,
-        rest_seconds: 90,
-        exercises: { metric: "reps" },
-      },
-    ];
-  },
-  
-  async cleanBannedExercises(exercises) {
-    // Return CLEANED list (banned replaced)
-    return exercises.map(e => 
-      e.exercise_id === thruster.id
-        ? { ...e, exercise_id: goblet.id }
-        : e
-    );
-  },
-  
-  async insertExercises(exercises) {
-    insertedExercises = exercises;
-    return { ok: true };
-  },
-};
+console.log("Testing M10/W1: start-session cleanup call in start-session-full-deps\n");
 
 (async () => {
-  const result = await startSessionFullCore(deps);
-  
+  const fake = createFakeDb({
+    profiles: [{
+      id: "u1",
+      current_injury_regions: ["knee"],
+      past_injury_regions: [],
+      equipment_ids: [],
+    }],
+    programs: [{
+      id: "prog1",
+      user_id: "u1",
+      status: "active",
+      started_on: "2024-01-01",
+      deload_week: 4,
+      week_offset: 0,
+      current_block_id: "block1",
+    }],
+    program_days: [{
+      id: "pd1",
+      program_id: "prog1",
+      day_of_week: 1,
+      day_type: "weights",
+      label: "Lower A",
+    }],
+    program_day_exercises: [{
+      id: "pde1",
+      program_day_id: "pd1",
+      exercise_id: thruster.id, // BANNED for current-knee
+      order_index: 0,
+      target_sets: 3,
+      target_reps_min: 8,
+      target_reps_max: 12,
+      rest_seconds: 90,
+    }],
+    sessions: [],
+    session_exercises: [],
+  });
+
+  const result = await startSessionFullDeps(
+    fake.client,
+    "u1",
+    "2024-01-15",
+    "weights",
+    Date.now()
+  );
+
   if (!result.ok) {
-    console.error("✗ FAIL: startSessionFullCore failed");
+    console.error("✗ FAIL: startSessionFullDeps failed");
     console.error(JSON.stringify(result, null, 2));
     process.exit(1);
   }
-  
-  if (insertedExercises.length === 0) {
-    console.error("✗ FAIL: No exercises inserted");
+
+  // Check that inserted session_exercises don't include the banned thruster
+  const inserts = fake.requests.filter(
+    r => r.method === "POST" && r.table === "session_exercises"
+  );
+
+  if (inserts.length === 0) {
+    console.error("✗ FAIL: No session_exercises inserted");
     process.exit(1);
   }
-  
-  const first = insertedExercises[0] as { exercise_id: string };
-  
-  if (first.exercise_id === thruster.id) {
-    console.error("✗ FAIL: W1 - insertExercises received PLANNED (banned), not CLEANED");
-    console.error(`  Expected cleaned: ${goblet.slug} (${goblet.id})`);
-    console.error(`  Got planned:      kettlebell-thruster (${thruster.id})`);
-    console.error(`  W1 mutant: const cleanedPlanned = planned`);
+
+  const insertedIds = inserts.flatMap(r => r.body as Array<{ exercise_id: string }>).map(e => e.exercise_id);
+
+  if (insertedIds.includes(thruster.id)) {
+    console.error("✗ FAIL: M10/W1 - banned exercise (kettlebell-thruster) was inserted");
+    console.error(`  Planned had: ${thruster.slug} (${thruster.id})`);
+    console.error(`  Should have been replaced, but mutant skipped cleanup`);
     process.exit(1);
   }
-  
-  if (first.exercise_id !== goblet.id) {
-    console.error(`✗ FAIL: Unexpected exercise_id: ${first.exercise_id}`);
-    process.exit(1);
-  }
-  
-  console.log("✓ PASS: W1 killed - insertExercises received CLEANED list");
-  console.log(`  Planned (banned): kettlebell-thruster (${thruster.id})`);
-  console.log(`  Cleaned:          goblet-squat (${goblet.id})`);
+
+  console.log("✓ PASS: M10/W1 killed - banned exercise was cleaned");
+  console.log(`  Planned had: kettlebell-thruster (${thruster.id})`);
+  console.log(`  Inserted exercises: ${insertedIds.length} (no banned)`);
 })();

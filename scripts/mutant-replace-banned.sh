@@ -262,7 +262,7 @@ run_mutant \
   "W5 call-site: Loader cleanup identity" \
   "src/app/today/page.tsx" \
   'days = applyLoaderCleanup(' \
-  'days = (applyLoaderCleanup && days) || applyLoaderCleanup(' \
+  'days = ((x: typeof days) => x)(days) || applyLoaderCleanup && applyLoaderCleanup(' \
   "test:today-loader-cleanup-w5"
 
 # Mutant W6: Action call stubbed
