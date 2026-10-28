@@ -11,7 +11,8 @@
  */
 
 import { strict as assert } from "assert";
-import type { BrandResolution, Brand } from "@/lib/runtime-brand";
+import type { BrandResolution } from "@/lib/runtime-brand";
+import type { Brand } from "@/lib/branding";
 import { buildRootLayoutBrandProps } from "@/lib/layout-props";
 import { buildLandingBrandProp } from "@/lib/landing-props";
 import { branding as defaultBrand } from "@/lib/branding";
@@ -20,8 +21,11 @@ import { branding as defaultBrand } from "@/lib/branding";
 const customBrand: Brand = {
   id: "custom",
   name: "Custom Gym",
-  tagline: "Train Different",
+  shortName: "Custom",
   description: "A custom gym experience",
+  siteUrl: "https://custom.example.com",
+  timezone: "America/Los_Angeles",
+  tagline: "Train Different",
   defaultUnits: "metric",
   colors: {
     accent: "#FF6600",
@@ -39,13 +43,22 @@ const customBrand: Brand = {
     danger: "#FF0000",
     chart: "#0000FF",
   },
-  logo: { url: "https://example.com/logo.png", alt: "Custom Logo" },
+  icons: {
+    icon192: "/custom-192.png",
+    icon512: "/custom-512.png",
+    maskable192: "/custom-maskable-192.png",
+    maskable512: "/custom-maskable-512.png",
+    appleTouchIcon: "/custom-apple.png",
+    favicon: "/custom-favicon.ico",
+  },
+  logo: "https://example.com/logo.png",
 };
 
 const customResolution: BrandResolution = {
   tier: "host",
   brand: customBrand,
-  metadata: { gymId: "gym_123", hostDomain: "custom.example.com" },
+  gymId: "gym_123",
+  gymName: "Custom Gym",
 };
 
 async function getCustomResolution(): Promise<BrandResolution> {
@@ -56,7 +69,8 @@ async function getDefaultResolution(): Promise<BrandResolution> {
   return {
     tier: "base",
     brand: defaultBrand,
-    metadata: {},
+    gymId: null,
+    gymName: null,
   };
 }
 
