@@ -125,7 +125,7 @@ async function main() {
     );
 
     const confirmButton = getByRole("button", { name: "Confirm" });
-    assert.ok(confirmButton instanceof HTMLButtonElement, "FAIL: Button must be HTMLButtonElement");
+    assert.ok(confirmButton.tagName === "BUTTON", "FAIL: Element must be a BUTTON");
     
     await act(async () => {
       fireEvent.click(confirmButton);
