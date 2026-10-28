@@ -40,8 +40,6 @@ function createStubFetch(sessions: Row[]): typeof fetch {
     const method = init?.method ?? "GET";
     const parsedUrl = new URL(urlString);
     const params = parsedUrl.searchParams;
-    const headers = new Headers(init?.headers);
-    const wantsSingle = headers.get("Accept")?.includes("vnd.pgrst.object") ?? false;
 
     // programs table
     if (urlString.includes("/programs?") && method === "GET") {
