@@ -9,7 +9,7 @@
  */
 
 import { readFileSync } from "fs";
-import { replaceBannedInPlanned } from "../src/lib/program/replace-banned-in-planned";
+import { applyBannedCleanup } from "../src/lib/program/apply-banned-cleanup";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 
@@ -53,12 +53,20 @@ const plannedExercises = [
   },
 ];
 
-const result = replaceBannedInPlanned(
+const result = applyBannedCleanup(
   plannedExercises,
-  [{ body_region: "knee", severity: "current" }],
-  [],
   catalogue,
-  "u1"
+  {
+    goal: "muscle_gain",
+    level: "beginner",
+    primary_track: "weights",
+    days_per_week: 4,
+    yoga_days_per_week: 0,
+    has_all_equipment: false,
+  },
+  [{ body_region: "knee", severity: "current" }],
+  "u1",
+  []
 );
 
 // The guard should either:
@@ -67,15 +75,15 @@ const result = replaceBannedInPlanned(
 // 
 // With mutant disabled, it might incorrectly drop (exercises.length === 1)
 
-if (result.exercises.length < plannedExercises.length) {
+if (result.rows.length < plannedExercises.length) {
   console.error("✗ FAIL: L1 - guard allowed dropping exercise");
   console.error(`  Planned: ${plannedExercises.length} exercises`);
-  console.error(`  Result:  ${result.exercises.length} exercises`);
+  console.error(`  Result:  ${result.rows.length} exercises`);
   console.error(`  Mutant disabled drop-slot guard for current tier`);
   process.exit(1);
 }
 
 console.log("✓ PASS: L1 killed - drop-slot guard preserved exercise count");
 console.log(`  Planned: ${plannedExercises.length} exercises`);
-console.log(`  Result:  ${result.exercises.length} exercises`);
+console.log(`  Result:  ${result.rows.length} exercises`);
 console.log(`  Changed: ${result.changed}`);

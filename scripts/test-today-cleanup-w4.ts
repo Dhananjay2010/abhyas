@@ -60,9 +60,9 @@ const result = applyLoaderCleanup(
     days,
     injuries: [{ body_region: "knee", severity: "current" }],
     profile: {
-      goal: "general_fitness",
+      goal: "muscle_gain",
       level: "beginner",
-      primary_track: "balanced",
+      primary_track: "weights",
       days_per_week: 4,
       yoga_days_per_week: 0,
       has_all_equipment: false,
@@ -71,18 +71,15 @@ const result = applyLoaderCleanup(
     equipmentIds: [],
     userId: "u1",
     applyDayCleanup: (day, catalogue, generatorInput, cleanupResults) => {
-      const injuryList = generatorInput.injuries;
       const result = replaceBannedInPlanned(
         day.program_day_exercises,
-        injuryList,
-        generatorInput.equipmentIds,
         catalogue,
-        generatorInput.userId
+        generatorInput
       );
       cleanupResults.push({ changed: result.changed });
       return {
         ...day,
-        program_day_exercises: result.exercises,
+        program_day_exercises: result.rows,
       };
     },
   },
@@ -99,17 +96,16 @@ const exerciseIds = result[0].program_day_exercises.map(e => e.exercise_id);
 if (exerciseIds.includes(thruster.id)) {
   console.error("✗ FAIL: W4 - banned exercise (kettlebell-thruster) in returned day");
   console.error(`  Input had: ${thruster.slug} (${thruster.id})`);
-  console.error(`  Mutant returned days without applyDayCleanup`);
+  console.error(`  Mutant returned days without cleanup`);
   process.exit(1);
 }
 
-if (cleanupResults.length === 0) {
-  console.error("✗ FAIL: applyDayCleanup was never called");
+if (cleanupResults.length === 0 || !cleanupResults[0].changed) {
+  console.error("✗ FAIL: cleanup was not applied or did not change");
   console.error(`  Mutant skipped .map(applyDayCleanup)`);
   process.exit(1);
 }
 
-console.log("✓ PASS: W4 killed - cleanup was applied to days");
+console.log("✓ PASS: W4 killed - banned exercise was cleaned in loader");
 console.log(`  Input had: kettlebell-thruster (${thruster.id})`);
-console.log(`  Cleaned:   ${exerciseIds.length} exercises (no banned)`);
-console.log(`  Cleanup called: ${cleanupResults.length} times`);
+console.log(`  Result exercises: ${exerciseIds.length}, changed: ${cleanupResults[0].changed}`);

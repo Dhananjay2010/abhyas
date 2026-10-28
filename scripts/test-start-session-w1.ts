@@ -95,7 +95,7 @@ console.log("Testing M10/W1: start-session cleanup call in start-session-full-de
     },
   });
 
-  const deps = buildStartSessionFullDeps(fake.client, "u1", "2024-01-15", "weights", Date.now());
+  const deps = buildStartSessionFullDeps(fake.client, "u1", Date.now());
   
   const plannedExercises = [{
     id: "pde1",
@@ -108,9 +108,9 @@ console.log("Testing M10/W1: start-session cleanup call in start-session-full-de
     exercises: { metric: "reps" as const },
   }];
   
-  const cleaned = await deps.cleanBannedExercises(plannedExercises);
+  const cleaned = await deps.cleanBannedExercises?.(plannedExercises);
 
-  if (cleaned.length === 0) {
+  if (!cleaned || cleaned.length === 0) {
     console.error("✗ FAIL: cleanBannedExercises returned empty array");
     process.exit(1);
   }
