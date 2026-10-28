@@ -5,7 +5,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { NewVersionHint } from "@/components/new-version-hint";
 import { branding } from "@/lib/branding";
-import { getRootLayoutMetadataForRequest, getRootLayoutBrandCssForRequest } from "@/lib/layout-props";
+import { layoutDeps } from "@/app/layout-deps";
 import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 import { InProgressBar } from "@/components/in-progress-bar";
 import { PendingSetReplayProvider } from "@/components/pending-set-replay-provider";
@@ -30,7 +30,7 @@ async function getHostWinsNoticePropsForLayout() {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  return getRootLayoutMetadataForRequest();
+  return layoutDeps.getRootLayoutMetadataForRequest();
 }
 
 export const viewport: Viewport = {
@@ -46,7 +46,7 @@ export default async function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   // Inject brand CSS variables on the server to avoid flash of default theme.
   // Runtime brand is resolved from the request host.
-  const brandCssVars = await getRootLayoutBrandCssForRequest();
+  const brandCssVars = await layoutDeps.getRootLayoutBrandCssForRequest();
   const noticeProps = await getHostWinsNoticePropsForLayout();
 
   return (

@@ -1,4 +1,4 @@
-import { renderLandingPageForRequest } from "./render-landing-page";
+import { pageDeps } from "./page-deps";
 
 export default async function LandingPage({
   searchParams,
@@ -6,5 +6,5 @@ export default async function LandingPage({
   searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const { error, next } = await searchParams;
-  return renderLandingPageForRequest({ error, next });
+  return pageDeps.renderLandingPageForRequest({ error, next });
 }

@@ -88,31 +88,39 @@ async function testAccentOnSurfaceInBrandType() {
   );
 }
 
-async function testBaseBrandAccentNeedsAdjustment() {
-  console.log("\nTEST: Base brand accent fails 4.5:1, mergeBrand sets accentOnSurface");
+async function testMergeBrandComputesAccentOnSurface() {
+  console.log("\nTEST: mergeBrand computes accentOnSurface when accent provided (kills h)");
   
-  // Create a brand where the base accent itself fails 4.5:1 on surface
-  const baseBrand: Brand = {
-    ...branding,
+  // Provide an accent that fails 4.5:1 on surface
+  const partial: Partial<Brand> = {
     colors: {
       ...branding.colors,
-      accent: "#2563eb", // Blue-600 - low contrast on dark surface
+      accent: "#3b5998", // Facebook blue - fails 4.5:1 on dark surface
+      accentHover: "#2d4373",
     },
   };
   
-  // Check that the base accent fails 4.5:1
-  const baseContrast = contrastRatio(baseBrand.colors.accent, baseBrand.colors.surface);
-  check("Base accent fails 4.5:1 on surface", baseContrast < 4.5, `${baseContrast.toFixed(2)}:1`);
+  assert.ok(partial.colors, "Partial colors should be defined");
   
-  // mergeBrand with empty partial should still compute accentOnSurface
-  const merged = mergeBrand(baseBrand, {});
+  // Verify the input accent fails 4.5:1
+  const inputContrast = contrastRatio(partial.colors.accent, branding.colors.surface);
+  check("Input accent fails 4.5:1 on surface", inputContrast < 4.5, `${inputContrast.toFixed(2)}:1`);
   
-  const mergedContrast = contrastRatio(merged.colors.accentOnSurface, merged.colors.surface);
-  check("mergeBrand sets accentOnSurface >= 4.5:1", mergedContrast >= 4.5, `${mergedContrast.toFixed(2)}:1`);
-  check("accentOnSurface differs from base accent", merged.colors.accentOnSurface !== baseBrand.colors.accent);
+  // mergeBrand should compute an adjusted accentOnSurface
+  const merged = mergeBrand(branding, partial);
   
-  console.log(`  Base accent: ${baseBrand.colors.accent} (${baseContrast.toFixed(2)}:1)`);
-  console.log(`  Adjusted accentOnSurface: ${merged.colors.accentOnSurface} (${mergedContrast.toFixed(2)}:1)`);
+  const outputContrast = contrastRatio(merged.colors.accentOnSurface, branding.colors.surface);
+  check("Computed accentOnSurface >= 4.5:1", outputContrast >= 4.5, `${outputContrast.toFixed(2)}:1`);
+  
+  // Critical: accentOnSurface must differ from both the fallback AND the input accent
+  const fallback = branding.colors.accentOnSurface; // #ffa647
+  check("accentOnSurface differs from fallback", merged.colors.accentOnSurface !== fallback,
+    `got ${merged.colors.accentOnSurface}, fallback is ${fallback}`);
+  check("accentOnSurface differs from input accent", merged.colors.accentOnSurface !== partial.colors.accent);
+  
+  console.log(`  Input accent: ${partial.colors.accent} (${inputContrast.toFixed(2)}:1)`);
+  console.log(`  Computed accentOnSurface: ${merged.colors.accentOnSurface} (${outputContrast.toFixed(2)}:1)`);
+  console.log(`  Fallback is: ${fallback}`);
 }
 
 async function testLayoutCssContainsAdjustedValue() {
@@ -140,7 +148,7 @@ async function main() {
   await testAccentOnSurfaceInBrandType();
   await testAccentOnSurfaceContrast();
   await testHighContrastAccentUnchanged();
-  await testBaseBrandAccentNeedsAdjustment();
+  await testMergeBrandComputesAccentOnSurface();
   await testLayoutCssContainsAdjustedValue();
   
   if (failures > 0) {
