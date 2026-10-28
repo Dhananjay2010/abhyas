@@ -291,7 +291,7 @@ export function getKneeBannedSlugs(tier: KneeTier): Set<string> {
   if (tier === "current") {
     return new Set([
       ...Array.from(PAST_KNEE_EXCLUDED_SLUGS),
-      // MUTANT: Current knee only exclusions removed
+      ...Array.from(CURRENT_KNEE_ONLY_EXCLUDED_SLUGS),
     ]);
   }
   return new Set(Array.from(PAST_KNEE_EXCLUDED_SLUGS));
