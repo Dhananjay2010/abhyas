@@ -237,7 +237,7 @@ run_mutant "R4. Never mind does nothing (stays choosing)" "$COMPONENT" \
   '            <button
               disabled={pending}
               onClick={() => setChoosing(false)}
-              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+              className="w-full min-h-11 py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
             </button>
