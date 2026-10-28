@@ -19,13 +19,13 @@ import type { Database } from "../src/lib/database.types";
 type Row = Record<string, unknown>;
 
 const PROGRAM_DAYS: Row[] = [
-  { id: "pd-1", day_index: 1, day_type: "weights", label: "Upper", program_id: "p1", status: "active" },
-  { id: "pd-2", day_index: 2, day_type: "weights", label: "Lower", program_id: "p1", status: "active" },
-  { id: "pd-3", day_index: 3, day_type: "rest", label: null, program_id: "p1", status: "active" },
-  { id: "pd-4", day_index: 4, day_type: "weights", label: "Upper", program_id: "p1", status: "active" },
-  { id: "pd-5", day_index: 5, day_type: "weights", label: "Lower", program_id: "p1", status: "active" },
-  { id: "pd-6", day_index: 6, day_type: "rest", label: null, program_id: "p1", status: "active" },
-  { id: "pd-7", day_index: 7, day_type: "rest", label: null, program_id: "p1", status: "active" },
+  { id: "pd-1", day_index: 1, day_type: "weights", label: "Upper", program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-2", day_index: 2, day_type: "weights", label: "Lower", program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-3", day_index: 3, day_type: "rest", label: null, program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-4", day_index: 4, day_type: "weights", label: "Upper", program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-5", day_index: 5, day_type: "weights", label: "Lower", program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-6", day_index: 6, day_type: "rest", label: null, program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-7", day_index: 7, day_type: "rest", label: null, program_id: "p1", status: "active", user_id: "u1", focus: null },
 ];
 
 const PROGRAMS: Row[] = [

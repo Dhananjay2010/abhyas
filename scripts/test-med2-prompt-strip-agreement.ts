@@ -14,31 +14,27 @@ import { createClient } from "@supabase/supabase-js";
 import { nextDayPlan, plannableDays } from "../src/lib/program/day-plan";
 import type { Database } from "../src/lib/database.types";
 
-type Tables = Database["public"]["Tables"];
-type Session = Tables["sessions"]["Row"];
-type ProgramDay = Tables["program_days"]["Row"];
-type Program = Tables["programs"]["Row"];
-type Profile = Omit<Tables["profiles"]["Row"], "id" | "user_id" | "created_at" | "updated_at">;
+type Row = Record<string, unknown>;
 
-const PROGRAM_DAYS: ProgramDay[] = [
-  { id: "pd-1", day_index: 1, day_type: "weights", label: "Upper", program_id: "p1", status: "active", created_at: "", updated_at: "" },
-  { id: "pd-2", day_index: 2, day_type: "weights", label: "Lower", program_id: "p1", status: "active", created_at: "", updated_at: "" },
-  { id: "pd-3", day_index: 3, day_type: "rest", label: null, program_id: "p1", status: "active", created_at: "", updated_at: "" },
-  { id: "pd-4", day_index: 4, day_type: "weights", label: "Upper", program_id: "p1", status: "active", created_at: "", updated_at: "" },
-  { id: "pd-5", day_index: 5, day_type: "weights", label: "Lower", program_id: "p1", status: "active", created_at: "", updated_at: "" },
-  { id: "pd-6", day_index: 6, day_type: "rest", label: null, program_id: "p1", status: "active", created_at: "", updated_at: "" },
-  { id: "pd-7", day_index: 7, day_type: "rest", label: null, program_id: "p1", status: "active", created_at: "", updated_at: "" },
+const PROGRAM_DAYS: Row[] = [
+  { id: "pd-1", day_index: 1, day_type: "weights", label: "Upper", program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-2", day_index: 2, day_type: "weights", label: "Lower", program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-3", day_index: 3, day_type: "rest", label: null, program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-4", day_index: 4, day_type: "weights", label: "Upper", program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-5", day_index: 5, day_type: "weights", label: "Lower", program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-6", day_index: 6, day_type: "rest", label: null, program_id: "p1", status: "active", user_id: "u1", focus: null },
+  { id: "pd-7", day_index: 7, day_type: "rest", label: null, program_id: "p1", status: "active", user_id: "u1", focus: null },
 ];
 
-const PROGRAMS: Program[] = [
-  { id: "p1", user_id: "u1", split_type: "upper_lower", status: "active", name: "Test", created_at: "", updated_at: "", current_block: 1 },
+const PROGRAMS: Row[] = [
+  { id: "p1", user_id: "u1", split_type: "upper_lower", status: "active" },
 ];
 
-const PROFILES: Profile[] = [
+const PROFILES: Row[] = [
   { primary_track: "weights", has_all_equipment: true, timezone: "Asia/Kolkata", units: "metric" },
 ];
 
-function createStubFetch(sessions: Session[]): typeof fetch {
+function createStubFetch(sessions: Row[]): typeof fetch {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const method = init?.method ?? "GET";
@@ -68,18 +64,18 @@ function createStubFetch(sessions: Session[]): typeof fetch {
       }
       if (url.includes("status=in.(")) {
         const statuses = url.match(/status=in\.\(([^)]+)\)/)?.[1]?.split(",") ?? [];
-        filtered = filtered.filter(s => statuses.includes(s.status));
+        filtered = filtered.filter(s => statuses.includes(s.status as string));
       }
       if (url.includes("actual_type=in.(")) {
         const types = url.match(/actual_type=in\.\(([^)]+)\)/)?.[1]?.split(",") ?? [];
-        filtered = filtered.filter(s => s.actual_type && types.includes(s.actual_type));
+        filtered = filtered.filter(s => s.actual_type && types.includes(s.actual_type as string));
       }
       if (url.includes("local_date=eq.")) {
         const date = url.match(/local_date=eq\.([^&]+)/)?.[1];
         if (date) filtered = filtered.filter(s => s.local_date === date);
       }
       if (url.includes("order=created_at.desc")) {
-        filtered.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+        filtered.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
       }
       if (url.includes("limit=1")) {
         filtered = filtered.slice(0, 1);
@@ -98,7 +94,7 @@ function createStubFetch(sessions: Session[]): typeof fetch {
         filtered = filtered.filter(d => d.status === "active");
       }
       if (url.includes("order=day_index")) {
-        filtered.sort((a, b) => (a.day_index ?? 0) - (b.day_index ?? 0));
+        filtered.sort((a, b) => Number(a.day_index ?? 0) - Number(b.day_index ?? 0));
       }
       return new Response(JSON.stringify(filtered), { status: 200, headers: { "Content-Type": "application/json" } });
     }
@@ -110,7 +106,7 @@ function createStubFetch(sessions: Session[]): typeof fetch {
 async function main() {
   console.log("\nQA MED-2: Prompt and strip Next up agreement\n");
 
-  const sessions: Session[] = [
+  const sessions: Row[] = [
     {
       id: "sess-mon",
       user_id: "u1",
@@ -126,7 +122,6 @@ async function main() {
       updated_at: "2026-10-26T12:00:00Z",
       completed_at: null,
       program_id: "p1",
-      exercises_completed: 0,
     },
   ];
 
