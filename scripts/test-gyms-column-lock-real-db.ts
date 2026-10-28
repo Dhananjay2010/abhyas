@@ -647,42 +647,64 @@ SQL`,
 
   // TEST: Multi-gym owner (LOW-11) - MUST run before cleanup
   console.log("TEST: Multi-gym owner can't change other gym");
+  let gymCId: string | null = null;
   {
-    const { error: addMembershipError } = await adminClient
+    // Create a third gym C with non-default slug, no owner
+    const rand = Math.floor(Math.random() * 1000000);
+    const { data: gymCData, error: createGymCError } = await adminClient
+      .from("gyms")
+      .insert({
+        slug: `lock-test-gym-c-${rand}`,
+        name: `Lock Test Gym C ${rand}`,
+        timezone: "America/New_York"
+      })
+      .select("id")
+      .single();
+    check("Created gym C", !createGymCError && !!gymCData?.id);
+    gymCId = gymCData?.id ?? null;
+    
+    // Add ownerA as owner on gym C
+    const { error: addError } = await adminClient
       .from("gym_memberships")
       .insert({
-        gym_id: otherGymId,
+        gym_id: gymCId,
         user_id: userIdOwner,
-        role: "owner"
+        role: "owner",
+        status: "active"
       });
-    check("ownerA added to gym B", !addMembershipError, addMembershipError?.message);
+    check("ownerA added to gym C", !addError);
     
-    const { data: brandAData } = await clientOwner.rpc("set_gym_branding", {
+    // Set gym A branding
+    const { data: brandAData, error: brandError } = await clientOwner.rpc("set_gym_branding", {
       p_gym_id: gymId,
       p_display_name: "Gym A Display",
       p_logo_url: null,
       p_primary_color: "#FF9A2E",
       p_accent_color: "#0A0C0E"
     });
-    check("ownerA sets gym A branding", !!brandAData && Array.isArray(brandAData) && brandAData.length > 0 && brandAData[0].ok === true);
+    check("ownerA sets gym A branding", !brandError && brandAData?.success === true);
 
-    await adminClient.from("gyms").update({ display_name: "Gym B Display" }).eq("id", otherGymId);
+    // Set gym C's display_name through admin
+    await adminClient.from("gyms").update({ display_name: "Gym C Display" }).eq("id", gymCId);
     
+    // ownerA's direct name update on gym C must return GJC12
     const { error: directNameError } = await clientOwner
       .from("gyms")
       .update({ name: "Hacked via direct" })
-      .eq("id", otherGymId);
-    check("Direct name update on gym B returns GJC12", directNameError?.code === "GJC12");
+      .eq("id", gymCId);
+    check("Direct name update on gym C returns GJC12", directNameError?.code === "GJC12");
     
+    // Verify state
     const { checkGymOwnership } = await import("@/lib/gym/owner-check");
     const own = await checkGymOwnership(clientOwner, userIdOwner);
-    check("checkGymOwnership returns single gym", own.isOwner === true && own.gymId === gymId);
+    check("checkGymOwnership returns gym A", own.isOwner === true && own.gymId === gymId);
     
-    const { data: gymAAfter } = await adminClient.from("gyms").select("display_name").eq("id", gymId).single();
-    const { data: gymBAfter } = await adminClient.from("gyms").select("display_name").eq("id", otherGymId).single();
+    const { data: gymAAfter } = await adminClient.from("gyms").select("display_name, name").eq("id", gymId).single();
+    const { data: gymCAfter } = await adminClient.from("gyms").select("display_name, name").eq("id", gymCId).single();
     
     check("Gym A kept its display_name", gymAAfter?.display_name === "Gym A Display");
-    check("Gym B kept its display_name", gymBAfter?.display_name === "Gym B Display");
+    check("Gym C display_name unchanged", gymCAfter?.display_name === "Gym C Display");
+    check("Gym C name unchanged", gymCAfter?.name === `Lock Test Gym C ${rand}`);
   }
   console.log();
 
@@ -710,6 +732,11 @@ SQL`,
     
     const { error: gym2Error } = await adminClient.from("gyms").delete().eq("id", otherGymId);
     if (gym2Error) console.log(`Warning: Failed to delete other gym: ${gym2Error.message}`);
+    
+    if (gymCId) {
+      const { error: gym3Error } = await adminClient.from("gyms").delete().eq("id", gymCId);
+      if (gym3Error) console.log(`Warning: Failed to delete gym C: ${gym3Error.message}`);
+    }
   }
   
   // Clean up test users

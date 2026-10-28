@@ -87,6 +87,14 @@ run_mutant() {
   echo "Testing mutant: $name"
   echo "  $description"
   
+  # Check if no mutation is specified
+  if [ -z "$sed_pattern" ] && [ -z "$undo_sql" ]; then
+    echo "  ❌ SKIP: no mutation specified"
+    SKIPPED+=("$name: no mutation")
+    FAILED=$((FAILED + 1))
+    return 1
+  fi
+  
   # Reset database
   local reset_output=$(mktemp)
   if ! eval "$RESET_CMD" > "$reset_output" 2>&1; then
@@ -135,35 +143,37 @@ run_mutant() {
   
   # Apply undo SQL if present (can be combined with sed)
   if [ -n "$undo_sql" ]; then
-    # For undo-SQL mutants with sed on 040 extract, verify the sed changed something
+    # For undo-SQL mutants, check if the constraint mutation is a no-op
     if [ -z "$sed_pattern" ]; then
-      # Extract the original 040 block for comparison
-      local constraint_pattern=""
-      if [[ "$name" == *"primary_color"* ]]; then
-        constraint_pattern="/add constraint gyms_primary_color_hex/,/);/"
-      elif [[ "$name" == *"accent_color"* ]]; then
-        constraint_pattern="/add constraint gyms_accent_color_hex/,/);/"
-      elif [[ "$name" == *"logo"* ]]; then
-        constraint_pattern="/add constraint gyms_logo_url_format/,/);/"
-      fi
+      # Derive constraint name from the undo SQL
+      local constraint_name=$(printf '%s\n' "$undo_sql" | sed -n '1s/^ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS \([a-z_]*\);$/\1/p')
       
-      if [ -n "$constraint_pattern" ]; then
-        local original_block=$(sed -n "$constraint_pattern"p supabase/migrations/20261025000040_gym_branding.sql)
-        # Check if extraction is empty
-        if [ -z "$original_block" ]; then
-          echo "  ❌ SKIP: could not extract 040 block"
-          SKIPPED+=("$name: empty block")
-          FAILED=$((FAILED + 1))
-          return 1
-        fi
-        
-        # Check if undo_sql contains the mutation - extract the constraint part only
-        local mutated_block=$(echo "$undo_sql" | sed '1d') # Remove DROP line
-        if [ "$original_block" = "$mutated_block" ]; then
-          echo "  ❌ SKIP: sed produced no change (mutation ineffective)"
-          SKIPPED+=("$name: no change")
-          FAILED=$((FAILED + 1))
-          return 1
+      if [ -n "$constraint_name" ]; then
+        # Check if undo SQL has more than 1 line (i.e., an ADD CONSTRAINT)
+        local line_count=$(printf '%s\n' "$undo_sql" | wc -l)
+        if [ "$line_count" -gt 1 ]; then
+          # Extract the constraint from 040
+          local constraint_pattern="/add constraint $constraint_name/,/);/"
+          local original_block=$(sed -n "$constraint_pattern"p supabase/migrations/20261025000040_gym_branding.sql)
+          
+          # Check if extraction is empty
+          if [ -z "$original_block" ]; then
+            echo "  ❌ SKIP: could not extract 040 block for $constraint_name"
+            SKIPPED+=("$name: empty block")
+            FAILED=$((FAILED + 1))
+            return 1
+          fi
+          
+          # Extract lines 2 onward from undo_sql (the ADD CONSTRAINT part)
+          local mutated_block=$(printf '%s\n' "$undo_sql" | tail -n +2)
+          
+          # Compare
+          if [ "$original_block" = "$mutated_block" ]; then
+            echo "  ❌ SKIP: mutation produced no change"
+            SKIPPED+=("$name: no change")
+            FAILED=$((FAILED + 1))
+            return 1
+          fi
         fi
       fi
     fi
@@ -349,7 +359,7 @@ run_mutant \
   "Remove control character check from logo (040 constraint)" \
   "" \
   "FAIL Newline in logo rejected" \
-  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed \"s/ and logo_url !~ '\\[\\\\x00-\\\\x1F\\\\x7F\\]'//g\" | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
+  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed "s/ and logo_url !~ '\[\\\\x00-\\\\x1F\\\\x7F\]'//g" | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
 
 # Reset DB after last mutant
 echo
