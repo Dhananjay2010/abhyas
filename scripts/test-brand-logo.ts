@@ -11,6 +11,7 @@ import { branding } from "../src/lib/branding";
 import type { Brand } from "../src/lib/branding";
 
 const hostBrand: Brand = {
+  id: "test-gym-id",
   name: "Iron Temple",
   shortName: "Iron Temple",
   logo: "https://gym.example.com/logo.png",
@@ -18,6 +19,8 @@ const hostBrand: Brand = {
   siteUrl: branding.siteUrl,
   description: branding.description,
   supportEmail: branding.supportEmail,
+  defaultUnits: branding.defaultUnits,
+  icons: branding.icons,
 };
 
 let failures = 0;

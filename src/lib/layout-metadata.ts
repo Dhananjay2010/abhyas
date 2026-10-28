@@ -3,8 +3,9 @@
  * This module can be imported by tsx without CSS imports.
  */
 
+import type { Metadata } from "next";
 import { buildMetadata } from "./metadata-builder";
-import type { BrandResolution, Metadata } from "./branding";
+import type { BrandResolution } from "./runtime-brand";
 
 /**
  * Generate metadata from a brand resolution.

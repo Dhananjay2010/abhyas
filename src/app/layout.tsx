@@ -5,7 +5,6 @@ import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { NewVersionHint } from "@/components/new-version-hint";
 import { branding, getBrandCssVariables } from "@/lib/branding";
-import type { BrandResolution } from "@/lib/branding";
 import { getRequestBrandResolution } from "@/lib/runtime-brand";
 import { generateMetadataFor } from "@/lib/layout-metadata";
 import { buildMetadata } from "@/lib/metadata-builder";

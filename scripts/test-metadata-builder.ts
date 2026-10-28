@@ -8,7 +8,8 @@
 import { buildMetadata } from "../src/lib/metadata-builder";
 import { generateMetadataFor } from "../src/lib/layout-metadata";
 import { branding } from "../src/lib/branding";
-import type { Brand, BrandResolution } from "../src/lib/branding";
+import type { Brand } from "../src/lib/branding";
+import type { BrandResolution } from "../src/lib/runtime-brand";
 
 let failures = 0;
 
@@ -24,14 +25,16 @@ async function main() {
   
   // Create a host gym brand (different from base "Abhyas")
   const hostBrand: Brand = {
+    id: "test-gym-id",
     name: "Iron Temple",
     shortName: "Iron Temple",
-    logoUrl: "https://gym.example.com/logo.png",
-    logoAlt: "Iron Temple Logo",
+    logo: "https://gym.example.com/logo.png",
     colors: branding.colors,
     siteUrl: branding.siteUrl,
-    defaultWelcomeMessage: branding.defaultWelcomeMessage,
+    description: branding.description,
     supportEmail: branding.supportEmail,
+    defaultUnits: branding.defaultUnits,
+    icons: branding.icons,
   };
   
   // Test buildMetadata directly
@@ -57,6 +60,7 @@ async function main() {
       tier: "host",
       brand: hostBrand,
       gymId: "test-gym-id",
+      gymName: "Iron Temple",
     };
     
     const layoutMetadata = await generateMetadataFor(async () => stubResolution);
