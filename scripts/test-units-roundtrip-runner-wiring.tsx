@@ -460,8 +460,8 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
     r.unmount();
   }
 
-  // Test 4: Held weight 60 kg → nearest 132 lb (M1/L1)
-  console.log("\nTest 4: Held weight 60 kg → nearest 132 lb");
+  // Test 4: Held weight 62.75 kg → nearest 138.5 lb (Mutant K)
+  console.log("\nTest 4: Held weight 62.75 kg → nearest 138.5 lb, log unedited");
   {
     let capturedWeightKg: number | null = null;
     
@@ -596,10 +596,124 @@ console.log("\n=== M1 Runner Wiring: prescription floor vs logged-weight roundin
       if (capturedWeightKg === null) throw new Error("logSet not called yet");
     }, { timeout: 1000 });
     
-    // Task fix: Assert what the runner actually submitted via logSet, not the fixture
-    check("Test 4: logSet submitted exact 60 kg unedited", 
+    check("Test 4: logSet submitted exact 62.75 kg unedited", 
       capturedWeightKg === 62.75,
       capturedWeightKg === null ? "logSet not called" : `got ${capturedWeightKg}`);
+
+    r.unmount();
+  }
+
+  // Test 4K: Mutant K - After logging Set 1 at 62.75 kg, Set 2 prefill rounds (not floors)
+  console.log("\nTest 4K: Mutant K - logged 62.75 kg set 1, set 2 prefill → 138.5 lb");
+  {
+    const capturedWeights: number[] = [];
+    
+    const actions: SessionActions = {
+      markWarmupDone: async () => ({ ok: true }),
+      logSet: async (data) => {
+        if (data.weightKg !== null) capturedWeights.push(data.weightKg);
+        return { ok: true as const };
+      },
+      deleteSet: async () => ({ ok: true as const }),
+      finishExercise: async () => ({
+        ok: true as const,
+        data: { outcome: "hold", message: "", personalBest: null },
+      }),
+      finishSession: async () => ({
+        ok: true as const,
+        data: { status: "completed" as const, durationSeconds: null },
+      }),
+      abandonSession: async () => ({ ok: true as const }),
+      planDay: async () => ({ ok: true as const }),
+      refreshAfterSession: async () => ({ ok: true as const }),
+      swapExercise: async () => ({ 
+        ok: true, 
+        data: { 
+          workoutSessionExerciseId: "", 
+          exerciseId: "",
+          metric: "reps" as const,
+          repsMin: null,
+          repsMax: null,
+          equipmentIds: [],
+          weightPrefill: null,
+          workingWeightKg: null,
+          currentTargetReps: null,
+          isBodyweight: false,
+        } 
+      }),
+      findAlternatives: async () => ({ ok: true as const, data: [] }),
+      getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    };
+
+    const settings = {
+      perSetLogging: true,
+      restAutostart: false,
+      restSound: false,
+      restVibrate: false,
+      restOverrideSeconds: null,
+      cooldownEnabled: false,
+      units: "imperial" as const,
+    };
+
+    const exercise: RunnerExercise = {
+      id: "ex1",
+      exerciseId: "bench-press",
+      name: "Bench Press",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["chest"],
+      plannedSets: 3,
+      plannedRepsMin: 6,
+      plannedRepsMax: 8,
+      repsMin: 6,
+      repsMax: 8,
+      restSeconds: 180,
+      workingWeightKg: 62.5,  // Prescribed increase from 60 kg
+      suggestedWeightKg: 62.5,
+      previousCompletedWeightKg: 60,
+      status: "pending",  // Still has sets to complete
+      feel: null,
+      sets: [
+        // Set 1 already logged at 62.75 kg (user edited the prescribed 62.5)
+        { setNumber: 1, reps: 7, weightKg: 62.75, durationSeconds: null }
+      ],
+      isBodyweight: false,
+    };
+
+    const r = render(
+      <SessionRunner
+        sessionId="s1"
+        userId="test-user"
+        sessionStatus="in_progress"
+        isDeload={false}
+        week={1}
+        warmupAlreadyDone={true}
+        startedAt={new Date().toISOString()}
+        warmup={[]}
+        cooldown={[]}
+        exercises={[exercise]}
+        settings={settings}
+        actions={actions}
+      />,
+    );
+
+    // Wait for Set 2 input to appear (not rest screen)
+    await waitFor(() => {
+      const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+        (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
+      );
+      if (!weightInput) throw new Error("Set 2 weight input not rendered yet");
+    }, { timeout: 5000 });
+
+    const weightInput = [...r.container.querySelectorAll<HTMLInputElement>("input")].find(
+      (i) => i.closest("label")?.textContent?.match(/Weight \(lb\)|Weight \(kg\)|Added weight/)
+    );
+    if (!weightInput) throw new Error("Weight input not found");
+
+    // Mutant K: If !hasLoggedWeightThisExercise check is removed, prefill would floor to 137.5
+    check("Mutant K: Set 2 prefill rounds 62.75 kg to 138.5 lb (not floors to 137.5)", 
+      weightInput.value === "138.5",
+      `got "${weightInput.value}"`);
 
     r.unmount();
   }

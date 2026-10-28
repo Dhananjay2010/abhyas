@@ -10,8 +10,7 @@ import { buildExerciseProgressQuery } from "@/lib/session/progress-query";
 import { shouldRedirectSession } from "@/lib/today/session-detection";
 import { buildRunnerProps } from "@/lib/session/build-runner-props";
 import { getUnitsPreference } from "@/lib/units";
-import { loadPreviousCompletedWeights } from "@/lib/session/load-previous-weights";
-import { buildRunnerExercisesWithPreviousWeights } from "@/lib/session/build-runner-exercises-with-previous-weights";
+import { loadAndBuildRunnerExercises } from "@/lib/session/load-and-build-runner-exercises";
 
 export const dynamic = "force-dynamic";
 
