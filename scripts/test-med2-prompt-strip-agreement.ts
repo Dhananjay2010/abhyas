@@ -16,6 +16,13 @@ import type { Database } from "../src/lib/database.types";
 
 type Row = Record<string, unknown>;
 
+function getRowField(row: Row, field: string): string {
+  if (field in row) {
+    return String(row[field] ?? "");
+  }
+  return "";
+}
+
 const PROGRAM_DAYS: Row[] = [
   { id: "pd-1", day_index: 1, day_type: "weights", label: "Upper", program_id: "p1", status: "active", user_id: "u1", focus: null },
   { id: "pd-2", day_index: 2, day_type: "weights", label: "Lower", program_id: "p1", status: "active", user_id: "u1", focus: null },
@@ -102,8 +109,8 @@ function createStubFetch(sessions: Row[]): typeof fetch {
         filtered.sort((a, b) => {
           for (const o of orders) {
             const [field, dir] = o.split(".");
-            const aVal = String((a as Record<string, unknown>)[field] ?? "");
-            const bVal = String((b as Record<string, unknown>)[field] ?? "");
+            const aVal = getRowField(a, field);
+            const bVal = getRowField(b, field);
             const cmp = dir === "desc" ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
             if (cmp !== 0) return cmp;
           }
