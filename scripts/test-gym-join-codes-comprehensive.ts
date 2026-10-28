@@ -282,7 +282,7 @@ async function runTests() {
   await adminClient.from("gym_join_codes").insert({
     id: staffCodeId,
     gym_id: gymId,
-    code: "STAFF" + generateJoinCode().slice(5),
+    code: "STAFFCDE99",
     role: "staff",
     created_by: owner.userId,
   });
@@ -291,8 +291,8 @@ async function runTests() {
       .from("gym_join_codes")
       .select("id, role")
       .eq("gym_id", gymId);
-    const allMember = staffVisible?.every(c => c.role === "member") ?? false;
-    const staffCodeAbsent = !staffVisible?.some(c => c.id === staffCodeId) ?? false;
+    const allMember = (staffVisible?.every(c => c.role === "member")) ?? false;
+    const staffCodeAbsent = !(staffVisible?.some(c => c.id === staffCodeId)) || false;
     check("Staff sees only member codes (comprehensive)", allMember && staffCodeAbsent);
   }
 

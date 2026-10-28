@@ -174,11 +174,11 @@ async function main() {
 
       let pushCalled = false;
       const originalPush = mockNextRouter.push;
-      mockNextRouter.push = (path: string) => {
-        if (path === "/today") {
+      mockNextRouter.push = (...args: unknown[]) => {
+        if (args[0] === "/today") {
           pushCalled = true;
         }
-        originalPush.call(mockNextRouter, path);
+        (originalPush as (...a: unknown[]) => void).call(mockNextRouter, ...args);
       };
 
       const { getByRole } = render(
@@ -226,7 +226,7 @@ async function main() {
       }
     };
 
-    const errorResult = await redeemJoinCode({ code: "TESTCODE" });
+    const errorResult = await redeemJoinCode("TESTCODE");
     assert.ok(!errorResult.ok, "FAIL: Should return !ok for RPC error");
     assert.match(errorResult.error ?? "", /read.?only|maintenance/i, "FAIL: Should map GJC11 to read-only message");
 
@@ -237,7 +237,7 @@ async function main() {
       }
     };
 
-    const alreadyResult = await redeemJoinCode({ code: "TESTCODE" });
+    const alreadyResult = await redeemJoinCode("TESTCODE");
     assert.ok(!alreadyResult.ok, "FAIL: Should return !ok for already_member");
     assert.match(alreadyResult.error ?? "", /Test Gym/, "FAIL: Should include gym_name in already_member message");
 
@@ -248,7 +248,7 @@ async function main() {
       }
     };
 
-    const successResult = await redeemJoinCode({ code: "SUCCESSCODE" });
+    const successResult = await redeemJoinCode("SUCCESSCODE");
     assert.ok(successResult.ok, "FAIL: Should return ok=true for success");
 
     console.log("  ✓ redeemJoinCode correctly structured\n");
