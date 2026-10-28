@@ -125,7 +125,7 @@ async function main() {
     );
 
     const confirmButton = getByRole("button", { name: "Confirm" });
-    assert.ok(confirmButton instanceof HTMLButtonElement, "FAIL: Element must be HTMLButtonElement");
+    assert.ok(confirmButton.tagName === "BUTTON" && "disabled" in confirmButton, "FAIL: Element must be a BUTTON with disabled property");
     
     await act(async () => {
       fireEvent.click(confirmButton);
@@ -251,7 +251,7 @@ async function main() {
       assert.ok(pushCalled, `FAIL: Should call router.push('/today'), got: ${pushArg}`);
     }, { timeout: 2000 });
 
-    mockNextRouter.push = originalPush;
+    mockNextRouter.push = () => {};
     cleanup();
     console.log("  ✓ Success redirect correct\n");
   }
