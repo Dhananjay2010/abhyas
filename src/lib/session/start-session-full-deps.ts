@@ -20,6 +20,20 @@ import { toCandidateExercises } from "@/lib/program/candidate-exercise-guard";
 /**
  * Apply banned-exercise cleanup for start-session (extracted for M10 test coverage).
  */
+type ProfileForCleanup = {
+  goal: "fat_loss" | "muscle_gain" | "strength" | "general_fitness" | "flexibility_stress";
+  level: "beginner" | "intermediate" | "expert";
+  primary_track: "weights" | "bodyweight" | "yoga" | "meditation";
+  days_per_week: number;
+  yoga_days_per_week: number;
+  has_all_equipment: boolean;
+};
+
+type InjuryForCleanup = {
+  body_region: "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core";
+  severity: "current" | "past";
+};
+
 export function applyStartSessionCleanup(
   plannedForCleaning: Array<{
     id: string;
@@ -31,15 +45,8 @@ export function applyStartSessionCleanup(
     rest_seconds: number;
   }>,
   catalogue: CandidateExercise[],
-  profile: {
-    goal: string;
-    level: string;
-    primary_track: string;
-    days_per_week: number;
-    yoga_days_per_week: number;
-    has_all_equipment: boolean;
-  },
-  injuries: Array<{ body_region: string; severity: string }>,
+  profile: ProfileForCleanup,
+  injuries: Array<InjuryForCleanup>,
   userId: string,
   equipmentIds: string[]
 ) {

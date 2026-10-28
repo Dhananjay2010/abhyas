@@ -16,6 +16,20 @@ import { cleanBannedPlannedExercises } from "@/lib/program/clean-banned-planned"
 /**
  * Apply banned-exercise cleanup to planned exercises (extracted for M8 test coverage).
  */
+type ProfileForCleanup = {
+  goal: "fat_loss" | "muscle_gain" | "strength" | "general_fitness" | "flexibility_stress";
+  level: "beginner" | "intermediate" | "expert";
+  primary_track: "weights" | "bodyweight" | "yoga" | "meditation";
+  days_per_week: number;
+  yoga_days_per_week: number;
+  has_all_equipment: boolean;
+};
+
+type InjuryForCleanup = {
+  body_region: "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core";
+  severity: "current" | "past";
+};
+
 export function applyEnsureSessionCleanup(
   planned: Array<{
     id: string;
@@ -27,8 +41,8 @@ export function applyEnsureSessionCleanup(
     rest_seconds: number;
   }>,
   catalogue: CandidateExercise[],
-  profile: any,
-  injuries: Array<{ body_region: string; severity: string }>,
+  profile: ProfileForCleanup,
+  injuries: Array<InjuryForCleanup>,
   userId: string,
   equipmentIds: string[]
 ) {
