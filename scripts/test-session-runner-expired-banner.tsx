@@ -479,7 +479,8 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     deleteSet: ok,
     finishExercise: async () =>
       ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
-    finishSession: ok,
+    finishSession: async () => 
+      ({ ok: true, data: { status: "completed" as const, durationSeconds: 600 } }),
     getSessionSummary: async () => ({ ok: true as const, data: [] }),
     abandonSession: ok,
     planDay: ok,
