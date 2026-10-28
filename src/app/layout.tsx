@@ -5,7 +5,9 @@ import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { NewVersionHint } from "@/components/new-version-hint";
 import { branding, getBrandCssVariables } from "@/lib/branding";
+import type { BrandResolution } from "@/lib/branding";
 import { getRequestBrandResolution } from "@/lib/runtime-brand";
+import { generateMetadataFor } from "@/lib/layout-metadata";
 import { buildMetadata } from "@/lib/metadata-builder";
 import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 import { InProgressBar } from "@/components/in-progress-bar";
@@ -30,8 +32,7 @@ async function getHostWinsNoticePropsForLayout() {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const resolution = await getRequestBrandResolution();
-  return buildMetadata(resolution.brand);
+  return generateMetadataFor(getRequestBrandResolution);
 }
 
 export const viewport: Viewport = {
