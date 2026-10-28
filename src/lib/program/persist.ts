@@ -11,6 +11,7 @@ import {
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
 import { buildInjuryFlags } from "./injury-regions";
+import { activeDayIndices, activeDayIndicesAnchored } from "./splits";
 
 type Client = SupabaseClient<Database>;
 
@@ -35,24 +36,102 @@ export type BuildResult =
  * to their sign-up weekday by setting `started_on` to today. This ensures
  * their first workout lands on the day they join.
  * 
- * For all other cases (rebuild or rollover to block 2+), return undefined
- * to let the RPC or rollover logic handle the start date.
+ * A mid-block rebuild of block 1 re-plans the block the member is IN and never
+ * changes its weekdays: an anchored block 1 passes its original start as
+ * `rebuildAnchor` (returned instead of today); a block 1 on the default mapping
+ * (members from before #165) passes null and stays on it. Without this a rebuild
+ * flipped a Wednesday sign-up's Wed/Fri/Sun week to Mon/Wed/Fri.
+ * 
+ * For all other cases (rollover to block 2+, or a rebuild of block 2+), return
+ * undefined to let the RPC or rollover logic handle the start date.
  * 
  * @param blockNumber - The block number being created
  * @param isRebuild - Whether this is a rebuild of an existing block
  * @param today - The current date string (ISO format)
- * @returns today for new block 1, undefined otherwise
+ * @param rebuildAnchor - For a rebuild of an anchored block 1, the date it originally
+ *   started on; null/undefined when block 1 is on the default mapping
+ * @returns today for new block 1, the anchor for a rebuilt block 1, undefined otherwise
  */
 export function decideBlockStartedOn({
   blockNumber,
   isRebuild,
   today,
+  rebuildAnchor,
 }: {
   blockNumber: number;
   isRebuild: boolean;
   today: string;
+  rebuildAnchor?: string | null;
 }): string | undefined {
-  return blockNumber === 1 && !isRebuild ? today : undefined;
+  if (blockNumber !== 1) return undefined;
+  if (isRebuild) return rebuildAnchor ?? undefined;
+  return today;
+}
+
+const RESTFUL_DAY_TYPES: ReadonlySet<string> = new Set(["rest", "active_recovery", "meditation"]);
+
+function sameWeekdays(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+/**
+ * Was this block 1 laid out by #165's anchoring, or on the default mapping?
+ *
+ * #165 stores no flag, so the layout itself is the signal: the block's active
+ * (non-rest) weekdays are anchored when they equal
+ * `activeDayIndicesAnchored(firstStartedOn, n)` and differ from the default
+ * `activeDayIndices(n)`. When both layouts coincide (a Monday start) either
+ * answer gives the same week. A layout that matches neither (an older
+ * generator, a hand-edited plan) is treated as not anchored, which is the
+ * pre-#165 behaviour.
+ */
+export function isAnchoredLayout(activeWeekdays: number[], firstStartedOn: string): boolean {
+  const s = [...new Set(activeWeekdays)].sort((a, b) => a - b);
+  if (s.length === 0) return false;
+  return sameWeekdays(activeDayIndicesAnchored(firstStartedOn, s.length), s) && !sameWeekdays(activeDayIndices(s.length), s);
+}
+
+/**
+ * The anchor a rebuild of block 1 must keep, or null when block 1 is on the
+ * default mapping.
+ *
+ * The anchor date is the EARLIEST block-1 `started_on`. A mid-block rebuild_block
+ * (migration 20261025000025) keeps started_on, so this is normally the active row's
+ * own start; rows rebuilt under the earlier 20261025000023 version started on their
+ * rebuild day, and their superseded predecessors still carry the sign-up day. The layout is read from the ACTIVE block-1
+ * row's program_days, i.e. the week the member is following now. A failed read
+ * fails the rebuild rather than guessing and silently moving training days.
+ */
+async function block1RebuildAnchor(
+  supabase: Client,
+  userId: string,
+): Promise<{ ok: true; anchor: string | null } | { ok: false; error: string }> {
+  const failed = { ok: false as const, error: "We couldn't load your current plan. Please try again." };
+  const { data: rows, error } = await supabase
+    .from("programs")
+    .select("id, started_on, status")
+    .eq("user_id", userId)
+    .eq("block_number", 1)
+    .order("started_on", { ascending: true });
+  if (error) {
+    console.error("createBlockForUser: block-1 rows read failed", error);
+    return failed;
+  }
+  const active = (rows ?? []).find((r) => r.status === "active");
+  if (!rows || rows.length === 0 || !active) return { ok: true, anchor: null };
+  const firstStartedOn = rows[0].started_on;
+
+  const { data: days, error: daysError } = await supabase
+    .from("program_days")
+    .select("day_index, day_type")
+    .eq("program_id", active.id)
+    .eq("status", "active");
+  if (daysError) {
+    console.error("createBlockForUser: block-1 program_days read failed", daysError);
+    return failed;
+  }
+  const weekdays = (days ?? []).filter((d) => !RESTFUL_DAY_TYPES.has(d.day_type)).map((d) => d.day_index);
+  return { ok: true, anchor: isAnchoredLayout(weekdays, firstStartedOn) ? firstStartedOn : null };
 }
 
 type ProgramPayload = {
@@ -164,6 +243,12 @@ export async function createBlockForUser(
     mode?: "new" | "rebuild";
     /** Clock override for tests; production callers omit it and get the real current time. */
     now?: Date;
+    /**
+     * The member's local date, already resolved by the caller. The rebuild path
+     * passes the same date it used for rollover_block so both RPCs agree on
+     * p_today; when omitted it is derived from the profile timezone and `now`.
+     */
+    today?: string;
   } = {},
 ): Promise<BuildResult> {
   const [
@@ -234,14 +319,27 @@ export async function createBlockForUser(
       ? Number(weightKg) / (Number(profile.height_cm) / 100) ** 2
       : null;
 
-  const timezone = resolveTimezoneWithProfile(profile.timezone);
-  const today = localDateString(timezone, options.now);
+  const today = options.today ?? (() => {
+    const timezone = resolveTimezoneWithProfile(profile.timezone);
+    return localDateString(timezone, options.now);
+  })();
   const blockNumber = rebuildOf?.block_number ?? (lastBlockRes.data?.block_number ?? 0) + 1;
   const isRebuild = !!rebuildOf;
 
+  // A rebuild never changes the weekdays of the block in progress. For block 1
+  // that means: keep #165's anchor if block 1 was laid out anchored, and keep
+  // the default mapping if it was not (members from before #165).
+  let rebuildAnchor: string | null = null;
+  if (rebuildOf && rebuildOf.block_number === 1) {
+    const anchor = await block1RebuildAnchor(supabase, userId);
+    if (!anchor.ok) return { ok: false, error: anchor.error };
+    rebuildAnchor = anchor.anchor;
+  }
+
   // For a brand new user's first block, anchor the schedule to their sign-up weekday.
-  // For rebuilds or block 2+, leave startedOn undefined so the generator uses the default mapping.
-  const startedOn = decideBlockStartedOn({ blockNumber, isRebuild, today });
+  // A rebuilt block 1 keeps that anchor; block 2+ (new or rebuilt) leaves startedOn
+  // undefined so the generator uses the default mapping.
+  const startedOn = decideBlockStartedOn({ blockNumber, isRebuild, today, rebuildAnchor });
 
   const input: GeneratorInput = {
     userId,
