@@ -2063,7 +2063,7 @@ function EndEarlyConfirm({
       ref={dialogRef}
       aria-labelledby="end-early-title"
       aria-describedby="end-early-desc"
-      className="max-w-[390px] rounded-xl border border-border bg-surface-2 px-4 py-4 backdrop:bg-bg/80"
+      className="m-auto max-w-[calc(100vw-2rem)] max-w-[390px] rounded-xl border border-border bg-surface-2 px-4 py-4 backdrop:bg-bg/80"
     >
       <p id="end-early-title" className="text-sm font-medium">
         {titleText}
