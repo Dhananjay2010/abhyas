@@ -43,7 +43,7 @@ console.log("Testing H2: ensureSessionExercises on resume\n");
         local_date: "2024-01-15",
         status: "in_progress",
         started_at: null,
-        actual_type: "strength",
+        actual_type: "weights",
       }],
       session_exercises: [],
       program_day_exercises: [{
@@ -74,7 +74,7 @@ console.log("Testing H2: ensureSessionExercises on resume\n");
         id: "s1",
         status: "in_progress" as const,
         local_date: "2024-01-15",
-        actual_type: "strength" as const,
+        actual_type: "weights" as const,
         started_at: null,
       }];
     },
