@@ -15,6 +15,51 @@ import {
   type RunnerExercise,
   type SessionActions,
 } from "../src/app/session/[id]/session-runner";
+import { savePendingSet } from "../src/lib/session/pending-set-retry";
+import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
+
+class FakeStorage implements Storage {
+  private data: Map<string, string> = new Map();
+  
+  get length() {
+    return this.data.size;
+  }
+  
+  clear(): void {
+    this.data.clear();
+  }
+  
+  getItem(key: string): string | null {
+    return this.data.get(key) || null;
+  }
+  
+  key(index: number): string | null {
+    return Array.from(this.data.keys())[index] || null;
+  }
+  
+  removeItem(key: string): void {
+    this.data.delete(key);
+  }
+  
+  setItem(key: string, value: string): void {
+    this.data.set(key, value);
+  }
+}
+
+const fakeStorage = new FakeStorage();
+const fakeDeps = createPendingSetDeps(() => Date.now());
+
+Object.defineProperty(window, 'localStorage', {
+  value: fakeStorage,
+  writable: true,
+  configurable: true
+});
+
+Object.defineProperty(window, 'sessionStorage', {
+  value: fakeStorage,
+  writable: true,
+  configurable: true
+});
 
 const ok = async () => ({ ok: true }) as const;
 
@@ -180,11 +225,6 @@ console.log("\n📋 Test: L3 - Cool-down Done and Skip replay\n");
   const exercise2 = makeExercise("ex-2", "bench", "Bench", 1, [
     { setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null },
   ]);
-
-  const { savePendingSet } = await import("../src/lib/session/pending-set-storage");
-  const { createPendingSetDeps } = await import("../src/lib/session/pending-set-deps");
-  const fakeDeps = createPendingSetDeps(() => Date.now());
-  const fakeStorage = globalThis.localStorage;
 
   fakeStorage.clear();
   savePendingSet(fakeStorage, "test-user-2", "s2", {
