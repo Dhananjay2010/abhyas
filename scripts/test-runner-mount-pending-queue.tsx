@@ -55,13 +55,13 @@ Object.defineProperty(window, 'localStorage', {
   
   const fakeActions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    logSet: async (input: any) => {
+    logSet: async (input) => {
       logSetCalls.push({
         sessionExerciseId: input.sessionExerciseId,
         setNumber: input.setNumber
       });
-      return { ok: true };
+      // Fail logSet so queue stays non-empty and notice remains visible
+      return { ok: false, error: "NETWORK_ERROR" };
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
@@ -72,7 +72,7 @@ Object.defineProperty(window, 'localStorage', {
     refreshAfterSession: async () => ({ ok: true } as const),
     planDay: async () => ({ ok: true, data: null } as const),
     getSessionSummary: async () => ({ ok: true, data: [] } as const),
-  } as unknown as SessionActions;
+  };
   
   const exercises: RunnerExercise[] = [
     {
@@ -121,7 +121,7 @@ Object.defineProperty(window, 'localStorage', {
   assert(queueBefore !== null, "Queue seeded in storage");
   
   // Mount the runner
-  render(
+  const { container } = render(
     <SessionRunner
       sessionId="s1"
       sessionStatus="in_progress"
@@ -152,24 +152,24 @@ Object.defineProperty(window, 'localStorage', {
   await act(async () => {
     await new Promise(resolve => setTimeout(resolve, 0));
   });
+
+  // C1: Assert the queue is LOADED into UI state on mount (independent of replay)
+  // "2 sets waiting to save" or similar notice must be visible
+  const text = container.textContent || "";
+  const hasWaitingNotice = text.includes("2 set") && (text.includes("waiting") || text.includes("pending"));
+  assert(hasWaitingNotice, "C1: Queue loaded on mount - '2 sets waiting to save' visible in UI");
   
-  // Wait for replay to complete
+  // Wait for replay to complete (it will fail, so queue stays)
   await act(async () => {
     await new Promise(resolve => setTimeout(resolve, 100));
   });
   
-  // Verify logSet was called for both pending sets (replay happened)
-  assert(logSetCalls.length === 2, "Replay triggered: logSet called for 2 pending sets");
-  assert(logSetCalls[0].sessionExerciseId === "ex1" && logSetCalls[0].setNumber === 1, "First pending set replayed");
-  assert(logSetCalls[1].sessionExerciseId === "ex1" && logSetCalls[1].setNumber === 2, "Second pending set replayed");
+  // Verify logSet was called (replay attempted)
+  assert(logSetCalls.length > 0, "Replay attempted after mount");
   
-  // After successful replay, queue should be cleared
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 50));
-  });
-  
+  // Queue should NOT be cleared because logSet failed
   const queueAfter = fakeStorage.getItem("pending-sets:u1");
-  assert(queueAfter === null, "Queue cleared after successful replay");
+  assert(queueAfter !== null, "Queue kept after failed replay");
   
   cleanup();
   

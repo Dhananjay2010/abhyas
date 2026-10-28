@@ -422,6 +422,135 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
   unmount3();
   console.log("✓ Test 3 passed\n");
 
+  // ===== Test 4: Expired banner at allSetsDone (E1/E2) =====
+  console.log("=== Test 4: E1/E2 - Banner at allSetsDone, cleared after replay ===\n");
+
+  const exercise4 = makeExercise("ex-4", "row", "Barbell Row", 1);
+
+  let expired4 = true;
+  let logSetCalls4 = 0;
+  const actions4: SessionActions = {
+    markWarmupDone: ok,
+    logSet: async () => {
+      logSetCalls4++;
+      if (expired4) {
+        return { ok: false, error: "Not signed in", code: "SESSION_EXPIRED" };
+      }
+      return { ok: true };
+    },
+    deleteSet: ok,
+    finishExercise: async () =>
+      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: ok,
+    getSessionSummary: async () => ({ ok: true as const, data: [] }),
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => {
+      throw new Error("Should not swap");
+    },
+    findAlternatives: async () => ({ ok: true as const, data: [] }),
+  };
+
+  const { container: c4, unmount: unmount4 } = render(
+    <SessionRunner
+      sessionId="s4"
+      sessionStatus="in_progress"
+      userId="test-user-4"
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date().toISOString()}
+      isStale={false}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[exercise4]}
+      settings={settings}
+      actions={actions4}
+    />,
+  );
+
+  await waitFor(() => {
+    if (!c4.textContent?.includes("Barbell Row")) throw new Error("Exercise not shown");
+  });
+
+  // Log the first set (expires and goes to pending)
+  const repsInput4 = [...c4.querySelectorAll("input")].find((input) =>
+    input.closest("label")?.textContent?.includes("Reps"),
+  ) as HTMLInputElement | undefined;
+
+  if (!repsInput4) {
+    console.log("  ✗ FAIL Reps input not found");
+    process.exit(1);
+  }
+
+  await act(async () => {
+    fireEvent.change(repsInput4, { target: { value: "10" } });
+  });
+
+  const logBtn4 = [...c4.querySelectorAll("button")].find((b) =>
+    /Log set 1/.test(b.textContent ?? ""),
+  );
+
+  if (!logBtn4) {
+    console.log("  ✗ FAIL Log set button not found");
+    process.exit(1);
+  }
+
+  await act(async () => {
+    fireEvent.click(logBtn4);
+  });
+
+  await waitFor(() => {
+    if (logSetCalls4 === 0) throw new Error("logSet not called");
+  });
+
+  check("Logged set (expired)", logSetCalls4 === 1);
+
+  // Complete the exercise to reach allSetsDone
+  const finishBtn = [...c4.querySelectorAll("button")].find((b) =>
+    /Keep this weight/.test(b.textContent ?? "") || /feel\?/.test(c4.textContent ?? ""),
+  );
+
+  if (finishBtn) {
+    await act(async () => {
+      fireEvent.click(finishBtn);
+    });
+  }
+
+  // Now at allSetsDone with pending set - check for exactly ONE expired prompt
+  await waitFor(() => {
+    if (!c4.textContent?.includes("How did that feel")) throw new Error("allSetsDone not reached");
+  });
+
+  const expiredPromptsAtAllSetsDone = (c4.textContent?.match(/session has expired/gi) || []).length;
+  check(`E1: Exactly 1 expired prompt at allSetsDone`, expiredPromptsAtAllSetsDone === 1, `found ${expiredPromptsAtAllSetsDone}`);
+
+  // Restore session and replay
+  expired4 = false;
+
+  const retryButton4 = [...c4.querySelectorAll("button")].find((b) =>
+    /Retry/.test(b.textContent ?? ""),
+  );
+
+  if (retryButton4) {
+    await act(async () => {
+      fireEvent.click(retryButton4);
+    });
+
+    await waitFor(() => {
+      if (logSetCalls4 < 2) throw new Error("Replay not called");
+    });
+
+    check("Replay successful", logSetCalls4 === 2);
+
+    const expiredPromptsAfterReplay = (c4.textContent?.match(/session has expired/gi) || []).length;
+    check("E2: Expired prompt cleared after replay", expiredPromptsAfterReplay === 0, `found ${expiredPromptsAfterReplay}`);
+  }
+
+  unmount4();
+  console.log("✓ Test 4 passed\n");
+
   console.log("\n✅ All L1 tests passed\n");
   process.exit(0);
 })();
