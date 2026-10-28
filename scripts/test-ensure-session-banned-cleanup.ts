@@ -7,7 +7,6 @@
  */
 
 import { readFileSync } from "fs";
-import type { CandidateExercise } from "../src/lib/program/generate";
 import { applyBannedCleanup } from "../src/lib/program/apply-banned-cleanup";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";

@@ -10,7 +10,7 @@
  */
 
 import { readFileSync } from "fs";
-import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import { generateProgram, type GeneratorInput } from "../src/lib/program/generate";
 import type { Database } from "../src/lib/database.types";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 

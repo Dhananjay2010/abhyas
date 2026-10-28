@@ -7,7 +7,7 @@
  */
 
 import { readFileSync } from "fs";
-import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import { generateProgram, type GeneratorInput } from "../src/lib/program/generate";
 import { toCandidateExercises } from "../src/lib/program/candidate-exercise-guard";
 import type { Database } from "../src/lib/database.types";
 import { isExcludedForCurrentKneeOnly } from "../src/lib/program/past-knee";
