@@ -600,6 +600,7 @@
     "test:qa-low-b-detail-page-duration-call": "tsx scripts/test-qa-low-b-detail-page-duration-call.ts",
     "test:qa-low-b-page-call-site": "tsx scripts/test-qa-low-b-page-call-site.ts",
     "test:qa-low-b-page-duration-path": "tsx scripts/test-qa-low-b-page-duration-path.ts",
+    "test:repair-superseded-blocks-real-db": "tsx scripts/test-repair-superseded-blocks-real-db.ts",
     "test:resolve-plan-target-date": "tsx scripts/test-resolve-plan-target-date.ts",
     "test:plan-day-server-wiring": "tsx scripts/test-plan-day-server-wiring.ts",
     "test:fetch-session-local-date": "tsx scripts/test-fetch-session-local-date.ts",
