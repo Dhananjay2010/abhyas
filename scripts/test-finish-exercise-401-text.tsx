@@ -237,9 +237,9 @@ const settings: RunnerSettings = {
   const signInLink2 = screen.queryByText(/Sign in again/i);
   assert(signInLink2 === null, "Does NOT show 'Sign in again' for non-expired '401' error");
   
-  // Should show the error message somewhere
-  const errorText = screen.queryByText(/error/i);
-  assert(errorText !== null, "Shows error message");
+  // Should show our friendly error message (Item 5: never pass raw server errors through)
+  const errorText = screen.queryByText(/That didn't save\. Try again\./i);
+  assert(errorText !== null, "Shows friendly error message (not raw server text)");
   
   console.log(`\n✅ Error detection test passed (${passed} assertions)\n`);
   console.log("MUTANT B5: Use message.includes('401') → treats non-auth errors as expired\n");
