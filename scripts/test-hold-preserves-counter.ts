@@ -106,7 +106,7 @@ const result = evaluateProgression({
     weightAtFailureStartKg: 15,
   },
   isDeload: false,
-  equipmentIds: ["barbell"],
+  equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell under 20 kg is lifted to the bar
   unit: "kg",
 });
 

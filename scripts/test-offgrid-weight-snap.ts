@@ -31,7 +31,7 @@ async function runTests() {
   console.log("1. Barbell 72.35 kg → 72.5 kg");
   console.log("   floor(72.35 / 2.5) * 2.5 + 2.5 = 28 * 2.5 + 2.5 = 70 + 2.5 = 72.5");
   console.log("   Jump: 0.15 kg (< 2.5 kg step)");
-  console.log("   (Split weights evenly, no clear mode -> uses stored weight)");
+  console.log("   (Every set at or below the stored weight, so the step starts from the stored weight -- QA2 L-2)");
   {
     const sessionExercise: SessionExerciseRow = {
       id: "se-1",
@@ -53,8 +53,8 @@ async function runTests() {
     const sets = [
       { reps: 12, weight_kg: "70", duration_seconds: null },
       { reps: 12, weight_kg: "70", duration_seconds: null },
-      { reps: 12, weight_kg: "72.5", duration_seconds: null },
-      { reps: 12, weight_kg: "72.5", duration_seconds: null },
+      { reps: 12, weight_kg: "70", duration_seconds: null },
+      { reps: 12, weight_kg: "70", duration_seconds: null },
     ];
 
     const progress = {
@@ -112,8 +112,8 @@ async function runTests() {
     const sets = [
       { reps: 12, weight_kg: "70", duration_seconds: null },
       { reps: 12, weight_kg: "70", duration_seconds: null },
-      { reps: 12, weight_kg: "72.5", duration_seconds: null },
-      { reps: 12, weight_kg: "72.5", duration_seconds: null },
+      { reps: 12, weight_kg: "70", duration_seconds: null },
+      { reps: 12, weight_kg: "70", duration_seconds: null },
     ];
 
     const progress = {
@@ -171,8 +171,8 @@ async function runTests() {
     const sets = [
       { reps: 12, weight_kg: "70", duration_seconds: null },
       { reps: 12, weight_kg: "70", duration_seconds: null },
-      { reps: 12, weight_kg: "72.5", duration_seconds: null },
-      { reps: 12, weight_kg: "72.5", duration_seconds: null },
+      { reps: 12, weight_kg: "70", duration_seconds: null },
+      { reps: 12, weight_kg: "70", duration_seconds: null },
     ];
 
     const progress = {
@@ -230,8 +230,8 @@ async function runTests() {
     const sets = [
       { reps: 12, weight_kg: "65", duration_seconds: null },
       { reps: 12, weight_kg: "65", duration_seconds: null },
-      { reps: 12, weight_kg: "67.5", duration_seconds: null },
-      { reps: 12, weight_kg: "67.5", duration_seconds: null },
+      { reps: 12, weight_kg: "65", duration_seconds: null },
+      { reps: 12, weight_kg: "65", duration_seconds: null },
     ];
 
     const progress = {

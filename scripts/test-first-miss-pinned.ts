@@ -259,12 +259,12 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (metric, isolation) ===");
 {
   const d = run({
     sets: sets(4, 7, 13.75),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell would floor at the 20 kg bar
     unit: "kg",
     meta: CURL,  // isolation
     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
   });
-  check("Barbell 13.75 kg two-miss with equipment (isolation) → 12.5 kg (loadable)", 
+  check("Dumbbell 13.75 kg two-miss with equipment (isolation) → 12.5 kg (loadable)", 
     d.nextWorkingWeightKg === 12.5 && d.consecutiveFailures === 0);
 }
 
@@ -286,12 +286,12 @@ console.log("\n=== Two-Miss: Barbell 13.75 kg (imperial, isolation) ===");
 {
   const d = run({
     sets: sets(4, 7, 13.75),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell would floor at the 20 kg bar
     unit: "lb",
     meta: CURL,  // isolation
     state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
   });
-  check("Barbell 13.75 kg (30.5 lb) two-miss with equipment (isolation) → 12.5 kg (27.5 lb, loadable)", 
+  check("Dumbbell 13.75 kg (30.5 lb) two-miss with equipment (isolation) → 12.5 kg (27.5 lb, loadable)", 
     d.nextWorkingWeightKg === 12.5 && d.message.includes("27"));
 }
 
@@ -348,7 +348,7 @@ console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
   const w1 = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL, ["dumbbell"]);
   check("Hold at 12kg returns 12 exact", w1 === 12);
   
-  const w2 = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, ["barbell"]);
+  const w2 = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, ["dumbbell"]); // a barbell prefill would be lifted to the 20 kg bar
   check("Hold at 13.75kg returns 13.75 exact", w2 === 13.75);
 }
 
@@ -465,12 +465,12 @@ console.log("\n=== HOLD Tests ===");
 {
   const d = run({
     sets: sets(4, 7, 12.5),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell under 20 kg is lifted to the bar
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation" },
     state: fresh({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
   });
-  check("Barbell isolation 12.5 kg first miss → hold (next would be 11.25, not loadable)", 
+  check("Dumbbell isolation 12.5 kg first miss → hold (next would be 11.25, not loadable)", 
     d.nextWorkingWeightKg === 12.5);
 }
 
@@ -491,14 +491,14 @@ console.log("\n=== HOLD Tests ===");
 {
   const d = run({
     sets: sets(4, 7, 10),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell under 20 kg is lifted to the bar
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 0 }),
   });
   const nextDown = 7.5;
   const cut = (10 - nextDown) / 10;
-  check(`Barbell compound 10 kg first miss → hold (cut would be ${(cut * 100).toFixed(1)}% > 20%)`, 
+  check(`Dumbbell compound 10 kg first miss → hold (cut would be ${(cut * 100).toFixed(1)}% > 20%)`, 
     d.nextWorkingWeightKg === 10);
 }
 
@@ -523,12 +523,12 @@ console.log("\n=== Mutant-Killing Tests ===");
   // Barbell compound 12.5kg first miss -> holds
   const d = run({
     sets: sets(4, 7, 12.5),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell under 20 kg is lifted to the bar
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 12.5, consecutiveFailures: 0 }),
   });
-  check("12.5kg barbell compound first miss: holds at 12.5kg", d.nextWorkingWeightKg === 12.5);
+  check("12.5kg dumbbell compound first miss: holds at 12.5kg", d.nextWorkingWeightKg === 12.5);
 }
 
 // Decision F: First miss always holds
@@ -573,7 +573,7 @@ console.log("\n=== Mutant-Killing Tests ===");
   // but two-miss holds at 2.75kg (light weight). Clamp forces first to hold at 2.75.
   const firstMiss = run({
     sets: sets(4, 7, 2.75),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell under 20 kg is lifted to the bar
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation" },
     state: fresh({ currentWorkingWeightKg: 2.75, consecutiveFailures: 0 }),
@@ -581,7 +581,7 @@ console.log("\n=== Mutant-Killing Tests ===");
   
   const twoMiss = run({
     sets: sets(4, 7, 2.75),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell under 20 kg is lifted to the bar
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation" },
     state: fresh({ currentWorkingWeightKg: 2.75, consecutiveFailures: 1 }),
@@ -615,7 +615,7 @@ console.log("\n=== THRESHOLD BEHAVIOR ===");
 {
   const d = run({
     sets: sets(4, 7, 10),
-    equipmentIds: ["barbell"],
+    equipmentIds: ["dumbbell"], // 2.5 kg grid; a barbell under 20 kg is lifted to the bar
     unit: "kg",
     meta: { ...BENCH, mechanic: "compound" },
     state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 0 }),

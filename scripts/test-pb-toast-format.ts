@@ -45,8 +45,9 @@ console.log(`✓ Metric (22.47 kg): "${result3}"`);
 // Test 4: Imperial - converts and formats
 const pb4: PersonalBest = { kind: "e1rm", value: 100 };
 const result4 = describePersonalBest(pb4, "imperial");
-// 100 kg = 220.46 lb, rounded to 0.5 lb = 220.5 lb, displayed as "220.5 lb"
-const expected4 = "Best estimated one-rep max yet — 220.5 lb";
+// 100 kg = 220.46 lb, floored to 0.5 lb = 220 lb (QA2 M-1: the same lb formatter
+// as the runner's working-weight line and logged sets, formatPrescribedWeight)
+const expected4 = "Best estimated one-rep max yet — 220 lb";
 if (result4 !== expected4) {
   console.error(`✗ Imperial (100 kg): expected "${expected4}", got "${result4}"`);
   process.exit(1);

@@ -19,7 +19,7 @@ import { useRestPersistence } from "@/lib/session/rest-timer-persistence";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { formatLoad, formatPrescribedWeight, computeRunnerWeightPrefill, weightKgToSubmit, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
+import { formatPrescribedWeight, computeRunnerWeightPrefill, weightKgToSubmit, LOAD_IMPERIAL_MAX_LB, LOAD_METRIC_MAX_KG } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { shouldShowFinishRetry, runEndEarly } from "@/lib/session/finish-flow";
 import { endEarlyConfirmTitle } from "@/lib/session/end-early-text";
@@ -1348,7 +1348,7 @@ export function SessionRunner({
                     {logged
                       ? settings.perSetLogging
                         ? `${describeSet(logged, isTimed)}${
-                            logged.weightKg ? ` · ${formatLoad(logged.weightKg, settings.units)}` : ""
+                            logged.weightKg ? ` · ${formatPrescribedWeight(logged.weightKg, settings.units)}` : ""
                           }`
                         : "done"
                       : isPending

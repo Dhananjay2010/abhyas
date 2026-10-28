@@ -1,6 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import { KETTLEBELL_WEIGHTS_KG, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, MEDICINE_BALL_MIN_KG, type WeightUnit } from "@/lib/session/equipment-grid";
-import { formatWeight, formatPrescribedWeight, type UnitsPreference } from "@/lib/units";
+import { formatPrescribedWeight, lbToKg, type UnitsPreference } from "@/lib/units";
 import { resolveTarget } from "../session/display-target";
 
 type Enums = Database["public"]["Enums"];
@@ -68,13 +68,13 @@ export type PersonalBest =
 export function describePersonalBest(pb: PersonalBest, units: UnitsPreference = "metric"): string {
   switch (pb.kind) {
     case "weight":
-      return `Heaviest set yet — ${formatWeight(pb.value, units)}`;
+      return `Heaviest set yet — ${formatPrescribedWeight(pb.value, units)}`;
     case "hold":
       return `Longest hold yet — ${pb.value}s`;
     case "reps":
       return `Most reps yet — ${pb.value}`;
     case "e1rm":
-      return `Best estimated one-rep max yet — ${formatWeight(pb.value, units)}`;
+      return `Best estimated one-rep max yet — ${formatPrescribedWeight(pb.value, units)}`;
   }
 }
 
@@ -111,6 +111,32 @@ export const HOLD_CEILING_SECONDS = 120;
  * than this fraction of the current load, hold at the current weight instead.
  */
 export const FIRST_MISS_HOLD_THRESHOLD = 0.20;
+
+/** An empty Olympic barbell: 20 kg for metric users. */
+export const BARBELL_EMPTY_KG = 20;
+
+/** An empty Olympic barbell for imperial users: 45 lb. */
+export const BARBELL_EMPTY_LB = 45;
+
+/**
+ * The lightest load a barbell lift can drop to, in kg (state is stored in kg).
+ *
+ * Nothing lighter than the empty bar can be loaded, so a back-off or a
+ * step-down never goes below it: 20 kg, or 45 lb (stored as 20.41 kg, the same
+ * 2-decimal kg a 45 lb entry is saved as) for an imperial user. Unknown units
+ * (null) use the metric bar. Returns null for anything that is not a barbell,
+ * which keeps its existing floor -- including EZ and trap bars, whose empty
+ * weights vary.
+ */
+export function barbellFloorKg(
+  equipmentIds: string[] | undefined,
+  unit: WeightUnit | null | undefined,
+): number | null {
+  if (!equipmentIds || !equipmentIds.includes("barbell")) return null;
+  // Kettlebell and medicine ball have their own floors in the step-down below.
+  if (equipmentIds.includes("kettlebell") || equipmentIds.includes("medicine_ball")) return null;
+  return unit === "lb" ? Math.round(lbToKg(BARBELL_EMPTY_LB) * 100) / 100 : BARBELL_EMPTY_KG;
+}
 
 /** Patterns driven by the legs and hips, where jumps can be larger. */
 const LOWER_BODY: ReadonlySet<Pattern> = new Set<Pattern>([
@@ -169,7 +195,7 @@ export function addedWeightStep(meta: ExerciseMeta): number {
 
 /**
  * Format weight for display in progression messages.
- * For lb: uses app's formatWeight (kgToLb -> roundLbToHalf -> format, no .0 for whole numbers).
+ * For lb: uses formatPrescribedWeight (kgToLb -> floor to 0.5 lb -> format, no .0 for whole numbers).
  * For kg: returns plain kg value (matches main's exact kg wording, no rounding).
  */
 function roundTo(value: number, step: number): number {
@@ -447,28 +473,51 @@ export function evaluateProgression(input: {
   equipmentIds?: string[];
   unit?: WeightUnit | null;
 }): Decision {
-  const { sets, plannedSets, repsMin, repsMax, feel, meta, state, isDeload, equipmentIds, unit } = input;
+  const { sets, plannedSets, repsMin, repsMax, feel, meta, isDeload, equipmentIds, unit } = input;
+
+  /*
+    Barbell: nothing lighter than the empty bar can be loaded, so no barbell
+    prescription may come out below it. Lift an under-bar start (old data, or a
+    set logged under 20 kg) to the bar before deciding; every path below --
+    holds, success steps, back-off, step-down -- then starts at or above it.
+    Bests are still tracked from the raw logged sets.
+  */
+  const barFloor = barbellFloorKg(equipmentIds, unit);
+  const atLeastBar = (kg: number | null): number | null =>
+    barFloor !== null && kg !== null && kg > 0 && kg < barFloor - 0.005 ? barFloor : kg;
+  const state: ProgressState = barFloor === null
+    ? input.state
+    : {
+        ...input.state,
+        currentWorkingWeightKg: atLeastBar(input.state.currentWorkingWeightKg),
+        weightAtFailureStartKg: atLeastBar(input.state.weightAtFailureStartKg),
+      };
 
   const isTimed = meta.metric === "seconds";
   /** What this set is measured in: seconds held for a hold, reps otherwise. */
   const valueOf = (set: LoggedSet) => (isTimed ? (set.durationSeconds ?? null) : set.reps);
-  const working = sets.filter((set) => {
-    const v = valueOf(set);
-    return v !== null && v > 0;
-  });
+  const working = sets
+    .filter((set) => {
+      const v = valueOf(set);
+      return v !== null && v > 0;
+    })
+    .map((set) => (barFloor === null ? set : { ...set, weightKg: atLeastBar(set.weightKg) }));
 
-  const bests = nextBest(sets, state, meta);
+  const bests = nextBest(sets, input.state, meta);
 
   /**
    * Format weight for display in progression messages.
    * Uses the user's unit preference (metric or imperial).
    * Returns null when unit preference is unavailable (for unit-neutral messages).
    */
+  // QA2 M-1: lb goes through formatPrescribedWeight, the ONE lb formatter the
+  // runner's working-weight line, logged sets and the PB toast also use, so the
+  // "unchanged -> hold" check below compares exactly what the user sees.
   const displayWeight = (kg: number, fallbackUnit: WeightUnit | null | undefined = "kg"): string | null => 
     unit === null
       ? null
       : (unit ?? fallbackUnit ?? "kg") === "lb" 
-        ? formatWeight(kg, "imperial", true, "0 lb")
+        ? (kg > 0 ? formatPrescribedWeight(kg, "imperial") : "0 lb")
         : `${kg} kg`;
   
   // For prescribed increases: rounds DOWN in imperial (conservative)
@@ -532,33 +581,6 @@ export function evaluateProgression(input: {
 
   const heaviest = Math.max(...working.map((s) => s.weightKg ?? 0));
   
-  /**
-   * Find the most common working-set weight (mode).
-   * Ties go to the lower weight.
-   * Returns 0 if no weights logged.
-   */
-  function mostCommonWorkingWeight(sets: LoggedSet[]): number {
-    const weights = sets.map(s => s.weightKg ?? 0).filter(w => w > 0);
-    if (weights.length === 0) return 0;
-    
-    const counts = new Map<number, number>();
-    for (const w of weights) {
-      counts.set(w, (counts.get(w) ?? 0) + 1);
-    }
-    
-    let maxCount = 0;
-    let modeWeight = weights[0];
-    for (const [w, count] of counts) {
-      if (count > maxCount || (count === maxCount && w < modeWeight)) {
-        maxCount = count;
-        modeWeight = w;
-      }
-    }
-    return modeWeight;
-  }
-  
-  // Calculate mode once for use in all paths (success, in-range, miss)
-  const mode = mostCommonWorkingWeight(working);
   
   const carried = { ...base };
 
@@ -674,7 +696,17 @@ export function evaluateProgression(input: {
     // Bodyweight with added weight: smaller steps, never doubled.
     // Loaded exercises: with equipment, ONE grid step only (never doubled); without equipment, standard increment (doubled on easy).
     const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
-    const from = mode > 0 ? mode : (state.currentWorkingWeightKg ?? heaviest);
+    // QA2 L-2: a successful session never lowers the working weight. Step from
+    // the heavier of the stored working weight and the heaviest set that met the
+    // rep target, so 60/60/60/65 steps from 65 and a top-of-range success at a
+    // lighter load than prescribed (220 lb against 105 kg) never drops 105 to 100.
+    const heaviestQualifying = Math.max(
+      0,
+      ...working
+        .filter((set) => (valueOf(set) ?? 0) >= successTarget)
+        .map((set) => set.weightKg ?? 0),
+    );
+    const from = Math.max(state.currentWorkingWeightKg ?? 0, heaviestQualifying);
     
     let next: number;
     if (equipmentIds && equipmentIds.length > 0) {
@@ -956,7 +988,13 @@ export function evaluateProgression(input: {
     
     // M1: Use pre-miss weight if available, otherwise fall back to current weight
     const weightToBackOffFrom = state.weightAtFailureStartKg ?? currentWeight;
-    const reduced = computeTwoMissResult(weightToBackOffFrom);
+    // Barbell: never back off below the empty bar (20 kg can't become 17.5).
+    // Already at the bar, it stays at currentWeight and takes the hold path
+    // below; the 0.005 absorbs 2-decimal kg storage.
+    const twoMissResult = computeTwoMissResult(weightToBackOffFrom);
+    const reduced = barFloor !== null && twoMissResult < barFloor
+      ? (currentWeight <= barFloor + 0.005 ? currentWeight : barFloor)
+      : twoMissResult;
     
     // MED-3: Third+ consecutive miss - if 0.9x back-off doesn't change weight, drop one grid step
     if (failures >= 3 && reduced === currentWeight && equipmentIds) {
@@ -1009,6 +1047,28 @@ export function evaluateProgression(input: {
             };
           }
           stepped = Math.max(MEDICINE_BALL_MIN_KG, oneStepDown);
+        } else if (barFloor !== null) {
+          if (currentWeight <= barFloor + 0.005) {
+            // Already at the empty bar: hold with "aim for clean reps" message,
+            // the same floor behaviour as the lightest medicine ball above
+            return {
+              ...carried,
+              outcome: "hold",
+              nextWorkingWeightKg: currentWeight,
+              nextTargetReps: repsMax,
+              consecutiveFailures: failures,
+              weightAtFailureStartKg: state.weightAtFailureStartKg,
+              message: (() => {
+                const weightDisplay = displayWeight(currentWeight);
+                if (!weightDisplay) {
+                  return "Staying at this weight — aim for clean reps.";
+                }
+                return `Staying at ${weightDisplay} — aim for clean reps.`;
+              })(),
+            };
+          }
+          // Barbell: floor at the empty bar
+          stepped = Math.max(barFloor, oneStepDown);
         } else {
           const floor = isBodyweightEquipment ? 0 : gridStep;
           stepped = Math.max(floor, oneStepDown);
@@ -1066,14 +1126,14 @@ export function evaluateProgression(input: {
     if (reduced === currentWeight) {
       const holdMessage = state.consecutiveFailures >= 3
         ? equipmentIds
-          ? "Missed again but no lighter loadable weight fits within 10% — holding to build back up."
+          ? "Missed again but no lighter loadable weight is close enough — holding to build back up."
           : "Missed again but already at light weight — holding to build back up."
         : state.consecutiveFailures === 2
           ? equipmentIds
-            ? "Missed three times in a row but no lighter loadable weight fits within 10% — holding to build back up."
+            ? "Missed three times in a row but no lighter loadable weight is close enough — holding to build back up."
             : "Missed three times in a row but already at light weight — holding to build back up."
           : equipmentIds
-            ? "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up."
+            ? "Missed twice in a row but no lighter loadable weight is close enough — holding to build back up."
             : "Missed twice in a row but already at light weight — holding to build back up.";
       
       return {
@@ -1097,10 +1157,10 @@ export function evaluateProgression(input: {
         consecutiveFailures: failures, // Keep counter so third miss triggers step-down
         weightAtFailureStartKg: state.weightAtFailureStartKg, // M1: preserve for third miss
         message: state.consecutiveFailures >= 3
-          ? "Missed again but no lighter loadable weight fits within 10% — holding to build back up."
+          ? "Missed again but no lighter loadable weight is close enough — holding to build back up."
           : state.consecutiveFailures === 2
-            ? "Missed three times in a row but no lighter loadable weight fits within 10% — holding to build back up."
-            : "Missed twice in a row but no lighter loadable weight fits within 10% — holding to build back up.",
+            ? "Missed three times in a row but no lighter loadable weight is close enough — holding to build back up."
+            : "Missed twice in a row but no lighter loadable weight is close enough — holding to build back up.",
       };
     }
     
@@ -1163,16 +1223,21 @@ export function suggestedWeight(
   isDeload: boolean,
   meta: ExerciseMeta,
   equipmentIds?: string[],
+  unit?: WeightUnit | null,
 ): number | null {
   const w = state.currentWorkingWeightKg;
   if (w === null || w <= 0) return null;
+
+  // Barbell: never prefill below the empty bar (20 kg; 45 lb when the caller
+  // passes unit "lb"). Callers that pass no unit get the metric bar.
+  const barFloor = barbellFloorKg(equipmentIds, unit);
   
   // Non-deload: return current weight as-is
   // Progression logic already ensures loadable values for increases
   // Decreases may be off-grid due to rounding, but that's acceptable
   // Holds keep exact weight
   if (!isDeload) {
-    return w;
+    return barFloor !== null && w < barFloor - 0.005 ? barFloor : w;
   }
   
   // Deload: about 70% of working weight, on a loadable increment.
@@ -1185,5 +1250,6 @@ export function suggestedWeight(
   
   // Apply grid rounding DOWN, but never raise above current weight
   const snapped = roundToGrid(rawDeload, equipmentIds, 'kg', step, 'down'); // M2: always kg
-  return Math.min(w, snapped);
+  const deload = Math.min(w, snapped);
+  return barFloor !== null && deload < barFloor - 0.005 ? barFloor : deload;
 }
