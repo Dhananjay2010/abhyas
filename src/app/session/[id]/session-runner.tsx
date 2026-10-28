@@ -604,6 +604,7 @@ export function SessionRunner({
     try {
       const r = await fn();
       if (!r.ok) {
+        // MUTANT: Don't sanitize error, show raw server response
         setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
       } else {
         setError(null);

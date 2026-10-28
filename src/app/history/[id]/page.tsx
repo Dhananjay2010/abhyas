@@ -14,6 +14,7 @@ import { formatVolume, formatWeight, getUnitsPreference } from "@/lib/units";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
 import { buildSessionDuration } from "@/lib/history/build-session-duration";
+import { formatDurationMinutes } from "@/lib/history/compute-duration";
 
 export const dynamic = "force-dynamic";
 
@@ -118,12 +119,16 @@ export default async function SessionDetailPage({
     { duration_seconds: session.duration_seconds, started_at: session.started_at },
     sets ?? []
   );
+  // MUTANT: Use old format that shows "0m" instead of "<1 min"
   const minutes = durationSeconds !== null ? Math.round(durationSeconds / 60) : null;
+  const durationText = minutes !== null ? `${minutes}m` : "—";
   
-  const volume = (sets ?? []).reduce(
-    (n, s) => n + (s.reps ?? 0) * Number(s.weight_kg ?? 0),
-    0,
-  );
+  // MUTANT: Include warm-up sets in volume
+  const volume = (sets ?? [])
+    .reduce(
+      (n, s) => n + (s.reps ?? 0) * Number(s.weight_kg ?? 0),
+      0,
+    );
 
   // TZ-2: Format date and time consistently (item 9: always from started_at)
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
@@ -152,7 +157,7 @@ export default async function SessionDetailPage({
       />
 
       <dl className="mt-6 grid grid-cols-3 gap-2 text-center">
-        <Stat label="Time" value={minutes !== null ? `${minutes}m` : "—"} />
+        <Stat label="Time" value={durationText ?? "—"} />
         <Stat label="Sets" value={`${countWorkingSets(sets ?? [])}`} />
         <Stat label="Volume" value={volume > 0 ? formatVolume(volume, units) : "—"} />
       </dl>

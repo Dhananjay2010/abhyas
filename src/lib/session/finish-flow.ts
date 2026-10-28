@@ -67,14 +67,13 @@ export async function runEndEarly(
  * 
  * Returns true when:
  * - The finish failed (succeeded = false)
- * - The cooldown was NOT completed (if cooldown is done, the summary shows immediately)
  * 
- * Note: On a failed cool-down Done, the runner stays on the cool-down screen
- * and shows the retry button.
+ * Both Done and Skip show "Try again" on failure.
  * 
  * @param succeeded - Whether runFinish returned true
- * @param cooldownCompleted - Whether the cooldown phase was completed
+ * @param cooldownCompleted - Whether the cooldown phase was completed (unused, kept for API compatibility)
  */
+// MUTANT: Revert to original logic (only show retry when skip fails)
 export function shouldShowFinishRetry(succeeded: boolean, cooldownCompleted: boolean): boolean {
   return !succeeded && !cooldownCompleted;
 }

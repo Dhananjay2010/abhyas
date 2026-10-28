@@ -87,7 +87,7 @@ function createBasicDeps(overrides: Partial<StartSessionFullDeps> = {}): StartSe
 (async function main() {
 console.log("\n#122b: Behavioral test for startSessionFullCore ensure-session-exercises\n");
 
-console.log("1. Existing in_progress session calls ensureSessionExercises");
+console.log("1. Existing in_progress session calls ensureSessionExercises with existing.id");
 {
   let ensureWasCalled = false;
   let ensureCalledWithId: string | null = null;
@@ -115,7 +115,7 @@ console.log("1. Existing in_progress session calls ensureSessionExercises");
     assertEquals(result.sessionId, "sess-existing-ip", "returns existing in_progress session");
   }
   assertEquals(ensureWasCalled, true, "ensureSessionExercises was called");
-  assertEquals(ensureCalledWithId, "sess-existing-ip", "ensureSessionExercises called with correct session id");
+  assertEquals(ensureCalledWithId, "sess-existing-ip", "ensureSessionExercises called with existing.id");
 }
 
 console.log("\n2. Existing planned session calls ensureSessionExercises");

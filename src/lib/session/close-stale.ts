@@ -198,6 +198,8 @@ export async function closeStaleSessionsCore(
   const firstSetCompletedAt = new Map<string, string | null>();
   const lastSetCompletedAt = new Map<string, string | null>();
   const lastSetRestSeconds = new Map<string, number | null>();
+  const lastWorkingSetCompletedAt = new Map<string, string | null>();
+  const lastWorkingSetRestSeconds = new Map<string, number | null>();
 
   for (const row of rows) {
     const sets = row.session_sets ?? [];
@@ -231,6 +233,23 @@ export async function closeStaleSessionsCore(
         if (!existing || latestSet.completed_at > existing) {
           lastSetCompletedAt.set(row.session_id, latestSet.completed_at);
           lastSetRestSeconds.set(row.session_id, row.rest_seconds);
+        }
+      }
+    }
+
+    // Track last working set's completed_at and rest
+    const completedWorkingSets = workingSets.filter((s) => s.completed_at !== null);
+    if (completedWorkingSets.length > 0) {
+      const sortedWorkingSets = completedWorkingSets.sort((a, b) => 
+        (a.completed_at ?? "").localeCompare(b.completed_at ?? "")
+      );
+      const latestWorkingSet = sortedWorkingSets[sortedWorkingSets.length - 1];
+      
+      if (latestWorkingSet?.completed_at) {
+        const existing = lastWorkingSetCompletedAt.get(row.session_id);
+        if (!existing || latestWorkingSet.completed_at > existing) {
+          lastWorkingSetCompletedAt.set(row.session_id, latestWorkingSet.completed_at);
+          lastWorkingSetRestSeconds.set(row.session_id, row.rest_seconds);
         }
       }
     }
@@ -277,11 +296,15 @@ export async function closeStaleSessionsCore(
       if (!startedAt) return false;
 
       const workingSetCount = workingSetCounts.get(id) ?? 0;
+      
+      // MUTANT: Always use last set's rest, ignoring working set rest
+      const restSeconds = lastSetRestSeconds.get(id) ?? null;
+      
       const input: StaleFinishInputExtended = {
         startedAt,
         lastSetCompletedAt: lastSetCompletedAt.get(id) ?? null,
         workingSetCount,
-        restSeconds: lastSetRestSeconds.get(id) ?? null,
+        restSeconds,
       };
 
       const finish = resolveStaleFinishExtended(input);
