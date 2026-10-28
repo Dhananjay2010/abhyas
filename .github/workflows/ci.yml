@@ -403,6 +403,8 @@ jobs:
           REAL_DB=1 npm run ci:migration-043-idempotent
           REAL_DB=1 npm run test:gyms-column-lock-real-db
           REAL_DB=1 npm run ci:mutant-gyms-column-lock
+          REAL_DB=1 npm run test:rebuild-rollover-progress-real-db
+          REAL_DB=1 npm run test:rebuild-rollover-mutants
         env:
           REAL_DB: "1"
 
