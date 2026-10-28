@@ -275,7 +275,7 @@ async function testReplayedSetsUpdateUI() {
     id: "ex-1",
     status: "pending" as const,
     plannedSets: 3,
-    sets: replayedSetNumbers.map(n => ({ set_number: n }))
+    sets: replayedSetNumbers.map(n => ({ setNumber: n, reps: 10, weightKg: 50, durationSeconds: null }))
   }];
   const target = nextSetTarget(exercises, "ex-1", []);
   const correctNextSetNumber = target?.setNumber ?? 1;

@@ -350,7 +350,7 @@ const fakeDeps: PendingSetDeps = { now: () => FIXED_TIME };
   }, fakeDeps);
   
   const signOutFails = async () => {
-    return { ok: false as const };
+    return { ok: false as const, error: "Sign out failed" };
   };
   
   replaceCalls.length = 0;

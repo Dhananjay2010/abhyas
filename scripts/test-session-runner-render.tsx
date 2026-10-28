@@ -14,7 +14,7 @@
 
 import "./helpers/setup-jsdom";
 
-import { render, act, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, act, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings, type RunnerTimer } from "../src/app/session/[id]/session-runner";
 import { savePendingSet, loadPendingSets } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
