@@ -147,7 +147,7 @@ async function runTests() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any;
     
-    const progressByExercise = new Map([
+    const progressByExercise: any = new Map([
       ["ex-bench", {
         current_working_weight_kg: 60,
         current_target_reps: 6,
