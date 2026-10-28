@@ -95,6 +95,7 @@ async function runCase(plannedLabel: string, answer: RegExp, programDayId: strin
           localDate: "2026-10-31", // deliberately NOT what the server would resolve
           plannedLabel,
           programDayId,
+          dayType: programDayId !== null ? "weights" : "rest",
           collisionResolved: programDayId !== null,
           days: [{ programDayId: "pd-upper", label: "Upper", dayType: "weights" }],
         },
