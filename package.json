@@ -611,7 +611,8 @@
     "test:brand-logo": "tsx scripts/test-brand-logo.ts",
     "test:host-wins-notice": "tsx scripts/test-host-wins-notice.ts",
     "test:member-gym": "tsx scripts/test-member-gym.ts",
-    "test:m10-behavioral": "tsx scripts/test-m10-behavioral.tsx"
+    "test:m10-behavioral": "tsx scripts/test-m10-behavioral.tsx",
+    "test:accent-on-surface": "tsx scripts/test-accent-on-surface.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

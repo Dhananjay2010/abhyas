@@ -15,7 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getGymBrand, neutralBrand } from "@/lib/gym-brand";
 import { getUserGymMembership } from "@/lib/gym/member-gym";
 import { accessibleTextColor } from "@/lib/contrast";
-import { ensureMinContrast } from "@/lib/brand-contrast";
+import { ensureMinContrast, ensureAccentOnSurface } from "@/lib/brand-contrast";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
@@ -298,6 +298,7 @@ export function mergeBrand(base: Brand, partial: Partial<Brand>): Brand {
     
     // App background from base brand config
     const appBg = base.colors.bg;
+    const cardSurface = base.colors.surface;
     const minRatio = 3.0;
     
     // Adjust primary/accent color
@@ -314,6 +315,14 @@ export function mergeBrand(base: Brand, partial: Partial<Brand>): Brand {
       const accentFg = accessibleTextColor(adjusted);
       merged.colors.accentFg = accentFg;
       // Note: result may be < 4.5:1 WCAG AAA but meets 3:1 minimum
+      
+      // Compute accentOnSurface for text on cards (4.5:1 WCAG AA)
+      const accentOnSurface = ensureAccentOnSurface(
+        adjusted,
+        cardSurface,
+        base.colors.accentOnSurface
+      );
+      merged.colors.accentOnSurface = accentOnSurface;
     }
     
     // Adjust accentHover color

@@ -151,3 +151,20 @@ export function ensureMinContrast(
   // Failed to reach minRatio
   return fallbackHex;
 }
+
+/**
+ * Ensure accent text color meets WCAG AA (4.5:1) against card surface.
+ * Used for accent-colored text on surface/surface2 backgrounds (cards, modals).
+ * 
+ * @param accentHex - Accent color to adjust
+ * @param surfaceHex - Card surface background color
+ * @param fallbackHex - Fallback if adjustment fails
+ * @returns Adjusted hex color suitable for text on card surface
+ */
+export function ensureAccentOnSurface(
+  accentHex: string,
+  surfaceHex: string,
+  fallbackHex: string
+): string {
+  return ensureMinContrast(accentHex, surfaceHex, 4.5, fallbackHex);
+}

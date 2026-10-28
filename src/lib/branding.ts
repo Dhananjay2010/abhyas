@@ -25,6 +25,8 @@ export type BrandColors = {
   accentHover: string;
   /** Foreground color on accent background (for contrast) */
   accentFg: string;
+  /** Accent color adjusted for text on card surfaces (4.5:1 WCAG AA) */
+  accentOnSurface: string;
   /** Page background color */
   bg: string;
   /** Elevated surface color (cards, panels) */
@@ -145,6 +147,7 @@ const abhyas: Brand = {
     accent: "#ff9a2e",
     accentHover: "#e8850c",
     accentFg: "#1a1000",
+    accentOnSurface: "#ffa647", // Adjusted for 4.5:1 on surface
     bg: "#0a0c0e",
     surface: "#151a1f",
     surface2: "#1d242b",
@@ -185,6 +188,7 @@ const example: Brand = {
     accent: "#3b82f6", // blue
     accentHover: "#2563eb",
     accentFg: "#ffffff",
+    accentOnSurface: "#60a5fa", // Adjusted for 4.5:1 on surface
     bg: "#0a0a0a",
     surface: "#1a1a1a",
     surface2: "#262626",
