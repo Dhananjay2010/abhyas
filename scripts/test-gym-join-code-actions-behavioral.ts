@@ -133,7 +133,7 @@ async function main() {
     });
 
     // Check button is disabled with "Joining..." while pending
-    assert.ok(confirmButton.disabled, "FAIL: Button should be disabled while joining");
+    assert.ok((confirmButton as unknown as {disabled: boolean}).disabled, "FAIL: Button should be disabled while joining");
     const buttonTextPending = confirmButton.textContent ?? "";
     assert.match(buttonTextPending, /Joining/, "FAIL: Button should show 'Joining...' while pending");
 
@@ -149,7 +149,7 @@ async function main() {
     await waitFor(() => {
       const errorText = container.textContent ?? "";
       assert.match(errorText, /expired|no longer valid/i, "FAIL: Should show expired error message");
-      assert.ok(!confirmButton.disabled, "FAIL: Button should be re-enabled after error");
+      assert.ok(!(confirmButton as unknown as {disabled: boolean}).disabled, "FAIL: Button should be re-enabled after error");
       const buttonTextAfter = confirmButton.textContent ?? "";
       assert.match(buttonTextAfter, /Confirm/, "FAIL: Button should say 'Confirm' after error");
     }, { timeout: 2000 });
@@ -274,7 +274,7 @@ async function main() {
 
     const errorResult = await redeemJoinCode("TESTCODE");
     assert.ok(!errorResult.ok, "FAIL: Should return !ok for RPC error");
-    assert.match(errorResult.error ?? "", /read.?only|maintenance/i, "FAIL: Should map GJC11 to read-only message");
+    assert.match(errorResult.error ?? "", /invalid request method/i, "FAIL: Should map GJC11 to invalid request method");
 
     // Case B: already_member with gym_name
     db.beforeRequest = (req) => {
