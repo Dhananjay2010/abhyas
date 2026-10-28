@@ -1,5 +1,6 @@
 "use client";
 
+import { planPromptHeading } from "@/lib/session/resolve-plan-target-date";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Database } from "@/lib/database.types";
@@ -170,6 +171,7 @@ export function SessionRunner({
   exercises: initialExercises,
   settings,
   tomorrow,
+  tomorrowLabel = "Tomorrow",
   units = "metric",
   actions = REAL_ACTIONS,
   timer = REAL_TIMER,
@@ -192,6 +194,8 @@ export function SessionRunner({
   settings: RunnerSettings;
   /** What tomorrow is, so the summary can ask about it. Null with no block. */
   tomorrow?: NextDayPlan | null;
+  /** How to name the day `tomorrow` plans: "Today" after a next-morning finish. */
+  tomorrowLabel?: string;
   /** The user's display units, for the summary's total volume. */
   units?: UnitsPreference;
   actions?: SessionActions;
@@ -944,13 +948,16 @@ export function SessionRunner({
         */}
         {tomorrow && (
           <DayPlanPrompt
-            localDate={tomorrow.localDate}
+            sessionId={sessionId}
             dayLabel="Tomorrow"
+            displayLabel={tomorrowLabel}
+            shownDate={tomorrow.localDate}
             plannedLabel={tomorrow.plannedLabel}
             programDayId={tomorrow.programDayId}
             days={tomorrow.days}
-            heading="What about tomorrow?"
+            heading={planPromptHeading(tomorrowLabel)}
             onPlan={actions.planDay}
+            onRefresh={actions.refreshAfterSession}
           />
         )}
 
