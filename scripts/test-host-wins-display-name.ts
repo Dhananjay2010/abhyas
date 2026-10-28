@@ -10,7 +10,6 @@
  * Mutant: Replace gymName with gymId in notice text.
  */
 
-import { strict as assert } from "assert";
 import { getHostWinsNoticeProps } from "@/lib/host-wins-logic";
 import type { BrandResolution } from "@/lib/runtime-brand";
 import type { UserGymMembership } from "@/lib/gym/member-gym";

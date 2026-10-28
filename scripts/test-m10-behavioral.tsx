@@ -79,7 +79,7 @@ async function testRenderLandingPageWithCustomBrand() {
       user: null,
     }),
     getRequestBrandResolution: async () => customResolution,
-    redirect: (_url: string): never => {
+    redirect: (): never => {
       throw new Error("Should not redirect for non-authenticated user");
     },
   };
@@ -128,7 +128,7 @@ async function testRenderLandingPageWithBaseBrand() {
       user: null,
     }),
     getRequestBrandResolution: async () => baseResolution,
-    redirect: (_url: string): never => {
+    redirect: (): never => {
       throw new Error("Should not redirect for non-authenticated user");
     },
   };

@@ -10,7 +10,6 @@
  * Mutant: Preview shows raw input color without adjustment.
  */
 
-import { strict as assert } from "assert";
 import { ensureMinContrast } from "@/lib/brand-contrast";
 import { branding } from "@/lib/branding";
 import { readFileSync } from "fs";
