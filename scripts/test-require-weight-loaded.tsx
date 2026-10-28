@@ -37,7 +37,7 @@ const fakeTimer: RunnerTimer = {
   
   console.log("=== Test: Exercise loads and runner accepts weight ===\n");
   
-  let logSetCalls: Array<{ weightKg: number | null }> = [];
+  const logSetCalls: Array<{ weightKg: number | null }> = [];
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
