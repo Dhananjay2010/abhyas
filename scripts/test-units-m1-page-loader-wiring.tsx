@@ -118,10 +118,16 @@ async function runTests() {
         exercise_id: "ex-bench",
         sequence: 1,
         sets_count: 3,
+        planned_sets: 3,
         reps_min: 6,
         reps_max: 8,
+        planned_reps_min: 6,
+        planned_reps_max: 8,
         rest_seconds: 180,
         notes: null,
+        metric: "reps" as const,
+        status: "pending" as const,
+        feel: null,
         exercises: {
           id: "ex-bench",
           name: "Bench Press",
@@ -138,22 +144,13 @@ async function runTests() {
         },
         session_sets: [],
       },
-    ];
+    ] as any;
     
     const progressByExercise = new Map([
       ["ex-bench", {
-        id: "prog-1",
-        user_id: "test-user",
-        exercise_id: "ex-bench",
-        program_id: "prog-abc",
-        status: "in_range" as const,
-        working_weight_kg: 60,
-        suggested_weight_kg: 62.5,
-        previous_completed_weight_kg: null,  // Will be set by integrated function
-        first_logged_at: "2024-01-01",
-        last_logged_at: "2024-01-10",
-        weight_prefill: null,
+        current_working_weight_kg: 60,
         current_target_reps: 6,
+        previous_completed_weight_kg: null,  // Will be set by integrated function
       }],
     ]);
     
