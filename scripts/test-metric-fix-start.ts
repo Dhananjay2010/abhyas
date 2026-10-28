@@ -101,7 +101,8 @@ console.log("Testing METRIC-start: Replacement metric copied to cleanBannedExerc
 
   // The cleaned result should have the replacement's metric from catalogue
   // Check the actual exercises object on the cleaned row
-  const cleanedMetric = (cleaned[0] as any).exercises?.metric;
+  type CleanedRow = typeof cleaned[0];
+  const cleanedMetric = (cleaned[0] as CleanedRow & { exercises?: { metric?: string } }).exercises?.metric;
   
   if (cleanedMetric !== replacementExercise.metric) {
     console.error("✗ FAIL: METRIC-start - metric not updated from catalogue");
