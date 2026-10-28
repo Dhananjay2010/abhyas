@@ -83,9 +83,9 @@ run_mutant() {
     return
   fi
 
-  if ! npx tsc --noEmit 2>&1 | tail -1 | grep -q "Found 0 errors"; then
-    echo "  ⊘ SKIP: mutation breaks tsc"
-    SKIPPED=$((SKIPPED + 1))
+  if ! npx tsc --noEmit -p . >/dev/null 2>&1; then
+    echo "  ✗ SURVIVED: mutation breaks tsc (not killed by test)"
+    SURVIVED=$((SURVIVED + 1))
     restore
     return
   fi
