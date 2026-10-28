@@ -400,6 +400,8 @@ jobs:
           REAL_DB=1 npm run ci:migration-042-idempotent
           REAL_DB=1 npm run test:gym-branding-real-db
           REAL_DB=1 npm run ci:mutant-gym-branding
+          REAL_DB=1 npm run test:rebuild-rollover-progress-real-db
+          REAL_DB=1 npm run test:rebuild-rollover-mutants
         env:
           REAL_DB: "1"
 
