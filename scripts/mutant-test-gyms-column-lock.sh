@@ -135,6 +135,39 @@ run_mutant() {
   
   # Apply undo SQL if present (can be combined with sed)
   if [ -n "$undo_sql" ]; then
+    # For undo-SQL mutants with sed on 040 extract, verify the sed changed something
+    if [ -z "$sed_pattern" ]; then
+      # Extract the original 040 block for comparison
+      local constraint_pattern=""
+      if [[ "$name" == *"primary_color"* ]]; then
+        constraint_pattern="/add constraint gyms_primary_color_hex/,/);/"
+      elif [[ "$name" == *"accent_color"* ]]; then
+        constraint_pattern="/add constraint gyms_accent_color_hex/,/);/"
+      elif [[ "$name" == *"logo"* ]]; then
+        constraint_pattern="/add constraint gyms_logo_url_format/,/);/"
+      fi
+      
+      if [ -n "$constraint_pattern" ]; then
+        local original_block=$(sed -n "$constraint_pattern"p supabase/migrations/20261025000040_gym_branding.sql)
+        # Check if extraction is empty
+        if [ -z "$original_block" ]; then
+          echo "  ❌ SKIP: could not extract 040 block"
+          SKIPPED+=("$name: empty block")
+          FAILED=$((FAILED + 1))
+          return 1
+        fi
+        
+        # Check if undo_sql contains the mutation - extract the constraint part only
+        local mutated_block=$(echo "$undo_sql" | sed '1d') # Remove DROP line
+        if [ "$original_block" = "$mutated_block" ]; then
+          echo "  ❌ SKIP: sed produced no change (mutation ineffective)"
+          SKIPPED+=("$name: no change")
+          FAILED=$((FAILED + 1))
+          return 1
+        fi
+      fi
+    fi
+    
     local undo_output=$(mktemp)
     if ! psql -v ON_ERROR_STOP=1 "$SUPABASE_DB_URL" -c "$undo_sql" > "$undo_output" 2>&1; then
       echo "  ❌ SKIP: undo SQL failed"
@@ -253,7 +286,7 @@ run_mutant \
   "Remove \$ anchor from primary_color CHECK (040 constraint)" \
   "" \
   "FAIL Primary hex with trailing rejected" \
-  "$(sed -n '/add constraint gyms_primary_color_hex/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/\$'\''//' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_primary_color_hex;\n/')"
+  "$(sed -n '/add constraint gyms_primary_color_hex/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/{6}\$'\''/{6}'\''/' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_primary_color_hex;\n/')"
 
 # (k): TABLE CHECK Unanchored accent_color end
 run_mutant \
@@ -261,7 +294,7 @@ run_mutant \
   "Remove \$ anchor from accent_color CHECK (040 constraint)" \
   "" \
   "FAIL Accent hex with trailing rejected" \
-  "$(sed -n '/add constraint gyms_accent_color_hex/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/\$'\''//' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_accent_color_hex;\n/')"
+  "$(sed -n '/add constraint gyms_accent_color_hex/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/{6}\$'\''/{6}'\''/' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_accent_color_hex;\n/')"
 
 # Mutant (l): Drop postgres from bypass
 run_mutant \
@@ -316,17 +349,32 @@ run_mutant \
   "Remove control character check from logo (040 constraint)" \
   "" \
   "FAIL Newline in logo rejected" \
-  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed 's/ and logo_url !~ '\''\\[\\x00-\\x1F\\x7F\\]'\''//g' | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
+  "$(sed -n '/add constraint gyms_logo_url_format/,/);/p' supabase/migrations/20261025000040_gym_branding.sql | sed \"s/ and logo_url !~ '\\[\\\\x00-\\\\x1F\\\\x7F\\]'//g\" | sed '1s/^/ALTER TABLE public.gyms DROP CONSTRAINT IF EXISTS gyms_logo_url_format;\n/')"
 
 # Reset DB after last mutant
 echo
 echo "Resetting database after all mutants..."
 RESET_OUTPUT=$(mktemp)
 if ! eval "$RESET_CMD" > "$RESET_OUTPUT" 2>&1; then
-  echo "⚠️  Warning: Final reset failed"
+  echo "❌ Final reset failed"
   cat "$RESET_OUTPUT"
+  rm -f "$RESET_OUTPUT"
+  exit 1
 fi
 rm -f "$RESET_OUTPUT"
+
+# Verify real 043 state: trigger exists and temp column is gone
+if ! psql -tA "$SUPABASE_DB_URL" -c "SELECT 1 FROM pg_trigger WHERE tgname = 'gyms_brand_only_update'" | grep -q 1; then
+  echo "❌ FAIL: gyms_brand_only_update trigger not found after reset"
+  exit 1
+fi
+
+if psql -tA "$SUPABASE_DB_URL" -c "SELECT 1 FROM information_schema.columns WHERE table_name = 'gyms' AND column_name = 'temp_future_col'" | grep -q 1; then
+  echo "❌ FAIL: temp_future_col column still exists after reset"
+  exit 1
+fi
+
+echo "✓ Real 043 state verified"
 
 echo
 echo "=== Mutant Test Summary ==="
