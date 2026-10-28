@@ -246,7 +246,7 @@ async function test(name: string, fn: () => Promise<void>) {
     
     eq(calls.length, 1, "One call made");
     eq(calls[0].table, "program_day_exercises", "Table: program_day_exercises");
-    eq(calls[0].select, "exercise_id,order_index,target_sets,target_reps_min,target_reps_max,rest_seconds,exercises!program_day_exercises_exercise_id_fkey(metric)", "Select with join");
+    eq(calls[0].select, "id,exercise_id,order_index,target_sets,target_reps_min,target_reps_max,rest_seconds,exercises!program_day_exercises_exercise_id_fkey(metric)", "Select with join");
     eq(calls[0].filters.length, 1, "One filter");
     eq(calls[0].filters[0], { type: "eq", column: "program_day_id", value: "day-123" }, "Filter: program_day_id");
     eq(calls[0].order?.length, 1, "One ordering");
