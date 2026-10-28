@@ -600,6 +600,7 @@
     "test:qa-low-b-detail-page-duration-call": "tsx scripts/test-qa-low-b-detail-page-duration-call.ts",
     "test:qa-low-b-page-call-site": "tsx scripts/test-qa-low-b-page-call-site.ts",
     "test:qa-low-b-page-duration-path": "tsx scripts/test-qa-low-b-page-duration-path.ts",
+    "test:repair-superseded-blocks-real-db": "tsx scripts/test-repair-superseded-blocks-real-db.ts",
     "test:actions-imperial-behavioral-l4b4": "tsx scripts/test-actions-imperial-behavioral-l4b4.ts",
     "test:barbell-grid-snap": "tsx scripts/test-barbell-grid-snap.ts",
     "test:bodyweight-zero-kg-message": "tsx scripts/test-bodyweight-zero-kg-message.ts",
@@ -638,8 +639,7 @@
     "test:reps-cap-message": "tsx scripts/test-reps-cap-message.ts",
     "test:swap-mechanic-wiring": "tsx scripts/test-swap-mechanic-wiring.ts",
     "test:lightest-weight-miss-messages": "tsx scripts/test-lightest-weight-miss-messages.ts",
-    "test:profile-units-fallback": "tsx scripts/test-profile-units-fallback.ts",
-    "mutants:progression": "bash scripts/mutant-test-progression.sh"
+    "test:profile-units-fallback": "tsx scripts/test-profile-units-fallback.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
