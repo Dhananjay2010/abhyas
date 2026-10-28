@@ -113,6 +113,7 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
   // Show owners the ACTUAL color members will see after ensureMinContrast
   const { previewPrimary, previewAccent, previewTextColor } = computePreviewColors(primaryColor, accentColor);
 
+
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       {/* General Error */}

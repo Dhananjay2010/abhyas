@@ -19,7 +19,7 @@ export function SessionExpiredPrompt() {
     <div
       role="alert"
       data-testid="session-expired-prompt"
-      className="rounded-xl border border-accent bg-accent/10 p-4 text-accent"
+      className="rounded-xl border border-accent bg-accent/10 p-4 text-[color:var(--color-accent-on-surface)]"
     >
       <p className="text-sm font-medium">Your session has expired, please sign in again</p>
       <Link

@@ -4,7 +4,7 @@
  * Test: Owner branding form renders preview swatches (LOW c)
  * 
  * Renders the branding form with low-contrast colors and verifies
- * the preview swatches show adjusted hex values.
+ * the preview swatches show adjusted hex values (not raw inputs).
  * 
  * Mutants:
  * - Preview using raw accent (not adjusted)
@@ -14,6 +14,7 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import { BrandingForm } from "@/app/owner/branding/branding-form";
+import { computePreviewColors } from "@/app/owner/branding/branding-form";
 
 let failures = 0;
 
@@ -27,6 +28,16 @@ function check(label: string, ok: boolean, detail = "") {
 async function testFormRendersAdjustedSwatches() {
   console.log("TEST: Form renders preview swatches with adjusted colors");
   
+  const rawPrimary = "#1E40AF"; // Dark blue needing adjustment
+  const rawAccent = "#1E3A8A";  // Even darker blue needing adjustment
+  
+  // Compute expected adjusted values
+  const { adjustedPrimary, adjustedAccent, previewTextColor } = computePreviewColors(rawPrimary, rawAccent);
+  
+  console.log(`  Raw primary: ${rawPrimary} → Adjusted: ${adjustedPrimary}`);
+  console.log(`  Raw accent: ${rawAccent} → Adjusted: ${adjustedAccent}`);
+  console.log(`  Preview text color: ${previewTextColor}`);
+  
   // Render form with low-contrast primary and accent
   const html = renderToStaticMarkup(
     <BrandingForm
@@ -36,29 +47,42 @@ async function testFormRendersAdjustedSwatches() {
         gymName: "Test Gym",
         displayName: "",
         logoUrl: "",
-        primaryColor: "#1E40AF", // Dark blue needing adjustment
-        accentColor: "#2563eb", // Blue-600 needing adjustment
+        primaryColor: rawPrimary,
+        accentColor: rawAccent,
       }}
     />
   );
   
-  // The adjusted primary should appear in the preview swatch
-  // #1E40AF adjusts to approximately #2f56c7 (or similar) for 3.0:1 on #0a0c0e
-  // The form should use computePreviewColors which calls ensureMinContrast
+  // The form should use the adjusted colors in the preview swatches (type="color" inputs)
+  // The adjusted primary should be #2f56c7 (or similar) for 3.0:1 on #0a0c0e
+  check("HTML contains color input swatches", html.includes('type="color"'));
   
-  // Check that the HTML contains color input swatches
-  check("HTML contains primary color swatch", html.includes('type="color"'));
+  // Check that adjusted primary appears in the preview (not raw)
+  check("Preview contains adjusted primary", 
+    adjustedPrimary ? html.includes(adjustedPrimary) : false,
+    adjustedPrimary || "null"
+  );
   
-  // The value attribute should have the adjusted color, not the raw input
-  // We can't easily check the exact adjusted value without computing it here,
-  // but we can verify the form structure exists
-  check("HTML has multiple color inputs", (html.match(/type="color"/g) || []).length >= 2);
+  // Check that adjusted accent appears in the preview (not raw)
+  check("Preview contains adjusted accent",
+    adjustedAccent ? html.includes(adjustedAccent) : false,
+    adjustedAccent || "null"
+  );
   
-  // Check for preview section
-  check("HTML contains preview section", html.includes("Preview"));
+  // Check that preview text color appears (computed from adjusted, not raw primary)
+  check("Preview contains text color from adjusted primary",
+    previewTextColor ? html.includes(previewTextColor) : false,
+    previewTextColor || "null"
+  );
   
-  console.log("  Form structure verified");
-  console.log("  Low-contrast inputs: #1E40AF (primary), #2563eb (accent)");
+  // Check that preview section exists
+  const previewSection = html.indexOf("Preview");
+  check("Preview section exists", previewSection > 0);
+  if (previewSection > 0) {
+    console.log("  Preview section found");
+  }
+  
+  console.log("  Adjusted values should appear in preview swatches");
 }
 
 async function main() {

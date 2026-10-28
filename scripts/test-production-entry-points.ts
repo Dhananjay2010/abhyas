@@ -11,8 +11,12 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { getRequestBrandResolution } from "@/lib/runtime-brand";
-import { renderLandingPage, renderLandingPageForRequest, type LandingPageDeps } from "@/app/render-landing-page";
+import { renderLandingPage, renderLandingPageForRequest } from "@/app/render-landing-page";
 import { buildRootLayoutBrandProps, getRootLayoutMetadataForRequest, getRootLayoutBrandCssForRequest } from "@/lib/layout-props";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
+import { mergeBrand } from "@/lib/runtime-brand";
+import { branding } from "@/lib/branding";
 
 let failures = 0;
 
@@ -39,18 +43,45 @@ async function testLandingPageBindsRealDeps() {
 async function testNextParameterForwarding() {
   console.log("\nTEST: next parameter is forwarded for authed users");
   
+  // Create stub fetch that returns profile data for Supabase queries
+  const stubFetch: typeof fetch = async (input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    
+    // Handle profile query
+    if (url.includes('/profiles') && url.includes('select=onboarding_completed_at')) {
+      return new Response(
+        JSON.stringify({ onboarding_completed_at: new Date().toISOString() }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+    
+    // Default: empty success
+    return new Response('{}', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  
+  // Create real Supabase client with stub fetch
+  const supabase = createClient<Database>('http://fake.local', 'fake-anon-key', {
+    auth: { persistSession: false },
+    global: { fetch: stubFetch },
+  });
+  
   // Create a mock authed client that returns a user
   const mockAuthedClient = async () => ({
-    supabase: {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            single: async () => ({ data: { onboarding_completed_at: new Date().toISOString() } }),
-          }),
-        }),
-      }),
-    } as unknown as import("@supabase/supabase-js").SupabaseClient<import("@/lib/database.types").Database>,
-    user: { id: "test-user-id" } as import("@/lib/supabase/auth").SessionUser,
+    supabase,
+    user: {
+      id: "test-user-id",
+      email: "test@example.com",
+      app_metadata: {},
+      user_metadata: {},
+      aud: "authenticated",
+      created_at: new Date().toISOString(),
+    },
   });
   
   // Mock redirect to capture the target
@@ -60,9 +91,10 @@ async function testNextParameterForwarding() {
     throw new Error("Redirect called");
   };
   
+  // Create real brand resolution
   const mockBrandResolution = async () => ({
     tier: "base" as const,
-    brand: {} as import("@/lib/branding").Brand,
+    brand: mergeBrand(branding, {}),
     gymId: null,
     gymName: null,
   });

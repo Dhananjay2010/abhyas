@@ -275,7 +275,7 @@ export function HistoryClient({
                   <div className="mt-1 flex items-center gap-2">
                     <p className="text-xs text-muted">{details.join(" · ")}</p>
                     {item.hasPR && (
-                      <span className="rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent">
+                      <span className="rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-[color:var(--color-accent-on-surface)]">
                         PR
                       </span>
                     )}

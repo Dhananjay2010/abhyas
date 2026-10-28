@@ -469,7 +469,7 @@ export default async function TodayPage() {
           {dayType === "rest" ? "Rest day" : dayLabel}
         </h1>
         {isDeload && isTraining && (
-          <p className="mt-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
+          <p className="mt-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-[color:var(--color-accent-on-surface)]">
             Deload week. Lighter loads, nothing near failure — this is what lets week 5
             go up.
           </p>
@@ -477,7 +477,7 @@ export default async function TodayPage() {
       </header>
 
       {needsEquipment && (
-        <p className="mt-4 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
+        <p className="mt-4 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-[color:var(--color-accent-on-surface)]">
           You have no equipment listed, so your plan is limited to what needs
           none. Add your equipment in{" "}
           <Link href="/settings" className="underline underline-offset-2">
