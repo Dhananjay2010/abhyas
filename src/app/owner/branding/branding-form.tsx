@@ -3,8 +3,54 @@
 import { useState, useTransition } from "react";
 import { updateBranding, type BrandingResult } from "./actions";
 import { accessibleTextColor } from "@/lib/contrast";
+import { ensureMinContrast } from "@/lib/brand-contrast";
 import { branding } from "@/lib/branding";
-import { primaryContrastWarning } from "@/lib/gym/branding-validation";
+
+/**
+ * Compute preview colors for owner branding form.
+ * Shows owners the ACTUAL color members will see after ensureMinContrast adjustment.
+ * 
+ * @param primaryColor Raw primary color hex input (or empty string)
+ * @param accentColor Raw accent color hex input (or empty string)
+ * @returns Adjusted preview colors matching runtime mergeBrand behavior
+ */
+export function computePreviewColors(primaryColor: string, accentColor: string) {
+  const appBg = branding.colors.bg; // #0a0c0e
+  const minRatio = 3.0;
+  
+  const rawPrimary = primaryColor && primaryColor.match(/^#[0-9A-Fa-f]{6}$/)
+    ? primaryColor
+    : null;
+  
+  const adjustedPrimary = rawPrimary
+    ? ensureMinContrast(rawPrimary, appBg, minRatio, branding.colors.accent)
+    : null;
+  
+  const previewPrimary = adjustedPrimary || "var(--color-muted)";
+  
+  const rawAccent = accentColor && accentColor.match(/^#[0-9A-Fa-f]{6}$/)
+    ? accentColor
+    : null;
+  
+  const adjustedAccent = rawAccent
+    ? ensureMinContrast(rawAccent, appBg, minRatio, branding.colors.accentHover)
+    : null;
+  
+  const previewAccent = adjustedAccent || "var(--color-border)";
+  
+  // Compute accessible text color for preview against adjusted color
+  const previewTextColor = adjustedPrimary
+    ? accessibleTextColor(adjustedPrimary)
+    : branding.colors.accentFg;
+  
+  return {
+    previewPrimary,
+    previewAccent,
+    previewTextColor,
+    adjustedPrimary,
+    adjustedAccent,
+  };
+}
 
 type BrandingFormProps = {
   gymId: string;
@@ -63,20 +109,10 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
     });
   };
 
-  // Compute contrast warning as a derived value (shows warning on load too)
-  const contrastWarning = primaryContrastWarning(primaryColor);
+  // Preview colors with contrast adjustment (same as runtime mergeBrand)
+  // Show owners the ACTUAL color members will see after ensureMinContrast
+  const { previewPrimary, previewAccent, previewTextColor } = computePreviewColors(primaryColor, accentColor);
 
-  // Preview colors (use user input or brand defaults - orange when cleared)
-  // LOW-3: Cleared preview should show default brand (orange), not grey/black
-  const previewPrimary = primaryColor || branding.colors.accent;
-  const previewAccent = accentColor || branding.colors.accentHover;
-  
-  // Compute accessible text color for preview when a valid color is entered
-  // Use simple contrast: if sum of RGB > 382 (roughly half of max 765), use black, else white
-  
-  const previewTextColor = primaryColor && primaryColor.match(/^#[0-9A-Fa-f]{6}$/)
-    ? accessibleTextColor(primaryColor)
-    : branding.colors.accentFg;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -119,11 +155,10 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           placeholder={gymName}
-          maxLength={100}
           className="w-full rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent"
         />
         <p className="mt-1 text-xs text-muted">
-          Optional shorter name for branding (max 100 characters). Leave empty to use the gym name.
+          Optional shorter name for branding. Leave empty to use the gym name.
         </p>
         {errors.displayName && (
           <p className="mt-1 text-xs text-danger">{errors.displayName}</p>
@@ -141,7 +176,6 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
           value={logoUrl}
           onChange={(e) => setLogoUrl(e.target.value)}
           placeholder="https://example.com/logo.png"
-          maxLength={2048}
           className="w-full rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent"
         />
         <p className="mt-1 text-xs text-muted">
@@ -183,13 +217,10 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
             />
           </div>
           <p className="mt-1 text-xs text-muted">
-            6-digit hex code for buttons and highlights
+            6-digit hex code (e.g. #FF9A2E) for buttons and highlights
           </p>
           {errors.primaryColor && (
             <p className="mt-1 text-xs text-danger">{errors.primaryColor}</p>
-          )}
-          {contrastWarning && !errors.primaryColor && (
-            <p className="mt-1 text-xs text-warning">{contrastWarning}</p>
           )}
         </div>
 
@@ -216,7 +247,7 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
             />
           </div>
           <p className="mt-1 text-xs text-muted">
-            6-digit hex code for hover states
+            6-digit hex code (e.g. #E8850C) for hover states
           </p>
           {errors.accentColor && (
             <p className="mt-1 text-xs text-danger">{errors.accentColor}</p>
@@ -227,6 +258,9 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
       {/* Live Preview */}
       <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
         <h3 className="text-sm font-semibold text-muted">Live Preview</h3>
+        <p className="text-xs text-muted">
+          Colors are automatically adjusted for contrast. Members see the adjusted version shown here.
+        </p>
         <div
           className="space-y-3"
           style={
@@ -240,10 +274,10 @@ export function BrandingForm({ gymId, gymName, initial }: BrandingFormProps) {
             })()
           }
         >
-          {/* Preview button using CSS variables with hover showing accent color */}
+          {/* Preview button using CSS variables with hover */}
           <button
             type="button"
-            className="w-full rounded-lg px-6 py-3 text-sm font-semibold transition-colors hover:bg-[var(--color-accent-hover)]"
+            className="w-full rounded-lg px-6 py-3 text-sm font-semibold transition-colors hover:brightness-90"
             style={{
               backgroundColor: "var(--color-accent)",
               color: "var(--color-accent-fg)",

@@ -32,6 +32,7 @@ export const neutralBrand: Brand = {
     accent: "#6b7280",       // neutral grey-500
     accentHover: "#4b5563",  // neutral grey-600
     accentFg: "#ffffff",     // white
+    accentOnSurface: "#9ca3af", // neutral grey-400 for text on surface
     bg: "#0a0c0e",           // same as branding.colors.bg
     surface: "#1a1a1a",      // neutral grey-900
     surface2: "#262626",     // neutral grey-800
@@ -199,6 +200,8 @@ async function getGymBrandInternal(gymId: string): Promise<Partial<Brand>> {
       accentHover: normalizedRow.accent_color,
       // Derive accessible text color for buttons based on primary color (WCAG AA 4.5:1)
       accentFg: accessibleTextColor(normalizedRow.primary_color),
+      // Derive accent on surface color (4.5:1 against surface for text)
+      accentOnSurface: branding.colors.accentOnSurface, // Will be adjusted by mergeBrand in runtime-brand.ts
       // Keep defaults for other colors from branding config
       bg: branding.colors.bg,
       surface: branding.colors.surface,

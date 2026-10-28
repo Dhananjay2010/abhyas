@@ -723,7 +723,7 @@ export function SessionRunner({
                     controller.replay();
                   }}
                   disabled={pendingSetState.retrying}
-                  className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent transition-opacity hover:opacity-90 disabled:opacity-60"
+                  className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-[color:var(--color-accent-on-surface)] transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
                   {pendingSetState.retrying
                     ? `Saving ${pendingSetState.pending.length} ${
@@ -1260,7 +1260,7 @@ export function SessionRunner({
                     controller.replay();
                   }}
                   disabled={pendingSetState.retrying}
-                  className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent transition-opacity hover:opacity-90 disabled:opacity-60"
+                  className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-[color:var(--color-accent-on-surface)] transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
                   {pendingSetState.retrying
                     ? `Saving ${pendingSetState.pending.length} ${
