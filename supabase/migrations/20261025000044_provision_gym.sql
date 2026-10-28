@@ -215,6 +215,9 @@ begin
 end;
 $$;
 
+-- Ensure function is owned by postgres
+alter function public.provision_gym(text, text, text, text, text, text, text, text) owner to postgres;
+
 -- Revoke from public, anon, authenticated; grant only to service_role
 -- (postgres can call it from plain SQL; the coordinator runs it on prod through the Supabase connector as postgres)
 do $$

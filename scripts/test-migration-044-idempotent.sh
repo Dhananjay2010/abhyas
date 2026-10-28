@@ -345,6 +345,19 @@ if [[ "$PROCONFIG_CHECK" != "t" ]]; then
 fi
 echo "✓ provision_gym has search_path=\"\" in proconfig"
 
+PROOWNER=$(psql "$DB_URL" -qtAX -c "
+  SELECT pg_get_userbyid(proowner) FROM pg_proc
+  WHERE proname = 'provision_gym'
+    AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+  LIMIT 1;
+" || echo "")
+
+if [[ "$PROOWNER" != "postgres" ]]; then
+  echo "❌ provision_gym owner is not postgres (got: $PROOWNER)"
+  exit 1
+fi
+echo "✓ provision_gym owned by postgres"
+
 # Check grants
 ANON_GRANT=$(psql "$DB_URL" -qtAX -c "SELECT has_function_privilege('anon', 'public.provision_gym(text,text,text,text,text,text,text,text)', 'execute');" || echo "")
 AUTH_GRANT=$(psql "$DB_URL" -qtAX -c "SELECT has_function_privilege('authenticated', 'public.provision_gym(text,text,text,text,text,text,text,text)', 'execute');" || echo "")

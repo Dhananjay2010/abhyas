@@ -24,6 +24,7 @@ if (process.env.REAL_DB !== "1") {
 
 import { createClient } from "@supabase/supabase-js";
 import { spawn } from "child_process";
+import { checkGymOwnership } from "../src/lib/gym/owner-check";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
@@ -738,6 +739,12 @@ async function runTests() {
       });
 
       check("member can become owner of another gym", !error && data?.created === true, error?.message);
+
+      // Verify checkGymOwnership returns the provisioned gym
+      const ownership = await checkGymOwnership(adminClient, userIdMember);
+      check("checkGymOwnership returns the provisioned gym",
+        ownership.isOwner && ownership.gymId === data?.gym_id && ownership.gymSlug === ownerSlug,
+        JSON.stringify(ownership));
 
       // Verify default member membership is unchanged
       const { data: defaultMembershipAfter, error: defaultMembershipAfterError } = await adminClient

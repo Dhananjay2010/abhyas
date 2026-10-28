@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import { resolveTarget } from "./display-target";
 import { suggestedWeight } from "@/lib/program/progression";
+import { progressionInputsFromExercise } from "./progression-inputs";
 
 type ExerciseMetric = Database["public"]["Enums"]["exercise_metric"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -27,6 +28,7 @@ export type SessionExerciseInput = {
     readonly id: string;
     readonly name: string;
     readonly cue: string | null;
+    readonly mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
     readonly movement_pattern: MovementPattern;
     readonly primary_muscles: readonly Muscle[];
     readonly equipment_ids: readonly string[];
@@ -111,17 +113,21 @@ export function buildRunnerExercise(input: RunnerExerciseInput): RunnerExerciseO
     currentWorkingWeightKg: working,
   });
 
+  // Get equipment IDs for progression (M2: units removed)
+  const progInputs = ex ? progressionInputsFromExercise({ equipment_ids: equipmentIds }) : {};
+
   const suggested = suggestedWeight(
     { currentWorkingWeightKg: working },
     isDeload,
     {
-      mechanic: null,
+      mechanic: ex?.mechanic ?? null,
       movementPattern: ex?.movement_pattern ?? "other",
       metric,
       isBodyweight,
       progressionChain: null,
       progressionRank: null,
     },
+    progInputs.equipmentIds,
   );
 
   // Filter out warm-up sets and compute lastLoggedAt

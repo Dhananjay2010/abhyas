@@ -29,6 +29,7 @@ export type SwapExerciseDeps = {
     sessionId: string,
     newExerciseId: string,
     equipmentIds: string[],
+    mechanic: ExerciseMechanic | null,
     metric: ExerciseMetric,
     movementPattern: MovementPattern,
     remembersWeights: boolean,
@@ -116,6 +117,7 @@ export async function swapExerciseCore(
   
   const metric = replacement?.metric ?? "reps";
   const equipmentIds = replacement?.equipment_ids ?? [];
+  const mechanic = replacement?.mechanic ?? null;
 
   // Resolve weight prefill, working weight, and current target reps for the swapped-in exercise.
   // This passes input.newExerciseId (not current.exercise_id), which is what S3 tests.
@@ -123,6 +125,7 @@ export async function swapExerciseCore(
     current.session_id,
     newExerciseId,
     equipmentIds,
+    mechanic,
     metric,
     replacement?.movement_pattern ?? "other",
     remembersWeights,
