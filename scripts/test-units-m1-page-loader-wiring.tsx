@@ -193,7 +193,7 @@ async function runTests() {
         cooldown={[]}
         exercises={[ex]}
         settings={{ perSetLogging: true, restAutostart: false, restSound: false, restVibrate: false, restOverrideSeconds: null, cooldownEnabled: false, units: "imperial" }}
-        tomorrow={{ isMissedYesterday: false, isRestDay: false, canPlanDay: false, needsPlan: false }}
+        tomorrow={{ localDate: "2024-01-02", plannedLabel: "Rest", programDayId: null, days: [], collisionResolved: false }}
         units="imperial"
         actions={actions}
       />
