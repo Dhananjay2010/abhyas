@@ -113,22 +113,6 @@ export async function cleanBannedPlannedExercises(
     const errors: string[] = [];
     
     for (const [dayId, exercises] of byDay.entries()) {
-      // Logged-sets guard: never modify days that have sessions with logged sets
-      const { data: sessionsWithSets } = await supabase
-        .from("sessions")
-        .select("id, session_exercises!inner(id, session_sets!inner(id))")
-        .eq("program_day_id", dayId)
-        .eq("user_id", userId);
-      
-      const hasLoggedSets = (sessionsWithSets ?? []).some(s => 
-        (s.session_exercises ?? []).some(se => (se.session_sets ?? []).length > 0)
-      );
-      
-      if (hasLoggedSets) {
-        // Skip this day - it has logged sets
-        continue;
-      }
-      
       const result = replaceBannedInPlanned(exercises, catalogue, generatorInput);
       
       if (!result.changed) continue;
