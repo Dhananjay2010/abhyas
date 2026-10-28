@@ -12,6 +12,7 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
 import { buildInjuryFlags } from "./injury-regions";
 import { activeDayIndices, activeDayIndicesAnchored } from "./splits";
+import { carriedWeekdayLayout, loadLayoutSourceDays, type LayoutSourceDay } from "./weekday-layout";
 
 type Client = SupabaseClient<Database>;
 
@@ -132,6 +133,35 @@ async function block1RebuildAnchor(
   }
   const weekdays = (days ?? []).filter((d) => !RESTFUL_DAY_TYPES.has(d.day_type)).map((d) => d.day_index);
   return { ok: true, anchor: isAnchoredLayout(weekdays, firstStartedOn) ? firstStartedOn : null };
+}
+
+/**
+ * The program_days a block 2+ takes its weekdays from (QA2 M-1): the member's
+ * latest non-superseded block. For a rebuild that is the active block being
+ * re-planned (after a rebuild-after-end, the block rollover just opened with
+ * the ended block's weekdays); for a new block it is the block before it.
+ * No such block gives no days, and the generator keeps the default mapping.
+ */
+async function blockLayoutSourceDays(
+  supabase: Client,
+  userId: string,
+): Promise<{ ok: true; days: LayoutSourceDay[] } | { ok: false; error: string }> {
+  const failed = { ok: false as const, error: "We couldn't load your current plan. Please try again." };
+  const { data: source, error } = await supabase
+    .from("programs")
+    .select("id")
+    .eq("user_id", userId)
+    .neq("status", "superseded")
+    .order("block_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("createBlockForUser: weekday layout source read failed", error);
+    return failed;
+  }
+  if (!source?.id) return { ok: true, days: [] };
+  const days = await loadLayoutSourceDays(supabase, source.id);
+  return days.ok ? days : failed;
 }
 
 type ProgramPayload = {
@@ -338,8 +368,15 @@ export async function createBlockForUser(
 
   // For a brand new user's first block, anchor the schedule to their sign-up weekday.
   // A rebuilt block 1 keeps that anchor; block 2+ (new or rebuilt) leaves startedOn
-  // undefined so the generator uses the default mapping.
+  // undefined and instead keeps the weekdays of the block before it (QA2 M-1),
+  // unless days_per_week changed in Settings, which gets the default mapping.
   const startedOn = decideBlockStartedOn({ blockNumber, isRebuild, today, rebuildAnchor });
+  let weekdayLayout: number[] | null = null;
+  if (blockNumber > 1) {
+    const source = await blockLayoutSourceDays(supabase, userId);
+    if (!source.ok) return { ok: false, error: source.error };
+    weekdayLayout = carriedWeekdayLayout(source.days, profile.days_per_week!, profile.yoga_days_per_week ?? 0);
+  }
 
   const input: GeneratorInput = {
     userId,
@@ -360,6 +397,7 @@ export async function createBlockForUser(
     catalogue,
     carryOver: options.carryOver,
     startedOn,
+    weekdayLayout,
   };
 
   const plan = generateProgram(input);
