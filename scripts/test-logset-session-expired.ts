@@ -27,7 +27,7 @@ function assert(condition: boolean, message: string) {
 console.log("\n📋 Test: logSet returns SESSION_EXPIRED when auth expired (Item 6 - A1)\n");
 
 // Helper to create a minimal SupabaseClient stub for testing
-function createStubSupabase(impl: { from: (...args: any[]) => any }): SupabaseClient<Database> {
+function createStubSupabase(impl: { from: (...args: unknown[]) => unknown }): SupabaseClient<Database> {
   return impl as SupabaseClient<Database>;
 }
 
