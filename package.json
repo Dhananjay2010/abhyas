@@ -599,7 +599,9 @@
     "test:qa-low-b-build-detail-input": "tsx scripts/test-qa-low-b-build-detail-input.ts",
     "test:qa-low-b-detail-page-duration-call": "tsx scripts/test-qa-low-b-detail-page-duration-call.ts",
     "test:qa-low-b-page-call-site": "tsx scripts/test-qa-low-b-page-call-site.ts",
-    "test:qa-low-b-page-duration-path": "tsx scripts/test-qa-low-b-page-duration-path.ts"
+    "test:qa-low-b-page-duration-path": "tsx scripts/test-qa-low-b-page-duration-path.ts",
+    "test:gyms-column-lock-real-db": "tsx scripts/test-gyms-column-lock-real-db.ts",
+    "test:gym-join-code-actions-behavioral": "tsx scripts/test-gym-join-code-actions-behavioral.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
