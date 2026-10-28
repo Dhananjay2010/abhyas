@@ -234,34 +234,32 @@ run_mutant "R3. Never mind persists a change (writes keep)" "$COMPONENT" \
         {error && (' "$T"
 
 run_mutant "R4. Never mind does nothing (stays choosing)" "$COMPONENT" \
-  '            <button
+  '              Keep rest
+            </Choice>
+            <button
               disabled={pending}
               onClick={() => setChoosing(false)}
               className="w-full min-h-11 py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>
-          </div>
-        )}
-
-        {error && (' \
-  '            <button
+            </button>' \
+  '              Keep rest
+            </Choice>
+            <button
               disabled={pending}
-              onClick={() => setChoosing(true)}
-              className="w-full py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
+              onClick={() => {}}
+              className="w-full min-h-11 py-3 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg disabled:opacity-50"
             >
               Never mind
-            </button>
-          </div>
-        )}
-
-        {error && (' "$T"
+            </button>' "$T"
 
 run_mutant "R5. Keep rest settles with wrong label" "$COMPONENT" \
-  'const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
+  '    // MED-C: Use dayLabel (context-dependent) instead of hardcoding "Tomorrow"
+    const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
       ? `${shownLabel} is a rest day.`
       : `${shownLabel} is ${settled}.`;' \
-  'const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
+  '    // MED-C: Use dayLabel (context-dependent) instead of hardcoding "Tomorrow"
+    const settledCopy = settled.toLowerCase() === "rest" || settled === "a rest day"
       ? `${shownLabel} is Upper.`
       : `${shownLabel} is ${settled}.`;' "$T"
 
@@ -423,11 +421,13 @@ run_mutant "MED-2a. planDay saves to today instead of resolved date" "$ACTION" \
   '  const result = await planDayCore(client, {
     userId: user.id,
     localDate: targetDate,
-    today,' \
+    today,
+    plan: input.plan,' \
   '  const result = await planDayCore(client, {
     userId: user.id,
     localDate: input.localDate ?? today,
-    today,' "$T_ACTION"
+    today,
+    plan: input.plan,' "$T_ACTION"
 
 run_mutant "MED-2b. Raw error passes through (no friendlyPlanDayError)" "$ACTION" \
   '    return { ok: false, error: friendlyPlanDayError(result.error) };' \
