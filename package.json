@@ -587,7 +587,7 @@
     "ci:mutant-join-code-wiring": "bash scripts/mutant-test-gym-join-code-wiring.sh",
     "test:rest-swap-label-followup": "tsx scripts/test-rest-swap-label-followup.ts",
     "test:day-plan-prompt-dom": "tsx scripts/test-day-plan-prompt-dom.tsx",
-    "test:session-runner-yoga-tomorrow && npm run test:next-day-plan-daytype": "tsx scripts/test-session-runner-yoga-tomorrow.tsx",
+    "test:session-runner-yoga-tomorrow": "tsx scripts/test-session-runner-yoga-tomorrow.tsx",
     "test:next-day-plan-daytype": "tsx scripts/test-next-day-plan-daytype.ts"
   },
   "dependencies": {
