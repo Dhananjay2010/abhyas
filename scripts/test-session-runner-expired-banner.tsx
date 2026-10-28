@@ -113,16 +113,9 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     />,
   );
 
-  // Wait for sync
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
   await waitFor(() => {
     if (!c1.textContent?.includes("Squat")) throw new Error("Exercise not shown");
-  });
-
-  check("Exercise loaded", true);
+  }, { timeout: 5000 });
 
   // Log first set while expired
   const repsInput = [...c1.querySelectorAll("input")].find((input) =>
@@ -138,10 +131,6 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     fireEvent.change(repsInput, { target: { value: "10" } });
   });
 
-  await act(async () => {
-    await Promise.resolve();
-  });
-
   const logBtn = [...c1.querySelectorAll("button")].find((b) =>
     /Log set 1/.test(b.textContent ?? ""),
   );
@@ -155,17 +144,17 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     fireEvent.click(logBtn);
   });
 
-  // Wait for logSet to complete
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  });
+  await waitFor(() => {
+    if (logSetCalls !== 1) throw new Error("logSet not called");
+  }, { timeout: 2000 });
 
   check("Logged set (expired)", logSetCalls === 1);
 
   // Check for exactly ONE expired prompt
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  });
+  await waitFor(() => {
+    const expiredPrompts = (c1.textContent?.match(/session has expired/gi) || []).length;
+    if (expiredPrompts === 0) throw new Error("Expired prompt not shown");
+  }, { timeout: 1000 });
 
   const expiredPrompts = (c1.textContent?.match(/session has expired/gi) || []).length;
   check(`Exactly 1 expired prompt visible (L1 fix)`, expiredPrompts === 1, `found ${expiredPrompts}`);
@@ -222,16 +211,9 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     />,
   );
 
-  // Wait for sync
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
   await waitFor(() => {
     if (!c2.textContent?.includes("Bench Press")) throw new Error("Exercise not shown");
-  });
-
-  check("Exercise loaded", true);
+  }, { timeout: 5000 });
 
   // Log first set while expired
   const repsInput2 = [...c2.querySelectorAll("input")].find((input) =>
@@ -247,10 +229,6 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     fireEvent.change(repsInput2, { target: { value: "10" } });
   });
 
-  await act(async () => {
-    await Promise.resolve();
-  });
-
   const logBtn2 = [...c2.querySelectorAll("button")].find((b) =>
     /Log set 1/.test(b.textContent ?? ""),
   );
@@ -264,17 +242,17 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     fireEvent.click(logBtn2);
   });
 
-  // Wait for logSet to complete
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  });
+  await waitFor(() => {
+    if (logSetCalls2 !== 1) throw new Error("logSet not called");
+  }, { timeout: 2000 });
 
   check("Logged set while expired", logSetCalls2 === 1);
 
-  // Wait for UI update
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  });
+  // Wait for expired prompt to show
+  await waitFor(() => {
+    if ((c2.textContent?.match(/session has expired/gi) || []).length === 0) 
+      throw new Error("Expired prompt not shown");
+  }, { timeout: 1000 });
 
   check("Expired prompt shows", (c2.textContent?.match(/session has expired/gi) || []).length > 0);
 
@@ -282,10 +260,6 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
   expired = false;
 
   // Click Retry
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  });
-
   const retryButton = [...c2.querySelectorAll("button")].find((b) =>
     /Retry/.test(b.textContent ?? ""),
   );
@@ -299,17 +273,17 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     fireEvent.click(retryButton);
   });
 
-  // Wait for retry to complete and UI to update
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  });
+  await waitFor(() => {
+    if (logSetCalls2 !== 2) throw new Error("Retry not called");
+  }, { timeout: 2000 });
 
   check("Retry called logSet", logSetCalls2 === 2);
 
-  // Wait a bit more for React state updates
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  });
+  // Wait for expired prompt to disappear
+  await waitFor(() => {
+    if ((c2.textContent?.match(/session has expired/gi) || []).length > 0)
+      throw new Error("Expired prompt still visible");
+  }, { timeout: 2000 });
 
   const expiredPromptsAfterRetry = (c2.textContent?.match(/session has expired/gi) || []).length;
   check("No expired prompt remains after successful retry (L1 clear fix)", expiredPromptsAfterRetry === 0, `found ${expiredPromptsAfterRetry}`);
@@ -362,16 +336,9 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     />,
   );
 
-  // Wait for sync
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 4500));
-  });
-
   await waitFor(() => {
     if (!c3.textContent?.includes("Deadlift")) throw new Error("Exercise not shown");
-  });
-
-  check("Exercise loaded", true);
+  }, { timeout: 5000 });
 
   // Log first set with network error
   const repsInput3 = [...c3.querySelectorAll("input")].find((input) =>
@@ -387,10 +354,6 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     fireEvent.change(repsInput3, { target: { value: "10" } });
   });
 
-  await act(async () => {
-    await Promise.resolve();
-  });
-
   const logBtn3 = [...c3.querySelectorAll("button")].find((b) =>
     /Log set 1/.test(b.textContent ?? ""),
   );
@@ -404,17 +367,14 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     fireEvent.click(logBtn3);
   });
 
-  // Wait for logSet to complete
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  });
+  await waitFor(() => {
+    if (logSetCalls3 !== 1) throw new Error("logSet not called");
+  }, { timeout: 2000 });
 
   check("Logged set (network error)", logSetCalls3 === 1);
 
-  // Check for NO expired prompt
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-  });
+  // Check for NO expired prompt (wait a bit for any potential prompt to show)
+  await new Promise(resolve => setTimeout(resolve, 500));
 
   const expiredPrompts3 = (c3.textContent?.match(/session has expired/gi) || []).length;
   check(`M2: No expired prompt for non-expired error`, expiredPrompts3 === 0, `found ${expiredPrompts3}`);
@@ -539,9 +499,10 @@ console.log("\n📋 Test: L1 - Single expired banner + clear on retry\n");
     check("Replay successful", logSetCalls4 >= 1);
 
     // Wait for UI to update after replay
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    });
+    await waitFor(() => {
+      if ((c4.textContent?.match(/session has expired/gi) || []).length > 0)
+        throw new Error("Expired prompt still visible");
+    }, { timeout: 2000 });
 
     const expiredPromptsAfterReplay = (c4.textContent?.match(/session has expired/gi) || []).length;
     check("E2: Expired prompt cleared after replay", expiredPromptsAfterReplay === 0, `found ${expiredPromptsAfterReplay}`);
